@@ -1,0 +1,50 @@
+{
+  "production_commit": "7ff41d7a2238162cd781a23131288bda176c707f",
+  "main_ci_commit": "1760ea826b49caeefd7fac65627ddcdfc4055d09",
+  "local_release": {
+    "pass": 258,
+    "fail": 0,
+    "ignored": 30
+  },
+  "local_io": {
+    "pass": 115,
+    "fail": 0,
+    "ignored": 9
+  },
+  "browser": {
+    "memory": {
+      "run": 40840275422,
+      "status": "PASS",
+      "summaries": {
+        "e2e_browser.last.json": {
+          "checks": 80,
+          "failed": 0
+        },
+        "e2e_integrated.last.json": {
+          "checks": 21,
+          "failed": 0
+        }
+      },
+      "artifact_verified": true
+    },
+    "store": {
+      "run": 40840275422,
+      "status": "PASS",
+      "summaries": {
+        "e2e_browser.last.json": {
+          "checks": 80,
+          "failed": 0
+        },
+        "e2e_integrated.last.json": {
+          "checks": 21,
+          "failed": 0
+        }
+      },
+      "artifact_verified": true
+    }
+  },
+  "windows": {
+    "run": 40840510614,
+    "status": "PENDING"
+  }
+}

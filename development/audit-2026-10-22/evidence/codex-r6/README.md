@@ -25,3 +25,8 @@ Final formulas: hash32_churn_bytes(n)=304*n+512; eviction=(432*(EVICTED_MAX+side
 Browser run 40838466669 passed in both modes on 5d006d2: each mode 80 browser checks and 21 integrated checks. Its installer log identifies the actual browser as Chrome for Testing 151.0.7922.34 (Playwright chromium v1234). This does not cover the subsequent churn correction, which requires new exact-commit checks.
 
 Churn-corrected local run: release consensus 93 PASS/7 ignored; allocator regression 1 PASS; network-budget tests 8 PASS. No failure.
+
+## Final local and browser evidence
+Final local release: 258 PASS, 0 FAIL, 30 ignored (release-final.log). Final I/O-feature selection: 115 PASS, 0 FAIL, 9 ignored (churn-io-final.log). Counts overlap. Chrome for Testing 151.0.7922.34 on production commit 7ff41d7 passed 80 browser + 21 integrated checks in each mode, plus 234 extension unit tests. Both ZIPs were downloaded, their SHA-256 values matched GitHub artifact metadata, and their recorded commit matched 7ff41d7. Expanded original files and per-file hashes are in chrome-memory/ and chrome-store/.
+
+Windows run 40840510614 is still running on 1760ea8. That commit changes only the Windows workflow concurrency policy after 7ff41d7; the production tree is identical. Cancelled superseded runs are not counted as successes.

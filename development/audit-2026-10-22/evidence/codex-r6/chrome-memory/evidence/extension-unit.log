@@ -1,0 +1,9 @@
+
+> pocol-extension@0.1.0 test
+> node tests/unit.mjs
+
+{
+ "result": "PASS",
+ "passed": 234,
+ "failed": []
+}
