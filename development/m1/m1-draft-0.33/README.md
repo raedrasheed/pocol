@@ -11,7 +11,7 @@
 | `coordinator/apply-manifest.json` | changed files (relative path, change, reason), required unchanged files, test expectations |
 | `coordinator/files/` | complete updated module files and new tests, in the target's directory layout |
 | `coordinator/tools/bundle.mjs` | root-run helper: `assemble` (isolated complete tree plus computed old/new SHA-256 manifest), `verify`, `apply` (with backup), `rollback` |
-| `M1-DASHBOARD-0.33-AR.md` | Arabic summary |
+| `M1-DASHBOARD-0.33-EN.md` | English summary |
 
 ## Changed files
 

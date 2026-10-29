@@ -140,8 +140,8 @@ Stages, in order:
 | **LP10**                               | An integrated devnet: site publishing, reorganization, restart and the browser                                                                    | `prototypes/lp10/`, `development/lp10`                                                     |
 | **Audit of 2026-10-22 and its rounds** | Repairs A01–A14, the A13 memory bound, the on-disk state store (redb), checkpoints, RpcGuard, I/O-fault handling, Windows and Chrome verification | `development/audit-2026-10-22/`                                                            |
 
-Stage reports: [development/reports/](development/reports/) and [development/STATUS-AR.md](development/STATUS-AR.md),
-written in Arabic. The status of every audit finding: `development/audit-2026-10-22/FINDING-STATUS.json`.
+Stage reports: [development/reports/](development/reports/) and [development/STATUS-EN.md](development/STATUS-EN.md),
+now available in English. The status of every audit finding: `development/audit-2026-10-22/FINDING-STATUS.json`.
 
 ## Repository and code layout
 
@@ -161,12 +161,12 @@ flowchart TD
 .
 ├── PhD-thesis-Raed-Rasheed-120211566-61.pdf   the thesis (origin of the idea)
 ├── development/                               specification, tracking, evidence, decisions
-│   ├── m1/reference/                          reference specification (Arabic): consensus, execution, network, storage, browser, …
+│   ├── m1/reference/                          reference specification (English): consensus, execution, network, storage, browser, …
 │   ├── m1/M1-SPEC.md, m1-draft-*/            English specification drafts and their vectors
 │   ├── VA-SPEC.md                             validation specification
 │   ├── lp1 … lp10/                            evidence for each stage
 │   ├── audit-2026-10-22/                      the audit, its repair rounds, evidence and the open-decision table
-│   ├── reports/, STATUS-AR.md                 status summaries (Arabic)
+│   ├── reports/, STATUS-EN.md                 status summaries (English)
 │   └── *-APPROVAL.md, OWNER-STANDING-AUTHORIZATION.md   owner approvals
 ├── prototypes/
 │   ├── pocold/                                the node (Rust 1.99.1)
@@ -238,7 +238,7 @@ flowchart TD
 | Chrome/Chromium | Extension manifest minimum: **130**                                                                    | Loading the MV3 extension                                                  |
 | Playwright      | **1.62.1** in the current browser workflow                                                             | Automated browser tests only                                               |
 
-Linux, Windows Server 2022 and real Chrome verification are recorded in the [R6 report](development/audit-2026-10-22/evidence/codex-r6/STATUS-AR.md).
+Linux, Windows Server 2022 and real Chrome verification are recorded in the [R6 report](development/audit-2026-10-22/evidence/codex-r6/STATUS-EN.md).
 The walkthrough below uses Bash; it is not a claim that every command is portable to PowerShell or tested on macOS.
 On Ubuntu, `build-essential` supplies the usual native compiler/linker basics. Docker and a production server are not required.
 Builds and long-running tests need disk and memory headroom; a node's resource model is not a total-machine build requirement.
@@ -475,7 +475,7 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 - **Test before you claim.** Add a test that fails without the fix, and record the command, the version and the
   result. Keep failures in the evidence. An ignored or cancelled test does not count as a pass.
 - **Style.**
-  - Code and technical specifications are in English; status summaries are in Arabic.
+  - Code and technical specifications are in English; status summaries are in English.
   - Follow the conventions of the file you edit.
   - Dependencies are pinned to exact versions in `Cargo.lock` and `package-lock.json`.
 - **CI.**
@@ -536,7 +536,7 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 - [Consensus](development/m1/reference/consensus.md), [execution](development/m1/reference/execution.md),
   [storage](development/m1/reference/storage.md) and [threat model](development/m1/reference/threat.md).
 - [Ordered local-network plan](development/LOCAL-DEVNET-PLAN.md) and [extension coverage](development/lp9/LP9-EXTENSION.md).
-- [R6 status, 29 October 2026](development/audit-2026-10-22/evidence/codex-r6/STATUS-AR.md): measured results and their limits.
+- [R6 status, 29 October 2026](development/audit-2026-10-22/evidence/codex-r6/STATUS-EN.md): measured results and their limits.
 - [Network boot blockers by cause](development/audit-2026-10-22/BOOT-BLOCKERS-2026-10-28.md) and
   [open decisions](development/audit-2026-10-22/proposals/DECISION-TABLE-2026-10-28.md).
 

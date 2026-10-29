@@ -1,6 +1,6 @@
 # R6: main integration and collection high-water accounting
 
-**FINAL: local release and I/O tests, Windows on main, and Chrome in both modes PASS.** Windows run 40840510614 verified clean commit 1760ea8; Chrome run 40840275422 verified production commit 7ff41d7. Their production trees are identical. Original downloaded artifact digests and member hashes are verified. Earlier pending states and superseded formulas below are historical; RESULTS.json and STATUS-AR.md carry the final result. This is not full A13 or production-network acceptance.
+**FINAL: local release and I/O tests, Windows on main, and Chrome in both modes PASS.** Windows run 40840510614 verified clean commit 1760ea8; Chrome run 40840275422 verified production commit 7ff41d7. Their production trees are identical. Original downloaded artifact digests and member hashes are verified. Earlier pending states and superseded formulas below are historical; RESULTS.json and STATUS-EN.md carry the final result. This is not full A13 or production-network acceptance.
 
 Owner explicitly authorized merging all accumulated work into main and continuing memory, Windows and browser verification on 2026-10-29. PRs #3, #2 and #4 were merged with history preserved; main reached 1bf18a677b9498cb7d464b3b63695a30149de716. Integration is not production acceptance.
 

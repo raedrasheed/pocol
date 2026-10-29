@@ -1,0 +1,10 @@
+   Compiling lp1-node v0.1.0 (/workspace/scratch/780b46016e2a/pocol/prototypes/lp1-node)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+     Running unittests src/lib.rs (prototypes/lp1-node/target/debug/deps/lp1_node-0b3106438f41ce97)
+
+running 2 tests
+test window::tests::plan_table ... ok
+test window::tests::messages ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.00s
+

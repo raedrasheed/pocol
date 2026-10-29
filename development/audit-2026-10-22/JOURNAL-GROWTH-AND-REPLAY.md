@@ -851,7 +851,7 @@ before validation/journaling). Which existing bound stops the growth:
 | ban score | 1b/templateForm faults | **No** — re-announced blocks are valid |
 | **R_keep window vs the moving head** | a block ≤ head−R_keep is refused before validation/journaling | **The standing limiter** — once the head passes height+R_keep the target is no longer re-journaled |
 
-The designed re-fetch (consensus.md §10: "الفرع الذي يصير أثقل لاحقًا يُجلب بالمزامنة") covers a branch
+The designed re-fetch (consensus.md §10: "A branch that becomes heavier later is fetched through synchronization") covers a branch
 that becomes **heavier** (adoption), not re-fetching a **lighter** evicted branch (J-V13); the realistic
 real-path growth is therefore repeated **adoption/flapping** (each adoption re-journals the adopted
 offloaded branch and, below K_hist, pays the §5.3 double rebuild), bounded per session by `protect_max`.

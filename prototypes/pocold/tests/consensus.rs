@@ -1158,7 +1158,7 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     let v:serde_json::Value=serde_json::from_str(&pocold::rpc::handle(&mut node,q.as_bytes())).unwrap();assert_eq!(v["result"].as_array().map(|a|a.len()),Some(546),"{}",&v.to_string()[..200.min(v.to_string().len())]);
     let _=std::fs::remove_dir_all(&dir);
 }
-/// RpcGuard SCRATCH (network.md:220, (ز)): eth_getLogs charges the working bytes it materializes
+/// RpcGuard SCRATCH (network.md:220, (G)): eth_getLogs charges the working bytes it materializes
 /// against the heavy SCRATCH budget; an overflow is -32020 {scratch} with the same resume data as a
 /// per-block limit, and the partial result is dropped. A heavy request is run through `answer`, which
 /// derives the budget from the node's running SCRATCH_HEAVY, so a small limit reaches the bound in

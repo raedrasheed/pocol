@@ -1,103 +1,103 @@
-# الاستدامة والقيمة
+# Sustainability and value
 
-**حقائق من الأطروحة**
-- التقسيم وحده لا يخفض الطاقة [PDF:128، PDF:131].
-- الخفض من حالات قدرة أدنى مع خسارة خدمة [PDF:134، PDF:136].
-- النتائج مقيدة بالمحاكاة [PDF:125].
+**Facts from the thesis**
+- Partitioning alone does not reduce energy [PDF:128, PDF:131].
+- Reductions come from lower-power states with a service loss [PDF:134, PDF:136].
+- Results are limited to simulation [PDF:125].
 
-**استنتاج غير مثبت**
-- خفض العمل النشط قد يخفض كلفة الهجوم، فيُقرأ T13 مع T10 [PDF:79].
-- ASERT تعيد الهدف نحو T_blk بعد انخفاض المعدل، فتنخفض كلفة إعادة الكتابة بالتناسب، ولا ندعي حدًا.
-- سقف RP (D84) يحد كلفة التزييف من الأسفل بـwork(ceilTarget) لكل رأس، ولا يجعلها مكلفة.
-  - عند target_g=2^240 يكون 4095 لكل رأس، أي 53235 تجزئة متوقعة لـ13 رأسًا.
-  - تقدير تقريبي لا ضمان: نحو 49 ثانية من H_cal، والحد ينهار عند التشبع.
+**Unproven inference**
+- Reducing active work may reduce attack cost; read T13 together with T10 [PDF:79].
+- ASERT steers the target back toward T_blk after the rate decreases, proportionally lowering rewrite cost; no bound is claimed.
+- The RP ceiling (D84) lower-bounds forgery cost by work(ceilTarget) per header; it does not make forgery expensive.
+  - At target_g=2^240 this is 4095 per header, or 53235 expected hashes for 13 headers.
+  - Rough estimate, not a guarantee: approximately 49 seconds at H_cal; the bound collapses at saturation.
 
-**التكاليف**
+**Costs**
 
-التنسيق:
-- تنفيذ القالب، والانتظار حتى X^W (36s في genesis، و10s في dev)، والاحتياطي المسبق.
-- حصص ≤ 2.3 KiB، وأدلة ≤ 8 KiB.
-- بث الرأس وحده يوفر حتى 192 KiB لكل كتلة لكل نظير.
+Coordination:
+- Template execution, waiting until X^W (36s in genesis, 10s in dev), and precomputed fallback.
+- Shares ≤ 2.3 KiB; evidence ≤ 8 KiB.
+- Header-only broadcast saves up to 192 KiB per block per peer.
 
-الفحص:
-- ASERT ثابت ≤ 512 بتًا.
-- RP ≤ 14 رأسًا (نحو 43 KiB) و≤ 13 ASERT.
-- فك genesisPre: 341 B في GSV1، ونحو 44 KiB في end/full.
-- BridgeAuth: فحص مخطط لكل رسالة ≤ 64 KiB، بكلفة خطية في حجمها، دون اتصال شبكي عند الرفض. الرسائل فوق حد المعدل تُرفض دون تحليل، وكلفة الدلو عمليتان صحيحتان.
-- التخزين المحلي للموقع ≤ 1 MiB لكل (netKey، عنوان) في chrome.storage.local على جهاز المستخدم. حساب الحصة جمع وطرح صحيح لكل رسالة، والكتابة الذرية تعيد كتابة قاموس الموقع كاملًا (≤ 1 MiB) لكل رسالة مقبولة، ويخفف التجميع كل 250ms عدد الكتابات.
+Verification:
+- Fixed-width ASERT ≤ 512 bits.
+- RP ≤ 14 headers (approximately 43 KiB) and ≤ 13 ASERT calculations.
+- genesisPre decoding: 341 B in GSV1, approximately 44 KiB in end/full.
+- BridgeAuth: schema checking per message ≤ 64 KiB, linear in message size, without networking on rejection. Over-rate messages are rejected without parsing; bucket cost is two integer operations.
+- Site-local storage ≤ 1 MiB per (netKey, address) in chrome.storage.local on the user's machine. Quota accounting uses integer addition/subtraction per message; an atomic write rewrites the entire site dictionary (≤ 1 MiB) per accepted message. Batching every 250ms reduces writes.
 
-خدمة RPC (D88–D94):
-- الذاكرة ≤ 192 MiB (المحسوب 178 MiB) مع مخازن نواة 32 KiB لكل اتصال.
-- خيطان غير متزامنين و20 خيط حساب، أغلبها خامل.
-- اللقطات ≤ 20، كل منها ≤ 5s.
-- أسوأ ذاكرة إرسال: 48 MiB ثقيل و16 MiB خفيف، تُحرر عند sendDone لا عند استلام العميل.
-- أزمنة الإرسال حتى sendDone:
-  - رد ثقيل ≤ 130.2s، وخفيف ≤ 10.2s.
-  - الدفعة ≤ 258.2791015625s إرسالًا و≤ 404.2791015625s كليًا، وBATCH_WALL = 420s احتياطيًا.
-- الإغلاق عند أول لحظة sendTime > 2s وA < 64 KiB/s·sendTime، بتأخر ≤ 200 ms.
-- الرصيد يؤخر الإغلاق حتى sendTime = A/R، ولا يطيل الحد الأقصى:
-  - 2 MiB مقبولة عند sendTime = 1s تسمح بالتوقف حتى 32s (PS1، PS2).
-  - عند sendTime = 31s يبقى نحو 1s (PS3).
-- اتصال مهاجم ≤ 420s لكل دفعة، وحجز واحد في أي لحظة (S1)، و≤ 20 عنصرًا/s. بعد sendDone لا يحتجز إلا الاتصال ومخزن النواة حتى IDLE.
-- PacerTrace: 4 MiB عند التفعيل، معطل افتراضيًا ومفعّل في RG. BridgeTrace: 1 MiB في بناء الاختبار.
-- كلفة الاسترجاع (P3، D91):
-  - في الأسوأ يُمسح كل مدى مرتين، ويُضاف تنصيف ≤ 10 مستويات عند حدود الموارد، وطلبا رأس لكل محاولة.
-  - RG3 (1024 كتلة كثيفة) يُتوقع فيه نحو 2–3 طلبات لكل نحو 25 كتلة، وهذا تقدير يُقاس.
-- إعادة البدء بعد reorg تضاعف الكلفة حتى 4 مرات ثم خطأ صريح.
-- الحرمان تحت هجوم محلي ممكن ومعلن، ولا يمس الإجماع.
-- الموقع الخبيث مقيد بحدود جلسته مهما تنقل ذاتيًا، فلا يتجاوز نصيب اتصال واحد تقريبًا من RpcGuard. الحدود:
-  - ≤ 4 قراءات حية أو يتيمة.
-  - 50 رسالة/s بسعة 50.
-  - 0.5 تنقل/s بسعة 3.
-  - 10 MiB استقبال محجوز.
-- ذاكرة الاستقبال في الإضافة ≤ نحو 34.6 MiB محجوزة، مع ذاكرة تحليل تُقاس في MR10. ChunkCache ≤ 16 MiB.
+RPC service (D88–D94):
+- Memory ≤ 192 MiB (computed 178 MiB), with 32 KiB kernel buffers per connection.
+- Two asynchronous threads and 20 computation threads, mostly idle.
+- Snapshots ≤ 20, each ≤ 5s.
+- Worst-case send memory: 48 MiB heavy and 16 MiB light, released at sendDone rather than client receipt.
+- Sending times until sendDone:
+  - Heavy response ≤ 130.2s; light ≤ 10.2s.
+  - Batch ≤ 258.2791015625s sending and ≤ 404.2791015625s total; BATCH_WALL = 420s with reserve.
+- Close at the first instant sendTime > 2s and A < 64 KiB/s·sendTime, with delay ≤ 200 ms.
+- Credit delays closure until sendTime = A/R without extending the maximum:
+  - 2 MiB accepted at sendTime = 1s permits stalling until 32s (PS1, PS2).
+  - At sendTime = 31s, approximately 1s remains (PS3).
+- Attacker connection ≤ 420s per batch, one reservation at any moment (S1), ≤ 20 items/s. After sendDone, only the connection and kernel buffer remain held until IDLE.
+- PacerTrace: 4 MiB when enabled; disabled by default, enabled in RG. BridgeTrace: 1 MiB in the test build.
+- Retrieval cost (P3, D91):
+  - Worst case: each range scanned twice, up to 10 bisection levels added at resource limits, and two header requests per attempt.
+  - RG3 (1024 dense blocks) is expected to need approximately 2–3 requests per approximately 25 blocks; this estimate must be measured.
+- Restarting after reorg multiplies cost up to 4 times, then gives an explicit error.
+- Starvation under a local attack is possible and disclosed; it does not affect consensus.
+- A malicious site remains limited by its session despite self-navigation, consuming approximately no more than one connection's RpcGuard share. Limits:
+  - ≤ 4 live or orphaned reads.
+  - 50 messages/s, capacity 50.
+  - 0.5 navigations/s, capacity 3.
+  - 10 MiB reserved receive memory.
+- Extension receive memory ≤ approximately 34.6 MiB reserved, plus parsing memory measured in MR10. ChunkCache ≤ 16 MiB.
 
-**تخزين الإضافة المحلي (D104)**
-- القرص الكلي لـchrome.storage.local ≤ STORE_DISK_HARD = 256 MiB بمقياس Chrome، وهو شرط مشروط بـA15c.
-- الحالة المستقرة ≤ 64 موقعًا × سجلين × 1442048 بايت، أي نحو 176 MiB، مع احتياطي تأخر نحو 22 MiB (D109). احتياطي المواقع ديناميكي (D112): ≤ 16 مقعدًا لمدة ≤ 60s بعد الإقلاعات، ويؤثر فقط في قبول مواقع جديدة قرب السعة.
-- بلوغ الحد يوقف الحفظ (4300 disk) ولا يحذف شيئًا آليًا.
-- عناصر epoch ≤ 8 أسماء و≤ 2 KiB في كل لحظة (D134).
-- ثمن هذا الحد: حلقة زوال أقصر من 60s بعد بلوغه تعطل التخزين المحلي حتى يبقى جيل حيًا 60s.
+**Extension-local storage (D104)**
+- Total chrome.storage.local disk ≤ STORE_DISK_HARD = 256 MiB by Chrome's measurement, conditional on A15c.
+- Steady state ≤ 64 sites × two records × 1442048 bytes, approximately 176 MiB, with approximately 22 MiB late-write reserve (D109). Site reserve is dynamic (D112): ≤ 16 seats for ≤ 60s after boots, affecting only new-site admission near capacity.
+- Reaching the limit stops saving (4300 disk), without automatically deleting anything.
+- Epoch items ≤ 8 names and ≤ 2 KiB at every moment (D134).
+- Cost of this bound: a disappearance loop shorter than 60s after reaching it disables local storage until a generation survives 60s.
 
-**الطاقة**
-SHA-256 للتعدين، والعمل الخاسر غير مكافأ، وD_att يطيل الخمول (T8).
+**Energy**
+SHA-256 mining; losing work is unrewarded; D_att extends idling (T8).
 
-**الدخل والإصدار**
-- pot = subsidy+blockTips، وbase fee يُحرق.
-- الإعانات ≤ subsidy·(H_END−1) = 2·10^18·129599 wei، أي نحو 259198 عملة. R23 يمنع الفيض.
-- baseBurn نحو 57% من R تقديرًا عند κ=2 (T17). في sv-fix باحتياطي وC=1 تبلغ 98.4%، وهو أثر تجهيز.
-- الهوية سند محتجز، وسندات M_0 تُسك في genesis وتدخل R23.
-- الإغلاق 160 كتلة داخل H_END.
+**Income and issuance**
+- pot = subsidy+blockTips; base fee burned.
+- Subsidies ≤ subsidy·(H_END−1) = 2·10^18·129599 wei, approximately 259198 coins. R23 prevents overflow.
+- Estimated baseBurn approximately 57% of R at κ=2 (T17). In sv-fix with fallback and C=1 it reaches 98.4%, a fixture effect.
+- Identity requires a held bond; M_0 bonds are minted in genesis and included in R23.
+- Closing takes 160 blocks within H_END.
 
-**التخزين**
-نحو 29.5 GiB × 3 نسخ حتى ts_F+30 يومًا.
+**Storage**
+Approximately 29.5 GiB × 3 replicas until ts_F+30 days.
 
-**التجهيز**
-- FixtureMiner نحو 2^16 تجزئة لكل كتلة، بحد 2^28.
-- CL-END نحو 700 كتلة في دقائق.
-- RG نحو 1100 كتلة كثيفة وفرعان منافسان، في دقائق تُقاس.
-- RG14 نحو 35 دقيقة.
-- PacerSim ثوانٍ.
-- BR16 (10^4 حالة عشوائية) دقائق، وBR19a وBR19b أجزاء ثانية، وBR17e ثوانٍ.
+**Fixtures**
+- FixtureMiner approximately 2^16 hashes per block, bounded by 2^28.
+- CL-END approximately 700 blocks in minutes.
+- RG approximately 1100 dense blocks and two competing branches, in minutes to be measured.
+- RG14 approximately 35 minutes.
+- PacerSim seconds.
+- BR16 (10^4 random cases) minutes; BR19a and BR19b fractions of a second; BR17e seconds.
 
-**التمويل في التجربة**
-رسوم النشر تمول جزءًا. التخزين والجلب وRPC على المشروع، ويُعلن ذلك. الشبكة الدائمة تحتاج S4، وهي خارج المواصفة.
+**Experimental funding**
+Publishing fees fund part of the cost. The project bears storage, retrieval and RPC costs, as disclosed. A permanent network requires S4, outside this specification.
 
-**العميل المستهدف (فرضية)**
-ناشرو واجهات dApp وباحثون ومعلمون يحتاجون واجهة مرتبطة بعقدهم، قابلة للتحقق والإصدار والاسترجاع، وأقل عرضة لتبديل DNS أو الاستضافة.
+**Target customer (hypothesis)**
+dApp-interface publishers, researchers and educators needing an interface bound to their contract, verifiable, versioned and recoverable, less exposed to DNS or hosting replacement.
 
-**القيمة القابلة للقياس**
-- نسبة العرض بـLN، وزمن أول عرض.
-- gas وزمن النشر لكل KiB، وزمن الاسترجاع.
-- كشف 100% من العبث غير المتسق.
-- صفر خلط شبكات، وصفر توقيع غير مؤهل، وصفر كتل مخالفة الهوية مقبولة.
-- صفر كتابة من موقع دون موافقة، وصفر تبويب خارجي دون تأكيد (BR).
-- انحراف الفاصل (T4-B)، ونسبة viewTargetCeil على شبكة صادقة.
-- p99 الخفيف تحت الضغط (RG8)، وطلبات LogClient لكل كتلة كثيفة (RG3).
+**Measurable value**
+- Fraction displayed through LN; time to first display.
+- Gas and publishing time per KiB; retrieval time.
+- Detection of 100% of inconsistent tampering.
+- Zero network confusion, ineligible signatures or accepted identity-violating blocks.
+- Zero site writes without approval; zero external tabs without confirmation (BR).
+- Interval deviation (T4-B); viewTargetCeil rate on an honest network.
+- Light p99 under pressure (RG8); LogClient requests per dense block (RG3).
 
-**معيار تجربة ناشرين متطوعين (لا ندعي وجودهم)**
-- دعم: ≥ 5 ناشرين مستقلين لـ30 يومًا.
-- فشل: أقل من ناشرَين، أو كلفة لكل MiB أعلى من بديل يعلنه الناشر.
-- غير حاسم: 2–4 ناشرين.
+**Volunteer-publisher trial criterion (their existence is not claimed)**
+- Support: ≥ 5 independent publishers for 30 days.
+- Failure: fewer than two publishers, or cost per MiB exceeding a publisher-declared alternative.
+- Inconclusive: 2–4 publishers.
 
-لا ندعي طلبًا أو إيرادات أو أداءً.
+No demand, revenue or performance is claimed.

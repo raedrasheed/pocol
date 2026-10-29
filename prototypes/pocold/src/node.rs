@@ -235,7 +235,7 @@ pub struct Node{
     pub rejects:VecDeque<(String,String)>,
     pub stats:Stats,
     pub stopped:bool,
-    /// Equivocation observations and evidence awaiting inclusion (incentives.md الأدلة).
+    /// Equivocation observations and evidence awaiting inclusion (incentives.md Evidence).
     seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
     seen_wins:HashMap<([u8;32],u64),([u8;32],[u8;65])>,
     pub evidence_pool:Vec<Vec<u8>>,
@@ -588,7 +588,7 @@ impl Node{
         self.draining=false;
         if ran==LIGHT_TURN{self.light.wake(&self.tx);}
     }
-    /// Between two members of an RPC batch (PR #27 review R2-1; network.md (ط) keeps RPC from holding
+    /// Between two members of an RPC batch (PR #27 review R2-1; network.md (I) keeps RPC from holding
     /// up validation, mining and sync): the light lane as before, then up to EVENT_TURN queued events
     /// that are not RPC requests (P2P messages and connections, miner results, ticks), so one batch no
     /// longer holds them for its whole length. A queued RPC request is set aside and runs next, in
@@ -750,7 +750,7 @@ impl Node{
         NativeBlockContext{height:U256::from(h.height+1),timestamp:U256::from(now_s().max(h.ts+1)),gas_limit:U256::from(cp.GAS_LIMIT),base_fee:base,prevrandao:B256::ZERO}
     }
     pub fn submit_tx(&mut self,raw:Vec<u8>,relay:bool)->Result<B256,String>{self.submit_tx_by(raw,relay,None)}
-    /// `submit_tx` for an RPC request with a COMPUTE_DEADLINE `by` (network.md RpcGuard (د) step 4, (و);
+    /// `submit_tx` for an RPC request with a COMPUTE_DEADLINE `by` (network.md RpcGuard (D) step 4, (F);
     /// review R2-2): the execution polls the deadline every STOP_GAS gas and before every call, and a
     /// transaction whose admission ends past it is refused with SUBMIT_DEADLINE before anything is
     /// pooled or relayed, so the -32020 {deadline} answer never hides an accepted transaction.

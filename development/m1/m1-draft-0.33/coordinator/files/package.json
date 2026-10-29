@@ -2,7 +2,7 @@
   "name": "pocol-local-coordinator",
   "version": "0.1.0",
   "private": true,
-  "description": "Local control broker and Arabic display for the PoCol M1 author/reviewer workflow (loopback only).",
+  "description": "Local control broker and English display for the PoCol M1 author/reviewer workflow (loopback only).",
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {

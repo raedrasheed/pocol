@@ -42,13 +42,13 @@ The next feasible batch is batch 4: B10 (BR19a/b/c, BridgeRef), B11 (BR16 genera
 | ID | Exact source | Preferred solution | Falsifiable acceptance |
 |---|---|---|---|
 | BLK-01 | FD:L1274 with the table FD:L1262–1273: `eth_getProof` is not listed | Approve CR-M1-01 (0.4 §1, §7–§11 together with rev 2), or choose P36 | Rev 2 §3/§6 fixtures now; MPT-1…16 and E03 in Phase A |
-| BLK-02 | FD:L4959 requires 17 IDs (Q8–Q12, X1–X7, د1–د5) that have no definitions in reference/ | Sign ADD-M1-01 (0.4), possibly amended, or supply the originals | Each of the 17 has an approved definition and a T12 row |
+| BLK-02 | FD:L4959 requires 17 IDs (Q8–Q12, X1–X7, DNR-d1–DNR-d5) that have no definitions in reference/ | Sign ADD-M1-01 (0.4), possibly amended, or supply the originals | Each of the 17 has an approved definition and a T12 row |
 | BLK-03 | PR-1/PR-2 (the trie format behind the proof byte bound) are not stated in the baseline; FD:L935 `P(d)` is undefined | The owner states the trie format, or accepts E03 as the confirming test | Bound arithmetic checked now; MPT-9/MPT-12 in Phase A |
 
 ## 4. Pending owner decisions (exact)
 
 1. **CR-M1-01:** approve, amend or reject rev 2 together with the unchanged 0.4 sections. Rejection selects P36.
-2. **ADD-M1-01:** sign, amend, or supply the original definitions. This includes the mapping decisions: Q_i ↔ T12 site i, and د versus BR23.
+2. **ADD-M1-01:** sign, amend, or supply the original definitions. This includes the mapping decisions: Q_i ↔ T12 site i, and DNR-d versus BR23.
 3. **Trie premise PR-1/PR-2** (BLK-03).
 4. **Proposals that take baseline-level values:**
    - TK-1, the fixture-key derivation (anvil default accounts);

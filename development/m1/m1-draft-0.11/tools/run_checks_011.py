@@ -30,6 +30,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
+
 HERE = Path(__file__).resolve().parent
 PKG, ROOT = HERE.parent, HERE.parent.parent
 RES = PKG / 'results'
@@ -65,10 +82,10 @@ def input_hashes():
     for rel in INPUTS:
         p = ROOT / rel
         record('input.sha256 ' + rel, 'recorded', exists=p.exists(),
-               sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None)
+               sha256=hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None)
     prior = ROOT / 'coordination' / 'review-001' / 'epoch-independent-probes-0.10.json'
     if prior.exists():
-        j = json.loads(prior.read_text(encoding='utf-8'))
+        j = json.loads(source_text(prior))
         record('preserved.independentProbes0.10', 'recorded', summary=j.get('summary'),
                failed=[r['check'] for r in j.get('results', []) if not r.get('passed')])
 
@@ -118,7 +135,7 @@ def probes(S, oracle_cases, tails):
 def probe_checks(reg, pristine):
     ip = reg['independentProbes']
     oracle_file = ROOT / ip['source']['oracle']
-    file_cases = json.loads(oracle_file.read_text(encoding='utf-8'))['cases'] if oracle_file.exists() else None
+    file_cases = json.loads(source_text(oracle_file))['cases'] if oracle_file.exists() else None
     check('c24.nodeOracleCasesMatchReviewFile', file_cases == ip['nodeOracleCases'], file=ip['source']['oracle'])
     rows_p = probes(pristine, ip['nodeOracleCases'], ip['tails'])
     failed_p = [r['check'] for r in rows_p if not r['passed']]

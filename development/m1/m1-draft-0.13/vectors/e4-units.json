@@ -5,9 +5,9 @@
     "Strings use JSON escapes. 'pairsHex' is the serialized byte string before base64."
   ],
   "sources": [
-    {"file": "reference/browser.md", "lines": [534, 541], "literals": ["fmt: 2", "be32(len k)", "b64"]},
-    {"file": "reference/browser.md", "lines": [628, 640], "literals": ["RECORD_BYTES_MAX = 4·ceil((1048576+8·4096)/3)+256 = 1442048", "23072768", "LATE_NAMES", "531456"]},
-    {"file": "reference/governance.md", "lines": [33, 39], "literals": ["RECORD_BYTES_MAX=1442048", "LATE_RESERVE=23072768", "LATE_NAMES=24", "EPOCH_NAMES_MAX=8", "META_RESERVE=1 MiB"]}
+    {"file": "reference/browser.md", "lines": [534, 541], "literals": ["fmt: 2", "be32(len k)", "b64"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    {"file": "reference/browser.md", "lines": [628, 640], "literals": ["RECORD_BYTES_MAX = 4·ceil((1048576+8·4096)/3)+256 = 1442048", "23072768", "LATE_NAMES", "531456"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    {"file": "reference/governance.md", "lines": [33, 39], "literals": ["RECORD_BYTES_MAX=1442048", "LATE_RESERVE=23072768", "LATE_NAMES=24", "EPOCH_NAMES_MAX=8", "META_RESERVE=1 MiB"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"}
   ],
   "constants": {"RECORD_BYTES_MAX": 1442048, "LATE_RESERVE": 23072768, "LATE_NAMES": 24, "EPOCH_NAMES_MAX": 8, "META_RESERVE": 1048576,
                 "DISK_HARD": 268435456, "RECORDS_MAX": 1024, "GATE_BOUND": 25000, "ADMIN_BOUND": 45000,
@@ -23,7 +23,7 @@
     {"id": "b-2", "dict": {"b": "2"}, "pairsHex": "00000001620000000132", "b64": "AAAAAWIAAAABMg=="},
     {"id": "c-3", "dict": {"c": "3"}, "pairsHex": "00000001630000000133", "b64": "AAAAAWMAAAABMw=="},
     {"id": "two-keys-sorted", "dict": {"b": "2", "a": "1"}, "pairsHex": "0000000161000000013100000001620000000132", "b64": "AAAAAWEAAAABMQAAAAFiAAAAATI="},
-    {"id": "arabic", "dict": {"ك": "سلام"}, "pairsHex": "00000002d98300000008d8b3d984d8a7d985"},
+    {"id": "arabic", "dict": {"\u0643": "\u0633\u0644\u0627\u0645"}, "pairsHex": "00000002d98300000008d8b3d984d8a7d985"},
     {"id": "utf8-byte-order-not-utf16", "dict": {"😀": "x", "｡": "x"}, "pairsHex": "00000003efbda1000000017800000004f09f98800000000178",
      "note": "U+FF61 (EF BD A1) sorts before U+1F600 (F0 9F 98 80) by UTF-8 bytes; JS default UTF-16 sort would put U+1F600 (D83D...) first"}
   ],
@@ -89,7 +89,7 @@
     "derivedNetKeyBound": "enc <= 1442048 holds for netKey length <= 107 under RA-U64 numeric epoch/seq"
   },
   "disk": {
-    "source": {"file": "reference/browser.md", "lines": [632, 653], "literals": ["STORE_DISK_HARD", "STORE_RECORDS_MAX", "settleSeq", "refresh"]},
+    "source": {"file": "reference/browser.md", "lines": [632, 653], "literals": ["STORE_DISK_HARD", "STORE_RECORDS_MAX", "settleSeq", "refresh"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "accept": [
       {"id": "names-boundary-accept", "names": 991, "inUse": 0, "enc": 100, "kind": "set", "ok": true},
       {"id": "names-boundary-reject", "names": 992, "inUse": 0, "enc": 100, "kind": "set", "ok": false, "dim": "names"},

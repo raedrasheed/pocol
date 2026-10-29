@@ -1,4 +1,4 @@
-//! RPC simulation cancellation (network.md RpcGuard (و), :286): `native::simulate_for_profile` polls its
+//! RPC simulation cancellation (network.md RpcGuard (F), :286): `native::simulate_for_profile` polls its
 //! stop hook at least every STOP_GAS gas of a frame, ends the execution when the hook says so, and
 //! otherwise returns exactly what block execution returns. A precompile call is not interpreted, so it
 //! is never polled (pocold reports CANCEL_MAX as not enforced for that reason).

@@ -2,14 +2,14 @@
   "schema": "pocol-m1-v1-sha-accounting/0.27",
   "status": "hand-derived SHA-256 operation accounting; instrumentation repair (permitted); the normative cost bound is NOT changed",
   "sources": {
-    "bound": {"file": "reference/browser.md", "lines": [58, 58], "literals": ["≤ 14 فك رأس", "≤ 13 ASERT", "≤ 13 SHA-256"]},
-    "templateId": {"file": "reference/consensus.md", "lines": [59, 59], "literals": ["TemplateID = SHA256(RLP(UT))"]},
-    "powHash": {"file": "reference/consensus.md", "lines": [61, 61], "literals": ["powHash = SHA256(TemplateID‖be64(nonce))"]},
-    "blockHash": {"file": "reference/consensus.md", "lines": [64, 64], "literals": ["blockHash = keccak256(TemplateID‖be64(nonce)‖shareRoot)"]},
-    "items": {"file": "reference/consensus.md", "lines": [153, 161], "literals": ["parentHash = blockHash(p)", "powHash ≤ target", "SHA256(TemplateID‖be64(n)) ≤ T_share"]},
-    "shareList": {"file": "reference/consensus.md", "lines": [55, 55], "literals": ["shareList ≤ 256"]},
-    "window": {"file": "reference/browser.md", "lines": [44, 50], "literals": ["البند 2: الأب هو المرجع", "البنود 6–9"]},
-    "tShare": {"file": "reference/validation.md", "lines": [926, 926], "literals": ["T_share = min(", "D143"]}
+    "bound": {"file": "reference/browser.md", "lines": [58, 58], "literals": ["≤ 14 \u0641\u0643 \u0631\u0623\u0633", "≤ 13 ASERT", "≤ 13 SHA-256"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "templateId": {"file": "reference/consensus.md", "lines": [59, 59], "literals": ["TemplateID = SHA256(RLP(UT))"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "powHash": {"file": "reference/consensus.md", "lines": [61, 61], "literals": ["powHash = SHA256(TemplateID‖be64(nonce))"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "blockHash": {"file": "reference/consensus.md", "lines": [64, 64], "literals": ["blockHash = keccak256(TemplateID‖be64(nonce)‖shareRoot)"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "items": {"file": "reference/consensus.md", "lines": [153, 161], "literals": ["parentHash = blockHash(p)", "powHash ≤ target", "SHA256(TemplateID‖be64(n)) ≤ T_share"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "shareList": {"file": "reference/consensus.md", "lines": [55, 55], "literals": ["shareList ≤ 256"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "window": {"file": "reference/browser.md", "lines": [44, 50], "literals": ["\u0627\u0644\u0628\u0646\u062f 2: \u0627\u0644\u0623\u0628 \u0647\u0648 \u0627\u0644\u0645\u0631\u062c\u0639", "\u0627\u0644\u0628\u0646\u0648\u062f 6–9"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "tShare": {"file": "reference/validation.md", "lines": [926, 926], "literals": ["T_share = min(", "D143"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"}
   },
   "allPaths": {
     "templateId": "one per checked header that is used: the reference (for blockHash in item 2 of b) and every window header reaching item 3, 7, 8 or 9. Not for the genesis parent (its blockHash is cfg.genesisHash).",

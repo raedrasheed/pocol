@@ -2,11 +2,11 @@
   "schema": "pocol-m1-c32-cases/0.27",
   "status": "hand-written literal reply texts and expected outcomes; not approved",
   "sources": {
-    "retry": {"file": "reference/browser.md", "lines": [40, 41], "literals": ["viewIncomplete", "retryAfterMs حتى 3 مرات"]},
-    "shape": {"file": "reference/network.md", "lines": [364, 364], "literals": ["{reason ∈ {busy, rate}, retryAfterMs}"]},
-    "busyRange": {"file": "reference/network.md", "lines": [234, 234], "literals": ["retryAfterMs ∈ [250, 2000]"]},
-    "rateShape": {"file": "reference/network.md", "lines": [217, 217], "literals": ["{rate, retryAfterMs}"]},
-    "rpProtection": {"file": "reference/network.md", "lines": [374, 374], "literals": ["مهلة 10s"]}
+    "retry": {"file": "reference/browser.md", "lines": [40, 41], "literals": ["viewIncomplete", "retryAfterMs \u062d\u062a\u0649 3 \u0645\u0631\u0627\u062a"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "shape": {"file": "reference/network.md", "lines": [364, 364], "literals": ["{reason ∈ {busy, rate}, retryAfterMs}"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "busyRange": {"file": "reference/network.md", "lines": [234, 234], "literals": ["retryAfterMs ∈ [250, 2000]"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "rateShape": {"file": "reference/network.md", "lines": [217, 217], "literals": ["{rate, retryAfterMs}"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "rpProtection": {"file": "reference/network.md", "lines": [374, 374], "literals": ["\u0645\u0647\u0644\u0629 10s"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"}
   },
   "context": {"chain": "H (m1-draft-0.26/vectors/v1-chains.json)", "clock": 1700000205, "blockNumberReply": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x14\"}",
               "requests": "eth_blockNumber [] at t = 0, then pocol_getHeaders [\"0x7\", \"0xe\"] at the listed times",

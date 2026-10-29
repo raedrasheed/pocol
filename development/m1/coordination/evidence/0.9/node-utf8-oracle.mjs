@@ -1,7 +1,7 @@
 import {writeFileSync} from 'node:fs';
 const cases=[
  ['ascii','k','v',66],['delete','k',null,65],['empty','','',64],
- ['arabic','س','ع',68],['emoji','😀','𐐀',72],['combining','e\u0301','é',69],
+ ['arabic','\u0633','\u0639',68],['emoji','😀','𐐀',72],['combining','e\u0301','é',69],
  ['high-surrogate','\ud800','x',68],['low-surrogate','x','\udc00',68],
  ['surrogate-pair','\ud83d\ude00','x',69],['mixed','a\ud800b','\udc00',72],
  ['max','k'.repeat(256),'v'.repeat(61440),61760],

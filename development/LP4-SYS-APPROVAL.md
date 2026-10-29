@@ -3,9 +3,9 @@
 The owner explicitly approved the complete option 1 at:
 https://github.com/raedrasheed/Proof-of-Collaboration/blob/b1f25e0613fbeb3832dfb20252f76b92ef72b90d/development/lp4/p4-genesis/codex-r1/SYS-EXECUTION-DECISION.md
 
-Recorded approval (verbatim):
+Recorded approval (English translation of the original Arabic):
 
-> أعتمد الخيار الأول كاملًا في SYS-EXECUTION-DECISION.md عند الإيداع `b1f25e0613fbeb3832dfb20252f76b92ef72b90d` بوصفه إضافة صريحة LP4-SYS-01. سجّل الموافقة مع حفظ M1 والأدلة السابقة، ثم نفّذ العقد الكامل واختبارات القبول المحددة. تحقّق خصوصًا من حصر دلالة ORIGIN الجديدة في SYSTEM، واعتماد الصلاحيات على CALLER، وصحة بيانات المقترح، وحساب الغاز قبل الاسترداد، والتراجع الكامل عن البلوك عند الخطأ. أعد اشتقاق قياسات الموارد المتأثرة، وواصل الأعمال المستقلة تلقائيًا. هذه موافقة على التصميم وليست قبولًا لـP2 أو P3 أو LP4، ويبقى boot معطّلًا.
+> I approve option one in full in SYS-EXECUTION-DECISION.md at commit `b1f25e0613fbeb3832dfb20252f76b92ef72b90d` as the explicit LP4-SYS-01 addition. Record approval while preserving M1 and previous evidence, then implement the complete contract and specified acceptance tests. In particular, verify that the new ORIGIN semantics are confined to SYSTEM, permissions rely on CALLER, proposer data is correct, gas is counted before refunds, and the whole block rolls back on error. Rederive affected resource measurements and continue independent work automatically. This approves the design, not P2, P3 or LP4 acceptance; boot remains disabled.
 
 All seven clauses and every acceptance requirement in that immutable option are
 binding. This is an additive LP4 decision, not recovered original M1 semantics.

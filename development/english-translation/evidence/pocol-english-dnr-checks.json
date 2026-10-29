@@ -1,0 +1,123 @@
+[
+  {
+    "check": "x3.allRequiredIdsRestored (17 incl. Q9 a/b/c)",
+    "status": "pass"
+  },
+  {
+    "check": "x3.xSitesComplete",
+    "status": "pass"
+  },
+  {
+    "check": "x3.qScenariosModelled",
+    "status": "pass"
+  },
+  {
+    "check": "x3.dalScenariosModelled",
+    "status": "pass"
+  },
+  {
+    "check": "dnr.DNR-d1",
+    "status": "pass",
+    "rules": [
+      14,
+      15
+    ],
+    "events": [
+      [
+        "installedVerified",
+        7
+      ],
+      [
+        "frameCreated",
+        7
+      ]
+    ]
+  },
+  {
+    "check": "dnr.DNR-d2",
+    "status": "pass",
+    "rules": [],
+    "events": [
+      [
+        "installFailed",
+        7
+      ]
+    ]
+  },
+  {
+    "check": "dnr.DNR-d2-verify",
+    "status": "pass",
+    "rules": [],
+    "events": [
+      [
+        "verifyFailed",
+        7
+      ]
+    ]
+  },
+  {
+    "check": "dnr.DNR-d3",
+    "status": "pass",
+    "rules": [],
+    "events": [
+      [
+        "installedVerified",
+        7
+      ],
+      [
+        "frameCreated",
+        7
+      ],
+      [
+        "removed",
+        7,
+        "tabs.onRemoved"
+      ]
+    ]
+  },
+  {
+    "check": "dnr.DNR-d4",
+    "status": "pass",
+    "rules": [
+      14,
+      15
+    ],
+    "events": [
+      [
+        "installedVerified",
+        7
+      ],
+      [
+        "frameCreated",
+        7
+      ]
+    ]
+  },
+  {
+    "check": "dnr.DNR-d5",
+    "status": "pass",
+    "rules": [],
+    "events": [
+      [
+        "installedVerified",
+        7
+      ],
+      [
+        "frameCreated",
+        7
+      ],
+      [
+        "frameTornDown",
+        7,
+        "pingFailed"
+      ],
+      [
+        "leftoversRemoved",
+        [
+          14,
+          15
+        ]
+      ]
+    ]
+  }
+]

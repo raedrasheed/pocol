@@ -9,20 +9,20 @@
 
 ## Exact normative text
 1. `development/m1/reference/execution.md:82`:
-   > SLOT_CAP، وACCT_CAP، … : توقف استثنائي.
+   > SLOT_CAP, ACCT_CAP, …: exceptional halt.
 
    "SLOT_CAP, ACCT_CAP, …: exceptional halt."
 2. `governance.md:13–14`:
-   > السقوف [CP]: … وSLOT_CAP=4·10^6، وACCT_CAP=10^6. / SYS [CP]: SYS_SLOT_MAX=131072، وSYS_KEYS_BLOCK_MAX=2048، وSYS_KEYS_USER_MAX=256، …
+   > Caps [CP]: … SLOT_CAP=4·10^6, ACCT_CAP=10^6. / SYS [CP]: SYS_SLOT_MAX=131072, SYS_KEYS_BLOCK_MAX=2048, SYS_KEYS_USER_MAX=256, …
 
    "Caps [CP]: … SLOT_CAP=4·10^6, ACCT_CAP=10^6." / "SYS [CP]: SYS_SLOT_MAX=131072,
    SYS_KEYS_BLOCK_MAX=2048, SYS_KEYS_USER_MAX=256, …"
 3. `governance.md:97`:
-   > R18: SYS، ويشمل كلفة RET سجلًا ضمن G_SYS.
+   > R18: SYS, including the cost of RET records within G_SYS.
 
    "R18: SYS, including the cost of RET records within G_SYS."
 4. `validation.md:2076` (T18b L7/L8 criterion):
-   > RecLen ≤ 4450 واستخدام SYS ≤ SYS_SLOT_MAX في كل كتلة.
+   > RecLen ≤ 4450 and SYS usage ≤ SYS_SLOT_MAX in every block.
 
    "RecLen ≤ 4450, and SYS usage ≤ SYS_SLOT_MAX in every block."
 
@@ -46,7 +46,7 @@ the cap, and the same block's system phase would then pass it, with no halt avai
     profile.
   - This is the split R21's bound already uses (SLOT_CAP + SYS_SLOT_MAX).
 
-## Proposed amendment (to execution.md §السقوف, recorded here only)
+## Proposed amendment (to execution.md §Caps, recorded here only)
 English:
 - SLOT_CAP and ACCT_CAP bound the nonzero storage slots and existing accounts outside the five
   system programs. A USER transaction that would exceed either halts exceptionally.
@@ -55,7 +55,7 @@ English:
 - The genesis must satisfy both bounds.
 
 Arabic:
-> يحد SLOT_CAP وACCT_CAP خانات التخزين غير الصفرية والحسابات الموجودة خارج برامج النظام الخمسة، ومعاملة المستخدم التي تتجاوز أحدهما تتوقف استثنائيًا. وتحد SYS_SLOT_MAX خانات برامج النظام غير الصفرية بعد المراحل النظامية لكل كتلة، والكتلة التي تتجاوزها باطلة. ويجب أن يحقق genesis الحدين.
+> SLOT_CAP and ACCT_CAP bound nonzero storage slots and existing accounts outside the five system programs; a user transaction exceeding either halts exceptionally. SYS_SLOT_MAX bounds nonzero system-program slots after each block's system phases; a block exceeding it is invalid. Genesis must satisfy both limits.
 
 ## Minimal examples (`vectors/d-a03-caps.json`; SLOT_CAP 100, 30 user slots, 60 system slots, one USER transaction, then the system phases add 3 slots)
 

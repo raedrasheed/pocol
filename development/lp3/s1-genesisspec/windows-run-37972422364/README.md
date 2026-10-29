@@ -46,7 +46,7 @@ UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 in position 423: char
 - **The read:** `Path.read_text()` was called without an encoding.
 - **What Python did on Windows:** without UTF-8 mode, it uses the ANSI code page, which is cp1252 on this runner, as the traceback shows.
 - **The file:** `development/m1/m1-draft-0.21/vectors/v3-gsv1.json` is valid UTF-8 and quotes Arabic source literals, 386 non-ASCII bytes in all.
-- **The failing byte:** byte 423 is `0x81`, the second byte of `d9 81` (the letter ف in "حذف"). cp1252 has no character for `0x81`.
+- **The failing byte:** byte 423 is `0x81`, the second byte of `d9 81` (the letter U+0641 in the Arabic word for "delete" (U+062D U+0630 U+0641)). cp1252 has no character for `0x81`.
 - **Also affected:** `c30-depth.json`, which the differential reads next, contains UTF-8 as well.
 - **Why Linux didn't show it:** Python there uses UTF-8 by default.
 

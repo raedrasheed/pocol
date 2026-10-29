@@ -12,7 +12,7 @@
 |---|---|
 | `M1-SPEC-0.26-AMENDMENT.md` | changes |
 | `M1-STATUS-0.26.md` | per-row criteria and exact remaining blockers |
-| `M1-DECISION-PACKET-0.26-AR.md` | Arabic owner packet |
+| `M1-DECISION-PACKET-0.26-EN.md` | Arabic owner packet |
 | `annex/V1-HEADERNETCHECK.md` | normative V1 annex, with P-V1-1…10 |
 | `vectors/v1-network.json`, `v1-chains.json`, `v1-window-cases.json`, `v1-units.json` | literal V1 fixtures |
 | `supplements/s26-v1-experiments.json` | deferred V1 experiment definitions |

@@ -39,7 +39,7 @@ No HIGH finding. The FFI and unsafe code is sound (§3), and the A13 RPC term ho
 - **Where:**
   - `prototypes/pocold/src/rpc.rs:751-771`: `handle_until_budgeted`, the batch loop. Between members it drains only the light lane (`if k>0{n.drain_light()}`, :763).
   - `src/node.rs:257-263` (run loop) and `:284-288` (`Event::Rpc` handled inline).
-  - `development/audit-2026-10-22/RPCGUARD.md:160`: the (ط) row.
+  - `development/audit-2026-10-22/RPCGUARD.md:160`: the (I) row.
 
 **Claim.** Batch members run back to back on the one consensus thread, and nothing yields to the main event queue between them. A batch admitted at QUEUE_WAIT keeps the thread until all of these hold:
 - every member has run;
@@ -54,7 +54,7 @@ all wait behind the batch.
 
 The request can carry an Origin header: ORIGIN_DENY only covers the two mining methods, and eth_call is allowed to sites. So a web page the user visits can do this, in any browser that lets it POST to 127.0.0.1. pocold answers the CORS preflight with `Access-Control-Allow-Origin: *` and does not check Content-Type.
 
-RPCGUARD.md (ط) marks the separation NOT ENFORCED but describes only the opposite direction ("light requests wait behind consensus work; the wait is bounded by QUEUE_WAIT"). It states no bound on how long consensus waits behind RPC. The spec's own batch bound is "compute ≤ 20·(5+0.1) = 102 s" (network.md:279). That bound assumes RPC runs on its own runtime (ط). In pocold it is consensus time.
+RPCGUARD.md (I) marks the separation NOT ENFORCED but describes only the opposite direction ("light requests wait behind consensus work; the wait is bounded by QUEUE_WAIT"). It states no bound on how long consensus waits behind RPC. The spec's own batch bound is "compute ≤ 20·(5+0.1) = 102 s" (network.md:279). That bound assumes RPC runs on its own runtime (I). In pocold it is consensus time.
 
 **Evidence.** Probe `p1_a_batch_starves_the_consensus_loop`, run at default limits (`Limits::default()`). The batch was 20 × eth_call to BLAKE2F with 29.9M rounds, sent with `Origin: https://site.example`. A P2P client connected 300 ms after the batch started, sent its Hello, and timed the node's Hello. The node sends its Hello when the consensus thread handles `Connected`.
 
@@ -69,9 +69,9 @@ P1 {"baselineHelloMs":0,"singleBlakeMs":752,"batchCode":200,"batchMs":14578,"hel
 **Proposed fix (any one):**
 - Give a batch one shared consensus-time budget, for example COMPUTE_DEADLINE heavy for the whole batch. The later members then answer −32020 {deadline} without running.
 - Between members, handle pending main events (Net, Tick, Miner), not only the light lane. This is the spec's "each member re-admits from the back of the queue", network.md:274: `Event::Rpc` could carry the batch's continuation and be re-queued.
-- Run RPC on its own thread over a head snapshot (the spec's (ط)).
+- Run RPC on its own thread over a head snapshot (the spec's (I)).
 
-Also state the consensus-side bound in RPCGUARD.md (ط), and add a test that times a P2P Hello during a batch.
+Also state the consensus-side bound in RPCGUARD.md (I), and add a test that times a P2P Hello during a batch.
 
 ## R2-2 (LOW): eth_sendRawTransaction's execution is not bounded by COMPUTE_DEADLINE
 
@@ -233,7 +233,7 @@ Both named tests pass with the mutant: `rpc_connection_cap_refuses_excess_unread
   - COMPUTE_DEADLINE does not apply to the send (correct by the spec).
   - BATCH_WALL cuts a send (M6 caught).
   - The 504 at the work deadline drops a Reply computed afterwards; its reservation is released at the failed `send`.
-- **Starving the P2P loop:** yes, see R2-1 and R2-2. This is the one stated bound that does not exist: the (ط) row covers the RPC → consensus direction only.
+- **Starving the P2P loop:** yes, see R2-1 and R2-2. This is the one stated bound that does not exist: the (I) row covers the RPC → consensus direction only.
 
 ## 2. Memory (Q2)
 
@@ -345,4 +345,4 @@ Each mutant was applied alone to the worktree, run with `cargo test --release --
 - **Earlier survivors re-confirmed:**
   - I3b (no write cap) is now caught on Linux by the throughput assertion, as round 3c claims (M1: 8.6 s against the 2 s bound).
   - RV3-CAS-CHECK-THEN-SET, R3-M2-NO-WALL-IN-WAIT and R3-M2-BACKSTOP-ONLY were not re-run. Their explanations in §10b are consistent with the code.
-- **Doc mismatches** are listed in R2-1 (the (ط) row), R2-9, R2-10 and R2-11.
+- **Doc mismatches** are listed in R2-1 (the (I) row), R2-9, R2-10 and R2-11.

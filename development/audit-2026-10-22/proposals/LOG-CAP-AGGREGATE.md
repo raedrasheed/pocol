@@ -8,11 +8,11 @@
 
 ## Exact normative text
 1. `development/m1/reference/execution.md:82`:
-   > … وLOG_BLOCK_MAX=32 KiB، وLOG_CAP=1 GiB: توقف استثنائي.
+   > … LOG_BLOCK_MAX=32 KiB, LOG_CAP=1 GiB: exceptional halt.
 
    "… LOG_BLOCK_MAX=32 KiB, LOG_CAP=1 GiB: exceptional halt."
 2. `validation.md:2065`:
-   > ثوابت البناء caps-test (simnet فقط، غائبة عن الإصدار): LOG_CAP=2^24 …
+   > caps-test build constants (simnet only, absent from the release): LOG_CAP=2^24 …
 
    "caps-test build constants (simnet only, absent from the release): LOG_CAP=2^24 …"
 
@@ -35,7 +35,7 @@ English: "LOG_CAP bounds the sum of charged log bytes over the canonical chain, 
 the first transaction that would exceed it halts exceptionally."
 
 Arabic:
-> يحد LOG_CAP مجموع بايتات السجلات المحسوبة على السلسلة القانونية شاملة الكتلة الحالية، وأول معاملة تتجاوزه تتوقف استثنائيًا.
+> LOG_CAP bounds the sum of charged log bytes on the canonical chain, including the current block; the first transaction exceeding it halts exceptionally.
 
 ## Minimal examples (`vectors/log-cap-aggregate.json`)
 

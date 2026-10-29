@@ -51,11 +51,11 @@ The next feasible batch is R2–R4 (D98: MR scripts, read steps and pools), then
 ## 4. Not executed
 
 These are outside the reference tooling:
-- the browser and the MV3 extension (X1–X7, the د1–د5 runs in Chrome, the Q8–Q12 runs with two anvil instances);
+- the browser and the MV3 extension (X1–X7, the DNR-d1–DNR-d5 runs in Chrome, the Q8–Q12 runs with two anvil instances);
 - Chrome DNR itself (only modelled here);
 - anvil and pocold;
 - MPT proofs;
 - ESLint and dependency-cruiser;
 - any transaction.
 
-The decision models for Q, د, BR19 and BR16 are reference models of the text. They are not evidence about the extension.
+The decision models for Q, DNR-d, BR19 and BR16 are reference models of the text. They are not evidence about the extension.

@@ -18,7 +18,7 @@
     {"id": "sel-5000-zeros", "construction": {"prefix": "/a.html@v", "repeat": "0", "count": 5000}, "expected": {"kind": "malformedSelector"}},
     {"id": "sel-long-digits-then-query", "construction": {"prefix": "/a.html@v", "repeat": "7", "count": 5000, "suffix": "?x=1"}, "expected": {"kind": "malformedSelector"}, "note": "the query is cut first; the selector is still oversized"},
     {"id": "sel-long-digits-in-query-only", "construction": {"prefix": "/a.html?x=@v", "repeat": "7", "count": 5000}, "expected": {"kind": "lookup", "path": "/a.html", "version": null}},
-    {"id": "sel-arabic-indic-digit", "input": "/a.html@v٣", "expected": {"kind": "404", "rule": "nav.grammar"}, "note": "U+0663 is not an ASCII digit, so there is no selector; '@' and the non-ASCII character fail the segment grammar"},
+    {"id": "sel-arabic-indic-digit", "input": "/a.html@v\u0663", "expected": {"kind": "404", "rule": "nav.grammar"}, "note": "U+0663 is not an ASCII digit, so there is no selector; '@' and the non-ASCII character fail the segment grammar"},
     {"id": "sel-fullwidth-digit", "input": "/a.html@v１", "expected": {"kind": "404", "rule": "nav.grammar"}}
   ]
 }

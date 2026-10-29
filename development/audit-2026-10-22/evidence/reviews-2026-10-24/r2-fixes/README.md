@@ -3,11 +3,11 @@
 All five are conformance fixes to the owner-approved RpcGuard implementation. Each brings the code to
 what network.md already says, with no new normative text. Witness probes stayed in scratch.
 
-- **R2-1 (MEDIUM): one batch held the consensus thread.** network.md (ط) separates RPC from consensus.
+- **R2-1 (MEDIUM): one batch held the consensus thread.** network.md (I) separates RPC from consensus.
   - Change: between two batch members, `Node::drain_between_members` runs the light lane and then at
     most EVENT_TURN = 8 queued main events (P2P, miner, timer). Queued RPC requests are deferred to
     `run()`, which takes them before its next receive, so their order is kept.
-  - A member is admitted in turn with its own snapshot (network.md (ج): one snapshot per permit), so a
+  - A member is admitted in turn with its own snapshot (network.md (C): one snapshot per permit), so a
     new head between two members is the same as between two requests.
   - Test: `net::a_batch_does_not_hold_p2p_events_for_its_whole_length`. A batch of 8 uninterruptible
     BLAKE2F eth_calls runs while a new P2P connection waits for the node's Hello.
@@ -15,8 +15,8 @@ what network.md already says, with no new normative text. Witness probes stayed 
     into a 5,742 ms batch, then 390, 437 and 446 ms into batches of 4.95–5.19 s in three later runs
     (`r2-1-after.log`). A second heavy request during the batch is answered with a result or −32021
     busy (QUEUE_WAIT), never held for the whole batch.
-- **R2-2 (LOW): eth_sendRawTransaction's execution had no COMPUTE_DEADLINE.** network.md (د) step 4
-  and (و) require that cancellation be checked every 10⁶ gas.
+- **R2-2 (LOW): eth_sendRawTransaction's execution had no COMPUTE_DEADLINE.** network.md (D) step 4
+  and (F) require that cancellation be checked every 10⁶ gas.
   - Change: `Node::submit_tx_by` executes the pool admission with the stop hook
     (`native::admit_for_profile`; while the hook does not fire, the execution is the same).
   - A precompile run, which no poll can cut short, is checked again before the commit.

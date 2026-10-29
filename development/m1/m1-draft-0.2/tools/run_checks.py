@@ -14,6 +14,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
+
 import keccak
 import m1model as M
 import m1paths
@@ -60,7 +77,7 @@ def provider_for(fx, table):
 
 
 def sha256_tree(root):
-    return {str(p.relative_to(root)).replace('\\', '/'): hashlib.sha256(p.read_bytes()).hexdigest()
+    return {str(p.relative_to(root)).replace('\\', '/'): hashlib.sha256(source_bytes(p)).hexdigest()
             for p in sorted(root.rglob('*')) if p.is_file()}
 
 

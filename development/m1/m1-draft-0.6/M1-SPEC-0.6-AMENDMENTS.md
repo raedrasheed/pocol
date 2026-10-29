@@ -11,7 +11,7 @@ Inheritance: 0.6 = 0.2 + the amendments of 0.3, 0.4 and 0.5 + the amendments bel
 | R6-01 | C14 | Corrected 24-byte head of the 2848-reference manifest (the contentHash was missing) |
 | R6-02 | C19 | Integer value semantics for the bridge id, the JSON-RPC response id, `error.code` and `retryAfterMs` |
 | R6-03 | X2 | signEligible (7 conditions), ProfileMutex serialization, eligibilityEpoch: executable model |
-| R6-04 | C13 / X3 | Original Q8–Q12 (with Q9 a/b/c), X1–X7 and د1–د5 restored in English with traceability; ADD-M1-01 withdrawn |
+| R6-04 | C13 / X3 | Original Q8–Q12 (with Q9 a/b/c), X1–X7 and DNR-d1–DNR-d5 restored in English with traceability; ADD-M1-01 withdrawn |
 | R6-05 | B10 | BR19a/BR19b literal tables, the BR19c script and decision rule, BridgeRef |
 | R6-06 | B11 | BR16 generator (seed b₀, Python and JS implementations), SchemaRef, BridgeRef, SiteStorageRef, BridgeTrace format |
 | R6-07 | status | Decisions reclassified per review; CONF_DEPTH; gate; evidence record |
@@ -48,12 +48,12 @@ See `annex/X3-RESTORED.md` (English, with traceability) and `annex/x3-restored.j
 - The 17 required IDs are restored from the recovered round-15 source (message 31), with Q9 split into a/b/c. They concern:
   - **Q:** signing and profile races under ProfileMutex;
   - **X:** malicious-site isolation;
-  - **د:** the DNR rule lifecycle.
+  - **DNR-d:** the DNR rule lifecycle.
 
   ADD-M1-01's mappings (T12 site ordinals, isolation substitutes, unsupported features) are **withdrawn**.
 - **Executable models (decision logic only):**
   - `tools/profile_race_ref.py` covers Q8, Q9a, Q9b, both Q9c variants, Q10, both Q11 variants, Q12, and 7 supporting signEligible scenarios;
-  - `tools/dnr_ref.py` covers د1, د2 (two variants), د3, د4 (resource-type matrix) and د5.
+  - `tools/dnr_ref.py` covers DNR-d1, DNR-d2 (two variants), DNR-d3, DNR-d4 (resource-type matrix) and DNR-d5.
 - **X1–X7** are given as literal site files with expected outcomes for the browser run (Phase A).
 - **Reconciliation:** I1–I8. There is no outright contradiction. The gaps (out-of-worker write detection; DNR resource types, scoping and removal) are filled with labelled proposals taken from the historical D58/D37 text.
 

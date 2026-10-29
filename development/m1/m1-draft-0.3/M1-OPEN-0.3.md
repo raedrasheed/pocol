@@ -35,9 +35,9 @@ A genuine blocker is a conflict or gap in the baseline that further drafting can
 
 ### BLK-02 — Extension-annex items without definitions (X3)
 
-**Exact source lines:** FD:L4959 requires "Q8–Q12, X1–X7 and d1–d5" (written `د1–د5`). FD:L2644 (T12) references "X1–X7, d1–d5, Q1–Q12". `reference/validation.md:130` and `reference/implementation.md:300` repeat the same text.
+**Exact source lines:** FD:L4959 requires "Q8–Q12, X1–X7 and d1–d5" (written `DNR-d1–DNR-d5`). FD:L2644 (T12) references "X1–X7, d1–d5, Q1–Q12". `reference/validation.md:130` and `reference/implementation.md:300` repeat the same text.
 
-**Search performed:** every `reference/*.md` file was searched for `Q8`, `Q12`, `X7`, `د5`, `\bQ[0-9]+\b` and `د[0-9]`. The only matches are the references above, plus unrelated namesakes:
+**Search performed:** every `reference/*.md` file was searched for `Q8`, `Q12`, `X7`, `DNR-d5`, `\bQ[0-9]+\b` and `DNR-d[0-9]`. The only matches are the references above, plus unrelated namesakes:
 - `Q1`–`Q5` are HeadCheck predicates (`reference/validation.md:1458` onward);
 - `X1..X100` are block labels in the network tests;
 - `X8` is defined separately (FD:L2645).

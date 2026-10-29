@@ -12,7 +12,7 @@ edited. Each item has one of three tags:
   implementations already recorded in proposals/README.md.
 - **[SCOPE]**: no consensus effect, but a choice of target or effort that is yours to make.
 
-The Arabic summary for approval is [DECISION-PACKAGE-AR.md](DECISION-PACKAGE-AR.md).
+The English summary for approval is [DECISION-PACKAGE-EN.md](DECISION-PACKAGE-EN.md).
 
 Priorities, as you set them:
 1. booting the network profile within the budget;

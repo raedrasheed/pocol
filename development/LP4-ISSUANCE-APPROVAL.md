@@ -1,6 +1,6 @@
 # LP4-ISSUANCE-01 — approved additive native subsidy contract
 
-The owner explicitly approved option1 in full: «اعتماد الخيار الأول كاملًا».
+The owner explicitly approved option1 in full: “Approve the first option in full” (translated from Arabic).
 Immutable proposal:
 https://github.com/raedrasheed/Proof-of-Collaboration/blob/a67eb9d7ce39e7fdb7c0a53e3dee85de73de61e8/development/lp4/p4-genesis/codex-r3/ISSUANCE-DECISION.md
 

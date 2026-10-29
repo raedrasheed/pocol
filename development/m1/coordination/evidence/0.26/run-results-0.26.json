@@ -1273,7 +1273,7 @@
         "at": null,
         "n": 3,
         "minWork": 4095,
-        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u06403 \u0631\u0624\u0648\u0633 \u062d\u062a\u0649 genesis\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629"
+        "message": "RP: work and identity bound for 3 headers back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification"
       },
       "counters": {
         "headerDecodes": 3,
@@ -1295,7 +1295,7 @@
         "at": null,
         "n": 13,
         "minWork": 4095,
-        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u064013 \u0631\u0623\u0633\u064b\u0627 \u062d\u062a\u0649 genesis\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629"
+        "message": "RP: work and identity bound for 13 headers back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification"
       },
       "counters": {
         "headerDecodes": 13,
@@ -1317,7 +1317,7 @@
         "at": null,
         "n": 13,
         "minWork": 4095,
-        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u064013 \u0631\u0623\u0633\u064b\u0627\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629"
+        "message": "RP: work and identity bound for 13 headers, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification"
       },
       "counters": {
         "headerDecodes": 14,
@@ -1339,7 +1339,7 @@
         "at": null,
         "n": 13,
         "minWork": 4095,
-        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u064013 \u0631\u0623\u0633\u064b\u0627\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629"
+        "message": "RP: work and identity bound for 13 headers, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification"
       },
       "counters": {
         "headerDecodes": 14,
@@ -1493,7 +1493,7 @@
         "at": null,
         "n": 13,
         "minWork": 4095,
-        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u064013 \u0631\u0623\u0633\u064b\u0627\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629"
+        "message": "RP: work and identity bound for 13 headers, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification"
       },
       "counters": {
         "headerDecodes": 14,
@@ -1625,7 +1625,7 @@
         "at": null,
         "n": 13,
         "minWork": 4095,
-        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u064013 \u0631\u0623\u0633\u064b\u0627\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629"
+        "message": "RP: work and identity bound for 13 headers, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification"
       },
       "counters": {
         "headerDecodes": 14,
@@ -1647,7 +1647,7 @@
         "at": null,
         "n": 1,
         "minWork": 4095,
-        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u0640\u0631\u0623\u0633 \u0648\u0627\u062d\u062f \u062d\u062a\u0649 genesis\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629"
+        "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification"
       },
       "counters": {
         "headerDecodes": 1,
@@ -2687,9 +2687,9 @@
       "recorded": 0,
       "unexplainedFailures": [],
       "sample": [
-        "dnr.\u062f1",
-        "dnr.\u062f2",
-        "dnr.\u062f2-verify"
+        "dnr.DNR-d1",
+        "dnr.DNR-d2",
+        "dnr.DNR-d2-verify"
       ],
       "check": "row.X3.evidence.R06:^dnr\\.",
       "status": "pass"

@@ -1,788 +1,788 @@
-# المتصفح والعزل
+# Browser and isolation
 
-**العنوان**
+**Address**
 - omnibox: 'pocol <profileName>/<0xaddr>[/path][@v<n>]'.
-- web3:// إدخال مريح فقط. ERC-4804 وERC-6860 غير مدعومين في v1، ولم يُقرأ نصاهما.
-- لا ندعي دعم Chrome الأصلي لأي مخطط.
+- web3:// is only a convenient input form. ERC-4804 and ERC-6860 are not supported in v1, and their texts have not been read.
+- We do not claim native Chrome support for any scheme.
 
-**ملف الشبكة (D58، D77، D79)**
-{profileId، name، chainId، genesisPre، genesisHash، forkSchedule، endpoint، trustLevel ∈ {DEV, LN, RP}}.
+**Network profile (D58, D77, D79)**
+{profileId, name, chainId, genesisPre, genesisHash, forkSchedule, endpoint, trustLevel ∈ {DEV, LN, RP}}.
 
-القبول:
-1. فك genesisPre دون خطأ gs*.
+Admission:
+1. Decode genesisPre without any gs* error.
 2. keccak256(genesisPre) = genesisHash.
-3. تطابق chainId.
-4. networks.json موقّع، أو تأكيد يعرض الهاش كاملًا.
-5. RecvFit (D100): يُحسب WorstLegit لكل طريقة exact تعتمد على CP، من قيم الملف نفسه: B_code_max، وBODY_MAX، وTX_MAX، وطول genesisPre. أي تجاوز لـRECV_LIMIT يرفض الملف بـ−32019 {rule: recvFit}، بدل قبول شبكة تُرفض ردودها الصادقة لاحقًا.
+3. chainId matches.
+4. Signed networks.json, or a confirmation displaying the complete hash.
+5. RecvFit (D100): calculate WorstLegit for each CP-dependent exact method from the profile's own values: B_code_max, BODY_MAX, TX_MAX and genesisPre length. Any RECV_LIMIT overrun rejects the profile with −32019 {rule: recvFit}, rather than admitting a network whose honest responses would later be rejected.
 
 netKey = keccak256(RLP(['PoCol-net-v1', chainId, genesisHash])).
-- الفحص عند الفتح، وكل 30s، وعند التوقيع. أي اختلاف يهدم الإطار ويلغي الطلبات بـ4901.
-- chainId مكرر بـgenesis مختلف: قراءة فقط بوسم «متعارض»، و4100 للتوقيع.
+- Check on opening, every 30s and on signing. Any mismatch tears down the frame and cancels requests with 4901.
+- Duplicate chainId with different genesis: read-only with a “conflicting” label, and 4100 for signing.
 
-**نافذة رؤوس RP (D77، D80–D84)**
+**RP header window (D77, D80–D84)**
 
-الأعداد (D82):
-- W = [b, h]، حيث b = max(1, h−12)، وn = h−b+1 ≤ 13.
-- المرجع b−1 عند b > 1، ولا يُعد.
-- المسترجع: from = max(1, b−1)، وcount = h−from+1 ≤ 14، وهو خفيف (count ≤ 64).
+Counts (D82):
+- W = [b, h], where b = max(1, h−12), and n = h−b+1 ≤ 13.
+- Reference b−1 when b > 1; it is not counted.
+- Retrieved: from = max(1, b−1), count = h−from+1 ≤ 14; this is light (count ≤ 64).
 
-ثوابت العميل (D84):
+Client constants (D84):
 - VIEW_SLACK_S = 4.
 - ceilTarget = min(2^256−1, target_g·2^4).
 - minWorkRP = floor(2^256/(ceilTarget+1)).
-- C ساعة المتصفح، وΦ_view = 10s.
+- C is the browser clock, and Φ_view = 10s.
 
-الخطوات:
+Steps:
 0. h = eth_blockNumber.
-   - عند h=0: لا pocol_getHeaders ولا إطار، وviewNoBlocks برسالة «الشبكة لم تنتج الكتلة 1 بعد؛ لا رأس للتحقق في RP».
-   - eth_requestAccounts وeth_sendTransaction يعطيان 4901، وإعادة الفحص كل 30s.
-1. احسب b وfrom وcount، ولا تخالف D81.
-   - −32018 على طلب صحيح يعطي viewIncomplete.
-   - −32021 يعطي إعادة بعد retryAfterMs حتى 3 مرات، ثم viewIncomplete.
-2. الرد count رأسًا بارتفاعات from..h متتالية، والنقص أو الزيادة viewIncomplete.
-3. المرجع (b > 1): البند 1، ثم 1ب، ثم viewFuture (ref.ts ≤ C+Φ_view). لا عمل ولا نافذة.
-4. لكل x ∈ W تصاعديًا:
-   - البند 1، ثم 1ب، ثم viewFuture.
-   - البند 2: الأب هو المرجع، أو رأس genesis الافتراضي عند b=1، ويجب parentHash(1) = cfg.genesisHash وإلا viewGenesis.
-   - البندان 3 و4.
-   - البند 5 (ASERT بعرض ثابت).
-   - viewTargetCeil: target_x ≤ ceilTarget، قبل PoW.
-   - البنود 6–9.
-5. الرسالة: «RP: مرتبط بالعمل والهوية لـn رأسًا [حتى genesis]، بعمل محتسب لا يقل عن <minWorkRP عشريًا> لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية».
-   - عند minWorkRP = 1 تضاف «حد العمل غير فعال لهذه الشبكة».
-   - «حتى genesis» عند b=1 فقط.
-   - لا نسبة ولا تقدير زمني في الرسالة.
-6. أي مخالفة: وسم، ورفض العرض، و4901، وعدم الاعتماد على أي جذر.
-7. البنود 10–17 غير قابلة للتقييم، والكذب المتسق ممكن.
+   - At h=0: no pocol_getHeaders or frame; viewNoBlocks with message “The network has not produced block 1 yet; no header is available for RP verification”.
+   - eth_requestAccounts and eth_sendTransaction return 4901; recheck every 30s.
+1. Calculate b, from and count without violating D81.
+   - −32018 for a valid request gives viewIncomplete.
+   - −32021 retries after retryAfterMs up to 3 times, then gives viewIncomplete.
+2. The response contains count headers at consecutive heights from..h; too few or too many gives viewIncomplete.
+3. Reference (b > 1): item 1, then 1b, then viewFuture (ref.ts ≤ C+Φ_view). No work or window check.
+4. For each x ∈ W in ascending order:
+   - Item 1, then 1b, then viewFuture.
+   - Item 2: the parent is the reference, or the virtual genesis header when b=1; parentHash(1) must equal cfg.genesisHash, otherwise viewGenesis.
+   - Items 3 and 4.
+   - Item 5 (fixed-width ASERT).
+   - viewTargetCeil: target_x ≤ ceilTarget, before PoW.
+   - Items 6–9.
+5. Message: “RP: work and identity bound for n headers [back to genesis], with computed work of at least <minWorkRP in decimal> per header (work(ceilTarget)), without execution or membership verification”.
+   - At minWorkRP = 1 append “The work bound is ineffective for this network”.
+   - “back to genesis” only when b=1.
+   - No percentage or time estimate in the message.
+6. Any violation: label, reject display, return 4901 and rely on no root.
+7. Items 10–17 are not evaluable; consistent lying is possible.
 
-كلفة العميل: ≤ 14 فك رأس، و≤ 13 ASERT بوسائط ≤ 512 بتًا، و≤ 13 SHA-256.
+Client cost: ≤ 14 header decodes, ≤ 13 ASERT operations with operands ≤ 512 bits, and ≤ 13 SHA-256 operations.
 
-أثر D84: شبكة صادقة متأخرة بأكثر من 4τ تعرض viewTargetCeil، أي 4 ساعات في network و40 دقيقة في P11. الحل LN.
+Effect of D84: an honest network more than 4τ behind shows viewTargetCeil: 4 hours in network and 40 minutes in P11. The remedy is LN.
 
-أمثلة RW:
-- h=3 → b=1، وfrom=1، وcount=3، وn=3، حتى genesis.
-- h=13 → b=1، وfrom=1، وcount=13، وn=13.
-- h=14 → b=2، وfrom=1، وcount=14، وn=13.
-- h=20 → b=8، وfrom=7، وcount=14، وn=13.
+RW examples:
+- h=3 → b=1, from=1, count=3, n=3, back to genesis.
+- h=13 → b=1, from=1, count=13, n=13.
+- h=14 → b=2, from=1, count=14, n=13.
+- h=20 → b=8, from=7, count=14, n=13.
 
-أمثلة HC:
+HC examples:
 - target_g=2^240 → ceilTarget=2^244 → minWorkRP=4095.
 - target_g=2^256−1 → minWorkRP=1.
 
-LN عند h=0: العرض والتوقيع مسموحان، لأن العقدة تحققت من GenesisSpec وallocRoot.
+LN at h=0: display and signing are allowed because the node verified GenesisSpec and allocRoot.
 
-**LogClient (D89، D91)**
+**LogClient (D89, D91)**
 
-المسار الوحيد لـeth_getLogs من الصفحة:
-- BridgeAuth يتحقق من مخطط المرشح (D95).
-- الجسر يحل الوسوم إلى أرقام.
-- يرفض المدى > 1024 قبل الإرسال بـ−32020 {reason: range}.
-- يمرر إلى LogClient.fetchAll، ولا يُرسل eth_getLogs خام.
+The page's only eth_getLogs path:
+- BridgeAuth checks the filter schema (D95).
+- The bridge resolves tags to numbers.
+- Reject a range > 1024 before sending with −32020 {reason: range}.
+- Pass to LogClient.fetchAll; never send raw eth_getLogs.
 
-تصنيف أسباب Limit:
-- P1 = {resultBytes, resultCount, scanBytes}، بشرط a ≤ lc ≤ b−1.
-- RES = {deadline, scratch}، بشرط a−1 ≤ lc ≤ b−1.
-- أي مخالفة أو سبب آخر: serverViolation.
+Limit reason classes:
+- P1 = {resultBytes, resultCount, scanBytes}, provided a ≤ lc ≤ b−1.
+- RES = {deadline, scratch}, provided a−1 ≤ lc ≤ b−1.
+- Any violation or other reason: serverViolation.
 
-وسم withinLimit:
-- [a, lc] الناتج عن P1 يُوسم، ويرثه كل مدى فرعي.
-- P1 على مدى موسوم يعطي serverViolation (لِمّة P3)، أما RES عليه فمسموح.
+withinLimit marker:
+- Mark [a, lc] produced by P1; every subrange inherits the marker.
+- P1 on a marked range gives serverViolation (lemma P3); RES on it is allowed.
 
 LogClient.step(range{a, b, withinLimit, retries}, reply):
-- Complete(logs): كل blockNumber ∈ [a, b]، وblockHash ثابت لكل ارتفاع، و(blockNumber، logIndex) تصاعدي بصرامة يلي آخر ملحق. ثم Append، والمخالفة serverViolation.
-- Limit{r ∈ P1, lc}: Replace([a, lc]+withinLimit ثم [lc+1, b] بوسم الأصل). لا قفز قبل اكتمال [a, lc].
+- Complete(logs): every blockNumber ∈ [a, b], blockHash is constant per height, and (blockNumber, logIndex) is strictly ascending after the last append. Then Append; a violation gives serverViolation.
+- Limit{r ∈ P1, lc}: Replace([a, lc]+withinLimit then [lc+1, b] with the original marker). Do not skip ahead before completing [a, lc].
 - Limit{r ∈ RES, lc}:
-  - إن كان lc ≥ a: Replace([a, lc] ثم [lc+1, b]) بوسم الأصل.
-  - وإلا، إن كان b > a: Replace([a, mid] ثم [mid+1, b])، حيث mid = a+floor((b−a)/2).
-  - وإلا (a=b): Retry(500 ms) مع retries+1، وعند retries = 3 يعطي Error{r, block: a}.
-- −32021: Retry(retryAfterMs) دون احتساب في retries، ويُحتسب في totalRequests.
-- −32022 (anchorNotCanonical أو beyondAnchor): Restart.
+  - If lc ≥ a: Replace([a, lc] then [lc+1, b]) with the original marker.
+  - Otherwise, if b > a: Replace([a, mid] then [mid+1, b]), where mid = a+floor((b−a)/2).
+  - Otherwise (a=b): Retry(500 ms) with retries+1; at retries = 3 return Error{r, block: a}.
+- −32021: Retry(retryAfterMs), not counted in retries but counted in totalRequests.
+- −32022 (anchorNotCanonical or beyondAnchor): Restart.
 - −32601: Error{unsupported}.
-- أي خطأ آخر: Error صريح.
+- Any other error: explicit Error.
 
-عدّ الطلبات:
-- logRequests: طلبات pocol_getLogs في المحاولة، شاملة الإعادات.
-- headRequests: طلبات eth_getBlockByNumber في المحاولة (المرساة وفحص ما قبل الاعتماد).
-- totalRequests: كل طلبات RPC في كل محاولات التشغيل حتى لحظته.
-- maxRequests يقيد totalRequests وحده، ويُفحص قبل الإرسال. الطلب الذي يجعله > maxRequests لا يُرسل، فيعطي abort(id, tooManyRequests) ثم Error{tooManyRequests}.
+Request accounting:
+- logRequests: pocol_getLogs requests in the attempt, including retries.
+- headRequests: eth_getBlockByNumber requests in the attempt (anchor and pre-commit check).
+- totalRequests: every RPC request across all attempts in the run so far.
+- maxRequests bounds only totalRequests and is checked before sending. A request that would exceed maxRequests is not sent; emit abort(id, tooManyRequests), then Error{tooManyRequests}.
 
-الإنهاء:
-- Replace يستبدل مدى بمديين أقصر بصرامة.
-- Retry ≤ 3 لكل كتلة، وRestart ≤ maxRestarts.
-- maxRequests سقف صريح.
-- خطوات المحاولة ≤ 5·(b−a+1) زائد إعادات −32021، والكل محدود بـmaxRequests.
+Termination:
+- Replace replaces one range with two strictly shorter ranges.
+- Retry ≤ 3 per block; Restart ≤ maxRestarts.
+- maxRequests is an explicit ceiling.
+- Attempt steps ≤ 5·(b−a+1) plus −32021 retries; all are bounded by maxRequests.
 
-لِمّة الصحة: مديات المحاولة الواحدة المكتملة تقسيم منفصل مرتب لـ[from, to]، وكل قطعة كاملة على فرع المرساة (P2). الدمج = نتيجة المدى لذلك الفرع.
+Correctness lemma: the ranges of one completed attempt form an ordered disjoint partition of [from, to], and every piece is complete on the anchor branch (P2). Concatenation equals the range result for that branch.
 
-عقد sink = {begin(attemptId, anchor), piece(attemptId, seq, range, logs), abort(attemptId, reason), commit(attemptId, summary)}:
-- summary = {pieces, logs, logRequests, headRequests, totalRequests, anchor}، وtotalRequests يشمل المجهضة.
-- attemptId يبدأ من 1 ويزيد بواحد.
-- anchor = {hash, number} من eth_getBlockByNumber('latest') عند begin. إن كان to > anchor.number: abort(id, beyondHead) ثم Error.
-- seq من 0 لكل محاولة، والقطع بترتيب المديات، وقد تكون فارغة.
-- قبل commit: eth_getBlockByNumber(anchor.number).hash = anchor.hash، وعدم التطابق يعامل كـRestart.
-- Restart: abort(id, reorg) ثم begin(id+1, anchor جديدة). maxRestarts = 3، أي ≤ 4 محاولات، ثم abort(id, reorgUnstable) وError.
+sink contract = {begin(attemptId, anchor), piece(attemptId, seq, range, logs), abort(attemptId, reason), commit(attemptId, summary)}:
+- summary = {pieces, logs, logRequests, headRequests, totalRequests, anchor}; totalRequests includes aborted attempts.
+- attemptId starts at 1 and increases by one.
+- anchor = {hash, number} from eth_getBlockByNumber('latest') at begin. If to > anchor.number: abort(id, beyondHead), then Error.
+- seq starts at 0 per attempt; pieces follow range order and may be empty.
+- Before commit: eth_getBlockByNumber(anchor.number).hash = anchor.hash; a mismatch is treated as Restart.
+- Restart: abort(id, reorg), then begin(id+1, new anchor). maxRestarts = 3, hence ≤ 4 attempts, then abort(id, reorgUnstable) and Error.
 
-الثوابت (يفحصها SinkChecker):
-- (S-a) لكل محاولة: begin واحد، ثم ≥ 0 piece، ثم حدث نهائي واحد بالضبط (abort أو commit).
-- (S-b) لا استدعاء بعد الحدث النهائي، ولا محاولة قبل انتهاء سابقتها.
-- (S-c) commit مرة واحدة على الأكثر، وللمحاولة الأخيرة فقط.
-- (S-d) مديات المحاولة المعتمدة تغطي [from, to] تمامًا.
-- (S-e) pieces وlogs تطابق ما سُلم، وlogRequests وheadRequests تطابق سجل MockLogServer للمحاولة، وtotalRequests يطابق كل طلبات التشغيل.
+Invariants (checked by SinkChecker):
+- (S-a) Per attempt: one begin, then ≥ 0 piece events, then exactly one terminal event (abort or commit).
+- (S-b) No call after the terminal event; no attempt before the previous one ends.
+- (S-c) At most one commit, only for the final attempt.
+- (S-d) The committed attempt's ranges cover [from, to] exactly.
+- (S-e) pieces and logs match what was delivered; logRequests and headRequests match the attempt's MockLogServer trace; totalRequests matches all run requests.
 
-دلالة المستهلك: بيانات piece مؤقتة حتى commit. عند abort تُسقط كل بيانات attemptId. الناتج صحيح لفرع anchor المعلن، وreorg بعد فحص ما قبل الاعتماد لا يُكشف.
+Consumer semantics: piece data is provisional until commit. On abort, discard all data for attemptId. The result is correct for the declared anchor branch; a reorg after the pre-commit check is not detected.
 
-الجامعان:
-- fetchAll (الجسر): sink داخلي يفرغ عند abort.
-  - maxBytes = 4 MiB لكل محاولة، ومهلة 30s، وmaxRequests = 4096.
-  - التجاوز tooLarge أو timeout أو tooManyRequests دون نتيجة جزئية.
-  - الصفحة تستلم بعد commit فقط.
-- fetchEach (أداة الاختبار، Node.js): sink خارجي، ومهلة 600s، وmaxRequests = 65536، ولا يتاح للصفحات.
+The two collectors:
+- fetchAll (bridge): internal sink cleared on abort.
+  - maxBytes = 4 MiB per attempt, timeout 30s, maxRequests = 4096.
+  - Exceeding limits gives tooLarge, timeout or tooManyRequests without a partial result.
+  - The page receives data only after commit.
+- fetchEach (test tool, Node.js): external sink, timeout 600s, maxRequests = 65536; unavailable to pages.
 
-في RP: −32601 يعطي unsupported، والكذب المتسق ممكن (D13).
+In RP: −32601 gives unsupported; consistent lying is possible (D13).
 
-**الجسر وتفويضه (D95، D96، D97)**
+**Bridge and its authorization (D95, D96, D97)**
 
-الغلاف الموحد (D96):
-- الرسالة نص JSON = {id, kind, payload} بهذه الحقول الثلاثة فقط.
-- id عدد صحيح في [0, 2^32−1] يولده المحمّل، وهو مفتاح الرد فقط.
+Unified envelope (D96):
+- A message is JSON text = {id, kind, payload}, with exactly these three fields.
+- id is an integer in [0, 2^32−1] generated by the loader; it is only the response key.
 - kind ∈ {rpc_read, wallet_req, storage_set, nav}.
-- payload = {method, params} بهذين الحقلين فقط، وparams مصفوفة دائمًا لكل kind، ولو فارغة. لا شكل بديل لأي kind.
-- الرد: {id, result} أو {id, error: {code, message, data?}}. id = null حين لا يمكن استخراج id صالح.
-- لا نتيجة جزئية بحالة نجاح.
+- payload = {method, params}, with exactly these two fields; params is always an array for every kind, even when empty. No alternative form for any kind.
+- Response: {id, result} or {id, error: {code, message, data?}}. id = null when no valid id can be extracted.
+- No partial result with success status.
 
-القاعدة العامة:
-- الموقع خصم (A7b). كل رسالة تمر بـBridgeAuth.check في عامل الإضافة قبل أي اتصال شبكي أو أثر محلي، والرفض افتراضي لكل ما ليس في المصفوفة.
-- مصفوفة السماح Map مجمدة تُبنى عند تحميل الوحدة، لا كائن JS عادي، فلا تطابق لـ__proto__ أو constructor أو hasOwnProperty.
-- التطابق بايتي حرفي لاسم الطريقة: حساس لحالة الأحرف، بلا مسافات أو محارف تحكم، و≤ 64 بايت ASCII.
-- جدول خفيف/ثقيل في RpcGuard ليس جدول صلاحيات.
+General rule:
+- The site is an adversary (A7b). Every message passes through BridgeAuth.check in the extension worker before any network request or local effect; deny by default anything absent from the matrix.
+- The allowlist is a frozen Map built at module load, not a plain JS object; __proto__, constructor and hasOwnProperty do not match.
+- Method names match exact bytes: case-sensitive, no whitespace or control characters, ≤ 64 ASCII bytes.
+- RpcGuard's light/heavy table is not a permission table.
 
-ختم الوصول (D97):
-- العامل يختم كل رسالة لحظة استلامها من المنفذ بـarrivalMs = floor(performance.now()) في العامل، قبل أي فحص. الموقع لا يتحكم فيه.
-- الرسائل تُعالج واحدة واحدة بترتيب الاستلام.
+Arrival stamp (D97):
+- The worker stamps every message on port receipt with arrivalMs = floor(performance.now()) in the worker, before any check. The site cannot control it.
+- Process messages one by one in arrival order.
 
-ترتيب الفحص (يتوقف عند أول خرق، وهو نفسه لكل kind):
-- Bpre (دون تحليل):
-  - الحجم > BRIDGE_MSG_MAX = 64 KiB: −32600 {reason: size} مع id = null، دون استهلاك رمز.
-  - دلو المعدل لكل جلسة موقع (D97، D99)، حالته {tokens_mt، last_ms} بأعداد صحيحة:
-    - عند إنشاء الجلسة (لا الإطار): tokens_mt = BUCKET_CAP_MT = 50000، وlast_ms = لحظة الإنشاء. التنقل لا يعيد ملء الدلو.
-    - لكل رسالة اجتازت الحجم: tokens_mt = min(50000, tokens_mt + 50·(arrivalMs − last_ms))، ثم last_ms = arrivalMs.
-    - إن كان tokens_mt ≥ 1000: يُخصم 1000 وتُتابع الرسالة. وإلا: −32005 {reason: rate} مع id = null، دون خصم.
-    - الرسالة التي تجتاز فحص المعدل تستهلك رمزها ولو رُفضت لاحقًا في B0–B3.
-- B0 البنية: parseStrict يرفض JSON غير الصالح، والمفاتيح المكررة في أي مستوى، والعمق > 8. ثم: الحقول الخارجية تمامًا {id, kind, payload}، وid صحيح ضمن المدى، وkind نص، وpayload كائن بالحقلين {method, params} تمامًا، وmethod نص، وparams مصفوفة. أي مخالفة: −32600، ويُعاد id إن كان صالحًا وإلا null.
-- B1: kind ∈ المجموعة، وإلا −32600 {reason: kind}.
-- B2: (kind, method) في المصفوفة، وإلا 4200 {method}، حيث method مقصوص إلى أول 64 وحدة UTF-16.
-- B3: params تطابق مخطط الطريقة بالضبط في عدد العناصر والأنواع والحقول المسموحة والحدود، وإلا −32602 {path}. path بصيغة 'params' أو 'params[i]' أو 'params[i].field'.
-- B4 التوجيه، ثم قيد الحالة الذي يطبقه المكوّن الموجّه إليه (D97)، لا BridgeAuth:
-  - rpc_read إلى RpcReadClient، عدا eth_getLogs إلى LogClient.fetchAll. كلاهما يمر بعدّاد التعليق للجلسة:
-    - إن كان pendingReads = 4، أو بلغ العدّاد العام 16: −32005 {reason: pending} دون اتصال.
-    - ثم RecvGuard.reserve (D98). إن تعذر الحجز خلال 2s: −32005 {reason: busy}.
-  - wallet_req إلى Wallet، بقيوده الخاصة (طلب معلق واحد، و≤ 5 في الدقيقة).
-  - storage_set إلى StoreQueue (D101). الامتلاء يعطي −32005 {reason: store} دون إلحاق. بعد القبول ينفذ SiteStorage الرسالة بترتيبها، وتجاوز الحصة يعطي 4300 {reason: quota, limit: 1048576} وفق المحاسبة أدناه.
-  - nav إلى Navigator، والتأكيد المعلق الثاني −32005 {reason: pending}.
+Check order (stop at the first violation; identical for every kind):
+- Bpre (without parsing):
+  - Size > BRIDGE_MSG_MAX = 64 KiB: −32600 {reason: size}, id = null, without consuming a token.
+  - Rate bucket per site session (D97, D99), with integer state {tokens_mt, last_ms}:
+    - On session creation (not frame creation): tokens_mt = BUCKET_CAP_MT = 50000, last_ms = creation time. Navigation does not refill the bucket.
+    - For each message passing the size check: tokens_mt = min(50000, tokens_mt + 50·(arrivalMs − last_ms)), then last_ms = arrivalMs.
+    - If tokens_mt ≥ 1000: subtract 1000 and continue. Otherwise: −32005 {reason: rate}, id = null, without deduction.
+    - A message passing the rate check consumes its token even if later rejected in B0–B3.
+- B0 structure: parseStrict rejects invalid JSON, duplicate keys at any depth and depth > 8. Then: outer fields exactly {id, kind, payload}, valid in-range integer id, string kind, payload object with exactly {method, params}, string method and array params. Any violation: −32600; return id if valid, otherwise null.
+- B1: kind ∈ the set, otherwise −32600 {reason: kind}.
+- B2: (kind, method) appears in the matrix, otherwise 4200 {method}, with method truncated to its first 64 UTF-16 units.
+- B3: params exactly matches the method schema in element count, types, permitted fields and limits, otherwise −32602 {path}. path is 'params', 'params[i]' or 'params[i].field'.
+- B4 routing, then the state constraint enforced by the destination component (D97), not BridgeAuth:
+  - rpc_read routes to RpcReadClient, except eth_getLogs to LogClient.fetchAll. Both pass through the session's pending counter:
+    - If pendingReads = 4 or the global count reaches 16: −32005 {reason: pending}, without a request.
+    - Then RecvGuard.reserve (D98). If reservation is unavailable within 2s: −32005 {reason: busy}.
+  - wallet_req routes to Wallet with its own constraints (one pending request and ≤ 5 per minute).
+  - storage_set routes to StoreQueue (D101). A full queue gives −32005 {reason: store} without appending. Once admitted, SiteStorage executes messages in order; exceeding quota gives 4300 {reason: quota, limit: 1048576} under the accounting below.
+  - nav routes to Navigator; a second pending confirmation gives −32005 {reason: pending}.
 
-عدّاد التعليق pendingReads (D97):
-- لكل جلسة موقع (D99)، ويبدأ 0 عند إنشاء الجلسة.
-- يزيد بواحد لحظة قبول RpcReadClient أو LogClient للرسالة وقبل أول اتصال.
-- ينقص بواحد لحظة إرسال الرد النهائي للإطار: نجاح، أو خطأ بعيد، أو خطأ ناقل أو مهلة (10s لـRpcReadClient، و30s لـfetchAll) يُرد بـ−32603 {reason: transport}.
-- هدم الإطار لا يصفّره. طلبات الإطار المهدوم تصير يتيمة:
-  - تُلغى بـAbortController دون رد.
-  - ينقص العدّاد بكل طلب منها عند استقراره فقط، أي رفض وعد الناقل وتحرير مخزن الاستقبال وحجزه.
-  - أقصى زمن للاستقرار هو مهلة الناقل نفسها.
-- لا يُصفّر إلا بانتهاء الجلسة، بعد استقرار كل طلباتها.
-- إعادات LogClient الداخلية لا تزيده، فرسالة eth_getLogs واحدة = تعليق واحد.
+pendingReads counter (D97):
+- Per site session (D99), initially 0 when the session is created.
+- Increment by one when RpcReadClient or LogClient admits the message, before the first request.
+- Decrement by one when the final response is sent to the frame: success, remote error, or transport error/timeout (10s for RpcReadClient, 30s for fetchAll), returned as −32603 {reason: transport}.
+- Tearing down the frame does not reset it. Requests from a torn-down frame become orphans:
+  - Cancel through AbortController without a response.
+  - Decrement for each request only when it settles: the transport promise rejects and the receive buffer and reservation are released.
+  - Maximum settlement time is the transport timeout itself.
+- Reset only when the session ends, after every request has settled.
+- Internal LogClient retries do not increment it: one eth_getLogs message = one pending request.
 
-الأنواع الأولية:
+Primitive types:
 - addr = '0x'+40 hex.
-- hash32 وslot32 = '0x'+64 hex.
-- qty = hex بلا أصفار بادئة ضمن u64.
-- tag ∈ {'latest', 'safe', 'finalized'} أو qty. pending وearliest وكائن EIP-1898 مرفوضة.
-- data = '0x'+hex زوجي ≤ 64 KiB.
-- str(n) = نص لا يحوي وحدات بديلة منفردة (lone surrogates)، وطول ترميزه UTF-8 بين 1 وn بايت.
-- pathStr = نص ASCII مطبوع (0x21–0x7e) طوله 1..2048، أوله '/'.
-- httpsUrl = نص ASCII مطبوع طوله ≤ 2048، يبدأ حرفيًا بـ'https://'، ويُحلل بـURL إلى protocol = 'https:' وhostname غير فارغ وusername وpassword فارغين.
+- hash32 and slot32 = '0x'+64 hex.
+- qty = hex without leading zeros within u64.
+- tag ∈ {'latest', 'safe', 'finalized'} or qty. Reject pending, earliest and EIP-1898 objects.
+- data = '0x'+even-length hex ≤ 64 KiB.
+- str(n) = a string without lone surrogates, with UTF-8 encoded length between 1 and n bytes.
+- pathStr = printable ASCII (0x21–0x7e), length 1..2048, starting with '/'.
+- httpsUrl = printable ASCII of length ≤ 2048, beginning literally with 'https://', parsed by URL with protocol = 'https:', nonempty hostname, and empty username and password.
 
-مصفوفة rpc_read (الطريقة: المخطط):
-- eth_chainId، وnet_version، وweb3_clientVersion، وeth_blockNumber، وeth_gasPrice، وeth_maxPriorityFeePerGas: [].
-- eth_getBalance، وeth_getCode، وeth_getTransactionCount: [addr, tag].
+rpc_read matrix (method: schema):
+- eth_chainId, net_version, web3_clientVersion, eth_blockNumber, eth_gasPrice, eth_maxPriorityFeePerGas: [].
+- eth_getBalance, eth_getCode, eth_getTransactionCount: [addr, tag].
 - eth_getStorageAt: [addr, slot32, tag].
-- eth_getBlockByNumber: [tag, false]. eth_getBlockByHash: [hash32, false]. الكتلة الكاملة (true) مرفوضة.
-- eth_getTransactionByHash، وeth_getTransactionReceipt: [hash32].
-- eth_call: [callObj, tag]. eth_estimateGas: [callObj] أو [callObj, tag]. معلمة ثالثة (state override) مرفوضة.
-  - callObj حقول من {from, to, gas, gasPrice, maxFeePerGas, maxPriorityFeePerGas, value, data, input} فقط.
-  - to إلزامي، فلا محاكاة نشر.
-  - gas ≤ 30000000، وdata أو input لا كلاهما.
-  - كلاهما محاكاة على لقطة بلا التزام حالة ولا بث.
-- eth_feeHistory: [qty ≤ 128, tag, percentiles]، حيث percentiles ≤ 16 عددًا تصاعديًا في [0, 100]. هذا حد منتجي أضيق من حد العقدة (≤ 1024) حتى يبقى الرد ضمن RECV_LIMIT المشتق (D100).
-- eth_getLogs: [filter]، والمرشح أحد شكلين:
-  - {fromBlock, toBlock, address?, topics?}، حيث address addr أو ≤ 16 منها، وtopics ≤ 4 مواضع كل منها null أو hash32 أو ≤ 16 منها.
+- eth_getBlockByNumber: [tag, false]. eth_getBlockByHash: [hash32, false]. Full blocks (true) are rejected.
+- eth_getTransactionByHash, eth_getTransactionReceipt: [hash32].
+- eth_call: [callObj, tag]. eth_estimateGas: [callObj] or [callObj, tag]. A third parameter (state override) is rejected.
+  - callObj fields may only be from {from, to, gas, gasPrice, maxFeePerGas, maxPriorityFeePerGas, value, data, input}.
+  - to is mandatory: no deployment simulation.
+  - gas ≤ 30000000; data or input, not both.
+  - Both simulate on a snapshot without committing state or broadcasting.
+- eth_feeHistory: [qty ≤ 128, tag, percentiles], where percentiles contains ≤ 16 ascending numbers in [0, 100]. This product limit is narrower than the node's (≤ 1024) to keep responses within the derived RECV_LIMIT (D100).
+- eth_getLogs: [filter], in either form:
+  - {fromBlock, toBlock, address?, topics?}, where address is addr or ≤ 16 addresses, and topics has ≤ 4 positions, each null, hash32 or ≤ 16 hashes.
   - {blockHash, address?, topics?}.
 
-مصفوفة wallet_req:
-- eth_accounts وeth_requestAccounts وeth_chainId: [].
-- eth_sendTransaction: [txObj]، حيث txObj حقول من {from, to, gas, value, data, maxFeePerGas, maxPriorityFeePerGas, nonce}. from هو الحساب الممنوح لـ(netKey, siteAddress)، وإلا 4100.
+wallet_req matrix:
+- eth_accounts, eth_requestAccounts, eth_chainId: [].
+- eth_sendTransaction: [txObj], where txObj fields are from {from, to, gas, value, data, maxFeePerGas, maxPriorityFeePerGas, nonce}. from is the account granted to (netKey, siteAddress), otherwise 4100.
 
-مصفوفة storage_set (D96، محلية، بلا اتصال شبكي):
-- site_storageSet: [str(256), str(61440) أو null]. القيمة null تعني الحذف.
+storage_set matrix (D96, local, no network request):
+- site_storageSet: [str(256), str(61440) or null]. null means deletion.
 - site_storageClear: [].
-- النتيجة null عند النجاح.
+- Successful result is null.
 
-مصفوفة nav (D96، محلية، بلا اتصال شبكي):
-- site_navigate: [pathStr]. العارض يطبق تطبيع storage، ثم يهدم الإطار ويبني إطارًا جديدًا بالمسار وفق D26. المسار غير الموجود أو المرفوض بالتطبيع يعرض صفحة 404 للعارض. لا رد للإطار المهدوم. الإطار الجديد ينضم إلى جلسة الموقع نفسها بدلوها وعدّاديها (D99).
+nav matrix (D96, local, no network request):
+- site_navigate: [pathStr]. The viewer applies storage normalization, tears down the frame and builds a new one at the path under D26. A missing or normalization-rejected path shows the viewer's 404 page. No response to the torn-down frame. The new frame joins the same site session with its bucket and two counters (D99).
 
-دلو التنقل للجلسة، ويُخصم منه قبل الهدم:
-- NAV_CAP_MT = 6000، وNAV_REFILL_MT_PER_MS = 1، وNAV_COST_MT = 2000. النتيجة ثلاثة تنقلات متتالية، ثم تنقل كل 2s.
-- العجز يعطي −32005 {reason: 'nav'} دون هدم.
-- site_openExternal: [httpsUrl]. يعرض تأكيدًا بالرابط كاملًا. النقر على «فتح» يفتح تبويبًا جديدًا دون opener ويرد null، والرفض أو الإغلاق يعطي 4001. تأكيد معلق ثانٍ من الإطار نفسه: −32005 {reason: pending}.
+Session navigation bucket, charged before teardown:
+- NAV_CAP_MT = 6000, NAV_REFILL_MT_PER_MS = 1, NAV_COST_MT = 2000. This allows three consecutive navigations, then one every 2s.
+- Insufficient balance gives −32005 {reason: 'nav'} without teardown.
+- site_openExternal: [httpsUrl]. Show confirmation with the full URL. Clicking “Open” opens a new tab without opener and returns null; rejecting or closing gives 4001. A second pending confirmation from the same frame: −32005 {reason: pending}.
 
-البادئة site_ محجوزة للطرق المحلية، ولا تظهر في مصفوفة rpc_read، فلا تصل أي طريقة site_ إلى RpcReadClient أو إلى عقدة.
+The site_ prefix is reserved for local methods and absent from rpc_read; no site_ method reaches RpcReadClient or a node.
 
-المحظورات:
-- القاعدة هي الرفض الافتراضي، والقائمة التالية أمثلة تُختبر صراحة.
-- محظور من كل kind: eth_sendRawTransaction، وeth_sign، وpersonal_*، وeth_signTypedData*، وwallet_*، وeth_subscribe، وeth_newFilter وأخواتها، وdebug_*، وtxpool_*، وadmin_*، وanvil_*، وevm_*، وeth_getProof، وكل pocol_* (ومنها pocol_submitShare وpocol_getTemplate).
-- eth_sendTransaction خارج wallet_req محظورة، وطرق القراءة داخل wallet_req محظورة، وطرق site_* خارج صنفها محظورة، وطرق RPC داخل storage_set وnav محظورة.
+Prohibitions:
+- Deny by default; the following examples are tested explicitly.
+- Prohibited in every kind: eth_sendRawTransaction, eth_sign, personal_*, eth_signTypedData*, wallet_*, eth_subscribe, eth_newFilter and related methods, debug_*, txpool_*, admin_*, anvil_*, evm_*, eth_getProof, and all pocol_* (including pocol_submitShare and pocol_getTemplate).
+- eth_sendTransaction outside wallet_req is prohibited; read methods inside wallet_req, site_* methods outside their class, and RPC methods inside storage_set or nav are prohibited.
 
-مسار الكتابة الوحيد على الشبكة:
+The only network-write path:
 1. wallet_req/eth_sendTransaction.
-2. موافقة مربوطة بالشبكة والبايتات (D14، D26).
-3. Wallet يوقّع البايتات المعروضة.
-4. WalletSubmit يرسل eth_sendRawTransaction بتلك البايتات فقط، بعد التحقق من keccak256(raw) = txHash المعتمد.
+2. Approval bound to the network and bytes (D14, D26).
+3. Wallet signs the displayed bytes.
+4. WalletSubmit sends eth_sendRawTransaction with only those bytes, after verifying keccak256(raw) = approved txHash.
 
-WalletSubmit وحده يملك ناقل الإرسال الخام.
+Only WalletSubmit owns the raw-send transport.
 
-العزل البرمجي:
-- RpcReadClient هو الناقل الشبكي الوحيد المتاح لـBridge. يعيد فحص الاسم مقابل مصفوفة القراءة نفسها كدفاع ثانٍ، ويرفض غيرها بـ4200 دون اتصال.
-- الطرق الداخلية تمر عبر HeaderNetCheck وLogClient وNetworkProfiles، لا عبر Bridge، ولا تستهلك دلو الإطار ولا تعليقه. منها pocol_getHeaders، وpocol_getParams، وpocol_getLogs، وeth_getBlockByNumber للمرساة، وeth_getCode لجلب القطع.
-- قاعدة dependency-cruiser في CI: وحدة Bridge لا تستورد WalletSubmit ولا HttpTransport الخام.
+Code isolation:
+- RpcReadClient is the only network transport available to Bridge. It rechecks the name against the same read matrix as a second defense and rejects anything else with 4200 without a request.
+- Internal methods pass through HeaderNetCheck, LogClient and NetworkProfiles, not Bridge, and consume neither the frame bucket nor its pending count. These include pocol_getHeaders, pocol_getParams, pocol_getLogs, eth_getBlockByNumber for the anchor, and eth_getCode for chunk fetching.
+- CI dependency-cruiser rule: Bridge must not import WalletSubmit or raw HttpTransport.
 
-BridgeTrace (D97، بناء الاختبار وتفعيل صريح فقط):
-- سطر لكل رسالة: {frame, seq, id|null, arrivalMs, tokensBefore_mt, bpre ∈ {pass, size, rate}, stage ∈ {B0, B1, B2, B3, B4, ok}, code|null, route|null, pendingBefore|null, storeTotalBefore|null, storeTotalAfter|null, forwardedSeq|null, replyMs|null}.
-- storeTotalBefore وstoreTotalAfter لرسائل storage_set وحدها، بالمحاسبة أدناه.
-- لا يغير القرارات، ومخزنه ثابت 1 MiB، والفيض يجعل التشغيل غير حاسم.
+BridgeTrace (D97, test build and explicit activation only):
+- One row per message: {frame, seq, id|null, arrivalMs, tokensBefore_mt, bpre ∈ {pass, size, rate}, stage ∈ {B0, B1, B2, B3, B4, ok}, code|null, route|null, pendingBefore|null, storeTotalBefore|null, storeTotalAfter|null, forwardedSeq|null, replyMs|null}.
+- storeTotalBefore and storeTotalAfter are only for storage_set messages, using the accounting below.
+- Does not change decisions; fixed 1 MiB buffer; overflow makes the run inconclusive.
 
-الأخطاء:
-- تُعاد للإطار بأشكال ثابتة: 4200 {method}، و−32600 {reason?}، و−32602 {path}، و−32005 {reason}، و4300 {reason, limit}، و−32603 {reason ∈ {transport, recvLimit, recvDepth, recvParse, storeTimeout}}، و4001، و4100، و4901. أسباب −32005 هي {rate, pending, nav, busy, store}.
-- 4300 و−32005 رمزان محليان للجسر. −32005 مأخوذ من EIP-1474، و4300 غير قياسي ومعلن.
-- نص الخطأ البعيد لا يُمرر إلا لطريقة مسموحة وصلت إلى الخادم.
+Errors:
+- Return fixed forms to the frame: 4200 {method}, −32600 {reason?}, −32602 {path}, −32005 {reason}, 4300 {reason, limit}, −32603 {reason ∈ {transport, recvLimit, recvDepth, recvParse, storeTimeout}}, 4001, 4100, 4901. −32005 reasons are {rate, pending, nav, busy, store}.
+- 4300 and −32005 are local bridge codes. −32005 comes from EIP-1474; 4300 is explicitly nonstandard.
+- Remote error text is forwarded only for an allowed method that reached the server.
 
-في RP: المصفوفة نفسها، والفحص محلي قبل الإرسال إلى البعيد.
+In RP: the same matrix, with local checks before sending remotely.
 
-**استقبال الردود البعيدة: RecvGuard (D98)**
+**Remote response reception: RecvGuard (D98)**
 
-كل طلب شبكي من الإضافة يمر بـHttpTransport.request(method, body, {recvLimit, deadline, pool}). يشمل ذلك RpcReadClient وLogClient وHeaderNetCheck وNetworkProfiles وChunkFetcher وWalletSubmit. لا تُستدعى response.text() ولا response.json().
+Every extension network request goes through HttpTransport.request(method, body, {recvLimit, deadline, pool}), including RpcReadClient, LogClient, HeaderNetCheck, NetworkProfiles, ChunkFetcher and WalletSubmit. Never call response.text() or response.json().
 
-خطوات القراءة:
-1. الحجز: يُحجز recvLimit من المجمع قبل الإرسال، بطابور FIFO. العجز خلال 2s يعطي busy.
-2. إن كانت Content-Length > recvLimit يُلغى الطلب قبل قراءة أي بايت.
-3. القراءة بقارئ تدفق على response.body:
-   - البايتات تُعد بعد فك الضغط الذي يجريه Chrome، فقنبلة الضغط تتوقف بالعد نفسه.
-   - كل قطعة تُفحص قبل إلحاقها. القطعة التي تجعل المجموع > recvLimit تُهمل، ويُلغى الطلب بـAbortController: recvLimit.
-4. بعد النهاية:
-   - TextDecoder بوضع fatal، وإلا recvParse.
-   - ثم parseStrict بعمق ≤ 16 ورفض المفاتيح المكررة، وإلا recvDepth أو recvParse.
-   - المحلل تكراري لا عودي، وكلفته خطية.
-5. الرد الخاطئ (حالة HTTP غير 200 أو كائن error) يخضع للحدود نفسها:
-   - message يُقص إلى 256 وحدة UTF-16.
-   - data يُمرر فقط إن كان ترميزه ≤ 4 KiB، وإلا يُحذف.
-6. أي إلغاء أو مهلة أو خطأ يهمل المخزن كله:
-   - لا يصل محتوى جزئي إلى إطار أو sink أو عارض.
-   - الحجز يُحرر عند الاستقرار.
+Read steps:
+1. Reservation: reserve recvLimit from the pool before sending, using a FIFO queue. Failure within 2s gives busy.
+2. If Content-Length > recvLimit, cancel before reading any byte.
+3. Read response.body with a stream reader:
+   - Count bytes after Chrome decompression, so the same count stops a decompression bomb.
+   - Check each chunk before appending. Discard a chunk that would exceed recvLimit, and cancel through AbortController: recvLimit.
+4. At end:
+   - TextDecoder in fatal mode, otherwise recvParse.
+   - Then parseStrict with depth ≤ 16 and duplicate-key rejection, otherwise recvDepth or recvParse.
+   - The parser is iterative, not recursive, with linear cost.
+5. An error response (non-200 HTTP status or error object) has the same limits:
+   - Truncate message to 256 UTF-16 units.
+   - Forward data only if its encoding is ≤ 4 KiB; otherwise remove it.
+6. Any cancellation, timeout or error discards the entire buffer:
+   - No partial content reaches a frame, sink or viewer.
+   - Release the reservation on settlement.
 
-RECV_LIMIT لكل طريقة (D100). لكل طريقة أحد صنفين:
-- exact: RECV_LIMIT ≥ WorstLegit(method)، وهو أسوأ جسم HTTP مشروع من pocold، محسوبًا بمعلمات CP وبالمعلمات التي يرسلها العميل فعلًا (مخطط الجسر أو الاستدعاء الداخلي). هذا وعد توافق كامل في LN، ويفحصه BG1 بالملفات المعرّفة، وRecvFit لكل ملف.
-- capped: حد منتجي أضيق من العقدة عمدًا، في قائمة مغلقة حرفيًا:
-  - eth_call بحد 1 MiB، والعقدة تسمح حتى RESP_MAX = 8 MiB.
-  - eth_estimateGas بحد 64 KiB. النجاح ≤ 4 KiB، أما خطأ revert ببيانات أكبر فيعطي recvLimit.
-  - الرد المشروع الأكبر من الحد يعطي −32603 {recvLimit}، ويُسجل في T12.
-  - إضافة طريقة إلى capped تتطلب سطرًا هنا ومراجعة.
+RECV_LIMIT per method (D100). Each method has one of two classes:
+- exact: RECV_LIMIT ≥ WorstLegit(method), the worst legitimate HTTP body from pocold, computed using CP and the parameters the client actually sends (bridge schema or internal call). This promises full LN compatibility, checked by BG1 for defined profiles and by RecvFit for each profile.
+- capped: deliberately narrower product limit than the node, in this literal closed list:
+  - eth_call capped at 1 MiB; the node permits RESP_MAX = 8 MiB.
+  - eth_estimateGas capped at 64 KiB. Success ≤ 4 KiB; a revert error with larger data gives recvLimit.
+  - A legitimate response above the limit gives −32603 {recvLimit} and is recorded in T12.
+  - Adding a capped method requires a row here and review.
 
-WorstLegit بالبايت. الافتراضات: JSON مضغوط بلا مسافات، و69 B لكل كمية u256 نصية مع فاصلتها، و32 B لكل نسبة عشرية.
-- 4096 [exact]: eth_chainId، وnet_version، وweb3_clientVersion، وeth_blockNumber، وeth_gasPrice، وeth_maxPriorityFeePerGas، وeth_getBalance، وeth_getStorageAt، وeth_getTransactionCount، وeth_sendRawTransaction. النتيجة ≤ 70 B، والغلاف ≤ 1024.
-- 69632 (68 KiB) [exact]: eth_getCode. الأسوأ 2·B_code_max+1024 = 66560.
+WorstLegit in bytes. Assumptions: compact JSON without spaces, 69 B per textual u256 quantity including its comma, 32 B per decimal percentage.
+- 4096 [exact]: eth_chainId, net_version, web3_clientVersion, eth_blockNumber, eth_gasPrice, eth_maxPriorityFeePerGas, eth_getBalance, eth_getStorageAt, eth_getTransactionCount, eth_sendRawTransaction. Result ≤ 70 B; envelope ≤ 1024.
+- 69632 (68 KiB) [exact]: eth_getCode. Worst case 2·B_code_max+1024 = 66560.
 - 98304 (96 KiB) [exact]:
-  - pocol_getHeaders بـcount ≤ 14: الأسوأ 14·(2·3067+16)+1024 = 87124.
-  - pocol_getParams: الأسوأ 2·|genesisPre|+4096، فيلزم |genesisPre| ≤ 47104، ويفحصه RecvFit.
-- 167936 (164 KiB) [exact]: eth_getBlockBy* بالهاشات. الأسوأ 2048+floor(BODY_MAX/85)·70 = 163958 في network. الحد السابق 160 KiB (163840) كان أقل منه بـ118 B.
-- 180224 (176 KiB) [exact]: eth_feeHistory بمخطط الجسر n ≤ 128 وp ≤ 16. الأسوأ 325+2·(n+1)·69+2·n·32+n·(69p+3) = 168015، وحقلا blob محسوبان احتياطًا.
-- 266240 (260 KiB) [exact]: eth_getTransactionByHash. الأسوأ 2·TX_MAX+2048 = 264192.
-- 348160 (340 KiB) [exact]: eth_getTransactionReceipt. الأسوأ 2·32768+546·512+2048 = 347136.
+  - pocol_getHeaders with count ≤ 14: worst case 14·(2·3067+16)+1024 = 87124.
+  - pocol_getParams: worst case 2·|genesisPre|+4096, requiring |genesisPre| ≤ 47104, checked by RecvFit.
+- 167936 (164 KiB) [exact]: eth_getBlockBy* with hashes. Worst case 2048+floor(BODY_MAX/85)·70 = 163958 in network. The previous 160 KiB (163840) limit was 118 B too small.
+- 180224 (176 KiB) [exact]: eth_feeHistory under bridge schema n ≤ 128, p ≤ 16. Worst case 325+2·(n+1)·69+2·n·32+n·(69p+3) = 168015, conservatively including both blob fields.
+- 266240 (260 KiB) [exact]: eth_getTransactionByHash. Worst case 2·TX_MAX+2048 = 264192.
+- 348160 (340 KiB) [exact]: eth_getTransactionReceipt. Worst case 2·32768+546·512+2048 = 347136.
 - 1048576 [capped]: eth_call.
 - 65536 [capped]: eth_estimateGas.
-- 8 MiB [exact في LN]: pocol_getLogs، والأسوأ RESP_MAX. فوقه حد fetchAll التجميعي 4 MiB. في RP قد يتجاوز الحدَّ بعيدٌ لا يطبق D88، فيعطي Error{recvLimit} صريحًا.
-- الطريقة غير المدرجة لا تُرسل.
+- 8 MiB [exact in LN]: pocol_getLogs; worst case RESP_MAX. Above it is fetchAll's aggregate 4 MiB limit. In RP, a remote server not implementing D88 may exceed it, producing explicit Error{recvLimit}.
+- Unlisted methods are not sent.
 
-في RP تُطبق الحدود نفسها، ووعد exact يخص pocold في LN وحده. الخادم غير المضغوط (بمسافات) قد يعطي recvLimit، وهذا معلن.
+RP applies the same bounds; the exact promise applies only to pocold in LN. A noncompact server (using spaces) may produce recvLimit; this is disclosed.
 
-المجمعات (حدود عامة في العامل):
-- SITE_POOL = 32 MiB لكل طلبات المواقع.
-- SESSION_RECV_MAX = 10 MiB لكل جلسة.
-- TRUST_POOL = 2 MiB مستقل لـHeaderNetCheck وNetworkProfiles، فلا يجوّعه موقع.
-- CONTENT_POOL = 8·68 KiB لجلب القطع.
-- RECV_INFLIGHT_MAX = 48 طلبًا لمجمعي المواقع والمحتوى معًا. مجمع الثقة خارج هذا العد ومحدود ببايتاته، فلا يجوّعه عدد الطلبات. عبر الجسر لا يتجاوز العدد 16+8، فهذا الحد دفاع ثانٍ يختبره MR10c مباشرة.
+Pools (worker-global bounds):
+- SITE_POOL = 32 MiB for all site requests.
+- SESSION_RECV_MAX = 10 MiB per session.
+- TRUST_POOL = 2 MiB, separate for HeaderNetCheck and NetworkProfiles, so a site cannot starve it.
+- CONTENT_POOL = 8·68 KiB for chunk fetching.
+- RECV_INFLIGHT_MAX = 48 requests across site and content pools. The trust pool is outside this count and bounded by bytes, so request count cannot starve it. Bridge traffic does not exceed 16+8; this bound is a second defense tested directly by MR10c.
 
-الأثر:
-- الاستقبال المخزن ≤ مجموع المجمعات (نحو 34.6 MiB)، زائد قطعة تدفق لكل طلب.
-- ذاكرة التحليل المؤقتة تُقاس في MR10.
-- الطلب البطيء يحتجز حجزه حتى مهلته (10s أو 30s).
+Effect:
+- Buffered reception ≤ sum of pools (approximately 34.6 MiB), plus one stream chunk per request.
+- Temporary parsing memory is measured in MR10.
+- A slow request holds its reservation until timeout (10s or 30s).
 
-**جلسة الموقع: SiteSession (D99)**
+**Site session: SiteSession (D99)**
 
-الإنشاء والانتهاء:
-- المفتاح (tabId, netKey, siteAddress).
-- تُنشأ بفعل المستخدم فقط، عبر omnibox أو واجهة الإضافة.
-- تنتهي بإغلاق التبويب، أو بانتقال المستخدم إلى عنوان أو شبكة أخرى.
+Creation and termination:
+- Key (tabId, netKey, siteAddress).
+- Created only by user action through the omnibox or extension UI.
+- Ends on tab close or user navigation to another address or network.
 
-ما تملكه الجلسة:
-- دلو الرسائل، وpendingReads، ودلو التنقل.
-- حجز SESSION_RECV_MAX.
-- ChunkCache، وحصتها في StoreQueue (عداد رسائل وبايتات، D101).
+Session-owned resources:
+- Message bucket, pendingReads and navigation bucket.
+- SESSION_RECV_MAX reservation.
+- ChunkCache and its StoreQueue quota (message and byte counters, D101).
 
-الإطارات والتحميل:
-- كل إطار ينشئه site_navigate أو إعادة التحميل ينضم إلى الجلسة نفسها، فلا يجدد أي حصة.
-- LoadJob واحد لكل جلسة. التنقل يلغي LoadJob السابق، وطلبات قطعه اليتيمة تبقى في CONTENT_POOL حتى تستقر.
-- روابط blob للتحميل السابق تُلغى عند الهدم.
-- رسائل منفذ الإطار المهدوم تُهمل بعد إغلاقه، ولا تستهلك رموزًا.
+Frames and loading:
+- Every frame created by site_navigate or reload joins the same session; no quota is renewed.
+- One LoadJob per session. Navigation cancels the previous LoadJob; orphaned chunk requests stay in CONTENT_POOL until settlement.
+- Revoke the previous load's blob URLs on teardown.
+- Ignore torn-down-frame port messages after closing; they do not consume tokens.
 
-ذاكرة القطع:
-- ChunkCache بمفتاح عنوان القطعة وطولها. العنوان مشتق من keccak256 البيانات، فهو مفتاح محتوى.
-- الحد 4 MiB+64 KiB لكل جلسة، و16 MiB عامًا بسياسة LRU على الجلسات غير النشطة.
-- التنقل داخل إصدار مخزن لا يعيد جلب أي قطعة.
+Chunk memory:
+- ChunkCache keyed by chunk address and length. The address derives from keccak256(data), making it a content key.
+- Limit 4 MiB+64 KiB per session and 16 MiB globally, with LRU across inactive sessions.
+- Navigation within a cached version does not refetch chunks.
 
-الحدود التراكمية لكل جلسة، مهما تكرر التنقل:
-- ≤ 4 قراءات حية أو يتيمة.
-- عدد الرسائل حتى الثانية t ≤ 50+50·t.
-- عدد التنقلات حتى الثانية t ≤ 3+t/2.
-- جلب كل قطعة مرة واحدة ما بقيت في الذاكرة.
+Cumulative per-session limits regardless of repeated navigation:
+- ≤ 4 live or orphaned reads.
+- Messages by second t ≤ 50+50·t.
+- Navigations by second t ≤ 3+t/2.
+- Fetch each chunk once while it remains cached.
 
-معالجة الرسالة لا تنتظر الشبكة، والتحليل الكبير محدود بـRECV_LIMIT، فيبقى العامل مستجيبًا.
+Message handling does not wait for the network; large parses are bounded by RECV_LIMIT, keeping the worker responsive.
 
-**أهلية التوقيع**
-- كل تعديل على الملفات تحت ProfileMutex، وeligibilityEpoch يزيد معه.
-- signEligible: الملف مطابق للمجمَّد، ولا تعارض، وnetKey غير ملغى، والاتصال قائم، والمحفظة غير مقفلة، وepoch مطابق، و(LN أو DEV أو RP مع h ≥ 1 ونافذة ناجحة).
-- داخل القفل: الأهلية، ثم الهوية، ثم فحص ثانٍ، ثم التوقيع بالبايتات المعروضة، ثم الإرسال عبر WalletSubmit، ثم التحرير.
-- المفتاح لكل netKey = HKDF-SHA256(seed، salt=netKey، info='PoCol-wallet-v1').
+**Signing eligibility**
+- Every profile edit is under ProfileMutex and increments eligibilityEpoch.
+- signEligible: the profile matches its frozen copy, no conflict, netKey not revoked, connection active, wallet unlocked, epoch matches, and (LN or DEV or RP with h ≥ 1 and a successful window).
+- Inside the lock: eligibility, identity, second check, sign the displayed bytes, send through WalletSubmit, then release.
+- Per-netKey key = HKDF-SHA256(seed, salt=netKey, info='PoCol-wallet-v1').
 
 **manifest.json (MV3)**
 - sandbox.pages = [sandbox.html].
 - CSP: 'sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-<H_loader>' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none''.
-- الأذونات: storage، وunlimitedStorage (D103)، وomnibox، وdeclarativeNetRequest، وhost 127.0.0.1، وoptional_host للبعيد.
+- Permissions: storage, unlimitedStorage (D103), omnibox, declarativeNetRequest, host 127.0.0.1 and optional_host for remote endpoints.
 
-**التحميل (D26)**
-1. viewer يثبت السياق ويفحص الهوية وحراسة DNR.
-2. العامل يجلب ويتحقق.
-3. iframe بـsandbox='allow-scripts allow-forms'.
-4. MessageChannel يُسلم مرة واحدة، ويُربط الإطار بجلسة الموقع (D99) دون إنشاء دلو أو عدّاد جديدين.
-5. المحمّل يطبق RtcLockdown، ويجمد، ويعقّم، وينفذ السكربتات من blob بالترتيب.
-6. حدث load ثانٍ يهدم الإطار.
+**Loading (D26)**
+1. viewer freezes context and checks identity and the DNR guard.
+2. The worker fetches and verifies.
+3. iframe with sandbox='allow-scripts allow-forms'.
+4. Deliver MessageChannel once; bind the frame to SiteSession (D99) without creating a new bucket or counter.
+5. The loader applies RtcLockdown, freezes, sanitizes and executes blob scripts in order.
+6. A second load event tears down the frame.
 
-**التعقيم**
-- يُحذف: on*، وjavascript:، وiframe/frame/object/embed/base/portal، وmeta http-equiv، وscript داخل svg، وprefetch/preconnect/dns-prefetch/prerender.
-- يُعاد كتابة: src، وhref، وsrcset، وurl()، و@import.
-- يُعترض: fetch وXHR النسبيان.
+**Sanitization**
+- Remove: on*, javascript:, iframe/frame/object/embed/base/portal, meta http-equiv, scripts inside svg, prefetch/preconnect/dns-prefetch/prerender.
+- Rewrite: src, href, srcset, url(), @import.
+- Intercept: relative fetch and XHR.
 
-غير مدعوم: eval، وimport النسبي، وWorkers، وcookies، وIndexedDB، وWebRTC.
+Unsupported: eval, relative import, Workers, cookies, IndexedDB and WebRTC.
 
-**العزل الشبكي**
-- الطبقة 1: CSP.
-- الطبقة 2: DNR جلسي لكل تبويب:
-  - حجب {id 2·tabId، priority 1}.
-  - سماح {id 2·tabId+1، priority 2، urlFilter '|chrome-extension://<ID>/'}.
-  - التثبيت مغلق عند الفشل.
-- الطبقة 3: RtcLockdown، وحجته غير مثبتة، وX8 بوابة.
-- الروابط (D96): المحمّل يعترض النقر على الروابط. الرابط النسبي أو المطلق داخل الموقع يرسل nav/site_navigate بالمسار، والرابط https الخارجي يرسل nav/site_openExternal. الروابط بمخططات أخرى لا تُتبع.
+**Network isolation**
+- Layer 1: CSP.
+- Layer 2: per-tab session DNR:
+  - Block {id 2·tabId, priority 1}.
+  - Allow {id 2·tabId+1, priority 2, urlFilter '|chrome-extension://<ID>/'}.
+  - Installation fails closed.
+- Layer 3: RtcLockdown; its argument is unproven, and X8 is a gate.
+- Links (D96): the loader intercepts link clicks. A relative or absolute in-site link sends nav/site_navigate with the path; an external https link sends nav/site_openExternal. Links with other schemes are not followed.
 
-**التخزين المحلي للموقع (D34، D96)**
-- مفتاح التخزين المنطقي هو 'site:'+netKey+':'+address، وحالته قاموس {key → value} محفوظ في سجلات نسخ غير قابلة للاستبدال (D103).
-- المحاسبة الحرفية للحصة (SITE_STORE_MAX = 1048576 بايتًا):
-  - entry(k, v) = utf8len(k) + utf8len(v)، بترميز UTF-8 للنصين كما وردا في params بعد فك JSON، دون علامات الاقتباس ولا بنية JSON ولا بادئة 'site:'.
-  - total = Σ entry على كل الأزواج المخزنة للموقع.
-  - site_storageSet(k, v) مع v نص: newTotal = total − (entry(k, old) إن وُجد k) + entry(k, v). القبول إن newTotal ≤ 1048576، فالمساواة مقبولة. وإلا 4300 {reason: 'quota', limit: 1048576}.
-  - site_storageSet(k, null): حذف، newTotal = total − entry(k, old) أو total إن غاب k. لا يُرفض بالحصة أبدًا.
-  - site_storageClear: newTotal = 0، ولا يُرفض بالحصة.
-  - (D104) قيدان إضافيان:
-    - الإضافة التي تجعل عدد الأزواج > SITE_ENTRIES_MAX = 4096 تُرفض بـ4300 {reason: 'entries', limit: 4096}.
-    - كل كتابة، ومنها الحذف والمسح، تخضع لقبول القرص، فقد تُرفض بـ4300 {reason: 'disk'|'sites'} دون أي أثر.
-- الذرية: SiteStorage يحسب newTotal، ثم يكتب الحالة كاملة بعملية chrome.storage.local.set واحدة لعنصر سجل جديد (D103). عند 4300 لا تُستدعى أي كتابة، فتبقى اللقطة بايتيًا كما كانت. فشل الكتابة نفسها يُرد بـ−32603 {reason: transport} ويُعاد تحميل اللقطة من التخزين.
-- SiteStorage يسلسل الرسائل لكل مفتاح تخزين (netKey، عنوان) عبر StoreQueue، فلا تتداخل حسابات total.
+**Site-local storage (D34, D96)**
+- Logical storage key: 'site:'+netKey+':'+address; its state is a dictionary {key → value} stored in immutable versioned records (D103).
+- Literal quota accounting (SITE_STORE_MAX = 1048576 bytes):
+  - entry(k, v) = utf8len(k) + utf8len(v), UTF-8 encoding of the strings as present in params after JSON decoding, excluding quotes, JSON structure and the 'site:' prefix.
+  - total = Σ entry over all pairs stored for the site.
+  - site_storageSet(k, v) for string v: newTotal = total − (entry(k, old) if k exists) + entry(k, v). Accept if newTotal ≤ 1048576; equality is allowed. Otherwise 4300 {reason: 'quota', limit: 1048576}.
+  - site_storageSet(k, null): delete; newTotal = total − entry(k, old), or total if k is absent. Never rejected for quota.
+  - site_storageClear: newTotal = 0; never rejected for quota.
+  - (D104) Two additional constraints:
+    - An insertion making pair count > SITE_ENTRIES_MAX = 4096 is rejected with 4300 {reason: 'entries', limit: 4096}.
+    - Every write, including deletion and clear, requires disk admission and may be rejected with 4300 {reason: 'disk'|'sites'} without any effect.
+- Atomicity: SiteStorage computes newTotal, then writes the complete state using one chrome.storage.local.set operation for a new record (D103). At 4300 no write is called, so the snapshot remains byte-identical. A write failure returns −32603 {reason: transport} and reloads the snapshot from storage.
+- SiteStorage serializes messages per storage key (netKey, address) through StoreQueue, preventing overlapping total calculations.
 
 **StoreQueue (D101)**
 
-حجم الرسالة في الطابور:
-- qbytes(msg) = 64 + utf8len(k) + utf8len(v)، وv = null تُحسب 0.
-- site_storageClear تُحسب 64.
-- أقصى رسالة = 64+256+61440 = 61760.
+Queued message size:
+- qbytes(msg) = 64 + utf8len(k) + utf8len(v), counting null v as 0.
+- site_storageClear counts as 64.
+- Maximum message = 64+256+61440 = 61760.
 
-القبول عند B4، قبل الإلحاق ودون أي كتابة. تُقبل الرسالة إن تحققت الشروط الأربعة معًا:
+Admission at B4, before appending and without any write. Admit a message only if all four conditions hold:
 - sessQ.n+1 ≤ STORE_SESSION_MSGS_MAX = 8.
 - sessQ.bytes+qbytes ≤ STORE_SESSION_BYTES_MAX = 262144.
 - globQ.n+1 ≤ STORE_GLOBAL_MSGS_MAX = 64.
 - globQ.bytes+qbytes ≤ STORE_GLOBAL_BYTES_MAX = 4194304.
 
-المساواة مقبولة. أي خرق يعطي −32005 {reason: store} فورًا. العدادات تشمل كل رسالة مقبولة لم تصل إلى ownState = released (انظر دورة الملكية أدناه)، ومنها النشطة التي رُد عليها بـstoreTimeout ولم تستقر بعد.
+Equality is allowed. Any violation immediately gives −32005 {reason: store}. Counters include every admitted message not yet in ownState = released (see ownership lifecycle below), including active writes answered with storeTimeout but not yet settled.
 
-حقيقة حسابية (I55): بالقيم الافتراضية لا يمكن بلوغ الحد البايتي العام، لأن 64 رسالة قصوى = 64·61760 = 3952640 < 4194304. الحد العددي العام يحسم دائمًا قبله، فالحد البايتي العام دفاع زائد يحمي من تعديل لاحق للثوابت. يُختبر شرطه منفصلًا في BR21e بمعلمات اختبار.
+Arithmetic fact (I55): with defaults, the global byte limit is unreachable because 64 maximum messages = 64·61760 = 3952640 < 4194304. The global count limit always triggers first; the global byte limit is an additional defense against later constant changes. BR21e tests its condition separately using test parameters.
 
-الترتيب:
-- FIFO لكل مفتاح تخزين بترتيب القبول (arrivalMs ثم seq)، حتى لو جاءت الرسائل من تبويبات متعددة للموقع نفسه.
-- set وclear يُنفذان بالترتيب نفسه.
-- لكل مفتاح كتابة نشطة واحدة على الأكثر.
-- لكل الإضافة ≤ STORE_ACTIVE_GLOBAL = 2 كتابات نشطة. بقية المفاتيح تنتظر في FIFO عام.
+Ordering:
+- FIFO per storage key in admission order (arrivalMs then seq), even across multiple tabs for the same site.
+- set and clear execute in the same order.
+- At most one active write per key.
+- Extension-wide ≤ STORE_ACTIVE_GLOBAL = 2 active writes. Other keys wait in a global FIFO.
 
-التنفيذ:
-- تقييم الرأس (D102، I56): حين تصير الرسالة أول رسالة غير محررة لمفتاحها ولا كتابة نشطة لذلك المفتاح، يُحسب newTotal على total المؤكد فورًا. لا يُنتظر مقعد عام، ولا يُستدعى Chrome.
-  - التجاوز: الرد 4300 {reason: quota, limit: 1048576}، ثم release في الخطوة نفسها (queued → released). صفر استدعاء set، ولا مقعد ولا قفل محتجز. ثم يُقيَّم الرأس التالي للمفتاح فورًا.
-  - القبول (ومنه الحذف والمسح دائمًا): ownState = ready. تنتظر الرسالة مقعدًا عامًا في FIFO عام بترتيب القبول (arrivalMs ثم seq).
-- المقعد العام يُؤخذ لحظة بدء الكتابة فقط (ready → active)، فلا تحتجز رسالة مرفوضة بالحصة مقعدًا أبدًا.
-- نتيجة التقييم تبقى صحيحة حتى البدء، لأن total المفتاح لا يتغير إلا بكتابات المفتاح نفسه، وهذه تقع خلف الرسالة في FIFO.
-- STORE_QUEUE_WAIT يسري على queued وready معًا.
-- كتابة واحدة بـchrome.storage.local.set للقاموس كاملًا. الذرية مفترضة لعنصر واحد، ويقيسها BR21c.
-- النجاح يحدّث القاموس وtotal، ثم يُرد null.
+Execution:
+- Head evaluation (D102, I56): when a message becomes its key's first unreleased message and the key has no active write, compute newTotal immediately from confirmed total. Do not wait for a global slot or call Chrome.
+  - Overrun: reply 4300 {reason: quota, limit: 1048576}, then release in the same step (queued → released). Zero set calls; no slot or lock held. Immediately evaluate the key's next head.
+  - Admission (always including deletion and clear): ownState = ready. Wait for a global slot in global FIFO admission order (arrivalMs then seq).
+- Take the global slot only when starting the write (ready → active); a quota-rejected message never holds a slot.
+- The evaluation remains valid until start because only that key's writes change its total, and they are behind the message in FIFO.
+- STORE_QUEUE_WAIT applies to both queued and ready.
+- One chrome.storage.local.set writes the complete dictionary. Single-item atomicity is assumed and measured by BR21c.
+- Success updates dictionary and total, then replies null.
 
-المهل:
-- STORE_QUEUE_WAIT = 10s من القبول حتى بدء الكتابة. انقضاؤها يعطي −32005 {store}، وتُزال الرسالة دون كتابة.
-- STORE_WRITE_DEADLINE = 5s للكتابة النشطة. انقضاؤها يعطي −32603 {reason: storeTimeout}، أي نتيجة غير معروفة.
-  - المفتاح يبقى محجوبًا، ومقعد الكتابة النشطة محتجزًا، حتى يستقر وعد Chrome.
-  - عند الاستقرار يُعاد تحميل القاموس من التخزين ويُعاد حساب total.
-  - لا تبدأ الكتابة التالية للمفتاح قبل ذلك، فلا تنعكس الأوامر.
+Timeouts:
+- STORE_QUEUE_WAIT = 10s from admission until write start. Expiry gives −32005 {store}; remove the message without writing.
+- STORE_WRITE_DEADLINE = 5s for an active write. Expiry gives −32603 {reason: storeTimeout}, meaning the outcome is unknown.
+  - The key stays blocked and the active-write slot held until the Chrome promise settles.
+  - On settlement, reload the dictionary from storage and recompute total.
+  - Do not start the key's next write before this, preventing command reordering.
 
-دورة الملكية (D102، I54):
-- لكل رسالة مقبولة حالتان منفصلتان:
-  - حالة الرد: replyState ∈ {none, sent, suppressed}.
-  - حالة الملكية: ownState ∈ {queued, ready, active, released}.
-    - queued: لم تُقيَّم بعد.
-    - ready: اجتازت الحصة وتنتظر مقعدًا.
-- الرد النهائي يُرسل مرة واحدة على الأكثر، ولا يغير الملكية.
-- الموارد المملوكة:
-  - لكل رسالة: qbytes ورسالة واحدة في عداد الجلسة وفي العداد العام.
-  - للنشطة أيضًا: مقعد الكتابة النشطة العام، وقفل مفتاح التخزين.
-- release(msg) هو المكان الوحيد الذي يطرح العدادات ويحرر المقعد والقفل. يُنفذ مرة واحدة بالضبط لكل رسالة مقبولة. استدعاؤه مرة ثانية على الرسالة نفسها خطأ تنفيذ يكشفه BR21.
-- الانتقالات:
-  - queued → ready: تقييم الرأس بقبول.
-  - ready → active: أخذ مقعد عام وبدء set، دون تحرير.
-  - queued → released في ثلاث حالات:
-    - تقييم الرأس برفض الحصة: الرد 4300، دون set ودون مقعد.
-    - انقضاء STORE_QUEUE_WAIT عند acceptMs+10000: الرد −32005 {store}.
-    - الإلغاء بالهدم أو بانتهاء الجلسة: suppressed، دون رد.
-  - ready → released: انقضاء STORE_QUEUE_WAIT أو الإلغاء، بالردود نفسها.
-  - active → released: عند استقرار وعد chrome.storage.local.set فقط، نجاحًا أو فشلًا، ولا شيء غيره.
-- الاستقرار قبل المهلة: تحديث القاموس وtotal (أو إعادة التحميل عند الفشل)، ثم الرد (null أو −32603 {transport})، ثم release في الخطوة نفسها.
-- انقضاء STORE_WRITE_DEADLINE: الرد −32603 {storeTimeout} ويصير replyState = sent. الملكية تبقى active بعداداتها ومقعدها وقفلها.
-- الاستقرار بعد storeTimeout أو بعد هدم الإطار: إعادة تحميل القاموس من التخزين، وإعادة حساب total، ثم release، دون أي رد.
-- هدم الإطار بعد رد storeTimeout لا يغير العدادات: الرسالة رُد عليها ولا تزال نشطة.
-- الثابت: في كل لحظة يساوي عداد الجلسة والعداد العام عدد الرسائل غير المحررة ومجموع qbytes لها.
-  - لذلك يستمر قبول رسائل جديدة أثناء احتجاز نشطة معلقة، لكن ضمن ما تبقى من الحدود فقط.
-  - ورسائل المفتاح المحجوب تنتظر حتى الاستقرار أو حتى STORE_QUEUE_WAIT.
+Ownership lifecycle (D102, I54):
+- Every admitted message has two separate states:
+  - Reply state: replyState ∈ {none, sent, suppressed}.
+  - Ownership state: ownState ∈ {queued, ready, active, released}.
+    - queued: not yet evaluated.
+    - ready: passed quota, awaiting a slot.
+- Send at most one final response; it does not change ownership.
+- Owned resources:
+  - Per message: qbytes and one message in session/global counters.
+  - Active messages also own the global active-write slot and storage-key lock.
+- release(msg) is the sole place that subtracts counters and frees slot/lock. Execute exactly once per admitted message. A second call for the same message is an implementation error detected by BR21.
+- Transitions:
+  - queued → ready: successful head evaluation.
+  - ready → active: take a global slot and start set, without release.
+  - queued → released in three cases:
+    - Quota-rejected head evaluation: reply 4300, no set or slot.
+    - STORE_QUEUE_WAIT expiry at acceptMs+10000: reply −32005 {store}.
+    - Cancellation on teardown or session end: suppressed, no response.
+  - ready → released: STORE_QUEUE_WAIT expiry or cancellation, with the same responses.
+  - active → released: only when the chrome.storage.local.set promise settles, successfully or unsuccessfully; nothing else.
+- Settlement before deadline: update dictionary and total (or reload on failure), reply (null or −32603 {transport}), then release in the same step.
+- STORE_WRITE_DEADLINE expiry: reply −32603 {storeTimeout}; replyState = sent. Ownership stays active, with counters, slot and lock.
+- Settlement after storeTimeout or frame teardown: reload dictionary, recompute total, then release without any response.
+- Frame teardown after storeTimeout does not change counters: the message has been answered but remains active.
+- Invariant: at every moment session/global counters equal the count and qbytes sum of unreleased messages.
+  - New messages can therefore still be admitted while an active write is pending, but only within remaining limits.
+  - Messages for the blocked key wait until settlement or STORE_QUEUE_WAIT.
 
-الهدم والتنقل (D99):
-- رسائل الإطار المهدوم التي لم تبدأ تُلغى دون كتابة ودون رد، وتُحرر عداداتها فورًا.
-- الكتابة النشطة تُكمل لأن كتابة Chrome لا تُلغى، وتُحتسب حتى استقرارها، وردها يُهمل.
-- Navigator ينتظر استقرار الكتابة النشطة للمفتاح حتى STORE_WRITE_DEADLINE قبل أخذ snapshot للإطار الجديد. بعد المهلة يُحمّل الإطار بالحالة المؤكدة مع شارة «حالة الحفظ غير مؤكدة».
-- انتهاء الجلسة يطبق القاعدة نفسها.
+Teardown and navigation (D99):
+- Cancel unstarted messages from the torn-down frame without writing or replying; free their counters immediately.
+- An active write completes because Chrome writes cannot be cancelled; count it until settlement and discard its response.
+- Navigator waits for the key's active write to settle until STORE_WRITE_DEADLINE before taking the new frame's snapshot. After timeout, load the frame with confirmed state and an “Uncertain save state” badge.
+- Session termination applies the same rule.
 
-الذاكرة:
-- الطوابير ≤ 4 MiB.
-- الكتابات النشطة ≤ 2·(1048576+61760) قيمًا مع نسخة التسلسل، أي تقديرًا ≤ 5 MiB، وتُقاس في BR21c.
-- قواميس المفاتيح المحملة: قاموس لكل مفتاح له جلسة حية، والبقية تُطرد بـLRU عند تجاوز STORE_DICT_CACHE_MAX = 8 MiB.
-- المحمّل يبني localStorage من لقطة محلية عند التحميل. القراءة متزامنة من اللقطة.
-- المحمّل يفرض الحصة محليًا بالمحاسبة نفسها: setItem الذي يجعل المجموع > 1048576 يرمي QuotaExceededError، فلا تتجاوز لقطته المحلية 1 MiB.
-- الكتابة تُجمع كل 250ms في مجموعة مفاتيح متسخة تدمج القيمة الأخيرة لكل مفتاح، وclear() يفرغ المجموعة ويضع علامة مسح. ذاكرة الطابور المحلي إذن ≤ اللقطة المحلية.
-- المحمّل يرسل storage_set فقط إن تحققت ثلاثة شروط:
-  - المرسل ولم يُرد عليه < 8 رسائل.
-  - المرسل ولم يُرد عليه + qbytes ≤ 256 KiB.
-  - تقدير محلي بوجود رمز في الدلو.
-- ما يُرد عليه بـrate أو store يعود متسخًا ما لم تُكتب له قيمة أحدث.
-- عند اعتراض رابط داخلي يرسل المحمّل المفاتيح المتسخة، وينتظر ردودها حتى 2s، ثم يرسل site_navigate. الموقع الذي يستدعي site_navigate مباشرة يقبل فقد كتاباته المنتظرة (D101).
-- رد 4300 على كتابة من المحمّل: يعيد المحمّل القيمة في لقطته المحلية إلى آخر قيمة مؤكدة، ويعرض شارة «لم يُحفظ».
-- لا مشاركة بين عنوانين أو بين netKey مختلفين، ولا يصل موقع إلى مفتاح غيره، لأن SiteStorage يشتق المفتاح من سياق الإطار لا من الرسالة.
+Memory:
+- Queues ≤ 4 MiB.
+- Active writes ≤ 2·(1048576+61760) in values plus serialized copy, estimated ≤ 5 MiB, measured in BR21c.
+- Loaded key dictionaries: one per key with a live session; evict others by LRU above STORE_DICT_CACHE_MAX = 8 MiB.
+- The loader builds localStorage from a local snapshot on load; reads are synchronous from the snapshot.
+- The loader enforces quota locally with the same accounting: setItem causing total > 1048576 throws QuotaExceededError, keeping its snapshot ≤ 1 MiB.
+- Coalesce writes every 250ms into a dirty-key set retaining the last value per key; clear() empties the set and marks clear. Local queue memory is therefore ≤ the local snapshot.
+- The loader sends storage_set only if three conditions hold:
+  - Sent but unanswered messages < 8.
+  - Sent but unanswered bytes + qbytes ≤ 256 KiB.
+  - Local estimate indicates a bucket token.
+- A rate or store response makes the item dirty again unless a newer value was written.
+- On intercepted internal links, the loader sends dirty keys, waits up to 2s for responses, then sends site_navigate. A site directly calling site_navigate accepts losing pending writes (D101).
+- A loader write receiving 4300: restore the last confirmed value in the local snapshot and show a “Not saved” badge.
+- No sharing between addresses or netKeys; a site cannot access another's key because SiteStorage derives the key from frame context, not the message.
 
-**تعافي جيل العامل (D103، I57)**
+**Worker-generation recovery (D103, I57)**
 
-D101 وD102 تسريان داخل جيل عامل واحد. ما يلي يحكم الانتقال بين الأجيال.
+D101 and D102 apply within one worker generation. The following governs transitions between generations.
 
-البدائل:
-- (أ) مالك مستمر: مستند offscreen أو منفذ يبقي العامل حيًا. لا يضمن MV3 بقاءهما، فيبقى السؤال نفسه عند زوالهما.
-- (ب) إعادة قراءة القاموس عند الإقلاع وحدها: كتابة متأخرة من جيل ميت تمحو كتابة أحدث (سيناريو I57).
-- (ج) معاملات IndexedDB: مصير المعاملة عند زوال السياق غير متحقق، وتضيف مخزنًا ثانيًا.
-- (د) المختار: سجلات لا تُستبدل بنسخة (epoch, seq)، مع سياج جيل ونقطة تثبيت لكل مفتاح.
+Alternatives:
+- (A) Persistent owner: an offscreen document or port keeping the worker alive. MV3 does not guarantee their survival, leaving the same question on their disappearance.
+- (B) Only reread the dictionary at boot: a late write from a dead generation overwrites a newer write (I57 scenario).
+- (C) IndexedDB transactions: transaction outcome on context loss is unverified and introduces a second store.
+- (D) Selected: immutable records versioned by (epoch, seq), with a generation fence and per-key checkpoint.
 
-**1. السياج**
-- الاسم (D134): عنصر السياج للعدد E اسمه 'pocol:epoch:'+hex16(E) وحده، دون nonce، وقيمته {bootMs: Date.now()} ≤ EPOCH_BYTES_MAX. كل جيل يحسب E نفسه يكتب الاسم نفسه.
-- عند الإقلاع يسرد العامل عناصر 'pocol:epoch:*' بـgetKeys. EN عددها، وM أكبرها، وE = M+1. ثم بالترتيب: بوابة الأسماء، ثم نافذة الأجيال (القسم 6)، ثم الكتابة. لا set قبل اجتياز البوابتين.
-- بوابة الأسماء (D134): الشرط EN + 1 ≤ EPOCH_NAMES_MAX = 8. عند الخرق:
-  - لا إصدار، ويزيد epochGateBlocks.
-  - ينتظر الجيل حتى مضي T_LATE على إقلاعه بساعته الرتيبة، ثم يكنس كما أدناه، ثم يعيد السرد والبوابة مرة واحدة.
-  - إن استمر الخرق: storage_set يعطي −32603 {storeRecovery, reason: 'epochNames'} طوال الجيل، ولا snapshot، ويُرفع الإجراء 25.
-- يكتب 'pocol:epoch:'+hex16(E) بقيمة {bootMs}، وينتظر نجاح الكتابة. إعادات STORE_EPOCH_RETRY بالاسم نفسه، فلا تضيف أسماء.
-- لا كتابة بيانات ولا جلسة قبل التأكيد.
-- الفشل يُعاد حتى STORE_EPOCH_RETRY = 3 مرات. بعدها يعطي storage_set الرد −32603 {reason: storeRecovery}، ولا snapshot.
-- الكنس (D134): بعد مضي T_LATE على إقلاع الجيل الحي بساعته الرتيبة، يحذف كل عنصر epoch اسمه أصغر من أكبر عنصر ظاهر عند الكنس، أيًا كان bootMs المخزن.
-  - الأكبر لا يُحذف أبدًا، فالحد الأعلى غير متناقص.
-  - يجري الكنس في الجيل المؤكد وفي الجيل المحجوب بالبوابة.
-  - فشل remove يبقي العنصر محتسبًا في EN.
-- لِمّة الكتّاب: ليكن M_L أكبر عنصر ظاهر عند إقلاع الجيل الحي L. كل جيل يكتب اسمًا X ≤ M_L أقلع قبل L، لأن أي جيل لاحق يرى M_L فيختار عددًا أكبر. إذن خلف كل كاتب أقلع ≤ bootMs(L)، وكل عملياته تستقر قبل bootMs(L)+T_LATE (A15c). فالاسم المحذوف بالكنس لا يعود.
-- لِمّة حد الأسماء:
-  - كل اسم ≤ M ظهر من قبل، لأن كل كاتب لـX رأى X−1 ظاهرًا.
-  - بلِمّة الكتّاب لا يعود اسم محذوف.
-  - إذن الأسماء الحاضرة، أو التي قد تظهر في أي لحظة، محصورة في الظاهرة مع {M+1}.
-  - البوابة عند آخر إصدار تحفظ EN+1 ≤ 8، ولا تزيد الأسماء بعدها إلا بإقلاع يجتاز البوابة.
-  - فعناصر epoch ≤ 8 في كل لحظة، مهما تعددت الأجيال التي زالت قبل التأكيد.
-- لِمّة السياج:
-  - كل جيل كتب بيانات أكّد عنصره قبل ذلك، فيراه أي جيل لاحق، فيكون E اللاحق أكبر بصرامة.
-  - الجيل الذي لم يؤكد عنصره لم يكتب بيانات.
-  - من الأجيال التي تتشارك E (D134) يؤكد جيل واحد فقط: الثاني أقلع بعد زوال الأول، فإن كان الأول قد أكد رأى الثاني E واختار E+1.
+**1. Fence**
+- Name (D134): fence item for E is only 'pocol:epoch:'+hex16(E), without nonce; value {bootMs: Date.now()} ≤ EPOCH_BYTES_MAX. Every generation calculating the same E writes the same name.
+- At boot, list 'pocol:epoch:*' with getKeys. EN is the count, M the maximum, E = M+1. In order: name gate, generation window (section 6), then write. No set before both gates pass.
+- Name gate (D134): EN + 1 ≤ EPOCH_NAMES_MAX = 8. On violation:
+  - Issue nothing; increment epochGateBlocks.
+  - Wait T_LATE from this generation's boot using its monotonic clock, sweep as below, then repeat enumeration and gate once.
+  - If still violated: storage_set returns −32603 {storeRecovery, reason: 'epochNames'} throughout the generation; no snapshot; escalate action 25.
+- Write 'pocol:epoch:'+hex16(E) with {bootMs} and wait for success. STORE_EPOCH_RETRY retries use the same name, adding no names.
+- No data write or session before confirmation.
+- Retry failure up to STORE_EPOCH_RETRY = 3 times. Then storage_set returns −32603 {reason: storeRecovery}; no snapshot.
+- Sweep (D134): after T_LATE from the live generation's boot using its monotonic clock, delete every epoch item whose name is smaller than the largest visible at sweep time, regardless of stored bootMs.
+  - Never delete the largest; the upper bound is nondecreasing.
+  - Sweep in both confirmed and gate-blocked generations.
+  - A failed remove leaves the item counted in EN.
+- Writers lemma: let M_L be the largest visible item when live generation L boots. Every generation writing a name X ≤ M_L booted before L, because any later generation sees M_L and chooses a larger number. Thus each such writer booted ≤ bootMs(L), and all its operations settle before bootMs(L)+T_LATE (A15c). A swept name cannot return.
+- Name-bound lemma:
+  - Every name ≤ M has appeared before because each writer of X saw X−1.
+  - By the writers lemma, a deleted name cannot return.
+  - Thus names present or able to appear at any instant are limited to visible names plus {M+1}.
+  - The gate at last issuance preserves EN+1 ≤ 8; names increase only through a boot passing the gate.
+  - Therefore epoch items ≤ 8 at every instant, regardless of generations disappearing before confirmation.
+- Fence lemma:
+  - Every generation writing data first confirmed its fence; any later generation sees it and chooses a strictly larger E.
+  - A generation that did not confirm its fence wrote no data.
+  - Among generations sharing E (D134), only one confirms: the second booted after the first disappeared; if the first had confirmed, the second would see E and choose E+1.
 
-**2. السجل**
-- كل set يكتب عنصرًا جديدًا لا يُستبدل: 'site:'+netKey+':'+addr+':r:'+hex16(E)+':'+hex8(seq).
-- قيمة العنصر {fmt: 2, epoch, seq, tomb, b64}. b64 هو base64 لتسلسل الأزواج [be32(len k)‖k‖be32(len v)‖v] بترتيب بايتي للمفاتيح (D104).
-- (D104) يخصص seq مخصص واحد SeqAlloc لكل (مفتاح، جيل):
-  - يبدأ من 0، وalloc() يعيد القيمة الحالية ويزيدها قبل إصدار أي set، سواء كانت نقطة تثبيت أو إعادة محاولتها أو كتابة عادية.
-  - لا مخصص آخر، ولا يُشتق seq من رقم نقطة التثبيت.
-- المدى: seq ∈ [0, 2^32−1]، وepoch ∈ [1, 2^64−1]. نفاد seq يجعل كتابات المفتاح في الجيل −32603 {storeRecovery} دون set. نفاد epoch يعطل التخزين المحلي.
-- لا يُعاد استخدام seq ولو فشل الوعد أو انقضت مهلته.
-- الحالة المؤكدة = dict في أكبر سجل (epoch, seq) موجود وصالح.
-- بعد نجاح سجل تُحذف السجلات الأقل منه بأفضل جهد. ما فشل حذفه يبقى محتسبًا في القرص (D104).
+**2. Record**
+- Every set writes a new immutable item: 'site:'+netKey+':'+addr+':r:'+hex16(E)+':'+hex8(seq).
+- Value {fmt: 2, epoch, seq, tomb, b64}. b64 is base64 of pairs serialized as [be32(len k)‖k‖be32(len v)‖v] in bytewise key order (D104).
+- (D104) One SeqAlloc allocates seq per (key, generation):
+  - Starts at 0; alloc() returns the current value and increments before issuing any set, whether a checkpoint, checkpoint retry or ordinary write.
+  - No other allocator; seq is not derived from the checkpoint number.
+- Range: seq ∈ [0, 2^32−1], epoch ∈ [1, 2^64−1]. Exhausted seq makes the key's writes in this generation return −32603 {storeRecovery} without set. Exhausted epoch disables local storage.
+- Never reuse seq even if its promise fails or times out.
+- Confirmed state = dict in the greatest present valid (epoch, seq) record.
+- After a record succeeds, delete lower records best-effort. Failed deletions remain charged to disk (D104).
 
-**3. الاسترداد لكل مفتاح: RecoveryGate (D104)**
-لكل مفتاح في الجيل حالة واحدة ∈ {unrecovered, recovering, ready, failed} وعملية استرداد مشتركة واحدة. أي snapshot أو storage_set، من أي تبويب، ينتظر العملية نفسها ولا يبدأ غيرها.
+**3. Per-key recovery: RecoveryGate (D104)**
+Each key has one state per generation ∈ {unrecovered, recovering, ready, failed} and one shared recovery operation. Any snapshot or storage_set from any tab waits for that same operation, never starting another.
 
-عند أول وصول (unrecovered → recovering) تبدأ مرحلة القراءة (D110، I63):
-- t_s هي لحظة الانتقال. عندها يُنشأ gateId جديد للمفتاح، وتبدأ مهلة كلية RECOVERY_READ_DEADLINE = 5s. المهلة تشمل انتظار مقاعد القراءة، وgetKeys، وكل get، وفك السجلات وفحصها.
-- كل نداء getKeys أو get يأخذ مقعدًا من ReadSlots (RECOVERY_READ_SLOTS = 2 لكل الإضافة) عبر ReadFIFO عام. لا يحرر المقعد إلا settle وعد القراءة نفسه. لا قراءة دون مقعد.
-- يسرد العامل أسماء سجلات المفتاح من getKeys بالتصفية على البادئة، ثم يقرأ الأكبر وحده بـget. إن كان تالفًا يقرأ الذي يليه نزولًا، حتى RECOVERY_GETS_MAX = 4 قراءات get.
-- يختار أكبر سجل صالح. السجل التالف يُتخطى ويُعد في recoveryCorrupt.
-- غياب أي سجل للمفتاح يعني القاموس {}.
-- وجود سجل تالف دون سجل صالح ضمن القراءات الأربع يجعل المفتاح failed، ورسائله تُرد بـ−32603 {storeRecovery, reason: corrupt}. لا إصدار ولا تخصيص seq. السجلات تبقى، ويمكن حذفها إداريًا.
-- انقضاء المهلة قبل اكتمال القراءة يعيد المفتاح إلى unrecovered بسبب readTimeout:
-  - رسائله المنتظرة تُرد بـ−32603 {storeRecovery, reason: readTimeout} وتُحرر.
-  - لا إصدار، ولا تخصيص seq، ولا حجز قرص.
-  - الوصول التالي يبدأ بوابة جديدة بـgateId جديد.
-- كل نتيجة قراءة تُقبل فقط إن طابق gateId الحالي وكانت البوابة في مرحلة القراءة. غير ذلك تُهمل النتيجة، ويُحرر مقعدها فقط، ويزيد lateReadsDropped. لذلك لا تُصدر نقطة تثبيت بعد الحسم.
-- القراءة لا تغير القرص، فالقراءة المعلقة لا تدخل LATE_RESERVE ولا LATE_NAMES. ذاكرتها محدودة: ≤ 2 قراءة معلقة، كل منها ≤ RECORD_BYTES_MAX أو قائمة أسماء ≤ STORE_RECORDS_MAX+LATE_NAMES تحت A15c.
-- يطلب مقعدًا من RecoverySlots (D109)، لا من STORE_ACTIVE_GLOBAL، بانتظار ≤ RECOVERY_SLOT_WAIT = 5s من لحظة الطلب.
-- عند الحصول على المقعد، وفي الخطوة المتزامنة نفسها: DiskLedger.reserve، ثم s_c = SeqAlloc.alloc()، ثم إصدار نقطة تثبيت (E, s_c) بالقاموس نفسه. مهلة STORE_RECOVERY_DEADLINE = 5s تبدأ لحظة الإصدار.
-- رفض القرص: لا إصدار، ويُحرر المقعد في الخطوة نفسها، وتُعد المحاولة فاشلة دون عملية معلقة.
-- تعذر المقعد للمحاولة الأولى خلال 5s: لا إصدار ولا تخصيص seq. يعود المفتاح إلى unrecovered، ورسائله المنتظرة تُرد بـ−32603 {storeRecovery, reason: busy} وتُحرر. الوصول التالي يبدأ بوابة جديدة.
-- عند النجاح: ready، وconfirmed = (E, s_c). الكتابات اللاحقة تأخذ أرقامها من SeqAlloc نفسه.
-- ثم يحذف ما دونها.
+On first access (unrecovered → recovering), start the read phase (D110, I63):
+- t_s is transition time. Create a new gateId for the key and start total RECOVERY_READ_DEADLINE = 5s, including read-slot wait, getKeys, every get, record decoding and validation.
+- Every getKeys or get takes a ReadSlots slot (RECOVERY_READ_SLOTS = 2 extension-wide) through global ReadFIFO. Release only when that read promise itself settles. No read without a slot.
+- List key record names by prefix filtering getKeys; get only the greatest. If corrupt, descend to the next, up to RECOVERY_GETS_MAX = 4 get reads.
+- Select the greatest valid record. Skip corrupt records and count them in recoveryCorrupt.
+- No record for the key means dictionary {}.
+- Corrupt records with no valid record within four reads make the key failed; messages return −32603 {storeRecovery, reason: corrupt}. No issuance or seq allocation. Records remain and can be administratively deleted.
+- Deadline expiry before reads complete returns the key to unrecovered with readTimeout:
+  - Pending messages return −32603 {storeRecovery, reason: readTimeout} and are released.
+  - No issuance, seq allocation or disk reservation.
+  - Next access starts a new gate with a new gateId.
+- Accept a read result only if gateId matches the current gate and it is in the read phase. Otherwise ignore the result, release only its slot and increment lateReadsDropped. Thus no checkpoint is issued after resolution.
+- Reads do not change disk; pending reads do not enter LATE_RESERVE or LATE_NAMES. Memory is bounded: ≤ 2 pending reads, each ≤ RECORD_BYTES_MAX or a name list ≤ STORE_RECORDS_MAX+LATE_NAMES under A15c.
+- Request a RecoverySlots slot (D109), not STORE_ACTIVE_GLOBAL, with wait ≤ RECOVERY_SLOT_WAIT = 5s from the request.
+- On obtaining the slot, in the same synchronous step: DiskLedger.reserve, then s_c = SeqAlloc.alloc(), then issue checkpoint (E, s_c) with the same dictionary. STORE_RECOVERY_DEADLINE = 5s starts at issuance.
+- Disk rejection: no issuance; release the slot in the same step and count the attempt failed without a pending operation.
+- First-attempt slot unavailable within 5s: no issuance or seq allocation. Return key to unrecovered; pending messages return −32603 {storeRecovery, reason: busy} and are released. Next access starts a new gate.
+- On success: ready, confirmed = (E, s_c). Subsequent writes use the same SeqAlloc.
+- Then delete lower records.
 
-قبل نجاح نقطة التثبيت:
-- رسائل المفتاح تبقى queued، محسوبة، وخاضعة لـSTORE_QUEUE_WAIT.
-- لا snapshot.
+Before checkpoint success:
+- Key messages remain queued, counted and subject to STORE_QUEUE_WAIT.
+- No snapshot.
 
-عند فشل نقطة التثبيت أو انقضاء مهلتها:
-- محاولة ثانية واحدة بـalloc() جديد وبالقاموس نفسه. تُطلب لحظة فشل settle الأولى أو انقضاء مهلتها، وتطلب مقعدًا جديدًا من RecoverySlots بانتظار ≤ 5s. المحاولة الأولى تبقى معلقة ومالكة مقعدها ومحتسبة في القرص حتى تستقر.
-- تعذر مقعد المحاولة الثانية خلال 5s يُعامل كانقضاء مهلتها: المفتاح failed وفق D107، دون إصدار ودون تخصيص seq.
-- إن صار المفتاح ready بـsettle ناجح للأولى أثناء انتظار مقعد الثانية، يُسحب طلب المقعد من RecoveryFIFO دون إصدار.
-- حد الحسم (D110): مرحلة القراءة تنتهي أو تنقضي عند ≤ t_s+5s، فطلب مقعد المحاولة الأولى t0 ≤ t_s+5s. ثم مقعد ≤ t0+5s، ثم مهلة ≤ t0+10s، ثم مقعد الثانية ≤ t0+15s، ثم مهلتها ≤ t0+20s.
-- إذن تُحسم البوابة خلال ≤ 25s من t_s. الحسم أحد أربعة: ready، أو failed، أو unrecovered بسبب busy، أو unrecovered بسبب readTimeout.
-- رسائل المفتاح المنتظرة خلال الاسترداد تبقى خاضعة لـSTORE_QUEUE_WAIT = 10s، فقد تُرد بـstore قبل الحسم.
+On checkpoint failure or timeout:
+- One second attempt with fresh alloc() and the same dictionary. Request it when the first settles unsuccessfully or times out; request a fresh RecoverySlots slot, wait ≤ 5s. The first attempt remains pending, owning its slot and counted on disk until settlement.
+- Second-attempt slot unavailable within 5s is treated as its timeout: key failed under D107, no issuance or seq allocation.
+- If successful first-attempt settlement makes the key ready while waiting for the second slot, withdraw its request from RecoveryFIFO without issuance.
+- Resolution bound (D110): read phase completes or expires by ≤ t_s+5s, so first slot request t0 ≤ t_s+5s. Slot by ≤ t0+5s, timeout by ≤ t0+10s, second slot by ≤ t0+15s, second timeout by ≤ t0+20s.
+- The gate therefore resolves within ≤ 25s of t_s into one of four states: ready, failed, unrecovered due to busy, or unrecovered due to readTimeout.
+- Messages awaiting recovery remain subject to STORE_QUEUE_WAIT = 10s and may receive store before resolution.
 
-RecoverySlots (D109، I62):
-- RECOVERY_SLOTS = 2 لكل الإضافة، منفصلة عن STORE_ACTIVE_GLOBAL وعن AdminSlots. حالة المقعد ∈ {free, held(op)}.
-- الأخذ عبر RecoveryFIFO عام بترتيب الطلب، في الخطوة المتزامنة نفسها مع DiskLedger.reserve والإصدار.
-- التحرير عند settle وعد نقطة التثبيت فقط، نجاحًا أو فشلًا، أو عند رفض القرص قبل الإصدار. لا تحرره المهلة ولا الحسم. زوال الجيل يسقط الحالة كلها.
-- لِمّة RecoverySlots: كل نقطة تثبيت صادرة تملك مقعدًا من الإصدار حتى settle، ولا تُصدر دونه. إذن نقاط التثبيت غير المستقرة في الجيل ≤ 2 في كل لحظة، ومنها لحظة زواله، مهما تعددت المفاتيح والمحاولات.
-- لِمّة الحسم: مرحلة القراءة ≤ 5s بمهلة كلية، وكل انتظار مقعد تثبيت ≤ 5s، وكل مهلة تثبيت ≤ 5s، والمحاولات ≤ 2. فالحسم ≤ 25s من t_s دون افتراض استقرار أي وعد قراءة أو كتابة. نتائج القراءة بعد الحسم تُهمل بـgateId، فلا تغير الحسم ولا تصدر عملية.
-- الحدثان (D107):
-  - apply: ظهور السجل في التخزين، فيراه listKeys.
-  - settle: استقرار وعد set في الجيل الحي.
-  - الحسم يعتمد settle وحده، وapply دون settle لا يغير الحالة.
-- أول settle ناجح لأي محاولة قبل الحسم يجعل المفتاح ready فورًا.
-- confirmed = أكبر نسخة استقرت بنجاح. نسختا التثبيت تحملان القاموس نفسه، فلا يتغير القاموس بنجاح المحاولة الأخرى لاحقًا.
-- ready لا يعود إلى حالة سابقة.
-- failed يُحسم حين تكون كل محاولة قد فشل settle لها أو انقضت مهلتها. بعدها يبقى نهائيًا في الجيل، وأي settle ناجح متأخر لا يغيره ويُعد في lateRecordsSeen.
-- فشل المحاولتين أو انقضاء مهلتيهما يجعل المفتاح failed: رسائل المفتاح تُرد بـ−32603 {storeRecovery} وتُحرر، ولا snapshot في هذا الجيل.
-- المحاولة المتأخرة، إن طُبقت، نسختها أقل من كل كتابة بعد ready، وقاموسها هو القاموس المسترد نفسه.
+RecoverySlots (D109, I62):
+- RECOVERY_SLOTS = 2 extension-wide, separate from STORE_ACTIVE_GLOBAL and AdminSlots. Slot state ∈ {free, held(op)}.
+- Acquire through global RecoveryFIFO in request order, in the same synchronous step as DiskLedger.reserve and issuance.
+- Release only on checkpoint-promise settlement, success or failure, or disk rejection before issuance. Neither timeout nor resolution releases it. Generation loss drops all state.
+- RecoverySlots lemma: every issued checkpoint owns a slot from issuance until settlement and cannot issue without one. Thus unsettled checkpoints per generation ≤ 2 at every instant, including generation loss, regardless of keys or attempts.
+- Resolution lemma: read phase ≤ 5s under a total deadline; each checkpoint-slot wait ≤ 5s; each checkpoint timeout ≤ 5s; attempts ≤ 2. Resolution is therefore ≤ 25s from t_s without assuming any read/write promise settles. Post-resolution read results are ignored through gateId, changing neither resolution nor issuing an operation.
+- The two events (D107):
+  - apply: the record appears in storage and becomes visible to listKeys.
+  - settle: the set promise settles in the live generation.
+  - Resolution depends only on settle; apply without settle does not change state.
+- The first successful settle of any attempt before resolution immediately makes the key ready.
+- confirmed = greatest successfully settled version. Both checkpoints carry the same dictionary, so later success of the other attempt does not change it.
+- ready never returns to an earlier state.
+- Resolve failed once every attempt has settled unsuccessfully or timed out. It remains terminal for that generation; a late successful settle cannot change it and increments lateRecordsSeen.
+- Failure or timeout of both attempts makes the key failed: its messages return −32603 {storeRecovery} and are released; no snapshot in this generation.
+- A late attempt, if applied, has a lower version than every post-ready write and carries the same recovered dictionary.
 
-لِمّة الحسم:
-- كل كتابة من جيل سابق نسختها < (E, 0).
-- إن طُبقت قبل قراءة الاسترداد صارت أساس نقطة التثبيت. وإلا بقيت أقل من كل سجل لاحق، فلا تظهر أبدًا.
-- إذن نتيجتها تُحسم مرة واحدة ولا تنقلب، ولا تتجاوز كتابة لاحقة.
-- الكتابة التي رُد عليها null التزمت قبل الرد، ولا يُحذف سجل قبل التزام سجل أكبر منه، فلا تُفقد.
+Resolution lemma:
+- Every previous-generation write has version < (E, 0).
+- If applied before recovery read, it becomes the checkpoint basis. Otherwise it remains below every subsequent record and never becomes visible.
+- Thus its outcome resolves once without reversing or superseding a subsequent write.
+- A write answered null committed before the response; no record is deleted before a greater record commits, so it is not lost.
 
-لِمّة التخصيص (D104):
-- داخل الجيل يأخذ كل set رقمًا جديدًا قبل إصداره، فلا يتكرر اسم سجل.
-- كل عملية متأخرة من الجيل نسختها أقل من كل عملية خُصص لها رقم بعدها.
-- البوابة الواحدة تمنع نقطتي تثبيت متوازيتين.
+Allocation lemma (D104):
+- Within a generation, every set receives a fresh number before issuance; record names cannot repeat.
+- Every late operation has a lower version than any operation allocated after it.
+- The single gate prevents two parallel checkpoints.
 
-لِمّة البقاء:
-- الحذف، في الكنس أو الاسترداد، لا يزيل سجلًا r إلا بعد رؤية سجل موجود h > r للمفتاح نفسه.
-- لا يُزال أكبر سجل أبدًا.
-- بالاستقراء يبقى أكبر سجل مطبق موجودًا، حتى لو طُبق الحذف متأخرًا.
+Survival lemma:
+- Deletion, whether sweeping or recovery, removes record r only after observing a present h > r for the same key.
+- The greatest record is never removed.
+- Inductively, the greatest applied record remains present even if deletion applies late.
 
-**4. الذاكرة**
-- زوال العامل يُسقط الطوابير والعدادات والأقفال والجلسات والحجوزات.
-- الجيل الجديد يبدأ بعدادات صفرية، ولا يرث معرفات الرسائل.
-- لا يصل رد لرسالة من جيل سابق.
+**4. Memory**
+- Worker loss drops queues, counters, locks, sessions and reservations.
+- The new generation starts with zero counters and inherits no message IDs.
+- No response reaches a message from a previous generation.
 
-**5. الإطارات**
-- viewer يحمل منفذ runtime مع العامل، والعامل يعلن genId في رسالة hello.
-- عند onDisconnect أو ظهور genId مختلف:
-  - يهدم viewer كل إطارات المواقع فورًا.
-  - يعرض «انقطع عامل الإضافة؛ قد تكون آخر الكتابات غير محفوظة» مع زر «إعادة التحميل».
-- لا إعادة تحميل تلقائية. الجلسة الجديدة بفعل المستخدم (D99)، فلا يجدد موقع دلوه بإسقاط العامل.
-- المفاتيح المتسخة في لقطة الإطار المهدوم تُفقد بإعلان، ولا تُرسل من لقطة قديمة.
-- إعادة التحميل تأخذ snapshot بعد استرداد المفتاح.
+**5. Frames**
+- viewer holds a runtime port to the worker; the worker announces genId in hello.
+- On onDisconnect or a different genId:
+  - viewer immediately tears down every site frame.
+  - Show “The extension worker disconnected; recent writes may not have been saved” with a “Reload” button.
+- No automatic reload. The new session requires user action (D99), preventing a site from renewing its bucket by crashing the worker.
+- Dirty keys in the torn-down frame's snapshot are lost with notice and are not sent from an old snapshot.
+- Reload takes a snapshot after key recovery.
 
-**6. القرص**
-الحدود الملزمة (D104):
-- حجم السجل: مع SITE_ENTRIES_MAX = 4096 يكون enc ≤ RECORD_BYTES_MAX = 4·ceil((1048576+8·4096)/3)+256 = 1442048.
-- القياس:
-  - inUse = getBytesInUse(null)، يُقاس بعد كنس الإقلاع وبعد استقرار كل set أو remove.
-  - names = عدد الأسماء التي يعيدها getKeys.
-- قاعدة القبول لكل set (بيانات، أو تثبيت، أو حذف، أو مسح):
+**6. Disk**
+Binding limits (D104):
+- Record size: with SITE_ENTRIES_MAX = 4096, enc ≤ RECORD_BYTES_MAX = 4·ceil((1048576+8·4096)/3)+256 = 1442048.
+- Measurement:
+  - inUse = getBytesInUse(null), measured after boot sweep and after every set/remove settlement.
+  - names = count returned by getKeys.
+- Admission rule for every set (data, checkpoint, deletion or clear):
   - inUse + unres + enc(w) + LATE_RESERVE + META_RESERVE ≤ STORE_DISK_HARD = 256 MiB.
-  - names + unresN + 1 + LATE_NAMES + EPOCH_NAMES_MAX ≤ STORE_RECORDS_MAX = 1024، أي احتياطي 24+8 = 32 (D134). العناصر الظاهرة تُحسب في names وفي الاحتياطي معًا، وهذا محافظ.
-  - unres وunresN: مجموع حجوزات DiskLedger الحية (D105) بالبايت وبالأسماء، لا تقدير منفصل.
-  - LATE_RESERVE = GEN_WINDOW_MAX·(STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS)·RECORD_BYTES_MAX = 4·4·1442048 = 23072768، وLATE_NAMES = GEN_WINDOW_MAX·(STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS+ADMIN_SLOTS) = 24.
-    - الستة لكل جيل: مقعدان عامان، ومقعدا تثبيت (D109)، ومقعدا القبر (D108).
-    - عناصر epoch خارجها، ويحجزها EPOCH_NAMES_MAX = 8 كليًا (D134).
-  - META_RESERVE = 1 MiB لعناصر epoch والقبور. القبر وحده معفى من شرط البايت ومحسوب في META_RESERVE. القيد (D108): META_RESERVE ≥ STORE_RECORDS_MAX·TOMB_BYTES_MAX + (GEN_WINDOW_MAX+1)·ADMIN_SLOTS·TOMB_BYTES_MAX + EPOCH_NAMES_MAX·EPOCH_BYTES_MAX = 524288+5120+2048 = 531456 ≤ 1048576 (D134). مكونات القيد:
-    - القبور الباقية ≤ STORE_RECORDS_MAX، لأن القبر غير معفى من شرط الأسماء.
-    - القبور غير المستقرة ≤ ADMIN_SLOTS للجيل الحي ولكل جيل ميت.
-    - EPOCH_BYTES_MAX = 256، وعناصر epoch ≤ EPOCH_NAMES_MAX = 8 في كل لحظة (D134).
-- الخرق: 4300 {reason: 'disk', limit} قبل أي set، ولا يُحذف أي سجل لإفساح مكان.
-- DiskLedger (D105): القبول والحجز خطوة متزامنة واحدة في العامل، بلا await بين الفحص والإضافة. JavaScript أحادي الخيط، فلا يتداخل قبولان.
-  - reserve(op): يفحص الشروط بقيم R_bytes وR_names وR_sites الحالية، ثم يضيف إليها في الخطوة نفسها enc(op) واسمًا واحدًا ومقعد موقع إن كان الموقع جديدًا، ويعيد DiskTicket مملوكة للعملية.
-  - يشمل ذلك الحذف والمسح ونقطة التثبيت والقبر (بايتاته في META_RESERVE). أما remove فبتذكرة صفرية.
-  - عمر التذكرة:
-    - عند settle تصير settled برقم settleSeq، وتبقى محسوبة.
-    - تُسقط فقط عند اكتمال refresh (getBytesInUse وgetKeys) صدر طلبه بعد settleSeq، مع اعتماد قياسه في الخطوة نفسها. إذن لا فجوة بين خروجها من الحجز ودخول أثرها في القياس.
-  - refresh متسلسل، واحد في كل لحظة، ويُجدول بعد كل settle.
-  - مقعد الموقع: بعد نجاح الكتابة يظهر في sitesLive المقيس. بعد فشلها يُحرر مع ذلك القياس نفسه.
-  - التذكرة التي لا يستقر وعدها تبقى حتى زوال الجيل، ثم يغطيها LATE_RESERVE تحت A15c.
-  - الحذف لا يُطرح من الاستهلاك إلا بالقياس، فالتأخر يبالغ في الاستهلاك ولا ينقصه.
-  - لِمّة الحجز: كل عملية للجيل الحي غير مشمولة في آخر قياس تملك تذكرة حية. فالقرص بمقياس Chrome ≤ inUse + R_bytes + أثر الأجيال الميتة، والشرط عند كل قبول يحفظ الحد. والمثل للأسماء والمواقع.
-- مقاعد المواقع (D105، D112، I66):
-  - sitesLive = عدد المفاتيح (netKey، عنوان) المتمايزة التي لها اسم سجل واحد على الأقل في آخر getKeys معتمد، أيًا كان محتواه: بيانات، أو {}، أو قبر.
-    - لا يُحتسب مفتاح مرتين.
-    - لا يخرج مفتاح منه إلا بقياس معتمد لا يرى له أي سجل، بشرط ألا يكون له pin في الجيل الحي (D113).
-    - pin (D113): كل تذكرة DiskLedger، عدا remove، لعملية على مفتاح محتسب لحظة قبولها تثبّت المفتاح في sitesLive حتى إسقاط التذكرة (D105). القياس الذي يسقط التذكرة صدر بعد settle، فيرى أثرها إن طُبقت. لذلك لا يبقى مفتاح أنشأته العملية دون عد.
-    - التذكرة التي تحمل مقعد موقع تُسقط في خطوة اعتماد القياس الذي يراه (D105)، فلا فجوة ولا عدّ مزدوج.
-  - العمليات التي قد تنشئ مفتاحًا جديدًا اثنتان: set بيانات، ونقطة تثبيت لمفتاح بلا سجل (القاموس {}).
-    - القبر لا ينشئ مفتاحًا، لأنه لا يصدر إلا بعد سجل للمفتاح في الجيل الحي.
-    - remove لا ينشئ مفتاحًا.
-  - LATE_SITES_PER_GEN = STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS = 4. كل عملية منشئة غير مستقرة تملك مقعدًا حتى settle (D102، D109). والمستقرة بنجاح يراها الجيل التالي، والمرفوضة لا تُطبق (A15d). فعمليات الجيل الميت التي قد تنشئ مفتاحًا لاحقًا ≤ 4.
-  - lateGens(now) = عدد عناصر epoch الظاهرة X ≤ E، ومنها الجيل الحي، بحيث bootMs(X) ≥ now−T_LATE (D134).
-    - كل X يمثل الجيل الذي سبقه، وعملياته تُطبق أو تُسقط قبل bootMs(X)+T_LATE (A15c).
-    - العدد ≤ GEN_WINDOW_MAX بنافذة الأجيال.
-    - هذه العناصر لا تُكنس قبل خروجها من النافذة.
-    - (D134) الجيل غير المؤكد لا يكتب إلا عنصر epoch باسم مشترك، دون بيانات. قد تكتب أجيال أقدم قيمة العنصر نفسه متأخرة، فيصير bootMs المخزن أقدم.
-    - لِمّة التغطية: لكل جيل ميت D كتب بيانات، كل كاتب للاسم E_D+1 أقلع بعد D. السبب: لو أقلع قبله ورأى E_D لاختار D العدد E_D+1 لا E_D.
-    - إذن bootMs المخزن ≥ إقلاع خلف D، فيبقى العنصر في النافذة ما دامت عمليات D قد تُطبق.
-    - العناصر الظاهرة من أجيال غير مؤكدة تُعد أيضًا، وهذا محافظ.
+  - names + unresN + 1 + LATE_NAMES + EPOCH_NAMES_MAX ≤ STORE_RECORDS_MAX = 1024; reserve 24+8 = 32 (D134). Visible items count both in names and in reserve, conservatively.
+  - unres and unresN are sums of live DiskLedger reservations (D105), in bytes and names, not separate estimates.
+  - LATE_RESERVE = GEN_WINDOW_MAX·(STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS)·RECORD_BYTES_MAX = 4·4·1442048 = 23072768; LATE_NAMES = GEN_WINDOW_MAX·(STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS+ADMIN_SLOTS) = 24.
+    - Six per generation: two global slots, two checkpoint slots (D109), two tombstone slots (D108).
+    - Epoch items are separate, with total EPOCH_NAMES_MAX = 8 reserved (D134).
+  - META_RESERVE = 1 MiB for epoch items and tombstones. Only tombstones are exempt from the byte condition and charged to META_RESERVE. Constraint (D108): META_RESERVE ≥ STORE_RECORDS_MAX·TOMB_BYTES_MAX + (GEN_WINDOW_MAX+1)·ADMIN_SLOTS·TOMB_BYTES_MAX + EPOCH_NAMES_MAX·EPOCH_BYTES_MAX = 524288+5120+2048 = 531456 ≤ 1048576 (D134). Components:
+    - Retained tombstones ≤ STORE_RECORDS_MAX because tombstones are not exempt from the name condition.
+    - Unsettled tombstones ≤ ADMIN_SLOTS for the live generation and each dead generation.
+    - EPOCH_BYTES_MAX = 256; epoch items ≤ EPOCH_NAMES_MAX = 8 at every instant (D134).
+- Violation: 4300 {reason: 'disk', limit} before any set; never delete a record to make room.
+- DiskLedger (D105): admission and reservation are one synchronous worker step, with no await between check and addition. JavaScript is single-threaded, so admissions cannot overlap.
+  - reserve(op): check conditions against current R_bytes, R_names and R_sites; in the same step add enc(op), one name and a site slot if new; return an operation-owned DiskTicket.
+  - Includes deletion, clear, checkpoint and tombstone (its bytes are in META_RESERVE). remove has a zero ticket.
+  - Ticket lifetime:
+    - On settle, become settled with settleSeq; remain counted.
+    - Drop only on completion of a refresh (getBytesInUse and getKeys) requested after settleSeq, adopting its measurement in that same step. There is no gap between reservation removal and measured effect.
+  - Serialize refresh: one at a time, scheduled after every settle.
+  - Site slot: after successful writing, it appears in measured sitesLive. On failure, release with that same measurement.
+  - A ticket whose promise never settles remains until generation loss, then LATE_RESERVE covers it under A15c.
+  - Subtract deletions only through measurement; delay overestimates usage rather than understating it.
+  - Reservation lemma: every live-generation operation absent from the last measurement owns a live ticket. Chrome-measured disk ≤ inUse + R_bytes + dead-generation effects; each admission preserves the bound. Likewise for names and sites.
+- Site slots (D105, D112, I66):
+  - sitesLive = distinct (netKey, address) keys with at least one record name in the last adopted getKeys, regardless of content: data, {} or tombstone.
+    - Never count a key twice.
+    - Remove a key only after an adopted measurement sees no record for it and it has no live-generation pin (D113).
+    - pin (D113): every non-remove DiskLedger ticket for an operation on a key counted at admission pins it in sitesLive until ticket removal (D105). The measurement dropping the ticket was requested after settle and sees its effect if applied. Thus no operation-created key remains uncounted.
+    - A site-slot ticket drops in the same step as adopting the measurement that sees it (D105), with no gap or double count.
+  - Two operations can create a new key: data set and checkpoint for a recordless key (dictionary {}).
+    - A tombstone cannot create a key because it issues only after a record exists for the key in the live generation.
+    - remove cannot create a key.
+  - LATE_SITES_PER_GEN = STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS = 4. Every unsettled creating operation owns a slot until settle (D102, D109). A successfully settled operation is visible to the next generation; a rejected operation does not apply (A15d). Thus dead-generation operations able to create keys later ≤ 4.
+  - lateGens(now) = number of visible epoch items X ≤ E, including the live generation, with bootMs(X) ≥ now−T_LATE (D134).
+    - Each X represents its preceding generation, whose operations apply or are dropped before bootMs(X)+T_LATE (A15c).
+    - Count ≤ GEN_WINDOW_MAX under the generation window.
+    - These items are not swept before leaving the window.
+    - (D134) An unconfirmed generation writes only a shared-name epoch item, not data. Older generations may write that item's value late, making stored bootMs older.
+    - Coverage lemma: for every dead data-writing generation D, every writer of E_D+1 booted after D. Otherwise, seeing E_D before D booted would make D choose E_D+1, not E_D.
+    - Thus stored bootMs ≥ boot time of D's successor, keeping the item in the window while D's operations may apply.
+    - Visible items from unconfirmed generations also count, conservatively.
   - LATE_SITES(now) = LATE_SITES_PER_GEN·lateGens(now) ≤ 16.
-    - إسهام X لا يسقط بانقضاء الزمن وحده، بل عند اكتمال refresh صدر بعد bootMs(X)+T_LATE، مع اعتماد قياسه في الخطوة نفسها.
-    - DiskLedger يجدول refresh عند كل انقضاء.
-  - القبول: كل عملية منشئة لمفتاح جديد (غير محتسب في sitesLive وبلا مقعد محجوز) تتطلب sitesLive + R_sites + LATE_SITES(now) + 1 ≤ STORE_SITES_MAX = 64.
-    - يُحجز المقعد في خطوة القبول نفسها.
-    - الخرق يعطي 4300 {reason: 'sites', limit: 64, retryAfterMs?} دون set.
-    - retryAfterMs هو الزمن حتى أقرب انقضاء يكفي للقبول، ويغيب إن كان sitesLive + R_sites وحدهما يمنعان القبول.
-    - العمليات على مفتاح محتسب أو محجوز لا تحتاج مقعدًا، ولا تتأثر بـLATE_SITES.
-  - إزالة آخر سجل لمفتاح (قبر وحيد) تتطلب ما يلي:
-    - لا جلسة، ولا بوابة جارية، ولا تذكرة حية للمفتاح.
-    - خروج كل عناصر epoch الأقدم من الجيل الحي من النافذة.
-    - المقعد لا يتحرر إلا بالقياس اللاحق.
-  - مفتاح محتسب بقبر باقٍ (D113، I67):
-    - القبر سجل، فالمفتاح في sitesLive ومقعده قائم.
-    - كل عملية على المفتاح لا تحجز مقعدًا ولا تزيد R_sites، وتثبّته بـpin. يشمل ذلك نقطة تثبيت بالقاموس {}، وأول set بعد حسم الحذف.
-    - المقعد الجديد يلزم فقط إن تحققت ثلاثة شروط معًا: أُزيل آخر سجل، واعتُمد قياس لا يرى المفتاح، ولا pin له. عندها تكون العملية الأولى عملية منشئة تخضع لشرط القبول.
+    - X's contribution does not disappear on elapsed time alone, but on completing a refresh requested after bootMs(X)+T_LATE and adopting its measurement in the same step.
+    - DiskLedger schedules refresh at every expiry.
+  - Admission: every new-key-creating operation (not in sitesLive, no reserved slot) requires sitesLive + R_sites + LATE_SITES(now) + 1 ≤ STORE_SITES_MAX = 64.
+    - Reserve the slot in the same admission step.
+    - Violation gives 4300 {reason: 'sites', limit: 64, retryAfterMs?} without set.
+    - retryAfterMs is time until the earliest expiry sufficient for admission; omit when sitesLive + R_sites alone prevent admission.
+    - Operations on counted or reserved keys need no slot and are unaffected by LATE_SITES.
+  - Removing a key's last record (sole tombstone) requires:
+    - No session, running gate or live ticket for the key.
+    - Every epoch item older than the live generation has left the window.
+    - Release the slot only through subsequent measurement.
+  - Counted key with retained tombstone (D113, I67):
+    - A tombstone is a record, so the key is in sitesLive with its slot retained.
+    - Every operation on it reserves no slot, does not increase R_sites, and pins it. Includes a checkpoint with dictionary {} and the first set after deletion resolves.
+    - A new slot is needed only when all three hold: last record removed, an adopted measurement sees no key, and no pin. Then the first operation is creating and subject to admission.
   - TombReaper (D113):
-    - يفحص شروط الإزالة أعلاه عند كل refresh معتمد وعند كل خروج epoch من النافذة.
-    - إن تحققت يصدر remove للقبر الوحيد بتذكرة صفرية.
-    - فتح جلسة للمفتاح قبل الإصدار يمنعه.
-    - remove الصادر لا يُلغى. أي عملية لاحقة على المفتاح قبل القياس الذي لا يراه تُعامل كعملية على مفتاح محتسب، فتثبّته بـpin. لذلك لا يُحسب مرتين، ولا يسقط من العد قبل ظهور أثرها.
-    - remove متأخر من جيل ميت يُعامل بالقاعدة نفسها، لأن pin يتبع عمليات الجيل الحي.
-  - لِمّة المواقع (مشروطة بـA15c وA15d): في كل لحظة، كل مفتاح على القرص يقع في إحدى ثلاث حالات:
-    - (1) في آخر قياس معتمد.
-    - (2) له تذكرة حية في الجيل الحي.
-    - (3) أنشأته عملية غير مستقرة لجيل ميت D. هذه ≤ 4 لكل D، وتنتهي قبل bootMs(succ(D))+T_LATE، وsucc(D) محتسب في lateGens حتى قياس صادر بعد ذلك.
-    - شرط القبول يحفظ مجموع الحدود الثلاثة ≤ 64. إذن عدد المفاتيح على القرص ≤ 64 في كل لحظة.
-    - لا يُحذف أي سجل آليًا لإصلاح تجاوز.
-  - الأثر: بعد كل إقلاع يقل عدد المواقع الجديدة الممكن قبولها بمقدار 4 لكل جيل في النافذة، حتى 60s. المواقع القائمة لا تتأثر، والرفض يقع فقط إن كان sitesLive + R_sites > 63 − LATE_SITES(now).
-- لِمّة الحد (مشروطة بـA15c): القرص بمقياس Chrome ≤ inUse + unres + عمليات ≤ GEN_WINDOW_MAX جيلًا ميتًا ≤ STORE_DISK_HARD. كل جيل ميت له ما يلي:
-  - ≤ 2 set بيانات، لأن المقاعد العامة 2.
-  - ≤ RECOVERY_SLOTS = 2 نقطة تثبيت، بلِمّة RecoverySlots (D109).
-  - ≤ ADMIN_SLOTS = 2 قبر بلِمّة AdminSlots (D108)، ضمن META_RESERVE.
-  - عناصر epoch لا تُحسب لكل جيل، بل يحدها EPOCH_NAMES_MAX = 8 كليًا بلِمّة حد الأسماء (D134)، ضمن META_RESERVE.
-- نافذة الأجيال: لا يصدر EpochFence عنصره إن وُجدت GEN_WINDOW_MAX = 4 عناصر epoch ظاهرة بـbootMs ≥ now−T_LATE (D134).
-  - لِمّة: الجيل الذي يكتب بيانات يرى ≤ 3 عناصر في النافذة قبل إصداره.
-  - بعد إصداره لا يظهر اسم جديد غير اسمه (لِمّة حد الأسماء)، والكتابة المتأخرة لا تجعل bootMs أحدث.
-  - إذن lateGens ≤ 4 طوال حياته.
-  - ينتظر حتى يخرج أقدمها من النافذة، ولا كتابة ولا snapshot قبل ذلك.
-  - الجيل المنتظر لم يكتب عنصرًا، فلا يُعد ضمن النافذة.
-- الكنس: عند الإقلاع وبعد كل set ناجح، يحذف لكل مفتاح ما دون أكبر سجل موجود فقط. فشل remove يبقي السجل محتسبًا في inUse وnames، فيتوقف القبول عند الحد بدل النمو.
-- الحذف الكلي لموقع يتم بفعل المستخدم فقط، من صفحة «إدارة التخزين» بتأكيد يعرض الموقع والحجم:
-  - ينفذ AdminDelete (D106) أدناه، ثم يكنس ما دونه.
-  - AdminDelete(key) عملية واحدة لكل مفتاح، وأي طلب ثانٍ (من صفحة أخرى) يشترك في وعدها.
-  - 1: المفتاح يصير deleting، وviewer يمنع فتح جلسة جديدة له ويعرض «جارٍ حذف البيانات».
-  - 2: تُغلق كل جلسات المفتاح في كل التبويبات:
-    - تُهدم الإطارات بإعلان «حُذفت بيانات الموقع»، دون إعادة تحميل تلقائية.
-    - رسائلها queued وready تصير suppressed ثم release.
-    - الكتابات active تبقى بملكيتها حتى settle (D102).
-  - 3: انتظار حسم RecoveryGate (≤ 25s، D109، D110). الحالات ready وfailed وunrecovered (busy أو readTimeout) كلها تتابع. الأخيرة لم تصدر أي عملية كتابة، ونتائج قراءتها المتأخرة تُهمل بـgateId. إن كان المفتاح unrecovered دون بوابة جارية يتابع فورًا.
-  - 4: القبر بنسخة SeqAlloc.alloc() بعد الخطوتين، وبتذكرة DiskLedger. يأخذ مقعدًا من AdminSlots (D108)، لا من STORE_ACTIVE_GLOBAL. تعذر المقعد يعطي adminBusy دون قبر.
-    - لا ينتظر الكتابات النشطة، لأن نسخته أكبر من كل نسخة خُصصت قبله.
-    - لا تُخصص نسخة أخرى للمفتاح أثناء deleting.
-  - settle ناجح للقبر: confirmed = القبر، والقاموس {}، وtotal = 0. settle متأخر لكتابة أقدم لا يغير القاموس، لأن نسختها < confirmed.
-  - فشل القبر أو انقضاء مهلته (5s):
-    - محاولة ثانية بنسخة جديدة، على مقعد وفق AdminSlots (D108).
-    - الأولى تبقى مالكة مقعدها حتى settle.
-  - النتيجة التالية تقع في ثلاث حالات: فشل المحاولتين، أو انقضاء مهلتيهما، أو تعذر مقعد للثانية:
-    - المفتاح يصير unrecovered، وأول جلسة لاحقة تجري استردادًا جديدًا بنقطة تثبيت.
-    - الصفحة تعرض «فشل الحذف»، أو «نتيجة الحذف غير مؤكدة» عند المهلة.
-    - القبر المطبق قبل قراءة الاسترداد يصير أساسه، أي حذف ناجح. والمطبق بعدها أقل من نقطة التثبيت فلا يظهر.
-  - إعادة الإنشاء (D113): جلسة جديدة بفعل المستخدم بعد الحسم ترى {}، ونسخة أول set لها أكبر من القبر.
-    - ما دام القبر باقيًا ومحتسبًا، لا تحجز الجلسة مقعدًا، ولا تتأثر بـLATE_SITES.
-    - إن أزال TombReaper القبر واعتُمد قياس لا يرى المفتاح، فنقطة التثبيت الأولى منشئة وتحجز مقعدًا واحدًا وفق D105 وD112.
-  - لِمّة الحذف: كل set للمفتاح في الجيل خُصصت قبل القبر أو بعد حسمه، والأجيال السابقة نسخها < (E, 0). إذن لا يعلو القبر أي سجل من لقطة قديمة.
-  - لِمّة عدم القبر المتأخر (D111): كل قبر يُصدر في خطوة يجتاز فيها الحارس، أي op.state = running. والحسم ينقل الحالة إلى settled قبل أي خطوة لاحقة، ولا ينقلها شيء إلى running مجددًا. إذن لا يُصدر قبر لعملية محسومة. فكل set لجلسة أُنشئت بعد الحسم لا يعلوها قبر من تلك العملية. القبر الصادر قبل الحسم ولم يستقر بعدُ نسخته أقل من كل تخصيص بعد الحسم، فلا يعلو الكتابة الجديدة.
-  - لا يُحذف القبر قبل خروج كل الأجيال الأقدم منه من نافذة T_LATE.
-- AdminSlots (D108، I61): ملكية مقاعد القبر.
-  - ADMIN_SLOTS = 2 مقعدان لكل الإضافة، خارج STORE_ACTIVE_GLOBAL. حالة المقعد ∈ {free, held(op)}.
-  - الأخذ: لحظة إصدار set القبر فقط، من AdminFIFO عام بترتيب الطلب. يتم في الخطوة المتزامنة نفسها مع DiskLedger.reserve.
-  - التحرير: عند settle وعد القبر فقط، نجاحًا أو فشلًا. لا يحرره رد المهلة، ولا حسم AdminDelete، ولا الإعلان. زوال الجيل يسقط الحالة كلها، والقبر المعلق يبقى عملية متأخرة لجيل ميت.
-  - الانتظار: ≤ ADMIN_SLOT_WAIT = 5s لكل محاولة، ولا قبر دون مقعد.
-  - المحاولة 1، عند تعذر المقعد: adminBusy. لا قبر، والمفتاح unrecovered، والبيانات باقية. الصفحة تعرض «تعذر بدء الحذف؛ البيانات باقية».
-  - المحاولة 2 تبدأ بعد فشل settle الأولى أو انقضاء مهلتها. عند تعذر مقعدها:
-    - uncertain إن كانت الأولى معلقة.
-    - failed إن كانت الأولى قد فشلت.
-    - في الحالتين يصير المفتاح unrecovered.
-  - settle ناجح متأخر لقبر بعد الحسم: لا يغير الحسم، ويحكمه الاسترداد التالي كما سبق.
-  - هوية العملية (D111، I65):
-    - كل AdminDelete يملك opId فريدًا في الجيل، وحالة ∈ {running, settled}.
-    - deleting[key] يحمل opId العملية الجارية.
-    - كل طلب AdminFIFO يحمل opId عمليته وrequestId.
-  - الحسم: أول settle ناجح لأي محاولة قبر قبل الحسم يجعل النتيجة deleted فورًا. الحسم بأي نتيجة (deleted أو failed أو uncertain أو adminBusy) ينفذ في خطوة متزامنة واحدة ما يلي:
+    - Check removal conditions above at every adopted refresh and every epoch window exit.
+    - If satisfied, issue remove for the sole tombstone with a zero ticket.
+    - Opening a key session before issuance prevents it.
+    - Issued remove is not cancelled. A later operation before the measurement that no longer sees the key is treated as acting on a counted key and pins it. Thus it is neither double-counted nor dropped before that operation's effect appears.
+    - Late remove from a dead generation follows the same rule because pin follows live-generation operations.
+  - Sites lemma (conditional on A15c and A15d): at every instant each on-disk key is in one of three cases:
+    - (1) In the last adopted measurement.
+    - (2) Has a live ticket in the live generation.
+    - (3) Created by an unsettled operation from dead generation D: ≤ 4 per D, ending before bootMs(succ(D))+T_LATE; succ(D) stays in lateGens until a measurement requested after that time.
+    - Admission preserves the sum of the three bounds ≤ 64. Therefore on-disk key count ≤ 64 at every instant.
+    - No record is automatically deleted to repair an overrun.
+  - Effect: after each boot, new-site admission capacity decreases by 4 per generation in the window, for up to 60s. Existing sites are unaffected; rejection occurs only if sitesLive + R_sites > 63 − LATE_SITES(now).
+- Bound lemma (conditional on A15c): Chrome-measured disk ≤ inUse + unres + operations of ≤ GEN_WINDOW_MAX dead generations ≤ STORE_DISK_HARD. Each dead generation has:
+  - ≤ 2 data sets, because there are 2 global slots.
+  - ≤ RECOVERY_SLOTS = 2 checkpoints, by the RecoverySlots lemma (D109).
+  - ≤ ADMIN_SLOTS = 2 tombstones, by the AdminSlots lemma (D108), within META_RESERVE.
+  - Epoch items are not counted per generation; total EPOCH_NAMES_MAX = 8 follows from the name-bound lemma (D134), within META_RESERVE.
+- Generation window: EpochFence does not issue its item if GEN_WINDOW_MAX = 4 visible epoch items have bootMs ≥ now−T_LATE (D134).
+  - Lemma: a data-writing generation sees ≤ 3 items in the window before issuance.
+  - After issuance, no new name other than its own appears (name-bound lemma); a late write does not make bootMs newer.
+  - Thus lateGens ≤ 4 throughout its lifetime.
+  - Wait until the oldest leaves the window; no write or snapshot before then.
+  - A waiting generation has written no item and does not count in the window.
+- Sweep: at boot and after every successful set, delete only records below the greatest present record per key. A failed remove leaves the record counted in inUse and names, so admission stops at the bound instead of growing.
+- Entire-site deletion requires user action from “Storage management”, with confirmation showing site and size:
+  - Execute AdminDelete (D106) below, then sweep lower records.
+  - One AdminDelete(key) per key; any second request (from another page) shares its promise.
+  - 1: key becomes deleting; viewer prevents new sessions and shows “Deleting data”.
+  - 2: close every key session in every tab:
+    - Tear down frames with notice “Site data deleted”, without automatic reload.
+    - Their queued and ready messages become suppressed, then release.
+    - Active writes retain ownership until settle (D102).
+  - 3: wait for RecoveryGate resolution (≤ 25s, D109, D110). ready, failed and unrecovered (busy or readTimeout) all continue. The latter issued no write; late reads are ignored through gateId. If unrecovered with no running gate, continue immediately.
+  - 4: allocate the tombstone version with SeqAlloc.alloc() after those two steps, with a DiskLedger ticket. Take an AdminSlots slot (D108), not STORE_ACTIVE_GLOBAL. No slot gives adminBusy without a tombstone.
+    - Do not wait for active writes; its version is greater than every previously allocated version.
+    - Allocate no other version for the key while deleting.
+  - Successful tombstone settle: confirmed = tombstone, dictionary {}, total = 0. Late settlement of an older write does not change the dictionary because its version < confirmed.
+  - Tombstone failure or timeout (5s):
+    - Second attempt with a fresh version on an AdminSlots slot (D108).
+    - First attempt retains its slot until settle.
+  - The following outcome applies in three cases: both attempts fail, both time out, or no second-attempt slot:
+    - Key becomes unrecovered; the first later session performs fresh recovery with a checkpoint.
+    - Page shows “Deletion failed”, or “Deletion outcome uncertain” for timeout.
+    - A tombstone applied before recovery read becomes its basis: successful deletion. One applied afterward is below the checkpoint and never becomes visible.
+  - Recreation (D113): a user-created session after resolution sees {}; its first set version is greater than the tombstone.
+    - While the tombstone remains counted, the session reserves no site slot and is unaffected by LATE_SITES.
+    - If TombReaper removed it and an adopted measurement sees no key, the first checkpoint creates the key and reserves one slot under D105/D112.
+  - Deletion lemma: each set in the generation was allocated before the tombstone or after resolution; earlier-generation versions < (E, 0). Therefore no record from an old snapshot supersedes the tombstone.
+  - No-late-tombstone lemma (D111): each tombstone issues in a step passing the guard, op.state = running. Resolution changes state to settled before any later step; nothing returns it to running. No tombstone can issue for a resolved operation, so no such tombstone supersedes a set from a post-resolution session. A pre-resolution unsettled tombstone has a lower version than every post-resolution allocation and cannot supersede a new write.
+  - Do not delete the tombstone before every older generation leaves the T_LATE window.
+- AdminSlots (D108, I61): tombstone-slot ownership.
+  - ADMIN_SLOTS = 2 extension-wide slots outside STORE_ACTIVE_GLOBAL. Slot state ∈ {free, held(op)}.
+  - Acquire only at tombstone set issuance, through global AdminFIFO in request order, in the same synchronous step as DiskLedger.reserve.
+  - Release only when the tombstone promise settles, success or failure. Neither timeout response, AdminDelete resolution nor notice releases it. Generation loss drops all state; a pending tombstone remains a late dead-generation operation.
+  - Wait ≤ ADMIN_SLOT_WAIT = 5s per attempt; no tombstone without a slot.
+  - Attempt 1 without a slot: adminBusy. No tombstone; key unrecovered; data retained. Page shows “Could not start deletion; data retained”.
+  - Attempt 2 starts after first-attempt failure settlement or timeout. If no slot:
+    - uncertain if the first is pending.
+    - failed if the first has failed.
+    - In either case, key becomes unrecovered.
+  - Late successful tombstone settlement after resolution does not change resolution; subsequent recovery governs it as above.
+  - Operation identity (D111, I65):
+    - Each AdminDelete has a generation-unique opId and state ∈ {running, settled}.
+    - deleting[key] holds the running operation's opId.
+    - Every AdminFIFO request carries its operation's opId and requestId.
+  - Resolution: the first successful tombstone-attempt settlement before resolution immediately yields deleted. Resolution with any outcome (deleted, failed, uncertain or adminBusy) performs the following in one synchronous step:
     - op.state = settled.
-    - سحب كل طلب AdminFIFO معلق للعملية دون تخصيص seq ولا حجز.
-    - مغادرة المفتاح حالة deleting.
-    - تحرير الجلسات الجديدة.
-  - حارس الإصدار: في الخطوة المتزامنة التي يُمنح فيها مقعد لطلب، وقبل DiskLedger.reserve وSeqAlloc.alloc، يُفحص ما يلي:
-    - الطلب غير مسحوب.
+    - Withdraw every pending AdminFIFO request for the operation without seq allocation or reservation.
+    - Remove the key from deleting state.
+    - Release new sessions to proceed.
+  - Issuance guard: in the synchronous slot-grant step, before DiskLedger.reserve and SeqAlloc.alloc, check:
+    - Request not withdrawn.
     - op.state = running.
-    - المفتاح deleting.
+    - Key is deleting.
     - deleting[key].opId = op.opId.
-  - فشل أي فحص: يُعاد المقعد فورًا في الخطوة نفسها إلى الطلب التالي في AdminFIFO، دون reserve ولا alloc ولا set، ويزيد adminStaleDropped. المنح والحارس والحجز والتخصيص والإصدار خطوة واحدة بلا await بينها.
-  - RecoverySlots (D109) يطبق الحارس نفسه: لا إصدار إلا إن كان gateId الطلب هو الجاري، وكانت البوابة غير محسومة. والتعارض يعيد المقعد ويزيد recoveryStaleDropped.
-  - الحد الزمني لـAdminDelete ≤ 25s (حسم البوابة شاملًا القراءة، D110) + 2·(5s انتظار + 5s مهلة) = 45s.
-  - لِمّة AdminSlots:
-    - كل قبر صادر يملك مقعدًا من لحظة الإصدار حتى settle، ولا يُصدر قبر دون مقعد.
-    - إذن عدد القبور الصادرة غير المستقرة في الجيل ≤ ADMIN_SLOTS في كل لحظة، ومنها لحظة زواله.
-    - كل جيل ميت يترك ≤ 2 قبر متأخر، مهما تعددت المفاتيح أو المحاولات.
-  - الطلبات لمفاتيح مختلفة تتنافس في AdminFIFO، وطلبات المفتاح نفسه تشترك في وعد واحد.
-  - TOMB_BYTES_MAX = 512 لاسم القبر وقيمته المرمزة معًا. RecordCodec يرفض ما يتجاوزه، فلا يُصدر.
-- التعداد: getKeys إلزامي، ويُتحقق من توفره في M0 وBR22c.
-  - غيابه يعطل التخزين المحلي بـstoreRecovery، ولا يُستعمل get(null).
-  - ذاكرة التعداد تتناسب مع names ≤ STORE_RECORDS_MAX+LATE_NAMES تحت A15c.
+  - Any failed check: immediately return the slot to the next AdminFIFO request in the same step, with no reserve, alloc or set; increment adminStaleDropped. Grant, guard, reserve, allocation and issuance form one step without await.
+  - RecoverySlots (D109) uses the same guard: issue only if request gateId is current and gate unresolved. A mismatch returns the slot and increments recoveryStaleDropped.
+  - AdminDelete time bound ≤ 25s (gate resolution including reads, D110) + 2·(5s wait + 5s deadline) = 45s.
+  - AdminSlots lemma:
+    - Every issued tombstone owns a slot from issuance until settle; none issues without a slot.
+    - Therefore issued unsettled tombstones per generation ≤ ADMIN_SLOTS at every instant, including generation loss.
+    - Each dead generation leaves ≤ 2 late tombstones, regardless of keys or attempts.
+  - Different-key requests compete in AdminFIFO; same-key requests share one promise.
+  - TOMB_BYTES_MAX = 512 for tombstone name plus encoded value. RecordCodec rejects larger values; nothing is issued.
+- Enumeration: getKeys is mandatory; availability is checked in M0 and BR22c.
+  - Absence disables local storage with storeRecovery; never use get(null).
+  - Enumeration memory is proportional to names ≤ STORE_RECORDS_MAX+LATE_NAMES under A15c.
 
-**7. المراقبة**
-stats تعيد {epoch, recoveries, recoveryCorrupt, lateRecordsSeen, storeRecoveryFail, inUse, names, sitesLive, diskRejects, removeFailures, genWaitMs, seqMax, resvBytes, resvNames, resvSites, ticketsLive, adminDeletes, adminDeleteFailed, adminDeleteUncertain, adminBusy, adminSlotsHeld, adminTombsUnsettledMax, recoverySlotsHeld, recoveryUnsettledMax, recoveryBusy, readSlotsHeld, readTimeouts, lateReadsDropped, recoveryCorruptFail, adminStaleDropped, recoveryStaleDropped, lateGens, lateSites, sitesRejectsLate, pinnedKeys, tombReaps, epochNames, epochGateBlocks, epochResurrected}. lateRecordsSeen عدد السجلات التي ظهرت بعد نقطة التثبيت بنسخة أقل منها.
+**7. Monitoring**
+stats returns {epoch, recoveries, recoveryCorrupt, lateRecordsSeen, storeRecoveryFail, inUse, names, sitesLive, diskRejects, removeFailures, genWaitMs, seqMax, resvBytes, resvNames, resvSites, ticketsLive, adminDeletes, adminDeleteFailed, adminDeleteUncertain, adminBusy, adminSlotsHeld, adminTombsUnsettledMax, recoverySlotsHeld, recoveryUnsettledMax, recoveryBusy, readSlotsHeld, readTimeouts, lateReadsDropped, recoveryCorruptFail, adminStaleDropped, recoveryStaleDropped, lateGens, lateSites, sitesRejectsLate, pinnedKeys, tombReaps, epochNames, epochGateBlocks, epochResurrected}. lateRecordsSeen counts records appearing after the checkpoint with lower versions.
 
-**المحفظة (D14)**
-- eth_requestAccounts بموافقة لكل (netKey, siteAddress).
-- eth_sendTransaction بعد الاتصال، وبموافقة مربوطة بـtxHash.
-- الإلغاء بـ4001 عند انقطاع المنفذ، أو إعادة تشغيل العامل، أو أكثر من طلب معلق، أو أكثر من 5 في الدقيقة.
-- مرفوض: switch/addEthereumChain، وeth_sign، وpersonal_sign، وsignTypedData، وeth_sendRawTransaction.
-- AES-GCM مع PBKDF2 بـ600k تكرار، وقفل بعد 15 دقيقة.
+**Wallet (D14)**
+- eth_requestAccounts requires approval per (netKey, siteAddress).
+- eth_sendTransaction after connection, with approval bound to txHash.
+- Cancel with 4001 on port disconnection, worker restart, more than one pending request or more than 5 per minute.
+- Reject: switch/addEthereumChain, eth_sign, personal_sign, signTypedData, eth_sendRawTransaction.
+- AES-GCM with PBKDF2 at 600k iterations; lock after 15 minutes.
 
-فتح الموقع وحده لا يوقع شيئًا ولا يمنح حسابًا ولا يبث معاملة ولا يفتح تبويبًا خارجيًا. سياسات المتجر غير متحققة، والتجربة بإضافة غير محزومة.
+Opening a site alone signs nothing, grants no account, broadcasts no transaction and opens no external tab. Store policies are unverified; the experiment uses an unpacked extension.

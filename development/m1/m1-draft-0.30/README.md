@@ -14,7 +14,7 @@
 |---|---|
 | `M1-SPEC-0.30-AMENDMENT.md` | C34, C33, the conventions, the freeze and the gate |
 | `M1-STATUS-0.30.md` | rows, the exact remaining root work, the rebound failures |
-| `M1-DASHBOARD-0.30-AR.md` | plain Arabic summary |
+| `M1-DASHBOARD-0.30-EN.md` | plain English summary |
 | `decisions/conventions-applied-0.30.json` | the 17 conventions, verbatim, with citations and evidence |
 | `audit/acceptance-inventory-0.30.json` | 0.29 binding, changed rows, history, proposed statuses |
 | `vectors/c33-guard-cases.json` | 60 receive-guard cases, plus the replay rules |
@@ -35,4 +35,4 @@ The runner writes only into `--out`, and an earlier file is never overwritten. I
 - `decision-register-0.30.json`;
 - `hash-freeze-0.30.json`;
 - `bindings-0.30.json`;
-- `dashboard-0.30-ar.json`.
+- `dashboard-0.30-en.json`.

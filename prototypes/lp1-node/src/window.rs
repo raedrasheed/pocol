@@ -342,23 +342,22 @@ pub fn plan(h: u64) -> Plan {
 }
 
 fn count_phrase(n: u64) -> String {
-    match n {
-        1 => "رأس واحد".to_string(),
-        2 => "رأسين".to_string(),
-        3..=10 => format!("{n} رؤوس"),
-        _ => format!("{n} رأسًا"),
+    if n == 1 {
+        "1 header".to_string()
+    } else {
+        format!("{n} headers")
     }
 }
 
 pub fn message(n: u64, anchored_genesis: bool, min_work: &U256) -> String {
     let mut m = format!(
-        "RP: مرتبط بالعمل والهوية لـ{}{}، بعمل محتسب لا يقل عن {} لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية",
+        "RP: work and identity bound for {}{}, with computed work of at least {} per header (work(ceilTarget)), without execution or membership verification",
         count_phrase(n),
-        if anchored_genesis { " حتى genesis" } else { "" },
+        if anchored_genesis { " back to genesis" } else { "" },
         min_work.to_dec_string()
     );
     if *min_work == U256::ONE {
-        m.push_str("، حد العمل غير فعال لهذه الشبكة");
+        m.push_str(". The work bound is ineffective for this network");
     }
     m
 }
@@ -500,8 +499,8 @@ mod tests {
     #[test]
     fn messages() {
         let m = message(13, false, &U256::from_u64(4095));
-        assert!(m.contains("13 رأسًا") && m.contains("4095") && !m.contains("genesis"));
-        assert!(message(3, true, &U256::from_u64(4095)).contains("3 رؤوس حتى genesis"));
-        assert!(message(1, true, &U256::ONE).ends_with("حد العمل غير فعال لهذه الشبكة"));
+        assert!(m.contains("13 headers") && m.contains("4095") && !m.contains("genesis"));
+        assert!(message(3, true, &U256::from_u64(4095)).contains("3 headers back to genesis"));
+        assert!(message(1, true, &U256::ONE).ends_with("The work bound is ineffective for this network"));
     }
 }

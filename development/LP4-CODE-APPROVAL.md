@@ -2,7 +2,7 @@
 
 The owner explicitly approved option 1 in the immutable proposal:
 [CODE-CAP-DECISION.md at 3bdbd149](https://github.com/raedrasheed/Proof-of-Collaboration/blob/3bdbd149ccabfe21ef6cdd7fbaaa2afdabb1f59b/development/lp4/p3-wire/codex-r3/CODE-CAP-DECISION.md).
-Recorded answer: «اعتماد الخيار الأول كاملًا (الموصى به)».
+Recorded answer: “Approve the first option in full (recommended)” (translated from Arabic).
 This records a new additive LP4 consensus rule, not an original M1 definition.
 The historical proposal and all M1/LP3 evidence remain unchanged.
 

@@ -15,7 +15,7 @@
     },
     "H15e": {
       "file": "coordination/review-001/historical-test-definition-hits.json",
-      "description": "earlier round-15 proposal text with a different X1-X8 and \u062f1-\u062f5 wording (hits at validation lines 32-48)"
+      "description": "earlier round-15 proposal text with a different X1-X8 and DNR-d1-DNR-d5 wording (hits at validation lines 32-48)"
     },
     "B": "reference/FINAL_DESIGN.md (current baseline)"
   },
@@ -63,19 +63,19 @@
     "X7": {
       "en": "Form submission to an external destination."
     },
-    "\u062f1": {
+    "DNR-d1": {
       "en": "Both rules are installed and verified before the frame is created."
     },
-    "\u062f2": {
+    "DNR-d2": {
       "en": "An injected updateSessionRules failure means the frame is not created."
     },
-    "\u062f3": {
+    "DNR-d3": {
       "en": "Closing the tab removes both rules."
     },
-    "\u062f4": {
+    "DNR-d4": {
       "en": "chrome-extension://<ID>/ resources are allowed; every external destination is blocked for all RT types."
     },
-    "\u062f5": {
+    "DNR-d5": {
       "en": "A worker restart followed by a failed ping means the frame is torn down; leftover rules are verified and removed."
     }
   },
@@ -151,7 +151,7 @@
     },
     {
       "behaviour": "external link stylesheet (H15e X2)",
-      "currentCoverage": "covered by X3 (stylesheet type) and by \u062f4"
+      "currentCoverage": "covered by X3 (stylesheet type) and by DNR-d4"
     },
     {
       "behaviour": "eth_sendTransaction on load without a click (H15e X5)",
@@ -212,5 +212,5 @@
       "text": "Epoch condition: a commit re-evaluates every pending request; a request that still satisfies conditions 1-5 and 7 is re-stamped with the new epoch (P, U42). Otherwise every commit would cancel every pending request, which no Q test expects (SE-benign-mutation)."
     }
   ],
-  "withdrawn": "ADD-M1-01 (m1-draft-0.4/annex/addendum-x3-proposal.json): its ordinal Q_i <-> T12-site mapping, its X1-X7 isolation substitutes and its \u062f1-\u062f5 unsupported-feature mapping are withdrawn. The Q9 PNG and other assets there are not used."
+  "withdrawn": "ADD-M1-01 (m1-draft-0.4/annex/addendum-x3-proposal.json): its ordinal Q_i <-> T12-site mapping, its X1-X7 isolation substitutes and its DNR-d1-DNR-d5 unsupported-feature mapping are withdrawn. The Q9 PNG and other assets there are not used."
 }

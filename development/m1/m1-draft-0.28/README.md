@@ -9,7 +9,7 @@
 |---|---|
 | `M1-SPEC-0.28-AMENDMENT.md` | changes |
 | `M1-STATUS-0.28.md` | rows and exact owner decisions |
-| `M1-DECISION-PACKET-0.28-AR.md` | Arabic owner packet |
+| `M1-DECISION-PACKET-0.28-EN.md` | Arabic owner packet |
 | `annex/C32-POLICY-CORRECTIONS.md` | corrected normative text, U14 branches, conditional timing |
 | `owner/P-C32-2-CHANGE-REQUEST.md` | owner change request for `rate` delays |
 | `vectors/u14-timing-cases.json` | conditional timelines |

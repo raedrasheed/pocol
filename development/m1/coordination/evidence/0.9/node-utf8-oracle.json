@@ -25,8 +25,8 @@
     },
     {
       "id": "arabic",
-      "key": "س",
-      "value": "ع",
+      "key": "\u0633",
+      "value": "\u0639",
       "expected": 68,
       "actual": 68
     },

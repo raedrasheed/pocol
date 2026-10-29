@@ -64,10 +64,10 @@ pub fn execute_on_validated(state:&dyn crate::view::View,code_total:u64,tx:TxEnv
 }
 /// The EVMError::Custom text of a simulation that `stop` ended.
 pub const SIMULATION_STOPPED:&str="rpc simulation stopped";
-/// The gas of one frame between two polls of a simulation's `stop` (network.md RpcGuard (و): the
+/// The gas of one frame between two polls of a simulation's `stop` (network.md RpcGuard (F): the
 /// cancellation token is checked every 10^6 gas).
 pub const STOP_GAS:u64=1_000_000;
-/// RPC simulation only (eth_call/eth_estimateGas, network.md RpcGuard (و)): `execute_for_profile` with
+/// RPC simulation only (eth_call/eth_estimateGas, network.md RpcGuard (F)): `execute_for_profile` with
 /// `stop` polled before every CALL/CREATE-family instruction, at every 64th JUMP/JUMPI, and at the
 /// first JUMP/JUMPI or data-sized instruction (KECCAK256, the *COPY family, LOG0-4) once the frame has
 /// spent STOP_GAS since the last poll. Between two polls a frame therefore runs at most STOP_GAS gas
@@ -83,7 +83,7 @@ pub fn simulate_for_profile(snapshot:&dyn crate::view::View,tx:TxEnv,block:&Nati
         .append_handler_register_box(Box::new(move|h|stop_register(h,stop.clone()))).build().transact()
 }
 /// Pool admission of an RPC-submitted transaction (pocold eth_sendRawTransaction, network.md RpcGuard
-/// (د) step 4 and (و)): the same execution as `execute_on_validated` (with `code_total`) or
+/// (D) step 4 and (F)): the same execution as `execute_on_validated` (with `code_total`) or
 /// `execute_for_profile` (without), with `stop` polled as in `simulate_for_profile`. The hook only reads
 /// the clock and calls the next instruction, so while `stop` returns false the result is the same.
 /// Its result is never a block's: blocks are validated with `execute_on_validated` or the USER phase.

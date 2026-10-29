@@ -28,6 +28,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
+
 HERE = Path(__file__).resolve().parent
 PKG, ROOT = HERE.parent, HERE.parent.parent
 RES = PKG / 'results'
@@ -68,7 +85,7 @@ _lines = {}
 def provenance(name, src):
     p = ROOT / src['file']
     if p not in _lines:
-        _lines[p] = p.read_text(encoding='utf-8').splitlines()
+        _lines[p] = source_text(p).splitlines()
     a, b = src['lines']
     seg = '\n'.join(_lines[p][a - 1:b])
     missing = [x for x in src['literals'] if x not in seg]
@@ -79,7 +96,7 @@ def input_hashes():
     for rel in INPUTS:
         p = ROOT / rel
         record('input.sha256 ' + rel, 'recorded', exists=p.exists(),
-               sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None)
+               sha256=hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None)
 
 
 def wiring():
@@ -381,7 +398,7 @@ def inherited_012():
     R12 = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(R12)            # its 'import sr_ref' resolves to the cached 0.12 module
     check('inherited012.sameModule', R12.SR is SR12)
-    doc = json.loads((ROOT / 'm1-draft-0.12' / 'vectors' / 'c25-namespace.json').read_text(encoding='utf-8'))
+    doc = json.loads(source_text(ROOT / 'm1-draft-0.12' / 'vectors' / 'c25-namespace.json'))
     pristine011 = SR12.load_pristine_011()
     t0 = time.time()
     for name, step in [('input_hashes', R12.input_hashes), ('provenance', lambda: R12.provenance(doc['source'])), ('wiring', R12.wiring),

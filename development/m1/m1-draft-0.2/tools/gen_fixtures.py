@@ -90,7 +90,7 @@ def draft01_reproduction():
                                  ('wrong-size', 2, uint(len(HTML) + 1), 'sum of chunk lengths differs from size'),
                                  ('wrong-content-hash', 3, bytes(32), 'reconstructed content hash mismatch'),
                                  ('dot-segment', 0, b'/./index.html', 'dot segment'),
-                                 ('non-ascii', 0, '/صفحة.html'.encode(), 'non ASCII path')]:
+                                 ('non-ascii', 0, '/\u0635\u0641\u062d\u0629.html'.encode(), 'non ASCII path')]:
         e = copy.deepcopy(entry); e[field] = value
         add(i, [uint(1), uint(0), [e]], why)
     add('duplicate-path', [uint(1), uint(0), [entry, entry]], 'strict path ordering violated')
@@ -250,7 +250,7 @@ def fixtures():
                        ('trailing-slash', '/a/', 'path.grammar'), ('leading-double-slash', '//a', 'path.grammar'),
                        ('empty-segment', '/a//b', 'path.grammar'), ('space', '/a b', 'path.grammar'),
                        ('percent', '/a%20b', 'path.grammar'), ('backslash', '/a\\b', 'path.grammar'),
-                       ('non-ascii', '/صفحة.html', 'path.grammar'),
+                       ('non-ascii', '/\u0635\u0641\u062d\u0629.html', 'path.grammar'),
                        ('dot', '/./index.html', 'path.dotSegment'), ('dotdot-tail', '/a/..', 'path.dotSegment'),
                        ('dotdot-lead', '/..', 'path.dotSegment'),
                        ('length-257', '/' + 'a' * 256, 'path.length'), ('empty', '', 'path.length')]:

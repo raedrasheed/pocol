@@ -12,7 +12,7 @@
 |---|---|
 | `M1-SPEC-0.27-AMENDMENT.md` | changes |
 | `M1-STATUS-0.27.md` | criteria and exact blockers |
-| `M1-DECISION-PACKET-0.27-AR.md` | Arabic owner options and recommendations |
+| `M1-DECISION-PACKET-0.27-EN.md` | Arabic owner options and recommendations |
 | `annex/C32-RPC-ERROR-ENVELOPE.md` | defensive envelope and retry-delay rule, P-C32-1…4 |
 | `annex/V1-SHA-COST.md` | all-SHA-256 accounting; caching analysis; discrepancy |
 | `owner/V1-SHA-COST-CHANGE-REQUEST.md` | owner change request (alternatives A–E, recommendation A) |

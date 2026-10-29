@@ -13,7 +13,7 @@
           "anchoredGenesis": true,
           "minWork": 4095,
           "frame": true,
-          "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u0640\u0631\u0623\u0633 \u0648\u0627\u062d\u062f \u062d\u062a\u0649 genesis\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629",
+          "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
           "rootReliance": false
         },
         "atMs": 0,
@@ -47,7 +47,7 @@
           "anchoredGenesis": true,
           "minWork": 4095,
           "frame": true,
-          "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u0640\u0631\u0623\u0633 \u0648\u0627\u062d\u062f \u062d\u062a\u0649 genesis\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629",
+          "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
           "rootReliance": false
         },
         "atMs": 0,
@@ -81,7 +81,7 @@
           "anchoredGenesis": true,
           "minWork": 4095,
           "frame": true,
-          "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u0640\u0631\u0623\u0633 \u0648\u0627\u062d\u062f \u062d\u062a\u0649 genesis\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629",
+          "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
           "rootReliance": false
         },
         "atMs": 0,

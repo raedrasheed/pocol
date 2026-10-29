@@ -49,7 +49,7 @@ In the E3 schedules the read is atomic and the single checkpoint attempt settles
 - The viewer holds a runtime port, and the worker announces `genId` in its `hello`.
 - On `onDisconnect`, or when a different `genId` appears:
   - the viewer tears down every site frame at once;
-  - it shows «انقطع عامل الإضافة؛ قد تكون آخر الكتابات غير محفوظة» ("the extension worker disconnected; the last writes may not have been saved") with a «إعادة التحميل» ("Reload") button.
+  - it shows «The extension worker disconnected; recent writes may not have been saved» ("the extension worker disconnected; the last writes may not have been saved") with a «Reload» ("Reload") button.
 - **There is no automatic reload.** A new session needs a user action (D99).
 - The torn frame's dirty keys are lost, with that announcement, and are never re-sent from an old snapshot.
 - After a reload, the snapshot comes after the key's recovery.

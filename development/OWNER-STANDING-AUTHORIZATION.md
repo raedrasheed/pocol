@@ -1,12 +1,13 @@
 # Owner standing authorization — 2026-10-21
 
-Recorded verbatim from the owner (Raed S. Rasheed) in the Claude Code session
+English translation of the owner's statement (Raed S. Rasheed) in the Claude Code session
 https://claude.ai/code/session_01WdDy26DUcwZsDK64zKqRL4 :
 
-> أريد أن تبدأ بإكمال العمل حتى ينتهي وأي طلب موافقة مني خذ الموافقة على الخيار
-> الموصى به ولا تتوقف عن العمل حتى يكتمل العمل المشروع بشكل كامل ويحقق جميع
-> المواصفات التي قمت انت و codex بالتوافق عليها. أريد تقرير عند نهاية كل مرحلة ما
-> تم انجازه وما سيتم انجازه. أكرر لا تتوقف عن العمل حتى تنهي المشروع بالكامل.
+> I want you to start completing the work and continue until it is finished. For any
+> approval request, take my approval for the recommended option. Do not stop until
+> the entire project is complete and meets all specifications that you and Codex
+> agreed on. I want a report at the end of each stage explaining what has been done
+> and what will be done next. Again, do not stop until the whole project is finished.
 
 English summary: continue the project through LP10 without stopping; for every
 pending or future owner decision, the **recommended option** is approved; publish
@@ -29,3 +30,7 @@ an Arabic report at the end of every stage (what was done, what is next).
    `claude/affectionate-pascal-rjhh2k`; independent checks are run by separate
    reviewer agents and by independent oracles. A shared GitHub account is not an
    independent human approval.
+
+## Current report language — 29 October 2026
+
+The owner subsequently requested English throughout the repository. Current reports and interfaces use English. The historical authorization above is retained as a translated record; its earlier Arabic-report preference does not override the later language instruction.

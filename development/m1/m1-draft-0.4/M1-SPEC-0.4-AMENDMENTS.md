@@ -86,13 +86,13 @@ The CR-M1-01 budget (§6) uses 2850.
 
 ## R4-04 — X3 definitions (C13)
 
-**Correction.** The 0.3 BLK-02 count of 22 was wrong. FD:L4959 requires **17** items: Q8–Q12 (5), X1–X7 (7) and د1–د5 (5). Q8–Q12 and X1–X7 appear in the baseline only as references. BR23 (d1)–(d5) (FD:L3066ff) are possible namesakes of د1–د5. A mapping between them is **unestablished**, not proven absent.
+**Correction.** The 0.3 BLK-02 count of 22 was wrong. FD:L4959 requires **17** items: Q8–Q12 (5), X1–X7 (7) and DNR-d1–DNR-d5 (5). Q8–Q12 and X1–X7 appear in the baseline only as references. BR23 (d1)–(d5) (FD:L3066ff) are possible namesakes of DNR-d1–DNR-d5. A mapping between them is **unestablished**, not proven absent.
 
 `annex/addendum-x3-proposal.json` (**ADD-M1-01, UNSIGNED PROPOSAL**) does **not** supply the original definitions. It proposes substitutes for owner decision:
 - **Mapping decisions:**
   - Q_i is the acceptance check of T12 site i, by the order of FD:L2644: Q8 woff2, Q9 images, Q10 form, Q11 SPA, Q12 contract read/write;
   - X1–X7 are isolation attempts in the X8 namespace;
-  - د1–د5 are the unsupported features of FD:L1345 other than WebRTC;
+  - DNR-d1–DNR-d5 are the unsupported features of FD:L1345 other than WebRTC;
   - the BR23 mapping is rejected, with three stated reasons.
 - **For each of the 17 items:** the baseline-derived purpose (with FD lines), literal inputs (HTML, CSS and JS text, and a generated PNG), and a pass criterion.
 - **Assets still pending:** a WOFF2 font, a JPEG and a WebP. Their generation tools and licences are M0 items.

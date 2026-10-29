@@ -2,7 +2,7 @@
 
 The owner explicitly approved **option 1 in full** in
 [REGISTRY-TRANSITION-DECISION.md](lp4/p2-runtime/codex-r6/REGISTRY-TRANSITION-DECISION.md):
-«اعتماد الخيار 1 كاملًا كإضافة LP4».
+“Approve option 1 in full as an LP4 addition” (translated from Arabic).
 
 All eight numbered parts and the entire required acceptance section are binding,
 including successful-operation REG_OPS consumption in slot3, shared R_max,

@@ -1,13 +1,13 @@
 {
   "schema": "pocol-m1-v3-profiles/0.21",
   "sources": {
-    "acceptance": {"file": "reference/browser.md", "lines": [8, 16], "literals": ["{profileId، name، chainId، genesisPre، genesisHash، forkSchedule، endpoint، trustLevel ∈ {DEV, LN, RP}}",
-                   "فك genesisPre دون خطأ gs*", "keccak256(genesisPre) = genesisHash", "تطابق chainId", "networks.json موقّع، أو تأكيد يعرض الهاش كاملًا", "−32019 {rule: recvFit}"]},
-    "limits": {"file": "reference/browser.md", "lines": [300, 306], "literals": ["2·B_code_max+1024 = 66560", "2·|genesisPre|+4096", "|genesisPre| ≤ 47104", "2048+floor(BODY_MAX/85)·70 = 163958", "2·TX_MAX+2048 = 264192", "69632", "98304", "167936", "266240"]},
-    "rf": {"file": "reference/validation.md", "lines": [780, 784], "literals": ["RF1: network → قبول", "RF2: end/full → قبول", "M_0 من 1100 هوية", "|genesisPre| > 47104 → recvFit", "BODY_MAX=262144", "217928 > 167936 → recvFit"]},
-    "network": {"file": "reference/governance.md", "lines": [4, 16], "literals": ["chainId=777001", "T_blk=60s", "τ=3600s", "nonceMode=0", "D_att=300", "Δ_fb_wait=25", "subsidy=2·10^18", "H_END=129600", "T_END=g_ts+10368000", "H_CLOSE=129440", "T_CLOSE=T_END−9600"]},
-    "endfull": {"file": "reference/governance.md", "lines": [159, 161], "literals": ["chainId=777905", "R_max=0", "M_max=1024", "REG_RECORDS_MAX=1024", "RET=8", "H_END=700", "Z_close=147", "H_CLOSE=553", "keccak256('PoColEnd'‖be32(i))", "i ∈ [0, 1019]"]},
-    "trustPool": {"file": "reference/browser.md", "lines": [318, 318], "literals": ["TRUST_POOL = 2 MiB"]}
+    "acceptance": {"file": "reference/browser.md", "lines": [8, 16], "literals": ["{profileId\u060c name\u060c chainId\u060c genesisPre\u060c genesisHash\u060c forkSchedule\u060c endpoint\u060c trustLevel ∈ {DEV, LN, RP}}",
+                   "\u0641\u0643 genesisPre \u062f\u0648\u0646 \u062e\u0637\u0623 gs*", "keccak256(genesisPre) = genesisHash", "\u062a\u0637\u0627\u0628\u0642 chainId", "networks.json \u0645\u0648\u0642\u0651\u0639\u060c \u0623\u0648 \u062a\u0623\u0643\u064a\u062f \u064a\u0639\u0631\u0636 \u0627\u0644\u0647\u0627\u0634 \u0643\u0627\u0645\u0644\u064b\u0627", "−32019 {rule: recvFit}"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "limits": {"file": "reference/browser.md", "lines": [300, 306], "literals": ["2·B_code_max+1024 = 66560", "2·|genesisPre|+4096", "|genesisPre| ≤ 47104", "2048+floor(BODY_MAX/85)·70 = 163958", "2·TX_MAX+2048 = 264192", "69632", "98304", "167936", "266240"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "rf": {"file": "reference/validation.md", "lines": [780, 784], "literals": ["RF1: network → \u0642\u0628\u0648\u0644", "RF2: end/full → \u0642\u0628\u0648\u0644", "M_0 \u0645\u0646 1100 \u0647\u0648\u064a\u0629", "|genesisPre| > 47104 → recvFit", "BODY_MAX=262144", "217928 > 167936 → recvFit"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "network": {"file": "reference/governance.md", "lines": [4, 16], "literals": ["chainId=777001", "T_blk=60s", "τ=3600s", "nonceMode=0", "D_att=300", "Δ_fb_wait=25", "subsidy=2·10^18", "H_END=129600", "T_END=g_ts+10368000", "H_CLOSE=129440", "T_CLOSE=T_END−9600"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "endfull": {"file": "reference/governance.md", "lines": [159, 161], "literals": ["chainId=777905", "R_max=0", "M_max=1024", "REG_RECORDS_MAX=1024", "RET=8", "H_END=700", "Z_close=147", "H_CLOSE=553", "keccak256('PoColEnd'‖be32(i))", "i ∈ [0, 1019]"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "trustPool": {"file": "reference/browser.md", "lines": [318, 318], "literals": ["TRUST_POOL = 2 MiB"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"}
   },
   "note": [
     "Hand-derived expectations. '@GP' = hex of the built genesisPre, '@GH' = keccak256 of it (computed by the runner so the case reaches the step it tests; the hash value is not a golden).",

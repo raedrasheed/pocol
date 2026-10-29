@@ -7,7 +7,7 @@ Sources: browser.md:714-773; validation.md:683-747 (BR24), 742 (BR22f-f5), 565 (
 
 AdminDelete(key), one shared operation per key (D106):
   1 deleting[key] = opId; new sessions for the key are held until resolution.
-  2 every session of the key closes: frames torn with «حُذفت بيانات الموقع», no auto reload;
+  2 every session of the key closes: frames torn with «Site data deleted», no auto reload;
     waiting messages become suppressed and are released; ACTIVE writes keep their resources
     until settle (their replies are suppressed).
   3 wait for the RecoveryGate resolution (<= 25 s); unrecovered without a gate proceeds now.
@@ -31,7 +31,7 @@ sys.path.insert(0, str(_ROOT / 'm1-draft-0.13' / 'tools'))
 import recovery_ref as R13        # noqa: E402  (0.13, read-only)
 import fmt2_codec as C            # noqa: E402
 
-BANNER = 'حُذفت بيانات الموقع'
+BANNER = 'Site data deleted'
 EXTRA_FAULTS = frozenset({
     'adminNoCancel',       # withdrawal disabled (validation.md:735)
     'adminStaleIssue',     # withdrawal and guard disabled (validation.md:739)

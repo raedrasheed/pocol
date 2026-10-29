@@ -2,7 +2,7 @@
 
 The owner explicitly approved option1 in full in
 [REGISTRY-WRITE-BUDGET-DECISION.md](lp4/p2-runtime/codex-r7/REGISTRY-WRITE-BUDGET-DECISION.md):
-«تعديل حدود LP4 فقط إلى register=10 وsetRewardAddress=2 وclaimBond=10».
+“Amend only the LP4 limits to register=10, setRewardAddress=2 and claimBond=10” (translated from Arabic).
 
 Only these three LP4 ceilings change: register10, setRewardAddress2, claimBond10.
 All other limits, layouts and approved consensus rules remain binding. The original

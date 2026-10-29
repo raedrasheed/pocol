@@ -376,7 +376,7 @@ def main():
         ok("relay: a holds none of c's late blocks", all(blk(0, b["hash"]) is None for b in late), f"{len(late)} blocks h={c0['number']+1}..{c_tip['number']}")
         a0 = counters(0)
         # Review R4-2: a second test peer, claiming genesis, only reads. a must forward to it every block it
-        # imports from the relay peer (network.md "استلام block" step 3, then the broadcast): no node of the
+        # imports from the relay peer (network.md "Receiving block" step 3, then the broadcast): no node of the
         # full mesh needs relay, this peer does.
         #    A block a already holds is a duplicate and is not imported again, so only the others are expected.
         new_to_a = [blk(0, x) is None for x in relay_h[:-1]]

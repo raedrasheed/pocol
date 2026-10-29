@@ -4,7 +4,7 @@
 
 ## Source
 
-**The bound (browser.md:58):** «كلفة العميل: ≤ 14 فك رأس، و≤ 13 ASERT بوسائط ≤ 512 بتًا، و≤ 13 SHA-256».
+**The bound (browser.md:58):** «Client cost: ≤ 14 header decodes, ≤ 13 ASERT operations with intermediates ≤ 512 bits, and ≤ 13 SHA-256 operations».
 
 **The checks that require SHA-256 in the RP window.** browser.md:44–50 requires items 1b, 2–5, viewTargetCeil and 6–9 for every window header:
 - **TemplateID** = SHA256(RLP(UT)) (consensus.md:59). It is needed:

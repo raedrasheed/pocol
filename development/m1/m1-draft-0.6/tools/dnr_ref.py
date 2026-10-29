@@ -1,4 +1,4 @@
-"""DnrGuard reference model for the restored د1-د5 scenarios (R6-04). Specification tooling only.
+"""DnrGuard reference model for the restored DNR-d1-DNR-d5 scenarios (R6-04). Specification tooling only.
 
 Models chrome.declarativeNetRequest session rules as a dict and the documented
 matching of these two rule shapes (tabIds, resourceTypes, urlFilter with a
@@ -91,7 +91,7 @@ class Viewer:
         self.events.append(('removed', tab, reason))
 
     def worker_restart_ping_failed(self, tab):
-        """H د5: after a worker restart the viewer's ping fails -> tear the frame down;
+        """H DNR-d5: after a worker restart the viewer's ping fails -> tear the frame down;
         the new worker verifies leftover session rules for tabs without a live frame and removes them."""
         self.frames.discard(tab)
         self.events.append(('frameTornDown', tab, 'pingFailed'))

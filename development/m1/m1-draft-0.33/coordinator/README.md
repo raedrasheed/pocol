@@ -59,12 +59,14 @@ After reviewing a broker job, root records `activeAuthor.state = "reviewed"` tog
 
 ### 3. Read-only authority display (`authorityView`, `public/index.html`, `public/app.js`)
 
-A new section shows, in Arabic, the standing delegation and the continuation progress. It reads only safe ledger fields:
+A new section shows, in English, the standing delegation and the continuation progress. It reads only safe ledger fields:
 - the booleans;
 - the scope, cut to 300 characters;
 - the worklist IDs, kinds and statuses.
 
 It also shows the policy decision, the current gate and the last review's continuation status.
+
+Legacy API field names such as `summaryAr`, `titleAr`, `phaseAr` and `noteAr` remain unchanged for compatibility with saved state and existing callers. Built-in text in these fields is now English; the suffix is not a language guarantee for user-provided content.
 
 It is displayed separately from the owner questions. Owner answers, including UI-TEST, are untouched, and guidance is never turned into an approval.
 

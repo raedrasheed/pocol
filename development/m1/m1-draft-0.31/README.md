@@ -32,7 +32,7 @@ The runner checks all of this statically (`codec.staticShape`).
 |---|---|
 | `M1-SPEC-0.31-AMENDMENT.md` | C35 and C36, ordering, bindings, gate |
 | `M1-STATUS-0.31.md` | rows, exact remaining root work, rebound failures |
-| `M1-DASHBOARD-0.31-AR.md` | plain Arabic summary |
+| `M1-DASHBOARD-0.31-EN.md` | plain English summary |
 | `tools/json_codec_031.mjs` | native Node reference codec |
 | `tools/guard_ref_031.py` | 0.30 receive guard, plus the native codec for error replies |
 | `tools/run_checks_031.py` | the runner (root only) |
@@ -51,4 +51,4 @@ The runner writes only into `--out`, and an earlier file is never overwritten. I
 - `acceptance-matrix-0.31.json`;
 - `bindings-0.31.json`;
 - `status-0.31.json`;
-- `dashboard-0.31-ar.json`.
+- `dashboard-0.31-en.json`.

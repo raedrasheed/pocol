@@ -5,7 +5,7 @@
                "libraries": ["m1-draft-0.2/tools/keccak.py (pure Python, sha256 99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d)",
                              "@noble/hashes 2.4.0", "js-sha3 0.13.0"],
                "note": "Library sources and the oracle script stay with root; no dependency file is copied into this package."},
-  "source": {"file": "reference/validation.md", "lines": [75, 75], "literals": ["H_GSV1 يُسجل باتفاق ثلاث مكتبات بعد K1–K3"]},
+  "source": {"file": "reference/validation.md", "lines": [75, 75], "literals": ["H_GSV1 \u064a\u064f\u0633\u062c\u0644 \u0628\u0627\u062a\u0641\u0627\u0642 \u062b\u0644\u0627\u062b \u0645\u0643\u062a\u0628\u0627\u062a \u0628\u0639\u062f K1–K3"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "K": {"K1": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
         "K2": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
         "K3": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},

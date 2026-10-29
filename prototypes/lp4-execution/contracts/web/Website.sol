@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.28;
 
-// M1 storage.md "عقد Website": versioned site manifests stored as ChunkFactory
+// M1 storage.md "Website contract": versioned site manifests stored as ChunkFactory
 // chunks (D27). Slots: 0 owner, 1 pendingOwner, 2 versionCount|currentVersion<<128
 // (currentVersion = index+1, 0 = none), 3 versions mapping, 4 publishers mapping,
 // 5 publisherCount. Version status: 0 draft, 1 published, 2 revoked.

@@ -7,12 +7,12 @@
 - **Finding:** A03 (and the R18 facts of A02).
 
 ## Exact normative text
-1. `development/m1/reference/execution.md` (موارد النظام, D50/D54/D70):
-   > سياق المستخدم: 256 مفتاحًا و16 حسابًا، وصفر في الإغلاق، وإلا SysWriteClosing.
+1. `development/m1/reference/execution.md` (System resources, D50/D54/D70):
+   > User context: 256 keys and 16 accounts, zero during closing; otherwise SysWriteClosing.
 
    "User context: 256 keys and 16 accounts, and zero during closing, otherwise SysWriteClosing."
 2. `decisions.json` D70:
-   > النقل القسري وإضافة tip إلى COINBASE ليسا كتابة نظامية.
+   > Forced transfers and adding a tip to COINBASE are not system writes.
 
    "A forced transfer and adding a tip to COINBASE are not a system write." Rationale: "counting
    them as writes would invalidate every transaction with a tip during closing."
@@ -43,7 +43,7 @@ and is zero while closing (SysWriteClosing). Balance changes (D70) and the Chunk
 system writes."
 
 Arabic:
-> تعد ميزانية النظام في سياق المستخدم مفاتيح تخزين برامج النظام الخمسة التي تغيرها معاملات المستخدم (≤ SYS_KEYS_USER_MAX لكل كتلة) والبرامج التي تتغير مخازنها (≤ 16)، وهي صفر في الإغلاق (SysWriteClosing). تغيرات الأرصدة (D70) وnonce الـChunkFactory ليست كتابة نظامية.
+> The system budget in user context counts the five system programs' storage keys changed by user transactions (≤ SYS_KEYS_USER_MAX per block) and programs whose storage changes (≤ 16); it is zero during closing (SysWriteClosing). Balance changes (D70) and the ChunkFactory nonce are not system writes.
 
 ## Minimal examples (`vectors/d-a03-sysuser.json`)
 

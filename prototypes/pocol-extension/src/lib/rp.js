@@ -30,7 +30,7 @@ const winMsg = (x) => keccak(concat(Uint8Array.of(0x19), utf8('PoCol winner'), U
 /** Verifies the window; returns {ok, n, toGenesis, message} or throws {flag}. */
 export async function verifyWindow(rpc, spec, clockS = Math.floor(Date.now() / 1000)) {
   const h = BigInt(await rpc('eth_blockNumber', []));
-  if (h === 0n) return { ok: false, flag: 'viewNoBlocks', message: 'الشبكة لم تنتج الكتلة 1 بعد؛ لا رأس للتحقق في RP' };
+  if (h === 0n) return { ok: false, flag: 'viewNoBlocks', message: 'The network has not produced block 1 yet; no header is available for RP verification' };
   const b = h - 12n > 1n ? h - 12n : 1n; const from = b - 1n > 1n ? b - 1n : 1n; const count = h - from + 1n;
   const raw = await rpc('pocol_getHeaders', ['0x' + from.toString(16), '0x' + count.toString(16)]);
   if (!Array.isArray(raw) || BigInt(raw.length) !== count) throw Object.assign(new Error('viewIncomplete'), { flag: 'viewIncomplete' });
@@ -59,6 +59,6 @@ export async function verifyWindow(rpc, spec, clockS = Math.floor(Date.now() / 1
     parent = x;
   }
   const n = h - b + 1n; const minWork = work(ceil);
-  const message = `RP: مرتبط بالعمل والهوية لـ${n} رأسًا${b === 1n ? ' حتى genesis' : ''}، بعمل محتسب لا يقل عن ${minWork.toString(10)} لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية` + (minWork === 1n ? '. حد العمل غير فعال لهذه الشبكة' : '');
+  const message = `RP: work and identity bound for ${n} headers${b === 1n ? ' back to genesis' : ''}, with computed work of at least ${minWork.toString(10)} per header (work(ceilTarget)), without execution or membership verification` + (minWork === 1n ? '. The work bound is ineffective for this network' : '');
   return { ok: true, n: Number(n), toGenesis: b === 1n, minWork: minWork.toString(), head: Number(h), message };
 }

@@ -17,7 +17,7 @@
   {
    "name": "RP window over real headers accepted (items 1, 1b, viewFuture, 2-9, viewTargetCeil)",
    "pass": true,
-   "detail": "RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 2048 لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية"
+   "detail": "RP: work and identity bound for 13 headers; with computed work of at least 2048 per header (work(ceilTarget)), without execution or membership verification"
   },
   {
    "name": "RP trust message names the header count and the work bound",
@@ -112,7 +112,7 @@
   {
    "name": "RP trust banner shown outside the frame (13 headers, work bound)",
    "pass": true,
-   "detail": "RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 2048 لكل رأس (work(cei"
+   "detail": "RP: work and identity bound for 13 headers; with computed work of at least 2048 per header (work(cei"
   },
   {
    "name": "site rendered from verified chunks: HTML + @import CSS + JS + PNG + url() in CSS",
@@ -322,12 +322,12 @@
   {
    "name": "A06 Chrome: endpoint genesis changed before signing -> the frame is torn down with 4901, nothing sent",
    "pass": true,
-   "detail": "أُنهيت الجلسة (4901): endpoint genesis differs from profile"
+   "detail": "Session terminated (4901): endpoint genesis differs from profile"
   },
   {
    "name": "A06 Chrome: periodic identity check ends an idle session whose endpoint genesis changed (4901 within 30 s + slack)",
    "pass": true,
-   "detail": "29896 ms: أُنهيت الجلسة (4901): endpoint genesis differs from profile"
+   "detail": "29896 ms: Session terminated (4901): endpoint genesis differs from profile"
   },
   {
    "name": "A06 Chrome: the open dialog is withdrawn when the session is revoked",
@@ -352,12 +352,12 @@
   {
    "name": "A06-R2 Chrome: the session profile endpoint changed while queued -> session revoked (4901); nothing reached the old or the new endpoint (pending nonce unchanged on every node)",
    "pass": true,
-   "detail": "أُنهيت الجلسة (4901): network profile changed"
+   "detail": "Session terminated (4901): network profile changed"
   },
   {
    "name": "profile of another genesis pointed at this node is refused (netKey binding, 4901)",
    "pass": true,
-   "detail": "تعذر فتح الموقع: endpoint genesis differs from profile"
+   "detail": "Could not open site: endpoint genesis differs from profile"
   },
   {
    "name": "v2 update read in Chrome through each of the 3 nodes (LN profiles), identical content",

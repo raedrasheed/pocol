@@ -8,7 +8,7 @@ If Node or the codec is missing or behaves unexpectedly, the dependent checks FA
 
 Usage: run_checks_031.py [--root <tree>] [--out <dir>] [--node <node executable>]
 Writes only under out, never overwriting an earlier run (a differing later run gets a -rerun-<n> name):
-  run-results-0.31.json, acceptance-matrix-0.31.json, bindings-0.31.json, status-0.31.json, dashboard-0.31-ar.json.
+  run-results-0.31.json, acceptance-matrix-0.31.json, bindings-0.31.json, status-0.31.json, dashboard-0.31-en.json.
 Reuses unchanged earlier tools by path (0.30 runner helpers and guard, 0.29 overlay models, 0.27 checker, 0.4 parser).
 Rebuilds no header and recomputes no freeze hash: those are bound to root's 0.30 results by status and sha256.
 Exits 1 on any FAIL.
@@ -28,6 +28,23 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
 
 HERE = Path(__file__).resolve().parent
 PKG = HERE.parent
@@ -60,7 +77,7 @@ NODE = _arg('--node', 'POCOL_NODE') or shutil.which('node')
 CODEC = HERE / 'json_codec_031.mjs'
 OWN = ['tools/run_checks_031.py', 'tools/guard_ref_031.py', 'tools/json_codec_031.mjs', 'vectors/c35-native-codec-cases.json',
        'vectors/c36-binding-repairs.json', 'audit/acceptance-inventory-0.31.json', 'M1-SPEC-0.31-AMENDMENT.md', 'M1-STATUS-0.31.md',
-       'M1-DASHBOARD-0.31-AR.md', 'README.md']
+       'M1-DASHBOARD-0.31-EN.md', 'README.md']
 INPUTS_ROOT = ['coordination/task-029.md', 'coordination/review-001/REVIEW-0.30.md', 'coordination/review-001/REVIEW-DECISIONS-0.30.json',
                'coordination/review-001/m1-draft-0.30/results/run-results-0.30.json', 'coordination/review-001/m1-draft-0.30/results/acceptance-matrix-0.30.json',
                'coordination/review-001/m1-draft-0.30/results/hash-freeze-0.30.json', 'coordination/review-001/m1-draft-0.30/results/bindings-0.30.json',
@@ -107,11 +124,11 @@ def gap(label, /, **diag):
 
 
 def sha(p):
-    return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    return hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None
 
 
 def rj(rel):
-    return json.loads((ROOT / rel).read_text(encoding='utf-8'))             # explicit UTF-8 reader everywhere
+    return json.loads(source_text(ROOT / rel))             # explicit UTF-8 reader everywhere
 
 
 def own(rel):
@@ -135,7 +152,7 @@ _lines = {}
 def provenance(label, src):
     p = path_of(src['file'])
     if p not in _lines:
-        _lines[p] = p.read_text(encoding='utf-8').splitlines() if p.exists() else []
+        _lines[p] = source_text(p).splitlines() if p.exists() else []
     a, b = src['lines']
     seg = '\n'.join(_lines[p][a - 1:b])
     missing = [x for x in src.get('literals', []) if x not in seg]
@@ -154,7 +171,7 @@ sys.path.insert(0, str(HERE))
 import guard_ref_031 as G31           # noqa: E402  (this package only)
 
 INV = own('audit/acceptance-inventory-0.31.json')
-RES = {k: json.loads((ROOT / v).read_text(encoding='utf-8'))['results'] for k, v in INV['results'].items()}
+RES = {k: json.loads(source_text(ROOT / v))['results'] for k, v in INV['results'].items()}
 CONV = rj('coordination/DELEGATED-M1-CONVENTIONS-030.json')
 APPL30 = rj(INV['base']['conventions'])
 DEC25 = rj('coordination/review-001/REVIEWER-DECISIONS-0.25.json')
@@ -181,7 +198,7 @@ def boundary():
     check('boundary.renamedAndCopied', e['diagName'] == 'n' and e['proposalStatus'] == 's' and e['obj'] == {'x': [1]})
     bad, calls = {}, []
     for f in (HERE / 'run_checks_031.py', HERE / 'guard_ref_031.py'):
-        tree = ast.parse(f.read_text(encoding='utf-8'))
+        tree = ast.parse(source_text(f))
         mods = {a.name.split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         mods |= {(n.module or '').split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         allowed_sub = f.name == 'guard_ref_031.py'
@@ -202,7 +219,7 @@ def boundary():
                 and any(k.arg == 'timeout' for k in c.keywords) and any(k.arg == 'input' for k in c.keywords) for c in runs)
     check('boundary.subprocessShape', len(runs) == 2 and shape and set(sub) <= {'run', 'TimeoutExpired'}, attributes=sorted(set(sub)), runCalls=len(runs),
           rule='fixed argv list, shell=False, timeout, stdin input; nothing else from subprocess')
-    js = CODEC.read_text(encoding='utf-8')
+    js = source_text(CODEC)
     imports = re.findall(r"^import .* from '([^']+)';", js, flags=re.M)
     forbidden = [w for w in ('eval(', 'Function(', 'require(', 'child_process', 'node:fs', "'fs'", 'node:net', 'node:http', 'node:https', 'fetch(',
                              'process.env', 'process.argv', 'import(', 'WebAssembly', 'node:worker') if w in js]
@@ -254,7 +271,7 @@ def bind030():
         if not f.is_file() or rel.parts[0] == 'results' or '__pycache__' in rel.parts or not (ROOT / 'm1-draft-0.30' / rel).exists():
             continue
         compared += 1
-        if f.read_bytes() != (ROOT / 'm1-draft-0.30' / rel).read_bytes():
+        if source_bytes(f) != (ROOT / 'm1-draft-0.30' / rel).read_bytes():
             mism.append(rel.as_posix())
     check('bind030.reviewCopyByteIdentical', compared > 0 and not mism, compared=compared, mismatches=mism)
     for p in INV['boundFrom030']['patterns']:
@@ -621,7 +638,7 @@ def write_asset(name, data_text, label):
     OUT.mkdir(parents=True, exist_ok=True)
     p = OUT / name
     data = data_text.encode('utf-8')
-    if p.exists() and p.read_bytes() != data:
+    if p.exists() and source_bytes(p) != data:
         k = 1
         while (OUT / ('%s-rerun-%d%s' % (p.stem, k, p.suffix))).exists():
             k += 1
@@ -631,7 +648,7 @@ def write_asset(name, data_text, label):
         return
     if not p.exists():
         p.write_bytes(data)
-    check(label + '.writtenAndReadBack', p.read_bytes() == data, file=name, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
+    check(label + '.writtenAndReadBack', source_bytes(p) == data, file=name, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
 
 
 def dumps(x):
@@ -641,16 +658,16 @@ def dumps(x):
 def dashboard(matrix, failed):
     cnt = Counter(v['status'] for v in matrix.values())
     pend = [r for r, v in matrix.items() if v['status'] != 'CompleteCandidate']
-    return {'schema': 'pocol-m1-dashboard-ar/0.31', 'lang': 'ar', 'pendingRows': pend, 'lines': [
-        'M1، المسودة 0.31: إصلاح C35 (قياس حجم بيانات الخطأ بترميز JSON الأصلي في Node) وC36 (ربط الأدلة بملفات الجذر المقروءة آليًا).',
-        'يقيس المحوِّل الأصلي حجم data كما يفعل المتصفح: البديل المنفرد يُكتب بستة بايتات، و1.0 يصبح 1، و1e400 يصبح null. ما زاد على 4096 بايتًا يُحذف، فيصبح رد busy غير صالح ويتوقف العرض دون انتظار.',
-        'الفحوص الصارمة (الحجم وUTF-8 والعمق والمفاتيح المكررة ورقم الطلب) تسبق المحوِّل دائمًا.',
-        'وقت التشغيل: مكتبة Python القياسية مع Node المثبت محليًا، وليس Python وحده. إذا غاب Node تفشل الفحوص ولا يوجد بديل صامت.',
-        'نتيجة التشغيل: %d فحصًا، فشل منها %d.' % (len(results), len(failed)),
-        'الصفوف: %d مرشح للاكتمال، و%d بانتظار مراجعة الجذر، و%d جزئي.' % (cnt['CompleteCandidate'], cnt['PendingRootReview'], cnt['Partial']),
-        'بانتظار مراجعة الجذر: %s.' % ('، '.join(pend) if pend else 'لا شيء'),
-        'الإخفاقات الستة في 0.30 محفوظة، وكل منها مربوط بفحص إصلاحه.',
-        'لا يكتمل أي صف قبل مراجعة الجذر. لا كود إنتاجي ولا نشر ولا معاملات.']}
+    return {'schema': 'pocol-m1-dashboard-en/0.31', 'lang': 'en', 'pendingRows': pend, 'lines': [
+        'M1, draft 0.31: repair C35 (measuring error-data size with native Node JSON encoding) and C36 (binding evidence to machine-readable root files).',
+        'The native adapter measures data as the browser does: a lone surrogate occupies six bytes, 1.0 becomes 1, and 1e400 becomes null. Data exceeding 4096 bytes is removed, making the busy response invalid and stopping display without waiting.',
+        'Strict checks (size, UTF-8, depth, duplicate keys and request ID) always precede the adapter.',
+        'Runtime: Python standard library plus locally installed Node, not Python alone. Missing Node fails the checks; there is no silent fallback.',
+        'Run result: %d checks, %d failed.' % (len(results), len(failed)),
+        'Rows: %d completion candidates, %d awaiting root review, %d partial.' % (cnt['CompleteCandidate'], cnt['PendingRootReview'], cnt['Partial']),
+        'Awaiting root review: %s.' % (', '.join(pend) if pend else 'None'),
+        'The six 0.30 failures are preserved, each linked to its repair check.',
+        'No row is complete before root review. No production code, deployment or transactions.']}
 
 
 def coverage():
@@ -690,7 +707,7 @@ def history_final():
 def leaks(texts):
     markers = ('PoCol_' + 'Dialogue', 'state' + '.json', 'source' + 'State', 'historical-x8-full' + '-source-private', 'transcript' + '-private')
     found = [str(f.relative_to(PKG)) for f in sorted(PKG.rglob('*')) if f.is_file() and 'results' not in f.parts
-             and f.suffix in ('.json', '.md', '.py', '.mjs') and any(m in f.read_text(encoding='utf-8') for m in markers)]
+             and f.suffix in ('.json', '.md', '.py', '.mjs') and any(m in source_text(f) for m in markers)]
     found += [n for n, t in texts.items() if any(m in t for m in markers)]
     check('boundary.noPrivatePath', not found, files=found)
 
@@ -741,7 +758,7 @@ def main():
                                        'failed': [r['check'] for r in failed], 'missingRequired': next((r.get('missing') for r in results if r['check'] == 'coverage031.required'), None),
                                        'remainingRoot': ['execute in a preserved copy with Node v22.13.1', 'independently review C35 and C36', 'ledger final verification'],
                                        'complete': False})
-    texts['dashboard-0.31-ar.json'] = dumps(dashboard(matrix, failed))
+    texts['dashboard-0.31-en.json'] = dumps(dashboard(matrix, failed))
     for name in sorted(texts):
         step('write ' + name, write_asset, name, texts[name], 'asset.' + name)
     failed = [r for r in results if r['status'] == 'FAIL']

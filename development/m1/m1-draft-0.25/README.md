@@ -12,7 +12,7 @@
 |---|---|
 | `M1-SPEC-0.25-AMENDMENT.md` | changes |
 | `M1-STATUS-0.25.md` | acceptance report: satisfied, pending and blocked criteria |
-| `M1-DECISION-PACKET-0.25-AR.md` | Arabic decision packet: owner choices, kept separate from reviewer conventions |
+| `M1-DECISION-PACKET-0.25-EN.md` | Arabic decision packet: owner choices, kept separate from reviewer conventions |
 | `audit/M1-AUDIT-0.25.md` | readable audit summary |
 | `audit/row-inventory.json` | 41 rows with clauses, fixtures, evidence patterns, reviews, experiments, decisions, missing definitions |
 | `audit/findings-trace.json` | F01–F26 and the eight Codex corrections |

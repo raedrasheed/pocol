@@ -32,6 +32,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
+
 HERE = Path(__file__).resolve().parent
 PKG, ROOT = HERE.parent, HERE.parent.parent
 RES = PKG / 'results'
@@ -115,7 +132,7 @@ def c26_unit(original, safe_record):
 def input_hashes():
     for rel in INPUTS:
         p = ROOT / rel
-        own('input.sha256 ' + rel, 'recorded', exists=p.exists(), sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None)
+        own('input.sha256 ' + rel, 'recorded', exists=p.exists(), sha256=hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None)
     prior = ROOT / 'm1-draft-0.13' / 'results' / 'run-results-0.13.json'
     own('preserved.0.13resultFilePresent', 'recorded', exists=prior.exists(),
         note='independent 0.13 run: 409 entries, 309 pass, 99 recorded, 1 FAIL (REVIEW-0.13.md); not overwritten')
@@ -169,8 +186,8 @@ def main():
         step_failures = [r['check'] for r in rerun if 'step.completed' in r['check']]      # includes nested inherited steps
         ok('schema.noStepAborted', not step_failures, aborted=step_failures)
         have = {r['check'] for r in rerun}
-        u = json.loads((ROOT / 'm1-draft-0.13' / 'vectors' / 'e4-units.json').read_text(encoding='utf-8'))
-        s = json.loads((ROOT / 'm1-draft-0.13' / 'vectors' / 'e5-schedules.json').read_text(encoding='utf-8'))
+        u = json.loads(source_text(ROOT / 'm1-draft-0.13' / 'vectors' / 'e4-units.json'))
+        s = json.loads(source_text(ROOT / 'm1-draft-0.13' / 'vectors' / 'e5-schedules.json'))
         e4_want, e5_want = expected_e4_names(u), expected_e5_names(s)
         e4_missing = [n for n in e4_want if n not in have]
         e5_missing = [n for n in e5_want if n not in have]

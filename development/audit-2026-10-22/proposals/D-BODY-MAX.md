@@ -11,14 +11,14 @@
 1. `development/m1/reference/consensus.md:56`:
    > Body = [txs, evidence] ≤ BODY_MAX.
 2. `governance.md:12` and `governance.md:85`:
-   > الكتلة [CP]: GAS_LIMIT=8000000، وbaseFee0=10^9، وTX_MAX=131072، وBODY_MAX=196608.
+   > Block [CP]: GAS_LIMIT=8000000, baseFee0=10^9, TX_MAX=131072, BODY_MAX=196608.
    >
    > R10: TX_MAX ≤ BODY_MAX−16 KiB.
 
    "Block [CP]: GAS_LIMIT=8000000, baseFee0=10^9, TX_MAX=131072, BODY_MAX=196608." / "R10: TX_MAX ≤
    BODY_MAX − 16 KiB."
 3. `validation.md` T18b L2:
-   > L2: معاملات بـcalldata 131000 بايت إلى Rv، تملأ BODY_MAX.
+   > L2: transactions with 131000-byte calldata to Rv, filling BODY_MAX.
 
    "L2: transactions with 131,000-byte calldata to Rv, filling BODY_MAX."
 
@@ -44,7 +44,7 @@ English: "BODY_MAX bounds the length of the RLP encoding of Body = [txs, evidenc
 list and string header; validation and decoding apply the same bound."
 
 Arabic:
-> يحد BODY_MAX طول ترميز RLP للجسم Body = [txs, evidence] بكل رؤوس القوائم والسلاسل، ويطبق التحقق وفك الترميز الحد نفسه.
+> BODY_MAX bounds the RLP-encoded length of Body = [txs, evidence], including all list and string prefixes; validation and decoding apply the same bound.
 
 ## Minimal examples (`vectors/d-body-max.json`; the encoded lengths are computed by the model and checked equal to pocold's `Body::encode`)
 

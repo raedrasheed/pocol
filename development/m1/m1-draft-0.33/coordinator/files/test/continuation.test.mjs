@@ -59,7 +59,7 @@ test('default off: without saved standing authorization a review queues no conti
   const { ctl, sp, notifier } = setup({ enabled: false });
   startSmoke(ctl, 'off-job-00001');
   const jobId = finishCurrent(ctl, sp);
-  const rv = ctl.review({ jobId, verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  const rv = ctl.review({ jobId, verdict: 'accept', summaryAr: 'Actual review' });
   await ctl.notifyIdle();
   assert.equal(conts(ctl).length, 0);
   assert.deepEqual([rv.continuation.status, rv.continuation.reason], ['suppressed', 'noStandingAuthorization']);
@@ -72,7 +72,7 @@ test('enabled: exactly one durable continuation item and one fixed notification 
   const { ws, c, ctl, sp, notifier } = setup();
   startSmoke(ctl, 'one-job-00001');
   const jobId = finishCurrent(ctl, sp);
-  const rv = ctl.review({ jobId, verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  const rv = ctl.review({ jobId, verdict: 'accept', summaryAr: 'Actual review' });
   await ctl.notifyIdle();
   const all = conts(ctl);
   assert.equal(all.length, 1);
@@ -130,7 +130,7 @@ test('completion: a complete worklist suppresses the callback after an actual re
   const { ws, ctl, sp, notifier } = setup();
   patchLedger(ws, { continuationWork: { ...WORK, status: 'complete', remainingIndependentItems: [] } });
   startSmoke(ctl, 'done-job-0001');
-  const rv = ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  const rv = ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'Actual review' });
   await ctl.notifyIdle();
   assert.deepEqual([rv.continuation.status, rv.continuation.reason], ['suppressed', 'worklistComplete']);
   assert.equal(conts(ctl).length, 0); assert.equal(contSends(notifier).length, 0);
@@ -141,7 +141,7 @@ test('pause defers the continuation; a manual resume decides it once; stop suppr
   startSmoke(ctl, 'pause-job-001');
   ctl.pause({ idempotencyKey: 'cont-pause-01' });
   assert.equal(ctl.pauseState(), 'draining');
-  const rv = ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  const rv = ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'Actual review' });
   assert.equal(rv.continuation.status, 'deferredPaused');
   assert.equal(conts(ctl).length, 0);
   ctl.resume({ idempotencyKey: 'cont-resume-1', reason: 'manual' });
@@ -157,7 +157,7 @@ test('pause defers the continuation; a manual resume decides it once; stop suppr
   startSmoke(s.ctl, 'stop-job-0001');
   const jobId = finishCurrent(s.ctl, s.sp);
   s.ctl.stop();
-  const rv2 = s.ctl.review({ jobId, verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  const rv2 = s.ctl.review({ jobId, verdict: 'accept', summaryAr: 'Actual review' });
   assert.deepEqual([rv2.continuation.status, rv2.continuation.reason], ['suppressed', 'stopped']);
   assert.equal(conts(s.ctl).length, 0);
 });
@@ -168,21 +168,21 @@ test('gates: an active writer or an open continuation suppresses; an acknowledge
   const second = w.ctl.requestAuthorJob({ mode: 'smoke', idempotencyKey: 'gate-job-0002' });
   w.ctl.ack({ itemId: second.item.id, dispatch: {} });
   assert.equal(w.sp.calls.length, 1, 'the second approved job waits');
-  const rvA = w.ctl.review({ jobId: finishCurrent(w.ctl, w.sp), verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  const rvA = w.ctl.review({ jobId: finishCurrent(w.ctl, w.sp), verdict: 'accept', summaryAr: 'Actual review' });
   assert.equal(w.sp.calls.length, 2, 'the review released the already-approved job');
   assert.deepEqual([rvA.continuation.status, rvA.continuation.reason], ['suppressed', 'writerActive']);
 
   const { ctl, sp, notifier } = setup();
   startSmoke(ctl, 'open-job-0001');
-  ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'Actual review' });
   const [c1] = conts(ctl);
   startSmoke(ctl, 'open-job-0002');
-  const rv2 = ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  const rv2 = ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'Actual review' });
   assert.deepEqual([rv2.continuation.status, rv2.continuation.reason], ['suppressed', 'openContinuation']);
   assert.equal(conts(ctl).length, 1, 'never a stream of items');
   ctl.claim({ itemId: c1.id }); ctl.ack({ itemId: c1.id, note: 'no action needed' });
   startSmoke(ctl, 'open-job-0003');
-  const rv3 = ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  const rv3 = ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'Actual review' });
   await ctl.notifyIdle();
   assert.equal(rv3.continuation.status, 'queued');
   assert.equal(conts(ctl).length, 2);
@@ -197,26 +197,26 @@ test('second author: dispatched only AFTER the actual first review, through clai
   const active = { task: 'task-006.md', claudeSessionId: SESSION, state: 'running', brokerJobId: r1.item.id };
   patchLedger(ws, { activeAuthor: active });
   const job1 = finishCurrent(ctl, sp);
-  assert.match(ctl.dispatchBlock(), /بانتظار مراجعة Codex الفعلية/, 'before the actual review nothing may start');
+  assert.match(ctl.dispatchBlock(), /Awaiting actual Codex review/, 'before the actual review nothing may start');
   assert.equal(conts(ctl).length, 0, 'no continuation before a review');
-  ctl.review({ jobId: job1, verdict: 'accept', summaryAr: 'مراجعة فعلية للإيصال' });
+  ctl.review({ jobId: job1, verdict: 'accept', summaryAr: 'Actual receipt review' });
   const [cont] = conts(ctl);
   ctl.claim({ itemId: cont.id });
   ctl.ack({ itemId: cont.id, note: 'next useful action chosen by the host', dispatch: { mode: 'author', taskFile: 'task-006.md', plannedDir: 'm1-draft-0.21' } });
   const job2 = ctl.state.items[cont.nextJobId];
   assert.equal(cont.status, 'acknowledged');
   assert.deepEqual([job2.kind, job2.status, job2.payload.continuationOf], ['authorJob', 'approved', cont.id]);
-  assert.equal(sp.calls.length, 1); assert.match(job2.blockedReason, /مؤلفًا نشطًا/, 'a running ledger state still blocks');
+  assert.equal(sp.calls.length, 1); assert.match(job2.blockedReason, /active/, 'a running ledger state still blocks');
   patchLedger(ws, { activeAuthor: { ...active, state: 'reviewed', brokerJobId: '00000000-0000-4000-8000-0000000000ff' } });
   ctl.heartbeat();
-  assert.equal(sp.calls.length, 1); assert.match(job2.blockedReason, /دون مراجعة وسيط مطابقة/, 'a mismatched job ID stays blocked');
+  assert.equal(sp.calls.length, 1); assert.match(job2.blockedReason, /without a matching saved broker review/, 'a mismatched job ID stays blocked');
   patchLedger(ws, { activeAuthor: { ...active, state: 'reviewed' } });
   ctl.pause({ idempotencyKey: 'seq-pause-001' });
   ctl.heartbeat();
-  assert.equal(sp.calls.length, 1); assert.equal(job2.blockedReason, 'متوقف مؤقتًا');
+  assert.equal(sp.calls.length, 1); assert.equal(job2.blockedReason, 'Paused');
   writeFileSync(ctl.worker.leaseFile, JSON.stringify({ jobId: 'foreign-job', pid: 1 }));
   ctl.resume({ idempotencyKey: 'seq-resume-01' });
-  assert.equal(sp.calls.length, 1); assert.equal(job2.blockedReason, 'يوجد عقد عامل قائم');
+  assert.equal(sp.calls.length, 1); assert.equal(job2.blockedReason, 'A worker lease exists');
   unlinkSync(ctl.worker.leaseFile);
   ctl.heartbeat();
   assert.equal(sp.calls.length, 2, 'the second useful author starts now');
@@ -234,14 +234,14 @@ test('ledger: unknown, unreviewed or mismatched inactive states stay blocked', (
   finishCurrent(ctl, sp);
   const base = { task: 'task-006.md', claudeSessionId: SESSION };
   patchLedger(ws, { activeAuthor: { ...base, state: 'reviewed', brokerJobId: jobId } });
-  assert.match(ctl.ledgerBlock(), /دون مراجعة وسيط مطابقة/, 'finished but not reviewed');
+  assert.match(ctl.ledgerBlock(), /without a matching saved broker review/, 'finished but not reviewed');
   patchLedger(ws, { activeAuthor: { ...base, state: 'reviewed' } });
-  assert.match(ctl.ledgerBlock(), /دون مراجعة وسيط مطابقة/, 'no broker job named');
+  assert.match(ctl.ledgerBlock(), /without a matching saved broker review/, 'no broker job named');
   patchLedger(ws, { activeAuthor: { ...base, state: 'weird' } });
-  assert.match(ctl.ledgerBlock(), /مؤلفًا نشطًا/);
-  ctl.review({ jobId, verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  assert.match(ctl.ledgerBlock(), /active/);
+  ctl.review({ jobId, verdict: 'accept', summaryAr: 'Actual review' });
   patchLedger(ws, { activeAuthor: { ...base, state: 'running', brokerJobId: jobId } });
-  assert.match(ctl.ledgerBlock(), /مؤلفًا نشطًا/, 'running stays blocked even after the review');
+  assert.match(ctl.ledgerBlock(), /active/, 'running stays blocked even after the review');
   patchLedger(ws, { activeAuthor: { ...base, state: 'reviewed', brokerJobId: jobId } });
   assert.equal(ctl.ledgerBlock(), null, 'inactive and matched to an actual persisted review');
   patchLedger(ws, { activeAuthor: { ...base, state: 'completed' } });
@@ -253,7 +253,7 @@ test('restart at durable boundaries: a pending review is decided once; a half-re
   startSmoke(ctl, 'crash-job-001');
   const jobId = finishCurrent(ctl, sp);
   ctl._continueAfterReview = () => null;                                   // the process stops right after the review was saved
-  ctl.review({ jobId, verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  ctl.review({ jobId, verdict: 'accept', summaryAr: 'Actual review' });
   assert.equal(JSON.parse(readFileSync(ctl.stateFile, 'utf8')).reviews[0].continuation.status, 'pending');
   const n2 = fakeNotifier();
   const ctl2 = controller(ws, c, n2);
@@ -275,7 +275,7 @@ test('legacy reviews saved before the update never trigger a continuation', asyn
   startSmoke(ctl, 'legacy-job-01');
   const jobId = finishCurrent(ctl, sp);
   ctl._continueAfterReview = () => null;
-  ctl.review({ jobId, verdict: 'accept', summaryAr: 'مراجعة قديمة' });
+  ctl.review({ jobId, verdict: 'accept', summaryAr: 'Old review' });
   const st = JSON.parse(readFileSync(ctl.stateFile, 'utf8'));
   delete st.reviews[0].continuation;                                       // shape written by the old broker
   writeFileSync(ctl.stateFile, JSON.stringify(st));
@@ -291,7 +291,7 @@ test('a continuation send interrupted by a restart is uncertain and never retrie
   const hang = fakeNotifier({ results: [{ ok: true }, { ok: true }, new Promise(() => {})] });
   const { ws, c, ctl, sp } = setup({ notifier: hang });
   startSmoke(ctl, 'hang-job-0001');
-  ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'Actual review' });
   const [item] = conts(ctl);
   assert.equal(ctl.state.notifications[`continuation:${item.id}`].status, 'sending');
   const n2 = fakeNotifier();
@@ -305,14 +305,14 @@ test('a continuation send interrupted by a restart is uncertain and never retrie
 test('continuation ack: bad plans are refused, an ack without a plan starts nothing, a second ack is refused', () => {
   const { ctl, sp } = setup();
   startSmoke(ctl, 'ack-job-00001');
-  ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'مراجعة فعلية' });
+  ctl.review({ jobId: finishCurrent(ctl, sp), verdict: 'accept', summaryAr: 'Actual review' });
   const [cont] = conts(ctl);
-  assert.throws(() => ctl.ack({ itemId: cont.id, dispatch: { mode: 'author', taskFile: '../secret.md', plannedDir: 'm1-draft-0.30' } }), /ملف المهمة/);
+  assert.throws(() => ctl.ack({ itemId: cont.id, dispatch: { mode: 'author', taskFile: '../secret.md', plannedDir: 'm1-draft-0.30' } }), /Task file/);
   assert.throws(() => ctl.ack({ itemId: cont.id, dispatch: { mode: 'exec' } }), /mode/);
   assert.equal(cont.status, 'queued');
   ctl.ack({ itemId: cont.id, note: 'no action now' });
   assert.equal(cont.status, 'acknowledged'); assert.equal(cont.nextJobId, undefined);
-  assert.throws(() => ctl.ack({ itemId: cont.id }), /لا يمكن تأكيد/);
+  assert.throws(() => ctl.ack({ itemId: cont.id }), /Cannot acknowledge/);
   assert.equal(sp.calls.length, 1);
 });
 
@@ -328,7 +328,7 @@ test('the continuation message is fixed, server-side and points the existing thr
   const args = buildNotifyArgs({ threadId: THREAD, message: msg });
   assert.deepEqual(args.slice(0, 6), ['queue', '--remote', 'unix://', '--thread', THREAD, '--message']);
   assert.equal(args.length, 7);
-  assert.throws(() => notificationMessage({ ...info, reason: 'autoReview' }), /سبب/);
+  assert.throws(() => notificationMessage({ ...info, reason: 'autoReview' }), /reason/);
 });
 
 test('authority display is read-only, from safe ledger fields, and separate from owner answers', () => {
@@ -340,7 +340,7 @@ test('authority display is read-only, from safe ledger fields, and separate from
   assert.match(a.standing.scope, /M1/);
   assert.deepEqual(a.worklist.items.map((i) => i.id), ['coordinator-improvement', 'publish-final-verify']);
   assert.equal(a.continuation.enabled, true);
-  assert.match(a.noteAr, /وليس إجابات من المالك/);
+  assert.match(a.noteAr, /not owner answers/);
   assert.ok(!JSON.stringify(a).includes('UI-TEST'), 'owner answers are not mixed in');
   assert.equal(ctl.state.ownerAnswers['UI-TEST'].status, 'queued', 'owner answers untouched');
   const off = setup({ enabled: false }).ctl.view().authority;

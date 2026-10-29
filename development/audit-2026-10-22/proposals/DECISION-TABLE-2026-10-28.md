@@ -18,7 +18,7 @@ documents have since moved; see "Source inconsistencies" at the end.
 
 | id | decision | kind | recommendation recorded in the docs | blocks |
 |---|---|---|---|---|
-| LOG-ACCT-01 | how a log is charged against LOG_BLOCK_MAX, and whether 546 is a limit | NORMATIVE | (c): 36 + 32·\|topics\| + \|data\|, ≤ 546 logs per block | the amendment to execution.md §السقوف; the final status of its vectors and of the provisional code |
+| LOG-ACCT-01 | how a log is charged against LOG_BLOCK_MAX, and whether 546 is a limit | NORMATIVE | (c): 36 + 32·\|topics\| + \|data\|, ≤ 546 logs per block | the amendment to execution.md §Caps; the final status of its vectors and of the provisional code |
 | D-A03-DIRTY | what "dirty" counts; a halt whose residue does not fit | NORMATIVE | A: net change; residue that does not fit → block invalid, builder skips | the amendment; the exactness of A13/RECV bounds that use ACCT_DIRTY_BLOCK_MAX (rely on A or A-touched) |
 | D-A03-CAPS | what SLOT_CAP/ACCT_CAP count; when SYS_SLOT_MAX is checked | NORMATIVE | 2: user state only; SYS_SLOT_MAX after the system phases | the amendment; genesis acceptance rule (`check_caps`) final form |
 | D-BODY-MAX | encoded body or item sum | NORMATIVE | (a): \|RLP([txs, evidence])\| ≤ BODY_MAX on every path | the clarification to consensus.md:56 |
@@ -57,7 +57,7 @@ not implement K_eff), and Specification-scope conditions (AUD/NETWORK-BOOT-GATES
 | field | content |
 |---|---|
 | 1. Current behaviour | Alternative (c) implemented provisionally (P/LOG-ACCT-01.md "Implementation status"). Charge per log: `lp4-execution/src/user_phase.rs:37` (`36+32*topics+data`); count limit `LOG_COUNT_MAX=546` at `:21`; checks `:216` (LogCount) and `:217` (LogBytes) in `BlockMeter::check`. A halted transaction adds nothing. |
-| 2. Proposed change | Amendment to execution.md §السقوف (P/LOG-ACCT-01.md "Proposed amendment"): "One log is charged 36 + 32·\|topics\| + \|data\| bytes. The charges of a block's logs sum to at most LOG_BLOCK_MAX (equality allowed), and a block holds at most 546 logs. The first transaction that would exceed either limit halts exceptionally. A halted transaction adds nothing to either sum." |
+| 2. Proposed change | Amendment to execution.md §Caps (P/LOG-ACCT-01.md "Proposed amendment"): "One log is charged 36 + 32·\|topics\| + \|data\| bytes. The charges of a block's logs sum to at most LOG_BLOCK_MAX (equality allowed), and a block holds at most 546 logs. The first transaction that would exceed either limit halts exceptionally. A halted transaction adds nothing to either sum." |
 | 3. Alternatives | (a) 36 + \|data\|, no count limit (violates P1: 910 empty LOG0 fit). (b) \|data\|, no count limit (violates LG2). (c) 36 + 32·\|topics\| + \|data\|, ≤ 546 per block (recommended). (d) 36 + \|RLP(log)\|, no count limit (violates LG2). (P/LOG-ACCT-01.md "Alternatives".) |
 | 4a. Security | Under (a), (b) the P1 / receipt bound (network.md:202, :304, ≤ 546 logs, < 400 KiB) is violated (P/LOG-ACCT-01.md table). Liveness risk "low per block" (P/INDEPENDENT-REVIEW-SIX-PROPOSALS.md row 1). |
 | 4b. Performance | Not stated in the sources beyond the receipt-size bound above. |
@@ -197,7 +197,7 @@ caps-test LOG_CAP) are not open (P/CAPS-SUSTAINABILITY.md §6).
 | field | content |
 |---|---|
 | 1. Current behaviour | LOG_CAP = 2^30 (`user_phase.rs:25`); no R27. |
-| 2. Proposed change | "LOG_CAP = 2^32 bounds the sum of charged log bytes over the canonical chain, this block included; the first transaction that would exceed it halts exceptionally. R27: H_END·LOG_BLOCK_MAX ≤ LOG_CAP; the only exception is the simnet caps-test build." Texts: execution.md:82 (and FINAL_DESIGN.md:819), governance.md gate, validation.md:2065 ("LOG_CAP=2^24 (استثناء R27)"), storage.md:73/77 (P/LOG-CAP-AGGREGATE-ALTERNATIVES.md §5; P/CAPS-SUSTAINABILITY.md §5a). |
+| 2. Proposed change | "LOG_CAP = 2^32 bounds the sum of charged log bytes over the canonical chain, this block included; the first transaction that would exceed it halts exceptionally. R27: H_END·LOG_BLOCK_MAX ≤ LOG_CAP; the only exception is the simnet caps-test build." Texts: execution.md:82 (and FINAL_DESIGN.md:819), governance.md gate, validation.md:2065 ("LOG_CAP=2^24 (R27 exception)"), storage.md:73/77 (P/LOG-CAP-AGGREGATE-ALTERNATIVES.md §5; P/CAPS-SUSTAINABILITY.md §5a). |
 | 3. Alternatives | A1b (LOG_BLOCK_MAX ≤ 8,285 B; breaks LG2, RG); A1c (network H_END ≤ 32,768; new genesisHash); A2 sliding window; A3 epoch reset; A4 remove LOG_CAP; A5 log gas pricing; A6 status quo (P/LOG-CAP-AGGREGATE-ALTERNATIVES.md §3). |
 | 4a. Security | Removes the permanent logging cliff for every admitted profile (ibid. §5). |
 | 4b. Performance | +2.955 GiB logical logs on the network inventory (+15%); A13 term `min(LOG_CAP, H_END·LOG_BLOCK_MAX)·33/32` (devnet 644.5 MiB) only if resources.rs implements the tightening — as coded it uses LOG_CAP (2^32) (P/CAPS-SUSTAINABILITY.md §5b). |
@@ -308,7 +308,7 @@ caps-test LOG_CAP) are not open (P/CAPS-SUSTAINABILITY.md §6).
 
 | field | content |
 |---|---|
-| 1. Current behaviour | consensus.md:170 reads "16. txBytes وtxCount ضمن السقوف" with no scope; the code reads the parent's branch counters (`chain.rs:602–605`). |
+| 1. Current behaviour | consensus.md:170 reads "16. txBytes and txCount within the caps" with no scope; the code reads the parent's branch counters (`chain.rs:602–605`). |
 | 2. Proposed change | "state the scope explicitly: 'the counts of the branch up to the parent plus this block' (item 16; LOG-CAP-AGGREGATE for logs)" (P/CAPS-SUSTAINABILITY.md §5a). |
 | 3. Alternatives | Approve; reject. |
 | 4a. Security | Not stated. |

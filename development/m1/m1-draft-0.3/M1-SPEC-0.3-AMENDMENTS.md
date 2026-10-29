@@ -201,7 +201,7 @@ The implementation gate of 0.2 §9 (a)–(c) is unchanged.
 
 ## R3-09 — Design-ID provenance (C08)
 
-- The approved design ID `e8a19ecb…a851aa0` appears **inside** `FINAL_DESIGN.md` at FD:L3 ("البصمة", fingerprint). So it cannot be the plain SHA-256 of that file's bytes: that would require a SHA-256 fixed point. The recorded raw SHA-256 `d54b5aee…a194a480e` therefore differs from it by construction. The difference is **not evidence of corruption**, and the two values are not contradictory.
+- The approved design ID `e8a19ecb…a851aa0` appears **inside** `FINAL_DESIGN.md` at FD:L3 ("fingerprint", fingerprint). So it cannot be the plain SHA-256 of that file's bytes: that would require a SHA-256 fixed point. The recorded raw SHA-256 `d54b5aee…a194a480e` therefore differs from it by construction. The difference is **not evidence of corruption**, and the two values are not contradictory.
 - `reference/baseline.json` gives `"source": "FINAL_DESIGN.md and state(3).json"`. No `state(3).json` exists in this workspace (searched `D:\PoCol-Development`), so its derivation cannot be tested here.
 - `tools/design_id_probe.py` tests stated candidate preimages with SHA-256, Keccak-256 and SHA3-256: the file without line 3, the file with the ID blanked, line-ending variants, every other reference file, and a concatenation of the section files. **It has not been run in this turn.** A negative result leaves the derivation open; it would not show the ID is wrong. Owner question Q-C08 is in `M1-OPEN-0.3.md`.
 - Documents should call the value the "approved design ID", not a "fingerprint" of the bytes. This is a wording change only; the 0.2 files are not edited.

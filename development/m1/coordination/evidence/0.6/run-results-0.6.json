@@ -8,7 +8,7 @@
     "thirdPartyPackages": "none"
   },
   "notExecuted": [
-    "browser / MV3 extension (X1-X7, \u062f1-\u062f5, Q8-Q12 browser runs)",
+    "browser / MV3 extension (X1-X7, DNR-d1-DNR-d5, Q8-Q12 browser runs)",
     "Chrome DNR itself (modelled)",
     "anvil / pocold",
     "MPT proofs",
@@ -1192,7 +1192,7 @@
       "log": []
     },
     {
-      "check": "dnr.\u062f1",
+      "check": "dnr.DNR-d1",
       "status": "pass",
       "rules": [
         14,
@@ -1210,7 +1210,7 @@
       ]
     },
     {
-      "check": "dnr.\u062f2",
+      "check": "dnr.DNR-d2",
       "status": "pass",
       "rules": [],
       "events": [
@@ -1221,7 +1221,7 @@
       ]
     },
     {
-      "check": "dnr.\u062f2-verify",
+      "check": "dnr.DNR-d2-verify",
       "status": "pass",
       "rules": [],
       "events": [
@@ -1232,7 +1232,7 @@
       ]
     },
     {
-      "check": "dnr.\u062f3",
+      "check": "dnr.DNR-d3",
       "status": "pass",
       "rules": [],
       "events": [
@@ -1252,7 +1252,7 @@
       ]
     },
     {
-      "check": "dnr.\u062f4",
+      "check": "dnr.DNR-d4",
       "status": "pass",
       "rules": [
         14,
@@ -1270,7 +1270,7 @@
       ]
     },
     {
-      "check": "dnr.\u062f5",
+      "check": "dnr.DNR-d5",
       "status": "pass",
       "rules": [],
       "events": [

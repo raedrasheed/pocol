@@ -1,279 +1,279 @@
-# الترقيات والتشغيل
+# Upgrades and operation
 
-**معلمات genesis (فرضيات، profileKind=network، و[CP] = مضمنة في CP)**
-- الشبكة: chainId=777001، وForkSchedule=[(1,0)].
-- الصعوبة [CP]: g_ts، وtarget_g، وT_blk=60s، وτ=3600s، وnonceMode=0، وc=2.
-- المحاولات: D_att=300 وΔ_fb_wait=25 [CP]. A_fb=1 وΓ=30 محليان.
-- التوقيت المحلي: Δ_rel=26، وΦ=10، وφ=5، وΔ=5، وt_exec=3. المشتقات: σ=14، وX^h=22، وX^W=36.
-- الحصص [CP]: m=32، وκ=2، وS_max=256، وD=16، وW_w=64، وα_bp=1000، وγ_bp=500.
-- الاقتصاد [CP]: subsidy=2·10^18، وB_reg=10^20 wei.
-- العضوية [CP]: R_max=2، وM_max=256، وM_min=1، وREG_RECORDS_MAX=16384، وSWEEP_MAX=16، وSWEEP_SCAN=64، وREG_OPS=16، وW_act=128، وΘ_inact=1024.
-- الأدلة [CP]: E_win=2048، وU=2200، وE_max=4، وEVID_BYTES_MAX=8192.
-- الكتلة [CP]: GAS_LIMIT=8000000، وbaseFee0=10^9، وTX_MAX=131072، وBODY_MAX=196608.
-- السقوف [CP]: B_code_max=32768، وCODE_CAP=2^30، وTXBYTES_CAP=2^33، وTX_CAP=10^7، وSLOT_CAP=4·10^6، وACCT_CAP=10^6.
-- SYS [CP]: SYS_SLOT_MAX=131072، وSYS_KEYS_BLOCK_MAX=2048، وSYS_KEYS_USER_MAX=256، وSYS_ACCT_BLOCK_MAX=512، وG_SYS=96·10^6.
-- الاحتفاظ (محلي): K_hist=32، وHIST_TRIE_BUDGET=1717986918، وR_keep=2048.
-- النهاية [CP]: H_END=129600، وT_END=g_ts+10368000، وH_CLOSE=129440، وT_CLOSE=T_END−9600، وZ_close=160، وRET=128، وP2=2.
-- التأكيد (محلي): k_safe=6، وk_final=60، وk_view=12.
-- الإضافة (محلي):
-  - VIEW_SLACK_S=4، وΦ_view=10s.
-  - fetchAll: 4 MiB لكل محاولة، و30s، وmaxRequests=4096، و3 إعادات بدء.
-  - إعادة الكتلة المنفردة عند RES: 3 مرات بفاصل 500 ms.
-  - BridgeAuth: BRIDGE_MSG_MAX=64 KiB، وعمق JSON ≤ 8، واسم الطريقة ≤ 64 B، وcallObj.gas ≤ 30000000، وFEE_HISTORY_BLOCKS_MAX=128، وFEE_PERCENTILES_MAX=16 (D100)، وaddress ≤ 16، وtopics ≤ 4×16.
-  - دلو الجسر (D97، أعداد صحيحة): BUCKET_CAP_MT=50000، وBUCKET_REFILL_MT_PER_MS=50، وMSG_COST_MT=1000، أي 50 رسالة/s بسعة 50.
-  - التعليق: PENDING_READS_MAX=4، ومهلة ناقل RpcReadClient 10s، ومهلة fetchAll 30s. تأكيد خارجي واحد معلق.
-  - التخزين والتنقل (D96): SITE_STORE_MAX=1048576 بايتًا بمحاسبة entry = utf8len(k)+utf8len(v)، والمفتاح ≤ 256 B، والقيمة ≤ 61440 B، وفترة التجميع 250 ms، وpathStr وhttpsUrl ≤ 2048 B.
-  - BridgeTrace: 1 MiB، في بناء الاختبار فقط.
+**Genesis parameters (assumptions, profileKind=network; [CP] = included in CP)**
+- Network: chainId=777001, ForkSchedule=[(1,0)].
+- Difficulty [CP]: g_ts, target_g, T_blk=60s, τ=3600s, nonceMode=0, c=2.
+- Attempts: D_att=300 and Δ_fb_wait=25 [CP]. A_fb=1 and Γ=30 are local.
+- Local timing: Δ_rel=26, Φ=10, φ=5, Δ=5, t_exec=3. Derived: σ=14, X^h=22, X^W=36.
+- Shares [CP]: m=32, κ=2, S_max=256, D=16, W_w=64, α_bp=1000, γ_bp=500.
+- Economics [CP]: subsidy=2·10^18, B_reg=10^20 wei.
+- Membership [CP]: R_max=2, M_max=256, M_min=1, REG_RECORDS_MAX=16384, SWEEP_MAX=16, SWEEP_SCAN=64, REG_OPS=16, W_act=128, Θ_inact=1024.
+- Evidence [CP]: E_win=2048, U=2200, E_max=4, EVID_BYTES_MAX=8192.
+- Block [CP]: GAS_LIMIT=8000000, baseFee0=10^9, TX_MAX=131072, BODY_MAX=196608.
+- Caps [CP]: B_code_max=32768, CODE_CAP=2^30, TXBYTES_CAP=2^33, TX_CAP=10^7, SLOT_CAP=4·10^6, ACCT_CAP=10^6.
+- SYS [CP]: SYS_SLOT_MAX=131072, SYS_KEYS_BLOCK_MAX=2048, SYS_KEYS_USER_MAX=256, SYS_ACCT_BLOCK_MAX=512, G_SYS=96·10^6.
+- Retention (local): K_hist=32, HIST_TRIE_BUDGET=1717986918, R_keep=2048.
+- End [CP]: H_END=129600, T_END=g_ts+10368000, H_CLOSE=129440, T_CLOSE=T_END−9600, Z_close=160, RET=128, P2=2.
+- Confirmation (local): k_safe=6, k_final=60, k_view=12.
+- Extension (local):
+  - VIEW_SLACK_S=4, Φ_view=10s.
+  - fetchAll: 4 MiB per attempt, 30s, maxRequests=4096, 3 restarts.
+  - Single-block retries on RES: 3 times, 500 ms apart.
+  - BridgeAuth: BRIDGE_MSG_MAX=64 KiB, JSON depth ≤ 8, method name ≤ 64 B, callObj.gas ≤ 30000000, FEE_HISTORY_BLOCKS_MAX=128, FEE_PERCENTILES_MAX=16 (D100), address ≤ 16, topics ≤ 4×16.
+  - Bridge bucket (D97, integers): BUCKET_CAP_MT=50000, BUCKET_REFILL_MT_PER_MS=50, MSG_COST_MT=1000, or 50 messages/s with capacity 50.
+  - Pending: PENDING_READS_MAX=4, RpcReadClient transport timeout 10s, fetchAll timeout 30s. One pending external confirmation.
+  - Storage/navigation (D96): SITE_STORE_MAX=1048576 bytes, accounting entry = utf8len(k)+utf8len(v); key ≤ 256 B; value ≤ 61440 B; batch interval 250 ms; pathStr and httpsUrl ≤ 2048 B.
+  - BridgeTrace: 1 MiB, test build only.
   - StoreQueue (D101):
-    - لكل جلسة: STORE_SESSION_MSGS_MAX=8، وSTORE_SESSION_BYTES_MAX=262144.
-    - لكل الإضافة: STORE_GLOBAL_MSGS_MAX=64، وSTORE_GLOBAL_BYTES_MAX=4194304، وSTORE_ACTIVE_GLOBAL=2.
-    - المهل: STORE_QUEUE_WAIT=10s، وSTORE_WRITE_DEADLINE=5s.
-    - الحجم: STORE_MSG_OVERHEAD=64، وSTORE_DICT_CACHE_MAX=8 MiB.
-    - المحمّل: ≤ 8 رسائل و≤ 256 KiB مرسلة دون رد، وانتظار ≤ 2s قبل التنقل.
-  - التخزين المستدام (D104):
-    - القرص: STORE_DISK_HARD=256 MiB، وSTORE_RECORDS_MAX=1024، وSTORE_SITES_MAX=64، وSITE_ENTRIES_MAX=4096، وRECORD_BYTES_MAX=1442048.
-    - الأجيال: GEN_WINDOW_MAX=4، وT_LATE=60s، وLATE_SITES_PER_GEN=4 مشتق (D112).
-    - الاحتياطيات: LATE_RESERVE=23072768، وLATE_NAMES=24، وEPOCH_NAMES_MAX=8 (D134)، وMETA_RESERVE=1 MiB.
-    - القبور (D108): ADMIN_SLOTS=2، وADMIN_SLOT_WAIT=5s، وTOMB_BYTES_MAX=512، وEPOCH_BYTES_MAX=256.
-    - الاسترداد: STORE_RECOVERY_DEADLINE=5s، ومحاولتا تثبيت، وRECOVERY_SLOTS=2، وRECOVERY_SLOT_WAIT=5s (D109).
-    - قراءة الاسترداد (D110): RECOVERY_READ_DEADLINE=5s، وRECOVERY_READ_SLOTS=2، وRECOVERY_GETS_MAX=4. المشتقات: حسم البوابة ≤ 25s، وAdminDelete ≤ 45s.
+    - Per session: STORE_SESSION_MSGS_MAX=8, STORE_SESSION_BYTES_MAX=262144.
+    - Extension-wide: STORE_GLOBAL_MSGS_MAX=64, STORE_GLOBAL_BYTES_MAX=4194304, STORE_ACTIVE_GLOBAL=2.
+    - Timeouts: STORE_QUEUE_WAIT=10s, STORE_WRITE_DEADLINE=5s.
+    - Size: STORE_MSG_OVERHEAD=64, STORE_DICT_CACHE_MAX=8 MiB.
+    - Loader: ≤ 8 messages and ≤ 256 KiB sent without replies; wait ≤ 2s before navigation.
+  - Durable storage (D104):
+    - Disk: STORE_DISK_HARD=256 MiB, STORE_RECORDS_MAX=1024, STORE_SITES_MAX=64, SITE_ENTRIES_MAX=4096, RECORD_BYTES_MAX=1442048.
+    - Generations: GEN_WINDOW_MAX=4, T_LATE=60s, derived LATE_SITES_PER_GEN=4 (D112).
+    - Reserves: LATE_RESERVE=23072768, LATE_NAMES=24, EPOCH_NAMES_MAX=8 (D134), META_RESERVE=1 MiB.
+    - Tombstones (D108): ADMIN_SLOTS=2, ADMIN_SLOT_WAIT=5s, TOMB_BYTES_MAX=512, EPOCH_BYTES_MAX=256.
+    - Recovery: STORE_RECOVERY_DEADLINE=5s, two anchor attempts, RECOVERY_SLOTS=2, RECOVERY_SLOT_WAIT=5s (D109).
+    - Recovery reads (D110): RECOVERY_READ_DEADLINE=5s, RECOVERY_READ_SLOTS=2, RECOVERY_GETS_MAX=4. Derived: gate resolution ≤ 25s, AdminDelete ≤ 45s.
   - RecvGuard (D98):
-    - جدول RECV_LIMIT في browser.
-    - RESP_DEPTH_MAX=16، وERR_DATA_MAX=4 KiB، وانتظار الحجز 2s.
-    - SITE_POOL=32 MiB، وSESSION_RECV_MAX=10 MiB، وTRUST_POOL=2 MiB، وCONTENT_POOL=8·68 KiB.
+    - RECV_LIMIT table in browser.
+    - RESP_DEPTH_MAX=16, ERR_DATA_MAX=4 KiB, reservation wait 2s.
+    - SITE_POOL=32 MiB, SESSION_RECV_MAX=10 MiB, TRUST_POOL=2 MiB, CONTENT_POOL=8·68 KiB.
     - RECV_INFLIGHT_MAX=48.
   - SiteSession (D99):
-    - NAV_CAP_MT=6000، وNAV_REFILL_MT_PER_MS=1، وNAV_COST_MT=2000.
+    - NAV_CAP_MT=6000, NAV_REFILL_MT_PER_MS=1, NAV_COST_MT=2000.
     - GLOBAL_PENDING_READS_MAX=16.
-    - SITE_CACHE_MAX=4 MiB+64 KiB، وCACHE_GLOBAL_MAX=16 MiB.
-  - المصفوفة وأسماء طرق site_* ثابتة في الكود لا معلمات قابلة للضبط.
-- RpcGuard (محلي):
-  - الاتصالات: RPC_CONN_MAX=32، وREQ_BUF=1 MiB، وCONN_BUF=64 KiB، وSEND_SOCK_BUF=32 KiB.
-  - التصاريح: HEAVY_ACTIVE=4، وHEAVY_QUEUE=16، وLIGHT_ACTIVE=16، وLIGHT_QUEUE=32.
-  - المعدل: RATE=20/s بسعة 20، والدفعة تستهلك k رموزًا.
-  - الذاكرة: HEAVY_RESP_MEM=48 MiB، وLIGHT_RESP_MEM=16 MiB، وRESP_MAX=8 MiB، وLIGHT_RESP_MAX=512 KiB، وBATCH_RESP_MAX=16 MiB، وSCRATCH_HEAVY=16 MiB، وSCRATCH_LIGHT=1 MiB، وRPC_MEM_TOTAL=192 MiB.
-  - الدفعات: BATCH_MAX=20، وERR_ITEM_MAX=256 B، وBATCH_BYTES_HARD=16782400 B.
-  - السجلات: LOGS_RANGE_MAX=1024، وLOGS_COUNT_MAX=10000، وLOGS_SCAN_BYTES=32 MiB.
-  - المهل: REQ_READ_DEADLINE=10s، وIDLE=30s (من sendDone)، وQUEUE_WAIT=2s، وCOMPUTE_DEADLINE_HEAVY=5s، وCOMPUTE_DEADLINE_LIGHT=500 ms، وSendPacer بـGRACE=2s وMIN_SEND_RATE=65536 B/s، وBATCH_WALL=420s، وCANCEL_MAX=100 ms.
-  - الإنفاذ: ENFORCE_SLACK=200 ms، وTIMER_EPS=1 ms.
-  - التتبع: rpc.pacerTrace (false افتراضيًا، وtrue في RG)، بمخزن 4 MiB.
-  - حجب الأصل: ORIGIN_DENY = {pocol_submitShare، pocol_getTemplate}، ثابت في الكود.
-  - المشتقات (لا تُضبط يدويًا، وكلها حتى sendDone): SEND_MAX(size) = GRACE+size/R+ENFORCE_SLACK، وBATCH_SEND_MAX = 258.0791015625s وحد مراقبته 258.2791015625s، والحد الأدنى لـBATCH_WALL = 404.2791015625s.
-- احتفاظ الأغلفة (D136، محلي لا إجماعي): ENV_REJ_PER_BLOCK=8، وENV_REJ_GLOBAL=16384، وENV_ENTRY_MAX=128 B، وENV_PENDING_GLOBAL=1024، وENV_INFLIGHT_GLOBAL=64 = ENV_SOLICIT_SLOTS=32 + ENV_GOSSIP_SLOTS=32، وENV_REQ_TIMEOUT=2s، وENV_REPLY_MAX=3131 B، وENV_MEM_MAX=7 MiB (D137)، وENV_CHECK_WORKERS=4، وENV_EXEC_MAX=50 ms (D139، ويحل محل ENV_CHECK_MAX في D138). المشتق c_env = (⌈63/ENV_CHECK_WORKERS⌉+1)·ENV_EXEC_MAX = 850 ms، وقيد البناء ENV_CHECK_WORKERS ≥ 1.
-  - ENV_EXEC_MAX فرضية مقيسة لزمن تنفيذ الفحص الواحد، وc_env مشتق منها (D139). تجاوزه يزيد envCheckOverrun ويطلق تنبيهًا، ولا يحرر المقعد قبل الاستقرار. السلامة مقدمة على التقدم.
-  - قيد البناء: ENV_SOLICIT_SLOTS+ENV_GOSSIP_SLOTS = ENV_INFLIGHT_GLOBAL، وكلاهما ≥ 1.
-  - قيد الذاكرة: ENV_REJ_GLOBAL·ENV_ENTRY_MAX + ENV_PENDING_GLOBAL·3067 + ENV_INFLIGHT_GLOBAL·ENV_REPLY_MAX + 16384·64 ≤ ENV_MEM_MAX.
-  - المراقبة تضيف solicitHeld وenvTimeouts، وliveChecks وliveBuffers وcancelPending وlateCheckDropped وenvCheckOverrun (D138). أي liveChecks > 64 أو liveBuffers > 64 عيب تنفيذ يوقف الإصدار. تغييرها إصدار عقدة لا fork. المراقبة: envFloodDropped وenvEvicted وenvRejEntries، وتنبيه عند envEvicted > 1000 في الدقيقة.
-- ثوابت مشتقة (D86): LAG=2048 (خارج CP)، وLmax = 4113.
+    - SITE_CACHE_MAX=4 MiB+64 KiB, CACHE_GLOBAL_MAX=16 MiB.
+  - The matrix and site_* method names are code constants, not configurable parameters.
+- RpcGuard (local):
+  - Connections: RPC_CONN_MAX=32, REQ_BUF=1 MiB, CONN_BUF=64 KiB, SEND_SOCK_BUF=32 KiB.
+  - Permits: HEAVY_ACTIVE=4, HEAVY_QUEUE=16, LIGHT_ACTIVE=16, LIGHT_QUEUE=32.
+  - Rate: RATE=20/s, capacity 20; a batch consumes k tokens.
+  - Memory: HEAVY_RESP_MEM=48 MiB, LIGHT_RESP_MEM=16 MiB, RESP_MAX=8 MiB, LIGHT_RESP_MAX=512 KiB, BATCH_RESP_MAX=16 MiB, SCRATCH_HEAVY=16 MiB, SCRATCH_LIGHT=1 MiB, RPC_MEM_TOTAL=192 MiB.
+  - Batches: BATCH_MAX=20, ERR_ITEM_MAX=256 B, BATCH_BYTES_HARD=16782400 B.
+  - Logs: LOGS_RANGE_MAX=1024, LOGS_COUNT_MAX=10000, LOGS_SCAN_BYTES=32 MiB.
+  - Timeouts: REQ_READ_DEADLINE=10s, IDLE=30s (from sendDone), QUEUE_WAIT=2s, COMPUTE_DEADLINE_HEAVY=5s, COMPUTE_DEADLINE_LIGHT=500 ms, SendPacer with GRACE=2s and MIN_SEND_RATE=65536 B/s, BATCH_WALL=420s, CANCEL_MAX=100 ms.
+  - Enforcement: ENFORCE_SLACK=200 ms, TIMER_EPS=1 ms.
+  - Tracing: rpc.pacerTrace (false by default, true in RG), 4 MiB buffer.
+  - Origin denial: ORIGIN_DENY = {pocol_submitShare, pocol_getTemplate}, fixed in code.
+  - Derived (never manually configured; all until sendDone): SEND_MAX(size) = GRACE+size/R+ENFORCE_SLACK; BATCH_SEND_MAX = 258.0791015625s with monitoring bound 258.2791015625s; minimum BATCH_WALL = 404.2791015625s.
+- Envelope retention (D136, local, nonconsensus): ENV_REJ_PER_BLOCK=8, ENV_REJ_GLOBAL=16384, ENV_ENTRY_MAX=128 B, ENV_PENDING_GLOBAL=1024, ENV_INFLIGHT_GLOBAL=64 = ENV_SOLICIT_SLOTS=32 + ENV_GOSSIP_SLOTS=32, ENV_REQ_TIMEOUT=2s, ENV_REPLY_MAX=3131 B, ENV_MEM_MAX=7 MiB (D137), ENV_CHECK_WORKERS=4, ENV_EXEC_MAX=50 ms (D139, replacing ENV_CHECK_MAX in D138). Derived c_env = (⌈63/ENV_CHECK_WORKERS⌉+1)·ENV_EXEC_MAX = 850 ms; build constraint ENV_CHECK_WORKERS ≥ 1.
+  - ENV_EXEC_MAX is a measured assumption for one check's execution time; c_env derives from it (D139). Exceeding it increments envCheckOverrun and raises an alert without releasing the seat before settlement. Safety takes precedence over liveness.
+  - Build constraint: ENV_SOLICIT_SLOTS+ENV_GOSSIP_SLOTS = ENV_INFLIGHT_GLOBAL; both ≥ 1.
+  - Memory constraint: ENV_REJ_GLOBAL·ENV_ENTRY_MAX + ENV_PENDING_GLOBAL·3067 + ENV_INFLIGHT_GLOBAL·ENV_REPLY_MAX + 16384·64 ≤ ENV_MEM_MAX.
+  - Monitoring adds solicitHeld, envTimeouts, liveChecks, liveBuffers, cancelPending, lateCheckDropped and envCheckOverrun (D138). Any liveChecks > 64 or liveBuffers > 64 is an implementation defect blocking release. Changing these requires a node release, not a fork. Monitor envFloodDropped, envEvicted, envRejEntries; alert on envEvicted > 1000 per minute.
+- Derived constants (D86): LAG=2048 (outside CP), Lmax = 4113.
 
-**بوابة الإقلاع R1–R26**
+**Boot gate R1–R26**
 
-ParamGate.check(profile, measured, nodeKind) تعيد ok، أو قائمة مرتبة بكل القواعد المخروقة، أو UnknownField. غير ok على العقدة الحقيقية يعني رفض الإقلاع بـ−32018.
+ParamGate.check(profile, measured, nodeKind) returns ok, an ordered list of every violated rule, or UnknownField. A non-ok result on a real node refuses boot with −32018.
 
-التوقيت:
+Timing:
 - R1: Φ=2φ.
 - R2: Δ_rel ≥ σ+Δ+2t_exec.
 - R3: Δ_fb_wait ≥ Φ+Δ+2t_exec.
-- R4: Φ < Δ_fb_wait، وΔ_rel ≥ t_exec.
+- R4: Φ < Δ_fb_wait, Δ_rel ≥ t_exec.
 - R5: 3Δ_fb_wait ≤ D_att.
-- R6: X^h وX^W.
+- R6: X^h and X^W.
 - R7: D_att+Γ ≥ 2(X^W+c·T_blk)+Φ.
 
-الأدلة والأحجام:
-- R8: D ≥ 2، وU ≥ E_win+D، وE_win ≤ R_keep.
-- R9: S_max ≥ 4κm، وB_code_max ≥ 24577.
+Evidence and sizes:
+- R8: D ≥ 2, U ≥ E_win+D, E_win ≤ R_keep.
+- R9: S_max ≥ 4κm, B_code_max ≥ 24577.
 - R10: TX_MAX ≤ BODY_MAX−16 KiB.
-- R11: k_final ≤ R_keep، وk_view < K_hist، وk_view+2 ≤ 512.
+- R11: k_final ≤ R_keep, k_view < K_hist, k_view+2 ≤ 512.
 
-العضوية والنهاية:
+Membership and end:
 - R12: M_max ≥ |M_0| ≥ M_min ≥ 1.
-- R13: H_END > Z_close، وH_CLOSE+Z_close ≤ H_END، وT_CLOSE ≤ T_END.
+- R13: H_END > Z_close, H_CLOSE+Z_close ≤ H_END, T_CLOSE ≤ T_END.
 
-الأداء والموارد:
+Performance and resources:
 - R14: t_exec ≥ validate_p99.
-- R15: حدود gossip.
+- R15: gossip limits.
 - R16: REG_RECORDS_MAX ≥ M_max+R_max·(Lmax+LAG).
 - R17: SWEEP_MAX ≥ R_max+E_max.
-- R18: SYS، ويشمل كلفة RET سجلًا ضمن G_SYS.
-- R19: أزمنة الكتل ≤ t_exec.
+- R18: SYS, including the cost of RET records within G_SYS.
+- R19: block times ≤ t_exec.
 - R20: Z_close ≥ ⌈REG_RECORDS_MAX/RET⌉+P2+D+1.
-- R21: trie التاريخي، والاستثناء الوحيد simnet مع retentionStress.
+- R21: historical trie; the only exception is simnet with retentionStress.
 
-الملفات والهوية:
-- R22: profileKind وnodeKind وفصل chainId.
+Profiles and identity:
+- R22: profileKind, nodeKind and chainId separation.
 - R23: Σalloc+|M_0|·B_reg+subsidy·H_END < 2^127.
-- R24: (أ) فك GenesisSpec ومطابقة genesisHash وallocRoot وsysCodeHash. (ب) ForkSchedule غير فارغ، يبدأ بـ(1,0)، وتصاعدي. (ج) كل v مدعوم. (د) TestFork-v2 في simnet فقط. (هـ) chainId ≠ 0 ويتسع في u64.
-- R25: (أ) 1 ≤ target_g ≤ 2^256−1. (ب) τ ≥ 1 وT_blk ≥ 1. (ج) في network: τ ≥ 10·T_blk. (د) معايرة target_g مسجلة.
+- R24: (A) Decode GenesisSpec; match genesisHash, allocRoot and sysCodeHash. (B) ForkSchedule nonempty, starting at (1,0), ascending. (C) Every v supported. (D) TestFork-v2 only in simnet. (E) chainId ≠ 0, fits u64.
+- R25: (A) 1 ≤ target_g ≤ 2^256−1. (B) τ ≥ 1 and T_blk ≥ 1. (C) In network: τ ≥ 10·T_blk. (D) target_g calibration recorded.
 
-خدمة RPC (محلية، لا تمس الإجماع)، R26:
-- (أ) HEAVY_RESP_MEM ≥ RESP_MAX، وLIGHT_RESP_MEM ≥ RPC_CONN_MAX·LIGHT_RESP_MAX.
-- (ب) HEAVY_RESP_MEM+LIGHT_RESP_MEM+HEAVY_ACTIVE·SCRATCH_HEAVY+LIGHT_ACTIVE·SCRATCH_LIGHT+RPC_CONN_MAX·(REQ_BUF+CONN_BUF) ≤ RPC_MEM_TOTAL.
-- (ج) BATCH_RESP_MAX ≥ RESP_MAX، وLIGHT_QUEUE ≥ RPC_CONN_MAX، وBATCH_MAX·ERR_ITEM_MAX+64 B ≤ CONN_BUF.
-- (د) RESP_MAX ≥ 2·LOG_BLOCK_MAX+546·512 B، وLOGS_COUNT_MAX ≥ 546، وLOGS_SCAN_BYTES ≥ LOG_BLOCK_MAX.
-- (هـ) LIGHT_RESP_MAX ≥ أكبر قيمة خفيفة (385 KiB).
-- (و) SEND_MAX وBATCH_SEND_MAX بالصيغة وحدها، وBATCH_WALL ≥ BATCH_MAX·(QUEUE_WAIT+ENFORCE_SLACK+COMPUTE_DEADLINE_HEAVY+CANCEL_MAX)+BATCH_SEND_MAX+ENFORCE_SLACK. RATE ≥ 1، والسعة ≥ BATCH_MAX.
-- (ز) 0 < TIMER_EPS < ENFORCE_SLACK ≤ 500 ms، وSEND_SOCK_BUF ≤ 64 KiB.
+RPC service (local, not affecting consensus), R26:
+- (A) HEAVY_RESP_MEM ≥ RESP_MAX, LIGHT_RESP_MEM ≥ RPC_CONN_MAX·LIGHT_RESP_MAX.
+- (B) HEAVY_RESP_MEM+LIGHT_RESP_MEM+HEAVY_ACTIVE·SCRATCH_HEAVY+LIGHT_ACTIVE·SCRATCH_LIGHT+RPC_CONN_MAX·(REQ_BUF+CONN_BUF) ≤ RPC_MEM_TOTAL.
+- (C) BATCH_RESP_MAX ≥ RESP_MAX, LIGHT_QUEUE ≥ RPC_CONN_MAX, BATCH_MAX·ERR_ITEM_MAX+64 B ≤ CONN_BUF.
+- (D) RESP_MAX ≥ 2·LOG_BLOCK_MAX+546·512 B, LOGS_COUNT_MAX ≥ 546, LOGS_SCAN_BYTES ≥ LOG_BLOCK_MAX.
+- (E) LIGHT_RESP_MAX ≥ greatest light value (385 KiB).
+- (F) SEND_MAX and BATCH_SEND_MAX are formula-only; BATCH_WALL ≥ BATCH_MAX·(QUEUE_WAIT+ENFORCE_SLACK+COMPUTE_DEADLINE_HEAVY+CANCEL_MAX)+BATCH_SEND_MAX+ENFORCE_SLACK. RATE ≥ 1, capacity ≥ BATCH_MAX.
+- (G) 0 < TIMER_EPS < ENFORCE_SLACK ≤ 500 ms, SEND_SOCK_BUF ≤ 64 KiB.
 
-فحص القيم الافتراضية: (أ) 48 ≥ 8، و16 ≥ 16. (ب) 178 ≤ 192. (ج) 16 ≥ 8، و32 ≥ 32، و5184 B ≤ 64 KiB. (د) 8 MiB ≥ 337 KiB. (هـ) 512 ≥ 385. (و) 420 ≥ 404.2791015625، و20 ≥ 20. (ز) 1 < 200 ≤ 500، و32 ≤ 64.
+Default checks: (A) 48 ≥ 8, 16 ≥ 16. (B) 178 ≤ 192. (C) 16 ≥ 8, 32 ≥ 32, 5184 B ≤ 64 KiB. (D) 8 MiB ≥ 337 KiB. (E) 512 ≥ 385. (F) 420 ≥ 404.2791015625, 20 ≥ 20. (G) 1 < 200 ≤ 500, 32 ≤ 64.
 
-فحوص network: R16 = 12578 ≤ 16384، وR20: 160 ≥ 147، وR13: 129440+160 = 129600.
+Network checks: R16 = 12578 ≤ 16384, R20: 160 ≥ 147, R13: 129440+160 = 129600.
 
-ثوابت الجسر لا تدخل ParamGate لأنها في الإضافة لا في pocold. تُفحص في اختبار وحدة BG1:
-- BUCKET_CAP_MT = 50·MSG_COST_MT، وBUCKET_REFILL_MT_PER_MS·1000 = 50·MSG_COST_MT، وPENDING_READS_MAX ≥ 1.
-- SITE_STORE_MAX ≥ 17·(3+61440)+4045، أي ≥ 1048576 بالضبط، حتى يبقى BR17e مشتقًا بأرقامه. القيمة الحرفية 1048576.
-- BRIDGE_MSG_MAX ≥ 61440+256+128، حتى تتسع رسالة storage_set القصوى لمفتاح وقيمة بأقصى طول مع الغلاف.
-- RECV (D100): لكل طريقة exact يجب RECV_LIMIT ≥ WorstLegit بقيم CP في network وsv-fix وend/full وlogs/dense، وبحدود مخطط الجسر (FEE_HISTORY_BLOCKS_MAX، وFEE_PERCENTILES_MAX، وcount ≤ 14).
-- مجموعة capped تساوي حرفيًا {eth_call، eth_estimateGas}، ولكل منها سطر حد منتجي في browser.
-- لا يُشترط RECV_LIMIT ≥ حد RpcGuard العام للطرق الثقيلة. هذا الفرق مقصود ومعلن.
-- SESSION_RECV_MAX ≥ 8 MiB، وSITE_POOL ≥ SESSION_RECV_MAX، وTRUST_POOL ≥ 2·96 KiB.
+Bridge constants are outside ParamGate because they belong to the extension, not pocold. BG1 unit tests check:
+- BUCKET_CAP_MT = 50·MSG_COST_MT, BUCKET_REFILL_MT_PER_MS·1000 = 50·MSG_COST_MT, PENDING_READS_MAX ≥ 1.
+- SITE_STORE_MAX ≥ 17·(3+61440)+4045, exactly ≥ 1048576, preserving BR17e's numerical derivation. Literal value 1048576.
+- BRIDGE_MSG_MAX ≥ 61440+256+128, accommodating the maximum storage_set key/value lengths and envelope.
+- RECV (D100): each exact method requires RECV_LIMIT ≥ WorstLegit for CP values in network, sv-fix, end/full and logs/dense, with bridge-schema limits (FEE_HISTORY_BLOCKS_MAX, FEE_PERCENTILES_MAX, count ≤ 14).
+- The capped set is literally {eth_call, eth_estimateGas}; each has a product-limit row in browser.
+- RECV_LIMIT need not exceed RpcGuard's general heavy-method bound. This distinction is intentional and disclosed.
+- SESSION_RECV_MAX ≥ 8 MiB, SITE_POOL ≥ SESSION_RECV_MAX, TRUST_POOL ≥ 2·96 KiB.
 - NAV_CAP_MT = 3·NAV_COST_MT.
 - GLOBAL_PENDING_READS_MAX ≥ PENDING_READS_MAX.
 - SITE_CACHE_MAX ≥ 4 MiB+64 KiB.
-- (D101) STORE_SESSION_BYTES_MAX ≥ 64+256+61440 = 61760، حتى تُقبل أقصى رسالة في جلسة فارغة.
-- (D101) STORE_GLOBAL_BYTES_MAX ≥ STORE_GLOBAL_MSGS_MAX·61760 (3952640 ≤ 4194304)، وSTORE_GLOBAL_MSGS_MAX ≥ STORE_SESSION_MSGS_MAX ≥ 1، وSTORE_ACTIVE_GLOBAL ≥ 1، وSTORE_QUEUE_WAIT > STORE_WRITE_DEADLINE.
-- (D104) قيود القرص:
-  - STORE_DISK_HARD ≥ STORE_SITES_MAX·2·RECORD_BYTES_MAX + LATE_RESERVE + META_RESERVE، أي 184582144+23072768+1048576 = 208703488 ≤ 268435456.
-  - STORE_RECORDS_MAX ≥ 2·STORE_SITES_MAX + LATE_NAMES + EPOCH_NAMES_MAX + 1، أي 128+24+8+1 = 161 ≤ 1024 (D134).
-  - (D108، D109) LATE_NAMES = GEN_WINDOW_MAX·(STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS+ADMIN_SLOTS)، وEPOCH_NAMES_MAX ≥ GEN_WINDOW_MAX+2 حتى لا تُغلق الدفعات العادية التخزين (D134)، وADMIN_SLOTS ≥ 2، وRECOVERY_SLOTS ≥ 2، وRECOVERY_SLOT_WAIT ≤ STORE_RECOVERY_DEADLINE.
-  - (D110) RECOVERY_READ_SLOTS ≥ 1، وRECOVERY_GETS_MAX ≥ 2، و0 < RECOVERY_READ_DEADLINE < STORE_QUEUE_WAIT. الحد المشتق لـAdminDelete = RECOVERY_READ_DEADLINE+2·(RECOVERY_SLOT_WAIT+STORE_RECOVERY_DEADLINE)+2·(ADMIN_SLOT_WAIT+STORE_RECOVERY_DEADLINE) = 45s، وتعرضه أداة البناء حرفيًا.
-  - (D108) META_RESERVE ≥ STORE_RECORDS_MAX·TOMB_BYTES_MAX + (GEN_WINDOW_MAX+1)·ADMIN_SLOTS·TOMB_BYTES_MAX + EPOCH_NAMES_MAX·EPOCH_BYTES_MAX، أي 531456 ≤ 1048576 (D134).
-  - RECORD_BYTES_MAX = 4·ceil((SITE_STORE_MAX+8·SITE_ENTRIES_MAX)/3)+256، وLATE_RESERVE = GEN_WINDOW_MAX·(STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS)·RECORD_BYTES_MAX.
-  - (D112) LATE_SITES_PER_GEN = STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS، وSTORE_SITES_MAX ≥ GEN_WINDOW_MAX·LATE_SITES_PER_GEN+1، أي 64 ≥ 17. تعرض أداة البناء الحد الأدنى للمواقع المقبولة فورًا بعد أسوأ نافذة أجيال حرفيًا (64−16 = 48).
-- (I55) الشرط الأول يجعل الحد البايتي العام زائدًا دفاعيًا بالقيم الافتراضية، وهذا معلن. معلمات TQ في BR21e تخالفه عمدًا، وهي مسموحة في بناء الاختبار فقط. أي بناء إصدار بقيم StoreQueue غير الافتراضية يفشل.
+- (D101) STORE_SESSION_BYTES_MAX ≥ 64+256+61440 = 61760, admitting the largest message into an empty session.
+- (D101) STORE_GLOBAL_BYTES_MAX ≥ STORE_GLOBAL_MSGS_MAX·61760 (3952640 ≤ 4194304), STORE_GLOBAL_MSGS_MAX ≥ STORE_SESSION_MSGS_MAX ≥ 1, STORE_ACTIVE_GLOBAL ≥ 1, STORE_QUEUE_WAIT > STORE_WRITE_DEADLINE.
+- (D104) Disk constraints:
+  - STORE_DISK_HARD ≥ STORE_SITES_MAX·2·RECORD_BYTES_MAX + LATE_RESERVE + META_RESERVE, namely 184582144+23072768+1048576 = 208703488 ≤ 268435456.
+  - STORE_RECORDS_MAX ≥ 2·STORE_SITES_MAX + LATE_NAMES + EPOCH_NAMES_MAX + 1, namely 128+24+8+1 = 161 ≤ 1024 (D134).
+  - (D108, D109) LATE_NAMES = GEN_WINDOW_MAX·(STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS+ADMIN_SLOTS); EPOCH_NAMES_MAX ≥ GEN_WINDOW_MAX+2 so ordinary batches do not close storage (D134); ADMIN_SLOTS ≥ 2; RECOVERY_SLOTS ≥ 2; RECOVERY_SLOT_WAIT ≤ STORE_RECOVERY_DEADLINE.
+  - (D110) RECOVERY_READ_SLOTS ≥ 1, RECOVERY_GETS_MAX ≥ 2, 0 < RECOVERY_READ_DEADLINE < STORE_QUEUE_WAIT. Derived AdminDelete bound = RECOVERY_READ_DEADLINE+2·(RECOVERY_SLOT_WAIT+STORE_RECOVERY_DEADLINE)+2·(ADMIN_SLOT_WAIT+STORE_RECOVERY_DEADLINE) = 45s, displayed literally by the build tool.
+  - (D108) META_RESERVE ≥ STORE_RECORDS_MAX·TOMB_BYTES_MAX + (GEN_WINDOW_MAX+1)·ADMIN_SLOTS·TOMB_BYTES_MAX + EPOCH_NAMES_MAX·EPOCH_BYTES_MAX, namely 531456 ≤ 1048576 (D134).
+  - RECORD_BYTES_MAX = 4·ceil((SITE_STORE_MAX+8·SITE_ENTRIES_MAX)/3)+256, LATE_RESERVE = GEN_WINDOW_MAX·(STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS)·RECORD_BYTES_MAX.
+  - (D112) LATE_SITES_PER_GEN = STORE_ACTIVE_GLOBAL+RECOVERY_SLOTS, STORE_SITES_MAX ≥ GEN_WINDOW_MAX·LATE_SITES_PER_GEN+1, namely 64 ≥ 17. The build tool literally displays the minimum immediately admissible sites after the worst generation window (64−16 = 48).
+- (I55) The first condition makes the global byte limit defensively redundant under defaults, as disclosed. TQ parameters in BR21e intentionally violate it and are permitted only in test builds. Any release build with nondefault StoreQueue values fails.
 
-أي خرق يفشل بناء الإضافة.
+Any violation fails the extension build.
 
-**ملفات التجربة**
+**Experimental profiles**
 
-P11 (dev): T_blk=10، وτ=600، وc=2، وΔ=1، وt_exec=1، وφ=1، وΦ=2، وΔ_rel=8، وΔ_fb_wait=6، وΓ=5، وD_att=60، وchainId=777901. المشتقات: σ=4، وX^h=6، وX^W=10.
+P11 (dev): T_blk=10, τ=600, c=2, Δ=1, t_exec=1, φ=1, Φ=2, Δ_rel=8, Δ_fb_wait=6, Γ=5, D_att=60, chainId=777901. Derived: σ=4, X^h=6, X^W=10.
 
-anvil-br (المرحلة A، DEV): anvil بـchainId=777910 خلف RpcTap، مع المفاتيح 7–10 ممولة. لا يدخل ParamGate لأنه ليس pocold.
+anvil-br (phase A, DEV): anvil with chainId=777910 behind RpcTap, keys 7–10 funded. Outside ParamGate because it is not pocold.
 
 sv-fix (simnet):
-- القيم: P11 مع nonceMode=1، وsubsidy=80000 wei، وtarget_g=2^240، وchainId=777902، وg_ts=1700000000.
-- M_0 = {w, x, y, z} بالمفاتيح 3–6، مرتبة، وrewardAddr = id.
-- النهاية: H_END=200، وH_CLOSE=40، وZ_close=160، وT_END=g_ts+10^7، وT_CLOSE=T_END. بقية CP بقيم network.
-- alloc: s1..s4 (المفاتيح 7–10، بـ10^18 لكل منها)، وRv (كود 0x5f5ffd)، وSd (كود 0x73‹Escrow›ff ورصيد 5000).
-- R16 = 12578، وR13: 40+160 = 200، وR20: 160 ≥ 147. على node يعطي [R22]. CP مطابق لـGSV1.
+- Values: P11 with nonceMode=1, subsidy=80000 wei, target_g=2^240, chainId=777902, g_ts=1700000000.
+- M_0 = {w, x, y, z}, keys 3–6, sorted; rewardAddr = id.
+- End: H_END=200, H_CLOSE=40, Z_close=160, T_END=g_ts+10^7, T_CLOSE=T_END. Remaining CP uses network values.
+- alloc: s1..s4 (keys 7–10, 10^18 each), Rv (code 0x5f5ffd), Sd (code 0x73‹Escrow›ff, balance 5000).
+- R16 = 12578, R13: 40+160 = 200, R20: 160 ≥ 147. On node, returns [R22]. CP matches GSV1.
 
-end/full (simnet، D86):
-- القيم: sv-fix مع chainId=777905، وR_max=0، وM_max=1024، وM_min=1، وREG_RECORDS_MAX=1024، وRET=8، وH_END=700، وZ_close=147، وH_CLOSE=553، وT_END=g_ts+10^7، وT_CLOSE=T_END.
-- M_0: 1024 هوية، هي w وx وy وz، و1020 هوية idᵢ = آخر 20 بايتًا من keccak256('PoColEnd'‖be32(i)) لـi ∈ [0, 1019]، بلا مفاتيح خاصة. rewardAddr = id، والقائمة مرتبة. أي تكرار أو تطابق مع عنوان محجوز يعطي FixtureSetupError('ids').
-- alloc: كـsv-fix، مع s1 = 3·10^20.
-- البوابة: R12: 1024 ≥ 1024 ≥ 1، وR16: 1024 ≥ 1024، وR17: 16 ≥ 4، وR13: 553+147 = 700، وR20: 147 ≥ 147، وR23 متحقق. R8 وR9 وR11 من network، وR1–R7 من P11، وR18 بـ8 سجلات/كتلة، وR21 بـH_END=700، وR26 افتراضيًا. النتيجة ok على simnet و[R22] على node.
+end/full (simnet, D86):
+- Values: sv-fix with chainId=777905, R_max=0, M_max=1024, M_min=1, REG_RECORDS_MAX=1024, RET=8, H_END=700, Z_close=147, H_CLOSE=553, T_END=g_ts+10^7, T_CLOSE=T_END.
+- M_0: 1024 identities: w, x, y, z and 1020 identities idᵢ = last 20 bytes of keccak256('PoColEnd'‖be32(i)) for i ∈ [0, 1019], without private keys. rewardAddr = id; list sorted. Any duplicate or reserved-address match gives FixtureSetupError('ids').
+- alloc: as sv-fix, with s1 = 3·10^20.
+- Gate: R12: 1024 ≥ 1024 ≥ 1; R16: 1024 ≥ 1024; R17: 16 ≥ 4; R13: 553+147 = 700; R20: 147 ≥ 147; R23 holds. R8, R9 and R11 from network; R1–R7 from P11; R18 with 8 records/block; R21 with H_END=700; default R26. Result ok on simnet, [R22] on node.
 
 logs/dense (simnet):
-- القيم: sv-fix مع chainId=777906، وH_END=1300، وH_CLOSE=1140، وZ_close=160.
-- alloc يضيف:
-  - LogBomb: 546 سجل LOG0 لكل نداء، والبيانات 24 بايتًا آخر 8 منها = be64(arg).
-  - MemHog: يوسع الذاكرة إلى حد 30M gas ويقرأ 10^4 خانة باردة.
-  - Spin: حلقة حتى نفاد gas.
-  - Blob: blob(uint256 n) يعيد n بايتًا 0xab، حيث n ≤ 4 MiB، والرد 2n+ترويسة ثابتة.
+- Values: sv-fix with chainId=777906, H_END=1300, H_CLOSE=1140, Z_close=160.
+- alloc adds:
+  - LogBomb: 546 LOG0 logs per call, 24-byte data with final 8 bytes = be64(arg).
+  - MemHog: expands memory to the 30M-gas limit and reads 10^4 cold slots.
+  - Spin: loops until gas exhaustion.
+  - Blob: blob(uint256 n) returns n bytes of 0xab, n ≤ 4 MiB; response 2n+fixed header.
   - s2 = 10^20.
-- R13: 1140+160 = 1300، وR20: 160 ≥ 147. النتيجة ok على simnet و[R22] على node.
+- R13: 1140+160 = 1300, R20: 160 ≥ 147. Result ok on simnet, [R22] on node.
 
-أخرى: sv-fix-v2 (ForkSchedule=[(1,0),(2,50)]، وchainId=777904، وعلى node [R22, R24])، وcaps/64 (777903، معرّف في ملحق VA تحت T18b)، وP15، وP51، وP55.
+Others: sv-fix-v2 (ForkSchedule=[(1,0),(2,50)], chainId=777904, node returns [R22, R24]); caps/64 (777903, defined in the VA annex under T18b); P15; P51; P55.
 
-**genesis (TM8، [PDF:96])**
-- M_0 = 4 هويات HELD.
+**Genesis (TM8, [PDF:96])**
+- M_0 = 4 HELD identities.
 - target_g = min(2^256−1, max(1, floor(2^256/(H_cal·T_blk))−1)).
-- أداة genesis تنتج genesisPre، ويُحسب الهاش بثلاث مكتبات keccak، ولا يُوقع إلا عند تطابقها.
+- The genesis tool produces genesisPre; three keccak libraries hash it; signing occurs only when all agree.
 
-**الترقيات (D72)**
-- hard fork = ثنائي جديد يضيف (v, H_v)، بإعلان موقّع قبل ≥ 1440 كتلة.
-- غير المحدثة ترفض بـnetVersion، فيقع انقسام مقصود معلن.
-- تغيير CP أو specVersion يعني شبكة جديدة.
-- قاعدة اختيار السلسلة (D133) إجماعية:
-  - لا تغير الصلاحية، لكن اختلافها بين الإصدارات قد يفرق الرؤوس عند التعادل.
-  - تغييرها يتطلب إصدارًا منسقًا وإعلانًا موقّعًا كالترقية، ولا يُعامل كتغيير RPC أو احتفاظ محلي.
-- تغييرات خارج الإجماع لا تمس الصلاحية، وتُعلن بإصدار web3_clientVersion والإضافة. تشمل RPC والإضافة وRpcGuard وLogClient وPacerTrace وBridgeAuth وغلاف الجسر ودلوه وعدّاد تعليقه ومحاسبة حصة SiteStorage وORIGIN_DENY (D81، وD82، وD84، وD87–D97).
-- D83 وD86–D97 لا تغير ناتجًا إجماعيًا.
-- إضافة طريقة إلى مصفوفة الجسر تتطلب: سطرًا بمخططها داخل الغلاف الموحد، وتصنيفها قراءة أو كتابة أو محلية، وتحديث BR ومرجع Python، ومراجعة.
-- أي طريقة تغير حالة الشبكة أو تبث أو توقع لا تدخل rpc_read أبدًا. أي طريقة محلية جديدة تحمل البادئة site_ ولا تدخل rpc_read.
-- تغيير ثوابت الدلو أو التعليق يتطلب تحديث BR19 وBridgeRef وBG1 معًا. تغيير SITE_STORE_MAX أو حدي المفتاح والقيمة يتطلب إعادة اشتقاق جدول BR17e وSiteStorageRef وBG1 معًا.
+**Upgrades (D72)**
+- Hard fork = a new binary adding (v, H_v), with a signed announcement ≥ 1440 blocks beforehand.
+- Nonupdated nodes reject with netVersion, causing a deliberate, announced split.
+- Changing CP or specVersion means a new network.
+- Fork choice (D133) is a consensus rule:
+  - It does not change validity, but differing versions may select different heads on ties.
+  - Changes require a coordinated release and signed announcement as for an upgrade; they are not RPC or local-retention changes.
+- Nonconsensus changes do not affect validity and are announced through web3_clientVersion and extension versions. These include RPC, extension, RpcGuard, LogClient, PacerTrace, BridgeAuth, bridge envelope/bucket/pending counter, SiteStorage quota accounting and ORIGIN_DENY (D81, D82, D84, D87–D97).
+- D83 and D86–D97 do not change consensus outcomes.
+- Adding a bridge-matrix method requires its schema row in the unified envelope, read/write/local classification, BR and Python-reference updates, and review.
+- A method changing network state, broadcasting or signing never belongs to rpc_read. Any new local method carries the site_ prefix and does not belong to rpc_read.
+- Changing bucket or pending constants requires joint updates to BR19, BridgeRef and BG1. Changing SITE_STORE_MAX or key/value bounds requires rederiving BR17e, SiteStorageRef and BG1 together.
 
-**الإجراءات**
-1. الإغلاق والنهاية، ثم لقطة موقعة.
-2. بلوغ سقف: تجميد وتنبيه.
-3. الطوارئ: إعلان موقّع بارتفاع ≥ 1440.
-4. التوقف: بيان إعادة تشغيل موقّع (مركزية معلنة).
-5. تراجع أعمق من R_keep: checkpoint يدوي.
-6. إلغاء شبكة: تحديث networks.json.
-7. K_eff < k_view: تنبيه.
-8. RecLen > 0.9·REG_RECORDS_MAX: تنبيه.
-9. فشل X8: سحب الإضافة.
-10. خرق مراقب الحرق: يوقف الإصدار.
-11. simnet على node: [R22].
-12. FixtureSetupError ليس نتيجة اختبار.
-13. > 10 رفضات 1ب أو templateForm في الساعة: تنبيه.
-14. متوسط فاصل 100 كتلة خارج [0.5, 2]·T_blk: تنبيه.
-15. شبكة جديدة عند h=0 أكثر من 10·T_blk: تنبيه.
-16. > 50 خطأ −32018 في الدقيقة لـpocol_getHeaders من اتصال: تنبيه وإغلاق.
-17. s ≥ VIEW_SLACK_S في رأس قانوني: تنبيه بأن RP لن تعرض.
-18. closing دون cursorDone قبل H_END−P2−D: تنبيه (مستحيل تحت R20).
-19. target_g·2^VIEW_SLACK_S ≥ 2^256 في ملف منشور: تنبيه بعدم فعالية حد RP.
-20. ضغط RPC: تنبيه عند −32021 > 20% لـ5 دقائق، أو heavyResv ≥ 0.9·HEAVY_RESP_MEM لـ60s، أو conns = 32 لـ60s، أو pacerClosed > 100 في الدقيقة.
-21. عيب تنفيذ يوقف الإصدار عند أي مما يلي:
-    - snapshotsOpen > 20، أو maxResPerConn > 1، أو scratch فوق حده، أو lightResv > LIGHT_RESP_MEM.
-    - cancelMaxMs > 100، أو pacerLateMaxMs > 200، أو sendOverrunMaxMs > 200.
-    - batchSendMaxS > 258.2791015625، أو batchWallHits > 0.
-    - حجز لم يُحرر عند sendDone.
-    - خرق TC-send أو CloseOK أو Enforced في أي تتبع مسجل.
+**Procedures**
+1. Closing and end, then a signed snapshot.
+2. Cap reached: freeze and alert.
+3. Emergency: signed announcement at height ≥ 1440.
+4. Halt: signed restart statement (disclosed centralization).
+5. Rollback deeper than R_keep: manual checkpoint.
+6. Network revocation: update networks.json.
+7. K_eff < k_view: alert.
+8. RecLen > 0.9·REG_RECORDS_MAX: alert.
+9. X8 failure: withdraw extension.
+10. Burn-monitor violation: block release.
+11. simnet on node: [R22].
+12. FixtureSetupError is not a test result.
+13. > 10 item-1b or templateForm rejections per hour: alert.
+14. Mean interval over 100 blocks outside [0.5, 2]·T_blk: alert.
+15. New network at h=0 longer than 10·T_blk: alert.
+16. > 50 −32018 errors per minute for pocol_getHeaders from one connection: alert and close.
+17. s ≥ VIEW_SLACK_S in a canonical header: alert that RP will not display.
+18. closing without cursorDone before H_END−P2−D: alert (impossible under R20).
+19. target_g·2^VIEW_SLACK_S ≥ 2^256 in a published profile: alert that the RP bound is ineffective.
+20. RPC pressure: alert when −32021 > 20% for 5 minutes, heavyResv ≥ 0.9·HEAVY_RESP_MEM for 60s, conns = 32 for 60s, or pacerClosed > 100 per minute.
+21. Release-blocking implementation defect on any of:
+    - snapshotsOpen > 20, maxResPerConn > 1, scratch above its bound, lightResv > LIGHT_RESP_MEM.
+    - cancelMaxMs > 100, pacerLateMaxMs > 200, sendOverrunMaxMs > 200.
+    - batchSendMaxS > 258.2791015625, batchWallHits > 0.
+    - Reservation not released at sendDone.
+    - TC-send, CloseOK or Enforced violation in any recorded trace.
 
-    العتبات = القيم الدقيقة + ENFORCE_SLACK دون تقريب.
-22. anchorRejects > 10 في الدقيقة: تنبيه بإعادة تنظيم متكررة.
-23. فشل أي متجه BR أو BG1، أو وصول طلب محظور إلى RpcTap أو RpcRecorder، أو تغير تخزين محلي أو فتح تبويب من رسالة مرفوضة، أو قرار جسر أو حصة يخالف BridgeRef أو SiteStorageRef، أو خرق قاعدة dependency-cruiser: يوقف إصدار الإضافة ويسحب أي نسخة موزعة.
-24. originDenied > 0 على عقدة إنتاج: تنبيه، لأن أصل الإضافة لا يجب أن يطلب طرق التعدين.
-25. (D103، D104) تنبيه محلي يعرض رابط «إدارة التخزين» عند أي مما يلي في الإضافة: storeRecoveryFail > 0، أو epochGateBlocks > 0 (D134)، أو recoveryCorrupt > 0، أو diskRejects > 0، أو removeFailures > 0، أو inUse ≥ 0.9·STORE_DISK_HARD. تُسجل القيم في T12. أي خرق لمعايير BR22a يوقف إصدار الإضافة.
+    Thresholds = exact values + ENFORCE_SLACK, without rounding.
+22. anchorRejects > 10 per minute: frequent-reorganization alert.
+23. Any BR or BG1 vector failure, forbidden request reaching RpcTap/RpcRecorder, local-storage change or tab opening from a rejected message, bridge/quota decision disagreeing with BridgeRef/SiteStorageRef, or dependency-cruiser rule violation: block extension release and withdraw distributed versions.
+24. originDenied > 0 on a production node: alert, because the extension origin must not request mining methods.
+25. (D103, D104) Local alert with a “Manage storage” link for any extension condition: storeRecoveryFail > 0, epochGateBlocks > 0 (D134), recoveryCorrupt > 0, diskRejects > 0, removeFailures > 0, inUse ≥ 0.9·STORE_DISK_HARD. Record values in T12. Any BR22a criterion violation blocks extension release.
 
-**المفاتيح**
-- genesis وcheckpoint والنشر وإعادة التشغيل وnetworks.json بنظام Shamir 2-من-3.
-- مفتاح الهوية منفصل عن rewardAddr.
-- multisig لمالك الموقع.
-- مفاتيح التجهيز 1–10 للاختبار فقط، ومنها المعاملة الموقعة مسبقًا في BadSite.
+**Keys**
+- Genesis, checkpoint, publication, restart and networks.json use Shamir 2-of-3.
+- Identity key separate from rewardAddr.
+- Multisig for the site owner.
+- Fixture keys 1–10 are test-only, including the presigned transaction in BadSite.
 
-**المراقبة (Prometheus)**
-FSM وT_j، والرفض حسب القاعدة، وASERT (s وsaturated)، وEscrow، وpendingSum، والحرق، وRecLen، وSYS، وclosing والمؤشر، وK_eff، والقرص، والذاكرة، وactiveVersion، وأسباب −32018، وكل مقاييس pocol_getRpcStats ومنها originDenied. في الإضافة: عداد محلي لرفض BridgeAuth حسب الرمز والطريقة، ولرفض المعدل والتعليق والحصة، ولتأكيدات التنقل الخارجي المقبولة والمرفوضة، دون إرسال خارجي.
+**Monitoring (Prometheus)**
+FSM, T_j, rejections by rule, ASERT (s, saturated), Escrow, pendingSum, burns, RecLen, SYS, closing/cursor, K_eff, disk, memory, activeVersion, −32018 reasons, and all pocol_getRpcStats metrics including originDenied. Extension: local counters for BridgeAuth rejection by code/method, rate/pending/quota rejections, and accepted/rejected external-navigation confirmations, without external transmission.
 
-**مخرج M0**
-- versions.lock، وcargo-deny، وlicense-checker، وأدوات Windows، والكناري.
-- مكتبات keccak الثلاث (Rust sha3، وTS @noble/hashes، وPython pycryptodome) مع تراخيصها.
-- ruint أو crypto-bigint، وhyper (MIT)، وsocket2 (MIT/Apache)، وdependency-cruiser (MIT).
-- ميزة rpc-fault غائبة عن بناء الإصدار، وأخطاؤها المحقونة ثلاثة: lightInflate، وpacerOff، وperItemGrace. PacerTrace ليس خطأً محقونًا.
-- بناء exec-fault للاختبار فقط، غائب عن الإصدار، بأربعة أخطاء محقونة:
-  - winnerInState (D141) يكشفه TW1.
-  - sharesFromFirstSeen وsharesFromMiner وsharesDropped (D142) يكشفها TW5.
-- بناء fixture-fault للاختبار فقط، غائب عن الإصدار، بخطأ محقون واحد هو fixedShareThreshold (D143). يكشفه مسند تجهيز TW5 حتميًا.
-- بناء bridge-fault للاختبار فقط، غائب عن الإصدار، باثنين وثلاثين خطأً محقونًا:
-  - allowAll يعطل B2 لإثبات أن BR يكشفه.
-  - legacyLocal يقبل الشكل القديم {key, value} و{path} لإثبات أن BR18-L يكشفه.
-  - noRefill يعطل تجدد الدلو لإثبات أن BR19a يكشفه.
-  - quotaNoSubtract يحسب newTotal دون طرح entry القديمة عند الاستبدال، لإثبات أن BR17e(e7) يكشفه.
-  - frameBudget ينشئ الدلو والعدّادين لكل إطار ويتجاهل الطلبات اليتيمة، لإثبات أن BR20a وBR20c يكشفانه.
-  - recvNoLimit يجمع الجسم كاملًا ثم يفحصه، لإثبات أن MR1 وMR4 يكشفانه.
-  - storeUnbounded (D101) يعطل حدود StoreQueue ومهلها وإلغاء الهدم، لإثبات أن BR21a وBR21b وBR21e تكشفه.
-  - storeEarlyRelease (D102) يحرر موارد الرسالة النشطة عند رد storeTimeout، ثم مرة ثانية عند الاستقرار، لإثبات أن BR21a(q8) وBR21b(r6) يكشفانه.
-  - quotaNoRelease (I56) يأخذ المقعد قبل تقييم الحصة، ويرد 4300 دون release، لإثبات أن BR21f و(f2) يكشفانه.
-  - singleItem (D103) يكتب فوق عنصر واحد للمفتاح، لإثبات أن BR22a يكشفه.
-  - noEpochConfirm يكتب البيانات قبل تأكيد epoch، لإثبات أن BR22a(P4) وBR22b يكشفانه.
-  - noCheckpoint يخدم snapshot دون نقطة تثبيت، لإثبات أن BR22a يكشفه.
-  - reuseSeq يعيد seq بعد فشل الوعد، لإثبات أن BR22a(fail) يكشفه.
-  - parallelRecovery (D104) ينشئ بوابة استرداد لكل تبويب، لإثبات أن BR22d يكشفه.
-  - seqFromCheckpoint يشتق seq الكتابة من الرقم الاسمي 0 لنقطة التثبيت، لإثبات أن BR22d يكشفه.
-  - sweepMax يسمح بحذف أكبر سجل، لإثبات أن BR22a وBR23 يكشفانه.
-  - noDiskGate يعطل قبول القرص، لإثبات أن BR23(d2، d6) يكشفه.
-  - diskNoReserve (D105) يفحص دون حجز ويسقط التذكرة عند settle، لإثبات أن BR23(d8–d11) يكشفه.
-  - deleteUnordered (D106) يصدر القبر قبل إغلاق الجلسات، لإثبات أن BR24(x1) يكشفه.
-  - readyOnApply (D107) يجعل المفتاح ready عند apply، لإثبات أن BR22d(V-a) يكشفه.
-  - adminEarlyRelease (D108) يحرر مقعد القبر عند المهلة، لإثبات أن BR24(x9) يكشفه.
-  - recoveryNoSlot (D109) يصدر المحاولة الثانية لنقطة التثبيت دون مقعد، لإثبات أن BR22f يكشفه.
-  - lateReadCheckpoint (D110) يقبل نتيجة قراءة بعد انتهاء بوابتها ويصدر بها نقطة تثبيت، لإثبات أن BR22g يكشفه.
-  - adminNoCancel (D111) يعطل سحب طلبات المقعد عند الحسم وحده، لإثبات أن الحارس يكفي في BR24(x12b) وBR22f-f5. يجب أن ينجح الاختباران فيه.
-  - adminStaleIssue (D111) يعطل السحب والحارس معًا، لإثبات أن BR24(x12) يكشفه.
-  - noLateSites (D112) يجعل LATE_SITES = 0، لإثبات أن BR23(d12) يكشفه.
-  - seatOnCounted (D113) يطلب مقعد موقع لعملية على مفتاح محتسب بقبر، لإثبات أن BR23(d15) يكشفه.
-  - dropPinned (D113، I68) يسقط مفتاحًا مثبّتًا بـpin عند قياس لا يراه، لإثبات أن BR23(d15c) يكشفه. يكشفه بالمسند المباشر عند 30050، وبقبول X عند 60100 بعد LATE_SITES=0، وبالعدد 65 عند 60350.
-  - epochNonceNames (D134، I74) يعيد تسمية D103 القديمة بـnonce لكل إقلاع دون بوابة الأسماء، لإثبات أن BR22h(h1) يكشفه بـ41 اسمًا.
-  - epochNoGate (D134) يستعمل الاسم المشترك دون بوابة الأسماء، لإثبات أن BR22h(h2) يكشفه بـ41 اسمًا.
-  - epochSweepEarly (D134) يكنس الأسماء الأصغر فور التأكيد دون انتظار T_LATE، لإثبات أن BR22h(h5) يكشفه بـepochResurrected > 0.
-  - epochReserveOmitted (D135، I64) يحذف EPOCH_NAMES_MAX من شرط قبول الأسماء، لإثبات أن BR23(d11 وd11b) يكشفه.
+**M0 output**
+- versions.lock, cargo-deny, license-checker, Windows tools, canary.
+- Three keccak libraries (Rust sha3, TS @noble/hashes, Python pycryptodome) with licenses.
+- ruint or crypto-bigint, hyper (MIT), socket2 (MIT/Apache), dependency-cruiser (MIT).
+- rpc-fault absent from release builds; three injected faults: lightInflate, pacerOff, perItemGrace. PacerTrace is not an injected fault.
+- Test-only exec-fault build, absent from release, with four injected faults:
+  - winnerInState (D141), detected by TW1.
+  - sharesFromFirstSeen, sharesFromMiner, sharesDropped (D142), detected by TW5.
+- Test-only fixture-fault build, absent from release, with one injected fault: fixedShareThreshold (D143). TW5's fixture assertion detects it deterministically.
+- Test-only bridge-fault build, absent from release, with thirty-two injected faults:
+  - allowAll disables B2, demonstrating BR detects it.
+  - legacyLocal accepts legacy {key, value} and {path}, demonstrating BR18-L detects it.
+  - noRefill disables bucket refill, demonstrating BR19a detects it.
+  - quotaNoSubtract computes newTotal without subtracting the old entry on replacement, demonstrating BR17e(e7) detects it.
+  - frameBudget creates the bucket and both counters per frame, ignoring orphaned requests, demonstrating BR20a and BR20c detect it.
+  - recvNoLimit collects the whole body before checking, demonstrating MR1 and MR4 detect it.
+  - storeUnbounded (D101) disables StoreQueue limits, timeouts and teardown cancellation, demonstrating BR21a, BR21b and BR21e detect it.
+  - storeEarlyRelease (D102) releases active-message resources on the storeTimeout reply and again on settlement, demonstrating BR21a(q8) and BR21b(r6) detect it.
+  - quotaNoRelease (I56) takes a seat before quota evaluation and replies 4300 without release, demonstrating BR21f and (f2) detect it.
+  - singleItem (D103) overwrites a single item per key, demonstrating BR22a detects it.
+  - noEpochConfirm writes data before epoch confirmation, demonstrating BR22a(P4) and BR22b detect it.
+  - noCheckpoint serves snapshot without an anchor, demonstrating BR22a detects it.
+  - reuseSeq reuses seq after promise failure, demonstrating BR22a(fail) detects it.
+  - parallelRecovery (D104) creates a recovery gate per tab, demonstrating BR22d detects it.
+  - seqFromCheckpoint derives write seq from the anchor's nominal 0, demonstrating BR22d detects it.
+  - sweepMax permits deleting the greatest record, demonstrating BR22a and BR23 detect it.
+  - noDiskGate disables disk admission, demonstrating BR23(d2, d6) detects it.
+  - diskNoReserve (D105) checks without reserving and drops the ticket on settle, demonstrating BR23(d8–d11) detects it.
+  - deleteUnordered (D106) issues the tombstone before closing sessions, demonstrating BR24(x1) detects it.
+  - readyOnApply (D107) makes the key ready on apply, demonstrating BR22d(V-a) detects it.
+  - adminEarlyRelease (D108) releases the tombstone seat on timeout, demonstrating BR24(x9) detects it.
+  - recoveryNoSlot (D109) issues the second anchor attempt without a seat, demonstrating BR22f detects it.
+  - lateReadCheckpoint (D110) accepts a read result after its gate expires and issues an anchor from it, demonstrating BR22g detects it.
+  - adminNoCancel (D111) disables only seat-request withdrawal at resolution, demonstrating the guard suffices in BR24(x12b) and BR22f-f5. Both tests must pass with it.
+  - adminStaleIssue (D111) disables both withdrawal and guard, demonstrating BR24(x12) detects it.
+  - noLateSites (D112) sets LATE_SITES = 0, demonstrating BR23(d12) detects it.
+  - seatOnCounted (D113) requests a site seat for an operation on a tombstone-counted key, demonstrating BR23(d15) detects it.
+  - dropPinned (D113, I68) drops a pinned key when measurement does not see it, demonstrating BR23(d15c) detects it: direct assertion at 30050, X admission at 60100 after LATE_SITES=0, and count 65 at 60350.
+  - epochNonceNames (D134, I74) restores D103's old per-boot nonce naming without the name gate, demonstrating BR22h(h1) detects it with 41 names.
+  - epochNoGate (D134) uses the shared name without the name gate, demonstrating BR22h(h2) detects it with 41 names.
+  - epochSweepEarly (D134) sweeps smaller names immediately after confirmation without waiting T_LATE, demonstrating BR22h(h5) detects it with epochResurrected > 0.
+  - epochReserveOmitted (D135, I64) omits EPOCH_NAMES_MAX from name admission, demonstrating BR23(d11 and d11b) detects it.

@@ -6,7 +6,7 @@
     "createVersion": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [245, 245], "literals": ["ManifestSplit(i)", "ChunkArrays(|chunks|, |lens|)", "ManifestLength(len)"]},
     "t1_14": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [428, 428], "literals": ["split `[40, 39]` for 79 bytes", "ManifestSplit(0)", "[24575, 24575, 16386]"]},
     "viewerRule": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [141, 141], "literals": ["manifest.split", "lengths are not the canonical split"]},
-    "baselineRecord": {"file": "reference/storage.md", "lines": [32, 36], "literals": ["قطع manifest", "manifest ≤ 64 KiB"]},
+    "baselineRecord": {"file": "reference/storage.md", "lines": [32, 36], "literals": ["\u0642\u0637\u0639 manifest", "manifest ≤ 64 KiB"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "proofRound2": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [191, 191], "literals": ["eth_getProof(website, [base, base+1, base+2, elem0, elem1, elem2], N)", "unused slots prove the value 0"]},
     "proofBound": {"file": "m1-draft-0.4/CR-M1-01-STATE-PROOF-READS.md", "lines": [54, 58], "literals": ["524288", "≤ 6 keys", "STATE_POOL = 1048576"]}
   },

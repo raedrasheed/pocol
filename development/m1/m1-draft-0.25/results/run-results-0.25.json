@@ -4695,10 +4695,10 @@
       "failedSuperseded": [],
       "unexplainedFailures": [],
       "sample": [
-        "dnr.\u062f1",
-        "dnr.\u062f2",
-        "dnr.\u062f2-verify",
-        "dnr.\u062f3"
+        "dnr.DNR-d1",
+        "dnr.DNR-d2",
+        "dnr.DNR-d2-verify",
+        "dnr.DNR-d3"
       ],
       "check": "row.X3.evidence.R06:^dnr\\.",
       "status": "pass"

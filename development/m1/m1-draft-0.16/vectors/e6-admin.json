@@ -14,27 +14,27 @@
   },
   "b64Literals": {"{}": "", "{k9:n}": "AAAAAms5AAAAAW4=", "{k1:y}": "AAAAAmsxAAAAAXk="},
   "units": [
-    {"id": "E6-const", "source": {"file": "reference/browser.md", "lines": [636, 639], "literals": ["4·4·1442048 = 23072768", "= 24", "524288+5120+2048 = 531456", "1048576"]},
+    {"id": "E6-const", "source": {"file": "reference/browser.md", "lines": [636, 639], "literals": ["4·4·1442048 = 23072768", "= 24", "524288+5120+2048 = 531456", "1048576"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "expect": {"LATE_RESERVE": 23072768, "LATE_NAMES": 24, "EPOCH_NAMES_MAX": 8, "META_RESERVE": 1048576,
                 "metaConstraint": {"tombs": 524288, "unsettledTombs": 5120, "epochItems": 2048, "total": 531456}, "TOMB_BYTES_MAX": 512}},
-    {"id": "E6-bound", "source": {"file": "reference/browser.md", "lines": [767, 767], "literals": ["25s", "45s"]}, "expect": {"GATE_BOUND": 25000, "ADMIN_BOUND": 45000}},
-    {"id": "E6-tombBytesExempt", "source": {"file": "reference/browser.md", "lines": [639, 646], "literals": ["META_RESERVE", "remove"]},
+    {"id": "E6-bound", "source": {"file": "reference/browser.md", "lines": [767, 767], "literals": ["25s", "45s"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"}, "expect": {"GATE_BOUND": 25000, "ADMIN_BOUND": 45000}},
+    {"id": "E6-tombBytesExempt", "source": {"file": "reference/browser.md", "lines": [639, 646], "literals": ["META_RESERVE", "remove"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "setup": {"inUse": 244314112, "names": 0},
      "expect": {"setEnc1": {"reason": "disk", "limit": 268435456, "dim": "bytes"}, "tomb": {"bytes": 0, "names": 1}}},
     {"id": "E6-tombCountsNames", "setup": {"inUse": 0, "names": 991},
      "expect": {"tomb1": {"bytes": 0, "names": 1}, "tomb2": {"reason": "disk", "limit": 1024, "dim": "names"}}},
     {"id": "E6-removeZeroTicket", "setup": {"inUse": 0, "names": 0}, "expect": {"ticket": {"bytes": 0, "names": 0}, "liveTickets": 0, "rBytes": 0, "rNames": 0}},
-    {"id": "E6-ticketLifecycle", "source": {"file": "reference/browser.md", "lines": [647, 650], "literals": ["settleSeq", "refresh"]},
+    {"id": "E6-ticketLifecycle", "source": {"file": "reference/browser.md", "lines": [647, 650], "literals": ["settleSeq", "refresh"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "setup": {"inUse": 0, "names": 0},
      "expect": {"firstIssue": 1, "issueWhileBusy": null, "reissuedOnComplete": 3, "rBytesAfterFirstComplete": 1000, "rBytesAfterSecondComplete": 0}}
   ],
   "cases": [
-    {"id": "BR23-d5", "source": {"file": "reference/validation.md", "lines": [565, 565], "literals": ["(d5)", "getKeys", "storeRecovery", "get(null)"]},
+    {"id": "BR23-d5", "source": {"file": "reference/validation.md", "lines": [565, 565], "literals": ["(d5)", "getKeys", "storeRecovery", "get(null)"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"], "config": {"getKeysAvailable": false},
      "events": [{"t": 0, "do": "set", "key": "K", "id": "m1", "k": "k", "v": "v"}], "until": 100,
      "final": {"replies": [["m1", -32603, "storeRecovery", null, 0]], "reads": 0, "sets": 0, "status": {"K": "failed"}, "violations": []}},
 
-    {"id": "BR24-x1", "source": {"file": "reference/validation.md", "lines": [683, 687], "literals": ["{k0:'a'}", "T1", "T2", "W1=['k1','x']", "suppressed", "release"]},
+    {"id": "BR24-x1", "source": {"file": "reference/validation.md", "lines": [683, 687], "literals": ["{k0:'a'}", "T1", "T2", "W1=['k1','x']", "suppressed", "release"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 10, "do": "settle", "set": 1},
                 {"t": 20, "do": "snap", "key": "K", "frame": "T2"},
@@ -58,7 +58,7 @@
                                 "snapshots": [[10, "K", "T1", {"k0": "a"}], [20, "K", "T2", {"k0": "a"}], [500, "K", "T3", {"k1": "y"}]],
                                 "dict": {"K": {"k1": "y"}}, "backend": {"K": [[2, 3, false, "AAAAAmsxAAAAAXk="]]}, "nextGen": {"K": {"k1": "y"}}}}]},
 
-    {"id": "BR24-x2", "source": {"file": "reference/validation.md", "lines": [688, 688], "literals": ["(x2)", "storeTimeout", "{}"]},
+    {"id": "BR24-x2", "source": {"file": "reference/validation.md", "lines": [688, 688], "literals": ["(x2)", "storeTimeout", "{}"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 10, "do": "settle", "set": 1},
                 {"t": 100, "do": "set", "key": "K", "id": "W1", "k": "k1", "v": "x"}, {"t": 5200, "do": "delete", "key": "K"},
@@ -73,7 +73,7 @@
      "final": {"snapshots": [[10, "K", "T1", {"k0": "a"}], [6100, "K", "T2", {}]], "replies": [["W1", -32603, "storeTimeout", null, 5100]],
                "msgsReleasedOnce": true, "nextGen": {"K": {}}, "violations": []}},
 
-    {"id": "BR24-x3", "source": {"file": "reference/validation.md", "lines": [689, 689], "literals": ["(x3)", "recovering", "C0"]},
+    {"id": "BR24-x3", "source": {"file": "reference/validation.md", "lines": [689, 689], "literals": ["(x3)", "recovering", "C0"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 100, "do": "delete", "key": "K"}, {"t": 5100, "do": "settle", "set": 2},
                 {"t": 5200, "do": "settle", "set": 3}, {"t": 5300, "do": "apply", "set": 1}, {"t": 5400, "do": "snap", "key": "K", "frame": "T2"}],
@@ -88,7 +88,7 @@
      "final": {"snapshots": [[5400, "K", "T2", {}]], "stats": {"lateRecordsSeen": 1}, "backend": {"K": [[2, 2, true, ""]]}, "nextGen": {"K": {}},
                "dict": {"K": {}}, "violations": []}},
 
-    {"id": "BR24-x4", "source": {"file": "reference/validation.md", "lines": [690, 690], "literals": ["(x4)", "unrecovered", "«فشل الحذف»"]},
+    {"id": "BR24-x4", "source": {"file": "reference/validation.md", "lines": [690, 690], "literals": ["(x4)", "unrecovered", "«\u0641\u0634\u0644 \u0627\u0644\u062d\u0630\u0641»"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 10, "do": "settle", "set": 1}, {"t": 100, "do": "delete", "key": "K"},
                 {"t": 200, "do": "settle", "set": 2, "ok": false}, {"t": 300, "do": "settle", "set": 3, "ok": false},
@@ -99,7 +99,7 @@
                "snapshots": [[10, "K", "T1", {"k0": "a"}], [500, "K", "T2", {"k0": "a"}]], "dict": {"K": {"k0": "a"}}, "confirmed": {"K": [2, 3]},
                "backend": {"K": [[2, 3, false, "AAAAAmswAAAAAWE="]]}, "banners": [[100, "K", ["T1"], false]], "violations": []}},
 
-    {"id": "BR24-x5a", "source": {"file": "reference/validation.md", "lines": [691, 691], "literals": ["(x5)", "«غير مؤكدة»"]},
+    {"id": "BR24-x5a", "source": {"file": "reference/validation.md", "lines": [691, 691], "literals": ["(x5)", "«\u063a\u064a\u0631 \u0645\u0624\u0643\u062f\u0629»"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 10, "do": "settle", "set": 1}, {"t": 100, "do": "delete", "key": "K"},
                 {"t": 10200, "do": "snap", "key": "K", "frame": "T2"}, {"t": 10300, "do": "settle", "set": 4},
@@ -112,7 +112,7 @@
                "backend": {"K": [[2, 3, false, "AAAAAmswAAAAAWE="]]}, "nextGen": {"K": {"k0": "a"}}, "adminStats": {"adminDeleteUncertain": 1}, "held": 2,
                "violations": []}},
 
-    {"id": "BR24-x5b", "source": {"file": "reference/validation.md", "lines": [691, 691], "literals": ["(x5)", "{}"]},
+    {"id": "BR24-x5b", "source": {"file": "reference/validation.md", "lines": [691, 691], "literals": ["(x5)", "{}"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 10, "do": "settle", "set": 1}, {"t": 100, "do": "delete", "key": "K"},
                 {"t": 10150, "do": "apply", "set": 2}, {"t": 10200, "do": "snap", "key": "K", "frame": "T2"}, {"t": 10300, "do": "settle", "set": 4},
@@ -121,7 +121,7 @@
      "final": {"snapshots": [[10, "K", "T1", {"k0": "a"}], [10300, "K", "T2", {}]], "dict": {"K": {}}, "backend": {"K": [[2, 3, false, ""]]},
                "nextGen": {"K": {}}, "dops": {"op1": {"outcome": "uncertain", "resolvedAt": 10100}}, "violations": []}},
 
-    {"id": "BR24-x6", "source": {"file": "reference/validation.md", "lines": [692, 695], "literals": ["(x6", "snapshot {}"]},
+    {"id": "BR24-x6", "source": {"file": "reference/validation.md", "lines": [692, 695], "literals": ["(x6", "snapshot {}"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "note": "Recreation half; the site-seat half is BR24-x6-sites in e6e7-ledger.json.",
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 10, "do": "settle", "set": 1},
@@ -136,7 +136,7 @@
                "dict": {"K": {"k9": "n"}}, "confirmed": {"K": [2, 3]}, "replies": [["W3", null, null, null, 700]],
                "backend": {"K": [[2, 3, false, "AAAAAms5AAAAAW4="]]}, "msgsReleasedOnce": true, "violations": []}},
 
-    {"id": "BR24-x7", "source": {"file": "reference/validation.md", "lines": [696, 696], "literals": ["(x7)", "deleteSite"]},
+    {"id": "BR24-x7", "source": {"file": "reference/validation.md", "lines": [696, 696], "literals": ["(x7)", "deleteSite"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 10, "do": "settle", "set": 1},
                 {"t": 100, "do": "delete", "key": "K"}, {"t": 100, "do": "delete", "key": "K"}, {"t": 200, "do": "settle", "set": 2}],
@@ -144,7 +144,7 @@
      "final": {"sets": 2, "dops": {"op1": {"outcome": "deleted", "resolvedAt": 200, "subscribers": 2}}, "adminStats": {"adminDeletes": 1},
                "backend": {"K": [[2, 1, true, ""]]}, "dict": {"K": {}}, "violations": []}},
 
-    {"id": "BR24-x8", "source": {"file": "reference/validation.md", "lines": [697, 697], "literals": ["(x8)", "deleting"]},
+    {"id": "BR24-x8", "source": {"file": "reference/validation.md", "lines": [697, 697], "literals": ["(x8)", "deleting"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K": ["nA", "0xa"]}, "records": ["K-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K", "frame": "T1"}, {"t": 10, "do": "settle", "set": 1},
                 {"t": 100, "do": "delete", "key": "K"}, {"t": 150, "do": "snap", "key": "K", "frame": "T2"}, {"t": 200, "do": "settle", "set": 2}],
@@ -152,7 +152,7 @@
      "rows": [{"t": 150, "snapshots": [[10, "K", "T1", {"k0": "a"}]]}],
      "final": {"snapshots": [[10, "K", "T1", {"k0": "a"}], [200, "K", "T2", {}]], "violations": []}},
 
-    {"id": "BR24-x9", "source": {"file": "reference/validation.md", "lines": [698, 708], "literals": ["held=1", "held=2", "6000", "10000", "11000", "adminBusy", "13000"]},
+    {"id": "BR24-x9", "source": {"file": "reference/validation.md", "lines": [698, 708], "literals": ["held=1", "held=2", "6000", "10000", "11000", "adminBusy", "13000"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K1": ["n1", "0x1"], "K2": ["n2", "0x2"]}, "records": ["K1-1-3", "K2-1-3"],
      "events": [{"t": -100, "do": "snap", "key": "K1", "frame": "F1"}, {"t": -90, "do": "settle", "set": 1},
                 {"t": -80, "do": "snap", "key": "K2", "frame": "F2"}, {"t": -70, "do": "settle", "set": 2},
@@ -176,7 +176,7 @@
                                 "setLog": [[1, "checkpoint", "K1", [2, 0], -100], [2, "checkpoint", "K2", [2, 0], -80], [3, "tomb", "K1", [2, 1], 0],
                                            [4, "tomb", "K1", [2, 2], 5000], [5, "tomb", "K2", [2, 1], 6000]]}}]},
 
-    {"id": "BR24-x10", "source": {"file": "reference/validation.md", "lines": [709, 711], "literals": ["(x10)", "8000", "held=2", "10000"]},
+    {"id": "BR24-x10", "source": {"file": "reference/validation.md", "lines": [709, 711], "literals": ["(x10)", "8000", "held=2", "10000"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K1": ["n1", "0x1"], "K2": ["n2", "0x2"]}, "records": ["K1-1-3", "K2-1-3"],
      "events": [{"t": -100, "do": "snap", "key": "K1", "frame": "F1"}, {"t": -90, "do": "settle", "set": 1},
                 {"t": -80, "do": "snap", "key": "K2", "frame": "F2"}, {"t": -70, "do": "settle", "set": 2},
@@ -191,7 +191,7 @@
      ],
      "final": {"violations": [], "adminStats": {"adminTombsUnsettledMax": 2}}},
 
-    {"id": "BR24-x11", "source": {"file": "reference/validation.md", "lines": [712, 714], "literals": ["(x11)", "7000"]},
+    {"id": "BR24-x11", "source": {"file": "reference/validation.md", "lines": [712, 714], "literals": ["(x11)", "7000"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K1": ["n1", "0x1"], "K2": ["n2", "0x2"]}, "records": ["K1-1-3", "K2-1-3"],
      "events": [{"t": -100, "do": "snap", "key": "K1", "frame": "F1"}, {"t": -90, "do": "settle", "set": 1},
                 {"t": -80, "do": "snap", "key": "K2", "frame": "F2"}, {"t": -70, "do": "settle", "set": 2},
@@ -207,7 +207,7 @@
      ],
      "final": {"nextGen": {"K1": {}, "K2": {"b": "2"}}, "violations": []}},
 
-    {"id": "BR24-x12", "source": {"file": "reference/validation.md", "lines": [715, 734], "literals": ["op1", "op2", "op3", "4000", "5000", "6000", "6100", "['k9','n']", "7000", "held=1", "8000", "held=0", "adminStaleDropped = 0"]},
+    {"id": "BR24-x12", "source": {"file": "reference/validation.md", "lines": [715, 734], "literals": ["op1", "op2", "op3", "4000", "5000", "6000", "6100", "['k9','n']", "7000", "held=1", "8000", "held=0", "adminStaleDropped = 0"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K1": ["n1", "0x1"], "K2": ["n2", "0x2"], "K3": ["n3", "0x3"]}, "records": ["K1-1-3", "K2-1-3", "K3-1-3"],
      "events": [{"t": -300, "do": "snap", "key": "K1", "frame": "F1"}, {"t": -290, "do": "settle", "set": 1},
                 {"t": -200, "do": "snap", "key": "K2", "frame": "F2"}, {"t": -190, "do": "settle", "set": 2},
@@ -236,7 +236,7 @@
                                 "setLogContains": [[8, "tomb", "K1", [2, 3], 7000]]}}]},
 
     {"id": "BR24-x12b", "faults": ["adminNoCancel"], "sameEventsAs": "BR24-x12",
-     "source": {"file": "reference/validation.md", "lines": [735, 738], "literals": ["adminNoCancel", "7000", "adminStaleDropped = 1", "{k9:'n'}"]},
+     "source": {"file": "reference/validation.md", "lines": [735, 738], "literals": ["adminNoCancel", "7000", "adminStaleDropped = 1", "{k9:'n'}"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "sites": {"K1": ["n1", "0x1"], "K2": ["n2", "0x2"], "K3": ["n3", "0x3"]}, "records": ["K1-1-3", "K2-1-3", "K3-1-3"], "until": 12000,
      "rows": [{"t": 7000, "held": 1}],
      "final": {"staleDroppedByOp": {"op1": 1}, "tombSetsForOpAfter": {"op1": [6000, 0]}, "dict": {"K1": {"k9": "n"}},
@@ -244,7 +244,7 @@
      "literalConflict": {"id": "RF-E6-1", "cell": "adminStaleDropped (total)", "literal": 1, "model": 2,
                          "why": "The literal timeline omits T2a's attempt-1 deadline at 5001 (issued at 1, deadline 5000 later). D106/D108 then queue T2b at 5001; with adminNoCancel it is not withdrawn when op2 resolves at 7000 and the guard drops it too. The op1 count is 1 as the literal requires; the total is 2."}},
 
-    {"id": "BR22f-f5", "faults": ["recoveryNoCancel"], "source": {"file": "reference/validation.md", "lines": [742, 742], "literals": ["BR22f-f5", "recoveryStaleDropped = 1", "C1_K1"]},
+    {"id": "BR22f-f5", "faults": ["recoveryNoCancel"], "source": {"file": "reference/validation.md", "lines": [742, 742], "literals": ["BR22f-f5", "recoveryStaleDropped = 1", "C1_K1"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
      "base": "m1-draft-0.13 vectors/e5-schedules.json BR22f-f3 (validation.md:480)",
      "sites": {"K1": ["n1", "0x1"], "K2": ["n2", "0x2"], "K3": ["n3", "0x3"]}, "records": ["K1-1-3", "K2-1-3", "K3-1-3"],
      "events": [{"t": 0, "do": "snap", "key": "K1", "frame": "F1"}, {"t": 0, "do": "set", "key": "K1", "id": "m1", "k": "k", "v": "v"},

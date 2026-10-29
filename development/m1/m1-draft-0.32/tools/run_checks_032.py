@@ -10,7 +10,7 @@ of all historical failures. Status maps are built from complete result lists at 
 
 Usage: run_checks_032.py [--root <tree>] [--out <dir>]   (or POCOL_M1_ROOT / POCOL_M1_OUT)
 Writes only under out, never overwriting: run-results-0.32.json, history-closure-0.32.json, acceptance-candidate-0.32.json,
-status-0.32.json, dashboard-0.32-ar.json. Exits 1 on any FAIL.
+status-0.32.json, dashboard-0.32-en.json. Exits 1 on any FAIL.
 """
 
 import ast
@@ -25,6 +25,23 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
 
 HERE = Path(__file__).resolve().parent
 PKG = HERE.parent
@@ -55,7 +72,7 @@ ROOT = _find_root()
 OUT = Path(_arg('--out', 'POCOL_M1_OUT') or (PKG / 'results')).resolve()
 REVIEW = ROOT / 'coordination' / 'review-001'
 OWN = ['tools/run_checks_032.py', 'audit/history-registry-0.32.json', 'audit/acceptance-inventory-0.32.json', 'M1-SPEC-0.32-SUPPLEMENT.md',
-       'M1-STATUS-0.32.md', 'M1-DASHBOARD-0.32-AR.md', 'README.md']
+       'M1-STATUS-0.32.md', 'M1-DASHBOARD-0.32-EN.md', 'README.md']
 results = []
 
 
@@ -91,11 +108,11 @@ def gap(label, /, **diag):
 
 
 def sha(p):
-    return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    return hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None
 
 
 def rj(rel):
-    return json.loads((ROOT / rel).read_text(encoding='utf-8'))
+    return json.loads(source_text(ROOT / rel))
 
 
 def own(rel):
@@ -151,7 +168,7 @@ def close(failure_ids, entries, maps, selfmap):
             return ok, {'via': w['via'], 'closed': ok, 'why': why}
         if 'file' in w:
             p = ROOT / w['file']
-            n = failed_count(json.loads(p.read_text(encoding='utf-8'))) if p.exists() else None
+            n = failed_count(json.loads(source_text(p))) if p.exists() else None
             return n == w['failed'], {'file': w['file'], 'failed': n}
         m = selfmap if w.get('self') else maps.get(w['r'])
         if m is None:
@@ -196,7 +213,7 @@ def run_lists():
         if '/m1-draft-0.32/' in rel:
             continue                                                         # this supplement's own outputs are not history
 
-        out[KEY_OF.get(rel, rel)] = json.loads(p.read_text(encoding='utf-8'))['results']
+        out[KEY_OF.get(rel, rel)] = json.loads(source_text(p))['results']
     return out
 
 
@@ -206,7 +223,7 @@ def root_failures():
         if p.name.startswith('run-results') or '-private' in p.name:
             continue
         try:
-            n = failed_count(json.loads(p.read_text(encoding='utf-8')))
+            n = failed_count(json.loads(source_text(p)))
         except ValueError:
             continue
         if n:
@@ -390,7 +407,7 @@ def write_asset(name, data_text, label):
     OUT.mkdir(parents=True, exist_ok=True)
     p = OUT / name
     data = data_text.encode('utf-8')
-    if p.exists() and p.read_bytes() != data:
+    if p.exists() and source_bytes(p) != data:
         k = 1
         while (OUT / ('%s-rerun-%d%s' % (p.stem, k, p.suffix))).exists():
             k += 1
@@ -399,7 +416,7 @@ def write_asset(name, data_text, label):
         return
     if not p.exists():
         p.write_bytes(data)
-    check(label + '.writtenAndReadBack', p.read_bytes() == data, file=name, sha256=hashlib.sha256(data).hexdigest())
+    check(label + '.writtenAndReadBack', source_bytes(p) == data, file=name, sha256=hashlib.sha256(data).hexdigest())
 
 
 def dumps(x):
@@ -409,7 +426,7 @@ def dumps(x):
 def leaks():
     markers = ('PoCol_' + 'Dialogue', 'state' + '.json', 'source' + 'State', 'historical-x8-full' + '-source-private', 'transcript' + '-private')
     found = [str(f.relative_to(PKG)) for f in sorted(PKG.rglob('*')) if f.is_file() and 'results' not in f.parts
-             and f.suffix in ('.json', '.md', '.py') and any(m in f.read_text(encoding='utf-8') for m in markers)]
+             and f.suffix in ('.json', '.md', '.py') and any(m in source_text(f) for m in markers)]
     check('boundary.noPrivatePath', not found, files=found)
 
 
@@ -456,14 +473,14 @@ def main():
                                    'remainingRoot': ['execute run_checks_032.py in a preserved copy and require zero FAIL', 'review the closure report and mutations',
                                                      'close C37 in the ledger, then record the 41 rows and F26 if accepted'],
                                    'complete': False}),
-        'dashboard-0.32-ar.json': dumps({'schema': 'pocol-m1-dashboard-ar/0.32', 'lang': 'ar', 'lines': [
-            'M1، المسودة 0.32: ملحق صغير يصلح C37، أي خطأ ترتيب في فحص التاريخ، دون إعادة أي حساب.',
-            'في 0.31 أُخذت لقطة الحالات قبل تسجيل history.HF-8، فرأى فحص HF-12 قيمة فارغة مع أن HF-8 نجح.',
-            'يحسب هذا الملحق إغلاق كل الإخفاقات التاريخية من النتائج الكاملة، بطريقة واحدة، ويبيّن الفرق بين اللقطة القديمة والحالة الكاملة.',
-            'أحد عشر تعديلًا متعمدًا يجب أن يمنع كل منها الإغلاق، ومنها حذف HF-8 وجعله فاشلًا وتكرار اسمه.',
-            'نتيجة التشغيل: %d فحصًا، فشل منها %d.' % (len(results), len(failed)),
-            'الصفوف: %d مرشحًا للاكتمال من 41.' % cnt.get('CompleteCandidate', 0),
-            'القبول الكامل لـM1 وتسجيل F26 للجذر وحده بعد مراجعة هذا التشغيل. لا كود إنتاجي ولا نشر ولا معاملات.']})}
+        'dashboard-0.32-en.json': dumps({'schema': 'pocol-m1-dashboard-en/0.32', 'lang': 'en', 'lines': [
+            'M1, draft 0.32: a small supplement repairing C37, an ordering defect in history verification, without repeating any computation.',
+            'In 0.31 the status snapshot was taken before recording history.HF-8, so HF-12 saw an empty value even though HF-8 passed.',
+            'This supplement computes closure of all historical failures from complete results using one method and shows the difference between the old snapshot and complete state.',
+            'Eleven deliberate mutations must each prevent closure, including removing HF-8, making it fail and duplicating its name.',
+            'Run result: %d checks, %d failed.' % (len(results), len(failed)),
+            'Rows: %d completion candidates out of 41.' % cnt.get('CompleteCandidate', 0),
+            'Full M1 acceptance and recording F26 belong solely to the root after reviewing this run. No production code, deployment or transactions.']})}
     for name in sorted(texts):
         step('write ' + name, write_asset, name, texts[name], 'asset.' + name)
     failed = [r for r in results if r['status'] == 'FAIL']

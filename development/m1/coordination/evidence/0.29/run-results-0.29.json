@@ -5190,7 +5190,7 @@
       "status": "pass"
     },
     {
-      "line": "\u0643\u0644\u0641\u0629 \u0627\u0644\u0639\u0645\u064a\u0644: \u2264 14 \u0641\u0643 \u0631\u0623\u0633\u060c \u0648\u2264 13 ASERT \u0628\u0648\u0633\u0627\u0626\u0637 \u2264 512 \u0628\u062a\u064b\u0627\u060c \u0648\u2264 13 SHA-256.",
+      "line": "Client cost: ≤ 14 header decodes, ≤ 13 ASERT operations with intermediates ≤ 512 bits, and ≤ 13 SHA-256 operations.",
       "check": "SHA29.sourceLiteralPreservedAsHistory",
       "status": "pass"
     },

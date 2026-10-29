@@ -117,7 +117,7 @@ Not rerun on `8584283`, because the change does not touch them: lp4, lp1-node, t
 
 ## Decision package (2026-10-24, updated 2026-10-25)
 
-- [DECISION-PACKAGE.md](development/audit-2026-10-22/proposals/DECISION-PACKAGE.md), with the Arabic summary for approval in [DECISION-PACKAGE-AR.md](development/audit-2026-10-22/proposals/DECISION-PACKAGE-AR.md). "Measured after E4 and E5" holds the store-mode model, the D-7 decision and the disk and time measurements.
+- [DECISION-PACKAGE.md](development/audit-2026-10-22/proposals/DECISION-PACKAGE.md), with the English summary for approval in [DECISION-PACKAGE-EN.md](development/audit-2026-10-22/proposals/DECISION-PACKAGE-EN.md). "Measured after E4 and E5" holds the store-mode model, the D-7 decision and the disk and time measurements.
 - The D-3/D-5 analysis is in [D3-D5-HEND-ANALYSIS.md](development/audit-2026-10-22/proposals/D3-D5-HEND-ANALYSIS.md): H_END behaviour, non-exhaustion proofs and a release plan. Nothing in it is normative.
 - The storage design and the per-stage status are in [C1-STORAGE-DESIGN.md](development/audit-2026-10-22/proposals/C1-STORAGE-DESIGN.md). The A13 store-mode terms are in [A13-DERIVATION.md](development/audit-2026-10-22/A13-DERIVATION.md) §2c.
 
@@ -198,7 +198,7 @@ How E4 and E5 are proven:
 This PR repairs the 14 findings of the adversarial audit of `090eae4` (REPORT.md), together with the dependency review and the independent reviews.
 - Everything is under [`development/audit-2026-10-22/`](development/audit-2026-10-22/).
 - The full report is [REPAIR-REPORT.md](development/audit-2026-10-22/REPAIR-REPORT.md).
-- The Arabic dashboard is [DASHBOARD-AR.md](development/audit-2026-10-22/DASHBOARD-AR.md).
+- The English dashboard is [DASHBOARD-EN.md](development/audit-2026-10-22/DASHBOARD-EN.md).
 
 ## Commit roles (tree equivalence in [EVIDENCE-RECONCILIATION.md](development/audit-2026-10-22/EVIDENCE-RECONCILIATION.md))
 

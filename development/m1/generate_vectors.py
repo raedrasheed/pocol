@@ -29,7 +29,7 @@ for v in vectors:
 neg=[]
 def add(id,changed,reason):neg.append({'id':id,'manifest':hx(rlp.encode(changed)),'expected':'reject','reason':reason})
 import copy
-for id,field,value,why in [('unknown-mime',1,u(11),'unknown MIME'),('entry-css',1,u(2),'entry must be HTML'),('wrong-size',2,u(len(html)+1),'sum of chunk lengths differs from size'),('wrong-content-hash',3,bytes(32),'reconstructed content hash mismatch'),('dot-segment',0,b'/./index.html','dot segment'),('non-ascii',0,'/صفحة.html'.encode(),'non ASCII path')]:
+for id,field,value,why in [('unknown-mime',1,u(11),'unknown MIME'),('entry-css',1,u(2),'entry must be HTML'),('wrong-size',2,u(len(html)+1),'sum of chunk lengths differs from size'),('wrong-content-hash',3,bytes(32),'reconstructed content hash mismatch'),('dot-segment',0,b'/./index.html','dot segment'),('non-ascii',0,'/\u0635\u0641\u062d\u0629.html'.encode(),'non ASCII path')]:
  e=copy.deepcopy(entry);e[field]=value;add(id,[u(1),u(0),[e]],why)
 add('duplicate-path',[u(1),u(0),[entry,entry]],'strict path ordering violated')
 e=copy.deepcopy(entry);e[0]=b'/a.html';add('unsorted-path',[u(1),u(0),[entry,e]],'strict path ordering violated')

@@ -1,7 +1,7 @@
 {
   "schema": "pocol-m1-v1-network/0.26",
   "status": "literal fixture network for the RP header-window vectors; hand-written; not approved",
-  "source": {"file": "reference/implementation.md", "lines": [358, 358], "literals": ["chainId=777002", "h=3 مرساة على genesis", "NX-V3e وNX-V3f وNX-V3g"]},
+  "source": {"file": "reference/implementation.md", "lines": [358, 358], "literals": ["chainId=777002", "h=3 \u0645\u0631\u0633\u0627\u0629 \u0639\u0644\u0649 genesis", "NX-V3e \u0648NX-V3f \u0648NX-V3g"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "network": {
     "id": "V1NET",
     "label": "P-V1-8: the source names chainId 777002 for the HeaderNetCheck vectors but gives no GenesisSpec. V1NET is the literal 341-byte GSV1 of validation.md:64-77 with the chainId item 830bdeae (777902) replaced by 830bdb2a (777002). Same length; non-bootable placeholder roots kept (22 x 32, 33 x 32). It is a fixture network, not a deployed one.",
@@ -15,14 +15,14 @@
     "cpNote": "Hand-copied from the GSV1 CP list (validation.md:64-77; governance.md:152-157 sv-fix values). run_checks_026 decodes the modified genesisPre with the accepted 0.21 decoder and requires these values."
   },
   "clientConstants": {
-    "source": {"file": "reference/browser.md", "lines": [29, 33], "literals": ["VIEW_SLACK_S = 4", "ceilTarget = min(", "minWorkRP = floor(2^256/(ceilTarget+1))", "Φ_view = 10s"]},
+    "source": {"file": "reference/browser.md", "lines": [29, 33], "literals": ["VIEW_SLACK_S = 4", "ceilTarget = min(", "minWorkRP = floor(2^256/(ceilTarget+1))", "Φ_view = 10s"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "VIEW_SLACK_S": 4, "PHI_VIEW_S": 10,
     "ceilTarget": "2^244",
     "minWorkRP": 4095,
     "derivation": "ceilTarget = min(2^256-1, 2^240 * 16) = 2^244; minWorkRP = floor(2^256 / (2^244 + 1)) = 4095 because 4095 * (2^244 + 1) = 2^256 - 2^244 + 4095 < 2^256 and 4096 * (2^244 + 1) > 2^256"
   },
   "templateDefaults": {
-    "source": {"file": "reference/consensus.md", "lines": [53, 55], "literals": ["UT (18 عنصرًا، ≤ 613 B)", "SignedTemplate = [UT, sig 65 أو فارغ] ≤ 682 B", "Header = [SignedTemplate, nonce 8, shareList ≤ 256, winnerSig 65] ≤ 3067 B"]},
+    "source": {"file": "reference/consensus.md", "lines": [53, 55], "literals": ["UT (18 \u0639\u0646\u0635\u0631\u064b\u0627\u060c ≤ 613 B)", "SignedTemplate = [UT, sig 65 \u0623\u0648 \u0641\u0627\u0631\u063a] ≤ 682 B", "Header = [SignedTemplate, nonce 8, shareList ≤ 256, winnerSig 65] ≤ 3067 B"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "tag": "PoCol-tpl-v1", "chainId": 777002, "genesisHash": "@V1GENESIS", "a": 0, "protocolVersion": 1,
     "stateRoot": "0x5555555555555555555555555555555555555555555555555555555555555555",
     "stateRootLabel": "synthetic opaque: items 15-17 are not evaluable in RP (browser.md:56)",
@@ -37,6 +37,6 @@
     "label": "P-V1-1",
     "eth_blockNumber": {"params": [], "result": "JSON quantity, e.g. '0x14'"},
     "pocol_getHeaders": {"params": ["from as quantity", "count as quantity"], "result": "'0x' + hex(RLP list of the count headers, each header the RLP list of consensus.md:55)"},
-    "source": {"file": "reference/network.md", "lines": [172, 180], "literals": ["RLP list", "F0: كميات JSON صحيحة ضمن u64 (hex بلا أصفار بادئة)", "والعميل يرسل ≤ 14"]}
+    "source": {"file": "reference/network.md", "lines": [172, 180], "literals": ["RLP list", "F0: \u0643\u0645\u064a\u0627\u062a JSON \u0635\u062d\u064a\u062d\u0629 \u0636\u0645\u0646 u64 (hex \u0628\u0644\u0627 \u0623\u0635\u0641\u0627\u0631 \u0628\u0627\u062f\u0626\u0629)", "\u0648\u0627\u0644\u0639\u0645\u064a\u0644 \u064a\u0631\u0633\u0644 ≤ 14"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"}
   }
 }

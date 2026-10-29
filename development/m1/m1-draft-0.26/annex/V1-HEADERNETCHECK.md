@@ -50,7 +50,7 @@ For V1NET (`target_g = 2^240`): `ceilTarget = 2^244` and `minWorkRP = 4095`.
 ## 4. Steps (browser.md:35–56), in order; the first violation stops the check
 
 **0.** `h = eth_blockNumber`.
-- If `h = 0`: send no `pocol_getHeaders` and create no frame. The result is **viewNoBlocks** with the literal message «الشبكة لم تنتج الكتلة 1 بعد؛ لا رأس للتحقق في RP». `eth_requestAccounts` and `eth_sendTransaction` get 4901. Re-check after 30 s.
+- If `h = 0`: send no `pocol_getHeaders` and create no frame. The result is **viewNoBlocks** with the literal message «The network has not produced block 1 yet; no header is available for RP verification». `eth_requestAccounts` and `eth_sendTransaction` get 4901. Re-check after 30 s.
 - An unparsable reply gives viewIncomplete (P-V1-9).
 
 **1.** Send `pocol_getHeaders(from, count)`.
@@ -81,10 +81,10 @@ The reference gets no work check and no window check.
 9. item 8: `winnerSig` is recoverable over `WinMsg`;
 10. item 9: each share is `< nMax`, `≠ nonce`, strictly ascending, and satisfies `SHA256(TemplateID ‖ be64(n)) ≤ T_share = min(2^256 − 1, target · m)` (validation.md:926, D143).
 
-**5.** Success message: «RP: مرتبط بالعمل والهوية لـ`<count phrase>`[ حتى genesis]، بعمل محتسب لا يقل عن `<minWorkRP>` لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية».
-- When `minWorkRP = 1`, append «، حد العمل غير فعال لهذه الشبكة».
+**5.** Success message: «RP: work and identity bound for `<count phrase>`[ back to genesis], with computed work of at least `<minWorkRP>` per header (work(ceilTarget)), without execution or membership verification».
+- When `minWorkRP = 1`, append «. The work bound is ineffective for this network».
 - No ratio and no time estimate.
-- **P-V1-4:** the count phrase is «رأس واحد» (1), «رأسين» (2), «n رؤوس» (3–10) or «n رأسًا» (11–13), following the source examples «10 رؤوس» and «13 رأسًا». Digits are ASCII.
+- **P-V1-4:** the count phrase is «1 header» (1), «2 headers» (2), «n headers» (3–10) or «n headers» (11–13), following the source examples «10 headers» and «13 headers». Digits are ASCII.
 
 **6.** On any violation: a rule label; no frame; 4901 for pending account and sign requests; a client log −32019 `{rule}` (network.md:362); no reliance on any root.
 
@@ -135,8 +135,8 @@ The checker counts header decodes, ASERT calls, PoW SHA-256 calls, TemplateID SH
 | V1-wrongParent9 | wrong parent at 9 | rule 2 |
 | NX-V3e | reference `ts = g_ts + 2^62` | viewFuture, with zero ASERT and zero PoW |
 | NX-V3f | `C = g_ts + 10^6`; reference `C − 200`; headers every 10 s with ASERT target `2^256 − 1` | viewTargetCeil at 8, with zero PoW, no frame, 4901 |
-| NX-V3g | honest 10 s spacing 4τ behind; targets exactly `2^244`; `powHash ≤ 2^244` | «13 رأسًا» and 4095 |
-| NX-V4 | h = 0, then a re-check at 30 s at h = 1 | viewNoBlocks, then «رأس واحد حتى genesis» |
+| NX-V3g | honest 10 s spacing 4τ behind; targets exactly `2^244`; `powHash ≤ 2^244` | «13 headers» and 4095 |
+| NX-V4 | h = 0, then a re-check at 30 s at h = 1 | viewNoBlocks, then «1 header back to genesis» |
 | V1-err32018 | −32018 | viewIncomplete |
 | NX-V6 | −32021 four times | 3 retries, then viewIncomplete |
 

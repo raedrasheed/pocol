@@ -615,6 +615,6 @@ LP2 (`LP2-MILESTONE.md`):
 - **P5:** `store_process` passes on Windows.
 - **P6:** both e2e scripts and all seeded corpora pass.
 - **P7:** root's offline locked build, fmt and full test run, with exit codes; Codex's independent journal checks.
-- **P8:** the Arabic dashboard (`LP2-PROGRESS-0.37-AR.md`).
+- **P8:** the English dashboard (`LP2-PROGRESS-0.37-EN.md`).
 
 No LP2 acceptance is claimed by the author.

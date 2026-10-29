@@ -4,9 +4,9 @@
   "supplement": true,
   "status": "proposed supplement for root review; not approved",
   "closesGap": ["suite017.suite016.BR22a-sweepMax.gap", "suite017.suite016.coverage.BR22a-sweepMax"],
-  "source": {"file": "reference/validation.md", "lines": [682, 682], "literals": ["sweepMax", "BR22a", "P1"]},
-  "criterionSource": {"file": "reference/validation.md", "lines": [416, 416], "literals": ["أكبر سجل موجود دائمًا"]},
-  "sweepSource": {"file": "reference/browser.md", "lines": [542, 542], "literals": []},
+  "source": {"file": "reference/validation.md", "lines": [682, 682], "literals": ["sweepMax", "BR22a", "P1"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+  "criterionSource": {"file": "reference/validation.md", "lines": [416, 416], "literals": ["\u0623\u0643\u0628\u0631 \u0633\u062c\u0644 \u0645\u0648\u062c\u0648\u062f \u062f\u0627\u0626\u0645\u064b\u0627"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+  "sweepSource": {"file": "reference/browser.md", "lines": [542, 542], "literals": [], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "base": {"vectors": "m1-draft-0.10/vectors/e3-br22a.json", "events": "m1-draft-0.10/tools/run_checks_010.py (br22a_events, criteria, k1_rule, combos)",
            "model": "m1-draft-0.12/tools/sr_ref.py (the accepted World; loaded read-only, never edited)"},
   "fault": {
