@@ -1,380 +1,385 @@
-# PoCol — Proof-of-Collaboration (إثبات التعاون)
+# PoCol — Proof-of-Collaboration
 
-> **English summary.** PoCol is a coordinated proof-of-work consensus protocol proposed by **Raed S. Rasheed** in the PhD thesis
-> *"Proof-of-Collaboration: A Novel Consensus Algorithm with Highly Efficient Power Consumption"* (Islamic University of Gaza,
-> Faculty of Engineering, supervised by Prof. Aiman AbuSamra, 2026; the thesis PDF is in this repository).
-> Miners keep PoW's hash-target puzzle and cumulative-work chain, but every round uses one canonical block template and a
-> nonce-free header template. A deterministic seed splits the nonce domain into disjoint ranges among the registered
-> miners, so honest miners never hash the same candidate header in a round.
-> This repository holds the specification and the experimental implementation:
-> - `pocold`, a Rust node with an EVM (revm, Cancun), P2P, mining, persistence and JSON-RPC;
-> - an execution layer with system contracts;
-> - on-chain website storage;
-> - a Chrome MV3 extension that verifies and displays on-chain sites.
->
-> **Status:** the network runs **for experiments and local devnets only (simnet)**. It is not production-ready, and it is not
-> a security audit. See [Current status](#الحالة-الحالية-وحدود-ما-ثبت) below.
+PoCol is a coordinated proof-of-work consensus protocol. It keeps the parts of PoW that give it its security: the
+hash-target puzzle and the chain with the most cumulative work. What it changes is how the mining work is organized.
+Instead of every miner hashing its own competing candidate headers, all miners in a round work on **one canonical block
+template**, and a deterministic seed gives each registered miner a **disjoint slice of the nonce space**. Honest miners
+therefore never hash the same candidate header twice in a round, and the reward is shared among the winner and the
+miners whose work is evidenced by *shares*.
 
----
+This repository holds the specification and an experimental implementation:
+- `pocold`, a Rust node with an EVM (revm, Cancun rules), P2P networking, mining, persistence and JSON-RPC;
+- an execution layer with system contracts;
+- on-chain website storage;
+- a Chrome MV3 extension that verifies and displays on-chain sites.
 
-## المحتويات
-
-1. [ما هو PoCol؟](#ما-هو-pocol)
-2. [صاحب الفكرة والأصل العلمي](#صاحب-الفكرة-والأصل-العلمي)
-3. [كيف يعمل PoCol](#كيف-يعمل-pocol)
-4. [كيف طُوّر المشروع](#كيف-طوّر-المشروع)
-5. [هيكلية المستودع والكود](#هيكلية-المستودع-والكود)
-6. [المتطلبات](#المتطلبات)
-7. [التشغيل السريع: شبكة تطوير محلية](#التشغيل-السريع-شبكة-تطوير-محلية)
-8. [نشر موقع وقراءته من المتصفح](#نشر-موقع-وقراءته-من-المتصفح)
-9. [واجهة JSON-RPC](#واجهة-json-rpc)
-10. [الاختبارات](#الاختبارات)
-11. [التطوير والمساهمة](#التطوير-والمساهمة)
-12. [الحالة الحالية وحدود ما ثبت](#الحالة-الحالية-وحدود-ما-ثبت)
-13. [الترخيص](#الترخيص)
+> **Status: experimental.** The code runs local development networks (simnet) only. It is not production-ready, has not
+> had an independent external security audit, and must not be used with real funds. See
+> [Current status and limits](#current-status-and-limits).
 
 ---
 
-## ما هو PoCol؟
+## Contents
 
-PoCol بروتوكول إجماع لسلاسل الكتل، مشتق من إثبات العمل (PoW). في PoW التقليدي يجزّئ كل معدّن رؤوس كتل خاصة به في تنافس
-مستمر، فيتكرر الجهد ويُستهلك قدر كبير من الطاقة. PoCol يبقي من PoW ما يعطيه أمانه، أي شرط الهدف (hash ≤ target)
-والسلسلة ذات العمل التراكمي الأكبر. ويغيّر طريقة تنظيم العمل:
+1. [Origin of the idea](#origin-of-the-idea)
+2. [How PoCol works](#how-pocol-works)
+3. [How the project was developed](#how-the-project-was-developed)
+4. [Repository and code layout](#repository-and-code-layout)
+5. [Requirements](#requirements)
+6. [Quick start: a local devnet](#quick-start-a-local-devnet)
+7. [Publishing a site and viewing it in Chrome](#publishing-a-site-and-viewing-it-in-chrome)
+8. [JSON-RPC](#json-rpc)
+9. [Tests](#tests)
+10. [Contributing](#contributing)
+11. [Current status and limits](#current-status-and-limits)
+12. [License](#license)
 
-- **قالب واحد للجولة:** يعمل كل المعدّنين على قالب كتلة قانوني واحد وقالب رأس بلا nonce، ولا يتغير بين المرشحين إلا
-  حقل الـnonce.
-- **نطاقات منفصلة:** إجراء حتمي قائم على بذرة يقسّم نطاق الـnonce إلى أجزاء متباينة بين المعدّنين المسجلين. لا يجزّئ
-  معدّنان نزيهان المدخل نفسه في الجولة نفسها.
-- **مكافأة تعاونية:** تُوزَّع المكافأة على الفائز وعلى من قدّم «حصصًا» (shares)، وهي nonces تحقق هدفًا أسهل، تدل على
-  العمل المبذول.
-- **دورة حياة للعضوية:** تسجيل المعدّنين بسند، وخروج موقّع، وإزالة بالخمول، ومعدّنون احتياطيون.
+---
 
-فوق الإجماع بنى المشروع طبقة تنفيذ متوافقة مع EVM، وتخزينًا لمواقع الويب على السلسلة، وإضافة Chrome تعرض هذه المواقع
-بعد التحقق منها. هذه الطبقات **إضافات منتج** على فكرة الأطروحة، وليست جزءًا منها.
+## Origin of the idea
 
-## صاحب الفكرة والأصل العلمي
+PoCol was conceived by **Raed S. Rasheed**.
 
-- **صاحب الفكرة:** المهندس **رائد سعيد خليل رشيد (Raed S. Rasheed)**.
-- **الأصل:** أطروحة دكتوراه في هندسة الحاسوب، الجامعة الإسلامية بغزة، كلية الهندسة، بإشراف **أ. د. أيمن أبو سمرة
-  (Prof. Aiman AbuSamra)**، 2026:
-  *Proof-of-Collaboration: A Novel Consensus Algorithm with Highly Efficient Power Consumption*
-  (إثبات التعاون: خوارزمية توافق جديدة ذات كفاءة عالية في استهلاك الطاقة).
-- **نص الأطروحة:** [PhD-thesis-Raed-Rasheed-120211566-61.pdf](PhD-thesis-Raed-Rasheed-120211566-61.pdf).
+The original design is described in [PhD-thesis-Raed-Rasheed-120211566-61.pdf](PhD-thesis-Raed-Rasheed-120211566-61.pdf).
+The design was evaluated in simulation, using BlockSim extended with energy modelling, not on a distributed network:
+- **Setup:** 20 logical miners (16 active, 4 reserve) and a nonce domain of 1,600 values, 100 per active miner.
+- **Best result:** the best throughput-oriented policy kept **90.39%** of accepted-block output with a **55.05%**
+  calculated energy reduction.
+- **Against PoW:** in a matched comparison PoCol also used less energy, but produced fewer accepted blocks and had
+  much longer rounds. The thesis reports this as an energy versus service-level trade-off under the configurations
+  evaluated.
+- **Stated limits:** the thesis lists open participation, fairness, incentive compatibility, Sybil resistance and
+  PoW-equivalent security as **design objectives, not experimentally established guarantees**.
 
-ما قيس في الأطروحة كان بالمحاكاة (BlockSim موسّع بنمذجة الطاقة)، وليس على شبكة موزعة:
+What the implementation takes from the thesis, and what it adds (the EVM layer, site storage, the browser extension,
+network identity, resource policy), is listed in [development/m1/reference/scope.md](development/m1/reference/scope.md).
 
-- استُخدم 20 معدّنًا منطقيًا: 16 نشطًا و4 احتياطيين، ونطاق nonce من 1,600 قيمة، لكل معدّن 100 قيمة.
-- احتفظت أفضل سياسة موجهة للإنتاجية بنسبة **90.39%** من الكتل المقبولة، مع خفض محسوب للطاقة بنسبة **55.05%**.
-- في مقارنة مطابقة مع PoW انخفضت الطاقة أيضًا، لكن مع إنتاج كتل أقل وزمن جولة أطول. النتيجة مقايضة بين الطاقة ومستوى
-  الخدمة، ضمن الإعدادات التي قُيّمت.
-- تنص الأطروحة نفسها على أن العدالة، وتوافق الحوافز، ومقاومة Sybil، وأمانًا يكافئ PoW **أهداف تصميمية لم تثبت تجريبيًا**.
+## How PoCol works
 
-ملخص لما أخذه التنفيذ من الأطروحة وما أضافه إليها في
-[development/m1/reference/scope.md](development/m1/reference/scope.md).
+This is an outline. The normative rules are in [development/m1/reference/](development/m1/reference/): `consensus.md`,
+`execution.md`, `network.md`, `storage.md`, `browser.md`, `governance.md`, `incentives.md` and `validation.md`.
 
-## كيف يعمل PoCol
+### Network identity
+- A network is defined by a `GenesisSpec`: a strict RLP encoding of the spec version, chainId, consensus parameters
+  (`CP`), the initial allocation root, the initial miner list `M_0` and the system-contract code hash.
+- `genesisHash = keccak256(GenesisSpec)`. Peers with a different identity or protocol version are disconnected.
+- Before boot, **ParamGate** evaluates rules R1–R26 over the consensus and local parameters. A profile that violates a
+  rule is refused, and the refusal lists the rules it violates.
 
-الوصف أدناه مبسّط. القواعد الملزمة في المواصفة: [development/m1/reference/](development/m1/reference/)
-(`consensus.md` و`execution.md` و`network.md` و`storage.md` و`browser.md` و`governance.md` و`incentives.md` و`validation.md`).
+### A mining round
+1. **Template.** The proposer of attempt 0 signs the block template: transactions, timestamp and target. If the
+   proposer is late, a deterministic, unsigned **fallback block** is built after `Δ_fb_wait`.
+2. **Seed and assignment.** The seed is derived from the parent block's seal. It assigns each active miner a disjoint
+   nonce range (`pocol_getAssignment`).
+3. **Proof of work.** The PoW input is `TemplateID ‖ nonce`. A block is valid when its hash is below the target.
+4. **Shares.** A nonce that meets the easier share target `T_share = target · m` is a share. The winner includes the
+   share list in the block header.
+5. **Difficulty.** ASERT, with an absolute anchor and a fixed width, steers the block time towards `T_blk`.
 
-### هوية الشبكة (genesis)
-- كل شبكة معرّفة بـ`GenesisSpec`: ترميز RLP صارم لنسخة المواصفة، وchainId، ومعلمات الإجماع `CP`، وجذر الأرصدة
-  الأولية، وقائمة المعدّنين الأولى `M_0`، وبصمة كود عقود النظام.
-- `genesisHash = keccak256(GenesisSpec)`. أي اختلاف في الهوية أو الإصدار يقطع الاتصال بين العقد.
-- قبل الإقلاع يقيّم **ParamGate** القواعد R1–R26 على المعلمات المحلية والإجماعية. الملف الذي يخالف قاعدة يُرفض مع
-  قائمة القواعد المخالفة.
+### Fork choice
+- The chain with the **most cumulative work** wins. Ties are broken lexicographically along the branch path (D133).
+- Reorganizations are bounded by `R_keep`; a deeper fork is refused.
 
-### الجولة والقالب
-1. **القالب:** في كل محاولة يوقّع مقترح المحاولة 0 قالب الكتلة: المعاملات، والطابع الزمني، والهدف. إن تأخر المقترح
-   تُبنى **كتلة احتياطية (fallback)** حتمية غير موقّعة بعد مهلة `Δ_fb_wait`.
-2. **البذرة والتعيين:** تُشتق البذرة من ختم (seal) الكتلة الأب، وتحدد لكل معدّن نشط نطاقًا منفصلًا من الـnonce
-   (`pocol_getAssignment`).
-3. **العمل:** مدخل إثبات العمل هو `TemplateID ‖ nonce`. الكتلة صالحة إذا كانت تجزئته دون الهدف.
-4. **الحصص:** كل nonce تحقق الهدف الأسهل `T_share = target · m` حصة. يدرج الفائز قائمة الحصص في رأس الكتلة.
-5. **الصعوبة:** تضبط ASERT الهدف (مرساة مطلقة، عرض ثابت) ليقترب زمن الكتلة من `T_blk`.
+### Rewards and settlement
+- `R_tot = subsidy + fees`. The winner and the shares of a block are recorded in its child block (`ParentResult`).
+- Settlement is deferred and runs through system contracts (Registry, Escrow, PAY), with exact rounding and
+  classified burns.
+- Miners register with a bond (`B_reg`). A miner inactive for long enough leaves the active set.
 
-### اختيار السلسلة
-- تُختار السلسلة ذات **العمل التراكمي الأكبر**، وعند التعادل يحسم كاسر تعادل معجمي على مسار الفرع (D133).
-- إعادة التنظيم محدودة بعمق `R_keep`: الفرع الأعمق يُرفض.
-
-### المكافآت والتسوية
-- `R_tot = subsidy + fees`. يُسجَّل الفائز وحصص الكتلة في الكتلة الابن (`ParentResult`).
-- تتم التسوية مؤجلة عبر عقود النظام: Registry وEscrow وPAY. التقريب الصحيح والحرق مصنّفان.
-- التسجيل يتطلب سندًا (`B_reg`). الخمول بعد عدد محدد من الكتل يُخرج المعدّن من المجموعة النشطة.
-
-### التنفيذ (EVM)
-- تُنفذ معاملات المستخدمين على revm 19.7 بقواعد Cancun، مع فصل واضح بين الإجماع والتنفيذ:
+### Execution (EVM)
+- User transactions run on revm 19.7 with Cancun rules. Consensus and execution are kept apart:
   `apply(S_parent, ctx, body, parentHeader) → (S, receipts, roots, …)`.
-- للشبكة سقوف تراكمية على الحسابات والخانات والكود وبايتات المعاملات، ولها ارتفاع إغلاق نهائي `H_END`.
+- The network has cumulative caps on accounts, storage slots, code and transaction bytes, and a final closing
+  height `H_END`.
 
-### تخزين المواقع والمتصفح
-- **التخزين:** يُقسَّم الموقع إلى قطع تُنشر عقودًا بعناوين CREATE2 عبر `ChunkFactory`، مع manifest يحمل بصمات الملفات.
-  لكل موقع إصدارات و`current()`.
-- **التحقق:** تجلب إضافة Chrome الموقع، وتتحقق من عنوان كل قطعة وبصمة الـmanifest وكل ملف. ثم تعرضه في إطار معزول بلا
-  شبكة (CSP، وقواعد DNR لكل تبويب، وRtcLockdown)، وكل طلب من الموقع يمر عبر BridgeAuth.
-- **العميل الخفيف (RP):** يتحقق من نافذة من 13 رأسًا.
-- **المحفظة:** محلية لشبكة التطوير، وكل توقيع يتطلب تأكيدًا يعرض البايتات الكاملة.
+### Site storage and the browser
+- **Storage.** A website is split into chunks deployed as contracts at CREATE2 addresses through `ChunkFactory`, with a
+  manifest that carries every file's hash. Each site has versions and a `current()` pointer.
+- **Verification.** The Chrome extension fetches a site and checks every chunk's address, the manifest hash and every
+  file hash. It then renders the site in a sandboxed frame with no network access (CSP, per-tab DNR rules,
+  RtcLockdown), and every request from the site goes through BridgeAuth.
+- **Light client (RP).** Checks a window of 13 headers.
+- **Wallet.** Devnet only. Every signature needs a confirmation that shows the exact bytes.
 
-## كيف طوّر المشروع
+## How the project was developed
 
-طُوّر المشروع بعد الأطروحة، بتوجيه صاحب الفكرة واعتماداته، وبمساعدة وكلاء برمجة بالذكاء الاصطناعي في أدوار منفصلة:
+After the thesis, the implementation was built under the direction and approvals of the author, with AI coding agents
+in separate roles:
 
-- **Claude** (Anthropic) يؤلف التغييرات: المواصفة والكود والاختبارات والأدلة.
-- **Codex** (OpenAI) يراجعها مستقلًا ويشغّل الفحوص، وأحيانًا ينفذ جولات إصلاح.
-- **المالك** يتخذ القرارات الإجماعية والمعيارية. لا يُعدّ أي قرار معتمدًا ما لم يعتمده المالك صراحة، والقرارات المفتوحة
-  مسجلة في `development/audit-2026-10-22/proposals/`.
+- **Claude** (Anthropic) authors changes: specification, code, tests and evidence.
+- **Codex** (OpenAI) reviews them independently, runs the checks, and has carried out some repair rounds.
+- **The owner** takes every consensus and normative decision. Nothing counts as decided until the owner approves it
+  explicitly. Open decisions are recorded in `development/audit-2026-10-22/proposals/`.
 
-قواعد العمل في [development/README.md](development/README.md): كل نتيجة تُربط بمتطلب ودليل، ولا يُغلق بند بمرور الوقت أو
-بالاتفاق وحده، ونجاح إعادة التشغيل لا يفسر فشلًا سابقًا.
+The working rules are in [development/README.md](development/README.md):
+- every finding is tied to a requirement and to evidence;
+- no item is closed by elapsed time or by agreement alone;
+- a passing rerun does not explain an earlier failure.
 
-المراحل بالترتيب:
+Stages, in order:
 
-| المرحلة | ما أنجزته | أين |
+| Stage | What it delivered | Where |
 |---|---|---|
-| **M1** | المواصفة: من خط الأساس العربي إلى مسودات إنجليزية 0.1–0.33، مع متجهات بايتات ومراجعات مستقلة | `development/m1/` |
-| **LP1–LP2** | عقدة Rust أولى (ترميز RLP، GenesisSpec، ParamGate، الرؤوس، ASERT، التعيين) وسجل كتل مرشحة | `prototypes/lp1-node/`، `development/lp1`، `lp2` |
-| **LP3** | نموذج مرجعي بـTypeScript للحساب والتوقيت والعضوية والتعيين، ومقارنته مع Rust | `prototypes/lp3-model/`، `development/lp3` |
-| **LP4–LP8** | طبقة التنفيذ: revm، وعقود النظام، وmempool، وPAY، والتسوية، والسقوف، وحدود الموارد | `prototypes/lp4-execution/`، `development/lp4` |
-| **LP5–LP7** | العقدة `pocold`: الإنتاج والتعدين، واختيار السلسلة، والمزامنة بين العقد، وP2P، وRPC | `prototypes/pocold/` |
-| **LP9** | إضافة Chrome MV3 | `prototypes/pocol-extension/`، `development/lp9` |
-| **LP10** | شبكة تطوير متكاملة: نشر مواقع، وإعادة تنظيم، وإعادة تشغيل، ومتصفح | `prototypes/lp10/`، `development/lp10` |
-| **تدقيق 2026-10-22 وجولاته** | إصلاح A01–A14، وحدود الذاكرة A13، ومخزن الحالة على القرص (redb)، ونقاط الحفظ، وRpcGuard، وأعطال I/O، والتحقق على Windows وChrome | `development/audit-2026-10-22/` |
+| **M1** | The specification: from the Arabic baseline to English drafts 0.1–0.33, with byte-level vectors and independent reviews | `development/m1/` |
+| **LP1–LP2** | A first Rust node (RLP, GenesisSpec, ParamGate, headers, ASERT, assignment) and a candidate-header journal | `prototypes/lp1-node/`, `development/lp1`, `lp2` |
+| **LP3** | A TypeScript reference model of the arithmetic, timing, membership and assignment, cross-checked against Rust | `prototypes/lp3-model/`, `development/lp3` |
+| **LP4–LP8** | The execution layer: revm, system contracts, mempool, PAY, settlement, caps and resource bounds | `prototypes/lp4-execution/`, `development/lp4` |
+| **LP5–LP7** | The `pocold` node: block production and mining, fork choice, multi-node sync, P2P and RPC | `prototypes/pocold/` |
+| **LP9** | The Chrome MV3 extension | `prototypes/pocol-extension/`, `development/lp9` |
+| **LP10** | An integrated devnet: site publishing, reorganization, restart and the browser | `prototypes/lp10/`, `development/lp10` |
+| **Audit of 2026-10-22 and its rounds** | Repairs A01–A14, the A13 memory bound, the on-disk state store (redb), checkpoints, RpcGuard, I/O-fault handling, Windows and Chrome verification | `development/audit-2026-10-22/` |
 
-ملخصات المراحل بالعربية في [development/reports/](development/reports/) و[development/STATUS-AR.md](development/STATUS-AR.md).
-وحالة كل بند من التدقيق في `development/audit-2026-10-22/FINDING-STATUS.json` و`DASHBOARD-AR.md`.
+Stage reports: [development/reports/](development/reports/) and [development/STATUS-AR.md](development/STATUS-AR.md),
+written in Arabic. The status of every audit finding: `development/audit-2026-10-22/FINDING-STATUS.json`.
 
-## هيكلية المستودع والكود
+## Repository and code layout
 
 ```
 .
-├── PhD-thesis-Raed-Rasheed-120211566-61.pdf   الأطروحة (أصل الفكرة)
-├── development/                               المواصفة، المتابعة، الأدلة، القرارات
-│   ├── m1/reference/                          المواصفة المرجعية (بالعربية): consensus, execution, network, storage, browser, …
-│   ├── m1/M1-SPEC.md, m1-draft-*/            مسودات المواصفة الإنجليزية ومتجهاتها
-│   ├── VA-SPEC.md                             مواصفة التحقق
-│   ├── lp1 … lp10/                            أدلة كل مرحلة
-│   ├── audit-2026-10-22/                      التدقيق وجولات الإصلاح وأدلتها وجدول القرارات المفتوحة
-│   ├── reports/, STATUS-AR.md                 ملخصات عربية
-│   └── *-APPROVAL.md, OWNER-STANDING-AUTHORIZATION.md   اعتمادات المالك
+├── PhD-thesis-Raed-Rasheed-120211566-61.pdf   the thesis (origin of the idea)
+├── development/                               specification, tracking, evidence, decisions
+│   ├── m1/reference/                          reference specification (Arabic): consensus, execution, network, storage, browser, …
+│   ├── m1/M1-SPEC.md, m1-draft-*/            English specification drafts and their vectors
+│   ├── VA-SPEC.md                             validation specification
+│   ├── lp1 … lp10/                            evidence for each stage
+│   ├── audit-2026-10-22/                      the audit, its repair rounds, evidence and the open-decision table
+│   ├── reports/, STATUS-AR.md                 status summaries (Arabic)
+│   └── *-APPROVAL.md, OWNER-STANDING-AUTHORIZATION.md   owner approvals
 ├── prototypes/
-│   ├── pocold/                                العقدة (Rust 1.99.1)
-│   ├── lp4-execution/                         طبقة التنفيذ وعقود النظام (Rust 1.99.1 + Solidity)
-│   ├── pocol-extension/                       إضافة Chrome MV3 (JavaScript)
-│   ├── lp1-node/                              العقدة الأولى: الترميز والتحقق (Rust 1.58)
-│   ├── lp3-model/                             النموذج المرجعي (TypeScript)
-│   └── lp10/run_lp10.py                       مشغّل كل الحزم
-└── .github/workflows/                         فحوص Windows وChrome وLP3 وLP4
+│   ├── pocold/                                the node (Rust 1.99.1)
+│   ├── lp4-execution/                         execution layer and system contracts (Rust 1.99.1 + Solidity)
+│   ├── pocol-extension/                       Chrome MV3 extension (JavaScript)
+│   ├── lp1-node/                              the first node: encoding and verification (Rust 1.58)
+│   ├── lp3-model/                             reference model (TypeScript)
+│   └── lp10/run_lp10.py                       runs every suite
+└── .github/workflows/                         Windows, Chrome, LP3 and LP4 checks
 ```
 
-### `prototypes/pocold` — العقدة
+### `prototypes/pocold` — the node
 
-| الملف | المسؤولية |
+| File | Responsibility |
 |---|---|
-| `src/main.rs` | سطر الأوامر: `init-devnet` و`run` و`status` |
-| `src/node.rs` | حلقة الأحداث: الاستيراد، والتحقق، والـmempool، والقوالب، والاستعادة عند الفتح |
-| `src/chain.rs` | شجرة الكتل، واختيار السلسلة بالعمل، وإعادة التنظيم، والاحتفاظ، والكتل الجانبية |
-| `src/miner.rs` | التعدين ضمن النطاق المعيّن والحصص |
-| `src/net.rs` | P2P عبر TCP: المصافحة، والمزامنة، والبث، وحدود الاتصالات |
-| `src/rpc.rs` | خادم JSON-RPC مع RpcGuard: الطوابير، والمهل، ومعدل الطلبات، وحدود الذاكرة |
-| `src/store.rs` | سجل الكتل `blocks.journal` (إلحاقي، مع تعافٍ من الذيل الممزق) |
-| `src/history.rs` | `history.redb`: الإيصالات وفهرس المعاملات |
-| `src/state_store.rs` | `state.redb`: نسخ الحالة كأشجار trie على القرص (وضع `--state-store` التجريبي) |
-| `src/checkpoint.rs` | نقاط حفظ الحالة المختومة والمرتبطة بالسجل |
-| `src/statediff.rs` | فروق الحالة بين الكتل |
-| `src/resources.rs` | نموذج A13: الحد المحسوب للذاكرة وفحصه عند الإقلاع |
-| `src/site.rs`، `src/bin/pocol-site.rs` | نشر المواقع وجلبها والتحقق منها |
-| `src/bin/pocol-sign.rs` | توقيع معاملة لشبكة التطوير |
-| `scripts/devnet.py` | إنشاء شبكة محلية وتشغيلها وإيقافها |
-| `tests/` | اختبارات الإجماع والشبكة والتخزين والسقوف والميزانية، واختبارات e2e بـPython |
+| `src/main.rs` | Command line: `init-devnet`, `run`, `status` |
+| `src/node.rs` | Event loop: import, validation, mempool, templates, recovery at open |
+| `src/chain.rs` | Block tree, work-based fork choice, reorganization, retention, side blocks |
+| `src/miner.rs` | Mining inside the assigned range, shares |
+| `src/net.rs` | P2P over TCP: handshake, sync, gossip, connection limits |
+| `src/rpc.rs` | JSON-RPC server with RpcGuard (queues, deadlines, rate limits, memory bounds) |
+| `src/store.rs` | Block journal `blocks.journal` (append-only, torn-tail recovery) |
+| `src/history.rs` | `history.redb`: receipts and the transaction index |
+| `src/state_store.rs` | `state.redb`: state versions as on-disk tries (experimental `--state-store` mode) |
+| `src/checkpoint.rs` | Sealed state checkpoints bound to the journal |
+| `src/statediff.rs` | State diffs between blocks |
+| `src/resources.rs` | The A13 model: the computed memory bound, checked at boot |
+| `src/site.rs`, `src/bin/pocol-site.rs` | Publishing, fetching and verifying sites |
+| `src/bin/pocol-sign.rs` | Signing a devnet transaction |
+| `scripts/devnet.py` | Create, start, inspect and stop a local network |
+| `tests/` | Consensus, network, storage, caps and budget tests; Python end-to-end tests |
 
-### `prototypes/lp4-execution` — التنفيذ
-- **الملفات:** `apply.rs` و`apply/` (تطبيق الكتلة)، و`system.rs` و`system/` (مراحل النظام)، و`pay.rs` و`native.rs`،
-  و`pool.rs`، و`state_trie.rs` و`node_trie.rs` (الجذور)، و`admission.rs` و`admission/` (ParamGate)، و`resources.rs`،
-  و`modexp.rs` (مسارات MODEXP السريعة مع مطابقة revm)، و`devnet.rs` (بناء genesis للتطوير).
-- **العقود (`contracts/`):** `RegistryPayment.sol` و`PendingEscrow.sol` و`ChunkFactory.sol` وعقود الشهود، وتخطيط
-  التخزين في `REGISTRY-LAYOUT.md`.
+### `prototypes/lp4-execution` — execution
+- **Sources:**
+  - `apply.rs` and `apply/`: block application;
+  - `system.rs` and `system/`: system phases;
+  - `pay.rs`, `native.rs`: the PAY boundary;
+  - `pool.rs`: the mempool;
+  - `state_trie.rs`, `node_trie.rs`: state roots;
+  - `admission.rs` and `admission/`: ParamGate;
+  - `resources.rs`: resource bounds;
+  - `modexp.rs`: MODEXP fast paths, checked against revm;
+  - `devnet.rs`: devnet genesis builder.
+- **Contracts (`contracts/`):** `RegistryPayment.sol`, `PendingEscrow.sol`, `ChunkFactory.sol` and witness contracts. The
+  storage layout is in `REGISTRY-LAYOUT.md`.
 
-### `prototypes/pocol-extension` — إضافة Chrome
-- `src/sw.js`: الـservice worker، وفيه ملفات الشبكة وقواعد DNR والتوجيه.
+### `prototypes/pocol-extension` — the Chrome extension
+- `src/sw.js`: the service worker (network profiles, DNR rules, routing).
 - `src/lib/`:
-  - `rp.js`: نافذة الرؤوس؛
-  - `site.js`: جلب الموقع والتحقق منه؛
-  - `bridge.js`: BridgeAuth؛
-  - `sitestore.js`: التخزين المحلي للموقع؛
-  - `wallet.js`: المحفظة.
-- `src/sandbox-loader.js` و`src/viewer.js`: الإطار المعزول.
-- `build.mjs`: بناء `dist/`، وبناء نسخ أعطال مقصودة لضوابط الاختبار السلبية.
+  - `rp.js`: header window;
+  - `site.js`: site fetch and verification;
+  - `bridge.js`: BridgeAuth;
+  - `sitestore.js`: per-site storage;
+  - `wallet.js`: the wallet.
+- `src/sandbox-loader.js`, `src/viewer.js`: the sandboxed frame.
+- `build.mjs`: builds `dist/`, and deliberate fault builds used as negative test controls.
 
-## المتطلبات
+## Requirements
 
-| الأداة | النسخة | لماذا |
+| Tool | Version | Used for |
 |---|---|---|
-| Rust | 1.99.1، مثبّتة في `rust-toolchain.toml` | `pocold` و`lp4-execution` |
-| Rust | 1.58.1 | `lp1-node` فقط |
-| Python | 3.10 أو أحدث | `devnet.py` واختبارات e2e |
-| Node.js | 22 أو أحدث | بناء الإضافة واختباراتها |
-| Chromium/Chrome + Playwright 1.62.1 | — | اختبارات المتصفح فقط |
+| Rust | 1.99.1 (pinned in `rust-toolchain.toml`) | `pocold`, `lp4-execution` |
+| Rust | 1.58.1 | `lp1-node` only |
+| Python | 3.10 or newer | `devnet.py`, end-to-end tests |
+| Node.js | 22 or newer | building and testing the extension |
+| Chromium/Chrome + Playwright 1.62.1 | — | browser tests only |
 
-يعمل البناء على Linux وmacOS وWindows. تُفحص Windows وChrome آليًا في `.github/workflows/`. تعمل الشبكة المحلية على
-`127.0.0.1` فقط، بمفاتيح تطوير حتمية لا قيمة لها.
+The code builds on Linux, macOS and Windows. Windows and Chrome are checked automatically by the workflows in
+`.github/workflows/`. Local networks bind to `127.0.0.1` only and use deterministic, worthless devnet keys.
 
-## التشغيل السريع: شبكة تطوير محلية
+## Quick start: a local devnet
 
 ```sh
 git clone https://github.com/palcertcom/pocol.git && cd pocol
 
-# 1) بناء العقدة والأدوات
+# 1) Build the node and its tools
 cd prototypes/pocold && cargo build --release --locked && cd ../..
-# الناتج: prototypes/pocold/target/release/{pocold,pocol-site,pocol-sign}
+# -> prototypes/pocold/target/release/{pocold,pocol-site,pocol-sign}
 
-# 2) شبكة من ثلاث عقد (a, b, c)
+# 2) A three-node network (a, b, c)
 D=prototypes/pocold/scripts/devnet.py
 python3 $D init  /tmp/devnet --miners a,b,c --t-blk 2   # genesis, devnet.json, profile.json
-python3 $D start /tmp/devnet --log                      # P2P على 30300+i و RPC على 8540+i
-python3 $D status /tmp/devnet                           # الارتفاع والرأس والأقران والإنتاج
+python3 $D start /tmp/devnet --log                      # P2P on 30300+i, RPC on 8540+i
+python3 $D status /tmp/devnet                           # height, head, peers, production
 python3 $D rpc /tmp/devnet a eth_blockNumber
-python3 $D stop /tmp/devnet                             # أو --only b لإيقاف عقدة واحدة
+python3 $D stop /tmp/devnet                             # or --only b to stop one node
 ```
 
-ملاحظات:
-- **التوقيت:** اجعل `T_blk ≥ 1 + dFbWait`. القيم الافتراضية `--t-blk 2 --fb-wait 1` مستدامة.
-- **إعادة التشغيل:** العقدة التي تُعاد بنفس مجلد `--data` تعيد تشغيل سجلها، وتُستعاد الذيول الممزقة.
-  `pocold status --network DIR --data DIR` يطبع الرأس دون تشغيل الشبكة.
-- **وضع التخزين على القرص (تجريبي):** أضف `--state-store` لأوامر `pocold run`، أو `POCOLD_RUN_ARGS=--state-store`
-  مع `devnet.py`. افتح كل مجلد بيانات بالوضع الذي أُنشئ به.
-- **تشغيل `pocold` مباشرة:**
+Notes:
+- **Timing.** Keep `T_blk ≥ 1 + dFbWait`. The defaults (`--t-blk 2 --fb-wait 1`) are sustainable.
+- **Restart.** A node restarted with the same `--data` directory replays its journal and recovers torn tails.
+  `pocold status --network DIR --data DIR` prints the head without starting the node.
+- **On-disk state store (experimental).** Add `--state-store` to `pocold run`, or set `POCOLD_RUN_ARGS=--state-store`
+  for `devnet.py`. Always open a data directory in the mode it was created in.
+- **Running `pocold` directly:**
   ```sh
   pocold init-devnet --out NET --miners a,b,c [--chain-id 777900] [--t-blk S] ...
   pocold run --network NET --data DATA --name a --miner a --listen 127.0.0.1:30300 --rpc 127.0.0.1:8540 [--peer ADDR]...
   ```
-  `pocold help` يعرض كل الخيارات.
-- **الشبكات المسموحة:** chainId الافتراضي 777900 (simnet). ملف الشبكة الإنتاجي (chainId 777001) لا يُقلع عمدًا.
+  `pocold help` lists every option.
+- **Allowed networks.** The default chainId is 777900 (simnet). The production network profile (chainId 777001)
+  deliberately does not boot.
 
-## نشر موقع وقراءته من المتصفح
+## Publishing a site and viewing it in Chrome
 
 ```sh
 CID=$(python3 -c "import json;print(json.load(open('/tmp/devnet/net/devnet.json'))['chainId'])")
 B=prototypes/pocold/target/release
 $B/pocol-site publish --rpc 127.0.0.1:8540 --chain-id $CID --account alice --dir ./mysite
-#   -> {"site":"0x…","version":0,...}   للتحديث أضف --site 0x…
-$B/pocol-site fetch --rpc 127.0.0.1:8541 --site 0x… --out ./fetched   # يتحقق من كل قطعة وملف
+#   -> {"site":"0x…","version":0,...}   to publish an update, add --site 0x…
+$B/pocol-site fetch --rpc 127.0.0.1:8541 --site 0x… --out ./fetched   # verifies every chunk and file
 ```
 
-إضافة Chrome:
-1. ابنِ الإضافة:
+The Chrome extension:
+1. Build it:
    ```sh
    cd prototypes/pocol-extension
    npm ci
-   node build.mjs    # الناتج في dist/
+   node build.mjs    # -> dist/
    ```
-2. افتح `chrome://extensions`، وفعّل وضع المطوّر، واختر Load unpacked ثم مجلد `prototypes/pocol-extension/dist`.
-3. في صفحة خيارات الإضافة، الصق `/tmp/devnet/net/profile.json` ثم اضغط Add. يُقبل الملف فقط إذا طابقت بصمة
-   `genesisPre` قيمة `genesisHash`.
-4. لفتح موقع، اكتب في شريط العنوان: `pocol devnet/0x<site>/`.
-5. المحفظة لشبكة التطوير فقط. لتمويلها استخدم `pocol-sign`، ثم أرسل الناتج بـ`eth_sendRawTransaction`.
+2. Open `chrome://extensions`, turn on Developer mode, choose **Load unpacked** and select
+   `prototypes/pocol-extension/dist`.
+3. On the extension's options page, paste `/tmp/devnet/net/profile.json` and click **Add**. The profile is accepted
+   only if `genesisPre` hashes to `genesisHash` and the chainId matches.
+4. To open a site, type `pocol devnet/0x<site>/` in the address bar.
+5. The wallet is devnet only. Fund it with `pocol-sign`, then send the output with `eth_sendRawTransaction`.
 
-التفاصيل الكاملة في [development/lp10/LP10-RUNBOOK.md](development/lp10/LP10-RUNBOOK.md)
-و[development/lp9/LP9-EXTENSION.md](development/lp9/LP9-EXTENSION.md).
+Full details: [development/lp10/LP10-RUNBOOK.md](development/lp10/LP10-RUNBOOK.md) and
+[development/lp9/LP9-EXTENSION.md](development/lp9/LP9-EXTENSION.md).
 
-## واجهة JSON-RPC
+## JSON-RPC
 
-العقدة تقدم مجموعة من `eth_*` المعيارية:
-- `eth_blockNumber`، `eth_chainId`، `eth_getBalance`، `eth_getCode`، `eth_getStorageAt`؛
-- `eth_call`، `eth_estimateGas`، `eth_sendRawTransaction`، `eth_getTransactionReceipt`؛
-- `eth_getLogs`، `eth_getBlockByNumber`، `eth_feeHistory`، وغيرها.
+The node serves a subset of the standard `eth_*` methods:
+- `eth_blockNumber`, `eth_chainId`, `eth_getBalance`, `eth_getCode`, `eth_getStorageAt`;
+- `eth_call`, `eth_estimateGas`, `eth_sendRawTransaction`, `eth_getTransactionReceipt`;
+- `eth_getLogs`, `eth_getBlockByNumber`, `eth_feeHistory`, and others.
 
-وتضيف `net_*` و`web3_clientVersion`، وطرقًا خاصة بـPoCol:
+It also serves `net_*`, `web3_clientVersion`, and PoCol-specific methods:
 
-| الطريقة | الغرض |
+| Method | Purpose |
 |---|---|
-| `pocol_status`، `pocol_syncStatus` | حالة العقدة والمزامنة |
-| `pocol_getTemplate`، `pocol_getAssignment`، `pocol_getTarget`، `pocol_submitShare` | القالب ونطاق الـnonce والهدف، وتقديم الحصص (محلي فقط) |
-| `pocol_getMiners`، `pocol_getMinerSet` | المعدّنون والمجموعة النشطة |
-| `pocol_getSettlement`، `pocol_getEscrow`، `pocol_getPot`، `pocol_getBurnTotals` | المكافآت والتسوية والحرق |
-| `pocol_getHeaders`، `pocol_getBlockRlp`، `pocol_getLogs` | الرؤوس للعميل الخفيف، والكتل، والسجلات المرتبطة بالفرع |
-| `pocol_getParams`، `pocol_getCaps`، `pocol_getTiming`، `pocol_getClosing`، `pocol_getRetention` | المعلمات والسقوف والتوقيت والإغلاق والاحتفاظ |
-| `pocol_getRejects`، `pocol_getRpcStats` | التشخيص |
+| `pocol_status`, `pocol_syncStatus` | Node and sync status |
+| `pocol_getTemplate`, `pocol_getAssignment`, `pocol_getTarget`, `pocol_submitShare` | Template, nonce range, target, share submission (local only) |
+| `pocol_getMiners`, `pocol_getMinerSet` | Miners and the active set |
+| `pocol_getSettlement`, `pocol_getEscrow`, `pocol_getPot`, `pocol_getBurnTotals` | Rewards, settlement, burns |
+| `pocol_getHeaders`, `pocol_getBlockRlp`, `pocol_getLogs` | Headers for light clients, raw blocks, branch-bound logs |
+| `pocol_getParams`, `pocol_getCaps`, `pocol_getTiming`, `pocol_getClosing`, `pocol_getRetention` | Parameters, caps, timing, closing, retention |
+| `pocol_getRejects`, `pocol_getRpcStats` | Diagnostics |
 
-حدود RPC، مثل الاتصالات والأحجام والمهل، موصوفة في `development/m1/reference/network.md`
-و`development/audit-2026-10-22/RPCGUARD.md`.
+RPC limits (connections, sizes, deadlines) are described in `development/m1/reference/network.md` and
+`development/audit-2026-10-22/RPCGUARD.md`.
 
-## الاختبارات
+## Tests
 
 ```sh
-# كل الحزم دفعة واحدة (الأدلة في development/lp10/LP10-EVIDENCE.json)
+# Every suite (evidence -> development/lp10/LP10-EVIDENCE.json)
 python3 prototypes/lp10/run_lp10.py
 python3 prototypes/lp10/run_lp10.py --only e2e-browser
 
-# العقدة
+# The node
 cd prototypes/pocold
 cargo test --release --locked
 cargo test --release --locked --features io-fault \
-  --test state_store --test consensus --test checkpoint_source --test eviction_memory   # أعطال I/O حتمية
-cargo test --release --locked --features crash-test --test consensus                     # انهيار في خطوات محددة
+  --test state_store --test consensus --test checkpoint_source --test eviction_memory   # deterministic I/O faults
+cargo test --release --locked --features crash-test --test consensus                     # crashes at named steps
 python3 tests/e2e_devnet.py && python3 tests/e2e_site.py
 
-# طبقة التنفيذ
+# The execution layer
 cargo test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml
 
-# الإضافة
+# The extension
 cd prototypes/pocol-extension && npm ci && npm test
-node tests/e2e_browser.mjs       # يحتاج Chromium وPlaywright وعقدًا محلية
-node tests/e2e_integrated.mjs    # تقسيم الشبكة، وإعادة التنظيم، وإعادة التشغيل
+node tests/e2e_browser.mjs       # needs Chromium, Playwright and local nodes
+node tests/e2e_integrated.mjs    # partition, reorganization, restart
 ```
 
-- **القياسات الطويلة:** حجم السجل حتى `H_END`، والتشغيل عند سقوف الشبكة، وقياسات الأداء موجودة كاختبارات `#[ignore]`
-  في `tests/journal_measure.rs`. شغّلها بـ`-- --ignored`.
-- **المنافذ:** تستخدم الحزم 30300–30302 و8540–8542 و8600–8602. شغّل حزمة واحدة في كل مرة.
-- **حفظ الأدلة:** عند الفشل تحفظ أدوات e2e سجلات العقد والمدخلات والبذور في `POCOL_E2E_KEEP` أو `tests/failures/`.
+- **Long measurements.** Journal growth to `H_END`, runs at the network's state caps and performance measurements are
+  `#[ignore]` tests in `tests/journal_measure.rs`. Run them with `-- --ignored`.
+- **Ports.** The suites use ports 30300–30302, 8540–8542 and 8600–8602. Run one suite at a time.
+- **Failure evidence.** On a failure, the end-to-end harnesses keep the node logs, inputs and seeds in
+  `POCOL_E2E_KEEP` or `tests/failures/`.
 
-## التطوير والمساهمة
+## Contributing
 
-- **الإجماع خط أحمر:** أي تغيير يمس قاعدة إجماع أو معلمة في `CP` أو ترميزًا على السلك يحتاج قرارًا من المالك. اكتب
-  مقترحًا في `development/audit-2026-10-22/proposals/` بالبدائل والأثر، ولا تنفذه قبل اعتماده.
-- **الحدود المحلية:** لا تُرفع حدود الموارد إلا بقرار. كل بنية بيانات جديدة في العقدة يجب أن تُحسب في نموذج A13
-  (`src/resources.rs`)، والاختبار `a13_bound_breakdown` يثبّت الإجمالي.
-- **الاختبار قبل الادعاء:** أضف اختبارًا يفشل بدون الإصلاح، وسجّل الأمر والنسخة والنتيجة. احفظ الإخفاقات في الأدلة، ولا
-  تعدّ الاختبار المتجاهل أو الملغى نجاحًا.
-- **الأسلوب:**
-  - الكود والمواصفات التقنية بالإنجليزية، وملخصات المتابعة بالعربية؛
-  - اتبع أسلوب الملف الذي تعدّله؛
-  - الاعتماديات مثبّتة بنسخ دقيقة في `Cargo.lock` و`package-lock.json`.
-- **CI:**
-  - `audit-r2-windows-verify.yml`: Windows Server 2022؛
-  - `pocol-browser-verify.yml`: Chrome على Linux بالوضعين؛
-  - `lp3-*.yml` و`lp4-execution-controls.yml`.
-- **الأمان:**
-  - الاختبارات محصورة في عقد وRPC محلية وملفات متصفح اختبارية؛
-  - لا تستخدم أموالًا أو مفاتيح حقيقية؛
-  - لا تنشر برامج استغلال.
+- **Consensus is owner-gated.** A change to a consensus rule, a `CP` parameter or a wire encoding needs an owner
+  decision. Write a proposal in `development/audit-2026-10-22/proposals/` with the alternatives and their effects, and
+  do not implement it before it is approved.
+- **Local limits.** Resource limits are not raised without a decision. Every new data structure in the node must be
+  counted in the A13 model (`src/resources.rs`). The `a13_bound_breakdown` test pins the total.
+- **Test before you claim.** Add a test that fails without the fix, and record the command, the version and the
+  result. Keep failures in the evidence. An ignored or cancelled test does not count as a pass.
+- **Style.**
+  - Code and technical specifications are in English; status summaries are in Arabic.
+  - Follow the conventions of the file you edit.
+  - Dependencies are pinned to exact versions in `Cargo.lock` and `package-lock.json`.
+- **CI.**
+  - `audit-r2-windows-verify.yml`: Windows Server 2022;
+  - `pocol-browser-verify.yml`: Chrome on Linux, in both state modes;
+  - `lp3-*.yml` and `lp4-execution-controls.yml`.
+- **Security.**
+  - Tests are limited to local nodes, local RPC and test browser profiles.
+  - Never use real funds or real keys.
+  - Do not publish exploit programs.
 
-## الحالة الحالية وحدود ما ثبت
+## Current status and limits
 
-**ثبت بالاختبار (محليًا وفي CI):**
-- شبكة تطوير من ثلاث عقد تنتج الكتل وتتزامن.
-- إعادة التنظيم عند التئام الشبكة في الاتجاهين.
-- التعافي بعد `SIGKILL`.
-- نشر المواقع وجلبها مع التحقق.
-- عرضها في Chrome بعزل مُختبَر بضوابط سلبية.
-- استئناف الحالة من نقاط الحفظ.
-- إيقاف العقدة عند أعطال القرص دون الحكم على كتل صالحة بأنها غير صالحة.
-- النجاح على Linux وWindows Server 2022 وChrome.
+**Shown by tests, locally and in CI:**
+- a three-node devnet produces blocks and stays in sync;
+- reorganization at a network heal, in both directions;
+- recovery after `SIGKILL`;
+- site publishing and verified fetching;
+- rendering in Chrome with isolation tested by negative controls;
+- resuming state from checkpoints;
+- the node stops on disk failures instead of judging valid blocks invalid;
+- passing runs on Linux, Windows Server 2022 and Chrome.
 
-**لم يثبت أو ما زال مفتوحًا:**
-- **ملف الشبكة الإنتاجي لا يُقلع على `pocold`:** لا يوجد genesis معتمد للشبكة. وضع الحالة الكاملة لا يمر بشرط الذاكرة
-  A13، وR21 يرفض، ولا قبول شبكة بخلاف simnet (R22).
-- **حد الذاكرة:** في وضع التخزين حد محسوب بنحو 5.2 GiB ضمن ميزانية 6 GiB، والشرط أن يكون النموذج × 8/7 ≤ 6 GiB. لم
-  تُقس كل أسوأ الحالات.
-- **قرارات معلّقة عند المالك:** قرارات إجماعية ومعيارية عديدة، منها المقترحات الإجماعية الستة وسقوف الشبكة وهوية
-  الثوابت ومعايرة التوقيت، مسجلة في `development/audit-2026-10-22/proposals/DECISION-TABLE-2026-10-28.md`.
-- **أهداف تصميمية:** الأمان المكافئ لـPoW، والعدالة، ومقاومة Sybil لم تثبت.
-- **لا تدقيق خارجي:** لم يُجرَ تدقيق أمني بشري خارجي مستقل.
+**Not established, or still open:**
+- **The production network profile does not boot on `pocold`.**
+  - There is no approved network genesis.
+  - Whole-state mode does not meet the A13 memory condition.
+  - Rule R21 refuses the profile.
+  - Only simnet admission exists (R22).
+- **The memory bound.** In store mode the computed bound is about 5.2 GiB against a 6 GiB budget (the condition is
+  model × 8/7 ≤ 6 GiB). Not every worst case has been measured.
+- **Decisions pending with the owner.** Many consensus and normative decisions are still open: the six consensus
+  proposals, the network caps, constant identity and timing calibration among them. They are listed in
+  `development/audit-2026-10-22/proposals/DECISION-TABLE-2026-10-28.md`.
+- **Design objectives.** PoW-equivalent security, fairness and Sybil resistance are not proven.
+- **No external audit.** No independent external human security audit has been done.
 
-**لا تستخدم هذا الكود لشبكة حقيقية أو بأموال حقيقية.**
+**Do not use this code for a real network or with real funds.**
 
-## الترخيص
+## License
 
-الكود البرمجي في `prototypes/` مرخص بـ**Apache-2.0**، كما هو مذكور في ملفات `Cargo.toml` و`package.json`. التراخيص الخارجية
-المضمّنة في `prototypes/lp4-execution/licenses/` ومع المكتبات المضمّنة في الإضافة. حقوق الأطروحة لمؤلفها.
+The code in `prototypes/` is licensed under **Apache-2.0**, as declared in its `Cargo.toml` and `package.json` files.
+Third-party licenses are in `prototypes/lp4-execution/licenses/` and ship with the libraries vendored into the
+extension. The thesis remains the copyright of its author.
 
-للتواصل حول الفكرة أو المشروع: افتح Issue في هذا المستودع.
+For questions about the idea or the project, open an issue in this repository.
