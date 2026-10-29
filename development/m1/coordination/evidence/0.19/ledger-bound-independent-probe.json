@@ -1,0 +1,29 @@
+{
+  "lowerBoundReferences": 2847,
+  "viewerMaxRequests": 2850,
+  "rows": [
+    {
+      "references": 2847,
+      "levelBytes": [
+        65484,
+        65527,
+        65530,
+        65535
+      ],
+      "manifestBytes": 65535,
+      "within65536": true
+    },
+    {
+      "references": 2848,
+      "levelBytes": [
+        65507,
+        65551,
+        65555,
+        65561
+      ],
+      "manifestBytes": 65561,
+      "within65536": false
+    }
+  ],
+  "passed": true
+}

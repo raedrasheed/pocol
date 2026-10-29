@@ -1,0 +1,7 @@
+test state_summary::tests::the_code_check_follows_validate_snapshot ... ok
+test state_summary::tests::the_drop_is_skipped_only_when_nothing_could_be_dropped ... ok
+test state_summary::tests::moved_summaries_equal_scans_through_random_states ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 115 filtered out; finished in 0.51s
+test apply::tests::e2_failing_candidates_fail_alike ... ok
+test apply::tests::e2_blocks_with_trie_and_summary_equal_the_reference ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.26s

@@ -1,0 +1,6 @@
+thread 'every_block_total_work_is_its_parents_plus_the_work_of_its_own_target' (21934) panicked at tests/consensus.rs:128:9:
+assertion `left == right` failed: h=8: total work = parent's + work(own target)
+  left: 34766
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.39s
+

@@ -1,0 +1,114 @@
+== a.log (last 60 of 52 lines)
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[a 36274484] opened: head h=0 records=0
+[a 36275053] lock h=1 a=0 PROP tid=0xa16079d093
+[a 36275059] head h=1 0xdd7ca869cba1 signed=true txs=0
+[a 36280104] lock h=2 a=0 FB tid=0xec6943918c
+[a 36280111] head h=2 0xc71acd81786d signed=false txs=0
+[a 36280122] lock h=3 a=0 PROP tid=0x62f4796785
+[a 36280133] range exhausted; idle until next template
+[a 36326017] attempt 0 expired; advancing
+[a 36326020] lock h=3 a=1 FB tid=0x4491a239cf
+[a 36326026] head h=3 0x6b3fa55d9f95 signed=false txs=0
+[a 36331039] lock h=4 a=0 FB tid=0x1a9041de9c
+[a 36331045] head h=4 0x044d3c3046e9 signed=false txs=0
+[a 36331049] lock h=5 a=0 PROP tid=0xbb765f820a
+[a 36331060] head h=5 0x065b7dd50115 signed=true txs=0
+[a 36332006] lock h=6 a=0 PROP tid=0x59958b0e89
+[a 36332011] head h=6 0x2c5d9b463feb signed=true txs=0
+[a 36333009] lock h=7 a=0 PROP tid=0x7e0e125705
+[a 36333015] head h=7 0x9a3958cb13eb signed=true txs=0
+[a 36334012] lock h=8 a=0 PROP tid=0x78254902db
+[a 36334018] head h=8 0x9f051d60a25a signed=true txs=0
+[a 36335016] lock h=9 a=0 PROP tid=0x0ade5ae12c
+[a 36335022] head h=9 0x8802b759723e signed=true txs=0
+[a 36336019] lock h=10 a=0 PROP tid=0xcb5bda6ce8
+[a 36336025] head h=10 0x168ffbe483d0 signed=true txs=0
+[a 36336080] head h=5 0xd487a5059233 signed=false txs=0
+[a 36336084] lock h=6 a=0 PROP tid=0xc1d1bf8234
+[a 36336088] head h=6 0xa103a88e7b70 signed=true txs=0
+[a 36337027] lock h=7 a=0 PROP tid=0x2c2fe592b0
+[a 36337033] head h=7 0x97eb21a91efc signed=true txs=0
+[a 36338035] TrieRebuild for a fork below the K_hist window
+[a 36339037] TrieRebuild for a fork below the K_hist window
+[a 36340045] TrieRebuild for a fork below the K_hist window
+[a 36342043] lock h=8 a=0 FB tid=0xd0793dbba4
+[a 36342047] head h=8 0x58711b5806fc signed=false txs=0
+[a 36342063] lock h=9 a=0 PROP tid=0xfbf58ab7b8
+[a 36342069] head h=9 0x83e8190b2715 signed=true txs=0
+[a 36343011] lock h=10 a=0 PROP tid=0xbef3fce916
+[a 36343019] head h=10 0xdc72f5fa5324 signed=true txs=0
+[a 36344011] TrieRebuild for a fork below the K_hist window
+[a 36345014] TrieRebuild for a fork below the K_hist window
+[a 36348065] lock h=11 a=0 FB tid=0x7fbb4be22e
+[a 36348070] head h=11 0x7ccdb7dae7b2 signed=false txs=0
+[a 36348085] lock h=12 a=0 PROP tid=0x64ccd50d23
+[a 36348090] head h=12 0xe8df57f13e96 signed=true txs=0
+[a 36349017] lock h=13 a=0 PROP tid=0xc97bee65ec
+[a 36349021] head h=13 0x64efb67fa1cc signed=true txs=0
+[a 36353140] TrieRebuild for a fork below the K_hist window
+[a 36353147] TrieRebuild for a fork below the K_hist window
+[a 36354032] lock h=14 a=0 FB tid=0xc99aa98abe
+[a 36354034] range exhausted; idle until next template
+[a 36354045] TrieRebuild for a fork below the K_hist window
+== b.log (last 60 of 88 lines)
+[b 36341040] lock h=11 a=0 PROP tid=0x2d14a05371
+[b 36341046] head h=11 0x55a50ff383fc signed=true txs=0
+[b 36342043] lock h=12 a=0 PROP tid=0x685be5c866
+[b 36342048] head h=12 0x6a145a104297 signed=true txs=0
+[b 36342048] TrieRebuild for a fork below the K_hist window
+[b 36342056] head h=8 0x58711b5806fc signed=false txs=0
+[b 36342059] lock h=9 a=0 PROP tid=0xfbf58ab7b8
+[b 36342061] range exhausted; idle until next template
+[b 36342077] head h=9 0x83e8190b2715 signed=true txs=0
+[b 36343006] lock h=10 a=0 PROP tid=0xbef3fce916
+[b 36343013] head h=10 0x325f61930696 signed=true txs=0
+[b 36344006] lock h=11 a=0 PROP tid=0xd340b6904e
+[b 36344010] head h=11 0x8bf8fbf4cb57 signed=true txs=0
+[b 36345009] lock h=12 a=0 PROP tid=0x9a4b84225e
+[b 36345014] head h=12 0x9c3b38582622 signed=true txs=0
+[b 36346013] lock h=13 a=0 PROP tid=0x84d99b37b5
+[b 36346018] head h=13 0x093d541f1420 signed=true txs=0
+[b 36347016] lock h=14 a=0 PROP tid=0x3da096c334
+[b 36347022] head h=14 0x7edb5f03a3a6 signed=true txs=0
+[b 36348019] lock h=15 a=0 PROP tid=0xb269bdf17a
+[b 36348024] head h=15 0x91992c44050f signed=true txs=0
+[b 36348070] TrieRebuild for a fork below the K_hist window
+[b 36348079] head h=11 0x7ccdb7dae7b2 signed=false txs=0
+[b 36348081] lock h=12 a=0 PROP tid=0x64ccd50d23
+[b 36348087] head h=12 0x833e0766688c signed=true txs=0
+[b 36349021] TrieRebuild for a fork below the K_hist window
+[b 36353135] lock h=13 a=0 FB tid=0xbb360584a3
+[b 36353139] head h=13 0x0440247500d6 signed=false txs=0
+[b 36353142] lock h=14 a=0 PROP tid=0x1203b8f40a
+[b 36353147] head h=14 0x83edb40b4669 signed=true txs=0
+[b 36354037] lock h=15 a=0 PROP tid=0x2fc16fcf5b
+[b 36354045] head h=15 0x8cf28b9b5ec0 signed=true txs=0
+[b 36355040] lock h=16 a=0 PROP tid=0x0d1c9cd7b5
+[b 36355047] head h=16 0x15001eb8290e signed=true txs=0
+[b 36356043] lock h=17 a=0 PROP tid=0x62b700881e
+[b 36356047] head h=17 0x64795454a997 signed=true txs=0
+[b 36357046] lock h=18 a=0 PROP tid=0x8549d2a96e
+[b 36357052] head h=18 0xdfe620dc9e04 signed=true txs=0
+[b 36358051] lock h=19 a=0 PROP tid=0xd79ae82e4d
+[b 36358058] head h=19 0x7632fdcaf5c1 signed=true txs=0
+[b 36359052] lock h=20 a=0 PROP tid=0x474914b4ee
+[b 36359057] head h=20 0xd9eebb1e3365 signed=true txs=0
+[b 36360005] lock h=21 a=0 PROP tid=0x0d363a1ad3
+[b 36360009] head h=21 0x13079f936d09 signed=true txs=0
+[b 36361008] lock h=22 a=0 PROP tid=0x0044b0e31b
+[b 36361014] head h=22 0x93f71f2a3cd9 signed=true txs=0
+[b 36362013] lock h=23 a=0 PROP tid=0xd2719a2e23
+[b 36362019] head h=23 0x779cb0a4e002 signed=true txs=0
+[b 36363016] lock h=24 a=0 PROP tid=0xbd81ae3e13
+[b 36363020] head h=24 0xa604af8994ca signed=true txs=0
+[b 36364017] lock h=25 a=0 PROP tid=0x68e849eaa3
+[b 36364022] head h=25 0x2768e1a0bb9c signed=true txs=0
+[b 36365021] lock h=26 a=0 PROP tid=0xfade83513d
+[b 36365026] head h=26 0x3541a2296605 signed=true txs=0
+[b 36366025] lock h=27 a=0 PROP tid=0x019bfd82cc
+[b 36366031] head h=27 0xd1f330ade8ed signed=true txs=0
+[b 36367028] lock h=28 a=0 PROP tid=0x6173d2f0f9
+[b 36367034] head h=28 0x791bd8811714 signed=true txs=0
+[b 36368033] lock h=29 a=0 PROP tid=0xd173b6cbf4
+[b 36368036] range exhausted; idle until next template

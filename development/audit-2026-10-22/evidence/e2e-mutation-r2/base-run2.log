@@ -1,0 +1,34 @@
+== base-run2 2026-10-23T17:38:42Z
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold/tests/e2e_devnet.py sha256=9d73605edf1898816da59c5417183be41fd718860836695585d5858fa82c1c15
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/bins/base/pocold sha256=71d36fe4cf377dee920dd45815ce0e96d3b632dddeccba418676647b7e2ca0f1
+== pocol-sign sha256=1aa79f9db56db49a23bd72abbfb05e37eba6e48bcb11b37968fe16290e418f29
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/bins/base/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=True valid kept=True
+PASS malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing — new rejects=[{'hash': '0xa47cf87510eac6a0d19e5ab73e0262afbfd227218e80cf092b76dcd6f9050866', 'reason': '3 template signature'}] a 21->23
+PASS partition: a and b lead isolated c by more than 4 c tip blocks of work — a/b=['27:0xf87a076172:w=0x14013f', '27:0xf87a076172:w=0x14013f'] c=23:0x97a9cf5b00:w=0x103476 in 3s
+PASS partition: a/b's tip is strictly heavier and strictly lower than c's tip, both >= 2 blocks past the fork — a/b=28:0xf7af33373c:w=0x150a41 c=29:0xf676fea2f6:w=0x11614f fork=23; work above c0 in c tip blocks: a/b 5.55, late c 1.35; late attempts [1, 2, 0, 0, 0, 0] in 21s
+PASS heal: every node's head is a/b's tip (heavier, and lower than c's tip) — heads a/b/c=['28:0xf7af33373c:w=0x150a41', '28:0xf7af33373c:w=0x150a41', '28:0xf7af33373c:w=0x150a41'] a/b tip=28:0xf7af33373c:w=0x150a41 in 0s
+PASS heal: on every node the canonical block at a/b's tip height is a/b's tip
+PASS heal: c's tip is not canonical on any node — c tip=29:0xf676fea2f6:w=0x11614f
+PASS heal: c reorganized exactly once (one head switch, nothing mined) — c reorgs 0 -> 1
+PASS relay: a holds none of c's late blocks — 6 blocks h=24..29
+PASS relay: a stores c's lighter branch below c's tip, keeps its head, and the branch is not canonical (head = maximum of ≻, consensus.md:215) — stored=True a head=28:0xf7af33373c:w=0x150a41
+PASS relay: a syncs c's tip from a peer claiming more work, keeps its head, and c's tip is not canonical — GetFrom=True stored=True sessions 0->1 a head=28:0xf7af33373c:w=0x150a41
+PASS replay after the relay: a's head is a/b's tip; c's tip is stored and not canonical — a head=28:0xf7af33373c:w=0x150a41
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=33
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+PASS every miner produced blocks — {"a": 81, "b": 71, "c": 16}
+PASS every miner won blocks: a and b canonical ones, c every block of its isolated late branch — {"canonical": {"a": 59, "b": 41, "c": 0}, "c late": "6/6"}
+PASS signed and fallback templates both occur — signed=87/100
+PASS replay of a reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of a agree — 0x9f598954b78f
+PASS replay of b reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of b agree — 0xa58640b34eca
+PASS replay of c reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of c agree — 0x9f598954b78f
+{"result": "PASS", "checks": 27, "work": "/tmp/pocol-e2e-p388y83l"}
+== summary {"label": "base-run2", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 276.0, "leftover_killed": [], "ports_busy_after": []}

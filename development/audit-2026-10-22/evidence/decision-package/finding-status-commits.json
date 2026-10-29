@@ -1,0 +1,6 @@
+{"prHead": "latest commit on claude/audit-repair-a01-a14",
+ "lastImplementation": "the decision-package commit after af2f3a8 (C-1 S2 code term in pocold/src/resources.rs, consensus.md:101 template penalty in node.rs, tests for R4-1/R4-2 and S2). Before it: af2f3a8 (review fixes R2-1 to R2-5, R3-3), 6e99b19 (R1), 2ce03c1 and 49b2bc2 (C-2), 462fffc (PR #27 review threads); .github/ is unchanged since a03e089",
+ "integrationTested": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+ "witnessTested": "3c3792e (not re-run since)",
+ "chromeTested": "3c3792e (not re-run since)",
+ "windowsTested": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"}

@@ -1,0 +1,59 @@
+{
+  "schema": "pocol-m1-v1-units/0.26",
+  "status": "hand-derived unit tables; not approved",
+  "rw": {
+    "source": {"file": "reference/validation.md", "lines": [132, 132], "literals": ["RW1 1 → (1,1,1,1,نعم)", "RW5 20 → (8,7,14,13,لا)", "شامل لكل h ∈ [1, 10^6]"]},
+    "rows": [
+      {"id": "RW1", "h": "1", "b": "1", "from": "1", "count": 1, "n": 1, "anchoredGenesis": true, "params": ["0x1", "0x1"]},
+      {"id": "RW2", "h": "3", "b": "1", "from": "1", "count": 3, "n": 3, "anchoredGenesis": true, "params": ["0x1", "0x3"]},
+      {"id": "RW3", "h": "13", "b": "1", "from": "1", "count": 13, "n": 13, "anchoredGenesis": true, "params": ["0x1", "0xd"]},
+      {"id": "RW4", "h": "14", "b": "2", "from": "1", "count": 14, "n": 13, "anchoredGenesis": false, "params": ["0x1", "0xe"]},
+      {"id": "RW5", "h": "20", "b": "8", "from": "7", "count": 14, "n": 13, "anchoredGenesis": false, "params": ["0x7", "0xe"]},
+      {"id": "RW6", "h": "18446744073709551615", "b": "18446744073709551603", "from": "18446744073709551602", "count": 14, "n": 13, "anchoredGenesis": false,
+       "params": ["0xfffffffffffffff2", "0xe"], "note": "2^64-1 -> b = 2^64-13, from = 2^64-14; no overflow; from + count - 1 = 2^64-1"}
+    ],
+    "exhaustive": {"range": [1, 1000000], "claims": ["count <= 14", "n <= 13", "count = n + [b > 1]", "from + count - 1 = h"]}
+  },
+  "hc": {
+    "source": {"file": "reference/validation.md", "lines": [133, 133], "literals": ["HC1 target_g=2^240", "HC4 target_g=2^240 → minWork=4095", "'4095.9'", "'/16'", "floor(2^256/17)", "10^4 قيمة عشوائية"]},
+    "rows": [
+      {"id": "HC1", "target_g": "2^240", "target": "2^244", "ceilTarget": "2^244", "check": "accepted"},
+      {"id": "HC2", "target_g": "2^240", "target": "2^244+1", "ceilTarget": "2^244", "check": "viewTargetCeil"},
+      {"id": "HC3", "target_g": "2^256-1", "ceilTarget": "2^256-1", "note": "min(2^256-1, (2^256-1)*16) with no overflow"},
+      {"id": "HC4", "target_g": "2^240", "ceilTarget": "2^244", "minWork": "4095",
+       "message": "RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 4095 لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية",
+       "contains": ["4095"], "excludes": ["4095.9", "/16"]},
+      {"id": "HC5", "target_g": "2^256-1", "ceilTarget": "2^256-1", "minWork": "1",
+       "message": "RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 1 لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية، حد العمل غير فعال لهذه الشبكة",
+       "contains": ["حد العمل غير فعال لهذه الشبكة"]},
+      {"id": "HC6", "target_g": "2^252", "ceilTarget": "2^256-1", "minWork": "1"},
+      {"id": "HC7", "target_g": "1", "ceilTarget": "16", "minWork": "6811299366900952671974763824040465167839410862684739061144563765171360567055",
+       "derivation": "2^256 = 17 * 6811299366900952671974763824040465167839410862684739061144563765171360567055 + 1 (2^8 = 256 = 15*17 + 1, so 2^256 = 1 mod 17)",
+       "message": "RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 6811299366900952671974763824040465167839410862684739061144563765171360567055 لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية"}
+    ],
+    "messageSource": {"file": "reference/browser.md", "lines": [51, 54], "literals": ["مرتبط بالعمل والهوية", "بعمل محتسب لا يقل عن", "لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية", "حد العمل غير فعال لهذه الشبكة", "«حتى genesis» عند b=1 فقط"]},
+    "noBlocksSource": {"file": "reference/browser.md", "lines": [37, 38], "literals": ["الشبكة لم تنتج الكتلة 1 بعد؛ لا رأس للتحقق في RP", "4901", "30s"]},
+    "messageRule": "P-V1-4: count phrase 'رأس واحد' (1), 'رأسين' (2), '<n> رؤوس' (3..10), '<n> رأسًا' (11..13); ' حتى genesis' only when b = 1; the warning is appended after '، ' when minWork = 1; digits are ASCII decimal; no ratio or time estimate",
+    "random": {"seed": 20261007, "samples": 10000,
+               "claims": ["for target_g uniform in [1, 2^256-1] and target uniform in [1, ceilTarget]: work(target) >= minWork(ceilTarget)",
+                          "work(ceilTarget) = minWork(ceilTarget)",
+                          "target = ceilTarget passes the viewTargetCeil test and target = ceilTarget + 1 (when <= 2^256-1) fails it",
+                          "all arithmetic on exact integers (BigInt in TypeScript)"]}
+  },
+  "asert": {
+    "source": {"file": "reference/consensus.md", "lines": [126, 137], "literals": ["floor_div", "195766423245049", "971821376", "5127", "2^47, 2^48", "X = target_g·F < 2^273"]},
+    "cp": "V1NET (g_ts 1700000000, target_g 2^240, T_blk 10, tau 600)",
+    "rows": [
+      {"id": "A1", "p_ts": 1700000000, "p_h": 0, "dt": 0, "s": 0, "f": 0, "F": 65536, "target": "2^240", "note": "h = 1: target_g (consensus.md:137)"},
+      {"id": "A2", "p_ts": 1700002470, "p_h": 7, "dt": 2400, "s": 4, "f": 0, "F": 65536, "target": "2^244"},
+      {"id": "A3", "p_ts": 1700000000, "p_h": 240, "dt": -2400, "s": -4, "f": 0, "F": 65536, "target": "2^236"},
+      {"id": "A4", "p_ts": 1700000300, "p_h": 0, "dt": 300, "s": 0, "f": 32768, "F": 92674, "target": "92674*2^224",
+       "derivation": "e = 300*65536/600 = 32768; numerator 195766423245049*32768 + 971821376*32768^2 + 5127*32768^3 + 2^47 = 7638890426949992448; floor(/2^48) = 27138; F = 92674; Y = 2^240*92674*2^-16"},
+      {"id": "A5", "p_ts": 1700999800, "p_h": 7, "dt": 999730, "s": 1666, "target": "2^256-1", "note": "clamped at step 4"},
+      {"id": "A6", "p_ts": 4611686020127387904, "p_h": 7, "dt": 4611686018427387834, "target": "2^256-1",
+       "note": "NX-V3e reference timestamp if ASERT were ever applied to it: s >= 256 clamps; no 2^s value is built; every intermediate < 2^512"},
+      {"id": "A7", "p_ts": 1700000000, "p_h": 1000000, "dt": -10000000, "target": "1", "note": "s <= -257 clamps to 1"}
+    ],
+    "boundClaims": ["every intermediate of every row has bit length <= 512 (browser.md:58: ASERT arguments <= 512 bits)", "F in [65536, 131071] for f in [0, 65535] (checked at f = 0, 1, 32768, 65535)"]
+  }
+}

@@ -1,0 +1,16 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.03s
+RESERVED {"answerBytes":14681122,"reservedWhileUnread":23069558}
+PACER {"closedMs":911,"lastPacerClose":{"accepted":226476,"sendTime":0.500901},"pacerLateMaxMs":0}
+ABSORB {"answerBytes":14681122,"kernelTookWholeAnswer":false,"os":"linux","peakReserved":14680950,"reservedOneSecondLater":14680950}
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 23.64s
+PACER {"closedMs":900,"lastPacerClose":{"accepted":226476,"sendTime":0.500709},"pacerLateMaxMs":0}
+RESERVED {"answerBytes":14681122,"reservedWhileUnread":23069558}
+ABSORB {"answerBytes":14681122,"kernelTookWholeAnswer":false,"os":"linux","peakReserved":14680950,"reservedOneSecondLater":14680950}
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 23.63s
+RESERVED {"answerBytes":14681122,"reservedWhileUnread":23069558}
+PACER {"closedMs":879,"lastPacerClose":{"accepted":226476,"sendTime":0.500818},"pacerLateMaxMs":0}
+ABSORB {"answerBytes":14681122,"kernelTookWholeAnswer":false,"os":"linux","peakReserved":14680950,"reservedOneSecondLater":14680950}
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 21.63s
+
+[exited with code 0]

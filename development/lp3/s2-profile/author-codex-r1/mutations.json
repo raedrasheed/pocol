@@ -1,0 +1,27 @@
+[
+  {
+    "name": "allow-production-simnet",
+    "caught": true,
+    "exitCode": 101
+  },
+  {
+    "name": "allow-repeated-heights",
+    "caught": true,
+    "exitCode": 101
+  },
+  {
+    "name": "allow-unknown-version",
+    "caught": true,
+    "exitCode": 101
+  },
+  {
+    "name": "skip-hash-binding",
+    "caught": true,
+    "exitCode": 101
+  },
+  {
+    "name": "bootable-true",
+    "caught": true,
+    "exitCode": 101
+  }
+]

@@ -1,0 +1,70 @@
+{
+  "searchScope": "Accepted M1 reference, recorded LP4 owner decisions and existing plan; original layout/prune definition not found; historical drafts checked for additional labels only",
+  "sources": [
+    {
+      "path": "development/m1/reference/execution.md",
+      "sha256": "67e90f4c6d351e877dd8cdb113d13f14c79745a2be0c89f2772c471ad92f4718"
+    },
+    {
+      "path": "development/m1/reference/consensus.md",
+      "sha256": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a"
+    },
+    {
+      "path": "development/m1/reference/incentives.md",
+      "sha256": "ee77e12a5d8e624bc20f6f6704cb38016d60cc47d81e3fd25a32b0af366d1365"
+    },
+    {
+      "path": "development/m1/reference/governance.md",
+      "sha256": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b"
+    },
+    {
+      "path": "development/m1/reference/implementation.md",
+      "sha256": "7701f1c9fdc16e18dc5434f7a6eaa197a933b0c11b1262b5c78adf2f289df7f3"
+    },
+    {
+      "path": "development/LP4-SYS-APPROVAL.md",
+      "sha256": "fc389ddbea64b773294566f35747d220268f8baf5bf24ffc6cea24f0ccbbfdbe"
+    },
+    {
+      "path": "development/LP4-ISSUANCE-APPROVAL.md",
+      "sha256": "159deb466f5139d485a90a6271167d675c8aae4701e8925bac9ef5380711da3c"
+    },
+    {
+      "path": "development/LP4-REGISTRY-APPROVAL.md",
+      "sha256": "a467cc529b1c38b2b62874ad0218f43bb011bb57954342d3ed0c09496ebda1db"
+    },
+    {
+      "path": "development/LP4-REGISTRY-WRITE-APPROVAL.md",
+      "sha256": "4fcfef9d6983b526c3f99193f3d384ef8274c4b5214f437e9116d35a53dd0f58"
+    },
+    {
+      "path": "development/lp4/p0-plan/codex-r1/sources.json",
+      "sha256": "e5c04941049d99e1abea8a30cca98771e3c2357d7183df705787a2a00b7da54a"
+    }
+  ],
+  "fixedReferences": [
+    {
+      "file": "development/m1/reference/execution.md",
+      "lines": "38,63-66",
+      "specifies": "Ledger identity, phase order, logical counts and lastShare but no Ledger slot/prune-height definition"
+    },
+    {
+      "file": "development/m1/reference/consensus.md",
+      "lines": "121",
+      "specifies": "parent-state weight window"
+    },
+    {
+      "file": "development/m1/reference/incentives.md",
+      "lines": "71-89",
+      "specifies": "settlement heights and original reward/finalization equations"
+    }
+  ],
+  "newProposedDefinitions": [
+    "Ledger physical layout",
+    "Registry-to-Ledger CALLER-only recording interface and canonical ABI",
+    "Absent-record lastShare treatment without phantom records",
+    "Exact pruning equality/horizon/final policy and empty Ledger genesis"
+  ],
+  "earlierApprovals": "UNCHANGED AND CLOSED",
+  "decision": "NOT APPROVED"
+}

@@ -1,0 +1,11 @@
+
+running 3 tests
+test concurrent_writer_is_refused_and_killed_writer_releases ... ok
+test crashed_writer_leaves_committed_prefix_and_torn_tail ... ok
+test helper_process_entry ... ignored
+
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.37s
+
+   Compiling lp1-node v0.1.0 (D:\a\Proof-of-Collaboration\Proof-of-Collaboration\prototypes\lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 0.80s
+     Running tests\store_process.rs (D:\a\_temp\lp3-target\debug\deps\store_process-b1cccd58013145d4.exe)

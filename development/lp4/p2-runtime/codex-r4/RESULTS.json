@@ -1,0 +1,32 @@
+{
+  "P2": "NOT PASSED",
+  "bootable": false,
+  "approvedCreationRule": "LP4-CREATE-01",
+  "rustTests": 27,
+  "independentPyEVMPayCases": 28,
+  "compiledCreateAssertionControls": 7,
+  "finalUpstreamControls": {
+    "total": 20661,
+    "matches": 20661,
+    "failures": 0,
+    "rootAndLogCases": 19488,
+    "exceptionPresenceOnlyCases": 1173,
+    "signedWireAndPreciseExceptionEquivalence": "NOT PASSED"
+  },
+  "hostedLegacy": {
+    "head": "25ec1f852a7bf9cd9c2960594f3962b18d9197c7",
+    "jobId": 117447426271,
+    "conclusion": "success",
+    "artifactId": 12108035555,
+    "zipSHA256": "d2eb4105e91ce374d002bda46903fa02e92be8d4561b9dc1467728e2e92f7aa5",
+    "counts": {
+      "PASS": 16,
+      "BLOCKED BY PLATFORM": 8,
+      "NOT RUN": 2
+    },
+    "sourceMatches": 76
+  },
+  "currentHeadCI": "PENDING; no result assumed",
+  "rewardLifecycleProposal": "NOT APPROVED; PAYMENT-LIFECYCLE-DECISION.md",
+  "m1AndLP3Changed": false
+}

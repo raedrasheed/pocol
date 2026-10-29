@@ -1,0 +1,180 @@
+[
+  {
+    "name": "debug-build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "release-build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--release",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "portable-regression",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--release",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml",
+      "--lib",
+      "--test",
+      "gate",
+      "--test",
+      "param_gate",
+      "--test",
+      "assignment",
+      "--test",
+      "adversarial",
+      "--test",
+      "adversarial_lp3",
+      "--test",
+      "fixtures_integration",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "profile",
+      "--test",
+      "timing",
+      "--test",
+      "asert_named",
+      "--test",
+      "rewards",
+      "--test",
+      "asert_alloc",
+      "--test",
+      "envelope",
+      "--test",
+      "finality_core",
+      "--test",
+      "http_loopback",
+      "--",
+      "--nocapture"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "format",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "fmt",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml",
+      "--",
+      "--check"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "http-process",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/e2e_http.py",
+      "--bin",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/lp1-node",
+      "--fixtures",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/fixtures"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "typecheck",
+    "args": [
+      "node",
+      "/workspace/work/lp3-tscompiler/node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model/tsconfig.json",
+      "--typeRoots",
+      "/workspace/work/lp3-tscompiler/node_modules/@types"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "eleven-ts-tests",
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model/tests.ts"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "assignment-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/assignment-oracle.py",
+      "/workspace/work/lp3-s8/reproduction",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "arithmetic-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/arithmetic-oracle.py",
+      "/workspace/work/lp3-s8/reproduction",
+      "12000"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "genesis-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/genesis-oracle.py",
+      "/workspace/work/lp3-s8/reproduction"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "timing-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/timing-oracle.py",
+      "/workspace/work/lp3-s8/reproduction"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "rust-mutations",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s8-audit/codex-r1/mutations.py",
+      "/workspace/work/lp3-s8/reproduction/mutations"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "ts-mutations",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s8-audit/codex-r1/ts_mutations.py",
+      "/workspace/work/lp3-s8/reproduction/ts-mutations",
+      "/workspace/work/lp3-tscompiler/node_modules/typescript/bin/tsc"
+    ],
+    "exitCode": 0
+  }
+]

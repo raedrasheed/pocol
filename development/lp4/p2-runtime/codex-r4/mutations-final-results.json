@@ -1,0 +1,72 @@
+[
+  {
+    "name": "disable",
+    "file": "collision.rs",
+    "old": "if storage_nonempty(context,target)",
+    "new": "if false && storage_nonempty(context,target)",
+    "test": "create_and_create2_block_unloaded_nonzero_and_allow_zero",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "partial-scan",
+    "file": "collision.rs",
+    "old": "unwrap_or(*value)!=U256::ZERO",
+    "new": "unwrap_or(U256::ZERO)!=U256::ZERO",
+    "test": "create_and_create2_block_unloaded_nonzero_and_allow_zero",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "ignore-clears",
+    "file": "collision.rs",
+    "old": "journal.and_then(|a|a.storage.get(key)).map(|s|s.present_value()).unwrap_or(*value)",
+    "new": "*value",
+    "test": "complete_storage_overlay_and_rollback_facts",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "ignore-new-slots",
+    "file": "collision.rs",
+    "old": "if journal.map(|a|a.storage.values()",
+    "new": "if false && journal.map(|a|a.storage.values()",
+    "test": "complete_storage_overlay_and_rollback_facts",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "undo-nonce",
+    "file": "collision.rs",
+    "old": "if storage_nonempty(context,target){return fail(InstructionResult::CreateCollision);}",
+    "new": "if storage_nonempty(context,target){context.evm.journaled_state.state.get_mut(&inputs.caller).unwrap().info.nonce-=1;return fail(InstructionResult::CreateCollision);}",
+    "test": "create_and_create2_block_unloaded_nonzero_and_allow_zero",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "cold-target",
+    "file": "collision.rs",
+    "old": "if storage_nonempty(context,target){return fail(InstructionResult::CreateCollision);}",
+    "new": "if storage_nonempty(context,target){context.evm.journaled_state.state.get_mut(&target).unwrap().mark_cold();return fail(InstructionResult::CreateCollision);}",
+    "test": "collision_preserves_target_warmth",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "gas-refund",
+    "file": "collision.rs",
+    "old": "if storage_nonempty(context,target){return fail(InstructionResult::CreateCollision);}",
+    "new": "if storage_nonempty(context,target){return fail(InstructionResult::Return);}",
+    "test": "top_level_creation_collides_and_preserves_snapshot",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

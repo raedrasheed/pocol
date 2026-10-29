@@ -1,0 +1,26 @@
+git-version                                  exit 0                0.01s
+python-version                               exit 0                0.02s
+rustup-version                               exit 0                0.13s
+rustup-toolchain-install                     exit 0                1.34s
+rustc-version                                exit 0                0.05s
+cargo-version                                exit 0                0.06s
+rustfmt-version                              exit 0                0.02s
+cargo-fetch                                  exit 0                 0.3s
+cargo-build                                  exit 0               28.52s
+cargo-build-release                          exit 0               27.33s
+rustfmt-check                                exit 0                0.17s
+store-journal                                exit 101              1.31s
+store-process-crash-recovery                 exit 0                0.23s
+cargo-test-full                              exit 101             44.12s
+genesis-batch-alloc-debug                    exit 0               30.47s
+genesis-batch-alloc-release-max              exit 0               21.26s
+verify-fixtures                              exit 0                1.05s
+e2e-http                                     exit 0                1.47s
+store-init-probe                             exit 2                   0s
+lp3-genesis-diff                             exit 0               41.44s
+lp3-genesis-cli                              exit 0               47.07s
+lp3-genesis-diff-release-max                 exit 0               65.74s
+lp3-genesis-cli-release-max                  exit 0               29.82s
+
+PASS 31, FAIL 0, BLOCKED BY PLATFORM 3, NOT RUN 1
+script exit=0

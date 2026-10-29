@@ -1,0 +1,6 @@
+commit c9593791151cb24228f317dec42c0ee5a6b1093e pocold f8cb153ab89ca9254256f89ba01f018e1d2bfe6194a39cd9a60e947e59925736 script 9c6d7c0d32334f25a676945f2ea9e72a9496de3a0a0ff41ff3fb1846d198814c
+PASS two independent replays of b agree — 0xee4f7dae8840
+WAIT replay c: met after 1.0s (bound 60s)
+PASS replay of c reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of c agree — 0xee4f7dae8840
+{"result": "PASS", "checks": 38, "elapsed_s": 276, "work": "/tmp/pocol-e2e-ro830y03"}

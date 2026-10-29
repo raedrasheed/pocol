@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.97s
+     Running tests/native_context.rs (prototypes/lp4-execution/target/debug/deps/native_context-14da80e64fbd4ccc)
+
+running 1 test
+
+thread 'blockhash_exact_256_window_genesis_and_current_boundaries' (6674) panicked at tests/native_context.rs:30:3:
+assertion `left == right` failed: h=10, n=0
+  left: [4, 72, 82, 178, 166, 112, 173, 229, 64, 126, 120, 251, 40, 99, 197, 29, 233, 252, 185, 101, 66, 160, 113, 134, 254, 58, 237, 166, 187, 138, 17, 109]
+ right: [102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test blockhash_exact_256_window_genesis_and_current_boundaries ... FAILED
+
+failures:
+
+failures:
+    blockhash_exact_256_window_genesis_and_current_boundaries
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test native_context`

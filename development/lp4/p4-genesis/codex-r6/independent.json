@@ -1,0 +1,88 @@
+{
+  "scope": "Independent actual D27 CREATE2 execution/gas/full roots; not full PoCol apply.",
+  "inputSHA256": "86008a859e29e77e3fb2d3ff57aec079dab1c09ac2c259f01c3d6a0bb815e317",
+  "cases": [
+    {
+      "bytes": 1,
+      "address": "0x995b993994cde37eac22f637e9911a8ccf7bc1e8",
+      "root": "0xe57cacefbf575177cc1a1c7eaa9209673cdce2c44761b07bf125bd9b17d6b0ef",
+      "executions": [
+        {
+          "gas": 57941,
+          "sstoreInstructions": 0,
+          "create2Instructions": 1
+        },
+        {
+          "gas": 25752,
+          "sstoreInstructions": 0,
+          "create2Instructions": 0
+        }
+      ],
+      "comparison": "MATCH"
+    },
+    {
+      "bytes": 31,
+      "address": "0xb72a2913c7a6f54d0cab26e0639a06c5f053c44d",
+      "root": "0xf809c0c6d17b7de7c6e034d8334b60efe971a083e4fe1de845c3a10cf8d50e6b",
+      "executions": [
+        {
+          "gas": 64315,
+          "sstoreInstructions": 0,
+          "create2Instructions": 1
+        },
+        {
+          "gas": 26121,
+          "sstoreInstructions": 0,
+          "create2Instructions": 0
+        }
+      ],
+      "comparison": "MATCH"
+    },
+    {
+      "bytes": 24575,
+      "address": "0x2e7be13520b1fe32e1844b6fae4465dcade2e3f5",
+      "root": "0x0cc6a87fe5035c925e99498a5d982add8756416b7197b2d72ebabbd5bdfef2dd",
+      "executions": [
+        {
+          "gas": 5395010,
+          "sstoreInstructions": 0,
+          "create2Instructions": 1
+        },
+        {
+          "gas": 448822,
+          "sstoreInstructions": 0,
+          "create2Instructions": 0
+        }
+      ],
+      "comparison": "MATCH"
+    }
+  ],
+  "negative": [
+    {
+      "case": "empty",
+      "rejected": true,
+      "comparison": "Same rejection outcome as Rust; gas/root not compared",
+      "sstoreInstructions": 0
+    },
+    {
+      "case": "oversize",
+      "rejected": true,
+      "comparison": "Same rejection outcome as Rust; gas/root not compared",
+      "sstoreInstructions": 0
+    },
+    {
+      "case": "value",
+      "rejected": true,
+      "comparison": "Same rejection outcome as Rust; gas/root not compared",
+      "sstoreInstructions": 0
+    },
+    {
+      "case": "storage-collision",
+      "rejected": true,
+      "comparison": "Same rejection outcome as Rust; gas/root not compared",
+      "sstoreInstructions": 0
+    }
+  ],
+  "fullPoColAcceptance": "NOT PASSED",
+  "bootable": false
+}

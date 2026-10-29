@@ -1,0 +1,60 @@
+{
+  "scope": "Explicit synthetic context, not validated PoCol headers/apply",
+  "cases": [
+    {
+      "name": "fields",
+      "comparison": "MATCH",
+      "gasUsed": 21107,
+      "stateRoot": "0x60f118be1912670443a91f5fe1b5f200c4a32a4fa36498be3543c7705c3aa052"
+    },
+    {
+      "name": "genesis",
+      "comparison": "MATCH",
+      "gasUsed": 21036,
+      "stateRoot": "0x91601620546e567ee692563fd5a643aa89ec6596fa61ec4eebbc59dfa3b9df1a"
+    },
+    {
+      "name": "expired-genesis",
+      "comparison": "MATCH",
+      "gasUsed": 21036,
+      "stateRoot": "0x91601620546e567ee692563fd5a643aa89ec6596fa61ec4eebbc59dfa3b9df1a"
+    },
+    {
+      "name": "oldest",
+      "comparison": "MATCH",
+      "gasUsed": 21036,
+      "stateRoot": "0x83847b40d8e3e09e7a258b22cd3924b2c45fe537751a78b5a74299c22b182a2b"
+    },
+    {
+      "name": "inclusive256",
+      "comparison": "MATCH",
+      "gasUsed": 21036,
+      "stateRoot": "0x1aecf6187837f6af84d6d51fe4db0f303b8e3a1436edcffca09f97de15dabad7"
+    },
+    {
+      "name": "expired257",
+      "comparison": "MATCH",
+      "gasUsed": 21036,
+      "stateRoot": "0x1b727bde884865f4ba4e5a708ef378ac7e71942bfb6d82df6d127ef2aca2e075"
+    },
+    {
+      "name": "current",
+      "comparison": "MATCH",
+      "gasUsed": 21036,
+      "stateRoot": "0x3cb64602153e6ec49ca5994ecb5150e3aeedeba109380431a8772588bbe403bc"
+    },
+    {
+      "name": "future",
+      "comparison": "MATCH",
+      "gasUsed": 21036,
+      "stateRoot": "0x9d320997262acb379e0a9df6546a3ffbff1a936fa6dcd5b45a49f33e3371c8a2"
+    },
+    {
+      "name": "height0",
+      "comparison": "MATCH",
+      "gasUsed": 21036,
+      "stateRoot": "0x91601620546e567ee692563fd5a643aa89ec6596fa61ec4eebbc59dfa3b9df1a"
+    }
+  ],
+  "bootable": false
+}

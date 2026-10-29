@@ -1,0 +1,35 @@
+{
+  "baseRemote": "2c36d0fec08e69ee6005d0362216f4cd60b38c2c",
+  "baseTree": "31c9bb503449d0aebf0cb02883f7bb7c52f699c7",
+  "baseLocal": "70a9dbd23002cedacb2f65f12ece55e161e5b63f",
+  "diagnosticOverlay": [
+    {
+      "path": "diagnostic/contracts/SystemEpochWitness.sol",
+      "bytes": 804,
+      "sha256": "79c4bb99c5401a935a2e78bdf8a6d67f0784353f799bdfbec18956432c606561"
+    },
+    {
+      "path": "diagnostic/examples/system_epoch_decision.rs",
+      "bytes": 7849,
+      "sha256": "660a89357ffc0db00c800c71d4b1b7edd0218949469fe59bbac26918dad9720b"
+    },
+    {
+      "path": "diagnostic/tests/compile_system_epoch.cjs",
+      "bytes": 765,
+      "sha256": "819d3e4e3ab8958ef343406db9c9edff217014d9ab1655c0ea0d3276ec8e76fc"
+    },
+    {
+      "path": "diagnostic/tests/data/system-epoch-witness.json",
+      "bytes": 5786,
+      "sha256": "a14925d17bb458c10e5f336fbb99c90d9ca223c7e3d67bde95ae86099560d3df"
+    },
+    {
+      "path": "diagnostic/tests/system_epoch_oracle.py",
+      "bytes": 7296,
+      "sha256": "7626435374119cb959c6573762fc4ec39036c7517977cb7a9fba08a46e96823c"
+    }
+  ],
+  "upstreamRuntimeChanged": false,
+  "proposedRuleApproved": false,
+  "bootable": false
+}

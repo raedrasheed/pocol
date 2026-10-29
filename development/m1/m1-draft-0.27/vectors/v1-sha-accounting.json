@@ -1,0 +1,71 @@
+{
+  "schema": "pocol-m1-v1-sha-accounting/0.27",
+  "status": "hand-derived SHA-256 operation accounting; instrumentation repair (permitted); the normative cost bound is NOT changed",
+  "sources": {
+    "bound": {"file": "reference/browser.md", "lines": [58, 58], "literals": ["≤ 14 فك رأس", "≤ 13 ASERT", "≤ 13 SHA-256"]},
+    "templateId": {"file": "reference/consensus.md", "lines": [59, 59], "literals": ["TemplateID = SHA256(RLP(UT))"]},
+    "powHash": {"file": "reference/consensus.md", "lines": [61, 61], "literals": ["powHash = SHA256(TemplateID‖be64(nonce))"]},
+    "blockHash": {"file": "reference/consensus.md", "lines": [64, 64], "literals": ["blockHash = keccak256(TemplateID‖be64(nonce)‖shareRoot)"]},
+    "items": {"file": "reference/consensus.md", "lines": [153, 161], "literals": ["parentHash = blockHash(p)", "powHash ≤ target", "SHA256(TemplateID‖be64(n)) ≤ T_share"]},
+    "shareList": {"file": "reference/consensus.md", "lines": [55, 55], "literals": ["shareList ≤ 256"]},
+    "window": {"file": "reference/browser.md", "lines": [44, 50], "literals": ["البند 2: الأب هو المرجع", "البنود 6–9"]},
+    "tShare": {"file": "reference/validation.md", "lines": [926, 926], "literals": ["T_share = min(", "D143"]}
+  },
+  "allPaths": {
+    "templateId": "one per checked header that is used: the reference (for blockHash in item 2 of b) and every window header reaching item 3, 7, 8 or 9. Not for the genesis parent (its blockHash is cfg.genesisHash).",
+    "powHash": "item 7, one per window header reaching it",
+    "shareHash": "item 9, one per share of a window header reaching it",
+    "other": "none: keccak256 (blockHash, SigMsg, WinMsg, shareRoot, addresses) is not SHA-256; seed/ticket/Draw SHA-256 (consensus.md:114-123) belong to items 12-13, not evaluated in RP; the reference header is not PoW- or share-checked",
+    "uncachedTemplateIdUses": "item 2 of the child (1 per window header, including the reference for x = b, none for the genesis parent) + item 3 + item 7 + item 8 + one per share"
+  },
+  "structuralBound": {
+    "cached": "14 TemplateID + 13 PoW + 13 * 256 shares = 3355",
+    "uncached": "(13 + 13 * (3 + 256)) TemplateID + 13 PoW + 3328 shares = 3380 + 13 + 3328 = 6721",
+    "uniquePreimages": "3355: every TemplateID preimage is a distinct header; each share preimage TemplateID||be64(n) differs from the PoW preimage (n != nonce) and from every other share (strictly ascending)",
+    "conclusion": "Caching reduces logical evaluations to the number of unique preimages, never below it. No reuse can bring a valid full window below 14 + 13 = 27, nor a 256-share full window below 3355, without dropping a check."
+  },
+  "inheritedCases": [
+    {"case": "RW-h3", "templateId": 3, "powHash": 3, "shareHash": 0, "total": 6, "uncachedTotal": 14, "unique": 6, "literal13": true},
+    {"case": "RW-h13", "templateId": 13, "powHash": 13, "shareHash": 0, "total": 26, "uncachedTotal": 64, "unique": 26, "literal13": false},
+    {"case": "RW-h14", "templateId": 14, "powHash": 13, "shareHash": 0, "total": 27, "uncachedTotal": 65, "unique": 27, "literal13": false},
+    {"case": "RW-h20", "templateId": 14, "powHash": 13, "shareHash": 0, "total": 27, "uncachedTotal": 65, "unique": 27, "literal13": false},
+    {"case": "NX-V1", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "NX-V2", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "NX-V3", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "NX-V3b", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "V1-refGenesis", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "V1-refVersion", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "NX-V3c", "templateId": 14, "powHash": 13, "shareHash": 0, "total": 27, "uncachedTotal": 65, "unique": 27, "literal13": false},
+    {"case": "NX-V3d", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "V1-outOfOrder", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "V1-wrongParent9", "templateId": 2, "powHash": 1, "shareHash": 0, "total": 3, "uncachedTotal": 6, "unique": 3, "literal13": true},
+    {"case": "NX-V3e", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "NX-V3f", "templateId": 2, "powHash": 0, "shareHash": 0, "total": 2, "uncachedTotal": 2, "unique": 2, "literal13": true},
+    {"case": "NX-V3g", "templateId": 14, "powHash": 13, "shareHash": 0, "total": 27, "uncachedTotal": 65, "unique": 27, "literal13": false},
+    {"case": "NX-V4", "templateId": 1, "powHash": 1, "shareHash": 0, "total": 2, "uncachedTotal": 4, "unique": 2, "literal13": true, "phase": "last"},
+    {"case": "V1-err32018", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true},
+    {"case": "NX-V6", "templateId": 0, "powHash": 0, "shareHash": 0, "total": 0, "uncachedTotal": 0, "unique": 0, "literal13": true}
+  ],
+  "shareChains": {
+    "S1": {"role": "one valid header at h = 1 with 256 valid shares (the root probe, rebuilt here)", "base": "H:1 fields", "shares": 256, "nonce": "pow"},
+    "S1bad": {"role": "h = 1 header with 2 valid shares then the smallest later nonce that fails T_share", "base": "H:1 fields", "shares": 2, "invalidAfter": true, "nonce": "pow"},
+    "W": {"role": "full window h = 20: reference = H:7 (shares are never checked on the reference); headers 8..20 with H timestamps and target 2^240, each with 256 valid shares",
+          "reference": "H:7", "rows": "H heights 8..20", "shares": 256, "nonce": "pow", "parentHash": "@W<h-1>",
+          "sizeDerivation": "UT 548 B (545-byte body) + sig 67 -> SignedTemplate 618 B; nonce 9; 256 shares * 9 + 3 = 2307; winnerSig 67; body 3001 -> Header 3004 B <= 3067"}
+  },
+  "newCases": [
+    {"id": "SHA-S1", "chain": "S1", "clock": 1700000015, "blockNumber": "0x1", "reply": ["S1"], "requests": [["eth_blockNumber", []], ["pocol_getHeaders", ["0x1", "0x1"]]],
+     "expect": {"ok": true, "n": 1, "anchoredGenesis": true, "minWork": 4095},
+     "counters": {"headerDecodes": 1, "templateIds": 1, "asert": 1, "powHash": 1, "shareHash": 256, "ecrecover": 2},
+     "sha": {"templateId": 1, "powHash": 1, "shareHash": 256, "total": 258, "uncachedTotal": 516, "unique": 258, "literal13": false},
+     "rootEvidence": "coordination/review-001/v1-share-work-probe-0.26.json (totalSha256 258)"},
+    {"id": "SHA-S1bad", "chain": "S1bad", "clock": 1700000015, "blockNumber": "0x1", "reply": ["S1bad"], "requests": [["eth_blockNumber", []], ["pocol_getHeaders", ["0x1", "0x1"]]],
+     "expect": {"ok": false, "rule": "9", "at": 1},
+     "counters": {"headerDecodes": 1, "templateIds": 1, "asert": 1, "powHash": 1, "shareHash": 3, "ecrecover": 2},
+     "sha": {"templateId": 1, "powHash": 1, "shareHash": 3, "total": 5, "uncachedTotal": 10, "unique": 5, "literal13": true}},
+    {"id": "SHA-W", "chain": "W", "clock": 1700000205, "blockNumber": "0x14", "reply": ["W:7..20"], "requests": [["eth_blockNumber", []], ["pocol_getHeaders", ["0x7", "0xe"]]],
+     "expect": {"ok": true, "n": 13, "anchoredGenesis": false, "minWork": 4095},
+     "counters": {"headerDecodes": 14, "templateIds": 14, "asert": 13, "powHash": 13, "shareHash": 3328, "ecrecover": 26},
+     "sha": {"templateId": 14, "powHash": 13, "shareHash": 3328, "total": 3355, "uncachedTotal": 6721, "unique": 3355, "literal13": false}}
+  ]
+}

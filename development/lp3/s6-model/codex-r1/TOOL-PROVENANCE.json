@@ -1,0 +1,32 @@
+{
+  "dependencies": [
+    {
+      "name": "typescript",
+      "version": "5.9.3",
+      "license": "Apache-2.0",
+      "licenseSha256": "a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47"
+    },
+    {
+      "name": "@types/node",
+      "version": "22.18.6",
+      "license": "MIT",
+      "licenseSha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "name": "undici-types",
+      "version": "6.21.0",
+      "license": "MIT",
+      "licenseSha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+    }
+  ],
+  "source": "GitHub Actions npm ci with committed lockfile; source-only review compiler",
+  "artifactId": 12103292164,
+  "artifactSha256": "e7644263058a5349e9a5684de354fa4ca365c25d0762a14dce844f98042a888a",
+  "runId": 39038554091,
+  "compilerDownloadedVia": "GitHub connector artifact + Sediment; no terminal API route",
+  "notPublished": [
+    "compiler binary/cache",
+    "node_modules",
+    "signed download URLs"
+  ]
+}

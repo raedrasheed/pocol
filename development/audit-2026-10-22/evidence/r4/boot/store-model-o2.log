@@ -1,0 +1,8 @@
+# store-model-o2 on 1074b47 (0 changed tracked paths), 2026-10-28T11:31:36Z, load 5.07 11.57 12.12; the H_END grow (nice 10) runs beside it
+
+running 1 test
+NETWORK-A13-O2 {"budgetGiB":6.0,"o1GiB":5.198010695166886,"o1ModelBytes":"5581321485","o1RequiredGiB":5.94058365188539,"o2CpCapsModelBytes":"5610383985","o2FitsBudget":true,"o2GiB":5.231119737960398,"o2LogCapDeltaBytes":"6488064","o2ModelBytes":"5616872049","o2RequiredGiB":5.978422557935119}
+test network_store_model_at_the_o2_caps ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+

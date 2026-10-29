@@ -1,0 +1,13 @@
+    Finished test [unoptimized + debuginfo] target(s) in 0.02s
+     Running tests/timing.rs (/workspace/pocol-s3/author-target/debug/deps/timing-213f3944cf79dfe0)
+
+running 6 tests
+test future_equality_and_u64_overflow_edges ... ok
+test network_and_p11_derived_bounds ... ok
+test inclusive_windows_fallback_and_proposer_edges ... ok
+test exact_millisecond_deadline_and_strict_attempt_transition ... ok
+test timestamp_limit_and_wire_attempt_limits ... ok
+test seeded_adversarial_windows_never_wrap_or_panic ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

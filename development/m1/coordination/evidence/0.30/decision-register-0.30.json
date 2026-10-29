@@ -1,0 +1,488 @@
+{
+ "conventions": [
+  {
+   "evidence": [
+    [
+     "R27",
+     "^V1\\.case\\."
+    ],
+    [
+     "R29",
+     "^V1rerun\\.zero\\."
+    ]
+   ],
+   "id": "P-V1-1",
+   "rows": [
+    "V1"
+   ],
+   "selection": "Adopt the documented RLP reply fixture wire form; no claim of measured node support.",
+   "source": {
+    "file": "m1-draft-0.26/audit/consolidation-0.26.json",
+    "lines": [
+     19,
+     21
+    ],
+    "literals": [
+     "P-V1-1 wire form"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R27",
+     "^V1\\.case\\."
+    ]
+   ],
+   "id": "P-V1-2",
+   "rows": [
+    "V1"
+   ],
+   "selection": "Undecodable header element fails rule1 at its position.",
+   "source": {
+    "file": "m1-draft-0.26/audit/consolidation-0.26.json",
+    "lines": [
+     19,
+     21
+    ],
+    "literals": [
+     "P-V1-2 undecodable element -> rule 1"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R27",
+     "^V1\\.units\\.carried$"
+    ]
+   ],
+   "id": "P-V1-4",
+   "rows": [
+    "V1"
+   ],
+   "selection": "Adopt exactArabiccountphrases and warning join as fixture conventions.",
+   "source": {
+    "file": "m1-draft-0.26/audit/consolidation-0.26.json",
+    "lines": [
+     19,
+     21
+    ],
+    "literals": [
+     "P-V1-4 Arabic count phrase and warning join"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "file",
+     "coordination/review-001/v1-signatures-independent-0.27.json",
+     {
+      "checks": 31,
+      "failed": 0
+     }
+    ]
+   ],
+   "id": "P-V1-5",
+   "rows": [
+    "V1"
+   ],
+   "selection": "Fixture signatures use r||s||v with v0/1, independently verified by Rust.",
+   "source": {
+    "file": "m1-draft-0.26/audit/consolidation-0.26.json",
+    "lines": [
+     19,
+     21
+    ],
+    "literals": [
+     "P-V1-5 signature byte layout r||s||v"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R27",
+     "^V1\\.case\\."
+    ]
+   ],
+   "id": "P-V1-6",
+   "rows": [
+    "V1"
+   ],
+   "selection": "Synthetic fixture clock is head.ts+5; not realbrowsermeasurement.",
+   "source": {
+    "file": "m1-draft-0.26/audit/consolidation-0.26.json",
+    "lines": [
+     19,
+     21
+    ],
+    "literals": [
+     "P-V1-6 fixture clock C = ts(head) + 5"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "file",
+     "coordination/review-001/v1-hash-independent-0.27.json",
+     {
+      "checks": 3677,
+      "failed": 0
+     }
+    ]
+   ],
+   "id": "P-V1-7",
+   "rows": [
+    "V1"
+   ],
+   "selection": "Fixture gasLimit/gasUsed u64 and share nonces be64 follow declared serialization.",
+   "source": {
+    "file": "m1-draft-0.26/audit/consolidation-0.26.json",
+    "lines": [
+     19,
+     21
+    ],
+    "literals": [
+     "P-V1-7 gasLimit/gasUsed u64, shares be64"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R29",
+     "^V1rerun\\.network\\.genesisPre$"
+    ]
+   ],
+   "id": "P-V1-8",
+   "label": "synthetic placeholder network; no actual network claim",
+   "rows": [
+    "V1"
+   ],
+   "selection": "V1NET chainId777002 is a labelled placeholdernetwork with literalgenesis, not a deployedtrustednetwork.",
+   "source": {
+    "file": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+    "lines": [
+     15,
+     15
+    ],
+    "literals": [
+     "V1NET",
+     "777002",
+     "P-V1-8"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R27",
+     "^C32\\.case\\."
+    ],
+    [
+     "run",
+     "^C33\\.case\\."
+    ]
+   ],
+   "id": "P-V1-9",
+   "rows": [
+    "V1"
+   ],
+   "selection": "OtherRPCerrors give controlled viewIncomplete; malformed receive/envelope also cannot render.",
+   "source": {
+    "file": "m1-draft-0.26/audit/consolidation-0.26.json",
+    "lines": [
+     19,
+     21
+    ],
+    "literals": [
+     "P-V1-9 other RPC errors -> viewIncomplete"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R29",
+     "^U14\\.hnc\\."
+    ],
+    [
+     "run",
+     "^C33\\.hncReplay\\."
+    ]
+   ],
+   "id": "P-V1-10",
+   "rows": [
+    "V1"
+   ],
+   "selection": "Wait exactly valid retryAfterMs only when wholebudget permits; max3retries.",
+   "source": {
+    "file": "m1-draft-0.26/audit/consolidation-0.26.json",
+    "lines": [
+     19,
+     21
+    ],
+    "literals": [
+     "P-V1-10 retry waits exactly retryAfterMs"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R29",
+     "^U14\\.(hnc|content)\\."
+    ],
+    [
+     "file",
+     "coordination/review-001/deadline-independent-029.json",
+     {
+      "checks": 1120,
+      "failed": 0
+     }
+    ]
+   ],
+   "id": "P-D29-1",
+   "rows": [
+    "V1",
+    "C3"
+   ],
+   "selection": "Do not sleep a retry that reaches/passesdeadline. HNCimmediateviewIncomplete; contentattemptfails and canrestart onlywithinremainingbudget.",
+   "source": {
+    "file": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+    "lines": [
+     318,
+     318
+    ],
+    "literals": [
+     "P-D29-1"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R29",
+     "^U14\\.content\\."
+    ],
+    [
+     "R29",
+     "^CRM101\\.bud\\."
+    ]
+   ],
+   "id": "P-D29-2",
+   "rows": [
+    "C3"
+   ],
+   "selection": "Content expiry unavailable/zeroframes; attempts exhausted inconsistent.",
+   "source": {
+    "file": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+    "lines": [
+     319,
+     319
+    ],
+    "literals": [
+     "P-D29-2"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "effect": "RP-COMB effective outcome: HeaderNetCheck ok at 6900, content 'unavailable' at 10000 (one budget from the first HeaderNetCheck request). The separate-budget result (render at 10500) is kept only as the rejected comparison.",
+   "evidence": [
+    [
+     "run",
+     "^U14\\.rp\\."
+    ]
+   ],
+   "id": "P-D29-3",
+   "rows": [
+    "V1",
+    "C3"
+   ],
+   "selection": "SHARED budget for initialRPnavigation: firstHeaderNetCheck request through content finalverdict. Separatebudget branch retained only as rejectedcomparison.",
+   "source": {
+    "file": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+    "lines": [
+     258,
+     258
+    ],
+    "literals": [
+     "P-D29-3",
+     "**share** one"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "run",
+     "^U08\\.noncanonical\\."
+    ],
+    [
+     "run",
+     "^C34\\."
+    ]
+   ],
+   "id": "P-U08-1",
+   "rows": [
+    "C4"
+   ],
+   "selection": "ManifestSplit(i) uses first differingposition includingmissingelement, afterexisting argumentprecedence.",
+   "source": {
+    "file": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+    "lines": [
+     321,
+     321
+    ],
+    "literals": [
+     "P-U08-1"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R29",
+     "^U02\\.row\\.V-07$"
+    ]
+   ],
+   "id": "P-U02-1",
+   "rows": [
+    "C3"
+   ],
+   "selection": "Revoked-version consent is perload; reloadasksagain.",
+   "source": {
+    "file": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+    "lines": [
+     322,
+     322
+    ],
+    "literals": [
+     "P-U02-1"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R29",
+     "^U02\\.timing\\.P-U02-2$"
+    ]
+   ],
+   "id": "P-U02-2",
+   "rows": [
+    "C3"
+   ],
+   "selection": "Interstitial is firstloadverdict; userthinktimeoutsidebudget; deliberateclickstartsfreshcoverednavigationbudget.",
+   "source": {
+    "file": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+    "lines": [
+     323,
+     323
+    ],
+    "literals": [
+     "P-U02-2"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "R29",
+     "^U10\\.case\\."
+    ]
+   ],
+   "id": "P-U10-1",
+   "rows": [
+    "C3",
+    "C4"
+   ],
+   "selection": "Retainedpublisherwarning atnominationandacceptance, persistsuntilremoval; cancelclearsnominationwarning.",
+   "source": {
+    "file": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+    "lines": [
+     324,
+     324
+    ],
+    "literals": [
+     "P-U10-1"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  },
+  {
+   "evidence": [
+    [
+     "run",
+     "^C33\\."
+    ]
+   ],
+   "id": "P-V1-11",
+   "rows": [
+    "V1"
+   ],
+   "selection": "HeaderNetCheck reference transport boundary must reject duplicateJSONkeys/depth>16 before semantic checker, enforce methodreceive limits, and bind responseid to current request by existing finiteintegraluint32 value semantics. Scriptedrequest ids1(blockNumber)/2(headers) are reference fixture conventions; retriesecho2.",
+   "source": {
+    "file": "reference/browser.md",
+    "lines": [
+     271,
+     281
+    ],
+    "literals": [
+     "HeaderNetCheck",
+     "parseStrict بعمق ≤ 16 ورفض المفاتيح المكررة"
+    ]
+   },
+   "status": "delegated-technical-decision"
+  }
+ ],
+ "conventionsDecided": [
+  "P-D29-1",
+  "P-D29-2",
+  "P-D29-3",
+  "P-U02-1",
+  "P-U02-2",
+  "P-U08-1",
+  "P-U10-1",
+  "P-V1-1",
+  "P-V1-10",
+  "P-V1-2",
+  "P-V1-4",
+  "P-V1-5",
+  "P-V1-6",
+  "P-V1-7",
+  "P-V1-8",
+  "P-V1-9"
+ ],
+ "delegatedApplied": [
+  "CR-M1-01",
+  "P-C32-2",
+  "RF-E6-1",
+  "U01",
+  "U02",
+  "U08",
+  "U10",
+  "U14",
+  "V1-SHA-COST"
+ ],
+ "ownerAnswers": "unanswered; not written or inferred",
+ "schema": "pocol-m1-decision-register/0.30"
+}

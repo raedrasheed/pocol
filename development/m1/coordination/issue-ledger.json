@@ -1,0 +1,1289 @@
+{
+  "schema": "pocol-m1-coordination/1",
+  "status": "M1-spec-accepted-0.32-coordinator-0.33-verified-current-scope-complete",
+  "latestCompletedRevision": "0.33",
+  "issues": [
+    {
+      "id": "C01",
+      "status": "closed-M1-spec-verified",
+      "evidence": "0.15 scope36partial5notstarted0complete; E6-E7,V2-V4 remain andcodecproposals/gates unapproved",
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "currentEvidence": "After0.28:34unaffected candidate rows retain independently reviewed evidence;seven owner-dependent rows remain. C32 repaired; SHA accounting and policy correction scope independently complete. No blanketM1acceptance.",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "C02",
+      "status": "resolved",
+      "evidence": "py --version points to missing <local-user-home>\\MiniConda3\\python.exe; where.exe python found none",
+      "decision": "Portable Python 3.11.1 obtained in workspace; independently reran 212/212 checks in disposable copy. No original results overwritten."
+    },
+    {
+      "id": "C03",
+      "status": "closed-spec-model",
+      "evidence": "rlp_strict.py recursive decoder without depth bound",
+      "decision": "0.3 remedy independently reviewed and adversarial probe verified; see review-001/REVIEW-0.3.md. No production certification."
+    },
+    {
+      "id": "C04",
+      "status": "closed-spec-model",
+      "evidence": "m1paths.py int(digits) on unbounded selector",
+      "decision": "0.3 remedy independently reviewed and adversarial probe verified; see review-001/REVIEW-0.3.md. No production certification."
+    },
+    {
+      "id": "C05",
+      "status": "closed-spec-model",
+      "evidence": "Provider.get counts distinct addresses but re-invokes on each reference",
+      "decision": "0.3 remedy independently reviewed and adversarial probe verified; see review-001/REVIEW-0.3.md. No production certification."
+    },
+    {
+      "id": "C06",
+      "status": "closed-M1-spec-verified",
+      "evidence": "Spec 4.2 U05/E03 unverified proof support and heavy budget, missing mocks",
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "previousDecisionBeforeDelegation": "Cannot freeze snapshot guarantee without evidence and baseline reconciliation.",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "C07",
+      "status": "closed-M1-spec-verified",
+      "evidence": "U01/U02/U10/U14/U16 owner choices",
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "previousDecisionBeforeDelegation": "OwnerU01/U02/U10/U14/CR-M1-01/U08/RF-E6-1 unanswered; requiredCONF_DEPTH hasno default or assignedvalue; technicalreviewer choices recorded separately.",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "C08",
+      "status": "closed-provenance-verified",
+      "evidence": "Raw baseline SHA256 differs from recorded design ID",
+      "decision": "Original completed source run located read-only in D:/PoCol; computed SHA256(JSON.stringify({sections,decisions,risks})) matches approved e8a19ecb design ID; all 12 exported sections and decisions match. See source-provenance-verified.json."
+    },
+    {
+      "id": "C09",
+      "status": "closed-spec-tooling",
+      "evidence": "T1-12 first setCurrent(n) lacks noncurrent precondition; T1-10 slot-diff text ambiguous; model version u8 unspecified in prose",
+      "decision": "Independent historical evidence reconciliation; 0.3 R3-05/R3-06 correctedprose/test preconditions; EVMunexecuted",
+      "closureEvidence": "review-001/LEDGER-RECONCILIATION-C09-C12.md"
+    },
+    {
+      "id": "F01-F26",
+      "status": "closed-M1-spec-verified",
+      "evidence": "Both original reports and 0.2 dispositions",
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "C10",
+      "status": "closed-spec",
+      "evidence": "review-001/REVIEW-0.3.md; independent-probes-0.3.json",
+      "decision": "0.4 remedy reviewed; see REVIEW-0.4.md. No production verification."
+    },
+    {
+      "id": "C11",
+      "status": "closed-spec",
+      "evidence": "review-001/REVIEW-0.3.md; independent-probes-0.3.json",
+      "decision": "0.4 remedy reviewed; see REVIEW-0.4.md. No production verification."
+    },
+    {
+      "id": "C12",
+      "status": "closed-spec-tooling",
+      "evidence": "review-001/REVIEW-0.3.md; independent-probes-0.3.json",
+      "decision": "Independent historical evidence reconciliation; R4-03 plusC14repair0.6 andfreshindependentRLP lengthboundary",
+      "closureEvidence": "review-001/LEDGER-RECONCILIATION-C09-C12.md"
+    },
+    {
+      "id": "C13",
+      "status": "closed-restoration",
+      "evidence": "review-001/REVIEW-0.3.md; independent-probes-0.3.json",
+      "decision": "Original historical test IDs restored and reconciled; substitute ADD-M1-01 withdrawn. See REVIEW-0.6.md"
+    },
+    {
+      "id": "C14",
+      "status": "closed-spec-tooling",
+      "evidence": "review-001/REVIEW-0.4.md; independent-probes-0.4.json",
+      "decision": "0.6 remedy independently executed and reviewed; see REVIEW-0.6.md"
+    },
+    {
+      "id": "C15",
+      "status": "closed-spec-model",
+      "evidence": "review-001/REVIEW-0.4.md; independent-probes-0.4.json",
+      "decision": "0.5 remedy reviewed with native URL oracle/model fixtures and explicit limitations; see REVIEW-0.5.md. No production/MPT verification."
+    },
+    {
+      "id": "C16",
+      "status": "closed-spec-model",
+      "evidence": "review-001/REVIEW-0.4.md; independent-probes-0.4.json",
+      "decision": "0.5 remedy reviewed with native URL oracle/model fixtures and explicit limitations; see REVIEW-0.5.md. No production/MPT verification."
+    },
+    {
+      "id": "C17",
+      "status": "closed-spec-model",
+      "evidence": "review-001/REVIEW-0.4.md; independent-probes-0.4.json",
+      "decision": "0.5 remedy reviewed with native URL oracle/model fixtures and explicit limitations; see REVIEW-0.5.md. No production/MPT verification."
+    },
+    {
+      "id": "C18",
+      "status": "closed-spec-model",
+      "evidence": "review-001/REVIEW-0.4.md; independent-probes-0.4.json",
+      "decision": "0.5 remedy reviewed with native URL oracle/model fixtures and explicit limitations; see REVIEW-0.5.md. No production/MPT verification."
+    },
+    {
+      "id": "C19",
+      "status": "closed-spec-tooling",
+      "evidence": "review-001/id-number-probe.json; id-number-oracle.json",
+      "decision": "0.6 remedy independently executed and reviewed; see REVIEW-0.6.md"
+    },
+    {
+      "id": "C20",
+      "status": "closed-spec-model",
+      "evidence": "review-001/REVIEW-0.6.md; rule-disable-probe.json; epoch-probe.json",
+      "decision": "0.7 model remedies executed; see REVIEW-0.7.md. No production validation."
+    },
+    {
+      "id": "C21",
+      "status": "closed-spec-model",
+      "evidence": "review-001/REVIEW-0.6.md; rule-disable-probe.json; epoch-probe.json",
+      "decision": "0.7 model remedies executed; see REVIEW-0.7.md. No production validation."
+    },
+    {
+      "id": "C22",
+      "status": "closed-spec-model",
+      "evidence": "review-001/REVIEW-0.6.md; rule-disable-probe.json; epoch-probe.json",
+      "decision": "0.7 model remedies executed; see REVIEW-0.7.md. No production validation."
+    },
+    {
+      "id": "C23",
+      "status": "closed-spec-tooling",
+      "evidence": "0.7 step.completed e_checks fails: snapshot-invariants.json looked up in 0.6 but belongs to 0.4",
+      "decision": "0.8 input hashes and comparison/regressions verified: 261 pass, 3 recorded, 0 fail; REVIEW-0.8.md"
+    },
+    {
+      "id": "C24",
+      "status": "closed-spec-tooling",
+      "evidence": "review-001/epoch-independent-probes-0.10.json:7/24fail; trailing LF accepted by strictname parsers and bool accepted as numeric fields",
+      "decision": "0.11 strictnames/bools passed original24/24 probes; full inheritedsuite211pass48recorded0fail; REVIEW-0.11.md"
+    },
+    {
+      "id": "C25",
+      "status": "closed-spec-tooling",
+      "evidence": "0.11 World:8physical pocol:epoch: names -> newF6 ->9 whilelimit8, violations[]; REVIEW-0.11.md",
+      "decision": "0.12 physicalnamespace gate/invariants independently17/17; strictC24 24/24; all237pass64recorded0fail; REVIEW-0.12.md"
+    },
+    {
+      "id": "C26",
+      "status": "closed-spec-tooling",
+      "evidence": "run_checks_013.py:165 metadata status collides with record status positionalargument; 309pass99recorded1fail, laterE4checks notexecuted;0.14 name keyword collideswithcheck() ->347pass113recorded3fail,9E4checks missing",
+      "decision": "0.15 safe record/check logger,365pass118recorded0fail,all9omittedchecks nowexecuted; REVIEW-0.15.md"
+    },
+    {
+      "id": "CR-E4-01",
+      "status": "closed-reviewer-technical",
+      "evidence": "0.13 codec onlyJSsafeinteger valueepochs; baselineu64max exceedsJS precision",
+      "decision": "Adopt hex16 epoch representation; baseline JSON type unspecified, fullu64/ranges/names/byte limits preserved; nativeJSON11/11 and codec10/10",
+      "closureEvidence": "review-001/REVIEW-0.25.md"
+    },
+    {
+      "id": "CR-E4-02",
+      "status": "closed-reviewer-technical",
+      "evidence": "NodeTextEncoder keysD800,D801 ->sameEFBFBDbytes andnonlosslessRoundTrip",
+      "decision": "Existing browser.md str(n) already rejects lone surrogates at B3; no baseline change or owner decision; earlier assertion corrected",
+      "closureEvidence": "review-001/REVIEW-0.25.md"
+    },
+    {
+      "id": "C27",
+      "status": "closed-spec-fixture",
+      "evidence": "review-001/REVIEW-0.16.md; independent runner 2 FAIL",
+      "decision": "Repair truncated adminEarlyRelease final golden; preserve exact 6000 witness and full retry timeline"
+    },
+    {
+      "id": "C28",
+      "status": "closed-spec-tooling",
+      "evidence": "review-001/REVIEW-0.17.md; past5000 cell mutates to include6000",
+      "decision": "Deep-copy each nested observation at capture, regression for future mutation; preserve prior files"
+    },
+    {
+      "id": "RF-E6-1",
+      "status": "closed-M1-spec-verified",
+      "evidence": "0.17 fulltimeline: op2 retry5001 ->total2 stale drops",
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "previousDecisionBeforeDelegation": "Recommend supplemental global count2; no baseline change or owner approval",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "C29",
+      "status": "closed-spec-tooling",
+      "evidence": "review-001/REVIEW-0.19.md; sink-unknown-terminal-probe.json -> no violation for invalid terminal",
+      "decision": "Closed sink event grammar and strict counters; preserve LC goldens/control detection"
+    },
+    {
+      "id": "C30",
+      "status": "closed-spec-tooling",
+      "evidence": "review-001/genesis-depth-independent-probe.json:4291bytes/depth1500 ->RecursionError",
+      "decision": "Nonrecursive GenesisSpec framing parser; preserve structural/integer error precedence and all old fixtures"
+    },
+    {
+      "id": "C31",
+      "status": "closed-spec-tooling",
+      "evidence": "review-001/x8-independent-probes-0.23.json: recordedK0reach+emptyduplicate ->PASS",
+      "decision": "Validate duplicate/unknown/malformed observation windows; never erase evidence of reach. Complete C7 per-path sensitivity definition."
+    },
+    {
+      "id": "U08-CR",
+      "status": "closed-M1-spec-verified",
+      "evidence": "m1-draft-0.2 M1-SPEC P22 calls canonicalmanifest split a newcontract restriction; reference/storage.md does not requireit",
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "previousDecisionBeforeDelegation": "No reviewerdefaultapproval; owner must choose canonical1-3manifestChunks restriction orbaseline-compatible alternative; clarifyproof/readbudget consequences",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "V1-DEFINITIONS",
+      "status": "closed-M1-spec-verified",
+      "evidence": "m1-draft-0.25 audit: missingHeaderNetCheckwindow/messages/NX-V3e/f/g",
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "C32",
+      "status": "closed-reference-repair",
+      "evidence": [
+        "coordination/review-001/REVIEW-0.27.md",
+        "coordination/review-001/busy-independent-probes-0.27.json"
+      ],
+      "decision": "0.27: root independent malformed corpus26/26 plus prepared41 cases; crashes repaired. P-C32-2 policy remains unapproved."
+    },
+    {
+      "id": "V1-SHA-COST",
+      "status": "closed-M1-spec-verified",
+      "evidence": [
+        "review-001/v1-share-work-probe-0.26.json: valid single header uses258SHA; h20 uses27; source claims<=13",
+        "coordination/review-001/REVIEW-0.28.md"
+      ],
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "evidenceFormattingCorrection": "Recovered previous evidence string that an earlier coordinator append accidentally spread into characters; content retained.",
+      "previousDecisionBeforeDelegation": "0.27/0.28:3355 distinct full-window SHA calls independently verified. Recommend explicit category bound3355 while retaining every check; owner answer pending, source<=13 untouched.",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "P-C32-2",
+      "status": "closed-M1-spec-verified",
+      "revision": "0.27",
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "evidence": [
+        "coordination/review-001/REVIEW-0.27.md",
+        "coordination/review-001/REVIEW-0.28.md"
+      ],
+      "previousDecisionBeforeDelegation": "0.28: rate cap explicitly routed owner, proposed0..2000ms. No universal source-range or total-load claim; recommend cap plus explicit U14 scope; unanswered.",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    },
+    {
+      "id": "C33",
+      "status": "closed-original-reference-defect",
+      "revision": "0.29",
+      "evidence": [
+        "coordination/review-001/v1-guard-integration-probes-029.json",
+        "coordination/review-001/REVIEW-0.29.md"
+      ],
+      "decision": "0.30originalwrong/missingID/duplicateJSON boundary repaired;23independentchecks pass. SeparateC35encodederror-data bound remainsopen."
+    },
+    {
+      "id": "C34",
+      "status": "closed-original-reference-defect",
+      "revision": "0.29",
+      "evidence": [
+        "coordination/review-001/m1-draft-0.29/results/run-results-0.29.json"
+      ],
+      "decision": "0.30negativecaseN05and8mutationchecks pass; historicalfailurebinding stillneedsprovenancecoveragefix undernewrevision."
+    },
+    {
+      "id": "C35",
+      "status": "closed-reference-repair",
+      "revision": "0.30",
+      "evidence": [
+        "coordination/review-001/error-data-native-comparison-utf8-030.json",
+        "coordination/review-001/guard-independent-030.json",
+        "coordination/review-001/error-data-native-expanded-031.json"
+      ],
+      "decision": "0.31nativeJSONcodec:17oracle/sixboundary/ordercases and24independentfullguardchecks pass;6647byteoversizeddata dropped,zero retry/frame."
+    },
+    {
+      "id": "C36",
+      "status": "closed-reference-repair",
+      "revision": "0.30",
+      "evidence": [
+        "coordination/review-001/m1-draft-0.30/results/run-results-0.30.json",
+        "coordination/review-001/REVIEW-DECISIONS-0.30.json"
+      ],
+      "decision": "0.31actualreviewJSONandparsedprobeprovenance bind correctly; remainingseparateC37stalesnapshothistorylookup."
+    },
+    {
+      "id": "C37",
+      "status": "closed-M1-spec-verified",
+      "revision": "0.31",
+      "evidence": [
+        "coordination/review-001/m1-draft-0.31/results/run-results-0.31.json",
+        "coordination/review-001/REVIEW-0.31.md"
+      ],
+      "decision": "Final0.32rootacceptance:all41c1-c5audited/actualhistoricalclosure/independenttests. Delegatedtechnicalselections, notpersonalownerapproval. Laterimplementationgatesremain. See M1-ACCEPTANCE-0.32.json.",
+      "finalEvidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json"
+    }
+  ],
+  "history": [
+    {
+      "revision": "connectivity-2026-10-07",
+      "result": "POCOL_CLI_OK",
+      "exitCode": 0
+    },
+    {
+      "revision": "review-0.2-independent",
+      "result": "212/212 rerun pass; independent probes confirm C03 C04 C05; see review-001/REVIEW.md"
+    },
+    {
+      "revision": "0.3",
+      "result": "335 entries: 333 pass, 2 recorded, 0 fail; C03-C05 closed for specification models; C10-C13 added; 51 protected hashes unchanged"
+    },
+    {
+      "revision": "hash-triad-expanded",
+      "result": "611 sample hashes agree: Rust sha3 0.9.1, @noble/hashes 1.7.1, pycryptodome 3.24.0; 486 positive file content hashes independently verified",
+      "evidence": "hash-triad/*expanded-result.json"
+    },
+    {
+      "revision": "0.4",
+      "result": "216 pass, 1 recorded, 1 FAIL; independent URL oracle and pending identity probes found gaps; exact proof schema review required"
+    },
+    {
+      "revision": "source-provenance-recovery",
+      "result": "Original source approval and design hash independently verified; no original Dialogue files modified"
+    },
+    {
+      "revision": "0.5",
+      "result": "347 pass, 3 recorded, 1 FAIL (C14 prefix); txA cryptographic cross-check passed; historical definitions recovered; C19 added"
+    },
+    {
+      "revision": "0.6",
+      "result": "188 pass/1 recorded/1 checker failure; BR16 matches; C14 C19 closed; restored X3 accepted; mutant traversal and epoch capture findings added"
+    },
+    {
+      "revision": "0.7",
+      "result": "252 entries: 249 pass, 2 recorded, 1 FAIL; C20-C22 remedies pass; C23 reference-path failure remains"
+    },
+    {
+      "revision": "0.8",
+      "result": "261 pass, 3 recorded, 0 fail; C23 closed; all remaining M1 scope and owner decisions unchanged"
+    },
+    {
+      "revision": "0.9",
+      "result": "197 pass,38 recorded,0 fail; independent31/31; Q1-Q4 partial,31 partial10 notstarted0 complete; owners unchanged",
+      "evidence": "review-001/REVIEW-0.9.md"
+    },
+    {
+      "revision": "0.10",
+      "result": "86pass27recorded0fail inrunner; independent17pass7fail -> revise, latestaccepted remains0.9",
+      "evidence": "review-001/REVIEW-0.10.md"
+    },
+    {
+      "revision": "0.11",
+      "result": "211pass48recorded0fail; independentC24 24/24pass; C25 namespacebudgetcounterexample -> revise",
+      "evidence": "review-001/REVIEW-0.11.md"
+    },
+    {
+      "revision": "0.12",
+      "result": "237pass64recorded0fail; independentnamespace17/17 andstrictnames/types24/24; E1-E3 partial; owners unchanged",
+      "evidence": "review-001/REVIEW-0.12.md"
+    },
+    {
+      "revision": "0.13",
+      "result": "309pass99recorded1FAIL exit1; independent30/30pass; reviseC26; latestaccepted0.12",
+      "evidence": "review-001/REVIEW-0.13.md"
+    },
+    {
+      "revision": "0.14",
+      "result": "347pass113recorded3FAIL exit1; secondnamecollision andcoverageguards expose9missingchecks; reviseC26",
+      "evidence": "review-001/REVIEW-0.14.md"
+    },
+    {
+      "revision": "0.15",
+      "result": "365pass118recorded0fail exit0; C26closed; E4-E5Partial,36Partial5NotStarted0Complete; representationsunapproved",
+      "evidence": "review-001/REVIEW-0.15.md"
+    },
+    {
+      "revision": "0.16",
+      "result": "\u0645\u0631\u0627\u062c\u0639\u0629 \u0645\u0633\u062a\u0642\u0644\u0629: 944 \u0646\u062c\u0627\u062d\u064b\u0627\u060c 140 \u0645\u0648\u062b\u0642\u064b\u0627\u060c \u0641\u0634\u0644\u0627\u0646\u061b \u0645\u0637\u0644\u0648\u0628 \u062a\u0639\u062f\u064a\u0644 \u062c\u062f\u0648\u0644 \u0627\u0644\u062d\u0630\u0641. | 944pass140recorded2FAIL exit1; C27 truncated faulty-path golden; revise; accepted0.15",
+      "evidence": "review-001/REVIEW-0.16.md"
+    },
+    {
+      "revision": "0.17",
+      "result": "\u0645\u0631\u0627\u062c\u0639\u0629 \u0645\u0633\u062a\u0642\u0644\u0629: 1037 \u0646\u062c\u0627\u062d\u064b\u0627\u060c 156 \u0645\u0648\u062b\u0642\u064b\u0627\u060c \u0641\u0634\u0644 \u0648\u0627\u062d\u062f \u0641\u064a \u062d\u0641\u0638 \u0644\u0642\u0637\u0629 \u0627\u0644\u0645\u0627\u0636\u064a\u061b \u0645\u0637\u0644\u0648\u0628 \u062a\u0639\u062f\u064a\u0644. | 1037pass156recorded1FAIL exit1; C27closed,C28 snapshot alias; revise; accepted0.15",
+      "evidence": "review-001/REVIEW-0.17.md"
+    },
+    {
+      "revision": "0.18",
+      "result": "\u0645\u0631\u0627\u062c\u0639\u0629 \u0645\u0633\u062a\u0642\u0644\u0629: 1060 \u0646\u062c\u0627\u062d\u064b\u0627\u060c 168 \u0645\u0648\u062b\u0642\u064b\u0627\u060c \u0635\u0641\u0631 \u0641\u0634\u0644\u061b \u0642\u0628\u0648\u0644 \u062f\u0641\u0639\u0629 \u0627\u0644\u0645\u0648\u0627\u0635\u0641\u0627\u062a \u0648\u0627\u0644\u0645\u062a\u062c\u0647\u0627\u062a \u0641\u0642\u0637. \u062a\u0639\u0627\u0631\u0636 x12b \u0648\u0642\u0631\u0627\u0631\u0627\u062a \u0627\u0644\u0645\u0627\u0644\u0643 \u063a\u064a\u0631 \u0645\u0639\u062a\u0645\u062f\u0629. | 1060pass168recorded0fail exit0; independentC28 4/4,site21/21 applicable;38Partial3NotStarted0Complete; RF-E6-1unapproved",
+      "evidence": "review-001/REVIEW-0.18.md"
+    },
+    {
+      "revision": "0.19",
+      "result": "493pass23recorded0fail; independent29pass andC29counterexampleFAIL -> revise; accepted0.18",
+      "evidence": "review-001/REVIEW-0.19.md"
+    },
+    {
+      "revision": "0.20",
+      "result": "570 pass,76 recorded,0fail; independent23/23; V2Partial,39Partial2NotStarted0Complete; owners unchanged",
+      "evidence": "review-001/REVIEW-0.20.md"
+    },
+    {
+      "revision": "0.21",
+      "result": "Canonical-root110pass29recorded0fail; initialcopy-pathguardfailure preserved; independentC30 FAIL; E05three-library K1-K3/GSV1 pass; revise, accepted0.20",
+      "evidence": "review-001/REVIEW-0.21.md"
+    },
+    {
+      "revision": "0.22",
+      "result": "196pass52recorded0fail; independent23/23 after correcting one root expected-version precedence; V3Partial40Partial1NotStarted0Complete; owners unchanged",
+      "evidence": "review-001/REVIEW-0.22.md"
+    },
+    {
+      "revision": "0.23",
+      "result": "104pass29recorded0fail;8JS syntaxpass; independent36pass1FAIL C31 ->revise; accepted0.22",
+      "evidence": "review-001/REVIEW-0.23.md"
+    },
+    {
+      "revision": "0.24",
+      "result": "196pass49recorded0fail; independent45/45; fiveC7scripts syntaxpass; V4Partial41Partial0NotStarted0Complete; fullaudit/owner decisions still required",
+      "evidence": "review-001/REVIEW-0.24.md"
+    },
+    {
+      "revision": "0.25",
+      "result": "Canonical617pass85recorded0fail; initialcopy artifactpath2fail preserved; new56preimages3librariesmatch; epochcodec10/10+native11/11; qualified59technicaldecisions, U08owner,V1authoring remain",
+      "evidence": "review-001/REVIEW-0.25.md"
+    },
+    {
+      "revision": "0.26",
+      "result": "302pass75recorded0fail in preparedsuite; independentASERT1027/1027, hashes347/347, Rustsignatures135/135; malformedbusy3FAIL; validsharecase258SHA ->reviseV1; ownerdecisions unchanged",
+      "evidence": "review-001/REVIEW-0.26.md"
+    },
+    {
+      "revision": "0.27",
+      "task": "025",
+      "verdict": "revise-qualified-repair",
+      "prepared": {
+        "passed": 248,
+        "recorded": 72,
+        "failed": 0
+      },
+      "independent": {
+        "malformed": 26,
+        "shaAndRetry": 18,
+        "hashes": 3677,
+        "signatures": 31,
+        "asert": 1027
+      },
+      "decision": "C32 crash fix and SHA accounting verified; source SHA bound and rate cap await owner; deadline wording requires correction."
+    },
+    {
+      "revision": "0.28",
+      "task": "026",
+      "verdict": "accept-qualified-spec-corrections",
+      "prepared": {
+        "passed": 33,
+        "recorded": 16,
+        "failed": 0
+      },
+      "independent": {
+        "timingBranches": 21,
+        "preservedFiles": 68
+      },
+      "decision": "Policy claims corrected, conditional fixtures independently verified. No owner choice adopted; fullM1 blocked on named decisions."
+    },
+    {
+      "revision": "0.29",
+      "task": "027",
+      "verdict": "revise",
+      "prepared": {
+        "passed": 609,
+        "recorded": 119,
+        "failed": 4
+      },
+      "independent": {
+        "deadlineCases": 1120,
+        "fullHashTriad": 668,
+        "guardProbes": {
+          "passed": 0,
+          "failed": 3
+        }
+      },
+      "decision": "Nine delegatedtechnical decisions applied,17conventions explicitlyselected; C33/C34 require newrevision. No personalownerapproval."
+    },
+    {
+      "revision": "0.30",
+      "task": "028",
+      "verdict": "revise",
+      "prepared": {
+        "passed": 308,
+        "recorded": 105,
+        "failed": 6
+      },
+      "independent": {
+        "guardAndOriginalC33": 23,
+        "nativeEncoding": {
+          "passed": 2,
+          "failed": 1
+        }
+      },
+      "decision": "OriginalC33/C34repaired; C35exacterrorserializationandC36provenancebindingsneedcorrection. No owneranswers."
+    },
+    {
+      "revision": "0.31",
+      "task": "029",
+      "verdict": "revise-history-only",
+      "prepared": {
+        "passed": 280,
+        "recorded": 102,
+        "failed": 1,
+        "codecCalls": 123
+      },
+      "independent": {
+        "guardCases": 24,
+        "failed": 0
+      },
+      "decision": "C35/C36verifiedclosed; effectiveC3/C4/V1reviewed conditionalonC37historicalclosure. No personalapproval."
+    },
+    {
+      "revision": "0.32",
+      "task": "030",
+      "verdict": "accept-M1-spec",
+      "prepared": {
+        "passed": 45,
+        "recorded": 68,
+        "failed": 0
+      },
+      "independent": {
+        "history": 8,
+        "rows": 41,
+        "initialPreserved": 139,
+        "recentSources": 42
+      },
+      "decision": "All41M1specrowsComplete, F01-F26closed byactualevidence. Coordinatorimprovementpending. No personalownerapproval orproduction."
+    },
+    {
+      "revision": "0.33",
+      "task": "031",
+      "verdict": "accept-local-coordinator",
+      "tests": {
+        "node": 82,
+        "independentHTTP": 18,
+        "failed": 0
+      },
+      "decision": "Authored8filepatchreviewed/tested/appliedwithrollback; savedURL/capabilities/38items/27reviews/owneranswerspreserved; actualhandoffverificationpending. M1acceptance0.32 unchanged."
+    }
+  ],
+  "githubHandoff": {
+    "repository": "https://github.com/raedrasheed/Proof-of-Collaboration",
+    "state": "completed cycle0.24 reviewed and published; author0.25 in progress",
+    "activeWrites": "m1-draft-0.25 only; author, single writer",
+    "publicExclusions": "Private CLI transcripts, original dialogue history, secrets, dependencies and runtime binaries",
+    "pullRequest": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/2",
+    "branch": "work/m1-import",
+    "checkout": "coordination/shared-repo",
+    "commit": "23265e6",
+    "cycleComment": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/2#issuecomment-6044378979"
+  },
+  "nextAction": "Currentscopecomplete:41M1specrowsaccepted, localcoordinatorcontinuationverifiedlive, controlledemptyworkliststopsfurthercallbacks. Futureimplementationexperiments/productionnotauthorized; no pendingusefulindependenttask.",
+  "reviewerDecisions": {
+    "revision": "0.25",
+    "reviewer": "Codex existing host",
+    "evidence": "review-001/REVIEW-0.25.md",
+    "ownerApproved": false,
+    "decisions": [
+      {
+        "id": "U03",
+        "status": "accepted-technical-qualified",
+        "proposal": "explicit @v<n> of a draft is refused, no frame",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U03 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U04",
+        "status": "accepted-technical-qualified",
+        "proposal": "section 6.4 reference table; above-root 404; '//' not followed (confirmed by E06)",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U04 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U06",
+        "status": "accepted-technical-qualified",
+        "proposal": "slot reads with P13 keys (confirmed by E04)",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U06 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U07",
+        "status": "accepted-technical-qualified",
+        "proposal": "accept the decision rule now: on-chain verification iff E02 worst case <= 10% of GAS_LIMIT",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U07 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U08",
+        "status": "pending-owner-change-request",
+        "proposal": "canonical split, 1-3 chunks (a new restriction; owner only if root treats it as a change request)",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U08 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U09",
+        "status": "accepted-technical-qualified",
+        "proposal": "lowest matching draft id is reused; no contract-level duplicate rejection",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U09 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U11",
+        "status": "accepted-technical-qualified",
+        "proposal": "transition edge policies of section 5.2",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U11 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U12",
+        "status": "accepted-technical-qualified",
+        "proposal": "site size = sum of logical file sizes",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U12 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U13",
+        "status": "accepted-technical-qualified",
+        "proposal": "Codex omnibox order (section 6.2)",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U13 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U16",
+        "status": "accepted-technical-qualified",
+        "proposal": "CONF_DEPTH is a required runtime parameter with no default",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U16 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U17",
+        "status": "accepted-technical-qualified",
+        "proposal": "duplicate chunk references allowed",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U17 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U18",
+        "status": "accepted-technical-qualified",
+        "proposal": "factory emits no events",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U18 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U20",
+        "status": "accepted-technical-qualified",
+        "proposal": "entryIndex u32",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U20 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U21",
+        "status": "accepted-technical-qualified",
+        "proposal": "Cancun (baseline); tool versions recorded when E01 runs",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U21 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U22",
+        "status": "accepted-technical-qualified",
+        "proposal": "ABI error, event and enumeration set of sections 5.2-5.3",
+        "source": {
+          "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+          "find": "| U22 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U23",
+        "status": "accepted-technical-qualified",
+        "proposal": "no RLP depth rule; total iterative decoding",
+        "source": {
+          "file": "m1-draft-0.3/M1-OPEN-0.3.md",
+          "find": "| U23 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U24",
+        "status": "accepted-technical-qualified",
+        "proposal": "cache insertion after every fetch rule; key (addr, len)",
+        "source": {
+          "file": "m1-draft-0.3/M1-OPEN-0.3.md",
+          "find": "| U24 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U26",
+        "status": "accepted-technical-qualified",
+        "proposal": "out-of-range ABI integers revert with empty data before authorization",
+        "source": {
+          "file": "m1-draft-0.3/M1-OPEN-0.3.md",
+          "find": "| U26 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U31",
+        "status": "accepted-technical-qualified",
+        "proposal": "observation only (value typed qty, u64)",
+        "source": {
+          "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+          "find": "| U31 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U32",
+        "status": "accepted-technical-qualified",
+        "proposal": "'params' in general; 'params[2]' for eth_call and eth_estimateGas",
+        "source": {
+          "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+          "find": "| U32 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U33",
+        "status": "accepted-technical-qualified",
+        "proposal": "technical resolution R5-10 of the import and fetch rules",
+        "source": {
+          "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+          "find": "B7/U33"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U34",
+        "status": "accepted-technical-qualified",
+        "proposal": "technical resolution R5-09 (envelope reserve 128)",
+        "source": {
+          "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+          "find": "| U34 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U35",
+        "status": "accepted-technical-qualified",
+        "proposal": "BRIDGE_MSG_MAX in UTF-8 bytes",
+        "source": {
+          "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+          "find": "| U35 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U36",
+        "status": "accepted-technical-qualified",
+        "proposal": "unknown eth_getProof fields ignored, pending E03",
+        "source": {
+          "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+          "find": "| U36 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U37",
+        "status": "accepted-technical-qualified",
+        "proposal": "txObj.from required at B3",
+        "source": {
+          "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+          "find": "| U37 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U38",
+        "status": "accepted-technical-qualified",
+        "proposal": "an accepted no-op delete writes once",
+        "source": {
+          "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+          "find": "| U38 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U39",
+        "status": "accepted-technical-qualified",
+        "proposal": "quota reported before entries",
+        "source": {
+          "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+          "find": "| U39 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U40",
+        "status": "accepted-technical-qualified",
+        "proposal": "write-path exit codes of annex/write-path.json",
+        "source": {
+          "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+          "find": "| U40 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U41",
+        "status": "accepted-technical-qualified",
+        "proposal": "per-load request-id counter",
+        "source": {
+          "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+          "find": "| U41 |"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "U43",
+        "status": "accepted-technical-qualified",
+        "proposal": "stale requests cancelled with 4901",
+        "source": {
+          "file": "m1-draft-0.7/M1-SPEC-0.7-AMENDMENTS.md",
+          "find": "U43"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-0.2",
+        "status": "accepted-technical-qualified",
+        "proposal": "the P items of draft 0.2 (P01-P37 as amended)",
+        "source": {
+          "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+          "find": "**P14**"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-0.4",
+        "status": "accepted-technical-qualified",
+        "proposal": "P details of the bridge matrix and request bound",
+        "source": {
+          "file": "m1-draft-0.4/annex/bridge-matrix.json",
+          "find": "(P)"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-0.5",
+        "status": "accepted-technical-qualified",
+        "proposal": "P details of BR messages, RpcTap window, SiteStorage",
+        "source": {
+          "file": "m1-draft-0.5/annex/br-messages.json",
+          "find": "P for the window"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-0.6",
+        "status": "accepted-technical-qualified",
+        "proposal": "P details of BR16, BR19 and BridgeTrace; signEligible",
+        "source": {
+          "file": "m1-draft-0.6/M1-STATUS-0.6.md",
+          "find": "the P details of BR16, BR19 and BridgeTrace"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-0.7",
+        "status": "accepted-technical-qualified",
+        "proposal": "P details of the scopes, strict FIFO, MaliciousHttp wire format, BR20c parameters",
+        "source": {
+          "file": "m1-draft-0.7/M1-STATUS-0.7.md",
+          "find": "the P details of the scopes"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-X1",
+        "status": "accepted-technical-qualified",
+        "proposal": "chainId integer encoding in the netKey RLP",
+        "source": {
+          "file": "m1-draft-0.3/M1-ANNEX-INVENTORY-0.3.md",
+          "find": "The chainId integer encoding is labelled P"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "TK-1",
+        "status": "accepted-technical-qualified",
+        "proposal": "fixture keys = anvil default accounts; txA fee and gas fields",
+        "source": {
+          "file": "m1-draft-0.5/annex/br-messages.json",
+          "find": "TK-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "I1",
+        "status": "accepted-technical-qualified",
+        "proposal": "X3 reconciliation item I1",
+        "source": {
+          "file": "m1-draft-0.6/annex/X3-RESTORED.md",
+          "find": "I1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "I6",
+        "status": "accepted-technical-qualified",
+        "proposal": "X3 reconciliation item I6",
+        "source": {
+          "file": "m1-draft-0.6/annex/X3-RESTORED.md",
+          "find": "I6"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-Q1",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-Q1-1..5",
+        "source": {
+          "file": "m1-draft-0.9/annex/Q4-REFERENCE-EXTENSION.md",
+          "find": "P-Q1-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-Q2",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-Q2-1..3",
+        "source": {
+          "file": "m1-draft-0.9/annex/Q4-REFERENCE-EXTENSION.md",
+          "find": "P-Q2-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-Q3",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-Q3-1..2",
+        "source": {
+          "file": "m1-draft-0.9/annex/Q4-REFERENCE-EXTENSION.md",
+          "find": "P-Q3-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-Q4",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-Q4-1",
+        "source": {
+          "file": "m1-draft-0.9/annex/Q4-REFERENCE-EXTENSION.md",
+          "find": "P-Q4-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-E1",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-E1-n",
+        "source": {
+          "file": "m1-draft-0.10/annex/E-REFERENCE-AND-FINDINGS.md",
+          "find": "P-E1-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-E2",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-E2-n",
+        "source": {
+          "file": "m1-draft-0.10/annex/E-REFERENCE-AND-FINDINGS.md",
+          "find": "P-E2-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-E3",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-E3-n",
+        "source": {
+          "file": "m1-draft-0.10/annex/E-REFERENCE-AND-FINDINGS.md",
+          "find": "P-E3-4"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-C24",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-C24-n",
+        "source": {
+          "file": "m1-draft-0.11/M1-SPEC-0.11-AMENDMENT.md",
+          "find": "P-C24-2"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-SM-1",
+        "status": "accepted-technical-qualified",
+        "proposal": "held gen-1 removes under sweepMax (0.25)",
+        "source": {
+          "file": "m1-draft-0.25/supplements/s25-sweepmax.json",
+          "find": "P-SM-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-E4",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-E4-1..4",
+        "source": {
+          "file": "m1-draft-0.13/annex/E4-E5-RECOVERY.md",
+          "find": "P-E4-3"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-E5",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-E5-1..7",
+        "source": {
+          "file": "m1-draft-0.13/M1-SPEC-0.13-AMENDMENT.md",
+          "find": "P-E5-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "RF-E5",
+        "status": "accepted-technical-qualified",
+        "proposal": "RF-E5-1, RF-E5-2 readings",
+        "source": {
+          "file": "m1-draft-0.13/M1-SPEC-0.13-AMENDMENT.md",
+          "find": "RF-E5-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-E6",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-E6-1..5",
+        "source": {
+          "file": "m1-draft-0.16/annex/E6-E7.md",
+          "find": "P-E6-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-E7",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-E7-1..5",
+        "source": {
+          "file": "m1-draft-0.16/annex/E6-E7.md",
+          "find": "P-E7-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "CR-E4-01",
+        "status": "accepted-technical-qualified",
+        "proposal": "alternative A: hex16 epoch string in the fmt-2 value",
+        "source": {
+          "file": "m1-draft-0.25/representation/cr-e4-01-u64-epoch.json",
+          "find": "\"recommended\": true"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "CR-E4-02",
+        "status": "accepted-technical-qualified",
+        "proposal": "alternative R: the baseline's str(n) already rejects lone surrogates at B3; no baseline change",
+        "source": {
+          "file": "m1-draft-0.25/representation/cr-e4-02-surrogates.json",
+          "find": "\"recommended\": true"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "CID-1",
+        "status": "accepted-technical-qualified",
+        "proposal": "exact integer reading of the profile chainId",
+        "source": {
+          "file": "m1-draft-0.25/representation/cid-1-profile-chainid.json",
+          "find": "\"recommended\": true"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-V2",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-V2-1..10",
+        "source": {
+          "file": "m1-draft-0.19/annex/V2-LOGCLIENT.md",
+          "find": "P-V2-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-RG3B-1",
+        "status": "accepted-technical-qualified",
+        "proposal": "RG3b hook protocol (0.25)",
+        "source": {
+          "file": "m1-draft-0.25/supplements/s25-rg3b.json",
+          "find": "P-RG3B-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "P-V3",
+        "status": "accepted-technical-qualified",
+        "proposal": "P-V3-1..7 and the DG-V3-4..9 readings",
+        "source": {
+          "file": "m1-draft-0.21/annex/V3-NETWORKPROFILES.md",
+          "find": "P-V3-1"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      },
+      {
+        "id": "PB1-PB12",
+        "status": "accepted-technical-qualified",
+        "proposal": "X8 precision blocks (PB6, PB8 with proposed resolutions)",
+        "source": {
+          "file": "m1-draft-0.23/vectors/x8-config.json",
+          "find": "PB12"
+        },
+        "scope": "M1 specification/reference fixtures; deferred implementation outcomes not asserted; all named owner choices excluded"
+      }
+    ],
+    "qualifications": {
+      "P-0.2": "Excludes U01/P28, U02, U10/P09, U14, CR-M1-01/U05 and U08/P22; owner-dependent branches remain alternatives, never selected.",
+      "P-E4": "CR-E4-01 hex16 supersedes the safe-integer cap; CR-E4-02 follows existing B3 scalar-string constraints; native budget remains satisfied.",
+      "U07": "Accept the specified conditional E02 decision procedure and both branches, not a measured gas result or an already-enabled on-chain feature.",
+      "U36": "Only a parser convention under the unapproved CR-M1-01 alternative; does not add methods or approve the proposal.",
+      "P-E6": "Does not resolve RF-E6-1 or alter the baseline x12b total; owner question remains pending.",
+      "U06/U21/U22/U26": "Specification and precise experiment expectations only; no compiler/EVM outcome claimed.",
+      "PB1-PB12": "Adopt the precise supplemental experiment definitions; no waived sensitivity, actual measurements or proof of universal isolation."
+    },
+    "requiredNext": "New V1 specification/fixtures and consolidated criteria computed with these actual decisions; owner votes remain open"
+  },
+  "latestReviewedRevision": "0.33",
+  "latestAcceptedRevision": "0.32",
+  "latestAcceptedReferenceRevision": "0.32",
+  "ownerQuestionsCurrent": {
+    "status": "resolved-by-explicit-delegated-technical-decisions-no-personal-answers",
+    "V1_SHA_COST": "Recommend explicit3355 category bound retaining all checks",
+    "P_C32_2": "Recommend explicit rate delay cap0..2000ms",
+    "U14": "Recommend whole load through verdict including computation; other branches preserved"
+  },
+  "ownerDecisionGuide": {
+    "revision": "0.28",
+    "arabic": "coordination/review-001/OWNER-DECISIONS-AFTER-0.28-AR.md",
+    "english": "coordination/review-001/OWNER-DECISIONS-AFTER-0.28-EN.md",
+    "audit": "coordination/review-001/OWNER-DECISION-AUDIT-AFTER-0.28.json",
+    "decisionCount": 9,
+    "status": "explanations-published-no-owner-answer",
+    "recommendationConflict": "Old Claude U14 per-request recommendation explicitly distinguished from current Codex whole-load-through-verdict recommendation; neither adopted."
+  },
+  "ownerDependencyClarification": "U14: explicitly settle covered operations and computation endpoint; reconcile CR-M1-01 per-request/cumulative-wait caps. HeaderNetCheck timing remains conditional.",
+  "standingAuthorization": {
+    "at": "2026-10-08T08:02:53.390Z",
+    "scope": "M1 specifications, reference models, tests and coordinator improvements; justified reversible technical choices delegated to current coordinator",
+    "autonomousSequentialCycles": true,
+    "delegatedTechnicalDecisions": true,
+    "personalApproval": false,
+    "noProduction": true
+  },
+  "delegatedDecisions": {
+    "register": "coordination/DELEGATED-M1-DECISIONS-029.json",
+    "status": "verified-effective-M1-profile",
+    "ids": [
+      "U01",
+      "U02",
+      "U10",
+      "U14",
+      "CR-M1-01",
+      "U08",
+      "RF-E6-1",
+      "V1-SHA-COST",
+      "P-C32-2"
+    ]
+  },
+  "delegatedConventions": "coordination/DELEGATED-M1-CONVENTIONS-030.json",
+  "m1Acceptance": {
+    "status": "accepted-spec-only",
+    "revision": "0.32",
+    "rowsComplete": 41,
+    "criteria": 5,
+    "evidence": "coordination/review-001/M1-ACCEPTANCE-0.32.json",
+    "review": "coordination/review-001/REVIEW-0.32.md",
+    "personalOwnerApproval": false,
+    "productionApproved": false
+  },
+  "coordinatorImprovement": {
+    "status": "verified-live",
+    "revision": "0.33",
+    "review": "coordination/review-001/REVIEW-0.33.md",
+    "tests": 82,
+    "independentHTTP": 18,
+    "sourceBackup": "coordination/checkpoints/coordinator-source-rollback-033",
+    "preservation": "coordination/review-001/coordinator-live-preservation-033.json",
+    "liveHandoff": "coordination/review-001/coordinator-live-continuation-033.json",
+    "publicCommit": "56e5fde",
+    "pr": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/4"
+  },
+  "continuationWork": {
+    "status": "complete",
+    "remainingIndependentItems": [],
+    "note": "CurrentauthorizedM1specandcoordinatorimprovement scopecomplete; preserve standingauthorization forfutureexplicitM1maintenance butdo notinventtasks."
+  },
+  "scopeCompletion": {
+    "at": "2026-10-08T10:46:32.716Z",
+    "m1SpecRevision": "0.32",
+    "coordinatorRevision": "0.33",
+    "rowsComplete": 41,
+    "nodeTests": 82,
+    "independentHTTP": 18,
+    "actualContinuationDeliveredAndAcknowledged": true,
+    "savedStatePreserved": true,
+    "personalOwnerAnswers": 0,
+    "production": false
+  }
+}

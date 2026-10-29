@@ -1,0 +1,14 @@
+{
+  "run": 39428650062,
+  "sourceHead": "f3fbe13863030adfed6912450e255acd986238b5",
+  "completedArtifactHashes": 2,
+  "nativeWindowsTests": 90,
+  "legacy": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "remainingJobs": "PENDING; no full run/P2/P3/LP4 acceptance",
+  "bootable": false
+}

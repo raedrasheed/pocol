@@ -1,0 +1,9 @@
+{
+  "exit": 0,
+  "seconds": 160.212,
+  "inputFiles": 2807,
+  "expectedCases": 20661,
+  "binarySHA256": "287be576c5f4739ec5bd948f65accc1227bbc987c1ed9b61c78820f359f0f1d4",
+  "stdoutSHA256": "36078fa3300ac4211158dd98406922dc1bf3a38f31c10a6a3a04e9a7027ce52c",
+  "stderrSHA256": "28437f8030b2d13251b8f2502e3b9cfe1562386e1151b66cc0f2d74b2067b66e"
+}

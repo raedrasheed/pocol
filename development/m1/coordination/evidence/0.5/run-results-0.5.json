@@ -1,0 +1,2375 @@
+{
+  "package": "M1 draft 0.5",
+  "executedAtUtc": "2026-10-07T08:18:07+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "notExecuted": [
+    "EVM / anvil",
+    "browser / extension",
+    "ESLint and dependency-cruiser",
+    "pocold",
+    "Merkle-Patricia proof verification (decision tables assume verifier outcomes)",
+    "real transactions"
+  ],
+  "summary": {
+    "checks": 351,
+    "passed": 347,
+    "recorded": 3,
+    "failed": 1,
+    "seconds": 29.2
+  },
+  "results": [
+    {
+      "check": "keccak.selftest",
+      "status": "pass"
+    },
+    {
+      "check": "c14.levels rb-2847",
+      "status": "pass",
+      "got": [
+        {
+          "level": "chunks list",
+          "body": 65481,
+          "header": "f9ffc9",
+          "total": 65484
+        },
+        {
+          "level": "file",
+          "body": 65524,
+          "header": "f9fff4",
+          "total": 65527
+        },
+        {
+          "level": "files list",
+          "body": 65527,
+          "header": "f9fff7",
+          "total": 65530
+        },
+        {
+          "level": "top level",
+          "body": 65532,
+          "header": "f9fffc",
+          "total": 65535
+        }
+      ]
+    },
+    {
+      "check": "c14.levels rb-2848",
+      "status": "pass",
+      "got": [
+        {
+          "level": "chunks list",
+          "body": 65504,
+          "header": "f9ffe0",
+          "total": 65507
+        },
+        {
+          "level": "file",
+          "body": 65547,
+          "header": "fa01000b",
+          "total": 65551
+        },
+        {
+          "level": "files list",
+          "body": 65551,
+          "header": "fa01000f",
+          "total": 65555
+        },
+        {
+          "level": "top level",
+          "body": 65557,
+          "header": "fa010015",
+          "total": 65561
+        }
+      ]
+    },
+    {
+      "check": "c14.fixture rb-2848",
+      "status": "FAIL",
+      "got": [
+        65561,
+        "decode.oversize"
+      ]
+    },
+    {
+      "check": "c14.lowerBound",
+      "status": "pass"
+    },
+    {
+      "check": "url.oracleAvailable (run tools/url_oracle.cjs first)",
+      "status": "pass"
+    },
+    {
+      "check": "url.oracleNode",
+      "status": "recorded",
+      "node": "v22.13.1"
+    },
+    {
+      "check": "url.codex 'https://[not-ip]/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.codex 'https://[::1::2]/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.codex 'https://999.999.999.999/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.codex 'https://%00.example/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.codex 'https://user%40example.org/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.codex 'https://[::1]:'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.codex 'https://[::1]/'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.codex 'https://example.org/'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.codex 'https://user@example.org/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://user:pw@example.org/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://:pw@example.org/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'http://example.org/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'javascript:alert(1)'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'chrome-extension://abcdefghijklmnop/x'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'HTTPS://example.org/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://exa mple.org/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://example.org/\u00e9'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://example.org'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://example.org:443/'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://example.org:/'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://example.org:65536/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://example.org?q=1#f'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https:///example.org/'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://example.org\\\\x'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://@example.org/'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://0x7f.1/'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://1.2.3.4.5/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://%65xample.org/'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://exa%2Fmple.org/'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.author 'https://[::1]:8443/x'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://example.org/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+      "status": "pass",
+      "oracle": true,
+      "expected": true
+    },
+    {
+      "check": "url.author 'https://example.org/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+      "status": "pass",
+      "oracle": false,
+      "expected": false
+    },
+    {
+      "check": "url.unknownRaises",
+      "status": "pass"
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_chainId",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_getBalance",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_getStorageAt-qty-tag",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_getBlockByNumber",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_getBlockByHash",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_call",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_estimateGas-1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_estimateGas-2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_feeHistory",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_getLogs-range",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_getLogs-blockHash",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-eth_sendTransaction",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-site_storageSet",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-site_storageSet-delete",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-site_storageClear",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-site_navigate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-site_openExternal",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle ok-id-max",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR3a",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR3b",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR4-upper",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR4-space",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR4-nul",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR4-cyrillic",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR4-65-bytes",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR4-site-case",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR4-astral-truncation",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR6-payload-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR6-outer-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR6-duplicate-method",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7a",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7b",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7c",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7d",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7e",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7f",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7g-storage",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7g-navigate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR7h",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR8",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR9-gas",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR9-no-to",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR9-data-and-input",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR10-17-addresses",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR11-proto",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR11-constructor-nav",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR11-hasOwnProperty-storage",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR11-toString-wallet",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR12-full-block",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR12-pending",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR12-earliest",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR12-eip1898",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR13-depth-9",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR13-depth-8-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR13-size-65537",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR13-size-65536-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR13-invalid-json",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR13-id-negative",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR13-id-2^32",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR13-id-string",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B0-id-1.0",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B0-id-minus-zero",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B0-id-true",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B0-NaN",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B0-top-array",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B0-method-number",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B0-kind-number-before-B1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-short",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-empty-key",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-key-257",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-key-256-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-value-61441",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-value-61440-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-number-key",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-lone-surrogate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR17d-clear-arg",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18d-relative",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18d-space",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18d-2049",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18d-2048-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18c-passes-schema",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18g-http",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18g-javascript",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18g-extension",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18g-userinfo",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle BR18g-empty-host",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-feeHistory-129",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-percentiles-decreasing",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-percentiles-17",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-percentile-100.5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-qty-leading-zero",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-qty-over-u64",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-addr-trailing-newline",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-callObj-unknown-field",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-txObj-missing-from",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-filter-mixed-forms",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-topics-5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-estimateGas-3-params",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.withOracle B3-estimateGas-0-params",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "pending.PH1-same-id-two-sessions",
+      "status": "pass",
+      "replies": {
+        "r1": {
+          "toFrame": "fA",
+          "id": 0
+        }
+      }
+    },
+    {
+      "check": "pending.PH2-repeated-id-one-frame",
+      "status": "pass",
+      "replies": {
+        "r2": {
+          "toFrame": "fA",
+          "id": 7
+        }
+      }
+    },
+    {
+      "check": "pending.PH3-same-id-old-and-new-frame",
+      "status": "pass",
+      "replies": {
+        "r2": {
+          "toFrame": "f2",
+          "id": 1
+        }
+      }
+    },
+    {
+      "check": "pending.PH4-completion-order",
+      "status": "pass",
+      "replies": {
+        "r2": {
+          "toFrame": "fA",
+          "id": 2
+        },
+        "r1": {
+          "toFrame": "fA",
+          "id": 1
+        }
+      }
+    },
+    {
+      "check": "pending.PH5-limit-counts-handles-not-ids",
+      "status": "pass",
+      "replies": {}
+    },
+    {
+      "check": "pending.PH6-orphan-settle-wrong-session-impossible",
+      "status": "pass",
+      "replies": {}
+    },
+    {
+      "check": "proof.storagePathKat slot0",
+      "status": "pass"
+    },
+    {
+      "check": "proof.storagePathKat slot1",
+      "status": "pass"
+    },
+    {
+      "check": "proof.storagePathKat slot2",
+      "status": "pass"
+    },
+    {
+      "check": "proof.emptyTrieRoot",
+      "status": "pass"
+    },
+    {
+      "check": "proof.keccakEmpty",
+      "status": "pass"
+    },
+    {
+      "check": "proof.accountPathIs20Bytes",
+      "status": "pass"
+    },
+    {
+      "check": "proof.envelope ENV-ok",
+      "status": "pass",
+      "got": [
+        "result"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-batch",
+      "status": "pass",
+      "got": [
+        "fail",
+        "envelope.notObject"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-id-mismatch",
+      "status": "pass",
+      "got": [
+        "fail",
+        "envelope.id"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-id-string",
+      "status": "pass",
+      "got": [
+        "fail",
+        "envelope.id"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-id-float",
+      "status": "pass",
+      "got": [
+        "fail",
+        "envelope.id"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-no-jsonrpc",
+      "status": "pass",
+      "got": [
+        "fail",
+        "envelope.jsonrpc"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-both",
+      "status": "pass",
+      "got": [
+        "fail",
+        "envelope.resultXorError"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-neither",
+      "status": "pass",
+      "got": [
+        "fail",
+        "envelope.resultXorError"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-extra",
+      "status": "pass",
+      "got": [
+        "fail",
+        "envelope.extraField"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-duplicate-key",
+      "status": "pass",
+      "got": [
+        "fail",
+        "recvParse"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-depth-17",
+      "status": "pass",
+      "got": [
+        "fail",
+        "recvDepth"
+      ]
+    },
+    {
+      "check": "proof.envelope ENV-depth-16-control",
+      "status": "pass",
+      "got": [
+        "result"
+      ]
+    },
+    {
+      "check": "proof.error ERR-32021-ok",
+      "status": "pass",
+      "got": [
+        "retry",
+        500
+      ]
+    },
+    {
+      "check": "proof.error ERR-32021-zero",
+      "status": "pass",
+      "got": [
+        "retry",
+        0
+      ]
+    },
+    {
+      "check": "proof.error ERR-32021-missing",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "rate.badRetryAfter"
+      ]
+    },
+    {
+      "check": "proof.error ERR-32021-too-long",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "rate.badRetryAfter"
+      ]
+    },
+    {
+      "check": "proof.error ERR-32021-negative",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "rate.badRetryAfter"
+      ]
+    },
+    {
+      "check": "proof.error ERR-32017",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "outsideKeff"
+      ]
+    },
+    {
+      "check": "proof.error ERR-other",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "rpcError -32000"
+      ]
+    },
+    {
+      "check": "proof.result RES-ok",
+      "status": "pass",
+      "got": [
+        "ok",
+        [
+          17179869185
+        ]
+      ]
+    },
+    {
+      "check": "proof.result RES-address-absent-ok",
+      "status": "pass",
+      "got": [
+        "ok",
+        [
+          17179869185
+        ]
+      ]
+    },
+    {
+      "check": "proof.result RES-address-match",
+      "status": "pass",
+      "got": [
+        "ok",
+        [
+          17179869185
+        ]
+      ]
+    },
+    {
+      "check": "proof.result RES-address-mismatch",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "bind.address"
+      ]
+    },
+    {
+      "check": "proof.result RES-missing-storageHash",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "shape.missing.storageHash"
+      ]
+    },
+    {
+      "check": "proof.result RES-nonce-over-u64",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "shape.types"
+      ]
+    },
+    {
+      "check": "proof.result RES-node-too-long",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "shape.types"
+      ]
+    },
+    {
+      "check": "proof.result RES-66-nodes",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "shape.types"
+      ]
+    },
+    {
+      "check": "proof.result RES-storage-count",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "bind.storageProofCount"
+      ]
+    },
+    {
+      "check": "proof.result RES-key-compact",
+      "status": "pass",
+      "got": [
+        "ok",
+        [
+          17179869185
+        ]
+      ]
+    },
+    {
+      "check": "proof.result RES-key-other",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "bind.key[0]"
+      ]
+    },
+    {
+      "check": "proof.result RES-empty-account-proof-nonempty-root",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "shape.emptyAccountProof"
+      ]
+    },
+    {
+      "check": "proof.result RES-empty-account-proof-empty-root",
+      "status": "pass",
+      "got": [
+        "noWebsite",
+        "accountAbsent"
+      ]
+    },
+    {
+      "check": "proof.result RES-verified-absence",
+      "status": "pass",
+      "got": [
+        "noWebsite",
+        "accountAbsent"
+      ]
+    },
+    {
+      "check": "proof.result RES-account-invalid",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "bind.accountProof"
+      ]
+    },
+    {
+      "check": "proof.result RES-leaf-balance-mismatch",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "bind.leaf.balance"
+      ]
+    },
+    {
+      "check": "proof.result RES-no-code",
+      "status": "pass",
+      "got": [
+        "noWebsite",
+        "noCode"
+      ]
+    },
+    {
+      "check": "proof.result RES-storage-absent-zero",
+      "status": "pass",
+      "got": [
+        "ok",
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "check": "proof.result RES-storage-absent-nonzero",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "bind.storageValue[0]"
+      ]
+    },
+    {
+      "check": "proof.result RES-storage-value-mismatch",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "bind.storageValue[0]"
+      ]
+    },
+    {
+      "check": "proof.result RES-storage-invalid",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "bind.storageProof[0]"
+      ]
+    },
+    {
+      "check": "proof.result RES-empty-storage-proof-empty-storage",
+      "status": "pass",
+      "got": [
+        "ok",
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "check": "proof.result RES-empty-storage-proof-nonempty-storage",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "shape.emptyStorageProof[0]"
+      ]
+    },
+    {
+      "check": "proof.budget BUD-1-one-retry",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "proof.budget BUD-2-retries-exhaust-attempt",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "proof.budget BUD-3-delay-cap",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "proof.budget BUD-4-fail-then-render",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "proof.budget BUD-5-worst-sends",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "proof.budget BUD-6-no-website-ends",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "proof.budget BUD-7-invariant-ends",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "proof.budget worstCaseSends",
+      "status": "pass"
+    },
+    {
+      "check": "guard.bg1 lowerBound",
+      "status": "pass"
+    },
+    {
+      "check": "guard.bg1 61823",
+      "status": "pass"
+    },
+    {
+      "check": "guard.bg1 61824",
+      "status": "pass"
+    },
+    {
+      "check": "guard.bg1 65536",
+      "status": "pass"
+    },
+    {
+      "check": "guard.G1-tight-compact-max",
+      "status": "pass",
+      "mismatches": {},
+      "length": 61790
+    },
+    {
+      "check": "guard.G2-escaped-value-size",
+      "status": "pass",
+      "mismatches": {},
+      "length": 66086
+    },
+    {
+      "check": "guard.G3-escaped-value-fits",
+      "status": "pass",
+      "mismatches": {},
+      "length": 60086
+    },
+    {
+      "check": "guard.G4-control-char-escape",
+      "status": "pass",
+      "mismatches": {},
+      "length": 66086
+    },
+    {
+      "check": "sitestorage.SS-1-BR17a",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "result": null
+        },
+        "total": 2,
+        "entries": 1,
+        "writes": 1
+      }
+    },
+    {
+      "check": "sitestorage.SS-2-BR17b",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "result": null
+        },
+        "total": 0,
+        "entries": 0,
+        "writes": 2
+      }
+    },
+    {
+      "check": "sitestorage.SS-3-BR17c",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "result": null
+        },
+        "total": 0,
+        "entries": 0,
+        "writes": 3
+      }
+    },
+    {
+      "check": "sitestorage.SS-4-delete-absent",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "result": null
+        },
+        "total": 2,
+        "entries": 1,
+        "writes": 2
+      }
+    },
+    {
+      "check": "sitestorage.SS-5-utf8-accounting",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "result": null
+        },
+        "total": 5,
+        "entries": 1,
+        "writes": 1
+      }
+    },
+    {
+      "check": "sitestorage.SS-6-entries-limit",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "result": null
+        },
+        "total": 24572,
+        "entries": 4096,
+        "writes": 4099
+      }
+    },
+    {
+      "check": "sitestorage.SS-7-quota-before-entries",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "code": 4300,
+          "data": {
+            "reason": "entries",
+            "limit": 4096
+          }
+        },
+        "total": 1048326,
+        "entries": 4096,
+        "writes": 4097
+      }
+    },
+    {
+      "check": "sitestorage.SS-8-disk-reject",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "result": null
+        },
+        "total": 4,
+        "entries": 2,
+        "writes": 2
+      }
+    },
+    {
+      "check": "sitestorage.SS-9-sites-reject",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "code": 4300,
+          "data": {
+            "reason": "sites",
+            "limit": 64
+          }
+        },
+        "total": 0,
+        "entries": 0,
+        "writes": 0
+      }
+    },
+    {
+      "check": "sitestorage.SS-10-write-failure",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "result": null
+        },
+        "total": 4,
+        "entries": 2,
+        "writes": 2
+      }
+    },
+    {
+      "check": "sitestorage.key",
+      "status": "pass"
+    },
+    {
+      "check": "navigator.NAV-1-bucket",
+      "status": "pass",
+      "got": {
+        "reply": null,
+        "teardown": true,
+        "page": "/about.html",
+        "steps": [
+          "bucket",
+          "normalize",
+          "orphan",
+          "cancelLoadJob",
+          "storeQueue.cancelFrame",
+          "awaitActive",
+          "teardown",
+          "newFrame"
+        ]
+      }
+    },
+    {
+      "check": "navigator.NAV-2-404-consumes-token",
+      "status": "pass",
+      "got": {
+        "reply": {
+          "code": -32005,
+          "data": {
+            "reason": "nav"
+          }
+        },
+        "teardown": false,
+        "steps": [
+          "bucket"
+        ]
+      }
+    },
+    {
+      "check": "navigator.NAV-3-directory-and-entry",
+      "status": "pass",
+      "got": {
+        "reply": null,
+        "teardown": true,
+        "page": "entry",
+        "steps": [
+          "bucket",
+          "normalize",
+          "orphan",
+          "cancelLoadJob",
+          "storeQueue.cancelFrame",
+          "awaitActive",
+          "teardown",
+          "newFrame"
+        ]
+      }
+    },
+    {
+      "check": "navigator.NAV-4-orphans",
+      "status": "pass",
+      "got": {
+        "reply": null,
+        "teardown": true,
+        "page": "/about.html",
+        "steps": [
+          "bucket",
+          "normalize",
+          "orphan",
+          "cancelLoadJob",
+          "storeQueue.cancelFrame",
+          "awaitActive",
+          "teardown",
+          "newFrame"
+        ]
+      }
+    },
+    {
+      "check": "openExternal.OE-1-BR18e",
+      "status": "pass"
+    },
+    {
+      "check": "openExternal.OE-2-BR18f",
+      "status": "pass"
+    },
+    {
+      "check": "openExternal.OE-3-BR18h",
+      "status": "pass"
+    },
+    {
+      "check": "br17e.msg01 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 61443,
+        "reply": {
+          "result": null
+        },
+        "total": 61443,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg02 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 122886,
+        "reply": {
+          "result": null
+        },
+        "total": 122886,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg03 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 184329,
+        "reply": {
+          "result": null
+        },
+        "total": 184329,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg04 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 245772,
+        "reply": {
+          "result": null
+        },
+        "total": 245772,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg05 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 307215,
+        "reply": {
+          "result": null
+        },
+        "total": 307215,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg06 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 368658,
+        "reply": {
+          "result": null
+        },
+        "total": 368658,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg07 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 430101,
+        "reply": {
+          "result": null
+        },
+        "total": 430101,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg08 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 491544,
+        "reply": {
+          "result": null
+        },
+        "total": 491544,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg09 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 552987,
+        "reply": {
+          "result": null
+        },
+        "total": 552987,
+        "bytes": 61528,
+        "envelope": 85
+      }
+    },
+    {
+      "check": "br17e.msg10 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 614430,
+        "reply": {
+          "result": null
+        },
+        "total": 614430,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg11 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 675873,
+        "reply": {
+          "result": null
+        },
+        "total": 675873,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg12 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 737316,
+        "reply": {
+          "result": null
+        },
+        "total": 737316,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg13 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 798759,
+        "reply": {
+          "result": null
+        },
+        "total": 798759,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg14 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 860202,
+        "reply": {
+          "result": null
+        },
+        "total": 860202,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg15 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 921645,
+        "reply": {
+          "result": null
+        },
+        "total": 921645,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg16 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 983088,
+        "reply": {
+          "result": null
+        },
+        "total": 983088,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg17 (e1)",
+      "status": "pass",
+      "got": {
+        "newTotal": 1044531,
+        "reply": {
+          "result": null
+        },
+        "total": 1044531,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg18 (e2)",
+      "status": "pass",
+      "got": {
+        "newTotal": 1105974,
+        "reply": {
+          "code": 4300,
+          "data": {
+            "reason": "quota",
+            "limit": 1048576
+          }
+        },
+        "total": 1044531,
+        "bytes": 61529,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg19 (e3)",
+      "status": "pass",
+      "got": {
+        "newTotal": 1048577,
+        "reply": {
+          "code": 4300,
+          "data": {
+            "reason": "quota",
+            "limit": 1048576
+          }
+        },
+        "total": 1044531,
+        "bytes": 4132,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg20 (e4)",
+      "status": "pass",
+      "got": {
+        "newTotal": 1048576,
+        "reply": {
+          "result": null
+        },
+        "total": 1048576,
+        "bytes": 4131,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg21 (e5)",
+      "status": "pass",
+      "got": {
+        "newTotal": 1048580,
+        "reply": {
+          "code": 4300,
+          "data": {
+            "reason": "quota",
+            "limit": 1048576
+          }
+        },
+        "total": 1048576,
+        "bytes": 90,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg22 (e6)",
+      "status": "pass",
+      "got": {
+        "newTotal": 1048577,
+        "reply": {
+          "code": 4300,
+          "data": {
+            "reason": "quota",
+            "limit": 1048576
+          }
+        },
+        "total": 1048576,
+        "bytes": 4132,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg23 (e7)",
+      "status": "pass",
+      "got": {
+        "newTotal": 987137,
+        "reply": {
+          "result": null
+        },
+        "total": 987137,
+        "bytes": 90,
+        "envelope": 86
+      }
+    },
+    {
+      "check": "br17e.msg24 (e8)",
+      "status": "pass",
+      "got": {
+        "newTotal": 925694,
+        "reply": {
+          "result": null
+        },
+        "total": 925694,
+        "bytes": 91,
+        "envelope": 88
+      }
+    },
+    {
+      "check": "br17e.rejectsLeaveSnapshotAndWritesUnchanged",
+      "status": "pass"
+    },
+    {
+      "check": "br17e.e9",
+      "status": "pass"
+    },
+    {
+      "check": "br17e.mutantDetected strictLess",
+      "status": "pass"
+    },
+    {
+      "check": "br17e.mutantDetected quotaNoSubtract",
+      "status": "pass"
+    },
+    {
+      "check": "br17e.mutantDetected nonAtomic",
+      "status": "pass"
+    },
+    {
+      "check": "writePath.base",
+      "status": "pass"
+    },
+    {
+      "check": "writePath.mutant M1-bridge-to-submit",
+      "status": "pass",
+      "got": [
+        "W1",
+        "W3"
+      ]
+    },
+    {
+      "check": "writePath.mutant M2-reader-sends-raw",
+      "status": "pass",
+      "got": [
+        "W1",
+        "W2"
+      ]
+    },
+    {
+      "check": "writePath.mutant M3-skip-approval",
+      "status": "pass",
+      "got": [
+        "W1"
+      ]
+    },
+    {
+      "check": "writePath.mutant M4-skip-second-check",
+      "status": "pass",
+      "got": [
+        "W1"
+      ]
+    },
+    {
+      "check": "writePath.mutant M5-wallet-direct-node",
+      "status": "pass",
+      "got": [
+        "W1",
+        "W4"
+      ]
+    },
+    {
+      "check": "keys.privKey1Address",
+      "status": "pass"
+    },
+    {
+      "check": "keys.anvilKat 1",
+      "status": "pass",
+      "got": {
+        "index": 1,
+        "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+      }
+    },
+    {
+      "check": "keys.anvilKat 2",
+      "status": "pass",
+      "got": {
+        "index": 2,
+        "address": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+      }
+    },
+    {
+      "check": "txA.recoverSigner",
+      "status": "pass"
+    },
+    {
+      "check": "txA.lowS",
+      "status": "pass"
+    },
+    {
+      "check": "txA",
+      "status": "recorded",
+      "raw": "0x02f869830bdeb6800484773594008252089414dc79964da2c08b23698b3d3cc7ca32193d99550180c001a086157ae85ab76eca653617e6e23c5918ab4ed831822350572773a9fe3c1e6bc6a03050fd18868c37d6eb9debfc6d5759e78f4a3f1776897bb09d14107cc7426942",
+      "txHash": "0x0224d25773e449e69e90c94c9d7319d9e273fc5f76193af36ad743a526f9f0b2",
+      "fromAddress": "0x976ea74026e726554db657fa54763abd0c3a0aa9",
+      "to": "0x14dc79964da2c08b23698b3d3cc7ca32193d9955"
+    },
+    {
+      "check": "txA.nodeCrossCheck",
+      "status": "recorded",
+      "pending": "run tools/txa_check.cjs, then this runner again"
+    },
+    {
+      "check": "br.BR1 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR2 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR3 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR3 #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR4 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR4 #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR4 #3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR4 #4",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR4 #5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR4 #6",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR5 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR6 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR6 #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR6 #3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #4",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #6",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #7",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #8",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR7 #9",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR8 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR9 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR9 #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR9 #3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR10 #1",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR10 #2",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR10 #3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR11 #1",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #2",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #3",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #4",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #5",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #6",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #7",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #8",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #9",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #10",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #11",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #12",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #13",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #14",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #15",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR11 #16",
+      "status": "pass"
+    },
+    {
+      "check": "br.BR12 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR12 #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR12 #3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR12 #4",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR13 #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR13 #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR13 #3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR13 #4",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR13 #5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR13 #6",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR14 #1",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR14 #2",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR17a #1",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR17b #1",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR17c #1",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR17c #2",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR17c #3",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR17g #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18d #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18d #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18e #1",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR18f #1",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR18g #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18g #2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18g #3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18g #4",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18g #5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18h #1",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR18h #2",
+      "status": "pass",
+      "mismatches": {
+        "stage": "ok"
+      }
+    },
+    {
+      "check": "br.BR18-L #1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "br.BR18-L #2",
+      "status": "pass",
+      "mismatches": {}
+    }
+  ]
+}

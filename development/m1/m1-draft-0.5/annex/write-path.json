@@ -1,0 +1,57 @@
+{
+  "schema": "pocol-m1-write-path/1",
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-07 (annex row B6)",
+  "baseline": "FD:L1207-1213 (the single write path), FD:L1216-1218 (programmatic isolation), FD:L1321-1325 (signEligible under ProfileMutex: eligibility, identity, second check, sign the displayed bytes, send via WalletSubmit, release), FD:L4933 (WalletSubmit.submit checks keccak256(rawTx) = approvedTxHash), FD:L862 (the embedded wallet is the only source of eth_sendRawTransaction from the extension), BR14 (FD:L2691).",
+  "nodes": {
+    "Frame": "site frame (adversary, A7b)",
+    "BridgeAuth": "Bpre, B0-B3",
+    "RpcReadClient": "rpc_read transport; re-checks READ_METHODS",
+    "LogClient": "eth_getLogs via pocol_getLogs",
+    "Wallet": "wallet_req handler; one pending request, <= 5 per minute (FD:L1142); 'from' must be the account granted to (netKey, siteAddress), else 4100",
+    "Eligibility1": "signEligible first check, under ProfileMutex",
+    "Approval": "approval window bound to the network and the exact bytes (D14, D26); user click",
+    "Identity": "identity re-check (netKey, profile frozen)",
+    "Eligibility2": "signEligible second check",
+    "Sign": "Wallet signs exactly the displayed bytes",
+    "WalletSubmit": "submit(rawTx, approvedTxHash): keccak256(rawTx) == approvedTxHash, then send",
+    "HttpTransport": "the only fetch caller",
+    "Node.eth_sendRawTransaction": "the write at the node (RpcTap source walletSubmit)",
+    "Node.read": "read methods at the node"
+  },
+  "edges": [
+    ["Frame", "BridgeAuth"],
+    ["BridgeAuth", "RpcReadClient"], ["BridgeAuth", "LogClient"], ["BridgeAuth", "Wallet"],
+    ["RpcReadClient", "HttpTransport"], ["LogClient", "HttpTransport"],
+    ["Wallet", "Eligibility1"], ["Eligibility1", "Approval"], ["Approval", "Identity"], ["Identity", "Eligibility2"],
+    ["Eligibility2", "Sign"], ["Sign", "WalletSubmit"], ["WalletSubmit", "HttpTransport"]
+  ],
+  "methodEdges": {
+    "HttpTransport -> Node.eth_sendRawTransaction": ["WalletSubmit"],
+    "HttpTransport -> Node.read": ["RpcReadClient", "LogClient"]
+  },
+  "exits": [
+    {"at": "Wallet", "code": 4100, "when": "'from' is not the granted account (BR14 variant)"},
+    {"at": "Wallet", "code": -32005, "when": "a wallet request is already pending, or the rate of 5/min is exceeded (P: data {reason:'pending'})"},
+    {"at": "Eligibility1", "code": 4901, "when": "network not eligible: netKey changed or revoked, disconnected, profile conflict, RP without a successful window (FD:L982, FD:L1001, FD:L1323)"},
+    {"at": "Approval", "code": 4001, "when": "the user rejects or closes the window"},
+    {"at": "Identity", "code": 4901, "when": "identity changed while the window was open"},
+    {"at": "Eligibility2", "code": 4901, "when": "eligibility lost while the window was open (eligibilityEpoch changed)"},
+    {"at": "WalletSubmit", "code": -32603, "when": "keccak256(rawTx) != approvedTxHash: never sent (P: data {reason:'transport'})"}
+  ],
+  "exitsLabel": "The code per exit is P where the baseline gives only the cause; 4001, 4100 and 4901 are the baseline's codes (FD:L1226).",
+  "properties": [
+    "W1: every path from Frame to Node.eth_sendRawTransaction passes Wallet, Eligibility1, Approval, Identity, Eligibility2, Sign and WalletSubmit, in this order",
+    "W2: only WalletSubmit's requests carry eth_sendRawTransaction",
+    "W3: BridgeAuth has no edge to WalletSubmit or HttpTransport (FD:L1218)",
+    "W4: no node other than HttpTransport reaches a Node.* node"
+  ],
+  "mermaid": "flowchart LR\n  Frame-->BridgeAuth\n  BridgeAuth-->|rpc_read|RpcReadClient-->HttpTransport\n  BridgeAuth-->|eth_getLogs|LogClient-->HttpTransport\n  BridgeAuth-->|wallet_req|Wallet-->Eligibility1-->Approval-->Identity-->Eligibility2-->Sign-->WalletSubmit-->HttpTransport\n  HttpTransport-->|reads only|NodeRead[Node.read]\n  HttpTransport-->|only from WalletSubmit|NodeSend[Node.eth_sendRawTransaction]",
+  "mutants": [
+    {"id": "M1-bridge-to-submit", "addEdges": [["BridgeAuth", "WalletSubmit"]], "mustViolate": ["W1", "W3"]},
+    {"id": "M2-reader-sends-raw", "addMethodSources": {"HttpTransport -> Node.eth_sendRawTransaction": ["RpcReadClient"]}, "mustViolate": ["W1", "W2"]},
+    {"id": "M3-skip-approval", "addEdges": [["Eligibility1", "Sign"]], "mustViolate": ["W1"]},
+    {"id": "M4-skip-second-check", "addEdges": [["Identity", "Sign"]], "mustViolate": ["W1"]},
+    {"id": "M5-wallet-direct-node", "addEdges": [["Wallet", "Node.eth_sendRawTransaction"]], "mustViolate": ["W1", "W4"]}
+  ]
+}

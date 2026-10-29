@@ -1,0 +1,28 @@
+[
+  {
+    "name": "mul",
+    "fixture": "VMTests/vmArithmeticTest/mul.json",
+    "buildExit": 0,
+    "baselinePasses": 9,
+    "rootAssertionFailures": 7,
+    "assertionKilled": true,
+    "originalSourceSHA256": "7d27c78543731b336895ddf9dba305280fb09806683ddbfc765c7b0658f7e47c",
+    "mutationSourceSHA256": "6b35033776b8ecab90b81266e2e5d568e084e6a278a3f19bb23d60b404139b94",
+    "mutantBinarySHA256": "077e739fa64dfa6fcc91ba642ffbad6c60d7c9f27e807bad3bfce8e04b20bcb9",
+    "old": "y.Mul(&x, y)",
+    "new": "y.Add(&x, y)"
+  },
+  {
+    "name": "storage-collision",
+    "fixture": "stCreate2/create2collisionStorageParis.json",
+    "buildExit": 0,
+    "baselinePasses": 3,
+    "rootAssertionFailures": 3,
+    "assertionKilled": true,
+    "originalSourceSHA256": "bdce0f4e7e1e595ebc2f5341e40512c629574963f7d178a652a437d06e0be181",
+    "mutationSourceSHA256": "8015ec9e10f06c8bb85a422d58e1304f7c38154157524ecadb59504d6e9cbebc",
+    "mutantBinarySHA256": "d802e4bcc50089363d3381fc50edea0fc52784a12fe414c28dec0b922bb3866f",
+    "old": "(storageRoot != (common.Hash{}) && storageRoot != types.EmptyRootHash)",
+    "new": "(storageRoot != storageRoot)"
+  }
+]

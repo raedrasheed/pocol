@@ -1,0 +1,13 @@
+   Compiling lp1-node v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 1.69s
+     Running tests/gate.rs (target/debug/deps/gate-b313f0f3d5bdfad8)
+
+running 5 tests
+test numeric_sys_timing_trie_and_identity_negatives ... ok
+test each_rule_has_a_negative_vector_and_numeric_order ... ok
+test resource_binding_complete_version_and_missing_fail_closed ... ok
+test pg_end_1_to_5_and_l ... ok
+test production_profile_and_version_restrictions_and_boot_disabled ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+

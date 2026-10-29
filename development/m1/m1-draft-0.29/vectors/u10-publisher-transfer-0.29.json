@@ -1,0 +1,71 @@
+{
+  "schema": "pocol-m1-u10/0.29",
+  "status": "delegated U10 'keep-with-warning': an ownership transfer leaves the publisher set unchanged; the publisher tool warns that the previous owner keeps createVersion/publish/setCurrent until the new owner removes it. Reference model of the 0.2 authorization rows (overlay_ref_029.Website); the EVM outcome is E01 (T1-04, T1-09, T1-12, Phase A). No real transfer. Expected values hand-derived by the author.",
+  "sources": {
+    "roles": {"file": "reference/FINAL_DESIGN.md", "lines": [902, 903], "literals": ["PUBLISHER: createVersion", "ونقل الملكية بخطوتين"]},
+    "p09": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [234, 235], "literals": ["Publishing rights are never inferred from ownership", "An ownership transfer leaves the publisher set unchanged (U10)", "must warn after a transfer"]},
+    "accept": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [252, 252], "literals": ["publishers unchanged (U10)"]},
+    "t1_12": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [426, 426], "literals": ["T1-12", "D `setPublisher(A,false)`", "`NotPublisher(A)`", "the publisher tool showed the warning"]}
+  },
+  "warning": {
+    "convention": "P-U10-1 (pending root decision): the warning is shown at nomination (to the current owner, if it is a publisher) and after acceptance (to the new owner, if the previous owner is still a publisher); it names the previous owner, lists its retained calls and the removal call, and stays active until setPublisher(previous, false); a cancelled nomination clears the nomination warning",
+    "fields": ["stage", "previousOwner", "retainedCalls", "removal"],
+    "retainedCalls": ["createVersion", "publish", "setCurrent"]
+  },
+  "cases": [
+    {"id": "P-1", "tag": "T1-12: retained right, explicit removal", "owner": "A", "versions": {"1": "published", "2": "published"}, "current": 1,
+     "steps": [
+       {"call": ["A", "transferOwnership", "D"], "expect": {"ok": true, "events": ["OwnershipNominated(A,D)"]}, "activeStage": "nomination"},
+       {"call": ["C", "acceptOwnership"], "expect": {"revert": "NotPendingOwner(C)"}},
+       {"call": ["D", "acceptOwnership"], "expect": {"ok": true, "events": ["OwnershipTransferred(A,D)"]}, "activeStage": "accepted"},
+       {"call": ["A", "setCurrent", 2], "expect": {"ok": true, "events": ["CurrentVersionChanged(1,2)"]}},
+       {"call": ["D", "setPublisher", "A", false], "expect": {"ok": true, "events": ["PublisherChanged(A,false)"]}, "activeStage": null},
+       {"call": ["A", "setCurrent", 1], "expect": {"revert": "NotPublisher(A)"}}],
+     "final": {"owner": "D", "pendingOwner": null, "publishers": [], "current": 2, "activeWarning": null},
+     "warningStages": ["nomination", "accepted"],
+     "alternativeAutoRevoke": {"step": 3, "expect": {"revert": "NotPublisher(A)"}, "note": "REJECTED alternative, comparison only: the old owner would lose setCurrent at acceptance"}},
+    {"id": "P-2", "tag": "the previous owner has no owner rights", "owner": "A", "versions": {"1": "published", "2": "published"}, "current": 2,
+     "steps": [
+       {"call": ["A", "transferOwnership", "D"], "expect": {"ok": true, "events": ["OwnershipNominated(A,D)"]}},
+       {"call": ["D", "acceptOwnership"], "expect": {"ok": true, "events": ["OwnershipTransferred(A,D)"]}},
+       {"call": ["A", "revoke", 1], "expect": {"revert": "NotOwner(A)"}},
+       {"call": ["A", "setPublisher", "B", true], "expect": {"revert": "NotOwner(A)"}},
+       {"call": ["A", "transferOwnership", "A"], "expect": {"revert": "NotOwner(A)"}},
+       {"call": ["D", "revoke", 1], "expect": {"ok": true, "events": ["VersionRevoked(1)"]}}],
+     "final": {"owner": "D", "pendingOwner": null, "publishers": ["A"], "current": 2, "activeWarning": {"stage": "accepted", "previousOwner": "A"}},
+     "warningStages": ["nomination", "accepted"]},
+    {"id": "P-3", "tag": "owner removed itself first: no warning, no inferred rights", "owner": "A", "versions": {"1": "published", "2": "published"}, "current": 1,
+     "steps": [
+       {"call": ["A", "setPublisher", "A", false], "expect": {"ok": true, "events": ["PublisherChanged(A,false)"]}},
+       {"call": ["A", "transferOwnership", "D"], "expect": {"ok": true, "events": ["OwnershipNominated(A,D)"]}, "activeStage": null},
+       {"call": ["D", "acceptOwnership"], "expect": {"ok": true, "events": ["OwnershipTransferred(A,D)"]}, "activeStage": null},
+       {"call": ["D", "setCurrent", 2], "expect": {"revert": "NotPublisher(D)"}},
+       {"call": ["D", "setPublisher", "D", true], "expect": {"ok": true, "events": ["PublisherChanged(D,true)"]}},
+       {"call": ["D", "setCurrent", 2], "expect": {"ok": true, "events": ["CurrentVersionChanged(1,2)"]}}],
+     "final": {"owner": "D", "pendingOwner": null, "publishers": ["D"], "current": 2, "activeWarning": null},
+     "warningStages": []},
+    {"id": "P-4", "tag": "second removal is a no-op without event", "owner": "A", "versions": {"1": "published"}, "current": 1,
+     "steps": [
+       {"call": ["A", "transferOwnership", "D"], "expect": {"ok": true, "events": ["OwnershipNominated(A,D)"]}},
+       {"call": ["D", "acceptOwnership"], "expect": {"ok": true, "events": ["OwnershipTransferred(A,D)"]}},
+       {"call": ["D", "setPublisher", "A", false], "expect": {"ok": true, "events": ["PublisherChanged(A,false)"]}},
+       {"call": ["D", "setPublisher", "A", false], "expect": {"ok": true, "events": []}}],
+     "final": {"owner": "D", "pendingOwner": null, "publishers": [], "current": 1, "activeWarning": null},
+     "warningStages": ["nomination", "accepted"]},
+    {"id": "P-5", "tag": "removal between nomination and acceptance", "owner": "A", "versions": {"1": "published"}, "current": 1,
+     "steps": [
+       {"call": ["A", "transferOwnership", "D"], "expect": {"ok": true, "events": ["OwnershipNominated(A,D)"]}, "activeStage": "nomination"},
+       {"call": ["A", "setPublisher", "A", false], "expect": {"ok": true, "events": ["PublisherChanged(A,false)"]}, "activeStage": null},
+       {"call": ["D", "acceptOwnership"], "expect": {"ok": true, "events": ["OwnershipTransferred(A,D)"]}, "activeStage": null}],
+     "final": {"owner": "D", "pendingOwner": null, "publishers": [], "current": 1, "activeWarning": null},
+     "warningStages": ["nomination"]},
+    {"id": "P-6", "tag": "cancelled nomination (U11)", "owner": "A", "versions": {"1": "published"}, "current": 1,
+     "steps": [
+       {"call": ["A", "transferOwnership", "D"], "expect": {"ok": true, "events": ["OwnershipNominated(A,D)"]}, "activeStage": "nomination"},
+       {"call": ["A", "transferOwnership", "0"], "expect": {"ok": true, "events": ["OwnershipNominated(A,0)"]}, "activeStage": null},
+       {"call": ["D", "acceptOwnership"], "expect": {"revert": "NotPendingOwner(D)"}},
+       {"call": ["A", "transferOwnership", "A"], "expect": {"revert": "InvalidCandidate(A)"}}],
+     "final": {"owner": "A", "pendingOwner": null, "publishers": ["A"], "current": 1, "activeWarning": null},
+     "warningStages": ["nomination"]}
+  ]
+}

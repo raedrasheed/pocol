@@ -1,0 +1,96 @@
+{
+  "oracle": "Native Node TextEncoder, Buffer big-endian lengths and base64; independent of Python codec",
+  "node": "v22.13.1",
+  "rows": [
+    {
+      "id": "codec-0",
+      "dict": {},
+      "keys": [],
+      "hex": "",
+      "b64": "",
+      "bytes": 0
+    },
+    {
+      "id": "codec-1",
+      "dict": {
+        "a": "b"
+      },
+      "keys": [
+        "a"
+      ],
+      "hex": "00000001610000000162",
+      "b64": "AAAAAWEAAAABYg==",
+      "bytes": 10
+    },
+    {
+      "id": "codec-2",
+      "dict": {
+        "": "",
+        "x": ""
+      },
+      "keys": [
+        "",
+        "x"
+      ],
+      "hex": "0000000000000000000000017800000000",
+      "b64": "AAAAAAAAAAAAAAABeAAAAAA=",
+      "bytes": 17
+    },
+    {
+      "id": "codec-3",
+      "dict": {
+        "2": "two",
+        "10": "ten"
+      },
+      "keys": [
+        "10",
+        "2"
+      ],
+      "hex": "0000000231300000000374656e00000001320000000374776f",
+      "b64": "AAAAAjEwAAAAA3RlbgAAAAEyAAAAA3R3bw==",
+      "bytes": 25
+    },
+    {
+      "id": "codec-4",
+      "dict": {
+        "ع": "سلام",
+        "a": "😀"
+      },
+      "keys": [
+        "a",
+        "ع"
+      ],
+      "hex": "000000016100000004f09f988000000002d8b900000008d8b3d984d8a7d985",
+      "b64": "AAAAAWEAAAAE8J+YgAAAAALYuQAAAAjYs9mE2KfZhQ==",
+      "bytes": 31
+    },
+    {
+      "id": "codec-5",
+      "dict": {
+        "é": "é",
+        "é": "é"
+      },
+      "keys": [
+        "é",
+        "é"
+      ],
+      "hex": "0000000365cc8100000002c3a900000002c3a90000000365cc81",
+      "b64": "AAAAA2XMgQAAAALDqQAAAALDqQAAAANlzIE=",
+      "bytes": 26
+    }
+  ],
+  "unresolvedCollision": {
+    "dict": {
+      "\ud800": "a",
+      "\ud801": "b"
+    },
+    "keys": [
+      "\ud800",
+      "\ud801"
+    ],
+    "hex": "00000003efbfbd000000016100000003efbfbd0000000162",
+    "b64": "AAAAA++/vQAAAAFhAAAAA++/vQAAAAFi",
+    "bytes": 24
+  },
+  "recordBytesMax": 1442048
+}

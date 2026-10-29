@@ -1,0 +1,9 @@
+# reopen at H_END on 748b16d, 2026-10-28T12:42:35Z, load 0.66 0.93 1.08
+0	/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/hend/LOCK
+4160	/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/hend/blocks.commit
+260616349	/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/hend/blocks.journal
+138326016	/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/hend/blocks.journal.torn-0
+81661952	/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/hend/history.redb
+4	/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/hend/retention.rkeep
+101527552	/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/hend/state.redb
+# stopped at 2026-10-28T14:23:53Z after 1 h 41 min: it was replaying from genesis (state.redb started over at 13:20; a stack sample showed Chain::rebuild_canonical's walk to genesis under every insert, quadratic in a replay from genesis). Its checkpoints were not used; why is not known (the node log was off, and the store was started over, so the checkpoints are gone).

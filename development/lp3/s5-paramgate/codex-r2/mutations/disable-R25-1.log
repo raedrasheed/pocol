@@ -1,0 +1,15 @@
+error[E0433]: failed to resolve: use of undeclared type `InputError`
+   --> /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:330:61
+    |
+330 |     assert_eq!(reject_unknown_fields(&v, &["profile"]), Err(InputError::UnknownField("sysOk".into())));
+    |                                                             ^^^^^^^^^^ use of undeclared type `InputError`
+
+error[E0433]: failed to resolve: use of undeclared type `InputError`
+   --> /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:331:83
+    |
+331 |     assert_eq!(reject_unknown_fields(&serde_json::json!(null), &["profile"]), Err(InputError::ExpectedObject));
+    |                                                                                   ^^^^^^^^^^ use of undeclared type `InputError`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0433`.

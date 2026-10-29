@@ -1,0 +1,13 @@
+{
+  "path": "/workspace/work/lp4/p4-system-retention-r5/genesis-r7-vectors.json",
+  "bytes": 1211883,
+  "sha256": "fb7f08886676acac5b784aeb8dbe79d6f3d125d062bae37ffc8e0e1cc81edbd0",
+  "publication": "Complete full-state vectors LOCAL and required in exact-source CI artifact; public compact result/receipt/reproducer only",
+  "genesisMembers": [
+    4,
+    1024
+  ],
+  "signedUserSysComparisons": 8,
+  "repeatByteIdentical": true,
+  "bootable": false
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "pocol-m1-import-fetch-rules/1",
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-10 (B7 rev 2; replaces the 0.4 'U33 owner question')",
+  "distinction": "FD:L3262-3264 lists two CI rules under dependency-cruiser. Rule 1 (Bridge imports neither WalletSubmit nor HttpTransport) is an import-graph rule; dependency-cruiser enforces it, with the rule text in m1-draft-0.4/annex/dependency-rules.json (unchanged). Rule 2 (no module calls fetch except HttpTransport) concerns the global fetch, which is not imported, so dependency-cruiser alone cannot see it. Realization (technical, not an owner decision): rule 2 = (a) dependency-cruiser rule 'httptransport-importers-closed' for module access to the transport, plus (b) the ESLint configuration below for global network APIs. Both run in the same CI step and either failing fails BR-dep. The baseline's intent and failure consequence (FD:L2459) are unchanged.",
+  "dependencyCruiserFile": "module.exports = {\n  forbidden: [\n    { name: 'bridge-no-walletsubmit-no-transport', severity: 'error', from: { path: '^src/bridge/' }, to: { path: '^src/(wallet/WalletSubmit|net/HttpTransport)\\\\.ts$' } },\n    { name: 'bridge-no-malicioushttp', severity: 'error', from: { path: '^src/bridge/' }, to: { path: '^test/malicious/' } },\n    { name: 'httptransport-importers-closed', severity: 'error', from: { pathNot: '^(src/(net/RpcReadClient|wallet/WalletSubmit|logs/LogClient|trust/HeaderNetCheck|trust/NetworkProfiles|content/ChunkFetcher|net/HttpTransport)\\\\.ts|test/.*)$' }, to: { path: '^src/net/HttpTransport\\\\.ts$' } },\n    { name: 'src-no-test-imports', severity: 'error', from: { path: '^src/' }, to: { path: '^test/' } }\n  ]\n};\n",
+  "eslintFlatConfig": "export default [{\n  files: ['src/**/*.ts'],\n  ignores: ['src/net/HttpTransport.ts'],\n  rules: {\n    'no-restricted-globals': ['error', 'fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'Request'],\n    'no-restricted-properties': ['error', { object: 'globalThis', property: 'fetch' }, { object: 'self', property: 'fetch' }, { object: 'window', property: 'fetch' }],\n    'no-restricted-syntax': ['error',\n      { selector: \"MemberExpression[computed=true][object.name=/^(globalThis|self|window)$/]\", message: 'FD:L3264: no computed access to global network APIs' },\n      { selector: \"CallExpression[callee.object.name='Reflect'][arguments.0.name=/^(globalThis|self|window)$/]\", message: 'FD:L3264' },\n      { selector: \"CallExpression[callee.name='importScripts']\", message: 'FD:L1234' }]\n  }\n}];\n",
+  "sourceFixtures": {
+    "status": "Expected verdicts for the CI tools; not executed in Phase S (no ESLint or dependency-cruiser install is permitted). They become the BR-dep acceptance fixtures when CI exists (Phase D/A).",
+    "cases": [
+      {"file": "src/viewer/A.ts", "source": "fetch('http://x/')", "expected": "flag: no-restricted-globals"},
+      {"file": "src/viewer/B.ts", "source": "globalThis.fetch('http://x/')", "expected": "flag: no-restricted-properties"},
+      {"file": "src/viewer/C.ts", "source": "self['fetch']('http://x/')", "expected": "flag: no-restricted-syntax (computed)"},
+      {"file": "src/viewer/D.ts", "source": "const g = globalThis; g['fe' + 'tch']('http://x/')", "expected": "NOT flagged: aliasing through a local variable", "residual": true},
+      {"file": "src/viewer/E.ts", "source": "Reflect.get(globalThis, 'fetch')('http://x/')", "expected": "flag: no-restricted-syntax (Reflect)"},
+      {"file": "src/viewer/F.ts", "source": "new XMLHttpRequest()", "expected": "flag: no-restricted-globals"},
+      {"file": "src/net/HttpTransport.ts", "source": "fetch(url, init)", "expected": "not flagged (ignored file)"},
+      {"file": "src/bridge/BridgeAuth.ts", "source": "import { HttpTransport } from '../net/HttpTransport'", "expected": "flag: dependency-cruiser bridge-no-walletsubmit-no-transport and httptransport-importers-closed"}
+    ],
+    "residualMitigation": "The aliasing residual (case D) is recorded, not hidden. Additional runtime defence, proposed for Phase D: the extension worker replaces globalThis.fetch with a throwing stub after HttpTransport captures the original at module load. Its test: any call to globalThis.fetch outside HttpTransport throws."
+  }
+}

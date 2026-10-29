@@ -1,0 +1,70 @@
+{
+ "alternatives": {
+  "a": "storage keys of the five programs changed by USER count (recommended)",
+  "b": "an Escrow tip credit counts too"
+ },
+ "constants": {
+  "SYS_KEYS_USER_MAX": 256,
+  "USER_SYS_ACCOUNTS": 16
+ },
+ "recommended": "a",
+ "rule": "D-A03-SYSUSER",
+ "scenarios": [
+  {
+   "closing": false,
+   "expected": {
+    "a": {
+     "halt": null
+    },
+    "b": {
+     "halt": null
+    }
+   },
+   "id": "S1 ordinary block, transaction with a tip",
+   "sysStorageKeys": 0,
+   "tip": true
+  },
+  {
+   "closing": true,
+   "expected": {
+    "a": {
+     "halt": null
+    },
+    "b": {
+     "halt": "SysWriteClosing"
+    }
+   },
+   "id": "S2 closing, transaction with a tip",
+   "sysStorageKeys": 0,
+   "tip": true
+  },
+  {
+   "closing": true,
+   "expected": {
+    "a": {
+     "halt": "SysWriteClosing"
+    },
+    "b": {
+     "halt": "SysWriteClosing"
+    }
+   },
+   "id": "S3 closing, a USER write to program storage",
+   "sysStorageKeys": 1,
+   "tip": false
+  },
+  {
+   "closing": false,
+   "expected": {
+    "a": {
+     "halt": "SysKeys"
+    },
+    "b": {
+     "halt": "SysKeys"
+    }
+   },
+   "id": "S4 257 USER writes to program storage",
+   "sysStorageKeys": 257,
+   "tip": false
+  }
+ ]
+}

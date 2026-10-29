@@ -1,0 +1,39 @@
+{
+ "tree": "8039a0910ffec3d32dbf9d39f21ea0c90e771f63",
+ "runner": "run_mutations_rpcguard_r3.py",
+ "mutants": [
+  {
+   "id": "N2-MAINQ-WAIT-TO-WORK-DEADLINE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "queue_wait_bounds_the_wait_on_a_full_main_queue"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "queue_wait_bounds_the_wait_on_a_full_main_queue",
+     "OK",
+     306.8
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "queue_wait_bounds_the_wait_on_a_full_main_queue"
+     ],
+     "FAILED",
+     372.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  }
+ ]
+}

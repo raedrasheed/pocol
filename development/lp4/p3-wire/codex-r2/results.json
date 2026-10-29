@@ -1,0 +1,21 @@
+{
+  "scope": "isolated USER phase; not full PoCol apply/block/persist acceptance",
+  "rustTests": 64,
+  "ignored": 0,
+  "sequentialActualSignedTransactions": 4,
+  "expectedReverts": 1,
+  "storageClearRefund": 4800,
+  "compiledAssertionControls": 6,
+  "lateWrongChainTypeLegacyControls": 8,
+  "corruptCommitmentControls": [
+    "transactionsRoot",
+    "receiptsRoot",
+    "gasUsed",
+    "bloom"
+  ],
+  "inputSnapshotUnchanged": true,
+  "P2": "NOT PASSED",
+  "P3": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false
+}

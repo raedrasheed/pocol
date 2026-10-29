@@ -1,0 +1,167 @@
+{
+  "checks": 23,
+  "passed": 23,
+  "failed": 0,
+  "results": [
+    {
+      "check": "deep-root-1",
+      "bytes": 2,
+      "expected": "gsVersion",
+      "actual": "gsVersion",
+      "pass": true
+    },
+    {
+      "check": "deep-top-field-1",
+      "bytes": 342,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-cp-leaf-1",
+      "bytes": 338,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-member-id-1",
+      "bytes": 322,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-truncated-1",
+      "bytes": 1,
+      "expected": "L0",
+      "actual": "L0",
+      "pass": true
+    },
+    {
+      "check": "deep-root-10",
+      "bytes": 11,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-top-field-10",
+      "bytes": 351,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-cp-leaf-10",
+      "bytes": 347,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-member-id-10",
+      "bytes": 331,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-truncated-10",
+      "bytes": 10,
+      "expected": "L0",
+      "actual": "L0",
+      "pass": true
+    },
+    {
+      "check": "deep-root-1500",
+      "bytes": 4291,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-top-field-1500",
+      "bytes": 4631,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-cp-leaf-1500",
+      "bytes": 4628,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-member-id-1500",
+      "bytes": 4614,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-truncated-1500",
+      "bytes": 4290,
+      "expected": "L0",
+      "actual": "L0",
+      "pass": true
+    },
+    {
+      "check": "deep-root-5000",
+      "bytes": 14791,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-top-field-5000",
+      "bytes": 15131,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-cp-leaf-5000",
+      "bytes": 15128,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-member-id-5000",
+      "bytes": 15114,
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "pass": true
+    },
+    {
+      "check": "deep-truncated-5000",
+      "bytes": 14790,
+      "expected": "L0",
+      "actual": "L0",
+      "pass": true
+    },
+    {
+      "check": "wrapped-version-integer",
+      "bytes": 342,
+      "expected": "gsInt",
+      "actual": "gsInt",
+      "pass": true
+    },
+    {
+      "check": "valid-gsv-after-rejections",
+      "bytes": 341,
+      "expected": "ok",
+      "actual": "ok",
+      "pass": true
+    },
+    {
+      "check": "valid-round-trip",
+      "expected": "f9015201830bdeaef8b1846553f1009f010000000000000000000000000000000000000000000000000000000000000a82025801023c06200282010010408203e88201f48301388089056bc75e2d631000000282010001824000104010818082040082080082089804822000837a1200843b9aca008302000083030000828000844000000085020000000083989680833d0900830f4240830200008208008201008202008405b8d80081c88465ec8780288465ec878081a0818002a02222222222222222222222222222222222222222222222222222222222222222f856ea94a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a194b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1ea94a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a294b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a03333333333333333333333333333333333333333333333333333333333333333",
+      "actual": "f9015201830bdeaef8b1846553f1009f010000000000000000000000000000000000000000000000000000000000000a82025801023c06200282010010408203e88201f48301388089056bc75e2d631000000282010001824000104010818082040082080082089804822000837a1200843b9aca008302000083030000828000844000000085020000000083989680833d0900830f4240830200008208008201008202008405b8d80081c88465ec8780288465ec878081a0818002a02222222222222222222222222222222222222222222222222222222222222222f856ea94a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a194b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1ea94a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a294b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a03333333333333333333333333333333333333333333333333333333333333333",
+      "pass": true
+    }
+  ]
+}

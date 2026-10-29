@@ -1,0 +1,11 @@
+{
+  "testedCommit": "72c32ae9ae6e44b49091b4e12285ccf84239003b",
+  "sourceSha256": {
+    "prototypes/lp1-node/src/asert.rs": "8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502",
+    "prototypes/lp1-node/src/rewards.rs": "ec98f0ef72ff5f9ba6e62c68cc41d966035254c36efabebca9958764582e4696",
+    "prototypes/lp1-node/tests/asert_named.rs": "6a32cf8e1685cfd9ba88dfef65c023032c6e49a21f2372ac87e78b3f816bc90c",
+    "prototypes/lp1-node/tests/rewards.rs": "78060a2c372fbce651d64f67728103541a7b74451c51166bf6b5d4546853b1f7",
+    "prototypes/lp3-model/model.ts": "0b5cc2c584b7fd2935a2449e6b9a8b5885fb8a582fcd83c9db29c65247bf474d",
+    "prototypes/lp3-model/tests.ts": "0a0566c04c777ddb742fab8089513272c456607a2a7e8a45d95ba3d2e3f6ca73"
+  }
+}

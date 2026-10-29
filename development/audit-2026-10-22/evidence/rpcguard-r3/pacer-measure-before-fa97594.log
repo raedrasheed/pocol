@@ -1,0 +1,19 @@
+# SendPacer measurements (M2 honest throughput, M3 CPU per blocked connection), 3 runs
+# tree: fa9759415a8817512ee3420f8978853fa110d58d (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r3-before/tree)
+# witness sha256: 580734f82d20c0417fb1e706e32690b836098f6a28863d3a472dc98b21723883
+# command: flock cpu.lock cargo test --release --locked --offline --test zz_audit_witness_rpcguard_r3 -- --test-threads=1 --nocapture
+Linux 6.18.44-fc-v153 x86_64
+4
+## run 1 2026-10-23T21:46:48Z
+test m2_pacer_honest_throughput ... M2 {"medianMiBps":57.90276536592361,"paceWriteRuns":[{"MiBps":59.043784011704865,"bytes":14681122,"ms":237},{"MiBps":56.84036115072715,"bytes":14681122,"ms":246},{"MiBps":56.9522151551157,"bytes":14681122,"ms":245},{"MiBps":63.40817765800938,"bytes":14681122,"ms":220},{"MiBps":57.90276536592361,"bytes":14681122,"ms":241}],"rawDefaultMiBps":3016.142797319974}
+test m3_pacer_cpu_per_blocked_connection ... M3 {"conns":16,"idleCpuCores":0.005410536709267982,"perSlowReaderConnCores":0.013732030431299171,"perUnreadConnCores":0.012479358320532942,"slowReaderBytesMax":496299,"slowReaderBytesMin":411307,"slowReaderCpuCores":0.2251230236100547,"slowReaderPacerCloses":0,"unreadCpuCores":0.20508026983779504,"unreadPacerCloses":16}
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.05s
+## run 2 2026-10-23T21:47:45Z
+test m2_pacer_honest_throughput ... M2 {"medianMiBps":87.84085410332848,"paceWriteRuns":[{"MiBps":87.84085410332848,"bytes":14681122,"ms":159},{"MiBps":60.150968598283505,"bytes":14681122,"ms":232},{"MiBps":92.91032858679,"bytes":14681122,"ms":150},{"MiBps":56.458574675210905,"bytes":14681122,"ms":247},{"MiBps":93.68564690591394,"bytes":14681122,"ms":149}],"rawDefaultMiBps":2446.3681331173016}
+test m3_pacer_cpu_per_blocked_connection ... M3 {"conns":16,"idleCpuCores":0.004788122698325296,"perSlowReaderConnCores":0.01263611636920192,"perUnreadConnCores":0.013739061494399197,"slowReaderBytesMax":496299,"slowReaderBytesMin":419499,"slowReaderCpuCores":0.206965984605556,"slowReaderPacerCloses":0,"unreadCpuCores":0.22461310660871245,"unreadPacerCloses":16}
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.54s
+## run 3 2026-10-23T21:48:41Z
+test m2_pacer_honest_throughput ... M2 {"medianMiBps":58.165902955318515,"paceWriteRuns":[{"MiBps":61.08994384958899,"bytes":14681122,"ms":229},{"MiBps":56.244006854327736,"bytes":14681122,"ms":248},{"MiBps":62.81294315931511,"bytes":14681122,"ms":222},{"MiBps":56.24281233479064,"bytes":14681122,"ms":248},{"MiBps":58.165902955318515,"bytes":14681122,"ms":240}],"rawDefaultMiBps":2526.5118204631085}
+test m3_pacer_cpu_per_blocked_connection ... M3 {"conns":16,"idleCpuCores":0.005141164546724984,"perSlowReaderConnCores":0.013059049155116596,"perUnreadConnCores":0.012292127256850518,"slowReaderBytesMax":496299,"slowReaderBytesMin":414379,"slowReaderCpuCores":0.21408595102859052,"slowReaderPacerCloses":0,"unreadCpuCores":0.20181520065633327,"unreadPacerCloses":16}
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.94s
+# done 2026-10-23T21:49:34Z

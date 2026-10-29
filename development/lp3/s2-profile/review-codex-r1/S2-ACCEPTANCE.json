@@ -1,0 +1,94 @@
+{
+  "reviewedCommit": "f7b521591fa5b3d9a039c8157e0a50d1acee2a86",
+  "date": "2026-10-17",
+  "reviewer": "Codex, separate review pass; not a separate external reviewer",
+  "criterion": "LP3 S2 only",
+  "verdict": "PASS",
+  "blockingImplementationFindings": [],
+  "criteria": {
+    "all52CpTypesMappingBounds": "PASS",
+    "forkScheduleOriginAndHeights": "PASS",
+    "unsupportedVersionsRejected": "PASS",
+    "genesisHashAndChainIdBinding": "PASS",
+    "profileAndNodeKindGates": "PASS",
+    "identityOnlyNonbootable": "PASS",
+    "M1AndPriorEvidencePreserved": "PASS"
+  },
+  "checks": [
+    {
+      "name": "regression (lib/fixtures/GenesisSpec/S2)",
+      "status": "PASS",
+      "passed": 83
+    },
+    {
+      "name": "review-authored tests",
+      "status": "PASS",
+      "passed": 5,
+      "details": "52 fields, 65536 version values, 1000 seeded CP/profile cases plus binding/gate negatives"
+    },
+    {
+      "name": "fixture verification",
+      "status": "PASS",
+      "details": "22 window cases, 1027 ASERT rows, 3677 hashes, K1-K3"
+    },
+    {
+      "name": "Linux unsupported-writer test",
+      "status": "PASS",
+      "passed": 1
+    },
+    {
+      "name": "privacy compile-negative probes",
+      "status": "PASS",
+      "passed": 2,
+      "expectedCompilerExitCode": 1
+    },
+    {
+      "name": "build/rustfmt/protected-tree comparison/author checksums",
+      "status": "PASS"
+    },
+    {
+      "name": "initial shared-cache regression",
+      "status": "FAIL",
+      "resolved": true,
+      "details": "12 fixture tests failed on stale embedded temporary fixture path; rebuilt in fresh isolated target and all 83 regression tests passed. Not an S2 source failure."
+    },
+    {
+      "name": "Windows execution and Windows-only writer/crash checks",
+      "status": "BLOCKED BY PLATFORM",
+      "details": "Linux host; no new Windows execution claimed."
+    },
+    {
+      "name": "full S1 differential/allocation suites",
+      "status": "NOT RUN",
+      "details": "Accepted source unchanged; existing exact-commit evidence retained."
+    },
+    {
+      "name": "full ParamGate, builder/boot, S3-S8",
+      "status": "NOT RUN",
+      "details": "Outside S2 increment; not accepted by this review."
+    },
+    {
+      "name": "GitHub live PR metadata and checks",
+      "status": "NOT RUN",
+      "details": "No usable API access established; user supplied placeholder PR number, not guessed."
+    }
+  ],
+  "findings": [
+    {
+      "id": "RV1",
+      "severity": "non-blocking reproducibility",
+      "status": "resolved for this review; harness recommendation remains",
+      "details": "Author mutation runner shares one CARGO_TARGET_DIR across scratch copies. Cargo 1.58 reused compile-time temporary CARGO_MANIFEST_DIR in later regression build. Use separate target per mutant and separate clean review target. Historical author evidence was left unchanged."
+    }
+  ],
+  "limitations": [
+    "Only protocol v1 is implemented; TestFork-v2 is rejected even for simnet.",
+    "Kind gates cover named network chainId 777001 and simnet/synthetic classification; not arbitrary custom-network configuration or a full R1-R26 implementation.",
+    "ConsensusParams public fields are raw typed data and can be edited; from_values validates schema. ProfileIdentity fields remain private and immutable, so raw data does not grant validated identity or boot.",
+    "No real allocRoot/sysCodeHash builder verification, no startup integration or boot authorization, and no Windows execution.",
+    "This is a separate Codex review pass with new tests, not an external reviewer or formal GitHub approval."
+  ],
+  "merged": false,
+  "S3Started": false,
+  "fullLP3Accepted": false
+}

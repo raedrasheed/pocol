@@ -1,0 +1,93 @@
+# caps round 2: mutation check of tests/caps.rs (outputs only; the runner and the mutant edits stay in scratch)
+# base commit c6355945cb35c425bb0b4ce3f78fcc0c78a8d5db (clean tree under prototypes/); release; own target dir; shared CPU lock
+# each mutant: one source edit in pocold src/node.rs or src/chain.rs, then
+#   (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --test caps)
+# KILLED = the suite fails (exit 101) without a compile error; a TIMEOUT or compile error would be INCOMPLETE
+# the mutants are the independent review's (M1 as its corrected `if false` variant); the review's six survivors are M2a, M2b, M2f, M2h, M3a, M3b
+
+## baseline, unmutated, at c635594
+test counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary ... ok
+test a_received_template_past_the_caps_is_treated_as_absent ... ok
+CAPS {"cumTxBytes":226,"profile":"txbytes_cap=a0+b0-0=226","roomLeft":0,"templateSizes":[2,0,0]}
+CAPS {"cumTxBytes":113,"profile":"txbytes_cap=a0+b0-1=225","roomLeft":112,"templateSizes":[1,0,0]}
+test txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16 ... ok
+CAPS {"cumTxs":5,"head":25,"pool":5,"profile":"tx_cap=5","templateSizes":[5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
+test tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing ... ok
+CAPS {"cumTxBytes":339,"pool":3,"profile":"txbytes_cap=395","templateSizes":[3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
+test txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones ... ok
+CAPS {"cumTxBytes":339,"cumTxs":3,"head":8,"profile":"live txcap","rejects":[],"seconds":7.343261149,"signed":[true,true,true,true,true,true,true,true]}
+CAPS {"cumTxBytes":226,"cumTxs":2,"head":8,"profile":"live txbytes","rejects":[],"seconds":7.345481862,"signed":[true,true,true,true,true,true,true,true]}
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... ok
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... ok
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.45s
+
+## mutants
+M1 builder fix reverted (no cap skip)                          KILLED   exit 101, 1 passed, 6 failed, 251s
+    FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+    FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+    FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+    FAILED a_mining_devnet_node_keeps_producing_past_txbytes_cap
+    test result: FAILED. 1 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 240.12s
+M2a builder bytes off-by-one strict (>=)                       KILLED   exit 101, 6 passed, 1 failed, 43s
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.89s
+M2b builder bytes off-by-one lenient (>room+1)                 KILLED   exit 101, 6 passed, 1 failed, 18s
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.50s
+M2c builder count off-by-one lenient (room+1)                  KILLED   exit 101, 4 passed, 3 failed, 212s
+    FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+    FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+    FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+    test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.39s
+M2d builder count off-by-one strict (room<=1)                  KILLED   exit 101, 4 passed, 3 failed, 18s
+    FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+    FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+    FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+    test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.60s
+M2e item16 count off-by-one strict (<)                         KILLED   exit 101, 3 passed, 4 failed, 251s
+    FAILED a_received_template_past_the_caps_is_treated_as_absent
+    FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+    FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+    FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+    test result: FAILED. 3 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 240.08s
+M2f item16 bytes off-by-one strict (<)                         KILLED   exit 101, 6 passed, 1 failed, 18s
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.18s
+M2g item16 count lenient (<=cap+1)                             KILLED   exit 101, 4 passed, 3 failed, 19s
+    FAILED a_received_template_past_the_caps_is_treated_as_absent
+    FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+    FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+    test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.02s
+M2h item16 bytes lenient (<=cap+1)                             KILLED   exit 101, 6 passed, 1 failed, 19s
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.43s
+M3a builder bytes counted with the RLP item header (enc)       KILLED   exit 101, 6 passed, 1 failed, 19s
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.01s
+M3b item16 bytes counted with a 2-byte header                  KILLED   exit 101, 6 passed, 1 failed, 19s
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.80s
+M3c builder never decrements the byte room                     KILLED   exit 101, 4 passed, 3 failed, 251s
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+    FAILED a_mining_devnet_node_keeps_producing_past_txbytes_cap
+    test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 240.13s
+M6 template locking ignores the caps                           KILLED   exit 101, 6 passed, 1 failed, 25s
+    FAILED a_received_template_past_the_caps_is_treated_as_absent
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.51s
+M7 item 16 removed from validate                               KILLED   exit 101, 3 passed, 4 failed, 19s
+    FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+    FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+    FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+    FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+    test result: FAILED. 3 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.60s
+M8 cum_txs from the head, not the parent                       KILLED   exit 101, 6 passed, 1 failed, 18s
+    FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.63s
+M9 sender's later txs not skipped                              KILLED   exit 101, 6 passed, 1 failed, 18s
+    FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+    test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+
+## result: 16 of 16 killed; survivors: none

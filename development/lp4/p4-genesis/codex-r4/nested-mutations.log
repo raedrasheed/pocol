@@ -1,0 +1,3 @@
+nested-gas-overallocation 0 101 True
+nested-revert-committed 0 101 True
+2 compiled SYS-01 primitive assertion controls verified; complete integration NOT PASSED

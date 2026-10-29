@@ -1,0 +1,97 @@
+{
+  "lp4-p2-controls/lp4-source-inventory.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 124359,
+    "rawSHA256": "6760be28e65fb5cf79ce7d0b6b888646030ed205e432174bd3d5dda3c9d7c5c1"
+  },
+  "lp4-p2-controls/lp4-runtime-notices/archive-sha256.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 99,
+    "rawSHA256": "083ba877de1dd4a649428699966d240149582f791453366289e2935228641761"
+  },
+  "lp4-p2-controls/lp4-runtime-notices/manifest.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 72051,
+    "rawSHA256": "62216eba9c3e01411a5b4efcd6a726aa77e9d147a6c55c65b1927e6103902b86",
+    "identicalPreservedPath": "development/lp4/p2-runtime/codex-r9/runtime-notice-manifest.json"
+  },
+  "lp4-p2-controls/lp4-runtime-notices/runtime-notices.tar.gz": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 106341,
+    "rawSHA256": "d7e162a574d55bbc82aa3914411536dad9e5ac9f5934773b5f6d78d538adcf0d",
+    "identicalPreservedPath": "development/lp4/p2-runtime/codex-r9/runtime-notices.tar.gz"
+  },
+  "lp4-p2-controls/lp4-controls/registry-vectors.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 2385180,
+    "rawSHA256": "9e4c06c559ba93bab3840030b3bd0ea26ba482c765890177376200200238fd49"
+  },
+  "lp4-p2-controls/lp4-controls/registry-write-counts.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 2680,
+    "rawSHA256": "2c4214103a1a615f95fbaae149204afb0d39c544b7c295021f71fb23e8f93408"
+  },
+  "lp4-p2-controls/lp4-controls/reward-durability.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 6217,
+    "rawSHA256": "c5aba9fa19ded72a527bb17cad422ef2d2b7c5212ec64d8dd87b279ed8a50b53"
+  },
+  "lp4-p2-controls/lp4-controls/registry-write-budget.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 6869,
+    "rawSHA256": "c858c9c5f743e68f8e6f553877e59c8bee064da8404e8cac188e0bc5909f5a98"
+  },
+  "lp4-p2-controls/lp4-controls/lifecycle-oracle.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 1615,
+    "rawSHA256": "0cbba09d1c79db9f62b2424a48d447a12559e26bd0e9c4347395c4da88815050"
+  },
+  "lp4-p2-controls/lp4-controls/registry-payment.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 50813,
+    "rawSHA256": "0186c9b0c722e272081163e6e0782cd1e95d19cbcd6e96634770bab94cfc58df"
+  },
+  "lp4-p2-controls/lp4-controls/lifecycle-vectors.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 1564,
+    "rawSHA256": "fca5964c17d23185abfb1a3205f73181b64e1bfac8ed610eefa588be4f2ffefc"
+  },
+  "lp4-p2-controls/lp4-controls/registry-write-vectors.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 11555,
+    "rawSHA256": "6f903271238f59d19b378d00530dc311f3a527424f3e6564ca2d44d69ac64537"
+  },
+  "lp4-p2-controls/lp4-controls/pay-oracle.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 59946,
+    "rawSHA256": "d2d8f02bf5771cc4d711e1136ab7e6cee934cfde0da92be11d338a5f2122a8a5"
+  },
+  "lp4-p2-controls/lp4-controls/pay-harness.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 16308,
+    "rawSHA256": "b324c129adcaf8ca91133d84b33af3f0d1ab6656d3f5004704e1a864935c6f15"
+  },
+  "lp4-p2-controls/lp4-controls/registry-oracle.json": {
+    "path": "development/lp4/p2-runtime/codex-r8/oracle-expanded.json.gz",
+    "rawSHA256": "7e003e642537c433240e1d67a8b24e7f31c8bae2a6c92e705aaf195b6eb4fd41"
+  },
+  "lp4-p2-controls/lp4-controls/pay-vectors.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 154431,
+    "rawSHA256": "3c49628e1b2ca0f6eb20db91c7e4d4dbd62d3c37dafa6a2798aa201032e3ae4e"
+  },
+  "lp4-p2-controls/lp4-controls/gst/runner-stderr.log": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 0,
+    "rawSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "lp4-p2-controls/lp4-controls/gst/cases.jsonl": {
+    "path": "development/lp4/p2-runtime/codex-r4/gst-source-final-cases.jsonl.gz",
+    "rawSHA256": "1bd455f96ded27e7f7f65253a3a3912f8044089ec60394cc036e994cb3c5a28b"
+  },
+  "lp4-p2-controls/lp4-controls/gst/sources.json": {
+    "downloadedArtifactMember": true,
+    "rawBytes": 422602,
+    "rawSHA256": "0b4d005162cea8b47e95651a98822da6b1cb1c3b118b2ef094e33cc6796bdba9"
+  }
+}

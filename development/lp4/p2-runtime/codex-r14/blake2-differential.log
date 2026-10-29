@@ -1,0 +1,1 @@
+PASS 160 independent native/pure-Python Blake2 comparisons; zero/1/10/12 rounds, modulo schedule, counters and final flags; full P2 NOT PASSED

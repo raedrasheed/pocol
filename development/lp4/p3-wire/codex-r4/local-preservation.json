@@ -1,0 +1,8 @@
+{
+  "path": "/workspace/work/lp4/p3-wire/preserved/r4-code01-full-evidence.tar.gz",
+  "bytes": 10980017,
+  "sha256": "44a1b37c9b8c3358713b41a0162d3e4dba237633d08ea40edc6943c6f37c335b",
+  "publication": "Complete raw archive LOCAL ONLY; source/fixtures/certificates and checksums public",
+  "contains": "All generated expanded signed cases; all20661 delta receipts/sources; all initial failed attempts; all mutant sources/build/assertion logs; full Rust output",
+  "bootable": false
+}

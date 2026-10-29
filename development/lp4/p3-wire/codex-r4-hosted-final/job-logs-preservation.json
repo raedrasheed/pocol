@@ -1,0 +1,34 @@
+{
+  "archivePath": "/workspace/work/lp4/p3-wire/preserved/r4-hosted-all-five-with-job-logs.tar.gz",
+  "archiveBytes": 5599825,
+  "archiveSHA256": "4a71ed54664bfbaba615307a92f14b447f93d9c85af93be3ed1ccd6348c1badd",
+  "decodedJobLogs": [
+    {
+      "name": "job-118647576367.log",
+      "bytes": 42008,
+      "sha256": "5c749aabfb6d4029e297931e8370ea263aeffbfd2815962b7b69c6d321acbe6f"
+    },
+    {
+      "name": "job-118647576382.log",
+      "bytes": 59673,
+      "sha256": "111ceb80b134d8a338577619f9c67c39a5bcbe936a844473b90a120794f947a1"
+    },
+    {
+      "name": "job-118647576434.log",
+      "bytes": 22831,
+      "sha256": "131f9b910a046b0dc1a3aee7a9bbe32a014da174faa3c8d047941624cca2186f"
+    },
+    {
+      "name": "job-118647576612.log",
+      "bytes": 110071,
+      "sha256": "f67c2333c179d7cd38c3f9aadff763213a6366bb49ad766a211d472b178b532d"
+    },
+    {
+      "name": "job-118655214171.log",
+      "bytes": 46364,
+      "sha256": "4412c6610eccbb41d72accdc1f87d3ab028be0f4ecf07185fced919864129f02"
+    }
+  ],
+  "publication": "All available artifact members and five full decoded job logs LOCAL ONLY; metadata/digests public. Prior archive remains unchanged.",
+  "bootable": false
+}

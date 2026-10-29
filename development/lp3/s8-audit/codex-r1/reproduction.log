@@ -1,0 +1,14 @@
+debug-build 0
+release-build 0
+portable-regression 0
+format 0
+http-process 0
+typecheck 0
+eleven-ts-tests 0
+assignment-oracle 0
+arithmetic-oracle 0
+genesis-oracle 0
+timing-oracle 0
+rust-mutations 0
+ts-mutations 0
+PASS local portable S8 gates; supported Windows journal/crash/process CI receipt still REQUIRED, not implied

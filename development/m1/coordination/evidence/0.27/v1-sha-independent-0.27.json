@@ -1,0 +1,284 @@
+{
+  "shaCases": [
+    {
+      "case": "SHA-S1",
+      "cache": true,
+      "observedActualShaCalls": 258,
+      "distinctInputs": 258,
+      "reportedShaCalls": 258,
+      "outcome": {
+        "ok": true,
+        "n": 1,
+        "anchoredGenesis": true,
+        "minWork": 4095,
+        "frame": true,
+        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u0640\u0631\u0623\u0633 \u0648\u0627\u062d\u062f \u062d\u062a\u0649 genesis\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629",
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-S1",
+      "cache": false,
+      "observedActualShaCalls": 516,
+      "distinctInputs": 258,
+      "reportedShaCalls": 516,
+      "outcome": {
+        "ok": true,
+        "n": 1,
+        "anchoredGenesis": true,
+        "minWork": 4095,
+        "frame": true,
+        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u0640\u0631\u0623\u0633 \u0648\u0627\u062d\u062f \u062d\u062a\u0649 genesis\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629",
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-S1bad",
+      "cache": true,
+      "observedActualShaCalls": 5,
+      "distinctInputs": 5,
+      "reportedShaCalls": 5,
+      "outcome": {
+        "ok": false,
+        "rule": "9",
+        "at": 1,
+        "detail": "T_share",
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "9"
+          }
+        },
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-S1bad",
+      "cache": false,
+      "observedActualShaCalls": 10,
+      "distinctInputs": 5,
+      "reportedShaCalls": 10,
+      "outcome": {
+        "ok": false,
+        "rule": "9",
+        "at": 1,
+        "detail": "T_share",
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "9"
+          }
+        },
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-W",
+      "cache": true,
+      "observedActualShaCalls": 3355,
+      "distinctInputs": 3355,
+      "reportedShaCalls": 3355,
+      "outcome": {
+        "ok": true,
+        "n": 13,
+        "anchoredGenesis": false,
+        "minWork": 4095,
+        "frame": true,
+        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u064013 \u0631\u0623\u0633\u064b\u0627\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629",
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-W",
+      "cache": false,
+      "observedActualShaCalls": 6721,
+      "distinctInputs": 3355,
+      "reportedShaCalls": 6721,
+      "outcome": {
+        "ok": true,
+        "n": 13,
+        "anchoredGenesis": false,
+        "minWork": 4095,
+        "frame": true,
+        "message": "RP: \u0645\u0631\u062a\u0628\u0637 \u0628\u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u064013 \u0631\u0623\u0633\u064b\u0627\u060c \u0628\u0639\u0645\u0644 \u0645\u062d\u062a\u0633\u0628 \u0644\u0627 \u064a\u0642\u0644 \u0639\u0646 4095 \u0644\u0643\u0644 \u0631\u0623\u0633 (work(ceilTarget))\u060c \u062f\u0648\u0646 \u062a\u062d\u0642\u0642 \u062a\u0646\u0641\u064a\u0630 \u0623\u0648 \u0639\u0636\u0648\u064a\u0629",
+        "rootReliance": false
+      },
+      "pass": true
+    }
+  ],
+  "retryCases": [
+    {
+      "reason": "busy",
+      "delay": 250,
+      "replies": 1,
+      "times": [
+        0,
+        0,
+        250
+      ],
+      "waitMs": 250,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 250,
+      "replies": 3,
+      "times": [
+        0,
+        0,
+        250,
+        500,
+        750
+      ],
+      "waitMs": 750,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 250,
+      "replies": 4,
+      "times": [
+        0,
+        0,
+        250,
+        500,
+        750
+      ],
+      "waitMs": 750,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 2000,
+      "replies": 1,
+      "times": [
+        0,
+        0,
+        2000
+      ],
+      "waitMs": 2000,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 2000,
+      "replies": 3,
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "waitMs": 6000,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 2000,
+      "replies": 4,
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "waitMs": 6000,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 0,
+      "replies": 1,
+      "times": [
+        0,
+        0,
+        0
+      ],
+      "waitMs": 0,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 0,
+      "replies": 3,
+      "times": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "waitMs": 0,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 0,
+      "replies": 4,
+      "times": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "waitMs": 0,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 2000,
+      "replies": 1,
+      "times": [
+        0,
+        0,
+        2000
+      ],
+      "waitMs": 2000,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 2000,
+      "replies": 3,
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "waitMs": 6000,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 2000,
+      "replies": 4,
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "waitMs": 6000,
+      "pass": true
+    }
+  ],
+  "checks": 18,
+  "passed": 18,
+  "failed": 0,
+  "rateCasesAreConditionalOnUnapprovedCap": true
+}

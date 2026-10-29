@@ -1,0 +1,3 @@
+   Compiling pocol-lp4-execution-create-gas-refund v0.1.0 (/workspace/work/lp4/p2-create/mutations-reviewed/gas-refund)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.14s
+  Executable tests/create_collision.rs (prototypes/lp4-execution/target/debug/deps/create_collision-11a5af2d339ff39d)

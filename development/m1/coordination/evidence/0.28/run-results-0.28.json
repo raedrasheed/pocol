@@ -1,0 +1,315 @@
+{
+  "package": "M1 draft 0.28 (retry-policy and status corrections; carried 0.27 evidence)",
+  "executedAtUtc": "2026-10-08T07:07:11+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "platform": "Windows-10-10.0.19045-SP0"
+  },
+  "summary": {
+    "checks": 49,
+    "passed": 33,
+    "recorded": 16,
+    "failed": 0,
+    "seconds": 0.4
+  },
+  "results": [
+    {
+      "sha256": "6521a497de3d80781bd8111490d5bbc7c380c50b28eeeef02019fe96f026eaea",
+      "check": "input.sha256 <package>/tools/run_checks_028.py",
+      "status": "recorded"
+    },
+    {
+      "sha256": "383bc6127d42016f0fb67db0244ccecb746fd86ae279f7ad020cdd8ecb43ac4e",
+      "check": "input.sha256 <package>/annex/C32-POLICY-CORRECTIONS.md",
+      "status": "recorded"
+    },
+    {
+      "sha256": "f15e920d5e2d337d7d36292e75ddf1fa36ccb2615668683456aa08ec0cb88c19",
+      "check": "input.sha256 <package>/owner/P-C32-2-CHANGE-REQUEST.md",
+      "status": "recorded"
+    },
+    {
+      "sha256": "614c242c2a5fc3916b77fce739ade7465da49afea94640bb193b949fef67b9c1",
+      "check": "input.sha256 <package>/vectors/u14-timing-cases.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "57446a3a525011f36fa2fa9bb673b2ee8f812a5679386b086017aa44cea3d233",
+      "check": "input.sha256 <package>/audit/carry-forward-0.28.json",
+      "status": "recorded"
+    },
+    {
+      "lines": [],
+      "check": "boundary.noOldMainCalled",
+      "status": "pass"
+    },
+    {
+      "imports": [
+        "ast",
+        "copy",
+        "hashlib",
+        "json",
+        "os",
+        "platform",
+        "sys",
+        "time"
+      ],
+      "check": "boundary.noNetworkOrCryptoRebuild",
+      "status": "pass"
+    },
+    {
+      "check": "boundary.positionalOnly",
+      "status": "pass"
+    },
+    {
+      "sha256": "56eac33b4a3dd8782a8e8f37ee92a2ad47a938266cfe402876a2bf52c6d34d49",
+      "check": "reuse.sha256 tools/v1_ref_027.py",
+      "status": "recorded"
+    },
+    {
+      "sha256": "30039cb1d48237ece53c4f809074ec2e06567f851c25dc62c4df440cc8aa1ce4",
+      "check": "reuse.sha256 tools/run_checks_027.py",
+      "status": "recorded"
+    },
+    {
+      "sha256": "f3db94c25175045567b7d6b4cd727484781055cb305fa7d829387d8932a181e9",
+      "check": "reuse.sha256 vectors/c32-error-cases.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "beddb1e38d5d5cd90c6351f651a83c8db4a024338b58944b2d7cf5eb0e94be4b",
+      "check": "reuse.sha256 vectors/v1-sha-accounting.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "42e11273269f58b5cd98d9ec0e173c3a441cbea0542943c2a6da1535e6725cfd",
+      "check": "reuse.sha256 annex/C32-RPC-ERROR-ENVELOPE.md",
+      "status": "recorded"
+    },
+    {
+      "sha256": "df9c37379ef744cef6b30c9a7d697443eaede66c99480fce0dd72ee8b40c548c",
+      "check": "reuse.sha256 annex/V1-SHA-COST.md",
+      "status": "recorded"
+    },
+    {
+      "sha256": "8e078ce7ae07e3c8e31673cc6f8536aa2243c8140d98b2da3781f2cac2cf21e0",
+      "check": "reuse.sha256 owner/V1-SHA-COST-CHANGE-REQUEST.md",
+      "status": "recorded"
+    },
+    {
+      "sha256": "0fed3de5f7c823d02af7ae98c648735363601c86e5153eba52678fe92ac3f70c",
+      "check": "reuse.sha256 audit/consolidation-0.27.json",
+      "status": "recorded"
+    },
+    {
+      "mismatches": [],
+      "check": "reuse.byteIdenticalToReviewedCopy",
+      "status": "pass"
+    },
+    {
+      "files": 12,
+      "changed": [],
+      "check": "reuse.wholeManifestUnchanged",
+      "status": "pass"
+    },
+    {
+      "file": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json",
+      "sha256": "000738339963ea27e4419bff4b686b65f31f6be35bb7909f82e92f21c5c504cf",
+      "check": "saved.sha256",
+      "status": "recorded"
+    },
+    {
+      "summary": {
+        "checks": 320,
+        "passed": 248,
+        "recorded": 72,
+        "failed": 0,
+        "partialGaps": 3,
+        "rows": {
+          "Partial": 7,
+          "CompleteCandidate": 34
+        },
+        "seconds": 97.4
+      },
+      "check": "saved.summary",
+      "status": "pass"
+    },
+    {
+      "counts": {
+        "Partial": 7,
+        "CompleteCandidate": 34
+      },
+      "check": "saved.rows",
+      "status": "pass"
+    },
+    {
+      "sha256": "904fcfe64de381c2c6ee362e59ad92be5e6a0e33f5f26a581e1e721f183909ae",
+      "checks": 26,
+      "failed": 0,
+      "check": "independent.busy-independent-probes-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "32862887b320ab5ea39f0bd08da0c3f53d6a22f91e864a345636a018d8fde64b",
+      "checks": 18,
+      "failed": 0,
+      "check": "independent.v1-sha-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "3bceaffed18d385816201ce9c16314272f93666a8974fbae1c31fe68b54446b9",
+      "checks": 3677,
+      "failed": 0,
+      "check": "independent.v1-hash-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "131c788ca37d939680f314f865dd0d792a2c660dae02e89ece91086aa36be120",
+      "checks": 31,
+      "failed": 0,
+      "check": "independent.v1-signatures-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "b183c80d27f93f4ef987a5c6636a2fb2cde43e945e13b4fec4f819e33d542b1e",
+      "checks": 1027,
+      "failed": 0,
+      "check": "independent.asert-native-comparison-0.27",
+      "status": "pass"
+    },
+    {
+      "changed": [],
+      "check": "source.unchangedSince0_27",
+      "status": "pass"
+    },
+    {
+      "line": "\u0643\u0644\u0641\u0629 \u0627\u0644\u0639\u0645\u064a\u0644: \u2264 14 \u0641\u0643 \u0631\u0623\u0633\u060c \u0648\u2264 13 ASERT \u0628\u0648\u0633\u0627\u0626\u0637 \u2264 512 \u0628\u062a\u064b\u0627\u060c \u0648\u2264 13 SHA-256.",
+      "check": "source.literalSha13Untouched",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "check": "ledger.statuses",
+      "status": "pass"
+    },
+    {
+      "check": "routing.P-C32-2",
+      "status": "pass"
+    },
+    {
+      "check": "routing.V1-SHA-COST",
+      "status": "pass"
+    },
+    {
+      "check": "corrections.statusTable",
+      "status": "pass"
+    },
+    {
+      "missing": [],
+      "check": "corrections.supersededTextsExist",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "check": "timing.source.fd905",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "check": "timing.source.rp374",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "check": "timing.source.retry",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "check": "timing.source.busy",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "check": "timing.source.bucket",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "conditional": "hypothetical latencies; no branch selected",
+      "check": "timing.U14-T1",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "conditional": "hypothetical latencies; no branch selected",
+      "check": "timing.U14-T2",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "conditional": "hypothetical latencies; no branch selected",
+      "check": "timing.U14-T3",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "conditional": "hypothetical latencies; no branch selected",
+      "check": "timing.U14-T4",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "conditional": "hypothetical latencies; no branch selected",
+      "check": "timing.U14-T5",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "conditional": "hypothetical latencies; no branch selected",
+      "check": "timing.U14-T6A",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "conditional": "hypothetical latencies; no branch selected",
+      "check": "timing.U14-T6C",
+      "status": "pass"
+    },
+    {
+      "cases": [
+        "U14-T2",
+        "U14-T3",
+        "U14-T5"
+      ],
+      "check": "timing.sleepBoundDoesNotBoundElapsed",
+      "status": "pass"
+    },
+    {
+      "values": {
+        "F1_single": 50,
+        "F1_batch20": 1000,
+        "F2_fill": 1000
+      },
+      "insideProposedCap": {
+        "F1_single": true,
+        "F1_batch20": true,
+        "F2_fill": true
+      },
+      "note": "conditional on assumed server formulas F1/F2; the source gives no rate-delay formula; F3/F4 unbounded",
+      "check": "rate.conditionalDerivations",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "U01, U02, U10, U14, CR-M1-01, U08, RF-E6-1, V1-SHA-COST and P-C32-2 unanswered; seven rows owner-blocked; M1 not complete",
+      "check": "gap.ownerDecisions",
+      "status": "recorded"
+    },
+    {
+      "missing": [],
+      "check": "coverage028.required",
+      "status": "pass"
+    }
+  ]
+}

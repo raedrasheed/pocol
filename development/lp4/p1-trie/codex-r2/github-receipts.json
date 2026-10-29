@@ -1,0 +1,36 @@
+{
+  "head": "3423bbf6ba995ba1c5d77ca69084905272135211",
+  "merge": {
+    "sha": "93ca35b97d7eeb9a11af539559e89d8e170b9a50",
+    "merged": true,
+    "message": "Pull Request successfully merged"
+  },
+  "checks": [
+    {
+      "name": "windows-regression",
+      "status": "completed",
+      "conclusion": "success",
+      "id": 117432111509,
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39045090526/job/117432111509"
+    }
+  ],
+  "review": [
+    {
+      "body": "<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {\"code_review\":{\"commit_sha\":\"3423bbf6ba995ba1c5d77ca69084905272135211\",\"has_any_findings\":false,\"has_unresolved_findings\":false,\"status\":\"completed\"},\"security_review\":{\"commit_sha\":null,\"has_any_findings\":null,\"has_unresolved_findings\":null,\"status\":null}} -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ✅ **Completed** <relative-time datetime=\"2026-10-17T15:29:56.628775Z\">2026-10-17T15:29:56.628775Z</relative-time> | `3423bbf` | PR opened |\n\n\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.\n\n</details>",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/21#issuecomment-6235749445"
+    }
+  ],
+  "formalReviews": [],
+  "inlineComments": [],
+  "branchRequirements": {
+    "enabled": false,
+    "required_status_checks": {
+      "enforcement_level": "off",
+      "contexts": [],
+      "checks": []
+    }
+  },
+  "rulesets": [],
+  "expectedTree": "510b3e018f233f95351926a9d5e81e80d7c28158",
+  "bootable": false
+}

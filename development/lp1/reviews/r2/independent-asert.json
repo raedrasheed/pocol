@@ -1,0 +1,12 @@
+{
+  "rows": 1027,
+  "expected": 1027,
+  "mismatches": [],
+  "ok": true,
+  "summaryRecord": {
+    "summary": "asert-batch",
+    "rows": 1027,
+    "matched": 1027,
+    "maxShiftBits": 511
+  }
+}

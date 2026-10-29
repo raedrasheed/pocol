@@ -1,0 +1,27 @@
+{
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-03 (C16)",
+  "semantics": "Steps run on one bridge_ref_05.Pending instance per sequence (or continue the named previous one). Step forms: [route, session, frame, frameId] -> records the outcome under the next label; [final, label] -> records the reply envelope target; [teardown, frame]; [settle, label]. 'label' names are fixture-local (r1, r2, ...) and map to the internal handle returned by route. Expected 'replies' give {toFrame, id}. Repeated frame ids are accepted: the baseline does not reject them, and this draft adds no rejection policy.",
+  "sequences": [
+    {"id": "PH1-same-id-two-sessions",
+     "steps": [["route", "A", "fA", 0, "r1"], ["route", "B", "fB", 0, "r2"], ["final", "r1"]],
+     "expected": {"replies": {"r1": {"toFrame": "fA", "id": 0}}, "counts": {"A": {"session": 0, "global": 1}, "B": {"session": 1, "global": 1}}},
+     "note": "Codex probe pendingSameIdAcrossSessions: 0.4 decremented B; the handle model decrements A"},
+    {"id": "PH2-repeated-id-one-frame",
+     "steps": [["route", "A", "fA", 7, "r1"], ["route", "A", "fA", 7, "r2"], ["final", "r2"]],
+     "expected": {"handlesDistinct": ["r1", "r2"], "replies": {"r2": {"toFrame": "fA", "id": 7}}, "counts": {"A": {"session": 1, "global": 1}}}},
+    {"id": "PH3-same-id-old-and-new-frame",
+     "steps": [["route", "A", "f1", 1, "r1"], ["teardown", "f1"], ["route", "A", "f2", 1, "r2"], ["settle", "r1"], ["final", "r2"]],
+     "expected": {"replies": {"r2": {"toFrame": "f2", "id": 1}}, "noReply": ["r1"], "counts": {"A": {"session": 0, "global": 0}}},
+     "note": "the orphan with id 1 settles without a reply; the new frame's id 1 gets its own reply"},
+    {"id": "PH4-completion-order",
+     "steps": [["route", "A", "fA", 1, "r1"], ["route", "A", "fA", 2, "r2"], ["final", "r2"], ["final", "r1"]],
+     "expected": {"replyOrder": [{"toFrame": "fA", "id": 2}, {"toFrame": "fA", "id": 1}]}},
+    {"id": "PH5-limit-counts-handles-not-ids",
+     "steps": [["route", "A", "fA", 9, "r1"], ["route", "A", "fA", 9, "r2"], ["route", "A", "fA", 9, "r3"], ["route", "A", "fA", 9, "r4"], ["route", "A", "fA", 9, "r5"]],
+     "expected": {"outcomes": {"r5": {"code": -32005, "data": {"reason": "pending"}}}, "counts": {"A": {"session": 4, "global": 4}}}},
+    {"id": "PH6-orphan-settle-wrong-session-impossible",
+     "steps": [["route", "A", "fA", 3, "r1"], ["route", "B", "fB", 3, "r2"], ["teardown", "fA"], ["settle", "r1"]],
+     "expected": {"counts": {"A": {"session": 0, "global": 1}, "B": {"session": 1, "global": 1}}}}
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "run": 39144253769,
+  "head": "d955756caa0c25a9d5f93a0e27410482564566fc",
+  "jobs": [
+    {
+      "id": 117724752426,
+      "name": "cancun-pay-controls",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned experimental toolchain and comparison tools",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify locked source archives and prepare default-runtime notices",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Reproduce compiler output and run actual Rust execution tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Compile PAY mutation controls",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Compile approved CREATE collision mutation controls",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Compile write-budget contradiction controls (not Registry acceptance)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Compile actual Registry and bridge mutation controls",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete pinned upstream Cancun control corpus",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 117724752505,
+      "name": "registry-windows-execution",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Actual pinned native execution on Windows",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 117724752542,
+      "name": "independent-cancun-comparison",
+      "status": "completed",
+      "conclusion": "failure",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Independent engine and frozen fixture sources",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete independent comparison (disagreement or timeout fails)",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 117724752577,
+      "name": "legacy-windows-regression",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserved full legacy Windows verification",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 12143335561,
+      "name": "lp4-p2-controls",
+      "bytes": 1112032,
+      "digest": "sha256:23357baf58147a27ae5e471ffef71cbbb76d24c1f9360ac39bf86878bdc70ee9",
+      "head": "d955756caa0c25a9d5f93a0e27410482564566fc"
+    },
+    {
+      "id": 12143211245,
+      "name": "lp4-legacy-windows",
+      "bytes": 27093,
+      "digest": "sha256:112fa6301cdbaf6f245c5896215f056a602befba50e44b677373e2c5cdfe3b0a",
+      "head": "d955756caa0c25a9d5f93a0e27410482564566fc"
+    },
+    {
+      "id": 12142698362,
+      "name": "lp4-native-windows",
+      "bytes": 4065,
+      "digest": "sha256:e8f58f5a965594307b6ed8b0e960fef5c4cef509c9664484210a33f40670a0e1",
+      "head": "d955756caa0c25a9d5f93a0e27410482564566fc"
+    },
+    {
+      "id": 12142084943,
+      "name": "lp4-independent-cancun",
+      "bytes": 127516,
+      "digest": "sha256:ba7f2457b041b5b040914b7ecd557990d62a15802f244c48b9dc017aa8729098",
+      "head": "d955756caa0c25a9d5f93a0e27410482564566fc"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/workspace/work/lp4/p4-system-decision/prototypes/lp4-execution/tests/gst_archive_independent.py", line 55, in <module>
+    if __name__=='__main__':archive(sys.argv[1],sys.argv[2])
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/work/lp4/p4-system-decision/prototypes/lp4-execution/tests/gst_archive_independent.py", line 27, in archive
+    row=json.loads(line);assert not set(row)-fields,'Unexpected publication field'
+                                ^^^^^^^^^^^^^^^^^^^
+AssertionError: Unexpected publication field

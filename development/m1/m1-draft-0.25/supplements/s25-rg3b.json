@@ -1,0 +1,67 @@
+{
+  "schema": "pocol-m1-supplement/0.25",
+  "id": "S25-RG3B",
+  "supplement": true,
+  "status": "proposed supplement for root review; not approved. Experiment definition only: no pocold, Node or chain run exists or is claimed.",
+  "closesGap": ["V2-definitionGap.DG-V2-1"],
+  "source": {"file": "reference/validation.md", "lines": [1007, 1007], "literals": ["بعد piece الثالث", "anchorNotCanonical", "commit(2)", "commit(3)", "خطاف قبل فحص المرساة"]},
+  "fixtureSource": {"file": "reference/validation.md", "lines": [985, 989], "literals": ["B يتفرع من 999", "A' يتفرع من 999", "ReferenceLogs"]},
+  "hookProtocol": {
+    "id": "P-RG3B-1",
+    "hookPoint": "The fetchEach tool's external sink handles each sink call before returning. The hook is armed for one event: 'piece(attempt, seq)' or 'begin(attempt)'. When that event arrives the handler does not return until the hook completes. LogClient sends its next request only after the sink call has returned.",
+    "fallbackIfSinkNotAwaited": "If the TypeScript LogClient does not await sink calls, the hook instead holds the next outgoing pocol_getLogs or eth_getBlockByNumber of the LogClient connection at the HTTP layer (RpcTap.hold) until the hook completes; the run records hookMode = 'transport'. The pass criteria are unchanged.",
+    "submit": "The harness delivers the target branch's blocks (B: 1000'..1080'; A': its fixture blocks from 1000) to the tested pocold from the fixture node that holds them, over the normal block-import path. Nothing goes through the LogClient connection.",
+    "adoptionSignal": "A separate control connection (tag 'control' in RpcRecorder, excluded from the LogClient counters) polls eth_getBlockByNumber('latest', false) every 100 ms. Adoption = the returned hash equals the target branch head hash recorded by the fixture builder.",
+    "timeLimit": "120000 ms from the submit. No adoption within the limit: the run is INCONCLUSIVE(setupTimeout); it is repeated, never counted as PASS.",
+    "preconditions": [
+      "Attempt 1 must have at least 4 pieces in total for the 'after the third piece' hook to leave a log request: 1024 blocks of about 32 KiB (validation.md:985) give about 32 MiB, and every reply is <= 8 MiB, so at least 4 replies. If attempt 1 commits with <= 3 pieces before the hook fires, the run is INVALID(setup).",
+      "work(B) > work(A) and work(A') > work(B) (validation.md:986-987); otherwise the fixture build reports 'tie' and the run is INVALID(setup)."
+    ]
+  },
+  "scripts": [
+    {"id": "RG3b-main", "range": [50, 1073], "hooks": [{"on": ["piece", 1, 2], "submit": "B"}],
+     "pass": ["the first pocol_getLogs after the hook returns -32022 {reason: anchorNotCanonical}",
+              "sink trace: begin(1, A head), piece(1, 0..2), abort(1, reorg), begin(2, B head), piece(2, 0..), commit(2)",
+              "attempt-2 content = ReferenceLogs(50, 1073, head of B), byte-equal: blocks 50..999 of the shared prefix and 1000'..1073' with LogBomb(2) data; zero log of A after 999",
+              "commit summary totalRequests = the number of LogClient requests in RpcRecorder (control connection excluded)",
+              "strict SinkChecker (m1-draft-0.20/tools/sink_checker_strict.py rules): no violation"]},
+    {"id": "RG3b-ABA", "range": [50, 1073], "hooks": [{"on": ["piece", 1, 2], "submit": "B"}, {"on": ["piece", 2, 2], "submit": "A'"}],
+     "pass": ["two aborts: abort(1, reorg) and abort(2, reorg), then begin(3, A' head) and commit(3)",
+              "attempt-3 content = ReferenceLogs(50, 1073, head of A')", "totalRequests as above", "strict SinkChecker: no violation"]},
+    {"id": "RG3b-beforeAnchor", "range": [50, 1073], "hooks": [{"on": ["begin", 1], "submit": "B"}],
+     "pass": ["the first pocol_getLogs of attempt 1 returns -32022 {reason: anchorNotCanonical}",
+              "sink trace: begin(1, A head), abort(1, reorg) with zero pieces, begin(2, B head), pieces, commit(2)",
+              "attempt-2 content = ReferenceLogs(50, 1073, head of B)", "strict SinkChecker: no violation"]}
+  ],
+  "modelAnalogue": {
+    "note": "Executed by tools/run_checks_025.py on the accepted 0.19 reference LogClient and MockLogServer (lc-data.json branches A, B, Ap; head 3000; three 1024-block pieces). The hook is a branch switch inside the matching sink call. The model has only three pieces, so 'after the third piece' is detected by the pre-commit head check H(3000), and the mid-attempt anchorNotCanonical path is exercised by a hook after the second piece. Expected values are hand-derived below, not taken from the model.",
+    "runs": [
+      {"id": "M-main", "hooks": [{"on": ["piece", 1, 2], "switchTo": "B"}], "range": [1, 3000],
+       "skeleton": [["begin", 1], ["piece", 1, 0], ["piece", 1, 1], ["piece", 1, 2], ["abort", 1, "reorg"], ["begin", 2], ["piece", 2, 0], ["piece", 2, 1], ["piece", 2, 2], ["commit", 2]],
+       "requests": [["H", "latest"], ["L", 1, 1024, "@A3000"], ["L", 1025, 2048, "@A3000"], ["L", 2049, 3000, "@A3000"], ["H", 3000],
+                    ["H", "latest"], ["L", 1, 1024, "@B3000"], ["L", 1025, 2048, "@B3000"], ["L", 2049, 3000, "@B3000"], ["H", 3000]],
+       "beginAnchors": ["@A3000", "@B3000"], "result": {"ref": "B", "from": 1, "to": 3000}, "discarded": [[1, {"ref": "A", "from": 1, "to": 3000}]]},
+      {"id": "M-midAttempt", "hooks": [{"on": ["piece", 1, 1], "switchTo": "B"}], "range": [1, 3000],
+       "skeleton": [["begin", 1], ["piece", 1, 0], ["piece", 1, 1], ["abort", 1, "reorg"], ["begin", 2], ["piece", 2, 0], ["piece", 2, 1], ["piece", 2, 2], ["commit", 2]],
+       "requests": [["H", "latest"], ["L", 1, 1024, "@A3000"], ["L", 1025, 2048, "@A3000"], ["L", 2049, 3000, "@A3000"],
+                    ["H", "latest"], ["L", 1, 1024, "@B3000"], ["L", 1025, 2048, "@B3000"], ["L", 2049, 3000, "@B3000"], ["H", 3000]],
+       "anchorNotCanonicalAtRequest": 4,
+       "beginAnchors": ["@A3000", "@B3000"], "result": {"ref": "B", "from": 1, "to": 3000}, "discarded": [[1, {"ref": "A", "from": 1, "to": 2048}]]},
+      {"id": "M-ABA", "hooks": [{"on": ["piece", 1, 2], "switchTo": "B"}, {"on": ["piece", 2, 2], "switchTo": "Ap"}], "range": [1, 3000],
+       "skeleton": [["begin", 1], ["piece", 1, 0], ["piece", 1, 1], ["piece", 1, 2], ["abort", 1, "reorg"],
+                    ["begin", 2], ["piece", 2, 0], ["piece", 2, 1], ["piece", 2, 2], ["abort", 2, "reorg"],
+                    ["begin", 3], ["piece", 3, 0], ["piece", 3, 1], ["piece", 3, 2], ["commit", 3]],
+       "requests": [["H", "latest"], ["L", 1, 1024, "@A3000"], ["L", 1025, 2048, "@A3000"], ["L", 2049, 3000, "@A3000"], ["H", 3000],
+                    ["H", "latest"], ["L", 1, 1024, "@B3000"], ["L", 1025, 2048, "@B3000"], ["L", 2049, 3000, "@B3000"], ["H", 3000],
+                    ["H", "latest"], ["L", 1, 1024, "@Ap3000"], ["L", 1025, 2048, "@Ap3000"], ["L", 2049, 3000, "@Ap3000"], ["H", 3000]],
+       "beginAnchors": ["@A3000", "@B3000", "@Ap3000"], "result": {"ref": "Ap", "from": 1, "to": 3000},
+       "discarded": [[1, {"ref": "A", "from": 1, "to": 3000}], [2, {"ref": "B", "from": 1, "to": 3000}]]},
+      {"id": "M-beforeAnchor", "hooks": [{"on": ["begin", 1], "switchTo": "B"}], "range": [1, 3000],
+       "skeleton": [["begin", 1], ["abort", 1, "reorg"], ["begin", 2], ["piece", 2, 0], ["piece", 2, 1], ["piece", 2, 2], ["commit", 2]],
+       "requests": [["H", "latest"], ["L", 1, 1024, "@A3000"],
+                    ["H", "latest"], ["L", 1, 1024, "@B3000"], ["L", 1025, 2048, "@B3000"], ["L", 2049, 3000, "@B3000"], ["H", 3000]],
+       "anchorNotCanonicalAtRequest": 2,
+       "beginAnchors": ["@A3000", "@B3000"], "result": {"ref": "B", "from": 1, "to": 3000}, "discarded": [[1, []]]}
+    ]
+  }
+}

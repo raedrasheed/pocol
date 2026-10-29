@@ -1,0 +1,32 @@
+{
+  "testedBase": "6ce5b5acab41c57da0ca1eb4ba62682185c6e359",
+  "scope": "P3 profile-bound signed/RPC/pool and negative execution controls only",
+  "rustTests": 86,
+  "ignored": 0,
+  "profileIndependentSignedCases": 9,
+  "profileChains": [
+    777001,
+    777902,
+    18446744073709551615
+  ],
+  "poolRpcCompiledControls": 10,
+  "wireCompiledControls": 13,
+  "userPhaseCompiledControls": 6,
+  "independentSignedCompiledControls": 3,
+  "negativeSignedCases": 1173,
+  "negativeNativeCategories": 1014,
+  "negativeType3Declared": 157,
+  "negativePriorityWire": 1,
+  "negativeOverU256Wire": 1,
+  "independentGethRejections": 1173,
+  "unmodifiedPyEvmRejected": 1100,
+  "unmodifiedPyEvmAccepted": 73,
+  "unmodifiedPyEvmSignedAudit": "NOT PASSED",
+  "legacyBlocked": 8,
+  "legacyNotRun": 2,
+  "pendingOwnerDecision": "CODE-CAP-DECISION.md (not implemented)",
+  "P2": "NOT PASSED",
+  "P3": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false
+}

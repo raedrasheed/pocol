@@ -1,0 +1,52 @@
+{
+  "schema": "pocol-m1-acceptance-inventory/0.31",
+  "status": "author inventory for root review; every criterion is computed by tools/run_checks_031.py from root's 0.30 matrix and results, root's review decisions and this run. CompleteCandidate is not Complete.",
+  "base": {"matrix0_30": "coordination/review-001/m1-draft-0.30/results/acceptance-matrix-0.30.json",
+           "reviewDecisions0_30": "coordination/review-001/REVIEW-DECISIONS-0.30.json",
+           "conventions": "m1-draft-0.30/decisions/conventions-applied-0.30.json"},
+  "results": {"R27": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json",
+              "R29": "coordination/review-001/m1-draft-0.29/results/run-results-0.29.json",
+              "R30": "coordination/review-001/m1-draft-0.30/results/run-results-0.30.json"},
+  "boundFrom030": {
+    "status": "verified by REVIEW-0.30 and bound here by status, not recomputed",
+    "patterns": ["^U08\\.", "^C34\\.", "^decision\\.U08\\.applied$", "^freeze\\.", "^U14\\.rp\\.", "^bind029\\.decisionApplied\\.", "^history\\.HF-(9|10|11)$",
+                 "^experiments\\.definitionsComplete$", "^authority\\.convention\\."],
+    "freezeOutputs": ["coordination/review-001/m1-draft-0.30/results/hash-freeze-0.30.json", "coordination/review-001/m1-draft-0.30/results/bindings-0.30.json"],
+    "rootIndependent": [
+      {"file": "coordination/review-001/guard-independent-030.json", "checks": 23, "passed": 23, "failed": 0},
+      {"file": "coordination/review-001/deadline-independent-029.json", "checks": 1120, "passed": 1120, "failed": 0},
+      {"file": "coordination/review-001/full-hash-triad-executed-029.json", "checks": 668, "passed": 668, "failed": 0},
+      {"file": "coordination/review-001/v1-hash-independent-0.27.json", "checks": 3677, "passed": 3677, "failed": 0},
+      {"file": "coordination/review-001/v1-signatures-independent-0.27.json", "checks": 31, "failed": 0},
+      {"file": "coordination/review-001/asert-native-comparison-0.27.json", "checks": 1027, "passed": 1027, "failed": 0}
+    ]
+  },
+  "changedRows": {
+    "C3": {"why": "final binding of the 0.30 C34 repair and shared RP budget (REVIEW-DECISIONS-0.30 conditions)", "currentRunEvidence": ["^bind030\\.", "^U14\\.rp\\."]},
+    "C4": {"why": "final binding of the 0.30 C34 repair (REVIEW-DECISIONS-0.30 conditions)", "currentRunEvidence": ["^bind030\\."]},
+    "V1": {"why": "C35 native error-data codec and the C36 binding repairs", "currentRunEvidence": ["^C33\\.", "^C35\\.", "^C36\\.", "^codec\\."]}
+  },
+  "conventionEvidenceOverride": {"P-V1-11": [["run", "^C33\\."], ["run", "^C35\\."], ["run", "^C36\\."]], "P-D29-3": [["run", "^U14\\.rp\\."]],
+                                 "P-U08-1": [["R30", "^U08\\.noncanonical\\."], ["R30", "^C34\\."]], "P-V1-9": [["R27", "^C32\\.case\\."], ["run", "^C33\\.case\\."]],
+                                 "P-V1-10": [["R29", "^U14\\.hnc\\."], ["run", "^C33\\.hncReplay\\."]]},
+  "repairedTokens": ["U08", "P-D29-3", "P-V1-11", "P-U08-1"],
+  "addFiles": ["m1-draft-0.31/M1-SPEC-0.31-AMENDMENT.md", "m1-draft-0.31/tools/json_codec_031.mjs", "m1-draft-0.31/tools/guard_ref_031.py",
+               "m1-draft-0.31/vectors/c35-native-codec-cases.json", "m1-draft-0.31/vectors/c36-binding-repairs.json"],
+  "history": [
+    {"id": "HF-12", "what": "the six 0.30 FAILs", "map": "vectors/c36-binding-repairs.json"},
+    {"id": "HF-13", "what": "root's first native comparison (platform-default loader, 2 failures)", "file": "coordination/review-001/error-data-native-comparison-030.json", "failed": 2,
+     "reboundTo": ["C35.oracle.utf8Readers", "C35.direct.oracle030.emojiData"]},
+    {"id": "HF-14", "what": "the genuine lone-surrogate undercount (C35)", "file": "coordination/review-001/error-data-native-comparison-utf8-030.json", "failed": 1,
+     "reboundTo": ["C35.direct.oracle030.loneSurrogateData", "C35.integrated.oracle030.loneSurrogateData", "C35.integrated.expanded031.loneSurrogate1100"]}
+  ],
+  "proposedStatus": {
+    "CompleteCandidate": ["X1", "X2", "X3", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "R2", "R3", "R4", "S1", "S2", "S3", "S4",
+                          "Q1", "Q2", "Q3", "Q4", "E1", "E2", "E3", "E4", "E5", "E7", "V2", "V3", "V4", "C1", "C2", "R1", "E6"],
+    "PendingRootReview": ["C3", "C4", "V1"],
+    "Partial": []
+  },
+  "proposedFindings": {
+    "closableAtSpecScope": ["F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F18", "F19", "F20", "F21", "F22", "F23", "F24", "F26"],
+    "closableAfterRootReviewOf031": ["F09", "F17", "F25"]
+  }
+}

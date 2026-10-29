@@ -1,0 +1,574 @@
+[
+  {
+    "file": "stCodeSizeLimit/codesizeOOGInvalidSize.json",
+    "name": "codesizeOOGInvalidSize",
+    "variant": 0,
+    "indexes": {
+      "data": 0,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "8f1b8c825a09d96d3a4dc0460852ffdd22b3f1d607406766ed013ba36b4832cd",
+    "baseline": {
+      "file": "stCodeSizeLimit/codesizeOOGInvalidSize.json",
+      "name": "codesizeOOGInvalidSize",
+      "variant": 0,
+      "indexes": {
+        "data": 0,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0xc0275b3cc50e6549e30f1f56684898c7a9841f3176713129d00f0ab300fdd846",
+      "actualRoot": "0xc0275b3cc50e6549e30f1f56684898c7a9841f3176713129d00f0ab300fdd846",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 15000000,
+      "controlPass": true
+    },
+    "code01": {
+      "actualRoot": "0x9200432c9c87f70216881ab681fc13c84c7ff0d09f8b1000d515f1e5deae5e49",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 4976789,
+      "success": true
+    },
+    "independent": {
+      "actualRoot": "0x9200432c9c87f70216881ab681fc13c84c7ff0d09f8b1000d515f1e5deae5e49",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "executionSuccess": true,
+      "gasUsed": 4976789
+    },
+    "comparison": "MATCH_EXECUTION",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stCodeSizeLimit/codesizeOOGInvalidSize.json",
+    "name": "codesizeOOGInvalidSize",
+    "variant": 1,
+    "indexes": {
+      "data": 1,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "8f1b8c825a09d96d3a4dc0460852ffdd22b3f1d607406766ed013ba36b4832cd",
+    "baseline": {
+      "file": "stCodeSizeLimit/codesizeOOGInvalidSize.json",
+      "name": "codesizeOOGInvalidSize",
+      "variant": 1,
+      "indexes": {
+        "data": 1,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0xc0275b3cc50e6549e30f1f56684898c7a9841f3176713129d00f0ab300fdd846",
+      "actualRoot": "0xc0275b3cc50e6549e30f1f56684898c7a9841f3176713129d00f0ab300fdd846",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 15000000,
+      "controlPass": true
+    },
+    "code01": {
+      "actualRoot": "0x4029e9ccd371e9516b1ec08e68469e5e8e87ed305e5f75734d0bc1e62be6185e",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 4974389,
+      "success": true
+    },
+    "independent": {
+      "actualRoot": "0x4029e9ccd371e9516b1ec08e68469e5e8e87ed305e5f75734d0bc1e62be6185e",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "executionSuccess": true,
+      "gasUsed": 4974389
+    },
+    "comparison": "MATCH_EXECUTION",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stCreateTest/CreateAddressWarmAfterFail.json",
+    "name": "CreateAddressWarmAfterFail",
+    "variant": 1,
+    "indexes": {
+      "data": 2,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "b418bcc1770cb0e0d3cb5411e1f8f705eab3112f38e5b05bbe7f1037302e8811",
+    "baseline": {
+      "file": "stCreateTest/CreateAddressWarmAfterFail.json",
+      "name": "CreateAddressWarmAfterFail",
+      "variant": 1,
+      "indexes": {
+        "data": 2,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x932c9155f946f9ea14355f4b3619de2aa9d5a35c5a2376ec7ec1ecca91f66c04",
+      "actualRoot": "0x932c9155f946f9ea14355f4b3619de2aa9d5a35c5a2376ec7ec1ecca91f66c04",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 393738791,
+      "controlPass": true
+    },
+    "code01": {
+      "actualRoot": "0x32acaccbaf976d0aea4f01d03e252f2df79ab7cb1a603a21424be08917eb6dfe",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 5176015,
+      "success": true
+    },
+    "independent": {
+      "actualRoot": "0x32acaccbaf976d0aea4f01d03e252f2df79ab7cb1a603a21424be08917eb6dfe",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "executionSuccess": true,
+      "gasUsed": 5176015
+    },
+    "comparison": "MATCH_EXECUTION",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stCreateTest/CreateAddressWarmAfterFail.json",
+    "name": "CreateAddressWarmAfterFail",
+    "variant": 5,
+    "indexes": {
+      "data": 2,
+      "gas": 0,
+      "value": 1
+    },
+    "sourceSHA256": "b418bcc1770cb0e0d3cb5411e1f8f705eab3112f38e5b05bbe7f1037302e8811",
+    "baseline": {
+      "file": "stCreateTest/CreateAddressWarmAfterFail.json",
+      "name": "CreateAddressWarmAfterFail",
+      "variant": 5,
+      "indexes": {
+        "data": 2,
+        "gas": 0,
+        "value": 1
+      },
+      "expectedException": null,
+      "expectedRoot": "0x7f0b262787421639e5463934807d2ac67c2f9abe42ac597ff93c2ce30b45fc44",
+      "actualRoot": "0x7f0b262787421639e5463934807d2ac67c2f9abe42ac597ff93c2ce30b45fc44",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 393815591,
+      "controlPass": true
+    },
+    "code01": {
+      "actualRoot": "0x72b9184630c8e4b9884256b658659dc466ffaf06692696d21cfec7db51fed536",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 5227815,
+      "success": true
+    },
+    "independent": {
+      "actualRoot": "0x72b9184630c8e4b9884256b658659dc466ffaf06692696d21cfec7db51fed536",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "executionSuccess": true,
+      "gasUsed": 5227815
+    },
+    "comparison": "MATCH_EXECUTION",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stCreateTest/CreateAddressWarmAfterFail.json",
+    "name": "CreateAddressWarmAfterFail",
+    "variant": 12,
+    "indexes": {
+      "data": 3,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "b418bcc1770cb0e0d3cb5411e1f8f705eab3112f38e5b05bbe7f1037302e8811",
+    "baseline": {
+      "file": "stCreateTest/CreateAddressWarmAfterFail.json",
+      "name": "CreateAddressWarmAfterFail",
+      "variant": 12,
+      "indexes": {
+        "data": 3,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x932c9155f946f9ea14355f4b3619de2aa9d5a35c5a2376ec7ec1ecca91f66c04",
+      "actualRoot": "0x932c9155f946f9ea14355f4b3619de2aa9d5a35c5a2376ec7ec1ecca91f66c04",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 393738791,
+      "controlPass": true
+    },
+    "code01": {
+      "actualRoot": "0x5bb41b6927d34ff000459fa6b639afd777d965c097a283acfbac5fce537aa8d6",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 5176013,
+      "success": true
+    },
+    "independent": {
+      "actualRoot": "0x5bb41b6927d34ff000459fa6b639afd777d965c097a283acfbac5fce537aa8d6",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "executionSuccess": true,
+      "gasUsed": 5176013
+    },
+    "comparison": "MATCH_EXECUTION",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stCreateTest/CreateAddressWarmAfterFail.json",
+    "name": "CreateAddressWarmAfterFail",
+    "variant": 13,
+    "indexes": {
+      "data": 3,
+      "gas": 0,
+      "value": 1
+    },
+    "sourceSHA256": "b418bcc1770cb0e0d3cb5411e1f8f705eab3112f38e5b05bbe7f1037302e8811",
+    "baseline": {
+      "file": "stCreateTest/CreateAddressWarmAfterFail.json",
+      "name": "CreateAddressWarmAfterFail",
+      "variant": 13,
+      "indexes": {
+        "data": 3,
+        "gas": 0,
+        "value": 1
+      },
+      "expectedException": null,
+      "expectedRoot": "0x915612f9817e1ce722a8f5cd43fd04b4cdfefd18e703cbb8d004eecd9e2c72f8",
+      "actualRoot": "0x915612f9817e1ce722a8f5cd43fd04b4cdfefd18e703cbb8d004eecd9e2c72f8",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 393815591,
+      "controlPass": true
+    },
+    "code01": {
+      "actualRoot": "0x68bcf95b57fc32cbca5099c90d7aa54e2a2bca7aff872c0050901fd7d2ab3ac7",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 5227813,
+      "success": true
+    },
+    "independent": {
+      "actualRoot": "0x68bcf95b57fc32cbca5099c90d7aa54e2a2bca7aff872c0050901fd7d2ab3ac7",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "executionSuccess": true,
+      "gasUsed": 5227813
+    },
+    "comparison": "MATCH_EXECUTION",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stCreateTest/createLargeResult.json",
+    "name": "createLargeResult",
+    "variant": 8,
+    "indexes": {
+      "data": 8,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "c0c0ab34af9591ee69f7f760f5c620c17a2fca05462955cb64c79f24d69f29ca",
+    "baseline": {
+      "file": "stCreateTest/createLargeResult.json",
+      "name": "createLargeResult",
+      "variant": 8,
+      "indexes": {
+        "data": 8,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x4e6f5f5f6506cc025b70043be86eaf26c4520076a78563cd046a72acb4c41aa9",
+      "actualRoot": "0x4e6f5f5f6506cc025b70043be86eaf26c4520076a78563cd046a72acb4c41aa9",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 78754191,
+      "controlPass": true
+    },
+    "code01": {
+      "actualRoot": "0x1e8bc06cdcbb2bb1ea24fe999806269043e2464be774ea590366bd3af68a8c9c",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 4990572,
+      "success": true
+    },
+    "independent": {
+      "actualRoot": "0x1e8bc06cdcbb2bb1ea24fe999806269043e2464be774ea590366bd3af68a8c9c",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "executionSuccess": true,
+      "gasUsed": 4990572
+    },
+    "comparison": "MATCH_EXECUTION",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stCreateTest/createLargeResult.json",
+    "name": "createLargeResult",
+    "variant": 9,
+    "indexes": {
+      "data": 9,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "c0c0ab34af9591ee69f7f760f5c620c17a2fca05462955cb64c79f24d69f29ca",
+    "baseline": {
+      "file": "stCreateTest/createLargeResult.json",
+      "name": "createLargeResult",
+      "variant": 9,
+      "indexes": {
+        "data": 9,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x5e1ed38838eca1f27c2babc801441870be9641f3b510fd43f01d0de80466c1a2",
+      "actualRoot": "0x5e1ed38838eca1f27c2babc801441870be9641f3b510fd43f01d0de80466c1a2",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 78754192,
+      "controlPass": true
+    },
+    "code01": {
+      "actualRoot": "0xb7f05f53a271c3a081b52bd2e21b1106b8413f73a7939318f67cf0fb32bf41f3",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 4990646,
+      "success": true
+    },
+    "independent": {
+      "actualRoot": "0xb7f05f53a271c3a081b52bd2e21b1106b8413f73a7939318f67cf0fb32bf41f3",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "executionSuccess": true,
+      "gasUsed": 4990646
+    },
+    "comparison": "MATCH_EXECUTION",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stStaticCall/static_Call50000bytesContract50_1.json",
+    "name": "static_Call50000bytesContract50_1",
+    "variant": 0,
+    "indexes": {
+      "data": 0,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "fd9e914939f324be746cce57663fd5477d12364dc035ef11145992aa7ef1a8c6",
+    "baseline": {
+      "file": "stStaticCall/static_Call50000bytesContract50_1.json",
+      "name": "static_Call50000bytesContract50_1",
+      "variant": 0,
+      "indexes": {
+        "data": 0,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x923f5820f19a00e92d0c19903bf93165757a6d8fd94a48f557ccc4fefc3633e3",
+      "actualRoot": "0x923f5820f19a00e92d0c19903bf93165757a6d8fd94a48f557ccc4fefc3633e3",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 868710962325,
+      "controlPass": true
+    },
+    "code01": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max"
+    },
+    "independent": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max",
+      "proof": "Actual VM complete code inventory rejects input snapshot; NOT GenesisBuilder execution"
+    },
+    "comparison": "MATCH_SNAPSHOT_ADMISSION_ONLY",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stStaticCall/static_Call50000bytesContract50_1.json",
+    "name": "static_Call50000bytesContract50_1",
+    "variant": 1,
+    "indexes": {
+      "data": 1,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "fd9e914939f324be746cce57663fd5477d12364dc035ef11145992aa7ef1a8c6",
+    "baseline": {
+      "file": "stStaticCall/static_Call50000bytesContract50_1.json",
+      "name": "static_Call50000bytesContract50_1",
+      "variant": 1,
+      "indexes": {
+        "data": 1,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x843c3c70ffdfdc49b2742e7613cc5e91ac43ebce6aa459a4f48e41f426df2cb2",
+      "actualRoot": "0x843c3c70ffdfdc49b2742e7613cc5e91ac43ebce6aa459a4f48e41f426df2cb2",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 6086856,
+      "controlPass": true
+    },
+    "code01": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max"
+    },
+    "independent": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max",
+      "proof": "Actual VM complete code inventory rejects input snapshot; NOT GenesisBuilder execution"
+    },
+    "comparison": "MATCH_SNAPSHOT_ADMISSION_ONLY",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stStaticCall/static_Call50000bytesContract50_2.json",
+    "name": "static_Call50000bytesContract50_2",
+    "variant": 0,
+    "indexes": {
+      "data": 1,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "15d410cb96a8b826bfba0fb827413747c48fbfcf985e7aa645045a42190a3d2e",
+    "baseline": {
+      "file": "stStaticCall/static_Call50000bytesContract50_2.json",
+      "name": "static_Call50000bytesContract50_2",
+      "variant": 0,
+      "indexes": {
+        "data": 1,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x548f680763241829d6125626ded2d3977210c60e83d1fca71c2c2ef253bcdd57",
+      "actualRoot": "0x548f680763241829d6125626ded2d3977210c60e83d1fca71c2c2ef253bcdd57",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 3087006,
+      "controlPass": true
+    },
+    "code01": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max"
+    },
+    "independent": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max",
+      "proof": "Actual VM complete code inventory rejects input snapshot; NOT GenesisBuilder execution"
+    },
+    "comparison": "MATCH_SNAPSHOT_ADMISSION_ONLY",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stStaticCall/static_Call50000bytesContract50_2.json",
+    "name": "static_Call50000bytesContract50_2",
+    "variant": 1,
+    "indexes": {
+      "data": 0,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "15d410cb96a8b826bfba0fb827413747c48fbfcf985e7aa645045a42190a3d2e",
+    "baseline": {
+      "file": "stStaticCall/static_Call50000bytesContract50_2.json",
+      "name": "static_Call50000bytesContract50_2",
+      "variant": 1,
+      "indexes": {
+        "data": 0,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x1b66d0ba9debf626af7925c1afb4a6e5b1ab256c414989bfc7c32292d201c49b",
+      "actualRoot": "0x1b66d0ba9debf626af7925c1afb4a6e5b1ab256c414989bfc7c32292d201c49b",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 868710962325,
+      "controlPass": true
+    },
+    "code01": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max"
+    },
+    "independent": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max",
+      "proof": "Actual VM complete code inventory rejects input snapshot; NOT GenesisBuilder execution"
+    },
+    "comparison": "MATCH_SNAPSHOT_ADMISSION_ONLY",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stStaticCall/static_Call50000bytesContract50_3.json",
+    "name": "static_Call50000bytesContract50_3",
+    "variant": 0,
+    "indexes": {
+      "data": 0,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "5f3220afc07de4ef8a059d4f3996a5c839e8b332b5fc127c69e357ecd6205256",
+    "baseline": {
+      "file": "stStaticCall/static_Call50000bytesContract50_3.json",
+      "name": "static_Call50000bytesContract50_3",
+      "variant": 0,
+      "indexes": {
+        "data": 0,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0xe13fa73d8d128a8f2eb2747a72c66d980e143b9f7865a9a972fb56e9e9c66d53",
+      "actualRoot": "0xe13fa73d8d128a8f2eb2747a72c66d980e143b9f7865a9a972fb56e9e9c66d53",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 868710962325,
+      "controlPass": true
+    },
+    "code01": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max"
+    },
+    "independent": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max",
+      "proof": "Actual VM complete code inventory rejects input snapshot; NOT GenesisBuilder execution"
+    },
+    "comparison": "MATCH_SNAPSHOT_ADMISSION_ONLY",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  },
+  {
+    "file": "stStaticCall/static_Call50000bytesContract50_3.json",
+    "name": "static_Call50000bytesContract50_3",
+    "variant": 1,
+    "indexes": {
+      "data": 1,
+      "gas": 0,
+      "value": 0
+    },
+    "sourceSHA256": "5f3220afc07de4ef8a059d4f3996a5c839e8b332b5fc127c69e357ecd6205256",
+    "baseline": {
+      "file": "stStaticCall/static_Call50000bytesContract50_3.json",
+      "name": "static_Call50000bytesContract50_3",
+      "variant": 1,
+      "indexes": {
+        "data": 1,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "expectedRoot": "0x1992d5339d85379cdfcdd0018ed4bfdf49b3d77a6a0b30c76e2815e152b33cf9",
+      "actualRoot": "0x1992d5339d85379cdfcdd0018ed4bfdf49b3d77a6a0b30c76e2815e152b33cf9",
+      "expectedLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "actualLogs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 290356,
+      "controlPass": true
+    },
+    "code01": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max"
+    },
+    "independent": {
+      "error": "InvalidCodeSnapshot:snapshot exceeds B_code_max",
+      "proof": "Actual VM complete code inventory rejects input snapshot; NOT GenesisBuilder execution"
+    },
+    "comparison": "MATCH_SNAPSHOT_ADMISSION_ONLY",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "bootable": false
+  }
+]

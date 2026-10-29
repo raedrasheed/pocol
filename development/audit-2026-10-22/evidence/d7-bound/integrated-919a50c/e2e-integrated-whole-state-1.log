@@ -1,0 +1,24 @@
+# e2e-integrated-whole-state-1: (cd prototypes/pocol-extension; node tests/e2e_integrated.mjs)
+# start 2026-10-25T13:25:48Z
+PASS every node runs in the requested state mode — stateStore=false,false,false
+PASS fresh-directory launch: 3 pocold processes produce and agree — t=15s
+PASS BR15 pocol_getTemplate with Origin -> -32601; without Origin -> served — {"code":-32601,"message":"method not available to sites"}
+PASS v1 published through node a; pocol-site fetch from every node gives identical verified bytes — c810903a49ed1e83,c810903a49ed1e83,c810903a49ed1e83
+PASS Chrome renders v1 identically through each node (HTML/CSS/JS/PNG from verified chunks) — {"h1":"LP10 site v1","v":"1","color":"rgb(17, 170, 85)","img":2,"ver":"version 0 · block 29","trust":"LN","errors":0}
+PASS Chrome RP profile accepts the live window and renders v1 — RP
+PASS partition: Chrome via isolated c shows v2 (minority branch) while a shows v1 — LP10 site v2 / LP10 site v1
+PASS partition: branches diverged — c=47 ab=52 base=33
+PASS heal: c reorganized onto the heavier branch (D133) — {"fallbackTemplates":0,"hashesInExhaustedRanges":0,"historyDamaged":false,"historyRebuilt":false,"historyRefilled":0,"imported":87,"mined":1,"poolBacklog":0,"poolSliceMaxMs":2,"poolSlices":11,"refetched":0,"reorgs":1,"replaySkipped":0,"restored":17,"sharesSeen":5,"signedTemplates":1,"syncRounds":1,"
+PASS reorg recovery: Chrome via c now shows the canonical version, identical on all nodes — LP10 site v1 | LP10 site v1 | LP10 site v1 (canonical index 0)
+PASS heal: the transactions c returned to its pool are included or dropped before v3 — heights 69,69,69
+PASS update: v3 published through b is read identically through every node in Chrome — version 2 · block 75 | version 2 · block 75 | version 2 · block 75
+PASS SIGKILL: b restarts from its journal and rejoins — 78,78,78
+PASS full restart: site served unchanged through every node in Chrome (journal replay) — LP10 site v3 | LP10 site v3 | LP10 site v3
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes
+PASS resources: node RSS < 512 MiB and journal < 64 MiB after >= 100 blocks — {"a":{"rssMiB":11.8,"journalMiB":0.42},"b":{"rssMiB":11.6,"journalMiB":0.42},"c":{"rssMiB":11.8,"journalMiB":0.46}}
+PASS resources: extension page JS heap measured — 5.0 MiB
+PASS replay of a: re-executed canonical roots 1..100 identical, site bytes identical — b9ef3c44f9e52be7
+PASS replay of b: re-executed canonical roots 1..100 identical, site bytes identical — b9ef3c44f9e52be7
+PASS replay of c: re-executed canonical roots 1..100 identical, site bytes identical — b9ef3c44f9e52be7
+{"result":"PASS","checks":20,"failed":0,"work":"/tmp/pocol-lp10-0P6PI5"}
+# end 2026-10-25T13:28:26Z exit=0

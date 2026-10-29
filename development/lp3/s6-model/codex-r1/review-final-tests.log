@@ -1,0 +1,16 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (3.618116ms)
+✔ 1027 previously frozen ASERT rows (7.394339ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.700744ms)
+✔ membership, partition completeness, owner and exact hashes (2.934748ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (1.543879ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (6.518063ms)
+✔ full schema width/order/reserved failures and deep malformed framing (10.314374ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (79.652079ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 124.839853

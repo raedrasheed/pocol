@@ -1,0 +1,5 @@
+2026-10-20T08:33:00.2950044Z [36;1mwork/lp4-venv/bin/python prototypes/lp4-execution/tests/tool_inventory.py "$PWD/prototypes/lp4-execution/tools/node_modules" "$(rustc +1.99.1 --print sysroot)" work/lp4-controls/tool-inventory.json[0m
+2026-10-20T08:33:00.9356218Z Traceback (most recent call last):
+2026-10-20T08:33:00.9364573Z   File "/home/runner/work/Proof-of-Collaboration/Proof-of-Collaboration/prototypes/lp4-execution/tests/tool_inventory.py", line 34, in <module>
+2026-10-20T08:33:00.9366849Z AssertionError: Python lock/install mismatch
+2026-10-20T08:33:00.9487576Z ##[error]Process completed with exit code 1.

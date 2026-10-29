@@ -1,0 +1,65 @@
+{
+ "alternatives": {
+  "block": "per block (vacuous: LOG_BLOCK_MAX is smaller)",
+  "chain": "charged log bytes of the canonical chain up to the parent plus this block (recommended)",
+  "retained": "logs in the RetentionStore window only"
+ },
+ "constants": {
+  "LOG_CAP": 1073741824
+ },
+ "recommended": "chain",
+ "rule": "LOG-CAP-AGGREGATE",
+ "scenarios": [
+  {
+   "charge": 100,
+   "cumulative": 1073741724,
+   "expected": {
+    "block": {
+     "halt": null
+    },
+    "chain": {
+     "halt": null
+    },
+    "retained": {
+     "halt": null
+    }
+   },
+   "id": "G1 100 B left, LOG0 of 64 B (charge 100)",
+   "retainedWindow": 0
+  },
+  {
+   "charge": 101,
+   "cumulative": 1073741724,
+   "expected": {
+    "block": {
+     "halt": null
+    },
+    "chain": {
+     "halt": "LogCap"
+    },
+    "retained": {
+     "halt": null
+    }
+   },
+   "id": "G2 100 B left, LOG0 of 65 B (charge 101)",
+   "retainedWindow": 0
+  },
+  {
+   "charge": 32768,
+   "cumulative": 1000000,
+   "expected": {
+    "block": {
+     "halt": null
+    },
+    "chain": {
+     "halt": null
+    },
+    "retained": {
+     "halt": null
+    }
+   },
+   "id": "G3 chain total far below, 32 KiB block",
+   "retainedWindow": 0
+  }
+ ]
+}

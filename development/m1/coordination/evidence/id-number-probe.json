@@ -1,0 +1,119 @@
+[
+  {
+    "token": "1",
+    "result": {
+      "bpre": "pass",
+      "stage": "ok",
+      "code": null,
+      "data": null,
+      "id": 1,
+      "route": "readClient",
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  },
+  {
+    "token": "1.0",
+    "result": {
+      "bpre": "pass",
+      "stage": "B0",
+      "code": -32600,
+      "data": null,
+      "id": null,
+      "route": null,
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  },
+  {
+    "token": "1e0",
+    "result": {
+      "bpre": "pass",
+      "stage": "B0",
+      "code": -32600,
+      "data": null,
+      "id": null,
+      "route": null,
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  },
+  {
+    "token": "-0",
+    "result": {
+      "bpre": "pass",
+      "stage": "B0",
+      "code": -32600,
+      "data": null,
+      "id": null,
+      "route": null,
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  },
+  {
+    "token": "0",
+    "result": {
+      "bpre": "pass",
+      "stage": "ok",
+      "code": null,
+      "data": null,
+      "id": 0,
+      "route": "readClient",
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  },
+  {
+    "token": "1.5",
+    "result": {
+      "bpre": "pass",
+      "stage": "B0",
+      "code": -32600,
+      "data": null,
+      "id": null,
+      "route": null,
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  },
+  {
+    "token": "true",
+    "result": {
+      "bpre": "pass",
+      "stage": "B0",
+      "code": -32600,
+      "data": null,
+      "id": null,
+      "route": null,
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  },
+  {
+    "token": "4294967295",
+    "result": {
+      "bpre": "pass",
+      "stage": "ok",
+      "code": null,
+      "data": null,
+      "id": 4294967295,
+      "route": "readClient",
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  },
+  {
+    "token": "4294967296",
+    "result": {
+      "bpre": "pass",
+      "stage": "B0",
+      "code": -32600,
+      "data": null,
+      "id": null,
+      "route": null,
+      "tokensBefore": 50000,
+      "tokensAfter": 49000
+    }
+  }
+]

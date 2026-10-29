@@ -1,0 +1,139 @@
+[
+  {
+    "file": "stCreate2/RevertInCreateInInitCreate2Paris.json",
+    "name": "RevertInCreateInInitCreate2Paris",
+    "variant": 0,
+    "expectedRoot": "0x3e518e0ca76504209a2a44b6c11af9537e7872c4005ce49b633ee0f1d845049f",
+    "rustRoot": "0x64dd3e2e4f1edddb8854d6a384e7dde2123857489de111704d8c6c63b5c9e14a",
+    "pythonRoot": "0xba3c0ebc2e86aa07ac7a7d5d5676e235771d83dd6d50870657fa43a63aa2e940",
+    "pythonGas": 112292,
+    "diffs": [
+      {
+        "address": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+        "field": "balance",
+        "python": 429495606680,
+        "rust": 429495407680
+      }
+    ]
+  },
+  {
+    "file": "stCreate2/create2collisionStorageParis.json",
+    "name": "create2collisionStorageParis",
+    "variant": 0,
+    "expectedRoot": "0xd8ab138e6f7b8e2d34df887867c338fd6907c09ab390c31665c9c164fd93de0f",
+    "rustRoot": "0x9e0c81a717e7c51d5b58a1046e1e926ae30eeb3ee61b6831cbcc03e69d49a610",
+    "pythonRoot": "0x9e0c81a717e7c51d5b58a1046e1e926ae30eeb3ee61b6831cbcc03e69d49a610",
+    "pythonGas": 85114,
+    "diffs": []
+  },
+  {
+    "file": "stCreate2/create2collisionStorageParis.json",
+    "name": "create2collisionStorageParis",
+    "variant": 1,
+    "expectedRoot": "0xac1766cb9e07fa14fcd78bb5256a65b9753644d7cfbb47e610c761d7d1e1b28b",
+    "rustRoot": "0xf6e465e3ca6281f3f51dade6001a1bf0c15d26bd94b40b40852040ae9bebcb78",
+    "pythonRoot": "0xf6e465e3ca6281f3f51dade6001a1bf0c15d26bd94b40b40852040ae9bebcb78",
+    "pythonGas": 107396,
+    "diffs": []
+  },
+  {
+    "file": "stCreate2/create2collisionStorageParis.json",
+    "name": "create2collisionStorageParis",
+    "variant": 2,
+    "expectedRoot": "0x2992083fd0c728bf380857c7fecd96445f184dbe92f0714c348b3ac95826c637",
+    "rustRoot": "0x9972367bfb833d7c2cb857e1737b9ec56555aff16630b209e860dfa4d974d2ba",
+    "pythonRoot": "0x9972367bfb833d7c2cb857e1737b9ec56555aff16630b209e860dfa4d974d2ba",
+    "pythonGas": 86440,
+    "diffs": []
+  },
+  {
+    "file": "stCreateTest/CreateTransactionHighNonce.json",
+    "name": "CreateTransactionHighNonce",
+    "variant": 0,
+    "expectedRoot": null,
+    "rustRoot": null,
+    "pythonError": "ValidationError: Nonce must be less than 2^64-1, got 18446744073709551615"
+  },
+  {
+    "file": "stCreateTest/CreateTransactionHighNonce.json",
+    "name": "CreateTransactionHighNonce",
+    "variant": 1,
+    "expectedRoot": null,
+    "rustRoot": null,
+    "pythonError": "ValidationError: Nonce must be less than 2^64-1, got 18446744073709551615"
+  },
+  {
+    "file": "stExtCodeHash/dynamicAccountOverwriteEmpty_Paris.json",
+    "name": "dynamicAccountOverwriteEmpty_Paris",
+    "variant": 0,
+    "expectedRoot": "0x15fe0321941060822acb893c7a6c5cf64d471e0913a66e44e45cf8ca1a9d81cd",
+    "rustRoot": "0x71eb50ff331a9c0225e0892e92bd87809256acfb6303398c01e055f4daba3e2b",
+    "pythonRoot": "0x71eb50ff331a9c0225e0892e92bd87809256acfb6303398c01e055f4daba3e2b",
+    "pythonGas": 241623,
+    "diffs": []
+  },
+  {
+    "file": "stRevertTest/RevertInCreateInInit_Paris.json",
+    "name": "RevertInCreateInInit_Paris",
+    "variant": 0,
+    "expectedRoot": "0x07656b1e86e41fc71ae1bb006fccc464482108b02fe5eb6500f6aac54bb72f41",
+    "rustRoot": "0xa8ede4cd235592c2753b7f2ba46f2685ac54977c35c1802619a4f7df45862886",
+    "pythonRoot": "0x4bcc8d8d13a6887c32bcdce16b9a0b08b3f8c50f4db5bb32c6e01271eb91a016",
+    "pythonGas": 110026,
+    "diffs": [
+      {
+        "address": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+        "field": "balance",
+        "python": 429495629340,
+        "rust": 429495430340
+      }
+    ]
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "name": "InitCollisionParis",
+    "variant": 0,
+    "expectedRoot": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+    "rustRoot": "0x20c17e61e8a137ee21b30449cb29b3baf34bb1988dc0c2664c7d1c4c24280490",
+    "pythonRoot": "0xab1edf83f09c19debcff27727592ab04225f6e4e06044f98efe0363a8da7d82b",
+    "pythonGas": 60293,
+    "diffs": [
+      {
+        "address": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+        "field": "balance",
+        "python": 999999397070,
+        "rust": 999999246340
+      }
+    ]
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "name": "InitCollisionParis",
+    "variant": 1,
+    "expectedRoot": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+    "rustRoot": "0xcbd8c0384e0c37babae625d89dfa4e06a060de14d6bd3f4e5de8255698e25074",
+    "pythonRoot": "0x42661df0b4f57760062f8b464426fa2a116933014817b5fe6f08a7af36b5a6ed",
+    "pythonGas": 107638,
+    "diffs": []
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "name": "InitCollisionParis",
+    "variant": 2,
+    "expectedRoot": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+    "rustRoot": "0xa1c136b85e8b64063779723d0c0088b39f7cdcec56ad7db731eb37b2fdfd48e3",
+    "pythonRoot": "0xa1c136b85e8b64063779723d0c0088b39f7cdcec56ad7db731eb37b2fdfd48e3",
+    "pythonGas": 107702,
+    "diffs": []
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "name": "InitCollisionParis",
+    "variant": 3,
+    "expectedRoot": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+    "rustRoot": "0x5b8580a67baab0aedf2aa345870559563c4d67e8f7d7cbb097778b5c9cfd5535",
+    "pythonRoot": "0xb96937399a9fcdf25f1871c0442c26cadbba4f3a7494450e4091ff7a35b72c86",
+    "pythonGas": 198605,
+    "diffs": []
+  }
+]

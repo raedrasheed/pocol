@@ -1,0 +1,7 @@
+2026-10-18T17:19:39.8498246Z PASS comparator storage/clear/rollback/nonce boundaries and6 actual MODEXP precompile executions; full P2 NOT PASSED
+2026-10-18T17:19:40.5548149Z PASS 20 actual engine/adaptor acceptance, equality and negative checks; signed-wire proof NOT PASSED
+2026-10-18T17:19:46.3064928Z PASS 8 comparator mutations rejected by boundary assertions; native compiled-control evidence separate
+2026-10-18T17:19:47.0504358Z PASS 160 independent native/pure-Python Blake2 comparisons; zero/1/10/12 rounds, modulo schedule, counters and final flags; full P2 NOT PASSED
+2026-10-18T17:36:20.9397528Z {'scope': 'Independent py-evm fixture state/log comparison only; no PoCol wire/PAY acceptance', 'profile': 'lp4-create01-modexp-admission', 'selectedCases': None, 'counts': {'MATCH': 19485, 'total': 20661, 'EXCEPTION_PRESENCE_ONLY': 1173, 'BLOCKED_TIMEOUT': 3}, 'limited': False, 'workers': 4, 'timeoutSeconds': 300, 'seconds': 993.045, 'status': 'REQUIRES REVIEW; NOT PASSED', 'bootable': False}
+2026-10-18T17:36:20.9992186Z AssertionError: {'scope': 'Independent py-evm fixture state/log comparison only; no PoCol wire/PAY acceptance', 'profile': 'lp4-create01-modexp-admission', 'selectedCases': None, 'counts': {'MATCH': 19485, 'total': 20661, 'EXCEPTION_PRESENCE_ONLY': 1173, 'BLOCKED_TIMEOUT': 3}, 'limited': False, 'workers': 4, 'timeoutSeconds': 300, 'seconds': 993.045, 'status': 'REQUIRES REVIEW; NOT PASSED', 'bootable': False}
+2026-10-18T17:36:21.0024338Z ##[error]Process completed with exit code 1.

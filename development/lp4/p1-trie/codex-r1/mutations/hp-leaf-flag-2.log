@@ -1,0 +1,22 @@
+
+running 5 tests
+test frozen_empty_root_and_secure_empty_storage ... ok
+test prefix_inline_branch_and_budget_boundaries ... ok
+test state_storage_and_ordered_semantics ... ok
+test maximum_prefix_depth_remains_bounded ... ok
+test frozen_independent_insertion_oracle_roots ... FAILED
+
+failures:
+
+---- frozen_independent_insertion_oracle_roots stdout ----
+thread 'frozen_independent_insertion_oracle_roots' panicked at 'assertion failed: `(left == right)`
+  left: `"773646f2ec3ba7ab4977f8caaf3b504a178d0b335e507c6272bd30d95d3c5980"`,
+ right: `"eefba3ad0e01d05b72ed200078e06f8f4a49f0bf8b7e205d880e49f4f6777f76"`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/trie.rs:67:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    frozen_independent_insertion_oracle_roots
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

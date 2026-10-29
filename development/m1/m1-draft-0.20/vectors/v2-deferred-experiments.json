@@ -1,0 +1,44 @@
+{
+  "schema": "pocol-m1-v2-deferred/0.20",
+  "note": [
+    "M1 requires the specification, literal inputs and pass criteria of these experiments, not their execution. None is executed here or by the author.",
+    "Each entry names its source, its inputs (all already written as fixtures where the source is literal) and its pass criteria. Genuine definition gaps are listed separately; they are not hidden as passes."
+  ],
+  "experiments": [
+    {"id": "TS-LC", "what": "LC-unit on the TypeScript LogClient with a TypeScript MockLogServer and SinkChecker (stage A)",
+     "source": {"file": "reference/implementation.md", "lines": [32, 32], "literals": ["LC-unit (LC1–LC18)"]},
+     "inputs": ["m1-draft-0.19/vectors/lc-data.json", "m1-draft-0.19/vectors/lc-step-table.json", "m1-draft-0.19/vectors/lc-cases.json",
+                "m1-draft-0.19/vectors/lc-sink-controls.json", "m1-draft-0.20/vectors/c29-controls.json"],
+     "pass": ["for every case: the MockLogServer request log (times, ranges, anchor hashes), the complete sink event list including aborted attempts and pieces, and the result (full content and SHA-256 of compact key-sorted JSON) equal the fixture",
+              "every step-table row gives the fixture action",
+              "the TypeScript SinkChecker returns exactly the fixture rule sets for the 15 sink controls and the C29 controls (new column)",
+              "the nine client fault builds each change their witness cells"]},
+    {"id": "BR10", "what": "Chrome bridge path for eth_getLogs",
+     "source": {"file": "reference/validation.md", "lines": [173, 173], "literals": ["RpcTap يرى pocol_getLogs وeth_getBlockByNumber فقط", "1..1025 → −32020 {range}", "−32601 لـpocol_getLogs يعطي Error{unsupported}"]},
+     "inputs": ["page script calling rpc_read eth_getLogs on 1..100 and on 1..1025; a filter with 17 addresses; anvil endpoint without pocol_getLogs"],
+     "pass": ["RpcTap records only pocol_getLogs and eth_getBlockByNumber, zero raw eth_getLogs", "1..1025: -32020 {range} with zero requests",
+              "17 addresses: -32602", "anvil: -32601 -> Error{unsupported}, logged"]},
+    {"id": "RG3", "what": "fetchEach (Node) against pocold on 50..1073 at the head anchor",
+     "source": {"file": "reference/validation.md", "lines": [1005, 1005], "literals": ["50..1073", "1024·546 = 559104", "≤ 8 MiB", "RpcRecorder"]},
+     "inputs": ["chain fixture of validation.md:985-989 (LogBomb(1) in 50..1073)", "ReferenceLogs.read(50, 1073, headHash)"],
+     "pass": ["commit with exactly 559104 logs, byte-equal to ReferenceLogs, no loss, no duplicate", "every reply <= 8 MiB",
+              "the strict SinkChecker returns no violation", "summary counters equal the RpcRecorder log (values recorded, not literal)"]},
+    {"id": "RG3-bridge", "what": "fetchAll on the same range",
+     "source": {"file": "reference/validation.md", "lines": [1006, 1006], "literals": ["fetchAll → tooLarge دون جزئي"]},
+     "inputs": ["as RG3, through the bridge collector"], "pass": ["Error{tooLarge}", "no partial content reaches the page"]},
+    {"id": "RG3b", "what": "reorg during fetchEach, plus variants A->B->A' and hook before the anchor check",
+     "source": {"file": "reference/validation.md", "lines": [1007, 1007], "literals": ["بعد piece الثالث", "anchorNotCanonical", "commit(2)", "commit(3)"]},
+     "inputs": ["branches B (LogBomb(2) from 1000') and A' of validation.md:986-987", "hook after the third piece"],
+     "pass": ["trace begin(1,A), piece(1,0..2), abort(1,reorg), begin(2,B), pieces, commit(2)", "attempt 2 equals ReferenceLogs of B, zero logs outside B",
+              "totalRequests equals the RpcRecorder log", "variant: two aborts then commit(3) = ReferenceLogs of A'", "variant: hook before the anchor check gives abort then a new attempt"]},
+    {"id": "RG9", "what": "measurement: fetchEach from an honest established connection during RG5",
+     "source": {"file": "reference/validation.md", "lines": [1013, 1013], "literals": ["RG9 (قياس)", "لا جزئي"]},
+     "inputs": ["RG5 load"], "pass": ["each run ends in a matching commit or an explicit error, never partial", "the success ratio is recorded (no threshold: measurement)"]}
+  ],
+  "definitionGaps": [
+    {"id": "DG-V2-1", "experiment": "RG3b", "gap": "The hook mechanism is not defined: how the test pauses fetchEach after the third piece, submits B and decides that B was adopted (signal and time limit)."},
+    {"id": "DG-V2-2", "experiment": "TS-LC", "gap": "implementation.md:359 asks for literal JSON replies; the 0.19 fixtures express some replies as templates ('gen' log generator, 'repeat' data). A TypeScript harness needs either the same expansion rule or exported literal replies. Proposed supplement P-V2-10: publish the expanded replies as data."},
+    {"id": "DG-V2-3", "experiment": "all", "gap": "The sink event grammar (types and arities) is implicit in browser.md:117-130. Proposed supplement P-V2-9 = the closed grammar of tools/sink_checker_strict.py."},
+    {"id": "DG-V2-4", "experiment": "RG3", "gap": "Request sequence, piece count and counter values are not literal (they depend on pocold's P1 cut points); the source records them. Pass criteria are invariant-based by design; recorded so it is not mistaken for a missing golden."}
+  ]
+}

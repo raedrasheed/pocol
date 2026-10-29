@@ -1,0 +1,29 @@
+{
+  "schema": "pocol-m1-storequeue-transitions/0.9",
+  "source": {"file": "reference/browser.md", "lines": [447, 473], "literals": ["replyState", "ownState", "queued", "ready", "active", "released", "suppressed"]},
+  "note": "Pairs are [replyState, ownState]. 'micro' lists every single-field change the model may record; a reply and the release that follows it in the same step are two micro steps. 'stable' lists the only pairs a message may be in between events. Hand-written from browser.md:447-473, not derived from the model.",
+  "stable": [["none", "queued"], ["none", "ready"], ["none", "active"], ["sent", "active"], ["suppressed", "active"], ["sent", "released"], ["suppressed", "released"]],
+  "micro": [
+    {"from": ["-", "-"], "to": ["none", "queued"], "why": "admitted at B4"},
+    {"from": ["none", "queued"], "to": ["none", "ready"], "why": "evalHead accepts (I56)"},
+    {"from": ["none", "queued"], "to": ["sent", "queued"], "why": "evalHead quota 4300, or STORE_QUEUE_WAIT -32005 store"},
+    {"from": ["sent", "queued"], "to": ["sent", "released"], "why": "release in the same step"},
+    {"from": ["none", "queued"], "to": ["suppressed", "queued"], "why": "cancelFrame / session end"},
+    {"from": ["suppressed", "queued"], "to": ["suppressed", "released"], "why": "release in the same step"},
+    {"from": ["none", "ready"], "to": ["none", "active"], "why": "global seat taken, set issued"},
+    {"from": ["none", "ready"], "to": ["sent", "ready"], "why": "STORE_QUEUE_WAIT -32005 store"},
+    {"from": ["sent", "ready"], "to": ["sent", "released"], "why": "release in the same step"},
+    {"from": ["none", "ready"], "to": ["suppressed", "ready"], "why": "cancelFrame / session end"},
+    {"from": ["suppressed", "ready"], "to": ["suppressed", "released"], "why": "release in the same step"},
+    {"from": ["none", "active"], "to": ["sent", "active"], "why": "settle before deadline (null / transport), or STORE_WRITE_DEADLINE storeTimeout"},
+    {"from": ["sent", "active"], "to": ["sent", "released"], "why": "settle (after its reply, or after storeTimeout without a second reply)"},
+    {"from": ["none", "active"], "to": ["suppressed", "active"], "why": "frame torn down while active: kept, counters unchanged"},
+    {"from": ["suppressed", "active"], "to": ["suppressed", "released"], "why": "settle after teardown, no reply"}
+  ],
+  "forbiddenExamples": [
+    {"pair": ["none", "released"], "why": "every released message was replied to or suppressed"},
+    {"pair": ["sent", "queued"], "why": "transient only: a quota or expiry reply must be followed by release in the same step (quotaNoRelease leaves it)"},
+    {"from": ["sent", "active"], "to": ["sent", "active"], "why": "no second reply after storeTimeout"},
+    {"from": ["none", "active"], "to": ["none", "released"], "why": "early release without a settle (storeEarlyRelease)"}
+  ]
+}

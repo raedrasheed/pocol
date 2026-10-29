@@ -1,0 +1,12 @@
+== M1 ids echoed unbounded (before the fix)
+thread 'guard_and_dispatch_error_items_stay_within_err_item_max' (9754) panicked at tests/net.rs:186:89:
+item 0: 100091 B
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.22s
+
+== M2 method name echoed unbounded
+thread 'guard_and_dispatch_error_items_stay_within_err_item_max' (9938) panicked at tests/net.rs:186:89:
+item 1: 140081 B
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.21s
+

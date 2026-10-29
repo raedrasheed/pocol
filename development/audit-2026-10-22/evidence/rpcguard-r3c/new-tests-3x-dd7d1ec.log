@@ -1,0 +1,63 @@
+=== run 1: --test net (8 tests)
+exit 0
+# 2026-10-24T07:20:22Z dd7d1ec086b29d1edea40b003a5c6e1e759cf322 dirty=1 cargo test --release --locked --offline --test net -- --exact --test-threads=1 --nocapture send_pacer_closes_a_slow_reader_after_grace send_pacer_timer_follows_a_over_r_past_grace a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane the_conditional_light_entries_have_the_light_deadline the_compute_deadline_includes_encoding an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release a_light_method_over_light_body_max_has_the_light_deadline batch_members_each_get_their_own_compute_deadline
+test a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane ... ok
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test batch_members_each_get_their_own_compute_deadline ... MEMBERS {"batchMs":637,"computeHeavyMs":453,"memberMs":226}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":922,"lastPacerClose":{"accepted":211628,"sendTime":0.501514},"pacerLateMaxMs":1,"pacerWaits":10}
+HONEST {"answerBytes":14680950,"sendMs":15}
+test send_pacer_timer_follows_a_over_r_past_grace ... PACER-AR {"bound":1094,"bytesRead":1048576,"pacerWaits":36,"windowS":1.5021920720000002}
+PACER-AR-CLOSE {"lastPacerClose":{"accepted":1670104,"sendTime":6.372972},"pacerLateMaxMs":2}
+test the_compute_deadline_includes_encoding ... ok
+test the_conditional_light_entries_have_the_light_deadline ... ok
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 13.17s
+# exit 0
+=== run 1: --lib the_class_probe_agrees_with_the_parsed_class
+exit 0
+# 2026-10-24T07:20:35Z dd7d1ec086b29d1edea40b003a5c6e1e759cf322 dirty=1 cargo test --release --locked --offline --lib -- --exact rpc::tests::the_class_probe_agrees_with_the_parsed_class
+test rpc::tests::the_class_probe_agrees_with_the_parsed_class ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 45 filtered out; finished in 0.00s
+# exit 0
+=== run 2: --test net (8 tests)
+exit 0
+# 2026-10-24T07:20:36Z dd7d1ec086b29d1edea40b003a5c6e1e759cf322 dirty=1 cargo test --release --locked --offline --test net -- --exact --test-threads=1 --nocapture send_pacer_closes_a_slow_reader_after_grace send_pacer_timer_follows_a_over_r_past_grace a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane the_conditional_light_entries_have_the_light_deadline the_compute_deadline_includes_encoding an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release a_light_method_over_light_body_max_has_the_light_deadline batch_members_each_get_their_own_compute_deadline
+test a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane ... ok
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test batch_members_each_get_their_own_compute_deadline ... MEMBERS {"batchMs":570,"computeHeavyMs":406,"memberMs":203}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":942,"lastPacerClose":{"accepted":211628,"sendTime":0.501538},"pacerLateMaxMs":1,"pacerWaits":10}
+HONEST {"answerBytes":14680950,"sendMs":18}
+test send_pacer_timer_follows_a_over_r_past_grace ... PACER-AR {"bound":1094,"bytesRead":1048576,"pacerWaits":36,"windowS":1.5025995559999998}
+PACER-AR-CLOSE {"lastPacerClose":{"accepted":1414616,"sendTime":5.397779},"pacerLateMaxMs":1}
+test the_compute_deadline_includes_encoding ... ok
+test the_conditional_light_entries_have_the_light_deadline ... ok
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 12.08s
+# exit 0
+=== run 2: --lib the_class_probe_agrees_with_the_parsed_class
+exit 0
+# 2026-10-24T07:20:48Z dd7d1ec086b29d1edea40b003a5c6e1e759cf322 dirty=1 cargo test --release --locked --offline --lib -- --exact rpc::tests::the_class_probe_agrees_with_the_parsed_class
+test rpc::tests::the_class_probe_agrees_with_the_parsed_class ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 45 filtered out; finished in 0.00s
+# exit 0
+=== run 3: --test net (8 tests)
+exit 0
+# 2026-10-24T07:20:48Z dd7d1ec086b29d1edea40b003a5c6e1e759cf322 dirty=1 cargo test --release --locked --offline --test net -- --exact --test-threads=1 --nocapture send_pacer_closes_a_slow_reader_after_grace send_pacer_timer_follows_a_over_r_past_grace a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane the_conditional_light_entries_have_the_light_deadline the_compute_deadline_includes_encoding an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release a_light_method_over_light_body_max_has_the_light_deadline batch_members_each_get_their_own_compute_deadline
+test a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane ... ok
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test batch_members_each_get_their_own_compute_deadline ... MEMBERS {"batchMs":688,"computeHeavyMs":392,"memberMs":196}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":942,"lastPacerClose":{"accepted":211628,"sendTime":0.501803},"pacerLateMaxMs":1,"pacerWaits":10}
+HONEST {"answerBytes":14680950,"sendMs":16}
+test send_pacer_timer_follows_a_over_r_past_grace ... PACER-AR {"bound":1094,"bytesRead":1048576,"pacerWaits":36,"windowS":1.502723635}
+PACER-AR-CLOSE {"lastPacerClose":{"accepted":1414616,"sendTime":5.397635},"pacerLateMaxMs":1}
+test the_compute_deadline_includes_encoding ... ok
+test the_conditional_light_entries_have_the_light_deadline ... ok
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 12.27s
+# exit 0
+=== run 3: --lib the_class_probe_agrees_with_the_parsed_class
+exit 0
+# 2026-10-24T07:21:01Z dd7d1ec086b29d1edea40b003a5c6e1e759cf322 dirty=1 cargo test --release --locked --offline --lib -- --exact rpc::tests::the_class_probe_agrees_with_the_parsed_class
+test rpc::tests::the_class_probe_agrees_with_the_parsed_class ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 45 filtered out; finished in 0.00s
+# exit 0

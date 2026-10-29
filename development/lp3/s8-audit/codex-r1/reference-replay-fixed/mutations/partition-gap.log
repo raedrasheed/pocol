@@ -1,0 +1,43 @@
+{"corpus":"S8 TS Genesis","seed":"0x5338c0de","counts":{"L0":6458,"ok":4871,"gsCount":366,"gsStructure":129,"gsInt":86,"gsRange":65,"gsOrder":19,"gsVersion":6}}
+✔ AS1-AS19 targets, traces and bounded intermediates (2.460978ms)
+✔ 1027 previously frozen ASERT rows (8.100287ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.125399ms)
+✖ membership, partition completeness, owner and exact hashes (9.045721ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (1.570828ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (7.701657ms)
+✔ full schema width/order/reserved failures and deep malformed framing (9.984279ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (85.195437ms)
+✔ SV1-SV5/SV7/SV7s pure settlement arithmetic; execution and SV6 deferred LP4 (1.501859ms)
+✔ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (0.962408ms)
+✔ S8 seeded adversarial Genesis framing and canonical acceptance (578.234415ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 714.510567
+
+✖ failing tests:
+
+test at ../work/lp3-s8/reference-replay-fixed/mutations/ts-partition-gap-hppm4cl6/prototypes/lp3-model/tests.ts:38:1
+✖ membership, partition completeness, owner and exact hashes (9.045721ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(m.owner(a.ranges,j))
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s8/reference-replay-fixed/mutations/ts-partition-gap-hppm4cl6/prototypes/lp3-model/tests.ts:45:220)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

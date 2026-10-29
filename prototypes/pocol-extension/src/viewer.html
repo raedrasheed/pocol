@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PoCol</title>
+<link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+<header id="bar">
+  <span id="trust" class="badge">…</span>
+  <span id="where" dir="ltr"></span>
+  <span id="ver"></span>
+  <span id="status" role="status"></span>
+</header>
+<main id="stage"></main>
+<div id="modal" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+    <h2 id="mtitle"></h2>
+    <pre id="mtext" dir="ltr"></pre>
+    <div class="btns"><button id="approve" type="button">موافقة</button><button id="reject" type="button">رفض</button></div>
+  </div>
+</div>
+<script type="module" src="viewer.js"></script>
+</body>
+</html>

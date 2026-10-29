@@ -1,0 +1,48 @@
+{
+  "method": "Root independent explicit repair mapping over completed actual results, rejects missing/failed/duplicate prerequisites and unmappedoldfailures",
+  "checks": 8,
+  "passed": 8,
+  "failed": 0,
+  "mapping": {
+    "bind029.reviewAcceptsUnaffected": "C36.reviewDecisions030.acceptedUnaffected",
+    "C33.source.scopeProbes.provenance": "C36.scopeProbes.parsedLiterals",
+    "convention.P-V1-11.decided": "convention.P-V1-11.decided",
+    "consolidation.rowsMatchProposal": "consolidation.rowsMatchProposal",
+    "coverage030.required": "coverage031.required",
+    "history.HF-8": "history.HF-8"
+  },
+  "results": [
+    {
+      "case": "actualCompletedStatuses",
+      "pass": true
+    },
+    {
+      "case": "history.HF-8-missing",
+      "pass": true
+    },
+    {
+      "case": "history.HF-8-failed",
+      "pass": true
+    },
+    {
+      "case": "C36.scopeProbes.parsedLiterals-missing",
+      "pass": true
+    },
+    {
+      "case": "C36.reviewDecisions030.acceptedUnaffected-failed",
+      "pass": true
+    },
+    {
+      "case": "history.HF-8-duplicate",
+      "pass": true
+    },
+    {
+      "case": "unmappedFailure",
+      "pass": true
+    },
+    {
+      "case": "transitiveFour029Failures",
+      "pass": true
+    }
+  ]
+}

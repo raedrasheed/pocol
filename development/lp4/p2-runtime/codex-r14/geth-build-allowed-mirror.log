@@ -1,0 +1,2 @@
+go: downloading github.com/ethereum/go-ethereum v1.14.12
+go: github.com/ethereum/go-ethereum/cmd/evm@v1.14.12: github.com/ethereum/go-ethereum/cmd/evm@v1.14.12: reading https://goproxy.io/github.com/ethereum/go-ethereum/cmd/evm/@v/v1.14.12.info: 403 Forbidden

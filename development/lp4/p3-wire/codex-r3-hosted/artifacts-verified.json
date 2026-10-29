@@ -1,0 +1,30 @@
+[
+  {
+    "id": 12263635342,
+    "name": "lp4-native-cancun-reference",
+    "bytes": 247267,
+    "sha256": "004d7d6d3c72a8560e45dd253749becc684b8199dd0b66bbe0355eddd3abba3f",
+    "path": "/workspace/attachments/840d7515-05f9-4bc8-813a-3620954cacfb/run39416930708-lp4-native-cancun-reference.zip"
+  },
+  {
+    "id": 12262139580,
+    "name": "lp4-p2-controls",
+    "bytes": 1397454,
+    "sha256": "9afb7ad62dab060660195170915a34d5d3572514b0fca055bce7a70bea277ce9",
+    "path": "/workspace/attachments/fc68ee3f-d2d4-4e47-ba33-909bd6328867/run39416930708-lp4-p2-controls.zip"
+  },
+  {
+    "id": 12261324017,
+    "name": "lp4-native-windows",
+    "bytes": 5094,
+    "sha256": "ea355dfd0d8d1933abd31ea2a02d2d111696a42fbd6452c023e1a18365f9fce0",
+    "path": "/workspace/attachments/4eca90eb-a4a2-4787-8f52-6462b16479b0/run39416930708-lp4-native-windows.zip"
+  },
+  {
+    "id": 12261129843,
+    "name": "lp4-legacy-windows",
+    "bytes": 27096,
+    "sha256": "2693179723cdffd4961b194a621f5d701c7c86d9ca4d0bd5731faa20fa878945",
+    "path": "/workspace/attachments/0e08266e-a8f7-4dee-84f1-65ed0d47c3d5/run39416930708-lp4-legacy-windows.zip"
+  }
+]

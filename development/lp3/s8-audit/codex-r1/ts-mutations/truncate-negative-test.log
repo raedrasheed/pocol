@@ -1,0 +1,68 @@
+{"corpus":"S8 TS Genesis","seed":"0x5338c0de","counts":{"L0":6458,"ok":4871,"gsCount":366,"gsStructure":129,"gsInt":86,"gsRange":65,"gsOrder":19,"gsVersion":6}}
+✖ AS1-AS19 targets, traces and bounded intermediates (8.479621ms)
+✖ 1027 previously frozen ASERT rows (3.765509ms)
+✔ timing metrics, TJ1-4 and overflow equality (2.879218ms)
+✔ membership, partition completeness, owner and exact hashes (4.429697ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (2.19359ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (12.570001ms)
+✔ full schema width/order/reserved failures and deep malformed framing (24.091181ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (101.101425ms)
+✔ SV1-SV5/SV7/SV7s pure settlement arithmetic; execution and SV6 deferred LP4 (1.809424ms)
+✔ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (1.140634ms)
+✔ S8 seeded adversarial Genesis framing and canonical acceptance (798.601308ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 9
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 988.785554
+
+✖ failing tests:
+
+test at prototypes/.cf-mut-092cfu7l/tests.ts:8:1
+✖ AS1-AS19 targets, traces and bounded intermediates (8.479621ms)
+  AssertionError [ERR_ASSERTION]: AS5
+  + actual - expected
+  
+  + 1235089076715505110273285295166543320420664860285428706504318592737083392n
+  - 1249243048715759196165485478087228626524324361107262507056897988117921792n
+  
+      at file:///workspace/Proof-of-Collaboration/prototypes/.cf-mut-092cfu7l/tests.ts:20:94
+      at Array.forEach (<anonymous>)
+      at TestContext.<anonymous> (file:///workspace/Proof-of-Collaboration/prototypes/.cf-mut-092cfu7l/tests.ts:20:8)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1235089076715505110273285295166543320420664860285428706504318592737083392n,
+    expected: 1249243048715759196165485478087228626524324361107262507056897988117921792n,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at prototypes/.cf-mut-092cfu7l/tests.ts:25:1
+✖ 1027 previously frozen ASERT rows (3.765509ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '165747853786854232078677754083097146380018'
+  - '169486225591930175747844969290624529866446'
+  
+      at TestContext.<anonymous> (file:///workspace/Proof-of-Collaboration/prototypes/.cf-mut-092cfu7l/tests.ts:27:143)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '165747853786854232078677754083097146380018',
+    expected: '169486225591930175747844969290624529866446',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

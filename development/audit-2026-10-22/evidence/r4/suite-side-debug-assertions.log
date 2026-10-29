@@ -1,0 +1,11 @@
+# release with debug assertions (CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true, separate target), on 719da04 + the side set, Node::ensure_state, the load phase; 2026-10-28; the H_END grow, a load run and the witnesses beside it
+     Running tests/caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/da-target/release/deps/caps-43f85a48516d54f4)
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.34s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/da-target/release/deps/consensus-719ca58d113ef4c4)
+test result: ok. 91 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 431.78s
+     Running tests/net.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/da-target/release/deps/net-c7ad84d630f358d5)
+test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 192.73s
+     Running tests/state_store.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/da-target/release/deps/state_store-92e3d9678889fc2a)
+test result: ok. 14 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.62s
+     Running tests/store.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/da-target/release/deps/store-8a536fdb5707880f)
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s

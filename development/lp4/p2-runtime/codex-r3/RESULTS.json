@@ -1,0 +1,21 @@
+{
+  "scope": "Hosted controls at exact PR24 source head; not LP4 acceptance",
+  "head": "25ec1f852a7bf9cd9c2960594f3962b18d9197c7",
+  "tree": "31e9375af1aea76dc7e5e82381b7ce87d32ad432",
+  "runId": 39050327868,
+  "nativeJob": 117447426006,
+  "nativeConclusion": "success",
+  "rustTests": 16,
+  "independentPyEVMCases": 28,
+  "compiledAssertionControls": 13,
+  "compilerVectorOracleBytesMatchLocal": true,
+  "artifactId": 12107032805,
+  "artifactZipSHA256": "a89945c288ddec55c8d73a4bf4268fd6e3774f778b2be7cae88908293b2dc3d9",
+  "windowsJob": 117447426271,
+  "windowsStatusAtCapture": "in_progress",
+  "windowsAccepted": false,
+  "P2": "NOT PASSED",
+  "T2": "NOT PASSED",
+  "T2b": "NOT PASSED",
+  "bootable": false
+}

@@ -1,0 +1,15 @@
+# pocold release suite, tree = b47fb85 + review fixes 1 and 4 + ckpt phase (uncommitted), 2026-10-27T19:17:21Z; an instrumented open ran beside it
+177:test pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import ... FAILED
+203:---- pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import stdout ----
+205:thread 'pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import' (1569) panicked at tests/consensus.rs:716:128:
+218:   5: consensus::pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import::{closure#2}
+220:   6: consensus::pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import
+222:   7: consensus::pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import::{closure#0}
+224:   8: <consensus::pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+232:    pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import
+234:test result: FAILED. 82 passed; 1 failed; 6 ignored; 0 measured; 0 filtered out; finished in 204.08s
+---- pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import stdout ----
+
+thread 'pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import' (1569) panicked at tests/consensus.rs:716:128:
+called `Option::unwrap()` on a `None` value
+stack backtrace:

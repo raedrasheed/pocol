@@ -1,0 +1,2657 @@
+{
+  "package": "M1 draft 0.3",
+  "executedAtUtc": "2026-10-07T06:38:37+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "notExecuted": [
+    "EVM / anvil",
+    "Solidity compilation",
+    "gas measurement",
+    "browser / extension",
+    "pocold",
+    "eth_getProof / MPT verification (snapshot model is abstract)",
+    "M0 K1-K3 hash libraries"
+  ],
+  "summary": {
+    "checks": 335,
+    "passed": 333,
+    "recorded": 2,
+    "failed": 0,
+    "seconds": 34.6
+  },
+  "results": [
+    {
+      "check": "keccak.selftest",
+      "status": "pass"
+    },
+    {
+      "check": "rlp.expected rlp-child-string-crosses-parent",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.truncated",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.truncated",
+        "stage": "decode",
+        "detail": "offset 1: body of 1 bytes crosses enclosing item",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-child-string-crosses-parent",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.noncanonical"
+      },
+      "got": {
+        "rule": "decode.noncanonical"
+      }
+    },
+    {
+      "check": "rlp.expected rlp-child-long-header-crosses-parent",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.truncated",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.truncated",
+        "stage": "decode",
+        "detail": "offset 1: length of length crosses enclosing item",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-child-long-header-crosses-parent",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.noncanonical"
+      },
+      "got": {
+        "rule": "decode.noncanonical"
+      }
+    },
+    {
+      "check": "rlp.expected rlp-child-list-crosses-parent-noncanonical-inside",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.truncated",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.truncated",
+        "stage": "decode",
+        "detail": "offset 1: body of 2 bytes crosses enclosing item",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-child-list-crosses-parent-noncanonical-inside",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.noncanonical"
+      },
+      "got": {
+        "rule": "decode.noncanonical"
+      }
+    },
+    {
+      "check": "rlp.expected rlp-child-list-crosses-parent-control",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.truncated",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.truncated",
+        "stage": "decode",
+        "detail": "offset 1: body of 2 bytes crosses enclosing item",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-child-list-crosses-parent-control",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.truncated"
+      },
+      "got": {
+        "rule": "decode.truncated"
+      }
+    },
+    {
+      "check": "rlp.expected rlp-parent-crosses-input-before-child",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.truncated",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.truncated",
+        "stage": "decode",
+        "detail": "offset 0: body of 5 bytes crosses input",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-parent-crosses-input-before-child",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.truncated"
+      },
+      "got": {
+        "rule": "decode.truncated"
+      }
+    },
+    {
+      "check": "rlp.expected rlp-noncanonical-before-trailing",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.noncanonical",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.noncanonical",
+        "stage": "decode",
+        "detail": "offset 0: single byte wrapped",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-noncanonical-before-trailing",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.noncanonical"
+      },
+      "got": {
+        "rule": "decode.noncanonical"
+      }
+    },
+    {
+      "check": "rlp.expected rlp-trailing-after-empty-list",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.trailing",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.trailing",
+        "stage": "decode",
+        "detail": "1 trailing bytes",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-trailing-after-empty-list",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.trailing"
+      },
+      "got": {
+        "rule": "decode.trailing"
+      }
+    },
+    {
+      "check": "rlp.expected rlp-empty-input",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.truncated",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.truncated",
+        "stage": "decode",
+        "detail": "offset 0: no item before end of input",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-empty-input",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.truncated"
+      },
+      "got": {
+        "rule": "decode.truncated"
+      }
+    },
+    {
+      "check": "rlp.expected rlp-length-of-length-crosses-input",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.truncated",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.truncated",
+        "stage": "decode",
+        "detail": "offset 0: length of length crosses input",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-length-of-length-crosses-input",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.truncated"
+      },
+      "got": {
+        "rule": "decode.truncated"
+      }
+    },
+    {
+      "check": "rlp.length rlp-deep-1201",
+      "status": "pass",
+      "got": 3391
+    },
+    {
+      "check": "rlp.head rlp-deep-1201",
+      "status": "pass",
+      "got": "0xf90d3cf90d39f90d"
+    },
+    {
+      "check": "rlp.tail rlp-deep-1201",
+      "status": "pass",
+      "got": "0xc7c6c5c4c3c2c1c0"
+    },
+    {
+      "check": "rlp.maxDepth rlp-deep-1201",
+      "status": "pass",
+      "got": 1201
+    },
+    {
+      "check": "rlp.expected rlp-deep-1201",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "struct.shape",
+        "stage": "structure",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "struct.shape",
+        "stage": "structure",
+        "detail": "expected list of 3",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-deep-1201",
+      "status": "pass",
+      "expected": {
+        "exception": "RecursionError"
+      },
+      "got": {
+        "exception": "RecursionError"
+      }
+    },
+    {
+      "check": "rlp.length rlp-deep-21916-max",
+      "status": "pass",
+      "got": 65536
+    },
+    {
+      "check": "rlp.head rlp-deep-21916-max",
+      "status": "pass",
+      "got": "0xf9fffdf9fffaf9ff"
+    },
+    {
+      "check": "rlp.tail rlp-deep-21916-max",
+      "status": "pass",
+      "got": "0xc7c6c5c4c3c2c1c0"
+    },
+    {
+      "check": "rlp.maxDepth rlp-deep-21916-max",
+      "status": "pass",
+      "got": 21916
+    },
+    {
+      "check": "rlp.expected rlp-deep-21916-max",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "struct.shape",
+        "stage": "structure",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "struct.shape",
+        "stage": "structure",
+        "detail": "expected list of 3",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.lowRecursionLimit rlp-deep-21916-max",
+      "status": "pass",
+      "limit": 120,
+      "got": "struct.shape"
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-deep-21916-max",
+      "status": "pass",
+      "expected": {
+        "exception": "RecursionError"
+      },
+      "got": {
+        "exception": "RecursionError"
+      }
+    },
+    {
+      "check": "rlp.length rlp-deep-21917-oversize",
+      "status": "pass",
+      "got": 65540
+    },
+    {
+      "check": "rlp.head rlp-deep-21917-oversize",
+      "status": "pass",
+      "got": "0xfa010000f9fffdf9"
+    },
+    {
+      "check": "rlp.expected rlp-deep-21917-oversize",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.oversize",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.oversize",
+        "stage": "decode",
+        "detail": "65540",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-deep-21917-oversize",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.oversize"
+      },
+      "got": {
+        "rule": "decode.oversize"
+      }
+    },
+    {
+      "check": "rlp.length rlp-deep-1201-trailing",
+      "status": "pass",
+      "got": 3392
+    },
+    {
+      "check": "rlp.expected rlp-deep-1201-trailing",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.trailing",
+        "stage": "decode",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.trailing",
+        "stage": "decode",
+        "detail": "1 trailing bytes",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-deep-1201-trailing",
+      "status": "pass",
+      "expected": {
+        "exception": "RecursionError"
+      },
+      "got": {
+        "exception": "RecursionError"
+      }
+    },
+    {
+      "check": "rlp.length rlp-deep-1201-truncated",
+      "status": "pass",
+      "got": 3390
+    },
+    {
+      "check": "rlp.expected rlp-deep-1201-truncated",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.truncated",
+        "stage": "decode",
+        "requests": 0,
+        "detailContains": "offset 0"
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.truncated",
+        "stage": "decode",
+        "detail": "offset 0: body of 3388 bytes crosses input",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-deep-1201-truncated",
+      "status": "pass",
+      "expected": {
+        "rule": "decode.truncated"
+      },
+      "got": {
+        "rule": "decode.truncated"
+      }
+    },
+    {
+      "check": "rlp.length rlp-deep-1200-noncanonical-innermost",
+      "status": "pass",
+      "got": 3394
+    },
+    {
+      "check": "rlp.expected rlp-deep-1200-noncanonical-innermost",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "decode.noncanonical",
+        "stage": "decode",
+        "requests": 0,
+        "detailContains": "offset 3392"
+      },
+      "got": {
+        "result": "reject",
+        "rule": "decode.noncanonical",
+        "stage": "decode",
+        "detail": "offset 3392: single byte wrapped",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-deep-1200-noncanonical-innermost",
+      "status": "pass",
+      "expected": {
+        "exception": "RecursionError"
+      },
+      "got": {
+        "exception": "RecursionError"
+      }
+    },
+    {
+      "check": "rlp.length rlp-deep-in-version-field",
+      "status": "pass",
+      "got": 2867
+    },
+    {
+      "check": "rlp.expected rlp-deep-in-version-field",
+      "status": "pass",
+      "expected": {
+        "result": "reject",
+        "firstRule": "struct.shape",
+        "stage": "structure",
+        "requests": 0
+      },
+      "got": {
+        "result": "reject",
+        "rule": "struct.shape",
+        "stage": "structure",
+        "detail": "integer field is a list",
+        "requests": 0
+      }
+    },
+    {
+      "check": "rlp.draft02Behaviour rlp-deep-in-version-field",
+      "status": "pass",
+      "expected": {
+        "exception": "RecursionError"
+      },
+      "got": {
+        "exception": "RecursionError"
+      }
+    },
+    {
+      "check": "selector sel-u32-max",
+      "status": "pass",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 4294967295
+      },
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 4294967295
+      }
+    },
+    {
+      "check": "selector sel-u32-max-plus-1",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-u32-wrap-to-1",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-u64-wrap-to-1",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-10-digits-over",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-10-digits-under",
+      "status": "pass",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 1000000000
+      },
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 1000000000
+      }
+    },
+    {
+      "check": "selector sel-11-digits",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-double-zero",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-leading-zero-10-digits",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-entry-u32-max",
+      "status": "pass",
+      "expected": {
+        "kind": "lookup",
+        "path": null,
+        "version": 4294967295
+      },
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": 4294967295
+      }
+    },
+    {
+      "check": "selector sel-5000-ones",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-4301-nines",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-5000-zeros",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-long-digits-then-query",
+      "status": "pass",
+      "expected": {
+        "kind": "malformedSelector"
+      },
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "selector sel-long-digits-in-query-only",
+      "status": "pass",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": null
+      },
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": null
+      }
+    },
+    {
+      "check": "selector sel-arabic-indic-digit",
+      "status": "pass",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      },
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "selector sel-fullwidth-digit",
+      "status": "pass",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      },
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "regression02.omnibox ''",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/index.html?x=1#part'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/index.html",
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/docs/'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs/index.html",
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a//b'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "check": "regression02.omnibox '//x'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/./a'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a/../b'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/%61'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a%2fb'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/INDEX.html'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/INDEX.html",
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a#b?c'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a",
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/index.html?q=%20'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/index.html",
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a\\\\b'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a;b'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/docs'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs",
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.length"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/index.html",
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a.html@v2'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 2
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a.html@v2?x=1'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 2
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a.html?x=@v2'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": null
+      }
+    },
+    {
+      "check": "regression02.omnibox '@v3'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": 3
+      }
+    },
+    {
+      "check": "regression02.omnibox '/@v3'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": 3
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a.html@v0'",
+      "status": "pass",
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a.html@v01'",
+      "status": "pass",
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a.html@v4294967295'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 4294967295
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a.html@v4294967296'",
+      "status": "pass",
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a.html@v'",
+      "status": "pass",
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a@vx'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "regression02.omnibox '/a@v1@v2'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "regression02.navigate '/'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.navigate '/x/'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/x/index.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.navigate '/about.html'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/about.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.navigate '/a/../b.html'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "check": "regression02.navigate '/a%2fb'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "check": "regression02.navigate '//x'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "check": "regression02.navigate 'about.html'",
+      "status": "pass",
+      "got": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "check": "regression02.navigate '/a b'",
+      "status": "pass",
+      "got": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "check": "regression02.navigate '/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+      "status": "pass",
+      "got": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "check": "regression02.navigate '/a.html@v2'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "regression02.navigate '/a.html?x#y'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.reference '../style.css' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/style.css",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.reference 'img/a.png' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs/img/a.png",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.reference './' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs/index.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.reference '..' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.reference '../../x.html' @ /a.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "ref.aboveRoot"
+      }
+    },
+    {
+      "check": "regression02.reference '/a/../b.html' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "check": "regression02.reference 'a//b.html' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "check": "regression02.reference 'x%20y.png' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "check": "regression02.reference 'style.css?v=2#k' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/style.css",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.reference '?q=1' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs/page.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.reference '#top' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "fragmentOnly"
+      }
+    },
+    {
+      "check": "regression02.reference '' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/page.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "regression02.reference 'https://example.org/' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "scheme",
+        "scheme": "https"
+      }
+    },
+    {
+      "check": "regression02.reference 'data:image/png;base64,AA==' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "scheme",
+        "scheme": "data"
+      }
+    },
+    {
+      "check": "regression02.reference 'JavaScript:alert(1)' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "scheme",
+        "scheme": "javascript"
+      }
+    },
+    {
+      "check": "regression02.reference '//evil.example/x.js' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "networkPath"
+      }
+    },
+    {
+      "check": "regression02.reference 'a\\\\b.css' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "versionWidth.length neg-version-256",
+      "status": "pass",
+      "got": 81
+    },
+    {
+      "check": "versionWidth.layout neg-version-256",
+      "status": "pass"
+    },
+    {
+      "check": "versionWidth neg-version-256",
+      "status": "pass",
+      "got": {
+        "rule": "struct.int",
+        "stage": "structure",
+        "requests": 0
+      }
+    },
+    {
+      "check": "versionWidth.isolation.next neg-version-256",
+      "status": "pass",
+      "got": "manifest.version"
+    },
+    {
+      "check": "versionWidth.length neg-version-257",
+      "status": "pass",
+      "got": 81
+    },
+    {
+      "check": "versionWidth.layout neg-version-257",
+      "status": "pass"
+    },
+    {
+      "check": "versionWidth neg-version-257",
+      "status": "pass",
+      "got": {
+        "rule": "struct.int",
+        "stage": "structure",
+        "requests": 0
+      }
+    },
+    {
+      "check": "versionWidth.isolation.next neg-version-257",
+      "status": "pass",
+      "got": "manifest.version"
+    },
+    {
+      "check": "versionWidth.length neg-version-leading-zero",
+      "status": "pass",
+      "got": 79
+    },
+    {
+      "check": "versionWidth.layout neg-version-leading-zero",
+      "status": "pass"
+    },
+    {
+      "check": "versionWidth neg-version-leading-zero",
+      "status": "pass",
+      "got": {
+        "rule": "struct.int",
+        "stage": "structure",
+        "requests": 0
+      }
+    },
+    {
+      "check": "versionWidth.isolation.next neg-version-leading-zero",
+      "status": "pass",
+      "got": "manifest.version"
+    },
+    {
+      "check": "versionWidth.length neg-version-255",
+      "status": "pass",
+      "got": 80
+    },
+    {
+      "check": "versionWidth.layout neg-version-255",
+      "status": "pass"
+    },
+    {
+      "check": "versionWidth neg-version-255",
+      "status": "pass",
+      "got": {
+        "rule": "manifest.version",
+        "stage": "semantic",
+        "requests": 0
+      }
+    },
+    {
+      "check": "versionWidth.isolation.full neg-version-255",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "regression02.positive pos-minimal",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-minimal",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-minimal",
+      "status": "pass",
+      "got": [
+        1,
+        1
+      ]
+    },
+    {
+      "check": "regression02.positive pos-empty-file",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-empty-file",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-empty-file",
+      "status": "pass",
+      "got": [
+        1,
+        1
+      ]
+    },
+    {
+      "check": "regression02.positive pos-shared-chunk",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-shared-chunk",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-shared-chunk",
+      "status": "pass",
+      "got": [
+        2,
+        2
+      ]
+    },
+    {
+      "check": "regression02.positive pos-case-distinct",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-case-distinct",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-case-distinct",
+      "status": "pass",
+      "got": [
+        2,
+        2
+      ]
+    },
+    {
+      "check": "regression02.positive pos-path-256",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-path-256",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-path-256",
+      "status": "pass",
+      "got": [
+        1,
+        1
+      ]
+    },
+    {
+      "check": "regression02.positive pos-path-special-segments",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-path-special-segments",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-path-special-segments",
+      "status": "pass",
+      "got": [
+        2,
+        2
+      ]
+    },
+    {
+      "check": "regression02.positive pos-chunk-24575",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-chunk-24575",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-chunk-24575",
+      "status": "pass",
+      "got": [
+        2,
+        2
+      ]
+    },
+    {
+      "check": "regression02.positive pos-file-1048576",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-file-1048576",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-file-1048576",
+      "status": "pass",
+      "got": [
+        44,
+        44
+      ]
+    },
+    {
+      "check": "regression02.positive pos-files-256",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-files-256",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-files-256",
+      "status": "pass",
+      "got": [
+        256,
+        256
+      ]
+    },
+    {
+      "check": "regression02.positive pos-site-4194304",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-site-4194304",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-site-4194304",
+      "status": "pass",
+      "got": [
+        172,
+        172
+      ]
+    },
+    {
+      "check": "regression02.positive pos-manifest-65536",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "requests.positive pos-manifest-65536",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.mutantNoCache pos-manifest-65536",
+      "status": "pass",
+      "got": [
+        212,
+        212
+      ]
+    },
+    {
+      "check": "regression02.negative neg-trailing-byte",
+      "status": "pass",
+      "got": [
+        "decode.trailing",
+        "decode",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-trailing-byte",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-noncanonical-version",
+      "status": "pass",
+      "got": [
+        "decode.noncanonical",
+        "decode",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-noncanonical-version",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-noncanonical-long-string",
+      "status": "pass",
+      "got": [
+        "decode.noncanonical",
+        "decode",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-noncanonical-long-string",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-noncanonical-long-list",
+      "status": "pass",
+      "got": [
+        "decode.noncanonical",
+        "decode",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-noncanonical-long-list",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-length-leading-zero",
+      "status": "pass",
+      "got": [
+        "decode.noncanonical",
+        "decode",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-length-leading-zero",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-truncated",
+      "status": "pass",
+      "got": [
+        "decode.truncated",
+        "decode",
+        0
+      ]
+    },
+    {
+      "check": "regression02.negative neg-manifest-65537",
+      "status": "pass",
+      "got": [
+        "decode.oversize",
+        "decode",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-manifest-65537",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-draft01-noncanonical-rlp",
+      "status": "pass",
+      "got": [
+        "decode.noncanonical",
+        "decode",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-draft01-noncanonical-rlp",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape"
+    },
+    {
+      "check": "regression02.negative neg-top-arity-2",
+      "status": "pass",
+      "got": [
+        "struct.shape",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.negative neg-top-arity-4",
+      "status": "pass",
+      "got": [
+        "struct.shape",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.negative neg-file-arity-4",
+      "status": "pass",
+      "got": [
+        "struct.shape",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.negative neg-file-arity-6",
+      "status": "pass",
+      "got": [
+        "struct.shape",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.negative neg-files-not-list",
+      "status": "pass",
+      "got": [
+        "struct.shape",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.negative neg-int-is-list",
+      "status": "pass",
+      "got": [
+        "struct.shape",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.negative neg-int-leading-zero",
+      "status": "pass",
+      "got": [
+        "struct.int",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-int-leading-zero",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-zero-as-00",
+      "status": "pass",
+      "got": [
+        "struct.int",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-zero-as-00",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-mime-u8-overflow",
+      "status": "pass",
+      "got": [
+        "struct.int",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-mime-u8-overflow",
+      "status": "pass",
+      "expected": "file.mime",
+      "got": "file.mime"
+    },
+    {
+      "check": "regression02.negative neg-size-u32-overflow",
+      "status": "pass",
+      "got": [
+        "struct.int",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-size-u32-overflow",
+      "status": "pass",
+      "expected": "file.size",
+      "got": "file.size"
+    },
+    {
+      "check": "regression02.negative neg-hash-31",
+      "status": "pass",
+      "got": [
+        "struct.width",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-hash-31",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "regression02.negative neg-hash-33",
+      "status": "pass",
+      "got": [
+        "struct.width",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-hash-33",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "regression02.negative neg-addr-19",
+      "status": "pass",
+      "got": [
+        "struct.width",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-addr-19",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "regression02.negative neg-addr-21",
+      "status": "pass",
+      "got": [
+        "struct.width",
+        "structure",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-addr-21",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "regression02.negative neg-version-0",
+      "status": "pass",
+      "got": [
+        "manifest.version",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-version-0",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-version-2",
+      "status": "pass",
+      "got": [
+        "manifest.version",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-version-2",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-files-empty",
+      "status": "pass",
+      "got": [
+        "manifest.fileCount",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-files-empty",
+      "status": "pass",
+      "expected": "manifest.entryIndex",
+      "got": "manifest.entryIndex"
+    },
+    {
+      "check": "regression02.negative neg-files-257",
+      "status": "pass",
+      "got": [
+        "manifest.fileCount",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-files-257",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-entry-index-range",
+      "status": "pass",
+      "got": [
+        "manifest.entryIndex",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-entry-index-range",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-no-slash",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-no-slash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-root",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-root",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-trailing-slash",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-trailing-slash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-leading-double-slash",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-leading-double-slash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-empty-segment",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-empty-segment",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-space",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-space",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-percent",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-percent",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-backslash",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-backslash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-non-ascii",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-non-ascii",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-dot",
+      "status": "pass",
+      "got": [
+        "path.dotSegment",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-dot",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-dotdot-tail",
+      "status": "pass",
+      "got": [
+        "path.dotSegment",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-dotdot-tail",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-dotdot-lead",
+      "status": "pass",
+      "got": [
+        "path.dotSegment",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-dotdot-lead",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-length-257",
+      "status": "pass",
+      "got": [
+        "path.length",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-length-257",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-path-empty",
+      "status": "pass",
+      "got": [
+        "path.length",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-path-empty",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-duplicate-path",
+      "status": "pass",
+      "got": [
+        "path.order",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-duplicate-path",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-unsorted-path",
+      "status": "pass",
+      "got": [
+        "path.order",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-unsorted-path",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-case-unsorted",
+      "status": "pass",
+      "got": [
+        "path.order",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-case-unsorted",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-unknown-mime",
+      "status": "pass",
+      "got": [
+        "file.mime",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-unknown-mime",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-mime-zero",
+      "status": "pass",
+      "got": [
+        "file.mime",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-mime-zero",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-entry-css",
+      "status": "pass",
+      "got": [
+        "entry.mime",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-entry-css",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-draft01-unknown-mime-entry",
+      "status": "pass",
+      "got": [
+        "file.mime",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-draft01-unknown-mime-entry",
+      "status": "pass",
+      "expected": "entry.mime",
+      "got": "entry.mime"
+    },
+    {
+      "check": "regression02.negative neg-file-1048577",
+      "status": "pass",
+      "got": [
+        "file.size",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-file-1048577",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-chunk-len-0",
+      "status": "pass",
+      "got": [
+        "chunk.len",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-chunk-len-0",
+      "status": "pass",
+      "expected": "fetch.length",
+      "got": "fetch.length"
+    },
+    {
+      "check": "regression02.negative neg-chunk-len-24576",
+      "status": "pass",
+      "got": [
+        "chunk.len",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-chunk-len-24576",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "regression02.negative neg-draft01-zero-chunk-length",
+      "status": "pass",
+      "got": [
+        "chunk.len",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-draft01-zero-chunk-length",
+      "status": "pass",
+      "expected": "file.sum",
+      "got": "file.sum"
+    },
+    {
+      "check": "regression02.negative neg-wrong-size",
+      "status": "pass",
+      "got": [
+        "file.sum",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-wrong-size",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-empty-with-chunk",
+      "status": "pass",
+      "got": [
+        "file.sum",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-empty-with-chunk",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "regression02.negative neg-nonempty-no-chunks",
+      "status": "pass",
+      "got": [
+        "file.sum",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-nonempty-no-chunks",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "regression02.negative neg-site-4194305",
+      "status": "pass",
+      "got": [
+        "site.size",
+        "semantic",
+        0
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-site-4194305",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-fetch-missing",
+      "status": "pass",
+      "got": [
+        "fetch.missing",
+        "fetch",
+        1
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-fetch-missing",
+      "status": "pass",
+      "expected": "fetch.prefix",
+      "got": "fetch.prefix"
+    },
+    {
+      "check": "regression02.negative neg-fetch-prefix",
+      "status": "pass",
+      "got": [
+        "fetch.prefix",
+        "fetch",
+        1
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-fetch-prefix",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-fetch-length",
+      "status": "pass",
+      "got": [
+        "fetch.length",
+        "fetch",
+        1
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-fetch-length",
+      "status": "pass",
+      "expected": "fetch.origin",
+      "got": "fetch.origin"
+    },
+    {
+      "check": "regression02.negative neg-fetch-other-factory",
+      "status": "pass",
+      "got": [
+        "fetch.origin",
+        "fetch",
+        1
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-fetch-other-factory",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.negative neg-fetch-modified-byte",
+      "status": "pass",
+      "got": [
+        "fetch.origin",
+        "fetch",
+        1
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-fetch-modified-byte",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "regression02.negative neg-file-hash",
+      "status": "pass",
+      "got": [
+        "file.hash",
+        "hash",
+        1
+      ]
+    },
+    {
+      "check": "regression02.isolation neg-file-hash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "regression02.version ver-minimal",
+      "status": "pass",
+      "got": "accept"
+    },
+    {
+      "check": "requests.version ver-minimal",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.fr-session-reload",
+      "status": "pass",
+      "got": [
+        2,
+        2
+      ]
+    },
+    {
+      "check": "regression02.version ver-manifest-65536",
+      "status": "pass",
+      "got": "accept"
+    },
+    {
+      "check": "requests.version ver-manifest-65536",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "regression02.version ver-manifest-hash",
+      "status": "pass",
+      "got": "manifest.hash"
+    },
+    {
+      "check": "regression02.version ver-manifest-chunk-missing",
+      "status": "pass",
+      "got": "mfetch.missing"
+    },
+    {
+      "check": "regression02.version ver-manifest-noncanonical-split",
+      "status": "pass",
+      "got": "manifest.split"
+    },
+    {
+      "check": "regression02.version ver-manifest-length-0",
+      "status": "pass",
+      "got": "manifest.length"
+    },
+    {
+      "check": "fr-shared.construction",
+      "status": "pass",
+      "manifestLength": 31160,
+      "chunk1Length": 6585
+    },
+    {
+      "check": "requests.fr-shared-manifest-content session",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.fr-shared-manifest-content separate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.fr-shared-manifest-content none",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "requests.fr-same-address-different-length",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-01-steady",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-02-A-B",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-03-A-B-A",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-03D-A-B-A-detector-only",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-04-outside-keff",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-05-forged-exhausts-restarts",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-06-flapping-exhausts-restarts",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-07-proof-for-wrong-keys",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-08-invariant-violation",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-09-explicit-not-found",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-10-explicit-noncurrent",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-11-outside-keff-exhausts-restarts",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-12-no-published-site",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot SNAP-13-explicit-draft",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "annex.X1.preimage",
+      "status": "pass",
+      "got": "0xf28c506f436f6c2d6e65742d7631830bdb29a01111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "check": "annex.X1.netKey",
+      "status": "recorded",
+      "value": "0xacfd846cb4e99df47de0b04af39136202c3d466fdcdd2b1ad7a6a8586b01d044",
+      "note": "computed with tools keccak only; not asserted until K1-K3 agree (E05)"
+    },
+    {
+      "check": "annex.V1.RW1",
+      "status": "pass",
+      "got": {
+        "b": "1",
+        "from": "1",
+        "count": 1,
+        "n": 1,
+        "anchoredGenesis": true
+      }
+    },
+    {
+      "check": "annex.V1.RW2",
+      "status": "pass",
+      "got": {
+        "b": "1",
+        "from": "1",
+        "count": 3,
+        "n": 3,
+        "anchoredGenesis": true
+      }
+    },
+    {
+      "check": "annex.V1.RW3",
+      "status": "pass",
+      "got": {
+        "b": "1",
+        "from": "1",
+        "count": 13,
+        "n": 13,
+        "anchoredGenesis": true
+      }
+    },
+    {
+      "check": "annex.V1.RW4",
+      "status": "pass",
+      "got": {
+        "b": "2",
+        "from": "1",
+        "count": 14,
+        "n": 13,
+        "anchoredGenesis": false
+      }
+    },
+    {
+      "check": "annex.V1.RW5",
+      "status": "pass",
+      "got": {
+        "b": "8",
+        "from": "7",
+        "count": 14,
+        "n": 13,
+        "anchoredGenesis": false
+      }
+    },
+    {
+      "check": "annex.V1.RW6",
+      "status": "pass",
+      "got": {
+        "b": "18446744073709551603",
+        "from": "18446744073709551602",
+        "count": 14,
+        "n": 13,
+        "anchoredGenesis": false
+      }
+    },
+    {
+      "check": "annex.V1.RW.exhaustive 1..10^6",
+      "status": "pass",
+      "firstBad": []
+    },
+    {
+      "check": "annex.V1.HC1",
+      "status": "pass"
+    },
+    {
+      "check": "annex.V1.HC2",
+      "status": "pass"
+    },
+    {
+      "check": "annex.V1.HC3",
+      "status": "pass"
+    },
+    {
+      "check": "annex.V1.HC4 minWork",
+      "status": "pass",
+      "got": 4095
+    },
+    {
+      "check": "annex.V1.HC5 minWork",
+      "status": "pass"
+    },
+    {
+      "check": "annex.V1.HC6",
+      "status": "pass"
+    },
+    {
+      "check": "annex.V1.HC7 ceilTarget",
+      "status": "pass"
+    },
+    {
+      "check": "annex.V1.HC7",
+      "status": "recorded",
+      "minWorkDecimal": "6811299366900952671974763824040465167839410862684739061144563765171360567055",
+      "expression": "floor(2^256/17)"
+    },
+    {
+      "check": "annex.V1.HC.random 10^4 (seed 20261007)",
+      "status": "pass",
+      "firstViolation": "None"
+    }
+  ]
+}

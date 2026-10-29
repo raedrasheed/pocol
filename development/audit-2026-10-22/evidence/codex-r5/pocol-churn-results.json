@@ -1,0 +1,86 @@
+[
+  {
+    "burners": 0,
+    "run": 0,
+    "exit": 0,
+    "seconds": 0.2258082860007562,
+    "log": "/tmp/pocol-churn-load0-0.log"
+  },
+  {
+    "burners": 0,
+    "run": 1,
+    "exit": 0,
+    "seconds": 1.2486923310007114,
+    "log": "/tmp/pocol-churn-load0-1.log"
+  },
+  {
+    "burners": 0,
+    "run": 2,
+    "exit": 101,
+    "seconds": 1.7099441319987818,
+    "log": "/tmp/pocol-churn-load0-2.log"
+  },
+  {
+    "burners": 0,
+    "run": 3,
+    "exit": 101,
+    "seconds": 1.695934137000222,
+    "log": "/tmp/pocol-churn-load0-3.log"
+  },
+  {
+    "burners": 1,
+    "run": 0,
+    "exit": 101,
+    "seconds": 1.7649221240008046,
+    "log": "/tmp/pocol-churn-load1-0.log"
+  },
+  {
+    "burners": 1,
+    "run": 1,
+    "exit": 101,
+    "seconds": 1.75550407099945,
+    "log": "/tmp/pocol-churn-load1-1.log"
+  },
+  {
+    "burners": 1,
+    "run": 2,
+    "exit": 101,
+    "seconds": 1.76097983299951,
+    "log": "/tmp/pocol-churn-load1-2.log"
+  },
+  {
+    "burners": 1,
+    "run": 3,
+    "exit": 0,
+    "seconds": 1.2976670890002424,
+    "log": "/tmp/pocol-churn-load1-3.log"
+  },
+  {
+    "burners": 3,
+    "run": 0,
+    "exit": 0,
+    "seconds": 1.4766475500000524,
+    "log": "/tmp/pocol-churn-load3-0.log"
+  },
+  {
+    "burners": 3,
+    "run": 1,
+    "exit": 0,
+    "seconds": 1.467984182998407,
+    "log": "/tmp/pocol-churn-load3-1.log"
+  },
+  {
+    "burners": 3,
+    "run": 2,
+    "exit": 0,
+    "seconds": 1.467849628001204,
+    "log": "/tmp/pocol-churn-load3-2.log"
+  },
+  {
+    "burners": 3,
+    "run": 3,
+    "exit": 101,
+    "seconds": 1.8891574190001847,
+    "log": "/tmp/pocol-churn-load3-3.log"
+  }
+]

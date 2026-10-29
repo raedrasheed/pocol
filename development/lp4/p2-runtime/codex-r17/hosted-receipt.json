@@ -1,0 +1,50 @@
+{
+  "run": 39394783398,
+  "sourceHead": "c6e56b069ad3d5a7c1323cae81ea53004f542512",
+  "sourceTree": "d643038c4a6210587c14c364a041f161c14980b7",
+  "implementationBranch": "codex-lp4-p2-runtime",
+  "evidenceBranch": "codex-lp4-p2-evidence-r17",
+  "reason": "Separate evidence branch keeps active implementation CI head fixed; no duplicate PR or merge",
+  "jobs": [
+    {
+      "id": 118534693992,
+      "name": "independent-cancun-comparison",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 118534694272,
+      "name": "cancun-pay-controls",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118534694277,
+      "name": "native-cancun-reference",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118534694284,
+      "name": "registry-windows-execution",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118534694453,
+      "name": "legacy-windows-regression",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "legacyCounts": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "independentPython": "RUNNING; NOT PASSED",
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false
+}

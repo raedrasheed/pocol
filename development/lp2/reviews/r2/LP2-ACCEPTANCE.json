@@ -1,0 +1,126 @@
+{
+  "milestone": "LP2",
+  "revision": 2,
+  "baseline": "M1 0.32",
+  "status": "accepted-local-experimental-candidate-storage",
+  "at": "2026-10-08T13:48:10.841729+00:00",
+  "criteria": {
+    "P0": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    },
+    "P1": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    },
+    "P2": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    },
+    "P3": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    },
+    "P4": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    },
+    "P5": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    },
+    "P6": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    },
+    "P7": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    },
+    "P8": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP2-R2.md",
+        "commands.json",
+        "cargo-test.log",
+        "independent-store.json",
+        "partial-field-corruption-fixed.json",
+        "e2e-store.log",
+        "baseline-preservation.json"
+      ]
+    }
+  },
+  "ordinaryRustTestsPassed": 72,
+  "ignoredHelperInvokedByParentTests": true,
+  "independentCliChecks": 105,
+  "authorProcessCliChecks": 24,
+  "consensus": false,
+  "executedHeight": 0,
+  "devnetAcceptanceSatisfied": false,
+  "nextMilestone": "LP3",
+  "remainingLp2Blockers": []
+}

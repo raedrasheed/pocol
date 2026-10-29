@@ -1,0 +1,9 @@
+command-exists 12 source bytes match locked archive
+commander 13 source bytes match locked archive
+follow-redirects 7 source bytes match locked archive
+js-sha3 7 source bytes match locked archive
+memorystream 8 source bytes match locked archive
+os-tmpdir 4 source bytes match locked archive
+semver 6 source bytes match locked archive
+solc 21 source bytes match locked archive
+tmp 4 source bytes match locked archive

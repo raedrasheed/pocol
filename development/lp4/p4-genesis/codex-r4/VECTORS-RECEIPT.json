@@ -1,0 +1,9 @@
+{
+  "path": "/workspace/work/lp4/p4-system-evidence/issuance-r4-final-v2-vectors.json",
+  "bytes": 1156607,
+  "sha256": "17055dd29caf256a0747c5b1caa2bd90926ec30c5f60c59a758f67cb7670ce2d",
+  "genesis": 2,
+  "signedCases": 6,
+  "publication": "Full state vectors LOCAL and required new-source CI artifact; independent result/receipt/reproducer intended for GitHub",
+  "bootable": false
+}

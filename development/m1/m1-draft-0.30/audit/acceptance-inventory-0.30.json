@@ -1,0 +1,47 @@
+{
+  "schema": "pocol-m1-acceptance-inventory/0.30",
+  "status": "author inventory for root review; every criterion is computed by tools/run_checks_030.py from root's 0.29 results and matrix, the 0.30 checks and this file. CompleteCandidate is not Complete. PendingRootReview = every criterion satisfied except root's review of the 0.30 repairs.",
+  "base": {"matrix0_29": "coordination/review-001/m1-draft-0.29/results/acceptance-matrix-0.29.json",
+           "rowInventory0_25": "m1-draft-0.25/audit/row-inventory.json",
+           "review0_29": "coordination/review-001/REVIEW-0.29.md"},
+  "results": {"R27": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json", "R29": "coordination/review-001/m1-draft-0.29/results/run-results-0.29.json"},
+  "r29Summary": {"checks": 732, "passed": 609, "recorded": 119, "failed": 4,
+                 "failures": ["U08.noncanonical.N05", "decision.U08.applied", "consolidation.findingsMatchProposal", "coverage029.required"]},
+  "reviewedBy029": {"rows": ["C1", "C2", "R1", "E6"], "literal": "unaffected root-reviewed evidence are accepted at specification scope",
+                    "delegatedReviewed": ["U01", "U02", "U10", "U14", "CR-M1-01", "RF-E6-1", "V1-SHA-COST", "P-C32-2"],
+                    "delegatedRepairedIn030": ["U08"]},
+  "changedRows": {
+    "C3": {"why": "U08 repair (C34) and the shared RP budget (P-D29-3)", "currentRunEvidence": ["^U08\\.", "^C34\\.", "^U14\\.rp\\.", "^decision\\.U08\\.applied$"]},
+    "C4": {"why": "U08 repair (C34)", "currentRunEvidence": ["^U08\\.", "^C34\\.", "^decision\\.U08\\.applied$"]},
+    "V1": {"why": "guarded receive boundary (C33, P-V1-11) and the shared RP budget (P-D29-3)", "currentRunEvidence": ["^C33\\.", "^U14\\.rp\\.", "^freeze\\.v1"]}
+  },
+  "addFiles": ["m1-draft-0.30/M1-SPEC-0.30-AMENDMENT.md", "m1-draft-0.30/decisions/conventions-applied-0.30.json", "m1-draft-0.30/vectors/c33-guard-cases.json",
+               "m1-draft-0.30/vectors/c34-u08-invariants.json", "m1-draft-0.30/vectors/experiment-amendments-0.30.json"],
+  "repairedTokens": ["U08", "P-D29-3", "P-V1-11", "P-U08-1"],
+  "v1FreezeDecisions": {"v1.": ["P-V1-1", "P-V1-5", "P-V1-7", "P-V1-8", "V1-SHA-COST"], "keys.public": ["TK-1"]},
+  "syntheticGroups": {"syn.lc.branchHashes": "synthetic opaque LogClient branch identifiers (V2)", "privateProvenance": "SHA-256 of private source messages; preimage kept by root",
+                      "ph.v3.networkProfiles": "placeholder network-profile values (V3); no actual network"},
+  "ledgerPendingFinalVerification": ["C06", "C07", "U08-CR", "RF-E6-1", "V1-SHA-COST", "P-C32-2"],
+  "historical": {
+    "boundIn029": ["HF-1", "HF-2", "HF-3", "HF-4", "HF-5", "HF-6", "HF-7", "DC-1", "DC-2"],
+    "new": [
+      {"id": "HF-8", "what": "the four 0.29 failures (one cause: the blanket negative sum assertion)", "reboundTo": "this run: U08.noncanonical.N05, decision.U08.applied, consolidation.findingsMatchProposal, coverage030.required"},
+      {"id": "HF-9", "what": "root guard integration probes 0/3 (wrongId, missingId, duplicateResult rendered a frame)", "file": "coordination/review-001/v1-guard-integration-probes-029.json", "failed": 3,
+       "reboundTo": ["C33.case.G-P1-wrongId", "C33.case.G-P2-missingId", "C33.case.G-P3-duplicateResult"]},
+      {"id": "HF-10", "what": "root's first triad comparison against 611 null legacy reference fields (harness error)", "file": "coordination/review-001/full-hash-triad-029.json", "failed": 611,
+       "reboundTo": ["coordination/review-001/full-hash-triad-executed-029.json (668/668)", "freeze.legacy"]},
+      {"id": "HF-11", "what": "two envelope-scope observations (duplicate error.code, id 9999 busy) accepted as retries", "file": "coordination/review-001/v1-envelope-scope-probes-029.json",
+       "reboundTo": ["C33.case.G-DUP-errorCode", "C33.case.G-SCOPE-busyWrongId"]}
+    ]
+  },
+  "proposedStatus": {
+    "CompleteCandidate": ["X1", "X2", "X3", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "R2", "R3", "R4", "S1", "S2", "S3", "S4",
+                          "Q1", "Q2", "Q3", "Q4", "E1", "E2", "E3", "E4", "E5", "E7", "V2", "V3", "V4", "C1", "C2", "R1", "E6"],
+    "PendingRootReview": ["C3", "C4", "V1"],
+    "Partial": []
+  },
+  "proposedFindings": {
+    "closableAtSpecScope": ["F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F18", "F19", "F20", "F21", "F22", "F23", "F24", "F26"],
+    "closableAfterRootReviewOf030": ["F09", "F17", "F25"]
+  }
+}

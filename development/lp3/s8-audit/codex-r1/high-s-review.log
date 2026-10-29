@@ -1,0 +1,10 @@
+   Compiling lp1-node v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp1-node)
+    Finished release [optimized] target(s) in 1.18s
+     Running tests/adversarial_lp3.rs (prototypes/lp1-node/target/release/deps/adversarial_lp3-a9d771834d59fe56)
+
+running 2 tests
+test in_range_high_s_is_still_noncanonical_in_both_signatures ... ok
+test seeded_strict_envelope_no_panic_and_canonical_acceptance ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

@@ -1,0 +1,10 @@
+## The pacer test of 3705559 against seeded faults in rpc.rs (separate worktree and target directory, 2026-10-27)
+# PT1 is a 4 s sleep before the pacer's clock starts, on every answer: the honest reference is delayed alike, so the pacer test passes; 15 other net tests fail
+PC1 KILLED (201s) pocold/src/rpc.rs: 'if st>grace&&(a as f64)<r*st{' -> 'if false&&st>grace&&(a as f64)<r*st{'; failing: ['send_pacer_closes_a_slow_reader_after_grace']
+PC2 KILLED (40s) pocold/src/rpc.rs: 'if st>grace&&(a as f64)<r*st{' -> 'if st>grace*4.0&&(a as f64)<r*st{'; failing: ['send_pacer_closes_a_slow_reader_after_grace']
+PT1 KILLED (1158s) pocold/src/rpc.rs: '    let (t0,mut a,mut pi,mut off)=(Instant::now(),0usize,0usize,0usize' -> '    std::thread::sleep(std::time::Duration::from_s'; failing: ['a_light_flood_coalesces_wakes_and_main_events_progress', 'a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving', 'abandoned_queued_bodies_are_capped_and_released', 'an_answer_is_reserved_until_its_connection_has_written_it', 'batch_wall_closes_the_batch', 'batch_wall_counts_the_time_queued', 'estimate_gas_stops_its_search_at_the_deadline', 'heavy_compute_deadline_cancels_eth_call', 'legitimate_requests_progress_under_bounded_heavy_load', 'light_requests_behind_long_heavy_work_are_answered_never_deadline', 'queue_wait_bounds_the_wait_for_a_heavy_queue_place', 'queue_wait_bounds_the_wait_on_a_full_main_queue', 'queued_requests_are_busy_at_queue_wait', 'rpc_connection_cap_refuses_excess_unread_and_keeps_serving', 'rpc_work_deadline_skips_expired_work_and_releases_resources']
+PT4 KILLED (34s) pocold/src/rpc.rs: 'if st>grace&&(a as f64)<r*st{' -> 'if st>grace*0.5&&(a as f64)<r*st{'; failing: ['send_pacer_closes_a_slow_reader_after_grace']
+PT5 KILLED (30s) pocold/src/rpc.rs: 'if st>grace&&(a as f64)<r*st{' -> 'if st>grace*0.5&&(a as f64)<r*st{let st=st+0.3;'; failing: ['send_pacer_closes_a_slow_reader_after_grace']
+
+## PT5 against the pacer test as it was on d45dfe2 (before the review)
+PT5-on-the-old-test SURVIVED (31s) pocold/src/rpc.rs: 'if st>grace&&(a as f64)<r*st{' -> 'if st>grace*0.5&&(a as f64)<r*st{let st=st+0.3;'; failing: []

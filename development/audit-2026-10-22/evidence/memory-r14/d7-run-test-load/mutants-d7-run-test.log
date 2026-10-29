@@ -1,0 +1,6 @@
+# D-7 mutants against pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import alone, after its QUEUE_WAIT change; tree = HEAD + the test change only (test-change.patch)
+BASE: ok 
+D2 an admitted transaction's gas is not counted: KILLED panicked at tests/consensus.rs:712:9: assertion `left == right` failed: the pool is at its gas bound
+D3 a new head does not reset the pooled gas: KILLED panicked at tests/consensus.rs:725:5: the second block was imported while revalidation was still pending (backlog 0)
+D7 revalidation does not release a backlog transaction's bytes: KILLED panicked at tests/consensus.rs:731:114: called `Result::unwrap()` on an `Err` value: "counters gas 31600000, bytes 1316, backlog bytes 2961 differ from the contents: 31600000, 1316, 0"
+R1 a new head revalidates the whole pool at once: KILLED panicked at tests/consensus.rs:725:5: the second block was imported while revalidation was still pending (backlog 0)

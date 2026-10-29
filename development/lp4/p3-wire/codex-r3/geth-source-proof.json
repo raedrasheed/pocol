@@ -1,0 +1,25 @@
+{
+  "upstream": "go-ethereum v1.14.12",
+  "upstreamZipSHA256": "5cc8c8958c7fc5b0b28a3aaeb865d580b2f7554b035c72c05946cec6539f635a",
+  "unchangedSourceFiles": 1998,
+  "changedBuildMetadataOnly": [
+    "go.mod",
+    "go.sum"
+  ],
+  "helperSHA256": "110480e8f698056a0b4de7253bf11219decca2039950c69f92dd7db856b4f029",
+  "binarySHA256": "38dd1262917bcb403ce4949817ed1f3f45352519295c400242e82b775ae0c5dd",
+  "commands": [
+    "/workspace/work/lp4/p2-registry-full/geth-independent/go/bin/go",
+    "build",
+    "-mod=mod",
+    "-buildvcs=false",
+    "-p",
+    "2",
+    "-o",
+    "/workspace/work/lp4/p3-wire/signed-geth-built/signed-geth-control",
+    "."
+  ],
+  "buildExit": 0,
+  "scope": "external test tool only; no PoCol runtime linking, binary distribution or boot",
+  "bootable": false
+}

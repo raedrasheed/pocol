@@ -1,0 +1,9 @@
+{
+  "archive": "/workspace/work/lp4/p4-system-r3-complete-evidence.tar.gz",
+  "bytes": 12689339,
+  "sha256": "131724274961bcb80a336fc979943582838293def5af8a4ee8b873aceaad7122",
+  "publication": "Full raw archive and all original/mutant source/build/test attempts stay local. This packet publishes compact reproducible source/results/digests, not the raw archive.",
+  "previousArchive": "/workspace/work/lp4/p4-system-r2-complete-evidence.tar.gz",
+  "previousSHA256": "8e1c4a6d4edadd512de0df37d4fdf4a28884a3d80e298bda749231de4972c7ed",
+  "bootable": false
+}

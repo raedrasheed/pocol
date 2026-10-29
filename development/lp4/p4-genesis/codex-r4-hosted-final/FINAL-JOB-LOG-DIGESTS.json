@@ -1,0 +1,30 @@
+{
+  "decodedUtf8Logs": [
+    {
+      "file": "job-118767368337.log",
+      "bytes": 40589,
+      "sha256": "ad92f24f32cf6fd640f94ced8bfe89b4f1c7b13bb2c64d46a7ef9095b3b99aa2"
+    },
+    {
+      "file": "job-118767368722.log",
+      "bytes": 22832,
+      "sha256": "229870e728aef7ddffc0d6575950e58f561ff63aef09869ee4f92db6e6fac139"
+    },
+    {
+      "file": "job-118767368733.log",
+      "bytes": 107741,
+      "sha256": "f9550c2e6d68b4c07eb954e452446970f02d1ed819a90bb20f5b043ccdaf91c7"
+    },
+    {
+      "file": "job-118767368736.log",
+      "bytes": 42018,
+      "sha256": "a8cbc9dbe40d46f203da47cb4cb7f775f7e2aeaecb4afd9b92b7583a85281b0a"
+    },
+    {
+      "file": "job-118767368798.log",
+      "bytes": 56528,
+      "sha256": "cee6212dba7e42f7522625b2a5bfe5fe7af9211d9d70f107f3c2d6c14acb7d5f"
+    }
+  ],
+  "independentIndividualCasesArchived": false
+}

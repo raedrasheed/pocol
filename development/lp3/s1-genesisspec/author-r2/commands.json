@@ -1,0 +1,292 @@
+[
+ {
+  "name": "rustc-version",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 0.021,
+  "args": [
+   "rustc",
+   "+1.58.1",
+   "--version"
+  ],
+  "log": "rustc-version.log"
+ },
+ {
+  "name": "cargo-version",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 0.011,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "--version"
+  ],
+  "log": "cargo-version.log"
+ },
+ {
+  "name": "round1-build",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 30.964,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "build",
+   "--offline",
+   "--locked",
+   "--target-dir",
+   "<target-r1>"
+  ],
+  "log": "round1-build.log"
+ },
+ {
+  "name": "round1-diff-without-exception",
+  "exitCode": 1,
+  "signal": null,
+  "seconds": 8.056,
+  "args": [
+   "python3",
+   "<scratch>/r2/round1-diff-without-exception.py",
+   "--bin",
+   "<target-r1>/debug/lp1-node",
+   "--m1",
+   "<repo>/development/m1",
+   "--out",
+   "<scratch>/final2/round1-diff-without-exception.json"
+  ],
+  "log": "round1-diff-without-exception.log"
+ },
+ {
+  "name": "round1-large-one-line-limit256MiB",
+  "exitCode": null,
+  "signal": "SIGABRT",
+  "seconds": 0.24,
+  "args": [
+   "<target-r1>/debug/lp1-node",
+   "genesis-decode",
+   "--in",
+   "<scratch>/r2/big-one-line.txt",
+   "--out",
+   "/dev/null"
+  ],
+  "log": "round1-large-one-line.log"
+ },
+ {
+  "name": "cargo-build",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 28.567,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "build",
+   "--offline",
+   "--locked",
+   "--target-dir",
+   "<target>"
+  ],
+  "log": "cargo-build.log"
+ },
+ {
+  "name": "cargo-build-release",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 28.094,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "build",
+   "--release",
+   "--offline",
+   "--locked",
+   "--target-dir",
+   "<target>"
+  ],
+  "log": "cargo-build-release.log"
+ },
+ {
+  "name": "rustfmt-check",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 0.181,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "fmt",
+   "--",
+   "--check"
+  ],
+  "log": "rustfmt-check.log"
+ },
+ {
+  "name": "cargo-test",
+  "exitCode": 101,
+  "signal": null,
+  "seconds": 46.54,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "test",
+   "--offline",
+   "--locked",
+   "--no-fail-fast",
+   "--target-dir",
+   "<target>",
+   "--",
+   "--test-threads=1",
+   "--nocapture"
+  ],
+  "log": "cargo-test.log"
+ },
+ {
+  "name": "genesis-batch-alloc-release-max",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 21.465,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "test",
+   "--release",
+   "--offline",
+   "--locked",
+   "--target-dir",
+   "<target>",
+   "--test",
+   "genesis_batch_alloc"
+  ],
+  "log": "genesis-batch-alloc-release-max.log",
+  "env": {
+   "LP3_ALLOC_MAX_VERSION": "1"
+  }
+ },
+ {
+  "name": "verify-fixtures",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 0.967,
+  "args": [
+   "<target>/debug/lp1-node",
+   "verify-fixtures",
+   "--fixtures",
+   "fixtures"
+  ],
+  "log": "verify-fixtures.log"
+ },
+ {
+  "name": "e2e-http",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 1.556,
+  "args": [
+   "python3",
+   "tests/e2e_http.py",
+   "--bin",
+   "<target>/debug/lp1-node",
+   "--fixtures",
+   "fixtures"
+  ],
+  "log": "e2e-http.log"
+ },
+ {
+  "name": "e2e-store",
+  "exitCode": 1,
+  "signal": null,
+  "seconds": 0.066,
+  "args": [
+   "python3",
+   "tests/e2e_store.py",
+   "--bin",
+   "<target>/debug/lp1-node",
+   "--fixtures",
+   "fixtures"
+  ],
+  "log": "e2e-store-linux.log"
+ },
+ {
+  "name": "store-init-probe",
+  "exitCode": 2,
+  "signal": null,
+  "seconds": 0.003,
+  "args": [
+   "<target>/debug/lp1-node",
+   "store",
+   "init",
+   "--store",
+   "<scratch>/final2-probe-store",
+   "--fixtures",
+   "fixtures"
+  ],
+  "log": "store-init-linux.log"
+ },
+ {
+  "name": "lp3-genesis-diff",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 45.967,
+  "args": [
+   "python3",
+   "tests/lp3_genesis_diff.py",
+   "--bin",
+   "<target>/debug/lp1-node",
+   "--m1",
+   "../../development/m1",
+   "--out",
+   "<scratch>/final2/lp3-genesis-diff.json"
+  ],
+  "log": "lp3-genesis-diff.log"
+ },
+ {
+  "name": "lp3-genesis-diff-release-max",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 69.007,
+  "args": [
+   "python3",
+   "tests/lp3_genesis_diff.py",
+   "--bin",
+   "<target>/release/lp1-node",
+   "--m1",
+   "../../development/m1",
+   "--max-version",
+   "--out",
+   "<scratch>/final2/lp3-genesis-diff-release-max.json"
+  ],
+  "log": "lp3-genesis-diff-release-max.log"
+ },
+ {
+  "name": "lp3-genesis-cli",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 49.929,
+  "args": [
+   "python3",
+   "tests/lp3_genesis_cli.py",
+   "--bin",
+   "<target>/debug/lp1-node",
+   "--m1",
+   "../../development/m1",
+   "--out",
+   "<scratch>/final2/lp3-genesis-cli.json"
+  ],
+  "log": "lp3-genesis-cli.log"
+ },
+ {
+  "name": "lp3-genesis-cli-release-max",
+  "exitCode": 0,
+  "signal": null,
+  "seconds": 32.706,
+  "args": [
+   "python3",
+   "tests/lp3_genesis_cli.py",
+   "--bin",
+   "<target>/release/lp1-node",
+   "--m1",
+   "../../development/m1",
+   "--max-version",
+   "--out",
+   "<scratch>/final2/lp3-genesis-cli-release-max.json"
+  ],
+  "log": "lp3-genesis-cli-release-max.log"
+ }
+]

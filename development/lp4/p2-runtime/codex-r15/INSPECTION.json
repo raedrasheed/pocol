@@ -1,0 +1,40 @@
+{
+  "scope": "New plaintext evidence/source inspection; no full raw-engine archive upload attempted",
+  "filesInspected": 41,
+  "highConfidenceCredentialMatches": 0,
+  "content": "Synthetic context states/results, public fixture identifiers/hashes/timings, public upstream license attributions and tool metadata; no fixture keys or private user records",
+  "fullRawOutputs": "LOCAL ONLY except the two already approved/published R12 archives",
+  "rawHostedZIPs": [
+    {
+      "name": "lp4-independent-cancun",
+      "sha256": "0356585cac5740f331d673caf2ab01c976994cbb72dc2978309496ca942ee6a5",
+      "bytes": 131937,
+      "members": 11
+    },
+    {
+      "name": "lp4-legacy-windows",
+      "sha256": "caef4a839a6b3d2164192cf029032e96e6b5be2197433dd57e368443c382cc87",
+      "bytes": 27083,
+      "members": 28
+    },
+    {
+      "name": "lp4-native-windows",
+      "sha256": "b2880b0166203814a2fee0014872ec524e259b295dd809f6f8626161e130a20b",
+      "bytes": 3995,
+      "members": 1
+    },
+    {
+      "name": "lp4-p2-controls",
+      "sha256": "601b169dc435bf743a2b606586a3d75be1eeebe8bf2a10e29223f9dab1c2a04a",
+      "bytes": 1112023,
+      "members": 136
+    },
+    {
+      "name": "lp4-native-cancun-reference",
+      "sha256": "6291671b874376edfb4732f3383bffdca8a59373e5f571c0ee04e5a56c5add49",
+      "bytes": 135107,
+      "members": 10
+    }
+  ],
+  "bootable": false
+}

@@ -1,0 +1,54 @@
+{
+  "schema": "pocol-m1-u08/0.29",
+  "status": "delegated U08 alternative A (canonical split enforced by contract AND viewer). Viewer side executes the unchanged 0.2 reference rule manifest.split (m1-draft-0.2/tools/m1model.py validate_version); contract side is the 0.2 section 5.2 argument precedence (overlay_ref_029.contract_args), whose EVM outcome is E01 (Phase A). Expected values hand-derived by the author.",
+  "sources": {
+    "p22": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [278, 278], "literals": ["P22 / U08", "⌈manifestLen/24575⌉", "every one 24575 bytes except the last"]},
+    "createVersion": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [245, 245], "literals": ["ManifestSplit(i)", "ChunkArrays(|chunks|, |lens|)", "ManifestLength(len)"]},
+    "t1_14": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [428, 428], "literals": ["split `[40, 39]` for 79 bytes", "ManifestSplit(0)", "[24575, 24575, 16386]"]},
+    "viewerRule": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [141, 141], "literals": ["manifest.split", "lengths are not the canonical split"]},
+    "baselineRecord": {"file": "reference/storage.md", "lines": [32, 36], "literals": ["قطع manifest", "manifest ≤ 64 KiB"]},
+    "proofRound2": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [191, 191], "literals": ["eth_getProof(website, [base, base+1, base+2, elem0, elem1, elem2], N)", "unused slots prove the value 0"]},
+    "proofBound": {"file": "m1-draft-0.4/CR-M1-01-STATE-PROOF-READS.md", "lines": [54, 58], "literals": ["524288", "≤ 6 keys", "STATE_POOL = 1048576"]}
+  },
+  "historicalDomain": "The baseline (storage.md:32-36) accepts any split whose chunk lengths (1..24575) sum to manifestLen. That domain stays preserved history in m1-draft-0.2 and earlier; the 0.29 effective profile narrows it explicitly by delegated decision U08.",
+  "boundaries": [
+    {"len": 1, "canonical": [1]},
+    {"len": 24575, "canonical": [24575]},
+    {"len": 24576, "canonical": [24575, 1]},
+    {"len": 49150, "canonical": [24575, 24575]},
+    {"len": 49151, "canonical": [24575, 24575, 1]},
+    {"len": 65536, "canonical": [24575, 24575, 16386]}
+  ],
+  "positiveViewer": "for each boundary length L the manifest bytes 0x5a * L are split canonically into real chunks (m1model.manifest_chunks with the U01 factory); validate_version must pass the whole manifest stage (length, split, every mfetch rule, manifest.hash) and fetch every manifest chunk exactly once; the first rejection, if any, must come from a later stage because 0x5a * L is not a manifest",
+  "invalidLength": [
+    {"id": "L0", "len": 0, "lens": [], "contract": "ManifestLength(0)", "viewer": "manifest.length"},
+    {"id": "L65537", "len": 65537, "lens": [24575, 24575, 16387], "contract": "ManifestLength(65537)", "viewer": "manifest.length"}
+  ],
+  "arrays": [
+    {"id": "A1", "len": 79, "nChunks": 1, "lens": [40, 39], "contract": "ChunkArrays(1,2)", "note": "T1-14 'arrays of 1 vs 2'; the viewer reads chunk records, so array mismatch is a contract-only check"}
+  ],
+  "noncanonical": [
+    {"id": "N01", "len": 79, "lens": [40, 39], "contract": "ManifestSplit(0)", "note": "T1-14 literal"},
+    {"id": "N02", "len": 2, "lens": [1, 1], "contract": "ManifestSplit(0)"},
+    {"id": "N03", "len": 24576, "lens": [1, 24575], "contract": "ManifestSplit(0)"},
+    {"id": "N04", "len": 24576, "lens": [24574, 2], "contract": "ManifestSplit(0)"},
+    {"id": "N05", "len": 24576, "lens": [24575], "contract": "ManifestSplit(1)", "note": "too few chunks (sum 24575 < 24576)"},
+    {"id": "N06", "len": 24575, "lens": [24575, 0], "contract": "ManifestSplit(1)", "note": "extra zero-length chunk"},
+    {"id": "N07", "len": 49150, "lens": [24575, 24574, 1], "contract": "ManifestSplit(1)"},
+    {"id": "N08", "len": 49151, "lens": [24575, 24574, 2], "contract": "ManifestSplit(1)"},
+    {"id": "N09", "len": 49151, "lens": [24575, 1, 24575], "contract": "ManifestSplit(1)"},
+    {"id": "N10", "len": 65536, "lens": [24575, 24575, 16385, 1], "contract": "ManifestSplit(2)"},
+    {"id": "N11", "len": 65536, "lens": [16384, 16384, 16384, 16384], "contract": "ManifestSplit(0)"},
+    {"id": "N12", "len": 65536, "lens": {"repeat": [1, 65536]}, "contract": "ManifestSplit(0)", "note": "the largest baseline split: 65536 one-byte chunks"}
+  ],
+  "viewerNoncanonical": "every noncanonical case: validate_version gives first rule manifest.split at stage manifest with zero fetches",
+  "indexConvention": "P-U08-1 (pending root decision): i in ManifestSplit(i) is the first position where the lengths differ from the canonical split, a missing element counting as a difference. Only i = 0 for [40, 39] is fixed by T1-14.",
+  "proofKeys": {
+    "rule": "for every L in 1..65536: canonical chunks k = ceil(L / 24575) in 1..3, proof 2 has exactly 6 keys (base, base+1, base+2, e0, e1, e2), 3 - k element slots prove 0",
+    "counts": {"k1": [1, 24575], "k2": [24576, 49150], "k3": [49151, 65536]},
+    "bytes": {"perNode": 1133, "pathNodes": 65, "fixed": 4096, "k1": 151386, "k6": 519611, "limit": 524288, "statePool": 1048576},
+    "maximalAssumptions": ["PR-1: hexary MPT, 64-nibble paths (20-byte address and 32-byte slot keys hashed)", "PR-2 as in m1-draft-0.4 CR-M1-01 section 4 (node at most 564 bytes)",
+                           "every displayed and every stored version is canonical (contract AND viewer)", "unused element slots are proved as value 0"],
+    "withoutU08": {"len": 65536, "chunks": 65536, "keys": 65539, "proofRequestsAt6Keys": 10924, "note": "what alternative C would have had to budget; recorded only"}
+  }
+}

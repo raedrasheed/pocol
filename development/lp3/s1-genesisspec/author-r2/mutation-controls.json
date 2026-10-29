@@ -1,0 +1,202 @@
+{
+ "method": "each fault applied alone to a scratch copy of the crate (repository source unchanged); per mutant: cargo test --lib --test genesis_spec --test genesis_batch_alloc (debug, stops at the first failing target, so rustFailedItems counts failures before it stopped), tests/lp3_genesis_diff.py and tests/lp3_genesis_cli.py with the mutant debug binary",
+ "mutants": 12,
+ "detected": 12,
+ "allDetected": true,
+ "controls": [
+  {
+   "mutant": "M1-lenBeforeInt",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 1,
+   "diffExit": 1,
+   "diffMismatches": 37,
+   "cliExit": 0,
+   "cliFailed": 0,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "gsLen root checked before gsInt (stage order)",
+   "detectedBy": [
+    "rustTests",
+    "differential"
+   ]
+  },
+  {
+   "mutant": "M2-noGamma",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 2,
+   "diffExit": 1,
+   "diffMismatches": 9,
+   "cliExit": 0,
+   "cliFailed": 0,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "gamma_bp upper bound removed",
+   "detectedBy": [
+    "rustTests",
+    "differential"
+   ]
+  },
+  {
+   "mutant": "M3-wrappedIsL0",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 1,
+   "diffExit": 1,
+   "diffMismatches": 2403,
+   "cliExit": 0,
+   "cliFailed": 0,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "wrapped single byte rejected as L0 (LP1 convention)",
+   "detectedBy": [
+    "rustTests",
+    "differential"
+   ]
+  },
+  {
+   "mutant": "M4-reservedHigh",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 1,
+   "diffExit": 1,
+   "diffMismatches": 4,
+   "cliExit": 0,
+   "cliFailed": 0,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "reserved id range ends at C0C0FE",
+   "detectedBy": [
+    "rustTests",
+    "differential"
+   ]
+  },
+  {
+   "mutant": "M5-duplicateIds",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 2,
+   "diffExit": 1,
+   "diffMismatches": 220,
+   "cliExit": 0,
+   "cliFailed": 0,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "duplicate member ids allowed",
+   "detectedBy": [
+    "rustTests",
+    "differential"
+   ]
+  },
+  {
+   "mutant": "M6-chainIdZero",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 4,
+   "diffExit": 1,
+   "diffMismatches": 31,
+   "cliExit": 0,
+   "cliFailed": 0,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "chainId 0 accepted",
+   "detectedBy": [
+    "rustTests",
+    "differential"
+   ]
+  },
+  {
+   "mutant": "M7-sysBeforeOrder",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 2,
+   "diffExit": 1,
+   "diffMismatches": 810,
+   "cliExit": 0,
+   "cliFailed": 0,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "gsSys judged before gsOrder",
+   "detectedBy": [
+    "rustTests",
+    "differential"
+   ]
+  },
+  {
+   "mutant": "M8-crossesAsTruncated",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 1,
+   "diffExit": 1,
+   "diffMismatches": 2951,
+   "cliExit": 0,
+   "cliFailed": 0,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "L0 detail changed",
+   "detectedBy": [
+    "rustTests",
+    "differential"
+   ]
+  },
+  {
+   "mutant": "M9-versionLow128",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 1,
+   "diffExit": 1,
+   "diffMismatches": 69,
+   "cliExit": 1,
+   "cliFailed": 1,
+   "file": "prototypes/lp1-node/src/genesis_spec.rs",
+   "fault": "gsVersion detail keeps only the low 128 bits (masking-like)",
+   "detectedBy": [
+    "rustTests",
+    "differential",
+    "cliHarness"
+   ]
+  },
+  {
+   "mutant": "M10-karatsubaShift",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustFailedItems": 2,
+   "diffExit": 1,
+   "diffMismatches": 6,
+   "cliExit": 1,
+   "cliFailed": 1,
+   "file": "prototypes/lp1-node/src/decimal.rs",
+   "fault": "Karatsuba high product shifted one digit",
+   "detectedBy": [
+    "rustTests",
+    "differential",
+    "cliHarness"
+   ]
+  },
+  {
+   "mutant": "M11-noInputCap",
+   "applied": true,
+   "rustTestExit": 1,
+   "rustFailedItems": 2,
+   "diffExit": 0,
+   "diffMismatches": 0,
+   "cliExit": 1,
+   "cliFailed": 2,
+   "file": "prototypes/lp1-node/src/genesis_batch.rs",
+   "fault": "per-input cap not enforced below the line cap",
+   "detectedBy": [
+    "rustTests",
+    "cliHarness"
+   ]
+  },
+  {
+   "mutant": "M12-unboundedLineRead",
+   "applied": true,
+   "rustTestExit": 1,
+   "rustFailedItems": 3,
+   "diffExit": 0,
+   "diffMismatches": 0,
+   "cliExit": 1,
+   "cliFailed": 2,
+   "file": "prototypes/lp1-node/src/genesis_batch.rs",
+   "fault": "whole line read into memory regardless of size",
+   "detectedBy": [
+    "rustTests",
+    "cliHarness"
+   ]
+  }
+ ]
+}

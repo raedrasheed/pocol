@@ -1,0 +1,42 @@
+[
+  {
+    "id": 118577389568,
+    "name": "legacy-windows-regression",
+    "status": "completed",
+    "conclusion": "success",
+    "startedAt": "2026-10-20T10:23:59Z",
+    "completedAt": "2026-10-20T10:31:01Z"
+  },
+  {
+    "id": 118577389949,
+    "name": "independent-cancun-comparison",
+    "status": "completed",
+    "conclusion": "success",
+    "startedAt": "2026-10-20T10:23:59Z",
+    "completedAt": "2026-10-20T10:53:28Z"
+  },
+  {
+    "id": 118577390144,
+    "name": "cancun-pay-controls",
+    "status": "completed",
+    "conclusion": "success",
+    "startedAt": "2026-10-20T10:23:59Z",
+    "completedAt": "2026-10-20T10:33:18Z"
+  },
+  {
+    "id": 118577390163,
+    "name": "registry-windows-execution",
+    "status": "completed",
+    "conclusion": "success",
+    "startedAt": "2026-10-20T10:23:59Z",
+    "completedAt": "2026-10-20T10:25:25Z"
+  },
+  {
+    "id": 118577390240,
+    "name": "native-cancun-reference",
+    "status": "completed",
+    "conclusion": "success",
+    "startedAt": "2026-10-20T10:23:59Z",
+    "completedAt": "2026-10-20T10:27:54Z"
+  }
+]

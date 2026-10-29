@@ -1,0 +1,11 @@
+== base: (cwd mut-e2e-src/prototypes/pocold, a03e089 sources) cargo test --release --locked --test consensus -- --exact fork_choice_heavier_tied_signed_first_and_rollback
+== exit 0
+
+running 1 test
+test fork_choice_heavier_tied_signed_first_and_rollback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.27s
+
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/mut-e2e-src/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 16.07s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-e2e/release/deps/consensus-1954e0a0b3a300c7)

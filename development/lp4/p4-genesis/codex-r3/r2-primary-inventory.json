@@ -1,0 +1,25 @@
+{
+  "source": "d741363e872936764eb27e918332d0f6878b6195",
+  "run": 39451150747,
+  "hashedSourceFiles": 2807,
+  "cases": 20661,
+  "uniqueIdentities": 20661,
+  "exactPrimaryRootsLogs": 19488,
+  "primaryRejectionPresenceOnly": 1173,
+  "excluded": 0,
+  "blockedPrimary": 0,
+  "runnerFailures": 0,
+  "legacyCounts": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "gethScopedCounts": {
+    "STATE_AND_NATIVE_LOG_ASSERTIONS": 19488,
+    "total": 20661,
+    "EXPECTED_REJECTION_PRESENCE_ONLY": 1173
+  },
+  "fullIndependentComparison": "PENDING \u2014 no full-run acceptance",
+  "bootable": false
+}

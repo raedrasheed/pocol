@@ -1,0 +1,5 @@
+# pocold-bins: (cd prototypes/pocold; cargo build --release --locked --offline --bins)
+# start 2026-10-28T16:25:16Z, load 5.89 13.05 12.71
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/wt/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 25.33s
+# end 2026-10-28T16:25:41Z exit=0

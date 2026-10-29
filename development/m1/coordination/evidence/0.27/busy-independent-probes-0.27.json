@@ -1,0 +1,884 @@
+{
+  "checks": 26,
+  "passed": 26,
+  "failed": 0,
+  "results": [
+    {
+      "case": "missingData",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "busy data not an object",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "nullData",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": null
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "busy data not an object",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "emptyData",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {}
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "busy reason",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "nullError",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": null
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "error not an object",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "boolError",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": true
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "error not an object",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "stringError",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": "busy"
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "error not an object",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "listError",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": []
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "error not an object",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "nonObjectReply",
+      "input": null,
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "envelope not an object",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "listReply",
+      "input": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "envelope not an object",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "bothResultError",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": "0xc0",
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 250
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "result xor error",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_bool",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": true
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_false",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": false
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_string",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": "250"
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_negative",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": -1
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_fraction",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 250.5
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_huge",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 1267650600228229401496703205376
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_zero",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 0
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_belowBusy",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 249
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "busyDelay_aboveBusy",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 2001
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "code_bool",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": true,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 250
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "error.code",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "code_str",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": "-32021",
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 250
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "error.code",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "code_floatFraction",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021.5,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 250
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "error.code",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "code_missing",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": null,
+          "data": {
+            "reason": "busy",
+            "retryAfterMs": 250
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "error.code",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "reason_missing",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": null,
+            "retryAfterMs": 250
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "busy reason",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "reason_unknown",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": "other",
+            "retryAfterMs": 250
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "busy reason",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    },
+    {
+      "case": "reason_bool",
+      "input": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "message": "busy",
+          "code": -32021,
+          "data": {
+            "reason": true,
+            "retryAfterMs": 250
+          }
+        }
+      },
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "detail": {
+          "malformed": "busy reason",
+          "retries": 0
+        },
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "viewIncomplete"
+          }
+        },
+        "rootReliance": false
+      },
+      "elapsedMs": 0,
+      "calls": 2,
+      "pass": true
+    }
+  ]
+}

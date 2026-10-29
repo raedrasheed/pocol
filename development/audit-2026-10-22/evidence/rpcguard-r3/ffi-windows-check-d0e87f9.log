@@ -1,0 +1,56 @@
+# rpc::sockbuf and rpc::sockwait copied verbatim from prototypes/pocold/src/rpc.rs at d0e87f93a417ec6888fc9bd0d433136ab238d741 into a standalone crate
+# (lib.rs with #![deny(warnings)]; libc =0.2.191 on Unix, windows-sys =0.61.2 features [Win32_Networking_WinSock] on Windows;
+# the same versions and feature as pocold's Cargo.toml: no new crate, no new feature).
+# sha256 of the extracted lib.rs: cc0c94262260e5136fd7b300dfd8bb3553b98979d1d03b2f36c471a19d8760f7
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+$ cargo check --offline --target x86_64-pc-windows-msvc
+    Checking sockbuf-check v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r3-wincheck)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
+exit=0
+$ cargo check --offline   (x86_64-unknown-linux-gnu)
+    Checking sockbuf-check v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r3-wincheck)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+exit=0
+# --- extracted lib.rs ---
+#![deny(warnings)]
+pub mod sockbuf{
+    use std::net::TcpStream;
+    #[cfg(unix)] pub fn set(s:&TcpStream,n:usize)->std::io::Result<()>{
+        use std::os::unix::io::AsRawFd;let v=n as libc::c_int;
+        let r=unsafe{libc::setsockopt(s.as_raw_fd(),libc::SOL_SOCKET,libc::SO_SNDBUF,&v as *const libc::c_int as *const libc::c_void,std::mem::size_of::<libc::c_int>() as libc::socklen_t)};
+        if r==0{Ok(())}else{Err(std::io::Error::last_os_error())}
+    }
+    #[cfg(unix)] pub fn get(s:&TcpStream)->std::io::Result<usize>{
+        use std::os::unix::io::AsRawFd;let mut v:libc::c_int=0;let mut len=std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+        let r=unsafe{libc::getsockopt(s.as_raw_fd(),libc::SOL_SOCKET,libc::SO_SNDBUF,&mut v as *mut libc::c_int as *mut libc::c_void,&mut len)};
+        if r==0{Ok(v.max(0) as usize)}else{Err(std::io::Error::last_os_error())}
+    }
+    #[cfg(windows)] pub fn set(s:&TcpStream,n:usize)->std::io::Result<()>{
+        use std::os::windows::io::AsRawSocket;use windows_sys::Win32::Networking::WinSock::{setsockopt,SOL_SOCKET,SO_SNDBUF};let v=n as i32;
+        let r=unsafe{setsockopt(s.as_raw_socket() as usize,SOL_SOCKET,SO_SNDBUF,&v as *const i32 as *const u8,std::mem::size_of::<i32>() as i32)};
+        if r==0{Ok(())}else{Err(std::io::Error::last_os_error())}
+    }
+    #[cfg(windows)] pub fn get(s:&TcpStream)->std::io::Result<usize>{
+        use std::os::windows::io::AsRawSocket;use windows_sys::Win32::Networking::WinSock::{getsockopt,SOL_SOCKET,SO_SNDBUF};let (mut v,mut len)=(0i32,std::mem::size_of::<i32>() as i32);
+        let r=unsafe{getsockopt(s.as_raw_socket() as usize,SOL_SOCKET,SO_SNDBUF,&mut v as *mut i32 as *mut u8,&mut len)};
+        if r==0{Ok(v.max(0) as usize)}else{Err(std::io::Error::last_os_error())}
+    }
+    #[cfg(not(any(unix,windows)))] pub fn set(_:&TcpStream,_:usize)->std::io::Result<()>{Err(std::io::Error::new(std::io::ErrorKind::Unsupported,"SO_SNDBUF"))}
+    #[cfg(not(any(unix,windows)))] pub fn get(_:&TcpStream)->std::io::Result<usize>{Err(std::io::Error::new(std::io::ErrorKind::Unsupported,"SO_SNDBUF"))}
+}
+pub mod sockwait{
+    use std::{net::TcpStream,time::Duration};
+    fn ms(t:Duration)->i32{t.as_nanos().div_ceil(1_000_000).min(i32::MAX as u128) as i32}
+    #[cfg(unix)] fn wait(s:&TcpStream,write:bool,t:Duration)->std::io::Result<bool>{
+        use std::os::unix::io::AsRawFd;let mut p=libc::pollfd{fd:s.as_raw_fd(),events:if write{libc::POLLOUT}else{libc::POLLIN},revents:0};
+        match unsafe{libc::poll(&mut p,1,ms(t))}{n if n>0=>Ok(true),0=>Ok(false),_=>{let e=std::io::Error::last_os_error();if e.kind()==std::io::ErrorKind::Interrupted{Ok(false)}else{Err(e)}}}
+    }
+    #[cfg(windows)] fn wait(s:&TcpStream,write:bool,t:Duration)->std::io::Result<bool>{
+        use std::os::windows::io::AsRawSocket;use windows_sys::Win32::Networking::WinSock::{WSAPoll,WSAPOLLFD,POLLRDNORM,POLLWRNORM};
+        let mut p=WSAPOLLFD{fd:s.as_raw_socket() as usize,events:if write{POLLWRNORM}else{POLLRDNORM},revents:0};
+        match unsafe{WSAPoll(&mut p,1,ms(t))}{n if n>0=>Ok(true),0=>Ok(false),_=>Err(std::io::Error::last_os_error())}
+    }
+    #[cfg(not(any(unix,windows)))] fn wait(_:&TcpStream,_:bool,t:Duration)->std::io::Result<bool>{std::thread::sleep(t.min(Duration::from_millis(1)));Ok(true)}
+    pub fn writable(s:&TcpStream,t:Duration)->std::io::Result<bool>{wait(s,true,t)}
+    pub fn readable(s:&TcpStream,t:Duration)->std::io::Result<bool>{wait(s,false,t)}
+}

@@ -1,0 +1,193 @@
+# rss-load-store: (cd development/audit-2026-10-22/tools; python3 -I measure_rss.py /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/d7acc/logs/rss-load-store.json)
+# start 2026-10-25T13:17:04Z
+{
+  "accounts": [
+    {
+      "address": "0xb8c8decce178ff32caacf4e66d2007afb3466dbc",
+      "label": "alice",
+      "wei": "1000000000000000000000000"
+    },
+    {
+      "address": "0x0bf669635585e1af35742e6f20d71f1771d2827c",
+      "label": "bob",
+      "wei": "1000000000000000000000000"
+    }
+  ],
+  "admission": {
+    "binding": "0xc3df8d164af367fe55d0a58263bd81a8a7435fb1ddc56801f698920acd9e234d",
+    "conditions": [
+      {
+        "detail": "RpcGuard: mechanisms this node does not enforce: scratch_heavy, scratch_light, mem_total, cancel_max_ms",
+        "id": "rpc-absent",
+        "rules": [
+          "R26"
+        ]
+      },
+      {
+        "detail": "calibration: H_cal is a synthetic fixture (devnet --work-bits), not a measured hash rate",
+        "id": "calibration-synthetic",
+        "rules": [
+          "R25"
+        ]
+      },
+      {
+        "detail": "timing: 7 apply samples of the synthetic GAS_LIMIT compute workload on this host; not a p99 or worst-case bound (A13-DERIVATION §4)",
+        "id": "timing-not-a-bound",
+        "rules": [
+          "R14",
+          "R19"
+        ]
+      },
+      {
+        "detail": "SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",
+        "id": "gas-monotonicity-assumed",
+        "rules": [
+          "R18"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:general-R18",
+        "id": "gate-deferred-general-R18",
+        "rules": [
+          "R18"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:general-R21",
+        "id": "gate-deferred-general-R21",
+        "rules": [
+          "R21"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:caps64-minimum-SYS_SLOT_MAX",
+        "id": "gate-deferred-caps64",
+        "rules": [
+          "R18"
+        ]
+      }
+    ],
+    "deferred": [
+      "LP4:general-R18",
+      "LP4:general-R21",
+      "LP4:caps64-minimum-SYS_SLOT_MAX"
+    ],
+    "notes": [
+      "R26 heavy_active: equivalent, 1, the single consensus thread (active heavy work <= 1 <= HEAVY_ACTIVE)",
+      "R26 light_active: equivalent, 1, the single consensus thread drains the light lane (<= 1 <= LIGHT_ACTIVE)",
+      "R26 conn_buf: equivalent, SMALL_REPLY_MAX, the structural bound of a connection's busy or rate answer (<= 64 KiB)",
+      "R26 light_resp_mem: equivalent, (conn_max+1) x LIGHT_RESP_MAX, 512 KiB above the spec's 32 x 512 KiB: one reservation per connection plus the one being computed for a connection that left, so a light reservation never fails (S1)",
+      "R26 rate: equivalent, vacuous per connection: a connection carries one request of k <= BATCH_MAX = bucket_cap tokens from a full bucket, so the refill rate is never read; the aggregate rate across connections is open (proposals/RPCGUARD-R2-PROPOSALS.md P1)",
+      "R26 bucket_cap: equivalent, the per-connection bucket on the connection's one request (k > bucket_cap is -32021 {rate})"
+    ],
+    "scope": "experimental-devnet",
+    "specificationCompliant": false,
+    "waivers": [
+      {
+        "absent": [
+          "scratch_heavy",
+          "scratch_light",
+          "mem_total",
+          "cancel_max_ms"
+        ],
+        "checked": [
+          "heavyRespMem>=respMax",
+          "lightRespMem>=connMax*lightRespMax",
+          "batchRespMax>=respMax",
+          "lightQueue>=connMax",
+          "batchMax*errItemMax+64<=connBuf",
+          "respMax>=2*32768+546*512",
+          "logsCountMax>=546",
+          "logsScanBytes>=32768",
+          "lightRespMax>=385KiB",
+          "rate>=1",
+          "bucketCap>=batchMax",
+          "timerEps>0",
+          "timerEps<enforceSlack",
+          "enforceSlack<=500",
+          "sendSockBuf<=64KiB"
+        ],
+        "rule": "R26",
+        "waived": [
+          "derive",
+          "memoryRequired<=memTotal",
+          "batchWallMin<=batchWallMs"
+        ]
+      }
+    ]
+  },
+  "calibration": {
+    "class": "synthetic-fixture",
+    "hashesPerSecond": 16384,
+    "note": "devnet difficulty chosen with --work-bits, not a measured hash rate"
+  },
+  "chainId": 777900,
+  "forks": [
+    [
+      1,
+      0
+    ]
+  ],
+  "genesisHash": "0x8a0795e8c12f28d6b5e7541938416ce7d46a924c532dcc0d4ff16e4e08fb70f3",
+  "genesisTime": 1792934224,
+  "miners": [
+    {
+      "id": "0x86a412863a3eb23f4b7a9ffbc69a42fd25dea73f",
+      "label": "b",
+      "reward": "0xe590a831d626d1c20da9f3763c97a4cd7a3da9b1"
+    },
+    {
+      "id": "0xeb59c60584bb0fb67132cc4a3f9639c31cdb4935",
+      "label": "c",
+      "reward": "0x3e381e57ba2c894cd43b25bf592754bd3451c219"
+    },
+    {
+      "id": "0xfcd55660d527e67fabf17f27c4038a3799512ba0",
+      "label": "a",
+      "reward": "0xb9abf100add97b76683bf6e9ad4372875d897db1"
+    }
+  ],
+  "note": "Local devnet only. Keys are deterministic disposable devnet keys derived from labels (pocol_lp4_execution::txsign::Key::devnet).",
+  "profileKind": "simnet",
+  "timing": {
+    "genesisHash": "8a0795e8c12f28d6b5e7541938416ce7d46a924c532dcc0d4ff16e4e08fb70f3",
+    "method": "apply_block on a scratch copy of the genesis; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps",
+    "phaseMs": [
+      22,
+      20,
+      9
+    ],
+    "samples": 7
+  }
+}
+
+{
+ "a": {
+  "peakRssBytes": 15708160,
+  "vmHwmBytes": 15708160,
+  "maxThreads": 29,
+  "peakRssIdleBytes": 14856192,
+  "peakRssLoadBytes": 15708160,
+  "modelBoundBytes": 3765236272,
+  "hwmOverModel": 0.0042
+ },
+ "b": {
+  "peakRssBytes": 15671296,
+  "vmHwmBytes": 15671296,
+  "maxThreads": 27,
+  "peakRssIdleBytes": 14905344,
+  "peakRssLoadBytes": 15671296,
+  "modelBoundBytes": 3765236272,
+  "hwmOverModel": 0.0042
+ },
+ "c": {
+  "peakRssBytes": 15527936,
+  "vmHwmBytes": 15527936,
+  "maxThreads": 25,
+  "peakRssIdleBytes": 14741504,
+  "peakRssLoadBytes": 15527936,
+  "modelBoundBytes": 3765236272,
+  "hwmOverModel": 0.0041
+ }
+}
+# end 2026-10-25T13:19:10Z exit=0

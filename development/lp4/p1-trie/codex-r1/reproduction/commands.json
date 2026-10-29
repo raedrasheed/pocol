@@ -1,0 +1,128 @@
+[
+  {
+    "name": "rust-version",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "-vV"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "python-version",
+    "args": [
+      "python3",
+      "--version"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "release-build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--release",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "format",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "fmt",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml",
+      "--",
+      "--check"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "regression",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--release",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml",
+      "--lib",
+      "--test",
+      "gate",
+      "--test",
+      "param_gate",
+      "--test",
+      "assignment",
+      "--test",
+      "adversarial",
+      "--test",
+      "adversarial_lp3",
+      "--test",
+      "fixtures_integration",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "profile",
+      "--test",
+      "timing",
+      "--test",
+      "asert_named",
+      "--test",
+      "rewards",
+      "--test",
+      "asert_alloc",
+      "--test",
+      "envelope",
+      "--test",
+      "finality_core",
+      "--test",
+      "trie"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "probe-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "-O",
+      "/workspace/Proof-of-Collaboration/development/lp4/p1-trie/codex-r1/probe.rs",
+      "--extern",
+      "lp1_node=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/liblp1_node.rlib",
+      "-L",
+      "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+      "--extern",
+      "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+      "-o",
+      "/workspace/work/lp4/p1/reproduction/probe"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp4/p1-trie/codex-r1/oracle.py",
+      "/workspace/work/lp4/p1/reproduction"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "mutations",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp4/p1-trie/codex-r1/mutations.py",
+      "/workspace/work/lp4/p1/reproduction/mutations"
+    ],
+    "exitCode": 0
+  }
+]

@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/workspace/Proof-of-Collaboration/prototypes/lp4-execution/tests/reward_syntax_witness.py", line 19, in <module>
+    parsed=json.loads(result.stdout);assert result.returncode==0 and parsed['ok'] and parsed['bootable']==False
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/json/decoder.py", line 341, in decode
+    raise JSONDecodeError("Extra data", s, end)
+json.decoder.JSONDecodeError: Extra data: line 2 column 1 (char 166)

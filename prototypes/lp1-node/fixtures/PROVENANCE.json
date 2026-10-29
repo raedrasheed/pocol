@@ -1,0 +1,57 @@
+{
+  "baseline": "M1-spec0.32",
+  "sources": [
+    {
+      "path": "m1-draft-0.26/vectors/v1-network.json",
+      "sha256": "6d955d3b52e66ca28d65d03c627f7fd6e238f587580c694b5d5b344b529c373e"
+    },
+    {
+      "path": "m1-draft-0.26/vectors/v1-window-cases.json",
+      "sha256": "9ef4b5bcaec52c1a4b8b0bfd6b3eab5e746d32701bd930a83cdbfe7f28cd395b"
+    },
+    {
+      "path": "coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json",
+      "sha256": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753"
+    },
+    {
+      "path": "coordination/review-001/m1-draft-0.26/results/hash-freeze-v1-0.26.json",
+      "sha256": "93ba8a3a9c2cfc42393ae1c27137d39b46c6c439384935c8d6480e9facf9d460"
+    },
+    {
+      "path": "coordination/review-001/asert-native-oracle.json",
+      "sha256": "4c788bcb3eb8360b9bf9f4c65c42c9e7f8200c03e717b77f74087e3e2c783bb2"
+    },
+    {
+      "path": "coordination/review-001/m1-draft-0.27/results/hash-freeze-v1-0.27.json",
+      "sha256": "e77b22ab5a01ab078eef843f59df40f523153b6554a911b00e32ae9c4391d8dd"
+    },
+    {
+      "path": "coordination/review-001/M1-ACCEPTANCE-0.32.json",
+      "sha256": "46db5dc2dc8079b0ac24eaf9ff7ec340511d285fe3f2291e2557cd42e8bd4a54"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "asert-oracle.json",
+      "sha256": "45ac016dced2f5012e93a42877363f01415c7569866ae3ebd7806dbc0d1d31aa"
+    },
+    {
+      "path": "chain.json",
+      "sha256": "24494c4701c6554f4ea53efe7c3bb4876b8dacb404a0849e5331c9fe08d2e65b"
+    },
+    {
+      "path": "hash-oracle.json",
+      "sha256": "c7551d3d6fdef1a64f2e229a94d1ccff9f5324c1fd55b491b94c0a931a594cdf"
+    },
+    {
+      "path": "profile.json",
+      "sha256": "29b0ba3829062adf4c0a3edeff255a4a732244857b92ff256f9cf4200c092041"
+    },
+    {
+      "path": "window-cases.json",
+      "sha256": "94afe8c8350ae878a819773753839d62be67ab14271dfb098e47ba0c8197d69d"
+    }
+  ],
+  "privateKeysExported": false,
+  "prototypeOnly": true
+}

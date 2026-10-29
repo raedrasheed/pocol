@@ -1,0 +1,20 @@
+   Compiling pocol-lp4-execution v0.1.0 (<mutant>/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (<mutant>/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 26.80s
+     Running tests/checkpoint_source.rs (target/release/deps/checkpoint_source-ff44e56112d6207e)
+
+running 1 test
+
+thread 'verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal' (207) panicked at tests/checkpoint_source.rs:47:9:
+delta=0: the journal at offset 40: Corrupt(40)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal ... FAILED
+
+failures:
+
+failures:
+    verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `--test checkpoint_source`

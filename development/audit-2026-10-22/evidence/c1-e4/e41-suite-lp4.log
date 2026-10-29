@@ -1,0 +1,296 @@
+
+running 124 tests
+test admission::tests::absent_rpc_fields_enter_the_gate_as_zero_never_nominal ... ok
+test admission::tests::approved_single_host_devnet_is_admitted_with_reported_provenance ... ok
+test admission::tests::audit_reproductions_are_rejected_with_their_rules ... ok
+test admission::tests::approved_p11_timing_profile_is_admitted ... ok
+test admission::tests::r26_predicates_are_the_gate_conjunction ... ok
+test admission::tests::experimental_devnet_waives_only_r26_predicates_reading_absent_fields ... ok
+test admission::tests::identity_rules_r22_to_r26 ... ok
+test admission::tests::rejections_are_deterministic_and_name_their_causes ... ok
+test admission::tests::resource_rules_r14_to_r21 ... ok
+test admission::tests::specification_scope_refuses_every_open_condition ... ok
+test admission::tests::size_membership_and_end_rules_r8_to_r13 ... ok
+test apply::tests::a03::a13_reads_and_empty_calls_leave_no_container_residue ... ok
+test apply::tests::a03::a_halt_reverts_state_except_nonce_and_fee ... ok
+test apply::tests::a03::cumulative_logs_across_transactions_and_a_halt_consumes_no_budget ... ok
+test apply::tests::a03::lg2_546_logs_succeed_547_halt_and_topics_are_charged ... ok
+test apply::tests::a03::log_block_max_below_at_and_above ... ok
+test apply::tests::a03::log_cap_is_aggregate_over_the_chain ... ok
+test admission::tests::calibration_keeps_the_full_gas_workload_through_a_long_closing_sequence ... ok
+test apply::tests::a03::proposals::d_a03_caps_vectors ... ok
+test apply::tests::a03::dirty_keys_and_accounts_per_block ... ok
+test admission::tests::timing_rules_r1_to_r7_at_their_boundaries ... ok
+test apply::tests::a03::proposals::log_acct_01_vectors ... ok
+test apply::tests::a03::proposals::log_cap_aggregate_vectors ... ok
+test apply::tests::a03::slot_and_account_caps_halt_the_transaction ... ok
+test apply::tests::a03::proposals::d_a03_dirty_vectors ... ok
+test apply::tests::e2_code_cap_reached_exactly_with_the_summary ... ok
+test apply::tests::closing_cursor_pays_bonds_and_final_block_settles_everything ... ok
+test apply::tests::evidence_burns_bond_and_tombs_identity ... ok
+test apply::tests::genesis_builds_with_v1_programs_and_ledger_empty ... ok
+test apply::tests::settlement_matches_independent_formula ... ok
+test apply::tests::sv1_to_sv7s_exec_fixture_values ... ok
+test apply::tests::user_transfer_tips_flow_into_pot ... ok
+test apply::tests::wrong_parent_result_presence_and_reverted_system_call_reject ... ok
+test apply::tests::twenty_blocks_settle_and_keep_invariants ... ok
+test code_caps_engine_tests::independent_engine_limits_against_complete_state_roots ... ok
+test code_caps_engine_tests::missing_hash_or_r9_reject ... ok
+test code_caps_engine_tests::revalidate_touched_equals_the_full_check ... ok
+test code_caps_engine_tests::shared_code_charged_per_address ... ok
+test code_caps_engine_tests::user_phase_checks_its_snapshot_once_at_the_first_transaction ... ok
+test code_caps_engine_tests::user_phase_keeps_the_code_total_across_transactions ... ok
+test decimal::tests::known_values ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test code_caps_engine_tests::independent_engine_limits_with_a_known_code_total ... ok
+test fixed::tests::byte_round_trip ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::cp_table_shape ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test genesis_spec::tests::schema_shape ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test hex::tests::round_trip ... ok
+test json::tests::accepts_and_rejects ... ok
+test json::tests::c19_native_oracle_rows ... ok
+test json::tests::depth_boundary ... ok
+test json::tests::integral_binary64_semantics ... ok
+test json::tests::quote_escapes_controls ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+test node_trie::tests::node_encodings_round_trip ... ok
+test node_trie::tests::an_update_from_an_overlay_view_equals_the_update_from_its_merge ... ok
+test apply::tests::e2_blocks_with_trie_and_summary_equal_the_reference ... ok
+test resources::tests::loaded_accounts_start_with_unallocated_storage_maps ... ok
+test apply::tests::e2_failing_candidates_fail_alike ... ok
+test resources::tests::r18_network_values_and_caps64_minimum_boundary ... ok
+test resources::tests::r21_retention_formula ... ok
+test resources::tests::snapshot_model_bounds_measured_clone_bytes ... ok
+test resources::tests::execution_model_bounds_measured_adversarial_peaks ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rpc_http::tests::bind_policy ... ok
+test state_summary::tests::a_contracts_map_that_grew_with_unreferenced_code_is_dropped ... ok
+test state_summary::tests::moved_summaries_equal_scans_through_random_states ... ok
+test state_summary::tests::the_code_check_follows_validate_snapshot ... ok
+test state_summary::tests::the_drop_is_skipped_only_when_nothing_could_be_dropped ... ok
+test state_trie::tests::a_code_hash_change_alone_is_touched ... ok
+test state_trie::tests::an_incomplete_touched_set_gives_another_root ... ok
+test state_trie::tests::every_two_key_shape_matches ... ok
+test state_trie::tests::raw_keys_build_and_update_give_p1_roots ... ok
+test state_trie::tests::state_roots_equal_world_root_through_random_blocks ... ok
+test state_trie::tests::stats_count_every_node ... ok
+test system::chunk_tests::compiled_d27_boundaries_exact_initcode_idempotence_and_no_storage ... ok
+test system::chunk_tests::compiled_d27_invalid_lengths_value_and_storage_collision_reject ... ok
+test system::chunk_tests::d27_length_limit_is_independent_of_approved_larger_runtime_cap ... ok
+test system::issuance_tests::actual_builder_four_and_1024_records_and_corrupt_inputs ... ok
+test system::issuance_tests::actual_phase2_post_storage_cap_rejects_entire_candidate ... ok
+test system::issuance_tests::actual_root_matching_supply_overflow_and_r23_bound_reject_before_acceptance ... ok
+test system::issuance_tests::authenticated_user_origin_never_grants_system_caller_authority ... ok
+test system::issuance_tests::derived_final_host_credit_zero_observed_by_compiled_witness_not_real_finalization ... ok
+test system::issuance_tests::issuance_reproducible_report ... ok
+test system::issuance_tests::phase_order_manifest_and_zero_subsidy_fail_closed ... ok
+test system::issuance_tests::real_phase2_oog_and_late_commitment_error_erase_user_and_credit ... ok
+test system::issuance_tests::sealed_genesis_real_factory_signed_user_creation_issuance_and_late_rollback ... ok
+test system::issuance_tests::signed_user_cannot_see_current_issuance_exact_pending_and_replay_rollback ... ok
+test system::tests::actual_registry_system_calls_pay_and_caller_authorization ... ok
+test system::tests::allocation_is_minimum_of_30m_and_remaining_not_block_gaslimit ... ok
+test system::tests::compiled_nested_eip150_and_nested_revert_boundaries ... ok
+test system::tests::compiled_nested_matches_independent_complete_roots_and_exact_gas ... ok
+test system::tests::fresh_epochs_match_independent_compiled_witness_gas_and_root ... ok
+test system::tests::independent_execution_report ... ok
+test system::tests::independent_pending_encoder_and_invalid_context ... ok
+test system::tests::issuance_timing_is_observable_without_selecting_a_rule ... ok
+test system::tests::later_revert_or_log_invalidates_all_candidate_effects ... ok
+test system::tests::raw_budget_exact_minus_one_remaining_zero_and_refund_no_credit ... ok
+test system::tests::system_origin_and_caller_do_not_create_origin_or_system_accounts ... ok
+test system::tests::user_origin_nonce_and_fees_remain_normal ... ok
+test tests::chain_id_opcode_and_invalid_chain ... ok
+test tests::delegated_and_static_pay_calls_are_guarded ... ok
+test tests::direct_pay_is_not_accepted_as_empty_account_success ... ok
+test tests::exact_store_gas_boundary ... ok
+test tests::nested_pay_is_guarded_even_when_call_result_is_ignored ... ok
+test tests::out_of_gas_discards_storage_diff ... ok
+test tests::revert_discards_storage_diff ... ok
+test tests::sstore_is_a_diff_and_snapshot_is_immutable ... ok
+test user_phase::tests::user_context_sys_allowance_and_closing ... ok
+test view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces ... ok
+test resources::tests::measured_worst_case_stays_within_derived_bounds_and_caps ... ok
+test resources::tests::sys_gas_envelope_fixture ... ok
+test node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads ... ok
+
+test result: ok. 124 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 22.48s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test gsv1_and_the_cap_variants_match_the_model ... ok
+test log_cap_is_not_representable_in_the_genesis_spec ... ok
+test the_devnet_genesis_hash_does_not_depend_on_log_cap ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 4 tests
+test inventory_charges_shared_code_per_address_and_system_accounts_without_physical_dedup ... ok
+test missing_or_mismatched_code_and_below_r9_profile_never_execute ... ok
+test profile_code_rule_keeps_compiled_registry_escrow_pay_results_and_rollback_identical ... ok
+test independent_signed_top_and_compiled_nested_code_limits_roots_gas_receipts_and_rollback ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+running 10 tests
+test collision_preserves_target_warmth ... ok
+test depth_and_internal_nonce_limit_precede_storage_collision ... ok
+test complete_storage_overlay_and_rollback_facts ... ok
+test create_and_create2_block_unloaded_nonzero_and_allow_zero ... ok
+test funding_failure_precedes_collision_nonce_and_warmth ... ok
+test existing_nonce_and_code_collision_remain_enforced ... ok
+test reverted_init_code_restores_destination_but_consumes_factory_nonce ... ok
+test storage_collision_precedes_destination_balance_overflow ... ok
+test top_level_creation_collides_and_preserves_snapshot ... ok
+test outer_revert_restores_factory_nonce_and_destination ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test fee_cap_priority_and_equality ... ok
+test london_fixed_boundaries_and_wide_intermediate ... ok
+test independent_bigint_london_vectors ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test explicit_fields_execute_and_snapshot_is_immutable ... ok
+test explicit_base_fee_gas_limit_and_chain_rejections_do_not_mutate ... ok
+test blockhash_exact_256_window_genesis_and_current_boundaries ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 10 tests
+test delegated_foreign_code_cannot_spend_registry_balance ... ok
+test both_roles_transfer_no_callback_and_no_snapshot_commit ... ok
+test auth_modes_value_and_direct_reject ... ok
+test funding_zero_self_and_exact_boundaries ... ok
+test maximum_nonce_rejected_before_execution ... ok
+test inherited_static_call_cannot_write_balances ... ok
+test nested_revert_restores_both_balances ... ok
+test pay02_existing_code_survives_selfdestruct_and_stays_payable_next_transaction ... ok
+test recipients_overflow_and_encoding_reject_without_effects ... ok
+test pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test source_identity_hash_and_changed_profile_cannot_reuse_admission ... ok
+test network_identity_drives_both_signature_domain_and_actual_chainid_opcode ... ok
+test actual_admission_identity_size_capacity_and_reorg_recheck ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test nine_profile_signed_executions_match_independent_full_roots_receipts_and_gas ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test empty_root_and_budget_and_supported_types ... ok
+test independent_bloom_and_indexed_root ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 11 tests
+test bridge_authorization_and_missing_refund_destination_roll_back_all_effects ... ok
+test budgets_exact_limits_failed_calls_and_phase_replay_cannot_reset ... ok
+test closing_ret_counts_all_records_and_never_pays_twice ... ok
+test actual_sweep_scan_and_deletion_caps_preserve_swapped_cursor ... ok
+test full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow ... ok
+test prefix_precedence_budgets_and_durable_probe_fail_without_state_commit ... ok
+test strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic ... ok
+test zero_bond_durable_code_only_and_balance_only_admission ... ok
+test timestamp_closing_height_overflow_and_capacity_boundaries ... ok
+test zero_delay_and_tomb_cleanup_equality_preserve_unchanged_limits ... ok
+test reactivation_inactivity_and_closing_refunds_actual_record_amounts ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 1 test
+test pay02_rejects_both_ephemeral_reward_attacks ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test actual_rpc_handler_rejects_chain_type_unprotected_and_keeps_pool_and_snapshot ... ok
+test real_loopback_http_submission_delivers_ci2_error_without_state_or_pool_write ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+
+running 1 test
+test full_cap_snapshot_clones_stay_within_the_model_in_rss ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+
+running 3 tests
+test a_stop_ends_the_simulation ... ok
+test a_precompile_call_is_never_polled ... ok
+test the_stop_hook_is_polled_at_least_every_stop_gas ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.40s
+
+
+running 3 tests
+test sequential_signed_execution_refund_revert_and_commitments ... ok
+test wrong_commitments_and_late_invalid_transaction_leave_snapshot_unchanged ... ok
+test late_wrong_chain_type_and_unprotected_are_not_included ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test specified_chain_type_pool_mapping_is_not_block_acceptance ... ok
+test byte_budget_equality_and_minus_one ... ok
+test signed_envelopes_match_independent_oracle ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test src/admission.rs - admission (line 39) - compile fail ... ok
+test src/admission.rs - admission (line 43) - compile fail ... ok
+test src/admission.rs - admission (line 35) ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+exit 0

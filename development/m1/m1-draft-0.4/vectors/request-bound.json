@@ -1,0 +1,30 @@
+{
+  "specVersion": "M1 draft 0.4",
+  "revision": "R4-03 (C12)",
+  "factoryAssumption": "Chunk addresses assume factory 0x0000000000000000000000000000000000c0c005 (U01).",
+  "bound": {
+    "statement": "For every manifest of at most 65536 bytes that passes the decode, structure and semantic stages, the number of content chunk references is at most 2847. A load therefore makes at most 3 + 2847 = 2850 eth_getCode requests (manifest chunks plus content chunks), and with the session cache at most 3 + (distinct content keys).",
+    "minBytesPerReference": "23: a chunk reference is a 2-item list of a 20-byte string (0x94 + 20 bytes = 21) and an integer 1..24575 (at least 1 byte); body >= 22, so >= 23 with its 1-byte list header. Non-canonical or other widths are rejected before this stage.",
+    "minFixedOverhead": "54 for any manifest with N >= 2847 references: top-level header 3 (65482 <= body < 65536), version 1, entryIndex 1, files-list header 3, one file: list header 3, path >= 3 ('/a'), mime 1, size >= 3 (size >= N >= 256), contentHash 33, chunks-list header 3. Each further file adds at least 42 bytes and no reference capacity.",
+    "arithmetic": "floor((65536 - 54) / 23) = 2847; 54 + 23*2848 = 65558 > 65536",
+    "scope": "This is a viewer bound derived from the RLP size limit. The 0.3 figure of 426 (R3-04) assumed the canonical publisher split (P04) and is withdrawn as a viewer bound: B07 accepts any chunk lengths 1..24575 that sum to the size, and this draft does not restrict valid non-canonical splits."
+  },
+  "fixtures": [
+    {"id": "rb-codex-1001", "source": "coordination/review-001/probes_03.py (C12 probe), reconstructed",
+     "construction": {"files": [{"path": "/a.bin", "mime": 10, "chunksOf": "i.to_bytes(2,'big') for i in range(1000)", "chunkLen": 2},
+                                {"path": "/index.html", "mime": 1, "content": "<html></html>"}], "entryIndex": 1},
+     "expected": {"result": "accept", "manifestLength": 23131, "logicalBytes": 2013, "requests": 1001, "uniqueKeys": 1001, "references": 1001}},
+    {"id": "rb-max-2847", "construction": {"files": [{"path": "/a", "mime": 1, "chunksOf": "i.to_bytes(2,'big') for i in range(2847)", "chunkLen": 2}], "entryIndex": 0},
+     "expected": {"result": "accept", "manifestLength": 65535, "manifestHeadHex": "0xf9fffc0180f9fff7f9fff4822f610182163e", "logicalBytes": 5694,
+                  "requests": 2847, "uniqueKeys": 2847, "references": 2847,
+                  "validateVersion": {"result": "accept", "requests": 2850, "manifestChunks": [24575, 24575, 16385]}},
+     "note": "Attains the bound. Header bytes: f9fffc (65532-byte list), 01, 80, f9fff7 (files), f9fff4 (file), 82 2f 61 ('/a'), 01 (mime), 82 16 3e (size 5694)."},
+    {"id": "rb-2848-does-not-fit", "construction": {"files": [{"path": "/a", "mime": 1, "chunksOf": "i.to_bytes(2,'big') for i in range(2848)", "chunkLen": 2}], "entryIndex": 0},
+     "expected": {"result": "reject", "firstRule": "decode.oversize", "stage": "decode", "manifestLength": 65558, "requests": 0}},
+    {"id": "rb-noncanonical-split-valid", "construction": {"files": [{"path": "/index.html", "mime": 1, "content": "draft 0.1 HTML (111 bytes)", "split": [100, 11]}], "entryIndex": 0},
+     "expected": {"result": "accept", "requests": 2, "uniqueKeys": 2, "references": 2},
+     "note": "A non-canonical split (100 + 11 instead of 111) is valid under B07; the viewer must accept it."},
+    {"id": "rb-noncanonical-split-one-byte-chunks", "construction": {"files": [{"path": "/index.html", "mime": 1, "content": "draft 0.1 HTML (111 bytes)", "split": "111 x 1"}], "entryIndex": 0},
+     "expected": {"result": "accept", "references": 111, "requestsAtMost": 111, "requestsEqualsDistinctBytesOfHtml": true}}
+  ]
+}

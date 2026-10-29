@@ -1,0 +1,5 @@
+# Witness (kept outside the repository, run on a local node only): an account created in a transaction keeps the slots it
+# loaded in frames that ran out of gas. Commit 9bd9bc0 with the witness test added in a scratch worktree; release; output lines only.
+D7-SLOTS kept 2000 for 1000000 gas
+test a_created_account_keeps_the_slots_it_loaded_in_out_of_gas_frames ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 86 filtered out; finished in 0.28s

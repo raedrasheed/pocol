@@ -1,0 +1,8 @@
+D2-GATE {"c":2,"dAtt":25,"dFbWait":3,"delta":1,"deltaRel":5,"gamma":5,"phi":0,"profile":"pocold devnet, single-host local","result":"admitted","tBlk":4,"tExec":1}
+D2-GATE {"c":2,"dAtt":25,"dFbWait":3,"delta":1,"deltaRel":5,"gamma":5,"phi":0,"profile":"pocold devnet, single-host local","result":"-32018 ParamGate rejected [R2, R3, R7]","tBlk":4,"tExec":2}
+D2-GATE {"c":2,"dAtt":25,"dFbWait":3,"delta":1,"deltaRel":8,"gamma":8,"phi":0,"profile":"pocold devnet, single-host local","result":"-32018 ParamGate rejected [R3, R7]","tBlk":4,"tExec":2}
+D2-GATE {"c":2,"dAtt":35,"dFbWait":5,"deltaRel":8,"gamma":8,"profile":"pocold devnet, single-host local","result":"admitted","tBlk":4,"tExec":2}
+D2-GATE {"c":2,"dAtt":60,"dFbWait":6,"delta":1,"deltaRel":8,"gamma":5,"phi":1,"profile":"P11 CP, P11 local","result":"admitted","tBlk":10,"tExec":1}
+D2-GATE {"c":2,"dAtt":60,"dFbWait":6,"delta":1,"deltaRel":8,"gamma":5,"phi":1,"profile":"P11 CP, P11 local","result":"-32018 ParamGate rejected [R2, R3]","tBlk":10,"tExec":2}
+D2-GATE {"c":2,"dAtt":60,"dFbWait":6,"delta":1,"deltaRel":11,"gamma":8,"phi":1,"profile":"P11 CP, P11 local","result":"-32018 ParamGate rejected [R3, R7]","tBlk":10,"tExec":2}
+D2-GATE {"c":2,"dAtt":70,"dFbWait":8,"deltaRel":11,"gamma":8,"profile":"P11 CP, P11 local","result":"admitted","tBlk":10,"tExec":2}

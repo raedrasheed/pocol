@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running tests/registry_payment.rs (prototypes/lp4-execution/target/debug/deps/registry_payment-fd7c690001e3535f)
+
+running 1 test
+
+thread 'full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow' (139630) panicked at tests/registry_payment.rs:50:105:
+assertion `left == right` failed
+  left: 3
+ right: 2
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow ... FAILED
+
+failures:
+
+failures:
+    full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test registry_payment`

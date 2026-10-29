@@ -1,0 +1,20 @@
+
+running 3 tests
+test t0_l2_pow_and_max_shape_not_full_validity ... ok
+test t0_l0_shapes_and_canonical_rejections ... ok
+test t0_l1_net_and_signed_diagnostics ... FAILED
+
+failures:
+
+---- t0_l1_net_and_signed_diagnostics stdout ----
+thread 't0_l1_net_and_signed_diagnostics' panicked at 'assertion failed: `(left == right)`
+  left: `[]`,
+ right: `["netChain"]`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/envelope.rs:75:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    t0_l1_net_and_signed_diagnostics
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

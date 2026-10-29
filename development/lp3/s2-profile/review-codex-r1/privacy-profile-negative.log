@@ -1,0 +1,9 @@
+error[E0616]: field `kind` of struct `ProfileIdentity` is private
+ --> /workspace/pocol-s2-review/privacy-profile.rs:1:80
+  |
+1 | extern crate lp1_node; fn attack(p: &mut lp1_node::profile::ProfileIdentity){p.kind=lp1_node::profile::ProfileKind::Network;} fn main(){}
+  |                                                                                ^^^^ private field
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0616`.

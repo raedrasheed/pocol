@@ -1,0 +1,15 @@
+go: downloading github.com/golang/crypto v0.22.0
+go: downloading github.com/golang/sys v0.22.0
+go: downloading github.com/golang/sync v0.7.0
+go: downloading gopkg.in/natefinch/lumberjack.v2 v2.2.1
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading github.com/golang/exp v0.0.0-20231110203233-9a3e6036ecaa
+go: downloading github.com/golang/text v0.14.0
+go: downloading github.com/golang/time v0.5.0
+go: downloading gopkg.in/yaml.v2 v2.4.0
+go: downloading github.com/golang/net v0.24.0
+go: downloading github.com/protocolbuffers/protobuf-go v1.34.2
+go: downloading github.com/rsc/tmplfunc v0.0.3
+beacon/params/config.go:33:2: unrecognized import path "gopkg.in/yaml.v3": https fetch: Get "https://gopkg.in/yaml.v3?[redacted-public-transport-query]": Forbidden
+internal/debug/flags.go:37:2: unrecognized import path "gopkg.in/natefinch/lumberjack.v2": https fetch: Get "https://gopkg.in/natefinch/lumberjack.v2?[redacted-public-transport-query]": Forbidden
+../gopath/pkg/mod/github.com/ferranbt/fastssz@v0.1.2/testutil.go:11:2: unrecognized import path "gopkg.in/yaml.v2": https fetch: Get "https://gopkg.in/yaml.v2?[redacted-public-transport-query]": Forbidden

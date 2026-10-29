@@ -1,0 +1,22 @@
+{
+  "0x0bf669635585e1af35742e6f20d71f1771d2827c": {
+    "balance": "1000000000000000000000000",
+    "nonce": 0
+  },
+  "0x3e381e57ba2c894cd43b25bf592754bd3451c219": {
+    "balance": "0",
+    "nonce": 1
+  },
+  "0xb8c8decce178ff32caacf4e66d2007afb3466dbc": {
+    "balance": "1000000000000000000000000",
+    "nonce": 0
+  },
+  "0xb9abf100add97b76683bf6e9ad4372875d897db1": {
+    "balance": "0",
+    "nonce": 1
+  },
+  "0xe590a831d626d1c20da9f3763c97a4cd7a3da9b1": {
+    "balance": "0",
+    "nonce": 1
+  }
+}

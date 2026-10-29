@@ -1,0 +1,3 @@
+   Compiling pocol-lp4-execution-pay-code-identity v0.1.0 (/home/runner/work/Proof-of-Collaboration/Proof-of-Collaboration/work/lp4-mutations/code-identity)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.29s
+  Executable tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-e309812d14b09116)

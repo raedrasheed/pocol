@@ -1,0 +1,8209 @@
+{
+  "package": "M1 draft 0.29 (delegated technical decisions overlay; full 41-row gate)",
+  "executedAtUtc": "2026-10-08T08:40:18+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "statusSchema": {
+    "coreStatus": [
+      "pass",
+      "recorded",
+      "FAIL"
+    ],
+    "diagnosticRenames": {
+      "name": "diagName",
+      "check": "diagCheck",
+      "status": "proposalStatus",
+      "ok": "diagOk",
+      "label": "diagLabel",
+      "condition": "diagCondition"
+    },
+    "partialGap": "recorded entries with partialGap=true"
+  },
+  "evidenceKind": "reference models in virtual time; saved reviewed evidence re-bound; no browser, network, EVM, chain or real clock",
+  "notExecuted": [
+    "Phase A experiments",
+    "any owner decision",
+    "any production code"
+  ],
+  "summary": {
+    "checks": 732,
+    "passed": 609,
+    "recorded": 119,
+    "failed": 4,
+    "partialGaps": 18,
+    "rows": {
+      "PendingRootReview": 4,
+      "Partial": 3,
+      "CompleteCandidate": 34
+    },
+    "seconds": 107.6
+  },
+  "results": [
+    {
+      "exists": true,
+      "sha256": "83afb00b690934edc2210b0845836aaf3199addb98242161f86e3d5dac681ddb",
+      "check": "input.sha256 <package>/tools/run_checks_029.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "3ea93cf9a3677743b46301397b9b37c41c2e01599958c6e7a4d40ce77d0c3f4d",
+      "check": "input.sha256 <package>/tools/overlay_ref_029.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "59ccc501fafe8418649acc3ed9468cc9ac0a868fcf2859817048ac3f9adeca50",
+      "check": "input.sha256 <package>/decisions/adopted-decisions-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "2d1a74f1ebb6995bd8b2215e82ee4a46de3250a5072520ba554afa5f37ab398c",
+      "check": "input.sha256 <package>/audit/acceptance-inventory-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "382bfc459291df086fff74c41e591ec0dd6a4c1fdf189cee5f14310f422eee36",
+      "check": "input.sha256 <package>/vectors/deadline-cases-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "cf7167fd5ef83f91897d18bbff16eb106ece1daff3128ee154c77f50fd9d0cac",
+      "check": "input.sha256 <package>/vectors/u08-canonical-split-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "43866b57e2c84d4746d8503eb07da17a9da8d5fc96bab28d690b88c5a24977a4",
+      "check": "input.sha256 <package>/vectors/u02-revoked-viewer-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "344a8565ebaa24b2bc4ef7de1851bf164de026c11e51d0ffb5873ec62b026dd7",
+      "check": "input.sha256 <package>/vectors/u10-publisher-transfer-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "013099d43c71c94d8c55118980ab028491339a38d487baeb3ae2c925ae6de415",
+      "check": "input.sha256 <package>/vectors/rfe61-x12b-binding-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "2485c57448c50272c156f3e3cd22bbcee2b85d00b6f708a157191b57dca50ad8",
+      "check": "input.sha256 <package>/vectors/experiment-amendments-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "cc0f46b2509e6ce35f05ac23ff99c2da679e8f0ce4189d92cbda880d29e0b6bf",
+      "check": "input.sha256 <package>/M1-SPEC-0.29-OVERLAY.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "633be11fe437699c5d0dd62ad78408472f01bd894f443a113eb975e8c13895c9",
+      "check": "input.sha256 <package>/M1-STATUS-0.29.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "658f129e7d322e7a40fcdb39410aa516be623d4a797ef8653797c44b14962e4d",
+      "check": "input.sha256 <package>/M1-DASHBOARD-0.29-AR.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "aa90ab834791faf303b17f25e03ab7e4449ea60c3067c7ab953282e8786f9f00",
+      "check": "input.sha256 <package>/README.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "c837fcb41a612aee52b8a7f0535ef0e625e8fac8f132fed18d71abaa587937bc",
+      "check": "input.sha256 coordination/task-027.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "4514d11610fffc3073cbc665db157324c83865f88d7da992eebc3fb8b3a37574",
+      "check": "input.sha256 coordination/DELEGATED-M1-DECISIONS-029.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "9e9da5eddc07750b9b8911da1626b368aba4613531134c066487c35d58d0e2ec",
+      "check": "input.sha256 coordination/issue-ledger.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "b1c16a2d6dc993807b54046a5ee37882794079e9a23c8fb5c6411171604cae1f",
+      "check": "input.sha256 coordination/review-001/REVIEW-0.28.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "3533d230e5b986aa4270aa9367c58ea0687e9b6767087eb7380d838e7b364434",
+      "check": "input.sha256 coordination/review-001/u14-independent-0.28.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "e77b22ab5a01ab078eef843f59df40f523153b6554a911b00e32ae9c4391d8dd",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.27/results/hash-freeze-v1-0.27.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "93ba8a3a9c2cfc42393ae1c27137d39b46c6c439384935c8d6480e9facf9d460",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.26/results/hash-freeze-v1-0.26.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "56eac33b4a3dd8782a8e8f37ee92a2ad47a938266cfe402876a2bf52c6d34d49",
+      "check": "input.sha256 m1-draft-0.27/tools/v1_ref_027.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "5b597d6151d48258324a0c4552a226c7c1dbae0a9a4bf3e2e1994dddc52329e0",
+      "check": "input.sha256 m1-draft-0.25/tools/supplements_ref.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "9e5ee65115d77a1471ff92e8dd17f8979362f4b72ff2c2e38d4958dde711fd43",
+      "check": "input.sha256 m1-draft-0.2/tools/m1model.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7",
+      "check": "input.sha256 reference/browser.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "3571e2aa5b3901b046fe7444d1950b32c30699a627c91c090298c69d2108bf1c",
+      "check": "input.sha256 reference/network.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1",
+      "check": "input.sha256 reference/validation.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "d54b5aee37a052a053198c43a0278ae8561331f58e3f1148faa6ed4a194a480e",
+      "check": "input.sha256 reference/FINAL_DESIGN.md",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.positionalOnly",
+      "status": "pass"
+    },
+    {
+      "diagName": "n",
+      "proposalStatus": "s",
+      "obj": {
+        "x": [
+          1
+        ]
+      },
+      "check": "boundary.probe",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.renamedAndCopied",
+      "status": "pass"
+    },
+    {
+      "imports": {},
+      "check": "boundary.noNetworkOrProcessModules",
+      "status": "pass"
+    },
+    {
+      "attributeMainCallsAtLines": [],
+      "check": "boundary.noOldMainCalled",
+      "status": "pass"
+    },
+    {
+      "imports": [],
+      "check": "boundary.noRealClockInModels",
+      "status": "pass"
+    },
+    {
+      "stillRecordedAsFail": true,
+      "closedBy": [
+        [
+          "R06",
+          "^c14\\."
+        ]
+      ],
+      "issue": "C14",
+      "check": "history.HF-1",
+      "status": "pass"
+    },
+    {
+      "stillRecordedAsFail": true,
+      "closedBy": [
+        [
+          "R06",
+          "^c14\\."
+        ]
+      ],
+      "issue": "C14",
+      "check": "history.HF-2",
+      "status": "pass"
+    },
+    {
+      "stillRecordedAsFail": true,
+      "closedBy": [
+        [
+          "R08",
+          "^br19a\\."
+        ]
+      ],
+      "issue": "0.6 checker collision (R7-01)",
+      "check": "history.HF-3",
+      "status": "pass"
+    },
+    {
+      "stillRecordedAsFail": true,
+      "closedBy": [
+        [
+          "R18",
+          "^suite017\\.C27\\."
+        ]
+      ],
+      "issue": "C27: a final maximum the source does not state (REVIEW-0.16)",
+      "check": "history.HF-4",
+      "status": "pass"
+    },
+    {
+      "stillRecordedAsFail": true,
+      "closedBy": [
+        [
+          "R22",
+          "^suite021\\.reuse\\.keccakFrom0\\.2$"
+        ]
+      ],
+      "issue": "0.21 preserved-copy library provenance",
+      "check": "history.HF-5",
+      "status": "pass"
+    },
+    {
+      "stillRecordedAsFail": true,
+      "closedBy": [
+        [
+          "R25",
+          "^S25\\.expspec\\.inputsExist$"
+        ],
+        [
+          "R25",
+          "^coverage025\\.required$"
+        ]
+      ],
+      "issue": "0.25 output-path (generated export looked up under the original package)",
+      "check": "history.HF-6",
+      "status": "pass"
+    },
+    {
+      "stillRecordedAsFail": true,
+      "closedBy": [
+        [
+          "R27",
+          "^C32\\.case\\.C32-root-"
+        ]
+      ],
+      "issue": "C32: malformed -32021 replies raised in the 0.26 checker",
+      "check": "history.HF-7",
+      "status": "pass"
+    },
+    {
+      "what": "0.27 overclaims (rate cap called approved, honest-server compatibility, 6000 ms as a load bound)",
+      "check": "history.DC-1",
+      "status": "pass"
+    },
+    {
+      "what": "P-V1-3 'SHA-256 = PoW only' withdrawn",
+      "check": "history.DC-2",
+      "status": "pass"
+    },
+    {
+      "summary": {
+        "checks": 377,
+        "passed": 302,
+        "recorded": 75,
+        "failed": 0,
+        "partialGaps": 3,
+        "rows": {
+          "Partial": 7,
+          "CompleteCandidate": 34
+        },
+        "seconds": 25.6
+      },
+      "check": "evidence.savedSummary.R26",
+      "status": "pass"
+    },
+    {
+      "summary": {
+        "checks": 320,
+        "passed": 248,
+        "recorded": 72,
+        "failed": 0,
+        "partialGaps": 3,
+        "rows": {
+          "Partial": 7,
+          "CompleteCandidate": 34
+        },
+        "seconds": 97.4
+      },
+      "check": "evidence.savedSummary.R27",
+      "status": "pass"
+    },
+    {
+      "summary": {
+        "checks": 49,
+        "passed": 33,
+        "recorded": 16,
+        "failed": 0,
+        "seconds": 0.4
+      },
+      "check": "evidence.savedSummary.R28",
+      "status": "pass"
+    },
+    {
+      "check": "evidence.review.REVIEW-0.26",
+      "status": "pass"
+    },
+    {
+      "check": "evidence.review.REVIEW-0.27",
+      "status": "pass"
+    },
+    {
+      "check": "evidence.review.REVIEW-0.28",
+      "status": "pass"
+    },
+    {
+      "sha256": "904fcfe64de381c2c6ee362e59ad92be5e6a0e33f5f26a581e1e721f183909ae",
+      "check": "evidence.independent.busy-independent-probes-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "32862887b320ab5ea39f0bd08da0c3f53d6a22f91e864a345636a018d8fde64b",
+      "check": "evidence.independent.v1-sha-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "3bceaffed18d385816201ce9c16314272f93666a8974fbae1c31fe68b54446b9",
+      "check": "evidence.independent.v1-hash-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "131c788ca37d939680f314f865dd0d792a2c660dae02e89ece91086aa36be120",
+      "check": "evidence.independent.v1-signatures-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "b183c80d27f93f4ef987a5c6636a2fb2cde43e945e13b4fec4f819e33d542b1e",
+      "check": "evidence.independent.asert-native-comparison-0.27",
+      "status": "pass"
+    },
+    {
+      "check": "evidence.independent.u14-independent-0.28",
+      "status": "pass"
+    },
+    {
+      "compared": 23,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.2",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.3",
+      "status": "pass"
+    },
+    {
+      "compared": 15,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.4",
+      "status": "pass"
+    },
+    {
+      "compared": 21,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.5",
+      "status": "pass"
+    },
+    {
+      "compared": 20,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.6",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.7",
+      "status": "pass"
+    },
+    {
+      "compared": 3,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.8",
+      "status": "pass"
+    },
+    {
+      "compared": 12,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.9",
+      "status": "pass"
+    },
+    {
+      "compared": 12,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.10",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.11",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.12",
+      "status": "pass"
+    },
+    {
+      "compared": 9,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.13",
+      "status": "pass"
+    },
+    {
+      "compared": 4,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.14",
+      "status": "pass"
+    },
+    {
+      "compared": 4,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.15",
+      "status": "pass"
+    },
+    {
+      "compared": 11,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.16",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.17",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.18",
+      "status": "pass"
+    },
+    {
+      "compared": 10,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.19",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.20",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.21",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.22",
+      "status": "pass"
+    },
+    {
+      "compared": 24,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.23",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.24",
+      "status": "pass"
+    },
+    {
+      "compared": 21,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.25",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.26",
+      "status": "pass"
+    },
+    {
+      "compared": 12,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.27",
+      "status": "pass"
+    },
+    {
+      "compared": 9,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.28",
+      "status": "pass"
+    },
+    {
+      "now": "delegatedDecision RF-E6-1 A (m1-draft-0.29/vectors/rfe61-x12b-binding-0.29.json)",
+      "check": "evidence.gapReclassified.(x12b|RF-E6-1)",
+      "status": "pass"
+    },
+    {
+      "standingAuthorization": {
+        "at": "2026-10-08T08:02:53.390Z",
+        "scope": "M1 specifications, reference models, tests and coordinator improvements; justified reversible technical choices delegated to current coordinator",
+        "autonomousSequentialCycles": true,
+        "delegatedTechnicalDecisions": true,
+        "personalApproval": false,
+        "noProduction": true
+      },
+      "check": "authority.ledgerStandingAuthorization",
+      "status": "pass"
+    },
+    {
+      "ledgerIds": [
+        "U01",
+        "U02",
+        "U10",
+        "U14",
+        "CR-M1-01",
+        "U08",
+        "RF-E6-1",
+        "V1-SHA-COST",
+        "P-C32-2"
+      ],
+      "registerIds": [
+        "U01",
+        "U02",
+        "U10",
+        "U14",
+        "CR-M1-01",
+        "U08",
+        "RF-E6-1",
+        "V1-SHA-COST",
+        "P-C32-2"
+      ],
+      "overlayIds": [
+        "CR-M1-01",
+        "P-C32-2",
+        "RF-E6-1",
+        "U01",
+        "U02",
+        "U08",
+        "U10",
+        "U14",
+        "V1-SHA-COST"
+      ],
+      "check": "authority.registerIds",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "selected-pending-author-overlay-and-independent-verification",
+      "check": "authority.ledgerDelegatedStatus",
+      "status": "recorded"
+    },
+    {
+      "check": "authority.notPersonalApproval",
+      "status": "pass"
+    },
+    {
+      "check": "authority.ownerAnswersUntouched",
+      "status": "pass"
+    },
+    {
+      "check": "authority.reviewer025NotOwner",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.U01",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "lines": [
+        777,
+        777
+      ],
+      "missingLiterals": [],
+      "check": "source.U01.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        57,
+        57
+      ],
+      "missingLiterals": [],
+      "check": "source.U01.1.provenance",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.U02",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "lines": [
+        914,
+        914
+      ],
+      "missingLiterals": [],
+      "check": "source.U02.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        221,
+        221
+      ],
+      "missingLiterals": [],
+      "check": "source.U02.1.provenance",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.U10",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        235,
+        235
+      ],
+      "missingLiterals": [],
+      "check": "source.U10.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        426,
+        426
+      ],
+      "missingLiterals": [],
+      "check": "source.U10.1.provenance",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.U14",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "lines": [
+        905,
+        905
+      ],
+      "missingLiterals": [],
+      "check": "source.U14.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "lines": [
+        374,
+        374
+      ],
+      "missingLiterals": [],
+      "check": "source.U14.1.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        159,
+        159
+      ],
+      "missingLiterals": [],
+      "check": "source.U14.2.provenance",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.CR-M1-01",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/CR-M1-01-REV2.md",
+      "lines": [
+        24,
+        24
+      ],
+      "missingLiterals": [],
+      "check": "source.CR-M1-01.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/CR-M1-01-REV2.md",
+      "lines": [
+        41,
+        41
+      ],
+      "missingLiterals": [],
+      "check": "source.CR-M1-01.1.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/CR-M1-01-REV2.md",
+      "lines": [
+        85,
+        86
+      ],
+      "missingLiterals": [],
+      "check": "source.CR-M1-01.2.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/CR-M1-01-STATE-PROOF-READS.md",
+      "lines": [
+        9,
+        9
+      ],
+      "missingLiterals": [],
+      "check": "source.CR-M1-01.3.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/CR-M1-01-STATE-PROOF-READS.md",
+      "lines": [
+        54,
+        58
+      ],
+      "missingLiterals": [],
+      "check": "source.CR-M1-01.4.provenance",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.U08",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        278,
+        278
+      ],
+      "missingLiterals": [],
+      "check": "source.U08.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.26/owner/U08-CHANGE-REQUEST.md",
+      "lines": [
+        29,
+        29
+      ],
+      "missingLiterals": [],
+      "check": "source.U08.1.provenance",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.RF-E6-1",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        738,
+        738
+      ],
+      "missingLiterals": [],
+      "check": "source.RF-E6-1.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.17/annex/C27-RFE61.md",
+      "lines": [
+        70,
+        70
+      ],
+      "missingLiterals": [],
+      "check": "source.RF-E6-1.1.provenance",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.V1-SHA-COST",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        58,
+        58
+      ],
+      "missingLiterals": [],
+      "check": "source.V1-SHA-COST.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.27/owner/V1-SHA-COST-CHANGE-REQUEST.md",
+      "lines": [
+        1,
+        200
+      ],
+      "missingLiterals": [],
+      "check": "source.V1-SHA-COST.1.provenance",
+      "status": "pass"
+    },
+    {
+      "differences": {},
+      "check": "authority.exact.P-C32-2",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "lines": [
+        234,
+        234
+      ],
+      "missingLiterals": [],
+      "check": "source.P-C32-2.0.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        41,
+        41
+      ],
+      "missingLiterals": [],
+      "check": "source.P-C32-2.1.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.28/owner/P-C32-2-CHANGE-REQUEST.md",
+      "lines": [
+        1,
+        200
+      ],
+      "missingLiterals": [],
+      "check": "source.P-C32-2.2.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "coordination/review-001/REVIEW-0.27.md",
+      "lines": [
+        15,
+        15
+      ],
+      "missingLiterals": [],
+      "check": "reviewer.acceptedAfter0_25.P-C32-1.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "coordination/review-001/REVIEW-0.27.md",
+      "lines": [
+        15,
+        15
+      ],
+      "missingLiterals": [],
+      "check": "reviewer.acceptedAfter0_25.P-C32-3.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "coordination/review-001/REVIEW-0.27.md",
+      "lines": [
+        15,
+        15
+      ],
+      "missingLiterals": [],
+      "check": "reviewer.acceptedAfter0_25.P-C32-4.provenance",
+      "status": "pass"
+    },
+    {
+      "missing": [],
+      "check": "authority.effectiveTextsInOverlay",
+      "status": "pass"
+    },
+    {
+      "pending": [
+        "P-V1-1",
+        "P-V1-2",
+        "P-V1-4",
+        "P-V1-5",
+        "P-V1-6",
+        "P-V1-7",
+        "P-V1-8",
+        "P-V1-9",
+        "P-V1-10",
+        "P-D29-1",
+        "P-D29-2",
+        "P-D29-3",
+        "P-U08-1",
+        "P-U02-1",
+        "P-U02-2",
+        "P-U10-1"
+      ],
+      "check": "authority.pendingConventionsListed",
+      "status": "pass"
+    },
+    {
+      "model": "0x0000000000000000000000000000000000c0c005",
+      "value": "0x0000000000000000000000000000000000c0c005",
+      "check": "U01.factoryConstantOf02Model",
+      "status": "pass"
+    },
+    {
+      "check": "U01.notADeployment",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^codeTable\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "U01.codeTableVectors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^draft01\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "U01.draft01Addresses",
+      "status": "pass"
+    },
+    {
+      "groups": {
+        "triad.codeTable": 12,
+        "triad.manifests": 65
+      },
+      "check": "U01.hashEntriesUsingTheAddress",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "lines": [
+        914,
+        914
+      ],
+      "missingLiterals": [],
+      "check": "U02.source.baseline.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        221,
+        221
+      ],
+      "missingLiterals": [],
+      "check": "U02.source.table02.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        223,
+        223
+      ],
+      "missingLiterals": [],
+      "check": "U02.source.p30.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.25/supplements/s25-e07-viewer-table.json",
+      "lines": [
+        27,
+        31
+      ],
+      "missingLiterals": [],
+      "check": "U02.source.e07.provenance",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "load",
+          "version": 2,
+          "frame": true,
+          "banner": null,
+          "chunkFetches": "manifest+files"
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-01",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "stateInvariant",
+          "version": null,
+          "frame": false,
+          "banner": null,
+          "chunkFetches": 0
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-02",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "interstitial",
+          "frame": false,
+          "chunkFetches": 0
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-03",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "interstitial",
+          "frame": false,
+          "chunkFetches": 0
+        },
+        {
+          "shown": "load",
+          "version": 1,
+          "frame": true,
+          "banner": "revoked",
+          "chunkFetches": "manifest+files",
+          "newCoveredLoad": true
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-04",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "interstitial",
+          "frame": false,
+          "chunkFetches": 0
+        },
+        {
+          "shown": "declinedRevoked",
+          "frame": false,
+          "chunkFetches": 0
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-05",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "interstitial",
+          "frame": false,
+          "chunkFetches": 0
+        },
+        {
+          "shown": "load",
+          "version": 1,
+          "frame": true,
+          "banner": "revoked",
+          "chunkFetches": "manifest+files",
+          "newCoveredLoad": true
+        },
+        {
+          "shown": "page",
+          "frame": true,
+          "banner": "revoked",
+          "newAnchor": false
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-06",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "interstitial",
+          "frame": false,
+          "chunkFetches": 0
+        },
+        {
+          "shown": "load",
+          "version": 1,
+          "frame": true,
+          "banner": "revoked",
+          "chunkFetches": "manifest+files",
+          "newCoveredLoad": true
+        },
+        {
+          "shown": "interstitial",
+          "frame": false,
+          "chunkFetches": 0
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-07",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "interstitial",
+          "frame": false,
+          "chunkFetches": 0
+        },
+        {
+          "shown": "ignored",
+          "action": "navigate"
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-08",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "load",
+          "version": 2,
+          "frame": true,
+          "banner": null,
+          "chunkFetches": "manifest+files"
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-09",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "refuseDraft",
+          "version": null,
+          "frame": false,
+          "banner": null,
+          "chunkFetches": 0
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-10",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "versionNotFound",
+          "version": null,
+          "frame": false,
+          "banner": null,
+          "chunkFetches": 0
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-11",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "load",
+          "version": 1,
+          "frame": true,
+          "banner": "notCurrent",
+          "chunkFetches": "manifest+files"
+        }
+      ],
+      "alternative": false,
+      "check": "U02.row.V-12",
+      "status": "pass"
+    },
+    {
+      "trace": [
+        {
+          "shown": "refuseRevoked",
+          "version": null,
+          "frame": false,
+          "banner": null,
+          "chunkFetches": 0
+        },
+        {
+          "shown": "ignored",
+          "action": "click"
+        }
+      ],
+      "alternative": true,
+      "check": "U02.row.V-13",
+      "status": "pass"
+    },
+    {
+      "rows": [],
+      "check": "U02.defaultNeverShowsRevoked",
+      "status": "pass"
+    },
+    {
+      "rows": [],
+      "check": "U02.noChunkFetchBeforeClick",
+      "status": "pass"
+    },
+    {
+      "first": {
+        "outcome": "render",
+        "atMs": 300,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 3,
+        "attempts": 1
+      },
+      "postClick": {
+        "outcome": "render",
+        "atMs": 500,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 4,
+        "attempts": 1
+      },
+      "conditional": "P-U02-2 pending root decision",
+      "check": "U02.timing.P-U02-2",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "lines": [
+        902,
+        903
+      ],
+      "missingLiterals": [],
+      "check": "U10.source.roles.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        234,
+        235
+      ],
+      "missingLiterals": [],
+      "check": "U10.source.p09.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        252,
+        252
+      ],
+      "missingLiterals": [],
+      "check": "U10.source.accept.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        426,
+        426
+      ],
+      "missingLiterals": [],
+      "check": "U10.source.t1_12.provenance",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "events": [
+        "OwnershipNominated(A,D)",
+        "OwnershipTransferred(A,D)",
+        "CurrentVersionChanged(1,2)",
+        "PublisherChanged(A,false)"
+      ],
+      "check": "U10.case.P-1",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "revert": "NotPublisher(A)"
+      },
+      "note": "comparison only; not adopted",
+      "check": "U10.rejectedAlternative.P-1",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "events": [
+        "OwnershipNominated(A,D)",
+        "OwnershipTransferred(A,D)",
+        "VersionRevoked(1)"
+      ],
+      "check": "U10.case.P-2",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "events": [
+        "PublisherChanged(A,false)",
+        "OwnershipNominated(A,D)",
+        "OwnershipTransferred(A,D)",
+        "PublisherChanged(D,true)",
+        "CurrentVersionChanged(1,2)"
+      ],
+      "check": "U10.case.P-3",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "events": [
+        "OwnershipNominated(A,D)",
+        "OwnershipTransferred(A,D)",
+        "PublisherChanged(A,false)"
+      ],
+      "check": "U10.case.P-4",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "events": [
+        "OwnershipNominated(A,D)",
+        "PublisherChanged(A,false)",
+        "OwnershipTransferred(A,D)"
+      ],
+      "check": "U10.case.P-5",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "events": [
+        "OwnershipNominated(A,D)",
+        "OwnershipNominated(A,0)"
+      ],
+      "check": "U10.case.P-6",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        278,
+        278
+      ],
+      "missingLiterals": [],
+      "check": "U08.source.p22.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        245,
+        245
+      ],
+      "missingLiterals": [],
+      "check": "U08.source.createVersion.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        428,
+        428
+      ],
+      "missingLiterals": [],
+      "check": "U08.source.t1_14.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        141,
+        141
+      ],
+      "missingLiterals": [],
+      "check": "U08.source.viewerRule.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/storage.md",
+      "lines": [
+        32,
+        36
+      ],
+      "missingLiterals": [],
+      "check": "U08.source.baselineRecord.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        191,
+        191
+      ],
+      "missingLiterals": [],
+      "check": "U08.source.proofRound2.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/CR-M1-01-STATE-PROOF-READS.md",
+      "lines": [
+        54,
+        58
+      ],
+      "missingLiterals": [],
+      "check": "U08.source.proofBound.provenance",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "viewer": {
+        "result": "reject",
+        "rule": "mfetch.missing",
+        "stage": "manifest",
+        "detail": "0000000000000000000000000000000000000000",
+        "fetchCalls": 1
+      },
+      "full": {
+        "result": "reject",
+        "rule": "struct.shape",
+        "stage": "structure",
+        "fetchCalls": 1
+      },
+      "check": "U08.boundary.1",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "viewer": {
+        "result": "reject",
+        "rule": "mfetch.missing",
+        "stage": "manifest",
+        "detail": "0000000000000000000000000000000000000000",
+        "fetchCalls": 1
+      },
+      "full": {
+        "result": "reject",
+        "rule": "decode.trailing",
+        "stage": "decode",
+        "fetchCalls": 1
+      },
+      "check": "U08.boundary.24575",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "viewer": {
+        "result": "reject",
+        "rule": "mfetch.missing",
+        "stage": "manifest",
+        "detail": "0000000000000000000000000000000000000000",
+        "fetchCalls": 1
+      },
+      "full": {
+        "result": "reject",
+        "rule": "decode.trailing",
+        "stage": "decode",
+        "fetchCalls": 2
+      },
+      "check": "U08.boundary.24576",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "viewer": {
+        "result": "reject",
+        "rule": "mfetch.missing",
+        "stage": "manifest",
+        "detail": "0000000000000000000000000000000000000000",
+        "fetchCalls": 1
+      },
+      "full": {
+        "result": "reject",
+        "rule": "decode.trailing",
+        "stage": "decode",
+        "fetchCalls": 2
+      },
+      "check": "U08.boundary.49150",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "viewer": {
+        "result": "reject",
+        "rule": "mfetch.missing",
+        "stage": "manifest",
+        "detail": "0000000000000000000000000000000000000000",
+        "fetchCalls": 1
+      },
+      "full": {
+        "result": "reject",
+        "rule": "decode.trailing",
+        "stage": "decode",
+        "fetchCalls": 3
+      },
+      "check": "U08.boundary.49151",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "viewer": {
+        "result": "reject",
+        "rule": "mfetch.missing",
+        "stage": "manifest",
+        "detail": "0000000000000000000000000000000000000000",
+        "fetchCalls": 1
+      },
+      "full": {
+        "result": "reject",
+        "rule": "decode.trailing",
+        "stage": "decode",
+        "fetchCalls": 3
+      },
+      "check": "U08.boundary.65536",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestLength(0)",
+      "viewer": {
+        "result": "reject",
+        "rule": "manifest.length",
+        "stage": "manifest",
+        "detail": "manifestLen 0",
+        "fetchCalls": 0
+      },
+      "check": "U08.invalidLength.L0",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestLength(65537)",
+      "viewer": {
+        "result": "reject",
+        "rule": "manifest.length",
+        "stage": "manifest",
+        "detail": "manifestLen 65537",
+        "fetchCalls": 0
+      },
+      "check": "U08.invalidLength.L65537",
+      "status": "pass"
+    },
+    {
+      "contract": "ChunkArrays(1,2)",
+      "check": "U08.arrays.A1",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(0)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 2,
+      "check": "U08.noncanonical.N01",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(0)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 2,
+      "check": "U08.noncanonical.N02",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(0)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 2,
+      "check": "U08.noncanonical.N03",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(0)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 2,
+      "check": "U08.noncanonical.N04",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(1)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 1,
+      "check": "U08.noncanonical.N05",
+      "status": "FAIL"
+    },
+    {
+      "contract": "ManifestSplit(1)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 2,
+      "check": "U08.noncanonical.N06",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(1)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 3,
+      "check": "U08.noncanonical.N07",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(1)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 3,
+      "check": "U08.noncanonical.N08",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(1)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 3,
+      "check": "U08.noncanonical.N09",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(2)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 4,
+      "check": "U08.noncanonical.N10",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(0)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 4,
+      "check": "U08.noncanonical.N11",
+      "status": "pass"
+    },
+    {
+      "contract": "ManifestSplit(0)",
+      "viewer": {
+        "rule": "manifest.split",
+        "stage": "manifest",
+        "fetchCalls": 0
+      },
+      "chunks": 65536,
+      "check": "U08.noncanonical.N12",
+      "status": "pass"
+    },
+    {
+      "ranges": {
+        "k1": [
+          1,
+          24575
+        ],
+        "k2": [
+          24576,
+          49150
+        ],
+        "k3": [
+          49151,
+          65536
+        ]
+      },
+      "bad": [],
+      "check": "U08.proofKeys.allLengths",
+      "status": "pass"
+    },
+    {
+      "k1": 151386,
+      "k6": 519611,
+      "check": "U08.proofKeys.bytes",
+      "status": "pass"
+    },
+    {
+      "note": "alternative C budget; recorded only",
+      "check": "U08.withoutU08Recorded",
+      "status": "pass"
+    },
+    {
+      "check": "V1rerun.network.genesisPre",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "lines": [
+        905,
+        905
+      ],
+      "missingLiterals": [],
+      "check": "U14.source.fd905.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "lines": [
+        374,
+        374
+      ],
+      "missingLiterals": [],
+      "check": "U14.source.rp374.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        41,
+        41
+      ],
+      "missingLiterals": [],
+      "check": "U14.source.retry.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "lines": [
+        234,
+        234
+      ],
+      "missingLiterals": [],
+      "check": "U14.source.busy.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/CR-M1-01-REV2.md",
+      "lines": [
+        24,
+        24
+      ],
+      "missingLiterals": [],
+      "check": "U14.source.rev2Timeout.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/CR-M1-01-REV2.md",
+      "lines": [
+        85,
+        85
+      ],
+      "missingLiterals": [],
+      "check": "U14.source.rev2SingleWait.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/CR-M1-01-REV2.md",
+      "lines": [
+        86,
+        86
+      ],
+      "missingLiterals": [],
+      "check": "U14.source.rev2Cumulative.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        159,
+        159
+      ],
+      "missingLiterals": [],
+      "check": "U14.source.u14Preferred02.provenance",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "ok": true,
+        "n": 13
+      },
+      "check": "U14.tokens.fromReviewedTranscript",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "ok",
+        "atMs": 600,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "positive",
+      "virtualTime": true,
+      "check": "U14.hnc.H-01",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "exact deadline (computation)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-02",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "ok",
+        "atMs": 9999,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "just before (computation)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-03",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "just after (computation)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-04",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "exact deadline (reply)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-05",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "ok",
+        "atMs": 9999,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "just before (reply)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-06",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "requests": 1
+      },
+      "tag": "response latency: first reply at the deadline",
+      "virtualTime": true,
+      "check": "U14.hnc.H-07",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "requests": 1
+      },
+      "tag": "response latency: no reply",
+      "virtualTime": true,
+      "check": "U14.hnc.H-08",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "just after (second request sent at 9999)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-09",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "ok",
+        "atMs": 6550,
+        "why": null,
+        "sleptMs": 6000,
+        "requests": 5
+      },
+      "tag": "three retries fit (busy, busy, rate)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-10",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 4000,
+        "requests": 4
+      },
+      "tag": "retries with latency cross the deadline (0.28 U14-T2)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-11",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 1250,
+        "why": null,
+        "sleptMs": 750,
+        "requests": 5
+      },
+      "tag": "fourth valid -32021: no fourth sleep",
+      "virtualTime": true,
+      "check": "U14.hnc.H-12",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 8000,
+        "why": "retryDelayDoesNotFit",
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "valid delay ending exactly at the deadline is not slept",
+      "virtualTime": true,
+      "check": "U14.hnc.H-13",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 1999,
+        "requests": 3
+      },
+      "tag": "delay fits, resend cannot",
+      "virtualTime": true,
+      "check": "U14.hnc.H-14",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "ok",
+        "atMs": 9999,
+        "why": null,
+        "sleptMs": 1999,
+        "requests": 3
+      },
+      "tag": "retry just before the deadline succeeds",
+      "virtualTime": true,
+      "check": "U14.hnc.H-15",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "rate above the cap: no sleep",
+      "virtualTime": true,
+      "check": "U14.hnc.H-16",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "ok",
+        "atMs": 350,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 3
+      },
+      "tag": "rate 0 retried",
+      "virtualTime": true,
+      "check": "U14.hnc.H-17",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "busy below range: no sleep",
+      "virtualTime": true,
+      "check": "U14.hnc.H-18",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "malformed envelope",
+      "virtualTime": true,
+      "check": "U14.hnc.H-19",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "other error",
+      "virtualTime": true,
+      "check": "U14.hnc.H-20",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "long single reply (0.28 U14-T3)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-21",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "requests": 2
+      },
+      "tag": "computation crosses (0.28 U14-T5)",
+      "virtualTime": true,
+      "check": "U14.hnc.H-22",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewNoBlocks",
+        "atMs": 100,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 1
+      },
+      "tag": "h = 0",
+      "virtualTime": true,
+      "check": "U14.hnc.H-23",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "viewIncomplete",
+        "atMs": 100,
+        "why": null,
+        "sleptMs": 0,
+        "requests": 1
+      },
+      "tag": "-32021 on eth_blockNumber has no retry rule",
+      "virtualTime": true,
+      "check": "U14.hnc.H-24",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "atMs": 1040,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 16,
+        "attempts": 1
+      },
+      "tag": "positive LN load",
+      "virtualTime": true,
+      "check": "U14.content.CL-01",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "unavailable",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "sends": 4,
+        "attempts": 1
+      },
+      "tag": "exact deadline (reply)",
+      "virtualTime": true,
+      "check": "U14.content.CL-02",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "atMs": 9999,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 4,
+        "attempts": 1
+      },
+      "tag": "just before",
+      "virtualTime": true,
+      "check": "U14.content.CL-03",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "unavailable",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "sends": 4,
+        "attempts": 1
+      },
+      "tag": "exact deadline (computation)",
+      "virtualTime": true,
+      "check": "U14.content.CL-04",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "unavailable",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "sends": 4,
+        "attempts": 1
+      },
+      "tag": "just after",
+      "virtualTime": true,
+      "check": "U14.content.CL-05",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "atMs": 6750,
+        "why": null,
+        "sleptMs": 6000,
+        "sends": 7,
+        "attempts": 1
+      },
+      "tag": "three retries fit",
+      "virtualTime": true,
+      "check": "U14.content.CL-06",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "atMs": 1700,
+        "why": null,
+        "sleptMs": 750,
+        "sends": 9,
+        "attempts": 2
+      },
+      "tag": "fourth -32021 fails the attempt; restart renders",
+      "virtualTime": true,
+      "check": "U14.content.CL-07",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "atMs": 600,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 6,
+        "attempts": 2
+      },
+      "tag": "rate 5000: rev 2 single wait (0-10000) superseded; attempt fails without sleeping",
+      "virtualTime": true,
+      "check": "U14.content.CL-08",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "atMs": 8450,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 7,
+        "attempts": 2
+      },
+      "tag": "valid delay does not fit: attempt fails without sleeping, restart within budget",
+      "virtualTime": true,
+      "check": "U14.content.CL-09",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "unavailable",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 1999,
+        "sends": 4,
+        "attempts": 1
+      },
+      "tag": "delay fits, resend expires",
+      "virtualTime": true,
+      "check": "U14.content.CL-10",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "unavailable",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "sends": 1,
+        "attempts": 1
+      },
+      "tag": "no reply",
+      "virtualTime": true,
+      "check": "U14.content.CL-11",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "inconsistent",
+        "atMs": 400,
+        "why": "attemptsExhausted",
+        "sleptMs": 0,
+        "sends": 8,
+        "attempts": 4
+      },
+      "tag": "four failed attempts",
+      "virtualTime": true,
+      "check": "U14.content.CL-12",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "noWebsite",
+        "atMs": 200,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 2,
+        "attempts": 1
+      },
+      "tag": "verified absence",
+      "virtualTime": true,
+      "check": "U14.content.CL-13",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "atMs": 500,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 5,
+        "attempts": 2
+      },
+      "tag": "malformed proof reply fails the attempt",
+      "virtualTime": true,
+      "check": "U14.content.CL-14",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "atMs": 9999,
+        "why": null,
+        "sleptMs": 0,
+        "sends": 11,
+        "attempts": 1
+      },
+      "tag": "eight parallel getCode, slowest just before",
+      "virtualTime": true,
+      "check": "U14.content.CL-15",
+      "status": "pass"
+    },
+    {
+      "error": "parallelLimit",
+      "check": "U14.content.CL-16",
+      "status": "pass"
+    },
+    {
+      "got": [
+        {
+          "outcome": "ok",
+          "absoluteAtMs": 6900
+        },
+        {
+          "outcome": "render",
+          "absoluteAtMs": 10500
+        }
+      ],
+      "convention": "P-D29-3 open: both readings are fixtures",
+      "check": "U14.rp.RP-COMB.separate",
+      "status": "pass"
+    },
+    {
+      "got": [
+        {
+          "outcome": "ok",
+          "absoluteAtMs": 6900
+        },
+        {
+          "outcome": "unavailable",
+          "absoluteAtMs": 10000
+        }
+      ],
+      "convention": "P-D29-3 open: both readings are fixtures",
+      "check": "U14.rp.RP-COMB.shared",
+      "status": "pass"
+    },
+    {
+      "effective": {
+        "outcome": "ok",
+        "atMs": 6550,
+        "why": null,
+        "sleptMs": 6000,
+        "sends": 5,
+        "attempts": 1
+      },
+      "rootWLa": {
+        "outcome": "ok",
+        "atMs": 6550,
+        "sleep": 6000
+      },
+      "check": "U14.bind028.U14-T1",
+      "status": "pass"
+    },
+    {
+      "effective": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 4000,
+        "sends": 4,
+        "attempts": 1
+      },
+      "rootWLa": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 4000
+      },
+      "check": "U14.bind028.U14-T2",
+      "status": "pass"
+    },
+    {
+      "effective": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "sends": 2,
+        "attempts": 1
+      },
+      "rootWLa": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 0
+      },
+      "check": "U14.bind028.U14-T3",
+      "status": "pass"
+    },
+    {
+      "effective": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "sends": 2,
+        "attempts": 1
+      },
+      "rootWLa": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 0
+      },
+      "check": "U14.bind028.U14-T4",
+      "status": "pass"
+    },
+    {
+      "effective": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "why": "expired",
+        "sleptMs": 0,
+        "sends": 2,
+        "attempts": 1
+      },
+      "rootWLa": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 0
+      },
+      "check": "U14.bind028.U14-T5",
+      "status": "pass"
+    },
+    {
+      "effective": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "why": "malformed",
+        "sleptMs": 0,
+        "sends": 2,
+        "attempts": 1
+      },
+      "rootWLa": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "sleep": 0
+      },
+      "check": "U14.bind028.U14-T6A",
+      "status": "pass"
+    },
+    {
+      "effective": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "why": "malformed",
+        "sleptMs": 0,
+        "sends": 2,
+        "attempts": 1
+      },
+      "rootWLaUnderPolicyC": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 9700
+      },
+      "note": "policy C not adopted (P-C32-2 A)",
+      "check": "U14.bind028.U14-T6C",
+      "status": "pass"
+    },
+    {
+      "check": "U14.sleepBoundIsNotElapsedBound",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "sends": 4,
+        "sleptMs": 500,
+        "attempts": 1
+      },
+      "baseline0_5": {
+        "result": "render",
+        "sends": 4,
+        "delayMs": 500,
+        "restarts": 0
+      },
+      "changedByOverlay": false,
+      "check": "CRM101.bud.BUD-1-one-retry",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "sends": 8,
+        "sleptMs": 300,
+        "attempts": 2
+      },
+      "baseline0_5": {
+        "result": "render",
+        "sends": 8,
+        "delayMs": 300,
+        "restarts": 1
+      },
+      "changedByOverlay": false,
+      "check": "CRM101.bud.BUD-2-retries-exhaust-attempt",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "inconsistent",
+        "sends": 8,
+        "sleptMs": 0,
+        "attempts": 4
+      },
+      "baseline0_5": {
+        "result": "unavailable",
+        "sends": 4,
+        "delayMs": 20000,
+        "restarts": 0
+      },
+      "changedByOverlay": true,
+      "check": "CRM101.bud.BUD-3-delay-cap",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "render",
+        "sends": 5,
+        "sleptMs": 0,
+        "attempts": 2
+      },
+      "baseline0_5": {
+        "result": "render",
+        "sends": 5,
+        "delayMs": 0,
+        "restarts": 1
+      },
+      "changedByOverlay": false,
+      "check": "CRM101.bud.BUD-4-fail-then-render",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "inconsistent",
+        "sends": 48,
+        "sleptMs": 0,
+        "attempts": 4
+      },
+      "baseline0_5": {
+        "result": "inconsistent",
+        "sends": 48,
+        "restarts": 3
+      },
+      "changedByOverlay": false,
+      "check": "CRM101.bud.BUD-5-worst-sends",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "noWebsite",
+        "sends": 2,
+        "sleptMs": 0,
+        "attempts": 1
+      },
+      "baseline0_5": {
+        "result": "noWebsite",
+        "sends": 2,
+        "restarts": 0
+      },
+      "changedByOverlay": false,
+      "check": "CRM101.bud.BUD-6-no-website-ends",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "outcome": "stateInvariant",
+        "sends": 3,
+        "sleptMs": 0,
+        "attempts": 1
+      },
+      "baseline0_5": {
+        "result": "stateInvariant",
+        "sends": 3,
+        "restarts": 0
+      },
+      "changedByOverlay": false,
+      "check": "CRM101.bud.BUD-7-invariant-ends",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.carried.RW-h3#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.carried.RW-h13#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.carried.RW-h14#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.carried.RW-h20#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.carried.NX-V1#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewGenesis",
+      "check": "V1rerun.zero.carried.NX-V2#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.carried.NX-V3#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "netChain",
+      "check": "V1rerun.zero.carried.NX-V3b#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "netGenesis",
+      "check": "V1rerun.zero.carried.V1-refGenesis#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "netVersion",
+      "check": "V1rerun.zero.carried.V1-refVersion#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.carried.NX-V3c#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.carried.NX-V3d#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.carried.V1-outOfOrder#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "2",
+      "check": "V1rerun.zero.carried.V1-wrongParent9#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewFuture",
+      "check": "V1rerun.zero.carried.NX-V3e#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewTargetCeil",
+      "check": "V1rerun.zero.carried.NX-V3f#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.carried.NX-V3g#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewNoBlocks",
+      "check": "V1rerun.zero.carried.NX-V4#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.carried.NX-V4#1",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.carried.V1-err32018#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.carried.NX-V6#0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-root-missingData",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-root-dataNull",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-root-missingDelay",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-dataArray",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-dataString",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-reasonMissing",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-reasonUnknown",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayNull",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayBool",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayString",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayNegative",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayFraction",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayNaN",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayInfinity",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayOverflowFloat",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-delayHugeInt",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-busy249",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-busy2001",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-rate2001",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-codeString",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-codeBool",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-codeFraction",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-codeMissing",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-messageMissing",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-errorString",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-errorAndResult",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-neither",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-noJsonrpc",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-replyArray",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-notJson",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.c32.C32-ok-busy250",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.c32.C32-ok-busy2000",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.c32.C32-ok-rate0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.c32.C32-ok-rate2000",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.c32.C32-ok-integralFloat",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.c32.C32-ok-exponent",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.c32.C32-ok-threeRetries",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-exhausted-max",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-retryThenMalformed",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-otherErrorNoRetry",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "viewIncomplete",
+      "check": "V1rerun.zero.c32.C32-blockNumberMalformed",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.sha.SHA-S1",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "9",
+      "check": "V1rerun.zero.sha.SHA-S1bad",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": "ok",
+      "check": "V1rerun.zero.sha.SHA-W",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.RW-h3#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.RW-h13#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.RW-h14#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.RW-h20#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V1#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewGenesis",
+        1500,
+        null
+      ],
+      "want": [
+        "viewGenesis",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V2#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V3#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "netChain",
+        1500,
+        null
+      ],
+      "want": [
+        "netChain",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V3b#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "netGenesis",
+        1500,
+        null
+      ],
+      "want": [
+        "netGenesis",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.V1-refGenesis#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "netVersion",
+        1500,
+        null
+      ],
+      "want": [
+        "netVersion",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.V1-refVersion#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V3c#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V3d#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.V1-outOfOrder#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "2",
+        1500,
+        null
+      ],
+      "want": [
+        "2",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.V1-wrongParent9#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewFuture",
+        1500,
+        null
+      ],
+      "want": [
+        "viewFuture",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V3e#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewTargetCeil",
+        1500,
+        null
+      ],
+      "want": [
+        "viewTargetCeil",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V3f#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V3g#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewNoBlocks",
+        800,
+        null
+      ],
+      "want": [
+        "viewNoBlocks",
+        800,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V4#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V4#1",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.carried.V1-err32018#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        6600,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        6600,
+        null
+      ],
+      "check": "V1rerun.u700.carried.NX-V6#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-root-missingData",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-root-dataNull",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-root-missingDelay",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-dataArray",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-dataString",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-reasonMissing",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-reasonUnknown",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayNull",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayBool",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayString",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayNegative",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayFraction",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayNaN",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayInfinity",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayOverflowFloat",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-delayHugeInt",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-busy249",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-busy2001",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-rate2001",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-codeString",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-codeBool",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-codeFraction",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-codeMissing",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-messageMissing",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-errorString",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-errorAndResult",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-neither",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-noJsonrpc",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-replyArray",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-notJson",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        2450,
+        null
+      ],
+      "want": [
+        "ok",
+        2450,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-ok-busy250",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        4200,
+        null
+      ],
+      "want": [
+        "ok",
+        4200,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-ok-busy2000",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        2200,
+        null
+      ],
+      "want": [
+        "ok",
+        2200,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-ok-rate0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        4200,
+        null
+      ],
+      "want": [
+        "ok",
+        4200,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-ok-rate2000",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        2700,
+        null
+      ],
+      "want": [
+        "ok",
+        2700,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-ok-integralFloat",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        2700,
+        null
+      ],
+      "want": [
+        "ok",
+        2700,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-ok-exponent",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        5900,
+        null
+      ],
+      "want": [
+        "ok",
+        5900,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-ok-threeRetries",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        9600,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        9600,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-exhausted-max",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        2500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        2500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-retryThenMalformed",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-otherErrorNoRetry",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        800,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        800,
+        null
+      ],
+      "check": "V1rerun.u700.c32.C32-blockNumberMalformed",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.sha.SHA-S1",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "9",
+        1500,
+        null
+      ],
+      "want": [
+        "9",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.sha.SHA-S1bad",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        1500,
+        null
+      ],
+      "want": [
+        "ok",
+        1500,
+        null
+      ],
+      "check": "V1rerun.u700.sha.SHA-W",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.RW-h3#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.RW-h13#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.RW-h14#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.RW-h20#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V1#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewGenesis",
+        3250,
+        null
+      ],
+      "want": [
+        "viewGenesis",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V2#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V3#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "netChain",
+        3250,
+        null
+      ],
+      "want": [
+        "netChain",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V3b#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "netGenesis",
+        3250,
+        null
+      ],
+      "want": [
+        "netGenesis",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.V1-refGenesis#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "netVersion",
+        3250,
+        null
+      ],
+      "want": [
+        "netVersion",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.V1-refVersion#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V3c#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V3d#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.V1-outOfOrder#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "2",
+        3250,
+        null
+      ],
+      "want": [
+        "2",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.V1-wrongParent9#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewFuture",
+        3250,
+        null
+      ],
+      "want": [
+        "viewFuture",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V3e#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewTargetCeil",
+        3250,
+        null
+      ],
+      "want": [
+        "viewTargetCeil",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V3f#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V3g#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewNoBlocks",
+        1650,
+        null
+      ],
+      "want": [
+        "viewNoBlocks",
+        1650,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V4#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.NX-V4#1",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.carried.V1-err32018#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        10000,
+        "expired"
+      ],
+      "want": [
+        "viewIncomplete",
+        10000,
+        "expired"
+      ],
+      "check": "V1rerun.u1600.carried.NX-V6#0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-root-missingData",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-root-dataNull",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-root-missingDelay",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-dataArray",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-dataString",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-reasonMissing",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-reasonUnknown",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayNull",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayBool",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayString",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayNegative",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayFraction",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayNaN",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayInfinity",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayOverflowFloat",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-delayHugeInt",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-busy249",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-busy2001",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-rate2001",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-codeString",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-codeBool",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-codeFraction",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-codeMissing",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-messageMissing",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-errorString",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-errorAndResult",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-neither",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-noJsonrpc",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-replyArray",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-notJson",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        5100,
+        null
+      ],
+      "want": [
+        "ok",
+        5100,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-ok-busy250",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        6850,
+        null
+      ],
+      "want": [
+        "ok",
+        6850,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-ok-busy2000",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        4850,
+        null
+      ],
+      "want": [
+        "ok",
+        4850,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-ok-rate0",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        6850,
+        null
+      ],
+      "want": [
+        "ok",
+        6850,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-ok-rate2000",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        5350,
+        null
+      ],
+      "want": [
+        "ok",
+        5350,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-ok-integralFloat",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        5350,
+        null
+      ],
+      "want": [
+        "ok",
+        5350,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-ok-exponent",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        10000,
+        "expired"
+      ],
+      "want": [
+        "viewIncomplete",
+        10000,
+        "expired"
+      ],
+      "check": "V1rerun.u1600.c32.C32-ok-threeRetries",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        10000,
+        "expired"
+      ],
+      "want": [
+        "viewIncomplete",
+        10000,
+        "expired"
+      ],
+      "check": "V1rerun.u1600.c32.C32-exhausted-max",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        5150,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        5150,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-retryThenMalformed",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-otherErrorNoRetry",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "viewIncomplete",
+        1650,
+        null
+      ],
+      "want": [
+        "viewIncomplete",
+        1650,
+        null
+      ],
+      "check": "V1rerun.u1600.c32.C32-blockNumberMalformed",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.sha.SHA-S1",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "9",
+        3250,
+        null
+      ],
+      "want": [
+        "9",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.sha.SHA-S1bad",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "ok",
+        3250,
+        null
+      ],
+      "want": [
+        "ok",
+        3250,
+        null
+      ],
+      "check": "V1rerun.u1600.sha.SHA-W",
+      "status": "pass"
+    },
+    {
+      "profiles": {
+        "zero": {
+          "2/None": 1,
+          "9/None": 1,
+          "netChain/None": 1,
+          "netGenesis/None": 1,
+          "netVersion/None": 1,
+          "ok/None": 16,
+          "viewFuture/None": 1,
+          "viewGenesis/None": 1,
+          "viewIncomplete/None": 40,
+          "viewNoBlocks/None": 1,
+          "viewTargetCeil/None": 1
+        },
+        "u700": {
+          "2/None": 1,
+          "9/None": 1,
+          "netChain/None": 1,
+          "netGenesis/None": 1,
+          "netVersion/None": 1,
+          "ok/None": 16,
+          "viewFuture/None": 1,
+          "viewGenesis/None": 1,
+          "viewIncomplete/None": 40,
+          "viewNoBlocks/None": 1,
+          "viewTargetCeil/None": 1
+        },
+        "u1600": {
+          "2/None": 1,
+          "9/None": 1,
+          "netChain/None": 1,
+          "netGenesis/None": 1,
+          "netVersion/None": 1,
+          "ok/None": 15,
+          "viewFuture/None": 1,
+          "viewGenesis/None": 1,
+          "viewIncomplete/expired": 3,
+          "viewIncomplete/None": 38,
+          "viewNoBlocks/None": 1,
+          "viewTargetCeil/None": 1
+        }
+      },
+      "check": "V1rerun.summary",
+      "status": "recorded"
+    },
+    {
+      "summary": {
+        "2/None": 1,
+        "9/None": 1,
+        "netChain/None": 1,
+        "netGenesis/None": 1,
+        "netVersion/None": 1,
+        "ok/None": 16,
+        "viewFuture/None": 1,
+        "viewGenesis/None": 1,
+        "viewIncomplete/None": 40,
+        "viewNoBlocks/None": 1,
+        "viewTargetCeil/None": 1
+      },
+      "check": "V1rerun.u700KeepsEverySavedVerdict",
+      "status": "pass"
+    },
+    {
+      "summary": {
+        "2/None": 1,
+        "9/None": 1,
+        "netChain/None": 1,
+        "netGenesis/None": 1,
+        "netVersion/None": 1,
+        "ok/None": 15,
+        "viewFuture/None": 1,
+        "viewGenesis/None": 1,
+        "viewIncomplete/expired": 3,
+        "viewIncomplete/None": 38,
+        "viewNoBlocks/None": 1,
+        "viewTargetCeil/None": 1
+      },
+      "check": "V1rerun.u1600HasExpiries",
+      "status": "pass"
+    },
+    {
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 14,
+        "asert": 13,
+        "powHash": 13,
+        "shareHash": 3328,
+        "ecrecover": 26,
+        "maxAsertBits": 257,
+        "sha256Total": 3355,
+        "sha256ByCategory": {
+          "templateId": 14,
+          "powHash": 13,
+          "shareHash": 3328
+        },
+        "sha256UniquePreimages": 3355,
+        "sleptMs": 0
+      },
+      "check": "SHA29.worstCase.cachedByCategory",
+      "status": "pass"
+    },
+    {
+      "check": "SHA29.worstCase.verdict",
+      "status": "pass"
+    },
+    {
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 14,
+        "asert": 13,
+        "powHash": 13,
+        "shareHash": 3328,
+        "ecrecover": 26,
+        "maxAsertBits": 257,
+        "sha256Total": 3355,
+        "sha256ByCategory": {
+          "templateId": 14,
+          "powHash": 13,
+          "shareHash": 3328
+        },
+        "sha256UniquePreimages": 3355,
+        "sleptMs": 0
+      },
+      "saved": {
+        "headerDecodes": 14,
+        "asert": 13,
+        "ecrecover": 26
+      },
+      "check": "SHA29.worstCase.otherBounds",
+      "status": "pass"
+    },
+    {
+      "missing": [],
+      "check": "SHA29.everyCheckRetained",
+      "status": "pass"
+    },
+    {
+      "uncached": 6721,
+      "check": "SHA29.uncachedIs6721",
+      "status": "pass"
+    },
+    {
+      "check": "SHA29.cachingRequiredForBudget",
+      "status": "pass"
+    },
+    {
+      "bound": {
+        "powHash@0.27": 13,
+        "shareHash@0.27": 3328,
+        "templateId@0.26": 1,
+        "templateId@0.27": 13
+      },
+      "unbound": [],
+      "note": "every distinct SHA-256 preimage of the worst case equals an exported freeze entry whose id root verified independently",
+      "check": "SHA29.preimageBinding",
+      "status": "pass"
+    },
+    {
+      "file": "coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json",
+      "sha256": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753",
+      "replySha256": [
+        "8b46eebe6c694b74967dc4263d9f18f51afd4a4a444690b2ba36b1c37a2f76de",
+        "38d8b6b99d1526473fc4b40f62e31e519c0daa2ec42bdc0fd52adf65c2526aa5"
+      ],
+      "check": "SHA29.worstCaseFixtureHash",
+      "status": "recorded"
+    },
+    {
+      "sha256": "32862887b320ab5ea39f0bd08da0c3f53d6a22f91e864a345636a018d8fde64b",
+      "summary": {
+        "checks": 18,
+        "passed": 18,
+        "failed": 0
+      },
+      "check": "SHA29.rootEvidence.v1-sha-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "3bceaffed18d385816201ce9c16314272f93666a8974fbae1c31fe68b54446b9",
+      "summary": {
+        "checks": 3677,
+        "passed": 3677,
+        "failed": 0
+      },
+      "check": "SHA29.rootEvidence.v1-hash-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "131c788ca37d939680f314f865dd0d792a2c660dae02e89ece91086aa36be120",
+      "summary": {
+        "checks": 31,
+        "failed": 0,
+        "noSigningOrSubmission": true
+      },
+      "check": "SHA29.rootEvidence.v1-signatures-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "b183c80d27f93f4ef987a5c6636a2fb2cde43e945e13b4fec4f819e33d542b1e",
+      "summary": {
+        "checks": 1027,
+        "passed": 1027,
+        "failed": 0
+      },
+      "check": "SHA29.rootEvidence.asert-native-comparison-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "477a417c188a8dca2cd1acb64b75eb16cc69921db2159a58012430814704693c",
+      "summary": {
+        "checks": 347,
+        "passed": 347,
+        "failed": 0
+      },
+      "check": "SHA29.rootEvidence.v1-independent-hashes-0.26",
+      "status": "pass"
+    },
+    {
+      "check": "SHA29.singleHeaderMatchesRootProbe",
+      "status": "pass"
+    },
+    {
+      "line": "\u0643\u0644\u0641\u0629 \u0627\u0644\u0639\u0645\u064a\u0644: \u2264 14 \u0641\u0643 \u0631\u0623\u0633\u060c \u0648\u2264 13 ASERT \u0628\u0648\u0633\u0627\u0626\u0637 \u2264 512 \u0628\u062a\u064b\u0627\u060c \u0648\u2264 13 SHA-256.",
+      "check": "SHA29.sourceLiteralPreservedAsHistory",
+      "status": "pass"
+    },
+    {
+      "check": "SHA29.effectiveSentence",
+      "status": "pass"
+    },
+    {
+      "check": "CRM101.replyLimitUnchanged",
+      "status": "pass"
+    },
+    {
+      "check": "CRM101.statePoolUnchanged",
+      "status": "pass"
+    },
+    {
+      "check": "CRM101.sitesStillForbidden",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.denyList",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "CRM101.siteBanEvidence",
+      "status": "pass"
+    },
+    {
+      "check": "CRM101.sendsPerLoad",
+      "status": "pass"
+    },
+    {
+      "check": "CRM101.worstBytesBound",
+      "status": "pass"
+    },
+    {
+      "check": "CRM101.E03Amended",
+      "status": "pass"
+    },
+    {
+      "check": "CRM101.supersededTextsPreserved",
+      "status": "pass"
+    },
+    {
+      "fixtures": 23,
+      "check": "CRM101.virtualTimeFixtures",
+      "status": "pass"
+    },
+    {
+      "checker": {
+        "busy": [
+          250,
+          2000
+        ],
+        "rate": [
+          0,
+          2000
+        ]
+      },
+      "model": {
+        "busy": [
+          250,
+          2000
+        ],
+        "rate": [
+          0,
+          2000
+        ]
+      },
+      "check": "PC322.rangesInCheckerAndModel",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "PC322.classifyBounds",
+      "status": "pass"
+    },
+    {
+      "cases": 41,
+      "check": "PC322.c32CasesUnderDeadline",
+      "status": "pass"
+    },
+    {
+      "check": "PC322.noSourceRangeClaim",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        738,
+        738
+      ],
+      "missingLiterals": [],
+      "check": "RFE61.source.provenance",
+      "status": "pass"
+    },
+    {
+      "check": "RFE61.vector",
+      "status": "pass"
+    },
+    {
+      "recorded": "c09d80318e32a68bb371e56bac95506acef4cd550f4f6a37e8384425621b13b8",
+      "check": "RFE61.executedVectorIsCurrentFile",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": 2,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.adminStaleDroppedTotal",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": null,
+        "fifo": {
+          "op1": 1,
+          "op2": 1
+        },
+        "trace": {
+          "op1": 1,
+          "op2": 1
+        }
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.staleDroppedByOp",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": [
+          [
+            "request",
+            0,
+            "op1",
+            1
+          ],
+          [
+            "grant",
+            0,
+            "op1",
+            1,
+            4
+          ],
+          [
+            "request",
+            1,
+            "op2",
+            1
+          ],
+          [
+            "grant",
+            1,
+            "op2",
+            1,
+            5
+          ],
+          [
+            "request",
+            4000,
+            "op3",
+            1
+          ],
+          [
+            "request",
+            5000,
+            "op1",
+            2
+          ],
+          [
+            "request",
+            5001,
+            "op2",
+            2
+          ],
+          [
+            "grant",
+            6000,
+            "op3",
+            1,
+            6
+          ],
+          [
+            "staleDrop",
+            7000,
+            "op1",
+            2
+          ],
+          [
+            "staleDrop",
+            7000,
+            "op2",
+            2
+          ]
+        ],
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.fifoLog",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": null,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.zeroAllocForStale",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": null,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.zeroTicketForStale",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": {
+          "op1": 0,
+          "op2": 0,
+          "op3": 0
+        },
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.zeroSetAfterResolution",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": null,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.noViolations",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": null,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.tracedEqualsUntraced",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": null,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b.literalWitnessOp1",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": 1,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12b-op1only.adminStaleDroppedTotal",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": 0,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.x12.adminStaleDroppedTotal",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "status": "pass",
+        "actual": null,
+        "fifo": null,
+        "trace": null
+      },
+      "check": "RFE61.bound.suite017.RF-E6-1.supplementalCellsTagged",
+      "status": "pass"
+    },
+    {
+      "reboundTo": "this overlay: effective literal total 2 (delegated RF-E6-1 A)",
+      "check": "RFE61.historicalGapRebound.suite017.RF-E6-1.x12b.literalTotal",
+      "status": "pass"
+    },
+    {
+      "reboundTo": "this overlay: effective literal total 2 (delegated RF-E6-1 A)",
+      "check": "RFE61.historicalGapRebound.suite017.suite016.BR24-x12b.literalConflict.RF-E6-1",
+      "status": "pass"
+    },
+    {
+      "check": "RFE61.rootReview0_18",
+      "status": "pass"
+    },
+    {
+      "check": "RFE61.effectiveText",
+      "status": "pass"
+    },
+    {
+      "checks": 8,
+      "failed": [],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.U01.applied",
+      "status": "pass"
+    },
+    {
+      "checks": 23,
+      "failed": [],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.U02.applied",
+      "status": "pass"
+    },
+    {
+      "checks": 14,
+      "failed": [],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.U10.applied",
+      "status": "pass"
+    },
+    {
+      "checks": 63,
+      "failed": [],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.U14.applied",
+      "status": "pass"
+    },
+    {
+      "checks": 22,
+      "failed": [],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.CR-M1-01.applied",
+      "status": "pass"
+    },
+    {
+      "checks": 34,
+      "failed": [
+        "U08.noncanonical.N05"
+      ],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.U08.applied",
+      "status": "FAIL"
+    },
+    {
+      "checks": 22,
+      "failed": [],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.RF-E6-1.applied",
+      "status": "pass"
+    },
+    {
+      "checks": 19,
+      "failed": [],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.V1-SHA-COST.applied",
+      "status": "pass"
+    },
+    {
+      "checks": 8,
+      "failed": [],
+      "basis": "delegated technical decision (user standing authorization + coordinator decision); not an owner answer",
+      "check": "decision.P-C32-2.applied",
+      "status": "pass"
+    },
+    {
+      "unverified": [],
+      "check": "hash29.rootVerified025",
+      "status": "pass"
+    },
+    {
+      "entries": 347,
+      "unverified": [],
+      "file": "coordination/review-001/m1-draft-0.26/results/hash-freeze-v1-0.26.json",
+      "sha256": "93ba8a3a9c2cfc42393ae1c27137d39b46c6c439384935c8d6480e9facf9d460",
+      "check": "hash29.v1Freeze0_26RootVerified",
+      "status": "pass"
+    },
+    {
+      "entries": 3677,
+      "unverified": [],
+      "file": "coordination/review-001/m1-draft-0.27/results/hash-freeze-v1-0.27.json",
+      "sha256": "e77b22ab5a01ab078eef843f59df40f523153b6554a911b00e32ae9c4391d8dd",
+      "check": "hash29.v1Freeze0_27RootVerified",
+      "status": "pass"
+    },
+    {
+      "ownerBlocked": [],
+      "check": "hash29.noOwnerBlockedGroup",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^keccak\\.selftest$",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.C1.evidence.R02:^keccak\\.selftest$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^codeTable\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.C1.evidence.R02:^codeTable\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^draft01\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.C1.evidence.R02:^draft01\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.C1.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "PendingRootReview",
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "satisfied",
+        "c5": "pendingRootReview"
+      },
+      "c4Basis": "delegated: U01",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [
+        "E01",
+        "E04",
+        "E05"
+      ],
+      "check": "row.C1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^positive ",
+      "matched": 11,
+      "passed": 11,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^positive ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative ",
+      "matched": 62,
+      "passed": 62,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^negative ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^isolation\\.",
+      "matched": 59,
+      "passed": 59,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^isolation\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^boundary\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^boundary\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^path",
+      "matched": 58,
+      "passed": 58,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^path",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^rlp\\.",
+      "matched": 47,
+      "passed": 47,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R03:^rlp\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^selector ",
+      "matched": 17,
+      "passed": 17,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R03:^selector ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^versionWidth",
+      "matched": 16,
+      "passed": 16,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R03:^versionWidth",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^regression02\\.",
+      "matched": 192,
+      "passed": 192,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R03:^regression02\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bound\\.",
+      "matched": 11,
+      "passed": 10,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R04:^bound\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^c14\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R06:^c14\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^c20\\.",
+      "matched": 168,
+      "passed": 168,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R08:^c20\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "PendingRootReview",
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "satisfied",
+        "c5": "pendingRootReview"
+      },
+      "c4Basis": "delegated: U01",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [
+        "E05",
+        "E06"
+      ],
+      "check": "row.C2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^version",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R02:^version",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^snapshot ",
+      "matched": 14,
+      "passed": 14,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R03:^snapshot ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^snapshot\\.",
+      "matched": 29,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R04:^snapshot\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^proof\\.",
+      "matched": 56,
+      "passed": 56,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R05:^proof\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^snapshotE\\.",
+      "matched": 6,
+      "passed": 5,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R08:^snapshotE\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.e07\\.",
+      "matched": 22,
+      "passed": 22,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R25:^S25\\.e07\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.e07\\.",
+      "matched": 22,
+      "passed": 22,
+      "unexplainedFailures": [],
+      "check": "row.C3.supplement.S25-E07",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "Partial",
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "blocked",
+        "c3": "pendingRootReview",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "c4Basis": "delegated: CR-M1-01, U02, U10, U14, U01",
+      "ownerOpen": [
+        "U08"
+      ],
+      "reviewerOpen": [
+        "P-D29-1",
+        "P-D29-2",
+        "P-D29-3",
+        "P-U02-1",
+        "P-U02-2",
+        "P-U10-1"
+      ],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [
+        "E02",
+        "E03",
+        "E04",
+        "E07"
+      ],
+      "check": "row.C3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^generator\\.",
+      "matched": 2,
+      "passed": 2,
+      "unexplainedFailures": [],
+      "check": "row.C4.evidence.R02:^generator\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^coverage",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.C4.evidence.R02:^coverage",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^requests\\.",
+      "matched": 29,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.C4.evidence.R03:^requests\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^fr-shared\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.C4.evidence.R03:^fr-shared\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "Partial",
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "blocked",
+        "c3": "pendingRootReview",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "c4Basis": "delegated: U01, U10",
+      "ownerOpen": [
+        "U08"
+      ],
+      "reviewerOpen": [
+        "P-U08-1",
+        "P-U10-1"
+      ],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [
+        "E01",
+        "E05"
+      ],
+      "check": "row.C4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^annex\\.X1\\.",
+      "matched": 2,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.X1.evidence.R03:^annex\\.X1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^sitestorage\\.",
+      "matched": 11,
+      "passed": 11,
+      "unexplainedFailures": [],
+      "check": "row.X1.evidence.R05:^sitestorage\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [
+        "E05"
+      ],
+      "check": "row.X1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^profile\\.",
+      "matched": 16,
+      "passed": 16,
+      "unexplainedFailures": [],
+      "check": "row.X2.evidence.R06:^profile\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^epoch\\.",
+      "matched": 24,
+      "passed": 24,
+      "unexplainedFailures": [],
+      "check": "row.X2.evidence.R08:^epoch\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "browser run of the race scenarios"
+      ],
+      "experiments": [],
+      "check": "row.X2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^x3\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.X3.evidence.R06:^x3\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^dnr\\.",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.X3.evidence.R06:^dnr\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "X1-X7, d1-d5 and Q8-Q12 in Chrome with anvil"
+      ],
+      "experiments": [],
+      "check": "row.X3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.",
+      "matched": 132,
+      "passed": 132,
+      "unexplainedFailures": [],
+      "check": "row.B1.evidence.R04:^bridge\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^bridge04\\.",
+      "matched": 103,
+      "passed": 103,
+      "unexplainedFailures": [],
+      "check": "row.B1.evidence.R05:^bridge04\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^guard\\.",
+      "matched": 8,
+      "passed": 8,
+      "unexplainedFailures": [],
+      "check": "row.B1.evidence.R05:^guard\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^id\\.",
+      "matched": 31,
+      "passed": 31,
+      "unexplainedFailures": [],
+      "check": "row.B1.evidence.R06:^id\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.B1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bucket\\.",
+      "matched": 7,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.B2.evidence.R04:^bucket\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^pending\\.",
+      "matched": 5,
+      "passed": 5,
+      "unexplainedFailures": [],
+      "check": "row.B2.evidence.R04:^pending\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^pending\\.",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.B2.evidence.R05:^pending\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.B2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.",
+      "matched": 132,
+      "passed": 132,
+      "unexplainedFailures": [],
+      "check": "row.B3.evidence.R04:^bridge\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^url\\.",
+      "matched": 36,
+      "passed": 35,
+      "unexplainedFailures": [],
+      "check": "row.B3.evidence.R05:^url\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "httpsUrl in the browser"
+      ],
+      "experiments": [],
+      "check": "row.B3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^sitestorage\\.",
+      "matched": 11,
+      "passed": 11,
+      "unexplainedFailures": [],
+      "check": "row.B4.evidence.R05:^sitestorage\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^navigator\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.B4.evidence.R05:^navigator\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^openExternal\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.B4.evidence.R05:^openExternal\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.B4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.denyList",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.B5.evidence.R04:^bridge\\.denyList",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.B5.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^writePath\\.",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.B6.evidence.R05:^writePath\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.B6.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^dependency\\.",
+      "matched": 8,
+      "passed": 8,
+      "unexplainedFailures": [],
+      "check": "row.B7.evidence.R04:^dependency\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^fetchRule\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.B7.evidence.R08:^fetchRule\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "dependency-cruiser and ESLint verdicts in CI"
+      ],
+      "experiments": [],
+      "check": "row.B7.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^br\\.",
+      "matched": 77,
+      "passed": 77,
+      "unexplainedFailures": [],
+      "check": "row.B8.evidence.R05:^br\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^txA\\.",
+      "matched": 3,
+      "passed": 2,
+      "unexplainedFailures": [],
+      "check": "row.B8.evidence.R05:^txA\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^keys\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.B8.evidence.R05:^keys\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "BR runs in Chrome on anvil-br with RpcTap",
+        "BR10 (row V2)"
+      ],
+      "experiments": [],
+      "check": "row.B8.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^br17e\\.",
+      "matched": 29,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.B9.evidence.R05:^br17e\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.B9.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^br19[abc]\\.",
+      "matched": 17,
+      "passed": 16,
+      "unexplainedFailures": [],
+      "check": "row.B10.evidence.R06:^br19[abc]\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br19a\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.B10.evidence.R08:^br19a\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "BR19c in Chrome"
+      ],
+      "experiments": [],
+      "check": "row.B10.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^br16\\.",
+      "matched": 7,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.B11.evidence.R06:^br16\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^bridgetrace\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.B11.evidence.R06:^bridgetrace\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.B11.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^recv\\.",
+      "matched": 20,
+      "passed": 20,
+      "unexplainedFailures": [],
+      "check": "row.R1.evidence.R04:^recv\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bound\\.",
+      "matched": 11,
+      "passed": 10,
+      "unexplainedFailures": [],
+      "check": "row.R1.evidence.R04:^bound\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^c14\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.R1.evidence.R06:^c14\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "PendingRootReview",
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "satisfied",
+        "c5": "pendingRootReview"
+      },
+      "c4Basis": "delegated: CR-M1-01",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.R1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr10\\.",
+      "matched": 5,
+      "passed": 5,
+      "unexplainedFailures": [],
+      "check": "row.R2.evidence.R08:^mr10\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.R2.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "MaliciousHttp over sockets",
+        "CAP1",
+        "MR7 timing",
+        "MR10d memory"
+      ],
+      "experiments": [],
+      "check": "row.R2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^recv\\.",
+      "matched": 20,
+      "passed": 20,
+      "unexplainedFailures": [],
+      "check": "row.R3.evidence.R04:^recv\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.R3.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.R3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.R4.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "MaliciousHttp over sockets"
+      ],
+      "experiments": [],
+      "check": "row.R4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "unexplainedFailures": [],
+      "check": "row.S1.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.S1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20b",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.S2.evidence.R08:^br20b",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.S2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "unexplainedFailures": [],
+      "check": "row.S3.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20b",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.S3.evidence.R08:^br20b",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20c\\.",
+      "matched": 6,
+      "passed": 5,
+      "unexplainedFailures": [],
+      "check": "row.S3.evidence.R08:^br20c\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "BR20c/BR20d in Chrome"
+      ],
+      "experiments": [],
+      "check": "row.S3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "unexplainedFailures": [],
+      "check": "row.S4.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.S4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^(utf8|qbytes|admission|quota|config)\\.",
+      "matched": 80,
+      "passed": 80,
+      "unexplainedFailures": [],
+      "check": "row.Q1.evidence.R09:^(utf8|qbytes|admission|quota|config)\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.Q1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^case[ .]",
+      "matched": 96,
+      "passed": 72,
+      "unexplainedFailures": [],
+      "check": "row.Q2.evidence.R09:^case[ .]",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.Q2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^case[ .]",
+      "matched": 96,
+      "passed": 72,
+      "unexplainedFailures": [],
+      "check": "row.Q3.evidence.R09:^case[ .]",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^transitions\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.Q3.evidence.R09:^transitions\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "BR21c in Chrome",
+        "BR21d real loader"
+      ],
+      "experiments": [],
+      "check": "row.Q3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^fault ",
+      "matched": 13,
+      "passed": 13,
+      "unexplainedFailures": [],
+      "check": "row.Q4.evidence.R09:^fault ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^transitions\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.Q4.evidence.R09:^transitions\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.Q4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)e1\\.",
+      "matched": 38,
+      "passed": 38,
+      "unexplainedFailures": [],
+      "check": "row.E1.evidence.R12:(^|\\.)e1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)c24\\.",
+      "matched": 123,
+      "passed": 122,
+      "unexplainedFailures": [],
+      "check": "row.E1.evidence.R12:(^|\\.)c24\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.E1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)e2\\.",
+      "matched": 35,
+      "passed": 23,
+      "unexplainedFailures": [],
+      "check": "row.E2.evidence.R12:(^|\\.)e2\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)c25\\.",
+      "matched": 20,
+      "passed": 20,
+      "unexplainedFailures": [],
+      "check": "row.E2.evidence.R12:(^|\\.)c25\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.E2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "e3\\.br22a\\.allCombinations$",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.E3.evidence.R12:e3\\.br22a\\.allCombinations$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "e3\\.control ",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.E3.evidence.R12:e3\\.control ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.sweepMax\\.",
+      "matched": 8,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.E3.evidence.R25:^S25\\.sweepMax\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.sweepMax\\.",
+      "matched": 8,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.E3.supplement.S25-SWEEPMAX",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "BR22c in Chrome with CDP"
+      ],
+      "experiments": [],
+      "check": "row.E3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.15/results/run-results-0.15.json",
+      "pattern": "(^|\\.)e4\\.",
+      "matched": 55,
+      "passed": 54,
+      "unexplainedFailures": [],
+      "check": "row.E4.evidence.R15:(^|\\.)e4\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^CR-E4-01\\.",
+      "matched": 7,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.E4.evidence.R25:^CR-E4-01\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^CR-E4-02\\.",
+      "matched": 23,
+      "passed": 23,
+      "unexplainedFailures": [],
+      "check": "row.E4.evidence.R25:^CR-E4-02\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.E4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.15/results/run-results-0.15.json",
+      "pattern": "e5\\.case BR22d-",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.E5.evidence.R15:e5\\.case BR22d-",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.E5.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR23-d\\d+[a-z]?\\.",
+      "matched": 211,
+      "passed": 207,
+      "unexplainedFailures": [],
+      "check": "row.E6.evidence.R18:BR23-d\\d+[a-z]?\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR24-x\\d+",
+      "matched": 273,
+      "passed": 272,
+      "unexplainedFailures": [],
+      "check": "row.E6.evidence.R18:BR24-x\\d+",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "PendingRootReview",
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "satisfied",
+        "c5": "pendingRootReview"
+      },
+      "c4Basis": "delegated: RF-E6-1",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.E6.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR23-d15c\\.",
+      "matched": 33,
+      "passed": 31,
+      "unexplainedFailures": [],
+      "check": "row.E7.evidence.R18:BR23-d15c\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "coverage\\.BR23-d1[2-5]",
+      "matched": 9,
+      "passed": 9,
+      "unexplainedFailures": [],
+      "check": "row.E7.evidence.R18:coverage\\.BR23-d1[2-5]",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "e5\\.case BR22d-V-[de]$",
+      "matched": 2,
+      "passed": 2,
+      "unexplainedFailures": [],
+      "check": "row.E7.evidence.R18:e5\\.case BR22d-V-[de]$",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.E7.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^annex\\.V1\\.",
+      "matched": 16,
+      "passed": 15,
+      "unexplainedFailures": [],
+      "check": "row.V1.evidence.R03:^annex\\.V1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.26/results/run-results-0.26.json",
+      "pattern": "^V1\\.",
+      "matched": 55,
+      "passed": 55,
+      "unexplainedFailures": [],
+      "check": "row.V1.evidence.R26:^V1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json",
+      "pattern": "^V1\\.",
+      "matched": 27,
+      "passed": 27,
+      "unexplainedFailures": [],
+      "check": "row.V1.evidence.R27:^V1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json",
+      "pattern": "^C32\\.",
+      "matched": 49,
+      "passed": 49,
+      "unexplainedFailures": [],
+      "check": "row.V1.evidence.R27:^C32\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json",
+      "pattern": "^SHA\\.",
+      "matched": 18,
+      "passed": 15,
+      "unexplainedFailures": [],
+      "check": "row.V1.evidence.R27:^SHA\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "Partial",
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "pendingReviewerDecision",
+        "c5": "pendingRootReview"
+      },
+      "c4Basis": "delegated: V1-SHA-COST, P-C32-2",
+      "ownerOpen": [],
+      "reviewerOpen": [
+        "P-V1-1",
+        "P-V1-2",
+        "P-V1-4",
+        "P-V1-5",
+        "P-V1-6",
+        "P-V1-7",
+        "P-V1-8",
+        "P-V1-9",
+        "P-V1-10",
+        "P-D29-1",
+        "P-D29-3"
+      ],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [],
+      "check": "row.V1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^suite019\\.LC\\d",
+      "matched": 276,
+      "passed": 276,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R20:^suite019\\.LC\\d",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^C29\\.",
+      "matched": 82,
+      "passed": 56,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R20:^C29\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^suite019\\.sinkControl\\.",
+      "matched": 15,
+      "passed": 15,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R20:^suite019\\.sinkControl\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.lclit\\.",
+      "matched": 58,
+      "passed": 58,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R25:^S25\\.lclit\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.rg3b\\.",
+      "matched": 7,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R25:^S25\\.rg3b\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.rg3b\\.",
+      "matched": 7,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.V2.supplement.S25-RG3B",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.lclit\\.",
+      "matched": 58,
+      "passed": 58,
+      "unexplainedFailures": [],
+      "check": "row.V2.supplement.S25-LCLIT",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "TS-LC",
+        "BR10",
+        "RG3",
+        "RG3-bridge",
+        "RG3b",
+        "RG9"
+      ],
+      "experiments": [],
+      "check": "row.V2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.22/results/run-results-0.22.json",
+      "pattern": "^suite021\\.",
+      "matched": 139,
+      "passed": 110,
+      "unexplainedFailures": [],
+      "check": "row.V3.evidence.R22:^suite021\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.22/results/run-results-0.22.json",
+      "pattern": "^C30\\.",
+      "matched": 75,
+      "passed": 74,
+      "unexplainedFailures": [],
+      "check": "row.V3.evidence.R22:^C30\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^CID-1\\.",
+      "matched": 32,
+      "passed": 32,
+      "unexplainedFailures": [],
+      "check": "row.V3.evidence.R25:^CID-1\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [],
+      "experiments": [
+        "E05"
+      ],
+      "check": "row.V3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^C31\\.",
+      "matched": 73,
+      "passed": 73,
+      "unexplainedFailures": [],
+      "check": "row.V4.evidence.R24:^C31\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^suite023\\.eval\\.R\\d+",
+      "matched": 14,
+      "passed": 14,
+      "unexplainedFailures": [],
+      "check": "row.V4.evidence.R24:^suite023\\.eval\\.R\\d+",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^C7plan\\.",
+      "matched": 16,
+      "passed": 11,
+      "unexplainedFailures": [],
+      "check": "row.V4.evidence.R24:^C7plan\\.",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "c4Basis": null,
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "phaseA": [
+        "X8 matrix in Chrome/CDP",
+        "C7 per-path windows"
+      ],
+      "experiments": [],
+      "check": "row.V4.criteria",
+      "status": "recorded"
+    },
+    {
+      "differing": {},
+      "check": "consolidation.rowsMatchProposal",
+      "status": "pass"
+    },
+    {
+      "counts": {
+        "PendingRootReview": 4,
+        "Partial": 3,
+        "CompleteCandidate": 34
+      },
+      "rows": {
+        "C1": "PendingRootReview",
+        "C2": "PendingRootReview",
+        "C3": "Partial",
+        "C4": "Partial",
+        "X1": "CompleteCandidate",
+        "X2": "CompleteCandidate",
+        "X3": "CompleteCandidate",
+        "B1": "CompleteCandidate",
+        "B2": "CompleteCandidate",
+        "B3": "CompleteCandidate",
+        "B4": "CompleteCandidate",
+        "B5": "CompleteCandidate",
+        "B6": "CompleteCandidate",
+        "B7": "CompleteCandidate",
+        "B8": "CompleteCandidate",
+        "B9": "CompleteCandidate",
+        "B10": "CompleteCandidate",
+        "B11": "CompleteCandidate",
+        "R1": "PendingRootReview",
+        "R2": "CompleteCandidate",
+        "R3": "CompleteCandidate",
+        "R4": "CompleteCandidate",
+        "S1": "CompleteCandidate",
+        "S2": "CompleteCandidate",
+        "S3": "CompleteCandidate",
+        "S4": "CompleteCandidate",
+        "Q1": "CompleteCandidate",
+        "Q2": "CompleteCandidate",
+        "Q3": "CompleteCandidate",
+        "Q4": "CompleteCandidate",
+        "E1": "CompleteCandidate",
+        "E2": "CompleteCandidate",
+        "E3": "CompleteCandidate",
+        "E4": "CompleteCandidate",
+        "E5": "CompleteCandidate",
+        "E6": "PendingRootReview",
+        "E7": "CompleteCandidate",
+        "V1": "Partial",
+        "V2": "CompleteCandidate",
+        "V3": "CompleteCandidate",
+        "V4": "CompleteCandidate"
+      },
+      "check": "consolidation.summary",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F01",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U22"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F02",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F03",
+      "status": "recorded"
+    },
+    {
+      "disposition": "pendingReviewerDecision",
+      "dependsOn": [
+        "U02",
+        "U03",
+        "P-U02-1",
+        "P-U02-2"
+      ],
+      "delegated": [
+        "U02"
+      ],
+      "pendingReviewer": [
+        "P-U02-1",
+        "P-U02-2"
+      ],
+      "phaseA": [
+        "E07"
+      ],
+      "check": "finding.F04",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U04"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E06"
+      ],
+      "check": "finding.F05",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAfterRootReviewOfOverlay",
+      "dependsOn": [
+        "U01"
+      ],
+      "delegated": [
+        "U01"
+      ],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F06",
+      "status": "recorded"
+    },
+    {
+      "disposition": "pendingReviewerDecision",
+      "dependsOn": [
+        "CR-M1-01",
+        "U36",
+        "P-D29-1",
+        "P-D29-2"
+      ],
+      "delegated": [
+        "CR-M1-01"
+      ],
+      "pendingReviewer": [
+        "P-D29-1",
+        "P-D29-2"
+      ],
+      "phaseA": [
+        "E03"
+      ],
+      "check": "finding.F07",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U06",
+        "U22"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E04"
+      ],
+      "check": "finding.F08",
+      "status": "recorded"
+    },
+    {
+      "disposition": "openOwner",
+      "dependsOn": [
+        "U07",
+        "U08"
+      ],
+      "delegated": [
+        "U08"
+      ],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E02"
+      ],
+      "check": "finding.F09",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U09"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F10",
+      "status": "recorded"
+    },
+    {
+      "disposition": "pendingReviewerDecision",
+      "dependsOn": [
+        "U10",
+        "P-U10-1"
+      ],
+      "delegated": [
+        "U10"
+      ],
+      "pendingReviewer": [
+        "P-U10-1"
+      ],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F11",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U11",
+        "U22"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F12",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F13",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F14",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F15",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U12",
+        "U17"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F16",
+      "status": "recorded"
+    },
+    {
+      "disposition": "openOwner",
+      "dependsOn": [
+        "U10",
+        "U08",
+        "U11",
+        "P-U08-1",
+        "P-U10-1"
+      ],
+      "delegated": [
+        "U10",
+        "U08"
+      ],
+      "pendingReviewer": [
+        "P-U08-1",
+        "P-U10-1"
+      ],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F17",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U13"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F18",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U20"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F19",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F20",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U21"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F21",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E04"
+      ],
+      "check": "finding.F22",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAfterRootReviewOfOverlay",
+      "dependsOn": [
+        "U01"
+      ],
+      "delegated": [
+        "U01"
+      ],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F23",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [
+        "U16"
+      ],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [
+        "E01"
+      ],
+      "check": "finding.F24",
+      "status": "recorded"
+    },
+    {
+      "disposition": "pendingReviewerDecision",
+      "dependsOn": [
+        "U14",
+        "P-D29-1",
+        "P-D29-2",
+        "P-D29-3"
+      ],
+      "delegated": [
+        "U14"
+      ],
+      "pendingReviewer": [
+        "P-D29-1",
+        "P-D29-2",
+        "P-D29-3"
+      ],
+      "phaseA": [],
+      "check": "finding.F25",
+      "status": "recorded"
+    },
+    {
+      "disposition": "closableAtSpecScope",
+      "dependsOn": [],
+      "delegated": [],
+      "pendingReviewer": [],
+      "phaseA": [],
+      "check": "finding.F26",
+      "status": "recorded"
+    },
+    {
+      "differing": {
+        "F09": [
+          "openOwner",
+          "closableAfterRootReviewOfOverlay"
+        ],
+        "F17": [
+          "openOwner",
+          "pendingReviewerDecision"
+        ]
+      },
+      "check": "consolidation.findingsMatchProposal",
+      "status": "FAIL"
+    },
+    {
+      "missing": [],
+      "referenced": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "X-U14"
+      ],
+      "check": "experiments.definitionsComplete",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "boundary.noPrivatePath",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "boundary.noPrivateKeyInOutputs",
+      "status": "pass"
+    },
+    {
+      "partialGap": true,
+      "text": "wire form",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-1",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "undecodable element -> rule 1",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-2",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "Arabic count phrase and warning join",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-4",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "signature byte layout r||s||v",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-5",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "fixture clock C = ts(head) + 5",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-6",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "gasLimit/gasUsed u64, shares be64",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-7",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "V1NET genesis (chainId 777002 placeholder network)",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-8",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "other RPC errors -> viewIncomplete",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-9",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "retry waits exactly retryAfterMs",
+      "rows": [
+        "V1"
+      ],
+      "check": "gap.reviewerDecision.P-V1-10",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "a valid -32021 delay with t + delay >= deadline is never slept: HeaderNetCheck ends viewIncomplete at once; a content state read fails the attempt (rev 2 section 3.3) and may restart within the remaining budget",
+      "rows": [
+        "V1",
+        "C3"
+      ],
+      "check": "gap.reviewerDecision.P-D29-1",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "content-load expiry is reported as 'unavailable' with zero frames (the rev 2 section 6 class); attempts exhausted stays 'inconsistent'",
+      "rows": [
+        "C3"
+      ],
+      "check": "gap.reviewerDecision.P-D29-2",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "in RP, whether HeaderNetCheck and the content load have separate 10 s budgets or share one; both readings are fixtures, neither is adopted",
+      "rows": [
+        "V1",
+        "C3"
+      ],
+      "check": "gap.reviewerDecision.P-D29-3",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "ManifestSplit(i): i is the first position where the lengths differ from the canonical split, a missing element counting as a difference",
+      "rows": [
+        "C4"
+      ],
+      "check": "gap.reviewerDecision.P-U08-1",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "consent to view a revoked version covers one load; a user reload shows the interstitial again",
+      "rows": [
+        "C3"
+      ],
+      "check": "gap.reviewerDecision.P-U02-1",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "the interstitial is the verdict of the first covered load; user think time is outside every budget; the click starts a new covered load with a fresh anchor and budget",
+      "rows": [
+        "C3"
+      ],
+      "check": "gap.reviewerDecision.P-U02-2",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "warning points: at nomination and after acceptance; names the previous owner, its retained calls and the removal call; active until removal; cleared by a cancelled nomination",
+      "rows": [
+        "C3",
+        "C4"
+      ],
+      "check": "gap.reviewerDecision.P-U10-1",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "root review of the 0.29 effective profile is pending; no row is Complete",
+      "check": "gap.rootReviewOfOverlay",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "Phase A outcomes (E01-E04, E06, E07, X-U14: EVM, Chrome, node) are implementation results, not M1-spec gate conditions",
+      "check": "gap.phaseA",
+      "status": "recorded"
+    },
+    {
+      "missing": [
+        "consolidation.findingsMatchProposal",
+        "decision.U08.applied",
+        "U08.noncanonical.N05"
+      ],
+      "required": 146,
+      "check": "coverage029.required",
+      "status": "FAIL"
+    },
+    {
+      "check": "coverage029.noStepAborted",
+      "status": "pass"
+    },
+    {
+      "before": {
+        "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json": "000738339963ea27e4419bff4b686b65f31f6be35bb7909f82e92f21c5c504cf",
+        "coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753",
+        "coordination/review-001/m1-draft-0.28/results/run-results-0.28.json": "3d603d9edf1b62117134cfd2f3d3dce1af1ffd126f7b7513d12b7434ff0b9e19",
+        "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json": "b315e3f885d0a1d65012b039cf892e93c2c71b8b7386b83b24ce28afaa3006f1",
+        "coordination/review-001/u14-independent-0.28.json": "3533d230e5b986aa4270aa9367c58ea0687e9b6767087eb7380d838e7b364434",
+        "coordination/DELEGATED-M1-DECISIONS-029.json": "4514d11610fffc3073cbc665db157324c83865f88d7da992eebc3fb8b3a37574",
+        "m1-draft-0.27/tools/v1_ref_027.py": "56eac33b4a3dd8782a8e8f37ee92a2ad47a938266cfe402876a2bf52c6d34d49",
+        "m1-draft-0.28/vectors/u14-timing-cases.json": "614c242c2a5fc3916b77fce739ade7465da49afea94640bb193b949fef67b9c1",
+        "m1-draft-0.25/audit/row-inventory.json": "bdc72f7f8b6195a5dceb41cac67fb1ee14c7dfd40ca43915fc4025e93a901cb1",
+        "m1-draft-0.17/vectors/rf-e6-1-x12-timelines.json": "c09d80318e32a68bb371e56bac95506acef4cd550f4f6a37e8384425621b13b8",
+        "m1-draft-0.5/vectors/proof-response-cases.json": "6ddd2133129e3f7797b93d64cb437cad505b47bcf0255bcadd996c6a8eefb52e",
+        "reference/browser.md": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7"
+      },
+      "after": {
+        "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json": "000738339963ea27e4419bff4b686b65f31f6be35bb7909f82e92f21c5c504cf",
+        "coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753",
+        "coordination/review-001/m1-draft-0.28/results/run-results-0.28.json": "3d603d9edf1b62117134cfd2f3d3dce1af1ffd126f7b7513d12b7434ff0b9e19",
+        "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json": "b315e3f885d0a1d65012b039cf892e93c2c71b8b7386b83b24ce28afaa3006f1",
+        "coordination/review-001/u14-independent-0.28.json": "3533d230e5b986aa4270aa9367c58ea0687e9b6767087eb7380d838e7b364434",
+        "coordination/DELEGATED-M1-DECISIONS-029.json": "4514d11610fffc3073cbc665db157324c83865f88d7da992eebc3fb8b3a37574",
+        "m1-draft-0.27/tools/v1_ref_027.py": "56eac33b4a3dd8782a8e8f37ee92a2ad47a938266cfe402876a2bf52c6d34d49",
+        "m1-draft-0.28/vectors/u14-timing-cases.json": "614c242c2a5fc3916b77fce739ade7465da49afea94640bb193b949fef67b9c1",
+        "m1-draft-0.25/audit/row-inventory.json": "bdc72f7f8b6195a5dceb41cac67fb1ee14c7dfd40ca43915fc4025e93a901cb1",
+        "m1-draft-0.17/vectors/rf-e6-1-x12-timelines.json": "c09d80318e32a68bb371e56bac95506acef4cd550f4f6a37e8384425621b13b8",
+        "m1-draft-0.5/vectors/proof-response-cases.json": "6ddd2133129e3f7797b93d64cb437cad505b47bcf0255bcadd996c6a8eefb52e",
+        "reference/browser.md": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7"
+      },
+      "check": "preserved.olderFilesUnchanged",
+      "status": "pass"
+    },
+    {
+      "file": "acceptance-matrix-0.29.json",
+      "sha256": "12745f38e68ce73165e760ec96cfe2580dfba13f99f15870c3370566993ddc15",
+      "bytes": 25284,
+      "check": "asset.acceptance-matrix-0.29.json.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "file": "dashboard-0.29-ar.json",
+      "sha256": "84527def5c0cd9f7ebec4529efb05a5a9641bb28323ac20052db04215136c961",
+      "bytes": 3195,
+      "check": "asset.dashboard-0.29-ar.json.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "file": "deadline-rerun-0.29.json",
+      "sha256": "c39bd53886f4b46f651dbd83f46a73dbe12fca57e93fd2348b45f60acbc367da",
+      "bytes": 12235,
+      "check": "asset.deadline-rerun-0.29.json.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "file": "decision-register-0.29.json",
+      "sha256": "1591e97e3e31e3731b1263ea97742906084ab15eb6de36908e83f80c2a2b06c9",
+      "bytes": 9949,
+      "check": "asset.decision-register-0.29.json.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "file": "hash-bindings-0.29.json",
+      "sha256": "eb82e14237f06aef04d662afc7d8a88b8cdb19a724f6484df6a7ce0b3354a179",
+      "bytes": 7285,
+      "check": "asset.hash-bindings-0.29.json.writtenAndReadBack",
+      "status": "pass"
+    }
+  ]
+}

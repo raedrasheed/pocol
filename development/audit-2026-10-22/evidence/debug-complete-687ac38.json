@@ -1,0 +1,23 @@
+{
+ "code": "687ac38 (current committed final code; to be superseded by D-REORG-REDB)",
+ "phaseA_assert_release": {
+  "result": "COMPLETE",
+  "pass": 31,
+  "total": 31,
+  "note": "release + debug_assertions + overflow_checks; each consensus test run alone with a per-test timeout; catches the assertion/overflow failures a pure debug build would, at release speed"
+ },
+ "phaseB_pure_debug": {
+  "result": "PARTIAL (stopped to begin the D-REORG-REDB implementation)",
+  "pass": 28,
+  "recorded": 28,
+  "total": 31,
+  "outstanding_not_run_on_687ac38": [
+   "a_branch_deeper_than_the_cap_is_preserved_not_adopted",
+   "adopt_a_heavier_branch_at_the_cap_and_survive_restart",
+   "side_blocks_stay_within_the_cap_after_a_reorg_and_evicted_blocks_are_not_taken_again"
+  ],
+  "note": "the deepest deep-reorg/mining consensus tests in a pure unoptimized debug build; NOT recorded as pass; the full debug run is redone on the new final code after D-REORG-REDB"
+ },
+ "nonPassInA": [],
+ "nonPassInB": []
+}

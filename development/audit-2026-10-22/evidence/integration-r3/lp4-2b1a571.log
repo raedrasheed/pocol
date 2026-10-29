@@ -1,0 +1,42 @@
+     Running unittests src/lib.rs (target/release/deps/pocol_lp4_execution-60bdfb64a979e763)
+test result: ok. 102 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.40s
+     Running unittests src/bin/cancun_control.rs (target/release/deps/cancun_control-c8639c833ede1a73)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/code_caps_control.rs (target/release/deps/code_caps_control-bd69afaf6413e125)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/signed_rejection_control.rs (target/release/deps/signed_rejection_control-e4988f807ba6c18d)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/caps_identity.rs (target/release/deps/caps_identity-513e5081e3be08da)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/code_caps.rs (target/release/deps/code_caps-da9daaef27a48b23)
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
+     Running tests/create_collision.rs (target/release/deps/create_collision-0b85464089d3f001)
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/fees.rs (target/release/deps/fees-85e750ad0d028e4d)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/native_context.rs (target/release/deps/native_context-4072e06be63f0f7a)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+     Running tests/pay_boundary.rs (target/release/deps/pay_boundary-ad2bf5fc432d2802)
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/pool.rs (target/release/deps/pool-8a3f4afe3a556208)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/profile_execution.rs (target/release/deps/profile_execution-97275f00a88290d7)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/receipts.rs (target/release/deps/receipts-e9c13690079c9a02)
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/registry_payment.rs (target/release/deps/registry_payment-7151aa64bb02520c)
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/reward_durability.rs (target/release/deps/reward_durability-6cc68c3fc3d554c0)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/rpc_pool.rs (target/release/deps/rpc_pool-52a06509091c73f5)
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+     Running tests/rss_snapshot.rs (target/release/deps/rss_snapshot-b94b9ef18709a5af)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+     Running tests/simulate_stop.rs (target/release/deps/simulate_stop-05f23207e2a93365)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
+     Running tests/user_phase.rs (target/release/deps/user_phase-e05dd0f98eb33319)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+     Running tests/wire.rs (target/release/deps/wire-999a2885f8f0f286)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.85s
+exit 0

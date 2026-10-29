@@ -1,0 +1,108 @@
+{
+  "schema": "pocol-m1-c25-namespace/0.12",
+  "source": {"file": "reference/browser.md", "lines": [509, 510], "literals": ["'pocol:epoch:*'", "getKeys", "EN", "EN + 1 ≤ EPOCH_NAMES_MAX = 8"]},
+  "note": [
+    "Hand-written expectations from browser.md:509-520 and the C25 review. 'expect' = repaired 0.12 model; 'pristine011Expect' = unmodified 0.11 (C25 present).",
+    "rawFinal/rawMax count every name starting with 'pocol:epoch:' (the physical namespace). All bootMs values are -200000, so no item is ever in the generation window.",
+    "Fence/set counts refer to backend set operations issued by generation 1."
+  ],
+  "reviewProbe": {
+    "source": "coordination/review-001/namespace-independent-probe-0.11.py",
+    "items": "F5 plus epoch_name(100+i)+LF for i = 0..6",
+    "runUntil": 10,
+    "pristine011Expect": {"physical": 9, "state": "confirmed", "violations": []},
+    "expect": {"physicalAtMost": 8, "state": "gateBlocked", "fenceSets": 0}
+  },
+  "cases": [
+    {
+      "id": "N1 seven raw names may issue one",
+      "items": {"pocol:epoch:0000000000000005": {"bootMs": -200000},
+                "pocol:epoch:0000000000000064\n": {"bootMs": -200000}, "pocol:epoch:0000000000000065\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000066\n": {"bootMs": -200000}, "pocol:epoch:0000000000000067\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000068\n": {"bootMs": -200000}, "pocol:epoch:0000000000000069\n": {"bootMs": -200000}},
+      "events": [{"t": 0, "do": "boot", "gen": 1, "cfg": {}}],
+      "runUntil": 60100,
+      "expect": {"gen1": {"E": 6, "EN": 1, "ENraw": 7, "state": "confirmed", "confirmedAt": 1}, "rawMax": 8, "rawFinal": 7,
+                 "sweepRemoved": ["pocol:epoch:0000000000000005"], "malformedPreserved": 6, "violations": [], "reports": []},
+      "pristine011Expect": {"gen1": {"E": 6, "state": "confirmed"}, "rawMax": 8, "violations": []}
+    },
+    {
+      "id": "N2 exactly eight raw names cannot issue (the C25 counterexample, run past the sweep)",
+      "items": {"pocol:epoch:0000000000000005": {"bootMs": -200000},
+                "pocol:epoch:0000000000000064\n": {"bootMs": -200000}, "pocol:epoch:0000000000000065\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000066\n": {"bootMs": -200000}, "pocol:epoch:0000000000000067\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000068\n": {"bootMs": -200000}, "pocol:epoch:0000000000000069\n": {"bootMs": -200000},
+                "pocol:epoch:000000000000006a\n": {"bootMs": -200000}},
+      "events": [{"t": 0, "do": "boot", "gen": 1, "cfg": {}}, {"t": 10, "do": "set", "gen": 1, "id": "w", "k": "k", "v": "v"},
+                 {"t": 10, "do": "click", "tab": "T1"}],
+      "runUntil": 60100,
+      "expect": {"gen1": {"E": null, "state": "disabled", "reason": "epochNames"}, "epochGateBlocks": 1, "action25": 1, "fenceSets": 0, "recordSets": 0,
+                 "sweepRemoved": [], "rawMax": 8, "rawFinal": 8, "malformedPreserved": 7,
+                 "replies": [["w", -32603, "storeRecovery", 60001, "epochNames"]], "snapshots": 0, "violations": [], "reports": []},
+      "pristine011Expect": {"gen1": {"E": 6, "state": "confirmed", "confirmedAt": 1}, "rawMax": 9, "violations": []}
+    },
+    {
+      "id": "N3 overfull initial namespace (9) is reported and not made worse",
+      "items": {"pocol:epoch:0000000000000005": {"bootMs": -200000},
+                "pocol:epoch:0000000000000064\n": {"bootMs": -200000}, "pocol:epoch:0000000000000065\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000066\n": {"bootMs": -200000}, "pocol:epoch:0000000000000067\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000068\n": {"bootMs": -200000}, "pocol:epoch:0000000000000069\n": {"bootMs": -200000},
+                "pocol:epoch:000000000000006a\n": {"bootMs": -200000}, "pocol:epoch:000000000000006b\n": {"bootMs": -200000}},
+      "events": [{"t": 0, "do": "boot", "gen": 1, "cfg": {}}],
+      "runUntil": 60100,
+      "expect": {"gen1": {"E": null, "state": "disabled", "reason": "epochNames"}, "epochGateBlocks": 1, "action25": 1, "fenceSets": 0,
+                 "rawMax": 9, "rawFinal": 9, "malformedPreserved": 8, "violations": [],
+                 "reports": ["initialNamespaceOverfull", "namespaceOverfullNotWorsened"]},
+      "pristine011Expect": {"gen1": {"E": 6, "state": "confirmed"}, "rawMax": 10, "violations": []}
+    },
+    {
+      "id": "N4 mixed namespace: malformed names count, never set the maximum; lookalikes outside the namespace do not count",
+      "items": {"pocol:epoch:0000000000000005": {"bootMs": -200000}, "pocol:epoch:0000000000000006": {"bootMs": -200000},
+                "pocol:epoch:0000000000000009\n": {"bootMs": -200000}, "pocol:epoch:0000000000000008\r\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000007:1a2b": {"bootMs": -200000}, "pocol:epoch:000000000000000A": {"bootMs": -200000},
+                "pocol:epoch:": {"bootMs": -200000},
+                "pocol:epochs:000000000000000b": {"bootMs": -200000}, "Pocol:epoch:000000000000000c": {"bootMs": -200000},
+                "xpocol:epoch:000000000000000d": {"bootMs": -200000}, " pocol:epoch:000000000000000e": {"bootMs": -200000},
+                "pocol-epoch:000000000000000f": {"bootMs": -200000}},
+      "events": [{"t": 0, "do": "boot", "gen": 1, "cfg": {}}],
+      "runUntil": 60100,
+      "expect": {"gen1": {"E": 7, "EN": 2, "ENraw": 7, "state": "confirmed", "confirmedAt": 1}, "rawMax": 8, "rawFinal": 6,
+                 "sweepRemoved": ["pocol:epoch:0000000000000005", "pocol:epoch:0000000000000006"], "malformedPreserved": 5,
+                 "lookalikesPreserved": 5, "violations": [], "reports": []},
+      "pristine011Expect": {"gen1": {"E": 7, "state": "confirmed"}, "rawMax": 8, "violations": []}
+    },
+    {
+      "id": "N5 failed cleanup keeps the physical count: still 8, disabled",
+      "items": {"pocol:epoch:0000000000000005": {"bootMs": -200000}, "pocol:epoch:0000000000000006": {"bootMs": -200000},
+                "pocol:epoch:0000000000000007": {"bootMs": -200000}, "pocol:epoch:0000000000000008": {"bootMs": -200000},
+                "pocol:epoch:0000000000000064\n": {"bootMs": -200000}, "pocol:epoch:0000000000000065\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000066\n": {"bootMs": -200000}, "pocol:epoch:0000000000000067\n": {"bootMs": -200000}},
+      "events": [{"t": 0, "do": "boot", "gen": 1, "cfg": {"removeFails": true}}],
+      "runUntil": 60100,
+      "expect": {"gen1": {"E": null, "state": "disabled", "reason": "epochNames"}, "epochGateBlocks": 1, "action25": 1, "fenceSets": 0,
+                 "sweepRemoved": ["pocol:epoch:0000000000000005", "pocol:epoch:0000000000000006", "pocol:epoch:0000000000000007"],
+                 "rawMax": 8, "rawFinal": 8, "malformedPreserved": 4, "violations": [], "reports": []},
+      "pristine011Expect": {"gen1": {"E": 9, "state": "confirmed", "confirmedAt": 1}, "rawMax": 9, "violations": []}
+    },
+    {
+      "id": "N5b successful canonical cleanup frees room; malformed names stay",
+      "items": {"pocol:epoch:0000000000000005": {"bootMs": -200000}, "pocol:epoch:0000000000000006": {"bootMs": -200000},
+                "pocol:epoch:0000000000000007": {"bootMs": -200000}, "pocol:epoch:0000000000000008": {"bootMs": -200000},
+                "pocol:epoch:0000000000000064\n": {"bootMs": -200000}, "pocol:epoch:0000000000000065\n": {"bootMs": -200000},
+                "pocol:epoch:0000000000000066\n": {"bootMs": -200000}, "pocol:epoch:0000000000000067\n": {"bootMs": -200000}},
+      "events": [{"t": 0, "do": "boot", "gen": 1, "cfg": {}}],
+      "runUntil": 60100,
+      "expect": {"gen1": {"E": 9, "EN": 1, "ENraw": 5, "state": "confirmed", "confirmedAt": 60002}, "epochGateBlocks": 1, "action25": 0,
+                 "sweepRemoved": ["pocol:epoch:0000000000000005", "pocol:epoch:0000000000000006", "pocol:epoch:0000000000000007"],
+                 "rawMax": 8, "rawFinal": 6, "malformedPreserved": 4, "violations": [], "reports": []},
+      "pristine011Expect": {"gen1": {"E": 9, "state": "confirmed", "confirmedAt": 1}, "rawMax": 9, "violations": []}
+    }
+  ],
+  "amendedInherited011": {
+    "fixture": "m1-draft-0.11/vectors/c24-regressions.json world[1] 'W-A2 malformed names do not fill the name gate'",
+    "oldExpect": {"gen1": {"E": 6, "EN": 1, "state": "confirmed"}, "epochGateBlocks": 0},
+    "newExpect": {"gen1": {"E": null, "EN": null, "state": "gateBlocked"}, "epochGateBlocks": 1},
+    "why": "F5 + 7 LF-tailed names are 8 physical names: EN+1 = 9 > 8, so the gate blocks before any set (browser.md:509-510). The old expectation encoded C25. The fixture is kept, not dropped; its pristine-0.10 expectation is unchanged. The run past the sweep (disabled, epochNames, action 25) is covered by N2.",
+    "unchangedSiblings": ["W-A1 (raw 2 <= 7, so it still issues E6; EN keeps its 0.10/0.11 meaning, the canonical count)", "W-B", "W-C"]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "status": "PASS",
+  "priorManifestChecks": [
+    {
+      "manifest": "development/lp3/s1-genesisspec/codex-review-2026-10-17/SHA256SUMS",
+      "verifiedFiles": 22
+    },
+    {
+      "manifest": "development/lp3/s3-timing/codex-r1/SHA256SUMS",
+      "verifiedFiles": 26
+    },
+    {
+      "manifest": "development/lp3/s4-assignment/codex-r1/SHA256SUMS",
+      "verifiedFiles": 32
+    },
+    {
+      "manifest": "development/lp3/s7-evidence/codex-r2/SHA256SUMS",
+      "verifiedFiles": 77
+    },
+    {
+      "manifest": "development/lp3/s7-evidence/codex-r1/SHA256SUMS",
+      "verifiedFiles": 69
+    },
+    {
+      "manifest": "development/lp3/s6-model/codex-r1/SHA256SUMS",
+      "verifiedFiles": 88
+    },
+    {
+      "manifest": "development/lp3/s5-paramgate/codex-r2/SHA256SUMS",
+      "verifiedFiles": 201
+    },
+    {
+      "manifest": "development/lp3/s5-paramgate/codex-r1/SHA256SUMS",
+      "verifiedFiles": 155
+    }
+  ],
+  "baseline": "c662bff29fb748594224eb48d329d9b2aff1244e",
+  "immutablePaths": [
+    "development/m1",
+    "development/lp1",
+    "development/lp2",
+    "development/decisions",
+    "development/lp3/s1-genesisspec",
+    "development/lp3/s2-profile",
+    "development/lp3/s3-timing",
+    "development/lp3/s4-assignment",
+    "prototypes/lp1-node/fixtures",
+    "prototypes/lp1-node/Cargo.lock"
+  ],
+  "typescriptDependencyBaseline": "772cb1f",
+  "newDependenciesSinceS6": false
+}

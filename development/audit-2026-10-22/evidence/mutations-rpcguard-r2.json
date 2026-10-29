@@ -1,0 +1,375 @@
+{
+ "tree": "dc4e3d1c6668381b47cf21f7ac0142a149d4c734",
+ "runner": "run_mutations_rpcguard_r2.py",
+ "mutants": [
+  {
+   "id": "RGM1-PACER",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "send_pacer_closes_a_slow_reader_after_grace"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the SendPacer close rule is disabled",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 48.3,
+   "mutant": "FAILED",
+   "mutantSec": 17.3,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM2-RATE",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "the_per_connection_bucket_charges_k_tokens_per_request"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the per-connection bucket never refuses",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 12.9,
+   "mutant": "FAILED",
+   "mutantSec": 12.9,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM3-HEAVYQUEUE",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "abandoned_queued_bodies_are_capped_and_released"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the HEAVY_QUEUE place cap is removed",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 13.4,
+   "mutant": "FAILED",
+   "mutantSec": 12.6,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM4-ENTRY",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "light_compute_deadline_fires",
+    "a_request_reaching_its_handler_past_the_deadline_never_runs"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the COMPUTE_DEADLINE check at handler entry is disabled",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 12.3,
+   "mutant": "FAILED",
+   "mutantSec": 12.4,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM5-STOPHOOK",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "heavy_compute_deadline_cancels_eth_call"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the eth_call stop hook never fires",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 13.5,
+   "mutant": "FAILED",
+   "mutantSec": 16.7,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM6-SCRATCH",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the getLogs SCRATCH budget is not enforced; pass 1 was INVALID (the exported tree lacked development/audit-2026-10-22/proposals/vectors, which tests/consensus.rs includes): control and mutant COMPILE-FAIL; re-run in pass 2 after exporting it",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 14.9,
+   "mutant": "FAILED",
+   "mutantSec": 15.7,
+   "result": "CAUGHT",
+   "pass1": {
+    "control": "COMPILE-FAIL",
+    "mutant": "COMPILE-FAIL",
+    "result": "INVALID (control COMPILE-FAIL, mutant COMPILE-FAIL)"
+   }
+  },
+  {
+   "id": "RGM7-PARAMS",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "get_params_and_rpc_stats_report_the_limits"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "rpcLimits reports a wrong connMax",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 12.2,
+   "mutant": "FAILED",
+   "mutantSec": 12.3,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM8-POSTCHECK",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "a_precompile_call_past_its_deadline_is_32020_not_a_late_success"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "a late result is returned (no deadline check after encoding)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 12.7,
+   "mutant": "FAILED",
+   "mutantSec": 13.5,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM9-FROM-ARRIVAL",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+    "light_requests_behind_long_heavy_work_are_answered_never_deadline"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "COMPUTE_DEADLINE runs from arrival (stage A's B1 regression)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 17.5,
+   "mutant": "FAILED",
+   "mutantSec": 16.9,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM10-STOPGAS",
+   "crate": "prototypes/lp4-execution",
+   "tests": [
+    "the_stop_hook_is_polled_at_least_every_stop_gas"
+   ],
+   "files": [
+    "prototypes/lp4-execution/src/native.rs"
+   ],
+   "note": "the stop hook polls only every 64th jump (no per-10^6-gas poll)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 39.9,
+   "mutant": "FAILED",
+   "mutantSec": 15.4,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM11-PARSE-TREE",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "rpc::tests::a_busy_answer_allocates_no_parse_tree"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "busy/rate answers parse the request into a tree",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 14.8,
+   "mutant": "FAILED",
+   "mutantSec": 4.2,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V1a-NO-QUEUE-WAIT-CONN",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "queued_requests_are_busy_at_queue_wait"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the connection waits past QUEUE_WAIT (review V1)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 14.3,
+   "mutant": "FAILED",
+   "mutantSec": 15.0,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V1b-NO-QUEUE-WAIT-NODE",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the node admits a request past QUEUE_WAIT (review V1)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 16.0,
+   "mutant": "FAILED",
+   "mutantSec": 14.6,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V2-PACER-LATE",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "send_pacer_closes_a_slow_reader_after_grace"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the pacer re-checks only every 1.5 s (review V2)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 13.9,
+   "mutant": "FAILED",
+   "mutantSec": 15.1,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V3-LIGHT-FULL-503",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "a_full_light_lane_answers_busy"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "a full light lane answers 503 (review V3)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 13.1,
+   "mutant": "FAILED",
+   "mutantSec": 13.0,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V4a-NO-BATCH-WALL",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "batch_wall_closes_the_batch"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "BATCH_WALL is not checked between members (review V4)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 15.0,
+   "mutant": "FAILED",
+   "mutantSec": 13.2,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V4b-NO-SEND-WALL",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "batch_wall_closes_the_batch"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "BATCH_WALL is not checked during the send",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 15.5,
+   "mutant": "FAILED",
+   "mutantSec": 32.9,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V5-NO-LOGS-DEADLINE",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "getLogs never checks the deadline in its scan (review V5)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 16.1,
+   "mutant": "FAILED",
+   "mutantSec": 15.6,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V6-BATCH-ONE-TOKEN",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "the_per_connection_bucket_charges_k_tokens_per_request"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "a k-member batch costs one token (review V6)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 14.1,
+   "mutant": "FAILED",
+   "mutantSec": 13.5,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V7-ESTIMATE-SWALLOWS-DEADLINE",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "estimate_gas_stops_its_search_at_the_deadline"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "eth_estimateGas continues its search after -32020 (review V7)",
+   "expected": "CAUGHT",
+   "control": "OK",
+   "controlSec": 12.5,
+   "mutant": "FAILED",
+   "mutantSec": 13.4,
+   "result": "CAUGHT"
+  },
+  {
+   "id": "V8-NO-ENTRY-CHECK-HEAVY",
+   "crate": "prototypes/pocold",
+   "tests": [
+    "light_compute_deadline_fires",
+    "a_request_reaching_its_handler_past_the_deadline_never_runs"
+   ],
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the entry check only for light methods (review V8)",
+   "expected": "EQUIVALENT expected: every heavy handler re-checks before work or is replaced after encoding",
+   "control": "OK",
+   "controlSec": 12.9,
+   "mutant": "OK",
+   "mutantSec": 12.7,
+   "result": "SURVIVED"
+  }
+ ],
+ "passes": [
+  "pass 1: all mutants",
+  "pass 2: RGM6-SCRATCH only (after exporting the proposals vectors)"
+ ]
+}

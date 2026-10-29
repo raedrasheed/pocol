@@ -1,0 +1,137 @@
+{
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "input": {
+    "language": "Solidity",
+    "sources": {
+      "SystemEpochWitness.sol": {
+        "content": "// SPDX-License-Identifier: Apache-2.0\npragma solidity 0.8.28;\n// Diagnostic only: no system contract, activation or approved new runtime rule.\ncontract SystemEpochWitness {\n    function readSlot() external view returns(uint256 value) {\n        assembly { value := sload(0) }\n    }\n    function setTransient() external { assembly { tstore(0, 7) } }\n    function readTransient() external view returns(uint256 value) {\n        assembly { value := tload(0) }\n    }\n    function persistTransient() external {\n        assembly { sstore(1, tload(0)) }\n    }\n    function clearSlot() external { assembly { sstore(0, 0) } }\n    function restoreSlot() external { assembly { sstore(0, 11) } }\n    function originAndCaller() external view returns(address, address) {\n        return (tx.origin, msg.sender);\n    }\n}\n"
+      }
+    },
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "evmVersion": "cancun",
+      "metadata": {
+        "bytecodeHash": "none",
+        "appendCBOR": false
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "abi",
+            "evm.deployedBytecode.object"
+          ]
+        }
+      }
+    }
+  },
+  "output": {
+    "contracts": {
+      "SystemEpochWitness.sol": {
+        "SystemEpochWitness": {
+          "abi": [
+            {
+              "inputs": [],
+              "name": "clearSlot",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [],
+              "name": "originAndCaller",
+              "outputs": [
+                {
+                  "internalType": "address",
+                  "name": "",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "",
+                  "type": "address"
+                }
+              ],
+              "stateMutability": "view",
+              "type": "function"
+            },
+            {
+              "inputs": [],
+              "name": "persistTransient",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [],
+              "name": "readSlot",
+              "outputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                }
+              ],
+              "stateMutability": "view",
+              "type": "function"
+            },
+            {
+              "inputs": [],
+              "name": "readTransient",
+              "outputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                }
+              ],
+              "stateMutability": "view",
+              "type": "function"
+            },
+            {
+              "inputs": [],
+              "name": "restoreSlot",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [],
+              "name": "setTransient",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "deployedBytecode": {
+              "object": "6080604052348015600e575f5ffd5b50600436106070575f3560e01c806388dc7a5711605157806388dc7a5714609d578063a273a27d1460a3578063a8b081551460ac578063ee4123001460bc575f5ffd5b80631847f14e14607457806333caf30314608c578063874cb260146095575b5f5ffd5b60408051328152336020820152015b60405180910390f35b60935f5f55565b005b6093600b5f55565b609360c2565b60935f5c600155565b5f545b6040519081526020016083565b5f5c60af565b60075f5d56"
+            }
+          }
+        }
+      }
+    },
+    "errors": [
+      {
+        "component": "general",
+        "errorCode": "2394",
+        "formattedMessage": "Warning: Transient storage as defined by EIP-1153 can break the composability of smart contracts: Since transient storage is cleared only at the end of the transaction and not at the end of the outermost call frame to the contract within a transaction, your contract may unintentionally misbehave when invoked multiple times in a complex transaction. To avoid this, be sure to clear all transient storage at the end of any call to your contract. The use of transient storage for reentrancy guards that are cleared at the end of the call is safe.\n --> SystemEpochWitness.sol:8:51:\n  |\n8 |     function setTransient() external { assembly { tstore(0, 7) } }\n  |                                                   ^^^^^^\n\n",
+        "message": "Transient storage as defined by EIP-1153 can break the composability of smart contracts: Since transient storage is cleared only at the end of the transaction and not at the end of the outermost call frame to the contract within a transaction, your contract may unintentionally misbehave when invoked multiple times in a complex transaction. To avoid this, be sure to clear all transient storage at the end of any call to your contract. The use of transient storage for reentrancy guards that are cleared at the end of the call is safe.",
+        "severity": "warning",
+        "sourceLocation": {
+          "end": 338,
+          "file": "SystemEpochWitness.sol",
+          "start": 332
+        },
+        "type": "Warning"
+      }
+    ],
+    "sources": {
+      "SystemEpochWitness.sol": {
+        "id": 0
+      }
+    }
+  }
+}

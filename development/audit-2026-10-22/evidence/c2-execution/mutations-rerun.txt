@@ -1,0 +1,4 @@
+M4 revalidate_touched skips the CODE_CAP check | CAUGHT | --release | code_caps_engine_tests::revalidate_touched_equals_the_full_check
+M5 revalidate_touched skips the B_code_max check | CAUGHT | --release | code_caps_engine_tests::revalidate_touched_equals_the_full_check
+M6 apply: stale total after the USER phase | SURVIVED | debug | 
+M7 system: stale total after the USER phase | CAUGHT | debug | system::issuance_tests::sealed_genesis_real_factory_signed_user_creation_issuance_and_late_rollback, system::issuance_tests::issuance_reproducible_report

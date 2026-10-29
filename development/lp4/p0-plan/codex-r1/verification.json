@@ -1,0 +1,7 @@
+{
+  "planningReview": "PASS",
+  "executionAcceptance": "NOT PASSED",
+  "codeTests": "NOT RUN; no code changes",
+  "immutableBaseline": "PASS",
+  "obligations": 23
+}

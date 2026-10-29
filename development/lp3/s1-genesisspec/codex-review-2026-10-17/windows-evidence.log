@@ -1,0 +1,104 @@
+ok    artifact zip SHA-256 63f65757d4879b09abeeccf8a88bf3d36ec7143fd0cb308dbd8a27b428871c22 equals GitHub digest of artifact 11641114416
+ok    job log contains 'SHA256 digest of uploaded artifact is 63f65757d4879b09abeeccf8a88bf3d36ec7143fd0cb308dbd8a27b428871c22'
+ok    job log contains 'HEAD is now at 4e26e4d'
+ok    job log contains 'commit 4e26e4d3049731645ab1d85ccfb9972d29d63390, verification script SHA-256 c2eb204deff90d4577575e473f49f3f483998364ecbd2faa2949839405e3d43f'
+ok    job log contains 'INCLUDE_SLOW: true'
+ok    job log contains 'PASS 20, FAIL 0, BLOCKED BY PLATFORM 16, NOT RUN 0'
+ok    32 files under artifact/ equal the 32 zip entries byte for byte
+ok    results.json commit 4e26e4d3049731645ab1d85ccfb9972d29d63390, trackedFilesModified false
+ok    counts recomputed from 36 rows: {'PASS': 20, 'BLOCKED BY PLATFORM': 16}
+ok    no FAIL and no NOT RUN row
+ok    source-hashes.json commit
+ok    source-hashes: 6 files equal the git blob, 46 equal it after LF->CRLF checkout conversion, 0 unexplained
+ok    debug differential: 6 pinned M1 inputs equal the git blobs unchanged
+ok    debug differential corpus 22f80cbb58a88823 equals the Linux corpus
+ok    debug differential 30075/30075 agree
+ok    release-max differential: 6 pinned M1 inputs equal the git blobs unchanged
+ok    release-max differential corpus 52df37196ee4f402 equals the Linux corpus
+ok    release-max differential 30077/30077 agree
+ok    Windows coverage for lp3-genesis-cli: largeOneLine192MiB.limit256MiB: allocation case oversizedLine256MiB (debug) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: largeOneLine192MiB.limit256MiB in author-r2/lp3-genesis-cli.json: PASS at 256 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: largeOneLine192MiB.limit256MiB in author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json: PASS at 256 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: largeOneLine192MiB.limit256MiB in author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json: PASS at 256 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli: largeOneLine192MiB.limit256MiB: PASS
+ok    Linux evidence exists for lp3-genesis-cli: largeOneLine192MiB.limit256MiB
+ok    Windows coverage for lp3-genesis-cli: largeOneLine192MiB.limit64MiB: allocation case oversizedLine256MiB (debug) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: largeOneLine192MiB.limit64MiB in author-r2/lp3-genesis-cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: largeOneLine192MiB.limit64MiB in author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: largeOneLine192MiB.limit64MiB in author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli: largeOneLine192MiB.limit64MiB: PASS
+ok    Linux evidence exists for lp3-genesis-cli: largeOneLine192MiB.limit64MiB
+ok    Windows coverage for lp3-genesis-cli: limitPlusOneThenMaxValid: allocation case limitPlusOneThenMaxValid (debug) ran and passed
+ok    Windows coverage for lp3-genesis-cli: limitPlusOneThenMaxValid: CLI case limitPlusOneThenMaxValid.noLimit ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: limitPlusOneThenMaxValid in author-r2/lp3-genesis-cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: limitPlusOneThenMaxValid in author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: limitPlusOneThenMaxValid in author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli: limitPlusOneThenMaxValid: PASS
+ok    Linux evidence exists for lp3-genesis-cli: limitPlusOneThenMaxValid
+ok    Windows coverage for lp3-genesis-cli: maxDeepAndFlat: allocation case maxDeepNest (debug) ran and passed
+ok    Windows coverage for lp3-genesis-cli: maxDeepAndFlat: allocation case maxFlatList (debug) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: maxDeepAndFlat in author-r2/lp3-genesis-cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: maxDeepAndFlat in author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: maxDeepAndFlat in author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli: maxDeepAndFlat: PASS
+ok    Linux evidence exists for lp3-genesis-cli: maxDeepAndFlat
+ok    Windows coverage for lp3-genesis-cli: gsv1Times100000: allocation case gsv1Times30000 (debug) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: gsv1Times100000 in author-r2/lp3-genesis-cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: gsv1Times100000 in author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: gsv1Times100000 in author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli: gsv1Times100000: PASS
+ok    Linux evidence exists for lp3-genesis-cli: gsv1Times100000
+ok    Windows coverage for lp3-genesis-cli: gsVersion262144Bytes: allocation case gsVersion256KiB (debug) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: gsVersion262144Bytes in author-r2/lp3-genesis-cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: gsVersion262144Bytes in author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: gsVersion262144Bytes in author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli: gsVersion262144Bytes: PASS
+ok    Linux evidence exists for lp3-genesis-cli: gsVersion262144Bytes
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: reservationFailure.limit8MiB in author-r2/lp3-genesis-cli.json: PASS at 8 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: reservationFailure.limit8MiB in author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json: PASS at 8 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli: reservationFailure.limit8MiB in author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json: PASS at 8 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli: reservationFailure.limit8MiB: PASS
+ok    Linux evidence exists for lp3-genesis-cli: reservationFailure.limit8MiB
+ok    Windows coverage for lp3-genesis-cli-release-max: largeOneLine192MiB.limit256MiB: allocation case oversizedLine256MiB (release-max) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: largeOneLine192MiB.limit256MiB in author-r2/lp3-genesis-cli-release-max.json: PASS at 256 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: largeOneLine192MiB.limit256MiB in author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json: PASS at 256 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli-release-max: largeOneLine192MiB.limit256MiB: PASS
+ok    Linux evidence exists for lp3-genesis-cli-release-max: largeOneLine192MiB.limit256MiB
+ok    Windows coverage for lp3-genesis-cli-release-max: largeOneLine192MiB.limit64MiB: allocation case oversizedLine256MiB (release-max) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: largeOneLine192MiB.limit64MiB in author-r2/lp3-genesis-cli-release-max.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: largeOneLine192MiB.limit64MiB in author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli-release-max: largeOneLine192MiB.limit64MiB: PASS
+ok    Linux evidence exists for lp3-genesis-cli-release-max: largeOneLine192MiB.limit64MiB
+ok    Windows coverage for lp3-genesis-cli-release-max: limitPlusOneThenMaxValid: allocation case limitPlusOneThenMaxValid (release-max) ran and passed
+ok    Windows coverage for lp3-genesis-cli-release-max: limitPlusOneThenMaxValid: CLI case limitPlusOneThenMaxValid.noLimit ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: limitPlusOneThenMaxValid in author-r2/lp3-genesis-cli-release-max.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: limitPlusOneThenMaxValid in author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli-release-max: limitPlusOneThenMaxValid: PASS
+ok    Linux evidence exists for lp3-genesis-cli-release-max: limitPlusOneThenMaxValid
+ok    Windows coverage for lp3-genesis-cli-release-max: maxDeepAndFlat: allocation case maxDeepNest (release-max) ran and passed
+ok    Windows coverage for lp3-genesis-cli-release-max: maxDeepAndFlat: allocation case maxFlatList (release-max) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: maxDeepAndFlat in author-r2/lp3-genesis-cli-release-max.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: maxDeepAndFlat in author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli-release-max: maxDeepAndFlat: PASS
+ok    Linux evidence exists for lp3-genesis-cli-release-max: maxDeepAndFlat
+ok    Windows coverage for lp3-genesis-cli-release-max: gsv1Times100000: allocation case gsv1Times30000 (release-max) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: gsv1Times100000 in author-r2/lp3-genesis-cli-release-max.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: gsv1Times100000 in author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli-release-max: gsv1Times100000: PASS
+ok    Linux evidence exists for lp3-genesis-cli-release-max: gsv1Times100000
+ok    Windows coverage for lp3-genesis-cli-release-max: gsVersion262144Bytes: allocation case gsVersion256KiB (release-max) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: gsVersion262144Bytes in author-r2/lp3-genesis-cli-release-max.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: gsVersion262144Bytes in author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli-release-max: gsVersion262144Bytes: PASS
+ok    Linux evidence exists for lp3-genesis-cli-release-max: gsVersion262144Bytes
+ok    Windows coverage for lp3-genesis-cli-release-max: gsVersion2818466Bytes: allocation case gsVersionMax (release-max) ran and passed
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: gsVersion2818466Bytes in author-r2/lp3-genesis-cli-release-max.json: PASS at 64 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: gsVersion2818466Bytes in author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json: PASS at 64 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli-release-max: gsVersion2818466Bytes: PASS
+ok    Linux evidence exists for lp3-genesis-cli-release-max: gsVersion2818466Bytes
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: reservationFailure.limit8MiB in author-r2/lp3-genesis-cli-release-max.json: PASS at 8 MiB
+ok    Linux RLIMIT_AS evidence for lp3-genesis-cli-release-max: reservationFailure.limit8MiB in author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json: PASS at 8 MiB
+ok    Linux CI-script smoke run (086a3ea) for lp3-genesis-cli-release-max: reservationFailure.limit8MiB: PASS
+ok    Linux evidence exists for lp3-genesis-cli-release-max: reservationFailure.limit8MiB
+blocked rows 16 = 1 summary row + 15 per-case rows; distinct cases 8; distinct reasons ['RLIMIT_AS / wait4 not available on Windows', 'Windows has no RLIMIT_AS; bounded memory is covered here by genesis-batch-alloc (counting allocator)']
+problems: 0

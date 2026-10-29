@@ -1,0 +1,18 @@
+warning: unused import: `json`
+ --> /workspace/Proof-of-Collaboration/development/lp3/s5-paramgate/codex-r2/probe.rs:1:18
+  |
+1 | use serde_json::{json,Value};
+  |                  ^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: function is never used: `verdict`
+   --> /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:120:4
+    |
+120 | fn verdict(p: &GateProfile, node: NodeKind) -> GateReport {
+    |    ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: 2 warnings emitted
+

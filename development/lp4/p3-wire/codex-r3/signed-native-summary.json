@@ -1,0 +1,527 @@
+{
+  "scope": "All1173 GST negative identities, actual recovered signed admission at synthetic chain777902; not full upstream or PoCol block acceptance",
+  "total": 1173,
+  "counts": {
+    "POCOL_TYPE3_REJECTION_NOT_ORIGINAL_CATEGORY": 157,
+    "unmodifiedAccepted": 73,
+    "unmodifiedRejected": 1100,
+    "SIGNED_NATIVE_CATEGORY_AND_INPUT_PREDICATE": 1014,
+    "SIGNED_PRIORITY_WIRE_PRECEDENCE": 1,
+    "SIGNED_OVER_U256_WIRE_INTEGER": 1
+  },
+  "unmodifiedAccepted": [
+    {
+      "file": "Cancun/stEIP4844-blobtransactions/blobhashListBounds7.json",
+      "name": "blobhashListBounds7",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TR_BLOBLIST_OVERSIZE"
+    },
+    {
+      "file": "Cancun/stEIP4844-blobtransactions/createBlobhashTx.json",
+      "name": "createBlobhashTx",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TR_BLOBCREATE"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_1-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_1-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_1-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_1-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_1-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_1-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_100-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-no_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_one_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_0-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_14-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_insufficient_balance_blob_tx[fork_Cancun-state_test--exact_balance_minus_1-tx_max_fee_per_blob_gas_10000-single_zero_calldata-tx_value_1-tx_max_priority_fee_per_gas_7-tx_max_fee_per_gas_7-no_access_list]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+    },
+    {
+      "file": "Pyspecs/cancun/eip4844_blobs/invalid_tx_blob_count.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_invalid_tx_blob_count[fork_Cancun-state_test-too_many_blobs]",
+      "variant": 0,
+      "kind": 3,
+      "expectedException": "TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED"
+    },
+    {
+      "file": "Pyspecs/shanghai/eip3860_initcode/gas_usage.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/shanghai/eip3860_initcode/test_initcode.py::TestContractCreationGasUsage::test_gas_usage[fork_Cancun-state_test-too_little_intrinsic_gas-32_bytes]",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "TransactionException.INTRINSIC_GAS_TOO_LOW"
+    },
+    {
+      "file": "Pyspecs/shanghai/eip3860_initcode/gas_usage.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/shanghai/eip3860_initcode/test_initcode.py::TestContractCreationGasUsage::test_gas_usage[fork_Cancun-state_test-too_little_intrinsic_gas-33_bytes]",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "TransactionException.INTRINSIC_GAS_TOO_LOW"
+    },
+    {
+      "file": "Pyspecs/shanghai/eip3860_initcode/gas_usage.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/shanghai/eip3860_initcode/test_initcode.py::TestContractCreationGasUsage::test_gas_usage[fork_Cancun-state_test-too_little_intrinsic_gas-49120_bytes]",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "TransactionException.INTRINSIC_GAS_TOO_LOW"
+    },
+    {
+      "file": "Pyspecs/shanghai/eip3860_initcode/gas_usage.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/shanghai/eip3860_initcode/test_initcode.py::TestContractCreationGasUsage::test_gas_usage[fork_Cancun-state_test-too_little_intrinsic_gas-49121_bytes]",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "TransactionException.INTRINSIC_GAS_TOO_LOW"
+    },
+    {
+      "file": "Pyspecs/shanghai/eip3860_initcode/gas_usage.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/shanghai/eip3860_initcode/test_initcode.py::TestContractCreationGasUsage::test_gas_usage[fork_Cancun-state_test-too_little_intrinsic_gas-max_size_ones]",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "TransactionException.INTRINSIC_GAS_TOO_LOW"
+    },
+    {
+      "file": "Pyspecs/shanghai/eip3860_initcode/gas_usage.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/shanghai/eip3860_initcode/test_initcode.py::TestContractCreationGasUsage::test_gas_usage[fork_Cancun-state_test-too_little_intrinsic_gas-max_size_zeros]",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "TransactionException.INTRINSIC_GAS_TOO_LOW"
+    },
+    {
+      "file": "Pyspecs/shanghai/eip3860_initcode/gas_usage.json",
+      "name": "src/GeneralStateTestsFiller/Pyspecs/shanghai/eip3860_initcode/test_initcode.py::TestContractCreationGasUsage::test_gas_usage[fork_Cancun-state_test-too_little_intrinsic_gas-single_byte]",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "TransactionException.INTRINSIC_GAS_TOO_LOW"
+    },
+    {
+      "file": "stEIP1559/tipTooHigh.json",
+      "name": "tipTooHigh",
+      "variant": 0,
+      "kind": 2,
+      "expectedException": "TR_TipGtFeeCap"
+    },
+    {
+      "file": "stEIP1559/transactionIntinsicBug_Paris.json",
+      "name": "transactionIntinsicBug_Paris",
+      "variant": 0,
+      "kind": 2,
+      "expectedException": "TR_NoFunds"
+    },
+    {
+      "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_calls.json",
+      "name": "transactionCollidingWithNonEmptyAccount_calls",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "SenderNotEOA"
+    },
+    {
+      "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_callsItself.json",
+      "name": "transactionCollidingWithNonEmptyAccount_callsItself",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "SenderNotEOA"
+    },
+    {
+      "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_init_Paris.json",
+      "name": "transactionCollidingWithNonEmptyAccount_init_Paris",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "SenderNotEOA"
+    },
+    {
+      "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_init_Paris.json",
+      "name": "transactionCollidingWithNonEmptyAccount_init_Paris",
+      "variant": 1,
+      "kind": 0,
+      "expectedException": "SenderNotEOA"
+    },
+    {
+      "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_init_Paris.json",
+      "name": "transactionCollidingWithNonEmptyAccount_init_Paris",
+      "variant": 2,
+      "kind": 0,
+      "expectedException": "SenderNotEOA"
+    },
+    {
+      "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_init_Paris.json",
+      "name": "transactionCollidingWithNonEmptyAccount_init_Paris",
+      "variant": 3,
+      "kind": 0,
+      "expectedException": "SenderNotEOA"
+    },
+    {
+      "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_send_Paris.json",
+      "name": "transactionCollidingWithNonEmptyAccount_send_Paris",
+      "variant": 0,
+      "kind": 0,
+      "expectedException": "SenderNotEOA"
+    }
+  ],
+  "status": "NOT PASSED",
+  "bootable": false
+}

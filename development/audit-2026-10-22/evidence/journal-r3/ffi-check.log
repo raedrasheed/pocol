@@ -1,0 +1,11 @@
+== rustc: rustc 1.99.1 (58cf8f9c3 2026-10-13)
+== cargo check --target x86_64-pc-windows-msvc
+    Checking windows-sys v0.61.2
+    Checking jm-trim-check v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/jr3w/ffi-check)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.75s
+exit=0
+== cargo check (host)
+   Compiling libc v0.2.191
+    Checking jm-trim-check v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/jr3w/ffi-check)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.88s
+exit=0

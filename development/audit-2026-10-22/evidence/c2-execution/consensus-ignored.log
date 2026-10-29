@@ -1,0 +1,12 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.16s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/c2b-target/release/deps/consensus-4f7cdd4cd9ee3859)
+
+running 3 tests
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ok
+test a11_deep_reorg_restores_the_oldest_detached_transaction has been running for over 60 seconds
+test adoption_at_the_spec_depth_2048_and_not_at_2049 has been running for over 60 seconds
+test a11_deep_reorg_restores_the_oldest_detached_transaction ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 45 filtered out; finished in 72.61s
+

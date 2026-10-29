@@ -1,0 +1,218 @@
+{
+  "oracle": "Native Node codec known answers plus hand-derived byte/name boundaries, ticket cutoff and stale-read schedules",
+  "summary": {
+    "checks": 30,
+    "passed": 30,
+    "failed": 0
+  },
+  "results": [
+    {
+      "check": "Node codec hex codec-0",
+      "passed": true,
+      "actual": "",
+      "expected": ""
+    },
+    {
+      "check": "Node base64 codec-0",
+      "passed": true,
+      "actual": "",
+      "expected": ""
+    },
+    {
+      "check": "full roundtrip codec-0",
+      "passed": true,
+      "actual": {},
+      "expected": {}
+    },
+    {
+      "check": "Node codec hex codec-1",
+      "passed": true,
+      "actual": "00000001610000000162",
+      "expected": "00000001610000000162"
+    },
+    {
+      "check": "Node base64 codec-1",
+      "passed": true,
+      "actual": "AAAAAWEAAAABYg==",
+      "expected": "AAAAAWEAAAABYg=="
+    },
+    {
+      "check": "full roundtrip codec-1",
+      "passed": true,
+      "actual": {
+        "a": "b"
+      },
+      "expected": {
+        "a": "b"
+      }
+    },
+    {
+      "check": "Node codec hex codec-2",
+      "passed": true,
+      "actual": "0000000000000000000000017800000000",
+      "expected": "0000000000000000000000017800000000"
+    },
+    {
+      "check": "Node base64 codec-2",
+      "passed": true,
+      "actual": "AAAAAAAAAAAAAAABeAAAAAA=",
+      "expected": "AAAAAAAAAAAAAAABeAAAAAA="
+    },
+    {
+      "check": "full roundtrip codec-2",
+      "passed": true,
+      "actual": {
+        "": "",
+        "x": ""
+      },
+      "expected": {
+        "": "",
+        "x": ""
+      }
+    },
+    {
+      "check": "Node codec hex codec-3",
+      "passed": true,
+      "actual": "0000000231300000000374656e00000001320000000374776f",
+      "expected": "0000000231300000000374656e00000001320000000374776f"
+    },
+    {
+      "check": "Node base64 codec-3",
+      "passed": true,
+      "actual": "AAAAAjEwAAAAA3RlbgAAAAEyAAAAA3R3bw==",
+      "expected": "AAAAAjEwAAAAA3RlbgAAAAEyAAAAA3R3bw=="
+    },
+    {
+      "check": "full roundtrip codec-3",
+      "passed": true,
+      "actual": {
+        "10": "ten",
+        "2": "two"
+      },
+      "expected": {
+        "2": "two",
+        "10": "ten"
+      }
+    },
+    {
+      "check": "Node codec hex codec-4",
+      "passed": true,
+      "actual": "000000016100000004f09f988000000002d8b900000008d8b3d984d8a7d985",
+      "expected": "000000016100000004f09f988000000002d8b900000008d8b3d984d8a7d985"
+    },
+    {
+      "check": "Node base64 codec-4",
+      "passed": true,
+      "actual": "AAAAAWEAAAAE8J+YgAAAAALYuQAAAAjYs9mE2KfZhQ==",
+      "expected": "AAAAAWEAAAAE8J+YgAAAAALYuQAAAAjYs9mE2KfZhQ=="
+    },
+    {
+      "check": "full roundtrip codec-4",
+      "passed": true,
+      "actual": {
+        "a": "\ud83d\ude00",
+        "\u0639": "\u0633\u0644\u0627\u0645"
+      },
+      "expected": {
+        "\u0639": "\u0633\u0644\u0627\u0645",
+        "a": "\ud83d\ude00"
+      }
+    },
+    {
+      "check": "Node codec hex codec-5",
+      "passed": true,
+      "actual": "0000000365cc8100000002c3a900000002c3a90000000365cc81",
+      "expected": "0000000365cc8100000002c3a900000002c3a90000000365cc81"
+    },
+    {
+      "check": "Node base64 codec-5",
+      "passed": true,
+      "actual": "AAAAA2XMgQAAAALDqQAAAALDqQAAAANlzIE=",
+      "expected": "AAAAA2XMgQAAAALDqQAAAALDqQAAAANlzIE="
+    },
+    {
+      "check": "full roundtrip codec-5",
+      "passed": true,
+      "actual": {
+        "e\u0301": "\u00e9",
+        "\u00e9": "e\u0301"
+      },
+      "expected": {
+        "\u00e9": "e\u0301",
+        "e\u0301": "\u00e9"
+      }
+    },
+    {
+      "check": "record bound exact",
+      "passed": true,
+      "actual": 1442048,
+      "expected": 1442048
+    },
+    {
+      "check": "disk exact equality allowed",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "disk +1 rejected",
+      "passed": true,
+      "actual": "disk",
+      "expected": "disk"
+    },
+    {
+      "check": "names exact equality allowed",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "reservation immediate prevents second name",
+      "passed": true,
+      "actual": "names",
+      "expected": "names"
+    },
+    {
+      "check": "older refresh does not retire newer settlement",
+      "passed": true,
+      "actual": 1,
+      "expected": 1
+    },
+    {
+      "check": "new refresh retires settled ticket",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "check": "read timeout retains two physical slots",
+      "passed": true,
+      "actual": 2,
+      "expected": 2
+    },
+    {
+      "check": "no checkpoint after read timeout",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "check": "late read dropped",
+      "passed": true,
+      "actual": 1,
+      "expected": 1
+    },
+    {
+      "check": "late read cannot issue checkpoint",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "check": "waiting new gate takes released slot",
+      "passed": true,
+      "actual": 2,
+      "expected": 2
+    }
+  ]
+}

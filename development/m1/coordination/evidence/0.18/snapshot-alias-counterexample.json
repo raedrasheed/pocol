@@ -1,0 +1,17 @@
+{
+  "earlierExpected": [],
+  "earlierActual": [
+    {
+      "t": 6000,
+      "kind": "later"
+    }
+  ],
+  "laterActual": [
+    {
+      "t": 6000,
+      "kind": "later"
+    }
+  ],
+  "sameObject": true,
+  "counterexampleConfirmed": true
+}

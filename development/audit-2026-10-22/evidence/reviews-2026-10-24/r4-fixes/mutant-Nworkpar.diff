@@ -1,0 +1,15 @@
+ prototypes/pocold/src/chain.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+diff --git a/prototypes/pocold/src/chain.rs b/prototypes/pocold/src/chain.rs
+index f980d60..8b4d0a6 100644
+--- a/prototypes/pocold/src/chain.rs
++++ b/prototypes/pocold/src/chain.rs
+@@ -340,7 +340,7 @@ impl Chain{
+         if out.state_root.0!=x.state_root{return blk("17 stateRoot")}
+         if out.receipts_root.0!=x.receipts_root||out.logs_bloom[..]!=x.logs_bloom[..]||out.gas_used!=x.gas_used{return blk("17 receipts/bloom/gasUsed")}
+         let tx_hashes=b.body.txs.iter().map(|t|revm::primitives::keccak256(t)).collect();
+-        let entry=Entry{hash,header:x.clone(),body:b.body.clone(),height:x.h,parent:Some(p.hash),total_work:p.total_work.saturating_add(work(&x.target)),
++        let entry=Entry{hash,header:x.clone(),body:b.body.clone(),height:x.h,parent:Some(p.hash),total_work:p.total_work.saturating_add(work(&p.header.target)),
+             import_seq:0,signed,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:seal(&tid,x.nonce),state:out.state,is_final:out.is_final,
+             result:Some(ParentResult{block_hash:B256::from(hash),winner:addr(&owner),shares}),receipts:out.receipts,tx_hashes,
+             cum_txs:p.cum_txs+b.body.txs.len() as u64,cum_tx_bytes:p.cum_tx_bytes+tx_bytes,cum_log_bytes:p.cum_log_bytes+out.log_bytes,pruned:false,drawn:ctx.proposer,

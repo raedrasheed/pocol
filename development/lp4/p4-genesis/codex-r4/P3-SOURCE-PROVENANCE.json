@@ -1,0 +1,22 @@
+[
+  {
+    "path": "prototypes/lp4-execution/src/wire.rs",
+    "source": "f3fbe13863030adfed6912450e255acd986238b5",
+    "sha256": "c688ea63767d52468c9fd9eecb0fdfae664ad19f3f70e5f075e9a816136bf593"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/fees.rs",
+    "source": "f3fbe13863030adfed6912450e255acd986238b5",
+    "sha256": "08a4d4ffeb7cc98f150e75c1e47317d559595110bcb773595769206296eb7542"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/receipts.rs",
+    "source": "f3fbe13863030adfed6912450e255acd986238b5",
+    "sha256": "2d31ccbfe9e4719a68b91ae00cc87d8f550fd6ef50280372d17f90404aceaad1"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/user_phase.rs",
+    "source": "f3fbe13863030adfed6912450e255acd986238b5",
+    "sha256": "b6c14cd01a50be865e87ecd36dba20616b00ea379b458c4b4493d3539d617cfa"
+  }
+]

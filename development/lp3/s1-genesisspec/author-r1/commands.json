@@ -1,0 +1,142 @@
+[
+ {
+  "name": "rustc-version",
+  "exitCode": 0,
+  "seconds": 0.027,
+  "args": [
+   "rustc",
+   "+1.58.1",
+   "--version"
+  ],
+  "log": "rustc-version.log"
+ },
+ {
+  "name": "cargo-version",
+  "exitCode": 0,
+  "seconds": 0.014,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "--version"
+  ],
+  "log": "cargo-version.log"
+ },
+ {
+  "name": "cargo-build",
+  "exitCode": 0,
+  "seconds": 35.81,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "build",
+   "--offline",
+   "--locked",
+   "--target-dir",
+   "<target>"
+  ],
+  "log": "cargo-build.log"
+ },
+ {
+  "name": "rustfmt-check",
+  "exitCode": 0,
+  "seconds": 0.179,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "fmt",
+   "--",
+   "--check"
+  ],
+  "log": "rustfmt-check.log"
+ },
+ {
+  "name": "cargo-test",
+  "exitCode": 101,
+  "seconds": 15.868,
+  "args": [
+   "cargo",
+   "+1.58.1",
+   "test",
+   "--offline",
+   "--locked",
+   "--no-fail-fast",
+   "--target-dir",
+   "<target>",
+   "--",
+   "--test-threads=1",
+   "--nocapture"
+  ],
+  "log": "cargo-test.log"
+ },
+ {
+  "name": "verify-fixtures",
+  "exitCode": 0,
+  "seconds": 1.645,
+  "args": [
+   "<target>/debug/lp1-node",
+   "verify-fixtures",
+   "--fixtures",
+   "fixtures"
+  ],
+  "log": "verify-fixtures.log"
+ },
+ {
+  "name": "e2e-http",
+  "exitCode": 0,
+  "seconds": 1.542,
+  "args": [
+   "python3",
+   "tests/e2e_http.py",
+   "--bin",
+   "<target>/debug/lp1-node",
+   "--fixtures",
+   "fixtures"
+  ],
+  "log": "e2e-http.log"
+ },
+ {
+  "name": "e2e-store",
+  "exitCode": 1,
+  "seconds": 0.129,
+  "args": [
+   "python3",
+   "tests/e2e_store.py",
+   "--bin",
+   "<target>/debug/lp1-node",
+   "--fixtures",
+   "fixtures"
+  ],
+  "log": "e2e-store-linux.log"
+ },
+ {
+  "name": "store-init-probe",
+  "exitCode": 2,
+  "seconds": 0.004,
+  "args": [
+   "<target>/debug/lp1-node",
+   "store",
+   "init",
+   "--store",
+   "<scratch>/final-probe-store",
+   "--fixtures",
+   "fixtures"
+  ],
+  "log": "store-init-linux.log"
+ },
+ {
+  "name": "lp3-genesis-diff",
+  "exitCode": 0,
+  "seconds": 10.016,
+  "args": [
+   "python3",
+   "tests/lp3_genesis_diff.py",
+   "--bin",
+   "<target>/debug/lp1-node",
+   "--m1",
+   "../../development/m1",
+   "--out",
+   "<scratch>/final/lp3-genesis-diff.json"
+  ],
+  "log": "lp3-genesis-diff.log"
+ }
+]

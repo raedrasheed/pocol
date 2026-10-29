@@ -1,0 +1,31 @@
+# positive control for ffi-windows-check-<sha>.log: the extracted lib.rs (sha256 cc0c94262260e5136fd7b300dfd8bb3553b98979d1d03b2f36c471a19d8760f7,
+# from prototypes/pocold/src/rpc.rs at d0e87f93a417ec6888fc9bd0d433136ab238d741) with one edit: WSAPoll(&mut p,1u64,ms(t)) (wrong type
+# for the u32 count). The Windows check must fail, so the cfg(windows) code is really compiled; Linux does not compile it.
+$ cargo check --offline --target x86_64-pc-windows-msvc   (expected: error)
+    Checking sockbuf-check v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r3-wincheck-control)
+error[E0308]: mismatched types
+   --> src/lib.rs:37:37
+    |
+ 37 |         match unsafe{WSAPoll(&mut p,1u64,ms(t))}{n if n>0=>Ok(true),0=>Ok(false),_=>Err(std::io::Error::last_os_error())}
+    |                      -------        ^^^^ expected `u32`, found `u64`
+    |                      |
+    |                      arguments to this function are incorrect
+    |
+note: function defined here
+   --> /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-sys-0.61.2/src/Windows/Win32/Networking/WinSock/mod.rs:132:46
+    |
+132 | windows_link::link!("ws2_32.dll" "system" fn WSAPoll(fdarray : *mut WSAPOLLFD, fds : u32, timeout : i32) -> i32);
+    |                                              ^^^^^^^
+help: change the type of the numeric literal from `u64` to `u32`
+    |
+ 37 -         match unsafe{WSAPoll(&mut p,1u64,ms(t))}{n if n>0=>Ok(true),0=>Ok(false),_=>Err(std::io::Error::last_os_error())}
+ 37 +         match unsafe{WSAPoll(&mut p,1u32,ms(t))}{n if n>0=>Ok(true),0=>Ok(false),_=>Err(std::io::Error::last_os_error())}
+    |
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `sockbuf-check` (lib) due to 1 previous error
+exit=101
+$ cargo check --offline   (x86_64-unknown-linux-gnu; expected: ok, the Windows code is not compiled there)
+    Checking sockbuf-check v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r3-wincheck-control)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
+exit=0

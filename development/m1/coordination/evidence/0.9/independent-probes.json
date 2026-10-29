@@ -1,0 +1,328 @@
+{
+  "oracle": "Independent Node TextEncoder and hand-derived event expectations, not author-generated goldens",
+  "summary": {
+    "checks": 31,
+    "passed": 31,
+    "failed": 0
+  },
+  "results": [
+    {
+      "check": "Node.TextEncoder ascii",
+      "passed": true,
+      "actual": 66,
+      "expected": 66
+    },
+    {
+      "check": "Node.TextEncoder delete",
+      "passed": true,
+      "actual": 65,
+      "expected": 65
+    },
+    {
+      "check": "Node.TextEncoder empty",
+      "passed": true,
+      "actual": 64,
+      "expected": 64
+    },
+    {
+      "check": "Node.TextEncoder arabic",
+      "passed": true,
+      "actual": 68,
+      "expected": 68
+    },
+    {
+      "check": "Node.TextEncoder emoji",
+      "passed": true,
+      "actual": 72,
+      "expected": 72
+    },
+    {
+      "check": "Node.TextEncoder combining",
+      "passed": true,
+      "actual": 69,
+      "expected": 69
+    },
+    {
+      "check": "Node.TextEncoder high-surrogate",
+      "passed": true,
+      "actual": 68,
+      "expected": 68
+    },
+    {
+      "check": "Node.TextEncoder low-surrogate",
+      "passed": true,
+      "actual": 68,
+      "expected": 68
+    },
+    {
+      "check": "Node.TextEncoder surrogate-pair",
+      "passed": true,
+      "actual": 69,
+      "expected": 69
+    },
+    {
+      "check": "Node.TextEncoder mixed",
+      "passed": true,
+      "actual": 72,
+      "expected": 72
+    },
+    {
+      "check": "Node.TextEncoder max",
+      "passed": true,
+      "actual": 61760,
+      "expected": 61760
+    },
+    {
+      "check": "Node.TextEncoder BR21-M",
+      "passed": true,
+      "actual": 61507,
+      "expected": 61507
+    },
+    {
+      "check": "Node.TextEncoder BR21-m",
+      "passed": true,
+      "actual": 68,
+      "expected": 68
+    },
+    {
+      "check": "Node.TextEncoder BR21e-boundary",
+      "passed": true,
+      "actual": 53972,
+      "expected": 53972
+    },
+    {
+      "check": "timeout retains ownership/seat/counters",
+      "passed": true,
+      "actual": [
+        "active",
+        1,
+        [
+          0,
+          0
+        ]
+      ],
+      "expected": [
+        "active",
+        1,
+        [
+          2,
+          132
+        ]
+      ]
+    },
+    {
+      "check": "timeout response exactly once",
+      "passed": true,
+      "actual": [
+        [
+          -32603,
+          "storeTimeout"
+        ]
+      ],
+      "expected": [
+        [
+          -32603,
+          "storeTimeout"
+        ]
+      ]
+    },
+    {
+      "check": "wait not expired before acceptance+10000",
+      "passed": true,
+      "actual": [
+        0,
+        0
+      ],
+      "expected": [
+        2,
+        132
+      ]
+    },
+    {
+      "check": "wait expired exactly acceptance+10000",
+      "passed": true,
+      "actual": [
+        0,
+        0
+      ],
+      "expected": [
+        1,
+        66
+      ]
+    },
+    {
+      "check": "late success releases once",
+      "passed": true,
+      "actual": [
+        0,
+        0
+      ],
+      "expected": [
+        0,
+        0
+      ]
+    },
+    {
+      "check": "late success actual dictionary",
+      "passed": true,
+      "actual": {
+        "k": "v"
+      },
+      "expected": {
+        "k": "v"
+      }
+    },
+    {
+      "check": "no second late response",
+      "passed": true,
+      "actual": [
+        [
+          "m0",
+          -32603
+        ],
+        [
+          "m1",
+          -32005
+        ]
+      ],
+      "expected": [
+        [
+          "m0",
+          -32603
+        ],
+        [
+          "m1",
+          -32005
+        ]
+      ]
+    },
+    {
+      "check": "once-only releases",
+      "passed": true,
+      "actual": [
+        2,
+        0
+      ],
+      "expected": [
+        2,
+        0
+      ]
+    },
+    {
+      "check": "close after timeout retains resources",
+      "passed": true,
+      "actual": [
+        0,
+        0
+      ],
+      "expected": [
+        1,
+        66
+      ]
+    },
+    {
+      "check": "close drains session",
+      "passed": true,
+      "actual": [
+        [
+          0,
+          0
+        ],
+        false,
+        1
+      ],
+      "expected": [
+        [
+          0,
+          0
+        ],
+        false,
+        1
+      ]
+    },
+    {
+      "check": "full dictionary at snapshot (not keys/length only)",
+      "passed": true,
+      "actual": [
+        {
+          "frame": "F2",
+          "dict": {
+            "k": "v"
+          },
+          "badge": false
+        }
+      ],
+      "expected": [
+        {
+          "frame": "F2",
+          "dict": {
+            "k": "v"
+          },
+          "badge": false
+        }
+      ]
+    },
+    {
+      "check": "old frame receives no success",
+      "passed": true,
+      "actual": [],
+      "expected": []
+    },
+    {
+      "check": "frame-derived keys and separate networks",
+      "passed": true,
+      "actual": [
+        "site:N1:a",
+        "site:N2:a"
+      ],
+      "expected": [
+        "site:N1:a",
+        "site:N2:a"
+      ]
+    },
+    {
+      "check": "actual byte-value separation",
+      "passed": true,
+      "actual": {
+        "site:N1:a": {
+          "k": "a"
+        },
+        "site:N2:a": {
+          "k": "b"
+        }
+      },
+      "expected": {
+        "site:N1:a": {
+          "k": "a"
+        },
+        "site:N2:a": {
+          "k": "b"
+        }
+      }
+    },
+    {
+      "check": "duplicate backend settlement refused",
+      "passed": true,
+      "actual": "refused",
+      "expected": "refused"
+    },
+    {
+      "check": "duplicate settlement leaves counters intact",
+      "passed": true,
+      "actual": [
+        0,
+        0
+      ],
+      "expected": [
+        0,
+        0
+      ]
+    },
+    {
+      "check": "all prior baseline/spec/fixture hashes preserved",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    }
+  ]
+}

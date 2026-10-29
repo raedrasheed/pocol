@@ -1,0 +1,17 @@
+[
+  {
+    "path": "src/store.rs",
+    "oldSha256": "9c059d5ae50d123d8a27a513f3966c6a7e73576b0e9dc6d0e845b657a1805e16",
+    "newSha256": "26208328d7ca0654566a7884be8cc446c3512e707403ad2823f3410f6a5c06cd"
+  },
+  {
+    "path": "tests/store_journal.rs",
+    "oldSha256": "3a9d834e2873bcd58016f61f13e084e3819fef7781c769f37d221e5d7156e299",
+    "newSha256": "6b3e1b6337795f5550c9c605937322bc81de6a71944ab4106aaf7ab2b0705f17"
+  },
+  {
+    "path": "LP2-PROGRESS-0.38-AR.md",
+    "oldSha256": null,
+    "newSha256": "a4e011836f3d190f53f0be5fcecef8cac63bd883da1fe2cd2ff8f6039e4f2b89"
+  }
+]

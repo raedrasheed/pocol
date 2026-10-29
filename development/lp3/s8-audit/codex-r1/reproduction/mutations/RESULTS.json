@@ -1,0 +1,642 @@
+[
+  {
+    "name": "truncate-negative",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/truncate-negative-28s4t3yy/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/truncate-negative-28s4t3yy/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 3.885
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/asert_named.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/truncate-negative-28s4t3yy/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/truncate-negative-28s4t3yy/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.52
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/truncate-negative-28s4t3yy/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.004
+      }
+    ]
+  },
+  {
+    "name": "biased-draw",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/biased-draw-lwa09gfv/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/biased-draw-lwa09gfv/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 3.324
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/assignment.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/biased-draw-lwa09gfv/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/biased-draw-lwa09gfv/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.611
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/biased-draw-lwa09gfv/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.16
+      }
+    ]
+  },
+  {
+    "name": "include-parent-weight",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/include-parent-weight-hkqsjzmm/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/include-parent-weight-hkqsjzmm/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 6.121
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/assignment.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/include-parent-weight-hkqsjzmm/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/include-parent-weight-hkqsjzmm/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.615
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/include-parent-weight-hkqsjzmm/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.072
+      }
+    ]
+  },
+  {
+    "name": "reserved-member-bypass",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/reserved-member-bypass-3_ck42oi/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/reserved-member-bypass-3_ck42oi/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 3.572
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/assignment.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/reserved-member-bypass-3_ck42oi/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/reserved-member-bypass-3_ck42oi/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 1.011
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/reserved-member-bypass-3_ck42oi/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.076
+      }
+    ]
+  },
+  {
+    "name": "membership-cutoff",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/membership-cutoff-z4rsfm8h/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/membership-cutoff-z4rsfm8h/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 4.586
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/assignment.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/membership-cutoff-z4rsfm8h/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/membership-cutoff-z4rsfm8h/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.918
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/membership-cutoff-z4rsfm8h/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.094
+      }
+    ]
+  },
+  {
+    "name": "fork-equal-height",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/fork-equal-height-q5j2w_ms/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/fork-equal-height-q5j2w_ms/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 4.036
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/profile.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/fork-equal-height-q5j2w_ms/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/fork-equal-height-q5j2w_ms/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.872
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/fork-equal-height-q5j2w_ms/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.012
+      }
+    ]
+  },
+  {
+    "name": "fork-unsupported-version",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/fork-unsupported-version-o32yvlzb/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/fork-unsupported-version-o32yvlzb/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 4.066
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/profile.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/fork-unsupported-version-o32yvlzb/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/fork-unsupported-version-o32yvlzb/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.781
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/fork-unsupported-version-o32yvlzb/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.013
+      }
+    ]
+  },
+  {
+    "name": "gate-bypass-r24",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/gate-bypass-r24-85_p22v1/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/gate-bypass-r24-85_p22v1/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 4.475
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/gate-bypass-r24-85_p22v1/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/gate-bypass-r24-85_p22v1/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.726
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/gate-bypass-r24-85_p22v1/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.096
+      }
+    ]
+  },
+  {
+    "name": "reject-tj-equality",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/reject-tj-equality-baw44q_i/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/reject-tj-equality-baw44q_i/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 3.762
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/timing.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/reject-tj-equality-baw44q_i/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/reject-tj-equality-baw44q_i/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.647
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/reject-tj-equality-baw44q_i/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.006
+      }
+    ]
+  },
+  {
+    "name": "schema-width",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/reproduction/mutations/schema-width-ygcgpeml/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/schema-width-ygcgpeml/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 5.239
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/genesis_spec.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/reproduction/mutations/schema-width-ygcgpeml/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/reproduction/mutations/schema-width-ygcgpeml/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 1.692
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/reproduction/mutations/schema-width-ygcgpeml/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 3.494
+      }
+    ]
+  }
+]

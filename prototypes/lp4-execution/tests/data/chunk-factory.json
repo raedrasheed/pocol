@@ -1,0 +1,74 @@
+{
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "input": {
+    "language": "Solidity",
+    "sources": {
+      "ChunkFactory.sol": {
+        "content": "// SPDX-License-Identifier: Apache-2.0\npragma solidity 0.8.28;\n// M1 storage.md D27: exact initcode, no storage, no events, idempotent CREATE2.\ncontract ChunkFactory {\n    error BadChunk();\n    function store(bytes calldata data) external returns(address chunk) {\n        if(data.length==0||data.length>24575)revert BadChunk();\n        bytes32 salt=keccak256(data);\n        bytes memory init=abi.encodePacked(hex\"61\",bytes2(uint16(1+data.length)),hex\"80600a5f395ff300\",data);\n        chunk=address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff),address(this),salt,keccak256(init))))));\n        if(chunk.code.length!=0){\n            if(chunk.codehash!=keccak256(abi.encodePacked(bytes1(0),data)))revert BadChunk();\n            return chunk;\n        }\n        address deployed;\n        assembly{deployed:=create2(0,add(init,32),mload(init),salt)}\n        if(deployed==address(0)||deployed!=chunk)revert BadChunk();\n    }\n}\n"
+      }
+    },
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "evmVersion": "cancun",
+      "metadata": {
+        "bytecodeHash": "none",
+        "appendCBOR": false
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "abi",
+            "evm.deployedBytecode.object"
+          ]
+        }
+      }
+    }
+  },
+  "output": {
+    "contracts": {
+      "ChunkFactory.sol": {
+        "ChunkFactory": {
+          "abi": [
+            {
+              "inputs": [],
+              "name": "BadChunk",
+              "type": "error"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                }
+              ],
+              "name": "store",
+              "outputs": [
+                {
+                  "internalType": "address",
+                  "name": "chunk",
+                  "type": "address"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "deployedBytecode": {
+              "object": "608060405234801561000f575f5ffd5b5060043610610029575f3560e01c8063b374012b1461002d575b5f5ffd5b61004061003b3660046101fe565b61005c565b6040516001600160a01b03909116815260200160405180910390f35b5f81158061006b5750615fff82115b15610089576040516334b27e4760e11b815260040160405180910390fd5b5f838360405161009a92919061026c565b60405190819003902090505f6100b184600161027b565b60f01b85856040516020016100c89392919061029a565b60408051601f198184030181529082905280516020808301919091206001600160f81b0319918401919091526bffffffffffffffffffffffff193060601b166021840152603583018590526055830152915060750160408051601f19818403018152919052805160209091012092506001600160a01b0383163b156101a25760405161015c905f90879087906020016102d7565b60405160208183030381529060405280519060200120836001600160a01b03163f1461019b576040516334b27e4760e11b815260040160405180910390fd5b50506101f8565b5f828251602084015ff590506001600160a01b03811615806101d65750836001600160a01b0316816001600160a01b031614155b156101f4576040516334b27e4760e11b815260040160405180910390fd5b5050505b92915050565b5f5f6020838503121561020f575f5ffd5b823567ffffffffffffffff811115610225575f5ffd5b8301601f81018513610235575f5ffd5b803567ffffffffffffffff81111561024b575f5ffd5b85602082840101111561025c575f5ffd5b6020919091019590945092505050565b818382375f9101908152919050565b808201808211156101f857634e487b7160e01b5f52601160045260245ffd5b606160f81b81526001600160f01b0319841660018201526680600a5f395ff360c81b60038201528183600b8301375f9101600b0190815292915050565b6001600160f81b031984168152818360018301375f91016001019081529291505056"
+            }
+          }
+        }
+      }
+    },
+    "sources": {
+      "ChunkFactory.sol": {
+        "id": 0
+      }
+    }
+  }
+}

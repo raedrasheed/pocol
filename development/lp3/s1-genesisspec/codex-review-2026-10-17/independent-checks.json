@@ -1,0 +1,24 @@
+{
+  "ok": true,
+  "rejectionCases": 216,
+  "validGsv1": {
+    "line": 217,
+    "ok": true,
+    "genesisHash": "0xde518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+    "chainId": 777902,
+    "m0": 2,
+    "reencodeEqual": true,
+    "bootable": false
+  },
+  "seed": 2026101701,
+  "inputSha256": "c6df35855396e38bc0210cd5099f238ccfd091da77bc7b298922a52a7868ba3c",
+  "summary": {
+    "check": "genesis-decode",
+    "inputs": 217,
+    "accepted": 1,
+    "rejected": 216,
+    "refused": 0,
+    "reencodeEqual": true,
+    "maxSpecBytes": 2818474
+  }
+}

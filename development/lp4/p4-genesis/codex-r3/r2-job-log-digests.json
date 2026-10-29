@@ -1,0 +1,25 @@
+{
+  "decodedJobLogs": [
+    {
+      "file": "job-118725976167.log",
+      "bytes": 40572,
+      "sha256": "2c413a6cc157f351c1bac4a0b030b631a36daaabac240b0b66bc243c2097940c"
+    },
+    {
+      "file": "job-118725976242.log",
+      "bytes": 22823,
+      "sha256": "ae75c6cf7c433384da989d5e26a8a120590a97edb5b7785e9bb46ca4a9223ce9"
+    },
+    {
+      "file": "job-118725976743.log",
+      "bytes": 55032,
+      "sha256": "7470fae416db219d0076cfae7164a09bcb8ad31e35e2fa95614333f152dad24b"
+    },
+    {
+      "file": "job-118725977103.log",
+      "bytes": 101169,
+      "sha256": "a4bc0eb551468fddb9b710c0cd265654a7aa2f2698619af5f9b5b006cca3f8a6"
+    }
+  ],
+  "scope": "Four completed jobs only; independent still running; decoded UTF-8 API text retained locally"
+}

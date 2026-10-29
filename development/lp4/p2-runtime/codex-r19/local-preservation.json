@@ -1,0 +1,8 @@
+{
+  "archive": "/workspace/work/lp4/p2-surplus-evidence/full-evidence.tar.gz",
+  "bytes": 30031,
+  "sha256": "744ae3239a7c92529747be071f505a6eda1720898b06ff12a30ae6d9c073037b",
+  "localOnly": true,
+  "content": "full22step pre/post execution dumps, independent results, compiled artifacts/mutant source, failures and all build/assertion logs",
+  "public": "source/reproduction recipe,22independent root/gas receipts, full compiled mutation proof; no new raw archive upload"
+}

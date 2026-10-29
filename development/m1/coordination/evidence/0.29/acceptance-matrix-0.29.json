@@ -1,0 +1,1230 @@
+{
+ "counts": {
+  "CompleteCandidate": 34,
+  "Partial": 3,
+  "PendingRootReview": 4
+ },
+ "findings": {
+  "F01": {
+   "delegated": [],
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F02": {
+   "delegated": [],
+   "dependsOn": [
+    "U22"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F03": {
+   "delegated": [],
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F04": {
+   "delegated": [
+    "U02"
+   ],
+   "dependsOn": [
+    "U02",
+    "U03",
+    "P-U02-1",
+    "P-U02-2"
+   ],
+   "disposition": "pendingReviewerDecision",
+   "pendingReviewer": [
+    "P-U02-1",
+    "P-U02-2"
+   ],
+   "phaseA": [
+    "E07"
+   ]
+  },
+  "F05": {
+   "delegated": [],
+   "dependsOn": [
+    "U04"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E06"
+   ]
+  },
+  "F06": {
+   "delegated": [
+    "U01"
+   ],
+   "dependsOn": [
+    "U01"
+   ],
+   "disposition": "closableAfterRootReviewOfOverlay",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F07": {
+   "delegated": [
+    "CR-M1-01"
+   ],
+   "dependsOn": [
+    "CR-M1-01",
+    "U36",
+    "P-D29-1",
+    "P-D29-2"
+   ],
+   "disposition": "pendingReviewerDecision",
+   "pendingReviewer": [
+    "P-D29-1",
+    "P-D29-2"
+   ],
+   "phaseA": [
+    "E03"
+   ]
+  },
+  "F08": {
+   "delegated": [],
+   "dependsOn": [
+    "U06",
+    "U22"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E04"
+   ]
+  },
+  "F09": {
+   "delegated": [
+    "U08"
+   ],
+   "dependsOn": [
+    "U07",
+    "U08"
+   ],
+   "disposition": "openOwner",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E02"
+   ]
+  },
+  "F10": {
+   "delegated": [],
+   "dependsOn": [
+    "U09"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F11": {
+   "delegated": [
+    "U10"
+   ],
+   "dependsOn": [
+    "U10",
+    "P-U10-1"
+   ],
+   "disposition": "pendingReviewerDecision",
+   "pendingReviewer": [
+    "P-U10-1"
+   ],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F12": {
+   "delegated": [],
+   "dependsOn": [
+    "U11",
+    "U22"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F13": {
+   "delegated": [],
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F14": {
+   "delegated": [],
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F15": {
+   "delegated": [],
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F16": {
+   "delegated": [],
+   "dependsOn": [
+    "U12",
+    "U17"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F17": {
+   "delegated": [
+    "U10",
+    "U08"
+   ],
+   "dependsOn": [
+    "U10",
+    "U08",
+    "U11",
+    "P-U08-1",
+    "P-U10-1"
+   ],
+   "disposition": "openOwner",
+   "pendingReviewer": [
+    "P-U08-1",
+    "P-U10-1"
+   ],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F18": {
+   "delegated": [],
+   "dependsOn": [
+    "U13"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F19": {
+   "delegated": [],
+   "dependsOn": [
+    "U20"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F20": {
+   "delegated": [],
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F21": {
+   "delegated": [],
+   "dependsOn": [
+    "U21"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F22": {
+   "delegated": [],
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E04"
+   ]
+  },
+  "F23": {
+   "delegated": [
+    "U01"
+   ],
+   "dependsOn": [
+    "U01"
+   ],
+   "disposition": "closableAfterRootReviewOfOverlay",
+   "pendingReviewer": [],
+   "phaseA": []
+  },
+  "F24": {
+   "delegated": [],
+   "dependsOn": [
+    "U16"
+   ],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": [
+    "E01"
+   ]
+  },
+  "F25": {
+   "delegated": [
+    "U14"
+   ],
+   "dependsOn": [
+    "U14",
+    "P-D29-1",
+    "P-D29-2",
+    "P-D29-3"
+   ],
+   "disposition": "pendingReviewerDecision",
+   "pendingReviewer": [
+    "P-D29-1",
+    "P-D29-2",
+    "P-D29-3"
+   ],
+   "phaseA": []
+  },
+  "F26": {
+   "delegated": [],
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "pendingReviewer": [],
+   "phaseA": []
+  }
+ },
+ "missingExperimentDefinitions": [],
+ "note": "CompleteCandidate is not Complete; PendingRootReview needs root review of this overlay; Phase A outcomes are not M1 gate conditions",
+ "rows": {
+  "B1": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1106-1146",
+   "status": "CompleteCandidate",
+   "title": "Envelope, Bpre, B0-B4, errors, returned id",
+   "unresolved": []
+  },
+  "B10": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR19c in Chrome"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L2737-2759",
+   "status": "CompleteCandidate",
+   "title": "BR19a/b/c, BridgeRef decision rule",
+   "unresolved": []
+  },
+  "B11": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L2697, FD:L4848, FD:L1220-1223",
+   "status": "CompleteCandidate",
+   "title": "BR16 generator and seed; refs; BridgeTrace",
+   "unresolved": []
+  },
+  "B2": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1127-1146, FD:L1196-1197",
+   "status": "CompleteCandidate",
+   "title": "Integer bucket; arrivalMs; pendingReads",
+   "unresolved": []
+  },
+  "B3": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "httpsUrl in the browser"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L1106-1205",
+   "status": "CompleteCandidate",
+   "title": "(kind, method) matrix; str, pathStr, httpsUrl",
+   "unresolved": []
+  },
+  "B4": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1356-1369, FD:L4925-4929",
+   "status": "CompleteCandidate",
+   "title": "SiteStorage and Navigator semantics",
+   "unresolved": []
+  },
+  "B5": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1202-1205",
+   "status": "CompleteCandidate",
+   "title": "Explicitly tested deny list",
+   "unresolved": []
+  },
+  "B6": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1207-1213",
+   "status": "CompleteCandidate",
+   "title": "Single write path to WalletSubmit",
+   "unresolved": []
+  },
+  "B7": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "dependency-cruiser and ESLint verdicts in CI"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L1218, FD:L3262",
+   "status": "CompleteCandidate",
+   "title": "dependency-cruiser rule text",
+   "unresolved": []
+  },
+  "B8": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR runs in Chrome on anvil-br with RpcTap",
+    "BR10 (row V2)"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L2649-2735, FD:L4843",
+   "status": "CompleteCandidate",
+   "title": "BR1-BR14, BR17-BR18 byte-exact; txA; RpcTap; zero request",
+   "unresolved": []
+  },
+  "B9": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L2711-2721",
+   "status": "CompleteCandidate",
+   "title": "Full BR17e table (24 messages)",
+   "unresolved": []
+  },
+  "C1": {
+   "c4Basis": "delegated: U01",
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "pendingRootReview",
+    "c3": "pendingRootReview",
+    "c4": "satisfied",
+    "c5": "pendingRootReview"
+   },
+   "experiments": [
+    "E01",
+    "E04",
+    "E05"
+   ],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L884-889",
+   "status": "PendingRootReview",
+   "title": "Initcode, address formula, 3 vectors",
+   "unresolved": []
+  },
+  "C2": {
+   "c4Basis": "delegated: U01",
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "pendingRootReview",
+    "c3": "pendingRootReview",
+    "c4": "satisfied",
+    "c5": "pendingRootReview"
+   },
+   "experiments": [
+    "E05",
+    "E06"
+   ],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L891-898, FD:L907",
+   "status": "PendingRootReview",
+   "title": "Manifest encoding and normalization",
+   "unresolved": []
+  },
+  "C3": {
+   "c4Basis": "delegated: CR-M1-01, U02, U10, U14, U01",
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "blocked",
+    "c3": "pendingRootReview",
+    "c4": "blocked",
+    "c5": "blocked"
+   },
+   "experiments": [
+    "E02",
+    "E03",
+    "E04",
+    "E07"
+   ],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [
+    "U08"
+   ],
+   "phaseA": [],
+   "reviewerOpen": [
+    "P-D29-1",
+    "P-D29-2",
+    "P-D29-3",
+    "P-U02-1",
+    "P-U02-2",
+    "P-U10-1"
+   ],
+   "source": "FD:L899-905, FD:L913-915",
+   "status": "Partial",
+   "title": "Website slots and permissions",
+   "unresolved": []
+  },
+  "C4": {
+   "c4Basis": "delegated: U01, U10",
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "blocked",
+    "c3": "pendingRootReview",
+    "c4": "blocked",
+    "c5": "blocked"
+   },
+   "experiments": [
+    "E01",
+    "E05"
+   ],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [
+    "U08"
+   ],
+   "phaseA": [],
+   "reviewerOpen": [
+    "P-U08-1",
+    "P-U10-1"
+   ],
+   "source": "FD:L907, FD:L4958",
+   "status": "Partial",
+   "title": "T1 and T16 with literal inputs",
+   "unresolved": []
+  },
+  "E1": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1460-1506",
+   "status": "CompleteCandidate",
+   "title": "Epoch item and record names, values, largest-wins",
+   "unresolved": []
+  },
+  "E2": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L3024-3065",
+   "status": "CompleteCandidate",
+   "title": "D134: shared name per E, name gate, sweep, lemmas, BR22h, SR-model",
+   "unresolved": []
+  },
+  "E3": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR22c in Chrome with CDP"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L1470-1506, FD:L2905, FD:L2936",
+   "status": "CompleteCandidate",
+   "title": "Fence and recovery; lemmas; viewer on loss; BR22a; BR22b/c",
+   "unresolved": []
+  },
+  "E4": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1507-1740",
+   "status": "CompleteCandidate",
+   "title": "D104: RecoveryGate, SeqAlloc, fmt 2, RECORD_BYTES_MAX, disk, window, sweep, tombstone",
+   "unresolved": []
+  },
+  "E5": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L2951-3023",
+   "status": "CompleteCandidate",
+   "title": "BR22d (V-a..V-e), BR22e, BR22f, BR22g, 25 s derivation",
+   "unresolved": []
+  },
+  "E6": {
+   "c4Basis": "delegated: RF-E6-1",
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "pendingRootReview",
+    "c3": "pendingRootReview",
+    "c4": "satisfied",
+    "c5": "pendingRootReview"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L3066-3261",
+   "status": "PendingRootReview",
+   "title": "BR23 (d1-d11, d11b), BR24, AdminDelete/DiskLedger/AdminSlots; constants; BR22f-f5",
+   "unresolved": []
+  },
+  "E7": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L5005-5016",
+   "status": "CompleteCandidate",
+   "title": "DeleteOp; sitesLive; tomb rules; BR23 (d15c)",
+   "unresolved": []
+  },
+  "Q1": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1370-1459",
+   "status": "CompleteCandidate",
+   "title": "qbytes, counters, FIFO, global limit, timeouts",
+   "unresolved": []
+  },
+  "Q2": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1370-1459, FD:L4928",
+   "status": "CompleteCandidate",
+   "title": "Teardown and wait-before-snapshot",
+   "unresolved": []
+  },
+  "Q3": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR21c in Chrome",
+    "BR21d real loader"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L2800-2904",
+   "status": "CompleteCandidate",
+   "title": "BR21a, BR21b, BR21e, BR21f; TQ; BR21c/d",
+   "unresolved": []
+  },
+  "Q4": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L4987",
+   "status": "CompleteCandidate",
+   "title": "BridgeRef/SiteStorageRef StoreQueue extension",
+   "unresolved": []
+  },
+  "R1": {
+   "c4Basis": "delegated: CR-M1-01",
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "pendingRootReview",
+    "c3": "pendingRootReview",
+    "c4": "satisfied",
+    "c5": "pendingRootReview"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1253-1276, FD:L979",
+   "status": "PendingRootReview",
+   "title": "RECV_LIMIT table; WorstLegit; RecvFit",
+   "unresolved": []
+  },
+  "R2": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "MaliciousHttp over sockets",
+    "CAP1",
+    "MR7 timing",
+    "MR10d memory"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L3266-3331",
+   "status": "CompleteCandidate",
+   "title": "MR6b-MR6d, CAP1, RF1-RF4, MR10a-MR10f",
+   "unresolved": []
+  },
+  "R3": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1236-1288",
+   "status": "CompleteCandidate",
+   "title": "Read steps 1-6 and the pools",
+   "unresolved": []
+  },
+  "R4": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "MaliciousHttp over sockets"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L3266-3331, FD:L4943",
+   "status": "CompleteCandidate",
+   "title": "MaliciousHttp scripts MR1-MR12",
+   "unresolved": []
+  },
+  "S1": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1290-1306",
+   "status": "CompleteCandidate",
+   "title": "SiteSession lifecycle; orphan request states",
+   "unresolved": []
+  },
+  "S2": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L1196-1197, FD:L1316",
+   "status": "CompleteCandidate",
+   "title": "Navigation bucket formula",
+   "unresolved": []
+  },
+  "S3": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR20c/BR20d in Chrome"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L2763-2799",
+   "status": "CompleteCandidate",
+   "title": "Corrected BR20a table; BR20b; BR20c script",
+   "unresolved": []
+  },
+  "S4": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L2659, FD:L4980",
+   "status": "CompleteCandidate",
+   "title": "BridgeRef session extension",
+   "unresolved": []
+  },
+  "V1": {
+   "c4Basis": "delegated: V1-SHA-COST, P-C32-2",
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "pendingRootReview",
+    "c3": "pendingRootReview",
+    "c4": "pendingReviewerDecision",
+    "c5": "pendingRootReview"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [
+    "P-V1-1",
+    "P-V1-2",
+    "P-V1-4",
+    "P-V1-5",
+    "P-V1-6",
+    "P-V1-7",
+    "P-V1-8",
+    "P-V1-9",
+    "P-V1-10",
+    "P-D29-1",
+    "P-D29-3"
+   ],
+   "source": "FD:L5017; implementation.md:358",
+   "status": "Partial",
+   "title": "HeaderNetCheck vectors",
+   "unresolved": []
+  },
+  "V2": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "TS-LC",
+    "BR10",
+    "RG3",
+    "RG3-bridge",
+    "RG3b",
+    "RG9"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L5018; implementation.md:359",
+   "status": "CompleteCandidate",
+   "title": "LogClient vectors",
+   "unresolved": []
+  },
+  "V3": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [
+    "E05"
+   ],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L5019; implementation.md:360",
+   "status": "CompleteCandidate",
+   "title": "NetworkProfiles.validate: GSV1, N1, N6, N11",
+   "unresolved": []
+  },
+  "V4": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "X8 matrix in Chrome/CDP",
+    "C7 per-path windows"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L5020",
+   "status": "CompleteCandidate",
+   "title": "X8: pages C1-C8, flags K0-K5",
+   "unresolved": []
+  },
+  "X1": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [
+    "E05"
+   ],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "source": "FD:L981",
+   "status": "CompleteCandidate",
+   "title": "netKey with vector (777001, 0x11 x 32)",
+   "unresolved": []
+  },
+  "X2": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "browser run of the race scenarios"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L1321-1325",
+   "status": "CompleteCandidate",
+   "title": "signEligible",
+   "unresolved": []
+  },
+  "X3": {
+   "c4Basis": null,
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashOwnerBlocked": [],
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "X1-X7, d1-d5 and Q8-Q12 in Chrome with anvil"
+   ],
+   "reviewerOpen": [],
+   "source": "FD:L4959 (definitions restored from the historical source)",
+   "status": "CompleteCandidate",
+   "title": "Q8-Q12, X1-X7, d1-d5",
+   "unresolved": []
+  }
+ },
+ "rule": {
+  "anchor": "R3-08",
+  "criteria": {
+   "c1": "spec text and literal fixtures",
+   "c2": "every computable claim executed with machine-readable results",
+   "c3": "actual root review",
+   "c4": "every affecting decision made by its named decider (here: recorded delegation plus the specific coordinator decision, or a recorded root decision)",
+   "c5": "every genuine blocker closed"
+  },
+  "file": "m1-draft-0.3/M1-SPEC-0.3-AMENDMENTS.md",
+  "phases": {
+   "anchor": "R4-02",
+   "file": "m1-draft-0.4/M1-SPEC-0.4-AMENDMENTS.md",
+   "rule": "Phase A outcomes (EVM, Chrome, M3-TS, node) are not M1-spec conditions; a missing experiment definition is"
+  }
+ },
+ "schema": "pocol-m1-acceptance-matrix/0.29"
+}

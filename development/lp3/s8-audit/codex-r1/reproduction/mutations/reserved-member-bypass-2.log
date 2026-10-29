@@ -1,0 +1,23 @@
+
+running 8 tests
+test membership_cutoff_grace_tombs_and_fallback ... ok
+test inconsistent_parent_views_are_errors_not_certificates ... FAILED
+test exact_seed_ticket_and_proposer_hash_domains ... ok
+test exact_weight_window_sorted_choice_uniform_fallback_and_duplicates ... ok
+test nonce_max_exact_work_and_full_64bit_space ... ok
+test partition_empty_ranges_completeness_and_owner_edges ... ok
+test full_256bit_unbiased_rejection_boundaries ... ok
+test seeded_partition_properties_and_permutation_invariance ... ok
+
+failures:
+
+---- inconsistent_parent_views_are_errors_not_certificates stdout ----
+thread 'inconsistent_parent_views_are_errors_not_certificates' panicked at 'called `Result::unwrap_err()` on an `Ok` value: Membership { height: 10, seal: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ids: [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]] }', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/assignment.rs:40:39
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    inconsistent_parent_views_are_errors_not_certificates
+
+test result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+

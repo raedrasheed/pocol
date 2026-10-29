@@ -1,0 +1,40 @@
+{
+  "schema": "pocol-m1-supplement/0.25",
+  "id": "S25-E07",
+  "supplement": true,
+  "status": "proposed supplement for root review; experiment definition only (no viewer exists or ran). The revoked row depends on the open owner decision U02; both options are written, neither is chosen.",
+  "closesGap": ["F04: 'the viewer table has no executable fixture yet' (m1-draft-0.2/M1-DISPOSITIONS-0.2.md)"],
+  "source": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [209, 221], "literals": ["### 4.3 Version selection", "malformedSelector", "Version not found at this height", "**U02.**"]},
+  "baselineSource": {"file": "reference/FINAL_DESIGN.md", "lines": [914, 914], "literals": ["revoke يمنع العرض الافتراضي"]},
+  "harness": "E07 mocks the Website state at the anchor R (versionCount, currentVersion, per-version status) through the slot layout of m1-draft-0.2/vectors/abi-and-slots.json, then issues the request in the omnibox. 'frame' = whether a site frame is created; 'chunkFetches' = eth_getCode calls for site chunks; 'rpc' = whether any RPC is sent after selector parsing.",
+  "rows": [
+    {"id": "T43-1", "state": {"versionCount": 0, "currentVersion": 0, "status": {}}, "request": {"kind": "default"},
+     "expect": {"result": "noPublishedSite", "frame": false}},
+    {"id": "T43-2", "state": {"versionCount": 1, "currentVersion": 1, "status": {"1": "published"}}, "request": {"kind": "default"},
+     "expect": {"result": "load", "version": 1, "frame": true, "banner": null}},
+    {"id": "T43-3", "state": {"versionCount": 1, "currentVersion": 1, "status": {"1": "draft"}}, "request": {"kind": "default"},
+     "expect": {"result": "stateInvariant", "frame": false}, "note": "impossible for a conforming contract"},
+    {"id": "T43-4", "state": {"versionCount": 1, "currentVersion": 1, "status": {"1": "published"}}, "request": {"kind": "malformed", "text": "/a.html@v4294967296", "selectorCase": "m1-draft-0.3/vectors/selector-cases.json sel-u32-max-plus-1"},
+     "expect": {"result": "malformedSelector", "frame": false, "rpc": false}},
+    {"id": "T43-5", "state": {"versionCount": 2, "currentVersion": 1, "status": {"1": "published", "2": "draft"}}, "request": {"kind": "explicit", "n": 3},
+     "expect": {"result": "versionNotFound", "frame": false}},
+    {"id": "T43-6", "state": {"versionCount": 2, "currentVersion": 1, "status": {"1": "published", "2": "draft"}}, "request": {"kind": "explicit", "n": 2},
+     "expect": {"result": "refuseDraft", "frame": false}, "decision": "U03 (reviewer; P)"},
+    {"id": "T43-7", "state": {"versionCount": 2, "currentVersion": 1, "status": {"1": "published", "2": "published"}}, "request": {"kind": "explicit", "n": 1},
+     "expect": {"result": "load", "version": 1, "frame": true, "banner": null}},
+    {"id": "T43-8", "state": {"versionCount": 2, "currentVersion": 1, "status": {"1": "published", "2": "published"}}, "request": {"kind": "explicit", "n": 2},
+     "expect": {"result": "load", "version": 2, "frame": true, "banner": "notCurrent"}, "decision": "banner text is P"},
+    {"id": "T43-9", "state": {"versionCount": 2, "currentVersion": 2, "status": {"1": "revoked", "2": "published"}}, "request": {"kind": "explicit", "n": 1},
+     "expectByU02": {
+       "interstitial": {"result": "interstitialRevoked", "frame": false, "chunkFetches": 0,
+                        "afterExplicitClick": {"result": "load", "version": 1, "frame": true, "banner": "revoked"}},
+       "refuse": {"result": "refuseRevoked", "frame": false}},
+     "decision": "U02 (owner): open; 'interstitial' is the 0.2 preference, 'refuse' the stricter alternative that needs a change request"}
+  ],
+  "passCriteria": [
+    "every row's observed result equals 'expect' (or, for T43-9, the column of the U02 option the owner chooses)",
+    "rows with frame = false create no frame and fetch no chunk",
+    "T43-4 sends no RPC after the selector is rejected",
+    "T43-9 interstitial: zero chunk fetches until the explicit click"
+  ]
+}

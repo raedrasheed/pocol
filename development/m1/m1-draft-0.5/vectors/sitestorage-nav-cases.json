@@ -1,0 +1,42 @@
+{
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-05 (annex row B4)",
+  "semantics": "Run against tools/sitestorage_ref.py. Storage ops: [set, key, value|null], [clear], [bulk, prefix, count, valueChar, valueLen] (adds keys prefix%04d), [disk, data|null] (sets the disk-acceptance hook for the next ops), [failNextWrite]. Each op's expected reply and the total and entry count after it are compared where given.",
+  "storage": [
+    {"id": "SS-1-BR17a", "ops": [["set", "k", "v"]], "expected": [{"reply": {"result": null}, "total": 2, "entries": 1, "writes": 1}]},
+    {"id": "SS-2-BR17b", "ops": [["set", "k", "v"], ["set", "k", null]], "expected": [{}, {"reply": {"result": null}, "total": 0, "entries": 0, "writes": 2}]},
+    {"id": "SS-3-BR17c", "ops": [["set", "a", "1"], ["set", "b", "2"], ["clear"]], "expected": [{}, {}, {"reply": {"result": null}, "total": 0, "entries": 0}]},
+    {"id": "SS-4-delete-absent", "ops": [["set", "a", "1"], ["set", "zz", null]], "expected": [{}, {"reply": {"result": null}, "total": 2, "entries": 1, "writes": 2}], "note": "P (U38): one write per accepted message, also when nothing changes"},
+    {"id": "SS-5-utf8-accounting", "ops": [["set", "é", "€"]], "expected": [{"reply": {"result": null}, "total": 5}], "note": "entry = 2 + 3 UTF-8 bytes; no quotes, no JSON structure, no 'site:' prefix (FD:L1359)"},
+    {"id": "SS-6-entries-limit", "ops": [["bulk", "k", 4096, "v", 1], ["set", "x", "v"], ["set", "k0000", "w"], ["set", "k0000", null], ["set", "x", "v"]],
+     "expected": [{"total": 24576, "entries": 4096}, {"reply": {"code": 4300, "data": {"reason": "entries", "limit": 4096}}, "entries": 4096}, {"reply": {"result": null}, "entries": 4096}, {"entries": 4095}, {"reply": {"result": null}, "entries": 4096}]},
+    {"id": "SS-7-quota-before-entries", "ops": [["bulk", "k", 4096, "a", 251], ["set", "x9999", "a"], ["set", "k0000", "b"], ["set", "zz", "c"]],
+     "expected": [{"total": 1048576, "entries": 4096}, {"reply": {"code": 4300, "data": {"reason": "quota", "limit": 1048576}}}, {"reply": {"result": null}, "total": 1048326}, {"reply": {"code": 4300, "data": {"reason": "entries", "limit": 4096}}, "total": 1048326}],
+     "note": "op 2 violates both; P (U39): quota is reported first"},
+    {"id": "SS-8-disk-reject", "ops": [["set", "a", "1"], ["disk", {"reason": "disk"}], ["set", "b", "2"], ["set", "a", null], ["clear"], ["disk", null], ["set", "b", "2"]],
+     "expected": [{}, {}, {"reply": {"code": 4300, "data": {"reason": "disk"}}, "total": 2, "writes": 1}, {"reply": {"code": 4300, "data": {"reason": "disk"}}, "entries": 1}, {"reply": {"code": 4300, "data": {"reason": "disk"}}, "entries": 1}, {}, {"reply": {"result": null}, "total": 4}]},
+    {"id": "SS-9-sites-reject", "ops": [["disk", {"reason": "sites", "limit": 64}], ["set", "a", "1"]], "expected": [{}, {"reply": {"code": 4300, "data": {"reason": "sites", "limit": 64}}, "total": 0, "writes": 0}]},
+    {"id": "SS-10-write-failure", "ops": [["set", "a", "1"], ["failNextWrite"], ["set", "b", "2"], ["set", "b", "2"]],
+     "expected": [{}, {}, {"reply": {"code": -32603, "data": {"reason": "transport"}}, "total": 2, "entries": 1, "writes": 1}, {"reply": {"result": null}, "total": 4, "writes": 2}]}
+  ],
+  "storageKey": {"netKey": "0xacfd846cb4e99df47de0b04af39136202c3d466fdcdd2b1ad7a6a8586b01d044", "address": "0x00000000000000000000000000000000000000A1",
+                 "expected": "site:0xacfd846cb4e99df47de0b04af39136202c3d466fdcdd2b1ad7a6a8586b01d044:0x00000000000000000000000000000000000000a1",
+                 "note": "netKey is the X1 vector value computed by Codex (REVIEW-0.3); address placeholder; P: lowercase hex"},
+  "navigation": {
+    "manifestPaths": ["/index.html", "/about.html", "/x/index.html"],
+    "cases": [
+      {"id": "NAV-1-bucket", "steps": [["nav", "/about.html", 0], ["nav", "/about.html", 0], ["nav", "/about.html", 0], ["nav", "/about.html", 0], ["nav", "/about.html", 2000]],
+       "expected": [{"teardown": true, "page": "/about.html"}, {"teardown": true}, {"teardown": true}, {"reply": {"code": -32005, "data": {"reason": "nav"}}, "teardown": false}, {"teardown": true}]},
+      {"id": "NAV-2-404-consumes-token", "steps": [["nav", "/missing.html", 0], ["nav", "/a/../b.html", 0], ["nav", "/a%2fb", 0], ["nav", "/", 0]],
+       "expected": [{"page": "404", "reply": null}, {"page": "404"}, {"page": "404"}, {"reply": {"code": -32005, "data": {"reason": "nav"}}}]},
+      {"id": "NAV-3-directory-and-entry", "steps": [["nav", "/x/", 0], ["nav", "/", 0]], "expected": [{"page": "/x/index.html"}, {"page": "entry"}]},
+      {"id": "NAV-4-orphans", "pendingBefore": [["A", "f1", 1], ["A", "f1", 2]], "steps": [["nav", "/about.html", 0]],
+       "expected": [{"teardown": true}], "expectedPending": {"A": {"session": 2, "global": 2}, "orphans": 2}, "note": "teardown orphans the frame's requests without resetting the counter"}
+    ]
+  },
+  "openExternal": [
+    {"id": "OE-1-BR18e", "steps": [["request", "f", "https://example.org/"], ["user", "f", "https://example.org/", "open"]], "expected": [{"confirmShown": "https://example.org/"}, {"result": null}], "expectedTabs": [{"url": "https://example.org/", "opener": null}]},
+    {"id": "OE-2-BR18f", "steps": [["request", "f", "https://example.org/"], ["user", "f", "https://example.org/", "cancel"]], "expected": [{}, {"code": 4001}], "expectedTabs": []},
+    {"id": "OE-3-BR18h", "steps": [["request", "f", "https://example.org/"], ["request", "f", "https://example.org/"]], "expected": [{}, {"code": -32005, "data": {"reason": "pending"}}], "expectedTabs": []}
+  ]
+}

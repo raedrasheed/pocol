@@ -1,0 +1,25 @@
+TRACK journal — adversarial re-fetch re-journal witness output (audit-2026-10-22).
+Code tree: base a03e089 on branch wf/journal (tree identical to 3c3792e).
+Host: Linux 6.18.44-fc-v153, 4 CPUs. Release, under cpu.lock.
+The witness PROGRAM is gitignored and NOT committed (prototypes/pocold/tests/zz_audit_witness_refetch.rs,
+matched by **/tests/zz_audit_witness*.rs); only this output log is committed.
+Command: flock <cpu.lock> cargo test --release --locked --test zz_audit_witness_refetch -- --nocapture
+Scope: a single in-process local node; no external hosts, no real funds. The witness drives the existing
+solicited-import / retain path (node::import_with with solicited=true, then protect.clear()+retain(),
+one full sync session per round) to MEASURE how many journal bytes a re-announce cycle appends and to
+check which existing bound stops it. It does not change pocold and does not attack a remote.
+Finding: each round re-journals the evicted (valid, in-window) side blocks again (24 records / 16,503 B
+per round here); resident side-block metadata stays pinned at the side cap (16); growth is linear and
+unbounded while the targeted heights stay in the R_keep window of a stationary head. No existing bound
+(side cap, protect_max, EVICTED_MAX, per-peer/queue limits, ban score) stops the disk growth; the only
+limiter is the window advancing as the honest head grows. See JOURNAL-GROWTH-AND-REPLAY.md §4.
+================================================================
+=== witness_refetch ===
+WITNESS-REFETCH {"depth":40,"evictedTotal":24,"headHeight":2,"journalDiskBytes":36934,"journalRecords":42,"phase":"setup","rKeep":64,"residentSideBlocks":16,"sideCap":16}
+WITNESS-REFETCH {"cumulativeJournalDiskBytes":53437,"cumulativeJournalRecords":66,"journalBytesAppended":16503,"journalRecordsAppended":24,"phase":"round","refetchedTotal":24,"residentSideAfterRetain":16,"round":1}
+WITNESS-REFETCH {"cumulativeJournalDiskBytes":69940,"cumulativeJournalRecords":90,"journalBytesAppended":16503,"journalRecordsAppended":24,"phase":"round","refetchedTotal":48,"residentSideAfterRetain":16,"round":2}
+WITNESS-REFETCH {"cumulativeJournalDiskBytes":86443,"cumulativeJournalRecords":114,"journalBytesAppended":16503,"journalRecordsAppended":24,"phase":"round","refetchedTotal":72,"residentSideAfterRetain":16,"round":3}
+WITNESS-REFETCH {"cumulativeJournalDiskBytes":366994,"cumulativeJournalRecords":522,"journalBytesAppended":16503,"journalRecordsAppended":24,"phase":"round","refetchedTotal":480,"residentSideAfterRetain":16,"round":20}
+WITNESS-REFETCH {"avgBytesPerRound":16503.0,"boundsChecked":{"banScoreApplies":false,"evictedMaxStopsSolicited":false,"onlyLimiter":"the R_keep window moving as the honest head advances; with a stationary head growth is linear in rounds (peer-bandwidth bounded)","protectMaxStopsCrossSessionRefetch":false,"sideCapBoundsResidentMetadata":true,"sideCapStopsDiskGrowth":false},"diskAppendedTotal":330060,"journalDiskEnd":366994,"journalDiskStart":36934,"journalRecordsEnd":522,"journalRecordsStart":42,"phase":"summary","recordsAppendedTotal":480,"refetchedEnd":480,"refetchedStart":0,"rounds":20}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.92s
+=== END 2026-10-23T13:26:06Z ===

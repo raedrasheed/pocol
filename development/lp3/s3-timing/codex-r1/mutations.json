@@ -1,0 +1,38 @@
+[
+  {
+    "name": "accept-2pow63",
+    "caught": true,
+    "target": "/workspace/pocol-s3/mutant-target-accept-2pow63",
+    "exitCode": 101
+  },
+  {
+    "name": "reject-tj-equality",
+    "caught": true,
+    "target": "/workspace/pocol-s3/mutant-target-reject-tj-equality",
+    "exitCode": 101
+  },
+  {
+    "name": "future-at-equality",
+    "caught": true,
+    "target": "/workspace/pocol-s3/mutant-target-future-at-equality",
+    "exitCode": 101
+  },
+  {
+    "name": "advance-at-equality",
+    "caught": true,
+    "target": "/workspace/pocol-s3/mutant-target-advance-at-equality",
+    "exitCode": 101
+  },
+  {
+    "name": "late-fallback-delay",
+    "caught": true,
+    "target": "/workspace/pocol-s3/mutant-target-late-fallback-delay",
+    "exitCode": 101
+  },
+  {
+    "name": "wrong-xh",
+    "caught": true,
+    "target": "/workspace/pocol-s3/mutant-target-wrong-xh",
+    "exitCode": 101
+  }
+]

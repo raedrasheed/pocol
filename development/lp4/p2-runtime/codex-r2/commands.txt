@@ -1,0 +1,24 @@
+# Successful controls used Rust 1.99.1 on PATH and isolated CARGO_HOME:
+# CARGO_HOME=/workspace/work/lp4/p2/cargo-home
+# RUSTUP_HOME=/workspace/pocol-tools/rustup
+# PATH begins /workspace/pocol-tools/rustup/toolchains/1.99.1-x86_64-unknown-linux-gnu/bin
+cargo +1.99.1 test --offline --locked --manifest-path prototypes/lp4-execution/Cargo.toml
+NODE_PATH=/workspace/work/lp4/p2-pay/tools/node_modules node prototypes/lp4-execution/tests/compile_contracts.cjs prototypes/lp4-execution/tests/data/pay-harness.json
+cargo +1.99.1 run --offline --locked --manifest-path prototypes/lp4-execution/Cargo.toml --example pay_vectors
+# Save stdout as pay-vectors-source-final.json, then:
+/workspace/work/lp4/p2-pay/py-evm/bin/python prototypes/lp4-execution/tests/pay_oracle.py /workspace/work/lp4/p2-pay/pay-vectors-source-final.json prototypes/lp4-execution/tests/data/pay-harness.json /workspace/work/lp4/p2-pay/pay-oracle-source-final.json
+python3 prototypes/lp4-execution/tests/pay_mutations.py /workspace/work/lp4/p2-pay/mutations-artifact-final
+python3 prototypes/lp4-execution/tests/mutations.py /workspace/work/lp4/p2-pay/legacy-control-mutations
+python3 prototypes/lp4-execution/tests/source_inventory.py /workspace/work/lp4/p2/cargo-home /workspace/work/lp4/p2-pay/source-inventory-final.json
+cargo +1.99.1 build --offline --locked --release --manifest-path prototypes/lp4-execution/Cargo.toml --bin cancun_control
+# SHA-pinned archive download via inherited proxy, no terminal GitHub API dependence:
+curl --fail --location --silent --show-error --max-time 300 https://codeload.github.com/ethereum/tests/tar.gz/c67e485ff8b5be9abc8ad15345ec21aa22e290d9 -o work/tests.tar.gz
+curl --fail --location --silent --show-error --max-time 300 https://codeload.github.com/ethereum/legacytests/tar.gz/1f581b8ccdc4c63acf5f2c5c1b155c690c32a8eb -o work/legacy.tar.gz
+# Extract only Cancun/GeneralStateTests regular JSON files under a safe local corpus directory.
+# Initial full run (FAILED, retained), and final unapproved diagnostic probe:
+/workspace/work/lp4/p2-pay/py-evm/bin/python prototypes/lp4-execution/tests/gst_control.py /workspace/work/lp4/p2-pay/gst/corpus prototypes/lp4-execution/target/release/cancun_control /workspace/work/lp4/p2-pay/gst/probe-full --storage-collision-probe
+# Replays all initial failing variants, comparing unamended vs diagnostic alternative:
+/workspace/work/lp4/p2-pay/py-evm/bin/python prototypes/lp4-execution/tests/gst_alternatives.py CORPUS BINARY INITIAL_CASES_JSONL OUTPUT_JSON
+# Legacy Rust 1.58.1 used its unchanged vendor CARGO_HOME, not the isolated one.
+# Full local test failed first on loopback socket sandbox permission, then on supported-
+# Windows-only journal tests when rerun with network enabled. Neither is full PASS.

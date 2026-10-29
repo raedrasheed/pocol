@@ -1,0 +1,33 @@
+   Compiling lp1-node v0.1.0 (/workspace/pocol-s2/pocol-s2-mutant-z_7rkrzo/crate)
+    Finished test [unoptimized + debuginfo] target(s) in 3.98s
+     Running tests/profile.rs (/workspace/pocol-tools/target/debug/deps/profile-163c84070b8044e2)
+
+running 6 tests
+test schedule_requires_origin_strict_heights_and_implemented_versions ... ok
+test every_width_minimum_and_upper_bound_is_checked_before_narrowing ... ok
+test testfork_v2_never_becomes_bootable_even_on_simnet ... FAILED
+test hash_and_chain_binding_cannot_be_replaced_by_matching_fork_schedule ... ok
+test typed_cp_preserves_all_values_and_exact_encoding ... ok
+test kind_matrix_and_network_chain_id_separation ... FAILED
+
+failures:
+
+---- testfork_v2_never_becomes_bootable_even_on_simnet stdout ----
+thread 'testfork_v2_never_becomes_bootable_even_on_simnet' panicked at 'assertion failed: `(left == right)`
+  left: `Err(UnsupportedVersion(2))`,
+ right: `Err(R22)`', tests/profile.rs:144:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- kind_matrix_and_network_chain_id_separation stdout ----
+thread 'kind_matrix_and_network_chain_id_separation' panicked at 'assertion failed: `(left == right)`
+  left: `true`,
+ right: `false`: Simnet Node 1', tests/profile.rs:108:17
+
+
+failures:
+    kind_matrix_and_network_chain_id_separation
+    testfork_v2_never_becomes_bootable_even_on_simnet
+
+test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--test profile'

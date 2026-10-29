@@ -1,0 +1,20 @@
+error[E0603]: tuple struct constructor `ForkSchedule` is private
+   --> /workspace/pocol-s2-review/privacy.rs:1:62
+    |
+1   | extern crate lp1_node; fn main(){ let _ = lp1_node::profile::ForkSchedule(vec![(1,0)]); }
+    |                                                              ^^^^^^^^^^^^ private tuple struct constructor
+    |
+   ::: /workspace/Proof-of-Collaboration/prototypes/lp1-node/src/profile.rs:218:25
+    |
+218 | pub struct ForkSchedule(Vec<(u16, u64)>);
+    |                         --------------- a constructor is private if any of the fields is private
+    |
+note: the tuple struct constructor `ForkSchedule` is defined here
+   --> /workspace/Proof-of-Collaboration/prototypes/lp1-node/src/profile.rs:218:1
+    |
+218 | pub struct ForkSchedule(Vec<(u16, u64)>);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0603`.

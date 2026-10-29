@@ -1,0 +1,17 @@
+# jm_store_scale phase verify, POCOL_ROOT_CHECK=0, defaults otherwise, bc38d41 (clean tree), 2026-10-27T19:52:31Z, nothing else running
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.16s
+     Running tests/journal_measure.rs (target/release/deps/journal_measure-bae419db3ca5aa62)
+
+running 1 test
+JM-SCALE-A13 {"acctCap":1000000,"boundBytes":"5255514985","budgetRequiredBytes":"6006302840","gasLimit":8000000,"hEnd":129600,"oneVersionAtCapsBytes":"1977381717","phase":"verify","slotCap":4000000,"stateFileBoundBytes":"2388797023392","sysSlotMax":65536}
+test jm_store_scale has been running for over 60 seconds
+JM-SCALE {"allocatedBytes":679866368,"extra":{"head":"[45, a3, 33, 41, 76, e4, 4a, 23]","openSeconds":262.134506979,"resumedFrom":28672,"versionsRead":{"byDiff":31,"whole":2}},"fragmentedBytes":1749937732,"height":29519,"historyBytes":32559104,"journalBytes":41372174,"metadataBytes":14849838,"nodeCacheBytes":267554580,"nodes":1356933,"oneVersionModelBytes":"1855000692","phase":"reopened after the reorg","rssBytes":461848576,"stateFileBytes":2156408832,"storedBytes":369846912,"storedOverModel":0.19937831484108148,"sysSlots":114,"userAccounts":949767,"userSlots":3799232,"vmHwmBytes":476962816}
+test jm_store_scale ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 264.71s
+
+
+real	4m24.973s
+user	2m37.246s
+sys	0m49.492s
+exit 0

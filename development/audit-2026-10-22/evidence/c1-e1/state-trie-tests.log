@@ -1,0 +1,6 @@
+test state_trie::tests::every_two_key_shape_matches ... ok
+test state_trie::tests::stats_count_every_node ... ok
+test state_trie::tests::an_incomplete_touched_set_gives_another_root ... ok
+test state_trie::tests::raw_keys_build_and_update_give_p1_roots ... ok
+test state_trie::tests::state_roots_equal_world_root_through_random_blocks ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 107 filtered out; finished in 1.62s

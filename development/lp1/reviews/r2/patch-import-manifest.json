@@ -1,0 +1,22 @@
+[
+  {
+    "path": "src/json.rs",
+    "oldSha256": "0c102138692ae0e74e679fd242e811b422e7275222df09ec827b0b0ffa5d00af",
+    "newSha256": "7ff965a553ef89cd061f4dd195ac9306404c2cdd16a3cc0343084cf102c34764"
+  },
+  {
+    "path": "src/rpc.rs",
+    "oldSha256": "d96033e9c81bd1de7257ad8ae9d24502d5d95dc87e17e1531ba2278d20b08b8c",
+    "newSha256": "ec05bf823776e098f1f601ae8dcbbbb03a7f9ea71de0eeaeaa45cc8996929549"
+  },
+  {
+    "path": "README.md",
+    "oldSha256": "c8e2db637766abc96793b45feabb95f350c0834d6274236613a73f751fad5987",
+    "newSha256": "27b6911432bbc7d3f0d37835725d6c9be199d9813214b2ade9987e8125d39cdd"
+  },
+  {
+    "path": "LP1-PROGRESS-0.35-AR.md",
+    "oldSha256": null,
+    "newSha256": "4c6f3de85f53ac98dbd119da8d965d8499cf5d777204779742c98c5929b9a50d"
+  }
+]

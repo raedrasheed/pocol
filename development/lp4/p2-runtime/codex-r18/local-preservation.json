@@ -1,0 +1,8 @@
+{
+  "path": "/workspace/work/lp4/p2-registry-full/preserved-evidence/r18-final-comparison.tar.gz",
+  "sha256": "4634f2af4435ab99c94a27c56cd02fd2c7b1a41c9f7c442fe2c612c5ef629c68",
+  "bytes": 1056212,
+  "fileMembers": 21,
+  "scope": "Complete final hosted archive/decoded log and complete local20661 raw receipts; raw cache remains local, public proof deduplicates against published R4",
+  "bootable": false
+}

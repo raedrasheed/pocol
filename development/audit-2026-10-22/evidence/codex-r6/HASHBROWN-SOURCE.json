@@ -1,0 +1,8 @@
+{
+  "rust": "1.99.1",
+  "stdlib_hashbrown": "0.17.1",
+  "source": "rust-src/library/vendor/hashbrown-0.17.1/src/raw.rs",
+  "sha256": "0c8ad353ba95817e72b0a8fea48fa2599099ea3def374f254ab6402a9c468d22",
+  "rule": "reserve_rehash_inner: rehash in place when new_items <= full_capacity/2, otherwise resize to max(new_items,full_capacity+1)",
+  "upstream": "https://github.com/rust-lang/hashbrown/blob/v0.17.1/src/raw.rs"
+}

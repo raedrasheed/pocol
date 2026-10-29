@@ -1,0 +1,11 @@
+{
+  "cases": 76,
+  "followUpTransactions": 2,
+  "encoding": "Lossless plaintext hexRuns, all raw signed bytes reconstruct exactly; full expanded fixture preserved locally",
+  "fixtureSHA256": "8c02f7ac4f76bc0f5764a1ea328191c6e72be63520899a09a3f038bee15a2f35",
+  "expandedSHA256": "bd518fd9a6452e1cdb5240479904513f21e81773f3975bbd2cd77e10bc269b75",
+  "reproducedByteIdentical": true,
+  "genesisBuilder": "NOT PASSED",
+  "paramGate": "NOT PASSED",
+  "bootable": false
+}

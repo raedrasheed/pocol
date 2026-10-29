@@ -1,0 +1,74 @@
+[
+  {
+    "check": "lp1-store-journal",
+    "status": "PASS",
+    "detail": "Rust 1.58.1; 12 passed, 0 failed in 1 test binaries",
+    "exitCode": 0,
+    "seconds": 39.9,
+    "command": "cargo test --locked --test store_journal",
+    "cwd": "D:\\a\\pocol\\pocol\\prototypes\\lp1-node"
+  },
+  {
+    "check": "lp1-node-all",
+    "status": "PASS",
+    "detail": "Rust 1.58.1; 150 passed, 0 failed in 20 test binaries",
+    "exitCode": 0,
+    "seconds": 49.2,
+    "command": "cargo test --locked --no-fail-fast",
+    "cwd": "D:\\a\\pocol\\pocol\\prototypes\\lp1-node"
+  },
+  {
+    "check": "lp4-execution",
+    "status": "PASS",
+    "detail": "Rust 1.99.1; 211 passed, 0 failed in 21 test binaries",
+    "exitCode": 0,
+    "seconds": 134.0,
+    "command": "cargo test --release --locked --no-fail-fast",
+    "cwd": "D:\\a\\pocol\\pocol\\prototypes\\lp4-execution"
+  },
+  {
+    "check": "pocold",
+    "status": "PASS",
+    "detail": "Rust 1.99.1; 250 passed, 0 failed in 18 test binaries",
+    "exitCode": 0,
+    "seconds": 1620.4,
+    "command": "cargo test --release --locked --no-fail-fast",
+    "cwd": "D:\\a\\pocol\\pocol\\prototypes\\pocold"
+  },
+  {
+    "check": "pocold-io-fault",
+    "status": "PASS",
+    "detail": "Rust 1.99.1; 106 passed, 0 failed in 2 test binaries",
+    "exitCode": 0,
+    "seconds": 1711.2,
+    "command": "cargo test --release --locked --no-fail-fast --features io-fault --test state_store --test consensus",
+    "cwd": "D:\\a\\pocol\\pocol\\prototypes\\pocold"
+  },
+  {
+    "check": "extension-npm-ci",
+    "status": "PASS",
+    "detail": "",
+    "exitCode": 0,
+    "seconds": 2.8,
+    "command": "D:\\a\\_temp\\audit-r2-tools\\node-v22.22.0-win-x64\\npm.cmd ci --ignore-scripts --no-audit --no-fund",
+    "cwd": "D:\\a\\pocol\\pocol\\prototypes\\pocol-extension"
+  },
+  {
+    "check": "extension-build",
+    "status": "PASS",
+    "detail": "",
+    "exitCode": 0,
+    "seconds": 0.1,
+    "command": "D:\\a\\_temp\\audit-r2-tools\\node-v22.22.0-win-x64\\node.exe build.mjs",
+    "cwd": "D:\\a\\pocol\\pocol\\prototypes\\pocol-extension"
+  },
+  {
+    "check": "extension-unit",
+    "status": "PASS",
+    "detail": " \"result\": \"PASS\",  \"passed\": 234,  \"failed\": []",
+    "exitCode": 0,
+    "seconds": 22.0,
+    "command": "D:\\a\\_temp\\audit-r2-tools\\node-v22.22.0-win-x64\\node.exe tests/unit.mjs",
+    "cwd": "D:\\a\\pocol\\pocol\\prototypes\\pocol-extension"
+  }
+]

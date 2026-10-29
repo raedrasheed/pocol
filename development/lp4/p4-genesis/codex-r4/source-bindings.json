@@ -1,0 +1,25 @@
+{
+  "base": "a67eb9d7ce39e7fdb7c0a53e3dee85de73de61e8",
+  "files": {
+    ".github/workflows/lp4-execution-controls.yml": "860125f66946195674c50d56961b9f9496f888ffc8b1c4b2160a56498d28f076",
+    "prototypes/lp4-execution/contracts/FinalFundingWitness.sol": "7fc8d47578ebb108805be35630f82d7d847663bb35b36c20d9fbb7fe088d8008",
+    "prototypes/lp4-execution/contracts/PendingEscrow.sol": "e034f0d2c52a4477df10b0f296ab1ccb65cd74f8aca5446bb1099fa8163af875",
+    "prototypes/lp4-execution/src/fees.rs": "08a4d4ffeb7cc98f150e75c1e47317d559595110bcb773595769206296eb7542",
+    "prototypes/lp4-execution/src/finality_core.rs": "8f98d5e61884c0f0e92c580b2e14cee92c0113a06973cc50f98be9e30d8bf27e",
+    "prototypes/lp4-execution/src/genesis_builder.rs": "98f838c99848bbe24961fd96ff850451414d0b01bf9d103bbcc5760bd5585849",
+    "prototypes/lp4-execution/src/lib.rs": "a529b850402f83edd0ccb41200651e66368be977764c1d285cefc504a4390f30",
+    "prototypes/lp4-execution/src/receipts.rs": "2d31ccbfe9e4719a68b91ae00cc87d8f550fd6ef50280372d17f90404aceaad1",
+    "prototypes/lp4-execution/src/system.rs": "47cc801ce32bb6fe91188583fd63a1bc4e34258c549da23c3a097c606f7b758a",
+    "prototypes/lp4-execution/src/system/issuance_tests.rs": "9af306b991c79c8e9058b6df5d506f4fd0cbc49043ba8e171ed9f2ed0006204c",
+    "prototypes/lp4-execution/src/system/tests.rs": "e62e1cd47593df29ca7ee3687250c058433f8af067ed321f3321ada818fbc597",
+    "prototypes/lp4-execution/src/user_phase.rs": "b6c14cd01a50be865e87ecd36dba20616b00ea379b458c4b4493d3539d617cfa",
+    "prototypes/lp4-execution/src/wire.rs": "c688ea63767d52468c9fd9eecb0fdfae664ad19f3f70e5f075e9a816136bf593",
+    "prototypes/lp4-execution/tests/compile_pending.cjs": "84b9841fdaf9091adfa6b282ac77b5069d296ce6e1f0d406e456330209758135",
+    "prototypes/lp4-execution/tests/data/issuance-signed.json": "d12611470b01ef7ef94d66f198b12f3284352fc4dd4b99c37512f62dd670098b",
+    "prototypes/lp4-execution/tests/data/pending-escrow.json": "f62ee86bae9b83344dd08f0af52edd3663df2e7f798318558c893015dabe59dc",
+    "prototypes/lp4-execution/tests/issuance_mutations.py": "900314617e35fdda054c1e15fb89c73fc3917ab022d688cf34b86eafd827bf59",
+    "prototypes/lp4-execution/tests/issuance_oracle.py": "746427509013e1dae90f9dba64fc4ad4450814516fe0239ecbfdee1185aba85d",
+    "prototypes/lp4-execution/tests/issuance_signed_fixtures.py": "8af41528dc909192ee297d7675e13ab8cfa89a6e7bb33e8fa782916a3ea11e02",
+    "prototypes/lp4-execution/tests/system_mutations.py": "da0bbee5d31384d9926804a22c680c79ef1a17d2401de51c21fef6252be627fa"
+  }
+}

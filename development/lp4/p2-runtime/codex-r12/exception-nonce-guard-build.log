@@ -1,0 +1,23 @@
+   Compiling pocol-exception-nonce-guard v0.1.0 (/workspace/work/lp4/p2-registry-full/exception-control-nonce-guard)
+warning: unused variable: `snapshot`
+  --> src/native.rs:43:23
+   |
+43 | pub fn validate_nonce(snapshot:&InMemoryDB,caller:Address,nonce:Option<u64>) -> Result<(),EVMError<core::convert::Infallible>> {
+   |                       ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_snapshot`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `caller`
+  --> src/native.rs:43:44
+   |
+43 | pub fn validate_nonce(snapshot:&InMemoryDB,caller:Address,nonce:Option<u64>) -> Result<(),EVMError<core::convert::Infallible>> {
+   |                                            ^^^^^^ help: if this is intentional, prefix it with an underscore: `_caller`
+
+warning: unused variable: `nonce`
+  --> src/native.rs:43:59
+   |
+43 | pub fn validate_nonce(snapshot:&InMemoryDB,caller:Address,nonce:Option<u64>) -> Result<(),EVMError<core::convert::Infallible>> {
+   |                                                           ^^^^^ help: if this is intentional, prefix it with an underscore: `_nonce`
+
+warning: `pocol-exception-nonce-guard` (lib) generated 3 warnings (run `cargo fix --lib -p pocol-exception-nonce-guard` to apply 3 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.71s

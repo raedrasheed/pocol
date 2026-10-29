@@ -1,0 +1,29 @@
+{
+  "source": "reference/browser.md:125 S-a requires abort or commit",
+  "entries": [
+    {
+      "seq": 0,
+      "kind": "sink",
+      "ev": [
+        "begin",
+        1,
+        {
+          "number": 1,
+          "hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ]
+    },
+    {
+      "seq": 1,
+      "kind": "sink",
+      "ev": [
+        "unknownTerminal",
+        1,
+        "fake"
+      ]
+    }
+  ],
+  "expectedRule": "S-a",
+  "actual": [],
+  "pass": false
+}

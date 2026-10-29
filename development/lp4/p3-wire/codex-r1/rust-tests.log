@@ -1,0 +1,129 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.68s
+     Running unittests src/lib.rs (prototypes/lp4-execution/target/debug/deps/pocol_lp4_execution-b4bb3c1aa332e474)
+
+running 18 tests
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::byte_round_trip ... ok
+test hex::tests::round_trip ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test fixed::tests::work_values ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test tests::chain_id_opcode_and_invalid_chain ... ok
+test tests::direct_pay_is_not_accepted_as_empty_account_success ... ok
+test tests::exact_store_gas_boundary ... ok
+test tests::delegated_and_static_pay_calls_are_guarded ... ok
+test tests::nested_pay_is_guarded_even_when_call_result_is_ignored ... ok
+test tests::revert_discards_storage_diff ... ok
+test tests::sstore_is_a_diff_and_snapshot_is_immutable ... ok
+test tests::out_of_gas_discards_storage_diff ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/cancun_control.rs (prototypes/lp4-execution/target/debug/deps/cancun_control-19f38c2cb5427e3d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/create_collision.rs (prototypes/lp4-execution/target/debug/deps/create_collision-6b500154d551b842)
+
+running 10 tests
+test complete_storage_overlay_and_rollback_facts ... ok
+test depth_and_internal_nonce_limit_precede_storage_collision ... ok
+test funding_failure_precedes_collision_nonce_and_warmth ... ok
+test collision_preserves_target_warmth ... ok
+test reverted_init_code_restores_destination_but_consumes_factory_nonce ... ok
+test existing_nonce_and_code_collision_remain_enforced ... ok
+test storage_collision_precedes_destination_balance_overflow ... ok
+test create_and_create2_block_unloaded_nonzero_and_allow_zero ... ok
+test top_level_creation_collides_and_preserves_snapshot ... ok
+test outer_revert_restores_factory_nonce_and_destination ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fees.rs (prototypes/lp4-execution/target/debug/deps/fees-e07e06f12c5ecc76)
+
+running 3 tests
+test fee_cap_priority_and_equality ... ok
+test london_fixed_boundaries_and_wide_intermediate ... ok
+test independent_bigint_london_vectors ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/native_context.rs (prototypes/lp4-execution/target/debug/deps/native_context-e6bed0244324ea5a)
+
+running 3 tests
+test explicit_fields_execute_and_snapshot_is_immutable ... ok
+test explicit_base_fee_gas_limit_and_chain_rejections_do_not_mutate ... ok
+test blockhash_exact_256_window_genesis_and_current_boundaries ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-e81fe88661352824)
+
+running 10 tests
+test delegated_foreign_code_cannot_spend_registry_balance ... ok
+test inherited_static_call_cannot_write_balances ... ok
+test both_roles_transfer_no_callback_and_no_snapshot_commit ... ok
+test funding_zero_self_and_exact_boundaries ... ok
+test auth_modes_value_and_direct_reject ... ok
+test maximum_nonce_rejected_before_execution ... ok
+test nested_revert_restores_both_balances ... ok
+test pay02_existing_code_survives_selfdestruct_and_stays_payable_next_transaction ... ok
+test recipients_overflow_and_encoding_reject_without_effects ... ok
+test pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/receipts.rs (prototypes/lp4-execution/target/debug/deps/receipts-2dfe822435dabf48)
+
+running 2 tests
+test independent_bloom_and_indexed_root ... ok
+test empty_root_and_budget_and_supported_types ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/registry_payment.rs (prototypes/lp4-execution/target/debug/deps/registry_payment-cc084143da01a84d)
+
+running 11 tests
+test closing_ret_counts_all_records_and_never_pays_twice ... ok
+test bridge_authorization_and_missing_refund_destination_roll_back_all_effects ... ok
+test budgets_exact_limits_failed_calls_and_phase_replay_cannot_reset ... ok
+test full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow ... ok
+test prefix_precedence_budgets_and_durable_probe_fail_without_state_commit ... ok
+test reactivation_inactivity_and_closing_refunds_actual_record_amounts ... ok
+test strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic ... ok
+test zero_bond_durable_code_only_and_balance_only_admission ... ok
+test timestamp_closing_height_overflow_and_capacity_boundaries ... ok
+test actual_sweep_scan_and_deletion_caps_preserve_swapped_cursor ... ok
+test zero_delay_and_tomb_cleanup_equality_preserve_unchanged_limits ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/reward_durability.rs (prototypes/lp4-execution/target/debug/deps/reward_durability-e98bf0ea1d71b422)
+
+running 1 test
+test pay02_rejects_both_ephemeral_reward_attacks ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wire.rs (prototypes/lp4-execution/target/debug/deps/wire-6f1e4947b2b762f2)
+
+running 3 tests
+test specified_chain_type_pool_mapping_is_not_block_acceptance ... ok
+test byte_budget_equality_and_minus_one ... ok
+test signed_envelopes_match_independent_oracle ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests pocol_lp4_execution
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

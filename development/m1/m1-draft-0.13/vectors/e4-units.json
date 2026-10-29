@@ -1,0 +1,113 @@
+{
+  "schema": "pocol-m1-e4-units/0.13",
+  "note": [
+    "Known answers were computed by hand from the baseline definition (browser.md:535): pairs [be32(len k)||k||be32(len v)||v] sorted by key bytes, then standard base64 with padding. They were not produced by the reference.",
+    "Strings use JSON escapes. 'pairsHex' is the serialized byte string before base64."
+  ],
+  "sources": [
+    {"file": "reference/browser.md", "lines": [534, 541], "literals": ["fmt: 2", "be32(len k)", "b64"]},
+    {"file": "reference/browser.md", "lines": [628, 640], "literals": ["RECORD_BYTES_MAX = 4·ceil((1048576+8·4096)/3)+256 = 1442048", "23072768", "LATE_NAMES", "531456"]},
+    {"file": "reference/governance.md", "lines": [33, 39], "literals": ["RECORD_BYTES_MAX=1442048", "LATE_RESERVE=23072768", "LATE_NAMES=24", "EPOCH_NAMES_MAX=8", "META_RESERVE=1 MiB"]}
+  ],
+  "constants": {"RECORD_BYTES_MAX": 1442048, "LATE_RESERVE": 23072768, "LATE_NAMES": 24, "EPOCH_NAMES_MAX": 8, "META_RESERVE": 1048576,
+                "DISK_HARD": 268435456, "RECORDS_MAX": 1024, "GATE_BOUND": 25000, "ADMIN_BOUND": 45000,
+                "derivations": {"RECORD_BYTES_MAX": "1048576+8*4096 = 1081344; /3 = 360448; *4 = 1441792; +256 = 1442048",
+                                "LATE_RESERVE": "4*(2+2)*1442048 = 23072768", "LATE_NAMES": "4*(2+2+2) = 24",
+                                "META_RESERVE bound": "1024*512 + 5*2*512 + 8*256 = 524288+5120+2048 = 531456 <= 1048576",
+                                "bytes threshold": "268435456 - 23072768 - 1048576 = 244314112", "names threshold": "1024 - 1 - 24 - 8 = 991",
+                                "GATE_BOUND": "read 5000 + 2*(slot 5000 + checkpoint 5000) = 25000", "ADMIN_BOUND": "25000 + 2*(5000+5000) = 45000"}},
+  "knownAnswers": [
+    {"id": "empty", "dict": {}, "pairsHex": "", "b64": ""},
+    {"id": "k0-a", "dict": {"k0": "a"}, "pairsHex": "000000026b300000000161", "b64": "AAAAAmswAAAAAWE="},
+    {"id": "a-1", "dict": {"a": "1"}, "pairsHex": "00000001610000000131", "b64": "AAAAAWEAAAABMQ=="},
+    {"id": "b-2", "dict": {"b": "2"}, "pairsHex": "00000001620000000132", "b64": "AAAAAWIAAAABMg=="},
+    {"id": "c-3", "dict": {"c": "3"}, "pairsHex": "00000001630000000133", "b64": "AAAAAWMAAAABMw=="},
+    {"id": "two-keys-sorted", "dict": {"b": "2", "a": "1"}, "pairsHex": "0000000161000000013100000001620000000132", "b64": "AAAAAWEAAAABMQAAAAFiAAAAATI="},
+    {"id": "arabic", "dict": {"ك": "سلام"}, "pairsHex": "00000002d98300000008d8b3d984d8a7d985"},
+    {"id": "utf8-byte-order-not-utf16", "dict": {"😀": "x", "｡": "x"}, "pairsHex": "00000003efbda1000000017800000004f09f98800000000178",
+     "note": "U+FF61 (EF BD A1) sorts before U+1F600 (F0 9F 98 80) by UTF-8 bytes; JS default UTF-16 sort would put U+1F600 (D83D...) first"}
+  ],
+  "serializeRejects": [
+    {"id": "lone-high-key", "dict": {"\ud800": "x"}, "reason": "unpairedSurrogate"},
+    {"id": "lone-low-value", "dict": {"k": "a\udc00"}, "reason": "unpairedSurrogate"},
+    {"id": "key-257", "rule": {"key": "k*257", "value": "v"}, "reason": "keyTooLong"},
+    {"id": "value-61441", "rule": {"key": "k", "value": "a*61441"}, "reason": "valueTooLong"},
+    {"id": "entries-4097", "rule": {"entries": 4097}, "reason": "entries"},
+    {"id": "quota-plus-1", "rule": {"maxPlusOne": true}, "reason": "quota"}
+  ],
+  "surrogateCollision": {
+    "dict": {"\ud800": "1", "\ud801": "2"},
+    "strictReason": "unpairedSurrogate",
+    "textEncoderPairsHex": "00000003efbfbd000000013100000003efbfbd0000000132",
+    "decodeOfTextEncoderBytes": "duplicateKey",
+    "status": "demonstrates the collision; the reconciliation is open as P-E4-2 / proposed CR-E4-02, not decided"
+  },
+  "parseRejects": [
+    {"id": "truncated-length", "pairsHex": "000000", "reason": "truncated"},
+    {"id": "truncated-key", "pairsHex": "000000026b", "reason": "truncated"},
+    {"id": "trailing-byte", "pairsHex": "000000026b30000000016100", "reason": "truncated"},
+    {"id": "duplicate-key", "pairsHex": "0000000161000000013100000001610000000132", "reason": "duplicateKey"},
+    {"id": "unsorted", "pairsHex": "0000000162000000013200000001610000000131", "reason": "unsortedKeys"},
+    {"id": "bad-utf8", "pairsHex": "00000002c3280000000161", "reason": "badUtf8"},
+    {"id": "overlong-nul", "pairsHex": "00000002c0800000000161", "reason": "badUtf8"},
+    {"id": "encoded-surrogate", "pairsHex": "00000003eda0800000000161", "reason": "badUtf8"}
+  ],
+  "base64Rejects": [
+    {"id": "space", "b64": "AAAA AmswAAAAAWE=", "reason": "badBase64"},
+    {"id": "no-padding", "b64": "AAAAAmswAAAAAWE", "reason": "badBase64"},
+    {"id": "non-canonical-pad-bits", "b64": "AAAAAmswAAAAAWF=", "reason": "nonCanonicalBase64"},
+    {"id": "url-alphabet", "b64": "AAAAAmsw_AAAAWE=", "reason": "badBase64"},
+    {"id": "garbage", "b64": "!!!!", "reason": "badBase64"}
+  ],
+  "valueChecks": [
+    {"id": "valid", "ver": [1, 3], "value": {"fmt": 2, "epoch": 1, "seq": 3, "tomb": false, "b64": "AAAAAmswAAAAAWE="}, "dict": {"k0": "a"}},
+    {"id": "valid-tomb", "ver": [2, 0], "value": {"fmt": 2, "epoch": 2, "seq": 0, "tomb": true, "b64": ""}, "dict": {}},
+    {"id": "extra-field", "ver": [1, 3], "value": {"fmt": 2, "epoch": 1, "seq": 3, "tomb": false, "b64": "", "x": 1}, "reason": "fields"},
+    {"id": "fmt-float", "ver": [1, 3], "value": {"fmt": 2.0, "epoch": 1, "seq": 3, "tomb": false, "b64": ""}, "reason": "fmt"},
+    {"id": "fmt-1", "ver": [1, 3], "value": {"fmt": 1, "epoch": 1, "seq": 3, "tomb": false, "b64": ""}, "reason": "fmt"},
+    {"id": "epoch-bool", "ver": [1, 3], "value": {"fmt": 2, "epoch": true, "seq": 3, "tomb": false, "b64": ""}, "reason": "epoch"},
+    {"id": "epoch-mismatch", "ver": [1, 3], "value": {"fmt": 2, "epoch": 2, "seq": 3, "tomb": false, "b64": ""}, "reason": "epoch"},
+    {"id": "epoch-not-js-safe", "ver": [9007199254740992, 0], "value": {"fmt": 2, "epoch": 9007199254740992, "seq": 0, "tomb": false, "b64": ""}, "reason": "epoch"},
+    {"id": "seq-bool", "ver": [1, 1], "value": {"fmt": 2, "epoch": 1, "seq": true, "tomb": false, "b64": ""}, "reason": "seq"},
+    {"id": "tomb-string", "ver": [1, 3], "value": {"fmt": 2, "epoch": 1, "seq": 3, "tomb": "false", "b64": ""}, "reason": "tomb"},
+    {"id": "tomb-with-pairs", "ver": [1, 3], "value": {"fmt": 2, "epoch": 1, "seq": 3, "tomb": true, "b64": "AAAAAmswAAAAAWE="}, "reason": "tombWithPairs"},
+    {"id": "b64-trailing-byte", "ver": [1, 2], "value": {"fmt": 2, "epoch": 1, "seq": 2, "tomb": false, "b64": "AAAAAmswAAAAAWEA"}, "reason": "truncated"}
+  ],
+  "encodeRejects": [
+    {"id": "epoch-2^53", "E": "2**53", "seq": 0, "reason": "epochNotJsSafe"},
+    {"id": "epoch-0", "E": "0", "seq": 0, "reason": "epochRange"},
+    {"id": "seq-2^32", "E": "1", "seq": 4294967296, "reason": "seqRange"},
+    {"id": "tomb-with-dict", "E": "1", "seq": 0, "tomb": true, "dict": {"k": "v"}, "reason": "tombWithPairs"}
+  ],
+  "maxRecord": {
+    "rule": "4096 entries: key 'K'+4 lowercase hex digits (K0000..K0fff, 5 bytes), value 251 x 'a'; total 4096*256 = 1048576; pairs 4096*(8+256) = 1081344 bytes",
+    "b64Length": 1441792,
+    "valueJsonLength": 1441865,
+    "nameAssumption": "netKey = '0x'+64 hex (66 chars, P-E4-4), addr = '0x'+40 hex: name length 5+66+1+42+3+16+1+8 = 142",
+    "epoch": 9007199254740991, "seq": 4294967295,
+    "encSize": 1442007, "withinRecordBytesMax": true,
+    "derivedNetKeyBound": "enc <= 1442048 holds for netKey length <= 107 under RA-U64 numeric epoch/seq"
+  },
+  "disk": {
+    "source": {"file": "reference/browser.md", "lines": [632, 653], "literals": ["STORE_DISK_HARD", "STORE_RECORDS_MAX", "settleSeq", "refresh"]},
+    "accept": [
+      {"id": "names-boundary-accept", "names": 991, "inUse": 0, "enc": 100, "kind": "set", "ok": true},
+      {"id": "names-boundary-reject", "names": 992, "inUse": 0, "enc": 100, "kind": "set", "ok": false, "dim": "names"},
+      {"id": "bytes-boundary-accept", "names": 0, "inUse": 244313112, "enc": 1000, "kind": "set", "ok": true},
+      {"id": "bytes-boundary-reject", "names": 0, "inUse": 244313113, "enc": 1000, "kind": "set", "ok": false, "dim": "bytes"},
+      {"id": "tomb-exempt-from-bytes", "names": 0, "inUse": 268435456, "enc": 300, "kind": "tomb", "ok": true},
+      {"id": "tomb-still-counts-names", "names": 992, "inUse": 0, "enc": 300, "kind": "tomb", "ok": false, "dim": "names"},
+      {"id": "remove-zero-ticket", "names": 2000, "inUse": 300000000, "enc": 0, "kind": "remove", "ok": true}
+    ],
+    "lifecycle": [
+      {"do": "reserve", "enc": 100, "expect": {"rBytes": 100, "rNames": 1}},
+      {"do": "reserve", "enc": 200, "expect": {"rBytes": 300, "rNames": 2}},
+      {"do": "refreshIssue", "expect": {"refreshing": true}},
+      {"do": "settle", "ticket": 1, "expect": {"settleSeq1": 2}},
+      {"do": "refreshComplete", "inUse": 100, "names": 1, "expect": {"rBytes": 300, "rNames": 2, "why": "ticket 1 settled AFTER the refresh was issued: kept"}},
+      {"do": "refreshIssue", "expect": {"refreshing": true}},
+      {"do": "refreshIssueWhileBusy", "expect": {"returned": null, "pending": true}},
+      {"do": "refreshComplete", "inUse": 100, "names": 1, "expect": {"rBytes": 200, "rNames": 1, "nextRefreshIssued": true}}
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "specVersion": "M1 draft 0.6",
+  "revision": "R6-05 (annex row B10)",
+  "baseline": "FD:L2736-2760 (BR19a, BR19b, BR19c), FD:L1129-1155 (bucket, pendingReads), FD:L4855-4862 (BridgeBucket, check, RpcReadClient).",
+  "messageLiteral": {
+    "m(i)": "{\"id\":i,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_blockNumber\",\"params\":[]}}",
+    "invalid(i)": "P: {\"id\":i,\"kind\":\"rpc_read\", (truncated, invalid JSON)",
+    "oversize(i)": "P: {\"id\":i,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_blockNumber\",\"params\":[\"aaa...\"]}} padded to exactly 65537 UTF-8 bytes"
+  },
+  "traceTokensBefore": "P: BridgeTrace tokensBefore_mt is the stored tokens_mt before the refill for this message. A size-rejected message does not touch the bucket, so the next line's tokensBefore_mt equals its own (FD:L2690).",
+  "BR19a": {
+    "session": {"createdMs": 1000},
+    "rows": [
+      {"id": "a1-ok",   "atMs": 1000, "messages": "m(1)..m(50)",   "result": "ok each",  "tokensAfterEach": "50000 - 1000k", "tokensAfterLast": 0},
+      {"id": "a1-rate", "atMs": 1000, "messages": "m(51)..m(60)",  "result": {"code": -32005, "data": {"reason": "rate"}, "id": null}, "tokensAfterLast": 0},
+      {"id": "a2",      "atMs": 1019, "messages": "m(61)",         "result": {"code": -32005, "data": {"reason": "rate"}, "id": null}, "tokensAfterLast": 950},
+      {"id": "a3",      "atMs": 1020, "messages": "m(62)",         "result": "ok", "tokensAfterLast": 0},
+      {"id": "a4-ok",   "atMs": 3000, "messages": "m(63)..m(112)", "result": "ok each", "tokensBeforeRefill": 0, "tokensAfterRefill": 50000, "tokensAfterLast": 0},
+      {"id": "a4-rate", "atMs": 3000, "messages": "m(113)",        "result": {"code": -32005, "data": {"reason": "rate"}, "id": null}, "tokensAfterLast": 0},
+      {"id": "a5-invalid", "atMs": 5000, "messages": "invalid(114)..invalid(163)", "result": {"code": -32600, "id": null}, "tokensAfterLast": 0},
+      {"id": "a5-rate", "atMs": 5000, "messages": "m(164)",        "result": {"code": -32005, "data": {"reason": "rate"}, "id": null}, "tokensAfterLast": 0},
+      {"id": "a6-size", "atMs": 7000, "messages": "oversize(165)..oversize(214)", "result": {"code": -32600, "data": {"reason": "size"}, "id": null}, "tokensAfterLast": 0, "note": "the bucket is not refilled or touched by size rejections"},
+      {"id": "a6-ok",   "atMs": 7000, "messages": "m(215)..m(264)", "result": "ok each", "tokensAfterLast": 0},
+      {"id": "a6-rate", "atMs": 7000, "messages": "m(265)",         "result": {"code": -32005, "data": {"reason": "rate"}, "id": null}, "tokensAfterLast": 0}
+    ],
+    "a7": "every BridgeTrace line carries tokensBefore_mt equal to the model's stored value before the message (checked for all 265 lines)",
+    "negativeControl": "bridge-fault:noRefill must fail a3 (tokens stay 0 at 1020 -> rate)"
+  },
+  "BR19b": {
+    "setup": "RpcReadClient with FakeTransport (holds replies until released) and FakeClock; frame f1 in session S with pendingReads 0; inputs already passed check.",
+    "steps": [
+      {"id": "b1", "do": "5 x eth_call at t=0", "expected": {"accepted": 4, "rejectedPending": 1, "transportReceived": 4, "pendingReads": 4}},
+      {"id": "b2", "do": "release the reply of request 1; then a 6th eth_call", "expected": {"frameReplies": 1, "pendingAfterRelease": 3, "sixthReachesTransport": true, "pendingReads": 4}},
+      {"id": "b3", "do": "advance the clock 10000 ms without replies", "expected": {"transportErrors": 4, "replyCode": -32603, "replyData": {"reason": "transport"}, "pendingReads": 0}},
+      {"id": "b4", "do": "eth_getLogs via LogClient.fetchAll (MockLogServer holds; 3 internal requests), then 4 x eth_call", "expected": {"pendingAfterGetLogs": 1, "ethCallAccepted": 3, "ethCallPending": 1}},
+      {"id": "b5", "do": "fresh frame f2 with 4 pending reads; tear f2 down; new frame f3 in the same session reads once; settle one orphan; f3 reads again",
+       "expected": {"repliesToTornFrame": 0, "f3FirstRead": {"code": -32005, "data": {"reason": "pending"}}, "pendingAfterSettle": 3, "f3SecondReadReachesTransport": true, "orphanRepliesToAnyFrame": 0}}
+    ]
+  },
+  "BR19c": {
+    "script": [
+      "TestHooks opens a fresh session for BadSite (full bucket); RpcTap.serve in front of anvil-br (chainId 777910); RpcTap.hold('eth_call', 3000)",
+      "BadSite sends, in one synchronous loop without waiting, 60 messages m(1)..m(60) (rpc_read eth_blockNumber)",
+      "2000 ms after the loop it sends 5 messages {\"id\":61..65,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_call\",\"params\":[{\"to\":\"<s2>\"},\"latest\"]}}",
+      "Collect BridgeTrace (arrivalMs, decisions) and the RpcTap log (tIn, tOut per forwarded request)"
+    ],
+    "matching": "G: every BridgeTrace decision equals the BridgeRef decision computed from the recorded arrivalMs and reply times; the set of RpcTap requests equals the set of messages BridgeRef routes; zero requests for rejected messages (FD:L2758).",
+    "decisionRule": "Decisive if BridgeRef predicts at least one rate rejection among the 60 and at least one pending rejection among the 5; otherwise repeat up to 3 times, then 'inconclusive' with the recorded arrival intervals (FD:L2759). No fixed count such as 50/10 is expected (FD:L2760).",
+    "syntheticTrace": {
+      "label": "P: a reference trace to exercise BridgeRef itself (not a browser run): arrivals of m(1)..m(60) at 1000+j ms (j = 0..59); RpcTap replies to eth_blockNumber 5 ms after forwarding; the 5 eth_call arrive at 3000 ms; their replies are held until 6000 ms.",
+      "expected": {"bpre60": "52 x pass then 8 x rate", "ethCall": "4 forwarded, the 5th -32005 {pending}", "decisive": true, "rejectedForwarded": 0}
+    }
+  }
+}

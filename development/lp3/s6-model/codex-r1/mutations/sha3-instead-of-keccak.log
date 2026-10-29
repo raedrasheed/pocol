@@ -1,0 +1,41 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (2.339274ms)
+✔ 1027 previously frozen ASERT rows (14.289728ms)
+✔ timing metrics, TJ1-4 and overflow equality (2.618754ms)
+✔ membership, partition completeness, owner and exact hashes (6.072662ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (4.078744ms)
+✖ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (4.303437ms)
+✔ full schema width/order/reserved failures and deep malformed framing (16.492802ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (108.762434ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 172.547004
+
+✖ failing tests:
+
+test at ../work/lp3-s6/mutations/ts-sha3-instead-of-keccak-bv4hzf9y/prototypes/lp3-model/tests.ts:62:1
+✖ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (4.303437ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a'
+  - 'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/mutations/ts-sha3-instead-of-keccak-bv4hzf9y/prototypes/lp3-model/tests.ts:64:90)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a',
+    expected: 'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

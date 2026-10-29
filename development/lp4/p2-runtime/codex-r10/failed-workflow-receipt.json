@@ -1,0 +1,12 @@
+{
+  "id": 39064601201,
+  "head_sha": "3e58d58feedc6d666ab35bcf653e4d7930f52ce2",
+  "head_branch": "codex-lp4-p2-runtime",
+  "status": "completed",
+  "conclusion": "failure",
+  "event": "push",
+  "path": ".github/workflows/lp4-execution-controls.yml",
+  "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39064601201",
+  "scope": "Failed R9 workflow validation; no job execution or PASS",
+  "fix": "Use github.workspace in job.env; runner context remains only at supported step scope"
+}

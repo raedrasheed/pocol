@@ -1,0 +1,108 @@
+[
+  {
+    "name": "rust-version",
+    "command": [
+      "rustc",
+      "-vV"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.02
+  },
+  {
+    "name": "cargo-version",
+    "command": [
+      "cargo",
+      "-V"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.01
+  },
+  {
+    "name": "python-version",
+    "command": [
+      "python3",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.0
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 15.4
+  },
+  {
+    "name": "targeted-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--lib",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "genesis_batch_alloc"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 37.07
+  },
+  {
+    "name": "fresh-seed-differential",
+    "command": [
+      "python3",
+      "tests/lp3_genesis_diff.py",
+      "--bin",
+      "/workspace/pocol-tools/target/debug/lp1-node",
+      "--m1",
+      "../../development/m1",
+      "--seed",
+      "20261017",
+      "--out",
+      "/workspace/pocol-review/fresh-seed-differential.json"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 44.36
+  },
+  {
+    "name": "cli-memory",
+    "command": [
+      "python3",
+      "tests/lp3_genesis_cli.py",
+      "--bin",
+      "/workspace/pocol-tools/target/debug/lp1-node",
+      "--m1",
+      "../../development/m1",
+      "--out",
+      "/workspace/pocol-review/cli-memory.json"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 47.27
+  },
+  {
+    "name": "windows-evidence",
+    "command": [
+      "python3",
+      "-I",
+      "development/lp3/s1-genesisspec/windows-run-37976178670/check_evidence.py",
+      "--repo",
+      "."
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 0.24
+  }
+]

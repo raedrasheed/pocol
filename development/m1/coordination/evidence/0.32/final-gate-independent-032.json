@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-08T09:51:11.080Z",
+  "originalFiles": 139,
+  "changed": 0,
+  "preservedRecentSourceFiles": 42,
+  "rowsChecked": 41,
+  "allFiveCriteriaSatisfied": true,
+  "independentHistory": {
+    "checks": 8,
+    "failed": 0
+  },
+  "suite": {
+    "checks": 113,
+    "passed": 45,
+    "recorded": 68,
+    "failed": 0,
+    "rows": {
+      "CompleteCandidate": 41
+    },
+    "seconds": 1.9
+  }
+}

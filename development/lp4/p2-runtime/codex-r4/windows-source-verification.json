@@ -1,0 +1,10 @@
+{
+  "testedHead": "25ec1f852a7bf9cd9c2960594f3962b18d9197c7",
+  "testedTree": "31e9375af1aea76dc7e5e82381b7ce87d32ad432",
+  "matches": {
+    "CRLF": 70,
+    "raw": 6
+  },
+  "allFiles": 76,
+  "currentChangedWorkflowNotClaimedTested": true
+}

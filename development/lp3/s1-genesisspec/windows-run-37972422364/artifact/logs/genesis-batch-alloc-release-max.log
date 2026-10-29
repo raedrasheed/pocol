@@ -1,0 +1,11 @@
+{"case":"oversizedLine256MiB","ok":true,"peakHeapBytes":8455441,"boundBytes":8520962,"perInputAboveBuffers":15,"rows":3}
+{"case":"gsv1Times30000","ok":true,"peakHeapBytes":8455847,"boundBytes":8520962,"perInputAboveBuffers":421,"rows":30001}
+{"case":"limitPlusOneThenMaxValid","ok":true,"peakHeapBytes":13895089,"boundBytes":14092374,"perInputAboveBuffers":5439663,"rows":3}
+{"case":"maxDeepNest","ok":true,"peakHeapBytes":16844034,"boundBytes":16910848,"perInputAboveBuffers":8388608,"rows":2}
+{"case":"maxFlatList","ok":true,"peakHeapBytes":8455458,"boundBytes":8520962,"perInputAboveBuffers":32,"rows":2}
+{"case":"gsVersion256KiB","ok":true,"peakHeapBytes":10400962,"boundBytes":11142402,"perInputAboveBuffers":1945536,"rows":2}
+{"case":"gsVersionMax","ok":true,"peakHeapBytes":27562054,"boundBytes":36640166,"perInputAboveBuffers":19106628,"rows":2}
+{"test":"genesis_batch_alloc","buffersBytes":8455426,"maxSpecBytes":2818474,"cases":7,"failed":0}
+   Compiling lp1-node v0.1.0 (D:\a\Proof-of-Collaboration\Proof-of-Collaboration\prototypes\lp1-node)
+    Finished release [optimized] target(s) in 2.76s
+     Running tests/genesis_batch_alloc.rs (D:\a\_temp\lp3-target\release\deps\genesis_batch_alloc-a161516a205e5074.exe)

@@ -1,0 +1,49 @@
+{
+  "schema": "pocol-m1-representation/0.25",
+  "id": "CID-1",
+  "status": "proposed clarification for review; not applied and not owner-approved",
+  "sources": {
+    "profile": {"file": "reference/browser.md", "lines": [9, 9], "literals": ["chainId", "genesisPre", "genesisHash"]},
+    "step3": {"file": "reference/browser.md", "lines": [14, 14], "literals": ["تطابق chainId"]},
+    "netKey": {"file": "reference/browser.md", "lines": [18, 18], "literals": ["netKey = keccak256(RLP(['PoCol-net-v1', chainId, genesisHash]))"]},
+    "conflict": {"file": "reference/browser.md", "lines": [20, 20], "literals": ["chainId مكرر"]},
+    "domain": {"file": "reference/consensus.md", "lines": [9, 9], "literals": ["chainId: u64"]},
+    "model": {"file": "m1-draft-0.21/tools/netprofile_ref.py", "lines": [238, 239], "literals": ["type(p['chainId']) is not int"]}
+  },
+  "concern": {
+    "statement": "The networks.json profile carries chainId as a JSON number, and GenesisSpec carries a u64 chainId in [1, 2^64-1]. The 0.21 reference reads JSON with Python's exact integers, so it cannot show what a JS reader does. JSON.parse holds the profile chainId as an IEEE-754 double, exact only up to 2^53.",
+    "provedWith": [
+      {"chainIdLiteral": "9007199254740993", "exact": "9007199254740993", "double": "9007199254740992",
+       "effect": "step 3 compares 9007199254740992 with GenesisSpec 9007199254740993: a valid profile is refused if the comparison is exact (BigInt vs Number), or a profile written as 9007199254740992 is accepted for a GenesisSpec with 9007199254740993 if the GenesisSpec value is converted to Number. The netKey of browser.md:18 is computed from the wrong integer, so storage and approvals bind to a different namespace, and browser.md:20's duplicate-chainId conflict compares the wrong values."},
+      {"chainIdLiteral": "18446744073709551615", "exact": "18446744073709551615", "double": "18446744073709551616",
+       "effect": "the largest legal chainId reads as 2^64, outside u64: a valid profile is refused"}
+    ],
+    "notAffected": "chainIds up to 2^53-1, which include every chainId in the baseline fixtures (777001..777922)."
+  },
+  "alternatives": [
+    {"id": "A", "recommended": true, "name": "exact integer reading",
+     "text": "NetworkProfiles.validate reads chainId from the profile text exactly: the token must be a JSON integer literal without sign, fraction or exponent (^[1-9][0-9]{0,19}$), within [1, 2^64-1], and is compared and RLP-encoded as an exact integer (BigInt in TypeScript). A reader that goes through a double is non-conforming. The JSON form of networks.json is unchanged.",
+     "implementationNote": "for example JSON.parse source-text access (TC39 'JSON.parse source text access', its availability in the extension's minimum Chrome to be verified) or the strict parser that BridgeAuth already needs (FD:L4858-4859 parseStrict)",
+     "decider": "root reviewer (precision requirement on an existing field; the domain and the file format are unchanged)"},
+    {"id": "B", "name": "decimal string", "text": "chainId as a canonical decimal JSON string.", "drawback": "changes the networks.json format named in browser.md:9 (baseline change)"},
+    {"id": "C", "name": "0x quantity string", "text": "chainId as an RPC quantity string ('0x' + minimal hex).", "drawback": "format change as B"},
+    {"id": "D", "name": "cap at 2^53-1", "text": "refuse profiles whose chainId exceeds 2^53-1.", "drawback": "narrows the u64 domain of consensus.md:9 and governance.md R24(e): a baseline change; not recommended"}
+  ],
+  "fixtures": [
+    {"id": "CID-777001", "text": "{\"chainId\": 777001}", "exact": {"ok": true, "value": "777001"}, "double": {"ok": true, "value": "777001"}},
+    {"id": "CID-js-safe-max", "text": "{\"chainId\": 9007199254740991}", "exact": {"ok": true, "value": "9007199254740991"}, "double": {"ok": true, "value": "9007199254740991"}},
+    {"id": "CID-2p53", "text": "{\"chainId\": 9007199254740992}", "exact": {"ok": true, "value": "9007199254740992"}, "double": {"ok": true, "value": "9007199254740992"}},
+    {"id": "CID-2p53-plus-1", "text": "{\"chainId\": 9007199254740993}", "exact": {"ok": true, "value": "9007199254740993"}, "double": {"ok": true, "value": "9007199254740992"}},
+    {"id": "CID-u64-max", "text": "{\"chainId\": 18446744073709551615}", "exact": {"ok": true, "value": "18446744073709551615"}, "double": {"ok": false, "reason": "range"}},
+    {"id": "CID-2p64", "text": "{\"chainId\": 18446744073709551616}", "exact": {"ok": false, "reason": "range"}, "double": {"ok": false, "reason": "range"}},
+    {"id": "CID-zero", "text": "{\"chainId\": 0}", "exact": {"ok": false, "reason": "notCanonicalInteger"}, "double": {"ok": false, "reason": "range"}},
+    {"id": "CID-fraction", "text": "{\"chainId\": 777001.0}", "exact": {"ok": false, "reason": "notCanonicalInteger"}, "double": {"ok": true, "value": "777001"}},
+    {"id": "CID-exponent", "text": "{\"chainId\": 7.77001e5}", "exact": {"ok": false, "reason": "notCanonicalInteger"}, "double": {"ok": true, "value": "777001"}},
+    {"id": "CID-negative", "text": "{\"chainId\": -1}", "exact": {"ok": false, "reason": "notCanonicalInteger"}, "double": {"ok": false, "reason": "range"}},
+    {"id": "CID-string", "text": "{\"chainId\": \"777001\"}", "exact": {"ok": false, "reason": "type"}, "double": {"ok": false, "reason": "type"}},
+    {"id": "CID-leading-zero", "text": "{\"chainId\": 0777001}", "exact": {"ok": false, "reason": "json"}, "double": {"ok": false, "reason": "json"}}
+  ],
+  "collision": {"pair": ["9007199254740992", "9007199254740993"], "genesisHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                "claim": "exact reading keeps the two netKey preimages (and netKeys) distinct; double reading maps both chainIds to the same integer"},
+  "recommendedAmendment": "Proposal (not applied): in the V3 annex (NetworkProfiles.validate step 3 and netKey), require exact integer reading of chainId as alternative A. No change to browser.md, consensus.md or the networks.json format."
+}

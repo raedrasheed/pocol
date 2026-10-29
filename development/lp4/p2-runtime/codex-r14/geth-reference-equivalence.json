@@ -1,0 +1,15 @@
+{
+  "scope": "Every native case identity/index/exception matches the already published R4 reference; every actual valid-transaction state root equals its reference. Native Geth additionally asserts expected logs internally. Original outputs preserved locally, not replaced with synthetic success flags.",
+  "nativeRawCasesSHA256": "bdd3b8b1006bf55f7b7c89d78f8c14320d469c959779e34752e64387ae07f5e7",
+  "nativeRawCasesBytes": 9064645,
+  "reference": "development/lp4/p2-runtime/codex-r4/gst-source-final-cases.jsonl.gz",
+  "referenceRawSHA256": "1bd455f96ded27e7f7f65253a3a3912f8044089ec60394cc036e994cb3c5a28b",
+  "uniqueCaseIdentities": 20661,
+  "canonicalIdentitySHA256": "c8a965382d3840454a25ab6fd8b87be0669b014ff8eafd3ed0bdce5e50329b87",
+  "counts": {
+    "exactStateRootEquivalenceToPublishedR4": 19488,
+    "expectedRejectionPresenceOnly": 1173
+  },
+  "PoColWireAndDeviationAcceptance": "NOT PASSED",
+  "bootable": false
+}

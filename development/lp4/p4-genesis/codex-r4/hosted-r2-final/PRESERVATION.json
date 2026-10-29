@@ -1,0 +1,9 @@
+{
+  "path": "/workspace/work/lp4/p4-system-hosted-39451150747-all-five.tar.gz",
+  "bytes": 4947373,
+  "sha256": "ff7f8c86fc9e54d70adcb6db5b78415dd07083d554e1b24eba58be82d172731f",
+  "publication": "Full ZIPs/extractions/decoded logs LOCAL; verifier, manifests and scoped certificate intended for GitHub; historical four-artifact archive preserved",
+  "allFiveJobs": "success",
+  "fullLP4": "NOT PASSED",
+  "bootable": false
+}

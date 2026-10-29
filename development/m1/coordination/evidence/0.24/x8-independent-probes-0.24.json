@@ -1,0 +1,386 @@
+{
+  "revision": "0.24",
+  "checks": 45,
+  "passed": 45,
+  "failed": 0,
+  "results": [
+    {
+      "check": "all_required_positive_controls_and_zero_cells",
+      "expected": [
+        "PASS"
+      ],
+      "actual": "PASS",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C1",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C2",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C3",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C4",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C5",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C6",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C7",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C8",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C1",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C2",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C3",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C4",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C5",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C6",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C7",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C8",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C1",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C2",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C3",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C4",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C5",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C6",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C7",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C8",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K5_C5",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K5_C6",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K5_C7",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C1",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C2",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C3",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C4",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C5",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C6",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C7",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C8",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "duplicate_window_cannot_erase_recorded_K0_reach",
+      "expected": [
+        "FAIL",
+        "INVALID"
+      ],
+      "actual": "INVALID",
+      "pass": true
+    },
+    {
+      "check": "duplicate_reversed_order_cannot_pass",
+      "expected": [
+        "FAIL",
+        "INVALID"
+      ],
+      "actual": "INVALID",
+      "pass": true
+    },
+    {
+      "check": "duplicate_keeps_observed_failure_diagnostic",
+      "expected": "K0/C1 in fail and gatingReaches retained",
+      "actual": {
+        "fail": [
+          [
+            "K0",
+            "C1"
+          ]
+        ],
+        "gatingReaches": [
+          {
+            "K": "K0",
+            "C": "C1",
+            "windows": [
+              0,
+              48
+            ],
+            "observations": 1
+          }
+        ]
+      },
+      "pass": true
+    },
+    {
+      "check": "unknown_K",
+      "expected": [
+        "INVALID"
+      ],
+      "actual": "INVALID",
+      "pass": true
+    },
+    {
+      "check": "unknown_C",
+      "expected": [
+        "INVALID"
+      ],
+      "actual": "INVALID",
+      "pass": true
+    },
+    {
+      "check": "events_not_list",
+      "expected": [
+        "INVALID"
+      ],
+      "actual": "INVALID",
+      "pass": true
+    },
+    {
+      "check": "missing_secondary",
+      "expected": [
+        "INVALID"
+      ],
+      "actual": "INVALID",
+      "pass": true
+    },
+    {
+      "check": "port_bool",
+      "expected": [
+        "INVALID"
+      ],
+      "actual": "INVALID",
+      "pass": true
+    },
+    {
+      "check": "port_float",
+      "expected": [
+        "INVALID"
+      ],
+      "actual": "INVALID",
+      "pass": true
+    }
+  ]
+}

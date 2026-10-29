@@ -1,0 +1,39 @@
+{
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-06 (annex row B9)",
+  "baseline": "FD:L2711-2723 (BR17e, I50). New session, 24 messages, each reply awaited. Message ids increase from 1 (FD:L2656). Literal message text: compact JSON {\"id\":i,\"kind\":\"storage_set\",\"payload\":{\"method\":\"site_storageSet\",\"params\":[key,value]}}; values are runs of 'a', 'b' or 'x'. The runner generates all 24 texts, checks every byte length against the bounds of FD:L2711 (envelope <= 128 bytes, message <= 61571 bytes < 65536) and writes them in full to results/br17e-expanded.json with their sha256.",
+  "rows": [
+    {"msg": 1,  "group": "e1", "key": "k00", "value": {"char": "a", "len": 61440}, "totalBefore": 0,       "newTotal": 61443,   "reply": null, "totalAfter": 61443},
+    {"msg": 2,  "group": "e1", "key": "k01", "value": {"char": "a", "len": 61440}, "totalBefore": 61443,   "newTotal": 122886,  "reply": null, "totalAfter": 122886},
+    {"msg": 3,  "group": "e1", "key": "k02", "value": {"char": "a", "len": 61440}, "totalBefore": 122886,  "newTotal": 184329,  "reply": null, "totalAfter": 184329},
+    {"msg": 4,  "group": "e1", "key": "k03", "value": {"char": "a", "len": 61440}, "totalBefore": 184329,  "newTotal": 245772,  "reply": null, "totalAfter": 245772},
+    {"msg": 5,  "group": "e1", "key": "k04", "value": {"char": "a", "len": 61440}, "totalBefore": 245772,  "newTotal": 307215,  "reply": null, "totalAfter": 307215},
+    {"msg": 6,  "group": "e1", "key": "k05", "value": {"char": "a", "len": 61440}, "totalBefore": 307215,  "newTotal": 368658,  "reply": null, "totalAfter": 368658},
+    {"msg": 7,  "group": "e1", "key": "k06", "value": {"char": "a", "len": 61440}, "totalBefore": 368658,  "newTotal": 430101,  "reply": null, "totalAfter": 430101},
+    {"msg": 8,  "group": "e1", "key": "k07", "value": {"char": "a", "len": 61440}, "totalBefore": 430101,  "newTotal": 491544,  "reply": null, "totalAfter": 491544},
+    {"msg": 9,  "group": "e1", "key": "k08", "value": {"char": "a", "len": 61440}, "totalBefore": 491544,  "newTotal": 552987,  "reply": null, "totalAfter": 552987},
+    {"msg": 10, "group": "e1", "key": "k09", "value": {"char": "a", "len": 61440}, "totalBefore": 552987,  "newTotal": 614430,  "reply": null, "totalAfter": 614430},
+    {"msg": 11, "group": "e1", "key": "k10", "value": {"char": "a", "len": 61440}, "totalBefore": 614430,  "newTotal": 675873,  "reply": null, "totalAfter": 675873},
+    {"msg": 12, "group": "e1", "key": "k11", "value": {"char": "a", "len": 61440}, "totalBefore": 675873,  "newTotal": 737316,  "reply": null, "totalAfter": 737316},
+    {"msg": 13, "group": "e1", "key": "k12", "value": {"char": "a", "len": 61440}, "totalBefore": 737316,  "newTotal": 798759,  "reply": null, "totalAfter": 798759},
+    {"msg": 14, "group": "e1", "key": "k13", "value": {"char": "a", "len": 61440}, "totalBefore": 798759,  "newTotal": 860202,  "reply": null, "totalAfter": 860202},
+    {"msg": 15, "group": "e1", "key": "k14", "value": {"char": "a", "len": 61440}, "totalBefore": 860202,  "newTotal": 921645,  "reply": null, "totalAfter": 921645},
+    {"msg": 16, "group": "e1", "key": "k15", "value": {"char": "a", "len": 61440}, "totalBefore": 921645,  "newTotal": 983088,  "reply": null, "totalAfter": 983088},
+    {"msg": 17, "group": "e1", "key": "k16", "value": {"char": "a", "len": 61440}, "totalBefore": 983088,  "newTotal": 1044531, "reply": null, "totalAfter": 1044531},
+    {"msg": 18, "group": "e2", "key": "k17", "value": {"char": "a", "len": 61440}, "totalBefore": 1044531, "newTotal": 1105974, "reply": {"code": 4300, "data": {"reason": "quota", "limit": 1048576}}, "totalAfter": 1044531},
+    {"msg": 19, "group": "e3", "key": "k17", "value": {"char": "a", "len": 4043},  "totalBefore": 1044531, "newTotal": 1048577, "reply": {"code": 4300, "data": {"reason": "quota", "limit": 1048576}}, "totalAfter": 1044531},
+    {"msg": 20, "group": "e4", "key": "k17", "value": {"char": "a", "len": 4042},  "totalBefore": 1044531, "newTotal": 1048576, "reply": null, "totalAfter": 1048576},
+    {"msg": 21, "group": "e5", "key": "k18", "value": {"char": "x", "len": 1},     "totalBefore": 1048576, "newTotal": 1048580, "reply": {"code": 4300, "data": {"reason": "quota", "limit": 1048576}}, "totalAfter": 1048576},
+    {"msg": 22, "group": "e6", "key": "k17", "value": {"char": "a", "len": 4043},  "totalBefore": 1048576, "newTotal": 1048577, "reply": {"code": 4300, "data": {"reason": "quota", "limit": 1048576}}, "totalAfter": 1048576},
+    {"msg": 23, "group": "e7", "key": "k00", "value": {"char": "b", "len": 1},     "totalBefore": 1048576, "newTotal": 987137,  "reply": null, "totalAfter": 987137},
+    {"msg": 24, "group": "e8", "key": "k01", "value": null,                         "totalBefore": 987137,  "newTotal": 925694,  "reply": null, "totalAfter": 925694}
+  ],
+  "e9": {"present": {"k00": {"char": "b", "len": 1}, "k02..k16": {"char": "a", "len": 61440}, "k17": {"char": "a", "len": 4042}}, "absent": ["k01", "k18"], "total": 925694},
+  "rejectCriterion": "For every 4300: zero RpcTap requests, zero chrome.storage.local.set calls, byte-identical dictionary snapshot before and after, BridgeTrace storeTotalAfter = storeTotalBefore (FD:L2721).",
+  "mutants": {
+    "strictLess": "using < instead of <= rejects msg 20 (e4)",
+    "quotaNoSubtract": "computing newTotal without subtracting the old entry rejects msg 23 (1048576 + 4 > limit) (FD:L2722)",
+    "nonAtomic": "applying a rejected write changes the snapshot at msgs 18, 19, 21, 22",
+    "note": "FD:L2722 also says (e6) detects a replacement computed 'by the value difference without the key, or the reverse'; that mutant is not modelled here because its exact formula is not stated."
+  }
+}

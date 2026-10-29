@@ -1,0 +1,45 @@
+{
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-02 (C15)",
+  "predicate": "httpsUrl (FD:L1165): printable ASCII 0x21-0x7e only; length <= 2048; starts literally with 'https://'; WHATWG URL parse succeeds with protocol 'https:', non-empty hostname, empty username and empty password.",
+  "oracle": "tools/url_oracle.cjs evaluates the predicate with Node's native WHATWG URL and writes results/url-oracle-0.5.json. The Python bridge harness accepts or rejects an httpsUrl value only by exact-string lookup in that file; a value absent from it is an error of the harness (oracleMissing), never an acceptance.",
+  "expectedSource": "'codex' = the 9 independent cases of coordination/review-001/independent-probes-0.4.json (expected values copied); 'author' = hand expectation from the WHATWG URL Standard, to be confirmed by the oracle. A disagreement is reported as a check failure for review, not silently resolved.",
+  "cases": [
+    {"input": "https://[not-ip]/", "expected": false, "source": "codex"},
+    {"input": "https://[::1::2]/", "expected": false, "source": "codex"},
+    {"input": "https://999.999.999.999/", "expected": false, "source": "codex"},
+    {"input": "https://%00.example/", "expected": false, "source": "codex"},
+    {"input": "https://user%40example.org/", "expected": false, "source": "codex"},
+    {"input": "https://[::1]:", "expected": true, "source": "codex"},
+    {"input": "https://[::1]/", "expected": true, "source": "codex"},
+    {"input": "https://example.org/", "expected": true, "source": "codex"},
+    {"input": "https://user@example.org/", "expected": false, "source": "codex"},
+
+    {"input": "https://user:pw@example.org/", "expected": false, "source": "author", "note": "BR18g"},
+    {"input": "https://:pw@example.org/", "expected": false, "source": "author", "note": "password only"},
+    {"input": "https://", "expected": false, "source": "author", "note": "BR18g: empty host, parse failure"},
+    {"input": "http://example.org/", "expected": false, "source": "author", "note": "BR18g: prefix"},
+    {"input": "javascript:alert(1)", "expected": false, "source": "author", "note": "BR18g"},
+    {"input": "chrome-extension://abcdefghijklmnop/x", "expected": false, "source": "author", "note": "BR18g"},
+    {"input": "HTTPS://example.org/", "expected": false, "source": "author", "note": "the literal prefix is case-sensitive"},
+    {"input": "https://exa mple.org/", "expected": false, "source": "author", "note": "0x20 is not in 0x21-0x7e"},
+    {"input": "https://example.org/é", "expected": false, "source": "author", "note": "non-ASCII"},
+    {"input": "https://example.org", "expected": true, "source": "author"},
+    {"input": "https://example.org:443/", "expected": true, "source": "author"},
+    {"input": "https://example.org:/", "expected": true, "source": "author", "note": "empty port is allowed"},
+    {"input": "https://example.org:65536/", "expected": false, "source": "author", "note": "port out of range"},
+    {"input": "https://example.org?q=1#f", "expected": true, "source": "author"},
+    {"input": "https:///example.org/", "expected": true, "source": "author", "note": "special-scheme parsing ignores extra slashes; host example.org"},
+    {"input": "https://example.org\\x", "expected": true, "source": "author", "note": "backslash is a path separator for special schemes"},
+    {"input": "https://@example.org/", "expected": true, "source": "author", "note": "empty credentials: validation error, not failure; username and password empty"},
+    {"input": "https://0x7f.1/", "expected": true, "source": "author", "note": "IPv4 parser accepts hex parts (127.0.0.1)"},
+    {"input": "https://1.2.3.4.5/", "expected": false, "source": "author", "note": "last label numeric, too many parts"},
+    {"input": "https://%65xample.org/", "expected": true, "source": "author", "note": "percent-decoded to example.org"},
+    {"input": "https://exa%2Fmple.org/", "expected": false, "source": "author", "note": "decodes to a forbidden '/'"},
+    {"input": "https://[::1]:8443/x", "expected": true, "source": "author"}
+  ],
+  "constructed": [
+    {"id": "len-2048", "construction": {"prefix": "https://example.org/", "repeat": "a", "totalLength": 2048}, "expected": true, "source": "author"},
+    {"id": "len-2049", "construction": {"prefix": "https://example.org/", "repeat": "a", "totalLength": 2049}, "expected": false, "source": "author"}
+  ]
+}

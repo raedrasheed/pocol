@@ -1,0 +1,100 @@
+{
+  "baseRemote": "3bdbd149ccabfe21ef6cdd7fbaaa2afdabb1f59b",
+  "baseLocal": "61562502145c39f2e396554bf4b382479ee4f5bb",
+  "baseTree": "ceb5c132298e602fdc04b6bd787a2787d19b7fa5",
+  "rule": "LP4-CODE-01",
+  "approval": "development/LP4-CODE-APPROVAL.md",
+  "files": [
+    {
+      "path": ".github/workflows/lp4-execution-controls.yml",
+      "bytes": 23289,
+      "sha256": "af9cd33380928b665f53a2edadfe8a7b0524e730b31724b5415e0dbc4b16e169"
+    },
+    {
+      "path": "development/LP4-ACCEPTANCE.json",
+      "bytes": 14524,
+      "sha256": "de5bdc8114423b0c49e5e71c7efec515e8ce1b3885e71a8dd6a27bfd63fb35ca"
+    },
+    {
+      "path": "development/LP4-MILESTONE.md",
+      "bytes": 10471,
+      "sha256": "b8f7a5a2dccef3a65909e641e663321c62f5eb9bf53d4834fce871e9a550b5f3"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/lib.rs",
+      "bytes": 7468,
+      "sha256": "b40acad02c9b0e3c07de0486c0e67920e9b96629f7a25f5ed506ee14d4c28789"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/native.rs",
+      "bytes": 5119,
+      "sha256": "a7956cfc27a3d28b1b8adae4c3c41369731a370103c8812325b64488ed61e46f"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_independent.py",
+      "bytes": 8443,
+      "sha256": "9120ab1d663a8fb019d407cb114004d66cf253dd4aa4e1579e83078763bec422"
+    },
+    {
+      "path": "development/LP4-CODE-APPROVAL.md",
+      "bytes": 2404,
+      "sha256": "3da001bb3e17407a25a770ec45f71123dc1643008e9b7a824451a25e876b7f42"
+    },
+    {
+      "path": "prototypes/lp4-execution/contracts/CodeCapsWitness.sol",
+      "bytes": 1307,
+      "sha256": "b15ede0ef1c188a8ba373d1d17307a1760904096364df465420f6eace2881ddf"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/bin/code_caps_control.rs",
+      "bytes": 6611,
+      "sha256": "3e56cfa596ed593a9c87980d804b48df8ffee07ffcc1c6a1ea469aed345cd8c7"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/code_caps.rs",
+      "bytes": 4378,
+      "sha256": "40eb5a262b9cad1076260a1ea5b958a2bd89e113dfa235c00209d1ac53b580bc"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/code_caps.rs",
+      "bytes": 8405,
+      "sha256": "367a26243e53d8bd2dec1812bbf8c55db74469109fc1f8a6e5aaef26b73c57fe"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/code_caps_fixtures.py",
+      "bytes": 11735,
+      "sha256": "1495adee677f8a87bb6737749c6734644e88497e2bce0b80b5e058bd16c1a2ff"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/code_caps_mutations.py",
+      "bytes": 4372,
+      "sha256": "e76840938fbf7324cd5e2c9aa3ef4eb164a1b6570fa48c784ba36060f74497c5"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/compile_code_caps.cjs",
+      "bytes": 781,
+      "sha256": "26fb962287ebb221ab2526b9a8986fe585df5d24c182b9e933d90bdefd93ca19"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/code-caps-execution.json",
+      "bytes": 379578,
+      "sha256": "8c02f7ac4f76bc0f5764a1ea328191c6e72be63520899a09a3f038bee15a2f35"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/code-caps-witness.json",
+      "bytes": 9634,
+      "sha256": "18728035350360f94b340d459c4f8139d729371bf07371959170456d5ff488fa"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_code_independent.py",
+      "bytes": 4980,
+      "sha256": "ea5a991f9055ea20bf962c27945f7382d3f233a799cd76143b0a523c77d25439"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_code_replacements.py",
+      "bytes": 3685,
+      "sha256": "ba2c07768a6bad7b7c0dbc10fd58e0a6395ef0a709631c09abfb1f98a4fb210d"
+    }
+  ],
+  "bootable": false
+}

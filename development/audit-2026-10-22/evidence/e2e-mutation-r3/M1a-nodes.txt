@@ -1,0 +1,16 @@
+== a.log (last 60 of 7 lines)
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[a 13089704] opened: head h=0 records=0
+[a 13094746] lock h=1 a=0 FB tid=0x890763672d
+[a 13136041] attempt 0 expired; advancing
+[a 13136043] lock h=1 a=1 FB tid=0x6bd5bbd515
+[a 13177033] attempt 1 expired; advancing
+[a 13177035] lock h=1 a=2 FB tid=0x30c97d3e8f
+== b.log (last 60 of 7 lines)
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[b 13090211] opened: head h=0 records=0
+[b 13090213] lock h=1 a=0 PROP tid=0x75ffb9880f
+[b 13136020] attempt 0 expired; advancing
+[b 13136021] lock h=1 a=1 FB tid=0x6bd5bbd515
+[b 13177002] attempt 1 expired; advancing
+[b 13177004] lock h=1 a=2 FB tid=0x30c97d3e8f

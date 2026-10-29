@@ -1,0 +1,58 @@
+[
+  {
+    "name": "payment-value",
+    "exit": 1,
+    "assertionKilled": true,
+    "classification": "Python comparator control, not a native compiled mutant",
+    "baselineSHA256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+  },
+  {
+    "name": "initcode-word-gas",
+    "exit": 1,
+    "assertionKilled": true,
+    "classification": "Python comparator control, not a native compiled mutant",
+    "baselineSHA256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+  },
+  {
+    "name": "sender-code",
+    "exit": 1,
+    "assertionKilled": true,
+    "classification": "Python comparator control, not a native compiled mutant",
+    "baselineSHA256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+  },
+  {
+    "name": "priority-fee",
+    "exit": 1,
+    "assertionKilled": true,
+    "classification": "Python comparator control, not a native compiled mutant",
+    "baselineSHA256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+  },
+  {
+    "name": "blob-count",
+    "exit": 1,
+    "assertionKilled": true,
+    "classification": "Python comparator control, not a native compiled mutant",
+    "baselineSHA256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+  },
+  {
+    "name": "block-gas",
+    "exit": 1,
+    "assertionKilled": true,
+    "classification": "Python comparator control, not a native compiled mutant",
+    "baselineSHA256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+  },
+  {
+    "name": "nonce",
+    "exit": 1,
+    "assertionKilled": true,
+    "classification": "Python comparator control, not a native compiled mutant",
+    "baselineSHA256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+  },
+  {
+    "name": "initcode-size",
+    "exit": 1,
+    "assertionKilled": true,
+    "classification": "Python comparator control, not a native compiled mutant",
+    "baselineSHA256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+  }
+]

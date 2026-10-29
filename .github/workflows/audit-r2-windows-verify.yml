@@ -1,0 +1,88 @@
+# Audit repair (A01-A14, round 2) Windows verification of the repair scope:
+# - lp1-node with Rust 1.58.1, including the Windows-only store_journal binary;
+# - lp4-execution and pocold with Rust 1.99.1: journal v2, P2P and RPC sockets, the work deadline
+#   and light lane, admission scope, A13 bounds;
+# - the extension build and unit suite with Node 22.22.0, checksum-verified.
+# It does not run the real-Chrome or live-devnet suites.
+#
+# Triggers:
+# - Manual dispatch with a required `commit` input (a full 40-character SHA). GitHub dispatches a
+#   workflow only once its file is on the default branch, so this path needs the file on `main`.
+# - Pushes to main and PRs into main or the audit-repair base from
+#   this repository (never from a fork), when the repair paths change. The commit under test is the
+#   PR head SHA, not the merge commit. This path needs no merge into `main`.
+# The evidence (artifact audit-r2-windows-<sha>) is bound to the commit, and the run fails if the
+# checkout is any other commit. No secrets are used. The token is read-only and not persisted, and
+# actions are pinned to full commit SHAs (the same pins as lp3-s1-windows-verify.yml). The repository
+# is public, so GitHub-hosted runner minutes are not billed.
+name: Audit repair r2 Windows verification
+
+on:
+  push:
+    branches: [main]
+    paths: ['prototypes/**', '.github/workflows/audit-r2-windows-verify.yml', '.github/scripts/audit-r2-windows-verify.ps1']
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Exact 40-character commit SHA to test (required)
+        required: true
+        type: string
+  pull_request:
+    branches: [main, claude/affectionate-pascal-rjhh2k]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'prototypes/lp1-node/**'
+      - 'prototypes/lp4-execution/**'
+      - 'prototypes/pocold/**'
+      - 'prototypes/pocol-extension/**'
+      - '.github/workflows/audit-r2-windows-verify.yml'
+      - '.github/scripts/audit-r2-windows-verify.ps1'
+
+permissions:
+  contents: read
+
+# One run at a time per PR (or for dispatches); a newer pending run replaces an older pending one.
+concurrency:
+  group: audit-r2-windows-verify-${{ github.event.pull_request.number || 'dispatch' }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows Server 2022 (Rust 1.58.1 / 1.99.1, Node 22.22.0)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-2022
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_TERM_COLOR: never
+      CARGO_INCREMENTAL: '0'
+      COMMIT_UNDER_TEST: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.commit || github.sha }}
+    steps:
+      - name: Validate the commit under test
+        run: |
+          if ($env:COMMIT_UNDER_TEST -cnotmatch '^[0-9a-f]{40}$') { throw 'commit must be a full 40-character lowercase hex SHA' }
+
+      - name: Check out the commit under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.COMMIT_UNDER_TEST }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run the checks
+        id: verify
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}\audit-r2-evidence
+          EXPECTED_COMMIT: ${{ env.COMMIT_UNDER_TEST }}
+        run: ./.github/scripts/audit-r2-windows-verify.ps1 -Evidence $env:EVIDENCE_DIR -ExpectedCommit $env:EXPECTED_COMMIT
+
+      - name: Upload logs and results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: audit-r2-windows-${{ env.COMMIT_UNDER_TEST }}
+          path: ${{ runner.temp }}\audit-r2-evidence
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,6 @@
+done code base  17:50:36 up  1:49,  0 user,  load average: 2.20, 2.65, 3.64
+done code final  17:51:59 up  1:50,  0 user,  load average: 2.83, 2.81, 3.62
+done all base  18:10:31 up  2:09,  0 user,  load average: 2.30, 2.04, 2.48
+done all final  18:15:42 up  2:14,  0 user,  load average: 2.66, 2.52, 2.56
+
+[exited with code 0]

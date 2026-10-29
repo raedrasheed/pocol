@@ -1,0 +1,165 @@
+{
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "input": {
+    "language": "Solidity",
+    "sources": {
+      "CodeCapsWitness.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity 0.8.28;\n\n// Synthetic compiled LP4-CODE-01 witness, never a system contract or deployment.\ncontract CodeCapsWitness {\n    function make(bytes memory init, uint256 salt, bool use2, bool undo)\n        external returns (address child)\n    {\n        assembly {\n            switch use2\n            case 0 { child := create(0, add(init, 32), mload(init)) }\n            default { child := create2(0, add(init, 32), mload(init), salt) }\n        }\n        if (undo) revert();\n    }\n\n    function twice(bytes memory init) external returns (address a, address b) {\n        assembly {\n            a := create(0, add(init, 32), mload(init))\n            b := create(0, add(init, 32), mload(init))\n        }\n    }\n\n    function destroyThenMake(address old, bytes memory init)\n        external returns (address child)\n    {\n        (bool ok,) = old.call(\"\");\n        require(ok);\n        assembly { child := create(0, add(init, 32), mload(init)) }\n    }\n\n    function makeDestroyMake(bytes memory first, bytes memory second)\n        external returns (address a, address b)\n    {\n        assembly { a := create(0, add(first, 32), mload(first)) }\n        (bool ok,) = a.call(\"\");\n        require(ok);\n        assembly { b := create(0, add(second, 32), mload(second)) }\n    }\n}\n"
+      }
+    },
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "evmVersion": "cancun",
+      "metadata": {
+        "bytecodeHash": "none",
+        "appendCBOR": false
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "abi",
+            "evm.deployedBytecode.object",
+            "evm.bytecode.object"
+          ]
+        }
+      }
+    }
+  },
+  "output": {
+    "contracts": {
+      "CodeCapsWitness.sol": {
+        "CodeCapsWitness": {
+          "abi": [
+            {
+              "inputs": [
+                {
+                  "internalType": "address",
+                  "name": "old",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "init",
+                  "type": "bytes"
+                }
+              ],
+              "name": "destroyThenMake",
+              "outputs": [
+                {
+                  "internalType": "address",
+                  "name": "child",
+                  "type": "address"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "bytes",
+                  "name": "init",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "salt",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "use2",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "undo",
+                  "type": "bool"
+                }
+              ],
+              "name": "make",
+              "outputs": [
+                {
+                  "internalType": "address",
+                  "name": "child",
+                  "type": "address"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "bytes",
+                  "name": "first",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "second",
+                  "type": "bytes"
+                }
+              ],
+              "name": "makeDestroyMake",
+              "outputs": [
+                {
+                  "internalType": "address",
+                  "name": "a",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "b",
+                  "type": "address"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "bytes",
+                  "name": "init",
+                  "type": "bytes"
+                }
+              ],
+              "name": "twice",
+              "outputs": [
+                {
+                  "internalType": "address",
+                  "name": "a",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "b",
+                  "type": "address"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "bytecode": {
+              "object": "6080604052348015600e575f5ffd5b506103f98061001c5f395ff3fe608060405234801561000f575f5ffd5b506004361061004a575f3560e01c80638c5774151461004e578063f5537f6a1461007e578063fc251dfc146100b1578063ff491092146100c4575b5f5ffd5b61006161005c3660046102bc565b6100d7565b6040516001600160a01b0390911681526020015b60405180910390f35b61009161008c366004610320565b61010d565b604080516001600160a01b03938416815292909116602083015201610075565b6100616100bf366004610385565b610184565b6100916100d23660046103c7565b6101ee565b5f8280156100ef57848651602088015ff591506100fa565b8551602087015ff091505b508115610105575f5ffd5b949350505050565b5f5f8351602085015ff091505f826001600160a01b03166040515f604051808303815f865af19150503d805f8114610160576040519150601f19603f3d011682016040523d82523d5f602084013e610165565b606091505b5050905080610172575f5ffd5b8351602085015ff09150509250929050565b5f5f836001600160a01b03166040515f604051808303815f865af19150503d805f81146101cc576040519150601f19603f3d011682016040523d82523d5f602084013e6101d1565b606091505b50509050806101de575f5ffd5b8251602084015ff0949350505050565b5f5f8251602084015ff091508251602084015ff09050915091565b634e487b7160e01b5f52604160045260245ffd5b5f82601f83011261022c575f5ffd5b813567ffffffffffffffff81111561024657610246610209565b604051601f8201601f19908116603f0116810167ffffffffffffffff8111828210171561027557610275610209565b60405281815283820160200185101561028c575f5ffd5b816020850160208301375f918101602001919091529392505050565b803580151581146102b7575f5ffd5b919050565b5f5f5f5f608085870312156102cf575f5ffd5b843567ffffffffffffffff8111156102e5575f5ffd5b6102f18782880161021d565b94505060208501359250610307604086016102a8565b9150610315606086016102a8565b905092959194509250565b5f5f60408385031215610331575f5ffd5b823567ffffffffffffffff811115610347575f5ffd5b6103538582860161021d565b925050602083013567ffffffffffffffff81111561036f575f5ffd5b61037b8582860161021d565b9150509250929050565b5f5f60408385031215610396575f5ffd5b82356001600160a01b03811681146103ac575f5ffd5b9150602083013567ffffffffffffffff81111561036f575f5ffd5b5f602082840312156103d7575f5ffd5b813567ffffffffffffffff8111156103ed575f5ffd5b6101058482850161021d56"
+            },
+            "deployedBytecode": {
+              "object": "608060405234801561000f575f5ffd5b506004361061004a575f3560e01c80638c5774151461004e578063f5537f6a1461007e578063fc251dfc146100b1578063ff491092146100c4575b5f5ffd5b61006161005c3660046102bc565b6100d7565b6040516001600160a01b0390911681526020015b60405180910390f35b61009161008c366004610320565b61010d565b604080516001600160a01b03938416815292909116602083015201610075565b6100616100bf366004610385565b610184565b6100916100d23660046103c7565b6101ee565b5f8280156100ef57848651602088015ff591506100fa565b8551602087015ff091505b508115610105575f5ffd5b949350505050565b5f5f8351602085015ff091505f826001600160a01b03166040515f604051808303815f865af19150503d805f8114610160576040519150601f19603f3d011682016040523d82523d5f602084013e610165565b606091505b5050905080610172575f5ffd5b8351602085015ff09150509250929050565b5f5f836001600160a01b03166040515f604051808303815f865af19150503d805f81146101cc576040519150601f19603f3d011682016040523d82523d5f602084013e6101d1565b606091505b50509050806101de575f5ffd5b8251602084015ff0949350505050565b5f5f8251602084015ff091508251602084015ff09050915091565b634e487b7160e01b5f52604160045260245ffd5b5f82601f83011261022c575f5ffd5b813567ffffffffffffffff81111561024657610246610209565b604051601f8201601f19908116603f0116810167ffffffffffffffff8111828210171561027557610275610209565b60405281815283820160200185101561028c575f5ffd5b816020850160208301375f918101602001919091529392505050565b803580151581146102b7575f5ffd5b919050565b5f5f5f5f608085870312156102cf575f5ffd5b843567ffffffffffffffff8111156102e5575f5ffd5b6102f18782880161021d565b94505060208501359250610307604086016102a8565b9150610315606086016102a8565b905092959194509250565b5f5f60408385031215610331575f5ffd5b823567ffffffffffffffff811115610347575f5ffd5b6103538582860161021d565b925050602083013567ffffffffffffffff81111561036f575f5ffd5b61037b8582860161021d565b9150509250929050565b5f5f60408385031215610396575f5ffd5b82356001600160a01b03811681146103ac575f5ffd5b9150602083013567ffffffffffffffff81111561036f575f5ffd5b5f602082840312156103d7575f5ffd5b813567ffffffffffffffff8111156103ed575f5ffd5b6101058482850161021d56"
+            }
+          }
+        }
+      }
+    },
+    "sources": {
+      "CodeCapsWitness.sol": {
+        "id": 0
+      }
+    }
+  }
+}

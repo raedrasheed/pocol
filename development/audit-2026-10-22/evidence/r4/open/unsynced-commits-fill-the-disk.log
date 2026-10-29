@@ -1,0 +1,33 @@
+# 2026-10-28: the open on 16838eb + the first patch (unsynced replay commits); disk free (MB) and the copy's size (MB) every 5 s
+# after (16838eb + open-opt.patch), retry with disk watch: tree 16838eb + 5 changed paths; 2026-10-28T09:27:34Z; load 1.51 1.95 2.21
+tee: /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/open-logs/last-full.log: No space left on device
+thread 'jm_store_scale' (30593) panicked at tests/journal_measure.rs:1251:137:
+called `Result::unwrap()` on an `Err` value: "replay 28996: Local(\"state store: I/O error: No space left on device (os error 28)\")"
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 23 filtered out; finished in 92.88s
+09:26:55  5692MB 3MB
+09:27:00  4443MB 1250MB
+09:27:06  4471MB 1250MB
+09:27:11  4466MB 1250MB
+09:27:16  4447MB 1250MB
+09:27:21  4403MB 1250MB
+09:27:26  4443MB 1250MB
+09:27:31  4439MB 1250MB
+09:27:36  4443MB 1250MB
+09:27:41  4442MB 1250MB
+09:27:46  4442MB 1250MB
+09:27:51  4442MB 1250MB
+09:27:56  4442MB 1250MB
+09:28:01  4442MB 1250MB
+09:28:06  4442MB 1250MB
+09:28:11  3989MB 1704MB
+09:28:16  3636MB 2057MB
+09:28:21  3292MB 2400MB
+09:28:26  2919MB 2774MB
+09:28:31  2553MB 3140MB
+09:28:36  2172MB 3521MB
+09:28:41  1777MB 3915MB
+09:28:46  1407MB 4286MB
+09:28:51  1148MB 4545MB
+09:28:56   781MB 4912MB
+09:29:01   418MB 5275MB
+09:29:06    42MB 5650MB

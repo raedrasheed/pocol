@@ -1,0 +1,21 @@
+
+running 4 tests
+test cf5_cf6_each_conjunct_and_u64 ... ok
+test cf3_cursor_bounds_checked ... ok
+test cf1_cf2_triggers_and_sticky_identity ... ok
+test cf4_gate2_boundaries ... FAILED
+
+failures:
+
+---- cf4_gate2_boundaries stdout ----
+thread 'cf4_gate2_boundaries' panicked at 'assertion failed: `(left == right)`
+  left: `Ok(false)`,
+ right: `Ok(true)`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/finality_core.rs:20:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    cf4_gate2_boundaries
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

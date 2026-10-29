@@ -1,0 +1,10 @@
+warning: function is never used: `bit_len`
+   --> /workspace/work/lp3-s8/reproduction/mutations/schema-width-ygcgpeml/src/genesis_spec.rs:363:4
+    |
+363 | fn bit_len(v: &[u8]) -> u64 {
+    |    ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: 1 warning emitted
+

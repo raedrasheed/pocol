@@ -1,0 +1,67 @@
+# RpcGuard round 3 (review m2): heap a connection thread takes to build a -32021 busy answer
+#
+# Scratch unit test zz_scratch_busy_peaks (source below; added to src/rpc.rs's test module only for these two runs,
+# never committed), run with `cargo test --release --locked --offline --lib zz_scratch_busy_peaks -- --nocapture`
+# under the CPU lock, crate::alloc_meter::peak (requested heap, per thread, relative to the call).
+# Per id shape: batchPeak = a 20-member batch whose members all carry that id; singlePeak = one request;
+# answer = answer bytes; kept = the id was echoed (not null). A batch over JSON_VALUES_MAX is answered with one null-id
+# error unparsed (answer=112).
+#
+# BEFORE: the busy path as at fa97594 (reply_32021, scan_ids and obj_id unchanged from fa97594 at the time of the
+# run; ids kept as parsed serde_json::Value trees). AFTER: the round-3 busy path (ids kept as their <= 128 B
+# encodings; id_encoding parses only ids that can fit). The committed test a_busy_answer_allocates_no_parse_tree
+# asserts every adversarial shape within SMALL_REPLY_PEAK = 132,768 B and prints BUSY-PEAK (the round-3 suite logs).
+#
+# Worst before: nestObj25 (20 ids, each 25 nested objects, 126 B): 340,378 B for one answer, against the 5,184 B
+# (SMALL_REPLY_MAX) per connection the round-2 A13 term counted. Worst after: 24,028 B here; 47,627 B over the
+# committed test's shapes (objects63 as a singleton).
+#
+# --- BEFORE ---
+ZZPEAK s128 raw=128 batchPeak=23363 singlePeak=2462 answer=4741 kept=true
+ZZPEAK arr1k raw=1025 batchPeak=2082 singlePeak=2082 answer=112 kept=false
+ZZPEAK obj1k raw=1087 batchPeak=2082 singlePeak=2082 answer=112 kept=false
+ZZPEAK nestArr64 raw=128 batchPeak=182123 singlePeak=12290 answer=4741 kept=true
+ZZPEAK nestObj25 raw=126 batchPeak=340378 singlePeak=33810 answer=4701 kept=true
+ZZPEAK nestObj127 raw=636 batchPeak=2082 singlePeak=81288 answer=112 kept=false
+ZZPEAK flatObj21 raw=127 batchPeak=73683 singlePeak=7500 answer=4721 kept=true
+ZZPEAK flatArr63 raw=127 batchPeak=61743 singlePeak=6274 answer=4721 kept=true
+ZZPEAK wsArr raw=381 batchPeak=10843 singlePeak=2304 answer=2261 kept=false
+ZZPEAK objs18 raw=145 batchPeak=13698 singlePeak=12674 answer=2261 kept=false
+ZZPEAK objs127 raw=1017 batchPeak=2082 singlePeak=85511 answer=112 kept=false
+ZZPEAK esc1k raw=1022 batchPeak=10843 singlePeak=2082 answer=2261 kept=false
+# --- AFTER ---
+ZZPEAK s128 raw=128 batchPeak=10874 singlePeak=5568 answer=4741 kept=true
+ZZPEAK arr1k raw=1025 batchPeak=5184 singlePeak=5192 answer=112 kept=false
+ZZPEAK obj1k raw=1087 batchPeak=5184 singlePeak=5192 answer=112 kept=false
+ZZPEAK nestArr64 raw=128 batchPeak=16292 singlePeak=13380 answer=4741 kept=true
+ZZPEAK nestObj25 raw=126 batchPeak=24028 singlePeak=21116 answer=4701 kept=true
+ZZPEAK nestObj127 raw=636 batchPeak=5184 singlePeak=5192 answer=112 kept=false
+ZZPEAK flatObj21 raw=127 batchPeak=10873 singlePeak=7961 answer=4721 kept=true
+ZZPEAK flatArr63 raw=127 batchPeak=10276 singlePeak=7364 answer=4721 kept=true
+ZZPEAK wsArr raw=381 batchPeak=8048 singlePeak=7492 answer=2261 kept=false
+ZZPEAK objs18 raw=145 batchPeak=18418 singlePeak=17862 answer=2261 kept=false
+ZZPEAK objs127 raw=1017 batchPeak=5184 singlePeak=5192 answer=112 kept=false
+ZZPEAK esc1k raw=1022 batchPeak=6256 singlePeak=5700 answer=2261 kept=false
+# --- source of the scratch test ---
+    #[test] fn zz_scratch_busy_peaks(){
+        let member=|id:&str|format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"eth_call","params":[]}}"#);
+        let batch=|id:&str|format!("[{}]",vec![member(id);20].join(","));
+        let s128=format!("\"{}\"",&"i".repeat(126));
+        let arr1k=format!("[{}0]","0,".repeat(511));
+        let obj1k=format!("{{{}\"z\":0}}",(0..120).map(|k|format!("\"k{k:03}\":0,")).collect::<String>());
+        let nest_arr64=format!("{}{}","[".repeat(64),"]".repeat(64));
+        let nest_obj25=format!("{}0{}","{\"\":".repeat(25),"}".repeat(25));
+        let nest_obj127=format!("{}0{}","{\"\":".repeat(127),"}".repeat(127));
+        let flat_obj=format!("{{{}}}",(0..21).map(|k|format!("\"{}\":0",(b'a'+k as u8) as char)).collect::<Vec<_>>().join(","));
+        let flat_arr=format!("[{}]",vec!["0";63].join(","));
+        let ws_arr=format!("[{}0]","0  ,  ".repeat(63));
+        let objs=format!("[{}]",vec!["{\"a\":0}";18].join(","));
+        let objs1k=format!("[{}]",vec!["{\"a\":0}";127].join(","));
+        let strk=format!("\"{}\"","\\u0041".repeat(170));
+        for (name,id) in [("s128",&s128),("arr1k",&arr1k),("obj1k",&obj1k),("nestArr64",&nest_arr64),("nestObj25",&nest_obj25),("nestObj127",&nest_obj127),
+            ("flatObj21",&flat_obj),("flatArr63",&flat_arr),("wsArr",&ws_arr),("objs18",&objs),("objs127",&objs1k),("esc1k",&strk)]{
+            let b=batch(id);let (a,peak)=crate::alloc_meter::peak(||super::busy(b.as_bytes()));
+            let one=member(id);let (_,p1)=crate::alloc_meter::peak(||super::busy(one.as_bytes()));
+            println!("ZZPEAK {name} raw={} batchPeak={peak} singlePeak={p1} answer={} kept={}",id.len(),a.len(),!a.contains("\"id\":null"));
+        }
+    }

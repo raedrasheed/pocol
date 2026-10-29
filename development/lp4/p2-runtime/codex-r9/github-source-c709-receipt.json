@@ -1,0 +1,383 @@
+{
+  "testedHead": "c70961187c23d3fd4bab6a99a43fd12001f7518e",
+  "testedTree": "2b3ed68adc3b37899236d60b650eff5d6f0b9d56",
+  "run": 39063488297,
+  "jobs": {
+    "total_count": 3,
+    "jobs": [
+      {
+        "id": 117486164447,
+        "run_id": 39063488297,
+        "workflow_name": "LP4 execution controls",
+        "head_branch": "codex-lp4-p2-runtime",
+        "run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39063488297",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOUrz2Sc8AAAAbWriZ3w",
+        "head_sha": "c70961187c23d3fd4bab6a99a43fd12001f7518e",
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/jobs/117486164447",
+        "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39063488297/job/117486164447",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:40:40Z",
+        "started_at": "2026-10-17T19:40:42Z",
+        "completed_at": "2026-10-17T19:48:30Z",
+        "name": "legacy-windows-regression",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-17T19:40:43Z",
+            "completed_at": "2026-10-17T19:40:44Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-17T19:40:44Z",
+            "completed_at": "2026-10-17T19:40:52Z"
+          },
+          {
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-17T19:40:52Z",
+            "completed_at": "2026-10-17T19:40:53Z"
+          },
+          {
+            "name": "Preserved full legacy Windows verification",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-17T19:40:53Z",
+            "completed_at": "2026-10-17T19:48:25Z"
+          },
+          {
+            "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-17T19:48:25Z",
+            "completed_at": "2026-10-17T19:48:26Z"
+          },
+          {
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-17T19:48:26Z",
+            "completed_at": "2026-10-17T19:48:26Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-17T19:48:26Z",
+            "completed_at": "2026-10-17T19:48:28Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-17T19:48:28Z",
+            "completed_at": "2026-10-17T19:48:28Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/check-runs/117486164447",
+        "labels": [
+          "windows-2022"
+        ],
+        "runner_id": 1000001927,
+        "runner_name": "GitHub Actions 1000001927",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 117486164658,
+        "run_id": 39063488297,
+        "workflow_name": "LP4 execution controls",
+        "head_branch": "codex-lp4-p2-runtime",
+        "run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39063488297",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOUrz2Sc8AAAAbWriasg",
+        "head_sha": "c70961187c23d3fd4bab6a99a43fd12001f7518e",
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/jobs/117486164658",
+        "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39063488297/job/117486164658",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:40:40Z",
+        "started_at": "2026-10-17T19:40:41Z",
+        "completed_at": "2026-10-17T19:42:02Z",
+        "name": "registry-windows-execution",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-17T19:40:42Z",
+            "completed_at": "2026-10-17T19:40:43Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-17T19:40:43Z",
+            "completed_at": "2026-10-17T19:40:51Z"
+          },
+          {
+            "name": "Actual pinned native execution on Windows",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-17T19:40:51Z",
+            "completed_at": "2026-10-17T19:41:58Z"
+          },
+          {
+            "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-17T19:41:58Z",
+            "completed_at": "2026-10-17T19:41:59Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-17T19:41:59Z",
+            "completed_at": "2026-10-17T19:42:00Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-17T19:42:00Z",
+            "completed_at": "2026-10-17T19:42:00Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/check-runs/117486164658",
+        "labels": [
+          "windows-2022"
+        ],
+        "runner_id": 1000001928,
+        "runner_name": "GitHub Actions 1000001928",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 117486164680,
+        "run_id": 39063488297,
+        "workflow_name": "LP4 execution controls",
+        "head_branch": "codex-lp4-p2-runtime",
+        "run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39063488297",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOUrz2Sc8AAAAbWriayA",
+        "head_sha": "c70961187c23d3fd4bab6a99a43fd12001f7518e",
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/jobs/117486164680",
+        "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39063488297/job/117486164680",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:40:40Z",
+        "started_at": "2026-10-17T19:40:42Z",
+        "completed_at": "2026-10-17T19:45:20Z",
+        "name": "cancun-pay-controls",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-17T19:40:42Z",
+            "completed_at": "2026-10-17T19:40:44Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-17T19:40:44Z",
+            "completed_at": "2026-10-17T19:40:46Z"
+          },
+          {
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-17T19:40:46Z",
+            "completed_at": "2026-10-17T19:40:47Z"
+          },
+          {
+            "name": "Install pinned experimental toolchain and comparison tools",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-17T19:40:47Z",
+            "completed_at": "2026-10-17T19:41:03Z"
+          },
+          {
+            "name": "Reproduce compiler output and run actual Rust execution tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-17T19:41:03Z",
+            "completed_at": "2026-10-17T19:41:26Z"
+          },
+          {
+            "name": "Compile PAY mutation controls",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-17T19:41:26Z",
+            "completed_at": "2026-10-17T19:41:52Z"
+          },
+          {
+            "name": "Compile approved CREATE collision mutation controls",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-17T19:41:52Z",
+            "completed_at": "2026-10-17T19:42:04Z"
+          },
+          {
+            "name": "Compile write-budget contradiction controls (not Registry acceptance)",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-17T19:42:04Z",
+            "completed_at": "2026-10-17T19:42:10Z"
+          },
+          {
+            "name": "Compile actual Registry and bridge mutation controls",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-17T19:42:10Z",
+            "completed_at": "2026-10-17T19:42:50Z"
+          },
+          {
+            "name": "Complete pinned upstream Cancun control corpus",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-17T19:42:50Z",
+            "completed_at": "2026-10-17T19:45:17Z"
+          },
+          {
+            "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-17T19:45:17Z",
+            "completed_at": "2026-10-17T19:45:18Z"
+          },
+          {
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-17T19:45:18Z",
+            "completed_at": "2026-10-17T19:45:18Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 22,
+            "started_at": "2026-10-17T19:45:18Z",
+            "completed_at": "2026-10-17T19:45:19Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 23,
+            "started_at": "2026-10-17T19:45:19Z",
+            "completed_at": "2026-10-17T19:45:19Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/check-runs/117486164680",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000001929,
+        "runner_name": "GitHub Actions 1000001929",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      }
+    ]
+  },
+  "artifacts": {
+    "total_count": 3,
+    "artifacts": [
+      {
+        "id": 12112412378,
+        "node_id": "MDg6QXJ0aWZhY3QxMjExMjQxMjM3OA==",
+        "name": "lp4-native-windows",
+        "size_in_bytes": 4019,
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112412378",
+        "archive_download_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112412378/zip",
+        "expired": false,
+        "digest": "sha256:0d301044b4a6288d02a286342dd37ddba387d22cfef42954cfde34f67d4cb54f",
+        "created_at": "2026-10-17T19:41:58Z",
+        "updated_at": "2026-10-17T19:41:58Z",
+        "expires_at": "2026-10-31T19:41:58Z",
+        "workflow_run": {
+          "id": 39063488297,
+          "repository_id": 1388115529,
+          "head_repository_id": 1388115529,
+          "head_branch": "codex-lp4-p2-runtime",
+          "head_sha": "c70961187c23d3fd4bab6a99a43fd12001f7518e"
+        }
+      },
+      {
+        "id": 12112328455,
+        "node_id": "MDg6QXJ0aWZhY3QxMjExMjMyODQ1NQ==",
+        "name": "lp4-legacy-windows",
+        "size_in_bytes": 27098,
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112328455",
+        "archive_download_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112328455/zip",
+        "expired": false,
+        "digest": "sha256:e806ec6dbf070f15abdc30d85efbb789d2e76151098914b3580b737aa9f26b4c",
+        "created_at": "2026-10-17T19:48:26Z",
+        "updated_at": "2026-10-17T19:48:26Z",
+        "expires_at": "2026-10-31T19:48:25Z",
+        "workflow_run": {
+          "id": 39063488297,
+          "repository_id": 1388115529,
+          "head_repository_id": 1388115529,
+          "head_branch": "codex-lp4-p2-runtime",
+          "head_sha": "c70961187c23d3fd4bab6a99a43fd12001f7518e"
+        }
+      },
+      {
+        "id": 12112087647,
+        "node_id": "MDg6QXJ0aWZhY3QxMjExMjA4NzY0Nw==",
+        "name": "lp4-p2-controls",
+        "size_in_bytes": 965782,
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112087647",
+        "archive_download_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112087647/zip",
+        "expired": false,
+        "digest": "sha256:0425b7c8ac4628bd46bc14d68cc0edcb8d327146ee793ac6117c6b6cf1cf1d01",
+        "created_at": "2026-10-17T19:45:18Z",
+        "updated_at": "2026-10-17T19:45:18Z",
+        "expires_at": "2026-10-31T19:45:17Z",
+        "workflow_run": {
+          "id": 39063488297,
+          "repository_id": 1388115529,
+          "head_repository_id": 1388115529,
+          "head_branch": "codex-lp4-p2-runtime",
+          "head_sha": "c70961187c23d3fd4bab6a99a43fd12001f7518e"
+        }
+      }
+    ]
+  }
+}

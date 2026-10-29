@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PoCol Settings</title>
+<link rel="stylesheet" href="viewer.css">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; }
+  textarea, input, select { width: 100%; font: 13px ui-monospace, monospace; padding: 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+  button { margin-top: 8px; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+  ul { padding-inline-start: 18px; } li { overflow-wrap: anywhere; } .out { color: var(--muted); overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PoCol — إعدادات الشبكات المحلية</h1>
+  <section>
+    <h2>ملفات الشبكة</h2>
+    <p class="out">الصق profile.json الذي يولده <code>devnet.py init</code> (يحوي genesisPre وgenesisHash وchainId وendpoint وtrustLevel).</p>
+    <textarea id="profile" rows="6" dir="ltr" placeholder='{"name":"devnet","chainId":777900,"genesisPre":"0x…","genesisHash":"0x…","endpoint":"http://127.0.0.1:8540","trustLevel":"RP"}'></textarea>
+    <button id="add" type="button">إضافة / تحديث</button>
+    <ul id="profiles" dir="ltr"></ul>
+  </section>
+  <section>
+    <h2>المحفظة المحلية</h2>
+    <p class="out">للشبكات المحلية فقط. البذرة مشفرة بكلمة المرور (PBKDF2 600000 + AES-GCM)، والمفتاح مشتق لكل شبكة، والقفل بعد 15 دقيقة.</p>
+    <input id="pw" type="password" autocomplete="new-password" placeholder="كلمة المرور">
+    <button id="create" type="button">إنشاء</button> <button id="unlock" type="button">فتح</button> <button id="lock" type="button">قفل</button>
+    <p id="wallet" class="out" dir="ltr"></p>
+  </section>
+  <section>
+    <h2>فتح موقع</h2>
+    <input id="target" dir="ltr" placeholder="devnet/0x…address/path">
+    <button id="open" type="button">فتح</button>
+  </section>
+</main>
+<script type="module" src="options.js"></script>
+</body>
+</html>

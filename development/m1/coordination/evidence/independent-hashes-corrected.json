@@ -1,0 +1,97 @@
+{
+  "library": "pycryptodome 3.24.0",
+  "factoryAssumption": "0x0000000000000000000000000000000000c0c005",
+  "scope": "Independent hash/address recomputation only; not full M0 triad or validator",
+  "netKey": "0xacfd846cb4e99df47de0b04af39136202c3d466fdcdd2b1ad7a6a8586b01d044",
+  "netKeyPreimage": "0xf28c506f436f6c2d6e65742d7631830bdb29a01111111111111111111111111111111111111111111111111111111111111111",
+  "summary": {
+    "checks": 17,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "check": "K1",
+      "status": "pass",
+      "hash": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    },
+    {
+      "check": "K2",
+      "status": "pass",
+      "hash": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    {
+      "check": "K3",
+      "status": "pass",
+      "hash": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    },
+    {
+      "check": "codeTable.0x05d400d2313a4ae1b630b3f37004d7332e0e3282",
+      "status": "pass",
+      "bytes": 1
+    },
+    {
+      "check": "codeTable.0x0bd20c364101b644c2b3e6266df5bee768b2fef0",
+      "status": "pass",
+      "bytes": 16386
+    },
+    {
+      "check": "codeTable.0x27d3ad9258a6da81a17aa978566dc585a840dcce",
+      "status": "pass",
+      "bytes": 40
+    },
+    {
+      "check": "codeTable.0x2e7be13520b1fe32e1844b6fae4465dcade2e3f5",
+      "status": "pass",
+      "bytes": 24575
+    },
+    {
+      "check": "codeTable.0x5a3435d1d157a82fe126126786b140e236eec304",
+      "status": "pass",
+      "bytes": 16427
+    },
+    {
+      "check": "codeTable.0x5c92994bbafa0d6bd9f13a4cd402c59cd8d02e1f",
+      "status": "pass",
+      "bytes": 2
+    },
+    {
+      "check": "codeTable.0x7275ffb134750afa873d93d219eee5d3b7602a0e",
+      "status": "pass",
+      "bytes": 16426
+    },
+    {
+      "check": "codeTable.0x945d5025981ec194ae413d8738891cd6b26c0228",
+      "status": "pass",
+      "bytes": 39
+    },
+    {
+      "check": "codeTable.0x9c0812df181cc7f6f5685958f44b523dd77489e6",
+      "status": "pass",
+      "bytes": 24575
+    },
+    {
+      "check": "codeTable.0xbfed2132e3e3f8a0dbfac65cb3eaf871f28d138f",
+      "status": "pass",
+      "bytes": 79
+    },
+    {
+      "check": "codeTable.0xbffcaeb40682a2dfe0d39de9eee7d1f20891ad3b",
+      "status": "pass",
+      "bytes": 111
+    },
+    {
+      "check": "codeTable.0xfc2d3e82feb152122046a645969447e5f23f0c8f",
+      "status": "pass",
+      "bytes": 24575
+    },
+    {
+      "check": "EIP1014.example0",
+      "status": "pass"
+    },
+    {
+      "check": "netKey.preimageLength",
+      "status": "pass",
+      "length": 51
+    }
+  ]
+}

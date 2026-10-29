@@ -1,0 +1,25 @@
+{
+  "schema": "pocol-m1-supplement/0.25",
+  "id": "S25-LCLIT",
+  "supplement": true,
+  "status": "proposed supplement for root review; implements the unapproved proposal P-V2-10; not approved",
+  "closesGap": ["V2-definitionGap.DG-V2-2", "proposal.P-V2-10 (still needs a reviewer decision)"],
+  "source": {"file": "reference/implementation.md", "lines": [359, 359], "literals": ["LC1–LC18 بردود JSON حرفية"]},
+  "problem": "The 0.19 cases express part of the server behaviour as templates ('gen' log generator, 'repeat' data) and the rest as the MockLogServer's default handler. A TypeScript or Node harness would have to re-implement both to reproduce the replies.",
+  "form": {
+    "asset": "m1-draft-0.25/results/lc-literal-replies-0.25.json (written by tools/run_checks_025.py; deterministic, no timestamp)",
+    "perRun": {"id": "case id, or '<case>@<fault>' for the nine fault controls", "mode": "fetchAll | fetchEach | bridge", "from": "int", "to": "int",
+               "params": "fetchEach overrides as in lc-cases.json", "fault": "null or the client fault of the control",
+               "requests": [{"k": "1-based request number", "t": "client clock in ms when sent", "req": "['H', 'latest' | n] or ['L', a, b, anchorHash]",
+                             "branch": "server branch that served it (informational)", "reply": "the exact JSON reply object"}]},
+    "replayRule": "A conforming harness serves request k with requests[k-1].reply if and only if the request and its time equal requests[k-1].req and .t; any other request is a test failure (the reference replay answers -32603 literalReplayMismatch and records it)."
+  },
+  "whyGenerated": "The transcripts are produced by the accepted 0.19 reference MockLogServer from the reviewed 0.19 fixtures, not typed by hand: the replies of 45 cases and 9 controls, carrying 64-hex hashes, cannot be hand-copied reliably. They become fixtures only after root has re-run the generator and verified the replay checks below.",
+  "checks": [
+    {"id": "LCLIT.generatorFidelity", "text": "For every case, the recording wrapper changes nothing: requests, sink events and result equal run_checks_019.run_case."},
+    {"id": "LCLIT.replay.<case>", "text": "Each case run against the literal server only (after a JSON text round trip of the transcript) gives zero mismatches, consumes exactly the transcript, and reproduces every fixture cell of lc-cases.json (requests, events, result, steps)."},
+    {"id": "LCLIT.replayControl.<case>@<fault>", "text": "Each fault control replays to the same outcome as its generator run."},
+    {"id": "LCLIT.exportDeterministic", "text": "Two exports from two independent generator runs are byte-identical; its SHA-256 is recorded."}
+  ],
+  "preserved": "lc-cases.json and its templates are unchanged; the templates remain the 0.19 authoring form."
+}

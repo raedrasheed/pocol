@@ -1,0 +1,23 @@
+# caps round 3b: R7 equivalence probe (outputs only). commit e985ce182c41c7ed83ba3b4f92ce81500c011f7f; Linux; release; own target dir; shared CPU lock
+# probe program: prototypes/pocold/tests/zz_audit_witness_caps_r7.rs (gitignored, removed after the run, not committed),
+#   sha256 6c7ba82ff60e06e56d9cf028cb2a743ad6792c4b59ec15916854e4cc038649b1
+# TX_CAP 2; parent = an empty fallback block at h=1 (cum_txs 0). A signed block at h=2 carrying 3 transfers, its header
+#   built for 2 and then committing to all 3 (tx_root), the template re-signed by Draw(2,0), sealed; offered to
+#   Chain::validate, and as a received template to a fresh node (try_lock_signed). Control: the valid 2-transfer template.
+# run once on the unmutated source and once with R7 applied; chain.rs restored and checked after
+# R7 equivalence probe; head e985ce182c41c7ed83ba3b4f92ce81500c011f7f; probe tests/zz_audit_witness_caps_r7.rs (gitignored, not committed)
+# R7 edit (third review's runner): [('pocold/src/chain.rs', 'map_or(false,|n|n<=cp.TX_CAP)', 'map_or(false,|n|n<=cp.TX_CAP+u64::from(p.cum_txs==0))')]
+# each run: (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --test zz_audit_witness_caps_r7 -- --nocapture)
+## unmutated: exit 0
+   R7PROBE build_signed with TX_CAP+1 on a zero-count parent: Some(Block("apply Budget(\"TX_MAX\")"))
+   R7PROBE validate TX_CAP+1 on a zero-count parent: Err(Block("16 caps"))
+   R7PROBE template TX_CAP+1 locked: false
+   R7PROBE template TX_CAP (control) locked: true
+   test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+## R7 applied: exit 0
+   R7PROBE build_signed with TX_CAP+1 on a zero-count parent: Some(Block("apply Budget(\"TX_MAX\")"))
+   R7PROBE validate TX_CAP+1 on a zero-count parent: Err(Block("apply Budget(\"TX_MAX\")"))
+   R7PROBE template TX_CAP+1 locked: false
+   R7PROBE template TX_CAP (control) locked: true
+   test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
+# sources restored and checked

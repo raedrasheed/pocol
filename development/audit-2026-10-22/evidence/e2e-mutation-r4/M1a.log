@@ -1,0 +1,11 @@
+== M1a 2026-10-24T10:02:31Z
+== worktree HEAD ad849421710168e12aa10846951783c09807833c
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold/tests/e2e_devnet.py sha256=9c6d7c0d32334f25a676945f2ea9e72a9496de3a0a0ff41ff3fb1846d198814c
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M1a/pocold sha256=d3fdd2de05a56e899e290c654c125b22f50a82435a519fe4bd81bb12c36f8557
+== pocol-sign sha256=4f3373f7675cd8d3dde6f9ba3bc809818dca9653a6701c6ad2579c826b561cc8
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M1a/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a,b reach 15: NOT met after 120.2s (bound 120s)
+{"result": "FAIL", "error": "timeout waiting for a,b reach 15", "checks": [], "elapsed_s": 121, "work": "/tmp/pocol-e2e-k8zjkbgl"}
+== summary {"label": "M1a", "exit": 1, "outcome": "FAIL", "checks_passed": 0, "first_fail": "timeout waiting for a,b reach 15", "elapsed_s": 121.8, "test_s": 121, "leftover_killed": [], "ports_busy_after": []}

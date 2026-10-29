@@ -1,0 +1,16 @@
+{
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-09 (U34 resolved)",
+  "resolution": "BG1 (FD:L2608) sets a conservative lower bound for BRIDGE_MSG_MAX: 61440 (largest value) + 256 (largest key) + 128 (envelope reserve, the same 128-byte envelope bound that FD:L2711 uses for BR17e) = 61824. A build with BRIDGE_MSG_MAX = 61823 fails; 61824 is the smallest passing value; the default 65536 passes. The tight compact message (id 4294967295, 256-byte key, 61440-byte value, no escaping) is 61790 bytes, within the reserve. This is a reserve, not a contradiction; 0.4's U34 is withdrawn.",
+  "guardPrecedence": "The Bpre size guard runs before parsing (FD:L1128). A value whose UTF-8 length is within str(61440) can still be rejected as size when JSON escaping makes the message exceed 65536 bytes; the reply is then -32600 {reason:'size'} with id null and no token, never a B3 error. Senders that need a byte-exact large value must avoid characters JSON must escape. The baseline limit is unchanged.",
+  "bg1": {"lowerBound": {"value": 61440, "key": 256, "envelopeReserve": 128, "sum": 61824},
+          "vectors": [{"BRIDGE_MSG_MAX": 61823, "expected": "fail"}, {"BRIDGE_MSG_MAX": 61824, "expected": "pass"}, {"BRIDGE_MSG_MAX": 65536, "expected": "pass"}]},
+  "cases": [
+    {"id": "G1-tight-compact-max", "construction": {"id": 4294967295, "keyLen": 256, "valueChar": "a", "valueLen": 61440}, "expected": {"utf8Length": 61790, "bpre": "pass", "stage": "ok"}},
+    {"id": "G2-escaped-value-size", "construction": {"id": 1, "keyLen": 1, "valueChar": "\"", "valueLen": 33000}, "expected": {"bpre": "size", "code": -32600, "data": {"reason": "size"}, "id": null},
+     "note": "the value is 33000 UTF-8 bytes (accepted by str(61440)) but serializes to 66000 characters"},
+    {"id": "G3-escaped-value-fits", "construction": {"id": 1, "keyLen": 1, "valueChar": "\"", "valueLen": 30000}, "expected": {"bpre": "pass", "stage": "ok"}},
+    {"id": "G4-control-char-escape", "construction": {"id": 1, "keyLen": 1, "valueChar": "\u0001", "valueLen": 11000}, "expected": {"bpre": "size", "code": -32600},
+     "note": "each U+0001 serializes as \\u0001 (6 bytes): 66000 > 65536"}
+  ]
+}

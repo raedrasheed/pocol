@@ -1,0 +1,22 @@
+{
+  "scope": "PAY-02 native component only",
+  "status": "P2 NOT PASSED",
+  "bootable": false,
+  "ownerDecision": "LP4-PAY-LIFECYCLE-APPROVAL.md; option 1 in full",
+  "rustTests": {
+    "passed": 29,
+    "failed": 0
+  },
+  "independentBoundaryComparisons": 44,
+  "independentLifetimeComparisons": 2,
+  "compiledMutationControls": {
+    "initial": 15,
+    "reviewed": 16,
+    "buildFailures": 0,
+    "assertionKilled": 16
+  },
+  "allLedgerObligations": "24 NOT PASSED",
+  "newHeadCI": "PENDING publication/run; prior-head receipt is distinct",
+  "fullLifecycleAcceptance": "NOT PASSED",
+  "resources": "R18/R21/caps64 NOT PASSED; no bound inferred from snapshot cloning"
+}

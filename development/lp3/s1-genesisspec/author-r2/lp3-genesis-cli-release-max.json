@@ -1,0 +1,332 @@
+{
+ "check": "lp3-genesis-cli",
+ "ok": true,
+ "statuses": {
+  "PASS": 10
+ },
+ "platform": "Linux",
+ "rlimitAs": true,
+ "defaultLimitMiB": 64,
+ "baselineMaxRssKiB": 6688,
+ "maxSpecBytes": 2818474,
+ "python": "3.13.16",
+ "results": [
+  {
+   "check": "largeOneLine192MiB.limit256MiB",
+   "status": "PASS",
+   "limitMiB": 256,
+   "exit": 1,
+   "signal": null,
+   "maxRssKiB": 8172,
+   "seconds": 0.24,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": false,
+     "refused": "inputTooLarge",
+     "lineBytes": 201326602,
+     "maxSpecBytes": 2818474
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 1,
+     "accepted": 0,
+     "rejected": 0,
+     "refused": 1,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "largeOneLine192MiB.limit64MiB",
+   "status": "PASS",
+   "limitMiB": 64,
+   "exit": 1,
+   "signal": null,
+   "maxRssKiB": 8284,
+   "seconds": 0.23,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": false,
+     "refused": "inputTooLarge",
+     "lineBytes": 201326602,
+     "maxSpecBytes": 2818474
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 1,
+     "accepted": 0,
+     "rejected": 0,
+     "refused": 1,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "limitPlusOneThenMaxValid",
+   "status": "PASS",
+   "limitMiB": 64,
+   "exit": 1,
+   "signal": null,
+   "maxRssKiB": 16420,
+   "seconds": 0.06,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": false,
+     "refused": "inputTooLarge",
+     "lineBytes": 5636950,
+     "maxSpecBytes": 2818474
+    },
+    {
+     "line": 2,
+     "ok": true,
+     "genesisHash": "0x684bf635f63cd639cc97ab38ffc022a863b49cdec9f96581df1e6ca76929ca89",
+     "chainId": 18446744073709551615,
+     "m0": 65535,
+     "reencodeEqual": true,
+     "bootable": false
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 3,
+     "accepted": 1,
+     "rejected": 1,
+     "refused": 1,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "limitPlusOneThenMaxValid.noLimit",
+   "status": "PASS",
+   "limitMiB": null,
+   "exit": 1,
+   "signal": null,
+   "maxRssKiB": 16536,
+   "seconds": 0.07,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": false,
+     "refused": "inputTooLarge",
+     "lineBytes": 5636950,
+     "maxSpecBytes": 2818474
+    },
+    {
+     "line": 2,
+     "ok": true,
+     "genesisHash": "0x684bf635f63cd639cc97ab38ffc022a863b49cdec9f96581df1e6ca76929ca89",
+     "chainId": 18446744073709551615,
+     "m0": 65535,
+     "reencodeEqual": true,
+     "bootable": false
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 3,
+     "accepted": 1,
+     "rejected": 1,
+     "refused": 1,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "maxDeepAndFlat",
+   "status": "PASS",
+   "limitMiB": 64,
+   "exit": 0,
+   "signal": null,
+   "maxRssKiB": 16488,
+   "seconds": 0.06,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": false,
+     "code": "gsStructure",
+     "detail": "top[0]"
+    },
+    {
+     "line": 2,
+     "ok": false,
+     "code": "gsStructure",
+     "detail": "top[2]"
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 2,
+     "accepted": 0,
+     "rejected": 2,
+     "refused": 0,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "gsv1Times100000",
+   "status": "PASS",
+   "limitMiB": 64,
+   "exit": 0,
+   "signal": null,
+   "maxRssKiB": 6780,
+   "seconds": 0.67,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": true,
+     "genesisHash": "0xde518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+     "chainId": 777902,
+     "m0": 2,
+     "reencodeEqual": true,
+     "bootable": false
+    },
+    {
+     "line": 2,
+     "ok": true,
+     "genesisHash": "0xde518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+     "chainId": 777902,
+     "m0": 2,
+     "reencodeEqual": true,
+     "bootable": false
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 100000,
+     "accepted": 100000,
+     "rejected": 0,
+     "refused": 0,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "gsVersion262144Bytes",
+   "status": "PASS",
+   "limitMiB": 64,
+   "exit": 0,
+   "signal": null,
+   "maxRssKiB": 6824,
+   "seconds": 0.49,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": false,
+     "code": "gsVersion",
+     "detail": "4544297019161366309996159590797065043318...",
+     "detailLength": 631306,
+     "detailSha": "2b647d67b77df7c03a6ba7ba047bfe718f09a7f1a549357c1ffc8065fa26b817"
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 1,
+     "accepted": 0,
+     "rejected": 1,
+     "refused": 0,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "gsVersion2818466Bytes",
+   "status": "PASS",
+   "limitMiB": 64,
+   "exit": 0,
+   "signal": null,
+   "maxRssKiB": 35536,
+   "seconds": 23.05,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": false,
+     "code": "gsVersion",
+     "detail": "2897828153124230198472190802393477419119...",
+     "detailLength": 6787543,
+     "detailSha": "131afdc3ba1e2b66b3cf1bd4152cb176e7425ae33888b1ac86cd6fb14eac4a12"
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 1,
+     "accepted": 0,
+     "rejected": 1,
+     "refused": 0,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "lineForms",
+   "status": "PASS",
+   "limitMiB": null,
+   "exit": 1,
+   "signal": null,
+   "maxRssKiB": 6568,
+   "seconds": 0.02,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": true,
+     "genesisHash": "0xde518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+     "chainId": 777902,
+     "m0": 2,
+     "reencodeEqual": true,
+     "bootable": false
+    },
+    {
+     "line": 2,
+     "ok": false,
+     "code": "L0",
+     "detail": "truncated"
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 6,
+     "accepted": 2,
+     "rejected": 2,
+     "refused": 2,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "reservationFailure.limit8MiB",
+   "status": "PASS",
+   "limitMiB": 8,
+   "exit": 2,
+   "signal": null,
+   "maxRssKiB": 6740,
+   "seconds": 0.03,
+   "problems": [],
+   "rows": [],
+   "output": ""
+  }
+ ]
+}

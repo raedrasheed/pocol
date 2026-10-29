@@ -1,0 +1,47 @@
+[
+  {
+    "token": "1",
+    "integer": true,
+    "inRange": true
+  },
+  {
+    "token": "1.0",
+    "integer": true,
+    "inRange": true
+  },
+  {
+    "token": "1e0",
+    "integer": true,
+    "inRange": true
+  },
+  {
+    "token": "-0",
+    "integer": true,
+    "inRange": true
+  },
+  {
+    "token": "0",
+    "integer": true,
+    "inRange": true
+  },
+  {
+    "token": "1.5",
+    "integer": false,
+    "inRange": false
+  },
+  {
+    "token": "true",
+    "integer": false,
+    "inRange": false
+  },
+  {
+    "token": "4294967295",
+    "integer": true,
+    "inRange": true
+  },
+  {
+    "token": "4294967296",
+    "integer": true,
+    "inRange": false
+  }
+]

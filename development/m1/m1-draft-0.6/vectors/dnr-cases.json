@@ -1,0 +1,26 @@
+{
+  "specVersion": "M1 draft 0.6",
+  "revision": "R6-04 (د1-د5 restored)",
+  "model": "tools/dnr_ref.py; tab id 7 (rule ids 14 and 15); extension id placeholder abcdefghijklmnopabcdefghijklmnop (P).",
+  "cases": [
+    {"id": "د1", "steps": [["open", 7]],
+     "expected": {"open": {"installed": true, "frame": true}, "sessionRuleIds": [14, 15], "rulesExact": true, "eventOrder": ["installedVerified", "frameCreated"]}},
+    {"id": "د2", "inject": "failUpdate", "steps": [["open", 7]],
+     "expected": {"open": {"installed": false, "frame": false}, "sessionRuleIds": [], "frames": []}},
+    {"id": "د2-verify", "inject": "corruptRead", "steps": [["open", 7]],
+     "expected": {"open": {"installed": false, "frame": false}, "sessionRuleIds": [], "frames": []},
+     "note": "read-back mismatch is also fail-closed (H: verify before {installed: true})"},
+    {"id": "د3", "steps": [["open", 7], ["close", 7]],
+     "expected": {"sessionRuleIds": [], "frames": [], "removalWithinMs": 1000}},
+    {"id": "د4", "steps": [["open", 7]],
+     "evaluate": [
+       {"url": "chrome-extension://abcdefghijklmnopabcdefghijklmnop/blob-host.js", "types": "RT", "expected": "allow"},
+       {"url": "https://example.org/x", "types": "RT", "expected": "block"},
+       {"url": "http://127.0.0.1:18080/x", "types": "RT", "expected": "block", "note": "earlier round-15 draft (local port)"},
+       {"url": "https://example.org/x", "types": ["main_frame"], "expected": "noRule", "note": "main_frame is outside RT: the viewer page itself is not blocked"},
+       {"url": "https://example.org/x", "tab": 8, "types": ["image"], "expected": "noRule", "note": "rules are scoped to tab 7"}
+     ]},
+    {"id": "د5", "steps": [["open", 7], ["workerRestartPingFailed", 7]],
+     "expected": {"sessionRuleIds": [], "frames": [], "eventsHave": [["frameTornDown", 7, "pingFailed"], ["leftoversRemoved", [14, 15]]]}}
+  ]
+}

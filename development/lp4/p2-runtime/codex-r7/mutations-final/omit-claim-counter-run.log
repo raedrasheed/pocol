@@ -1,0 +1,8 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.41s
+     Running `prototypes/lp4-execution/target/debug/examples/registry_write_budget`
+
+thread 'main' (126816) panicked at examples/registry_write_budget.rs:39:3:
+assertion `left == right` failed
+  left: 9
+ right: 10
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

@@ -1,0 +1,199 @@
+# e2e-site: (cd prototypes/pocold; python3 -I tests/e2e_site.py)
+# start 2026-10-25T07:50:57Z
+{
+  "accounts": [
+    {
+      "address": "0xb8c8decce178ff32caacf4e66d2007afb3466dbc",
+      "label": "alice",
+      "wei": "1000000000000000000000000"
+    },
+    {
+      "address": "0x0bf669635585e1af35742e6f20d71f1771d2827c",
+      "label": "bob",
+      "wei": "1000000000000000000000000"
+    }
+  ],
+  "admission": {
+    "binding": "0x9389e1e5c4210ac0e9590bcf97d469f2cdb4670250bb307d63837f7d785f3612",
+    "conditions": [
+      {
+        "detail": "RpcGuard: mechanisms this node does not enforce: scratch_heavy, scratch_light, mem_total, cancel_max_ms",
+        "id": "rpc-absent",
+        "rules": [
+          "R26"
+        ]
+      },
+      {
+        "detail": "calibration: H_cal is a synthetic fixture (devnet --work-bits), not a measured hash rate",
+        "id": "calibration-synthetic",
+        "rules": [
+          "R25"
+        ]
+      },
+      {
+        "detail": "timing: 7 apply samples of the synthetic GAS_LIMIT compute workload on this host; not a p99 or worst-case bound (A13-DERIVATION §4)",
+        "id": "timing-not-a-bound",
+        "rules": [
+          "R14",
+          "R19"
+        ]
+      },
+      {
+        "detail": "SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",
+        "id": "gas-monotonicity-assumed",
+        "rules": [
+          "R18"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:general-R18",
+        "id": "gate-deferred-general-R18",
+        "rules": [
+          "R18"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:general-R21",
+        "id": "gate-deferred-general-R21",
+        "rules": [
+          "R21"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:caps64-minimum-SYS_SLOT_MAX",
+        "id": "gate-deferred-caps64",
+        "rules": [
+          "R18"
+        ]
+      }
+    ],
+    "deferred": [
+      "LP4:general-R18",
+      "LP4:general-R21",
+      "LP4:caps64-minimum-SYS_SLOT_MAX"
+    ],
+    "notes": [
+      "R26 heavy_active: equivalent, 1, the single consensus thread (active heavy work <= 1 <= HEAVY_ACTIVE)",
+      "R26 light_active: equivalent, 1, the single consensus thread drains the light lane (<= 1 <= LIGHT_ACTIVE)",
+      "R26 conn_buf: equivalent, SMALL_REPLY_MAX, the structural bound of a connection's busy or rate answer (<= 64 KiB)",
+      "R26 light_resp_mem: equivalent, (conn_max+1) x LIGHT_RESP_MAX, 512 KiB above the spec's 32 x 512 KiB: one reservation per connection plus the one being computed for a connection that left, so a light reservation never fails (S1)",
+      "R26 rate: equivalent, vacuous per connection: a connection carries one request of k <= BATCH_MAX = bucket_cap tokens from a full bucket, so the refill rate is never read; the aggregate rate across connections is open (proposals/RPCGUARD-R2-PROPOSALS.md P1)",
+      "R26 bucket_cap: equivalent, the per-connection bucket on the connection's one request (k > bucket_cap is -32021 {rate})"
+    ],
+    "scope": "experimental-devnet",
+    "specificationCompliant": false,
+    "waivers": [
+      {
+        "absent": [
+          "scratch_heavy",
+          "scratch_light",
+          "mem_total",
+          "cancel_max_ms"
+        ],
+        "checked": [
+          "heavyRespMem>=respMax",
+          "lightRespMem>=connMax*lightRespMax",
+          "batchRespMax>=respMax",
+          "lightQueue>=connMax",
+          "batchMax*errItemMax+64<=connBuf",
+          "respMax>=2*32768+546*512",
+          "logsCountMax>=546",
+          "logsScanBytes>=32768",
+          "lightRespMax>=385KiB",
+          "rate>=1",
+          "bucketCap>=batchMax",
+          "timerEps>0",
+          "timerEps<enforceSlack",
+          "enforceSlack<=500",
+          "sendSockBuf<=64KiB"
+        ],
+        "rule": "R26",
+        "waived": [
+          "derive",
+          "memoryRequired<=memTotal",
+          "batchWallMin<=batchWallMs"
+        ]
+      }
+    ]
+  },
+  "calibration": {
+    "class": "synthetic-fixture",
+    "hashesPerSecond": 16384,
+    "note": "devnet difficulty chosen with --work-bits, not a measured hash rate"
+  },
+  "chainId": 777900,
+  "forks": [
+    [
+      1,
+      0
+    ]
+  ],
+  "genesisHash": "0x733922922434706f4419286b02d21d9c1f0e4aac8d5dae3da41ebc022bc7652e",
+  "genesisTime": 1792914657,
+  "miners": [
+    {
+      "id": "0x86a412863a3eb23f4b7a9ffbc69a42fd25dea73f",
+      "label": "b",
+      "reward": "0xe590a831d626d1c20da9f3763c97a4cd7a3da9b1"
+    },
+    {
+      "id": "0xeb59c60584bb0fb67132cc4a3f9639c31cdb4935",
+      "label": "c",
+      "reward": "0x3e381e57ba2c894cd43b25bf592754bd3451c219"
+    },
+    {
+      "id": "0xfcd55660d527e67fabf17f27c4038a3799512ba0",
+      "label": "a",
+      "reward": "0xb9abf100add97b76683bf6e9ad4372875d897db1"
+    }
+  ],
+  "note": "Local devnet only. Keys are deterministic disposable devnet keys derived from labels (pocol_lp4_execution::txsign::Key::devnet).",
+  "profileKind": "simnet",
+  "timing": {
+    "genesisHash": "733922922434706f4419286b02d21d9c1f0e4aac8d5dae3da41ebc022bc7652e",
+    "method": "apply_block on a scratch copy of the genesis; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps",
+    "phaseMs": [
+      11,
+      12,
+      9
+    ],
+    "samples": 7
+  }
+}
+
+PASS publish v1 (multi-file, multi-chunk) through node a — {"files":6,"manifestBytes":530,"manifestHash":"0x702c5ea00d259f73c8dba5660fee4fa5deada3d9bfe12d50e1bb7f3b27f70c4c","site":"0xe9e36fdcd0cbfa6c9668c89551bbb5ba905119ab","version":0}
+PASS node a serves v1 with verified chunks/manifest/content hashes — 6 files, entry /index.html
+PASS node b serves v1 with verified chunks/manifest/content hashes — 6 files, entry /index.html
+PASS node c serves v1 with verified chunks/manifest/content hashes — 6 files, entry /index.html
+PASS Website runtime code identical on all nodes
+PASS publish v2 through node b — storing /app.js (50 bytes)
+storing /data.json (85700 bytes)
+storing /docs/index.html (55 bytes)
+storing /index.html (204 bytes)
+storing /logo.png (1032 bytes)
+storing /style.css (61 bytes)
+
+PASS node a serves v2
+PASS node b serves v2
+PASS node c serves v2
+PASS unauthorized publish / revoke(current) / oversize manifest all revert — 0x0 0x0 0x0
+PASS reverted operations leave Website storage unchanged
+PASS oversize site (5 MiB) rejected before any transaction (nonce unchanged) — error: site > 4 MiB
+PASS owner adds bob as a publisher
+PASS two concurrent publishers both succeed — oring /empty.txt (0 bytes)
+storing /index.html (204 bytes)
+storing /logo.png (1032 bytes)
+storing /style.css (61 bytes)
+ | docs/index.html (55 bytes)
+storing /index.html (204 bytes)
+storing /logo.png (1032 bytes)
+storing /style.css (61 bytes)
+
+PASS each publisher's reported version holds exactly its own manifest — [[3, "0x1ea214c603"], [2, "0xe4498637a1"]]
+PASS current version is one of them and fetches fully verified
+PASS empty file round-trips (size 0, no chunks)
+PASS after restart node a serves the current version unchanged
+PASS after restart node b serves the current version unchanged
+PASS after restart node c serves the current version unchanged
+{"result": "PASS", "checks": 20, "site": "0xe9e36fdcd0cbfa6c9668c89551bbb5ba905119ab", "work": "/tmp/pocol-site-zgagp3q1"}
+# end 2026-10-25T07:51:45Z exit=0

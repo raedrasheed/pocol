@@ -1,0 +1,12 @@
+{
+  "rawHash": "0x0224d25773e449e69e90c94c9d7319d9e273fc5f76193af36ad743a526f9f0b2",
+  "signingHash": "0x378162a6490ace728bf201387b2f6138a33708d2ccc5f1f13fb9d29585b3a63e",
+  "senderExpected": "0x976ea74026e726554db657fa54763abd0c3a0aa9",
+  "chainId": 777910,
+  "type": 2,
+  "nonce": 0,
+  "value": 1,
+  "rawBytes": 108,
+  "signatureLowS": true,
+  "scope": "Independent hash/typed-transaction tuple checks; no execution or submission"
+}

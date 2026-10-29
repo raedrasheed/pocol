@@ -1,0 +1,371 @@
+{
+  "base": "041061aa62d5bf772c4e45d790ce5e5a85aad151",
+  "status": "NOT PASSED",
+  "bootable": false,
+  "obligations": [
+    {
+      "id": "H-full10-17",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P9",
+      "sources": [
+        "development/m1/reference/consensus.md H-full10-17",
+        "development/LOCAL-DEVNET-PLAN.md LP4"
+      ],
+      "requiredEvidence": "All full-body/state positive/negative cases; gas/baseFee, fallback, owners, roots/caps, no invalid-state commit"
+    },
+    {
+      "id": "T2",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P2",
+      "sources": [
+        "development/m1/reference/execution.md testing",
+        "development/lp4/p0-plan/codex-r1/NAMED-GATES-PROPOSAL.md"
+      ],
+      "requiredEvidence": "New named definition approved in LP4-TEST-GATES-APPROVAL.md; Cancun GST with individually declared exceptions and replacement tests"
+    },
+    {
+      "id": "T2b",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P2",
+      "sources": [
+        "development/m1/reference/execution.md deviations",
+        "development/lp4/p0-plan/codex-r1/NAMED-GATES-PROPOSAL.md"
+      ],
+      "requiredEvidence": "New named definition approved in LP4-TEST-GATES-APPROVAL.md; actual PAY/transfer effects and rollback"
+    },
+    {
+      "id": "CI1-CI3",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P3",
+      "sources": [
+        "development/m1/reference/execution.md CI1-CI3"
+      ],
+      "requiredEvidence": "CHAINID777902; wrong777001 pool-32015 and included transaction block-rule17 rejection"
+    },
+    {
+      "id": "GB1",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P4",
+      "sources": [
+        "development/m1/reference/execution.md GB1"
+      ],
+      "requiredEvidence": "Real genesis with4 members, heldTotal4*B_reg and exact sorted lists/roots"
+    },
+    {
+      "id": "GB-END",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P4",
+      "sources": [
+        "development/m1/reference/execution.md GB-END"
+      ],
+      "requiredEvidence": "Real1024-member genesis and independently identical state allocation root"
+    },
+    {
+      "id": "L4s",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P4",
+      "sources": [
+        "development/m1/reference/validation.md L4s"
+      ],
+      "requiredEvidence": "sv-fix CP=GSV1; GB1; actual Rust/anvil allocRoot agreement"
+    },
+    {
+      "id": "T2c",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P7",
+      "sources": [
+        "development/m1/reference/execution.md caps",
+        "development/lp4/p0-plan/codex-r1/NAMED-GATES-PROPOSAL.md"
+      ],
+      "requiredEvidence": "New named definition approved in LP4-TEST-GATES-APPROVAL.md; exact cap boundaries, exceptional halt vs block invalidity and rollback"
+    },
+    {
+      "id": "T24",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P5",
+      "sources": [
+        "development/m1/reference/implementation.md M4 D141-D142",
+        "development/lp4/p0-plan/codex-r1/NAMED-GATES-PROPOSAL.md"
+      ],
+      "requiredEvidence": "New named definition approved in LP4-TEST-GATES-APPROVAL.md; real phase order, parent-only data provenance and leak controls"
+    },
+    {
+      "id": "T26",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P9",
+      "sources": [
+        "development/LOCAL-DEVNET-PLAN.md LP4",
+        "development/lp4/p0-plan/codex-r1/NAMED-GATES-PROPOSAL.md"
+      ],
+      "requiredEvidence": "New named definition approved in LP4-TEST-GATES-APPROVAL.md; full H/state/root acceptance and atomic recovery"
+    },
+    {
+      "id": "PAY-Cancun-deviations",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P2",
+      "sources": [
+        "development/m1/reference/execution.md EVM fields and declared deviations"
+      ],
+      "requiredEvidence": "Exact customized execution fields and transfer behavior, no callbacks for PAY, no skipped failing GST without individual justification"
+    },
+    {
+      "id": "parentResult-and-phases",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P5",
+      "sources": [
+        "development/m1/reference/execution.md parentResult and phases",
+        "development/m1/reference/implementation.md M4"
+      ],
+      "requiredEvidence": "Stored parent/grandparent assignment only, h1empty, rederive mismatch halts import, no current result fields, phase call order and system caller enforcement"
+    },
+    {
+      "id": "General-R18",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P7",
+      "sources": [
+        "development/LP3-AMENDMENT-01.md tests1,4,5",
+        "development/m1/reference/governance.md R18"
+      ],
+      "requiredEvidence": "General parameter-bound SYS slots/phase keys/accounts/per-call and total gas withRET; independent derivation/counters, named default and end/full counts, bound mutations"
+    },
+    {
+      "id": "General-R21",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P8",
+      "sources": [
+        "development/LP3-AMENDMENT-01.md tests2,4,5",
+        "development/m1/reference/governance.md R21"
+      ],
+      "requiredEvidence": "Historical shared-trie/horizon general derivation and independent actual retained node/byte counts; budget boundary and simnet-only exception; measurements not proof"
+    },
+    {
+      "id": "caps64-minimum",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P7",
+      "sources": [
+        "development/LP3-AMENDMENT-01.md test3",
+        "development/m1/reference/validation.md caps64"
+      ],
+      "requiredEvidence": "Minimal SYS_SLOT_MAX passes, min-1 failsR18; real execution reaches requirement; freeze profile bytes/derivation for required VA-spec annex, no substitute default cap"
+    },
+    {
+      "id": "real-source-bound-resource-facts",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P7/P8",
+      "sources": [
+        "development/LP3-AMENDMENT-01.md tests4,5"
+      ],
+      "requiredEvidence": "Complete CP/profile/model/compiler/code/artifact binding, ordinary/closing/final+RET coverage; missing/mismatch rejects; replace synthetic facts and distinguish measured/proven"
+    },
+    {
+      "id": "GenesisBuilder-and-sysCodeHash",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P4",
+      "sources": [
+        "development/lp3/s9-acceptance/codex-r1/LP4-OBLIGATIONS.md item1",
+        "development/m1/reference/consensus.md sysCodeHash"
+      ],
+      "requiredEvidence": "Actual compiled system code and allocation/storage MPT, deterministic roots and hash(RLP(system code,empty PAY)); reject mismatch; root primitive alone insufficient"
+    },
+    {
+      "id": "real-finalization",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P6",
+      "sources": [
+        "development/LP3-CF-CORE-APPROVAL.md LP4 tests1,4",
+        "development/m1/reference/incentives.md final"
+      ],
+      "requiredEvidence": "Actual closing/final state transitions, settle remaining pots, burn final tips, no valid child and full rollback"
+    },
+    {
+      "id": "cursor-mutation",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P6",
+      "sources": [
+        "development/LP3-CF-CORE-APPROVAL.md test2"
+      ],
+      "requiredEvidence": "Actual <=RET records/block, sticky firstcloseH, exact completion and persisted state"
+    },
+    {
+      "id": "pending[F]-absence",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P6",
+      "sources": [
+        "development/LP3-CF-CORE-APPROVAL.md test3",
+        "development/m1/reference/execution.md phase2"
+      ],
+      "requiredEvidence": "No actual pending[F] creation, including adversarial pending entries and rollback"
+    },
+    {
+      "id": "zero-final-subsidy",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P6",
+      "sources": [
+        "development/LP3-CF-CORE-APPROVAL.md test4",
+        "development/m1/reference/incentives.md F"
+      ],
+      "requiredEvidence": "Zero real final subsidy through balance/supply state and finalTips burn"
+    },
+    {
+      "id": "SV6-and-real-settlement",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P6",
+      "sources": [
+        "development/m1/reference/incentives.md SV1-SV7s",
+        "development/lp3/s9-acceptance/codex-r1/LP4-OBLIGATIONS.md item5"
+      ],
+      "requiredEvidence": "Actual invalidPot5000 ->invalidBurn5000; all SV cases through real balances/storage/payment/burn/held state, no pure arithmetic substitution"
+    },
+    {
+      "id": "atomic-persistence-crash-rollback",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P9",
+      "sources": [
+        "development/LOCAL-DEVNET-PLAN.md LP4",
+        "development/m1/reference/consensus.md rollback"
+      ],
+      "requiredEvidence": "Every commit boundary crash yields one complete state; bad block no disk effects; metadata/receipts/roots/diffs atomic; corruption/mismatch rejection and inverse-diff restoration"
+    },
+    {
+      "id": "LP4-PAY-02-LIFECYCLE",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P2/P4/P6/P7/P8/P9",
+      "sources": [
+        "development/LP4-PAY-LIFECYCLE-APPROVAL.md",
+        "development/lp4/p2-runtime/codex-r4/PAYMENT-LIFECYCLE-DECISION.md option 1 in full"
+      ],
+      "requiredEvidence": "Every approved part: complete pre-transaction nonce/code facts, all PAY including zero, actual compiled Registry register/setRewardAddress precedence and RewardNotDurable rollback; GenesisRewardNotDurable semantic admission without syntax/schema change; Escrow custody and Registry-only releaseBond(id) deriving HELD record, ordinary/sweep/closing refund eligibility and atomic accounting; nonce/code lifetime and both creation/selfdestruct attacks; missing bond destination reverts/invalidates without burn/skip; preserve SV5 and all SV/CL/CF/finalization values; independent balances/storage/roots, compiled negative controls, crash/reorg; fully CP/profile/model-bound re-derived R18/SYS and R21 resources, caps64. Partial native controls are not whole-contract acceptance."
+    },
+    {
+      "id": "LP4-REGISTRY-01",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P2/P4/P5/P6/P7/P8/P9",
+      "sources": [
+        "development/LP4-REGISTRY-APPROVAL.md",
+        "development/lp4/p2-runtime/codex-r6/REGISTRY-TRANSITION-DECISION.md option1 in full",
+        "development/m1/reference/execution.md user write ceilings",
+        "development/LP4-REGISTRY-WRITE-APPROVAL.md"
+      ],
+      "requiredEvidence": "All eight approved Registry parts and full compiled/independent boundary/negative/mutation/resource acceptance. Explicit LP4-REGISTRY-02 amendment alone replaces register9/reward1/claim9 with10/2/10; the original ceilings are not retrospectively satisfied. All other limits and R16/LAG remain unchanged. Full implementation, eligibility, PAY/bridge, GenesisBuilder, system-phase/block atomicity, crash/reorg and general resource proofs remain mandatory.",
+      "priorCeilingConflictResolvedBy": "Owner explicitly approved option1 in full: development/LP4-REGISTRY-WRITE-APPROVAL.md. Approval is not acceptance."
+    },
+    {
+      "id": "LP4-REGISTRY-02-WRITE-CEILINGS",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P2/P4/P7/P8",
+      "sources": [
+        "development/LP4-REGISTRY-WRITE-APPROVAL.md",
+        "development/lp4/p2-runtime/codex-r7/REGISTRY-WRITE-BUDGET-DECISION.md option1 in full"
+      ],
+      "requiredEvidence": "Prove and execute full Registry/bridge paths for register10, reward2, claim10; preserve deactivation7 and reactivation5 and every other limit. Actual complete execution, independent balances/storage/roots and SSTORE traces, compiled limit/accounting mutations, budget/time/status/closing/zero/positive/max arithmetic boundaries. Re-derive and measure affected R18/general SYS and R21 with full CP/profile/model identity; R16/LAG and caps64 unchanged. Original9/1/9 not passed; lower-bound witnesses or synthetic profile measurements alone are not acceptance."
+    },
+    {
+      "id": "LP4-CODE-01",
+      "status": "NOT PASSED",
+      "evidence": [],
+      "increment": "P2/P3/P4/P7/P8/P9/P10",
+      "sources": [
+        "development/LP4-CODE-APPROVAL.md",
+        "development/lp4/p3-wire/codex-r3/CODE-CAP-DECISION.md at 3bdbd149ccabfe21ef6cdd7fbaaa2afdabb1f59b"
+      ],
+      "requiredEvidence": "All approved option1 clauses and acceptance cases: CP runtime limit; independent EIP3860 49152; logical per-existing-account CODE_CAP; actual GenesisBuilder, signed/nested CREATE/CREATE2, gas/order/EIP3541, independent inventory and execution roots, all20661 original Cancun controls plus individual replacements, compiled mutations, deletion/rollback/import/crash/reorg, complete profile/semantic/model-bound general R18/R21/caps64; no boot authorization"
+    }
+  ],
+  "increments": {
+    "P0": {
+      "scope": "planning only",
+      "status": "PASS",
+      "pr": 20,
+      "merge": "9d3f99ab65c58e500ccd5b5218a5946ae335b788"
+    },
+    "P1": {
+      "scope": "canonical trie/root prerequisite only",
+      "status": "PASS",
+      "pr": 21,
+      "merge": "93ca35b97d7eeb9a11af539559e89d8e170b9a50",
+      "testedHead": "3423bbf6ba995ba1c5d77ca69084905272135211",
+      "evidence": [
+        "development/lp4/p1-trie/codex-r1",
+        "development/lp4/p1-trie/codex-r2"
+      ]
+    }
+  },
+  "pendingOwnerDefinition": {
+    "status": "APPROVED_NEW_LP4_DEFINITIONS",
+    "labels": [
+      "T2",
+      "T2b",
+      "T2c",
+      "T24",
+      "T26"
+    ],
+    "proposal": "development/lp4/p0-plan/codex-r1/NAMED-GATES-PROPOSAL.md",
+    "answerAssumed": false,
+    "approval": "development/LP4-TEST-GATES-APPROVAL.md"
+  },
+  "payInterfaceDecision": {
+    "status": "APPROVED_ADDITIVE_LP4",
+    "authority": "development/LP4-PAY-APPROVAL.md",
+    "originalContract": "development/lp4/p2-runtime/codex-r1/PAY-DECISION.md",
+    "executionAcceptance": "NOT PASSED"
+  },
+  "creationCollisionDecision": {
+    "status": "APPROVED_ADDITIVE_LP4",
+    "authority": "development/LP4-COLLISION-APPROVAL.md",
+    "originalProposal": "development/lp4/p2-runtime/codex-r2/CANCUN-COLLISION-DECISION.md",
+    "executionAcceptance": "NOT PASSED"
+  },
+  "systemExecutionDecision": {
+    "id": "LP4-SYS-01",
+    "status": "APPROVED_ADDITIVE_LP4",
+    "authority": "development/LP4-SYS-APPROVAL.md",
+    "originalProposalCommit": "b1f25e0613fbeb3832dfb20252f76b92ef72b90d",
+    "implementationAcceptance": "NOT PASSED",
+    "requiredEvidence": "All seven approved clauses and every immutable proposal acceptance requirement; internal primitives and synthetic measurements do not satisfy full integration/resources",
+    "currentPacket": "development/lp4/p4-genesis/codex-r7/ACCEPTANCE.json"
+  },
+  "issuanceFundingDecision": {
+    "id": "LP4-ISSUANCE-01",
+    "status": "APPROVED_ADDITIVE_LP4",
+    "proposal": "development/lp4/p4-genesis/codex-r3/ISSUANCE-DECISION.md",
+    "scope": "New observable protocol subsidy funding point/host interface; SYS-01 and all previous approvals stay closed",
+    "diagnostics": "Historical timing diagnostics remain unchanged. R7 partial sealed genesis/actual factory/signed USER/phase-2 credit comparisons, with witness Ledger and incomplete Escrow settlement; complete validated phases/finality/resources/durable acceptance still NOT PASSED",
+    "executionAcceptance": "NOT PASSED",
+    "authority": "development/LP4-ISSUANCE-APPROVAL.md",
+    "originalProposalCommit": "a67eb9d7ce39e7fdb7c0a53e3dee85de73de61e8",
+    "currentPacket": "development/lp4/p4-genesis/codex-r7/ACCEPTANCE.json"
+  },
+  "ledgerStateDecision": {
+    "id": "LP4-LEDGER-01",
+    "status": "NOT APPROVED",
+    "proposal": "development/lp4/p4-genesis/codex-r8/LEDGER-STATE-DECISION.md",
+    "scope": "New explicit Ledger storage/prune/Registry recording interface; earlier approvals closed",
+    "executionAcceptance": "NOT PASSED"
+  }
+}

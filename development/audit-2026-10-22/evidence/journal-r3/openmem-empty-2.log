@@ -1,0 +1,9 @@
+=== f-mem-open-empty-2: jm_open_memory JM_MEM_KIND=empty JM_MEM_OPEN=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/jr3w/memdirs/empty ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:23:56Z
+
+running 1 test
+test jm_open_memory ... JM-OPENMEM-FRESH {"baseline":"RSS after admitted() and malloc_trim, before Node::open; journal size from metadata","journalBytes":5780087,"kind":"empty","openSeconds":8.134345787,"peakAboveBaselineBytes":26546176,"peakOverJournal":4.592694885042388,"records":3000,"rssAfterBytes":34021376,"rssAfterTrimmedBytes":27951104,"rssBeforeBytes":7475200,"steadyAboveBaselineBytes":20475904,"steadyOverJournal":3.5424906234110316,"transientBytes":6070272,"transientOverJournal":1.050204261631356,"vmHwmAfterBytes":34021376,"vmHwmBeforeBytes":7475200}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 8.20s
+
+=== end 2026-10-24T01:24:04Z exit=0

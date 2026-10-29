@@ -1,0 +1,42 @@
+{
+  "specVersion": "M1 draft 0.6",
+  "revision": "R6-02 (C19)",
+  "rule": "B (FD:L1110): id is an integer in [0, 2^32-1]; the baseline declares no lexical grammar. Adopted reading (value semantics, consistent with native JSON.parse + Number.isInteger in the extension): the id token is any JSON number whose IEEE-754 double value (as JSON.parse yields it) is finite, integral and in [0, 4294967295]. The returned reply id is that value, normalized (-0 -> 0). Rejected: booleans, strings, null, arrays, objects, non-integral numbers, non-finite values (overflow to Infinity), and out-of-range values. The 0.4/0.5 lexical rule (token must match 0|[1-9][0-9]*) is withdrawn; it was not baseline text.",
+  "sameRuleFor": ["bridge envelope id (B0)", "eth_getProof JSON-RPC response id (CR-M1-01 rev 2 section 3.2), compared by value with the request id", "JSON-RPC error.code and error.data.retryAfterMs (value semantics, integral)"],
+  "messageTemplate": "{\"id\":TOKEN,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_blockNumber\",\"params\":[]}}",
+  "cases": [
+    {"token": "1", "accept": true, "returnedId": 1},
+    {"token": "1.0", "accept": true, "returnedId": 1},
+    {"token": "1e0", "accept": true, "returnedId": 1},
+    {"token": "1E0", "accept": true, "returnedId": 1},
+    {"token": "10e-1", "accept": true, "returnedId": 1},
+    {"token": "-0", "accept": true, "returnedId": 0},
+    {"token": "-0.0", "accept": true, "returnedId": 0},
+    {"token": "0", "accept": true, "returnedId": 0},
+    {"token": "1e-400", "accept": true, "returnedId": 0, "note": "underflows to 0 in IEEE-754 parsing, in JavaScript and in Python alike"},
+    {"token": "4294967295", "accept": true, "returnedId": 4294967295},
+    {"token": "4294967295.0", "accept": true, "returnedId": 4294967295},
+    {"token": "4.294967295e9", "accept": true, "returnedId": 4294967295},
+    {"token": "4294967296", "accept": false, "returnedId": null},
+    {"token": "4.294967296e9", "accept": false, "returnedId": null},
+    {"token": "4294967295.99999999999", "accept": false, "returnedId": null, "note": "rounds to 4294967296.0"},
+    {"token": "-1", "accept": false, "returnedId": null},
+    {"token": "1.5", "accept": false, "returnedId": null},
+    {"token": "1e400", "accept": false, "returnedId": null, "note": "overflows to Infinity"},
+    {"token": "true", "accept": false, "returnedId": null},
+    {"token": "null", "accept": false, "returnedId": null},
+    {"token": "\"1\"", "accept": false, "returnedId": null},
+    {"token": "[1]", "accept": false, "returnedId": null}
+  ],
+  "proofEnvelopeCases": [
+    {"id": "PE-5.0", "responseIdToken": "5.0", "requestId": 5, "expected": "result"},
+    {"id": "PE-5e0", "responseIdToken": "5e0", "requestId": 5, "expected": "result"},
+    {"id": "PE-minus0", "responseIdToken": "-0", "requestId": 0, "expected": "result"},
+    {"id": "PE-5.5", "responseIdToken": "5.5", "requestId": 5, "expected": "envelope.id"},
+    {"id": "PE-true", "responseIdToken": "true", "requestId": 1, "expected": "envelope.id"},
+    {"id": "PE-code-float", "errorJson": "{\"code\":-32021.0,\"message\":\"rate\",\"data\":{\"retryAfterMs\":500.0}}", "requestId": 5, "expected": ["retry", 500]},
+    {"id": "PE-retry-nonintegral", "errorJson": "{\"code\":-32021,\"message\":\"rate\",\"data\":{\"retryAfterMs\":500.5}}", "requestId": 5, "expected": ["attemptFail", "rate.badRetryAfter"]},
+    {"id": "PE-code-nonintegral", "errorJson": "{\"code\":-32021.5,\"message\":\"rate\"}", "requestId": 5, "expected": "envelope.errorShape"}
+  ],
+  "supersedes": "m1-draft-0.4/vectors/bridge-check-cases.json cases B0-id-1.0 and B0-id-minus-zero (now accepted, returned ids 1 and 0) and m1-draft-0.5/vectors/proof-response-cases.json ENV-id-float (now 'result')."
+}

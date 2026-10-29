@@ -1,0 +1,122 @@
+{
+  "schema": "pocol-m1-x8-config/0.23",
+  "labels": {"B": "current baseline clause (authority)", "H": "recovered historical definition (evidence, not authority), reconciled with B; no later explicit rejection found",
+             "P": "author proposal for a fixture or experiment detail that no source fixes"},
+  "canonical": [
+    {"id": "B-X8", "file": "reference/validation.md", "lines": [131, 131], "literals": ["CanarySink على TCP 18080 و18443 و13478، وUDP 13478 و19000، والقنوات C1–C8", "K0–K2 صفر وصول", "K3 معلوماتي", "K4 ضابط", "K5 صفر لـC5–C7"]},
+    {"id": "B-V4", "file": "reference/implementation.md", "lines": [361, 361], "literals": ["X8: صفحات C1–C8 والأعلام K0–K5"]},
+    {"id": "B-canaryLocal", "file": "reference/implementation.md", "lines": [9, 9], "literals": ["CanarySink محلي", "جهاز ثانٍ"]},
+    {"id": "B-csp", "file": "reference/browser.md", "lines": [366, 366], "literals": ["sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-<H_loader>' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"]},
+    {"id": "B-loader", "file": "reference/browser.md", "lines": [369, 382], "literals": ["المحمّل يطبق RtcLockdown", "prefetch/preconnect/dns-prefetch/prerender", "WebRTC"]},
+    {"id": "B-layers", "file": "reference/browser.md", "lines": [384, 390], "literals": ["الطبقة 1: CSP", "حجب {id 2·tabId، priority 1}", "سماح {id 2·tabId+1، priority 2، urlFilter '|chrome-extension://<ID>/'}", "التثبيت مغلق عند الفشل", "RtcLockdown، وحجته غير مثبتة، وX8 بوابة"]},
+    {"id": "B-D63", "file": "reference/decisions.json", "lines": [313, 314], "literals": ["D63", "X8 بمصارف TCP/UDP، وضابط K4."]},
+    {"id": "B-withdraw", "file": "reference/governance.md", "lines": [204, 204], "literals": ["فشل X8: سحب الإضافة"]},
+    {"id": "B-release", "file": "reference/FINAL_DESIGN.md", "lines": [6261, 6261], "literals": ["RtcLockdown قد يُتجاوز، وX8 مطلوب قبل أي إصدار عام"]}
+  ],
+  "historical": {
+    "H44": {"messageIndex": 44, "round": 21, "messageSha256": "68413dacbc24720dc168b92cc20310a93c4ea7500c23509a7be37db674c4e76e", "role": "last full channel/matrix summary"},
+    "H34": {"messageIndex": 34, "round": 16, "messageSha256": "704307aad7b6ee5d028a640cc96acbcaf0366a3d40e8afd4c9f1c9fca439bff2", "role": "earlier detailed source: port roles, C7 five paths, full flag layer sets, success/failure, claim limits"},
+    "privateEvidenceRole": "host-provided private recovery record (not copied; no path or transcript published)",
+    "reconciliation": "Labels C1-C8 and K0-K5 and the flag outcomes of B-X8 coincide with H44/H34 (K0-K2 zero, K3 informational, K4 control, K5 zero for C5-C7). H44 and H34 agree with each other. Searched for a later explicit rejection: reference/validation.md, browser.md, implementation.md, governance.md, decisions.json (D37, D63), FINAL_DESIGN.md; none found. The earlier 'H31 X8' (WebSocket/RTC and forged-netKey storage_set) superseded in 0.6 is a different, older proposal and is not used."
+  },
+  "canary": {
+    "host": {"value": "__CANARY_HOST__", "label": "P", "note": "runtime input: the host's LAN IPv4 (H34) or a second machine (B-canaryLocal); an IP literal so that no DNS lookup is needed"},
+    "ports": [
+      {"proto": "tcp", "port": 18080, "role": "HTTP", "label": "B port, H role"},
+      {"proto": "tcp", "port": 18443, "role": "WebSocket", "label": "B port, H role"},
+      {"proto": "tcp", "port": 13478, "role": "TURN-TCP", "label": "B port, H role"},
+      {"proto": "udp", "port": 13478, "role": "STUN", "label": "B port, H role"},
+      {"proto": "udp", "port": 19000, "role": "general", "label": "B port, H role; no channel is assigned to it in any source (PB1)"}
+    ]
+  },
+  "channels": [
+    {"id": "C1", "label": "H", "what": "fetch and XHR", "expected": ["tcp", 18080], "attempts": ["C1.fetch", "C1.xhr"], "files": ["pages/C1/index.html", "pages/C1/main.js"]},
+    {"id": "C2", "label": "H", "what": "img, link, font and @import", "expected": ["tcp", 18080], "attempts": ["C2.img", "C2.link", "C2.font", "C2.import"], "files": ["pages/C2/index.html", "pages/C2/main.js"]},
+    {"id": "C3", "label": "H", "what": "prefetch and preconnect", "expected": ["tcp", 18080], "attempts": ["C3.prefetch", "C3.preconnect"], "files": ["pages/C3/index.html", "pages/C3/main.js"]},
+    {"id": "C4", "label": "H", "what": "WebSocket", "expected": ["tcp", 18443], "attempts": ["C4.websocket"], "files": ["pages/C4/index.html", "pages/C4/main.js"]},
+    {"id": "C5", "label": "H", "what": "RTCPeerConnection with STUN (UDP)", "expected": ["udp", 13478], "attempts": ["C5.stun"], "files": ["pages/C5/index.html", "pages/C5/main.js"]},
+    {"id": "C6", "label": "H", "what": "RTCPeerConnection with TURN-TCP", "expected": ["tcp", 13478], "attempts": ["C6.turnTcp"], "files": ["pages/C6/index.html", "pages/C6/main.js"]},
+    {"id": "C7", "label": "H (five paths); transport P (PB2)", "what": "new realm, then RTCPeerConnection from it", "expected": ["udp", 13478],
+     "attempts": ["C7.createElement", "C7.innerHTML", "C7.createElementNS", "C7.templateImportNode", "C7.documentWrite"], "files": ["pages/C7/index.html", "pages/C7/main.js"]},
+    {"id": "C8", "label": "H", "what": "navigator.sendBeacon and form submission", "expected": ["tcp", 18080], "attempts": ["C8.beacon", "C8.form"], "files": ["pages/C8/index.html", "pages/C8/main.js"]}
+  ],
+  "commonAttempt": {"id": "X.apiProbe", "label": "P", "what": "typeof chrome / chrome.runtime / browser recorded in every page; informational (X4 is the gate for extension APIs)"},
+  "pageContract": {"label": "P", "rules": ["Every counted attempt is made by script at run time, so the static sanitizer (which removes prefetch/preconnect markup, B-loader) cannot make a K4 control fail; static-markup sanitization is covered by T12 and X1-X7.",
+                   "Each page records window.__x8 = {channel, run, attempts[{id, api, target, error}], extensionApi}; the harness reads it through CDP at the end of the window.",
+                   "HTTP paths carry /x8/<run>/<channel>/<attempt>; the tokens __CANARY_HOST__ and __RUN__ are the only substitutions."]},
+  "configurations": [
+    {"id": "K0", "layers": {"csp": "on", "dnr": "on", "rtc": "on"}, "flagB": "zero reach", "label": "B outcome, H layer set"},
+    {"id": "K1", "layers": {"csp": "on", "dnr": "off", "rtc": "on"}, "flagB": "zero reach", "label": "B outcome, H layer set"},
+    {"id": "K2", "layers": {"csp": "relaxed", "dnr": "on", "rtc": "on"}, "flagB": "zero reach", "label": "B outcome, H layer set; relaxed CSP text P (PB3)"},
+    {"id": "K3", "layers": {"csp": "on", "dnr": "on", "rtc": "off"}, "flagB": "informational", "historicalExpectation": "C5, C6, C7 reach; absence is 'unexplained', never success",
+     "label": "B outcome, H layer set and expectation"},
+    {"id": "K4", "layers": {"csp": "off", "dnr": "off", "rtc": "off"}, "flagB": "control", "historicalExpectation": "mandatory positive control: every channel must reach; a channel that does not is 'untestable' and X8 stays pending",
+     "label": "B outcome, H layer set and rule"},
+    {"id": "K5", "layers": {"csp": "off", "dnr": "off", "rtc": "on"}, "flagB": "zero reach for C5-C7", "historicalExpectation": "HTTP reach expected for the other channels (shows the layer's scope)",
+     "label": "B outcome, H layer set"}
+  ],
+  "cellRules": {
+    "gatingZero": {"K0": "C1-C8", "K1": "C1-C8", "K2": "C1-C8", "K5": "C5-C7"},
+    "requiredReach": {"K4": "C1-C8"},
+    "informational": {"K3": "C1-C8", "K5": "C1-C4,C8"},
+    "informationalExpectedReach": {"K3": "C5-C7", "K5": "C1-C4,C8"}
+  },
+  "layerSpecs": {
+    "cspOn": {"label": "B", "text": "sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-<H_loader>' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"},
+    "cspRelaxed": {"label": "P (PB3)", "text": "sandbox allow-scripts allow-forms; default-src http://__CANARY_HOST__:18080; script-src 'sha256-<H_loader>' blob:; style-src blob: 'unsafe-inline' http://__CANARY_HOST__:18080; img-src blob: data: http://__CANARY_HOST__:18080; font-src blob: http://__CANARY_HOST__:18080; media-src blob:; connect-src http://__CANARY_HOST__:18080 ws://__CANARY_HOST__:18443; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action http://__CANARY_HOST__:18080"},
+    "cspOff": {"label": "P (PB4)", "text": "sandbox allow-scripts allow-forms"},
+    "dnrOn": {"label": "B ids/priorities/urlFilter; P action and condition shapes (PB9)",
+              "rules": [{"id": "2*tabId", "priority": 1, "action": {"type": "block"}, "condition": {"tabIds": ["tabId"]}},
+                        {"id": "2*tabId+1", "priority": 2, "action": {"type": "allow"}, "condition": {"tabIds": ["tabId"], "urlFilter": "|chrome-extension://<ID>/"}}],
+              "closedFailure": {"label": "B ('installation closed on failure'); verification step P",
+                                "rule": "The frame is created only after updateSessionRules resolves AND getSessionRules returns both rules for the tab; otherwise no frame, no site script, an error view, zero canary reach."}},
+    "dnrOff": {"label": "P", "rule": "test build flag x8Dnr=off skips installation deliberately; this is not the failure path (tested by X8-F1)"},
+    "rtcOn": {"label": "B (applied by the loader); mechanism undefined (PB5)"},
+    "rtcOff": {"label": "P", "rule": "test build flag x8Rtc=off: the loader does not apply RtcLockdown"},
+    "sanitizer": {"label": "B", "note": "not a layer of the K matrix; active in every configuration"},
+    "extensionApi": {"label": "P", "rule": "every page records typeof chrome/chrome.runtime/browser; expected 'undefined' for chrome.runtime in the opaque-origin sandbox; informational in X8 (gate: X4)"}
+  },
+  "eventSchema": {
+    "canaryEvent": {"fields": ["runId", "K", "C", "ts", "proto", "port", "srcIp", "srcPort", "bytes", "firstBytesHex", "http", "evidenceSource"],
+                    "rules": ["evidenceSource = 'canary'", "C is a channel id or 'selftest'", "http = {method, path} or null", "firstBytesHex holds at most 64 bytes", "srcIp must be the Chrome host (requestOrigin)"]},
+    "secondaryEvent": {"label": "H (secondary monitor every 100 ms; diagnostic, not the only criterion)", "fields": ["runId", "K", "C", "ts", "kind", "pid", "local", "remote", "evidenceSource"],
+                       "rules": ["kind in {tcpConnection, udpEndpoint}", "a TCP remote outside {127.0.0.1, canary} or a UDP endpoint new against the pre-open baseline is a signal"]},
+    "dnsEvent": {"label": "P", "fields": ["runId", "K", "C", "ts", "qname", "evidenceSource"], "rules": ["pages use an IP literal; any query in K0 is a secondary signal"]},
+    "pageLog": {"label": "P", "fields": ["channel", "run", "attempts", "extensionApi"]}
+  },
+  "experimentPlan": {
+    "status": "notExecuted (specification only; Chrome results are not claimed)",
+    "environment": ["separate Chrome user-data-dir; unpacked test build per K (flags x8Csp on|relaxed|off, x8Dnr on|off, x8Rtc on|off) (H34 separate profile; flags P)",
+                    "CDP on 127.0.0.1 only, used to open the window and read window.__x8 (P)",
+                    "CanarySink on the host LAN IP or a second machine (B, H34); secondary monitor (H34); DNS log (P)",
+                    "the eight pages published as one site through the factory on anvil-br, opened as <site>/C<n>/index.html (P)"],
+    "schedule": {"label": "P (PB8)", "order": "for K in K0..K5: SELFTEST, then C1..C8, one page per window", "windowMs": 15000, "gapMs": 3000},
+    "experiments": [
+      {"id": "X8-SELFTEST-<K>", "inputs": "one TCP connection to each TCP port and one UDP datagram to each UDP port, sent from a non-Chrome process", "pass": "the canary logs all five; otherwise the K block is INVALID (a zero would be a false zero)"},
+      {"id": "X8-<K>-<C>", "count": 48, "inputs": "page C<n> under build K", "pass": "the cell rule of cellRules"},
+      {"id": "X8-SEC-K0", "inputs": "secondary monitor and DNS log during K0", "pass": "zero signals"},
+      {"id": "X8-F1", "inputs": "K0 build with a test hook that rejects updateSessionRules", "pass": "no frame, no site script (window.__x8 absent), zero canary reach"},
+      {"id": "X8-FULL", "label": "H, deferred beyond M1", "inputs": "full packet capture (pktmon or Wireshark) on a separate machine with administrator rights", "pass": "required before any public release, not for the prototype"}
+    ],
+    "verdict": ["INVALID if any SELFTEST misses a port", "FAIL if any gatingZero cell reaches (K0 reach = release blocker; governance: withdraw the extension) or any K0 secondary signal",
+                "PENDING if a K4 channel does not reach its expected port (channel 'untestable') or a window is missing", "PASS otherwise; informational cells are reported as reach / noReach / unexplained"]
+  },
+  "claimLimits": {"label": "H, consistent with B-layers and B-release",
+                  "text": ["X8 shows blocking of the counted channels only; an uncounted channel toward another destination is not covered.",
+                           "Destination independence rests on CSP, DNR and RtcLockdown not distinguishing destinations except the chrome-extension exception; this is an argument, not a proof.",
+                           "RtcLockdown's argument remains unproven (B); a passing X8 does not prove WebRTC exposure is impossible."]},
+  "precisionBlocks": [
+    {"id": "PB1", "text": "UDP 19000 has no channel in any source: it is a listener only; any event on it counts as reach in its window."},
+    {"id": "PB2", "text": "C7's transport is not fixed (H34: 'RTCPeerConnection from the new realm'); the fixture reuses C5's STUN configuration."},
+    {"id": "PB3", "text": "K2's relaxed CSP is described ('allows the canary') but not written; the fixture text is a proposal."},
+    {"id": "PB4", "text": "What remains when the CSP layer is off is not written; the fixture keeps the sandbox token only."},
+    {"id": "PB5", "text": "RtcLockdown's mechanism is not defined in the current baseline; X8 tests its effect, not its design."},
+    {"id": "PB6", "text": "Whether document.write (C7 path 5) can create a realm under the blob-script loader is undefined; the K4 control decides testability."},
+    {"id": "PB7", "text": "TCP 18443 is named 'WebSocket'; TLS is not specified. The fixture uses ws:// because reach is measured at TCP accept."},
+    {"id": "PB8", "text": "STUN/TURN traffic carries no path; attribution uses one page per time window (schedule P)."},
+    {"id": "PB9", "text": "DNR rule fields beyond id, priority and urlFilter (action, condition.tabIds) are not written."},
+    {"id": "PB10", "text": "Chrome may refuse private-network destinations; then K4 shows 'untestable' and the canary must move (second machine or public address), as H34 and B-canaryLocal allow."},
+    {"id": "PB11", "text": "The secondary monitor and X8-full come from H34 only; the current baseline names CanarySink alone."},
+    {"id": "PB12", "text": "The extension-API probe is informational here; the gate for extension APIs is X4."}
+  ]
+}

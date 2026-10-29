@@ -1,0 +1,46 @@
+{
+  "scope": "Actual compiled EVM counterexample; neither retention policy is approved.\nOne-owner synthetic state only, not full ShareLedger or an acceptance gate.\n",
+  "artifactSHA256": "3fee4b5883a723af5cfe7196138aefb277fcaec6c66e652ed596a550e02d2227",
+  "height": 5,
+  "D": 2,
+  "W_w": 3,
+  "cases": [
+    {
+      "policy": "minimal-needed-window",
+      "approved": false,
+      "input": "0x7e8fd8620000000000000000000000000000000000000000000000000000000000000000",
+      "beforeRoot": "0x91d09d44b4f026a3ea605c458fe72d6611164f4693bb34fd90e49d12f04fcce1",
+      "afterRoot": "0x986cd1711b6a3c840ae2be1413d29736439c9387bff73376af39df5eec676fad",
+      "rawFrameGas": 5659,
+      "refundCounter": 4800,
+      "counts": {
+        "1": 0,
+        "2": 11,
+        "3": 13
+      },
+      "parentAssignmentKnownWeight": 31,
+      "currentSettlementCount": 13,
+      "nextAssignmentKnownWeight": 24
+    },
+    {
+      "policy": "retain-one-extra",
+      "approved": false,
+      "input": "0x7e8fd8620000000000000000000000000000000000000000000000000000000000000001",
+      "beforeRoot": "0x91d09d44b4f026a3ea605c458fe72d6611164f4693bb34fd90e49d12f04fcce1",
+      "afterRoot": "0x91d09d44b4f026a3ea605c458fe72d6611164f4693bb34fd90e49d12f04fcce1",
+      "rawFrameGas": 481,
+      "refundCounter": 0,
+      "counts": {
+        "1": 7,
+        "2": 11,
+        "3": 13
+      },
+      "parentAssignmentKnownWeight": 31,
+      "currentSettlementCount": 13,
+      "nextAssignmentKnownWeight": 24
+    }
+  ],
+  "rootsDiffer": true,
+  "decision": "NOT APPROVED",
+  "bootable": false
+}

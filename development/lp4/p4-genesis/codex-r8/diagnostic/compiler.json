@@ -1,0 +1,82 @@
+{
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "input": {
+    "language": "Solidity",
+    "sources": {
+      "LedgerRetentionCountermodel.sol": {
+        "content": "// SPDX-License-Identifier: Apache-2.0\npragma solidity 0.8.28;\n// Diagnostic only: two UNAPPROVED physical retention policies for one owner.\n// Not ShareLedger, not installed in any profile or production phase schedule.\ncontract LedgerRetentionCountermodel {\n    mapping(uint64=>uint256) public count;\n    function prune(bool retainExtra) external {\n        require(msg.sender==address(uint160(type(uint160).max-1)));\n        // Sample h=5, D=2,W_w=3. Both preserve settlement j=3 and next weights2..4.\n        uint256 lag=retainExtra?5:4;\n        if(block.number<=lag)return;\n        delete count[uint64(block.number-lag)];\n    }\n}\n"
+      }
+    },
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "evmVersion": "cancun",
+      "metadata": {
+        "bytecodeHash": "none",
+        "appendCBOR": false
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "abi",
+            "evm.deployedBytecode.object"
+          ]
+        }
+      }
+    }
+  },
+  "output": {
+    "contracts": {
+      "LedgerRetentionCountermodel.sol": {
+        "LedgerRetentionCountermodel": {
+          "abi": [
+            {
+              "inputs": [
+                {
+                  "internalType": "uint64",
+                  "name": "",
+                  "type": "uint64"
+                }
+              ],
+              "name": "count",
+              "outputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "",
+                  "type": "uint256"
+                }
+              ],
+              "stateMutability": "view",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "bool",
+                  "name": "retainExtra",
+                  "type": "bool"
+                }
+              ],
+              "name": "prune",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "deployedBytecode": {
+              "object": "608060405234801561000f575f5ffd5b5060043610610034575f3560e01c80632d88e1fa146100385780637e8fd86214610069575b5f5ffd5b610057610046366004610100565b5f6020819052908152604090205481565b60405190815260200160405180910390f35b61007c61007736600461012e565b61007e565b005b61009060016001600160a01b03610161565b6001600160a01b0316336001600160a01b0316146100ac575f5ffd5b5f816100b95760046100bc565b60055b60ff1690508043116100cc575050565b5f806100d88343610186565b67ffffffffffffffff1667ffffffffffffffff1681526020019081526020015f205f90555050565b5f60208284031215610110575f5ffd5b813567ffffffffffffffff81168114610127575f5ffd5b9392505050565b5f6020828403121561013e575f5ffd5b81358015158114610127575f5ffd5b634e487b7160e01b5f52601160045260245ffd5b6001600160a01b0382811682821603908111156101805761018061014d565b92915050565b818103818111156101805761018061014d56"
+            }
+          }
+        }
+      }
+    },
+    "sources": {
+      "LedgerRetentionCountermodel.sol": {
+        "id": 0
+      }
+    }
+  }
+}

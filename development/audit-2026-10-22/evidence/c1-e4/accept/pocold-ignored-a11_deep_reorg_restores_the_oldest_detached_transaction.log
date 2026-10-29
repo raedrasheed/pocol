@@ -1,0 +1,12 @@
+# pocold-ignored-a11_deep_reorg_restores_the_oldest_detached_transaction: (cd prototypes/pocold; cargo test --release --locked --offline --test consensus -- --ignored --exact a11_deep_reorg_restores_the_oldest_detached_transaction)
+# start 2026-10-25T08:02:56Z (alongside the final mutation pass)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.17s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/target/release/deps/consensus-8931e1cfd46c771d)
+
+running 1 test
+test a11_deep_reorg_restores_the_oldest_detached_transaction has been running for over 60 seconds
+test a11_deep_reorg_restores_the_oldest_detached_transaction ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 78 filtered out; finished in 171.75s
+
+# end 2026-10-25T08:05:48Z exit=0

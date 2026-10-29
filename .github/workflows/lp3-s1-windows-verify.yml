@@ -1,0 +1,90 @@
+# LP3 S1 (PR #10) Windows regression checks: Rust 1.58.1, full Rust suite, LP2 storage journal and
+# real-process crash recovery, portable allocation tests, fixtures, end-to-end scripts, the GenesisSpec
+# differential against the accepted M1 reference, and the genesis-decode CLI harness.
+#
+# Manual dispatch only. It is deliberately not triggered by push or pull_request: the repository is
+# private, so a run uses the owner's included GitHub Actions minutes (Windows minutes count at a
+# higher rate), and that capacity could not be confirmed when this workflow was added. GitHub can
+# dispatch a workflow only once its file is on the default branch; the run then uses the file from the
+# selected branch. No secrets are used, the token is read-only and not persisted, and actions are
+# pinned to full commit SHAs.
+name: LP3 S1 Windows verification (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Exact 40-character lowercase commit SHA to test
+        required: true
+        type: string
+      include_slow:
+        description: Also run the release differential and CLI harness with a full-size gsVersion
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lp3-s1-windows-verify
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows Server 2022, Rust 1.58.1
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_TERM_COLOR: never
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - name: Validate the commit input
+        env:
+          COMMIT_INPUT: ${{ inputs.commit }}
+        run: |
+          if ($env:COMMIT_INPUT -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'commit must be a full 40-character lowercase hex SHA'
+          }
+
+      - name: Check out the commit under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify checkout and verification script
+        env:
+          EXPECTED_COMMIT: ${{ inputs.commit }}
+        run: |
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -cne $env:EXPECTED_COMMIT) { throw "checkout SHA mismatch" }
+          $script = '.github/scripts/lp3-s1-windows-verify.ps1'
+          if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "verification script missing" }
+          Write-Output "Verified commit: $actual"
+          Get-FileHash -Algorithm SHA256 -LiteralPath $script | Format-List
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Run the checks
+        id: verify
+        env:
+          INCLUDE_SLOW: ${{ inputs.include_slow }}
+          EVIDENCE_DIR: ${{ runner.temp }}\lp3-evidence
+        run: ./.github/scripts/lp3-s1-windows-verify.ps1 -Evidence $env:EVIDENCE_DIR
+
+      - name: Upload logs and results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lp3-s1-windows-${{ steps.verify.outputs.commit || inputs.commit || github.sha }}
+          path: ${{ runner.temp }}\lp3-evidence
+          if-no-files-found: error
+          retention-days: 14

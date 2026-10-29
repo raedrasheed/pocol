@@ -1,0 +1,27 @@
+lp4-release exit=0
+pocold-release exit=0
+pocold-crash-steps exit=0
+pocold-kills-damage exit=0
+pocold-spec-depth-store exit=0
+pocold-ignored-deep exit=0
+a13-models exit=0
+d7-hold exit=0
+d7-run-loop exit=0
+pocold-bins exit=0
+lp1-node-1.58.1 exit=101
+ext-build exit=0
+ext-unit exit=0
+e2e-devnet-whole-state exit=0
+e2e-site-whole-state exit=0
+e2e-browser-whole-state exit=0
+e2e-integrated-whole-state exit=1
+rss-load-whole-state exit=0
+e2e-devnet-store exit=0
+e2e-site-store exit=0
+e2e-browser-store exit=0
+e2e-integrated-store exit=0
+rss-load-store exit=0
+jm-r14-whole-state exit=0
+jm-r14-store exit=0
+jm-churn-30 exit=0
+done

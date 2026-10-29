@@ -1,0 +1,19 @@
+
+running 4 tests
+test cf1_cf2_triggers_and_sticky_identity ... ok
+test cf3_cursor_bounds_checked ... ok
+test cf4_gate2_boundaries ... ok
+test cf5_cf6_each_conjunct_and_u64 ... FAILED
+
+failures:
+
+---- cf5_cf6_each_conjunct_and_u64 stdout ----
+thread 'cf5_cf6_each_conjunct_and_u64' panicked at 'assertion failed: !child_allowed(true, 700, 700)', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/finality_core.rs:36:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    cf5_cf6_each_conjunct_and_u64
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

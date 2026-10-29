@@ -1,0 +1,87 @@
+[
+  {
+    "file": "Cancun/stEIP4844-blobtransactions/blobhashListBounds7.json",
+    "expectedRejection": true,
+    "count": 1
+  },
+  {
+    "file": "Pyspecs/byzantium/eip198_modexp_precompile/modexp.json",
+    "expectedRejection": false,
+    "count": 2
+  },
+  {
+    "file": "Pyspecs/cancun/eip4844_blobs/insufficient_balance_blob_tx.json",
+    "expectedRejection": true,
+    "count": 54
+  },
+  {
+    "file": "Pyspecs/cancun/eip4844_blobs/invalid_tx_blob_count.json",
+    "expectedRejection": true,
+    "count": 1
+  },
+  {
+    "file": "Pyspecs/shanghai/eip3860_initcode/gas_usage.json",
+    "expectedRejection": true,
+    "count": 7
+  },
+  {
+    "file": "stCreate2/RevertInCreateInInitCreate2Paris.json",
+    "expectedRejection": false,
+    "count": 1
+  },
+  {
+    "file": "stCreate2/create2collisionStorageParis.json",
+    "expectedRejection": false,
+    "count": 3
+  },
+  {
+    "file": "stEIP1559/lowGasLimit.json",
+    "expectedRejection": true,
+    "count": 1
+  },
+  {
+    "file": "stEIP1559/tipTooHigh.json",
+    "expectedRejection": true,
+    "count": 1
+  },
+  {
+    "file": "stEIP1559/transactionIntinsicBug_Paris.json",
+    "expectedRejection": true,
+    "count": 1
+  },
+  {
+    "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_calls.json",
+    "expectedRejection": true,
+    "count": 1
+  },
+  {
+    "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_callsItself.json",
+    "expectedRejection": true,
+    "count": 1
+  },
+  {
+    "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_init_Paris.json",
+    "expectedRejection": true,
+    "count": 4
+  },
+  {
+    "file": "stEIP3607/transactionCollidingWithNonEmptyAccount_send_Paris.json",
+    "expectedRejection": true,
+    "count": 1
+  },
+  {
+    "file": "stExtCodeHash/dynamicAccountOverwriteEmpty_Paris.json",
+    "expectedRejection": false,
+    "count": 1
+  },
+  {
+    "file": "stRevertTest/RevertInCreateInInit_Paris.json",
+    "expectedRejection": false,
+    "count": 1
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "expectedRejection": false,
+    "count": 4
+  }
+]

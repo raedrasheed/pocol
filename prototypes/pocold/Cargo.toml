@@ -1,0 +1,46 @@
+[package]
+name = "pocold"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+description = "PoCol local development node: consensus, mining, persistence, P2P and RPC over the LP4 execution layer. Local simnet devnets only."
+
+[dependencies]
+pocol-lp4-execution = { path = "../lp4-execution" }
+revm = { version = "=19.7.0", features = ["serde"] }
+serde_json = "=1.0.145"
+# Borrowed probe that classifies an RPC request as light without building a JSON tree (A05/A13, round 2); already in the lock through revm.
+serde = { version = "=1.0.229", features = ["derive"] }
+sha2 = "=0.9.9"
+sha3 = "=0.9.1"
+# k256 (as in lp4-execution) replaces the unmaintained libsecp256k1 0.5.0 behind the shared hashes.rs (secp_backend, audit 2026-10-22).
+k256 = { version = "=0.13.4", features = ["ecdsa"] }
+# C-1 storage program (D-1, owner approved): the spec's store (storage.md:63-73). Its only runtime
+# dependency, libc, is already in the lock; every other dependency it lists is dev-only.
+redb = "=2.6.4"
+
+# SO_SNDBUF on RPC connections (RpcGuard SEND_SOCK_BUF, network.md): std exposes no setsockopt. Both
+# crates and versions are already in the lock (libc through getrandom and others, windows-sys through
+# tempfile, rustix and stacker); WinSock only adds bindings.
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.191"
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Networking_WinSock"] }
+
+[dev-dependencies]
+# C-1 E1: the tests compare every incremental state root with the full computation.
+pocol-lp4-execution = { path = "../lp4-execution", features = ["root-check"] }
+
+[features]
+# validation.md:2065 caps-test build constants (simnet only, absent from the release); see lp4-execution.
+caps-test = ["pocol-lp4-execution/caps-test"]
+# C-1 E4.4 crash tests: the process aborts at a named step of a block's commit or a checkpoint's write
+# (`crash_point`, POCOLD_CRASH_AT). Tests only, absent from the release.
+crash-test = []
+# Storage fault tests: deterministic I/O errors in state.redb (`io_fault`, `io_point`). Tests only, absent from
+# the release.
+io-fault = []
+
+[profile.release]
+debug = 1

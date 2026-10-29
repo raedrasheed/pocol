@@ -1,0 +1,48 @@
+   Compiling version_check v0.9.4
+   Compiling typenum v1.15.0
+   Compiling subtle v2.4.1
+   Compiling crunchy v0.2.2
+   Compiling proc-macro2 v1.0.36
+   Compiling unicode-xid v0.2.2
+   Compiling syn v1.0.86
+   Compiling cfg-if v1.0.0
+   Compiling getrandom v0.1.16
+   Compiling serde_derive v1.0.136
+   Compiling block-padding v0.2.1
+   Compiling serde v1.0.136
+   Compiling opaque-debug v0.3.0
+   Compiling ppv-lite86 v0.2.16
+   Compiling serde_json v1.0.79
+   Compiling cpufeatures v0.2.1
+   Compiling arrayref v0.3.6
+   Compiling itoa v1.0.1
+   Compiling ryu v1.0.9
+   Compiling keccak v0.1.0
+   Compiling base64 v0.12.3
+   Compiling generic-array v0.14.5
+   Compiling rand_core v0.5.1
+   Compiling rand_chacha v0.2.2
+   Compiling quote v1.0.15
+   Compiling rand v0.7.3
+   Compiling digest v0.9.0
+   Compiling block-buffer v0.9.0
+   Compiling crypto-mac v0.8.0
+   Compiling libsecp256k1-core v0.2.2
+   Compiling sha2 v0.9.9
+   Compiling sha3 v0.9.1
+   Compiling hmac v0.8.1
+   Compiling libsecp256k1-gen-genmult v0.2.1
+   Compiling libsecp256k1-gen-ecmult v0.2.1
+   Compiling hmac-drbg v0.3.0
+   Compiling libsecp256k1 v0.5.0
+   Compiling lp1-node v0.1.0 (<workspace>\coordination\lp2-repo\prototypes\lp1-node)
+warning: function is never used: `h256`
+   --> src\store.rs:309:4
+    |
+309 | fn h256(b: &[u8]) -> H256 {
+    |    ^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `lp1-node` (lib) generated 1 warning
+    Finished dev [unoptimized + debuginfo] target(s) in 2m 44s

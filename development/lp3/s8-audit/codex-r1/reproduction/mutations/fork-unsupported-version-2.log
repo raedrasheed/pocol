@@ -1,0 +1,29 @@
+
+running 6 tests
+test schedule_requires_origin_strict_heights_and_implemented_versions ... FAILED
+test testfork_v2_never_becomes_bootable_even_on_simnet ... FAILED
+test hash_and_chain_binding_cannot_be_replaced_by_matching_fork_schedule ... ok
+test every_width_minimum_and_upper_bound_is_checked_before_narrowing ... ok
+test typed_cp_preserves_all_values_and_exact_encoding ... ok
+test kind_matrix_and_network_chain_id_separation ... ok
+
+failures:
+
+---- schedule_requires_origin_strict_heights_and_implemented_versions stdout ----
+thread 'schedule_requires_origin_strict_heights_and_implemented_versions' panicked at 'assertion failed: `(left == right)`
+  left: `Ok(ForkSchedule([(1, 0), (0, 50)]))`,
+ right: `Err(UnsupportedVersion(0))`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/profile.rs:86:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- testfork_v2_never_becomes_bootable_even_on_simnet stdout ----
+thread 'testfork_v2_never_becomes_bootable_even_on_simnet' panicked at 'assertion failed: `(left == right)`
+  left: `Ok(ProfileIdentity { spec: GenesisSpec { chain_id: 777002, cp: [U256([1700000000, 0, 0, 0]), U256([0, 0, 0, 281474976710656]), U256([10, 0, 0, 0]), U256([600, 0, 0, 0]), U256([1, 0, 0, 0]), U256([2, 0, 0, 0]), U256([60, 0, 0, 0]), U256([6, 0, 0, 0]), U256([32, 0, 0, 0]), U256([2, 0, 0, 0]), U256([256, 0, 0, 0]), U256([16, 0, 0, 0]), U256([64, 0, 0, 0]), U256([1000, 0, 0, 0]), U256([500, 0, 0, 0]), U256([80000, 0, 0, 0]), U256([7766279631452241920, 5, 0, 0]), U256([2, 0, 0, 0]), U256([256, 0, 0, 0]), U256([1, 0, 0, 0]), U256([16384, 0, 0, 0]), U256([16, 0, 0, 0]), U256([64, 0, 0, 0]), U256([16, 0, 0, 0]), U256([128, 0, 0, 0]), U256([1024, 0, 0, 0]), U256([2048, 0, 0, 0]), U256([2200, 0, 0, 0]), U256([4, 0, 0, 0]), U256([8192, 0, 0, 0]), U256([8000000, 0, 0, 0]), U256([1000000000, 0, 0, 0]), U256([131072, 0, 0, 0]), U256([196608, 0, 0, 0]), U256([32768, 0, 0, 0]), U256([1073741824, 0, 0, 0]), U256([8589934592, 0, 0, 0]), U256([10000000, 0, 0, 0]), U256([4000000, 0, 0, 0]), U256([1000000, 0, 0, 0]), U256([131072, 0, 0, 0]), U256([2048, 0, 0, 0]), U256([256, 0, 0, 0]), U256([512, 0, 0, 0]), U256([96000000, 0, 0, 0]), U256([200, 0, 0, 0]), U256([1710000000, 0, 0, 0]), U256([40, 0, 0, 0]), U256([1710000000, 0, 0, 0]), U256([160, 0, 0, 0]), U256([128, 0, 0, 0]), U256([2, 0, 0, 0])], alloc_root: [34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34], m0_list: [Member { id: [161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161, 161], reward_addr: [177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177] }, Member { id: [162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162], reward_addr: [178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178, 178] }], sys_code_hash: [51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51] }, cp: ConsensusParams { g_ts: 1700000000, target_g: U256([0, 0, 0, 281474976710656]), T_blk: 10, tau: 600, nonceMode: 1, c: 2, D_att: 60, dFbWait: 6, m: 32, kappa: 2, S_max: 256, D: 16, W_w: 64, alpha_bp: 1000, gamma_bp: 500, subsidy: U256([80000, 0, 0, 0]), B_reg: U256([7766279631452241920, 5, 0, 0]), R_max: 2, M_max: 256, M_min: 1, REG_RECORDS_MAX: 16384, SWEEP_MAX: 16, SWEEP_SCAN: 64, REG_OPS: 16, W_act: 128, Theta_inact: 1024, E_win: 2048, U: 2200, E_max: 4, EVID_BYTES_MAX: 8192, GAS_LIMIT: 8000000, baseFee0: U256([1000000000, 0, 0, 0]), TX_MAX: 131072, BODY_MAX: 196608, B_code_max: 32768, CODE_CAP: 1073741824, TXBYTES_CAP: 8589934592, TX_CAP: 10000000, SLOT_CAP: 4000000, ACCT_CAP: 1000000, SYS_SLOT_MAX: 131072, SYS_KEYS_BLOCK_MAX: 2048, SYS_KEYS_USER_MAX: 256, SYS_ACCT_BLOCK_MAX: 512, G_SYS: 96000000, H_END: 200, T_END: 1710000000, H_CLOSE: 40, T_CLOSE: 1710000000, Z_close: 160, RET: 128, P2: 2 }, hash: [196, 253, 4, 31, 147, 254, 247, 196, 69, 52, 92, 182, 20, 172, 122, 31, 254, 46, 86, 51, 44, 237, 254, 101, 35, 151, 175, 185, 140, 82, 147, 114], forks: ForkSchedule([(1, 0), (2, 50)]), kind: Simnet, node_kind: Simnet })`,
+ right: `Err(UnsupportedVersion(2))`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/profile.rs:143:5
+
+
+failures:
+    schedule_requires_origin_strict_heights_and_implemented_versions
+    testfork_v2_never_becomes_bootable_even_on_simnet
+
+test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

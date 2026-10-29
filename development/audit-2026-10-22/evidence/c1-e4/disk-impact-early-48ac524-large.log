@@ -1,0 +1,6 @@
+# commit 48ac524c07f53bed7b3bf18f40a03156199e335d 2026-10-25T06:03:21Z JM_ST_FILL=70 JM_ST_FULL=8 store only
+JM-STORE {"blocks":78,"buildSeconds":130.511622114,"checkpointsWritten":5,"filesBytes":{"history":4747264,"journal":519120,"state":67907584},"fillBlocks":70,"forkDepth":8,"fullBlocks":8,"importFillBlocks":{"maxMs":938.205201,"meanMs":422.8849333857143,"medianMs":437.916297,"n":70},"importFullBlocks":{"maxMs":964.945814,"meanMs":853.6184509999999,"medianMs":831.510552,"n":8},"mode":"store","nodeCacheBytes":22913532,"openFromGenesisSeconds":47.809236789,"openResumedFrom":80,"openSeconds":9.609613676,"reorgSeconds":4.665110329,"rssAfterBytes":109293568,"rssBeforeBytes":52805632,"sideBlocks":9,"stateAccounts":16110,"stateFileFactor":18.124308635567235,"stateNonzeroSlots":114,"storeNodes":36426,"storeStoredBytes":14898257,"storedVersions":29,"syncSeconds":36.430948744,"transactions":70,"vmHwmAfterBytes":109293568,"vmHwmBeforeBytes":80908288}
+test jm_store_mode_disk_impact ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 231.47s
+

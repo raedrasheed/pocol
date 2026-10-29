@@ -1,0 +1,29 @@
+{
+  "sourceHead": "c6e56b069ad3d5a7c1323cae81ea53004f542512",
+  "sourceTree": "d643038c4a6210587c14c364a041f161c14980b7",
+  "sourceHashes": {
+    "src/native.rs": "64f579b457f357864053b49b4fc8e8daeae12fe2c9e3517531ee1dcccf3edd52",
+    "src/pay.rs": "dfbe2315507515f27c4ac86858acf3d6c58c27b379e9c5e6d2a2572169e6da88",
+    "src/collision.rs": "9ec5bd416a0f52d244badbb9781198535f2aa5dde3a70d900cd821713c396bc6",
+    "contracts/RegistryPayment.sol": "469ab9352cfbb3d2bf7704951abb490564e4e563d1af468d88af4a1491fbee92",
+    "Cargo.lock": "d6e757466555edd023347af5b3cc45021ff1bcd88328de8c9a390fd99ad13904"
+  },
+  "rustTestExit": 0,
+  "actualSequenceSteps": 22,
+  "independentCompleteRoots": 22,
+  "compiledSurplusControl": {
+    "solidityBuildExit": 0,
+    "rustBuildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true,
+    "change": "SystemAddress.pay(reward,bond) -> SystemAddress.pay(reward,address(this).balance)",
+    "mutantSourceSHA256": "b603fa653baf7b9c363b4dd279d206a8fb86b7db2c890945381ac204ce50531c"
+  },
+  "scope": "synthetic complete snapshots; actual compiled ordinary/closing bond plus forced transfers only; no general resources or full settlement acceptance",
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false,
+  "reproductionExecuted": true,
+  "reproducedNativeVectorsSHA256": "6575e26a25ea0fb2ae239c624fc7017b7be905dfceb7b864f2d88ee5d54ed9cc",
+  "reproducedIndependentResultsEqual": true
+}
