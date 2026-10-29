@@ -1,2 +1,2 @@
 chrome-*/** -text
-windows/** -text
+windows*/** -text

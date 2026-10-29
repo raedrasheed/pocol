@@ -1,6 +1,5 @@
 {
   "main": "1760ea826b49caeefd7fac65627ddcdfc4055d09",
-  "tree": "0c75a19b75a863fab852ab31cbc3a39eb344f390",
   "ancestors": {
     "d06d362": true,
     "2fb3961": true,
@@ -13,9 +12,21 @@
   "browser_run": 40840275422,
   "remote_results": {
     "chrome": "PASS",
-    "windows": "PENDING"
+    "windows_same_production_code": "PASS",
+    "additional_main_run": "PENDING"
   },
   "consensus_or_budget_changes": false,
   "production_code_commit": "7ff41d7a2238162cd781a23131288bda176c707f",
-  "main_after_production_change": "workflow concurrency only"
+  "main_after_production_change": "workflow concurrency only",
+  "windows_tested_tree": "9806222a54f389bdefc7ab07cb6bc94cb7a2a731",
+  "production_subtree_sha": "83a9dd969477bb9d08ae740716078e065cc2020b",
+  "production_unchanged_in_windows_commit": true,
+  "additional_windows_pass": {
+    "run": 40840240541,
+    "commit": "a839c9e420aff9d2f32871a69023f713a1ea329f",
+    "production_and_script_identical": true
+  },
+  "windows_verified_commit": "a839c9e420aff9d2f32871a69023f713a1ea329f",
+  "windows_verified_run": 40840240541,
+  "main_repeat_commit": "1760ea826b49caeefd7fac65627ddcdfc4055d09"
 }
