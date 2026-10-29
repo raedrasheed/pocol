@@ -17,7 +17,7 @@ export async function runLiveRp(dist, endpoint, profile) {
   const ok = (name, cond, detail = '') => checks.push({ name, pass: !!cond, detail });
   const good = await RP.verifyWindow(rpc, spec);
   ok('RP window over real headers accepted (items 1, 1b, viewFuture, 2-9, viewTargetCeil)', good.ok && good.n === 13 && !good.toGenesis, good.message);
-  ok('RP trust message names the header count and the work bound', /RP: مرتبط بالعمل والهوية لـ13 رأسًا/.test(good.message) && /work\(ceilTarget\)/.test(good.message));
+  ok('RP trust message names the header count and the work bound', /RP: work and identity bound for 13 headers/.test(good.message) && /work\(ceilTarget\)/.test(good.message));
   // Freeze one window, then mutate a single field of one header. The timestamp and target mutations
   // (items 4, 5) need an unsigned (fallback) header: on a signed one they first break the proposer's
   // signature (item 3). With every proposer up most blocks are signed, so the window is frozen to end

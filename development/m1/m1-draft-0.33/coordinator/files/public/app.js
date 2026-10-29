@@ -22,11 +22,11 @@ async function api(url, data) {
 function el(tag, text, cls) { const n = document.createElement(tag); if (text !== undefined && text !== null) n.textContent = String(text); if (cls) n.className = cls; if (cls === 'tech') n.dir = 'auto'; return n; }
 function showError(t) { $('error').textContent = t || ''; $('error').hidden = !t; }
 function setConnection(ok, text) { $('connection').textContent = text; $('connection').classList.toggle('lost', !ok); }
-const na = (v) => (v === null || v === undefined || v === '' ? 'غير متاح' : String(v));
+const na = (v) => (v === null || v === undefined || v === '' ? 'Unavailable' : String(v));
 
-// Mixed Arabic/technical lines. Arabic prose stays plain text nodes; every English or numeric
-// fragment (time, path, ID, hash, command, count) is its own <bdi dir="ltr"> holding a text node,
-// so the RTL layout cannot reorder it. Text only: textContent / createTextNode.
+// Prose and technical fragments use plain text nodes. Each time, path, ID, hash, command
+// or count has its own <bdi dir="ltr"> so mixed-direction user content cannot reorder it.
+// Legacy *Ar API fields are retained for compatibility; built-in display text is English.
 const L = (v) => ({ ltr: na(v) });
 function ltr(text) { const b = document.createElement('bdi'); b.dir = 'ltr'; b.textContent = String(text); return b; }
 function mixed(node, parts) {
@@ -40,30 +40,30 @@ function elLtr(tag, text, cls) { const n = el(tag, text, cls); n.dir = 'ltr'; re
 /** Segments (each an array of parts) joined by " · ". */
 const joined = (segments) => segments.filter(Boolean).flatMap((s, k) => (k ? [' · ', ...s] : s));
 
-const STATE_AR = { queued: 'في الطابور', claimed: 'استلمه المنسق', acknowledged: 'أكد المنسق الاستلام', approved: 'وافق المنسق؛ ينتظر التشغيل', running: 'قيد التشغيل',
-  completed: 'اكتمل؛ ينتظر مراجعة Codex', reviewed: 'رُوجع', failed: 'فشل', interrupted: 'انقطع', cancelled: 'أُلغي' };
-const KIND_AR = { guidance: 'توجيه', ownerAnswer: 'إجابة سؤال مالك', authorJob: 'دورة مؤلف', continuation: 'طلب متابعة بعد مراجعة فعلية' };
-const WAIT_AR = { idle: 'لا شيء معلق', workerRunning: 'مهمة المؤلف قيد التشغيل',
-  workerFailed: 'آخر مهمة مؤلف فشلت أو انقطعت؛ بانتظار مراجعة Codex الفعلية لها، ثم إعادة صريحة إن طُلبت',
-  waitingReview: 'بانتظار مراجعة Codex الفعلية؛ لن تبدأ دورة أخرى قبلها', waitingCoordinator: 'بانتظار المنسق ليستلم الطلبات',
-  waitingReviewerAttach: 'المنسق المضيف غير متصل (دورة Codex الحالية غير نشطة)؛ الطلبات محفوظة وتنتظر اتصاله',
-  dispatchBlocked: 'مهمة موافق عليها لكنها محجوبة؛ انظر السبب في الطابور', retryAvailable: 'رُوجعت المهمة الفاشلة؛ يمكن طلب إعادة صريحة' };
-const PAUSE_AR = { active: 'يعمل', draining: 'إيقاف مطلوب؛ ينتظر انتهاء المهمة الجارية عند حد آمن', paused: 'متوقف مؤقتًا' };
+const STATE_EN = { queued: 'Queued', claimed: 'Claimed by coordinator', acknowledged: 'Acknowledged by coordinator', approved: 'Approved by coordinator; awaiting execution', running: 'Running',
+  completed: 'Completed; awaiting Codex review', reviewed: 'Reviewed', failed: 'Failed', interrupted: 'Interrupted', cancelled: 'Cancelled' };
+const KIND_EN = { guidance: 'Guidance', ownerAnswer: 'Owner-question answer', authorJob: 'Author cycle', continuation: 'Continuation request after an actual review' };
+const WAIT_EN = { idle: 'Nothing pending', workerRunning: 'Author task running',
+  workerFailed: 'Last author task failed or was interrupted; awaiting its actual Codex review, then an explicit retry if requested',
+  waitingReview: 'Awaiting actual Codex review; no further cycle starts before it', waitingCoordinator: 'Waiting for the coordinator to claim requests',
+  waitingReviewerAttach: 'Host coordinator disconnected (current Codex turn inactive); requests are saved and await attachment',
+  dispatchBlocked: 'Approved task blocked; see the reason in the queue', retryAvailable: 'Failed task reviewed; an explicit retry can be requested' };
+const PAUSE_EN = { active: 'Active', draining: 'Pause requested; waiting for the running task to finish at a safe boundary', paused: 'Paused' };
 // Notification delivery is a transport state only; it is never shown as a claim, an ack or a review.
-const NOTIFY_AR = { held: 'محجوز حتى يكتمل تشغيل الخادم', sending: 'جارٍ الإرسال إلى خيط Codex القائم',
-  delivered: 'وصل إلى طابور خيط Codex القائم (هذا ليس استلامًا ولا مراجعة)', failed: 'فشل الإرسال؛ الطلب نفسه محفوظ',
-  uncertain: 'غير مؤكد: توقف الخادم أو انتهت المهلة أثناء الإرسال؛ الإعادة قد تكرر الإشعار', notConfigured: 'الناقل غير مضبوط؛ الطلب محفوظ ولم يُرسل إشعار' };
-const NOTIFY_REASON_AR = { queued: 'طلب جديد', jobFinished: 'طلب مراجعة لمهمة انتهت', continuation: 'طلب متابعة بعد مراجعة فعلية' };
-const REVIEWER_AR = { attached: 'متصل', expired: 'انتهت مهلة الاتصال؛ لا مراجعة جارية الآن', disconnected: 'غير متصل' };
+const NOTIFY_EN = { held: 'Held until server startup completes', sending: 'Sending to the existing Codex thread',
+  delivered: 'Delivered to the existing Codex thread queue (not acknowledgment or review)', failed: 'Sending failed; the request itself is saved',
+  uncertain: 'Uncertain: server stopped or timed out while sending; retrying may duplicate the notification', notConfigured: 'Notifier not configured; request saved, no notification sent' };
+const NOTIFY_REASON_EN = { queued: 'New request', jobFinished: 'Review request for a finished task', continuation: 'Continuation request after an actual review' };
+const REVIEWER_EN = { attached: 'Attached', expired: 'Attachment expired; no review currently running', disconnected: 'Disconnected' };
 // Why no continuation request is (or would be) queued. Display only; nothing here changes policy.
-const CONT_AR = { ledgerUnreadable: 'تعذرت قراءة سجل المنسق', noStandingAuthorization: 'لا يوجد تفويض دائم مسجل',
-  autonomousCyclesOff: 'الدورات المتتابعة غير مفعلة في التفويض', noProductionNotTrue: 'شرط «لا إنتاج» غير مسجل صراحة',
-  scopeNotM1: 'نطاق التفويض لا يذكر M1', noWorklist: 'لا توجد قائمة عمل مستقل محفوظة', worklistComplete: 'قائمة العمل مكتملة؛ لا متابعة',
-  worklistNotReady: 'قائمة العمل ليست جاهزة', worklistMalformed: 'قائمة العمل غير صالحة؛ لا متابعة', noIndependentReadyItem: 'لا يوجد عنصر مستقل جاهز',
-  stopped: 'الخادم يتوقف', paused: 'متوقف مؤقتًا؛ تؤجل المتابعة حتى الاستئناف', writerActive: 'يوجد مؤلف أو عقد عامل نشط',
-  unreviewedReceipt: 'يوجد إيصال لم يُراجع بعد', openContinuation: 'يوجد طلب متابعة مفتوح بالفعل' };
-const CONT_STATUS_AR = { pending: 'قيد التقرير', queued: 'أُدرج طلب متابعة واحد', suppressed: 'لم يُدرج', deferredPaused: 'مؤجل بسبب الإيقاف' };
-const yesNo = (b) => (b ? 'نعم' : 'لا');
+const CONT_EN = { ledgerUnreadable: 'Could not read the coordinator ledger', noStandingAuthorization: 'No standing authorization recorded',
+  autonomousCyclesOff: 'Sequential cycles are not enabled in the authorization', noProductionNotTrue: 'The “no production” condition is not explicitly recorded',
+  scopeNotM1: 'Authorization scope does not name M1', noWorklist: 'No saved independent worklist', worklistComplete: 'Worklist complete; no continuation',
+  worklistNotReady: 'Worklist not ready', worklistMalformed: 'Invalid worklist; no continuation', noIndependentReadyItem: 'No independent ready item',
+  stopped: 'Server stopping', paused: 'Paused; continuation deferred until resume', writerActive: 'An author or worker lease is active',
+  unreviewedReceipt: 'An unreviewed receipt exists', openContinuation: 'A continuation request is already open' };
+const CONT_STATUS_EN = { pending: 'Pending decision', queued: 'One continuation request queued', suppressed: 'Not queued', deferredPaused: 'Deferred due to pause' };
+const yesNo = (b) => (b ? 'Yes' : 'No');
 
 function renderStatus(v) {
   const s = v.status;
@@ -71,20 +71,20 @@ function renderStatus(v) {
   mixed($('updatedAt'), [L(s.updatedAt)]);
   const c = s.latestCheck;
   mixed($('latestCheck'), c
-    ? joined([['المسودة ', L(c.revision), ': ', L(c.summary.passed), ' ناجح، ', L(c.summary.recorded), ' مسجل، ', L(c.summary.failed), ' فاشل'], [L(c.executedAtUtc)], [L(c.source)]])
-    : ['غير متاح (لا يوجد ملف نتائج محفوظ)']);
+    ? joined([['Draft ', L(c.revision), ': ', L(c.summary.passed), ' passed, ', L(c.summary.recorded), ' recorded, ', L(c.summary.failed), ' failed'], [L(c.executedAtUtc)], [L(c.source)]])
+    : ['Unavailable (no saved results file)']);
   const w = s.activeWorker;
   const la = s.ledgerActiveAuthor;
   mixed($('activeWorker'), w
-    ? joined([['مهمة ', L(w.mode)], [L(`pid ${na(w.pid)}`)], ['بدأت ', L(w.startedAt)]])
-    : joined([['لا يوجد'], ['سجل المنسق: ', ...(la ? [L(la.task), ' (', L(la.state), ')'] : ['غير متاح'])]]));
-  mixed($('reviewer'), joined([[REVIEWER_AR[v.reviewer.status] || v.reviewer.status], v.reviewer.heartbeatAt ? ['آخر نبضة ', L(v.reviewer.heartbeatAt)] : null]));
+    ? joined([['Task ', L(w.mode)], [L(`pid ${na(w.pid)}`)], ['Started ', L(w.startedAt)]])
+    : joined([['None'], ['Coordinator ledger: ', ...(la ? [L(la.task), ' (', L(la.state), ')'] : ['Unavailable'])]]));
+  mixed($('reviewer'), joined([[REVIEWER_EN[v.reviewer.status] || v.reviewer.status], v.reviewer.heartbeatAt ? ['Last heartbeat ', L(v.reviewer.heartbeatAt)] : null]));
   const nt = v.notifier;
   mixed($('notifier'), nt.configured
-    ? joined([['مضبوط'], [L(`codex queue --remote ${nt.remote}`)], ['الخيط ', L(`…${nt.threadSuffix}`)], nt.held ? ['محجوز مؤقتًا'] : null])
-    : ['غير مضبوط: ', nt.reason]);
-  $('pauseState').textContent = PAUSE_AR[v.pauseState] || v.pauseState;
-  $('waiting').textContent = WAIT_AR[v.waiting] || v.waiting;
+    ? joined([['Configured'], [L(`codex queue --remote ${nt.remote}`)], ['Thread ', L(`…${nt.threadSuffix}`)], nt.held ? ['Temporarily held'] : null])
+    : ['Not configured: ', nt.reason]);
+  $('pauseState').textContent = PAUSE_EN[v.pauseState] || v.pauseState;
+  $('waiting').textContent = WAIT_EN[v.waiting] || v.waiting;
   $('findings').replaceChildren(...s.openFindings.map((f) => el('li', `${f.id} (${f.status}): ${f.decision || ''}`)));
   $('statusNote').textContent = s.noteAr;
   $('pause').disabled = v.pauseState !== 'active';
@@ -97,54 +97,54 @@ function renderAuthority(v) {
   if (!a) return;
   const s = a.standing;
   mixed($('authStanding'), s
-    ? joined([['دورات متتابعة: ', yesNo(s.autonomousSequentialCycles)], ['قرارات تقنية مفوضة: ', yesNo(s.delegatedTechnicalDecisions)],
-      ['لا إنتاج: ', yesNo(s.noProduction)], ['موافقة شخصية من المالك: ', yesNo(s.personalApproval)], s.at ? ['منذ ', L(s.at)] : null])
-    : ['لا يوجد تفويض دائم مسجل']);
-  $('authScope').textContent = s?.scope || 'غير متاح';
+    ? joined([['Sequential cycles: ', yesNo(s.autonomousSequentialCycles)], ['Delegated technical decisions: ', yesNo(s.delegatedTechnicalDecisions)],
+      ['No production: ', yesNo(s.noProduction)], ['Personal owner approval: ', yesNo(s.personalApproval)], s.at ? ['Since ', L(s.at)] : null])
+    : ['No standing authorization recorded']);
+  $('authScope').textContent = s?.scope || 'Unavailable';
   const w = a.worklist;
   mixed($('authWorklist'), w
-    ? joined([['الحالة ', L(w.status)], ...(w.items.length ? w.items.map((it) => [L(it.id), ' (', L(it.kind), it.status ? ', ' : '', it.status ? L(it.status) : null, ')']) : [['لا عناصر']])])
-    : ['غير متاح']);
+    ? joined([['Status ', L(w.status)], ...(w.items.length ? w.items.map((it) => [L(it.id), ' (', L(it.kind), it.status ? ', ' : '', it.status ? L(it.status) : null, ')']) : [['No items']])])
+    : ['Unavailable']);
   const c = a.continuation;
   const last = c.lastReview;
   mixed($('authContinuation'), joined([
-    [c.enabled ? 'مسموح بالسياسة المحفوظة' : `غير مسموح: ${CONT_AR[c.reason] || c.reason}`],
-    c.gate && c.enabled ? ['الآن: ', CONT_AR[c.gate] || c.gate] : null,
-    last ? ['آخر مراجعة: ', CONT_STATUS_AR[last.status] || last.status, last.reason ? ` (${CONT_AR[last.reason] || last.reason})` : ''] : null,
-    c.recent.length ? ['طلبات المتابعة: ', L(c.recent.length)] : null,
+    [c.enabled ? 'Allowed by saved policy' : `Not allowed: ${CONT_EN[c.reason] || c.reason}`],
+    c.gate && c.enabled ? ['Now: ', CONT_EN[c.gate] || c.gate] : null,
+    last ? ['Latest review: ', CONT_STATUS_EN[last.status] || last.status, last.reason ? ` (${CONT_EN[last.reason] || last.reason})` : ''] : null,
+    c.recent.length ? ['Continuation requests: ', L(c.recent.length)] : null,
   ]));
   $('authNote').textContent = a.noteAr;
 }
 
 function renderQueue(v) {
   const box = $('queue');
-  if (!v.items.length) { box.replaceChildren(el('p', 'لا توجد طلبات بعد.', 'empty')); return; }
+  if (!v.items.length) { box.replaceChildren(el('p', 'No requests yet.', 'empty')); return; }
   box.replaceChildren(...v.items.slice().reverse().map((i) => {
     const d = el('div', null, 'item');
-    const head = el('div', KIND_AR[i.kind] || i.kind);
-    head.append(el('span', STATE_AR[i.status] || i.status, `state ${i.status}`));
+    const head = el('div', KIND_EN[i.kind] || i.kind);
+    head.append(el('span', STATE_EN[i.status] || i.status, `state ${i.status}`));
     d.append(head);
     if (i.payload?.text) d.append(el('p', i.payload.text));
-    if (i.kind === 'ownerAnswer') d.append(elm('p', joined([[L(i.payload.questionId), ': ', L(i.payload.choice), i.payload.testOnly ? ' (اختبار فقط)' : null], i.payload.note ? [i.payload.note] : null])));
+    if (i.kind === 'ownerAnswer') d.append(elm('p', joined([[L(i.payload.questionId), ': ', L(i.payload.choice), i.payload.testOnly ? ' (test only)' : null], i.payload.note ? [i.payload.note] : null])));
     if (i.kind === 'continuation') {
-      d.append(elm('p', joined([['بعد المراجعة ', L(i.payload.reviewId)], ['العناصر الجاهزة: ', ...i.payload.readyItems.flatMap((x, k) => (k ? [', ', L(x.id)] : [L(x.id)]))],
-        i.nextJobId ? ['الخطوة التي اختارها المنسق: ', L(i.nextJobId)] : null])));
+      d.append(elm('p', joined([['After review ', L(i.payload.reviewId)], ['Ready items: ', ...i.payload.readyItems.flatMap((x, k) => (k ? [', ', L(x.id)] : [L(x.id)]))],
+        i.nextJobId ? ['Coordinator-selected next step: ', L(i.nextJobId)] : null])));
     }
     if (i.kind === 'authorJob') {
-      d.append(elm('p', joined([['النوع: ', L(i.payload.mode)], i.dispatch?.plannedDir ? ['المجلد ', L(i.dispatch.plannedDir)] : null,
-        i.payload.continuationOf ? ['من طلب متابعة ', L(i.payload.continuationOf)] : null,
-        i.blockedReason ? ['محجوب: ', i.blockedReason] : null])));
-      if (i.error) d.append(el('p', 'خطأ:', 'muted'), el('pre', i.error, 'tech'));
+      d.append(elm('p', joined([['Type: ', L(i.payload.mode)], i.dispatch?.plannedDir ? ['Directory ', L(i.dispatch.plannedDir)] : null,
+        i.payload.continuationOf ? ['From continuation request ', L(i.payload.continuationOf)] : null,
+        i.blockedReason ? ['Blocked: ', i.blockedReason] : null])));
+      if (i.error) d.append(el('p', 'Error:', 'muted'), el('pre', i.error, 'tech'));
     }
-    if (i.receipt?.result) d.append(el('pre', i.receipt.result.text || '(لا يوجد نص نتيجة)', 'tech'));
-    if (i.stderrExcerpt) { d.append(el('div', 'مقتطف stderr (محجوب الأسرار، مختصر):', 'entry-kind'), el('pre', i.stderrExcerpt, 'tech')); }
+    if (i.receipt?.result) d.append(el('pre', i.receipt.result.text || '(No result text)', 'tech'));
+    if (i.stderrExcerpt) { d.append(el('div', 'stderr excerpt (secrets redacted, abbreviated):', 'entry-kind'), el('pre', i.stderrExcerpt, 'tech')); }
     for (const n of v.notifications.filter((x) => x.itemId === i.id)) {
       const last = n.attempts.at(-1);
-      d.append(elm('p', joined([[`إشعار المنسق المضيف (${NOTIFY_REASON_AR[n.reason] || n.reason}): ${NOTIFY_AR[n.status] || n.status}`],
-        last ? ['محاولة ', L(last.n)] : null, last ? [L(last.endedAt || last.startedAt)] : null, n.queueId ? ['معرف الطابور ', L(n.queueId)] : null]), 'muted'));
+      d.append(elm('p', joined([[`Host-coordinator notification (${NOTIFY_REASON_EN[n.reason] || n.reason}): ${NOTIFY_EN[n.status] || n.status}`],
+        last ? ['Attempt ', L(last.n)] : null, last ? [L(last.endedAt || last.startedAt)] : null, n.queueId ? ['Queue ID ', L(n.queueId)] : null]), 'muted'));
       if (n.error) d.append(el('pre', n.error, 'tech'));
       if (['failed', 'uncertain', 'notConfigured'].includes(n.status)) {
-        const b = el('button', 'إعادة إرسال الإشعار صراحة (للطلب نفسه)', 'secondary');
+        const b = el('button', 'Explicitly resend notification (same request)', 'secondary');
         b.addEventListener('click', () => act(`notify-${n.id}-${n.attemptSeq ?? n.attempts.length}`, '/api/notify-retry', { notificationId: n.id }));
         d.append(b);
       }
@@ -152,14 +152,14 @@ function renderQueue(v) {
     if (i.kind === 'authorJob' && ['completed', 'failed', 'interrupted'].includes(i.status)) {
       const rv = i.reviewId ? v.reviews.find((r) => r.id === i.reviewId) : null;
       d.append(elm('p', i.reviewId
-        ? ['رُوجعت فعليًا: ', ...(rv ? joined([[L(rv.verdict)], [L(rv.reviewerId)], [L(rv.at)]]) : [L(i.reviewId)])]
-        : ['لم تُراجع بعد؛ لن تبدأ أي مهمة أخرى قبل مراجعة Codex الفعلية.'], 'muted'));
+        ? ['Actually reviewed: ', ...(rv ? joined([[L(rv.verdict)], [L(rv.reviewerId)], [L(rv.at)]]) : [L(i.reviewId)])]
+        : ['Not reviewed yet; no other task starts before an actual Codex review.'], 'muted'));
     }
     // A failed or interrupted job keeps its retry button after its review; the retry still
     // needs the coordinator's approval and only starts once the failure has been reviewed.
     if (i.kind === 'authorJob' && ['failed', 'interrupted'].includes(i.status)) {
-      const b = el('button', i.reviewId ? 'طلب إعادة صريحة من نقطة التثبيت' : 'طلب إعادة صريحة (تبدأ بعد مراجعة الفشل)', 'secondary');
-      b.addEventListener('click', () => act(`retry-${i.id}`, '/api/retry', { mode: i.payload.mode, retryOf: i.id, note: 'إعادة صريحة لمهمة فاشلة' }));
+      const b = el('button', i.reviewId ? 'Request explicit retry from checkpoint' : 'Request explicit retry (starts after failure review)', 'secondary');
+      b.addEventListener('click', () => act(`retry-${i.id}`, '/api/retry', { mode: i.payload.mode, retryOf: i.id, note: 'Explicit retry of failed task' }));
       d.append(b);
     }
     d.append(elm('div', joined([[L(i.id)], [L(i.createdAt)]]), 'meta'));
@@ -175,48 +175,48 @@ function renderOwner(v) {
   ownerSig = sig;
   $('owner').replaceChildren(...v.owner.map((q) => {
     const card = el('div', null, `owner-card${q.testOnly ? ' test' : ''}`);
-    card.append(el('h3', `${q.id} · ${q.titleAr}${q.testOnly ? ' — اختبار فقط، لا يعتمد سياسة' : ''}`), el('p', q.questionAr), el('p', 'لماذا: ' + q.whyAr, 'muted'), el('p', 'التوصية: ' + q.recommendationAr));
+    card.append(el('h3', `${q.id} · ${q.titleAr}${q.testOnly ? ' — test only, adopts no policy' : ''}`), el('p', q.questionAr), el('p', 'Why: ' + q.whyAr, 'muted'), el('p', 'Recommendation: ' + q.recommendationAr));
     const opts = el('div', null, 'options');
     for (const o of q.options) {
       const label = el('label');
       const r = document.createElement('input'); r.type = 'radio'; r.name = `q-${q.id}`; r.value = o.id;
-      label.append(r, el('span', `${o.labelAr} — النتيجة: ${o.consequenceAr}`));
+      label.append(r, el('span', `${o.labelAr} — Effect: ${o.consequenceAr}`));
       opts.append(label);
     }
-    const note = document.createElement('textarea'); note.rows = 2; note.maxLength = 2000; note.placeholder = 'ملاحظة اختيارية'; note.setAttribute('aria-label', `ملاحظة ${q.id}`);
-    const send = el('button', 'حفظ الإجابة وتسليمها للمنسق', 'secondary');
+    const note = document.createElement('textarea'); note.rows = 2; note.maxLength = 2000; note.placeholder = 'Optional note'; note.setAttribute('aria-label', `Note ${q.id}`);
+    const send = el('button', 'Save answer and deliver to coordinator', 'secondary');
     send.addEventListener('click', () => {
       const chosen = opts.querySelector('input:checked');
-      if (!chosen) return showError('اختر خيارًا أولًا.');
+      if (!chosen) return showError('Select an option first.');
       act(`owner-${q.id}`, '/api/owner-answer', { questionId: q.id, choice: chosen.value, note: note.value });
     });
     card.append(opts, note, send);
-    if (q.answer) card.append(elm('p', ['آخر إجابة محفوظة: ', ...joined([[L(q.answer.choice)], [STATE_AR[q.answer.status] || q.answer.status], [L(q.answer.at)]])], 'answer'));
+    if (q.answer) card.append(elm('p', ['Latest saved answer: ', ...joined([[L(q.answer.choice)], [STATE_EN[q.answer.status] || q.answer.status], [L(q.answer.at)]])], 'answer'));
     return card;
   }));
 }
 
-const ROLE = { author: ['CLAUDE · المؤلف', 'author'], reviewer: ['CODEX · المراجع', 'reviewer'], coordinator: ['المنسق · مهمة', 'coordinator'] };
+const ROLE = { author: ['CLAUDE · Author', 'author'], reviewer: ['CODEX · Reviewer', 'reviewer'], coordinator: ['Coordinator · Task', 'coordinator'] };
 function renderHistory(cards) {
   const current = cards.filter((c) => c.current).length;
-  $('historyCount').textContent = `${cards.length} بطاقة (${current} حالية)`;
+  $('historyCount').textContent = `${cards.length} cards (${current} current)`;
   $('history').replaceChildren(...cards.map((c) => {
     const a = el('article', null, `message ${c.role === 'reviewer' ? 'codex' : ''}`);
     const h = el('h3');
     const [label, cls] = ROLE[c.role] || [c.role, ''];
-    h.append(el('span', label, `badge ${cls}`), el('span', c.current ? 'حالية' : 'تاريخية', 'badge'), el('span', c.summaryAr));
+    h.append(el('span', label, `badge ${cls}`), el('span', c.current ? 'Current' : 'Historical', 'badge'), el('span', c.summaryAr));
     a.append(h);
     a.append(elm('p', joined([[L(`time: ${c.time ?? 'unavailable'}`), c.timeNote ? ` (${c.timeNote})` : null], c.jobId ? [L(`job: ${c.jobId}`)] : null,
       c.verdict ? [L(`verdict: ${c.verdict}`)] : null, c.reviewerId ? [L(`reviewer: ${c.reviewerId}`)] : null,
       c.task ? [L(`task: ${c.task}`)] : null, c.revision ? [L(`revision: ${c.revision}`)] : null,
       c.sha256 ? [L(`sha256: ${c.sha256.slice(0, 16)}…`)] : null, c.commit ? [L(`commit: ${String(c.commit).slice(0, 12)}`)] : null, [L(`source: ${c.source}`)]]), 'meta'));
-    const det = el('details'); det.append(el('summary', 'النص التقني (بالإنجليزية)'));
+    const det = el('details'); det.append(el('summary', 'Technical text (English)'));
     if (c.result) { det.append(elLtr('div', `result · error=${c.result.isError} · turns=${na(c.result.numTurns)} · permission denials=${c.result.permissionDenials.length}`, 'entry-kind'), el('pre', c.result.text || '(empty)', 'tech')); }
     for (const e of c.technical || []) {
       if (e.kind === 'tool_use') det.append(elLtr('div', `tool call: ${e.name} ${e.at ? '· ' + e.at : ''}`, 'entry-kind'), el('pre', JSON.stringify(e.input, null, 1), 'tech'));
       else det.append(elLtr('div', `${e.kind}${e.isError ? ' (error)' : ''} ${e.at ? '· ' + e.at : ''}`, 'entry-kind'), el('pre', e.text, 'tech'));
     }
-    if (c.truncatedEntries) det.append(el('p', `حُذف ${c.truncatedEntries} إدخالًا أقدم من العرض.`, 'muted'));
+    if (c.truncatedEntries) det.append(el('p', `${c.truncatedEntries} older entries were omitted from display.`, 'muted'));
     a.append(det);
     return a;
   }));
@@ -230,31 +230,31 @@ async function act(action, url, data) {
     if (action === 'guidance') $('guidance').value = '';
     await refresh();
   } catch (e) {
-    showError(e.http ? e.message : 'انقطع الاتصال بالخادم المحلي. الطلب محفوظ بمفتاحه؛ أعد الإرسال بعد عودة الاتصال ولن يتكرر.');
+    showError(e.http ? e.message : 'Connection to the local server lost. The request key is saved; resend after reconnection without duplicating the request.');
   }
 }
 
 $('sendGuidance').addEventListener('click', () => act('guidance', '/api/guidance', { text: $('guidance').value }));
 $('requestJob').addEventListener('click', () => act(`job-${$('jobMode').value}`, '/api/author-job', { mode: $('jobMode').value, note: $('guidance').value.trim() ? $('guidance').value : '' }));
 $('pause').addEventListener('click', () => act('pause', '/api/pause', {}));
-$('resume').addEventListener('click', () => act('resume', '/api/resume', { reason: 'استئناف من الواجهة' }));
+$('resume').addEventListener('click', () => act('resume', '/api/resume', { reason: 'Resume from UI' }));
 
 async function refresh() {
   try {
     const v = await api('/api/state');
-    setConnection(true, `متصل بالخادم المحلي · ${new Date().toLocaleTimeString('ar')}`);
+    setConnection(true, `Connected to local server · ${new Date().toLocaleTimeString('en')}`);
     renderStatus(v); renderAuthority(v); renderQueue(v); renderOwner(v);
     // Current Claude receipts and Codex reviews join the timeline on the ordinary poll:
     // the timeline is refetched whenever the server's signature of current cards changes.
     if (v.timelineSig !== timelineSig) { timelineSig = v.timelineSig; await loadHistory(); }
   } catch (e) {
-    setConnection(false, e.http ? `رفض الخادم الطلب: ${e.message}` : 'انقطع الاتصال بالخادم المحلي (الخادم متوقف أو الشبكة المحلية غير متاحة). لم يُفقد أي طلب محفوظ.');
+    setConnection(false, e.http ? `Server rejected request: ${e.message}` : 'Connection to the local server lost (server stopped or local network unavailable). No saved requests were lost.');
   }
 }
 let timelineSig = null;
 async function loadHistory() {
   try { renderHistory((await api('/api/history')).cards); }
-  catch (e) { timelineSig = null; $('history').replaceChildren(el('p', 'تعذر تحميل السجل: ' + e.message, 'empty')); }
+  catch (e) { timelineSig = null; $('history').replaceChildren(el('p', 'Could not load history: ' + e.message, 'empty')); }
 }
 async function poll() { await refresh(); setTimeout(poll, 2500); }
 poll(); setInterval(loadHistory, 60_000);

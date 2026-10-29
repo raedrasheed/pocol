@@ -212,7 +212,7 @@
    {
     "name": "RP window over real headers accepted (items 1, 1b, viewFuture, 2-9, viewTargetCeil)",
     "pass": true,
-    "detail": "RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 2048 لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية"
+    "detail": "RP: work and identity bound for 13 headers; with computed work of at least 2048 per header (work(ceilTarget)), without execution or membership verification"
    },
    {
     "name": "RP trust message names the header count and the work bound",
@@ -307,7 +307,7 @@
    {
     "name": "RP trust banner shown outside the frame (13 headers, work bound)",
     "pass": true,
-    "detail": "RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 2048 لكل رأس (work(cei"
+    "detail": "RP: work and identity bound for 13 headers; with computed work of at least 2048 per header (work(cei"
    },
    {
     "name": "site rendered from verified chunks: HTML + @import CSS + JS + PNG + url() in CSS",

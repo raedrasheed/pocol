@@ -37,8 +37,8 @@ KVIEW = 12                        # browser.md:25 (b = max(1, h-12))
 TAG = b'PoCol-tpl-v1'
 UT_MAX, ST_MAX, HDR_MAX = 613, 682, 3067
 SHARES_MAX = 256
-NO_BLOCKS = 'الشبكة لم تنتج الكتلة 1 بعد؛ لا رأس للتحقق في RP'
-WARN_MINWORK1 = 'حد العمل غير فعال لهذه الشبكة'
+NO_BLOCKS = 'The network has not produced block 1 yet; no header is available for RP verification'
+WARN_MINWORK1 = 'The work bound is ineffective for this network'
 INT_W = {'chainId': 8, 'h': 8, 'a': 4, 'protocolVersion': 2, 'ts': 8, 'target': 32, 'gasLimit': 8, 'gasUsed': 8, 'baseFee': 32}
 FIX_W = {'genesisHash': 32, 'parentHash': 32, 'stateRoot': 32, 'txRoot': 32, 'receiptsRoot': 32, 'logsBloom': 256, 'evidenceRoot': 32}
 UT_FIELDS = ('tag', 'chainId', 'genesisHash', 'parentHash', 'h', 'a', 'protocolVersion', 'ts', 'target', 'stateRoot', 'txRoot',
@@ -75,22 +75,22 @@ def plan(h):
 
 
 def count_phrase(n):
-    """P-V1-4: Arabic number agreement; source examples '10 رؤوس' and '13 رأسًا' (validation.md:1055-1056)."""
+    """P-V1-4: English singular/plural agreement; source examples '10 headers' and '13 headers' (validation.md:1055-1056)."""
     if n == 1:
-        return 'رأس واحد'
+        return '1 header'
     if n == 2:
-        return 'رأسين'
+        return '2 headers'
     if 3 <= n <= 10:
-        return '%d رؤوس' % n
-    return '%d رأسًا' % n
+        return '%d headers' % n
+    return '%d headers' % n
 
 
 def message(n, anchored_genesis, minwork):
-    """browser.md:51-54. The fixed parts are copied from the source; n, [حتى genesis] and the decimal fill it."""
-    m = ('RP: مرتبط بالعمل والهوية لـ' + count_phrase(n) + (' حتى genesis' if anchored_genesis else '')
-         + '، بعمل محتسب لا يقل عن ' + str(minwork) + ' لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية')
+    """browser.md:51-54. The fixed parts are copied from the source; n, [back to genesis] and the decimal fill it."""
+    m = ('RP: work and identity bound for ' + count_phrase(n) + (' back to genesis' if anchored_genesis else '')
+         + ', with computed work of at least ' + str(minwork) + ' per header (work(ceilTarget)), without execution or membership verification')
     if minwork == 1:
-        m += '، ' + WARN_MINWORK1
+        m += '. ' + WARN_MINWORK1
     return m
 
 

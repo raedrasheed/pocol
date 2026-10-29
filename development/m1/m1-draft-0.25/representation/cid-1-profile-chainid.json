@@ -3,11 +3,11 @@
   "id": "CID-1",
   "status": "proposed clarification for review; not applied and not owner-approved",
   "sources": {
-    "profile": {"file": "reference/browser.md", "lines": [9, 9], "literals": ["chainId", "genesisPre", "genesisHash"]},
-    "step3": {"file": "reference/browser.md", "lines": [14, 14], "literals": ["تطابق chainId"]},
-    "netKey": {"file": "reference/browser.md", "lines": [18, 18], "literals": ["netKey = keccak256(RLP(['PoCol-net-v1', chainId, genesisHash]))"]},
-    "conflict": {"file": "reference/browser.md", "lines": [20, 20], "literals": ["chainId مكرر"]},
-    "domain": {"file": "reference/consensus.md", "lines": [9, 9], "literals": ["chainId: u64"]},
+    "profile": {"file": "reference/browser.md", "lines": [9, 9], "literals": ["chainId", "genesisPre", "genesisHash"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "step3": {"file": "reference/browser.md", "lines": [14, 14], "literals": ["\u062a\u0637\u0627\u0628\u0642 chainId"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "netKey": {"file": "reference/browser.md", "lines": [18, 18], "literals": ["netKey = keccak256(RLP(['PoCol-net-v1', chainId, genesisHash]))"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "conflict": {"file": "reference/browser.md", "lines": [20, 20], "literals": ["chainId \u0645\u0643\u0631\u0631"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "domain": {"file": "reference/consensus.md", "lines": [9, 9], "literals": ["chainId: u64"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "model": {"file": "m1-draft-0.21/tools/netprofile_ref.py", "lines": [238, 239], "literals": ["type(p['chainId']) is not int"]}
   },
   "concern": {

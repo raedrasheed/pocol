@@ -1,57 +1,57 @@
-# العقود وتوافق EVM
+# Contracts and EVM compatibility
 
-**الفصل بين الإجماع والتنفيذ**
+**Separation of consensus and execution**
 
 apply(S_parent, ctx, body, parentHeader) → (S, receipts, roots, B_old, settlements, blockTips).
 
-ctx = {chainId=cfg.chainId، h، ts، baseFee، gasLimit، prevrandao، coinbase=Escrow، ancestors، closing، closeStart، gate2، final، parentResult}.
-- parentResult (D141، D142) = ParentResult(p) كاملًا: {blockHash(p)، winner = owner(p.nonce)، shares[(n, owner(n))]}.
-  - المصدر الوحيد: بايتات Header(p) المخزنة في HeaderStore بمفتاح blockHash(p) (nonce وshareList)، مع جدول تعيين p المحسوب على حالة الجد.
-  - لا يُقرأ من ذاكرة التعدين، ولا من مجمع الحصص، ولا من نسخة غير مرتبطة بـparentHash.
-  - يُحسب عند تحقق البندين 13 و14 للأب، ويُخزن في BlockMeta بمفتاح blockHash(p) قيمةً مشتقة.
-  - عند إعادة التنفيذ (المزامنة، وTrieRebuild، وإعادة التنظيم) يُعاد اشتقاقه من Header(p) وحالة الجد ويُقارن بالمخزن. الاختلاف خطأ تنفيذ (parentResultMismatch) يوقف الاستيراد.
-  - لا يعتمد على بايتات winnerSig: كل غلاف صالح يعطي المالك نفسه.
-  - عند h=1 يكون فارغًا.
-- لا يدخل ctx أي حقل من الكتلة h خارج UT والجسم: لا nonce، ولا مالكه، ولا shareList، ولا التوقيعان.
+ctx = {chainId=cfg.chainId, h, ts, baseFee, gasLimit, prevrandao, coinbase=Escrow, ancestors, closing, closeStart, gate2, final, parentResult}.
+- parentResult (D141, D142) = complete ParentResult(p): {blockHash(p), winner = owner(p.nonce), shares[(n, owner(n))]}.
+  - Sole source: Header(p) bytes stored in HeaderStore under blockHash(p) (nonce and shareList), plus p's assignment table computed over grandparent state.
+  - Never read from mining memory, the share pool or a copy unbound to parentHash.
+  - Computed when the parent passes items 13 and 14, and stored as a derived value in BlockMeta under blockHash(p).
+  - On reexecution (synchronization, TrieRebuild and reorg), rederive it from Header(p) and grandparent state and compare with the stored value. A mismatch is an implementation error (parentResultMismatch) that stops import.
+  - Independent of winnerSig bytes: every valid envelope yields the same owner.
+  - Empty at h=1.
+- ctx includes no block-h field outside UT and the body: no nonce, owner, shareList or either signature.
 
-- الإجماع لا يرى EVM إلا عبر apply، والهدف لا يدخل ctx.
-- GenesisBuilder(alloc, CP, M_0List) يبني حالة genesis ويقارن الجذر بـallocRoot، ويدعم حتى M_max (1024 في end/full).
+- Consensus sees EVM only through apply; target does not enter ctx.
+- GenesisBuilder(alloc, CP, M_0List) constructs genesis state and compares its root with allocRoot, supporting up to M_max (1024 in end/full).
 
 **chainId**
 - CHAINID = cfg.chainId.
-- معاملات EIP-155 و2930 و1559 بـchainId آخر: −32015 في المجمع، وإدراجها يبطل الكتلة بالبند 17.
-- legacy دون EIP-155 مرفوضة.
+- EIP-155, 2930 and 1559 transactions with another chainId: −32015 in the pool; inclusion invalidates the block under item 17.
+- Legacy transactions without EIP-155 are rejected.
 
-**متراكم tips (D68)**
-- u256 في المضيف، يُصفّر عند الدخول.
-- يُضاف gasUsed·effectiveTip بعد كل معاملة.
-- يُمرر في المرحلة 2 بالصيغة selector‖be256(blockTips) بطول 36 بايتًا، ثم يُتلف.
-- closeBlock وfinalize لا يستدعيهما إلا SYSTEM_ADDRESS.
-- لا يُستخدم فرق الرصيد ولا SELFBALANCE ولا EIP-1153.
+**Tips accumulator (D68)**
+- Host-side u256, zeroed on entry.
+- Add gasUsed·effectiveTip after every transaction.
+- Pass in phase 2 as selector‖be256(blockTips), length 36 bytes, then destroy it.
+- Only SYSTEM_ADDRESS can call closeBlock and finalize.
+- No balance difference, SELFBALANCE or EIP-1153 is used.
 
-**العقود النظامية**
+**System contracts**
 - MinerRegistry: 0x…C0C001.
-- RewardEscrow: 0x…C0C002، مع pending[j] = keccak256(be256(j)‖be256(3))+k، حيث k ∈ 0..2 (D141):
+- RewardEscrow: 0x…C0C002, with pending[j] = keccak256(be256(j)‖be256(3))+k, where k ∈ 0..2 (D141):
   - k=0: amount.
-  - k=1: kind (بايت) مع proposer.
-  - k=2: winner، والصفر يعني غير مسجل. العنوان الصفري لا يكون هوية، فهو مرفوض بـgsSys، وmsg.sender لا يكون صفرًا.
+  - k=1: kind (one byte) with proposer.
+  - k=2: winner; zero means not recorded. The zero address cannot be an identity: gsSys rejects it, and msg.sender cannot be zero.
 - ShareLedger: 0x…C0C003.
 - ChainCaps: 0x…C0C004.
-- ChunkFactory: 0x…C0C005، بلا تخزين.
-- PAY: 0x…C0C0FF، أصلي.
+- ChunkFactory: 0x…C0C005, without storage.
+- PAY: 0x…C0C0FF, native.
 
-تخطيط MinerRegistry:
-- الخانات 0–4: RecLen، وActLen، وsweepCur، وعدادات الكتلة، وheldTotal.
+MinerRegistry layout:
+- Slots 0–4: RecLen, ActLen, sweepCur, block counters, heldTotal.
 - RecArr[i] = keccak256(be256(5))+i.
 - ActList[i] = keccak256(be256(6))+i.
 - Rec[id].w_k = keccak256(pad32(id)‖be256(7))+k.
 
-**الحماية (D25)**
+**Protection (D25)**
 - SYSTEM_ADDRESS = 0xff…fe.
-- ≤ 30M gas لكل نداء، و≤ G_SYS لكل كتلة.
-- revert في نداء نظام يبطل الكتلة.
+- ≤ 30M gas per call; ≤ G_SYS per block.
+- A system-call revert invalidates the block.
 
-**دوال المستخدم** (طول calldata / القيمة / أقصى كتابات):
+**User functions** (calldata length / value / maximum writes):
 - register(address): 36 / B_reg / 9.
 - deregister(): 4 / — / 7.
 - removeInactive(address): 36 / — / 7.
@@ -59,72 +59,72 @@ ctx = {chainId=cfg.chainId، h، ts، baseFee، gasLimit، prevrandao، coinbase
 - setRewardAddress(address): 36 / — / 1.
 - claimBond(): 4 / — / 9.
 
-**مراحل الكتلة**
-- (0) applyEvidence، ثم markClose (≤ RET سجلًا في الإغلاق)، ثم pruneShares، ثم recordShares(h−1)، ثم recordResult(h−1)، ثم settle(h−D)، ثم beginBlock.
-  - recordShares(h−1) (D142): نداء نظام يكتب بتخطيط ShareLedger القائم count[h−1][m] لكل مالك m: عدد عناصره في ctx.parentResult.shares، زائد 1 لـwinner (ν). ويحدّث lastShare = h−1 لكل مالك منها.
-    - المالكون ≤ S_max+1، فالكتابات ضمن الحد المحسوب سابقًا.
-  - recordResult(h−1) (D141): نداء نظام يكتب pending[h−1].winner = ctx.parentResult.winner.
-  - يُتخطى عند h=1.
-  - عند h ≥ 2 تكون pending[h−1] موجودة دائمًا، لأن h−1 ليست نهائية ما دام لها ابن.
-  - يسري في الإغلاق، لأنه كتابة نظام لا كتابة مستخدم.
-- (1) معاملات المستخدمين.
-- (2) closeBlock(tips): يكتب pending[h] = {amount، kind، proposer} مع winner = 0، ولا يقرأ شيئًا من نتيجة الكتلة h. أو finalize(tips) عند F، ولا تُنشأ pending[F] (D141).
-- (3) الجذور.
+**Block phases**
+- (0) applyEvidence, markClose (≤ RET records during closing), pruneShares, recordShares(h−1), recordResult(h−1), settle(h−D), then beginBlock.
+  - recordShares(h−1) (D142): a system call writes count[h−1][m] in the existing ShareLedger layout for each owner m: its item count in ctx.parentResult.shares, plus 1 for winner (ν). It updates lastShare = h−1 for every such owner.
+    - Owners ≤ S_max+1, keeping writes within the previously calculated bound.
+  - recordResult(h−1) (D141): a system call writes pending[h−1].winner = ctx.parentResult.winner.
+  - Skipped at h=1.
+  - At h ≥ 2, pending[h−1] always exists because h−1 is not final if it has a child.
+  - Applies during closing because this is a system write, not a user write.
+- (1) User transactions.
+- (2) closeBlock(tips): writes pending[h] = {amount, kind, proposer} with winner = 0, reading nothing from block h's result. At F, use finalize(tips); no pending[F] is created (D141).
+- (3) Roots.
 
-**حقول EVM**
-- NUMBER=h، وTIMESTAMP=ts، وCOINBASE = Escrow.
-- PREVRANDAO = SHA256('PoColRandao'‖seal_p)، وليست عشوائية آمنة.
-- BLOCKHASH بالصيغة (h, n): (10,0) → genesis، و(257,0) → 0، و(257,1) → hash(1)، و(300,44) → hash(44)، و(h,h) → 0.
-- BLOBHASH=0، وBLOBBASEFEE=1، دون EIP-4788.
+**EVM fields**
+- NUMBER=h, TIMESTAMP=ts, COINBASE = Escrow.
+- PREVRANDAO = SHA256('PoColRandao'‖seal_p); not secure randomness.
+- BLOCKHASH in (h, n) notation: (10,0) → genesis, (257,0) → 0, (257,1) → hash(1), (300,44) → hash(44), (h,h) → 0.
+- BLOBHASH=0, BLOBBASEFEE=1, without EIP-4788.
 
-**السقوف**
-- CODE_CAP وB_code_max: يفشل الإيداع.
-- SLOT_CAP، وACCT_CAP، وDIRTY_BLOCK_MAX=4096، وACCT_DIRTY_BLOCK_MAX=2048، وLOG_BLOCK_MAX=32 KiB، وLOG_CAP=1 GiB: توقف استثنائي.
-- TXBYTES_CAP وTX_CAP: الكتلة باطلة، والبنّاء يتخطى المعاملة.
-- LOG_BLOCK_MAX مع حد عدد السجلات المشتق في LG2 (546) أساس لِمّتي P1 وP3 (D89).
+**Caps**
+- CODE_CAP and B_code_max: code deposit fails.
+- SLOT_CAP, ACCT_CAP, DIRTY_BLOCK_MAX=4096, ACCT_DIRTY_BLOCK_MAX=2048, LOG_BLOCK_MAX=32 KiB and LOG_CAP=1 GiB: exceptional halt.
+- TXBYTES_CAP and TX_CAP: block invalid; the builder skips the transaction.
+- LOG_BLOCK_MAX together with the LG2-derived log-count bound (546) underpins lemmas P1 and P3 (D89).
 
-**موارد النظام (D50، D54، D70)**
-- سياق المستخدم: 256 مفتاحًا و16 حسابًا، وصفر في الإغلاق، وإلا SysWriteClosing.
-- المشتقات: KN=1752، وKC=1482، وKF=1395، وAN=404، وAC=388، وAF=257.
-- gas مقدر (يقيسه T14): نحو 26M للعادية، ونحو 37M للنهائية.
-- (D141) المفاتيح المتمايزة لكل كتلة لا تتغير بنقل كتابة winner:
-  - الكتلة العادية: كلمتان لـpending[h]، وكلمة لـpending[h−1]، بدل ثلاث كلمات لـpending[h].
-  - الكتلة F: مفتاح winner لـpending[F−1] ضمن ما يحذفه finalize أصلًا.
-  - إذن KN وKC وKF كما هي. يعيد ParamGate.derive فحصها في M4، ويقيس T14 الكلفة.
+**System resources (D50, D54, D70)**
+- User context: 256 keys and 16 accounts; zero during closing, otherwise SysWriteClosing.
+- Derived bounds: KN=1752, KC=1482, KF=1395, AN=404, AC=388, AF=257.
+- Estimated gas (measured by T14): about 26M for ordinary blocks and 37M for final blocks.
+- (D141) Distinct keys per block do not change when the winner write moves:
+  - Ordinary block: two words for pending[h], one for pending[h−1], instead of three for pending[h].
+  - Block F: pending[F−1]'s winner key is already among those deleted by finalize.
+  - Thus KN, KC and KF are unchanged. ParamGate.derive rechecks them in M4; T14 measures cost.
 
-**الحسابات والمعاملات**
-- secp256k1 مع EIP-155. المقبول: legacy-155 و2930 و1559. النوعان 3 و4 يعطيان −32015.
-- GAS_LIMIT=8M بهدف 4M، وbaseFee بصيغة London. في الكتل الفارغة يستقر دون 8 wei، ويُقرأ من الرأس.
+**Accounts and transactions**
+- secp256k1 with EIP-155. Accepted: legacy-155, 2930 and 1559. Types 3 and 4 return −32015.
+- GAS_LIMIT=8M with a 4M target; London baseFee formula. In empty blocks it stabilizes below 8 wei and is read from the header.
 
 **RPC**
-- hash = blockHash، وminer = الفائز، وnonce = be64، وdifficulty = work(target).
-- eth_call وeth_estimateGas ثقيلتان بحد 30M gas، على لقطة في خيط حساب بـSCRATCH ≤ 16 MiB ومهلة 5s (D88).
-- كلاهما محاكاة: لا تلتزمان حالة، ولا تكتبان في المجمع، ولا تبثان شيئًا. هذا أساس إدراجهما في مصفوفة القراءة (D95)، مع رفض state override وإلزام to.
-- ذاكرة EVM عند 30M gas ≤ نحو 3.9 MiB (3n+n²/512). ذاكرة الحالة المقروءة في العداد نفسه.
+- hash = blockHash, miner = winner, nonce = be64, difficulty = work(target).
+- eth_call and eth_estimateGas are heavy, bounded to 30M gas, on a snapshot in a compute thread with SCRATCH ≤ 16 MiB and a 5s deadline (D88).
+- Both simulate: no state commitment, pool writes or broadcasting. This justifies inclusion in the read matrix (D95), with state override rejected and to required.
+- EVM memory at 30M gas is ≤ about 3.9 MiB (3n+n²/512). Read-state memory uses the same counter.
 
-**الاختبار**
-- GeneralStateTests لـCancun عدا الاستثناءات المعلنة، ثم T2b وT2c.
+**Testing**
+- Cancun GeneralStateTests except declared exceptions, followed by T2b and T2c.
 - CI1: CHAINID=777902.
-- CI2: chainId=777001 يعطي −32015.
-- CI3: الكتلة الحاملة لمعاملة CI2 تُرفض بالبند 17.
-- GB1: heldTotal = 4·B_reg، وActList = M_0 بترتيبها، وRecLen = 4.
-- GB-END (D86): RecLen = ActLen = 1024، وheldTotal = 1024·B_reg.
+- CI2: chainId=777001 returns −32015.
+- CI3: a block containing CI2's transaction is rejected under item 17.
+- GB1: heldTotal = 4·B_reg, ActList = M_0 in order, RecLen = 4.
+- GB-END (D86): RecLen = ActLen = 1024, heldTotal = 1024·B_reg.
 
-**الفحص الآلي (M4)**
-onlyNotClosing، وPAY لكل نقل، وChunkFactory بلا SSTORE، وCALLER مصدر id، وtips من calldata.
+**Automated inspection (M4)**
+onlyNotClosing, PAY for every transfer, no SSTORE in ChunkFactory, CALLER as the id source, and tips from calldata.
 
-**المكونات المعاد استخدامها**
-- revm مع PAY، وalloy، وk256، وsha2/sha3، وredb، وrust-libp2p.
-- hyper لـHTTP/1.1، بدل jsonrpsee، لأن D88 وD90 وD92 وD94 تحتاج تحكمًا في التدفق والحجز والتسلسل وساعة الإرسال ومخزن المقبس وحدث sendDone.
-- tokio (runtimeان) مع مجمع خيوط حساب ثابت، وsocket2 لـSO_SNDBUF.
-- ruint أو crypto-bigint لعرض 512 بتًا ثابت (D83)، ولا num-bigint في ASERT.
-- في الإضافة: محلل JSON صارم لـBridgeAuth، ويُفضل التنفيذ اليدوي فوق JSON.parse مع فحص الأنواع لا مكتبة مخططات عامة. وdependency-cruiser (MIT) لفحص الاستيراد.
-- Foundry وsolc أدوات بناء فقط، ولا كود من geth. التراخيص تُفحص في M0.
+**Reused components**
+- revm with PAY, alloy, k256, sha2/sha3, redb and rust-libp2p.
+- hyper for HTTP/1.1 instead of jsonrpsee, because D88, D90, D92 and D94 need control of flow, reservation, sequencing, sending clock, socket buffer and sendDone.
+- tokio (two runtimes) with a fixed compute-thread pool; socket2 for SO_SNDBUF.
+- ruint or crypto-bigint for fixed 512-bit width (D83); no num-bigint in ASERT.
+- In the extension: a strict JSON parser for BridgeAuth, preferably hand-implemented over JSON.parse with type checks rather than a general schema library. dependency-cruiser (MIT) checks imports.
+- Foundry and solc are build tools only; no geth code. Licenses are checked in M0.
 
-**المحافظ**
-MetaMask عبر RPC مخصص (T15)، والمحفظة المدمجة (D14). المحفظة المدمجة هي المصدر الوحيد لـeth_sendRawTransaction من الإضافة (D95).
+**Wallets**
+MetaMask through custom RPC (T15) and the embedded wallet (D14). The embedded wallet is the extension's only source of eth_sendRawTransaction (D95).
 
-**الانحرافات المعلنة**
-PAY لا يخطر المستلم، وtips الكتلة F تُحرق، والنقل القسري يُقفل.
+**Declared deviations**
+PAY does not notify the recipient, block-F tips are burned, and forced transfers are locked.
 
-توافق EVM لا يمنح أمان إجماع Ethereum.
+EVM compatibility does not confer Ethereum consensus security.

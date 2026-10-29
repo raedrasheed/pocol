@@ -52,7 +52,7 @@
 | A13 derivation, breakdown, assumptions | [A13-DERIVATION.md](A13-DERIVATION.md) |
 | Consensus proposals | [proposals/](proposals/README.md) |
 | Round-3 track documents | [RPCGUARD.md](RPCGUARD.md), [proposals/RPCGUARD-R2-PROPOSALS.md](proposals/RPCGUARD-R2-PROPOSALS.md), [proposals/CAPS-SUSTAINABILITY.md](proposals/CAPS-SUSTAINABILITY.md), [JOURNAL-GROWTH-AND-REPLAY.md](JOURNAL-GROWTH-AND-REPLAY.md), [WINDOWS-VERIFICATION.md](WINDOWS-VERIFICATION.md) |
-| Arabic dashboard | [DASHBOARD-AR.md](DASHBOARD-AR.md) |
+| English dashboard | [DASHBOARD-EN.md](DASHBOARD-EN.md) |
 
 A witness printing NOT_REPRODUCED is an observation, not an acceptance pass. Test counts are not acceptance.
 
@@ -506,7 +506,7 @@ change is normative.
 ## 3d. Decision package (2026-10-24): conformance work and the five independent reviews
 
 The owner asked for one decision package ([proposals/DECISION-PACKAGE.md](proposals/DECISION-PACKAGE.md),
-Arabic summary [DECISION-PACKAGE-AR.md](proposals/DECISION-PACKAGE-AR.md)). It separates conformance fixes
+English summary [DECISION-PACKAGE-EN.md](proposals/DECISION-PACKAGE-EN.md)). It separates conformance fixes
 within the current authorization, which are being done, from normative changes, which are shown with a
 recommendation and are not approved or implemented. The priorities are: booting the network profile, block
 validation time, sustainable caps, journal growth and recovery.
@@ -694,7 +694,7 @@ weakened a consensus rule, and no review constitutes acceptance.
     18–31 times the honest throughput (RPCGUARD.md §4a);
   - an answer over its class limit is −32020 {resultBytes} (network.md:210), since round 3c on either
     lane, and the conditional light entries (eth_getBlockBy* with hashes only, pocol_getHeaders with
-    count ≤ 64) have the light deadline and answer limit (network.md (ب), :235);
+    count ≤ 64) have the light deadline and answer limit (network.md (B), :235);
   - the P2P reader waits with poll/WSAPoll and no longer uses SO_RCVTIMEO;
   - mutation passes: round 3 on `d0e87f9`, 59 mutants, 53 caught, 6 survivors
     (evidence/rpcguard-r3/MUTATIONS-RPCGUARD-R3.md). The third review then showed that one survivor

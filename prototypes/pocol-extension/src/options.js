@@ -6,21 +6,21 @@ async function refresh() {
   $('profiles').replaceChildren(...(r.profiles || []).map((p) => {
     const li = document.createElement('li');
     // A stored profile that no longer validates is listed as invalid (removable, unusable).
-    li.textContent = p.invalid ? `${p.name} · غير صالح: ${p.invalid} ` : `${p.name} · chainId ${p.chainId} · ${p.trustLevel} · ${p.endpoint} · netKey ${p.netKey.slice(0, 18)}…${p.conflict ? ' · تعارض chainId (قراءة فقط)' : ''} `;
-    const rm = Object.assign(document.createElement('button'), { type: 'button', textContent: 'حذف' });
+    li.textContent = p.invalid ? `${p.name} · Invalid: ${p.invalid} ` : `${p.name} · chainId ${p.chainId} · ${p.trustLevel} · ${p.endpoint} · netKey ${p.netKey.slice(0, 18)}…${p.conflict ? ' · chainId conflict (read-only)' : ''} `;
+    const rm = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Delete' });
     rm.onclick = async () => { await send({ type: 'profiles.remove', name: p.name }); refresh(); };
     li.append(rm); return li;
   }));
   const w = await send({ type: 'wallet.status' });
-  $('wallet').textContent = !w.exists ? 'لا محفظة' : w.unlocked ? 'مفتوحة' : 'مقفلة';
+  $('wallet').textContent = !w.exists ? 'No wallet' : w.unlocked ? 'Unlocked' : 'Locked';
   if (w.unlocked) for (const p of (r.profiles || []).filter((x) => !x.invalid)) { const a = await send({ type: 'wallet.address', name: p.name }); if (a.ok) $('wallet').textContent += `\n${p.name}: ${a.address}`; }
 }
 $('add').onclick = async () => {
-  let p; try { p = JSON.parse($('profile').value); } catch { alert('JSON غير صالح'); return; }
-  const r = await send({ type: 'profiles.add', profile: p }); if (!r.ok) alert('رُفض الملف: ' + (r.error.message || r.error)); refresh();
+  let p; try { p = JSON.parse($('profile').value); } catch { alert('Invalid JSON'); return; }
+  const r = await send({ type: 'profiles.add', profile: p }); if (!r.ok) alert('Profile rejected: ' + (r.error.message || r.error)); refresh();
 };
 $('create').onclick = async () => { const r = await send({ type: 'wallet.create', password: $('pw').value }); if (!r.ok) alert(r.error.message || r.error); refresh(); };
-$('unlock').onclick = async () => { const r = await send({ type: 'wallet.unlock', password: $('pw').value }); if (!r.ok) alert('تعذر الفتح'); refresh(); };
+$('unlock').onclick = async () => { const r = await send({ type: 'wallet.unlock', password: $('pw').value }); if (!r.ok) alert('Could not unlock'); refresh(); };
 $('lock').onclick = async () => { await send({ type: 'wallet.lock' }); refresh(); };
 $('open').onclick = () => { window.open(chrome.runtime.getURL('viewer.html') + '#' + encodeURI($('target').value.trim()), '_blank', 'noopener'); };
 refresh();

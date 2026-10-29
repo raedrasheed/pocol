@@ -372,7 +372,7 @@ class World:
         if torn:
             # browser.md:619-623: tear down, show the banner, never reload automatically.
             self.banners.append({'t': self.t, 'gen': gid, 'tabs': sorted(torn),
-                                 'text': 'انقطع عامل الإضافة؛ قد تكون آخر الكتابات غير محفوظة', 'button': 'إعادة التحميل'})
+                                 'text': 'The extension worker disconnected; recent writes may not have been saved', 'button': 'Reload'})
 
     def ev_place(self, gid, cat, action):
         for op in self.be.ops:

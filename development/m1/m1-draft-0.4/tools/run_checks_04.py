@@ -369,7 +369,7 @@ def png_1x1():
 def addendum_checks():
     doc = load(ANNEX / 'addendum-x3-proposal.json')
     ids = [i['id'] for i in doc['items']]
-    want = ['Q8', 'Q9', 'Q10', 'Q11', 'Q12'] + ['X%d' % i for i in range(1, 8)] + ['د%d' % i for i in range(1, 6)]
+    want = ['Q8', 'Q9', 'Q10', 'Q11', 'Q12'] + ['X%d' % i for i in range(1, 8)] + ['DNR-d%d' % i for i in range(1, 6)]
     check('addendum.count 17', len(ids) == 17 and ids == want, got=ids)
     check('addendum.status unsigned', doc['status'].startswith('UNSIGNED PROPOSAL'))
     check('addendum.every item has inputs and pass criterion',

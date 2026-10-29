@@ -36,7 +36,7 @@ const fail = (status, msg) => { throw new BrokerError(status, msg); };
 /** Launch errors made actionable: ENOENT from spawn means the executable (or cwd) was not found. */
 function describeLaunchError(msg) {
   const m = redact(String(msg));
-  return /\bENOENT\b/.test(m) ? `لم يُعثر على ملف claude التنفيذي أو مجلد العمل (ENOENT): ${m}` : m;
+  return /\bENOENT\b/.test(m) ? `Claude executable or working directory not found (ENOENT): ${m}` : m;
 }
 
 /**
@@ -150,7 +150,7 @@ export class Controller {
     if (this.serviceOwned) {
       // Normal second call (the real port is known now): update only our own, still-current lock.
       const cur = this._parseLock(this._readLockRaw(lock));
-      if (!cur || cur.owner !== this.serviceOwner) { this.serviceOwned = false; fail(409, 'قفل الخدمة لم يعد مملوكًا لهذه النسخة؛ لن يُكتب فوقه.'); }
+      if (!cur || cur.owner !== this.serviceOwner) { this.serviceOwned = false; fail(409, 'This instance no longer owns the service lock; it will not overwrite it.'); }
       writeJsonAtomic(lock, this._lockInfo(port));
       return;
     }
@@ -168,14 +168,14 @@ export class Controller {
 
   _contendLock(lock, port) {
     const raw = this._readLockRaw(lock);
-    if (raw === null) fail(409, 'قفل الخدمة تغيّر أثناء الفحص؛ أعد المحاولة.');
+    if (raw === null) fail(409, 'Service lock changed during inspection; retry.');
     const old = this._parseLock(raw);
     if (!old) {
       this.event('service.lockUnreadable', { length: typeof raw === 'string' ? raw.length : null });
-      fail(409, `قفل الخدمة فارغ أو غير صالح (${lock}). قد تكون خدمة أخرى في طور البدء؛ لن يُستولى عليه تلقائيًا. إن تأكدت أنه قديم فاحذف هذا الملف يدويًا.`);
+      fail(409, `Service lock is empty or invalid (${lock}). Another service may be starting; it will not be taken over automatically. If confirmed stale, delete this file manually.`);
     }
     // Same pid is this very process, so alive by definition: another Controller here owns it.
-    if (old.pid === process.pid || this.isAlive(old.pid)) fail(409, `خدمة المنسق تعمل بالفعل (pid ${old.pid}).`);
+    if (old.pid === process.pid || this.isAlive(old.pid)) fail(409, `Coordinator service is already running (pid ${old.pid}).`);
     this._takeOverStale(lock, raw, old, port);
   }
 
@@ -189,13 +189,13 @@ export class Controller {
       if (e.code !== 'EEXIST') throw e;
       const holder = this._parseLock(this._readLockRaw(mutex));
       fail(409, holder && this.isAlive(holder.pid)
-        ? `استعادة قفل الخدمة جارية في عملية أخرى (pid ${holder.pid}).`
-        : `يوجد ملف استعادة متروك (${mutex}). لن يُستولى عليه تلقائيًا؛ احذفه يدويًا بعد التأكد من عدم وجود خدمة تعمل.`);
+        ? `Another process is recovering the service lock (pid ${holder.pid}).`
+        : `An abandoned recovery file exists (${mutex}). It will not be taken over automatically; delete it manually after confirming no service is running.`);
     }
     try { writeFileSync(mfd, me); } finally { closeSync(mfd); }
     try {
       const now = this._readLockRaw(lock);
-      if (now !== rawSeen) fail(409, 'تغيّر قفل الخدمة أثناء الاستعادة؛ لم يُستولَ عليه.');
+      if (now !== rawSeen) fail(409, 'Service lock changed during recovery; it was not taken over.');
       const evidence = path.join(this.uiDir, `service.lock.stale-${isoNow(this.now()).replace(/[:.]/g, '-')}-${newId().slice(0, 8)}.json`);
       writeFileSync(evidence, rawSeen, { flag: 'wx', mode: 0o600 });
       writeJsonAtomic(lock, this._lockInfo(port));
@@ -260,13 +260,13 @@ export class Controller {
 
   // ---------- idempotent submissions (browser) ----------
   _existing(key) {
-    if (!KEY_RE.test(key || '')) fail(400, 'مفتاح الطلب (idempotencyKey) غير صالح.');
+    if (!KEY_RE.test(key || '')) fail(400, 'Invalid request key (idempotencyKey).');
     const id = own(this.state.keys, key);
     return typeof id === 'string' ? own(this.state.items, id) ?? null : null;
   }
   _add(kind, key, payload) {
     const open = this.state.order.filter((id) => !['acknowledged', 'reviewed', 'cancelled'].includes(this.state.items[id].status)).length;
-    if (open >= OPEN_ITEMS_MAX) fail(429, 'الطابور ممتلئ؛ انتظر استلام المنسق.');
+    if (open >= OPEN_ITEMS_MAX) fail(429, 'Queue full; wait for the coordinator to claim requests.');
     const item = { id: newId(), kind, idempotencyKey: key, createdAt: isoNow(this.now()), status: 'queued', payload };
     this.state.items[item.id] = item; this.state.order.push(item.id); this.state.keys[key] = item.id;
     this.event(`${kind}.queued`, { itemId: item.id });
@@ -274,8 +274,8 @@ export class Controller {
     return item;
   }
   _text(text) {
-    if (typeof text !== 'string' || !text.trim()) fail(400, 'النص فارغ.');
-    if (text.length > TEXT_MAX) fail(413, 'النص أطول من الحد المسموح.');
+    if (typeof text !== 'string' || !text.trim()) fail(400, 'Text is empty.');
+    if (text.length > TEXT_MAX) fail(413, 'Text exceeds the permitted length.');
     return text;
   }
 
@@ -290,9 +290,9 @@ export class Controller {
 
   submitOwnerAnswer({ questionId, choice, note = '', idempotencyKey }) {
     const ex = this._existing(idempotencyKey); if (ex) return { item: ex, duplicate: true };
-    const q = findQuestion(questionId); if (!q) fail(400, 'سؤال غير معروف.');
-    if (!q.options.some((o) => o.id === choice)) fail(400, 'خيار غير معروف.');
-    if (typeof note !== 'string' || note.length > TEXT_MAX) fail(400, 'ملاحظة غير صالحة.');
+    const q = findQuestion(questionId); if (!q) fail(400, 'Unknown question.');
+    if (!q.options.some((o) => o.id === choice)) fail(400, 'Unknown option.');
+    if (typeof note !== 'string' || note.length > TEXT_MAX) fail(400, 'Invalid note.');
     const item = this._add('ownerAnswer', idempotencyKey, { questionId, choice, note, testOnly: Boolean(q.testOnly) });
     this.state.ownerAnswers[questionId] = { itemId: item.id, choice, at: item.createdAt, status: 'queued', testOnly: Boolean(q.testOnly) };
     this.save();
@@ -302,10 +302,10 @@ export class Controller {
 
   requestAuthorJob({ mode = 'smoke', note = '', idempotencyKey, retryOf = null }) {
     const ex = this._existing(idempotencyKey); if (ex) return { item: ex, duplicate: true };
-    if (!['smoke', 'author'].includes(mode)) fail(400, 'نوع المهمة غير معروف.');
+    if (!['smoke', 'author'].includes(mode)) fail(400, 'Unknown task type.');
     if (retryOf) {
       const prev = this.state.items[retryOf];
-      if (!prev || prev.kind !== 'authorJob' || !['failed', 'interrupted'].includes(prev.status)) fail(409, 'لا توجد مهمة فاشلة أو متوقفة بهذا المعرف.');
+      if (!prev || prev.kind !== 'authorJob' || !['failed', 'interrupted'].includes(prev.status)) fail(409, 'No failed or interrupted task with this ID.');
     }
     const item = this._add('authorJob', idempotencyKey, { mode, note: note ? this._text(note) : '', retryOf });
     this.notifyHost(item.id, 'queued');
@@ -313,13 +313,13 @@ export class Controller {
   }
 
   pause({ idempotencyKey }) {
-    if (!KEY_RE.test(idempotencyKey || '')) fail(400, 'مفتاح الطلب غير صالح.');
+    if (!KEY_RE.test(idempotencyKey || '')) fail(400, 'Invalid request key.');
     if (!this.state.paused) { this.state.paused = true; this.state.pauseRequestedAt = isoNow(this.now()); this.event('pause.requested', { draining: Boolean(this.state.currentJob) }); this.save(); }
     return { pauseState: this.pauseState() };
   }
 
   resume({ idempotencyKey, reason = '' }) {
-    if (!KEY_RE.test(idempotencyKey || '')) fail(400, 'مفتاح الطلب غير صالح.');
+    if (!KEY_RE.test(idempotencyKey || '')) fail(400, 'Invalid request key.');
     if (this.state.paused) {
       this.state.paused = false; this.state.pauseRequestedAt = null;
       this.event('resume', { reason: bound(String(reason), 500) }); this.save();
@@ -341,7 +341,7 @@ export class Controller {
     return { status: this.now() <= expires ? 'attached' : 'expired', reviewerId: r.id, heartbeatAt: r.heartbeatAt, expiresAt: isoNow(expires) };
   }
   attach({ reviewerId, leaseMs = 120_000 }) {
-    if (typeof reviewerId !== 'string' || !/^[A-Za-z0-9._ -]{1,60}$/.test(reviewerId)) fail(400, 'reviewerId غير صالح.');
+    if (typeof reviewerId !== 'string' || !/^[A-Za-z0-9._ -]{1,60}$/.test(reviewerId)) fail(400, 'Invalid reviewerId.');
     const ms = Math.min(LEASE_MAX, Math.max(LEASE_MIN, Number(leaseMs) || 120_000));
     const at = isoNow(this.now());
     this.state.reviewer = { id: reviewerId, attachedAt: at, heartbeatAt: at, leaseMs: ms };
@@ -350,7 +350,7 @@ export class Controller {
     return this.reviewerStatus();
   }
   heartbeat() {
-    if (!this.state.reviewer) fail(409, 'لا يوجد مراجع متصل.');
+    if (!this.state.reviewer) fail(409, 'No reviewer attached.');
     this.state.reviewer.heartbeatAt = isoNow(this.now()); this.save();
     this.tryDispatch();
     return this.reviewerStatus();
@@ -364,8 +364,8 @@ export class Controller {
   }
 
   claim({ itemId }) {
-    const i = this.state.items[itemId]; if (!i) fail(404, 'عنصر غير موجود.');
-    if (i.status !== 'queued') fail(409, `لا يمكن استلام عنصر بحالة ${i.status}.`);
+    const i = this.state.items[itemId]; if (!i) fail(404, 'Item not found.');
+    if (i.status !== 'queued') fail(409, `Cannot claim an item with status ${i.status}.`);
     i.status = 'claimed'; i.claimedAt = isoNow(this.now()); i.claimedBy = this.state.reviewer?.id ?? 'host-coordinator';
     if (i.kind === 'ownerAnswer') this.state.ownerAnswers[i.payload.questionId].status = 'claimed';
     this.event('item.claimed', { itemId }); this.save();
@@ -375,9 +375,9 @@ export class Controller {
   /** The author-mode plan check shared by author-job approval and continuation follow-ups. */
   _validatePlan(mode, dispatch) {
     if (mode === 'author') {
-      if (!TASK_FILE.test(dispatch.taskFile || '') || !existsSync(path.join(this.ws, 'coordination', dispatch.taskFile))) fail(400, 'ملف المهمة غير موجود في coordination.');
-      if (!PLANNED_DIR.test(dispatch.plannedDir || '')) fail(400, 'المجلد المخطط يجب أن يكون m1-draft-0.N.');
-      if (existsSync(path.join(this.ws, dispatch.plannedDir))) fail(409, 'المجلد المخطط موجود بالفعل؛ يجب أن يكون جديدًا.');
+      if (!TASK_FILE.test(dispatch.taskFile || '') || !existsSync(path.join(this.ws, 'coordination', dispatch.taskFile))) fail(400, 'Task file not found in coordination.');
+      if (!PLANNED_DIR.test(dispatch.plannedDir || '')) fail(400, 'Planned directory must be m1-draft-0.N.');
+      if (existsSync(path.join(this.ws, dispatch.plannedDir))) fail(409, 'Planned directory already exists; it must be new.');
     }
     return { mode, sessionId: this.sessionId, taskFile: mode === 'author' ? dispatch.taskFile : null, plannedDir: mode === 'author' ? dispatch.plannedDir : null };
   }
@@ -388,10 +388,10 @@ export class Controller {
    * next author turn it chose; without one the continuation is just acknowledged (no action).
    */
   ack({ itemId, note = '', dispatch = null }) {
-    const i = this.state.items[itemId]; if (!i) fail(404, 'عنصر غير موجود.');
-    if (!['queued', 'claimed'].includes(i.status)) fail(409, `لا يمكن تأكيد عنصر بحالة ${i.status}.`);
+    const i = this.state.items[itemId]; if (!i) fail(404, 'Item not found.');
+    if (!['queued', 'claimed'].includes(i.status)) fail(409, `Cannot acknowledge an item with status ${i.status}.`);
     if (i.kind === 'authorJob') {
-      if (!dispatch || typeof dispatch !== 'object') fail(400, 'خطة التنفيذ مطلوبة لمهمة المؤلف.');
+      if (!dispatch || typeof dispatch !== 'object') fail(400, 'An execution plan is required for an author task.');
       const plan = this._validatePlan(i.payload.mode, dispatch);
       i.ackNote = bound(String(note), 2000); i.ackAt = isoNow(this.now());
       i.dispatch = plan;
@@ -402,11 +402,11 @@ export class Controller {
       return this.state.items[itemId];
     }
     if (i.kind === 'continuation' && dispatch !== null) {
-      if (typeof dispatch !== 'object' || Array.isArray(dispatch) || !['smoke', 'author'].includes(dispatch.mode)) fail(400, 'خطة المتابعة يجب أن تحدد mode بقيمة smoke أو author.');
+      if (typeof dispatch !== 'object' || Array.isArray(dispatch) || !['smoke', 'author'].includes(dispatch.mode)) fail(400, 'Continuation plan must set mode to smoke or author.');
       const plan = this._validatePlan(dispatch.mode, dispatch);
       i.ackNote = bound(String(note), 2000); i.ackAt = isoNow(this.now());
       const job = this._add('authorJob', `contjob-${i.id}`, { mode: plan.mode, note: '', retryOf: null, continuationOf: i.id });
-      job.dispatch = plan; job.status = 'approved'; job.ackAt = i.ackAt; job.ackNote = 'خطة اختارها المنسق المضيف عبر عنصر المتابعة';
+      job.dispatch = plan; job.status = 'approved'; job.ackAt = i.ackAt; job.ackNote = 'Plan selected by the host coordinator through the continuation item';
       i.status = 'acknowledged'; i.nextJobId = job.id;
       this.event('continuation.nextApproved', { itemId, jobId: job.id, mode: plan.mode });
       this.save();
@@ -427,10 +427,10 @@ export class Controller {
    * saved with continuation 'pending' first, so a restart can finish the continuation decision.
    */
   review({ jobId, verdict, summaryAr, text = '' }) {
-    const i = this.state.items[jobId]; if (!i || i.kind !== 'authorJob') fail(404, 'مهمة غير موجودة.');
-    if (i.reviewId) fail(409, 'هذه المهمة رُوجعت بالفعل.');
-    if (!['completed', 'failed', 'interrupted'].includes(i.status)) fail(409, 'لا يمكن مراجعة مهمة لم تنته.');
-    if (!['accept', 'revise', 'reject'].includes(verdict)) fail(400, 'حكم المراجعة غير صالح.');
+    const i = this.state.items[jobId]; if (!i || i.kind !== 'authorJob') fail(404, 'Task not found.');
+    if (i.reviewId) fail(409, 'This task has already been reviewed.');
+    if (!['completed', 'failed', 'interrupted'].includes(i.status)) fail(409, 'Cannot review an unfinished task.');
+    if (!['accept', 'revise', 'reject'].includes(verdict)) fail(400, 'Invalid review verdict.');
     const review = { id: newId(), jobId, verdict, summaryAr: bound(this._text(summaryAr), 2000), text: bound(String(text), 20000),
       at: isoNow(this.now()), reviewerId: this.state.reviewer?.id ?? 'host-coordinator', jobStatus: i.status,
       continuation: { status: 'pending', at: null, reason: null, itemId: null } };
@@ -492,7 +492,7 @@ export class Controller {
   // ---------- dispatch: one author process, only for approved items ----------
   ledgerBlock() {
     const l = readJson(this.ledgerFile, null);
-    if (!l) return 'تعذّرت قراءة سجل المنسق (issue-ledger.json).';
+    if (!l) return 'Could not read the coordinator ledger (issue-ledger.json).';
     const a = l.activeAuthor;
     if (!a || !a.state || a.state === 'completed') return null;
     if (INACTIVE_REVIEWED.includes(a.state)) {
@@ -502,9 +502,9 @@ export class Controller {
       const reviewed = j && j.kind === 'authorJob' && j.reviewId && ['reviewed', 'failed', 'interrupted'].includes(j.status)
         && this.state.reviews.some((r) => r.id === j.reviewId && r.jobId === j.id);
       if (reviewed) return null;
-      return `السجل يُظهر مؤلفًا منتهيًا (${a.task ?? '?'}: ${a.state}) دون مراجعة وسيط مطابقة محفوظة للمهمة ${a.brokerJobId ?? '?'}.`;
+      return `Ledger shows a finished author (${a.task ?? '?'}: ${a.state}) without a matching saved broker review for task ${a.brokerJobId ?? '?'}.`;
     }
-    return `السجل يُظهر مؤلفًا نشطًا أو غير مُثبَّت (${a.task ?? '?'}: ${a.state}).`;
+    return `Ledger shows an active or uncheckpointed author (${a.task ?? '?'}: ${a.state}).`;
   }
 
   /** First finished author job (completed, failed or interrupted) without an actual review. */
@@ -514,14 +514,14 @@ export class Controller {
   }
 
   dispatchBlock() {
-    if (this.state.paused) return 'متوقف مؤقتًا';
-    if (this.state.currentJob) return 'مهمة مؤلف قيد التشغيل';
-    if (this.worker.readLease()) return 'يوجد عقد عامل قائم';
+    if (this.state.paused) return 'Paused';
+    if (this.state.currentJob) return 'Author task running';
+    if (this.worker.readLease()) return 'A worker lease exists';
     const awaiting = this.unreviewedJob();
-    if (awaiting) return `بانتظار مراجعة Codex الفعلية للمهمة السابقة (${awaiting.id}: ${awaiting.status})`;
-    if (this.reviewerStatus().status !== 'attached') return 'المنسق المضيف غير متصل أو انتهت مهلة اتصاله؛ لا تبدأ مهمة دون مراجع حاضر';
-    if (!this.sessionId) return 'معرف جلسة Claude غير معروف';
-    if (!this.worker.claudeBin) return 'claude.exe غير متاح لهذا الخادم (استخدم --claude-bin)';
+    if (awaiting) return `Awaiting actual Codex review of the previous task (${awaiting.id}: ${awaiting.status})`;
+    if (this.reviewerStatus().status !== 'attached') return 'Host coordinator is disconnected or attachment expired; no task starts without a present reviewer';
+    if (!this.sessionId) return 'Claude session ID unknown';
+    if (!this.worker.claudeBin) return 'claude.exe unavailable to this server (use --claude-bin)';
     return this.ledgerBlock();
   }
 
@@ -531,7 +531,7 @@ export class Controller {
     const block = this.dispatchBlock();
     if (block) { next.blockedReason = block; this.save(); return null; }
     if (next.dispatch.plannedDir && existsSync(path.join(this.ws, next.dispatch.plannedDir))) {
-      next.status = 'failed'; next.endedAt = isoNow(this.now()); next.error = 'المجلد المخطط أصبح موجودًا قبل البدء.'; this.save();
+      next.status = 'failed'; next.endedAt = isoNow(this.now()); next.error = 'Planned directory appeared before startup.'; this.save();
       this.notifyHost(next.id, 'jobFinished');
       return null;
     }
@@ -559,7 +559,7 @@ export class Controller {
       i.status = res && !res.is_error && (code === 0 || recovered) ? 'completed' : 'failed';
       i.endedAt = isoNow(this.now()); i.exitCode = code; if (error) i.error = describeLaunchError(error);
       if (i.status === 'failed') this.attachStderr(i);
-      if (!res) i.error = i.error || (i.stderrExcerpt ? `لم يكتب Claude نتيجة نهائية في الإيصال. آخر stderr: ${i.stderrExcerpt}` : 'لم يكتب Claude نتيجة نهائية في الإيصال، ولا يوجد stderr.');
+      if (!res) i.error = i.error || (i.stderrExcerpt ? `Claude wrote no final result in the receipt. Latest stderr: ${i.stderrExcerpt}` : 'Claude wrote no final result in the receipt, and there is no stderr.');
       ended = true;
     }
     this.worker.release(jobId);
@@ -588,7 +588,7 @@ export class Controller {
       if (size > len) text = text.slice(text.indexOf('\n') + 1);        // drop a partial first line (could be half a secret)
       text = redact(text).trim();                                        // redact before cutting, keep the tail (the actual error)
       if (!text) return null;
-      return text.length > STDERR_SHOWN ? `… [قُصّ أوله] ${text.slice(-STDERR_SHOWN)}` : text;
+      return text.length > STDERR_SHOWN ? `… [beginning truncated] ${text.slice(-STDERR_SHOWN)}` : text;
     } catch { return null; }
     finally { if (fd !== null) try { closeSync(fd); } catch { /* closed */ } }
   }
@@ -624,7 +624,7 @@ export class Controller {
   }
 
   _sendNotification(n, trigger) {
-    const cfg = this.notifier ? this.notifier.configured() : { ok: false, reason: 'لم يُضبط ناقل الإشعار (--codex-bin و--codex-thread)؛ الطلب محفوظ ولم يُرسل إشعار.' };
+    const cfg = this.notifier ? this.notifier.configured() : { ok: false, reason: 'Notifier not configured (--codex-bin and --codex-thread); request saved, no notification sent.' };
     // Attempt numbers come from a persistent counter, never from the (trimmed) display history,
     // so they are unique and increasing for the life of the notification.
     n.attemptSeq = Math.max(n.attemptSeq ?? 0, ...n.attempts.map((x) => Number(x.n) || 0)) + 1;
@@ -663,7 +663,7 @@ export class Controller {
       a.queueId = n.queueId;
     } else {
       a.status = n.status = r.uncertain ? 'uncertain' : 'failed';
-      a.error = n.error = redact(bound(`${r.error || 'فشل غير معروف'}${stderr ? ' · stderr: ' + stderr : ''}`, 3000));
+      a.error = n.error = redact(bound(`${r.error || 'Unknown failure'}${stderr ? ' · stderr: ' + stderr : ''}`, 3000));
       n.output = output;
     }
     this.event(`notify.${n.status}`, { notificationId: id, attempt: attemptNo });
@@ -676,14 +676,14 @@ export class Controller {
    * attempt. The registry has an explicit hard limit instead of silently forgetting keys.
    */
   retryNotification({ notificationId, idempotencyKey }) {
-    if (!KEY_RE.test(idempotencyKey || '')) fail(400, 'مفتاح الطلب غير صالح.');
+    if (!KEY_RE.test(idempotencyKey || '')) fail(400, 'Invalid request key.');
     const prior = own(this.state.notifyRetryKeys, idempotencyKey);
     if (prior) return { notification: own(this.state.notifications, prior.notificationId) ?? null, duplicate: true };
     const n = typeof notificationId === 'string' ? own(this.state.notifications, notificationId) ?? null : null;
-    if (!n) fail(404, 'إشعار غير موجود.');
-    if (!NOTIFY_RETRYABLE.includes(n.status)) fail(409, n.status === 'delivered' ? 'سُلّم الإشعار بالفعل.' : `لا يمكن إعادة إشعار بحالة ${n.status}.`);
+    if (!n) fail(404, 'Notification not found.');
+    if (!NOTIFY_RETRYABLE.includes(n.status)) fail(409, n.status === 'delivered' ? 'Notification already delivered.' : `Cannot retry a notification with status ${n.status}.`);
     if (Object.keys(this.state.notifyRetryKeys).length >= RETRY_KEYS_MAX) {
-      fail(507, `بلغ سجل مفاتيح إعادة الإشعار حده الصريح (${RETRY_KEYS_MAX}). لن تُنسى مفاتيح قديمة؛ أرشف ui-control/state.json يدويًا قبل أي إعادة جديدة.`);
+      fail(507, `Notification retry-key ledger reached its explicit limit (${RETRY_KEYS_MAX}). Old keys will not be forgotten; manually archive ui-control/state.json before any new retry.`);
     }
     this.state.notifyRetryKeys[idempotencyKey] = { notificationId: n.id, attempt: (n.attemptSeq ?? 0) + 1, at: isoNow(this.now()) };
     this._sendNotification(n, 'explicitRetry');                        // persists the key together with the attempt
@@ -696,8 +696,8 @@ export class Controller {
     for (const n of Object.values(this.state.notifications)) {
       if (n.status !== 'sending') continue;
       const a = n.attempts.at(-1);
-      if (a && a.status === 'sending') { a.status = 'uncertain'; a.endedAt = isoNow(this.now()); a.error = 'توقف الخادم أثناء الإرسال.'; }
-      n.status = 'uncertain'; n.error = 'توقف الخادم أثناء الإرسال؛ لا يُعرف هل وصل الإشعار. لا إعادة تلقائية؛ أعد الإرسال صراحة إن لزم (قد يتكرر الإشعار).';
+      if (a && a.status === 'sending') { a.status = 'uncertain'; a.endedAt = isoNow(this.now()); a.error = 'Server stopped while sending.'; }
+      n.status = 'uncertain'; n.error = 'Server stopped while sending; delivery is unknown. No automatic retry; explicitly resend if needed (notification may be duplicated).';
       this.event('notify.uncertainAfterRestart', { notificationId: n.id });
       changed = true;
     }
@@ -709,7 +709,7 @@ export class Controller {
 
   notifierStatus() {
     const d = this.notifier?.describe?.() ?? null;
-    const cfg = this.notifier ? this.notifier.configured() : { ok: false, reason: 'لم يُضبط ناقل الإشعار.' };
+    const cfg = this.notifier ? this.notifier.configured() : { ok: false, reason: 'Notifier not configured.' };
     return { configured: cfg.ok, reason: cfg.ok ? null : cfg.reason, remote: d?.remote ?? null, threadSuffix: d?.threadId ? String(d.threadId).slice(-8) : null, held: this.notifyHeld };
   }
 
@@ -739,15 +739,15 @@ export class Controller {
       const p = raw ? parseReceipt(raw.toString('utf8')) : null;
       const r = p?.result ?? null;
       const mode = i.dispatch?.mode ?? i.payload.mode;
-      const outcome = i.status === 'running' ? 'قيد التشغيل' : !r ? 'لا توجد نتيجة نهائية في الإيصال' : r.isError ? 'انتهى بخطأ' : 'اكتمل';
+      const outcome = i.status === 'running' ? 'Running' : !r ? 'No final result in receipt' : r.isError ? 'Ended with an error' : 'Completed';
       cards.push({
         id: `job-${i.id}`, role: 'author', actor: 'Claude', kind: 'currentReceipt', current: true, jobId: i.id, status: i.status,
-        task: i.dispatch?.taskFile ?? (mode === 'smoke' ? 'smoke (قراءة فقط)' : null), revision: i.dispatch?.plannedDir?.replace('m1-draft-', '') ?? null,
+        task: i.dispatch?.taskFile ?? (mode === 'smoke' ? 'smoke (Read only)' : null), revision: i.dispatch?.plannedDir?.replace('m1-draft-', '') ?? null,
         time: i.endedAt ?? i.startedAt ?? null,
-        timeNote: i.endedAt ? 'وقت انتهاء المهمة كما سجله الوسيط' : 'وقت بدء المهمة كما سجله الوسيط؛ لم تنته بعد',
-        sha256: raw ? sha256(raw) : null, commit: null, source: raw ? rel(f) : `${rel(f)} (غير موجود)`,
+        timeNote: i.endedAt ? 'Task end time recorded by the broker' : 'Task start time recorded by the broker; not finished yet',
+        sha256: raw ? sha256(raw) : null, commit: null, source: raw ? rel(f) : `${rel(f)} (Not found)`,
         sessionId: r?.sessionId ?? i.dispatch?.sessionId ?? null,
-        summaryAr: `دورة المؤلف الحالية (${mode}) ${i.id}: ${outcome} · ${p ? p.toolCalls : 0} استدعاء أداة · رفض أذونات: ${r ? r.permissionDenials.length : 'غير معروف'}${i.error ? ' · خطأ: ' + i.error : ''}`,
+        summaryAr: `Current author cycle (${mode}) ${i.id}: ${outcome} · ${p ? p.toolCalls : 0} tool calls · permission denials: ${r ? r.permissionDenials.length : 'Unknown'}${i.error ? ' · Error: ' + i.error : ''}`,
         result: r, technical: p?.entries ?? [], truncatedEntries: p?.truncatedEntries ?? 0,
       });
     }
@@ -756,10 +756,10 @@ export class Controller {
       cards.push({
         id: `review-${rv.id}`, role: 'reviewer', actor: 'Codex', kind: 'currentReview', current: true, jobId: rv.jobId, verdict: rv.verdict,
         reviewerId: rv.reviewerId, task: job?.dispatch?.taskFile ?? null, revision: job?.dispatch?.plannedDir?.replace('m1-draft-', '') ?? null,
-        time: rv.at ?? null, timeNote: rv.at ? 'وقت تسجيل المراجعة عبر واجهة المراجع' : 'غير مسجل',
+        time: rv.at ?? null, timeNote: rv.at ? 'Review recording time through the reviewer interface' : 'Not recorded',
         sha256: rv.text ? sha256(rv.text) : null, commit: null, source: `${rel(this.stateFile)}#reviews/${rv.id}`,
-        summaryAr: `مراجعة Codex الفعلية (${rv.reviewerId}) للمهمة ${rv.jobId}${rv.jobStatus ? ' [' + rv.jobStatus + ']' : ''}: ${rv.verdict} · ${rv.summaryAr}`,
-        technical: [{ kind: 'text', text: rv.text || '(لم يُرسل نص تقني مع المراجعة)' }],
+        summaryAr: `Actual Codex review (${rv.reviewerId}) for task ${rv.jobId}${rv.jobStatus ? ' [' + rv.jobStatus + ']' : ''}: ${rv.verdict} · ${rv.summaryAr}`,
+        technical: [{ kind: 'text', text: rv.text || '(No technical text supplied with review)' }],
       });
     }
     return redactDeep(cards);
@@ -794,7 +794,7 @@ export class Controller {
     const latest = checks.find((c) => c.revision === (ledger?.latestCompletedRevision || '').replace('m1-draft-', '')) || checks[0] || null;
     const running = this.state.currentJob ? this.state.items[this.state.currentJob] : null;
     return redactDeep({
-      phaseAr: 'M1: مرحلة المواصفات فقط (لا تنفيذ إنتاجي، لا نشر، لا معاملات حقيقية)',
+      phaseAr: 'M1: specification stage only (no production implementation, deployment or real transactions)',
       updatedAt: isoNow(this.now()),
       ledgerStatus: ledger?.status ?? null,
       latestRevision: ledger?.latestCompletedRevision ?? null,
@@ -802,7 +802,7 @@ export class Controller {
       activeWorker: running ? { itemId: running.id, mode: running.dispatch?.mode, pid: running.pid ?? null, startedAt: running.startedAt ?? null } : null,
       ledgerActiveAuthor: ledger?.activeAuthor ?? null,
       openFindings: (ledger?.issues || []).filter((x) => !/^closed|^resolved|^documented/.test(String(x.status))).map((x) => ({ id: x.id, status: x.status, decision: x.decision })),
-      noteAr: 'اتفاق الوكيلين ليس اختبارًا. النتائج أعلاه من ملفات فحص محفوظة فعلًا؛ ما لا يوجد له ملف يظهر «غير متاح».',
+      noteAr: 'Agreement between agents is not a test. Results above come from actual saved check files; absent files show “Unavailable”.',
     });
   }
 
@@ -837,7 +837,7 @@ export class Controller {
       continuation: { enabled: policy.enabled, reason: policy.reason, gate: this._continuationGate(policy), recent: conts,
         lastReview: this.state.reviews.at(-1)?.continuation ?? null },
       latestCompletedRevision: word(l?.latestCompletedRevision, 40),
-      noteAr: 'تفويض دائم مسجل في سجل المنسق، وليس إجابات من المالك ولا موافقة شخصية. إجابات أسئلة المالك تُعرض منفصلة ولا تتغير.',
+      noteAr: 'Standing authorization recorded in the coordinator ledger, not owner answers or personal approval. Owner-question answers are displayed separately and remain unchanged.',
     });
   }
 

@@ -2,7 +2,7 @@
   "schema": "pocol-m1-u10/0.29",
   "status": "delegated U10 'keep-with-warning': an ownership transfer leaves the publisher set unchanged; the publisher tool warns that the previous owner keeps createVersion/publish/setCurrent until the new owner removes it. Reference model of the 0.2 authorization rows (overlay_ref_029.Website); the EVM outcome is E01 (T1-04, T1-09, T1-12, Phase A). No real transfer. Expected values hand-derived by the author.",
   "sources": {
-    "roles": {"file": "reference/FINAL_DESIGN.md", "lines": [902, 903], "literals": ["PUBLISHER: createVersion", "ونقل الملكية بخطوتين"]},
+    "roles": {"file": "reference/FINAL_DESIGN.md", "lines": [902, 903], "literals": ["PUBLISHER: createVersion", "\u0648\u0646\u0642\u0644 \u0627\u0644\u0645\u0644\u0643\u064a\u0629 \u0628\u062e\u0637\u0648\u062a\u064a\u0646"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "p09": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [234, 235], "literals": ["Publishing rights are never inferred from ownership", "An ownership transfer leaves the publisher set unchanged (U10)", "must warn after a transfer"]},
     "accept": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [252, 252], "literals": ["publishers unchanged (U10)"]},
     "t1_12": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [426, 426], "literals": ["T1-12", "D `setPublisher(A,false)`", "`NotPublisher(A)`", "the publisher tool showed the warning"]}

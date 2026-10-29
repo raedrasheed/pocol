@@ -26,19 +26,19 @@ export function validateExe(p, { platform = process.platform, label = 'codex' } 
   const abs = path.resolve(p);
   let st = null;
   try { st = statSync(abs); } catch { /* missing */ }
-  if (!st) throw new Error(`مسار ${label} المحدد غير موجود.`);
-  if (!st.isFile()) throw new Error(`مسار ${label} المحدد ليس ملفًا تنفيذيًا.`);
-  if (platform === 'win32' && path.extname(abs).toLowerCase() !== '.exe') throw new Error(`على Windows يجب أن يكون مسار ${label} ملف .exe؛ ملفات .cmd و.bat و.ps1 غير مدعومة لأن التشغيل دون shell.`);
+  if (!st) throw new Error(`Specified ${label} path does not exist.`);
+  if (!st.isFile()) throw new Error(`Specified ${label} path is not an executable file.`);
+  if (platform === 'win32' && path.extname(abs).toLowerCase() !== '.exe') throw new Error(`On Windows, the ${label} path must be an .exe file; .cmd, .bat and .ps1 files are unsupported because execution uses no shell.`);
   return abs;
 }
 
 /** The fixed notification text. Only server-side values: item ID, fixed vocabularies, private file path. */
 export function notificationMessage({ itemId, reason, kind = null, status = null, connectionPath }) {
-  if (!ITEM_RE.test(itemId || '')) throw new Error('معرف عنصر الوسيط غير صالح.');
-  if (!Object.hasOwn(REASONS, reason)) throw new Error('سبب الإشعار غير معروف.');
-  if (kind !== null && !WORD_RE.test(kind)) throw new Error('نوع العنصر غير صالح.');
-  if (status !== null && !WORD_RE.test(status)) throw new Error('حالة العنصر غير صالحة.');
-  if (typeof connectionPath !== 'string' || !path.isAbsolute(connectionPath) || /[\r\n]/.test(connectionPath)) throw new Error('مسار ملف الاتصال غير صالح.');
+  if (!ITEM_RE.test(itemId || '')) throw new Error('Invalid broker item ID.');
+  if (!Object.hasOwn(REASONS, reason)) throw new Error('Unknown notification reason.');
+  if (kind !== null && !WORD_RE.test(kind)) throw new Error('Invalid item type.');
+  if (status !== null && !WORD_RE.test(status)) throw new Error('Invalid item status.');
+  if (typeof connectionPath !== 'string' || !path.isAbsolute(connectionPath) || /[\r\n]/.test(connectionPath)) throw new Error('Invalid connection-file path.');
   const head = [
     'PoCol local coordinator notice (transport only: not a review, not an approval, not a new task).',
     `Broker item ${itemId}${kind ? ` [${kind}${status ? ', ' + status : ''}]` : ''}: ${REASONS[reason]}.`,
@@ -61,8 +61,8 @@ export function notificationMessage({ itemId, reason, kind = null, status = null
 }
 
 export function buildNotifyArgs({ threadId, message }) {
-  if (!THREAD_RE.test(threadId || '')) throw new Error('معرف خيط Codex غير صالح.');
-  if (typeof message !== 'string' || !message || message.length > 2000) throw new Error('نص الإشعار غير صالح.');
+  if (!THREAD_RE.test(threadId || '')) throw new Error('Invalid Codex thread ID.');
+  if (typeof message !== 'string' || !message || message.length > 2000) throw new Error('Invalid notification text.');
   return ['queue', '--remote', REMOTE, '--thread', threadId, '--message', message];
 }
 
@@ -80,9 +80,9 @@ export function parseQueueId(stdout, known = []) {
 export class Notifier {
   constructor({ codexBin = null, threadId = null, ws, spawnImpl = spawn, timeoutMs = 30_000, platform = process.platform }) {
     Object.assign(this, { ws, spawnImpl, timeoutMs, threadId: threadId || null, codexBin: null, problem: null });
-    if (!codexBin) this.problem = 'لم يُحدد --codex-bin؛ الطلبات تُحفظ لكن لا يُرسل إشعار إلى المنسق المضيف.';
+    if (!codexBin) this.problem = '--codex-bin not specified; requests are saved but the host coordinator is not notified.';
     else { try { this.codexBin = validateExe(codexBin, { platform, label: 'codex' }); } catch (e) { this.problem = e.message; } }
-    if (!this.problem && !THREAD_RE.test(this.threadId || '')) this.problem = 'معرف خيط Codex القائم غير محدد أو غير صالح (--codex-thread أو CODEX_THREAD_ID).';
+    if (!this.problem && !THREAD_RE.test(this.threadId || '')) this.problem = 'Existing Codex thread ID is missing or invalid (--codex-thread or CODEX_THREAD_ID).';
   }
 
   configured() { return this.problem ? { ok: false, reason: this.problem } : { ok: true }; }
@@ -109,17 +109,17 @@ export class Notifier {
       };
       try {
         child = this.spawnImpl(this.codexBin, args, { cwd: this.ws, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-      } catch (e) { finish({ ok: false, error: `تعذر تشغيل codex: ${e.message}` }); return; }
+      } catch (e) { finish({ ok: false, error: `Could not start codex: ${e.message}` }); return; }
       child.stdout?.on('data', (c) => { out = take(out, c); });
       child.stderr?.on('data', (c) => { err = take(err, c); });
-      child.on('error', (e) => finish({ ok: false, code: null, error: `تعذر تشغيل codex: ${e?.message || e}` }));
+      child.on('error', (e) => finish({ ok: false, code: null, error: `Could not start codex: ${e?.message || e}` }));
       child.on('close', (code, signal) => {
         if (code === 0) finish({ ok: true, code, queueId: parseQueueId(out, [this.threadId, info.itemId]) });
-        else finish({ ok: false, code, error: `انتهى codex queue بالرمز ${code ?? signal}` });
+        else finish({ ok: false, code, error: `codex queue exited with code ${code ?? signal}` });
       });
       timer = setTimeout(() => {
         try { child.kill(); } catch { /* already gone */ }
-        finish({ ok: false, uncertain: true, error: `انتهت المهلة (${this.timeoutMs} ms)؛ لا يُعرف هل وصل الإشعار.` });
+        finish({ ok: false, uncertain: true, error: `Timed out (${this.timeoutMs} ms); notification delivery is unknown.` });
       }, this.timeoutMs);
       timer.unref?.();
     });

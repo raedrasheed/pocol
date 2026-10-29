@@ -1,7 +1,7 @@
 # start 2026-10-28T17:12:27Z load 1.52 1.56 2.66
 PASS every node runs in the requested state mode — stateStore=false,false,false
 PASS LP8 sites published into PoCol state through nodes a and b — S_A=0x75af12b158a77eded723e383d66f58b833f36e7f S_B=0xeb66bd3b97d287ec77a7ddc0a409c5ab0d2ebeea
-PASS RP window over real headers accepted (items 1, 1b, viewFuture, 2-9, viewTargetCeil) — RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 2048 لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية
+PASS RP window over real headers accepted (items 1, 1b, viewFuture, 2-9, viewTargetCeil) — RP: work and identity bound for 13 headers; with computed work of at least 2048 per header (work(ceilTarget)), without execution or membership verification
 PASS RP trust message names the header count and the work bound
 PASS RP mutation window ends at a fallback header (items 4 and 5 are reachable) — height 42 of tip 43
 PASS frozen real window accepted
@@ -20,7 +20,7 @@ PASS RP mutation: proposer signature altered -> 3 — got 3
 PASS RP window with a missing header -> viewIncomplete — got viewIncomplete
 PASS profile accepted (genesisPre hashes to genesisHash, chainId matches) — 0xdac4695af6898161ff743bdf16aba058c768fcb052a7f3c15538e5a00221cbfe
 PASS profile with a genesisHash that genesisPre does not hash to is rejected — {"code":-32603,"message":"genesisHash mismatch"}
-PASS RP trust banner shown outside the frame (13 headers, work bound) — RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 2048 لكل رأس (work(cei
+PASS RP trust banner shown outside the frame (13 headers, work bound) — RP: work and identity bound for 13 headers; with computed work of at least 2048 per header (work(cei
 PASS site rendered from verified chunks: HTML + @import CSS + JS + PNG + url() in CSS — {"h1":"PoCol on-chain site v1","color":"rgb(17, 170, 85)","bg":"rgb(244, 246, 248)","loaded":"yes","inline":"yes","dcl":"yes","img":2,"cssBg":"url(\"blob","fetch":"1400","xhr":"1400","iframes":0,"title":"PoCol test site v1","jsHref":null,"refresh":false,"prefetch":false}
 PASS scripts run in order from blob:, DOMContentLoaded delivered, fetch/XHR served from the file map — {"h1":"PoCol on-chain site v1","color":"rgb(17, 170, 85)","bg":"rgb(244, 246, 248)","loaded":"yes","inline":"yes","dcl":"yes","img":2,"cssBg":"url(\"blob","fetch":"1400","xhr":"1400","iframes":0,"title":"PoCol test site v1","jsHref":null,"refresh":false,"prefetch":false}
 PASS sanitizer removed iframe/object/meta refresh/prefetch, on* handlers and javascript: URLs — {"h1":"PoCol on-chain site v1","color":"rgb(17, 170, 85)","bg":"rgb(244, 246, 248)","loaded":"yes","inline":"yes","dcl":"yes","img":2,"cssBg":"url(\"blob","fetch":"1400","xhr":"1400","iframes":0,"title":"PoCol test site v1","jsHref":null,"refresh":false,"prefetch":false}
@@ -62,14 +62,14 @@ PASS BR14 rejected signature -> 4001 and no further eth_sendRawTransaction
 PASS BR14 from not granted -> 4100
 PASS A06 Chrome: wallet.lock while the confirmation is open -> 4100, dialog withdrawn, nothing sent — 4100
 PASS A06 Chrome: a profile change while the confirmation is open -> 4901, dialog withdrawn, nothing sent; the unchanged session stays — 4901
-PASS A06 Chrome: endpoint genesis changed before signing -> the frame is torn down with 4901, nothing sent — أُنهيت الجلسة (4901): endpoint genesis differs from profile
-PASS A06 Chrome: periodic identity check ends an idle session whose endpoint genesis changed (4901 within 30 s + slack) — 30123 ms: أُنهيت الجلسة (4901): endpoint genesis differs from profile
+PASS A06 Chrome: endpoint genesis changed before signing -> the frame is torn down with 4901, nothing sent — Session terminated (4901): endpoint genesis differs from profile
+PASS A06 Chrome: periodic identity check ends an idle session whose endpoint genesis changed (4901 within 30 s + slack) — 30123 ms: Session terminated (4901): endpoint genesis differs from profile
 PASS A06 Chrome: the open dialog is withdrawn when the session is revoked
 PASS A06-R2 Chrome: wallet.lock while the signed transaction waits for transport -> 4100 {submission: cancelled, before: queued}; never sent, also after the queue drains — {"code":4100,"data":{"submission":"cancelled","before":"queued"}}
 PASS A06-R2 Chrome: a profile change while queued -> 4901 cancelled before queued, never sent; the unchanged session stays — {"code":4901,"data":{"submission":"cancelled","before":"queued"}}
 PASS A06-R2 Chrome: wallet.lock after the request was initiated is not reported as a cancellation; the transaction is broadcast and included — {"ok":"0x44e5266699be0857f8ef2e4b83afe98a1098d5797557cf70bd06bc82af891ef2"}
-PASS A06-R2 Chrome: the session profile endpoint changed while queued -> session revoked (4901); nothing reached the old or the new endpoint (pending nonce unchanged on every node) — أُنهيت الجلسة (4901): network profile changed
-PASS profile of another genesis pointed at this node is refused (netKey binding, 4901) — تعذر فتح الموقع: endpoint genesis differs from profile
+PASS A06-R2 Chrome: the session profile endpoint changed while queued -> session revoked (4901); nothing reached the old or the new endpoint (pending nonce unchanged on every node) — Session terminated (4901): network profile changed
+PASS profile of another genesis pointed at this node is refused (netKey binding, 4901) — Could not open site: endpoint genesis differs from profile
 PASS v2 update read in Chrome through each of the 3 nodes (LN profiles), identical content — [["PoCol on-chain site v2","version 1 · block 129","LN"],["PoCol on-chain site v2","version 1 · block 129","LN"],["PoCol on-chain site v2","version 1 · block 129","LN"]]
 PASS viewer pages raised no uncaught errors
 PASS RpcTap never saw pocol_submitShare/pocol_getTemplate/raw eth_getLogs — eth_getTransactionCount,eth_getBlockByNumber,eth_estimateGas,eth_chainId,pocol_status,eth_sendRawTransaction,eth_blockNumber,pocol_getHeaders,eth_call,eth_getCode,pocol_getLogs

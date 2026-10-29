@@ -23,6 +23,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
+
 HERE = Path(__file__).resolve().parent
 PKG, ROOT = HERE.parent, HERE.parent.parent
 RES = PKG / 'results'
@@ -75,15 +92,15 @@ def gap(label, /, **diag):
 
 
 def sha(p):
-    return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    return hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None
 
 
 def load_json(rel):
-    return json.loads((ROOT / rel).read_text(encoding='utf-8'))
+    return json.loads(source_text(ROOT / rel))
 
 
 def provenance(label, src):
-    lines = (ROOT / src['file']).read_text(encoding='utf-8').splitlines()
+    lines = source_text(ROOT / src['file']).splitlines()
     a, b = src['lines']
     text = '\n'.join(lines[a - 1:b])
     missing = [lit for lit in src.get('literals', []) if lit not in text]
@@ -107,8 +124,8 @@ def assets(cfg):
             continue
         for p in (html, js):
             manifest.append([str(p.relative_to(PKG)).replace('\\', '/'), sha(p)])
-        h = html.read_text(encoding='utf-8')
-        s = js.read_text(encoding='utf-8')
+        h = source_text(html)
+        s = source_text(js)
         check('asset.%s.htmlOnlyMainJs' % cid, re.findall(r'\s(?:src|href)\s*=\s*"([^"]*)"', h) == ['main.js']
               and not re.search(r'\son\w+\s*=', h, re.I) and not re.search(r'<(iframe|link|img|object|embed|base|meta\s+http-equiv)', h, re.I),
               refs=re.findall(r'\s(?:src|href)\s*=\s*"([^"]*)"', h))
@@ -157,7 +174,7 @@ def config_checks(cfg):
     check('config.layerSets', layers == {'K0': {'csp': 'on', 'dnr': 'on', 'rtc': 'on'}, 'K1': {'csp': 'on', 'dnr': 'off', 'rtc': 'on'},
                                          'K2': {'csp': 'relaxed', 'dnr': 'on', 'rtc': 'on'}, 'K3': {'csp': 'on', 'dnr': 'on', 'rtc': 'off'},
                                          'K4': {'csp': 'off', 'dnr': 'off', 'rtc': 'off'}, 'K5': {'csp': 'off', 'dnr': 'off', 'rtc': 'on'}})
-    line366 = (ROOT / 'reference/browser.md').read_text(encoding='utf-8').splitlines()[365]
+    line366 = source_text(ROOT / 'reference/browser.md').splitlines()[365]
     check('config.cspOnIsBaselineText', cfg['layerSpecs']['cspOn']['text'] in line366)
     relaxed = cfg['layerSpecs']['cspRelaxed']['text']
     check('config.cspRelaxedOnlyAddsCanary', relaxed.startswith('sandbox allow-scripts allow-forms;') and "connect-src 'none'" not in relaxed
@@ -177,7 +194,7 @@ def historical_checks(cfg):
     p = ROOT / PRIVATE
     if not check('historical.privateRecordAvailable', p.exists()):
         return
-    doc = json.loads(p.read_text(encoding='utf-8'))
+    doc = json.loads(source_text(p))
     h44, h34 = cfg['historical']['H44'], cfg['historical']['H34']
     e34 = doc.get('earlierDetailedSource', {})
     check('historical.H44.indexRoundHash', doc.get('messageIndex') == h44['messageIndex'] and doc.get('round') == h44['round']
@@ -185,19 +202,19 @@ def historical_checks(cfg):
     check('historical.H34.indexRoundHash', e34.get('messageIndex') == h34['messageIndex'] and e34.get('round') == h34['round']
           and e34.get('messageSha256') == h34['messageSha256'])
     b44, b34 = doc.get('body', ''), e34.get('body', '')
-    t44 = ['TCP 18080 و18443 و13478، وUDP 13478 و19000', 'C1 fetch/XHR', 'C2 img/link/font/@import', 'C3 prefetch/preconnect', 'C4 WebSocket',
-           'C5 RTCPeerConnection مع STUN', 'C6 TURN-TCP', 'C7 realm جديد (خمسة مسارات)', 'C8 sendBeacon/form', 'K0 (الكل) صفر وصول',
-           'K1 (CSP+Rtc) صفر', 'K2 (DNR+Rtc) صفر', 'K3 (دون Rtc) معلوماتي', 'K4 (لا شيء) ضابط إلزامي', 'K5 (Rtc وحده) صفر لـC5–C7']
-    t34 = ['TCP 18080 (HTTP)', 'TCP 18443 (WebSocket)', 'TCP 13478 (TURN-TCP)', 'UDP 13478 (STUN)', 'UDP 19000 (عام)',
-           "createElement('iframe')", 'innerHTML', 'createElementNS', 'template مع importNode', 'document.write',
-           'K0** (CSP + DNR + RtcLockdown)', 'K1** (CSP + RtcLockdown، وDNR معطل)', 'K2** (DNR + RtcLockdown، وCSP مرخّاة تسمح بالكناري)',
-           'K3** (CSP + DNR، وRtcLockdown معطل)', 'K4** (كل الطبقات معطلة)', 'K5** (RtcLockdown وحده)']
+    t44 = ['TCP 18080 \u064818443 \u064813478\u060c \u0648UDP 13478 \u064819000', 'C1 fetch/XHR', 'C2 img/link/font/@import', 'C3 prefetch/preconnect', 'C4 WebSocket',
+           'C5 RTCPeerConnection \u0645\u0639 STUN', 'C6 TURN-TCP', 'C7 realm \u062c\u062f\u064a\u062f (\u062e\u0645\u0633\u0629 \u0645\u0633\u0627\u0631\u0627\u062a)', 'C8 sendBeacon/form', 'K0 (\u0627\u0644\u0643\u0644) \u0635\u0641\u0631 \u0648\u0635\u0648\u0644',
+           'K1 (CSP+Rtc) \u0635\u0641\u0631', 'K2 (DNR+Rtc) \u0635\u0641\u0631', 'K3 (\u062f\u0648\u0646 Rtc) \u0645\u0639\u0644\u0648\u0645\u0627\u062a\u064a', 'K4 (\u0644\u0627 \u0634\u064a\u0621) \u0636\u0627\u0628\u0637 \u0625\u0644\u0632\u0627\u0645\u064a', 'K5 (Rtc \u0648\u062d\u062f\u0647) \u0635\u0641\u0631 \u0644\u0640C5–C7']
+    t34 = ['TCP 18080 (HTTP)', 'TCP 18443 (WebSocket)', 'TCP 13478 (TURN-TCP)', 'UDP 13478 (STUN)', 'UDP 19000 (\u0639\u0627\u0645)',
+           "createElement('iframe')", 'innerHTML', 'createElementNS', 'template \u0645\u0639 importNode', 'document.write',
+           'K0** (CSP + DNR + RtcLockdown)', 'K1** (CSP + RtcLockdown\u060c \u0648DNR \u0645\u0639\u0637\u0644)', 'K2** (DNR + RtcLockdown\u060c \u0648CSP \u0645\u0631\u062e\u0651\u0627\u0629 \u062a\u0633\u0645\u062d \u0628\u0627\u0644\u0643\u0646\u0627\u0631\u064a)',
+           'K3** (CSP + DNR\u060c \u0648RtcLockdown \u0645\u0639\u0637\u0644)', 'K4** (\u0643\u0644 \u0627\u0644\u0637\u0628\u0642\u0627\u062a \u0645\u0639\u0637\u0644\u0629)', 'K5** (RtcLockdown \u0648\u062d\u062f\u0647)']
     check('historical.H44.mappingTraceable', all(t in b44 for t in t44), missingFragments=[i for i, t in enumerate(t44) if t not in b44])
     check('historical.H34.mappingTraceable', all(t in b34 for t in t34), missingFragments=[i for i, t in enumerate(t34) if t not in b34])
     leaks = []
     for f in sorted(PKG.rglob('*')):
         if f.is_file() and f.suffix in ('.json', '.md', '.js', '.html', '.py') and 'results' not in f.parts:
-            text = f.read_text(encoding='utf-8')
+            text = source_text(f)
             markers = ('PoCol_' + 'Dialogue', 'state' + '.json', 'source' + 'State')       # built so this file does not match itself
             if any(x in text for x in markers) or (b44 and b44[:60] in text) or (b34 and b34[:60] in text):
                 leaks.append(str(f.relative_to(PKG)))
@@ -257,7 +274,7 @@ def evaluator_checks(cfg, syn):
 def no_network_checks():
     bad = {}
     for f in (HERE / 'x8_eval.py', HERE / 'run_checks_023.py'):
-        tree = ast.parse(f.read_text(encoding='utf-8'))
+        tree = ast.parse(source_text(f))
         mods = {a.name.split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         mods |= {(n.module or '').split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         hit = sorted(mods & {'socket', 'urllib', 'http', 'requests', 'ssl', 'asyncio', 'subprocess'})

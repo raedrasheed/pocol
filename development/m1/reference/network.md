@@ -1,377 +1,377 @@
-# واجهات العقد والشبكة
+# Node and network interfaces
 
 **P2P**
-libp2p عبر TCP+Noise، مع gossipsub، وطلب ورد على '/pocol/1/req'.
+libp2p over TCP+Noise, with gossipsub and request/response on '/pocol/1/req'.
 
-**الرسائل**
-- Status = [chainId, genesisHash, protocolVersion, headHash, height, totalWork]. اختلاف الهوية أو إصدار غير مدعوم يقطع الاتصال. Status معلوماتي لا يغني عن 1ب.
-- Request = [reqId, kind, body]: 1 GetHeaders [locator ≤ 32, count ≤ 512]، و2 GetBodies [hashes ≤ 64]، و3 GetTemplate، و4 GetEnvelope [blockHash, exclude ≤ 4 hdrId] (D131). رد GetEnvelope هو النسخة المخزنة الصالحة الغلاف إن لم يكن hdrId لها في exclude، وإلا NotFound.
-- Response = [reqId, status, payload]. status: 0 نجاح، و1 غير موجود، و2 تجاوز، و3 غير صالح، و4 تقييد. الجسم المفقود 0x80، والبتر عند 8 MiB.
+**Messages**
+- Status = [chainId, genesisHash, protocolVersion, headHash, height, totalWork]. An identity mismatch or unsupported version disconnects the peer. Status is informational and does not replace 1b.
+- Request = [reqId, kind, body]: 1 GetHeaders [locator ≤ 32, count ≤ 512], 2 GetBodies [hashes ≤ 64], 3 GetTemplate, and 4 GetEnvelope [blockHash, exclude ≤ 4 hdrId] (D131). GetEnvelope returns the stored envelope-valid copy if its hdrId is not in exclude, otherwise NotFound.
+- Response = [reqId, status, payload]. status: 0 success, 1 not found, 2 limit exceeded, 3 invalid, 4 rate limited. A missing body is 0x80; truncate at 8 MiB.
 
-**gossip (الحد بالبايت)**
+**gossip (byte limit)**
 - tx: 131072.
-- template: 197294. الفحص: الحجم، ثم الشكل الموقّع (وإلا templateForm)، ثم 1ب، ثم ecrecover، ثم البنود الممكنة.
-- block: 3067 (الرأس وحده).
+- template: 197294. Check: size, signed form (otherwise templateForm), 1b, ecrecover, then evaluable items.
+- block: 3067 (header only).
 - share: 43.
 - evidence1: 1368.
 - evidence2: 243.
 
-**استلام block**
-1. الحجم، ثم 1ب دون الأب. الفشل عقوبة دون تخزين.
-2. الأب المجهول: طابور unknownParent ≤ 64، دون عمل ولا ASERT. رفض الأب يُسقط الابن بـancestorInvalid.
-3. بقية H-pre (ومنها 10أ)، ثم الجسم، ثم H-full، ثم البث.
-4. (D129) envReject يُسقط النسخة ويعاقب مرسلها، دون حكم على blockHash. تُطلب نسخة أخرى من نظير أعلن الكتلة. البث يرسل النسخة المخزنة بايتيًا.
+**Receiving block**
+1. Size, then 1b without the parent. Failure incurs a penalty without storage.
+2. Unknown parent: unknownParent queue ≤ 64, without work or ASERT. Parent rejection drops the child as ancestorInvalid.
+3. Remaining H-pre (including 10a), then body, then H-full, then broadcast.
+4. (D129) envReject drops the copy and penalizes its sender without judging blockHash. Request another copy from a peer that announced the block. Broadcast sends the stored copy byte for byte.
 
-**المزامنة (D38)**
-1. Status واللوكيتور.
-2. R: H-pre لكل رأس، والمخالف يُسقط مع نسله ويُحظر النظير. ≤ 4096 لكل فرع و≤ 16384 إجمالًا.
-3. E: GetBodies، ثم H-full متتابعًا.
-   - الجسم الذي لا يطابق txRoot وevidenceRoot خطأ رد (BodyMismatch، D125): يُسقط، ويُعاقب النظير، ويُعاد الطلب من نظير آخر، ويبقى الرأس.
-   - الجسم المطابق الذي يخالف H-full بخرق blockReject يبطل الكتلة ونسلها. خرق envReject (ومنه الجزء التوقيعي من البند 13) يرفض النسخة وحدها، ويبقى الرأس ومدخله، وتُطلب نسخة أخرى (D130).
-   - جدولة الجلب (D128، سلوك عقدة لا صلاحية) ثلاث آليات:
-     - DiscRun: تشغيلة اكتشاف واحدة مع علم dirty، وtried لكل تشغيلة.
-     - BodySched: طلب جسم جارٍ واحد لكل هاش، وtriedPeers.
-       - إعادة الأهلية (D130، تعدّل D129) تضع النظير في صنف reeligible دون محوه من tried للدورة الجارية. أسبابها: Status منه، أو إعلانه الكتلة أو نسلها، أو انقضاء مهلة أسية min(1s·2^k, 60s).
-       - الاختيار بصرامة: غير المجرَّب في الدورة بترتيب المعرّف، ثم reeligible بترتيب الإعلان. لا يُطلب نظير reeligible ما دام لـx نظير غير مجرَّب.
-       - cycleReset(x) يبدأ دورة جديدة: يمحو tried وreeligible ومؤقتات المهلة لـx. في pocold يقع عند صيرورة x قابلة للطلب من جديد بعد إزالتها، وفي SimNet لكل الهاشات في خطوة t_avail الذرية (أمر تجهيز).
-     - EnvFetch (D131، سلوك عقدة لا صلاحية): يُفعَّل لـx حين تكون كل نسخ رأسها لدى i مرفوضة بـenvReject، أو حين لا يحوز i نسخة envOk بعد توفر حالة الأب.
-       - الطلب GetEnvelope [x, exclude]، حيث exclude أحدث ≤ 4 من hdrId المرفوضة لـx. الصادق لا يخزن ولا يخدم إلا نسخة envOk.
-       - الجدولة كـBodySched: طلب جارٍ واحد لكل x، وtriedEnv وreeligible لكل دورة، واختيار صارم بترتيب المعرّف لغير المجرَّبين. صنف reeligible طابور FIFO بلحظة الدخول، وللنظير فيه موضع واحد، ودخوله ثانية بعد طلبه يضعه في الذيل (D139). cycleReset عند t_avail في SimNet، ومهلة أسية في pocold.
-       - (D137) لا يُصدر طلب لـx قبل توفر حالة الأب. سبب ذلك أن envOwn يجب أن يكون قابلًا للتقييم، فلا يدخل رد مطلوب envPending.
-       - EnvQueue: مدخل واحد لكل x يحتاج جلبًا، بترتيب FIFO لحظة الحاجة، و≤ 64 B لكل مدخل. عدد المداخل ≤ حد طوابير المزامنة (16384).
-       - EnvSlots (D137): ENV_SOLICIT_SLOTS = 32 مقعدًا للطلبات المطلوبة، منفصلة عن ENV_GOSSIP_SLOTS = 32 لفحص النسخ غير المطلوبة. المجموع = ENV_INFLIGHT_GLOBAL = 64.
-         - المقعد يملك فحصًا واحدًا ومخزن رد ≤ ENV_REPLY_MAX = 3067+64 = 3131 B.
-         - المنح: لرأس EnvQueue فقط، في الخطوة نفسها التي يُختار فيها النظير ويُرسل الطلب. لا طلب دون مقعد. release لمقعد مطلوب يمنحه في الخطوة نفسها لرأس EnvQueue إن وُجد، فالمنح محافظ على العمل (D139).
-         - الحالات (D138): reserved (الطلب مرسل، ولا بايت في المخزن)، ثم buffered (الرد يُقرأ داخل المخزن المحجوز)، ثم checking (الفحص يقرأ المخزن)، ثم released.
-         - المحاولة: كل منح يأخذ attemptId من نوع u64، رتيبًا لكل عقدة، ولا يُعاد استخدامه.
-           - كل حدث يحمل (slotIdx, attemptId): الرد، والمهلة، والانقطاع، ونتيجة الفحص.
-           - الحدث الذي لا يطابق المحاولة الحالية للمقعد يُهمل، ولا يغيّر أي مقعد.
-         - التسلسل: أحداث EnvFetch تُعالج في حلقة واحدة بترتيب الوقوع. عند تساوي اللحظة يسبق اكتمال الرد المهلة: الرد في وقته إن وصل آخر بايت منه عند t ≤ sendTime+ENV_REQ_TIMEOUT.
-         - المهلة: ENV_REQ_TIMEOUT يقيس من الإرسال حتى آخر بايت من الرد فقط. الانتقال إلى checking يلغي مؤقتها، فلا مهلة أثناء الفحص.
-         - الإلغاء منفصل عن الملكية. كل سبب إنهاء يضع cancelRequested، ثم:
-           - في reserved أو buffered: يُعاد ضبط substream الطلب، وتُهمل البايتات الجزئية، ويقع release في الخطوة نفسها، لأن لا مهمة تقرأ المخزن.
-           - في checking: لا تحرير. الفحص (envPre ثم envOwn، دون apply) حساب متزامن لا يُقاطع، يُنفذ في EnvCheckPool وحده (D139). يبقى مالكًا للمقعد والمخزن حتى يستقر مهما طال، ويقع release في خطوة الاستقرار نفسها.
-             - EnvCheckPool: ENV_CHECK_WORKERS = W = 4 خيوط مخصصة لا تنفذ غير فحوص الغلاف، بطابور FIFO بلحظة الدخول في checking. لا يُنفذ فحص غلاف في ComputePool ولا في runtime الإجماع.
-             - c_exec: زمن تنفيذ فحص واحد بساعة الجدار، وفرضيته ENV_EXEC_MAX = 50 ms.
-             - لِمّة المدى: الفحوص الحية ≤ 64، فأمام أي فحص ≤ 63، ويتحرر له خيط خلال ≤ ⌈63/W⌉·c_exec.
-             - إذن c_env = (⌈63/W⌉+1)·ENV_EXEC_MAX = 17·50 = 850 ms، ما دام c_exec ≤ ENV_EXEC_MAX.
-             - تجاوز ENV_EXEC_MAX يزيد envCheckOverrun، ولا يحرر المقعد، ويبطل الحد الزمني لا السقف.
-         - نتيجة الفحص الملغى:
-           - حكم envReject يُحفظ ويُعاقب به المرسل إن بقي لـx مدخل محلي، لأن الحكم دالة على البايتات وحدها.
-           - حكم envOk يُستعمل فقط إن بقيت x في envWait.
-           - غير ذلك تُهمل النتيجة، ويزيد lateCheckDropped.
-           - في كل الحالات: لا تُستورد كتلة مزالة أو مستوردة، ولا يُحرر مقعد محاولة أخرى.
-         - لِمّة السقف (D138): كل مهمة فحص وكل بايت مستقبَل يملكه مقعد من لحظة المنح حتى release، وrelease لا يسبق استقرار الفحص. إذن في كل لحظة، مهما توالت الإلغاءات:
-           - الفحوص الجارية ≤ 32 مطلوبًا + 32 gossip.
-           - المخازن الحية ≤ 64·3131 B.
-         - مقاعد gossip تتبع القواعد نفسها: acquireGossip يحجز المقعد قبل الفحص، وتنتقل بايتات النسخة إلى مخزن المقعد.
-         - الرد الأكبر من ENV_REPLY_MAX يُقطع عند الحد، ويُعامل خطأ رد يعاقب المرسل.
-         - release يقع مرة واحدة بالضبط، ويحرسه علم ومعرّف المحاولة. لا يقع في checking إلا عند استقرار الفحص (D138). أسباب إنهاء المحاولة ثمانية:
-           - اكتمال الفحص (envOk أو envReject).
+**Synchronization (D38)**
+1. Status and locator.
+2. R: H-pre for every header; violations drop the header and descendants and ban the peer. ≤ 4096 per branch and ≤ 16384 overall.
+3. E: GetBodies, then sequential H-full.
+   - A body not matching txRoot and evidenceRoot is a response error (BodyMismatch, D125): drop it, penalize the peer and request it from another peer; retain the header.
+   - A matching body violating H-full through blockReject invalidates the block and descendants. envReject (including the signature part of item 13) rejects only the copy; retain the header and its entry and request another copy (D130).
+   - Fetch scheduling (D128, node behavior, not validity) uses three mechanisms:
+     - DiscRun: one discovery run with a dirty flag and per-run tried set.
+     - BodySched: one in-flight body request per hash, with triedPeers.
+       - Reeligibility (D130, amending D129) places the peer in reeligible without removing it from tried in the current cycle. Triggers: its Status, announcement of the block or a descendant, or expiry of exponential backoff min(1s·2^k, 60s).
+       - Strict selection: untried peers in ID order, then reeligible peers in announcement order. Never request a reeligible peer while x has an untried peer.
+       - cycleReset(x) starts a new cycle: clears tried, reeligible and backoff timers for x. In pocold this occurs when x becomes requestable again after removal; in SimNet it occurs for all hashes in the atomic t_avail step (fixture command).
+     - EnvFetch (D131, node behavior, not validity): activated for x when every header copy at i is rejected by envReject, or i has no envOk copy once parent state is available.
+       - Request GetEnvelope [x, exclude], where exclude contains the latest ≤ 4 rejected hdrId values for x. An honest node stores and serves only an envOk copy.
+       - Scheduling follows BodySched: one in-flight request per x, per-cycle triedEnv and reeligible, and strict ID-order selection of untried peers. reeligible is FIFO by entry time, with one position per peer; reentry after a request moves it to the tail (D139). cycleReset at t_avail in SimNet; exponential backoff in pocold.
+       - (D137) No request for x before parent state is available. envOwn must be evaluable, so a solicited response never enters envPending.
+       - EnvQueue: one entry per x needing a fetch, FIFO by need time, ≤ 64 B per entry. Entries ≤ synchronization queue bound (16384).
+       - EnvSlots (D137): ENV_SOLICIT_SLOTS = 32 slots for solicited requests, separate from ENV_GOSSIP_SLOTS = 32 for unsolicited-copy checks. Total = ENV_INFLIGHT_GLOBAL = 64.
+         - A slot owns one check and a response buffer ≤ ENV_REPLY_MAX = 3067+64 = 3131 B.
+         - Grant: only to the EnvQueue head, in the same step that selects the peer and sends the request. No request without a slot. Releasing a solicited slot grants it to the EnvQueue head in the same step, if present; grants are work-conserving (D139).
+         - States (D138): reserved (request sent, buffer empty), then buffered (response read into the reserved buffer), then checking (check reads the buffer), then released.
+         - Attempt: each grant receives a node-local monotonic u64 attemptId, never reused.
+           - Every event carries (slotIdx, attemptId): response, timeout, disconnection and check result.
+           - An event not matching the slot's current attempt is ignored and changes no slot.
+         - Ordering: EnvFetch events are processed in one event loop in occurrence order. At equal times, response completion precedes timeout: a response is on time if its final byte arrives at t ≤ sendTime+ENV_REQ_TIMEOUT.
+         - Timeout: ENV_REQ_TIMEOUT measures only from send to the final response byte. Transition to checking cancels its timer; no timeout runs during checking.
+         - Cancellation is separate from ownership. Every termination cause sets cancelRequested, then:
+           - In reserved or buffered: reset the request substream, discard partial bytes and release in the same step, because no task is reading the buffer.
+           - In checking: no release. The check (envPre then envOwn, without apply) is synchronous, uninterruptible computation run only in EnvCheckPool (D139). It owns the slot and buffer until settlement, however long that takes, and releases in the settlement step itself.
+             - EnvCheckPool: ENV_CHECK_WORKERS = W = 4 dedicated threads running only envelope checks, with a FIFO queue by entry into checking. No envelope check runs in ComputePool or the consensus runtime.
+             - c_exec: wall-clock execution time of one check; assumed ENV_EXEC_MAX = 50 ms.
+             - Waiting-bound lemma: live checks ≤ 64, so at most 63 precede any check; a thread becomes available within ≤ ⌈63/W⌉·c_exec.
+             - Therefore c_env = (⌈63/W⌉+1)·ENV_EXEC_MAX = 17·50 = 850 ms, provided c_exec ≤ ENV_EXEC_MAX.
+             - Exceeding ENV_EXEC_MAX increments envCheckOverrun, does not release the slot, and invalidates the time bound, not the capacity bound.
+         - Cancelled-check result:
+           - Retain envReject and penalize the sender if x still has a local entry, because the judgment depends only on the bytes.
+           - Use envOk only if x remains in envWait.
+           - Otherwise discard the result and increment lateCheckDropped.
+           - In all cases: never import a removed or already imported block, or release another attempt's slot.
+         - Capacity lemma (D138): every checking task and received byte is owned by a slot from grant until release, and release never precedes check settlement. Thus at every instant, regardless of repeated cancellations:
+           - In-flight checks ≤ 32 solicited + 32 gossip.
+           - Live buffers ≤ 64·3131 B.
+         - Gossip slots follow the same rules: acquireGossip reserves before checking, and copy bytes move into the slot buffer.
+         - A response exceeding ENV_REPLY_MAX is cut off at the bound and treated as a response error penalizing the sender.
+         - Release occurs exactly once, guarded by a flag and attempt ID. In checking it occurs only at check settlement (D138). There are eight attempt-termination causes:
+           - Check completion (envOk or envReject).
            - NotFound.
-           - انقضاء ENV_REQ_TIMEOUT = 2s من الإرسال قبل اكتمال استقبال الرد. لا يسري في checking.
-           - انقطاع النظير.
-           - رد أكبر من الحد.
-           - استيراد x.
-           - تخزين نسخة envOk لـx من مسار آخر.
-           - blockReject لـx أو إزالتها.
-         - بعد release غير ناجح يعود x إلى ذيل EnvQueue إن بقي في envWait وله نظير غير مجرَّب أو reeligible. وإلا ينتظر حدث إعادة أهلية، ثم يدخل الذيل.
-         - المهلة تضع النظير في triedEnv للدورة، مع مهلة أسية لإعادة الأهلية كـNotFound. لا استبعاد دائم، ولا عقوبة للبطء وحده.
-         - بعد المهلة أو الإلغاء في reserved أو buffered يُعاد ضبط substream، فلا يصل رد مطلوب متأخر على الطلب نفسه. النسخة التي يرسلها النظير لاحقًا لا مقعد مطلوبًا لها، وتمر بمسار النسخة غير المطلوبة أدناه دون عقوبة على التأخر.
-       - الرد بنسخة تفشل الغلاف خطأ رد يعاقب المرسل ويضعه في triedEnv. النسخة المكررة (hdrId في EnvCache) لا تُفحص ثانية.
-       - النسخ envPending ≤ ENV_PENDING_MAX = 4 لكل x. الزائد يُسقط دون فحص ولا يطرد المخزن، وإسقاطه لا يمنع EnvFetch لاحقًا.
-       - احتفاظ أحكام الغلاف (D136، سياسة عقدة محلية لا صلاحية):
-         - الحكم المحفوظ لـenvReject = {hdrId، blockHash، rule، peer، seq} ≤ ENV_ENTRY_MAX = 128 B. لا تُحفظ بايتات النسخة المرفوضة.
-         - لا يُحفظ حكم إلا لـblockHash له مدخل محلي: HeaderStore، أو طوابير المزامنة، أو unknownParent، أو الجانبية. خارج ذلك تُعاقب النسخة وتُسقط دون حفظ.
-         - الحدود: rej(x) ≤ ENV_REJ_PER_BLOCK = 8، والمجموع ≤ ENV_REJ_GLOBAL = 16384. النسخ envPending عامًا ≤ ENV_PENDING_GLOBAL = 1024. الفحوص الجارية ≤ ENV_INFLIGHT_GLOBAL = 64، منها ≤ 32 مطلوبة و≤ 32 غير مطلوبة (D137).
-         - النسخة غير المطلوبة (gossip أو إعلان) لـx بلا نسخة envOk تمر بالخطوات التالية:
-           - hdrId محفوظ: تُسقط دون فحص.
-           - rej(x) = 8، أو pending(x) = 4، أو امتلاء عام، أو لا مقعد gossip حر وحالة الأب متوفرة (D137): تُسقط دون فحص ودون عقوبة، ويزيد envFloodDropped. إن لم تتوفر حالة الأب فالنسخة envPending ضمن حديها، دون مقعد. تبقى x في envWait، وEnvFetch فعال.
-           - غير ذلك: تُفحص.
-         - النسخة المطلوبة (رد GetEnvelope من النظير المختار، على مقعد محجوز قبل الطلب، D137) تُفحص دائمًا ضمن ENV_SOLICIT_SLOTS، فلا تتجاوز سقف الفحوص. إن كان rej(x) = 8 يُطرد أقدم حكم لـx قبل الإدراج. عددها ≤ طلب واحد لكل (x، نظير) في الدورة، و≤ 32 جاريًا عامًا.
-         - الامتلاء العام يطرد أقدم حكم إدراجًا، ويزيد envEvicted.
-         - التنظيف: عند استيراد x، أو تخزين نسخة envOk لها، أو blockReject، أو إزالتها بحدود الطوابير أو D118، تُحذف كل أحكامها ونسخها المنتظرة.
-         - الحكم المطرود قد يُعاد فحصه عند وروده ثانية، بالنتيجة الحتمية نفسها. «كل hdrId مرة واحدة» تسري ما بقي حكمه محفوظًا.
-         - الامتلاء لا يكتب blockReject ولا pocol_getRejects، ولا يطلق إلغاء النسل.
-         - لِمّة التعافي: لكل x في envWait لدى الصادق i حائز صادق h* لنسخة envOk (D139). التعريفات:
-           - t_0 (D140): أول لحظة تتحقق فيها الشروط G1–G4 معًا، وتبقى متحققة حتى القبول:
-             - G1: حالة أب x متوفرة لدى i (شرط الإرسال في D137)، وx باقية في envWait بمدخل محلي غير مزال بحدود الطوابير أو D118.
-             - G2: h* متصل بـi، ويحوز نسخة envOk ويخدمها.
-             - G3 (الاستجابة): كل طلب GetEnvelope من i إلى h* يصدر بعد t_0 يصل آخر بايت من رده خلال RTT_h* < ENV_REQ_TIMEOUT.
-             - G4: ثبات مجموعة نظراء i في الفترة (تعريف P أدناه).
-             - الزمن قبل t_0 (preCondWait) لا يدخل D_x، ويُسجل قياسًا دون أي ادعاء زمني.
-             - انقطاع أي شرط قبل القبول يسقط الضمان. عند عودة الشروط كلها تبدأ لحظة جديدة t_0'، وتُحسب P وQ وB منها.
-             - التعريف السابق في D139 (وجود x في envWait واتصال h* فقط) ملغى، لأن D137 يمنع الطلب قبل حالة الأب، ولأن الاتصال لا يضمن الرد ضمن المهلة.
-           - P: عدد النظراء المتمايزين الذين يجوز لـEnvFetch اختيارهم لـx خلال الفترة، ومنهم h*.
-             - بافتراض ثبات مجموعة نظراء i في الفترة يكون P ≤ 50 (حد P2P).
-             - كل اتصال جديد يزيد P بواحد، فلا يُدّعى حد ثابت تحت تبدل غير محدود.
-           - Q: أقصى طول لـEnvQueue خلال الفترة شاملًا x، وQ ≤ 16384.
-           - B: صفر إن كان h* غير مجرَّب أو reeligible عند t_0، وإلا فالباقي من مهلته الأسية، وB ≤ 60s.
-           - عدد الطلبات المطلوبة لـx حتى رد h*، شاملًا الطلب الناجح، ≤ 2P−1. السبب:
-             - غير المجرَّبين ≤ P−1.
-             - ثم ≤ P−1 نظيرًا سبقوا h* في طابور reeligible.
-             - ثم h*.
-           - رد كل طلب يُفحص على مقعده المحجوز.
-           - (D137، D138) كل دور مقعد يتحرر خلال ≤ ENV_REQ_TIMEOUT + c_env، للأسباب التالية:
-             - المهلة تقيس الاستقبال وحده.
-             - الفحص بعدها، من الدخول في checking حتى الاستقرار شاملًا انتظار EnvCheckPool، ≤ c_env ولا يُقاطع (D139).
-             - الإلغاء لا يقصّر الدور ولا يطيله فوق هذا الحد.
-           - الانتظار حتى منح كل طلب ≤ ⌈Q/32⌉·T_role، حيث T_role = ENV_REQ_TIMEOUT + c_env. السبب:
-             - المنح محافظ على العمل، فكل نافذة طولها T_role تضم ≥ 32 منحًا ما دام الطابور غير فارغ.
-             - أمام x ≤ Q−1 مدخلًا.
-           - ثم دور الطلب نفسه ≤ T_role.
-           - إذن تأخر القبول بعد t_0 ≤ D_x = (2P−1)·(⌈Q/32⌉+1)·T_role + B.
-             - عند P=1 وQ=1 وB=0: D_x = 2·T_role، فالحد يشمل الاستقبال والفحص.
-             - الصيغة السابقة (P−1)·⌈Q/32⌉·T_role ملغاة، لأنها أغفلت الطلب الناجح ودوره.
-           - فترات انتظار إعادة الأهلية، حين تكون x خارج الطابور بلا نظير قابل للاختيار، محصورة في [t_0, t_0+B]، لأن h* يبقى قابلًا للاختيار بعدها حتى يُطلب.
-           - الحد يكبر مع Q، ويبقى محدودًا لأن Q ≤ 16384. الامتلاء لا يمنع القبول ما بقيت G1–G4.
-           - الحائز البطيء (D140): إن كان رد h* أبطأ من ENV_REQ_TIMEOUT باستمرار، فكل محاولة تنقضي بـTimeout ويُعاد ضبط substream، فلا يُقرأ الرد المتأخر.
-             - لا ضمان قبول عبر المسار المطلوب، وهذا ليس مجرد تأخير محدود بالمهلة الأسية.
-             - يبقى القبول ممكنًا فقط عبر gossip إن وُجد مقعد gossip حر، أو عبر حائز آخر يحقق G3.
-             - هذه سياسة خدمة: x تبقى في envWait دون blockReject ودون مدخل في pocol_getRejects، وتُعد المهل في envTimeouts.
-         - الذاكرة (D137): أحكام 16384·128 + منتظرة 1024·3067 + مقاعد 64·3131 + EnvQueue 16384·64 = 2097152 + 3140608 + 200384 + 1048576 = 6486720 B ≤ ENV_MEM_MAX = 7 MiB (7340032). لا مخزن رد خارج المقاعد.
-       - لِمّة الجلب في التصريف:
-         - envOk حتمية، لأن envPre بلا حالة وenvOwn على حالة أب ملتزمة. فرد الصادق صالح لدى الطالب.
-         - لكل x ∈ Rec حائز صادق لنسخة envOk، مثبت بـHaltPin (validEnv في validation).
-         - الاختيار الصارم يبلغه خلال ≤ |H|−1 طلبًا، وكل زوج (x، نظير) ≤ طلب واحد.
-         - إذن طلبات GetEnvelope بعد t_avail ≤ |Henv_i|·(|H|−1).
-         - كل نسخة مستلمة موجودة قبل t_avail (لِمّة النسخ)، فـenvCheck ≤ Venv_i.
-     - HfullDone وHdrCache: لا يُعاد H-full لكتلة محسومة. التخزين بمفتاحين (D129):
-       - BlockCache بمفتاح blockHash: أحكام المحتوى الملتزم المكتملة فقط.
-       - EnvCache بمفتاح hdrId: أحكام الغلاف.
+           - ENV_REQ_TIMEOUT = 2s expires after send before full response reception. It does not apply in checking.
+           - Peer disconnect.
+           - Oversized response.
+           - Import of x.
+           - An envOk copy of x is stored through another path.
+           - blockReject of x or removal of x.
+         - After unsuccessful release, x returns to the EnvQueue tail if it remains in envWait and has an untried or reeligible peer. Otherwise it awaits a reeligibility event, then joins the tail.
+         - Timeout places the peer in triedEnv for the cycle, with exponential reeligibility backoff as for NotFound. No permanent exclusion and no penalty for slowness alone.
+         - After timeout or cancellation in reserved or buffered, reset the substream, so a late solicited response cannot arrive on that request. A later copy sent by the peer has no solicited slot and follows the unsolicited path below, without a lateness penalty.
+       - A response whose copy fails envelope checks is a response error: penalize the sender and place it in triedEnv. A duplicate copy (hdrId in EnvCache) is not checked again.
+       - envPending copies ≤ ENV_PENDING_MAX = 4 per x. Drop excess without checking or evicting stored copies; dropping does not prevent later EnvFetch.
+       - Envelope-judgment retention (D136, local node policy, not validity):
+         - Stored envReject judgment = {hdrId, blockHash, rule, peer, seq} ≤ ENV_ENTRY_MAX = 128 B. Rejected-copy bytes are not retained.
+         - Retain judgments only for a blockHash with a local entry: HeaderStore, synchronization queues, unknownParent or side blocks. Otherwise penalize and discard the copy without retention.
+         - Bounds: rej(x) ≤ ENV_REJ_PER_BLOCK = 8; total ≤ ENV_REJ_GLOBAL = 16384. Global envPending ≤ ENV_PENDING_GLOBAL = 1024. In-flight checks ≤ ENV_INFLIGHT_GLOBAL = 64, including ≤ 32 solicited and ≤ 32 unsolicited (D137).
+         - An unsolicited copy (gossip or announcement) of x with no envOk copy follows:
+           - Stored hdrId: drop without checking.
+           - rej(x) = 8, pending(x) = 4, global capacity full, or no free gossip slot while parent state is available (D137): drop without checking or penalty, increment envFloodDropped. Without parent state, retain as envPending within both bounds, without a slot. x stays in envWait and EnvFetch remains active.
+           - Otherwise: check it.
+         - A solicited copy (GetEnvelope response from the selected peer, on a slot reserved before requesting, D137) is always checked within ENV_SOLICIT_SLOTS, never exceeding the check cap. If rej(x) = 8, evict x's oldest judgment before insertion. At most one request per (x, peer) per cycle; ≤ 32 globally in flight.
+         - Global capacity pressure evicts the oldest inserted judgment and increments envEvicted.
+         - Cleanup: when x is imported, an envOk copy is stored, blockReject occurs, or x is removed by queue bounds or D118, delete all its judgments and pending copies.
+         - An evicted judgment may be recomputed on rearrival, with the same deterministic result. “Each hdrId once” applies while its judgment remains stored.
+         - Capacity pressure never records blockReject or pocol_getRejects, or triggers descendant cancellation.
+         - Recovery lemma: for each x in envWait at honest i, an honest holder h* has an envOk copy (D139). Definitions:
+           - t_0 (D140): first instant when G1–G4 all hold and continue holding until acceptance:
+             - G1: parent state of x is available at i (D137 send prerequisite); x remains in envWait with a local entry not removed by queue bounds or D118.
+             - G2: h* is connected to i, holds an envOk copy and serves it.
+             - G3 (responsiveness): every GetEnvelope request from i to h* sent after t_0 receives its final response byte within RTT_h* < ENV_REQ_TIMEOUT.
+             - G4: i's peer set is stable during the interval (P defined below).
+             - Time before t_0 (preCondWait) is excluded from D_x and recorded as a measurement without any timing claim.
+             - Losing any prerequisite before acceptance voids the guarantee. When all return, start a new t_0' and compute P, Q and B from it.
+             - The earlier D139 definition (only x in envWait and connected h*) is withdrawn: D137 forbids requesting before parent state, and connectivity does not guarantee a timely response.
+           - P: number of distinct peers EnvFetch may select for x during the interval, including h*.
+             - Assuming i's peer set is stable, P ≤ 50 (P2P bound).
+             - Each new connection increments P; no fixed bound is claimed under unlimited churn.
+           - Q: maximum EnvQueue length during the interval including x; Q ≤ 16384.
+           - B: zero if h* is untried or reeligible at t_0; otherwise its remaining exponential backoff, B ≤ 60s.
+           - Solicited requests for x through the h* response, including success, ≤ 2P−1. Reason:
+             - At most P−1 untried peers.
+             - Then at most P−1 peers preceding h* in reeligible.
+             - Then h*.
+           - Each response is checked on its reserved slot.
+           - (D137, D138) Each slot turn releases within ≤ ENV_REQ_TIMEOUT + c_env, because:
+             - The timeout measures reception alone.
+             - Subsequent checking, from entering checking to settlement including EnvCheckPool wait, is ≤ c_env and uninterruptible (D139).
+             - Cancellation neither shortens the turn nor extends it beyond this bound.
+           - Wait until each request is granted ≤ ⌈Q/32⌉·T_role, where T_role = ENV_REQ_TIMEOUT + c_env. Reason:
+             - Grants are work-conserving, so each T_role interval includes ≥ 32 grants while the queue stays nonempty.
+             - At most Q−1 entries precede x.
+           - The request's own turn is then ≤ T_role.
+           - Hence acceptance delay after t_0 ≤ D_x = (2P−1)·(⌈Q/32⌉+1)·T_role + B.
+             - For P=1, Q=1, B=0: D_x = 2·T_role, covering reception and checking.
+             - The former formula (P−1)·⌈Q/32⌉·T_role is withdrawn because it omitted the successful request and its turn.
+           - Reeligibility waits while x is outside the queue without a selectable peer are confined to [t_0, t_0+B], because h* remains selectable afterward until requested.
+           - The bound grows with Q but stays finite because Q ≤ 16384. Capacity pressure does not prevent acceptance while G1–G4 hold.
+           - Slow holder (D140): if h* consistently responds later than ENV_REQ_TIMEOUT, every attempt times out and resets the substream; the late response is unread.
+             - No acceptance guarantee through the solicited path; this is not merely delay bounded by exponential backoff.
+             - Acceptance remains possible only through gossip when a gossip slot is free, or through another holder satisfying G3.
+             - This is service policy: x stays in envWait, without blockReject or an entry in pocol_getRejects; timeouts increment envTimeouts.
+         - Memory (D137): judgments 16384·128 + pending copies 1024·3067 + slots 64·3131 + EnvQueue 16384·64 = 2097152 + 3140608 + 200384 + 1048576 = 6486720 B ≤ ENV_MEM_MAX = 7 MiB (7340032). No response buffer outside slots.
+       - Drain-phase fetch lemma:
+         - envOk is deterministic: envPre is stateless and envOwn uses committed parent state. An honest response is valid at the requester.
+         - Each x ∈ Rec has an honest holder of an envOk copy, established by HaltPin (validEnv in validation).
+         - Strict selection reaches it within ≤ |H|−1 requests, with ≤ one request per (x, peer).
+         - Thus GetEnvelope requests after t_avail ≤ |Henv_i|·(|H|−1).
+         - Every received copy existed before t_avail (copy lemma), so envCheck ≤ Venv_i.
+     - HfullDone and HdrCache: H-full is not repeated for a settled block. Two-key storage (D129):
+       - BlockCache keyed by blockHash: completed judgments of committed content only.
+       - EnvCache keyed by hdrId: envelope judgments.
 
-     التفصيل في validation.
-4. التبني بعمق ≤ R_keep.
+     Details in validation.
+4. Adoption at depth ≤ R_keep.
 
-**قيود الإدخال**
-لا RPC يقبل كتلًا أو رؤوسًا أو قوالب. pocol_submitShare يفحص TemplateID مقابل قالب محلي مقبول.
+**Input constraints**
+No RPC accepts blocks, headers or templates. pocol_submitShare checks TemplateID against an accepted local template.
 
-**المجمع**
+**Mempool**
 - len > TX_MAX: −32014.
-- chainId مخالف: −32015.
-- ممتلئ: −32016، وبعد F: −32016 {final: true}.
-- المعاد بعد reorg يُعاد فحصه.
+- chainId mismatch: −32015.
+- Full: −32016; after F: −32016 {final: true}.
+- Transactions returned after reorg are rechecked.
 
-**حدود موارد P2P والعقدة**
-- ≤ 50 نظيرًا، والطابور ≤ 256، و≤ 16 لكل نظير.
-- المجمع ≤ 64 MiB.
-- ذاكرة العقدة دون RPC ≤ 750 MiB، تشمل ذاكرة redb المؤقتة وأحكام الأغلفة ومقاعدها وEnvQueue ≤ ENV_MEM_MAX = 7 MiB (D136، D137). ذاكرة RPC ≤ 192 MiB.
-- ASERT ≤ 512 بتًا.
-- الحظر بعد 3 مخالفات 1ب أو templateForm في 10 دقائق عبر gossip، وفورًا في المزامنة.
+**P2P and node resource limits**
+- ≤ 50 peers, queue ≤ 256, ≤ 16 per peer.
+- Mempool ≤ 64 MiB.
+- Node memory excluding RPC ≤ 750 MiB, including redb cache, envelope judgments, slots and EnvQueue ≤ ENV_MEM_MAX = 7 MiB (D136, D137). RPC memory ≤ 192 MiB.
+- ASERT ≤ 512 bits.
+- Ban after 3 violations of 1b or templateForm in 10 minutes through gossip; immediately during synchronization.
 
-**JSON-RPC القياسية**
-- eth_chainId، وnet_version، وweb3_clientVersion.
-- eth_blockNumber، وeth_getBlockByNumber/ByHash، وeth_getTransactionByHash، وeth_getTransactionReceipt، وeth_sendRawTransaction.
-- eth_call، وeth_estimateGas، وeth_gasPrice، وeth_maxPriorityFeePerGas، وeth_feeHistory (≤ 1024).
-- eth_getBalance، وeth_getCode، وeth_getStorageAt، وeth_getTransactionCount.
-- eth_getLogs (≤ 1024 وحدود D88)، وeth_getProof (ضمن K_eff، وإلا −32017).
-- غير مدعوم: المرشحات وeth_subscribe (−32601). النقل HTTP/1.1 فقط.
+**Standard JSON-RPC**
+- eth_chainId, net_version, web3_clientVersion.
+- eth_blockNumber, eth_getBlockByNumber/ByHash, eth_getTransactionByHash, eth_getTransactionReceipt, eth_sendRawTransaction.
+- eth_call, eth_estimateGas, eth_gasPrice, eth_maxPriorityFeePerGas, eth_feeHistory (≤ 1024).
+- eth_getBalance, eth_getCode, eth_getStorageAt, eth_getTransactionCount.
+- eth_getLogs (≤ 1024 and D88 limits), eth_getProof (within K_eff, otherwise −32017).
+- Unsupported: filters and eth_subscribe (−32601). HTTP/1.1 transport only.
 
-ما يتاح لموقع عبر الإضافة مجموعة جزئية تحددها مصفوفة BridgeAuth في browser، لا هذه القائمة. طرق site_* محلية في الإضافة، والعقدة لا تعرفها وترد عليها بـ−32601 لو وصلتها.
+A site's extension-accessible methods are a subset defined by the BridgeAuth matrix in browser, not this list. site_* methods are extension-local; the node does not recognize them and returns −32601 if they reach it.
 
-**pocol_getHeaders(from, count) (D80، D81)**
-RLP list لرؤوس السلسلة القانونية from..from+count−1. الفحص بترتيب ثابت يتوقف عند أول خرق:
-- F0: كميات JSON صحيحة ضمن u64 (hex بلا أصفار بادئة). المخالفة أو المعلمة الناقصة أو الزائدة: −32602.
+**pocol_getHeaders(from, count) (D80, D81)**
+RLP list of canonical-chain headers from..from+count−1. Fixed-order checks stop at the first violation:
+- F0: valid JSON quantities within u64 (hex without leading zeros). Invalid, missing or extra parameters: −32602.
 - F1: from < 1: −32018 {fromZero}.
-- F2: count < 1 أو > 512: −32018 {countRange}.
+- F2: count < 1 or > 512: −32018 {countRange}.
 - F3: from > head: −32018 {fromAboveHead}.
 - F4: from+count−1 > head (u128): −32018 {beyondHead}.
 
-F0–F2 لا تقرأ الحالة. F3–F4 تقرأ head من لقطة الطلب. عند head=0 كل طلب اجتاز F0–F2 يعطي fromAboveHead. النجاح يعيد count رأسًا بالضبط، والعميل يرسل ≤ 14.
+F0–F2 do not read state. F3–F4 read head from the request snapshot. At head=0 every request passing F0–F2 returns fromAboveHead. Success returns exactly count headers; the client sends ≤ 14.
 
-**RpcGuard (D87، D88، D90، D92، D93، D94): سياسة خدمة محلية لا قاعدة صلاحية**
+**RpcGuard (D87, D88, D90, D92, D93, D94): local service policy, not a validity rule**
 
-الحدود فرضيات للاختبار، وتُعرض في pocol_getParams.rpcLimits.
+Bounds are test assumptions, exposed in pocol_getParams.rpcLimits.
 
-**(أ) النقل والثابت S1**
-- HTTP/1.1 على hyper، دون HTTP/2 ودون pipelining، على 127.0.0.1 فقط.
-- طلب واحد في كل لحظة، ولا يُقرأ التالي قبل sendDone للرد السابق.
-- S1: لكل اتصال حجز رد واحد وطلب منتظر واحد على الأكثر.
-- SO_SNDBUF = SEND_SOCK_BUF = 32 KiB صريح لكل اتصال، فيتعطل الضبط التلقائي. فرق القبول عن القراءة لا يُفترض له حد، ويُقاس في RG14(0) والتتبع، ولا يدخل أي معيار (D93).
+**(A) Transport and invariant S1**
+- HTTP/1.1 on hyper, no HTTP/2 or pipelining, on 127.0.0.1 only.
+- One request at a time; do not read the next before sendDone of the previous reply.
+- S1: at most one response reservation and one waiting request per connection.
+- Explicit SO_SNDBUF = SEND_SOCK_BUF = 32 KiB per connection disables autotuning. No bound is assumed on the acceptance/read gap; measure it in RG14(0) and tracing, without using it in any criterion (D93).
 
-**(ب) جدول التصنيف (أسوأ رد مرمّز)**
+**(B) Classification table (worst-case encoded response)**
 
-خفيف (LIGHT_RESP_MAX = 512 KiB):
+Light (LIGHT_RESP_MAX = 512 KiB):
 - ≤ 4 KiB:
-  - eth_chainId، وnet_version، وweb3_clientVersion، وeth_blockNumber.
-  - eth_gasPrice، وeth_maxPriorityFeePerGas، وeth_getBalance، وeth_getStorageAt، وeth_getTransactionCount، وeth_sendRawTransaction.
-  - pocol_getTiming، وpocol_getTarget، وpocol_getCaps، وpocol_syncStatus، وpocol_getPot، وpocol_getSettlement.
-  - pocol_getBurnTotals، وpocol_getEscrow، وpocol_getRetention، وpocol_getClosing، وpocol_getRpcStats، وpocol_submitShare.
+  - eth_chainId, net_version, web3_clientVersion, eth_blockNumber.
+  - eth_gasPrice, eth_maxPriorityFeePerGas, eth_getBalance, eth_getStorageAt, eth_getTransactionCount, eth_sendRawTransaction.
+  - pocol_getTiming, pocol_getTarget, pocol_getCaps, pocol_syncStatus, pocol_getPot, pocol_getSettlement.
+  - pocol_getBurnTotals, pocol_getEscrow, pocol_getRetention, pocol_getClosing, pocol_getRpcStats, pocol_submitShare.
 - eth_getCode: ≤ 2·B_code_max+1 KiB ≈ 65 KiB.
 - eth_getTransactionByHash: ≤ 2·TX_MAX+2 KiB ≈ 258 KiB.
 - eth_getTransactionReceipt: ≤ 2·LOG_BLOCK_MAX+546·512 B+2 KiB ≈ 339 KiB.
-- eth_getBlockBy* بالهاشات: ≤ 2 KiB+(BODY_MAX/85)·70 B ≈ 160 KiB.
-- pocol_getHeaders بـcount ≤ 64: ≤ 64·(2·3067+16) B ≈ 385 KiB.
-- pocol_getParams: ≤ 2·|genesisPre|+4 KiB، أي ≤ 92 KiB في end/full.
-- pocol_getAssignment وpocol_getMinerSet وpocol_getTemplate: ≤ 1024·160 B = 160 KiB.
+- eth_getBlockBy* with hashes: ≤ 2 KiB+(BODY_MAX/85)·70 B ≈ 160 KiB.
+- pocol_getHeaders with count ≤ 64: ≤ 64·(2·3067+16) B ≈ 385 KiB.
+- pocol_getParams: ≤ 2·|genesisPre|+4 KiB, thus ≤ 92 KiB in end/full.
+- pocol_getAssignment, pocol_getMinerSet and pocol_getTemplate: ≤ 1024·160 B = 160 KiB.
 
-ثقيل (RESP_MAX = 8 MiB): eth_getLogs، وpocol_getLogs، وeth_call، وeth_estimateGas، وeth_getProof، وeth_feeHistory، وpocol_getHeaders بـcount > 64، وeth_getBlockBy* بمعاملات كاملة، وpocol_getRejects.
+Heavy (RESP_MAX = 8 MiB): eth_getLogs, pocol_getLogs, eth_call, eth_estimateGas, eth_getProof, eth_feeHistory, pocol_getHeaders with count > 64, eth_getBlockBy* with full transactions, pocol_getRejects.
 
-الطريقة غير المدرجة: −32601 قبل القبول، وإضافتها تتطلب سطرًا في الجدول واجتياز RG13. تجاوز الحد أثناء الترميز: −32020 {resultBytes} مع تحرير سليم (RG12).
+Unlisted method: −32601 before admission. Adding one requires a table row and passing RG13. Overflow while encoding: −32020 {resultBytes}, with clean release (RG12).
 
-**(ج) الميزانيات العالمية (لكل العقدة)**
-- RPC_CONN_MAX = 32، والزائد يُغلق دون قراءة.
-- التصاريح: HEAVY_ACTIVE = 4، وHEAVY_QUEUE = 16، وLIGHT_ACTIVE = 16، وLIGHT_QUEUE = 32. الطوابير FIFO، والصادق ينتظر خلف ≤ 31 طلبًا.
-- دلو رموز لكل اتصال بمعدل 20/s وسعة 20:
-  - المنفرد يستهلك رمزًا، والدفعة k رموزًا عند التحليل.
-  - النقص يعطي −32021 {rate, retryAfterMs} دون تنفيذ. للدفعة مصفوفة k أخطاء ≤ 256 B تُكتب من CONN_BUF.
-  - لا انتظار للرموز داخل طلب أو دفعة.
-- ذاكرة الرد: HEAVY_RESP_MEM = 48 MiB، وLIGHT_RESP_MEM = 16 MiB = 32·512 KiB، فحجوزات الخفيف لا تنفد (S1).
-- SCRATCH: ≤ 16 MiB لكل تصريح ثقيل و≤ 1 MiB لكل خفيف. الحساب متزامن دون await في خيط من مجمع ثابت (20 خيطًا) بعداد خيطي، والتجاوز −32020 {scratch}.
-- REQ_BUF = 1 MiB، وCONN_BUF = 64 KiB لكل اتصال.
+**(C) Global budgets (node-wide)**
+- RPC_CONN_MAX = 32; close excess connections without reading.
+- Permits: HEAVY_ACTIVE = 4, HEAVY_QUEUE = 16, LIGHT_ACTIVE = 16, LIGHT_QUEUE = 32. FIFO queues; an honest request waits behind ≤ 31 requests.
+- Per-connection token bucket: rate 20/s, capacity 20:
+  - Single request consumes one token; a batch consumes k tokens at parsing.
+  - Insufficient tokens return −32021 {rate, retryAfterMs} without execution. For a batch, write an array of k errors ≤ 256 B from CONN_BUF.
+  - No waiting for tokens within a request or batch.
+- Response memory: HEAVY_RESP_MEM = 48 MiB, LIGHT_RESP_MEM = 16 MiB = 32·512 KiB, so light reservations never run out (S1).
+- SCRATCH: ≤ 16 MiB per heavy permit, ≤ 1 MiB per light permit. Computation is synchronous without await on a thread from a fixed pool (20 threads), with thread-local accounting; overflow returns −32020 {scratch}.
+- REQ_BUF = 1 MiB, CONN_BUF = 64 KiB per connection.
 - RPC_MEM_TOTAL = 48+16+4·16+16·1+32·(1+1/16) = 178 MiB ≤ 192 MiB.
-- الترميز في قائمة مقاطع 64 KiB داخل الحجز، دون إعادة تخصيص بالمضاعفة.
-- مخازن النواة (32 KiB لكل اتصال) خارج العد، وتُقاس ضمن RSS، ومنها البايتات المقبولة غير المقروءة بعد sendDone.
-- اللقطات ≤ 20، أي لقطة لكل تصريح.
+- Encode into a list of 64 KiB segments inside the reservation, without doubling reallocations.
+- Kernel buffers (32 KiB per connection) are outside accounting and measured within RSS, including accepted-but-unread bytes after sendDone.
+- Snapshots ≤ 20: one per permit.
 
-**(د) دورة ملكية الطلب (D88)**
-1. القراءة:
-   - تبدأ من أول بايت. الرأس والجسم ≤ REQ_BUF خلال REQ_READ_DEADLINE = 10s، وإلا إغلاق.
-   - الخامل بين الطلبات يُغلق بعد IDLE = 30s، محسوبة من sendDone للرد السابق أو من فتح الاتصال.
-2. التحليل: F0، وحجب الأصل (ح2)، والتصنيف، وحد المعدل، وفحص المدى الرقمي للسجلات. كلها داخل REQ_BUF بلا حجز ولا لقطة.
-3. القبول الذري: التصريح وحجز الحد الأعلى للفئة معًا لرأس الطابور.
-   - المنتظر لا يحتجز شيئًا.
-   - خلال QUEUE_WAIT = 2s، وإلا −32021 {busy, retryAfterMs ∈ [250, 2000]}.
-4. الحساب: يملك {تصريحًا، وحجزًا، ولقطة، وSCRATCH}، والترميز في الحجز. COMPUTE_DEADLINE من القبول شاملًا الترميز: 5s ثقيل و500 ms خفيف، وانتهاؤها −32020 {deadline}.
-5. نهاية الحساب: تحرير اللقطة وSCRATCH والتصريح، وتقليص الحجز إلى الحجم الفعلي.
-6. الإرسال بضابط SendPacer (D90، D92، D93، D94):
-   - P = البايتات التي سلّمها الخادم للضابط (written)، وA = البايتات التي قبلها مقبس الخادم، وA ≤ P.
-   - pending صحيح عند P > A.
-   - sendTime ساعة تتقدم فقط عند pending، وتبدأ مع أول بايت مُسلّم.
-   - R = MIN_SEND_RATE = 65536 B/s، وGRACE = 2s.
-   - القاعدة الملزمة الوحيدة: إغلاق إن كان sendTime > GRACE وA < R·sendTime.
-   - الرصيد = A − R·sendTime، ولحظة الخرق s_v = max(GRACE, A/R).
-   - الإنفاذ:
-     - مؤقت على sendTime = s_v+TIMER_EPS، حيث TIMER_EPS = 1 ms يحسم التساوي لأن القاعدة صارمة.
-     - يُعاد ضبط المؤقت مع كل تغير في A أو pending، مع فحص احتياطي كل 50 ms، وإعادة فحص بالقيم الدقيقة عند الإطلاق.
-     - lateness ≤ ENFORCE_SLACK = 200 ms، ويُسجل في pacerLateMaxMs.
-   - مبرهنة الحد:
-     - طوال بقاء الاتصال sendTime ≤ max(GRACE, A/R)+ENFORCE_SLACK وA ≤ size.
-     - إذن SEND_MAX(size) = GRACE+size/R+ENFORCE_SLACK. رد 8 MiB → 130.2s، ورد 512 KiB → 10.2s.
-     - الرصيد لا يرفع الحد.
-   - CloseOK: كل إغلاق بالمعدل يحقق sendTime > GRACE، وA < R·sendTime، وsendTime − s_v ≤ ENFORCE_SLACK، ويُسجل (sendTime، A) في RpcStats.
+**(D) Request ownership lifecycle (D88)**
+1. Reading:
+   - Starts at the first byte. Headers and body ≤ REQ_BUF within REQ_READ_DEADLINE = 10s, otherwise close.
+   - Close idle connections between requests after IDLE = 30s, measured from previous response sendDone or connection opening.
+2. Parsing: F0, origin denial (H2), classification, rate bound and numeric log-range check. All within REQ_BUF, without reservation or snapshot.
+3. Atomic admission: permit and class-maximum reservation together for the queue head.
+   - Waiting requests hold nothing.
+   - Within QUEUE_WAIT = 2s, otherwise −32021 {busy, retryAfterMs ∈ [250, 2000]}.
+4. Computation owns {permit, reservation, snapshot, SCRATCH}; encode inside the reservation. COMPUTE_DEADLINE from admission includes encoding: 5s heavy, 500 ms light; expiry returns −32020 {deadline}.
+5. End of computation: release snapshot, SCRATCH and permit; shrink reservation to actual size.
+6. Sending under SendPacer (D90, D92, D93, D94):
+   - P = bytes submitted by server to pacer (written); A = bytes accepted by server socket; A ≤ P.
+   - pending is true when P > A.
+   - sendTime advances only while pending, starting with the first submitted byte.
+   - R = MIN_SEND_RATE = 65536 B/s; GRACE = 2s.
+   - Sole binding rule: close if sendTime > GRACE and A < R·sendTime.
+   - Credit = A − R·sendTime; violation instant s_v = max(GRACE, A/R).
+   - Enforcement:
+     - Timer at sendTime = s_v+TIMER_EPS, where TIMER_EPS = 1 ms resolves equality because the rule is strict.
+     - Reset timer whenever A or pending changes; backstop check every 50 ms, and recheck exact values when it fires.
+     - lateness ≤ ENFORCE_SLACK = 200 ms, recorded in pacerLateMaxMs.
+   - Bound theorem:
+     - While the connection remains open, sendTime ≤ max(GRACE, A/R)+ENFORCE_SLACK and A ≤ size.
+     - Thus SEND_MAX(size) = GRACE+size/R+ENFORCE_SLACK. An 8 MiB reply → 130.2s; a 512 KiB reply → 10.2s.
+     - Credit does not raise the bound.
+   - CloseOK: every rate-triggered close satisfies sendTime > GRACE, A < R·sendTime, and sendTime − s_v ≤ ENFORCE_SLACK; record (sendTime, A) in RpcStats.
    - PacerTrace (D93):
-     - rpc.pacerTrace=true، متاح في بناء الإصدار.
-     - يسجل سطرًا لكل تغير في P أو A أو pending وعند الإغلاق وsendDone: {conn، t_ns (رتيبة)، sendTime_ns، P، A، pending، event ∈ {produce, accept, pendStart, pendStop, close, sendDone}}.
-     - لا يغير القرارات ولا الإجماع.
-     - مخزن ثابت 4 MiB، والفيض في traceDropped، وtraceDropped > 0 يجعل التشغيل غير حاسم.
-   - sendDone (D94): أول لحظة يكون فيها A = P = size بعد تسليم كل بايتات الرد (أو الدفعة كاملة مع ']'). عنده:
-     - ينتهي Pacer.write بـDone، ويُحرر الحجز.
-     - تتوقف sendTime نهائيًا، ويُسجل حدث sendDone، وتبدأ IDLE.
-   - receiveDone: لحظة Rc = size لدى العميل.
-     - لا يراها الخادم، ولا تؤخر تحرير الحجز، ولا تدخل أي مهلة أو قاعدة.
-     - تُقاس في سجل العميل وPacerSim فقط.
-     - البايتات بين A وRc عند sendDone (unreadAtSendDone) في مخازن النواة لا في الحجز.
-   - الحجز يُحرر عند sendDone أو عند الإغلاق، أيهما أسبق.
-7. الطلب التالي لا يُقرأ قبل sendDone.
+     - rpc.pacerTrace=true, available in release builds.
+     - Record a row on every P, A or pending change and at close/sendDone: {conn, t_ns (monotonic), sendTime_ns, P, A, pending, event ∈ {produce, accept, pendStart, pendStop, close, sendDone}}.
+     - Does not change decisions or consensus.
+     - Fixed 4 MiB buffer; overflow increments traceDropped; traceDropped > 0 makes a run inconclusive.
+   - sendDone (D94): first instant A = P = size after all reply bytes (or the entire batch including ']') have been submitted. At this instant:
+     - Pacer.write returns Done; release the reservation.
+     - sendTime stops permanently, record sendDone, start IDLE.
+   - receiveDone: instant Rc = size at the client.
+     - Invisible to the server; does not delay reservation release or enter any timeout/rule.
+     - Measured only in client logs and PacerSim.
+     - Bytes between A and Rc at sendDone (unreadAtSendDone) are in kernel buffers, not the reservation.
+   - Release the reservation at sendDone or close, whichever comes first.
+7. Do not read the next request before sendDone.
 
-المهل المستقلة الوحيدة: REQ_READ_DEADLINE، وIDLE، وQUEUE_WAIT، وCOMPUTE_DEADLINE، وقاعدة SendPacer، وBATCH_WALL. كلها تقيس أحداث الخادم، ولا تقيس استلام العميل.
+The only independent deadlines are REQ_READ_DEADLINE, IDLE, QUEUE_WAIT, COMPUTE_DEADLINE, the SendPacer rule and BATCH_WALL. All measure server events, not client reception.
 
-**(هـ) الدفعات (D88، D90، D92)**
-- ≤ BATCH_MAX = 20 عنصرًا، متدفقة بـchunked: يُكتب '['، ثم كل عنصر يمر بالمراحل 3–5 ثم يُسلّم رده للضابط.
-- العنصر k+1 يبدأ القبول فور قبول المقبس آخر بايت من العنصر k. لذلك قد يسبق الخادم قراءة العميل بما يصل إلى سعة مخزن المقبس.
-- بين العناصر لا تصريح ولا لقطة ولا حجز، وكل عنصر يعيد القبول من آخر الطابور.
-- SendPacer واحد للدفعة: sendTime واحدة تبدأ مع '['، وتتوقف دون pending (انتظار الطابور والحساب)، وGRACE مرة واحدة، والقاعدة على A التراكمية، ولا مهلة ولا سماح لكل عنصر.
-- sendDone للدفعة عند قبول آخر بايت من الإطار الختامي. حجز كل عنصر يُحرر عند قبول آخر بايت منه.
-- batchSent = كل البايتات المسلّمة. العنصر الذي يجعل batchSent > BATCH_RESP_MAX = 16 MiB يُحسب ثم يُستبدل بـ−32020 {batchBytes}، وما بعده كذلك دون تنفيذ. كل خطأ ≤ ERR_ITEM_MAX = 256 B من CONN_BUF.
+**(E) Batches (D88, D90, D92)**
+- ≤ BATCH_MAX = 20 items, chunked streaming: write '[', then each item passes stages 3–5 and submits its reply to the pacer.
+- Item k+1 starts admission as soon as the socket accepts the final byte of item k. The server can therefore precede client reading by up to socket-buffer capacity.
+- Between items hold no permit, snapshot or reservation; each item reenters admission at the queue tail.
+- One SendPacer per batch: one sendTime starting at '[', paused without pending (queue wait and computation), one GRACE, and the rule uses cumulative A; no per-item deadline or grace.
+- Batch sendDone occurs when the final framing byte is accepted. Each item's reservation releases on acceptance of its final byte.
+- batchSent = all submitted bytes. The item that makes batchSent > BATCH_RESP_MAX = 16 MiB is computed, then replaced with −32020 {batchBytes}; subsequent items receive the same error without execution. Each error ≤ ERR_ITEM_MAX = 256 B from CONN_BUF.
 - BATCH_BYTES_HARD = 16 MiB+20·256+64 = 16782400 B.
-- الحدود المشتقة:
-  - BATCH_SEND_MAX = 2+256.0791015625 = 258.0791015625s، وحد المراقبة 258.2791015625s.
-  - الانتظار ≤ 20·(2+0.2) = 44s، والحساب ≤ 20·(5+0.1) = 102s.
-  - المجموع ≤ 404.2791015625s.
-- BATCH_WALL = 420s حد احتياطي من نهاية القراءة حتى sendDone، وR26(و) تشترط ≥ 404.2791015625. بلوغه يغلق ويحرر خلال ≤ 100 ms ويزيد batchWallHits، وأي قيمة غير صفرية في الإصدار عيب.
-- عنصر busy أو rate يُكتب خطؤه ويُتابع. الترتيب محفوظ، والمعرفات منسوخة. الانقطاع وسط الدفعة يعطي JSON ناقصًا لا يُحلل.
+- Derived bounds:
+  - BATCH_SEND_MAX = 2+256.0791015625 = 258.0791015625s; monitoring bound 258.2791015625s.
+  - Waiting ≤ 20·(2+0.2) = 44s; computation ≤ 20·(5+0.1) = 102s.
+  - Total ≤ 404.2791015625s.
+- BATCH_WALL = 420s backstop from end of reading to sendDone; R26(F) requires ≥ 404.2791015625. Reaching it closes/releases within ≤ 100 ms and increments batchWallHits; any nonzero value in release is a defect.
+- For a busy or rate item, write its error and continue. Preserve order and copy IDs. Mid-batch disconnection produces incomplete JSON that is not parsed.
 
-**(و) الإلغاء**
-رمز يُضبط عند الإغلاق أو أي مهلة، ويُفحص كل 16 كتلة ممسوحة وكل 1 MiB مرمّز وكل 10^6 gas. يحرر كل الموارد خلال ≤ CANCEL_MAX = 100 ms.
+**(F) Cancellation**
+Set a token on close or any timeout; poll every 16 scanned blocks, every 1 MiB encoded and every 10^6 gas. Release all resources within ≤ CANCEL_MAX = 100 ms.
 
-**(ز) eth_getLogs**
-الترتيب:
+**(G) eth_getLogs**
+Order:
 1. F0 (−32602).
-2. المدى الرقمي ≤ 1024، وإلا −32020 {range, maxRange: 1024} دون قبول.
-3. القبول.
-4. حل 'latest' و'safe' و'finalized' من اللقطة ثم فحص المدى.
-5. مسح تصاعدي.
+2. Numeric range ≤ 1024, otherwise −32020 {range, maxRange: 1024} without admission.
+3. Admission.
+4. Resolve 'latest', 'safe' and 'finalized' from the snapshot, then check range.
+5. Ascending scan.
 
-حد P1:
-- تُعالج الكتلة x كاملة.
-- إن جعلت إضافتها الرد > RESP_MAX، أو العدد > LOGS_COUNT_MAX = 10000، أو المسح > LOGS_SCAN_BYTES = 32 MiB، فالنتيجة −32020 {reason ∈ {resultBytes, resultCount, scanBytes}, fromBlock, lastCompleteBlock = x−1, nextFromBlock = x}.
+P1 bound:
+- Process block x completely.
+- If adding it makes response > RESP_MAX, count > LOGS_COUNT_MAX = 10000, or scan > LOGS_SCAN_BYTES = 32 MiB, return −32020 {reason ∈ {resultBytes, resultCount, scanBytes}, fromBlock, lastCompleteBlock = x−1, nextFromBlock = x}.
 
-حد الموارد: المهلة أو SCRATCH تعطي −32020 {deadline|scratch, fromBlock, lastCompleteBlock ≥ fromBlock−1, nextFromBlock = lastCompleteBlock+1}، دون افتراض تقدم.
+Resource bound: deadline or SCRATCH returns −32020 {deadline|scratch, fromBlock, lastCompleteBlock ≥ fromBlock−1, nextFromBlock = lastCompleteBlock+1}, without assuming progress.
 
-المخزن الجزئي يُهمل كله.
+Discard the entire partial buffer.
 
-لِمّة P1: كتلة واحدة ≤ 32 KiB خامًا و≤ 546 سجلًا، وترميزها < 400 KiB. إذن عند P1 يكون lastCompleteBlock ≥ fromBlock.
+P1 lemma: one block ≤ 32 KiB raw and ≤ 546 logs; its encoding < 400 KiB. Therefore at P1, lastCompleteBlock ≥ fromBlock.
 
-لِمّة P3: حد P1 يُرفع عند lastCompleteBlock+1 فقط، والترميز حتمي، فكل مدى جزئي من [fromBlock, lastCompleteBlock] لا يرفع P1 على السلسلة نفسها. قد يرفع حد موارد فقط.
+P3 lemma: P1 is raised only at lastCompleteBlock+1 and encoding is deterministic, so no subrange of [fromBlock, lastCompleteBlock] raises P1 on the same chain. It may raise only a resource bound.
 
-مرشح blockHash = كتلة واحدة.
+blockHash filter = one block.
 
-**(ح) pocol_getLogs(filter, anchorHash) (D89)**
-- ثقيلة، بخرج eth_getLogs وحدوده و−32020 نفسها. fromBlock وtoBlock رقميان فقط، والوسوم −32602.
-- فحوص اللقطة:
-  - canonicalHash(height(anchorHash)) ≠ anchorHash يعطي −32022 {anchorNotCanonical, head}.
-  - toBlock > height(anchorHash) يعطي −32022 {beyondAnchor}.
-- لِمّة P2: blockHash يلتزم بالأب تعاقبيًا. فإن بقي anchorHash قانونيًا في لقطتين، تطابقت الكتل القانونية ≤ height(anchor) فيهما، فكل القطع الناجحة بالمرساة نفسها من فرع واحد.
-- بلا حالة جلسة، ولا تغير الإجماع.
+**(H) pocol_getLogs(filter, anchorHash) (D89)**
+- Heavy, with eth_getLogs output, bounds and the same −32020. fromBlock/toBlock are numeric only; tags return −32602.
+- Snapshot checks:
+  - canonicalHash(height(anchorHash)) ≠ anchorHash returns −32022 {anchorNotCanonical, head}.
+  - toBlock > height(anchorHash) returns −32022 {beyondAnchor}.
+- P2 lemma: blockHash recursively commits to its parent. If anchorHash is canonical in two snapshots, their canonical blocks ≤ height(anchor) match, so successful chunks with the same anchor belong to one branch.
+- No session state; no consensus change.
 
-**(ح2) حجب الأصل في العقدة (D95، دفاع ثانٍ)**
-- ORIGIN_DENY = {pocol_submitShare، pocol_getTemplate}.
-- إن حمل الطلب ترويسة Origin بأي قيمة مسموحة، وكانت الطريقة في ORIGIN_DENY، يُرد −32601 في المرحلة 2 دون قبول ولا لقطة.
-- في الدفعة يُطبق لكل عنصر.
-- برامج التعدين المحلية لا ترسل Origin. eth_sendRawTransaction تبقى مسموحة لأصل الإضافة لأن WalletSubmit يحتاجها، وحمايتها في BridgeAuth.
-- لا يحمي من عملية محلية تحذف Origin (A10)، ولا يدخل الصلاحية.
+**(H2) Node origin denial (D95, second defense)**
+- ORIGIN_DENY = {pocol_submitShare, pocol_getTemplate}.
+- If a request carries Origin with any allowed value and its method is in ORIGIN_DENY, return −32601 at stage 2 without admission or snapshot.
+- Apply per item in a batch.
+- Local mining programs send no Origin. eth_sendRawTransaction remains allowed for the extension origin because WalletSubmit needs it; BridgeAuth protects it.
+- Does not protect against a local process removing Origin (A10); not a validity rule.
 
-**(ط) الفصل عن الإجماع**
-- RPC في runtime tokio بخيطين مع مجمع 20 خيطًا. التحقق والتعدين والمزامنة في runtime آخر.
-- لقطات redb لا تحجز الكاتب.
-- تغيير RpcGuard أو PacerTrace أو ORIGIN_DENY لا يغير الصلاحية ولا يتطلب fork.
+**(I) Separation from consensus**
+- RPC uses a two-thread tokio runtime and a 20-thread pool. Validation, mining and synchronization use another runtime.
+- redb snapshots do not hold the writer.
+- Changing RpcGuard, PacerTrace or ORIGIN_DENY does not change validity or require a fork.
 
-**واجهات خاصة أخرى**
-- pocol_getTemplate، وpocol_submitShare (واجهتا تعدين محليتان، محجوبتان مع Origin).
+**Other custom interfaces**
+- pocol_getTemplate, pocol_submitShare (local mining interfaces, denied with Origin).
 - pocol_getAssignment(h, a) → {seed, nMax, nonceMode, members[{id, start, end}]}.
-- pocol_getMinerSet، وpocol_getCaps، وpocol_syncStatus.
+- pocol_getMinerSet, pocol_getCaps, pocol_syncStatus.
 - pocol_getTiming → {L0, U0, Tj, bj, fsmState}.
 - pocol_getTarget(h) → {deltaT, e, s, f, F, target, work, saturated ∈ {none, high, low}}.
 - pocol_getParams → {profileKind, nodeKind, nonceMode, chainId, genesisHash, genesisPre, netKey, forkSchedule, activeVersion, rpcLimits}.
-- pocol_getPot(j) → {status, amount, kind, winner|null, blockHash, settlesAt}، وإلا −32013. winner = null حتى تُستورد الكتلة j+1 على الفرع القانوني (D141).
-- pocol_getSettlement(j): سلاسل wei عشرية، وغير المسوى −32013 {settlesAt}.
+- pocol_getPot(j) → {status, amount, kind, winner|null, blockHash, settlesAt}, otherwise −32013. winner = null until block j+1 is imported on the canonical branch (D141).
+- pocol_getSettlement(j): decimal wei strings; unsettled returns −32013 {settlesAt}.
 - pocol_getBurnTotals.
 - pocol_getEscrow → {balance, pendingSum, heldTotal, burnedTotal, surplus}.
 - pocol_getRetention → {complete, fromHeight, replicasConfigured, replicasLive, checkedAt} (D119).
-  - ReplicaMonitor يفحص كل 10s قائمة نسخ محلية (منها العقدة نفسها).
-  - النسخة حية إن ردت خلال 2s، وcomplete=true، وhead ≥ head المحلي−6.
-  - معلوماتي لا يدخل الصلاحية. يُعتمد في LN، ولا يُعتمد في RP.
+  - ReplicaMonitor checks a list of local replicas (including this node) every 10s.
+  - A replica is live if it replies within 2s, complete=true, and head ≥ local head−6.
+  - Informational, not validity. Trusted in LN, not RP.
 - pocol_getClosing → {closing, closeH, cursor, recLen, hEnd, finalAt|null}.
-- pocol_getRejects: آخر 256 بالشكل {hash, rule, peer, path}.
+- pocol_getRejects: latest 256 in form {hash, rule, peer, path}.
 - pocol_getRpcStats → {conns, heavyActive, heavyQueued, lightActive, lightQueued, heavyResv, lightResv, scratchHeavyMax, scratchLightMax, snapshotsOpen, maxResPerConn, cancelled, cancelMaxMs, busyCount, rateCount, limitCount, anchorRejects, originDenied, pacerClosed, pacerLateMaxMs, lastPacerClose{sendTime, accepted}, sendDoneCount, sendOverrunMaxMs, batchSendMaxS, batchWallMaxS, batchWallHits, traceDropped}.
-  - sendOverrunMaxMs = أقصى (sendTime عند sendDone − (GRACE+size/R)) بالمللي ثانية.
-  - originDenied عدد ردود ح2.
+  - sendOverrunMaxMs = maximum (sendTime at sendDone − (GRACE+size/R)) in milliseconds.
+  - originDenied counts H2 responses.
 
-**RPC المحلي**
-- 127.0.0.1، وHost غير مسموح يعطي 403، وOrigin غائب أو chrome-extension://<ID>.
-- الجسم ≤ 1 MiB، والدفعة ≤ 20، وeth_call ≤ 30M gas.
-- كل الطلبات عبر RpcGuard، وطرق ORIGIN_DENY لا تُخدم مع Origin.
+**Local RPC**
+- 127.0.0.1; disallowed Host returns 403; Origin absent or chrome-extension://<ID>.
+- Body ≤ 1 MiB, batch ≤ 20, eth_call ≤ 30M gas.
+- All requests pass RpcGuard; ORIGIN_DENY methods are not served with Origin.
 
-**الأخطاء**
-- القياسية: −32700، و−32600، و−32601، و−32602، و−32603، و−32000.
-- الخاصة:
-  - −32010 قالب، و−32011 نطاق، و−32012 حصة، و−32013 مجهولة أو غير مسواة.
-  - −32014 حد، و−32015 نوع أو chainId، و−32016 سقف أو منتهية، و−32017 خارج نافذة trie.
-  - −32018 معلمات (إقلاع وأسباب pocol_getHeaders).
-  - −32019 {rule}: سجل العميل. rule ∈ البنود 1–9، أو net*، أو viewIncomplete، أو viewGenesis، أو viewNoBlocks، أو viewFuture، أو viewTargetCeil، أو recvFit (D100)، أو gs*.
+**Errors**
+- Standard: −32700, −32600, −32601, −32602, −32603, −32000.
+- Custom:
+  - −32010 template, −32011 range, −32012 share, −32013 unknown or unsettled.
+  - −32014 limit, −32015 type or chainId, −32016 cap or finalized, −32017 outside trie window.
+  - −32018 parameters (boot and pocol_getHeaders reasons).
+  - −32019 {rule}: client log. rule ∈ items 1–9, net*, viewIncomplete, viewGenesis, viewNoBlocks, viewFuture, viewTargetCeil, recvFit (D100), or gs*.
   - −32020 {reason ∈ {range, resultBytes, resultCount, scanBytes, deadline, scratch, batchBytes}, fromBlock?, lastCompleteBlock?, nextFromBlock?}.
   - −32021 {reason ∈ {busy, rate}, retryAfterMs}.
   - −32022 {reason ∈ {anchorNotCanonical, beyondAnchor}, head}.
-- الإضافة نحو الإطار:
-  - EIP-1193: 4001، و4100، و4200 {method} (طريقة غير مسموحة، D95)، و4901.
-  - محلية للجسر (D96، D97): −32600 {reason ∈ {size, kind}?}، و−32602 {path}، و−32005 {reason ∈ {rate, pending, nav, busy, store}} (رمز EIP-1474)، و4300 {reason: quota, limit} (غير قياسي، معلن)، و−32603 {reason ∈ {transport, recvLimit, recvDepth, recvParse, storeTimeout}}.
+- Extension to frame:
+  - EIP-1193: 4001, 4100, 4200 {method} (disallowed method, D95), 4901.
+  - Bridge-local (D96, D97): −32600 {reason ∈ {size, kind}?}, −32602 {path}, −32005 {reason ∈ {rate, pending, nav, busy, store}} (EIP-1474 code), 4300 {reason: quota, limit} (nonstandard, disclosed), −32603 {reason ∈ {transport, recvLimit, recvDepth, recvParse, storeTimeout}}.
 
-**مستويات الثقة (D13)**
+**Trust levels (D13)**
 - DEV: anvil.
-- LN (الأساسي): تحقق كامل.
-- RP: نافذة D77 وD82 مع D80 وD81 وD84. البعيد قد لا يطبق D88–D94 ولا ح2.
-  - الإضافة تحمي نفسها بالجسر وBridgeAuth وLogClient ومهلة 10s وRecvGuard (D98) وجلسة الموقع (D99).
-  - حدود RpcGuard تحمي العقدة لا الإضافة.
+- LN (default): full verification.
+- RP: D77/D82 window with D80, D81 and D84. A remote server may not implement D88–D94 or H2.
+  - The extension protects itself through the bridge, BridgeAuth, LogClient, 10s timeout, RecvGuard (D98) and site session (D99).
+  - RpcGuard bounds protect the node, not the extension.
 
-الملف وبصمته من RPC نفسه لا يثبتان الصحة إلا في LN.
+A profile and its hash from the same RPC do not establish correctness except in LN.

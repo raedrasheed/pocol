@@ -118,7 +118,7 @@ TQ (validation.md:347) is the defaults with `globBytes = 300000`. It deliberatel
 1. `cancelFrame(old)`.
 2. Then wait for the key's active write until it settles or until `navigationStart + 5000`, whichever comes first.
    - **Settle first:** after the reload and the release, the new frame's snapshot is the confirmed dictionary, with no badge.
-   - **Deadline first:** the snapshot is the confirmed state at that moment, with the badge «حالة الحفظ غير مؤكدة» (uncertain save state). The write stays counted until it settles, then one release with no reply.
+   - **Deadline first:** the snapshot is the confirmed state at that moment, with the badge «Save state uncertain» (uncertain save state). The write stays counted until it settles, then one release with no reply.
    - **No active write:** the snapshot is taken immediately.
 3. P-Q2-1: the wait covers the write that was active at navigation time only. Another tab's write that starts at that settle does not delay the snapshot.
 

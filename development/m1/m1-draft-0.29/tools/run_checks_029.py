@@ -11,7 +11,7 @@ Environment alternatives: POCOL_M1_ROOT, POCOL_M1_OUT.
   out:  where every generated file goes (default: <this package>/results).
 Writes only under out, never overwriting an earlier run (a differing later run gets a -rerun-<n> name):
   run-results-0.29.json, acceptance-matrix-0.29.json, decision-register-0.29.json, hash-bindings-0.29.json,
-  deadline-rerun-0.29.json, dashboard-0.29-ar.json.
+  deadline-rerun-0.29.json, dashboard-0.29-en.json.
 Rebuilds no header, nonce or share: the reviewed 0.27 V1 transcripts are replayed through the unchanged 0.27 checker
 inside the 0.29 virtual deadline. Expected run time: a few minutes (pure-Python signature recovery and hashing).
 Exits 1 on any FAIL.
@@ -30,6 +30,23 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
 
 HERE = Path(__file__).resolve().parent
 PKG = HERE.parent
@@ -61,7 +78,7 @@ OUT = Path(_arg('--out', 'POCOL_M1_OUT') or (PKG / 'results')).resolve()
 OWN = ['tools/run_checks_029.py', 'tools/overlay_ref_029.py', 'decisions/adopted-decisions-0.29.json', 'audit/acceptance-inventory-0.29.json',
        'vectors/deadline-cases-0.29.json', 'vectors/u08-canonical-split-0.29.json', 'vectors/u02-revoked-viewer-0.29.json',
        'vectors/u10-publisher-transfer-0.29.json', 'vectors/rfe61-x12b-binding-0.29.json', 'vectors/experiment-amendments-0.29.json',
-       'M1-SPEC-0.29-OVERLAY.md', 'M1-STATUS-0.29.md', 'M1-DASHBOARD-0.29-AR.md', 'README.md']
+       'M1-SPEC-0.29-OVERLAY.md', 'M1-STATUS-0.29.md', 'M1-DASHBOARD-0.29-EN.md', 'README.md']
 INPUTS_ROOT = ['coordination/task-027.md', 'coordination/DELEGATED-M1-DECISIONS-029.json', 'coordination/issue-ledger.json',
                'coordination/review-001/REVIEW-0.28.md', 'coordination/review-001/u14-independent-0.28.json',
                'coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json', 'coordination/review-001/m1-draft-0.27/results/hash-freeze-v1-0.27.json',
@@ -109,11 +126,11 @@ def gap(label, /, **diag):
 
 
 def sha(p):
-    return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    return hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None
 
 
 def rj(rel):
-    return json.loads((ROOT / rel).read_text(encoding='utf-8'))
+    return json.loads(source_text(ROOT / rel))
 
 
 def own(rel):
@@ -138,7 +155,7 @@ _lines = {}
 def provenance(label, src):
     p = path_of(src['file'])
     if p not in _lines:
-        _lines[p] = p.read_text(encoding='utf-8').splitlines() if p.exists() else []
+        _lines[p] = source_text(p).splitlines() if p.exists() else []
     a, b = src['lines']
     seg = '\n'.join(_lines[p][a - 1:b])
     missing = [x for x in src.get('literals', []) if x not in seg]
@@ -147,7 +164,7 @@ def provenance(label, src):
 
 def contains(rel, text):
     p = path_of(rel)
-    return p.exists() and text in p.read_text(encoding='utf-8')
+    return p.exists() and text in source_text(p)
 
 
 def norm(x):
@@ -200,7 +217,7 @@ _RES = {}
 def results_of(key):
     if key not in _RES:
         p = ROOT / RESULT_FILES[key]
-        _RES[key] = json.loads(p.read_text(encoding='utf-8'))['results'] if p.exists() else None
+        _RES[key] = json.loads(source_text(p))['results'] if p.exists() else None
     return _RES[key]
 
 
@@ -237,7 +254,7 @@ def boundary():
     check('boundary.renamedAndCopied', e['diagName'] == 'n' and e['proposalStatus'] == 's' and e['status'] == 'recorded' and e['obj'] == {'x': [1]})
     bad, calls = {}, []
     for f in (HERE / 'run_checks_029.py', HERE / 'overlay_ref_029.py'):
-        tree = ast.parse(f.read_text(encoding='utf-8'))
+        tree = ast.parse(source_text(f))
         mods = {a.name.split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         mods |= {(n.module or '').split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         hit = sorted(mods & {'socket', 'urllib', 'http', 'requests', 'ssl', 'asyncio', 'subprocess', 'threading'})
@@ -297,7 +314,7 @@ def u01():
     check('U01.notADeployment', REGD['U01']['deploymentConfirmed'] is False and 'NOT a deployment address' in REGD['U01']['effective'])
     evidence('U01.codeTableVectors', 'R02', '^codeTable\\.')
     evidence('U01.draft01Addresses', 'R02', '^draft01\\.')
-    exp = (ROOT / 'coordination/review-001/m1-draft-0.25/results/hash-freeze-export-0.25.json').read_text(encoding='utf-8')
+    exp = source_text(ROOT / 'coordination/review-001/m1-draft-0.25/results/hash-freeze-export-0.25.json')
     entries = [json.loads(line.rstrip(',')) for line in exp.split('\n')[1:] if line.startswith('{')]
     dep = Counter(e['group'] for e in entries if 'U01' in e.get('ownerParameters', []))
     check('U01.hashEntriesUsingTheAddress', sum(dep.values()) > 0, groups=dict(dep))
@@ -699,7 +716,7 @@ def sha29(cfg):
     probe = rj('coordination/review-001/v1-share-work-probe-0.26.json')
     s1 = next(t for t in transcripts()['sha'] if t['case'] == 'SHA-S1')
     check('SHA29.singleHeaderMatchesRootProbe', s1['counters']['sha256Total'] == probe['totalSha256'] == 258)
-    line = (ROOT / 'reference/browser.md').read_text(encoding='utf-8').splitlines()[57]
+    line = source_text(ROOT / 'reference/browser.md').splitlines()[57]
     check('SHA29.sourceLiteralPreservedAsHistory', '≤ 13 SHA-256' in line and 'reference/browser.md:58' in REGD['V1-SHA-COST']['superseded'], line=line)
     check('SHA29.effectiveSentence', '14 TemplateID + 13 PoW + 3328 share hashes' in REGD['V1-SHA-COST']['effective']
           and 'Every check of items 1-9 is retained' in REGD['V1-SHA-COST']['effective'])
@@ -750,7 +767,7 @@ def rfe61():
         e = res.get(g['check'])
         check('RFE61.historicalGapRebound.' + g['check'], e is not None and e.get('status') == g['status'] and ('model' not in g or e.get('model') == g['model']),
               reboundTo=g['reboundTo'])
-    rv = (ROOT / doc['results']['review']['file']).read_text(encoding='utf-8')
+    rv = source_text(ROOT / doc['results']['review']['file'])
     check('RFE61.rootReview0_18', all(x in rv for x in doc['results']['review']['literals']))
     check('RFE61.effectiveText', 'adminStaleDropped = 2 (op1: 1, op2: 1)' in doc['effectiveText'] and '5001' in doc['effectiveText'])
 
@@ -782,11 +799,11 @@ def history():
         clos = [match(k, p) or [] for k, p in dc['closure']]
         check('history.%s' % dc['id'], all(c and all(r.get('status') == 'pass' for r in c) for c in clos), what=dc['what'])
     for s in INV['savedSummaries']:
-        d = json.loads((ROOT / RESULT_FILES[s['key']]).read_text(encoding='utf-8'))['summary']
+        d = json.loads(source_text(ROOT / RESULT_FILES[s['key']]))['summary']
         check('evidence.savedSummary.' + s['key'], [d['checks'], d['passed'], d['recorded'], d['failed']] == [s['checks'], s['passed'], s['recorded'], s['failed']], summary=d)
     for rv in INV['reviewed']['reviews']:
         p = ROOT / rv['file']
-        check('evidence.review.' + Path(rv['file']).stem, p.exists() and ('literal' not in rv or rv['literal'] in p.read_text(encoding='utf-8')))
+        check('evidence.review.' + Path(rv['file']).stem, p.exists() and ('literal' not in rv or rv['literal'] in source_text(p)))
     for ev in CF28['independent']:
         d = rj(ev['file'])
         ok = d.get('checks') == ev['checks'] and d.get('failed') == ev['failed'] and ('passed' not in ev or d.get('passed') == ev['passed'])
@@ -811,7 +828,7 @@ def history():
                 only.append(rel.as_posix())
                 continue
             compared += 1
-            if f.read_bytes() != main_file.read_bytes():
+            if source_bytes(f) != source_bytes(main_file):
                 mism.append(rel.as_posix())
         check('evidence.reviewCopy.' + pkg, compared > 0 and not mism, compared=compared, mismatches=mism, copyOnly=only[:20])
     reg = rj('m1-draft-0.25/audit/gap-registry.json')
@@ -838,7 +855,7 @@ def decisions_applied():
 
 
 def hash_groups():
-    exp = (ROOT / 'coordination/review-001/m1-draft-0.25/results/hash-freeze-export-0.25.json').read_text(encoding='utf-8')
+    exp = source_text(ROOT / 'coordination/review-001/m1-draft-0.25/results/hash-freeze-export-0.25.json')
     entries = [json.loads(line.rstrip(',')) for line in exp.split('\n')[1:] if line.startswith('{')]
     rootv = {x['id']: x for x in rj('coordination/review-001/e05-new-three-library-0.25.json')['results']}
     groups, bad = {}, []
@@ -1010,7 +1027,7 @@ def write_asset(name, data_text, label):
     OUT.mkdir(parents=True, exist_ok=True)
     p = OUT / name
     data = data_text.encode('utf-8')
-    if p.exists() and p.read_bytes() != data:
+    if p.exists() and source_bytes(p) != data:
         k = 1
         while (OUT / ('%s-rerun-%d%s' % (p.stem, k, p.suffix))).exists():
             k += 1
@@ -1020,36 +1037,36 @@ def write_asset(name, data_text, label):
         return
     if not p.exists():
         p.write_bytes(data)
-    check(label + '.writtenAndReadBack', p.read_bytes() == data, file=name, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
+    check(label + '.writtenAndReadBack', source_bytes(p) == data, file=name, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
 
 
 def dumps(x):
     return json.dumps(x, sort_keys=True, indent=1, ensure_ascii=False, default=str) + '\n'
 
 
-ROW_AR = {'CompleteCandidate': 'مرشح للاكتمال', 'PendingRootReview': 'بانتظار مراجعة الجذر فقط', 'Partial': 'جزئي'}
+ROW_AR = {'CompleteCandidate': 'Completion candidate', 'PendingRootReview': 'Awaiting root review only', 'Partial': 'Partial'}
 
 
 def dashboard(matrix, finds, missing_exp, failed):
     cnt = Counter(v['status'] for v in matrix.values())
     pend = [p['id'] for p in REG['reviewer']['pendingRootDecision']]
     lines = [
-        'M1، المسودة 0.29: تطبيق تسعة قرارات تقنية مفوضة في طبقة مواصفات جديدة.',
-        'هذه القرارات اتخذها المنسق بتفويض دائم من المستخدم. ليست موافقة شخصية من المالك، وأسئلة المالك المحفوظة ما تزال بلا جواب.',
-        'نتيجة هذا التشغيل: %d فحصًا، فشل منها %d.' % (len(results), len(failed)),
-        'الصفوف الواحد والأربعون: %d مرشح للاكتمال، و%d بانتظار مراجعة الجذر فقط، و%d جزئي.' % (cnt['CompleteCandidate'], cnt['PendingRootReview'], cnt['Partial']),
-        'لا يكتمل أي صف قبل مراجعة الجذر. «مرشح للاكتمال» لا يعني «مكتمل».',
-        'أعراف تنتظر قرار الجذر (%d): %s.' % (len(pend), '، '.join(pend)),
-        'تعريفات تجارب ناقصة: %s.' % ('لا يوجد' if not missing_exp else '، '.join(missing_exp)),
-        'المهلة: عشر ثوانٍ من أول طلب حتى الحكم النهائي، وعند بلوغ 10000 ملي ثانية تنتهي المهلة. النتائج هنا زمن افتراضي محسوب، وليست قياسًا في المتصفح.',
-        'كلفة SHA-256 الفعالة: 14 لـTemplateID و13 لـPoW و3328 للحصص، والمجموع 3355، مع إبقاء كل الفحوص.',
-        'عنوان المصنع 0x…c0c005 عنوان مرجعي لاختبارات M1 فقط، ولا يؤكد أي نشر.',
-        'لا تنفيذ إنتاجي ولا نشر ولا معاملات.'
+        'M1, draft 0.29: applying nine delegated technical decisions in a new specification layer.',
+        'The coordinator made these decisions under standing user authorization. They are not personal owner approval; saved owner questions remain unanswered.',
+        'This run: %d checks, %d failed.' % (len(results), len(failed)),
+        'The 41 rows: %d completion candidates, %d awaiting root review only, %d partial.' % (cnt['CompleteCandidate'], cnt['PendingRootReview'], cnt['Partial']),
+        'No row is complete before root review. Completion candidate does not mean complete.',
+        'Conventions awaiting the root decision (%d): %s.' % (len(pend), ', '.join(pend)),
+        'Missing experiment definitions: %s.' % ('None' if not missing_exp else ', '.join(missing_exp)),
+        'Timeout: ten seconds from the first request to the final verdict, expiring at 10000 ms. Results here use computed virtual time, not browser measurements.',
+        'Effective SHA-256 cost: 14 TemplateID, 13 PoW and 3328 share hashes, totaling 3355, retaining all checks.',
+        'Factory address 0x…c0c005 is a reference address for M1 tests only; it confirms no deployment.',
+        'No production implementation, deployment or transactions.'
     ]
     rows = [{'id': r, 'statusAr': ROW_AR[v['status']], 'status': v['status'],
-             'waitingFor': v['reviewerOpen'] + v['ownerOpen'] + (['مراجعة الجذر'] if 'pendingRootReview' in v['criteria'].values() else [])}
+             'waitingFor': v['reviewerOpen'] + v['ownerOpen'] + (['Root review'] if 'pendingRootReview' in v['criteria'].values() else [])}
             for r, v in matrix.items() if v['status'] != 'CompleteCandidate']
-    return {'schema': 'pocol-m1-dashboard-ar/0.29', 'lang': 'ar', 'lines': lines, 'rowsNotYetCandidate': rows,
+    return {'schema': 'pocol-m1-dashboard-en/0.29', 'lang': 'en', 'lines': lines, 'rowsNotYetCandidate': rows,
             'findings': dict(Counter(v['disposition'] for v in finds.values()))}
 
 
@@ -1073,7 +1090,7 @@ def outputs(matrix, finds, groups, v1groups, rerun, missing_exp):
 def leak_and_keys(texts):
     markers = ('PoCol_' + 'Dialogue', 'state' + '.json', 'source' + 'State', 'historical-x8-full' + '-source-private', 'transcript' + '-private')
     leaks = [str(f.relative_to(PKG)) for f in sorted(PKG.rglob('*')) if f.is_file() and 'results' not in f.parts
-             and f.suffix in ('.json', '.md', '.py') and any(m in f.read_text(encoding='utf-8') for m in markers)]
+             and f.suffix in ('.json', '.md', '.py') and any(m in source_text(f) for m in markers)]
     leaks += [n for n, t in texts.items() if any(m in t for m in markers)]
     check('boundary.noPrivatePath', not leaks, files=leaks)
     keys = [v['priv'][2:].lower() for v in rj('coordination/review-001/m1-draft-0.5/results/txa-node-check.json')['keys'].values()]
@@ -1161,7 +1178,7 @@ def main():
     after = {rel: sha(ROOT / rel) for rel in PRESERVED}
     check('preserved.olderFilesUnchanged', before == after, before=before, after=after)
     failed = [r for r in results if r['status'] == 'FAIL']
-    texts['dashboard-0.29-ar.json'] = dumps(dashboard(matrix, finds, missing_exp or [], failed))
+    texts['dashboard-0.29-en.json'] = dumps(dashboard(matrix, finds, missing_exp or [], failed))
     for name in sorted(texts):
         step('write ' + name, write_asset, name, texts[name], 'asset.' + name)
     failed = [r for r in results if r['status'] == 'FAIL']

@@ -478,7 +478,7 @@ impl Chain{
         h.receipts_root=out.receipts_root().0;h.logs_bloom=out.logs_bloom().to_vec();h.gas_limit=self.spec.cp().GAS_LIMIT;h.gas_used=out.gas_used();
         h.base_fee=to_fixed(ctx.base_fee);h.evidence_root=out.evidence_root().0;h.proposer=proposer.to_vec();reseal(&mut h);h
     }
-    /// Build_fb(p, a): deterministic fallback UT with empty body (consensus §4ب).
+    /// Build_fb(p, a): deterministic fallback UT with empty body (consensus §4b).
     pub fn build_fallback(&self,p:&Entry,attempt:u32)->Result<(Header,Executed,ChildCtx),Reject>{
         let ctx=self.child_ctx(p,attempt)?;
         let ts=ctx.window.fallback_timestamp(self.spec.cp().dFbWait).map_err(|e|Reject::Block(format!("fb ts {e:?}")))?;
@@ -624,7 +624,7 @@ impl Chain{
     /// What item 16 leaves for a child of p: (transactions, raw bytes).
     pub fn caps_room(&self,p:&Entry)->(u64,u64){let cp=self.spec.cp();(cp.TX_CAP.saturating_sub(p.cum_txs),cp.TXBYTES_CAP.saturating_sub(p.cum_tx_bytes))}
 
-    /// Evidence (incentives.md "الأدلة"). Type 1: RLP([1, ST1, ST2]); type 2:
+    /// Evidence (incentives.md "Evidence"). Type 1: RLP([1, ST1, ST2]); type 2:
     /// RLP([2, TemplateID, nonce, shareRoot1, sig1, shareRoot2, sig2]). Invalid
     /// evidence invalidates the carrying block.
     pub fn evidence_effects(&self,p:&Entry,body:&Body,h:u64)->Result<Vec<EvidenceEffect>,Reject>{

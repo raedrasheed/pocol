@@ -4,7 +4,7 @@
   "supplement": true,
   "status": "proposed supplement for root review; implements the unapproved proposal P-V2-10; not approved",
   "closesGap": ["V2-definitionGap.DG-V2-2", "proposal.P-V2-10 (still needs a reviewer decision)"],
-  "source": {"file": "reference/implementation.md", "lines": [359, 359], "literals": ["LC1–LC18 بردود JSON حرفية"]},
+  "source": {"file": "reference/implementation.md", "lines": [359, 359], "literals": ["LC1–LC18 \u0628\u0631\u062f\u0648\u062f JSON \u062d\u0631\u0641\u064a\u0629"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "problem": "The 0.19 cases express part of the server behaviour as templates ('gen' log generator, 'repeat' data) and the rest as the MockLogServer's default handler. A TypeScript or Node harness would have to re-implement both to reproduce the replies.",
   "form": {
     "asset": "m1-draft-0.25/results/lc-literal-replies-0.25.json (written by tools/run_checks_025.py; deterministic, no timestamp)",

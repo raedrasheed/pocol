@@ -1,26 +1,26 @@
-# خطة التحقق
+# Validation plan
 
-**الحالة**
-كل الاختبارات مقترحة ولم يُنفذ أي منها، ولا يُسجل نجاح قبل التنفيذ. المخرجات آثار JSON بحالة ∈ {نجاح، فشل، غير حاسم، معلّق}.
+**Status**
+All tests are proposed; none has been run, and no success is recorded before execution. Outputs are JSON traces with status ∈ {pass, fail, inconclusive, blocked}.
 
-**الأنواع**
-- G: حتمي، وأي خرق فشل.
-- S: 24 بذرة bᵢ = SHA256('PoColSeed'‖be32(i))، وCI 95% بـbootstrap، ثم 48 بذرة، ثم «غير حاسم».
-- T13: 12 بذرة مع اختبار إشارات دقيق وHolm [PDF:123].
-- C (مشروط): قياس على مقبس أو متصفح حقيقي، شرطه محسوب من مسار التتبع المقيس طوال التشغيل لا من لحظة واحدة. إن تحقق فالمخالفة فشل، وإلا فالنتيجة «غير حاسم» بالقيم المسجلة بعد 3 تكرارات.
+**Types**
+- G: deterministic; any violation is a failure.
+- S: 24 seeds bᵢ = SHA256('PoColSeed'‖be32(i)), with a 95% bootstrap CI, then 48 seeds, then “inconclusive”.
+- T13: 12 seeds with an exact sign test and Holm correction [PDF:123].
+- C (conditional): measurement on a real socket or browser; its condition is computed from the measured trace throughout the run, not one instant. If satisfied, a violation is a failure; otherwise the result is “inconclusive”, with values recorded after 3 repetitions.
 
-**البوابات**
-كل G، وT4، وT7، وT7b، وT7c، وT7e، وT8، وT9، وT10b(i، ii، iii، vi)، وT19، وT18b، وT27، وX8، وBR، وBG1، وMR، وNX، وRW، وHC، وAS، وASQ، وASB، وL4، وHG، وPG-END، وPG-RPC، وCL-END، وLC، وPS، وRG.
+**Gates**
+All G, T4, T7, T7b, T7c, T7e, T8, T9, T10b(i, ii, iii, vi), T19, T18b, T27, X8, BR, BG1, MR, NX, RW, HC, AS, ASQ, ASB, L4, HG, PG-END, PG-RPC, CL-END, LC, PS and RG.
 
-**القياسات**
-- T10، وT10b(iv، v)، وT10c، وT13، وbaseBurn/R، وزمن F.
-- نسبة viewTargetCeil، وRG9، وtotalRequests في RG3، وB_meas، وpacerLateMaxMs.
-- لحظات الإغلاق في RG14، والفرق receiveDone−sendDone وunreadAtSendDone على المقابس.
-- توزيع فواصل الوصول في BR19c.
+**Measurements**
+- T10, T10b(iv, v), T10c, T13, baseBurn/R and time of F.
+- viewTargetCeil rate, RG9, totalRequests in RG3, B_meas and pacerLateMaxMs.
+- Closure times in RG14, and receiveDone−sendDone and unreadAtSendDone on sockets.
+- Arrival-interval distribution in BR19c.
 
 **ASERT (G)**
 
-المدخل (p.ts−g_ts, p.h, T_blk, τ)، ثم المسار (Δt, e, s, f, F)، ثم target. target_g=2^240 ما لم يُذكر غيره.
+Input (p.ts−g_ts, p.h, T_blk, τ), then trace (Δt, e, s, f, F), then target. target_g=2^240 unless otherwise stated.
 - AS1: (0,0,10,600) → (0,0,0,0,65536) → 2^240.
 - AS2: (700,10,10,600) → (600,65536,1,0,65536) → 2^241.
 - AS3: (400,100,10,600) → (−600,−65536,−1,0,65536) → 2^239.
@@ -30,2115 +30,2115 @@
 - AS7: (9,1,10,65536) → (−1,−1,−1,65535,131071) → 131071·2^223.
 - AS8: (65545,1,10,65536) → (65535,65535,0,65535,131071) → 131071·2^224.
 - AS9: (34463,10000,10,65536) → (−65537,−65537,−2,65535,131071) → 131071·2^222.
-- AS10: (9,1,10,65537) → e=−1 → 131071·2^223. التنفيذ بالبتر يعطي 2^240 فيفشل.
+- AS10: (9,1,10,65537) → e=−1 → 131071·2^223. Truncation yields 2^240 and fails.
 - AS11: (10300,10,10,600) → s=17 → 2^256−1.
 - AS12: (55400,20000,10,600) → s=−241 → 1.
-- AS13: target_g=2^256−1، و(0,0,10,600) → 2^256−1 دون فيض.
-- AS14: (2^62, 7, 60, 3600) → s ≥ 256 → 2^256−1 عبر الخطوة 4.
-- AS15: (0, 2^64−1, 2^32−1, 1) → 1 عبر الخطوة 4.
-- AS16: target_g=1، و(153000,0,10,600) → s=255 وf=0 → 2^255.
-- AS17: target_g=1، و(153600,0,10,600) → s=256 → 2^256−1.
-- AS18: target_g=2^256−1، و(0,15420,10,600) → s=−257 → 1.
-- AS19: target_g=2^256−1، و(0,15360,10,600) → s=−256 وk=−272 → 0 → 1.
-- AS-eq: مرجع غير محدود (Python أو TS BigInt) يطابق AS1–AS19 و10^6 مدخل عشوائي بـs ∈ [−300, 300].
-- ASB: Rust دون تخصيص كومة (بعداد المخصص)، وTS بوسائط ≤ 512 بتًا، وAS14–AS19 كل منها ≤ 1 ms و≤ 10 أضعاف AS1.
-- قيم F مشتقة يدويًا، تُثبت بتنفيذين مع المرجع، وأي اختلاف يوقف M3.
-- ASQ: خطأ نسبي ≤ 2·10^−4، وF وtarget(e) غير متناقصتين.
+- AS13: target_g=2^256−1, (0,0,10,600) → 2^256−1 without overflow.
+- AS14: (2^62, 7, 60, 3600) → s ≥ 256 → 2^256−1 through step 4.
+- AS15: (0, 2^64−1, 2^32−1, 1) → 1 through step 4.
+- AS16: target_g=1, (153000,0,10,600) → s=255 and f=0 → 2^255.
+- AS17: target_g=1, (153600,0,10,600) → s=256 → 2^256−1.
+- AS18: target_g=2^256−1, (0,15420,10,600) → s=−257 → 1.
+- AS19: target_g=2^256−1, (0,15360,10,600) → s=−256 and k=−272 → 0 → 1.
+- AS-eq: an unbounded reference (Python or TS BigInt) matches AS1–AS19 and 10^6 random inputs with s ∈ [−300, 300].
+- ASB: Rust without heap allocation (allocator counter), TS with intermediates ≤ 512 bits; each of AS14–AS19 takes ≤ 1 ms and ≤ 10 times AS1.
+- F values are derived manually and confirmed by two implementations against the reference; any discrepancy stops M3.
+- ASQ: relative error ≤ 2·10^−4; F and target(e) are nondecreasing.
 
-**T4-B (S)**: متوسط فاصل 3000 كتلة ضمن [0.9, 1.1]·T_blk.
+**T4-B (S)**: mean interval over 3000 blocks within [0.9, 1.1]·T_blk.
 
-**T10c (قياس)**: طوابع متطرفة.
+**T10c (measurement)**: extreme timestamps.
 
 **T0 (D73)**
-cfg_B = {777001، 0x11×32، [(1,0)]، nonceMode=1}، وأب h=0 بـts=1700000000.
-- L0: قبول V1–V6 وV3a. رفض V7–V15: h زائد الطول، وبايت زائد، وs عالٍ، وv=0x1b، وnonce بسبعة بايتات، وtarget=0x80، وshareList غير صارمة أو تحوي nonce، وproposer بـ19 بايتًا، و17 عنصرًا.
-- L1 (firstReject / diagSet): V3a netChain/{netChain}، وV3b netChain/{netChain, 3}، وV16–V19 3/{3}، وV23 netGenesis، وV24 وV25 netVersion، وV26 netChain.
-- L2: V1 وV5 وV6 ببحث حده 2^28، وV6 بطول 3067.
-- L3: V20–V22 تعطي البند 12.
+cfg_B = {777001, 0x11×32, [(1,0)], nonceMode=1}, with parent h=0 at ts=1700000000.
+- L0: accept V1–V6 and V3a. Reject V7–V15: overlong h, trailing byte, high s, v=0x1b, seven-byte nonce, target=0x80, non-strict shareList or one containing nonce, 19-byte proposer, and 17 items.
+- L1 (firstReject / diagSet): V3a netChain/{netChain}, V3b netChain/{netChain, 3}, V16–V19 3/{3}, V23 netGenesis, V24 and V25 netVersion, V26 netChain.
+- L2: V1, V5 and V6 with a 2^28 search bound; V6 length 3067.
+- L3: V20–V22 give item 12.
 
 **L4 (D79)**
-- K1: keccak256(فارغ) = c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470.
+- K1: keccak256(empty) = c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470.
 - K2: keccak256(0xc0) = 1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347.
 - K3: keccak256(0x80) = 56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421.
 
-GSV1 (341 بايتًا، غير قابل للإقلاع):
-- الرأس: f9 01 52 | 01 | 83 0b de ae.
-- CP: f8 b1، ثم:
+GSV1 (341 bytes, non-bootable):
+- Header: f9 01 52 | 01 | 83 0b de ae.
+- CP: f8 b1, then:
   - 1–10: 84 65 53 f1 00 | 9f 01 ‹00×30› | 0a | 82 02 58 | 01 | 02 | 3c | 06 | 20 | 02.
   - 11–17: 82 01 00 | 10 | 40 | 82 03 e8 | 82 01 f4 | 83 01 38 80 | 89 05 6b c7 5e 2d 63 10 00 00.
   - 18–30: 02 | 82 01 00 | 01 | 82 40 00 | 10 | 40 | 10 | 81 80 | 82 04 00 | 82 08 00 | 82 08 98 | 04 | 82 20 00.
   - 31–40: 83 7a 12 00 | 84 3b 9a ca 00 | 83 02 00 00 | 83 03 00 00 | 82 80 00 | 84 40 00 00 00 | 85 02 00 00 00 00 | 83 98 96 80 | 83 3d 09 00 | 83 0f 42 40.
   - 41–52: 83 02 00 00 | 82 08 00 | 82 01 00 | 82 02 00 | 84 05 b8 d8 00 | 81 c8 | 84 65 ec 87 80 | 28 | 84 65 ec 87 80 | 81 a0 | 81 80 | 02.
-- الذيل: a0 ‹22×32› | f8 56 ea 94 ‹a1×20› 94 ‹b1×20› ea 94 ‹a2×20› 94 ‹b2×20› | a0 ‹33×32›.
-- الأطوال: CP 179، وM_0List 88، والحمولة 338.
+- Tail: a0 ‹22×32› | f8 56 ea 94 ‹a1×20› 94 ‹b1×20› ea 94 ‹a2×20› 94 ‹b2×20› | a0 ‹33×32›.
+- Lengths: CP 179, M_0List 88, payload 338.
 
-القبول: (i) تطابق حرفي في Rust وTS. (ii) الفك ثم الترميز يعيد البايتات نفسها. (iii) H_GSV1 يُسجل باتفاق ثلاث مكتبات بعد K1–K3، وأي اختلاف يوقف M3. (iv) بعدها يصبح ثابتًا.
+Acceptance: (i) literal match in Rust and TS. (ii) Decode then encode returns identical bytes. (iii) H_GSV1 is recorded by agreement of three libraries after K1–K3; any discrepancy stops M3. (iv) It is then frozen.
 
-L4n: N1 حذف 52 → gsCount. N2 العنصر 5 = 02 → gsRange. N3 العنصر 3 = 81 0a → gsInt. N4 تبديل المدخلين → gsOrder. N5 مدخل مكرر → gsOrder. N6 rewardAddr بـ19 بايتًا → gsLen. N7 specVersion=02 → gsVersion. N8 العنصر 2 = 80 → gsRange. N9 بايت زائد → L0. N10 id=…C0C001 → gsSys. N11 genesisHash مختلف → رفض الملف وR24(أ).
+L4n: N1 remove item 52 → gsCount. N2 item 5 = 02 → gsRange. N3 item 3 = 81 0a → gsInt. N4 swap the two entries → gsOrder. N5 duplicate entry → gsOrder. N6 19-byte rewardAddr → gsLen. N7 specVersion=02 → gsVersion. N8 item 2 = 80 → gsRange. N9 trailing byte → L0. N10 id=…C0C001 → gsSys. N11 different genesisHash → profile rejection and R24(A).
 
-L4s: CP في sv-fix يطابق GSV1، وGB1، وallocRoot يُسجل باتفاق Rust وanvil.
+L4s: CP in sv-fix matches GSV1 and GB1; allocRoot is recorded by Rust/anvil agreement.
 
 **PG-END (G)**
-- PG-END1: network مع H_CLOSE=129584 → [R13].
-- PG-END2: Z_close=146 وH_CLOSE=H_END−146 → [R20].
+- PG-END1: network with H_CLOSE=129584 → [R13].
+- PG-END2: Z_close=146 and H_CLOSE=H_END−146 → [R20].
 - PG-END3: network → ok.
-- PG-END4: end/full على simnet → ok، وعلى node → [R22] وحدها.
-- PG-END5: end/full مع R_max=2 → [R16]، ومع Z_close=146 وH_CLOSE=554 → [R20].
-- PG-L: Lmax = 4113 في network وend/full، والطرف الأيمن لـR16 = 12578.
+- PG-END4: end/full on simnet → ok; on node → [R22] alone.
+- PG-END5: end/full with R_max=2 → [R16]; with Z_close=146 and H_CLOSE=554 → [R20].
+- PG-L: Lmax = 4113 in network and end/full; R16 right-hand side = 12578.
 
 **PG-RPC (G)**
-كل مما يلي يعطي [R26]: HEAVY_RESP_MEM=4 MiB، أو LIGHT_RESP_MEM=8 MiB، أو RPC_CONN_MAX=64 (يخرق أ وب وج)، أو LOGS_COUNT_MAX=500، أو LIGHT_RESP_MAX=256 KiB، أو BATCH_WALL=400s أو 404s، أو سعة الدلو 10، أو ERR_ITEM_MAX=4 KiB، أو ENFORCE_SLACK=0 أو 600 ms، أو TIMER_EPS=0 أو 200 ms، أو SEND_SOCK_BUF=128 KiB.
+Each of the following gives [R26]: HEAVY_RESP_MEM=4 MiB, LIGHT_RESP_MEM=8 MiB, RPC_CONN_MAX=64 (violates A, B and C), LOGS_COUNT_MAX=500, LIGHT_RESP_MAX=256 KiB, BATCH_WALL=400s or 404s, bucket capacity 10, ERR_ITEM_MAX=4 KiB, ENFORCE_SLACK=0 or 600 ms, TIMER_EPS=0 or 200 ms, or SEND_SOCK_BUF=128 KiB.
 
-BATCH_WALL=405s → ok. القيم الافتراضية → ok، وderive تعرض 258.0791015625 و258.2791015625 و404.2791015625 حرفيًا.
+BATCH_WALL=405s → ok. Defaults → ok; derive displays 258.0791015625, 258.2791015625 and 404.2791015625 literally.
 
-**BG1 (G، ثوابت الجسر)**: القيم الافتراضية تجتاز. BUCKET_CAP_MT=49999 أو MSG_COST_MT=0 أو PENDING_READS_MAX=0 أو SITE_STORE_MAX=1048575 أو BRIDGE_MSG_MAX=61823 تفشل البناء.
+**BG1 (G, bridge constants)**: defaults pass. BUCKET_CAP_MT=49999, MSG_COST_MT=0, PENDING_READS_MAX=0, SITE_STORE_MAX=1048575 or BRIDGE_MSG_MAX=61823 fail the build.
 
-متجهات D100:
-- تفشل البناء:
-  - RECV(eth_getCode)=64 KiB، لأن 65536 < 66560.
-  - RECV(eth_getBlockByHash)=160 KiB، لأن 163840 < 163958.
-  - FEE_HISTORY_BLOCKS_MAX=256، لأن الأسوأ 335567 > 180224.
-  - إضافة eth_getCode إلى capped دون سطر حد منتجي.
-- تجتاز: eth_call بـ1 MiB، لأنها capped.
+D100 vectors:
+- Fail the build:
+  - RECV(eth_getCode)=64 KiB, because 65536 < 66560.
+  - RECV(eth_getBlockByHash)=160 KiB, because 163840 < 163958.
+  - FEE_HISTORY_BLOCKS_MAX=256, because the worst case is 335567 > 180224.
+  - Adding eth_getCode to capped without a producer-bound row.
+- Pass: eth_call at 1 MiB, because it is capped.
 
 **ExecFixture**
-SV1–SV7s، وCL1–CL4، وCI1–CI3، وGB1، وGB-END.
-- SV9-exec: h=30 بـ[tx1, tx2, tx3] → الحالات 1/0/1، وgasUsed 21000 و21004 و26003، وblockTips=173015، والفائض +5000.
+SV1–SV7s, CL1–CL4, CI1–CI3, GB1 and GB-END.
+- SV9-exec: h=30 with [tx1, tx2, tx3] → statuses 1/0/1, gasUsed 21000, 21004 and 26003, blockTips=173015, surplus +5000.
 - SV8-exec: blockTips=84000.
 
 **FixtureMiner(profile, plan)**
-لكل h:
-1. Build_fb أو قالب موقّع بمفتاح Draw(h,0)، وإلا 'draw'.
-2. target ≥ 2^236، وإلا 'target'.
-3. مسح R(winner) بحد 2^28، وإلا 'search'.
-4. shareList=[]، وwinnerSig.
-5. الإرسال، والرفض غير المتوقع 'reject'.
+For every h:
+1. Build_fb or a template signed by Draw(h,0)'s key, otherwise 'draw'.
+2. target ≥ 2^236, otherwise 'target'.
+3. Scan R(winner) with bound 2^28, otherwise 'search'.
+4. shareList=[] and winnerSig.
+5. Submit; unexpected rejection is 'reject'.
 
-قاعدة sv-fix: h ∈ [1,199] احتياطية بجسم فارغ، وts +7، وwinner=w، وpot=80000، وcloseH=40، وF=200.
+sv-fix rule: h ∈ [1,199] are fallback blocks with empty bodies, ts +7, winner=w, pot=80000, closeH=40 and F=200.
 
-المعاملات:
-- tx1: type-2 من s1 إلى s2، وvalue=1، وgas=21000، وtip 4، وmaxFee=2·10^9، وchainId=777902، وnonce 0.
-- tx2: s3 إلى Rv، وgas=50000، وtip 3.
-- tx3: s4 إلى Sd، وgas=50000، وtip 1.
+Transactions:
+- tx1: type-2 from s1 to s2, value=1, gas=21000, tip 4, maxFee=2·10^9, chainId=777902, nonce 0.
+- tx2: s3 to Rv, gas=50000, tip 3.
+- tx3: s4 to Sd, gas=50000, tip 1.
 
-FixtureVerify: diagnose → {first, violated, notEvaluable}، وdiagnoseChain. التطابق نجاح، وإلا «معلّق».
+FixtureVerify: diagnose → {first, violated, notEvaluable}, and diagnoseChain. A match passes; otherwise “blocked”.
 
-**المرحلة A (G)**
-- T1: غير الناشر revert. createVersion ثم publish ثم setCurrent نجاح. revoke للحالي revert. نقل دون قبول لا يغير owner. store مكرر يعيد العنوان نفسه.
-- T11a: تعديل بايت يعرض «عبث» دون إطار.
-- T16: متجهات manifest.
-- T12 (بوابة): 12 موقعًا مع X1–X7، ود1–د5، وQ1–Q12، وصفر معاملات دون نقر. المواقع: css نسبي، ومجلدات، وclassic، ووحدات مع importmap، وinline، وlocalStorage (عبر BR17)، وfetch JSON، وwoff2، وصور، ونموذج، وSPA بروابط داخلية (عبر BR18)، وقراءة وكتابة عقد، مع BR14 مسارًا مشروعًا. يُسجل لكل موقع عدد رسائل الجسر المرفوضة بـrate، والمعيار صفر رفض rate لموقع يقرأ أو يكتب بمعدل تحميل عادي.
-- X8: CanarySink على TCP 18080 و18443 و13478، وUDP 13478 و19000، والقنوات C1–C8. الأعلام: K0–K2 صفر وصول، وK3 معلوماتي، وK4 ضابط، وK5 صفر لـC5–C7.
-- RW-unit (h → b, from, count, n, anchoredGenesis): RW1 1 → (1,1,1,1,نعم). RW2 3 → (1,1,3,3,نعم). RW3 13 → (1,1,13,13,نعم). RW4 14 → (2,1,14,13,لا). RW5 20 → (8,7,14,13,لا). RW6 2^64−1 → (2^64−13, 2^64−14, 14, 13, لا) دون فيض. شامل لكل h ∈ [1, 10^6]: count ≤ 14، وn ≤ 13، وcount = n+[b>1].
-- HC-unit: HC1 target_g=2^240 وtarget=2^244 → مقبول. HC2 target=2^244+1 → viewTargetCeil. HC3 target_g=2^256−1 → ceilTarget=2^256−1 دون فيض. HC4 target_g=2^240 → minWork=4095، والرسالة تحوي '4095' ولا تحوي '4095.9' ولا '/16'. HC5 target_g=2^256−1 → minWork=1 مع «حد العمل غير فعال». HC6 target_g=2^252 → ceilTarget=2^256−1 وminWork=1. HC7 target_g=1 → ceilTarget=16 وminWork=floor(2^256/17). شامل: 10^4 قيمة عشوائية، ولكل target ≤ ceilTarget تتحقق work(target) ≥ minWork بـBigInt.
+**Phase A (G)**
+- T1: nonpublisher reverts. createVersion then publish then setCurrent succeeds. Revoking current reverts. Transfer without acceptance does not change owner. Duplicate store returns the same address.
+- T11a: modifying one byte displays “tampering” without a frame.
+- T16: manifest vectors.
+- T12 (gate): 12 sites with X1–X7, DNR-d1–DNR-d5 and Q1–Q12; zero transactions without clicks. Sites: relative css, folders, classic scripts, modules with importmap, inline, localStorage (through BR17), fetch JSON, woff2, images, form, SPA with internal links (through BR18), and contract reads/writes, with BR14 as a legitimate path. Record bridge messages rejected by rate for each site; criterion: zero rate rejections for a site reading/writing at a normal load rate.
+- X8: CanarySink on TCP 18080, 18443 and 13478, UDP 13478 and 19000; channels C1–C8. Flags: K0–K2 zero arrivals, K3 informational, K4 control, K5 zero for C5–C7.
+- RW-unit (h → b, from, count, n, anchoredGenesis): RW1 1 → (1,1,1,1,yes). RW2 3 → (1,1,3,3,yes). RW3 13 → (1,1,13,13,yes). RW4 14 → (2,1,14,13,no). RW5 20 → (8,7,14,13,no). RW6 2^64−1 → (2^64−13, 2^64−14, 14, 13, no) without overflow. Exhaustive for h ∈ [1, 10^6]: count ≤ 14, n ≤ 13, count = n+[b>1].
+- HC-unit: HC1 target_g=2^240 and target=2^244 → accepted. HC2 target=2^244+1 → viewTargetCeil. HC3 target_g=2^256−1 → ceilTarget=2^256−1 without overflow. HC4 target_g=2^240 → minWork=4095; message contains '4095', not '4095.9' or '/16'. HC5 target_g=2^256−1 → minWork=1 with “work bound ineffective”. HC6 target_g=2^252 → ceilTarget=2^256−1 and minWork=1. HC7 target_g=1 → ceilTarget=16 and minWork=floor(2^256/17). Exhaustive: 10^4 random values; for every target ≤ ceilTarget, work(target) ≥ minWork, checked with BigInt.
 
-**BR (G، تفويض الجسر وغلافه ومعدله وحصته، D95، D96، D97)**
+**BR (G, bridge authorization, envelope, rate and quota, D95, D96, D97)**
 
-الإعداد:
-- المرحلة A على anvil-br (chainId=777910) خلف RpcTap، وهو وكيل HTTP محلي يسجل كل طلب يمر إلى anvil بترتيبه ومصدره وزمن وصوله وزمن رده، ويدعم hold(method, ms) لتأخير الرد.
-- الإضافة مثبتة في Chrome اختباري ببناء الاختبار مع BridgeTrace، وBadSite موقع منشور عبر المصنع على العنوان S_A، وGoodSite موقع ثانٍ على العنوان S_B.
-- BadSite يحتوي txA مضمّنة: type-2 من مفتاح 7 (s1) إلى s2، بقيمة 1، وnonce 0، وchainId=777910، موقعة خارج المتصفح بأداة الاختبار.
-- TestHooks يسجل فتح نوافذ الموافقة والتأكيد، وفتح التبويبات، ولقطات SiteStorage.
-- كل رسالة تُكتب بالغلاف {id, kind, payload}، والصيغة المختصرة أدناه kind {method, params} تعني payload = {method, params} مع id متزايد من 1. M1-spec يحوي النص الحرفي لكل رسالة.
-- لعزل حالات BR1–BR18 عن المعدل: كل حالة تُرسل في جلسة جديدة يفتحها TestHooks (دلو ممتلئ)، ورسائلها < 50، وBadSite ينتظر رد كل رسالة قبل التالية إلا حيث يُذكر غير ذلك. أي رفض rate أو pending غير متوقع في هذه الحالات يجعلها «معلّقة» لا ناجحة، ويُسجل خطأ تجهيز.
+Setup:
+- Phase A on anvil-br (chainId=777910) behind RpcTap, a local HTTP proxy recording each request forwarded to anvil in order, with source, arrival and response times; supports hold(method, ms) to delay responses.
+- Extension installed in test Chrome using the test build with BridgeTrace; BadSite published through the factory at S_A; GoodSite is a second site at S_B.
+- BadSite embeds txA: type-2 from key 7 (s1) to s2, value 1, nonce 0, chainId=777910, signed outside the browser by the test tool.
+- TestHooks records approval/confirmation dialogs, tab openings and SiteStorage snapshots.
+- Every message uses envelope {id, kind, payload}; shorthand kind {method, params} below means payload = {method, params}, with id increasing from 1. M1-spec contains each literal message.
+- To isolate BR1–BR18 from rate effects: each case uses a fresh session opened by TestHooks (full bucket), fewer than 50 messages, and BadSite awaits each reply before the next message unless stated otherwise. Any unexpected rate/pending rejection makes the case “blocked”, not passed, and records a fixture error.
 
-BridgeRef (D97): مرجع Python مستقل مكتوب من النص، يأخذ BridgeTrace (أوقات الوصول) وسجل RpcTap (أوقات الردود) ويعيد لكل رسالة القرار المتوقع: bpre (pass/size/rate)، والمرحلة والرمز، والتوجيه، وقرار التعليق. يُحسب الدلو بالأعداد الصحيحة نفسها، ويُحسب pendingReads من لحظة التوجيه ولحظة الرد النهائي المسجلة. يتضمن SiteStorageRef: قاموس مرجعي لكل (netKey، عنوان) يطبق محاسبة entry وnewTotal الحرفية في browser، ويعيد القرار (null أو 4300) وtotal بعد كل رسالة.
+BridgeRef (D97): an independent Python reference written from the text, taking BridgeTrace (arrival times) and RpcTap logs (response times), returning each message's expected decision: bpre (pass/size/rate), stage/code, routing and pending decision. The bucket uses the same integer arithmetic; pendingReads is computed from routing time and the recorded final-response time. Includes SiteStorageRef: a reference dictionary per (netKey, address), applying the literal entry/newTotal accounting in browser, returning decision (null or 4300) and total after every message.
 
-المعيار المشترك لكل حالة رفض:
-- (أ) الخطأ المحدد بالضبط (الرمز والبيانات وid المعاد)، ومطابق لـBridgeRef.
-- (ب) صفر طلبات في RpcTap ناتجة عن الرسالة، ومنها صفر eth_sendRawTransaction من أي مصدر عدا WalletSubmit.
-- (ج) بعد تعدين 3 كتل بأداة الاختبار لا بالموقع: eth_getTransactionCount(s1, latest) = 0 ورصيد s2 دون تغير.
-- (د) صفر نوافذ موافقة أو تأكيد مفتوحة، وصفر تبويبات جديدة. الاستثناء الوحيد BR18 حيث يُتوقع تأكيد واحد بالضبط.
-- (هـ) لقطة SiteStorage لكل المفاتيح دون تغير بايتي.
-- (و) الإطار يبقى يعمل، ورسالة قراءة مشروعة لاحقة تنجح.
+Common criterion for every rejection case:
+- (a) Exact specified error (code, data and returned id), matching BridgeRef.
+- (b) Zero RpcTap requests caused by the message, including zero eth_sendRawTransaction from any source except WalletSubmit.
+- (c) After mining 3 blocks with the test tool, not the site: eth_getTransactionCount(s1, latest) = 0; s2 balance unchanged.
+- (d) Zero open approval/confirmation dialogs and zero new tabs. Only BR18 is excepted, expecting exactly one confirmation.
+- (e) SiteStorage snapshot for every key is bytewise unchanged.
+- (f) The frame keeps working and a subsequent legitimate read succeeds.
 
-الحالات:
+Cases:
 - BR1: rpc_read {method: eth_sendRawTransaction, params: [txA]} → 4200.
-- BR2: rpc_read eth_sendTransaction → 4200، دون موافقة.
-- BR3: rpc_read pocol_submitShare ثم pocol_getTemplate → 4200 لكل منهما.
-- BR4: أسماء مشوهة → 4200، ومنها 'ETH_SENDRAWTRANSACTION'، و'eth_call ' (بمسافة)، و'eth_call\u0000'، و'eth_getBalance' بمحرف كيريلي مشابه، واسم بطول 65 بايتًا، و'Site_storageSet'.
-- BR5: payload مصفوفة [{eth_blockNumber}, {eth_sendRawTransaction}] → −32600 للرسالة كلها، وصفر طلبات حتى للعنصر الأول.
-- BR6: حقول زائدة في payload {method: eth_call, params: [...], jsonrpc: '2.0', id: 7}، أو حقل خارجي زائد بجانب {id, kind, payload}، أو method مكرر في النص الخام → −32600.
-- BR7 (تبديل kind وأولوية B0–B3):
+- BR2: rpc_read eth_sendTransaction → 4200, without approval.
+- BR3: rpc_read pocol_submitShare then pocol_getTemplate → 4200 each.
+- BR4: malformed names → 4200, including 'ETH_SENDRAWTRANSACTION', 'eth_call ' (space), 'eth_call\u0000', 'eth_getBalance' with a Cyrillic lookalike, a 65-byte name, and 'Site_storageSet'.
+- BR5: array payload [{eth_blockNumber}, {eth_sendRawTransaction}] → −32600 for the whole message; zero requests even for the first member.
+- BR6: extra payload fields {method: eth_call, params: [...], jsonrpc: '2.0', id: 7}, an extra outer field beside {id, kind, payload}, or duplicate method in raw text → −32600.
+- BR7 (kind substitution and B0–B3 precedence):
   - BR7a: wallet_req {method: eth_getBalance, params: [addr, 'latest']} → 4200 (B2).
   - BR7b: wallet_req {method: eth_sendRawTransaction, params: [txA]} → 4200 (B2).
-  - BR7c: storage_set {method: eth_call} دون params → −32600 (B0).
+  - BR7c: storage_set {method: eth_call} without params → −32600 (B0).
   - BR7d: storage_set {method: eth_call, params: []} → 4200 {method: 'eth_call'} (B2).
   - BR7e: storage_set {method: site_storageSet, params: ['k', 5]} → −32602 {path: 'params[1]'} (B3).
-  - BR7f: kind='rpc' مع {method: eth_blockNumber, params: []} → −32600 {reason: kind} (B1).
-  - BR7g: rpc_read {method: site_storageSet, params: ['k', 'v']} → 4200، وrpc_read {method: site_navigate, params: ['/']} → 4200.
+  - BR7f: kind='rpc' with {method: eth_blockNumber, params: []} → −32600 {reason: kind} (B1).
+  - BR7g: rpc_read {method: site_storageSet, params: ['k', 'v']} → 4200; rpc_read {method: site_navigate, params: ['/']} → 4200.
   - BR7h: nav {method: eth_call, params: [{to: addr}, 'latest']} → 4200.
-- BR8: eth_call بمعلمة ثالثة {stateOverride} → −32602 {path: 'params[2]'}.
-- BR9: eth_call بـgas=30000001، أو دون to، أو data وinput معًا → −32602.
-- BR10: rpc_read eth_getLogs على 1..100: RpcTap يرى pocol_getLogs وeth_getBlockByNumber فقط، وصفر eth_getLogs خام. المدى 1..1025 → −32020 {range} دون أي طلب. مرشح بـ17 عنوانًا → −32602. على anvil: −32601 لـpocol_getLogs يعطي Error{unsupported} ويُسجل.
-- BR11: method ∈ {'__proto__', 'constructor', 'hasOwnProperty', 'toString'} في كل kind → 4200، وصفر استثناء في العامل.
-- BR12: eth_getBlockByNumber [latest, true] → −32602. وtag='pending' أو 'earliest' أو {blockHash} → −32602.
-- BR13: payload بعمق 9 → −32600. رسالة بحجم 64 KiB+1 → −32600 {reason: size} مع id = null دون تحليل ودون استهلاك رمز (tokensBefore في السطر التالي من BridgeTrace = tokensBefore في سطرها). JSON غير صالح → −32600 مع id = null. id سالب أو 2^32 أو نص → −32600 مع id = null. كلها دون طلب.
-- BR14 (المسار المشروع): wallet_req eth_requestAccounts ثم موافقة بالنقر، ثم wallet_req eth_sendTransaction من الحساب الممنوح إلى s2 بقيمة 1، ثم موافقة بالنقر. المتوقع: طلب eth_sendRawTransaction واحد بالضبط في RpcTap، مصدره WalletSubmit، وkeccak256(raw) = txHash المعروض، والمعاملة مُدرجة بعد التعدين. المتغير بالرفض: 4001، وصفر eth_sendRawTransaction. المتغير بـfrom غير ممنوح: 4100.
-- BR15 (المرحلة B، pocold LN على sv-fix، في M7):
-  - تكرار BR1 وBR3 وBR5 مع RpcRecorder بدل RpcTap: صفر طلبات، والمجمع وShareLedger وstateRoot دون تغير بايتي.
-  - طلب HTTP مباشر من أداة الاختبار بترويسة Origin: chrome-extension://<ID> إلى pocol_submitShare وpocol_getTemplate → −32601 من ح2، وoriginDenied يزيد، وصفر قبول.
-  - الطلب نفسه دون Origin → يُخدم كالمعتاد (ضابط إيجابي).
-  - BR14 على pocold → إدراج المعاملة.
+- BR8: eth_call with third parameter {stateOverride} → −32602 {path: 'params[2]'}.
+- BR9: eth_call with gas=30000001, no to, or both data and input → −32602.
+- BR10: rpc_read eth_getLogs over 1..100: RpcTap sees only pocol_getLogs and eth_getBlockByNumber, zero raw eth_getLogs. Range 1..1025 → −32020 {range} without any request. A filter with 17 addresses → −32602. On anvil: −32601 for pocol_getLogs gives Error{unsupported}, recorded.
+- BR11: method ∈ {'__proto__', 'constructor', 'hasOwnProperty', 'toString'} in every kind → 4200; zero worker exceptions.
+- BR12: eth_getBlockByNumber [latest, true] → −32602. tag='pending', 'earliest' or {blockHash} → −32602.
+- BR13: payload depth 9 → −32600. Message size 64 KiB+1 → −32600 {reason: size}, id = null, without parsing or token consumption (tokensBefore on the next BridgeTrace row equals tokensBefore on this row). Invalid JSON → −32600, id = null. Negative, 2^32 or string id → −32600, id = null. All without requests.
+- BR14 (legitimate path): wallet_req eth_requestAccounts, click approval, then wallet_req eth_sendTransaction from the granted account to s2 for value 1, then click approval. Expected: exactly one eth_sendRawTransaction in RpcTap, source WalletSubmit, keccak256(raw) = displayed txHash, transaction included after mining. Rejection variant: 4001, zero eth_sendRawTransaction. Ungranted from variant: 4100.
+- BR15 (phase B, pocold LN on sv-fix, in M7):
+  - Repeat BR1, BR3 and BR5 with RpcRecorder instead of RpcTap: zero requests; mempool, ShareLedger and stateRoot bytewise unchanged.
+  - Direct HTTP request from the test tool, Origin: chrome-extension://<ID>, to pocol_submitShare and pocol_getTemplate → −32601 from h2; originDenied increases, zero acceptance.
+  - Same request without Origin → served normally (positive control).
+  - BR14 on pocold → transaction inclusion.
 - BR16 (fuzz):
-  - 10^4 رسالة عشوائية من مولد بذرته bᵢ: أسماء من القائمة الكاملة لطرق Ethereum وPoCol وanvil وsite_* مع طفرات، وkind عشوائي من المجموعة وخارجها، وparams عشوائية، وطفرات بنيوية في الغلاف، ومنها قيم storage_set بأطوال قرب حدود الحصة.
-  - BadSite يرسل الرسائل بفاصل ≥ 25 ms ودفعات من 20 مع انتظار الردود، حتى لا يهيمن المعدل، لكن المعيار لا يفترض غياب رفض rate.
-  - المعيار:
-    - رمز كل رد مطابق لـBridgeRef للرسالة نفسها مع أوقات وصولها المسجلة، بما فيه ترتيب Bpre–B4 وقرار الحصة من SiteStorageRef.
-    - كل طلب في RpcTap اسمه في مصفوفة القراءة، ومعلماته تجتاز SchemaRef، وصفر طلب محظور، ومجموعة الطلبات = مجموعة الرسائل التي يتوقع BridgeRef توجيهها.
-    - تغيرات SiteStorage ناتجة فقط عن رسائل يقبلها BridgeRef، والقاموس النهائي مطابق بايتيًا لقاموس SiteStorageRef.
-    - صفر تبويبات مفتوحة (TestHooks يرفض كل تأكيد آليًا)، وكل site_openExternal مقبول مخططيًا يعطي 4001.
-    - BridgeTrace بلا فيض، وإلا غير حاسم.
-- BR17 (التخزين المحلي، D96). الحالة الابتدائية لكل متجه: تخزين S_A فارغ ما لم يُذكر:
-  - BR17a نجاح: storage_set {method: site_storageSet, params: ['k', 'v']} → result null. خلال ≤ 500 ms يحوي أعلى سجل نسخة لـ'site:'+netKey+':'+S_A (D103) الزوج k='v'. بعد إعادة تحميل الموقع يعيد localStorage.getItem('k') القيمة 'v'. صفر طلبات في RpcTap.
-  - BR17b حذف: بعد BR17a، {method: site_storageSet, params: ['k', null]} → null، وk غائب.
-  - BR17c مسح: مفتاحان a وb ثم {method: site_storageClear, params: []} → null، والتخزين فارغ.
-  - BR17d مخطط: params [''] أو ['', 'v'] → −32602 (path 'params' للأول و'params[0]' للثاني). مفتاح بـ257 بايت UTF-8 → −32602 {path: 'params[0]'}. قيمة بـ61441 بايت → −32602 {path: 'params[1]'}. ['k', 'v', 'x'] → −32602 {path: 'params'}. [1, 'v'] → −32602 {path: 'params[0]'}. ['\ud800', 'v'] (وحدة بديلة منفردة) → −32602 {path: 'params[0]'}. site_storageClear بـ[1] → −32602 {path: 'params'}.
-  - BR17e حصة (I50). الحساب الحرفي: entry(k, v) = utf8len(k)+utf8len(v)، وtotal = Σentry، والقبول عند newTotal ≤ 1048576، ونتيجة الرفض 4300 {reason: 'quota', limit: 1048576}. جلسة جديدة، و24 رسالة (< 50)، وانتظار كل رد. كل قيمة سلسلة من 'a' أو 'b' أو 'x' ASCII، فطول JSON للقيمة = طولها + 2، وأكبر رسالة = غلاف ≤ 128 بايتًا + 61440 + 3 ≤ 61571 بايتًا < BRIDGE_MSG_MAX = 65536. بعد كل رسالة يُسجل total من BridgeTrace (storeTotalBefore وstoreTotalAfter)، ويطابق SiteStorageRef. الجدول (الرسالة → newTotal → الرد → total بعدها):
-    - (e1) 17 رسالة site_storageSet بمفاتيح k00..k16 (3 بايتات لكل منها) وقيم 61440 بايتًا من 'a'. الرسالة i ∈ [1, 17] → newTotal = 61443·i ≤ 1044531 → null، وtotal = 61443·i. بعد السابعة عشرة total = 1044531، والمتبقي 4045.
-    - (e2) الرسالة 18: ['k17', 61440×'a'] → newTotal = 1044531+61443 = 1105974 > 1048576 → 4300. total = 1044531، وk17 غائب، واللقطة البايتية للقاموس مطابقة للقطة قبل الرسالة.
-    - (e3) الرسالة 19: ['k17', 4043×'a'] → newTotal = 1044531+4046 = 1048577 → 4300، دون تغيير بايتي.
-    - (e4) الرسالة 20: ['k17', 4042×'a'] → newTotal = 1044531+4045 = 1048576 → null. total = 1048576 بالضبط.
-    - (e5) الرسالة 21: ['k18', 'x'] → newTotal = 1048576+4 = 1048580 → 4300، دون تغيير، وk18 غائب.
-    - (e6) الرسالة 22: ['k17', 4043×'a'] (استبدال) → newTotal = 1048576 − 4045 + 4046 = 1048577 → 4300. تبقى قيمة k17 بطول 4042 بايتًا دون تغيير بايتي.
-    - (e7) الرسالة 23: ['k00', 'b'] (استبدال ينقص) → newTotal = 1048576 − 61443 + 4 = 987137 → null.
-    - (e8) الرسالة 24: ['k01', null] (حذف) → newTotal = 987137 − 61443 = 925694 → null. الحذف لا يُرفض بالحصة.
-    - (e9) بعد إعادة تحميل الموقع: localStorage يحوي k00 = 'b'، وk02..k16 بقيم 61440 بايتًا من 'a'، وk17 بقيمة 4042 بايتًا من 'a'، ولا يحوي k01 ولا k18. مجموع المحاسبة على القاموس المقروء من chrome.storage.local = 925694.
-    - المعيار لكل 4300: صفر طلبات RpcTap، وصفر استدعاء chrome.storage.local.set (يسجله TestHooks)، ولقطة القاموس قبل الرسالة وبعدها متطابقتان بايتيًا، وrecord في BridgeTrace بـstoreTotalAfter = storeTotalBefore.
-    - التمييز: (e2) و(e3) و(e5) و(e6) تكشف غياب الذرية. (e4) يكشف المقارنة الصارمة (<) بدل (≤). (e7) يكشف إغفال طرح entry القديمة، ويجب أن يفشل فيه bridge-fault:quotaNoSubtract (يرد 4300 لأن 1048576+4 > الحد). (e6) يكشف حساب الاستبدال بقيمة الفرق دون المفتاح أو العكس.
-    - M1-spec يحوي هذا الجدول حرفيًا بالمجاميع قبل وبعد كل رسالة، والنص الحرفي للرسائل الأربع والعشرين.
-  - BR17f عزل: GoodSite (S_B) على الشبكة نفسها لا يرى k من S_A في localStorage. والموقع S_A على ملف شبكة آخر (netKey مختلف) لا يراه أيضًا. وحصة S_B مستقلة: بعد امتلاء S_A في BR17e(e4) ينجح ['k', 'v'] في S_B.
-  - BR17g الشكل القديم: storage_set بـpayload {key: 'k', value: 'v'} → −32600، دون تغيير.
-- BR18 (التنقل، D96):
-  - BR18a داخلي: nav {method: site_navigate, params: ['/about.html']} على موقع يحوي about.html → الإطار القديم يُهدم، وإطار جديد يعرض about.html وفق D26، وصفر تبويبات، وصفر طلبات RPC عدا جلب القطع عبر العامل.
-  - BR18b: ['/x/'] → يعرض /x/index.html. و['/'] → entry.
-  - BR18c: ['/a/../b.html'] و['/a%2fb'] و['//x'] تجتاز المخطط، والتطبيع يعطي صفحة 404 للعارض دون رد للإطار.
-  - BR18d: ['about.html'] (بلا '/') → −32602 {path: 'params[0]'}. و['/a b'] (مسافة) → −32602. ومسار بطول 2049 → −32602.
-  - BR18e خارجي مقبول: {method: site_openExternal, params: ['https://example.org/']} → تأكيد واحد يعرض الرابط كاملًا. TestHooks ينقر «فتح» → تبويب جديد واحد دون opener، والرد null. الشبكة لا تُطلب من سياق الموقع.
-  - BR18f خارجي مرفوض: الرسالة نفسها، وTestHooks ينقر «إلغاء» → 4001، وصفر تبويبات.
-  - BR18g: ['http://example.org/'] و['javascript:alert(1)'] و['chrome-extension://<ID>/x'] و['https://user:pw@example.org/'] و['https://'] → −32602 {path: 'params[0]'} دون تأكيد.
-  - BR18h: تأكيد معلق ثم site_openExternal ثانٍ → −32005 {reason: 'pending'} للثاني، ويبقى تأكيد واحد.
-  - BR18-L الشكل القديم: nav بـpayload {path: '/a'} أو {external: 'https://example.org/'} → −32600، وصفر تأكيدات.
-- BR19 (المعدل والتعليق، D97). ثلاث طبقات منفصلة:
-  - BR19a (G، وحدة، دلو Bpre وحده): BridgeAuth.check في Node مع FakeClock، وجلسة جديدة أُنشئت عند 1000 ms، والرسالة m = {id: i, kind: 'rpc_read', payload: {method: 'eth_blockNumber', params: []}}. check تنفذ Bpre–B3 فقط ولا توجّه ولا تتصل، فالنتيجة «اجتياز الفحص» لا خدمة RPC. المتجهات بالترتيب (اللحظة: الرسائل → النتيجة، tokens_mt بعدها):
-    - (a1) 1000: الرسائل 1..50 → ok، و0. الرسائل 51..60 → −32005 {reason: 'rate'} مع id = null، و0.
-    - (a2) 1019: الرسالة 61 → rate، وtokens_mt = 950.
-    - (a3) 1020: الرسالة 62 → ok، و0.
-    - (a4) 3000: tokens = min(50000, 0+50·1980) = 50000. الرسائل 63..112 → ok، والرسالة 113 → rate.
-    - (a5) 5000: 50 رسالة JSON غير صالح → −32600 مع id = null لكل منها، ثم رسالة صحيحة → rate، لأن الرسائل المرفوضة في B0 استهلكت رموزها.
-    - (a6) 7000: 50 رسالة بحجم 64 KiB+1 → −32600 {size}، ثم 50 رسالة صحيحة → ok، ثم الحادية والخمسون → rate، لأن رفض الحجم لا يستهلك.
-    - (a7) سجل BridgeTrace لكل رسالة يحمل tokensBefore المطابق للجدول.
-    - الضابط السالب bridge-fault:noRefill: يجب أن يفشل (a3).
-  - BR19b (G، وحدة، التعليق وحده): RpcReadClient مع FakeTransport يحتجز الردود حتى يُطلق يدويًا، وFakeClock، وإطار بـpendingReads = 0، والمدخلات رسائل اجتازت check.
-    - (b1) خمس رسائل eth_call صحيحة في اللحظة نفسها → الأربع الأولى تصل FakeTransport، والخامسة −32005 {reason: 'pending'} دون إرسال. pendingReads = 4.
-    - (b2) إطلاق رد الأولى → الإطار يستلم ردها، وpendingReads = 3. رسالة سادسة → تصل الناقل، وpendingReads = 4.
-    - (b3) تقديم الساعة 10000 ms دون ردود → الطلبات الأربعة المعلقة تُرد بـ−32603 {reason: 'transport'}، وpendingReads = 0.
-    - (b4) eth_getLogs عبر LogClient.fetchAll مع MockLogServer يحتجز → تعليق واحد مهما تعددت طلبات LogClient الداخلية، وثلاث eth_call بعده تصل، والرابعة pending.
-    - (b5) هدم الإطار مع 4 طلبات معلقة (D99):
-      - صفر ردود للإطار المهدوم.
-      - الإطار الجديد في الجلسة نفسها يرى pendingReads = 4، فقراءته الأولى −32005 {pending}.
-      - FakeTransport.settle لطلب يتيم واحد يجعل pendingReads = 3، فتصل القراءة التالية إلى الناقل.
-      - لا يصل رد يتيم إلى أي إطار.
-  - BR19c (C مع مطابقة G، متكامل في Chrome على anvil-br):
-    - BadSite يرسل في حلقة متزامنة واحدة 60 رسالة eth_blockNumber دون انتظار، ثم بعد 2000 ms يرسل 5 رسائل eth_call إلى عنوان s2 مع RpcTap.hold('eth_call', 3000).
-    - المطابقة (G دائمًا): كل قرار في BridgeTrace يساوي قرار BridgeRef المحسوب من arrivalMs وأوقات الردود المسجلة، ومجموعة طلبات RpcTap = مجموعة الرسائل الموجّهة بالضبط، وصفر طلب لرسالة مرفوضة.
-    - شرط الحسم: إن توقع BridgeRef رفض rate واحدًا على الأقل من الستين ورفض pending واحدًا على الأقل من الخمس، فالحالة حاسمة. وإلا بعد 3 تكرارات «غير حاسم» مع فواصل الوصول المسجلة، والمنطق مغطى بـBR19a وBR19b.
-    - لا يُتوقع عدد ثابت مثل 50/10، لأن التجدد يعتمد على أوقات الوصول الفعلية.
-- BR-neg (ضوابط سلبية): bridge-fault:allowAll يعطل B2 وفحص RpcReadClient، ويجب أن يفشل BR1 (يظهر eth_sendRawTransaction في RpcTap وتُدرج txA). bridge-fault:legacyLocal يجب أن يفشل فيه BR17g وBR18-L. bridge-fault:noRefill يجب أن يفشل فيه BR19a(a3). bridge-fault:quotaNoSubtract يجب أن يفشل فيه BR17e(e7). bridge-fault:storeUnbounded يجب أن يفشل فيه BR21a(q3، q5) وBR21b(r2) وBR21e(t=5). bridge-fault:storeEarlyRelease يجب أن يفشل فيه BR21a(q8) وBR21b(r6). bridge-fault:quotaNoRelease يجب أن يفشل فيه BR21f عند t=100 وفي (f2). ضوابط D103 (singleItem وnoEpochConfirm وnoCheckpoint وreuseSeq) يجب أن تفشل في BR22a عند الحالات المذكورة فيه. البناءات غائبة عن الإصدار.
-- BR20 (التنقل الذاتي وجلسة الموقع، D99):
-  - BR20a (G، وحدة، مع FakeClock وFakeTransport، والجلسة أُنشئت عند 1000 بـtokens_mt=50000، وnav=6000، وpending=0).
-    - لكل رسالة عمودان منفصلان:
-      - check: نتيجة Bpre–B3 (pass أو rate).
-      - route: نتيجة B4، أي forwarded أو −32005 {pending} أو nav.
-    - الجدول (الرسائل → check / route، ثم tokens_mt وpending بعدها):
-      - 1000، F1، m1..m4 eth_call → pass / forwarded. بعدها 46000، وpending=4.
-      - 1000، F1، m5..m49 eth_blockNumber → pass / pending. بعدها 1000، وpending=4.
-      - 1000، F1، m50 site_navigate('/') → pass / nav. بعدها 0، وnav=4000. الطلبات الأربعة يتيمة، وF2 ينضم إلى الجلسة.
-      - 1001، F2، m51 eth_blockNumber → rate (id=null) / —. بعدها 50.
-      - 1020، F2، m52 eth_blockNumber → pass / pending. بعدها 0.
-      - 1040، F2، m53 eth_call → pass / pending. بعدها 0.
-      - 1041، FakeTransport.settle(يتيم 1) → pending=3، وصفر رد لأي إطار.
-      - 1060، F2، m54 eth_call → pass / forwarded. بعدها 0، وpending=4.
-      - 1061، F2، m55 eth_blockNumber → rate / —. بعدها 50.
-    - الضابط السالب bridge-fault:frameBudget يجب أن يفشل عند m51: يمنح F2 دلوًا جديدًا وpending=0، فتصير m51 pass / forwarded.
-    - BridgeRef يطابق كل خلية في الجدول.
-  - BR20b (G، وحدة):
-    - site_navigate عند 0 ثلاث مرات → ثلاثة تنقلات.
-    - الرابع عند 0 → −32005 {nav} دون هدم.
-    - عند 2000 → تنقل. وعند 2001 → nav.
-  - BR20c (متكامل في Chrome على anvil-br، مع RpcTap.hold('eth_call', 3000)):
-    - السيناريو: صفحة بدء في BadSite ترسل 4 eth_call ثم site_navigate('/') فور التحميل، لمدة 60s.
-    - المعايير G، من RpcTap وBridgeTrace مقابل BridgeRef بدلالة الجلسة:
-      - أقصى تداخل لطلبات eth_call من الجلسة ≤ 4.
-      - الرسائل المقبولة حتى t ≤ 50+50·t.
-      - التنقلات المنفذة حتى t ≤ 3+t/2.
-      - طلبات eth_getCode للقطع تساوي عدد قطع الموقع، مرة واحدة.
-      - كل قرار مطابق لـBridgeRef.
-      - حجز الجلسة ≤ 10 MiB في TestHooks.recvStats.
-    - المعايير C:
-      - ping العامل p99 ≤ 100 ms.
-      - إغلاق التبويب ينهي الجلسة ويحرر حجوزها خلال ≤ 1s بعد استقرار الطلبات اليتيمة.
-      - ذاكرة عملية الإضافة ≤ خط الأساس+64 MiB بعدادات Windows.
-      - إن تعذر القياس فالنتيجة «غير حاسم» مع القيم المسجلة.
-  - BR20d: خمسة تبويبات للموقع نفسه، كل منها يرسل 4 eth_call محتجزة:
-    - 16 طلبًا تصل، والبقية −32005 {pending}.
-    - فحص الثقة في تبويب سادس ينجح بفضل TRUST_POOL.
-- BR21 (طابور التخزين، D101). BridgeTrace يضيف لكل رسالة storage_set الحقول التالية:
+  - 10^4 random messages from a generator seeded with bᵢ: names from the complete Ethereum/PoCol/anvil/site_* method lists with mutations, random kind inside/outside the set, random params, structural envelope mutations, including storage_set values near quota boundaries.
+  - BadSite sends at intervals ≥ 25 ms in batches of 20, awaiting replies so rate does not dominate; the criterion does not assume absence of rate rejections.
+  - Criterion:
+    - Every response code matches BridgeRef for the same message and recorded arrival times, including Bpre–B4 order and SiteStorageRef quota decision.
+    - Every RpcTap request name belongs to the read array and its parameters pass SchemaRef; zero prohibited requests; request set = messages BridgeRef expects to route.
+    - SiteStorage changes arise only from BridgeRef-accepted messages; final dictionary matches SiteStorageRef byte for byte.
+    - Zero opened tabs (TestHooks automatically rejects every confirmation); every schema-valid site_openExternal gives 4001.
+    - No BridgeTrace overflow; otherwise inconclusive.
+- BR17 (local storage, D96). Initial state for each vector: empty S_A storage unless stated otherwise:
+  - BR17a success: storage_set {method: site_storageSet, params: ['k', 'v']} → result null. Within ≤ 500 ms, the highest version record for 'site:'+netKey+':'+S_A (D103) contains k='v'. After site reload, localStorage.getItem('k') returns 'v'. Zero RpcTap requests.
+  - BR17b delete: after BR17a, {method: site_storageSet, params: ['k', null]} → null; k absent.
+  - BR17c clear: keys a and b, then {method: site_storageClear, params: []} → null; storage empty.
+  - BR17d schema: params [''] or ['', 'v'] → −32602 (path 'params' for the first, 'params[0]' for the second). 257-byte UTF-8 key → −32602 {path: 'params[0]'}. 61441-byte value → −32602 {path: 'params[1]'}. ['k', 'v', 'x'] → −32602 {path: 'params'}. [1, 'v'] → −32602 {path: 'params[0]'}. ['\ud800', 'v'] (lone surrogate) → −32602 {path: 'params[0]'}. site_storageClear with [1] → −32602 {path: 'params'}.
+  - BR17e quota (I50). Literal accounting: entry(k, v) = utf8len(k)+utf8len(v), total = Σentry; accept when newTotal ≤ 1048576; rejection is 4300 {reason: 'quota', limit: 1048576}. Fresh session, 24 messages (< 50), awaiting each reply. Each value is ASCII 'a', 'b' or 'x', so JSON value length = its length + 2; largest message = envelope ≤ 128 bytes + 61440 + 3 ≤ 61571 bytes < BRIDGE_MSG_MAX = 65536. After each message, record total from BridgeTrace (storeTotalBefore/storeTotalAfter), matching SiteStorageRef. Table (message → newTotal → reply → subsequent total):
+    - (e1) 17 site_storageSet messages with keys k00..k16 (3 bytes each) and 61440-byte 'a' values. Message i ∈ [1, 17] → newTotal = 61443·i ≤ 1044531 → null, total = 61443·i. After the seventeenth message, total = 1044531, remaining 4045.
+    - (e2) Message 18: ['k17', 61440×'a'] → newTotal = 1044531+61443 = 1105974 > 1048576 → 4300. total = 1044531; k17 absent; dictionary byte snapshot equals its pre-message snapshot.
+    - (e3) Message 19: ['k17', 4043×'a'] → newTotal = 1044531+4046 = 1048577 → 4300, no bytewise change.
+    - (e4) Message 20: ['k17', 4042×'a'] → newTotal = 1044531+4045 = 1048576 → null. total = exactly 1048576.
+    - (e5) Message 21: ['k18', 'x'] → newTotal = 1048576+4 = 1048580 → 4300, unchanged, k18 absent.
+    - (e6) Message 22: ['k17', 4043×'a'] (replacement) → newTotal = 1048576 − 4045 + 4046 = 1048577 → 4300. k17 remains 4042 bytes, bytewise unchanged.
+    - (e7) Message 23: ['k00', 'b'] (shrinking replacement) → newTotal = 1048576 − 61443 + 4 = 987137 → null.
+    - (e8) Message 24: ['k01', null] (deletion) → newTotal = 987137 − 61443 = 925694 → null. Deletion is not rejected by quota.
+    - (e9) After site reload: localStorage contains k00 = 'b', k02..k16 with 61440-byte 'a' values, k17 with 4042-byte 'a', and neither k01 nor k18. Accounted total from the dictionary read from chrome.storage.local = 925694.
+    - Criterion for every 4300: zero RpcTap requests, zero chrome.storage.local.set calls (recorded by TestHooks), byte-identical pre/post-message dictionary snapshots; BridgeTrace record has storeTotalAfter = storeTotalBefore.
+    - Discrimination: (e2), (e3), (e5) and (e6) detect missing atomicity. (e4) detects strict (<) instead of (≤). (e7) detects failure to subtract old entry; bridge-fault:quotaNoSubtract must fail it (returns 4300 because 1048576+4 > limit). (e6) detects replacement accounting using the value difference without the key or vice versa.
+    - M1-spec contains this literal table with totals before/after every message and the literal twenty-four messages.
+  - BR17f isolation: GoodSite (S_B) on the same network cannot see S_A's k in localStorage; S_A on another network profile (different netKey) cannot see it either. S_B quota is independent: after S_A fills at BR17e(e4), ['k', 'v'] succeeds on S_B.
+  - BR17g legacy form: storage_set payload {key: 'k', value: 'v'} → −32600, unchanged.
+- BR18 (navigation, D96):
+  - BR18a internal: nav {method: site_navigate, params: ['/about.html']} on a site containing about.html → old frame destroyed, new frame displays about.html under D26; zero tabs, zero RPC requests except worker chunk fetching.
+  - BR18b: ['/x/'] → displays /x/index.html; ['/'] → entry.
+  - BR18c: ['/a/../b.html'], ['/a%2fb'] and ['//x'] pass schema; normalization gives a viewer 404 page without replying to the frame.
+  - BR18d: ['about.html'] (no '/') → −32602 {path: 'params[0]'}. ['/a b'] (space) → −32602. Path length 2049 → −32602.
+  - BR18e allowed external: {method: site_openExternal, params: ['https://example.org/']} → one confirmation displaying the full URL. TestHooks clicks “Open” → one new tab without opener; response null. No network request from site context.
+  - BR18f rejected external: same message, TestHooks clicks “Cancel” → 4001, zero tabs.
+  - BR18g: ['http://example.org/'], ['javascript:alert(1)'], ['chrome-extension://<ID>/x'], ['https://user:pw@example.org/'] and ['https://'] → −32602 {path: 'params[0]'}, without confirmation.
+  - BR18h: pending confirmation, then second site_openExternal → −32005 {reason: 'pending'} for the second; one confirmation remains.
+  - BR18-L legacy form: nav payload {path: '/a'} or {external: 'https://example.org/'} → −32600, zero confirmations.
+- BR19 (rate and pending, D97). Three separate layers:
+  - BR19a (G, unit, Bpre bucket alone): BridgeAuth.check in Node with FakeClock, fresh session created at 1000 ms; m = {id: i, kind: 'rpc_read', payload: {method: 'eth_blockNumber', params: []}}. check runs Bpre–B3 only, with no routing/connection; result is “check passed”, not RPC service. Vectors in order (time: messages → result, subsequent tokens_mt):
+    - (a1) 1000: messages 1..50 → ok, 0. Messages 51..60 → −32005 {reason: 'rate'}, id = null, 0.
+    - (a2) 1019: message 61 → rate, tokens_mt = 950.
+    - (a3) 1020: message 62 → ok, 0.
+    - (a4) 3000: tokens = min(50000, 0+50·1980) = 50000. Messages 63..112 → ok; message 113 → rate.
+    - (a5) 5000: 50 invalid-JSON messages → −32600, id = null each; next valid message → rate, because B0 rejections consumed their tokens.
+    - (a6) 7000: 50 messages of size 64 KiB+1 → −32600 {size}, then 50 valid messages → ok, then the fifty-first → rate, because size rejection consumes nothing.
+    - (a7) Each BridgeTrace record has tokensBefore matching the table.
+    - Negative control bridge-fault:noRefill: must fail (a3).
+  - BR19b (G, unit, pending alone): RpcReadClient with FakeTransport holding responses until manually released, FakeClock, a frame at pendingReads = 0, inputs that passed check.
+    - (b1) Five valid eth_call messages simultaneously → first four reach FakeTransport, fifth −32005 {reason: 'pending'} without sending. pendingReads = 4.
+    - (b2) Release first reply → frame receives it, pendingReads = 3. Sixth message → reaches transport, pendingReads = 4.
+    - (b3) Advance clock 10000 ms without responses → four pending requests receive −32603 {reason: 'transport'}, pendingReads = 0.
+    - (b4) eth_getLogs through LogClient.fetchAll with a holding MockLogServer → one pending read regardless of internal LogClient requests; three following eth_call reach transport, fourth pending.
+    - (b5) Destroy frame with 4 pending requests (D99):
+      - Zero replies to the destroyed frame.
+      - New frame in the same session sees pendingReads = 4, so its first read gets −32005 {pending}.
+      - FakeTransport.settle for one orphan makes pendingReads = 3, so the next read reaches transport.
+      - No orphan response reaches any frame.
+  - BR19c (C with G matching, integrated Chrome on anvil-br):
+    - BadSite sends 60 eth_blockNumber messages in one synchronous loop without waiting, then after 2000 ms sends 5 eth_call messages to s2 with RpcTap.hold('eth_call', 3000).
+    - Matching (always G): each BridgeTrace decision equals BridgeRef computed from arrivalMs and recorded response times; RpcTap request set exactly equals routed messages, with zero requests for rejected messages.
+    - Decisiveness condition: if BridgeRef expects at least one rate rejection among the sixty and at least one pending rejection among the five, the case is decisive. Otherwise, after 3 repetitions it is “inconclusive”, with recorded arrival intervals; logic is covered by BR19a and BR19b.
+    - No fixed count such as 50/10 is expected, because refill depends on actual arrival times.
+- BR-neg (negative controls): bridge-fault:allowAll disables B2 and RpcReadClient checking and must fail BR1 (eth_sendRawTransaction appears in RpcTap and txA is included). bridge-fault:legacyLocal must fail BR17g and BR18-L. bridge-fault:noRefill must fail BR19a(a3). bridge-fault:quotaNoSubtract must fail BR17e(e7). bridge-fault:storeUnbounded must fail BR21a(q3, q5), BR21b(r2) and BR21e(t=5). bridge-fault:storeEarlyRelease must fail BR21a(q8) and BR21b(r6). bridge-fault:quotaNoRelease must fail BR21f at t=100 and in (f2). D103 controls (singleItem, noEpochConfirm, noCheckpoint, reuseSeq) must fail BR22a in its specified cases. These builds are absent from release.
+- BR20 (self-navigation and site session, D99):
+  - BR20a (G, unit, FakeClock/FakeTransport; session created at 1000 with tokens_mt=50000, nav=6000, pending=0).
+    - Each message has two separate columns:
+      - check: Bpre–B3 result (pass or rate).
+      - route: B4 result, namely forwarded, −32005 {pending}, or nav.
+    - Table (messages → check / route, then subsequent tokens_mt and pending):
+      - 1000, F1, m1..m4 eth_call → pass / forwarded. Then 46000, pending=4.
+      - 1000, F1, m5..m49 eth_blockNumber → pass / pending. Then 1000, pending=4.
+      - 1000, F1, m50 site_navigate('/') → pass / nav. Then 0, nav=4000. Four requests become orphaned; F2 joins the session.
+      - 1001, F2, m51 eth_blockNumber → rate (id=null) / —. Then 50.
+      - 1020, F2, m52 eth_blockNumber → pass / pending. Then 0.
+      - 1040, F2, m53 eth_call → pass / pending. Then 0.
+      - 1041, FakeTransport.settle(orphan 1) → pending=3, zero replies to any frame.
+      - 1060, F2, m54 eth_call → pass / forwarded. Then 0, pending=4.
+      - 1061, F2, m55 eth_blockNumber → rate / —. Then 50.
+    - Negative control bridge-fault:frameBudget must fail at m51: it gives F2 a new bucket and pending=0, making m51 pass / forwarded.
+    - BridgeRef matches every table cell.
+  - BR20b (G, unit):
+    - Three site_navigate calls at 0 → three navigations.
+    - Fourth at 0 → −32005 {nav}, without teardown.
+    - At 2000 → navigation. At 2001 → nav.
+  - BR20c (integrated Chrome on anvil-br, RpcTap.hold('eth_call', 3000)):
+    - Scenario: BadSite startup page sends 4 eth_call then site_navigate('/') immediately on load, for 60s.
+    - G criteria, from RpcTap/BridgeTrace against session-based BridgeRef:
+      - Maximum overlapping eth_call requests from the session ≤ 4.
+      - Messages accepted by t ≤ 50+50·t.
+      - Navigations performed by t ≤ 3+t/2.
+      - Chunk eth_getCode requests equal the site's chunk count, once only.
+      - Every decision matches BridgeRef.
+      - Session reservation ≤ 10 MiB in TestHooks.recvStats.
+    - C criteria:
+      - Worker ping p99 ≤ 100 ms.
+      - Closing the tab ends the session and releases reservations within ≤ 1s after orphan requests settle.
+      - Extension-process memory ≤ baseline+64 MiB by Windows counters.
+      - If measurement is unavailable, result is “inconclusive”, with recorded values.
+  - BR20d: five tabs for the same site, each sending 4 held eth_call:
+    - 16 requests arrive; others get −32005 {pending}.
+    - Trust checking in a sixth tab succeeds through TRUST_POOL.
+- BR21 (storage queue, D101). BridgeTrace adds these fields for each storage_set:
   - storeQBefore{sessN, sessBytes, globN, globBytes}.
   - storeRoute ∈ {queued, store, cancelled, active, done}.
-  - storeViolated ⊆ {sessN, sessBytes, globN, globBytes} عند الرفض.
-  - حدثا reply وrelease لكل رسالة مع العدادات بعدهما (D102).
+  - storeViolated ⊆ {sessN, sessBytes, globN, globBytes} on rejection.
+  - reply/release events for each message with subsequent counters (D102).
 
-  المعيار G المشترك لكل BR21:
-  - كل رسالة مقبولة لها release واحد بالضبط، ورد واحد على الأكثر.
-  - العدادات في كل سطر = مجموع الرسائل غير المحررة في BridgeRef.
-  - لا عداد سالب.
-  - globQ ≥ sessQ لكل جلسة.
-  - BR21a (G، وحدة Node مع FakeClock وFakeStorage يحتجز كل set حتى release(i) أو fail(i)، وجلسة S1 بدلو ممتلئ، ومفتاح K فارغ). الرسالة القصوى M(kNN) = ['kNN', 61440×'a'] بـqbytes = 61507، والصغيرة m(kNN) = ['kNN', 'x'] بـqbytes = 68. الكاتب لا ينتظر الردود.
-    - (q1) t=0: M(k00) تصير نشطة، واستدعاء set واحد، وsess = (1, 61507).
-    - (q2) t=1..3: M(k01..k03) تُقبل منتظرة، وsess = (4, 246028)، وصفر set إضافي.
-    - (q3) t=4: M(k04) تعطي 307535 > 262144، فـ−32005 {store} دون إلحاق.
-    - (q4) t=5..8: m(k90..k93) تُقبل، وsess = (8, 246300).
-    - (q5) t=9: m(k94) تعطي n = 9 > 8، فـ−32005 {store}.
-    - (q6) release(1) ثم release المتتالي: ترتيب set = k00، k01، k02، k03، k90..k93، وكل منها استدعاء واحد بقاموس تراكمي. الردود null بالترتيب. العدادات تعود إلى (0, 0). القاموس النهائي = SiteStorageRef.
-    - (q7) fail(1): k00 يعطي −32603 {transport}، ثم إعادة تحميل، ثم تبدأ k01. صفر تغيير بايتي من k00.
-    - (q8) الاحتجاز بعد المهلة (I54، D102). يبدأ من حالة نهاية (q5) دون تطبيق (q6) و(q7): k00 نشطة، وk01..k03 مقبولة عند 1..3، وk90..k93 مقبولة عند 5..8، وsess = (8, 246300). الجدول (اللحظة: الحدث → الرد، ثم sess (n, bytes) بعده):
-      - 5000: انقضاء كتابة k00 → −32603 {storeTimeout} لـk00. العدادات (8, 246300) دون تغيير، وk00 تبقى active.
-      - 6000: m(k95) → −32005 {store} مع storeViolated = {sessN}، لأن 9 > 8 وk00 لا تزال محتسبة. العدادات (8, 246300).
-      - 10001 و10002 و10003: انقضاء انتظار k01 وk02 وk03 → −32005 {store} لكل منها. العدادات (5, 61779).
-      - 10005..10008: انقضاء انتظار k90..k93 → store لكل منها. العدادات (1, 61507).
-      - 10010: m(k96) → مقبولة منتظرة لأن المفتاح محجوب. العدادات (2, 61575)، وصفر استدعاء set ثانٍ.
-      - 12000: release(1)، أي استقرار k00 → صفر رد لأنها رُد عليها سابقًا، ثم إعادة تحميل وtotal = 61443، ثم release واحد. العدادات (1, 68). بعدها تصير k96 نشطة، ويُستدعى set الثاني.
-      - 12100: release(2) → null لـk96، وtotal = 61447، والعدادات (0, 0).
-      - المعيار: لـk00 رد واحد وrelease واحد بالضبط.
-      - الضابط السالب bridge-fault:storeEarlyRelease يحرر عند رد المهلة، فيصير (7, 184793) عند 5000. عندها يقبل m(k95) عند 6000، ثم يطرح k00 مرة ثانية عند 12000. يجب أن يفشل عند 6000.
-    - (q9) العام: ثماني جلسات بمفاتيح مختلفة، كل منها 8 رسائل صغيرة، فـglobN = 64. الرسالة الأولى لجلسة تاسعة تعطي −32005 {store}. استدعاءات set المتزامنة لا تتجاوز 2 بالضبط في كل لحظة.
-    - (q10) حسم الحد العددي بالقيم الافتراضية (I55).
-      - الإعداد: ست عشرة جلسة S1..S16 لمواقع مختلفة، لكل منها مفتاح تخزين. FakeStorage يحتجز كل set. الساعة لا تتقدم بعد t=64 ms، فلا تنقضي STORE_QUEUE_WAIT ولا STORE_WRITE_DEADLINE.
-      - الإرسال: عند t = 4(j−1)+i، حيث j ∈ 1..16 وi ∈ 0..3، ترسل Sj الرسالة M(k_j_i) بـqbytes = 61507.
-      - حدود الجلسة: بعد كل رسالة Sj ≤ (4, 246028)، وهذا ضمن (8, 262144)، فلا خرق.
-      - الحالات: أول رسالة لكل من S1 وS2 active، فالمقعدان مشغولان. أول رسالة لكل من S3..S16 ready. البقية queued.
-      - عند t=63: glob = (64, 3936448).
-      - عند t=64: S17 ترسل M(k) → globN = 65 > 64، بينما globBytes = 3997955 ≤ 4194304، وS17 = (1, 61507) ضمن حدها. النتيجة −32005 {store} مع storeViolated = {globN} وحده، دون إلحاق. تبقى glob = (64, 3936448)، واستدعاءات set = 2 بالضبط.
-      - الضابط السالب: storeUnbounded يقبل رسالة S17 فيفشل.
-      - حافة البايت العامة تُختبر منفصلة في BR21e.
-  - BR21b (G، وحدة، الهدم والتنقل):
-    - (r1) F1 فيه k00 نشطة محتجزة، وk01..k03 منتظرة.
-    - (r2) site_navigate من F1 عند 100: k01..k03 تُلغى دون رد ودون set، فيصير sess = (1, 61507) فورًا. الإطار الجديد لا يحصل على snapshot قبل استقرار k00 أو 5100.
-    - (r3) release(1) عند 300: صفر رد لأي إطار، وsnapshot F2 يحوي k00، والعدادات (0, 0).
-    - (r4) متغير دون release: عند 5100 يُحمَّل F2 بالحالة المؤكدة مع الشارة، وk00 يبقى محتسبًا حتى استقراره.
-    - (r5) إغلاق التبويب يطبق القاعدة نفسها، والجلسة تُحذف بعد استقرار k00.
-    - (r6) الهدم بعد المهلة (D102). الحالة: F1 فيه k00 نشطة محتجزة، وk01 منتظرة، وsess = (2, 123014).
-      - عند 5000: storeTimeout لـk00 دون تحرير، والعدادات (2, 123014).
-      - عند 5100: site_navigate. k01 تُلغى (suppressed)، فتصير العدادات (1, 61507)، وk00 دون تغيير. Navigator ينتظر حتى 10100.
-      - عند 7000: release(1). صفر رد، وrelease واحد → (0, 0). snapshot F2 عند 7000 يحوي k00.
-      - المتغير: دون release حتى 10100 → يُحمَّل F2 بالحالة المؤكدة مع الشارة. k00 تبقى محتسبة (1, 61507) حتى استقرارها، ثم release واحد.
-      - الضابط السالب storeEarlyRelease يعطي (1, 61507) عند 5000، ثم (0, 0) عند 5100، فيفشل.
-  - BR21c (C مع مطابقة G، Chrome على anvil-br): BadSite يرسل لمدة 60s رسائل M(k·) بأقصى معدل يسمح به الدلو دون انتظار الردود.
-    - G: كل قرار يطابق BridgeRef الممتد بـStoreQueue، وsess.n ≤ 8 وsess.bytes ≤ 262144 في كل سطر، وصفر طلب RpcTap، والقاموس النهائي = SiteStorageRef.
-    - C: ping العامل p99 ≤ 100 ms، وذاكرة عملية الإضافة ≤ خط الأساس+32 MiB، وكل استدعاء set يكتمل خلال 5s. إن تعذر القياس فالنتيجة «غير حاسم» بالقيم المسجلة.
-  - BR21d (G، المحمّل): موقع يستدعي setItem 10^4 مرة على 50 مفتاحًا خلال 10s.
-    - رسائل المحمّل غير المردود عليها ≤ 8 في كل لحظة.
-    - صفر رفض store أو rate غير مسترد.
-    - القاموس المؤكد بعد الاستقرار = آخر قيمة لكل مفتاح.
-    - setItem يتجاوز 1 MiB محليًا فيرمي QuotaExceededError دون أي رسالة.
-    - الرابط الداخلي بعد كتابة يحفظ الكتابة قبل التنقل.
-  - BR21e (G، وحدة، حافة البايت العامة، I55):
-    - الإعداد: StoreQueue يُبنى بمعلمات اختبار TQ = {sessMsgs 8, sessBytes 262144, globMsgs 64, globBytes 300000, active 2, wait 10000, write 5000}.
-    - TQ تخالف عمدًا شرط BG1 (globBytes ≥ globMsgs·61760) حتى تصير الحافة البايتية قابلة للبلوغ. تُقبل فقط في بناء الاختبار، وBG1 يرفض أي بناء إصدار بقيم غير الافتراضية.
-    - FakeStorage يحتجز كل set. الجلسات S1 وS2 وS3 لمواقع مختلفة.
-    - الجدول (اللحظة: الرسالة → الرد، ثم glob (n, bytes)، ثم storeViolated):
-      - t=0..3: S1 M(k00..k03) → مقبولة، وglob (4, 246028)، وS1 (4, 246028).
-      - t=4: S2 ['k50', 53905×'a'] بـqbytes = 64+3+53905 = 53972 → مقبولة، وglob (5, 300000) = الحد بالضبط.
-      - t=5: S2 ['k51', 'x'] بـqbytes = 68 → 300068 > 300000 → −32005 {store} مع storeViolated = {globBytes} وحده. S2 (2, 54040) ضمن حدها، وglobN = 6 ≤ 64.
-      - t=6: S3 ['k60', null] بـqbytes = 67 → 300067 → store مع {globBytes} وحده.
-      - t=100: release(1)، أي استقرار k00 → null، وglob (4, 238493).
-      - t=101: S2 ['k51', 'x'] → مقبولة، وglob (5, 238561).
-    - المعيار: مطابقة BridgeRef في كل خلية، ومطابقة storeViolated حرفيًا.
-    - الضابط السالب storeUnbounded يجب أن يقبل الرسالة عند t=5، فيفشل.
-  - BR21f (G، وحدة، رفض الحصة قبل set، I56):
-    - الإعداد: القيم الافتراضية. FakeStorage يحتجز كل set حتى settle(n).
-      - قاموس S_A محمّل بحالة BR17e(e4)، أي total = 1048576.
-      - S_B وS_C فارغان.
-      - qbytes لكل رسالة: m0 = ['k17', 4042×'a'] → 4109. m1 = ['k18', 'x'] → 68. m2 = ['k01', null] → 67. m3 = S_B ['k', 'v'] → 66. m4 = S_C ['k', 'v'] → 66.
-    - الجدول (اللحظة: الحدث → الرد، ثم S_A وglob بالصيغة (n, bytes)، ثم عدد set):
-      - t=0: m0 → newTotal = 1048576 (استبدال بالحجم نفسه، والمساواة مقبولة) → ready ثم active. S_A (1, 4109)، وglob (1, 4109)، وset=1.
-      - t=1: m1 → queued خلف النشطة. S_A (2, 4177).
-      - t=2: m2 → queued. S_A (3, 4244)، وglob (3, 4244).
-      - t=3: m3 → active على المقعد الثاني. glob (4, 4310)، وset=2.
-      - t=4: m4 → ready دون مقعد. glob (5, 4376).
+  Common G criterion for all BR21:
+  - Each accepted message has exactly one release and at most one reply.
+  - Counters on every row equal the sum of unreleased messages in BridgeRef.
+  - No negative counter.
+  - globQ ≥ sessQ for every session.
+  - BR21a (G, Node unit with FakeClock and FakeStorage holding every set until release(i) or fail(i), session S1 with a full bucket and empty key K). Maximum message M(kNN) = ['kNN', 61440×'a'], qbytes = 61507; small m(kNN) = ['kNN', 'x'], qbytes = 68. The writer does not await replies.
+    - (q1) t=0: M(k00) becomes active, one set call, sess = (1, 61507).
+    - (q2) t=1..3: M(k01..k03) accepted waiting, sess = (4, 246028), zero additional set.
+    - (q3) t=4: M(k04) gives 307535 > 262144, hence −32005 {store}, not enqueued.
+    - (q4) t=5..8: m(k90..k93) accepted, sess = (8, 246300).
+    - (q5) t=9: m(k94) gives n = 9 > 8, hence −32005 {store}.
+    - (q6) release(1), then successive releases: set order = k00, k01, k02, k03, k90..k93; one call each with cumulative dictionary. Replies null in order. Counters return to (0, 0). Final dictionary = SiteStorageRef.
+    - (q7) fail(1): k00 gives −32603 {transport}, followed by reload, then k01 starts. Zero bytewise change from k00.
+    - (q8) Holding beyond timeout (I54, D102). Start at the end of (q5), without (q6)/(q7): k00 active, k01..k03 accepted at 1..3, k90..k93 at 5..8, sess = (8, 246300). Table (time: event → reply, then sess (n, bytes)):
+      - 5000: k00 write expires → −32603 {storeTimeout} for k00. Counters unchanged (8, 246300); k00 remains active.
+      - 6000: m(k95) → −32005 {store}, storeViolated = {sessN}, because 9 > 8 and k00 is still counted. Counters (8, 246300).
+      - 10001, 10002, 10003: waits for k01, k02, k03 expire → −32005 {store} each. Counters (5, 61779).
+      - 10005..10008: waits for k90..k93 expire → store each. Counters (1, 61507).
+      - 10010: m(k96) → accepted waiting, because the key is blocked. Counters (2, 61575), zero second set call.
+      - 12000: release(1), i.e. k00 settles → zero reply because already answered, then reload and total = 61443, then one release. Counters (1, 68). k96 then becomes active; second set is called.
+      - 12100: release(2) → null for k96, total = 61447, counters (0, 0).
+      - Criterion: k00 has exactly one reply and one release.
+      - Negative control bridge-fault:storeEarlyRelease releases on timeout reply, yielding (7, 184793) at 5000. It then accepts m(k95) at 6000 and subtracts k00 again at 12000. Must fail at 6000.
+    - (q9) Global: eight sessions with different keys, 8 small messages each, giving globN = 64. First message from a ninth session → −32005 {store}. Concurrent set calls never exceed exactly 2 at any instant.
+    - (q10) Resolving the count boundary with defaults (I55).
+      - Setup: sixteen sessions S1..S16 for different sites, each with a storage key. FakeStorage holds every set. Clock does not advance past t=64 ms, so STORE_QUEUE_WAIT/STORE_WRITE_DEADLINE do not expire.
+      - Sending: at t = 4(j−1)+i, j ∈ 1..16 and i ∈ 0..3, Sj sends M(k_j_i), qbytes = 61507.
+      - Session bounds: after every message Sj ≤ (4, 246028), within (8, 262144); no violation.
+      - States: first messages of S1/S2 active, occupying both slots. First messages of S3..S16 ready. Others queued.
+      - At t=63: glob = (64, 3936448).
+      - At t=64: S17 sends M(k) → globN = 65 > 64, while globBytes = 3997955 ≤ 4194304 and S17 = (1, 61507), within its bounds. Result −32005 {store}, storeViolated = {globN} only, without enqueueing. glob stays (64, 3936448); exactly 2 set calls.
+      - Negative control: storeUnbounded accepts S17's message and fails.
+      - Global byte boundary is tested separately in BR21e.
+  - BR21b (G, unit, teardown/navigation):
+    - (r1) F1 has active held k00 and waiting k01..k03.
+    - (r2) site_navigate from F1 at 100: k01..k03 cancelled without reply/set; sess immediately becomes (1, 61507). New frame receives no snapshot until k00 settles or 5100.
+    - (r3) release(1) at 300: zero reply to any frame; F2 snapshot contains k00; counters (0, 0).
+    - (r4) Variant without release: at 5100 F2 loads confirmed state with the badge; k00 remains counted until settlement.
+    - (r5) Tab closure applies the same rule; session deleted after k00 settles.
+    - (r6) Teardown after timeout (D102). State: F1 has active held k00, waiting k01, sess = (2, 123014).
+      - At 5000: storeTimeout for k00 without release; counters (2, 123014).
+      - At 5100: site_navigate. k01 cancelled (suppressed), counters (1, 61507), k00 unchanged. Navigator waits until 10100.
+      - At 7000: release(1). Zero reply, one release → (0, 0). F2 snapshot at 7000 contains k00.
+      - Variant: no release by 10100 → F2 loads confirmed state with the badge. k00 remains counted (1, 61507) until settlement, then one release.
+      - Negative control storeEarlyRelease gives (1, 61507) at 5000, then (0, 0) at 5100, and fails.
+  - BR21c (C with G matching, Chrome on anvil-br): BadSite sends M(k·) for 60s at the bucket's maximum allowed rate without awaiting replies.
+    - G: every decision matches BridgeRef extended with StoreQueue; sess.n ≤ 8 and sess.bytes ≤ 262144 on every row; zero RpcTap requests; final dictionary = SiteStorageRef.
+    - C: worker ping p99 ≤ 100 ms, extension-process memory ≤ baseline+32 MiB, each set completes within 5s. If measurement unavailable, “inconclusive” with recorded values.
+  - BR21d (G, loader): a site calls setItem 10^4 times over 50 keys within 10s.
+    - Unanswered loader messages ≤ 8 at every instant.
+    - Zero unrecovered store/rate rejections.
+    - Confirmed dictionary after settlement = latest value for every key.
+    - setItem exceeding 1 MiB locally throws QuotaExceededError without any message.
+    - An internal link following a write preserves that write before navigation.
+  - BR21e (G, unit, global byte boundary, I55):
+    - Setup: StoreQueue built with test parameters TQ = {sessMsgs 8, sessBytes 262144, globMsgs 64, globBytes 300000, active 2, wait 10000, write 5000}.
+    - TQ deliberately violates BG1 (globBytes ≥ globMsgs·61760) to make the byte boundary reachable. Accepted only in test builds; BG1 rejects release builds with nondefault values.
+    - FakeStorage holds every set. S1, S2 and S3 are sessions for different sites.
+    - Table (time: message → reply, then glob (n, bytes), then storeViolated):
+      - t=0..3: S1 M(k00..k03) → accepted, glob (4, 246028), S1 (4, 246028).
+      - t=4: S2 ['k50', 53905×'a'], qbytes = 64+3+53905 = 53972 → accepted, glob (5, 300000) = exact limit.
+      - t=5: S2 ['k51', 'x'], qbytes = 68 → 300068 > 300000 → −32005 {store}, storeViolated = {globBytes} only. S2 (2, 54040) within its bounds, globN = 6 ≤ 64.
+      - t=6: S3 ['k60', null], qbytes = 67 → 300067 → store with {globBytes} only.
+      - t=100: release(1), i.e. k00 settles → null, glob (4, 238493).
+      - t=101: S2 ['k51', 'x'] → accepted, glob (5, 238561).
+    - Criterion: BridgeRef match in every cell; literal storeViolated match.
+    - Negative control storeUnbounded must accept the message at t=5 and fail.
+  - BR21f (G, unit, quota rejection before set, I56):
+    - Setup: defaults. FakeStorage holds every set until settle(n).
+      - S_A dictionary loaded with BR17e(e4) state, total = 1048576.
+      - S_B and S_C empty.
+      - Message qbytes: m0 = ['k17', 4042×'a'] → 4109. m1 = ['k18', 'x'] → 68. m2 = ['k01', null] → 67. m3 = S_B ['k', 'v'] → 66. m4 = S_C ['k', 'v'] → 66.
+    - Table (time: event → reply, then S_A and glob as (n, bytes), then set count):
+      - t=0: m0 → newTotal = 1048576 (same-size replacement, equality accepted) → ready then active. S_A (1, 4109), glob (1, 4109), set=1.
+      - t=1: m1 → queued behind active. S_A (2, 4177).
+      - t=2: m2 → queued. S_A (3, 4244), glob (3, 4244).
+      - t=3: m3 → active in second slot. glob (4, 4310), set=2.
+      - t=4: m4 → ready without a slot. glob (5, 4376).
       - t=100: settle(1):
-        - m0 يُرد null ويُحرر. S_A (2, 135).
-        - evalHead(m1): 1048580 > 1048576 → 4300، ثم release، وصفر set. S_A (1, 67).
-        - evalHead(m2): حذف → ready.
-        - المقعد الحر يذهب إلى m2 قبل m4، لأن قبوله أسبق. set=3، وglob (3, 199).
-      - t=200: settle(2) → null لـm3، ثم m4 active، وset=4، وglob (2, 133).
-      - t=300: settle(3) → null لـm2. total(S_A) = 987133، وS_A (0, 0).
-      - t=400: settle(4) → null لـm4. glob (0, 0).
-      - t=500: S_A ['k18', 'x'] → newTotal = 987137 → active، وset=5. عند t=600 يستقر → null، وtotal = 987137.
-    - المعيار:
-      - m1: رد واحد (4300)، وrelease واحد.
-      - لا يظهر k18 في أي set قبل set=5.
-      - releaseCount = 6 = عدد المقبولة، وdoubleReleaseCount = 0، وquotaRecheckMismatch = 0.
-      - العدادات تعود إلى (0, 0).
-      - القاموس النهائي = SiteStorageRef.
-    - (f2) الرفض لا ينتظر مقعدًا:
-      - الإعداد: S_B وS_C نشطتان محتجزتان، فالمقعدان مشغولان. S_A بلا كتابة نشطة، وtotal = 1048576.
-      - t=0: S_A ['k18', 'x'] → 4300 فورًا، وrelease، وصفر set.
-      - t=1: S_A ['k01', null] → ready، تنتظر حتى تحرير مقعد.
-    - الضابط السالب: bridge-fault:quotaNoRelease يبقي S_A = (2, 135) بعد t=100 ويحجب m2، فيفشل. وفي (f2) ينتظر مقعدًا، فيفشل.
-- BR22 (تعافي جيل العامل، D103):
-  - BR22a (G، نموذج شامل). SR-model مرجع في Python، ويطابقه تنفيذ StoreQueue وStoreRecovery في TS فوق FakeBackend. FakeBackend يحتفظ بعمليات كل جيل معلقة، ويطبقها في موضع يحدده المجدول أو يسقطها.
-    - الحالة الابتدائية: تبويبان T1 وT2 للموقع S_A، وk0='a' مؤكدة بـnull. الجيل 1 يقبل A = ['k1', 'x'] من T1.
-    - نقطة الزوال P:
-      - P0: قبل set.
-      - P1: بعد استدعاء set وقبل التطبيق.
-      - P2: بعد التطبيق وقبل الرد.
-      - P3: بعد رد storeTimeout.
-      - P4: زوال ثانٍ أثناء كتابة epoch للجيل 2.
-      - P5: زوال ثانٍ أثناء نقطة التثبيت.
-    - موضع التطبيق المتأخر L لـA وللعمليات المعلقة الأخرى:
-      - لا يُطبق.
-      - قبل سرد epoch.
-      - بين التأكيد وقراءة المفتاح.
-      - بين القراءة ونقطة التثبيت.
-      - بعد نقطة التثبيت.
-      - بعد كتابة B.
-    - بعد الزوال: إعادة تحميل T1 وT2 بالنقر، ثم T2 يكتب B = ['k2', 'y']، ثم T1 يكتب C = ['k1', 'z']، ولكل منهما رد null.
-    - تُعدد كل التركيبات، ومنها زوال ثالث قبل أي كتابة في الجيل الجديد. ويُضاف متغير fail: وعد مرفوض يُطبق لاحقًا.
-    - المعايير:
-      - (1) k0='a' في كل snapshot وفي النهاية.
-      - (2) النهاية تحوي k1='z' وk2='y' دائمًا، فلا تتجاوز A الكتابتين B وC.
-      - (3) قيمة k1 في أول snapshot للجيل الجديد إما 'x' أو غائبة، وتبقى هي نفسها في كل snapshot لاحق حتى C، عبر أي زوال إضافي.
-      - (4) صفر رد لرسالة من جيل سابق، وصفر رد مكرر.
-      - (5) epoch الأجيال التي كتبت بيانات متزايد بصرامة.
-      - (6) لا snapshot قبل التزام نقطة التثبيت.
-      - (7) لكل مفتاح بعد الكنس: أكبر سجل موجود دائمًا، والقرص بمقياس FakeBackend ≤ حد D104 في كل لحظة.
-    - الضوابط السالبة:
-      - singleItem يفشل عند P1 مع L = بعد كتابة B.
-      - noEpochConfirm يفشل عند P4.
-      - noCheckpoint يفشل عند P1 مع L = بين القراءة ونقطة التثبيت ثم زوال ثالث، لأن k1='x' تظهر بعد snapshot خالٍ منها.
-      - reuseSeq يفشل في متغير fail.
-  - BR22b (G، وحدة، السياج):
-    - الجيل 1 يقرأ max=5، ويكتب 6 معلقًا، ثم يزول.
-    - الجيل 2 يقرأ 5، فيكتب 6' ويؤكده.
-    - عنصر الجيل 1 يُطبق بعد ذلك.
-    - الجيل 3 يقرأ 6 فيكتب 7.
-    - المعيار: صفر سجل بيانات بـepoch من الجيل 1، والكنس لا يحذف أكبر عنصر epoch.
-  - BR22c (C مع مطابقة G، Chrome اختباري):
-    - الإعداد: منفذ DevTools على 127.0.0.1 في ملف المستخدم الاختباري. الأداة توقف العامل عبر CDP في أوقات تستهدف P0–P3، أثناء كتابات BadSite من تبويبين.
+        - m0 replies null and releases. S_A (2, 135).
+        - evalHead(m1): 1048580 > 1048576 → 4300, then release, zero set. S_A (1, 67).
+        - evalHead(m2): deletion → ready.
+        - Free slot goes to m2 before m4 because accepted earlier. set=3, glob (3, 199).
+      - t=200: settle(2) → null for m3, then m4 active, set=4, glob (2, 133).
+      - t=300: settle(3) → null for m2. total(S_A) = 987133, S_A (0, 0).
+      - t=400: settle(4) → null for m4. glob (0, 0).
+      - t=500: S_A ['k18', 'x'] → newTotal = 987137 → active, set=5. At t=600 it settles → null, total = 987137.
+    - Criterion:
+      - m1: one reply (4300), one release.
+      - k18 appears in no set before set=5.
+      - releaseCount = 6 = accepted count; doubleReleaseCount = 0; quotaRecheckMismatch = 0.
+      - Counters return to (0, 0).
+      - Final dictionary = SiteStorageRef.
+    - (f2) Rejection does not wait for a slot:
+      - Setup: S_B/S_C active and held, occupying both slots. S_A has no active write, total = 1048576.
+      - t=0: S_A ['k18', 'x'] → immediate 4300, release, zero set.
+      - t=1: S_A ['k01', null] → ready, waiting until a slot releases.
+    - Negative control: bridge-fault:quotaNoRelease leaves S_A = (2, 135) after t=100 and blocks m2, failing. In (f2), it waits for a slot and fails.
+- BR22 (worker-generation recovery, D103):
+  - BR22a (G, exhaustive model). SR-model is a Python reference, matched by TS StoreQueue/StoreRecovery over FakeBackend. FakeBackend holds every generation's operations, applying them at scheduler-selected points or dropping them.
+    - Initial state: tabs T1/T2 for S_A; k0='a' confirmed with null. Generation 1 accepts A = ['k1', 'x'] from T1.
+    - Disappearance point P:
+      - P0: before set.
+      - P1: after set call, before application.
+      - P2: after application, before reply.
+      - P3: after storeTimeout reply.
+      - P4: second disappearance during generation 2 epoch write.
+      - P5: second disappearance during anchor.
+    - Late-application point L for A and other pending operations:
+      - Not applied.
+      - Before epoch enumeration.
+      - Between confirmation and key read.
+      - Between read and anchor.
+      - After anchor.
+      - After write B.
+    - After disappearance: reload T1/T2 by clicking, then T2 writes B = ['k2', 'y'], then T1 writes C = ['k1', 'z']; each gets null.
+    - Enumerate all combinations, including a third disappearance before any new-generation write. Add a fail variant: a rejected promise that applies later.
+    - Criteria:
+      - (1) k0='a' in every snapshot and final state.
+      - (2) Final state always contains k1='z' and k2='y'; A never supersedes B/C.
+      - (3) k1 in the new generation's first snapshot is either 'x' or absent; it stays identical in every later snapshot until C, across any further disappearances.
+      - (4) Zero replies to previous-generation messages, zero duplicate replies.
+      - (5) Epochs of generations that wrote data are strictly increasing.
+      - (6) No snapshot before anchor commitment.
+      - (7) Per key after sweeping: largest record always exists; disk by FakeBackend's metric ≤ D104 limit at every instant.
+    - Negative controls:
+      - singleItem fails at P1 with L = after write B.
+      - noEpochConfirm fails at P4.
+      - noCheckpoint fails at P1 with L = between read/anchor, then third disappearance, because k1='x' appears after a snapshot lacking it.
+      - reuseSeq fails in the fail variant.
+  - BR22b (G, unit, fence):
+    - Generation 1 reads max=5, writes pending 6, then disappears.
+    - Generation 2 reads 5, writes 6' and confirms it.
+    - Generation 1's item applies afterward.
+    - Generation 3 reads 6 and writes 7.
+    - Criterion: zero data records with generation 1's epoch; sweeping does not delete the largest epoch item.
+  - BR22c (C with G matching, test Chrome):
+    - Setup: DevTools port on 127.0.0.1 in the test profile. Tool stops the worker through CDP at times targeting P0–P3 during BadSite writes from two tabs.
     - G:
-      - سجل التخزين المقروء عبر CDP يطابق SR-model للنقطة المصنفة.
-      - الإطارات تُهدم والإعلان يظهر خلال ≤ 1s من onDisconnect.
-      - صفر إعادة تحميل تلقائية.
-      - القاموس بعد النقر = SR-model.
-    - C: إن لم تُصب النقطة P1 أو P2 خلال 20 محاولة، فالنتيجة «غير حاسم» لتلك النقطة مع التوزيع المسجل. منطقها مغطى بـBR22a.
-    - يُقاس أيضًا: هل يطبق Chrome عملية العامل الميت متأخرة وكم تتأخر (لـA15c)، وزمن الاسترداد، وتوفر getKeys، وgetBytesInUse مقابل حجم ملف التخزين.
-  - BR22d (G، وحدة، D104): استردادان متداخلان وإعادة التثبيت.
-    - الإعداد: FakeBackend يحتجز كل عملية حتى settle أو apply متأخر. الجيل 2. المفتاح K للموقع S_A بسجل (1,3) قاموسه {k0:'a'}.
-    - الجدول (اللحظة: الحدث → الأثر، وعدد set):
-      - 0: T1 يطلب snapshot → recovering، وset C0 = (2,0). set=1.
-      - 1: T2 يرسل ['k1','x']، وT2 يطلب snapshot → كلاهما ينتظر البوابة نفسها. set=1، وصفر تثبيت ثانٍ.
-      - 5000: مهلة C0 → يصدر C1 = (2,1)، ويبقى C0 معلقًا محتسبًا. set=2.
-      - 5100: settle(C1) بنجاح → ready بنسخة (2,1). snapshot لـT1 وT2 = {k0:'a'}. ثم W = (2,2) بقاموس {k0:'a', k1:'x'}. set=3.
-      - 5200: settle(W) → null لـT2، وكنس (1,3) و(2,1).
-      - 5300: C0 يُطبق متأخرًا → lateRecordsSeen=1، والكنس التالي يحذفه.
-      - 5400: snapshot لإطار جديد = {k0:'a', k1:'x'}.
-    - المعيار: أسماء set مختلفة، ولا snapshot قبل 5100، وk1='x' في كل حالة بعد 5200.
-    - المتغيرات (D107، حيث apply ≠ settle):
-  - V-a: apply(C0) عند 5050 دون settle → الجدول الأساسي نفسه، وready عند 5100 بـ(2,1).
-  - V-b: settle(C0) ناجح عند 5050:
-    - ready عند 5050، وconfirmed=(2,0)، وsnapshot لـT1 وT2 = {k0:'a'} عند 5050.
-    - W=(2,2) تصدر عند 5050.
-    - settle(C1) ناجح عند 5100 → confirmed=(2,1) دون تغيير القاموس.
-    - settle(W) عند 5200 → null.
-  - V-c: الجدول الأساسي، ثم settle(C0) ناجح عند 5250 → لا تغيير، وlateRecordsSeen=1.
-  - V-d: settle(C1) فاشل عند 5100 مع انقضاء مهلة C0:
-    - failed عند 5100، ورسالة T2 تُرد بـ−32603 {storeRecovery}.
-    - settle(C0) ناجح عند 5150 لا يغير failed، ويزيد lateRecordsSeen. السجل (2,0) يبقى الأكبر، ويسترده الجيل التالي.
-  - V-e: لا settle لأي محاولة → failed عند 10000 بانقضاء مهلة C1.
-  - في كل متغير: لا snapshot قبل أول settle ناجح، وk1='x' بعد settle(W).
-    - متغير الفشل: فشل C1 عند 5100 → failed، ورسالة T2 تُرد بـ−32603 {storeRecovery} وتُحرر، وصفر snapshot.
-    - الضوابط السالبة:
-      - parallelRecovery يُصدر (2,0) مرتين عند 1، فيفشل.
-      - seqFromCheckpoint يعطي W = (2,1)، فيصطدم بـC1، فيفشل.
-  - BR22e (G، نفاد seq): SeqAlloc يبدأ من 2^32−2 بمعلمة اختبار.
-    - نقطة التثبيت تأخذ 0xfffffffe، والكتابة الأولى تأخذ 0xffffffff وتُرد null.
-    - الكتابة الثانية → −32603 {storeRecovery} دون set.
-  - BR22f (G، وحدة، تنافس RecoverySlots، D109، I62):
-    - الإعداد: الجيل 2، والمفاتيح K1 وK2 وK3 لمواقع مختلفة، لكل منها سجل (1,3) بقاموس غير فارغ. FakeBackend يحتجز كل عملية. لكل مفتاح رسالة storage_set منتظرة.
-    - الجدول (اللحظة: الحدث → الأثر، ثم held وعدد set):
-      - 0: snapshot لـK1 → C0_K1 = (2,0) على المقعد A. held=1، set=1.
-      - 1: snapshot لـK2 → C0_K2 = (2,0) على المقعد B. held=2، set=2.
-      - 2: snapshot لـK3 → ينتظر في RecoveryFIFO، وصفر alloc.
-      - 5000: مهلة C0_K1 → طلب C1_K1 خلف K3.
-      - 5001: مهلة C0_K2 → طلب C1_K2.
-      - 5002: انقضاء انتظار K3 → unrecovered، ورسالته −32603 {storeRecovery, busy} وrelease، وصفر set وصفر alloc لـK3. recoveryBusy=1.
-      - 10000: انقضاء انتظار C1_K1 → K1 failed. 10001: K2 failed. held=2، set=2 دون تغيير.
-      - 13000: زوال الجيل مع C0_K1 وC0_K2 معلقين، ثم تطبيقهما المتأخر في كل مواضع L المعرّفة في BR22a.
-    - المتغير (f2): settle(C0_K1) فاشل عند 7000 → المقعد A يذهب إلى C1_K1 = (2,1) عند 7000 بمهلة 12000. K2 failed عند 10001. K1 يُحسم ≤ 12000.
-    - المتغير (f3): settle(C0_K1) ناجح عند 6000 → K1 ready، ويُسحب طلب C1_K1، والمقعد A يذهب إلى C1_K2 عند 6000.
-    - المتغير (f4): deleteSite(K1) عند 3000 → القبر لا يصدر قبل حسم K1 عند 10000، ثم يأخذ مقعد AdminSlots.
-    - المعايير: recoveryUnsettledMax ≤ 2 في كل سطر، ولا نقطة تثبيت دون مقعد، وكل انتظار مقعد ≤ 5000 ms، وكل حسم ≤ 20s من أول طلب، ولا snapshot قبل settle ناجح. بعد الزوال: القرص والأسماء ضمن الحد في كل لحظة، والاسترداد التالي = SR-model.
-    - الضابط السالب recoveryNoSlot يصدر C1_K1 وC1_K2 عند 5000 و5001، فيصير غير المستقر 4، فيفشل.
-  - BR22g (G، وحدة، مرحلة القراءة، D110، I63):
-    - الإعداد: الجيل 2. FakeBackend يحتجز getKeys وget حتى settleRead(i). المفاتيح K1 وK2 وK3 لمواقع مختلفة، ولكل منها رسالة storage_set منتظرة. t_s = 0 ما لم يُذكر غيره.
-    - (g1) تعليق getKeys:
-      - 0: snapshot لـK1 يجعل getKeys يأخذ المقعد R1.
-      - 5000: readTimeout. K1 يعود إلى unrecovered، والرسالة تُرد بـ−32603 {storeRecovery, readTimeout} وتُحرر. صفر alloc، وصفر set، وصفر تذكرة قرص.
-      - 6000: settleRead(getKeys). النتيجة تُهمل، وlateReadsDropped=1، وR1 يتحرر، وصفر set.
-      - 6100: وصول جديد لـK1 يفتح بوابة بـgateId جديد.
-    - (g2) getKeys ينجح فورًا، وget للأكبر محتجز. عند 5000 readTimeout. نتيجة get عند 7000 لا تصدر تثبيتًا.
-    - (g3) قراءتا K1 وK2 محتجزتان على R1 وR2. K3 ينتظر في ReadFIFO، ثم readTimeout عند 5000 دون أي قراءة. readSlotsHeld = 2 في كل سطر.
-    - (g4) السجلات التالفة:
-      - خمسة سجلات للمفتاح، أكبر أربعة منها تالفة: failed {corrupt} بعد 4 get بالضبط، والخامس لا يُقرأ.
-      - متغير: ثلاثة سجلات كلها تالفة → failed {corrupt}.
-      - متغير: صفر سجلات → تثبيت بالقاموس {} ثم ready.
-    - (g5) الحذف أثناء القراءة:
-      - 1000: deleteSite(K1) وgetKeys محتجز.
-      - 5000: البوابة تُحسم readTimeout، ويصدر القبر بمقعد AdminSlots.
-      - 6000: نتيجة getKeys تُهمل.
-      - settle(القبر) يجعل القاموس {}. الحذف يُحسم ≤ 45s في كل متغيرات مهل القبر.
-    - (g6) حافة الحد: القراءات تكتمل عند 4900، فيُطلب المقعد عند 4900. مع احتجاز المقاعد والمهل كما في BR22f يُحسم المفتاح عند ≤ 24900.
-    - المعايير:
-      - لا set لأي بوابة بعد حسمها، ولا set قبل اكتمال قراءة صالحة.
-      - readSlotsHeld ≤ 2 في كل سطر.
-      - كل حسم ≤ 25000 ms من t_s، وكل AdminDelete ≤ 45000 ms.
-      - release واحد لكل رسالة.
-      - القاموس النهائي = SR-model الممتد بمرحلة القراءة.
-    - الضابط السالب lateReadCheckpoint يصدر تثبيتًا عند 6000 في (g1)، فيفشل.
-  - BR22h (G، وحدة، سياج epoch، D134، I74):
-    - الإعداد:
-      - FakeBackend يحتجز كل set وremove حتى apply أو settle أو drop بالمجدول، وفق A15c وA15d.
-      - لكل جيل ساعة رتيبة.
-      - الحالة الابتدائية: F(5) ظاهر بـbootMs = −200000 وحده، وسجل S_A بنسخة (5, 3).
-    - (h1) أربعون جيلًا G1..G40 عند t = k·1000. كل منها يصدر set لـF(6) ويزول بعد 10 ms دون settle. كل العمليات تُطبق بعد إقلاع G40 بترتيب ثابت البذرة.
-      - المتوقع: كل الأجيال اختارت E = 6، والأسماء {F(5), F(6)} في كل لحظة.
-    - (h2) الأجيال عند t = k·70000. عملية كل جيل تُطبق قبل إقلاع التالي، والزوال بعد 100 ms، أي قبل T_LATE، فلا كنس.
-      - G1..G7 تكتب F(6)..F(12)، وقيم EN قبل الكتابة 1..7.
-      - G8..G40: EN = 8، فلا إصدار.
-      - المتوقع: الأسماء ≤ 8 في كل لحظة، وepochGateBlocks = 33.
-    - (h3) استمرار h2، وG41 عند 41·70000 يبقى حيًا:
-      - EN = 8، فينتظر 60s رتيبة، ثم يحذف F(5)..F(11).
-      - EN = 1، فيصدر F(13) ويؤكده.
-      - ثم نقطة التثبيت (13, 0)، ثم ['k','v'] بنسخة (13, 1) وردها null.
-      - لا set بيانات قبل تأكيد F(13).
-    - (h4) كـh3 مع فشل remove دائمًا:
-      - بعد الكنس EN = 8، فكل storage_set يعطي −32603 {storeRecovery, reason: 'epochNames'}.
-      - صفر set لـF وللبيانات، والسجل (5, 3) مقروء دون تغيير، ويُرفع الإجراء 25.
-    - (h5) شامل:
-      - ستة أجيال، ولكل عملية F ثلاثة مواضع: قبل إقلاع التالي، أو بعده ضمن A15c، أو إسقاط. المجموع 3^6 = 729 تركيبة.
-      - لكل تركيبة فاصلا إقلاع: 1000 ms و70000 ms.
-      - جيل سابع يبقى حيًا ويكتب بيانات.
-      - المرجع SR-model ممتدًا بـD134.
-    - (h6) التغطية:
-      - G1 عند 0 يصدر F(6) ويزول.
-      - G2 عند 70000 يؤكد F(6) بـbootMs = 70000، ويصدر set منشئة لموقع جديد A دون settle، ثم يزول عند 70500.
-      - apply لعنصر F(6) من G1 عند 70600 يجعل bootMs(F(6)) = 0.
-      - G3 عند 71000 يؤكد F(7)، وsitesLive = 60.
-      - عند 71100: lateGens = 1 (F(7) وحده)، فـLATE_SITES = 4. موقع جديد B: 60+0+4+1 = 65 > 64 → 4300 {sites}.
-      - apply(A) عند 100000.
-      - المتوقع: المفاتيح ≤ 64 في كل لحظة، وتغطية عمليات G2 بعنصر G3 كما تنص لِمّة التغطية.
-    - المعايير في كل لحظة من كل متجه:
-      - عناصر epoch ≤ EPOCH_NAMES_MAX.
-      - أكبر عنصر ظاهر غير متناقص، وepochResurrected = 0.
-      - epoch الأجيال الكاتبة للبيانات متزايد بصرامة، ولا يتكرر اسم سجل بيانات.
-      - لا يُفقد قاموس مؤكد، وnames ≤ STORE_RECORDS_MAX.
-      - كل قرار يطابق SR-model.
-    - الضوابط السالبة:
-      - epochNonceNames يعطي 41 اسمًا في (h1)، فيفشل.
-      - epochNoGate يعطي 41 اسمًا في (h2)، فيفشل.
-      - epochSweepEarly يفشل في (h5). مثال التركيبة الكاشفة: G1 يصدر F(6) معلقًا، وG2 يؤكد F(6)، وG3 يؤكد F(7) ويحذف F(6) فورًا، ثم يُطبق F(6) من G1، فيعود الاسم.
-- BR23 (G، وحدة، القرص، D104). FakeBackend يحسب bytesInUse من مجموع أطوال الأسماء والقيم المرمزة.
-  - (d1) الإعداد: الجيل الحي E أقلع عند −120000، ولا عناصر epoch أخرى في النافذة، فـlateGens=0 وLATE_SITES=0. لدى 64 موقعًا سجل حي لكل منها، وآخر refresh مكتمل قبل 0.
-    - 0: أول set لموقع خامس وستين X → 4300 {sites, 64} دون retryAfterMs، وصفر set.
-    - 100: حذف الموقع 1 من «إدارة التخزين». القبر يستقر عند 200، وrefresh يكتمل عند 250 فتُسقط تذكرته. sitesLive=64 بالقبر، وX يُرفض عند 300.
-    - 300: TombReaper يصدر remove (لا جلسة ولا أجيال أقدم في النافذة)، فيستقر عند 350، وrefresh صادر بعده يكتمل عند 400، فـsitesLive=63.
-    - 450: X → ok وR_sites=1.
-  - (d2) remove يفشل دائمًا، مع كتابات قصوى متتالية على مفتاح واحد:
-    - كل set مقبول يحقق قاعدة القبول.
-    - أول رفض 4300 {disk} يقع عند أول خرق محسوب.
-    - القرص ≤ STORE_DISK_HARD في كل لحظة.
-    - آخر قاموس مؤكد يبقى مقروءًا بعد إعادة الإقلاع.
-  - (d3) خمسة إقلاعات خلال 60s: الخامس لا يكتب عنصر epoch حتى يخرج الأول من النافذة، ثم يكمل.
-  - (d4) أربعة أجيال ميتة، لكل منها set معلقتان بحجم أقصى، تُطبق بعد إقلاع تاليها: القرص ≤ الحد في كل لحظة.
-  - (d5) غياب getKeys → storeRecovery، وصفر استدعاء get(null).
-  - (d6) قبور وسجلات غير محذوفة تتراكم حتى حافة شرط الأسماء الكامل (D134)، أي names+R_names+1+LATE_NAMES+EPOCH_NAMES_MAX ≤ 1024.
-    - الكتابات تُقبل ما دام names+R_names ≤ 991 قبل العملية.
-    - أول رفض 4300 {disk} يقع عند names+R_names = 992، لأن 992+1+24+8 = 1025.
-    - لا set للعملية المرفوضة.
-  - (d7) قاموس يصل إلى 4097 زوجًا → 4300 {entries, 4096}.
-  - (d8، D105) قبولان لمفتاحين في دورة الحدث نفسها، وinUse مضبوط ليتسع enc واحد فقط → الأول ok والثاني 4300 {disk}، وR_bytes = enc الأول.
-  - (d9) الإعداد: lateGens=0 كما في d1، وsitesLive=63، وR_sites=0.
-    - رسالتان أوليان لموقعين جديدين في الدورة نفسها → الأولى ok والثانية 4300 {sites} دون retryAfterMs.
-    - متغير: فشل set الأولى → بعد اكتمال refresh صادر بعد settle الفشل يعود R_sites=0، وينجح الطلب الثاني عند إعادته.
-  - (d10) الفجوة: settle عند 100، وrefresh صادر عند 90 يكتمل عند 110. التذكرة تبقى بعد 110، وقبول عند 120 يراها. تُسقط عند اكتمال refresh صادر بعد 100، وقيمة القياس عندها تشمل أثرها.
-  - (d11، I64) حافة الأسماء بالصيغة الكاملة لقاعدة القبول: names+R_names+1+LATE_NAMES+EPOCH_NAMES_MAX ≤ STORE_RECORDS_MAX، أي names+R_names+1+24+8 ≤ 1024.
-    - الإعداد: البايتات والمواقع بعيدة عن حدودها. names+R_names = 991، ولا refresh بين القبولين.
-    - قبولان لمفتاحين محتسبين في دورة الحدث نفسها:
-      - الأول: 991+1+24+8 = 1024 → ok، ويزيد R_names بواحد.
-      - الثاني: 992+1+24+8 = 1025 → 4300 {disk}، دون set.
-  - (d11b، I64) كشف إغفال احتياطي epoch:
-    - الإعداد كـd11، لكن names+R_names = 999. هذه الحافة في الصيغة القديمة، لأن 999+1+24 = 1024.
-    - عملية واحدة: 999+1+24+8 = 1032 > 1024 → 4300 {disk}، دون set، وR_names دون تغيير.
-    - الضابط السالب bridge-fault:epochReserveOmitted يحذف EPOCH_NAMES_MAX من شرط الأسماء:
-      - يقبل العملية في d11b، لأن 1024 ≤ 1024.
-      - يقبل الثانية في d11، لأن 1017 ≤ 1024.
-      - فيفشل في المتجهين.
-    - SR-model يحمل d11 وd11b بالمسارين الصحيح والمعيب.
-  - (d12، D112، I66) مقاعد المواقع عبر الأجيال. SR-model ممتد بـlateGens وLATE_SITES.
-    - الإعداد:
-      - 63 مفتاحًا محتسبًا، والقرص والأسماء بعيدان عن الحد.
-      - الجيل E أقلع عند −120000، فهو خارج النافذة.
-      - FakeBackend يحتجز العمليات.
-    - الجدول (اللحظة: الحدث → الأثر):
-      - −10: E يصدر أول set بيانات غير فارغة لموقع جديد A، بتذكرة R_sites=1.
-      - 0: زوال E قبل apply.
-      - 100: إقلاع E+1 وتأكيد epoch. sitesLive = 63، وlateGens = 1، وLATE_SITES = 4.
-      - 200: أول set لموقع جديد B → 63+0+4+1 = 68 > 64 → 4300 {sites, 64, retryAfterMs ≈ 60000}، وصفر set.
-      - 30000: apply(A) متأخرًا.
-      - 60100: انقضاء E+1، ثم refresh صادر بعده يكتمل عند 60150. sitesLive = 64، وlateGens = 0.
-      - 60200: B مجددًا → 64+0+0+1 > 64 → 4300 {sites} دون retryAfterMs.
-    - المعيار:
-      - عدد المفاتيح المتمايزة على القرص ≤ 64 في كل لحظة.
-      - كل قرار يطابق SR-model.
-      - صفر حذف آلي لأي سجل.
-    - (d12a) A لا يُطبق أبدًا → sitesLive = 63 عند 60150، وB يُقبل عند 60200، والعدد 64.
-    - (d12b) موقع متكرر: عند 200 كتابة لمفتاح محتسب → تُقبل دون مقعد رغم LATE_SITES.
-    - الضابط السالب bridge-fault:noLateSites يجعل LATE_SITES = 0:
-      - يقبل B عند 200.
-      - apply(A) عند 30000 يجعل العدد 65، فيفشل.
-  - (d13) أجيال متعددة:
-    - الإعداد: sitesLive = 50، وإقلاعات E+1 وE+2 وE+3 عند 100 و20100 و40100.
-    - كل جيل ميت يترك عمليتين منشئتين معلقتين لموقعين جديدين: set بيانات، ونقطة تثبيت {} لمفتاح بلا سجل.
-    - المجدول يطبقها أو يسقطها في كل المواضع المسموحة تحت A15c.
-    - الجيل الحي يحاول موقعًا جديدًا كل 1000 ms حتى 120000.
-    - المعيار:
-      - العدد ≤ 64 في كل لحظة.
-      - LATE_SITES ≤ 12 ولا ينقص قبل القياس الصادر بعد الانقضاء.
-      - القبول والرفض مطابقان لـSR-model.
-  - (d14) الحذف وإعادة الإنشاء:
-    - الإعداد: 64 مفتاحًا، وK منها حذفه المستخدم فبقي له قبر وحيد.
-    - إزالة القبر لا تقع قبل خروج الأجيال الأقدم من النافذة، ولا مع جلسة أو تذكرة للمفتاح.
-    - موقع جديد يُرفض حتى اكتمال قياس لا يرى K، ثم يُقبل.
-    - إعادة إنشاء K بعدها تحتاج مقعدًا جديدًا واحدًا.
-  - (d15، D113، I67) السعة مع قبر باقٍ.
-    - الإعداد:
-      - 64 مفتاحًا محتسبًا، منها K بقبر وحيد مؤكد ومقيس، وR_sites=0، ولا جلسة لـK.
-      - الجيل E−1 أقلع عند −50000، والحي E عند −40000. فعند 0: lateGens=2، وLATE_SITES=8.
-    - 100: أول set لموقع مختلف X → 4300 {sites, 64} دون retryAfterMs.
-    - 200: جلسة K بالنقر. الاسترداد يرى القبر فالقاموس {}، ونقطة التثبيت تُقبل دون مقعد، وR_sites=0 رغم LATE_SITES=8. TombReaper لا يزيل القبر لوجود الجلسة.
-    - 300: K ['k','v'] → null، وR_sites=0.
+      - Storage record read through CDP matches SR-model for the classified point.
+      - Frames are destroyed and notice appears within ≤ 1s of onDisconnect.
+      - Zero automatic reloads.
+      - Dictionary after clicking = SR-model.
+    - C: if P1/P2 is not hit within 20 attempts, result is “inconclusive” for that point, with recorded distribution. Logic covered by BR22a.
+    - Also measure whether Chrome applies dead-worker operations late and their delay (A15c), recovery time, getKeys availability, and getBytesInUse versus storage-file size.
+  - BR22d (G, unit, D104): overlapping recoveries and re-anchoring.
+    - Setup: FakeBackend holds every operation until settle or late apply. Generation 2. Key K for S_A has record (1,3), dictionary {k0:'a'}.
+    - Table (time: event → effect, set count):
+      - 0: T1 requests snapshot → recovering, set C0 = (2,0). set=1.
+      - 1: T2 sends ['k1','x'] and T2 requests snapshot → both await the same gate. set=1, zero second anchor.
+      - 5000: C0 timeout → issue C1 = (2,1); C0 remains pending and counted. set=2.
+      - 5100: settle(C1) succeeds → ready at version (2,1). T1/T2 snapshots = {k0:'a'}. Then W = (2,2), dictionary {k0:'a', k1:'x'}. set=3.
+      - 5200: settle(W) → null to T2, sweep (1,3)/(2,1).
+      - 5300: C0 applies late → lateRecordsSeen=1; next sweep deletes it.
+      - 5400: snapshot for new frame = {k0:'a', k1:'x'}.
+    - Criterion: distinct set names, no snapshot before 5100, k1='x' in every state after 5200.
+    - Variants (D107, apply ≠ settle):
+  - V-a: apply(C0) at 5050 without settle → same base table; ready at 5100 with (2,1).
+  - V-b: settle(C0) succeeds at 5050:
+    - ready at 5050, confirmed=(2,0), T1/T2 snapshots = {k0:'a'} at 5050.
+    - W=(2,2) issued at 5050.
+    - settle(C1) succeeds at 5100 → confirmed=(2,1), dictionary unchanged.
+    - settle(W) at 5200 → null.
+  - V-c: base table, then settle(C0) succeeds at 5250 → unchanged, lateRecordsSeen=1.
+  - V-d: settle(C1) fails at 5100 with C0 timed out:
+    - failed at 5100; T2 message gets −32603 {storeRecovery}.
+    - Successful settle(C0) at 5150 does not change failed, increments lateRecordsSeen. Record (2,0) remains largest and is recovered by the next generation.
+  - V-e: no attempt settles → failed at 10000 when C1 times out.
+  - Every variant: no snapshot before first successful settle; k1='x' after settle(W).
+    - Failure variant: C1 fails at 5100 → failed; T2 message gets −32603 {storeRecovery} and releases; zero snapshots.
+    - Negative controls:
+      - parallelRecovery issues (2,0) twice at 1 and fails.
+      - seqFromCheckpoint gives W = (2,1), colliding with C1, and fails.
+  - BR22e (G, seq exhaustion): SeqAlloc starts at 2^32−2 through a test parameter.
+    - Anchor takes 0xfffffffe; first write takes 0xffffffff and replies null.
+    - Second write → −32603 {storeRecovery}, no set.
+  - BR22f (G, unit, RecoverySlots contention, D109, I62):
+    - Setup: generation 2; keys K1/K2/K3 for different sites, each with record (1,3) and nonempty dictionary. FakeBackend holds every operation. Each key has a waiting storage_set message.
+    - Table (time: event → effect, then held/set count):
+      - 0: K1 snapshot → C0_K1 = (2,0) in slot A. held=1, set=1.
+      - 1: K2 snapshot → C0_K2 = (2,0) in slot B. held=2, set=2.
+      - 2: K3 snapshot → waits in RecoveryFIFO, zero alloc.
+      - 5000: C0_K1 timeout → request C1_K1 behind K3.
+      - 5001: C0_K2 timeout → request C1_K2.
+      - 5002: K3 wait expires → unrecovered; message −32603 {storeRecovery, busy}, release; zero set/alloc for K3. recoveryBusy=1.
+      - 10000: C1_K1 wait expires → K1 failed. 10001: K2 failed. held=2, set=2 unchanged.
+      - 13000: generation disappears with C0_K1/C0_K2 pending, then their late application at all L points defined in BR22a.
+    - Variant (f2): settle(C0_K1) fails at 7000 → slot A goes to C1_K1 = (2,1) at 7000, deadline 12000. K2 failed at 10001. K1 resolves ≤ 12000.
+    - Variant (f3): settle(C0_K1) succeeds at 6000 → K1 ready, C1_K1 request withdrawn; slot A goes to C1_K2 at 6000.
+    - Variant (f4): deleteSite(K1) at 3000 → tombstone not issued before K1 resolves at 10000, then uses AdminSlots.
+    - Criteria: recoveryUnsettledMax ≤ 2 on every row; no anchor without a slot; every slot wait ≤ 5000 ms; every resolution ≤ 20s from first request; no snapshot before successful settle. After disappearance: disk/names within bounds at every instant; next recovery = SR-model.
+    - Negative control recoveryNoSlot issues C1_K1/C1_K2 at 5000/5001, producing 4 unsettled operations and failing.
+  - BR22g (G, unit, read phase, D110, I63):
+    - Setup: generation 2. FakeBackend holds getKeys/get until settleRead(i). Keys K1/K2/K3 for different sites, each with a waiting storage_set message. t_s = 0 unless stated otherwise.
+    - (g1) Held getKeys:
+      - 0: K1 snapshot causes getKeys to take slot R1.
+      - 5000: readTimeout. K1 returns to unrecovered; message gets −32603 {storeRecovery, readTimeout} and releases. Zero alloc, zero set, zero disk ticket.
+      - 6000: settleRead(getKeys). Result ignored, lateReadsDropped=1, R1 releases, zero set.
+      - 6100: new K1 arrival opens a gate with a new gateId.
+    - (g2) getKeys immediately succeeds; get of largest record held. At 5000 readTimeout. get result at 7000 issues no anchor.
+    - (g3) K1/K2 reads held in R1/R2. K3 waits in ReadFIFO, then readTimeout at 5000 without any read. readSlotsHeld = 2 on every row.
+    - (g4) Corrupt records:
+      - Five records for the key, four largest corrupt: failed {corrupt} after exactly 4 get calls; fifth not read.
+      - Variant: three records, all corrupt → failed {corrupt}.
+      - Variant: zero records → anchor dictionary {}, then ready.
+    - (g5) Deletion during reading:
+      - 1000: deleteSite(K1), getKeys held.
+      - 5000: gate resolves readTimeout; tombstone issued with an AdminSlots slot.
+      - 6000: getKeys result ignored.
+      - settle(tombstone) makes the dictionary {}. Deletion resolves ≤ 45s in every tombstone-timeout variant.
+    - (g6) Boundary: reads finish at 4900, so slot requested at 4900. With slots held and timeouts as in BR22f, key resolves at ≤ 24900.
+    - Criteria:
+      - No set for a gate after resolution; no set before a valid read completes.
+      - readSlotsHeld ≤ 2 on every row.
+      - Every resolution ≤ 25000 ms from t_s; every AdminDelete ≤ 45000 ms.
+      - One release per message.
+      - Final dictionary = SR-model extended with the read phase.
+    - Negative control lateReadCheckpoint issues a anchor at 6000 in (g1) and fails.
+  - BR22h (G, unit, epoch fence, D134, I74):
+    - Setup:
+      - FakeBackend holds every set/remove until scheduler apply, settle or drop, under A15c/A15d.
+      - Each generation has a monotonic clock.
+      - Initial state: only F(5) visible, bootMs = −200000; S_A record version (5, 3).
+    - (h1) Forty generations G1..G40 at t = k·1000. Each issues set F(6) and disappears after 10 ms without settle. All operations apply after G40 boots, in fixed-seed order.
+      - Expected: all generations choose E = 6; names {F(5), F(6)} at every instant.
+    - (h2) Generations at t = k·70000. Each generation's operation applies before the next boots; disappearance after 100 ms, before T_LATE, so no sweep.
+      - G1..G7 write F(6)..F(12); pre-write EN values 1..7.
+      - G8..G40: EN = 8, so no issue.
+      - Expected: names ≤ 8 at every instant; epochGateBlocks = 33.
+    - (h3) Continue h2; G41 at 41·70000 stays alive:
+      - EN = 8; wait 60 monotonic seconds, then delete F(5)..F(11).
+      - EN = 1; issue F(13) and confirm it.
+      - Then anchor (13, 0), then ['k','v'] at version (13, 1), reply null.
+      - No data set before F(13) confirmation.
+    - (h4) As h3, but remove always fails:
+      - After sweep EN = 8; every storage_set gives −32603 {storeRecovery, reason: 'epochNames'}.
+      - Zero F/data set; record (5, 3) remains readable unchanged; action 25 is raised.
+    - (h5) Exhaustive:
+      - Six generations; three placements for each F operation: before next boot, after it within A15c, or dropped. Total 3^6 = 729 combinations.
+      - Two boot intervals per combination: 1000 ms and 70000 ms.
+      - Seventh generation stays alive and writes data.
+      - Reference: SR-model extended with D134.
+    - (h6) Coverage:
+      - G1 at 0 issues F(6) and disappears.
+      - G2 at 70000 confirms F(6), bootMs = 70000, issues a creating set for new site A without settle, then disappears at 70500.
+      - G1's F(6) applies at 70600, setting bootMs(F(6)) = 0.
+      - G3 at 71000 confirms F(7), sitesLive = 60.
+      - At 71100: lateGens = 1 (only F(7)), hence LATE_SITES = 4. New site B: 60+0+4+1 = 65 > 64 → 4300 {sites}.
+      - apply(A) at 100000.
+      - Expected: keys ≤ 64 at every instant; G2 operations covered by G3's item as stated in the coverage lemma.
+    - Criteria at every instant of every vector:
+      - Epoch items ≤ EPOCH_NAMES_MAX.
+      - Largest visible item nondecreasing; epochResurrected = 0.
+      - Data-writing generations' epochs strictly increase; no repeated data-record name.
+      - No confirmed dictionary lost; names ≤ STORE_RECORDS_MAX.
+      - Every decision matches SR-model.
+    - Negative controls:
+      - epochNonceNames gives 41 names in (h1) and fails.
+      - epochNoGate gives 41 names in (h2) and fails.
+      - epochSweepEarly fails (h5). Detecting combination: G1 issues pending F(6), G2 confirms F(6), G3 confirms F(7) and immediately deletes F(6), then G1's F(6) applies, resurrecting the name.
+- BR23 (G, unit, disk, D104). FakeBackend computes bytesInUse from summed encoded name/value lengths.
+  - (d1) Setup: live generation E booted at −120000; no other epoch item in the window, so lateGens=0 and LATE_SITES=0. There are 64 sites with one live record each; last refresh completed before 0.
+    - 0: first set for sixty-fifth site X → 4300 {sites, 64}, no retryAfterMs, zero set.
+    - 100: delete site 1 through “Storage management”. Tombstone settles at 200; refresh completes at 250, dropping its ticket. sitesLive=64 including tombstone; X rejected at 300.
+    - 300: TombReaper issues remove (no session or older generation in window); settles at 350; subsequently issued refresh completes at 400, sitesLive=63.
+    - 450: X → ok, R_sites=1.
+  - (d2) remove always fails, with successive maximum-size writes to one key:
+    - Every accepted set satisfies admission.
+    - First 4300 {disk} occurs at the first computed violation.
+    - Disk ≤ STORE_DISK_HARD at every instant.
+    - Last confirmed dictionary remains readable after reboot.
+  - (d3) Five boots within 60s: fifth writes no epoch item until first leaves the window, then continues.
+  - (d4) Four dead generations, each with two pending maximum-size sets, apply after their successor boots: disk ≤ limit at every instant.
+  - (d5) Missing getKeys → storeRecovery, zero get(null) calls.
+  - (d6) Tombstones and undeleted records accumulate to the full name-condition boundary (D134): names+R_names+1+LATE_NAMES+EPOCH_NAMES_MAX ≤ 1024.
+    - Writes accepted while names+R_names ≤ 991 before the operation.
+    - First 4300 {disk} at names+R_names = 992, because 992+1+24+8 = 1025.
+    - No set for the rejected operation.
+  - (d7) Dictionary reaching 4097 pairs → 4300 {entries, 4096}.
+  - (d8, D105) Two admissions for different keys in the same event-loop turn, inUse set to fit only one enc → first ok, second 4300 {disk}; R_bytes = first enc.
+  - (d9) Setup: lateGens=0 as d1, sitesLive=63, R_sites=0.
+    - First messages for two new sites in the same turn → first ok, second 4300 {sites}, no retryAfterMs.
+    - Variant: first set fails → once a refresh issued after failure settle completes, R_sites returns to 0 and second request succeeds on retry.
+  - (d10) Gap: settle at 100; refresh issued at 90 completes at 110. Ticket remains after 110; admission at 120 sees it. Dropped only when a refresh issued after 100 completes, whose measurement includes its effect.
+  - (d11, I64) Name boundary under the full admission rule: names+R_names+1+LATE_NAMES+EPOCH_NAMES_MAX ≤ STORE_RECORDS_MAX, i.e. names+R_names+1+24+8 ≤ 1024.
+    - Setup: bytes/sites far from limits. names+R_names = 991; no refresh between admissions.
+    - Two admissions for counted keys in the same event-loop turn:
+      - First: 991+1+24+8 = 1024 → ok, R_names increments by one.
+      - Second: 992+1+24+8 = 1025 → 4300 {disk}, no set.
+  - (d11b, I64) Detect omitted epoch reserve:
+    - Setup as d11, but names+R_names = 999. This is the old formula's boundary because 999+1+24 = 1024.
+    - One operation: 999+1+24+8 = 1032 > 1024 → 4300 {disk}, no set, unchanged R_names.
+    - Negative control bridge-fault:epochReserveOmitted removes EPOCH_NAMES_MAX from the name condition:
+      - Accepts d11b because 1024 ≤ 1024.
+      - Accepts d11's second operation because 1017 ≤ 1024.
+      - Fails both vectors.
+    - SR-model carries d11/d11b with correct and defective paths.
+  - (d12, D112, I66) Site slots across generations. SR-model extended with lateGens/LATE_SITES.
+    - Setup:
+      - 63 counted keys; disk/names far from limits.
+      - Generation E booted at −120000, outside the window.
+      - FakeBackend holds operations.
+    - Table (time: event → effect):
+      - −10: E issues first nonempty-data set for new site A, ticket R_sites=1.
+      - 0: E disappears before apply.
+      - 100: E+1 boots and confirms epoch. sitesLive = 63, lateGens = 1, LATE_SITES = 4.
+      - 200: first set for new B → 63+0+4+1 = 68 > 64 → 4300 {sites, 64, retryAfterMs ≈ 60000}, zero set.
+      - 30000: late apply(A).
+      - 60100: E+1 window expires; refresh issued afterward completes at 60150. sitesLive = 64, lateGens = 0.
+      - 60200: retry B → 64+0+0+1 > 64 → 4300 {sites}, no retryAfterMs.
+    - Criterion:
+      - Distinct on-disk keys ≤ 64 at every instant.
+      - Every decision matches SR-model.
+      - Zero automatic deletion of any record.
+    - (d12a) A never applies → sitesLive = 63 at 60150; B accepted at 60200; count 64.
+    - (d12b) Repeated site: at 200, a write to a counted key → accepted without a slot despite LATE_SITES.
+    - Negative control bridge-fault:noLateSites sets LATE_SITES = 0:
+      - Accepts B at 200.
+      - apply(A) at 30000 makes count 65 and fails.
+  - (d13) Multiple generations:
+    - Setup: sitesLive = 50; E+1/E+2/E+3 boot at 100/20100/40100.
+    - Each dead generation leaves two pending creating operations for new sites: a data set and an empty-dictionary anchor {} for a recordless key.
+    - Scheduler applies/drops them at every allowed position under A15c.
+    - Live generation attempts a new site every 1000 ms until 120000.
+    - Criterion:
+      - Count ≤ 64 at every instant.
+      - LATE_SITES ≤ 12; does not decrease before the measurement issued after expiry.
+      - Admissions/rejections match SR-model.
+  - (d14) Deletion and recreation:
+    - Setup: 64 keys; user deleted K, leaving a single tombstone.
+    - Tombstone removal cannot precede older generations leaving the window or occur with a session/ticket for the key.
+    - A new site is rejected until a completed measurement does not see K, then accepted.
+    - Recreating K afterward requires one new slot.
+  - (d15, D113, I67) Capacity with a retained tombstone.
+    - Setup:
+      - 64 counted keys including K with one confirmed/measured tombstone, R_sites=0, no K session.
+      - E−1 booted at −50000, live E at −40000. At 0: lateGens=2, LATE_SITES=8.
+    - 100: first set for different site X → 4300 {sites, 64}, no retryAfterMs.
+    - 200: K session opened by clicking. Recovery sees tombstone, dictionary {}; anchor accepted without a slot, R_sites=0 despite LATE_SITES=8. TombReaper does not remove tombstone because a session exists.
+    - 300: K ['k','v'] → null, R_sites=0.
     - 400: X → 4300 {sites}.
-    - (d15b) دون جلسة:
-      - 10000: تخرج E−1 من النافذة.
-      - 10050: يصدر TombReaper remove، فيستقر عند 10100. refresh صادر بعده يكتمل عند 10150 → sitesLive=63.
-      - 20000: تخرج E، وrefresh يكتمل عند 20100 → lateGens=0.
-      - 20200: جلسة K → نقطة تثبيت {} منشئة تحجز مقعدًا: 63+0+0+1 = 64 → ok، وR_sites=1.
+    - (d15b) Without a session:
+      - 10000: E−1 leaves window.
+      - 10050: TombReaper issues remove, settles at 10100. Later-issued refresh completes at 10150 → sitesLive=63.
+      - 20000: E leaves; refresh completes at 20100 → lateGens=0.
+      - 20200: K session → creating anchor {} reserves a slot: 63+0+0+1 = 64 → ok, R_sites=1.
       - 20250: X → 63+1+0+1 = 65 → 4300.
-      - 20300: settle. 20350: refresh → sitesLive=64، وR_sites=0.
-      - 20400: K set دون مقعد.
-    - (d15c، I68) pin مع مسند مباشر ثم تجاوز بعد خروج الإسهامات.
-      - الإعداد:
-        - 64 مفتاحًا محتسبًا، منها K بقبر وحيد مؤكد ومقيس، ولا جلسة لـK.
-        - الجيل E أقلع عند −120000، ولا عنصر epoch آخر في النافذة.
-        - FakeBackend يحتجز العمليات.
-        - DiskLedger.refreshNow() خطاف في بناء الاختبار فقط، يصدر refresh عاديًا متسلسلًا.
-      - الجدول (اللحظة: الحدث → الأثر في التنفيذ الصحيح):
-        - −100: TombReaper في E يصدر remove R لقبر K. شروط D112 متحققة، فلا جلسة ولا أجيال أقدم في النافذة. R تذكرة صفرية، ولم يستقر.
-        - −50: زوال E قبل apply(R).
-        - 0: إقلاع E+1 وتأكيد epoch. lateGens=1 (عنصر E+1 يمثل E)، وLATE_SITES=4.
-        - 50: refresh يرى قبر K → sitesLive=64.
-        - 100: جلسة K بالنقر. الاسترداد يرى القبر، فالقاموس {}. نقطة التثبيت C0 = (E+1, 0) على مقعد RecoverySlots A، دون مقعد موقع لأن K محتسب، فتضيف pin. C0 محتجزة دون settle.
-        - 5100: مهلة C0 → C1 = (E+1, 1) على المقعد B، دون مقعد موقع، وتضيف pin. محتجزة.
-        - 10100: مهلة C1 → K failed في هذا الجيل وفق D107. هذا أثر جانبي متوقع خارج التمييز. التذكرتان حيتان، وpinnedKeys=1.
-        - 30000: apply(R) متأخرًا داخل T_LATE من إقلاع E+1 (A15c). القبر يزول، ولا سجل لـK على القرص.
-        - 30010: refreshNow، ويكتمل عند 30050 دون أن يرى K. مسند مباشر: K يبقى في sitesLive، وstats.sitesLive=64، وpinnedKeys=1، وlateSites=4.
-        - 30100: X جديد → 4300 {reason: 'sites', limit: 64} حرفيًا دون retryAfterMs، وصفر set. السبب: sitesLive+R_sites = 64+0، فالشرط 64+0+0+1 > 64 يمنع القبول حتى بعد زوال LATE_SITES، وD112 يشترط غياب الحقل في هذه الحالة. رمز الرفض مشترك مع dropPinned، أما شكل البيانات فمختلف.
-        - 60000: انقضاء E+1، فيجدول onWindowExpiry refresh يكتمل عند 60050 → lateGens=0، وLATE_SITES=0، وsitesLive=64 بـpin.
-        - 60100: X → 64+0+0+1 = 65 > 64 → 4300 {sites, 64} دون retryAfterMs، وصفر set.
-        - 60300: apply(C0) ثم settle ناجح. K يبقى failed، وlateRecordsSeen=1.
-        - 60310: refresh يكتمل عند 60350 ويرى K، فتسقط تذكرة C0. K محتسب بالقياس، والعدد 64.
-        - 60400: settle(C1) فاشل → التذكرة تسقط بالـrefresh التالي، وpinnedKeys=0.
-      - مسار التنفيذ المعيب dropPinned، مشتقًا من الجدول نفسه:
+      - 20300: settle. 20350: refresh → sitesLive=64, R_sites=0.
+      - 20400: K set without a slot.
+    - (d15c, I68) Pin with direct assertion, then overflow after contributions leave the window.
+      - Setup:
+        - 64 counted keys including K with one confirmed/measured tombstone, no K session.
+        - E booted at −120000; no other epoch item in window.
+        - FakeBackend holds operations.
+        - DiskLedger.refreshNow() is a test-build-only hook issuing a normal serialized refresh.
+      - Table (time: event → effect in correct implementation):
+        - −100: TombReaper in E issues remove R for K's tombstone. D112 conditions hold: no session or older generations in window. R is a zero ticket, unsettled.
+        - −50: E disappears before apply(R).
+        - 0: E+1 boots and confirms epoch. lateGens=1 (E+1's item represents E), LATE_SITES=4.
+        - 50: refresh sees K tombstone → sitesLive=64.
+        - 100: K session by clicking. Recovery sees tombstone, dictionary {}. Anchor C0 = (E+1, 0) in RecoverySlots A, no site slot because K counted, adding a pin. C0 held, no settle.
+        - 5100: C0 timeout → C1 = (E+1, 1) in slot B, no site slot, adding a pin. Held.
+        - 10100: C1 timeout → K failed in this generation under D107. Expected side effect outside the discriminator. Both tickets live, pinnedKeys=1.
+        - 30000: late apply(R) within T_LATE of E+1 boot (A15c). Tombstone disappears; no K record on disk.
+        - 30010: refreshNow completes at 30050 without seeing K. Direct assertion: K stays in sitesLive; stats.sitesLive=64, pinnedKeys=1, lateSites=4.
+        - 30100: new X → literal 4300 {reason: 'sites', limit: 64}, no retryAfterMs, zero set. Reason: sitesLive+R_sites = 64+0; 64+0+0+1 > 64 prevents admission even after LATE_SITES disappears, and D112 requires field absence here. Same rejection code as dropPinned, but different data shape.
+        - 60000: E+1 window expires; onWindowExpiry schedules refresh completing at 60050 → lateGens=0, LATE_SITES=0, sitesLive=64 through pin.
+        - 60100: X → 64+0+0+1 = 65 > 64 → 4300 {sites, 64}, no retryAfterMs, zero set.
+        - 60300: apply(C0), then successful settle. K remains failed, lateRecordsSeen=1.
+        - 60310: refresh completes at 60350, sees K, drops C0 ticket. K counted by measurement, count 64.
+        - 60400: settle(C1) fails → ticket dropped by next refresh, pinnedKeys=0.
+      - Defective dropPinned path, derived from the same table:
         - 30050: sitesLive=63.
-        - 30100: 4300 {reason: 'sites', limit: 64, retryAfterMs: 29900}، وصفر set. السبب: 63+0+4+1 = 68 > 64، بينما 63+0+0+1 ≤ 64، فالاحتياطي وحده يمنع القبول. retryAfterMs = bootMs(E+1)+T_LATE−30100 = 60000−30100. القبول الفعلي يتطلب أيضًا اكتمال refresh صادر بعد 60000 (D112).
-        - 60100: الشرط 63+0+0+1 = 64 ≤ 64 → يقبل X ويحجز مقعدًا. set(X) يستقر عند 60200، وrefresh عند 60250 → sitesLive=64.
-        - 60350: يُرى K وX معًا → 65 مفتاحًا متمايزًا على القرص.
-    - المعيار:
-      - عدد المفاتيح المتمايزة على القرص ≤ 64 في كل لحظة.
-      - صفر مقعد لأي عملية على K ما دام محتسبًا.
-      - مقعد واحد بالضبط في d15b.
-      - كل قرار مطابق لـSR-model.
-    - الضوابط السالبة:
-      - bridge-fault:seatOnCounted يطلب مقعدًا لمفتاح محتسب، فيرفض نقطة التثبيت عند 200 (64+0+8+1 > 64)، فيفشل.
-      - bridge-fault:dropPinned يفشل في d15c عند ثلاث نقاط:
-        - المسند المباشر عند 30050، لأن sitesLive=63 وK خارج العد رغم pin.
-        - قبول X عند 60100.
-        - عدد المفاتيح 65 عند 60350.
-        - عند 30100 يتفق التنفيذان في رمز الرفض، لكن وجود retryAfterMs في dropPinned يخالف الرد الحرفي للتنفيذ الصحيح، فتفشل الخلية في SR-model. هذا دليل ثانوي، والتمييز الأساسي في النقاط الثلاث أعلاه.
-      - SR-model يحمل الجدول بالمسارين، وأي اختلاف في خلية فشل.
-  - الضابط السالب diskNoReserve يقبل الثاني في (d8) و(d9) و(d11)، ويُسقط التذكرة عند settle في (d10).
-  - الضوابط السالبة: noDiskGate يفشل في (d2) و(d6)، وsweepMax يفشل في BR22a عند P1 مع تطبيق متأخر للحذف.
-- BR24 (G، وحدة، الحذف الإداري، D106). FakeBackend وSR-model ممتدان بالحذف. الإعداد: S_A بقاموس {k0:'a'}، وتبويبان T1 وT2.
-  - (x1) W1=['k1','x'] من T1 نشطة محتجزة، وW2 من T2 منتظرة، ثم deleteSite:
-    - الإطاران يُهدمان، وW2 تصير suppressed مع release.
-    - القبر يأخذ seq أكبر من W1.
-    - settle(القبر) ثم settle(W1) ناجح → القاموس {}، وأكبر سجل = القبر، وجلسة جديدة ترى {}.
-  - (x2) W1 بعد storeTimeout تُطبق بعد القبر → أقل منه، ويكنسها الكنس، والنتيجة {}.
-  - (x3) الحذف أثناء recovering: القبر لا يصدر قبل حسم البوابة، وC0 المتأخر أقل من القبر.
-  - (x4) فشل القبر مرتين → unrecovered و«فشل الحذف». الاسترداد التالي = أكبر سجل صالح وفق SR-model.
-  - (x5) مهلة القبر، ثم تطبيقه بعد نقطة تثبيت الاسترداد الجديد → لا يظهر، والإعلان «غير مؤكدة». وتطبيقه قبل القراءة → {}.
-  - (x6) إعادة الإنشاء بعد الحسم (D113): snapshot {}، ونسخة أول set أكبر من القبر.
-    - ما دام القبر باقيًا: R_sites لا يتغير، ولا تذكرة تحمل مقعد موقع.
-    - بعد إزالة القبر بـTombReaper واعتماد قياس لا يرى S_A: نقطة التثبيت الأولى تحجز مقعدًا واحدًا.
-    - الحالة عند السعة يغطيها BR23(d15).
-  - (x7) deleteSite من صفحتين في اللحظة نفسها → قبر واحد ووعد واحد.
-  - (x8) محاولة فتح جلسة أثناء deleting → تُمنع حتى الحسم.
-  - (x9، D108) ملكية مقاعد القبر.
-    - الإعداد: المفتاحان K1 وK2 بقاموسين غير فارغين، وFakeBackend يحتجز كل عملية، والبوابتان ready.
-    - الجدول (اللحظة: الحدث → الأثر):
-      - 0: deleteSite(K1) → القبر T1a يأخذ المقعد A. held=1.
-      - 5000: مهلة T1a → T1b يأخذ المقعد B، وT1a تبقى مالكة A. held=2.
-      - 6000: deleteSite(K2) → ينتظر في AdminFIFO، وصفر set.
-      - 10000: مهلة T1b → K1 uncertain ثم unrecovered، والمقعدان يبقيان محتجزين.
-      - 11000: انقضاء انتظار K2 → adminBusy، وصفر قبر لـK2، وقاموس K2 دون تغيير بايتي.
-      - 13000: زوال الجيل مع T1a وT1b معلقين.
-    - بعد الزوال: تطبيق T1a وT1b متأخرين في كل مواضع L المعرّفة في BR22a.
-    - المعايير: قبور متأخرة = 2، والقرص والأسماء ضمن الحد في كل لحظة، وK1 وفق SR-model، وK2 سليم.
-  - (x10) متغير x9: settle(T1a) فاشل عند 8000.
-    - المقعد A يتحرر، فيأخذه قبر K2 عند 8000. held=2.
-    - K1 لا يُحسم قبل 10000.
-  - (x11) متغير x9: settle(T1b) ناجح عند 7000.
-    - K1 deleted، والمقعد B يتحرر، فيأخذه قبر K2 عند 7000.
-    - T1a تبقى مالكة A حتى settle، وsettle ناجح متأخر لها لا يغير الحسم.
-  - (x12، D111، I65) نجاح الأولى أثناء انتظار الثانية ثم إعادة الإنشاء.
-    - الإعداد: المفاتيح K1 وK2 وK3 بقواميس غير فارغة، والبوابات ready، وFakeBackend يحتجز كل عملية.
-    - الجدول (اللحظة: الحدث → الأثر):
-      - 0: deleteSite(K1)، أي op1 → القبر T1a على المقعد A.
-      - 1: deleteSite(K2)، أي op2 → T2a على المقعد B. held=2.
-      - 4000: deleteSite(K3)، أي op3 → طلب T3a في AdminFIFO.
-      - 5000: مهلة T1a → طلب T1b لـop1 خلف T3a. T1a تبقى مالكة A.
-      - 6000: settle(T1a) ناجح، فتقع الأحداث التالية في الخطوة نفسها:
-        - K1 deleted، وop1 settled.
-        - سحب T1b.
-        - المقعد A يذهب إلى T3a.
-      - 6100: جلسة جديدة لـK1 بالنقر → snapshot {}. ثم ['k9','n'] → null، بنسخة أكبر من T1a.
-      - 7000: settle(T2a) ناجح → K2 deleted، والمقعد B حر. held=1.
-      - 8000: settle(T3a) ناجح → K3 deleted. held=0.
-    - المعيار:
-      - لـop1 بعد 6000: صفر alloc، وصفر تذكرة DiskLedger، وصفر set.
-      - قاموس K1 النهائي {k9:'n'} بعد إعادة الإقلاع والاسترداد.
+        - 30100: 4300 {reason: 'sites', limit: 64, retryAfterMs: 29900}, zero set. Reason: 63+0+4+1 = 68 > 64 while 63+0+0+1 ≤ 64; only reserve blocks admission. retryAfterMs = bootMs(E+1)+T_LATE−30100 = 60000−30100. Actual admission also requires completion of a refresh issued after 60000 (D112).
+        - 60100: 63+0+0+1 = 64 ≤ 64 → accept X, reserve slot. set(X) settles at 60200; refresh at 60250 → sitesLive=64.
+        - 60350: K/X both seen → 65 distinct on-disk keys.
+    - Criterion:
+      - Distinct on-disk keys ≤ 64 at every instant.
+      - Zero slots for any K operation while counted.
+      - Exactly one slot in d15b.
+      - Every decision matches SR-model.
+    - Negative controls:
+      - bridge-fault:seatOnCounted requests a slot for a counted key, rejecting anchor at 200 (64+0+8+1 > 64), and fails.
+      - bridge-fault:dropPinned fails d15c at three points:
+        - Direct assertion at 30050: sitesLive=63, K excluded despite pin.
+        - Accepting X at 60100.
+        - Key count 65 at 60350.
+        - At 30100 both implementations agree on rejection code, but retryAfterMs in dropPinned violates the correct literal reply, failing that SR-model cell. Secondary evidence; primary discrimination is the three points above.
+      - SR-model carries both paths; any cell discrepancy fails.
+  - Negative control diskNoReserve accepts the second operation in (d8), (d9), (d11), and drops the ticket at settle in (d10).
+  - Negative controls: noDiskGate fails (d2)/(d6); sweepMax fails BR22a at P1 with late delete application.
+- BR24 (G, unit, administrative deletion, D106). FakeBackend/SR-model extended with deletion. Setup: S_A dictionary {k0:'a'}, tabs T1/T2.
+  - (x1) W1=['k1','x'] from T1 active/held, W2 from T2 waiting, then deleteSite:
+    - Both frames destroyed; W2 suppressed with release.
+    - Tombstone takes seq greater than W1.
+    - settle(tombstone), then successful settle(W1) → dictionary {}, largest record = tombstone; new session sees {}.
+  - (x2) W1 applies after tombstone following storeTimeout → lower than tombstone, swept; result {}.
+  - (x3) Deletion while recovering: tombstone not issued before gate resolution; late C0 lower than tombstone.
+  - (x4) Tombstone fails twice → unrecovered and “Deletion failed”. Next recovery = largest valid record under SR-model.
+  - (x5) Tombstone timeout, then application after new recovery anchor → does not appear; notice “Unconfirmed”. Application before read → {}.
+  - (x6) Recreation after resolution (D113): snapshot {}; first set version greater than tombstone.
+    - While tombstone remains: R_sites unchanged; no ticket carries a site slot.
+    - After TombReaper removes it and a measurement not seeing S_A is adopted: first anchor reserves one slot.
+    - At-capacity case covered by BR23(d15).
+  - (x7) deleteSite from two pages simultaneously → one tombstone, one promise.
+  - (x8) Attempt to open session while deleting → blocked until resolution.
+  - (x9, D108) Tombstone-slot ownership.
+    - Setup: K1/K2 with nonempty dictionaries, FakeBackend holds every operation, both gates ready.
+    - Table (time: event → effect):
+      - 0: deleteSite(K1) → tombstone T1a takes slot A. held=1.
+      - 5000: T1a timeout → T1b takes B; T1a retains A. held=2.
+      - 6000: deleteSite(K2) → waits in AdminFIFO, zero set.
+      - 10000: T1b timeout → K1 uncertain then unrecovered; both slots remain held.
+      - 11000: K2 wait expires → adminBusy, zero K2 tombstone; K2 dictionary bytewise unchanged.
+      - 13000: generation disappears with T1a/T1b pending.
+    - After disappearance: apply T1a/T1b late at every L point in BR22a.
+    - Criteria: 2 late tombstones; disk/names bounded at every instant; K1 follows SR-model; K2 intact.
+  - (x10) x9 variant: settle(T1a) fails at 8000.
+    - A releases; K2 tombstone takes it at 8000. held=2.
+    - K1 does not resolve before 10000.
+  - (x11) x9 variant: settle(T1b) succeeds at 7000.
+    - K1 deleted; B releases; K2 tombstone takes it at 7000.
+    - T1a owns A until settle; late successful settle does not alter resolution.
+  - (x12, D111, I65) First succeeds while second waits, followed by recreation.
+    - Setup: K1/K2/K3 with nonempty dictionaries, gates ready; FakeBackend holds every operation.
+    - Table (time: event → effect):
+      - 0: deleteSite(K1), op1 → tombstone T1a in A.
+      - 1: deleteSite(K2), op2 → T2a in B. held=2.
+      - 4000: deleteSite(K3), op3 → T3a request in AdminFIFO.
+      - 5000: T1a timeout → T1b request for op1 behind T3a. T1a retains A.
+      - 6000: settle(T1a) succeeds; same-step events:
+        - K1 deleted, op1 settled.
+        - Withdraw T1b.
+        - A goes to T3a.
+      - 6100: new K1 session by click → snapshot {}. Then ['k9','n'] → null, version greater than T1a.
+      - 7000: settle(T2a) succeeds → K2 deleted, B free. held=1.
+      - 8000: settle(T3a) succeeds → K3 deleted. held=0.
+    - Criterion:
+      - For op1 after 6000: zero alloc, zero DiskLedger ticket, zero set.
+      - Final K1 dictionary {k9:'n'} after reboot/recovery.
       - adminStaleDropped = 0.
-      - release واحد لكل رسالة.
-      - استدعاءات set = 3 قبورًا + كتابة k9.
-    - (x12b) bridge-fault:adminNoCancel يعطل السحب وحده:
-      - T1b يبقى في FIFO، ويُمنح المقعد B عند 7000.
-      - الحارس يرفضه، ويُعاد B فورًا.
-      - المعيار: adminStaleDropped = 1، وصفر alloc وset لـop1، وK1 = {k9:'n'}.
-    - الضابط السالب bridge-fault:adminStaleIssue يعطل السحب والحارس معًا:
-      - يصدر T1b عند 7000 بنسخة أكبر من k9.
-      - فيصبح K1 = {}، ويفشل x12.
-    - متغير RecoverySlots (BR22f-f5): settle(C0_K1) ناجح أثناء انتظار C1_K1، مع تعطيل السحب بالبناء نفسه → recoveryStaleDropped = 1، وصفر set لـC1_K1.
-  - المعيار: صفر ظهور لـk0 أو k1 بعد قبر مؤكد، وrelease واحد لكل رسالة، والقرص ضمن الحد في كل لحظة. adminTombsUnsettledMax ≤ 2 في كل سطر، ولا يُصدر قبر دون مقعد.
-  - الضابط السالب adminEarlyRelease (D108) يحرر A عند 5000 وB عند 10000.
-    - يصدر قبر K2 عند 6000 فيصير غير المستقر 3، فيفشل x9.
-    - بعد الزوال تتجاوز القبور المتأخرة احتياطي الجيل.
-  - الضابط السالب deleteUnordered يصدر القبر قبل إغلاق الجلسات فتُخصص W2 بعده، فيفشل (x1) لظهور k1.
-- BR-dep: قاعدتان في dependency-cruiser في CI، وخرق أي منهما فشل:
-  - وحدة Bridge لا تستورد WalletSubmit ولا HttpTransport.
-  - لا تستدعي أي وحدة fetch إلا HttpTransport.
+      - One release per message.
+      - set calls = 3 tombstones + k9 write.
+    - (x12b) bridge-fault:adminNoCancel disables withdrawal only:
+      - T1b remains in FIFO, receives B at 7000.
+      - Guard rejects it; B immediately returned.
+      - Criterion: adminStaleDropped = 1, zero alloc/set for op1, K1 = {k9:'n'}.
+    - Negative control bridge-fault:adminStaleIssue disables withdrawal and guard:
+      - Issues T1b at 7000 with version greater than k9.
+      - K1 becomes {}, failing x12.
+    - RecoverySlots variant (BR22f-f5): settle(C0_K1) succeeds while C1_K1 waits, withdrawal disabled by same build → recoveryStaleDropped = 1, zero C1_K1 set.
+  - Criterion: zero k0/k1 appearances after a confirmed tombstone, one release per message, disk bounded at every instant. adminTombsUnsettledMax ≤ 2 on every row; no tombstone without a slot.
+  - Negative control adminEarlyRelease (D108) releases A at 5000 and B at 10000.
+    - Issues K2 tombstone at 6000, making unsettled count 3, failing x9.
+    - After disappearance, late tombstones exceed generation reserve.
+  - Negative control deleteUnordered issues tombstone before closing sessions, allocating W2 afterward, failing (x1) by k1 appearing.
+- BR-dep: two dependency-cruiser rules in CI; violation of either fails:
+  - Bridge module imports neither WalletSubmit nor HttpTransport.
+  - No module calls fetch except HttpTransport.
 
-**MR (G مع قياسات C، استقبال الردود البعيدة، D98)**
+**MR (G with C measurements, remote-response receiving, D98)**
 
-الإعداد:
-- MaliciousHttp خادم Node محلي بملف RP. يرد حرفيًا وفق السكربت، ويسجل البايتات المرسلة ولحظة قطع العميل.
-- MR-unit يختبر HttpTransport في Node بتدفق وهمي (G).
-- MR1–MR12 تعمل في Chrome.
+Setup:
+- MaliciousHttp is a local Node server with an RP profile. Replies literally according to script; records sent bytes and client-disconnect time.
+- MR-unit tests HttpTransport in Node with a fake stream (G).
+- MR1–MR12 run in Chrome.
 
-المعيار المشترك:
-- الرمز المحدد بالضبط.
-- صفر محتوى جزئي في إطار أو sink أو عارض.
-- TestHooks.recvStats.maxBuffered لكل طلب ≤ recvLimit+maxChunk المسجل.
-- تحرير الحجز خلال ≤ 100 ms من الاستقرار.
-- ping العامل p99 ≤ 100 ms (C).
+Common criterion:
+- Exact specified code.
+- Zero partial content in any frame, sink or viewer.
+- Per-request TestHooks.recvStats.maxBuffered ≤ recorded recvLimit+maxChunk.
+- Reservation released within ≤ 100 ms of settlement.
+- Worker ping p99 ≤ 100 ms (C).
 
-الحالات:
-- MR1: eth_blockNumber يرد 300 MiB بأقصى سرعة → −32603 {recvLimit} بعد تجاوز 4096 بايتًا. يُسجل المرسل الفعلي قبل القطع.
-- MR2: كائن error بحقل data حجمه 300 MiB → recvLimit.
-- MR3: Content-Length = 1 GiB → recvLimit، مع صفر بايت مخزن.
-- MR4: Content-Encoding gzip، و1 MiB مضغوطة تُفك إلى 1 GiB → recvLimit بالعد بعد الفك.
-- MR5: رد ≤ 4 KiB بعمق 2000 → recvDepth.
-- MR6 (الحافة): eth_getCode برد JSON صالح طوله 69632 بايتًا بالضبط → قبول. وبطول 69633 → recvLimit.
-- MR6b (capped): eth_call بجسم 1048576 بايتًا → قبول. وبجسم 1048577 → recvLimit.
-- MR6c (exact): eth_getBlockByHash بجسم 163958 بايتًا، وهو الأسوأ في network → قبول. وبجسم 167937 → recvLimit.
-- MR6d (exact): eth_feeHistory بـn=128 وp=16، بجسم 168015 بايتًا → قبول.
-- CAP1 (G، على anvil-br، وعقد Blob منشور بأداة الاختبار): eth_call إلى Blob(262144) ثم إلى Blob(1048576).
-  - المتوقع يُشتق من طول الجسم B المسجل في RpcTap: إن كان B ≤ 1048576 فنجاح ومطابقة بايتية، وإلا recvLimit.
-  - التقدير: الأول نحو 512 KiB، والثاني نحو 2 MiB.
-  - تُسجل النتيجة في T12 حدًا منتجيًا.
-- RF (G، على NetworkProfiles.validate):
-  - RF1: network → قبول.
-  - RF2: end/full → قبول.
-  - RF3: ملف بـM_0 من 1100 هوية، فـ|genesisPre| > 47104 → recvFit.
-  - RF4: BODY_MAX=262144، فالأسوأ 217928 > 167936 → recvFit.
-- MR7: eth_call بقطرة 1 B/s → −32603 {transport} عند 10s±0.2.
-- MR8: pocol_getHeaders يرد 20 MiB → viewIncomplete و4901 دون إطار.
-- MR9: رد eth_getCode لقطعة بحجم 1 MiB → فشل التحميل دون عرض جزئي.
-- MR10 (I53): ست حالات منفصلة. خلافًا للقاعدة العامة لـMR، تعمل MR10a–MR10c وMR10f في Node، باستدعاء HttpTransport أو Bridge مع FakeClock وFakeStream يحتجز الردود. الحجز بقيمة recvLimit لا بالحجم الفعلي، والمساواة بالحد مقبولة.
-  - MR10a (حد الجلسة):
-    - عند 0 تُرسل الجلسة S1 عشرة طلبات eth_call بحد 1 MiB → كلها محجوزة، وحجز S1 = 10 MiB.
-    - الطلب الحادي عشر عند 0 → ينتظر، ثم {busy} عند 2000.
-    - الطلب الثاني عشر عند 2100 → ينتظر. تحرير الطلب 1 عند 2500 يجعله محجوزًا عند 2500.
+Cases:
+- MR1: eth_blockNumber replies 300 MiB at maximum speed → −32603 {recvLimit} after exceeding 4096 bytes. Record actual bytes sent before cutoff.
+- MR2: error object with 300 MiB data → recvLimit.
+- MR3: Content-Length = 1 GiB → recvLimit, zero buffered bytes.
+- MR4: Content-Encoding gzip; 1 MiB decompresses to 1 GiB → recvLimit using post-decompression count.
+- MR5: response ≤ 4 KiB, depth 2000 → recvDepth.
+- MR6 (boundary): eth_getCode valid JSON response exactly 69632 bytes → accepted; 69633 → recvLimit.
+- MR6b (capped): eth_call body 1048576 bytes → accepted; 1048577 → recvLimit.
+- MR6c (exact): eth_getBlockByHash body 163958 bytes, network worst case → accepted; 167937 → recvLimit.
+- MR6d (exact): eth_feeHistory n=128, p=16, body 168015 bytes → accepted.
+- CAP1 (G, anvil-br, Blob contract deployed by test tool): eth_call to Blob(262144), then Blob(1048576).
+  - Expected result derived from body length B recorded by RpcTap: if B ≤ 1048576, success and byte match; otherwise recvLimit.
+  - Estimate: first approximately 512 KiB, second approximately 2 MiB.
+  - Record in T12 as a product limit.
+- RF (G, NetworkProfiles.validate):
+  - RF1: network → accepted.
+  - RF2: end/full → accepted.
+  - RF3: profile with 1100 M_0 identities, |genesisPre| > 47104 → recvFit.
+  - RF4: BODY_MAX=262144; worst case 217928 > 167936 → recvFit.
+- MR7: eth_call dripping 1 B/s → −32603 {transport} at 10s±0.2.
+- MR8: pocol_getHeaders replies 20 MiB → viewIncomplete and 4901, no frame.
+- MR9: eth_getCode response for a 1 MiB chunk → load failure without partial display.
+- MR10 (I53): six separate cases. Unlike the general MR rule, MR10a–MR10c and MR10f run in Node, calling HttpTransport or Bridge with FakeClock/FakeStream holding replies. Reservation uses recvLimit, not actual size; equality with limit accepted.
+  - MR10a (session bound):
+    - At 0, S1 sends ten eth_call at 1 MiB limit → all reserved, S1 reservation = 10 MiB.
+    - Eleventh request at 0 → waits, then {busy} at 2000.
+    - Twelfth at 2100 → waits. Releasing request 1 at 2500 reserves it at 2500.
   - MR10b (SITE_POOL):
-    - S1 وS2 وS3، كل منها 10×1 MiB عند 0، ثم S4 بطلبين → 32 MiB.
-    - الطلب الثالث من S4 → {busy} عند 2000.
-    - عند 100: pocol_getHeaders من TRUST_POOL (96 KiB) وقطعة من CONTENT_POOL (68 KiB) → حجز فوري.
+    - S1/S2/S3 each 10×1 MiB at 0, then two S4 requests → 32 MiB.
+    - Third S4 request → {busy} at 2000.
+    - At 100: pocol_getHeaders from TRUST_POOL (96 KiB) and chunk from CONTENT_POOL (68 KiB) → immediate reservation.
   - MR10c (RECV_INFLIGHT_MAX):
-    - 48 طلب eth_blockNumber (4 KiB) من 12 جلسة → كلها محجوزة.
-    - الطلب 49 من جلسة ثالثة عشرة → {busy} عند 2000، رغم توفر البايتات.
-    - طلب ثقة في اللحظة نفسها → حجز فوري.
-  - MR10d (Chrome، G مع قياس C):
-    - ثلاثة تبويبات، كل منها 5 رسائل eth_call. MaliciousHttp يحتجز الردود 5s، وكل رد 900 KiB.
-    - G: في كل جلسة 4 رسائل موجّهة و1 −32005 {pending}، والحجز الكلي 12 MiB، وصفر busy.
-    - G: HeaderNetCheck في تبويب رابع ينجح. بعد الإطلاق تصل الردود كاملة، والحجز يعود إلى 0 خلال ≤ 100 ms.
-    - C: ذاكرة العملية القصوى تُقاس وتُعلن.
-  - MR10e: حد التعليق العام (16) يغطيه BR20d.
-  - MR10f (SESSION_RECV_MAX عبر الجسر)، والجلسة بدلو ممتلئ:
-    - t=0: m1 eth_getLogs على 0x1..0x10. H(latest) يُرد فورًا ويُحرر حجزه، ثم pocol_getLogs محتجز → حجز 8 MiB، وpendingReads=1.
-    - t=10: m2 eth_call → 9 MiB، وpending=2.
-    - t=20: m3 eth_call → 10 MiB، وpending=3.
-    - t=30: m4 eth_call → يجتاز التعليق (pending=4) وينتظر الحجز، ثم عند 2030 −32005 {busy}، وpending=3.
-    - t=2100: إطلاق pocol_getLogs → H(16) يُحجز ثم commit، وpending=2، والحجز 2 MiB.
-    - t=2200: m5 eth_call → حجز فوري (3 MiB).
-- MR11: UTF-8 غير صالح، أو مفتاح مكرر، ضمن الحد → recvParse.
-- MR12: error.message بطول 512 KiB لطلب eth_call → يصل الإطار مقصوصًا إلى 256 وحدة، وdata فوق 4 KiB محذوف.
-- MR-neg: البناء bridge-fault:recvNoLimit يجب أن يفشل فيه MR1 وMR4.
+    - 48 eth_blockNumber requests (4 KiB) from 12 sessions → all reserved.
+    - Request 49 from a thirteenth session → {busy} at 2000 despite available bytes.
+    - Trust request at the same instant → immediate reservation.
+  - MR10d (Chrome, G with C measurement):
+    - Three tabs, 5 eth_call each. MaliciousHttp holds replies for 5s; each reply is 900 KiB.
+    - G: per session, 4 messages routed and 1 −32005 {pending}; total reservation 12 MiB; zero busy.
+    - G: HeaderNetCheck in fourth tab succeeds. After release, replies arrive complete; reservation returns to 0 within ≤ 100 ms.
+    - C: maximum process memory measured and disclosed.
+  - MR10e: global pending bound (16) covered by BR20d.
+  - MR10f (SESSION_RECV_MAX through bridge), session with full bucket:
+    - t=0: m1 eth_getLogs over 0x1..0x10. H(latest) replies immediately and releases reservation, then pocol_getLogs held → 8 MiB reservation, pendingReads=1.
+    - t=10: m2 eth_call → 9 MiB, pending=2.
+    - t=20: m3 eth_call → 10 MiB, pending=3.
+    - t=30: m4 eth_call → passes pending gate (pending=4), waits for reservation; at 2030 gets −32005 {busy}, pending=3.
+    - t=2100: release pocol_getLogs → H(16) reserved, then commit; pending=2, reservation 2 MiB.
+    - t=2200: m5 eth_call → immediate reservation (3 MiB).
+- MR11: invalid UTF-8 or duplicate key within bound → recvParse.
+- MR12: 512 KiB error.message for eth_call → delivered to frame truncated to 256 units; data above 4 KiB removed.
+- MR-neg: bridge-fault:recvNoLimit must fail MR1/MR4.
 
-**LC-unit (G، على LogClient مع MockLogServer الحتمي وSinkChecker)**
+**LC-unit (G, LogClient with deterministic MockLogServer and SinkChecker)**
 
-الفروع، وكلها برأس عند 3000:
-- A: سجلان في كل من 10 و499 و500 و1000 و2500 (وسم 1)، والمجموع 10.
-- B: يطابق A في 1..999، ويختلف من 1000. فيه سجلان في كل من 1000' و2600' (وسم 2)، والمجموع 10.
-- A': يطابق A في 1..999، ويختلف من 1000. فيه سجلان في 1000'' و2500'' (وسم 3)، والمجموع 10.
+Branches, all with head at 3000:
+- A: two logs at each of 10, 499, 500, 1000, 2500 (tag 1), total 10.
+- B: matches A at 1..999, differs from 1000. Two logs at each of 1000', 2600' (tag 2), total 10.
+- A': matches A at 1..999, differs from 1000. Two logs at 1000'', 2500'' (tag 3), total 10.
 
-السجلات لكل نافذة (1,1024)/(1025,2048)/(2049,3000): A: 8 (10، 499، 500، 1000)، ثم 0، ثم 2 (2500). B: 8 (10، 499، 500، 1000')، ثم 0، ثم 2 (2600'). A': 8 (… 1000'')، ثم 0، ثم 2 (2500'').
+Logs per window (1,1024)/(1025,2048)/(2049,3000): A: 8 (10, 499, 500, 1000), then 0, then 2 (2500). B: 8 (10, 499, 500, 1000'), then 0, then 2 (2600'). A': 8 (… 1000''), then 0, then 2 (2500'').
 
-RefX(a,b) القائمة الكاملة للفرع X، وكل نتيجة معتمدة تُقارن بايتيًا بعد الترتيب القانوني. طلبات الرأس تُسجل بالرمز H(·). العدادات وفق تعريف browser، وSinkChecker يفحص (S-a)–(S-e).
+RefX(a,b) is branch X's complete list; each committed result is compared bytewise after canonical ordering. Header requests recorded as H(·). Counters follow browser's definition; SinkChecker checks (S-a)–(S-e).
 
-الحالات:
-- LC1: 1..3000 دون حدود. الطلبات: H(latest)، ثم (1,1024)، ثم (1025,2048)، ثم (2049,3000)، ثم H(3000). التتبع: begin(1)، ثم piece×3 (8، 0، 2)، ثم commit(1, {pieces:3, logs:10, logRequests:3, headRequests:2, totalRequests:5}). النتيجة RefA(1,3000).
-- LC2: (1,1024) يعطي Limit{resultBytes, lc=499}. طلبات السجلات: (1,1024)، ثم (1,499)، ثم (500,1024). النتيجة RefA(1,1024) = 8، وسجلات 10 و499 مرة واحدة. أي طلب من 500 قبل اكتمال (1,499) فشل.
-- LC3: −32021 {retryAfterMs=500} → انتظار ≥ 500 ms ثم المدى نفسه، والطلبان في totalRequests وlogRequests.
-- LC4: fetchAll على أكثر من 4 MiB → tooLarge، وصفر نتيجة جزئية.
-- LC5: (500,500) يعطي Limit{deadline, lc=499} أربع مرات. الطلبات: H(latest) و(500,500)×4، أي totalRequests=5، دون H قبل الاعتماد. النتيجة {deadline, block: 500}، وabort(1, deadline).
-- LC6: (1,1024) يعطي Limit{deadline, lc=0} → (1,512)، ثم (513,1024).
-- LC7: serverViolation في أربع حالات: resultBytes مع lc=b=1024، وresultBytes مع lc=a−1، وdeadline مع lc=a−2، وسبب غير معرّف.
-- LC8: الطلب الأول (1,1024) يعطي −32022 anchorNotCanonical، ثم يخدم الخادم B. التتبع: begin(1,A)، ثم abort(1,reorg)، ثم begin(2,B)، ثم piece×3 (8، 0، 2)، ثم commit(2, {pieces:3, logs:10, logRequests:3, headRequests:2, totalRequests:7}). النتيجة RefB.
-- LC9: سجل خارج [a,b]، أو ترتيب غير صارم، أو blockHash متغير لارتفاع واحد → serverViolation.
-- LC10: maxRequests=4 على سيناريو LC1. أربعة طلبات تنجح وثلاث قطع. H(3000) سيجعل totalRequests=5 فلا يُرسل → abort(1, tooManyRequests)، وError، وصفر commit. MockLogServer يسجل 4 طلبات بالضبط.
-- LC11: Limit{scratch, lc=0} على (1,1024) → (1,512)، ثم (513,1024). النتيجة RefA(1,1024).
-- LC12: (1,1024) يعطي scratch مع lc=300، ثم (1,300) يعطي scratch مع lc=150. التسلسل: (1,1024)، ثم (1,300)، ثم (1,150)، ثم (151,300)، ثم (301,1024). النتيجة RefA(1,1024).
-- LC13: (500,500) يعطي scratch مع lc=499 أربع مرات بفاصل ≥ 500 ms، ثم Error{scratch, block: 500}، وabort(1, scratch).
-- LC14: (1,1024) يعطي resultBytes مع lc=499، ثم (1,499) يعطي resultBytes مع lc=200 → serverViolation. المتغير: deadline مع lc=200 → (1,200)، ثم (201,499)، ثم (500,1024).
-- LC15: scratch مع lc=b → serverViolation. scratch مع lc=a−1 وa=b → Retry لا تنصيف.
-- LC16 (المدى 1..3000):
-  1. H(latest) → A، ثم begin(1, {hashA3000, 3000}).
-  2. (1,1024) → −32020 {resultBytes, fromBlock: 1, lastCompleteBlock: 499, nextFromBlock: 500}، دون قطعة.
-  3. (1,499) [withinLimit] → 4 سجلات (10 و499) → piece(1,0).
-  4. (500,1024) → 4 (500 و1000 من A) → piece(1,1).
+Cases:
+- LC1: 1..3000 without limits. Requests: H(latest), (1,1024), (1025,2048), (2049,3000), H(3000). Trace: begin(1), piece×3 (8, 0, 2), commit(1, {pieces:3, logs:10, logRequests:3, headRequests:2, totalRequests:5}). Result RefA(1,3000).
+- LC2: (1,1024) gives Limit{resultBytes, lc=499}. Log requests: (1,1024), (1,499), (500,1024). Result RefA(1,1024) = 8; logs at 10/499 once only. Any request starting at 500 before (1,499) completes fails.
+- LC3: −32021 {retryAfterMs=500} → wait ≥ 500 ms, then same range; both requests count in totalRequests/logRequests.
+- LC4: fetchAll exceeding 4 MiB → tooLarge, zero partial result.
+- LC5: (500,500) gives Limit{deadline, lc=499} four times. Requests: H(latest), (500,500)×4, totalRequests=5; no precommit H. Result {deadline, block: 500}, abort(1, deadline).
+- LC6: (1,1024) gives Limit{deadline, lc=0} → (1,512), then (513,1024).
+- LC7: serverViolation in four cases: resultBytes with lc=b=1024, resultBytes with lc=a−1, deadline with lc=a−2, unknown reason.
+- LC8: first (1,1024) gives −32022 anchorNotCanonical, then server serves B. Trace: begin(1,A), abort(1,reorg), begin(2,B), piece×3 (8, 0, 2), commit(2, {pieces:3, logs:10, logRequests:3, headRequests:2, totalRequests:7}). Result RefB.
+- LC9: log outside [a,b], non-strict order, or changing blockHash at one height → serverViolation.
+- LC10: maxRequests=4 on LC1. Four requests succeed, three pieces. H(3000) would make totalRequests=5, so not sent → abort(1, tooManyRequests), Error, zero commit. MockLogServer records exactly 4 requests.
+- LC11: Limit{scratch, lc=0} on (1,1024) → (1,512), then (513,1024). Result RefA(1,1024).
+- LC12: (1,1024) gives scratch, lc=300; (1,300) gives scratch, lc=150. Sequence: (1,1024), (1,300), (1,150), (151,300), (301,1024). Result RefA(1,1024).
+- LC13: (500,500) gives scratch, lc=499 four times, intervals ≥ 500 ms; then Error{scratch, block: 500}, abort(1, scratch).
+- LC14: (1,1024) gives resultBytes, lc=499; then (1,499) gives resultBytes, lc=200 → serverViolation. Variant: deadline, lc=200 → (1,200), (201,499), (500,1024).
+- LC15: scratch with lc=b → serverViolation. scratch with lc=a−1 and a=b → Retry, not bisection.
+- LC16 (range 1..3000):
+  1. H(latest) → A, then begin(1, {hashA3000, 3000}).
+  2. (1,1024) → −32020 {resultBytes, fromBlock: 1, lastCompleteBlock: 499, nextFromBlock: 500}, no piece.
+  3. (1,499) [withinLimit] → 4 logs (10, 499) → piece(1,0).
+  4. (500,1024) → 4 (500, 1000 from A) → piece(1,1).
   5. (1025,2048) → 0 → piece(1,2).
-  6. يبدّل الخادم إلى B. (2049,3000) → −32022 {anchorNotCanonical, head: 3000} → abort(1, reorg).
-  7. H(latest) → B، ثم begin(2, {hashB3000, 3000}).
-  8. (1,1024) → 8 (10، 499، 500، 1000') → piece(2,0).
+  6. Server switches to B. (2049,3000) → −32022 {anchorNotCanonical, head: 3000} → abort(1, reorg).
+  7. H(latest) → B, then begin(2, {hashB3000, 3000}).
+  8. (1,1024) → 8 (10, 499, 500, 1000') → piece(2,0).
   9. (1025,2048) → 0 → piece(2,1).
   10. (2049,3000) → 2 (2600') → piece(2,2).
-  11. H(3000) مطابق → commit(2, {pieces:3, logs:10, logRequests:3, headRequests:2, totalRequests:11, anchor: hashB3000}).
-  - الحساب: المحاولة 1 = 6، والمحاولة 2 = 5. المعتمد RefB(1,3000) = 10، وصفر سجل بوسم 1 من 1000. المستهلك المرجعي يسقط قطع المحاولة 1. المستهلك المعيب يحصل على 18 سجلًا، منها سجلا 1000 من A بـblockHash خارج B، فيكشفه الاختبار.
+  11. Matching H(3000) → commit(2, {pieces:3, logs:10, logRequests:3, headRequests:2, totalRequests:11, anchor: hashB3000}).
+  - Accounting: attempt 1 = 6, attempt 2 = 5. Committed RefB(1,3000) = 10; zero tag-1 logs from 1000. Reference consumer drops attempt-1 pieces. Defective consumer gets 18 logs, including A's two logs at 1000 with blockHash outside B, detected by the test.
 - LC17 (A→B→A'):
-  1. H → A، ثم begin(1). 2. (1,1024) → 8 → piece(1,0). 3. (1025,2048) → 0 → piece(1,1). 4. B: (2049,3000) → −32022 → abort(1). 5. H → B، ثم begin(2). 6. (1,1024) → 8 → piece(2,0). 7. A': (1025,2048) → −32022 → abort(2). 8. H → A'، ثم begin(3). 9. ثلاث نوافذ (8، 0، 2) → piece(3,0..2). 10. H(3000) مطابق → commit(3, {pieces:3, logs:10, logRequests:3, headRequests:2, totalRequests:12}).
-  - الحساب 4+3+5. المعتمد RefA'. المتغير: −32022 على أول طلب سجلات في 4 محاولات → abort(4, reorgUnstable)، وtotalRequests=8، وصفر commit.
-- LC18: ثلاث نوافذ تنجح على A (8، 0، 2)، ثم يبدّل الخادم إلى B. H(3000) ≠ hashA3000 → abort(1,reorg)، ثم begin(2,B)، ثم ثلاث قطع، ثم H مطابق، ثم commit(2, {…, logRequests:3, headRequests:2, totalRequests:10}). النتيجة RefB.
+  1. H → A, begin(1). 2. (1,1024) → 8 → piece(1,0). 3. (1025,2048) → 0 → piece(1,1). 4. B: (2049,3000) → −32022 → abort(1). 5. H → B, begin(2). 6. (1,1024) → 8 → piece(2,0). 7. A': (1025,2048) → −32022 → abort(2). 8. H → A', begin(3). 9. Three windows (8, 0, 2) → piece(3,0..2). 10. Matching H(3000) → commit(3, {pieces:3, logs:10, logRequests:3, headRequests:2, totalRequests:12}).
+  - Accounting 4+3+5. Committed RefA'. Variant: −32022 on first log request in 4 attempts → abort(4, reorgUnstable), totalRequests=8, zero commit.
+- LC18: three windows succeed on A (8, 0, 2), then server switches to B. H(3000) ≠ hashA3000 → abort(1,reorg), begin(2,B), three pieces, matching H, commit(2, {…, logRequests:3, headRequests:2, totalRequests:10}). Result RefB.
 
-**PS-unit (G، SendPacer مع PacerSim بساعة ومقبس افتراضيين)**
+**PS-unit (G, SendPacer with PacerSim using virtual clock/socket)**
 
-نموذج PacerSim الحرفي (D93، D94):
-- P = البايتات المسلّمة للضابط (written)، وA = المقبولة في المقبس، وRc = المقروءة لدى العميل. pending = [P > A].
-- sendTime تتقدم بالساعة الافتراضية فقط عند pending.
-- نمطا القبول: (أ) acceptPlan: سكربت يحدد A(sendTime)، مع A ≤ P، والعميل غير منمذج. (ب) sockBuf=SB: كتابة جشعة فورية، A = min(P, Rc+SB).
-- الدفعة: العنصر k+1 يُنتج (P += S) فور A = P عند نهاية العنصر k، وزمن الحساب صفر ما لم يُحدد computeGaps. لذلك يسبق الخادم العميل بما يصل إلى SB.
-- العميل في PS5 وPS5c: عند وصول مؤشر قراءته إلى أول بايت من العنصر k وتوفره، يتوقف 1.8s، ثم يقرأ بسرعة لانهائية كل بايتات العنصر k فور توفرها، ثم ينتقل إلى k+1.
-- اللحظة الواحدة: تُكرر (القراءة، ثم القبول، ثم الإنتاج) حتى لا يتغير شيء، ثم الفحص. الحالة المسجلة لكل لحظة هي حالة نقطة الفحص.
-- الحدثان (D94): sendDone أول نقطة فحص يكون فيها A = P = size بعد إنتاج كل العناصر، ويُسجل {t، sendTime، Rc، receivedItems، unreadAtSendDone = A−Rc}. وreceiveDone أول نقطة فحص يكون فيها Rc = size. receiveDone ≥ sendDone دائمًا، وقد يتساويان.
-- الثوابت: R = 65536 B/s، وGRACE = 2s، وTIMER_EPS = 1 ms، وENFORCE_SLACK = 200 ms. لا بايتات إطار JSON في PS.
-- المعيار المشترك: كل تتبع يحقق A ≤ P، وRc ≤ A في نمط sockBuf. كل إغلاق يحقق CloseOK. لا sendDone تسبقه لحظة خرق تتجاوز TIMER_EPS. لا يُشترط Rc = A عند sendDone.
+Literal PacerSim model (D93, D94):
+- P = bytes delivered to the pacer (written), A = socket-accepted bytes, Rc = client-read bytes. pending = [P > A].
+- sendTime advances by the virtual clock only while pending.
+- Acceptance modes: (a) acceptPlan: scripted A(sendTime), A ≤ P; client unmodeled. (b) sockBuf=SB: immediate greedy writing, A = min(P, Rc+SB).
+- Batch: item k+1 is produced (P += S) immediately when A = P at item k's end; computation time zero unless computeGaps specified. Server thus leads client by up to SB.
+- Client in PS5/PS5c: when its read pointer reaches an available first byte of item k, pause 1.8s, then read all of k at infinite speed as bytes become available, then move to k+1.
+- At one instant: repeat (read, accept, produce) to a fixed point, then check. Recorded state at each instant is the check-point state.
+- Events (D94): sendDone is first check point with A = P = size after all items produced; record {t, sendTime, Rc, receivedItems, unreadAtSendDone = A−Rc}. receiveDone is first check point with Rc = size. Always receiveDone ≥ sendDone; equality possible.
+- Constants: R = 65536 B/s, GRACE = 2s, TIMER_EPS = 1 ms, ENFORCE_SLACK = 200 ms. No JSON framing bytes in PS.
+- Common criterion: every trace has A ≤ P and, in sockBuf mode, Rc ≤ A. Every closure satisfies CloseOK. No sendDone preceded by a violation lasting beyond TIMER_EPS. Rc = A is not required at sendDone.
 
-الحالات:
-- PS1 (الرصيد يغطي التوقف): رد 4 MiB، فـP = 4194304 منذ البدء. acceptPlan: 2 MiB بمعدل ثابت خلال sendTime ∈ [0, 1.0]، ثم صفر لـ10s، ثم 1 MiB/s. عند التوقف: A0 = 2097152، وsendTime0 = 1.0، والرصيد 2031616. أدنى رصيد عند sendTime = 11: 1376256 > 0. المتوقع: sendDone دون إغلاق عند sendTime = 13، وعندها A = 4194304 ≥ 851968.
-- PS2: كـPS1 مع توقف 60s → إغلاق عند sendTime ∈ (32.000, 32.002]، لأن s_v = 32.
-- PS3: 2 MiB بمعدل 2097152/31 B/s خلال [0, 31.0]. A = 67650.06·t ≥ R·t فلا خرق، ثم توقف 10s → إغلاق عند (32.000, 32.002]. البايتات وحدها لا تحدد الرصيد.
-- PS4 (تقدم A درجيًا): كـPS1 حتى sendTime 1.0، ثم يقبل المقبس 1024 B عند كل sendTime = 1+n/16 (n = 1, 2, …). بعد الدرجة n: A_n = 2097152+1024n، وs_v(n) = 32+n/64. أول خرق عند أصغر n بحيث s_v(n) < 1+(n+1)/16، أي n > 660. إذن n = 661، وA = 2774016، وs_v = 42.328125، وهي داخل [42.3125، 42.375). عند n = 660 يكون s_v = 42.3125، ويساوي لحظة الدرجة 661، فيُطبق القبول قبل الفحص ولا خرق. المتوقع: إغلاق عند sendTime ∈ (42.328125, 42.330125].
-- PS5 (SB = 30000، و20 عنصرًا، وS = 98304، فـSB < S):
-  - الجدول (t، Rc، P، A، pending، sendTime، s_v): t=0: (0، S، 30000، نعم، 0، 2.0)، والعميل يتوقف عند العنصر 1. t=1.8: يقرأ العنصر 1، فـA = S = P، ثم يُنتج العنصر 2. الحالة (S، 2S=196608، S+30000=128304، نعم، 1.8، max(2, 1.9578)=2.0)، والعميل يتوقف عند العنصر 2.
-  - المطابق: إغلاق عند sendTime ∈ (2.000, 2.002]، أي t ≈ 2.001، وRc = S. لا sendDone ولا receiveDone.
-  - perItemGrace: عند 1.8k يقرأ العميل العنصر k (Rc = kS)، فيكتمل قبول العنصر k ويُنتج k+1، وA = kS+30000. لأن SB < S لا يكتمل قبول العنصر k قبل قراءته. العنصر k pending خلال [1.8(k−1), 1.8k]، فساعته ≤ 1.8 < 2، ولا إغلاق. عند t=34.2: Rc = 19S، والعنصر 20 يُنتج، وA = 19S+30000 < 20S = P. عند t=36: يقرأ العميل العنصر 20، وفي التكرار حتى الثبات يُقبل آخر بايت قبل قراءته، وعند نقطة الفحص A = P = Rc = 20S. النتيجة: sendDone = receiveDone = 36، وreceivedItems = 20 عند الحدثين، وunreadAtSendDone = 0.
-  - النجاح بالأمرين معًا.
-- PS5c (SB = 204800 > 2S؛ الخادم يسبق العميل):
-  - الجدول (t، Rc، P، A، sendTime، s_v)، وpending صحيح طوال [0, 10.625]: t=0: العنصران 1 و2 يُقبلان كاملين، والعنصر 3 يُقبل منه 8192. (0، 3S=294912، 204800، 0، 3.125). t=1.8: (S، 4S=393216، 303104، 1.8، 4.625). t=3.6: (2S، 5S=491520، 401408، 3.6، 6.125). t=5.4: (3S، 6S=589824، 499712، 5.4، 7.625). t=7.2: (4S، 7S=688128، 598016، 7.2، 9.125). t=9.0: (5S، 8S=786432، 696320، 9.0، 10.625).
-  - عند كل صف تقرأ القراءة العنصرَ السابق، فيكتمل قبول عنصر ويُنتج التالي. A ≤ P في كل صف. sendTime = t، لأن pending لا يصير صفرًا إلا لحظيًا. العميل متوقف عند العنصر 6 خلال [9.0, 10.8]، وA ثابتة.
-  - المطابق: إغلاق عند sendTime ∈ (10.625, 10.627]، وRc = 5S. لا sendDone.
-  - perItemGrace: عند t = 1.8k: Rc = kS، وA = min(P, kS+204800). العنصران 1 و2 لا يصيران pending. العنصر j ≥ 3 يُنتج عند 1.8(j−3) ويكتمل قبوله عند 1.8(j−2)، فهو pending ≤ 1.8 < 2، ولا إغلاق. t=30.6 (k=17): يُنتج العنصر 20، وP = 20S، وA = 19S+8192. t=32.4 (k=18): Rc = 18S، وA = 20S = P. هذا sendDone، وreceivedItems = 18، وunreadAtSendDone = 2S = 196608. t=34.2: يقرأ العنصر 19. t=36: يقرأ العنصر 20، فهذا receiveDone، وreceivedItems = 20.
-  - هذا المتجه يثبت وجود بايتات مقبولة غير مقروءة عند sendDone. الحجز يُحرر عند 32.4، لا عند 36.
-- PS6: كـPS2 مع تأخير مؤقتات محقون. 150 ms: الإغلاق ضمن ENFORCE_SLACK وpacerLateMaxMs ≤ 200. 250 ms على كل المؤقتات ومنها الاحتياطي: pacerLateMaxMs = 250، ويرفع المراقب الإجراء 21.
-- PS7: دفعة من عنصرين بينهما computeGap 100s دون pending. sendTime لا تتقدم، ولا إغلاق، وbatchSendMaxS يساوي زمن الإرسال الفعلي حتى sendDone.
-- PS8: acceptPlan صفري مع P > 0 → إغلاق عند (2.000, 2.002]، وA = 0.
+Cases:
+- PS1 (credit covers pause): 4 MiB reply, P = 4194304 from start. acceptPlan: 2 MiB at constant rate over sendTime ∈ [0, 1.0], zero for 10s, then 1 MiB/s. At pause: A0 = 2097152, sendTime0 = 1.0, credit 2031616. Minimum credit at sendTime = 11: 1376256 > 0. Expected: sendDone without closure at sendTime = 13, A = 4194304 ≥ 851968.
+- PS2: PS1 with 60s pause → closure at sendTime ∈ (32.000, 32.002], because s_v = 32.
+- PS3: 2 MiB at 2097152/31 B/s over [0, 31.0]. A = 67650.06·t ≥ R·t, no violation; then 10s pause → closure at (32.000, 32.002]. Bytes alone do not determine credit.
+- PS4 (stepwise A): PS1 until sendTime 1.0, then socket accepts 1024 B at each sendTime = 1+n/16 (n = 1, 2, …). After step n: A_n = 2097152+1024n, s_v(n) = 32+n/64. First violation at smallest n with s_v(n) < 1+(n+1)/16, i.e. n > 660. Thus n = 661, A = 2774016, s_v = 42.328125, inside [42.3125, 42.375). At n = 660, s_v = 42.3125 equals step 661's instant; acceptance runs before checking, no violation. Expected closure at sendTime ∈ (42.328125, 42.330125].
+- PS5 (SB = 30000, 20 items, S = 98304, hence SB < S):
+  - Table (t, Rc, P, A, pending, sendTime, s_v): t=0: (0, S, 30000, yes, 0, 2.0), client pauses at item 1. t=1.8: reads item 1, A = S = P, then item 2 produced. State (S, 2S=196608, S+30000=128304, yes, 1.8, max(2, 1.9578)=2.0), client pauses at item 2.
+  - Conforming: closure at sendTime ∈ (2.000, 2.002], t ≈ 2.001, Rc = S. Neither sendDone nor receiveDone.
+  - perItemGrace: at 1.8k client reads item k (Rc = kS), acceptance of k completes, k+1 produced, A = kS+30000. Since SB < S, k's acceptance cannot finish before it is read. Item k pending over [1.8(k−1), 1.8k], its clock ≤ 1.8 < 2, no closure. At t=34.2: Rc = 19S, item 20 produced, A = 19S+30000 < 20S = P. At t=36: client reads item 20; fixed-point loop accepts final byte before reading it; at check point A = P = Rc = 20S. Result: sendDone = receiveDone = 36, receivedItems = 20 at both events, unreadAtSendDone = 0.
+  - Passing requires both outcomes.
+- PS5c (SB = 204800 > 2S; server leads client):
+  - Table (t, Rc, P, A, sendTime, s_v), pending true throughout [0, 10.625]: t=0: items 1/2 fully accepted, 8192 bytes of item 3 accepted. (0, 3S=294912, 204800, 0, 3.125). t=1.8: (S, 4S=393216, 303104, 1.8, 4.625). t=3.6: (2S, 5S=491520, 401408, 3.6, 6.125). t=5.4: (3S, 6S=589824, 499712, 5.4, 7.625). t=7.2: (4S, 7S=688128, 598016, 7.2, 9.125). t=9.0: (5S, 8S=786432, 696320, 9.0, 10.625).
+  - Each row's read consumes the previous item, completing acceptance of an item and producing the next. A ≤ P on every row. sendTime = t because pending becomes zero only instantaneously. Client paused at item 6 over [9.0, 10.8], A constant.
+  - Conforming: closure at sendTime ∈ (10.625, 10.627], Rc = 5S. No sendDone.
+  - perItemGrace: at t = 1.8k, Rc = kS, A = min(P, kS+204800). Items 1/2 never become pending. Item j ≥ 3 produced at 1.8(j−3), acceptance completes at 1.8(j−2), pending ≤ 1.8 < 2, no closure. t=30.6 (k=17): item 20 produced, P = 20S, A = 19S+8192. t=32.4 (k=18): Rc = 18S, A = 20S = P. This is sendDone; receivedItems = 18, unreadAtSendDone = 2S = 196608. t=34.2: reads item 19. t=36: reads item 20, receiveDone, receivedItems = 20.
+  - This vector establishes accepted unread bytes at sendDone. Reservation released at 32.4, not 36.
+- PS6: PS2 with injected timer delays. 150 ms: closure within ENFORCE_SLACK, pacerLateMaxMs ≤ 200. 250 ms on all timers including backstop: pacerLateMaxMs = 250; monitor raises action 21.
+- PS7: two-item batch with computeGap 100s, no pending. sendTime does not advance, no closure; batchSendMaxS equals actual send time through sendDone.
+- PS8: zero acceptPlan with P > 0 → closure at (2.000, 2.002], A = 0.
 
-**المرحلة B (G)**
-T22 (PK1–PK18)، وT0، وAS، وASQ، وASB، وPG-END، وPG-RPC، وT2، وT2b، وT2c، وT24، وT26، وT27.
-- FX0: بناء مكرر بتطابق بايتي، وDraw(h,0)=w لكل h ∈ [3,200].
-- FX0-neg: nonce من نطاق آخر → 13، وpowHash > target → 7.
-- TJ (P11، p.ts=1000): TJ1 1001→1009، وTJ2 998→1007، وTJ3 1030→1038، وTJ4: 1009.000s يقفل و1009.001s يعني FB.
+**Phase B (G)**
+T22 (PK1–PK18), T0, AS, ASQ, ASB, PG-END, PG-RPC, T2, T2b, T2c, T24, T26 and T27.
+- FX0: repeat build with bytewise match; Draw(h,0)=w for each h ∈ [3,200].
+- FX0-neg: nonce from another range → 13; powHash > target → 7.
+- TJ (P11, p.ts=1000): TJ1 1001→1009, TJ2 998→1007, TJ3 1030→1038; TJ4: 1009.000s locks, 1009.001s means FB.
 
-متجهات السلاسل:
-- SV8: 1..199، ثم F=200 موقّعة من w بـ[tx1] → Δburned(F)=1155008، وw +208992، وصفر HELD، وصفر pending.
-- SV8-fb: F احتياطية → 1071008، وw +208992.
-- SV8-cap: h=201 احتياطية صحيحة الشكل → البند 2 (10أ) في H-pre دون عمل.
-- FBX: SV8-fb ثم SV8 على الأب نفسه → التبني إلى SV8، والحالة مطابقة بايتيًا.
-- TW (D141، G، ChainFixture على sv-fix):
-  - TW1 (قالب واحد ومالكان):
-    - عند h=10 يُبنى UT واحد بـBuild_fb (احتياطي، جسم 0xc2c0c0) قبل أي بحث، ودون أي مدخل عن الفائز.
-    - FixtureMiner يبحث على UT نفسه في نطاق w، ثم في نطاق x، بحد 2^28 لكل منهما، فينتج B_w وB_x بـwinnerSig من مالك كل نطاق.
-    - المتوقع: RLP(UT) وTemplateID وstateRoot وreceiptsRoot وgasUsed متطابقة بايتيًا، وblockHash مختلف، وكلتاهما تجتاز H-full على الأب نفسه.
-    - الحالة عند 10 متطابقة بايتيًا في الفرعين، وpending[10].winner = 0 فيهما.
-  - TW2 (التسجيل والتسوية والتراجع):
-    - الفرع W = B_w ثم 11..26 احتياطية بفائز w، والفرع X = B_x ثم 11..26 بالقاعدة نفسها.
-    - بعد الكتلة 11: pending[10].winner = w في W وx في X، وstateRoot(11) يختلف بين الفرعين.
-    - عند 26 تُسوى pot_10 = 80000 احتياطية بـC=1 كما في SV7، فيستلم المستفيد 13062.
-    - المتوقع: رصيد x في X ناقصًا رصيده في W = +13062، ولـw = −13062، ولا فرق في أي حساب آخر.
-    - تمديد W بالكتلة 27 بعد استيراد X يعطي تبنيًا، والحالة مطابقة بايتيًا لعقدة رأت W وحدها.
-  - TW3 (النهاية): sv-fix حتى F=200.
-    - pending[199].winner = w يُكتب في F قبل finalize.
-    - لا pending[200]، وقيم SV8 دون تغيير.
-  - TW4 (RPC): pocol_getPot(10) يعطي winner = null عند الرأس 10، وw بعد استيراد 11.
-  - TW5 (D142، حصص غير فارغة):
-    - الإعداد:
-      - FixtureMiner يبني عند h=10 قالبًا احتياطيًا واحدًا UT، ويجد nonce الفائز ν في نطاق w.
-      - ثم يبحث عن حصص في نطاقي x وy بحد 2^28، بالعتبة المشتقة من UT نفسه (D143): T_share = min(2^256−1, UT.target·CP.m).
-        - مسار ASERT للكتلة 10 في sv-fix: الأب h=9 بـp.ts−g_ts = 63، فـΔt = 63−90 = −27، وe = floor_div(−1769472, 600) = −2950، وs = −1، وf = 62586.
-        - إذن target = F·2^223، وT_share = F·2^228 بـm = 32.
-        - F يُحسب بـDifficulty.asert ويطابق AsertRef، ويُسجل حرفيًا في ملحق M4b. القيمة التقريبية F ≈ 127041، أي T_share نحو 0.969·2^245 < 2^245.
-        - القيمة 2^245 في نسخة سابقة ملغاة، لأنها تخالف البند 9.
-      - مسند تجهيز (G): لكل حصة في B_a وB_b يتحقق SHA256(TemplateID‖be64(n)) ≤ T_share المشتق، وتجتاز البند 9 في Consensus.headerPrecheck. وFixtureMiner.shareThreshold(UT) يساوي بايتيًا قيمة الإجماع. أي اختلاف يعطي FixtureSetupError('shareThreshold').
-      - قيم التسوية أدناه تعتمد على أعداد الحصص لكل مالك وحدها، فلا تتغير بتغير العتبة.
-      - B_a = [UT, ν, shareList {s_x1, s_x2}]، وB_b = [UT, ν, shareList {s_y1}].
-      - TemplateID والجذور متطابقة، وshareRoot وblockHash مختلفان، والكتلتان تجتازان H-full.
-    - الفرعان: B_a ثم 11..26 احتياطية بفائز w، وB_b ثم 11..26 بالقاعدة نفسها.
-    - المتوقع بعد 11:
-      - count[10] = {w:1، x:2} في A، و{w:1، y:1} في B.
-      - lastShare(x) = 10 في A وحده.
-      - stateRoot(11) مختلف بين الفرعين.
-    - التسوية عند 26 (pot=80000 احتياطي، وR=68000، وQ=64):
-      - A: p_w=1062، وp_x=2125، وA=3187، وroundBurn=0، وbaseBurn=64813.
-      - B: p_w=1062، وp_y=1062، وA=2125، وroundBurn=1، وbaseBurn=65875.
-      - في الفرعين يستلم w أيضًا winnerPart+propPart = 12000، فمجموعه 13062 كما في SV7.
-    - الأذرع الأربعة تعطي الحالة نفسها بايتيًا لكل فرع:
-      - (i) استيراد مباشر.
-      - (ii) مزامنة عقدة جديدة من genesis من نظير، دون ذاكرة تعدين.
-      - (iii) TrieRebuild من لقطة عند 9.
-      - (iv) عقدة تستورد A حتى 26، ثم B حتى 27 فتعيد التنظيم، ثم A حتى 28 فتعود.
-    - متغير الترتيب: B_b يصل قبل B_a إلى عقدة ثانية، دون أثر على حالة أي فرع.
-    - parentResultMismatch = 0 في كل الأذرع.
-  - الضوابط السالبة لـTW5:
-    - exec-fault:sharesFromFirstSeen يأخذ الحصص من أول نسخة رآها للزوج (TemplateID, nonce). يفشل الذراع (iv) ومتغير الترتيب، لأن stateRoot(11) على B يُحسب بحصص A.
-    - exec-fault:sharesFromMiner يأخذها من ذاكرة FixtureMiner المحلية، فيفشل (ii) و(iii).
-    - exec-fault:sharesDropped يمرر قائمة فارغة، فتفشل قيم التسوية في A (p_x = 0).
-    - TW5-gap (ضابط صلاحية، D143):
-      - FixtureMiner يبحث في نطاق x عن nonce n_gap بهاش في (T_share المشتق، 2^245]. الاحتمال لكل تجزئة نحو 1.5·10^−5، فالبحث بحد 2^28 كافٍ، وإلا FixtureSetupError('gap').
-      - B_gap = [UT, ν, shareList {s_x1, n_gap}] بـwinnerSig صالح.
-      - المتوقع: رفض بالبند 9 (blockReject)، وdiagSet = {9}، والحالة دون تغيير.
-    - fixture-fault:fixedShareThreshold يجعل FixtureMiner.shareThreshold يعيد 2^245 ثابتًا. يفشل مسند التجهيز حتميًا لأن القيمة لا تساوي قيمة الإجماع. لا يُعتمد على وقوع حصة في الفجوة أثناء البحث، فذلك احتمالي.
-  - الضابط السالب exec-fault:winnerInState يمرر مالك nonce الكتلة الحالية إلى closeBlock:
-    - stateRoot المحسوب عند التحقق لا يطابق ما بناه Build_fb قبل البحث، فتُرفض B_w وB_x بالبند 17.
-    - وإن بُني القالب بفائز مخمَّن w تُرفض B_x وحدها.
-    - TW1 يفشل في الحالتين.
-- SV8-reorg: A = 199 و200_A احتياطيتان. B = 199' موقّعة بـts_198+1 و[tx1] ثم 200_B احتياطية. شرط work(B) > work(A)، وإلا 'tie'. A عبر gossip، ثم B عبر المزامنة. المتوقع: الرأس 200_B، وΔburned منذ 198 = 1208230، وw +235770، وtx1 في 199'.
-- SV8-tie: ts_199' = ts_198+7 → B بأفضلية الموقّع.
-- SV9: الكتلة 30 موقّعة بـ[tx1, tx2, tx3] → getPot(30) = {pending, 253015, signed, hash(30), 46}، والفائض +5000. الحقل winner (D141) = null عند الرأس 30، وw بعد استيراد 31.
+Chain vectors:
+- SV8: 1..199, then F=200 signed by w with [tx1] → Δburned(F)=1155008, w +208992, zero HELD, zero pending.
+- SV8-fb: fallback F → 1071008, w +208992.
+- SV8-cap: well-formed fallback h=201 → H-pre item 2 (10a), without work.
+- FBX: SV8-fb then SV8 on same parent → adopt SV8, state byte-identical.
+- TW (D141, G, ChainFixture on sv-fix):
+  - TW1 (one template, two owners):
+    - At h=10 build one UT with Build_fb (fallback, body 0xc2c0c0) before any search, without winner input.
+    - FixtureMiner searches same UT in w's range then x's, bound 2^28 each; produces B_w/B_x with winnerSig from each range owner.
+    - Expected: RLP(UT), TemplateID, stateRoot, receiptsRoot and gasUsed byte-identical; different blockHash; both pass H-full on same parent.
+    - State at 10 byte-identical on both branches; pending[10].winner = 0 in both.
+  - TW2 (recording, settlement and rollback):
+    - W = B_w then fallback 11..26 with winner w; X = B_x then 11..26 by same rule.
+    - After block 11: pending[10].winner = w in W, x in X; stateRoot(11) differs.
+    - At 26 settle fallback pot_10 = 80000, C=1 as SV7; beneficiary receives 13062.
+    - Expected: x balance in X minus W = +13062; w = −13062; no other account differs.
+    - Extend W with block 27 after importing X → adoption; state byte-identical to a node that saw W alone.
+  - TW3 (finalization): sv-fix through F=200.
+    - pending[199].winner = w written in F before finalize.
+    - No pending[200]; SV8 values unchanged.
+  - TW4 (RPC): pocol_getPot(10) returns winner = null at head 10, w after importing 11.
+  - TW5 (D142, nonempty shares):
+    - Setup:
+      - FixtureMiner builds one fallback UT at h=10 and finds winning nonce ν in w's range.
+      - Then searches shares in x/y ranges with bound 2^28, threshold derived from same UT (D143): T_share = min(2^256−1, UT.target·CP.m).
+        - ASERT trace for sv-fix block 10: parent h=9, p.ts−g_ts = 63, Δt = 63−90 = −27, e = floor_div(−1769472, 600) = −2950, s = −1, f = 62586.
+        - Thus target = F·2^223, T_share = F·2^228 with m = 32.
+        - F computed by Difficulty.asert, matches AsertRef, recorded literally in M4b annex. Approximate F ≈ 127041, T_share ≈ 0.969·2^245 < 2^245.
+        - Earlier 2^245 value withdrawn because it violates item 9.
+      - Fixture assertion (G): each share in B_a/B_b satisfies SHA256(TemplateID‖be64(n)) ≤ derived T_share and passes Consensus.headerPrecheck item 9. FixtureMiner.shareThreshold(UT) equals consensus value bytewise. Any discrepancy gives FixtureSetupError('shareThreshold').
+      - Settlement values below depend only on per-owner share counts, unchanged by threshold variation.
+      - B_a = [UT, ν, shareList {s_x1, s_x2}], B_b = [UT, ν, shareList {s_y1}].
+      - TemplateID/roots identical; shareRoot/blockHash differ; both pass H-full.
+    - Branches: B_a then fallback 11..26, winner w; B_b then 11..26 by same rule.
+    - Expected after 11:
+      - count[10] = {w:1, x:2} in A, {w:1, y:1} in B.
+      - lastShare(x) = 10 only in A.
+      - stateRoot(11) differs between branches.
+    - Settlement at 26 (fallback pot=80000, R=68000, Q=64):
+      - A: p_w=1062, p_x=2125, A=3187, roundBurn=0, baseBurn=64813.
+      - B: p_w=1062, p_y=1062, A=2125, roundBurn=1, baseBurn=65875.
+      - Both branches also pay w winnerPart+propPart = 12000, total 13062 as SV7.
+    - Four arms yield byte-identical state for each branch:
+      - (i) Direct import.
+      - (ii) Fresh-node synchronization from genesis through a peer, no mining memory.
+      - (iii) TrieRebuild from snapshot at 9.
+      - (iv) Node imports A through 26, then B through 27 and reorganizes, then A through 28 and returns.
+    - Ordering variant: B_b reaches second node before B_a, without affecting either branch's state.
+    - parentResultMismatch = 0 in every arm.
+  - TW5 negative controls:
+    - exec-fault:sharesFromFirstSeen takes shares from first-seen version of (TemplateID, nonce). Fails (iv) and ordering variant because B's stateRoot(11) uses A's shares.
+    - exec-fault:sharesFromMiner uses local FixtureMiner memory, failing (ii)/(iii).
+    - exec-fault:sharesDropped passes an empty list, failing A settlement values (p_x = 0).
+    - TW5-gap (validity control, D143):
+      - FixtureMiner searches x's range for nonce n_gap with hash in (derived T_share, 2^245]. Probability per hash ≈ 1.5·10^−5; bound 2^28 sufficient, otherwise FixtureSetupError('gap').
+      - B_gap = [UT, ν, shareList {s_x1, n_gap}] with valid winnerSig.
+      - Expected: item 9 rejection (blockReject), diagSet = {9}, state unchanged.
+    - fixture-fault:fixedShareThreshold makes FixtureMiner.shareThreshold return constant 2^245. Fixture assertion fails deterministically because value differs from consensus. It does not rely on a share landing in the gap during search, which is probabilistic.
+  - Negative control exec-fault:winnerInState passes current-block nonce owner to closeBlock:
+    - Verification stateRoot differs from Build_fb's pre-search root; B_w/B_x rejected by item 17.
+    - If template built with guessed winner w, only B_x rejected.
+    - TW1 fails both cases.
+- SV8-reorg: A = fallback 199/200_A. B = signed 199' at ts_198+1 with [tx1], then fallback 200_B. Require work(B) > work(A), otherwise 'tie'. A through gossip, then B through sync. Expected head 200_B, Δburned since 198 = 1208230, w +235770, tx1 in 199'.
+- SV8-tie: ts_199' = ts_198+7 → B through signed preference.
+- SV9: block 30 signed with [tx1, tx2, tx3] → getPot(30) = {pending, 253015, signed, hash(30), 46}, surplus +5000. winner (D141) = null at head 30, w after import 31.
 - SV9-final: Δburned=1244023.
-- SV9-reorg: A = 30 و31. B = 30' و31' و32' احتياطية. الرأس 32'، والحالة كعقدة رأت B وحدها. getPot(30..32) = {pending, 80000, fallback, hash(·'), 46..48}، وwinner = w لـ30' و31'، وnull لـ32' لأنها الرأس (D141). getSettlement(30) → −32013 {46}، وgetSettlement(14..16) = {13062, 66938}. Δbalance = +200814 = ΔburnedTotal، والفائض 0، وSd = 5000. tx1..tx3 في المجمع، وإعادة A لا تغير الرأس.
+- SV9-reorg: A = 30/31. B = fallback 30'/31'/32'. Head 32'; state as a node seeing B alone. getPot(30..32) = {pending, 80000, fallback, hash(·'), 46..48}; winner = w for 30'/31', null for head 32' (D141). getSettlement(30) → −32013 {46}; getSettlement(14..16) = {13062, 66938}. Δbalance = +200814 = ΔburnedTotal, surplus 0, Sd = 5000. tx1..tx3 in mempool; reintroducing A does not change head.
 
-**CL-END (G، end/full)**
-- الملء في genesis فقط. h ∈ [1,699] احتياطية فارغة، وts +7، وwinner=w، عدا 10 و560، وF=700.
-- GB-END: RecLen=ActLen=1024، وheldTotal=1024·10^20.
-- CL-OPS1: h=10 موقّعة من w بجسم [register(s1) بقيمة B_reg، وgas=200000، وchainId=777905]. المتوقع: status=0 بـRegOpsLimit، وRecLen=1024، وs1 ينقص بالرسوم فقط. إن لم يكن Draw(10,0)=w فالنتيجة FixtureSetupError('draw').
-- CL-OPS2: مثله عند 560 → Closing.
-- closeH=553، و8 سجلات/كتلة. cursorDone صحيح في 680 لا في 679، وF = 700.
-- عند F: الـ1024 كلها PAID أو محذوفة، وكل rewardAddr استلم B_reg مرة، وheldTotal=0، وΣpending=0.
-- T17 في كل كتلة، وΣsubsidy = 80000·699.
-- 701 تُرفض بالبند 2 (10أ)، وRetentionStore ≤ الجرد المشتق.
+**CL-END (G, end/full)**
+- Filled only in genesis. h ∈ [1,699] empty fallback, ts +7, winner=w except 10/560; F=700.
+- GB-END: RecLen=ActLen=1024, heldTotal=1024·10^20.
+- CL-OPS1: h=10 signed by w, body [register(s1) value B_reg, gas=200000, chainId=777905]. Expected status=0 with RegOpsLimit, RecLen=1024, s1 loses fees only. If Draw(10,0)≠w, FixtureSetupError('draw').
+- CL-OPS2: same at 560 → Closing.
+- closeH=553, 8 records/block. cursorDone true at 680, not 679; F = 700.
+- At F: all 1024 PAID or deleted, each rewardAddr received B_reg once, heldTotal=0, Σpending=0.
+- T17 every block; Σsubsidy = 80000·699.
+- 701 rejected by item 2 (10a); RetentionStore ≤ derived inventory.
 - CL-END-neg: PG-END5.
-- حد معلن: لا يمر بدوران التسجيل، ويغطيه R16 مع T21 وT18b.
+- Disclosed limit: does not exercise registration churn; covered by R16 with T21/T18b.
 
-**RG (D88–D94، logs/dense، شرط لـM7)**
+**RG (D88–D94, logs/dense, prerequisite for M7)**
 
-التجهيز:
-- 1100 كتلة. 50..1073 موقّعة من w، كل منها معاملة من s2 تستدعي LogBomb(1) (546 سجلًا، نحو 32 KiB). البقية احتياطية فارغة.
-- B يتفرع من 999، وكتل 1000'..1080' تستدعي LogBomb(2)، بشرط work(B) > work(A) وإلا 'tie'.
-- A' يتفرع من 999 بـLogBomb(1)، بشرط work(A') > work(B).
-- العقدة: pocold على Windows بـ8 GB، وRpcGuard افتراضي، وrpc.pacerTrace=true. عقدة ثانية تنتج بـT_blk=10.
-- ReferenceLogs من RetentionStore مباشرة لفرع محدد.
-- RpcAttacker (Rust): {conns, batch, method, range, readRateBps, pauseAtItemMs, pauseAfterBytes, pauseMs, rcvBuf (8 KiB افتراضيًا), dropAfterBytes, durationS, reconnect}. يسجل زمن كل بايت مستلم بالساعة الرتيبة نفسها (QueryPerformanceCounter)، ولحظة receiveDone إن بلغها.
-- ResourceProbe كل 100 ms. RSS_0 بعد المزامنة دون طلبات.
+Fixture:
+- 1100 blocks. 50..1073 signed by w, each with s2 transaction calling LogBomb(1) (546 logs, about 32 KiB). Others empty fallback.
+- B forks from 999; blocks 1000'..1080' call LogBomb(2), work(B) > work(A), otherwise 'tie'.
+- A' forks from 999 with LogBomb(1), work(A') > work(B).
+- Node: pocold on Windows, 8 GB, default RpcGuard, rpc.pacerTrace=true. Second node produces at T_blk=10.
+- ReferenceLogs directly from RetentionStore for a specified branch.
+- RpcAttacker (Rust): {conns, batch, method, range, readRateBps, pauseAtItemMs, pauseAfterBytes, pauseMs, rcvBuf (default 8 KiB), dropAfterBytes, durationS, reconnect}. Records each received byte's time using the same monotonic clock (QueryPerformanceCounter), and receiveDone if reached.
+- ResourceProbe every 100 ms. RSS_0 after sync without requests.
 
-مسندات التتبع، وهي بوابة لكل تشغيل في RG4 وRG5 وRG14:
-- TC-send (من تتبع الخادم وحده): P وA غير متناقصين، وA ≤ P. sendTime تتقدم فقط في فترات pending، وبمقدار الزمن الرتيب في تلك الفترات. كل رد اكتمل له حدث sendDone واحد بالضبط، وعنده A = P = size، ولا يتبعه produce أو accept لهذا الرد. الحجز المقابل يُحرر عند sendDone: heldBytes في ResourceProbe ينقص بحجم الرد في أول عينة بعده. traceDropped = 0، وإلا التشغيل غير حاسم.
-- TC-recv (من سجل العميل مقابل التتبع): Rc ≤ A في كل لحظة مقابلة. لا يُشترط Rc = A عند sendDone، وunreadAtSendDone قياس. إن استمر العميل في القراءة دون قطع بعد sendDone: يجب حدوث receiveDone بـRc = size وبايتات مطابقة للمرجع، وreceiveDone ≥ sendDone، والفرق قياس. إن قطع العميل أو توقف عمدًا بعد sendDone: لا تُطبق receiveDone، ويُسجل ذلك، وليس فشل خادم.
-- CloseOK: كل إغلاق بالمعدل يحقق sendTime > 2، وA < 65536·sendTime، وsendTime − max(2, A/65536) ≤ 0.2، ويطابق lastPacerClose.
-- Enforced: لا فترة يتحقق فيها sendTime > 2 وA < 65536·sendTime أكثر من 0.2s من sendTime دون إغلاق. يشمل هذا أي خرق ينشأ أثناء توقف القراءة، مهما تقدم A أو انقطع pending. بعد sendDone لا تتقدم sendTime، فلا يمكن نشوء خرق.
-- NoEarly: متضمن في CloseOK.
-- Breach(trace): أول لحظة خرق محسوبة من مسار A وpending المقيس، وقد تكون غير موجودة.
+Trace assertions, gates for every RG4/RG5/RG14 run:
+- TC-send (server trace only): P/A nondecreasing, A ≤ P. sendTime advances only during pending by elapsed monotonic time in those periods. Every completed response has exactly one sendDone, A = P = size, followed by no produce/accept for it. Corresponding reservation released at sendDone: ResourceProbe heldBytes drops by response size in first subsequent sample. traceDropped = 0, otherwise inconclusive.
+- TC-recv (client log versus trace): Rc ≤ A at every corresponding instant. Rc = A not required at sendDone; unreadAtSendDone is a measurement. If client continues reading without disconnect after sendDone: receiveDone must occur with Rc = size, bytes matching reference, receiveDone ≥ sendDone; difference measured. If client intentionally disconnects/stops after sendDone: receiveDone requirement inapplicable, recorded, not server failure.
+- CloseOK: every rate closure satisfies sendTime > 2, A < 65536·sendTime, sendTime − max(2, A/65536) ≤ 0.2, and matches lastPacerClose.
+- Enforced: no interval with sendTime > 2 and A < 65536·sendTime lasts over 0.2s of sendTime without closure. Includes violations arising during read pauses, regardless of A progress or pending interruption. After sendDone, sendTime no longer advances, so no new violation can arise.
+- NoEarly: included in CloseOK.
+- Breach(trace): first violation instant computed from measured A/pending trace; may not exist.
 
-الحالات:
-- RG1: eth_getLogs على 1..1025 → −32020 {range, maxRange: 1024}، وصفر قبول ولقطة وحجز.
-- RG2: eth_getLogs على 50..1073 → −32020 {resultBytes|resultCount}، مع lastCompleteBlock ≥ 50 (P1)، وبلا حقل result.
-- RG2b: pocol_getLogs(50..1073, anchor) يعطي Limit مع lc، ثم (50..lc, anchor) يعطي Complete مطابقًا بايتيًا لـReferenceLogs.
-- RG3: fetchEach في Node على 50..1073 بمرساة الرأس. sink يقارن كل قطعة ثم يسقطها، ويجتاز SinkChecker. المعتمد 1024·546 = 559104 بلا فقد ولا تكرار، وكل رد ≤ 8 MiB. العدادات تطابق RpcRecorder وتُسجل.
-- RG3-bridge: fetchAll → tooLarge دون جزئي.
-- RG3b: خطاف بعد piece الثالث يوقف fetchEach ويرسل B وينتظر تبنيه. المتوقع: −32022 anchorNotCanonical. التتبع: begin(1,A)، ثم piece(1,0..2)، ثم abort(1,reorg)، ثم begin(2,B)، ثم pieces، ثم commit(2). المحاولة 2 = ReferenceLogs لـB (1000'..1073' ببيانات LogBomb(2))، وصفر سجل خارج B. totalRequests = سجل RpcRecorder. المتغيرات: A→B→A' (abortان ثم commit(3) = ReferenceLogs لـA')، وخطاف قبل فحص المرساة (abort ثم محاولة جديدة).
-- RG4: (i) 31 اتصالًا، كل منها دفعة من 20 عنصر pocol_getLogs بنافذة 24 كتلة، وقراءة 1 KiB/s، وإعادة اتصال، لـ300s. في كل عينة: maxResPerConn ≤ 1، وheavyResv ≤ 48 MiB، وlightResv ≤ 16 MiB، وscratchHeavyMax ≤ 16 MiB، وsnapshotsOpen ≤ 20، وRSS ≤ RSS_0+256 MiB. لكل اتصال: TC-send وTC-recv وCloseOK وEnforced. (ii) عميل سريع، ودفعة 20 بنافذة 4 كتل (نحو 1.2 MiB لكل عنصر). أول 13 كاملة مطابقة، والعنصر المتجاوز لـ16 MiB وما بعده batchBytes. الترتيب محفوظ، وsendDone ثم receiveDone.
-- RG5: 64 محاولة اتصال، كل منها دفعة 20 ثقيلًا، وقراءة 1 KiB/s، لـ300s مع إعادة الفتح. RSS_max − RSS_0 ≤ 256 MiB، والحدود كما في RG4، وconns ≤ 32 والزائد يُغلق دون قراءة. كل اتصال بطيء يُغلق ويحقق المسندات، ولحظة إغلاقه قياس. مستقبل ضابط (C) يقرأ 70 KiB/s ردًا بحجم 8 MiB: الشرط من سجله لكل t > t_first+2: المستلم ≥ 65536·(t−t_first)، حيث t_first لحظة أول بايت مُسلّم. عندها A ≥ المستلم ≥ R·sendTime فلا خرق. sendDone إلزامي بـsendTime ≤ 130.2s، وreceiveDone إلزامي لأن القارئ مستمر، والفرق قياس. صفر انهيار وصفر OOM.
-- RG6: pocol_getLogs على 1024، ثم قطع TCP بعد 1 ms، 1000 مرة. snapshotsOpen وheavyResv وscratch تعود إلى 0 خلال ≤ 100 ms (p100)، وكذلك eth_call بحلقة 30M gas.
-- RG7 (أثناء RG5): استيراد كل كتلة ≤ 2s، وvalidate_p99 ≤ 3s، وصفر FB غير مبرر مقارنة بتشغيل مرجعي بالبذرة نفسها، والمستورد = المنتَج.
-- RG8: عميل صادق باتصال قائم قبل RG5 يرسل 10 eth_blockNumber/s. p99 حتى receiveDone ≤ 200 ms، و≤ 1% −32021. محاولاته فتح اتصالات جديدة قياس.
-- RG9 (قياس): fetchEach من اتصال صادق قائم أثناء RG5، بنتيجة commit مطابق أو خطأ صريح لا جزئي، وتُسجل النسبة.
-- RG10: كل رد ناجح في RG2–RG9 يطابق ReferenceLogs عند receiveDone.
-- RG11: eth_call إلى MemHog بـ30M gas، 100 مرة. Complete أو −32020 {scratch}، والعداد ≤ 16 MiB، وRSS ≤ RSS_0+256 MiB.
-- RG12: بناء rpc-fault:lightInflate (رد eth_blockNumber 600 KiB) → −32020 {resultBytes}، وlightResv = 0، وصفر panic. الميزة غائبة عن الإصدار.
-- RG13: كل طريقة خفيفة 1000 مرة بأسوأ معلمات. p100 للحساب ≤ 50 ms والحجم ≤ الجدول، وإلا إعادة التصنيف قبل M7.
-- RG14 (مقابس حقيقية): لكل تشغيل TC-send وTC-recv وCloseOK وEnforced بوابة. نتائج الحالات:
-  - (0) rcvBuf=8 KiB، وeth_call إلى Blob(4 MiB) دون قراءة. G: إغلاق يحقق CloseOK. B_meas = A عند الإغلاق قياس لا يدخل أي معيار.
-  - (0b) sendDone قبل receiveDone: rcvBuf=64 KiB، وeth_call إلى Blob(n=16384)، فالرد نحو 32 KiB < SO_SNDBUF. القارئ لا يقرأ 5s ثم يقرأ كل شيء. G: sendDone بـsendTime < 2s دون إغلاق، والحجز محرر قبل أول قراءة، وunreadAtSendDone > 0 مسجل، ثم receiveDone ببايتات مطابقة. هذا نظير PS5c على مقبس حقيقي.
-  - (i) قراءة طلب 1 B/s → إغلاق عند 10s±0.2.
-  - (ii) اتصال خامل → إغلاق عند 30s±0.2 من sendDone السابق أو من الفتح.
-  - (iii) انتظار الطابور > 2s → −32021 {busy}.
-  - (iv) eth_call إلى Spin → −32020 {deadline} عند 5s±0.2.
-  - (v) Blob بحجم 512 KiB و8 MiB: بقراءة 70 KiB/s (C بشرط RG5): sendDone وreceiveDone، وsendOverrunMaxMs ≤ 200. بقراءة 32 KiB/s: إغلاق يحقق CloseOK وEnforced، ولحظته قياس.
-  - (vi) دفعة 20 eth_call إلى Spin مع قارئ سريع → 20 خطأ deadline، وزمن ≈ 100s < 420s، وbatchSendMaxS < 2s، وصفر إغلاق.
-  - (vii) سماح البدء لكل عنصر: دفعة 20 eth_call إلى Blob(n=49152)، فـS ≈ 96 KiB (يُسجل بالضبط)، وrcvBuf=8 KiB. القارئ يتوقف 1.8s عند أول بايت من كل عنصر ثم يقرأ العنصر بأقصى سرعة. يُشغَّل البناء المطابق وبناء rpc-fault:perItemGrace بالقارئ نفسه. المطابق: البوابة TC-send وTC-recv وCloseOK وEnforced، والإغلاق وتوقيته قياس. perItemGrace: تُسجل sendDone وreceiveDone وunreadAtSendDone قياسًا إن بلغهما. DiscriminationCheck (C) على تتبع perItemGrace بقاعدة الدفعة المشتركة: الشرط Breach(trace) موجود وتستمر الحالة > 0.2s من sendTime المشترك، محسوبًا من المسار كاملًا. إن تحقق: يجب أن يُبلّغ Enforced عن خرق، وأن يكون بناء perItemGrace لم يُغلق عنده. إن لم يتحقق في 3 تكرارات: «غير حاسم» مع المسار، والمنطق مغطى بـPS5 وPS5c.
-  - (vii-b) الرصيد يغطي التوقف (C): رد Blob بحجم 4 MiB. القارئ يقرأ 2 MiB بأقصى سرعة، ثم يتوقف 10s، ثم يكمل. الشرط من المسار المقيس طوال التوقف: A(t) ≥ 65536·sendTime(t) لكل لحظة فيه. إن تحقق: أي إغلاق أثناء التوقف فشل، ويجب sendDone وreceiveDone. وإلا: يُسجل Breach(trace) ولحظة الإغلاق، والبوابة Enforced وحدها. تُسجل A0 وsendTime0 قياسًا.
-  - (vii-c) استنفاد الرصيد: كـ(vii-b) مع توقف 60s. لحظة الإغلاق قياس. المعيار Enforced: إن وُجد Breach(trace) مستمرًا > 0.2s فيجب الإغلاق خلال ≤ 0.2s منه، وإلا فيجب ألا يُغلق. يُسجل الفرق بين Breach والإغلاق.
-  - (viii) دفعة قرب 16 MiB من Blob بقراءة 65 KiB/s (C بشرط RG5): sendDone وreceiveDone، وbatchSendMaxS ≤ 258.2791015625، والكلي حتى sendDone ≤ 420s، وsendOverrunMaxMs ≤ 200.
-  - (ix) rpc-fault:pacerOff مع قارئ 1 KiB/s → إغلاق بـBATCH_WALL عند 420s±0.2 وbatchWallHits=1. في الإصدار batchWallHits = 0 في كل RG.
-  - (x) دفعتان من 20 خلال ثانية على اتصال → الثانية 20 خطأ −32021 {rate} دون تنفيذ، والأولى كاملة.
-  - (xi) في RG14 وRG4 وRG5: pacerLateMaxMs ≤ 200 وsendOverrunMaxMs ≤ 200.
-  - (xii) تكرار (v) و(vii-c) و(0b) مع rpc.pacerTrace=false: تطابق النتيجة النوعية، وCloseOK من lastPacerClose، وsendDoneCount مطابق. أي اختلاف يُسجل عيبًا في التتبع.
-- RG15: pocol_getLogs على كل كتلة كثيفة منفردة (50..1073). scratch ≤ 4 MiB، وصفر Limit{scratch}، وإلا خفض استهلاك LogCursor قبل M7.
+Cases:
+- RG1: eth_getLogs 1..1025 → −32020 {range, maxRange: 1024}, zero admission/snapshot/reservation.
+- RG2: eth_getLogs 50..1073 → −32020 {resultBytes|resultCount}, lastCompleteBlock ≥ 50 (P1), no result field.
+- RG2b: pocol_getLogs(50..1073, anchor) gives Limit with lc; (50..lc, anchor) gives Complete matching ReferenceLogs bytewise.
+- RG3: fetchEach in Node over 50..1073 with head anchor. Sink compares each piece then discards it, passes SinkChecker. Committed 1024·546 = 559104 without loss/duplication; every response ≤ 8 MiB. Counters match RpcRecorder and are recorded.
+- RG3-bridge: fetchAll → tooLarge, no partial result.
+- RG3b: hook after third piece pauses fetchEach, sends B and awaits adoption. Expected −32022 anchorNotCanonical. Trace: begin(1,A), piece(1,0..2), abort(1,reorg), begin(2,B), pieces, commit(2). Attempt 2 = ReferenceLogs for B (1000'..1073' with LogBomb(2) data); zero logs outside B. totalRequests = RpcRecorder log. Variants: A→B→A' (two aborts, commit(3) = A' ReferenceLogs); pre-anchor-check hook (abort, new attempt).
+- RG4: (i) 31 connections, each batching 20 pocol_getLogs over 24-block windows, reading 1 KiB/s, reconnecting for 300s. Every sample: maxResPerConn ≤ 1, heavyResv ≤ 48 MiB, lightResv ≤ 16 MiB, scratchHeavyMax ≤ 16 MiB, snapshotsOpen ≤ 20, RSS ≤ RSS_0+256 MiB. Each connection: TC-send, TC-recv, CloseOK, Enforced. (ii) Fast client, batch 20 over 4-block windows (about 1.2 MiB/member). First 13 complete/match; member exceeding 16 MiB and successors get batchBytes. Order preserved; sendDone then receiveDone.
+- RG5: 64 connection attempts, each batching 20 heavy requests, reading 1 KiB/s for 300s with reopening. RSS_max − RSS_0 ≤ 256 MiB; bounds as RG4; conns ≤ 32, excess closed without reading. Every slow connection closes and meets assertions; closure time measured. Control receiver (C) reads 70 KiB/s for an 8 MiB response: log condition for every t > t_first+2 is received ≥ 65536·(t−t_first), t_first = first delivered byte. Then A ≥ received ≥ R·sendTime, no violation. sendDone mandatory with sendTime ≤ 130.2s; receiveDone mandatory because reader continues; difference measured. Zero crashes/OOM.
+- RG6: pocol_getLogs over 1024, then TCP disconnect after 1 ms, 1000 times. snapshotsOpen, heavyResv, scratch return to 0 within ≤ 100 ms (p100); same for eth_call with 30M-gas loop.
+- RG7 (during RG5): each block imported ≤ 2s, validate_p99 ≤ 3s, zero unexplained FB versus same-seed reference run; imported = produced.
+- RG8: honest client with connection established before RG5 sends 10 eth_blockNumber/s. p99 through receiveDone ≤ 200 ms, ≤ 1% −32021. Its new-connection attempts are measured.
+- RG9 (measurement): fetchEach on an honest existing connection during RG5; matching commit or explicit error, never partial; record proportion.
+- RG10: every successful RG2–RG9 response matches ReferenceLogs at receiveDone.
+- RG11: eth_call to MemHog with 30M gas, 100 times. Complete or −32020 {scratch}; counter ≤ 16 MiB; RSS ≤ RSS_0+256 MiB.
+- RG12: rpc-fault:lightInflate (600 KiB eth_blockNumber reply) → −32020 {resultBytes}, lightResv = 0, zero panic. Feature absent from release.
+- RG13: each light method 1000 times with worst parameters. Computation p100 ≤ 50 ms, size ≤ table; otherwise reclassify before M7.
+- RG14 (real sockets): TC-send, TC-recv, CloseOK and Enforced gate every run. Case results:
+  - (0) rcvBuf=8 KiB, eth_call to Blob(4 MiB), no reading. G: CloseOK closure. B_meas = A at closure measured, used in no criterion.
+  - (0b) sendDone before receiveDone: rcvBuf=64 KiB, eth_call to Blob(n=16384), reply about 32 KiB < SO_SNDBUF. Reader waits 5s then reads all. G: sendDone with sendTime < 2s, no closure, reservation released before first read, recorded unreadAtSendDone > 0; then receiveDone with matching bytes. Real-socket counterpart of PS5c.
+  - (i) Request read at 1 B/s → closure at 10s±0.2.
+  - (ii) Idle connection → closure at 30s±0.2 from previous sendDone or opening.
+  - (iii) Queue wait > 2s → −32021 {busy}.
+  - (iv) eth_call to Spin → −32020 {deadline} at 5s±0.2.
+  - (v) Blob sizes 512 KiB/8 MiB: read 70 KiB/s (C under RG5 condition): sendDone/receiveDone, sendOverrunMaxMs ≤ 200. Read 32 KiB/s: CloseOK/Enforced closure, time measured.
+  - (vi) Batch 20 eth_call to Spin, fast reader → 20 deadline errors, duration ≈ 100s < 420s, batchSendMaxS < 2s, zero closure.
+  - (vii) Per-item grace: batch 20 eth_call to Blob(n=49152), S ≈ 96 KiB (record exact size), rcvBuf=8 KiB. Reader pauses 1.8s at each item's first byte, then reads item at maximum speed. Run conforming and rpc-fault:perItemGrace builds with same reader. Conforming: TC-send/TC-recv/CloseOK/Enforced gates; closure/time measured. perItemGrace: record sendDone/receiveDone/unreadAtSendDone if reached. DiscriminationCheck (C) on perItemGrace trace under shared-batch rule: condition is Breach(trace) exists and persists > 0.2s of shared sendTime, computed over whole trace. If met: Enforced must report violation and perItemGrace must not have closed there. If unmet after 3 repetitions: “inconclusive” with trace; logic covered by PS5/PS5c.
+  - (vii-b) Credit covers pause (C): 4 MiB Blob response. Reader reads 2 MiB at maximum speed, pauses 10s, then continues. Condition throughout measured pause: A(t) ≥ 65536·sendTime(t) at every instant. If met: any pause-time closure fails; sendDone/receiveDone required. Otherwise record Breach(trace)/closure time; only Enforced gates. Record A0/sendTime0 measurements.
+  - (vii-c) Credit exhaustion: (vii-b) with 60s pause. Closure time measured. Enforced: if Breach(trace) persists > 0.2s, close within ≤ 0.2s of it; otherwise must not close. Record breach-to-closure difference.
+  - (viii) Near-16 MiB Blob batch, read 65 KiB/s (C under RG5): sendDone/receiveDone, batchSendMaxS ≤ 258.2791015625, total through sendDone ≤ 420s, sendOverrunMaxMs ≤ 200.
+  - (ix) rpc-fault:pacerOff, reader 1 KiB/s → BATCH_WALL closure at 420s±0.2, batchWallHits=1. Release build has batchWallHits = 0 throughout RG.
+  - (x) Two 20-member batches within one second on one connection → second gives 20 −32021 {rate} without execution; first completes.
+  - (xi) In RG14/RG4/RG5: pacerLateMaxMs ≤ 200, sendOverrunMaxMs ≤ 200.
+  - (xii) Repeat (v), (vii-c), (0b) with rpc.pacerTrace=false: same qualitative outcome, CloseOK from lastPacerClose, matching sendDoneCount. Any difference recorded as tracing defect.
+- RG15: pocol_getLogs on each dense block separately (50..1073). scratch ≤ 4 MiB, zero Limit{scratch}; otherwise reduce LogCursor consumption before M7.
 
-الفشل:
-- كل مما يلي يمنع M7: خرق أي G في RG1–RG8 أو RG10–RG15، أو خرق TC-send أو TC-recv أو CloseOK أو Enforced في أي تشغيل، أو حالة C تحقق شرطها وخالفت نتيجتها.
-- RG9 قياس.
-- حالات C غير الحاسمة تُعلن بقيمها ولا تحجب M7، لأن منطقها مغطى بـPS.
-- القياسات الزمنية 3 تكرارات، والمعيار على أسوئها.
+Failure:
+- Any of these blocks M7: violation of any G in RG1–RG8/RG10–RG15, violation of TC-send/TC-recv/CloseOK/Enforced in any run, or a C case whose condition holds but expected result fails.
+- RG9 is measurement.
+- Inconclusive C cases disclosed with values, do not block M7 because logic covered by PS.
+- Timing measurements repeated 3 times; criterion applies to worst.
 
 **NX (G)**
 
-الأساس:
-- ChainFixture على sv-fix حتى 9، والمتجه عند h=10. الموقّعة (NX0–NX4) من w بـ[tx1]، والاحتياطية (NX5 وNX5c) بـ0xc2c0c0.
-- sv-fix-v2: الأساس حتى 49، وNX6 وNX8 عند 50، وNX7 عند 49.
-- العميق حتى 19، وNX0d وNX1d عند 20.
+Baseline:
+- ChainFixture on sv-fix through 9, vector at h=10. Signed NX0–NX4 from w with [tx1]; fallback NX5/NX5c with 0xc2c0c0.
+- sv-fix-v2: baseline through 49; NX6/NX8 at 50, NX7 at 49.
+- Deep baseline through 19; NX0d/NX1d at 20.
 
-المسارات: (أ) gossip، و(ب) مزامنة، و(ج) template، و(د) MaliciousRpc في RP.
-- h=10: b=1، وfrom=1، وcount=10. h=20: b=8، وfrom=7، وcount=14. h=50: b=38، وfrom=37، وcount=14.
-- الساعة في (د) = ts الرأس+5s، وtarget_g=2^240 فالرسالة تذكر 4095.
+Paths: (a) gossip, (b) sync, (c) template, (d) MaliciousRpc in RP.
+- h=10: b=1, from=1, count=10. h=20: b=8, from=7, count=14. h=50: b=38, from=37, count=14.
+- Clock in (d) = head ts+5s; target_g=2^240, message mentions 4095.
 
-الجدول (firstReject / diagSet / notEvaluable):
-- NX0: (أ) و(ب) قبول. (د) عرض / ∅ / {10–17} بوسم «10 رؤوس حتى genesis» وحد 4095.
-- NX0d: (د) طلب (7, 14) و«13 رأسًا».
-- NX-T: (ج) قفل / ∅ / {6–9، 13–17}.
-- NX1 (chainId=777001): (أ) و(ب) netChain/{netChain}. (ج) netChain مع {6–9، 13–17}. (د) netChain و4901.
-- NX1d: (د) netChain و4901.
-- NX2: مثل NX1 مع netGenesis.
-- NX3 (v=2) وNX4 (v=0): مثل NX1 مع netVersion.
-- NX5: (أ) و(ب) netChain/{netChain, 12}. (ج) templateForm. (د) netChain.
-- NX5c: (أ) و(ب) قبول. (ج) templateForm. (د) عرض.
-- NX6 وNX7: netVersion في كل المسارات.
-- NX8: قبول، و(د) طلب (37, 14) و«13 رأسًا».
-- NX9 (h=11 على NX1): (أ) unknownParent ثم ancestorInvalid، وdiagnoseChain = [NX1: {netChain}، NX9: ∅]، وnotEvaluable = {2–17}. (ب) ancestorInvalid وحظر. (ج) parentInvalid. (د) رفض عند NX1 و4901.
+Table (firstReject / diagSet / notEvaluable):
+- NX0: (a)/(b) accept. (d) display / ∅ / {10–17}, label “10 headers back to genesis”, bound 4095.
+- NX0d: (d) request (7, 14), “13 headers”.
+- NX-T: (c) lock / ∅ / {6–9, 13–17}.
+- NX1 (chainId=777001): (a)/(b) netChain/{netChain}. (c) netChain with {6–9, 13–17}. (d) netChain and 4901.
+- NX1d: (d) netChain and 4901.
+- NX2: NX1 with netGenesis.
+- NX3 (v=2)/NX4 (v=0): NX1 with netVersion.
+- NX5: (a)/(b) netChain/{netChain, 12}. (c) templateForm. (d) netChain.
+- NX5c: (a)/(b) accept. (c) templateForm. (d) display.
+- NX6/NX7: netVersion on all paths.
+- NX8: accepted; (d) request (37, 14), “13 headers”.
+- NX9 (h=11 on NX1): (a) unknownParent then ancestorInvalid, diagnoseChain = [NX1: {netChain}, NX9: ∅], notEvaluable = {2–17}. (b) ancestorInvalid and ban. (c) parentInvalid. (d) reject at NX1, 4901.
 
-نافذة RP:
-- NX-V1: حذف الرأس 1 عند h=10 → viewIncomplete و4901.
-- NX-V2: parentHash(1)=keccak256('other') → viewGenesis و4901، وفي (أ) unknownParent.
-- NX-V3: حذف المرجع 7 عند h=20 → viewIncomplete.
-- NX-V3b: مرجع 7 بـchainId=777001 → netChain.
-- NX-V3c: مرجع 7 صحيح الهوية بطابعه، وpowHash > target → عرض «13 رأسًا».
-- NX-V3d: 15 رأسًا (6..20) → viewIncomplete.
-- NX-V3e: مرجع بطابع g_ts+2^62 → viewFuture، وصفر ASERT، ولا تخصيص يتناسب مع الأس، والعامل يستجيب لـping خلال ≤ 100 ms.
-- NX-V3f: الساعة g_ts+10^6، ومرجع طابعه C−200، ورؤوس 8..20 بفارق 10s وعمل تافه → viewTargetCeil على 8 دون powHash، و4901.
-- NX-V3g: رؤوس 8..20 بطوابع صادقة وأهداف = 2^244 بالضبط وpowHash ≤ 2^244 → عرض «13 رأسًا» بحد 4095.
-- NX-V4: عقدة صادقة عند h=0 → viewNoBlocks، وصفر pocol_getHeaders، ولا إطار، و4901، وصفر معاملات. بعد الكتلة 1 وخلال ≤ 30s: n=1 «حتى genesis» و«لا موقع».
-- NX-V5: eth_blockNumber=0 كاذب → مثل NX-V4.
-- NX-V6: −32021 أربع مرات → 3 إعادات ثم viewIncomplete و4901.
-- LN0: LN عند h=0 → «لا موقع» دون viewNoBlocks، وtx1 يدخل المجمع.
+RP window:
+- NX-V1: remove header 1 at h=10 → viewIncomplete, 4901.
+- NX-V2: parentHash(1)=keccak256('other') → viewGenesis, 4901; (a) unknownParent.
+- NX-V3: remove reference 7 at h=20 → viewIncomplete.
+- NX-V3b: reference 7, chainId=777001 → netChain.
+- NX-V3c: reference 7 with correct identity/timestamp, powHash > target → display “13 headers”.
+- NX-V3d: 15 headers (6..20) → viewIncomplete.
+- NX-V3e: reference timestamp g_ts+2^62 → viewFuture, zero ASERT, no exponent-proportional allocation; worker ping response ≤ 100 ms.
+- NX-V3f: clock g_ts+10^6, reference timestamp C−200, headers 8..20 spaced 10s with trivial work → viewTargetCeil on 8 without powHash, 4901.
+- NX-V3g: headers 8..20 with honest timestamps, targets exactly 2^244, powHash ≤ 2^244 → display “13 headers”, bound 4095.
+- NX-V4: honest node at h=0 → viewNoBlocks, zero pocol_getHeaders, no frame, 4901, zero transactions. After block 1 within ≤ 30s: n=1 “back to genesis”, “No site”.
+- NX-V5: false eth_blockNumber=0 → NX-V4 outcome.
+- NX-V6: −32021 four times → 3 retries, then viewIncomplete, 4901.
+- LN0: LN at h=0 → “No site” without viewNoBlocks; tx1 enters mempool.
 
-المتوقع المشترك لكل رفض: الرأس والعمل وstateRoot والمجمع والقوالب دون تغيير بايتي. pocol_getRejects يسجل، والنظير يُعاقب. في (ج) FB عند T_j، ونتيجة صالحة تقبلها عقدة ثانية. Rust وTS متفقان.
+Common expectation for every rejection: head, work, stateRoot, mempool and templates bytewise unchanged. pocol_getRejects records it; peer penalized. In (c), FB at T_j; valid result accepted by second node. Rust/TS agree.
 
 **HG (G)**
-- head=0: HG1 (0,1) fromZero، وHG2 (1,0) countRange، وHG3 (1,513) countRange، وHG4 (1,1) fromAboveHead، وHG5 (0,0) fromZero، وHG6 (0,513) fromZero، وHG7 (5,0) countRange، وHG8 (1,512) fromAboveHead.
-- head=10: HG9 (5,10) beyondHead، وHG10 (10,1) رأس واحد، وHG11 (1,10) عشرة، وHG12 (11,0) countRange، وHG13 (18446744073709551615, 512) fromAboveHead دون فيض.
-- الصياغة: HG14 from='0x01'، وHG15 '0x10000000000000000'، وHG16 معلمة واحدة، وكلها −32602.
-- المعيار: صفر قراءة حالة وصفر قبول في HG1–HG3 وHG5–HG7 وHG14–HG16، وcount ≤ 14 في كل طلب من العميل.
+- head=0: HG1 (0,1) fromZero, HG2 (1,0) countRange, HG3 (1,513) countRange, HG4 (1,1) fromAboveHead, HG5 (0,0) fromZero, HG6 (0,513) fromZero, HG7 (5,0) countRange, HG8 (1,512) fromAboveHead.
+- head=10: HG9 (5,10) beyondHead, HG10 (10,1) one header, HG11 (1,10) ten, HG12 (11,0) countRange, HG13 (18446744073709551615, 512) fromAboveHead without overflow.
+- Syntax: HG14 from='0x01', HG15 '0x10000000000000000', HG16 one parameter; all −32602.
+- Criterion: zero state reads/admissions in HG1–HG3, HG5–HG7, HG14–HG16; count ≤ 14 in every client request.
 
-**بقية المرحلة B**
-- T3: 4 عقد و10k كتلة بجذور متطابقة.
-- T20 (FSM1–FSM10)، وT20-NX (FB عند T_j)، وT23 (N1–N8)، معرّفة في ملحق VA.
-- T5: صفر nonce مكرر بين الصادقين [PDF:73].
-- T6: حرق آخر نشط يوقف السلسلة.
-- T17 المراقب، وT21 المزامنة عبر الإغلاق، وT25 (ملحق VA).
-- T14 (8 GB): RSS ≤ 3 GB، ومزامنة 10k ≤ 30 دقيقة، وvalidate_p99 ≤ 3s.
-- T11b: LN يرفض العبث. T11c: RP يضع الوسم بـn وminWorkRP.
-- T15: MetaMask يدويًا، وأي فشل بسبب حد eth_getLogs يُسجل.
-- BR15 (انظر BR).
+**Remaining phase B**
+- T3: 4 nodes, 10k blocks, matching roots.
+- T20 (FSM1–FSM10), T20-NX (FB at T_j), T23 (N1–N8), defined in VA annex.
+- T5: zero duplicate nonces among honest miners [PDF:73].
+- T6: burning the last active miner stops the chain.
+- T17 monitor, T21 synchronization through closing, T25 (VA annex).
+- T14 (8 GB): RSS ≤ 3 GB, 10k synchronization ≤ 30 minutes, validate_p99 ≤ 3s.
+- T11b: LN rejects tampering. T11c: RP labels n/minWorkRP.
+- T15: manual MetaMask; record any failure caused by eth_getLogs limit.
+- BR15 (see BR).
 
-**الإحصائية (va/base دون خصم، النافذة 201..3200، وإطار VA)**
-- T4-H (البتر، S): لكل ثلاثية (h, a, i) لعقدة صادقة i ذات نطاق في المحاولة a:
-  - trunc = 1 إن أُغلقت المحاولة بالانتقال إلى a+1 (C > U(a)+Γ) قبل أن تمسح i نطاقها كاملًا.
-  - T4-H = Σtrunc ÷ عدد الثلاثيات. القبول: الحد الأعلى للـCI ≤ 0.02.
-- T4-W (S): لكل زوج (h, i): W = 1 إن تجاوز زمن أول تجزئة لـi على h ناقصًا وصول الأب إلى i القيمة X^W.
-  - T4-W = متوسط W. القبول: الحد الأعلى للـCI ≤ 0.05.
-- T4-L (S، D121): نسبة البذور التي بلغت ارتفاع الهدوء قبل T_RUN_MAX.
-  - القبول: الحد الأدنى للـCI ≥ 0.95.
-  - كل توقف يُعلن بأثره من TraceDB.
-- T4-B كما عُرّف أعلاه.
-- T8 (S): ذراعان مقترنان بالبذرة: va/base (nonceMode=0، c=2)، وva/base بـnonceMode=1.
-  - المقياس: p95 لفواصل الكتل 201..3200 على N0. T8 = p95_bounded ÷ p95_unbounded.
-  - القبول: الحد الأعلى للـCI ≤ 1.5. الفشل: الحد الأدنى > 1.5، ويستلزم رفع c قبل M8.
-  - زمن الخمول بعد النطاق يُسجل قياسًا.
-- T7 وT7b وT7c وT7e وT9 وT10 وT10b وT19 وT25 وT18b: تعريفها وعتباتها في ملحق VA.
-- T8 (أعلاه)، وT13 [PDF:117]، وT18 ≤ 33 GiB.
-- T4-V قياس لنسبة s ≥ 4.
+**Statistical (va/base without adversary, window 201..3200, VA framework)**
+- T4-H (truncation, S): for each (h, a, i), honest node i owning a range in attempt a:
+  - trunc = 1 if attempt closes by transitioning to a+1 (C > U(a)+Γ) before i scans its whole range.
+  - T4-H = Σtrunc ÷ triple count. Accept: CI upper bound ≤ 0.02.
+- T4-W (S): for each (h, i), W = 1 if i's first-hash time on h minus parent-arrival time at i exceeds X^W.
+  - T4-W = mean W. Accept: CI upper bound ≤ 0.05.
+- T4-L (S, D121): proportion of seeds reaching quiescence height before T_RUN_MAX.
+  - Accept: CI lower bound ≥ 0.95.
+  - Every stall disclosed with its TraceDB trace.
+- T4-B as defined above.
+- T8 (S): seed-paired arms: va/base (nonceMode=0, c=2), and va/base with nonceMode=1.
+  - Metric: p95 intervals of blocks 201..3200 at N0. T8 = p95_bounded ÷ p95_unbounded.
+  - Accept: CI upper bound ≤ 1.5. Fail: lower bound > 1.5, requiring larger c before M8.
+  - Post-range idle time recorded as measurement.
+- T7, T7b, T7c, T7e, T9, T10, T10b, T19, T25, T18b: definitions/thresholds in VA annex.
+- T8 (above), T13 [PDF:117], T18 ≤ 33 GiB.
+- T4-V measures proportion s ≥ 4.
 
-**ملحق VA: اختبارات الإجماع والحوافز والاحتفاظ (D115)**
+**VA annex: consensus, incentive and retention tests (D115)**
 
-الحالة: مقترحة ولم تُنفذ. السكربتات وجداول الرسائل الحرفية في VA-spec، وما يلي ملزم لها.
+Status: proposed, not executed. Scripts/literal message tables are in VA-spec; the following is binding on them.
 
-الإطار المشترك:
-- SimNet (D44) يشغّل وحدات pocold الحقيقية بساعة افتراضية فوق NetSim.
-  - تأخير كل وصلة U[50 ms, Δ] ببذرة مشتقة من bᵢ.
-  - أوامر السكربت: partition(A, B, t0, t1)، وdrop(link, kind)، وdelay(link, ms)، وkill(node)، وrestart(node)، وwipe(node).
-- الملف va/base (simnet): P11 مع nonceMode=0 وc=2، وchainId=777920، وH_END=4000، وH_CLOSE=3840، وZ_close=160.
-  - target_g = floor(2^256/14720)−1، أي H_tot·T_blk = 14720 تجزئة للصادقين.
-- الصادقون: 16 هوية بعقدة لكل منها، ومعدلاتها {8,8,4,4,4,4,2,2,2,2,1,1,1,1,1,1} وحدة (المجموع 46). الوحدة 32 تجزئة SHA-256 حقيقية لكل ثانية افتراضية.
-- الخصم: عقد Adv بمعدل H_adv، وβ = H_adv/(46+H_adv). القيم: 5 → 0.098، و12 → 0.207، و16 → 0.258، و20 → 0.303.
-  - يتحكم في روابط عقده، ويوقّع أي رسالة بمفاتيحه، ويختار ما يرسل ولمن ومتى.
-  - لا يكسر التشفير (A1)، ولا يتحكم في روابط صادق بصادق إلا بأوامر partition المعلنة.
-- النافذة والإنهاء (D117):
-  - الإحماء 200 كتلة، والقياس على الكتل 201..3200 من السلسلة القانونية لـN0.
-  - الهدوء: عند أول لحظة يبلغ فيها رأس N0 ارتفاع الهدوء (3260، أو 3600 في T7e):
-    - يُطبق حاجز القياس (D122) المعرّف أدناه: يتوقف الخصم وحقن الأعطال والتعدين الصادق، ثم يجري التصريف حتى Quiet، ثم يُفحص HeadCheck.
-    - كل قياس بعد الهدوء يُؤخذ على الحالة بعد Quiet، لا عند لحظة زمنية ثابتة.
-    - لا نافذة ثابتة مدتها 300s يستمر فيها التعدين.
-  - حد التشغيل: T_RUN_MAX = 3·(ارتفاع الهدوء)·T_blk ثانية افتراضية، أي 97800s عند 3260. البذرة التي لا يبلغ فيها N0 ارتفاع الهدوء قبله «متوقفة».
-  - البذرة المتوقفة لا تُسقط:
-    - في بوابات G (D121): البذرة المتوقفة غير قابلة للتقييم في أجزاء G المشروطة بالهدوء، وتُعد وتُعلن.
-      - البوابة تفشل إن خُرق G في أي بذرة مقيّمة.
-      - وتفشل كذلك إن تجاوز عدد المتوقفة 2 من 24 أو 4 من 48، لأن T_RUN_MAX ثلاثة أضعاف الزمن المتوقع، فالتوقف المتكرر عطل تقدم.
-      - وإلا يُحكم على البذور المقيّمة.
-    - في بوابات S: القيمة الرقابية من CEN أدناه، قبل أي عملية حسابية بين الأذرع.
-    - في القياسات: فئة مستقلة تُعلن.
-  - المقام الصفري: أي مقياس مقامه صفر في بذرة غير متوقفة يأخذ قيمته الرقابية من CEN، ويُعد مقصوصًا.
-    - وسم underpowered لا يُستعمل إلا لذراع يحدد اختباره صراحة حدًا أدنى لعدد الأحداث.
-    - حكم الذراع الموسوم «غير حاسم» لا نجاح.
-  - CEN (D121): كل مقياس S بذري يُقص قبل التجميع إلى مدى منتهٍ [lo, hi]، والقيمة الرقابية هي الطرف الأسوأ:
-    - النسب (T9، وT19، وT10b(i)، وT10b(iii)(b)، ونسب التقارب، وT4-L): المدى [0, 1]، والأسوأ 0.
-    - T4-H وT4-W: المدى [0, 1]، والأسوأ 1.
-    - Δ_k وg: المدى [−1, 1]، والأسوأ 1.
-    - ρ_i: المدى [0, 2]، والأسوأ 2، وهو خارج نطاق TOST.
-    - T8، وT4-B (المتوسط ÷ T_blk): المدى [0, 10]، والأسوأ 10.
-    - القيمة المحسوبة خارج المدى تُقص إليه وتُعد مقصوصة.
-    - الأذرع المقترنة تُحسب داخل البذرة أولًا. إن توقفت أي ذراع أو صفر أي مقام، يأخذ المقياس الزوجي قيمته الرقابية مباشرة، دون أي عملية على قيم غير منتهية. لذلك لا ينشأ ∞ ولا ∞−∞ ولا NaN.
-  - الاستثارة: الاختبار المشروط بحدث (T7e، وT10b(iii)) يعد البذرة «غير مستثارة» إن لم يقع الحدث ضمن مداه المحدد.
-    - لا يُحكم بنجاح إلا إن استُثير ≥ 20 من 24 بذرة، أو ≥ 40 من 48. وإلا فغير حاسم.
-    - أي خرق في بذرة مستثارة فشل.
-  - التقارب: كل معيار «رأس واحد خلال x» أو «تبنٍّ خلال x» في VA جزءان:
-    - (G) HeadCheck بعد حاجز القياس (D122). لا يُشترط تطابق الرؤوس عند لحظة ثابتة، ولا وقوع كتلة تحسم تعادلًا.
-    - (S) t_conv = أول لحظة ≥ لحظة الحدث المرجعي تتطابق فيها رؤوس كل الصادقين، أثناء التشغيل النشط وقبل الحاجز.
-      - التعادل برؤوس مختلفة ليس تقاربًا.
-      - المؤشر البذري 1 إن كان t_conv − لحظة الحدث ≤ x.
-      - البذرة التي لا يقع فيها t_conv قبل الحاجز تأخذ 0 من CEN.
-      - القبول بحد أدنى للـCI ≥ 0.95، والزمن نفسه قياس.
-    - في الاختبار المشروط بحدث تُحسب النسبة على البذور المستثارة. لا تُصنف أي مهلة احتمالية تحت G.
-  - جدول تصنيف المعايير الزمنية (D121):
-    - التقارب بالقاعدة أعلاه: T7e(a) بـx = 30·T_blk، وT10b(ii) بـx = 30·T_blk، وT10b(iii)(c) بـx = 30·T_blk، وT10b(vi) بـx = 60s.
-    - T23 N6: (G) اكتمال الجلب من نظير آخر قبل نهاية السكربت. (S) اكتماله خلال 3Δ من الرفض.
-    - T4-L: (S) كما أدناه.
-    - الأزمنة الحتمية الوحيدة تحت G في VA:
-      - T20 بساعة وهمية.
-      - T25 بمؤقتات ثابتة: فحص ReplicaMonitor كل 10s بمهلة 2s، واستطلاع الإضافة لـpocol_getRetention كل 10s، فالأسوأ 22s ≤ 30s.
-      - حدود الطوابير والتراجع (≤ R_keep)، لأنها قيود حالة لا زمن.
-- العقد والنصفان:
-  - N_i للهوية i بترتيب المعدلات أعلاه، ومنها N0=8 وN1=8.
-  - A = العقد الزوجية {N0، N2، …، N14}، وB = الفردية. لكل منهما 23 وحدة.
-  - هذا التقسيم معتمد في T10b(ii، iii) وT7e.
-- الإحصاء (النوع S، D121):
-  - البذرة هي الوحدة: 24 بذرة، ثم 48 بإضافة b25..b48 إلى الأولى.
-  - المقدّر: متوسط القيم البذرية بعد CEN. لمقياس معرّف داخل البذرة بنسبة أو p95 (مثل T8 وT10b(i)) تكون القيمة البذرية ذلك المقياس.
-  - CI: bootstrap مئيني بـ10^4 إعادة.
-    - كل إعادة تسحب n فهرس بذرة مع الإحلال، وتحسب المتوسط.
-    - الأذرع المقارنة تشترك في الفهارس نفسها.
-    - المئينات بالاستيفاء الخطي (numpy type 7): CI 95% ذات طرفين = [2.5، 97.5]، وTOST في T7 = [5، 95].
-  - المولد: PCG64 مبذور بأول 8 بايتات من SHA256('PoColBoot'‖testId‖armId‖be32(n)) كعدد big-endian.
-    - مرجع Python (BootRef) هو المصدر.
-    - تنفيذ TS يطابقه بايتيًا على متجهات VA-spec.
-  - القبول: يتطلب الشرطين معًا:
-    - الحد المعني من CI داخل المعيار.
-    - عدد البذور المقصوصة بالتوقف أو بالمقام الصفري ≤ 2 من 24 أو ≤ 4 من 48.
-  - الفشل: الحد المقابل خارج المعيار.
-  - غير ذلك غير حاسم بعد 48 بذرة. ويشمل ذلك تجاوز نصاب المقصوصة مع وقوع الحد المعني داخل المعيار، ويُعلن السبب.
-- مصدر الحقيقة: سجل NetSim لكل رسالة وعطل، وحالة N0، وTraceDB لكل بذرة.
-- حاجز القياس وHeadCheck (D122):
-  - الحاجز: عند ارتفاع الهدوء، أو عند نهاية السكربت في اختبارات بلا ارتفاع هدوء، تُنفذ في لحظة افتراضية واحدة:
-    - halt: تُفصل عقد الخصم عن الشبكة، ويتوقف كل حقن أعطال، وتلتئم كل الانقسامات، وتصير كل الوصلات 50 ms.
-      - (D124) كل رسالة من الخصم لم تُسلّم قبل الحاجز تُسقط، فلا يصل بعده أي بايت من الخصم. رسائل الصادقين المجدولة قبل الحاجز تُسلم في موعدها (≤ t_halt+Δ).
-      - كل عقدة صادقة أُوقفت بـkill دون wipe تُعاد بـrestart في اللحظة نفسها، وتكتمل خلال RESTART_MAX المثبت في VA-spec. العقدة الممسوحة تبدأ فارغة.
-    - stopMining: كل عقدة صادقة تتوقف عن التجزئة، وعن إرسال قوالب جديدة، وعن بناء كتل احتياطية وحصص.
-      - يبقى الاستلام والتحقق والاستيراد والبث والمزامنة.
-      - هذا أمر تجهيز في SimNet، لا قاعدة بروتوكول، ولا يغير الصلاحية.
-    - الكتلة المكتشفة قبل stopMining وهي قيد البث تُسلم كالمعتاد.
-  - التصريف (D123): يستمر التشغيل حتى Quiet، أي 2s افتراضية متصلة يتحقق فيها شرطان معًا:
-    - ChainWork (أدناه) فارغة لدى كل صادق.
-    - لا يقع أي مما يلي:
-    - رسالة قيد النقل بين صادقين.
-    - طلب مزامنة أو GetBodies معلق بين صادقين.
-    - كتلة أبوها معروف لدى صادق ولم يكتمل تحققها.
-    - رأس في طابور unknownParent أبوه معروف لدى صادق ما.
-  - ChainWork(i) (D123): كل عمل مؤجل لدى الصادق i قد يغير رأسه أو حالته دون رسالة جديدة. يشمل:
-    - مدخلات طابور المستقبل (ts > C+Φ، consensus §3).
-    - كتلة أو رأس في unknownParent أبوه معروف لدى صادق ما.
-    - تحقق أو استيراد أو إعادة تنظيم أو TrieRebuild، جارٍ أو منتظر.
-    - مؤقتات المزامنة وإعادة المحاولة وجلب الأجسام المجدولة نحو صادق.
-    - Status من صادق يعلن رأسًا أثقل، دون جلب جارٍ له.
-  - التسجيل: كل مؤقت أو طابور مؤجل في وحدات الإجماع والمزامنة والاستيراد يُجدول عبر ChainTimer بوسم ∈ {chain, nonChain}.
-    - لا يُستعمل مؤقت آخر في هذه الوحدات، وتفرض ذلك قاعدة clippy disallowed_methods في M5.
-    - SimNet يقرأ ChainWork من ChainTimer وطوابير العقدة، لا من تخمين.
-  - statusSweep: أمر تجهيز يستعمل رسالة Status القائمة دون تغيير البروتوكول. عند الحاجز، وعند t_avail في خطوة U الذرية (D129)، وبعد كل تغير رأس أثناء التصريف، يرسل كل صادق Status إلى كل صادق، فلا يبقى رأس أثقل مجهولًا لدى صادق.
-  - سياسة طابور المستقبل، وهي سياسة تجهيز لا قاعدة صلاحية:
-    - (F1) مدخل استورده صادق ما يُنتظر.
-      - لِمّة: SimNet يضبط الساعات بـ|C_j−t| ≤ φ (A3). إن استورده A عند t_A فإن ts ≤ C_A(t_A)+Φ ≤ t_A+φ+Φ.
-      - لكل صادق B يكون C_B(t) ≥ t−φ، فيصير المدخل مؤهلًا لديه عند t ≤ t_A+2φ = t_A+Φ.
-    - (F2) مدخل لم يستورده أي صادق، وأقرب أهلية له لدى أي صادق ≤ t_halt+2Φ، يُنتظر.
-    - (F3) غير ذلك: purgeFuture يزيله من طوابير كل الصادقين في خطوة واحدة مع نسله المعلق.
-      - يُسجل futurePurged و(ts−C) قياسًا.
-      - هذا مكافئ لعدم إرسال الخصم المتوقف له. لا يُنفذ إلا حين لا يبقى في ChainWork غير مدخلات F3.
-    - الأهلية (D124 يصحح الصياغة السابقة): F1 وF2 يحدان لحظة الأهلية الزمنية لا الاستيراد.
-      - أهلية مدخل F2 لدى أول صادق ≤ t_halt+2Φ، ولدى الجميع ≤ t_halt+3Φ بعد استيراده عند أحدهم (F1).
-      - ما استُورد قبل الحاجز يؤهل لدى الجميع عند ≤ t_halt+Φ.
-      - الاستيراد نفسه يتطلب جلب الجسم وH-full، فقد يتأخر ضمن DRAIN_MAX(run) أدناه، أو يُحسم بالمسار U أو V.
-  - توافر الأجسام (D124، أمر تجهيز لا قاعدة صلاحية):
-    - الحيازة: holds(i, b) صحيح إن كانت بايتات جسم الكتلة b في مخزن الصادق i الدائم أو في مخزن الأجسام المعلقة، مطابقة لـtxRoot وevidenceRoot وBODY_MAX. هذا فحص بلا حالة.
-      - التنفيذ يحتفظ بالجسم المطابق لرأس معروف حتى استيراده أو رفضه أو إزالته، ضمن حد طابور unknownParent والطابور الجانبي.
-    - t_avail: لحظة تسليم آخر رسالة صادقة جُدولت قبل الحاجز، بعد اكتمال restart. إذن t_avail ≤ t_halt+max(Δ, RESTART_MAX).
-    - لِمّة الانغلاق: بعد t_avail لا مصدر لجسم جديد، لأن الخصم مفصول ورسائله غير المسلمة أُسقطت، والصادقون لا ينتجون.
-      - إذن مجموعة الأجسام لا تزيد بعد t_avail. عدم نقصها لا يلزم من الانغلاق وحده، ويضمنه DrainPin.
-    - DrainPin (D125، أمر تجهيز في SimNet لا قاعدة بروتوكول):
-      - الطور 1 (D126، HaltPin): في الخطوة الذرية نفسها التي تنفذ halt، وقبل أي حدث لاحق، يثبّت كل صادق PinSet. يشمل PinSet كل رأس يعرفه، وكل جسم يحوزه، وكل نسخة رأس (hdrId) بحالة envOk أو envPending يحوزها في HeaderStore أو EnvCache (D132)، وكل حكم envReject في EnvCache (D136). لا يُطرد حكم مثبت بسقوف D136 بعد الحاجز، فلا يُعاد فحص hdrId في التصريف، ويبقى envCheck ≤ Venv_i. الصادقون لا يمررون نسخًا مرفوضة، فلا يصل رفض جديد بعد t_avail. يشمل ذلك أي بنية: المخزن الدائم، ومخزن الأجسام المعلقة، وunknownParent، والطابور الجانبي، وطابور المستقبل.
-        - كل رأس أو جسم يصل بعد t_halt يُضاف إلى PinSet لحظة وصوله. يشمل ذلك ما تحمله رسالة صادقة جُدولت قبل الحاجز، وما يُعاد تحميله من القرص عند restart.
-        - لا يطرد أي عنصر مثبت: لا طرد D118، ولا حدود الطوابير، ولا طرد مخزن الأجسام المعلقة. الوارد إلى بنية ممتلئة يُقبل فوق حدها ويُحتسب في pinBytes، ولا يُطرد غيره بسببه.
-        - PinSet محدود: الخصم مفصول ورسائله أُسقطت، فلا وارد إلا من صادق. إذن |PinSet| ≤ محتوى البنى عند t_halt + رسائل الصادقين قيد النقل عند t_halt + ما يحمّله restart. يُسجل pinBytes وpinEntries، وحد PIN_MEM_MAX كما هو.
-      - الطور 2 (D126، narrow): عند t_avail يُحسب Rec ويُطبق U ويُحرر التثبيت في خطوة واحدة. يُحرر التثبيت عن كل عنصر خارج Rec، وقد أزاله U، ويبقى على عناصر Rec حتى Quiet.
-      - الاستثناءان الوحيدان: المسار V وF3، وكلاهما يخرج الكتلة من Rec في الخطوة نفسها لدى كل الصادقين.
-      - كل محاولة طرد مرفوضة تُعد في pinRefusals. الذاكرة المثبتة تُسجل pinBytes.
-      - تجاوز PIN_MEM_MAX (المثبت في VA-spec) يجعل البذرة غير قابلة للتقييم ضمن نصاب D121، ويُعلن.
-    - لِمّة الحيازة (D126، تحل محل صياغة D125): بين t_halt وt_avail لا يُطرد أي عنصر في PinSet، وبين t_avail وQuiet لا يُطرد أي عنصر في Rec، إلا بالمسار V أو F3.
-      - إذن HeldAtHalt(b) = {i : holds(i, b) عند t_halt} ⊆ holders(b, t_avail).
-      - وبالمثل (D132): EnvHeldAtHalt(b) ⊆ حائزو نسخة validEnv لـb عند t_avail، لأن نسخ الغلاف ضمن PinSet.
-      - فكل كتلة تحققت فيها ثلاثة شروط تقع في Rec: حاز صادقٌ جسمها عند الحاجز، وحاز صادقٌ (قد يكون غيره) نسخة غلاف validEnv لها، وأبوها في Rec أو genesis.
-      - الكتلة المحوزة الجسم دون نسخة validEnv لدى أي صادق خارج Rec بسبب envUnavailable، وهذا ليس فقد حيازة.
-      - Rec مستقرة بعد t_avail، عدا الإخراج بـV وF3.
-    - pinBreach (D126، G): HeadCheckRef يحسب HeldAtHalt من سجل NetSim مستقلًا عن DrainPin. أي كتلة في bodyPurged بسبب bodyUnavailable وHeldAtHalt(b) ≠ ∅ فشل G.
-      - (D132) EnvHeldAtHalt(b) = {i : يحوز i عند t_halt نسخة h لـb بـenvPre(h) وenvOwn(h, S(parent)) ناجحتين}، ويحسبها HeadCheckRef من السجل وRefReplay. أي كتلة في bodyPurged بسبب envUnavailable وEnvHeldAtHalt(b) ≠ ∅ فشل G. لذلك لا يستطيع U إخفاء طرد وقع بين الحاجز وt_avail.
-    - Rec (D125): مجموعة الكتل القابلة للاستعادة، يحسبها HeadCheckRef من سجل NetSim عند t_avail. وهي أصغر مجموعة تحقق ما يلي:
-      - b ∈ Rec إن استوردها صادق ما.
-      - أو إن تحققت أربعة شروط معًا:
-        - عرف صادقٌ رأسها.
-        - حاز صادقٌ (قد يكون غيره) جسمها.
-        - حاز صادقٌ (قد يكون ثالثًا) نسخة رأس صالحة الغلاف، أي validEnv(b) (D131).
-        - أبوها في Rec أو هو genesis.
-      - validEnv(b) (D131): يحسبها HeadCheckRef من السجل. شرطها نسخة h لدى صادق عند t_avail بـenvPre(h) ناجحة وenvOwn(h, S(parent)) ناجحة، وحالة الأب من RefReplay. الكتلة المستوردة لدى صادق تحققها بالبناء، وحائز النسخة مثبت بـHaltPin.
-      - تُخرج من Rec كل كتلة تُرفض بالمسار V أو تُزال بـF3، مع نسلها.
-    - المسار U (غير قابل للاستعادة): عند t_avail يُطبق purgeUnavailable على كل مدخل في ChainWork لأي صادق، لكتلة b ∉ Rec. يشمل ذلك طابور المستقبل وunknownParent وطلبات الجلب.
-      - السبب bodyUnavailable إن لم يحز أي صادق جسم b.
-      - أو envUnavailable (D131) إن حيز الجسم دون نسخة validEnv لدى أي صادق.
-        - هذا استبعاد تجهيزي لا blockReject: لا pocol_getRejects، ولا parentInvalid، ولا عقوبة لنظير صادق، والنسل يُزال بـdepUnavailable.
-        - pinBreach يشمل كل envUnavailable كان لكتلته حائز نسخة validEnv عند t_halt.
-        - في pocold الحي لا يقابله إلا envWait (consensus).
-      - وإلا depUnavailable مع missingAncestor = أقرب سلف خارج Rec.
-      - يُزال المدخل من كل الصادقين في خطوة واحدة، مع نسله المعلق وطلباته ومؤقتاته.
-      - يُسجل bodyPurged وهاش كل مدخل مزال.
-      - هذا مكافئ لعدم إرسال الخصم الرأس، لأن عمل الرأس لا يُحتسب قبل H-full (D38).
-      - لا يُزال مدخل في Rec، ولا كتلة مستوردة لدى أي صادق.
-      - المدخل الذي يحوز صادقٌ جسمه وسلفه خارج Rec يُزال بسبب depUnavailable، لأن استيراده يتطلب حالة الأب.
-      - هذا استبعاد تجهيزي يُسجل في bodyPurged{hash, reason, missingAncestor?}، حيث reason ∈ {bodyUnavailable, envUnavailable, depUnavailable} مجموعة مغلقة (D132)، وmissingAncestor إلزامي لـdepUnavailable وحده.
-        - ليس بطلانًا إجماعيًا لأي سبب من الثلاثة: لا يدخل pocol_getRejects، ولا parentInvalid، ولا ancestorInvalid، ولا يُعاقب نظير صادق بسببه.
-        - عقوبة مرسل نسخة تالفة عند envReject مستقلة، وتقع لحظة الفحص لا لحظة الاستبعاد.
-    - المسار A (قابل للاستعادة): المدخل في Rec يبقى حتى الاستيراد أو الرفض. عدم استيراده قبل t_halt+DRAIN_MAX(run) عطل مزامنة وفشل G، لا حجب.
-    - المسار V (مرفوض، D125، مقصور على blockReject في D130): رفض H-pre للرأس أو رفض H-full لكتلة جسمها مطابق لالتزام رأسها، بخرق من صنف blockReject، قبل الأهلية أو بعدها، يزيل في خطوة الرفض نفسها:
-      - المدخل.
-      - نسله، بـparentInvalid وancestorInvalid.
-      - كل مؤقتاته وطلباته من ChainWork.
+Common framework:
+- SimNet (D44) runs real pocold modules with a virtual clock over NetSim.
+  - Each link delay U[50 ms, Δ], seed derived from bᵢ.
+  - Script commands: partition(A, B, t0, t1), drop(link, kind), delay(link, ms), kill(node), restart(node), wipe(node).
+- va/base profile (simnet): P11 with nonceMode=0, c=2, chainId=777920, H_END=4000, H_CLOSE=3840, Z_close=160.
+  - target_g = floor(2^256/14720)−1, i.e. H_tot·T_blk = 14720 honest hashes.
+- Honest miners: 16 identities, one node each, rates {8,8,4,4,4,4,2,2,2,2,1,1,1,1,1,1} units (total 46). One unit = 32 real SHA-256 hashes per virtual second.
+- Adversary: Adv nodes, rate H_adv, β = H_adv/(46+H_adv). Values: 5 → 0.098, 12 → 0.207, 16 → 0.258, 20 → 0.303.
+  - Controls its node links, signs any message with its keys, chooses what/to whom/when to send.
+  - Cannot break cryptography (A1) or control honest-to-honest links except declared partition commands.
+- Window and termination (D117):
+  - Warmup 200 blocks; measurement on N0 canonical blocks 201..3200.
+  - Quiescence: first instant N0 reaches quiescence height (3260, or 3600 in T7e):
+    - Apply measurement barrier (D122) below: stop adversary, fault injection and honest mining, drain to Quiet, then HeadCheck.
+    - Post-quiescence measurements use state after Quiet, not a fixed-time instant.
+    - No fixed 300s window with ongoing mining.
+  - Run limit: T_RUN_MAX = 3·(quiescence height)·T_blk virtual seconds, 97800s at 3260. Seed where N0 does not reach height before limit is “stalled”.
+  - Stalled seed is not discarded:
+    - In G gates (D121): stalled seed not evaluable for quiescence-conditional G parts; counted/disclosed.
+      - Gate fails if G violated in any evaluated seed.
+      - Also fails if stalled count exceeds 2 of 24 or 4 of 48, because T_RUN_MAX is three times expected duration; repeated stalling is a progress defect.
+      - Otherwise judge evaluated seeds.
+    - In S gates: censored value from CEN below before any between-arm arithmetic.
+    - In measurements: separate disclosed category.
+  - Zero denominator: any metric with zero denominator in a nonstalled seed takes its CEN censored value, counted as clipped.
+    - underpowered label only for an arm whose test explicitly requires a minimum event count.
+    - Such arm judged “inconclusive”, not passed.
+  - CEN (D121): every per-seed S metric clipped before aggregation to finite [lo, hi]; censored value is worst endpoint:
+    - Ratios (T9, T19, T10b(i), T10b(iii)(b), convergence ratios, T4-L): [0, 1], worst 0.
+    - T4-H/T4-W: [0, 1], worst 1.
+    - Δ_k/g: [−1, 1], worst 1.
+    - ρ_i: [0, 2], worst 2, outside TOST range.
+    - T8/T4-B (mean ÷ T_blk): [0, 10], worst 10.
+    - Computed out-of-range values clipped and counted as clipped.
+    - Paired arms computed within seed first. If either stalls or any denominator is zero, paired metric directly takes censored value, with no arithmetic on nonfinite values. Thus no ∞, ∞−∞ or NaN.
+  - Excitation: event-conditional tests (T7e, T10b(iii)) mark a seed “unexcited” if event absent within specified range.
+    - Pass only if ≥ 20 of 24 or ≥ 40 of 48 seeds excited; otherwise inconclusive.
+    - Any violation in an excited seed fails.
+  - Convergence: every VA “single head within x” or “adoption within x” criterion has two parts:
+    - (G) HeadCheck after measurement barrier (D122). Neither matching heads at a fixed instant nor a tie-resolving block required.
+    - (S) t_conv = first instant ≥ reference-event time when all honest heads match, during active run before barrier.
+      - Equal work with different heads is not convergence.
+      - Per-seed indicator 1 if t_conv − event time ≤ x.
+      - No t_conv before barrier → 0 from CEN.
+      - Accept if CI lower bound ≥ 0.95; time itself measured.
+    - For event-conditional tests, ratio computed on excited seeds. No probabilistic timeout classified G.
+  - Timing-criterion classification (D121):
+    - Convergence by above rule: T7e(a), x = 30·T_blk; T10b(ii), x = 30·T_blk; T10b(iii)(c), x = 30·T_blk; T10b(vi), x = 60s.
+    - T23 N6: (G) fetch from another peer completes before script end. (S) completes within 3Δ of rejection.
+    - T4-L: (S) as below.
+    - Only deterministic VA timings under G:
+      - T20 with fake clock.
+      - T25 with fixed timers: ReplicaMonitor check every 10s, timeout 2s; extension polls pocol_getRetention every 10s; worst 22s ≤ 30s.
+      - Queue/rollback bounds (≤ R_keep), because state constraints, not time.
+- Nodes and halves:
+  - N_i for identity i in rate order above, including N0=8/N1=8.
+  - A = even nodes {N0, N2, …, N14}, B = odd nodes; 23 units each.
+  - This partition used in T10b(ii, iii) and T7e.
+- Statistics (type S, D121):
+  - Seed is the unit: 24 seeds, then 48 by adding b25..b48.
+  - Estimator: mean per-seed values after CEN. For metrics defined within seed as a ratio or p95 (T8, T10b(i)), that metric is the per-seed value.
+  - CI: percentile bootstrap, 10^4 resamples.
+    - Each resample draws n seed indices with replacement and computes mean.
+    - Compared arms share indices.
+    - Linearly interpolated percentiles (numpy type 7): two-sided 95% CI = [2.5, 97.5], T7 TOST = [5, 95].
+  - Generator: PCG64 seeded by first 8 bytes of SHA256('PoColBoot'‖testId‖armId‖be32(n)), big-endian integer.
+    - Python reference BootRef is authoritative.
+    - TS implementation matches bytewise on VA-spec vectors.
+  - Acceptance requires both:
+    - Relevant CI bound meets criterion.
+    - Seeds clipped due to stalling/zero denominator ≤ 2 of 24 or ≤ 4 of 48.
+  - Failure: opposite bound outside criterion.
+  - Otherwise inconclusive after 48 seeds, including excess clipped seeds despite relevant bound meeting criterion; disclose reason.
+- Source of truth: NetSim log of every message/fault, N0 state and per-seed TraceDB.
+- Measurement barrier and HeadCheck (D122):
+  - Barrier: at quiescence height, or script end for tests without one, execute within one virtual instant:
+    - halt: disconnect adversary nodes, stop fault injection, heal partitions, set all links to 50 ms.
+      - (D124) Drop every adversary message not delivered before barrier; no adversary byte arrives afterward. Honest messages scheduled before barrier delivered on schedule (≤ t_halt+Δ).
+      - Every honest node killed without wipe restarted at same instant, completes within VA-spec's fixed RESTART_MAX. Wiped node starts empty.
+    - stopMining: each honest node stops hashing, sending new templates, building fallback blocks and shares.
+      - Receiving, verification, import, broadcast and sync continue.
+      - SimNet fixture command, not protocol rule; no validity change.
+    - A block discovered before stopMining and being broadcast delivered normally.
+  - Drain (D123): run until Quiet, 2 consecutive virtual seconds satisfying both:
+    - ChainWork (below) empty at every honest node.
+    - None of the following:
+    - In-flight message between honest nodes.
+    - Pending sync/GetBodies request between honest nodes.
+    - Block whose parent is known to an honest node but verification incomplete.
+    - Header in unknownParent whose parent is known to some honest node.
+  - ChainWork(i) (D123): all deferred work at honest i that might change its head/state without a new message. Includes:
+    - Future-queue entries (ts > C+Φ, consensus §3).
+    - Block/header in unknownParent whose parent is known to some honest node.
+    - Running/waiting verification, import, reorganization or TrieRebuild.
+    - Sync/retry/body-fetch timers scheduled toward honest nodes.
+    - Honest Status advertising a heavier head with no ongoing fetch.
+  - Registration: every deferred timer/queue in consensus/sync/import scheduled through ChainTimer, tag ∈ {chain, nonChain}.
+    - No other timer used in those modules; enforced by M5 clippy disallowed_methods.
+    - SimNet reads ChainWork from ChainTimer/node queues, not guesses.
+  - statusSweep: fixture command using existing Status without protocol changes. At barrier, at t_avail within atomic U (D129), and after every head change during drain, every honest node sends Status to every honest node, leaving no heavier head unknown.
+  - Future-queue policy, fixture policy rather than validity rule:
+    - (F1) Wait for an entry imported by any honest node.
+      - Lemma: SimNet clocks satisfy |C_j−t| ≤ φ (A3). If A imported it at t_A, ts ≤ C_A(t_A)+Φ ≤ t_A+φ+Φ.
+      - Every honest B has C_B(t) ≥ t−φ, so entry becomes eligible there by t ≤ t_A+2φ = t_A+Φ.
+    - (F2) Wait for an entry imported by no honest node whose earliest eligibility at any honest node is ≤ t_halt+2Φ.
+    - (F3) Otherwise purgeFuture removes it from every honest queue atomically with pending descendants.
+      - Record futurePurged and (ts−C) as measurements.
+      - Equivalent to stopped adversary not sending it. Execute only when ChainWork contains nothing except F3 entries.
+    - Eligibility (D124 correcting prior wording): F1/F2 bound temporal eligibility, not import.
+      - F2 entry eligible at first honest node ≤ t_halt+2Φ, at all ≤ t_halt+3Φ after one imports it (F1).
+      - Entries imported before barrier eligible at all by ≤ t_halt+Φ.
+      - Import still requires body fetching/H-full and may take until DRAIN_MAX(run) below, or resolve through U/V.
+  - Body availability (D124, fixture command, not validity rule):
+    - Possession: holds(i, b) true if block b's body bytes are in honest i's persistent or pending-body store, matching txRoot, evidenceRoot and BODY_MAX. Stateless check.
+      - Implementation retains a matching body for a known header until import/rejection/removal, within unknownParent/side-queue bounds.
+    - t_avail: last delivery of an honest message scheduled before barrier, after restart completion. Thus t_avail ≤ t_halt+max(Δ, RESTART_MAX).
+    - Closure lemma: no new body source after t_avail because adversary disconnected, undelivered messages dropped, honest nodes not producing.
+      - Body set therefore cannot grow after t_avail. Nondecrease does not follow from closure alone; ensured by DrainPin.
+    - DrainPin (D125, SimNet fixture command, not protocol rule):
+      - Phase 1 (D126, HaltPin): in halt's same atomic step before subsequent events, each honest node pins PinSet: every known header, held body, header version (hdrId) envOk/envPending in HeaderStore/EnvCache (D132), and every EnvCache envReject judgment (D136). D136 limits do not evict pinned judgments after barrier, so hdrId not rechecked during drain and envCheck ≤ Venv_i. Honest nodes do not forward rejected versions; no new rejection arrives after t_avail. Includes every structure: persistent store, pending-body store, unknownParent, side queue, future queue.
+        - Every header/body arriving after t_halt added to PinSet on arrival, including pre-barrier scheduled honest messages and restart disk reloads.
+        - No pinned element evicted: neither D118, queue bounds nor pending-body eviction. Arrival to a full structure accepted over limit and counted in pinBytes, without evicting others.
+        - PinSet bounded: adversary disconnected/messages dropped; arrivals only from honest nodes. Thus |PinSet| ≤ structure contents at t_halt + honest in-flight messages at t_halt + restart-loaded contents. Record pinBytes/pinEntries; PIN_MEM_MAX unchanged.
+      - Phase 2 (D126, narrow): at t_avail compute Rec, apply U and release pins in one step. Release all outside Rec, already removed by U; retain Rec pins until Quiet.
+      - Only exceptions: V/F3, both atomically remove block from Rec at every honest node.
+      - Each refused eviction increments pinRefusals. Pinned memory recorded as pinBytes.
+      - Exceeding VA-spec's fixed PIN_MEM_MAX makes seed unevaluable within D121 quota; disclosed.
+    - Possession lemma (D126, replaces D125 wording): no PinSet eviction between t_halt/t_avail; no Rec eviction between t_avail/Quiet except V/F3.
+      - Thus HeldAtHalt(b) = {i : holds(i, b) at t_halt} ⊆ holders(b, t_avail).
+      - Likewise (D132): EnvHeldAtHalt(b) ⊆ holders of a validEnv version of b at t_avail, because envelopes are in PinSet.
+      - Every block meeting three conditions lies in Rec: an honest node held its body at barrier, an honest node (possibly another) held its validEnv envelope, and parent in Rec or genesis.
+      - Body-held block without validEnv at any honest node is outside Rec due to envUnavailable; not loss of possession.
+      - Rec stable after t_avail except V/F3 removals.
+    - pinBreach (D126, G): HeadCheckRef computes HeldAtHalt from the NetSim log independently of DrainPin. Any bodyPurged block due to bodyUnavailable with HeldAtHalt(b) ≠ ∅ fails G.
+      - (D132) EnvHeldAtHalt(b) = {i : i holds version h of b at t_halt with successful envPre(h)/envOwn(h, S(parent))}, computed by HeadCheckRef from log/RefReplay. Any bodyPurged block due to envUnavailable with EnvHeldAtHalt(b) ≠ ∅ fails G. U cannot conceal eviction between barrier and t_avail.
+    - Rec (D125): recoverable block set computed by HeadCheckRef from NetSim log at t_avail; smallest set satisfying:
+      - b ∈ Rec if any honest node imported it.
+      - Or if all four hold:
+        - An honest node knew its header.
+        - An honest node (possibly another) held its body.
+        - An honest node (possibly a third) held a valid-envelope header version, validEnv(b) (D131).
+        - Parent in Rec or genesis.
+      - validEnv(b) (D131): HeadCheckRef computes from log. Requires version h held by an honest node at t_avail with successful envPre(h)/envOwn(h, S(parent)), parent state from RefReplay. An honest-imported block satisfies it by construction; version holder pinned by HaltPin.
+      - Remove every V-rejected or F3-removed block and descendants from Rec.
+    - Path U (unrecoverable): at t_avail apply purgeUnavailable to every honest ChainWork entry for b ∉ Rec, including future/unknownParent queues and fetch requests.
+      - Reason bodyUnavailable if no honest node holds b's body.
+      - Or envUnavailable (D131) if body held but no honest node holds validEnv.
+        - Fixture exclusion, not blockReject: no pocol_getRejects, parentInvalid or honest-peer penalty; descendants removed as depUnavailable.
+        - pinBreach covers every envUnavailable whose block had a validEnv holder at t_halt.
+        - Live pocold counterpart is only envWait (consensus).
+      - Otherwise depUnavailable, missingAncestor = nearest ancestor outside Rec.
+      - Atomically remove entry at all honest nodes, with pending descendants, requests and timers.
+      - Record bodyPurged and hash of each removed entry.
+      - Equivalent to adversary not sending header, because header work uncounted before H-full (D38).
+      - Never remove a Rec entry or any honest-imported block.
+      - Entry with honest-held body but ancestor outside Rec removed as depUnavailable because import needs parent state.
+      - Fixture exclusion recorded in bodyPurged{hash, reason, missingAncestor?}, closed reason ∈ {bodyUnavailable, envUnavailable, depUnavailable} (D132); missingAncestor required only for depUnavailable.
+        - None of three reasons is consensus invalidity: no pocol_getRejects, parentInvalid, ancestorInvalid or honest-peer penalty.
+        - Penalty for sender of corrupt envelope at envReject is separate, imposed at checking, not exclusion.
+    - Path A (recoverable): Rec entry remains until import/rejection. Failure to import before t_halt+DRAIN_MAX(run) is a sync defect and G failure, not blocking.
+    - Path V (rejected, D125, restricted to D130 blockReject): header H-pre rejection or H-full rejection of a body matching header commitment, through blockReject violation, before/after eligibility, removes in the rejection step:
+      - Entry.
+      - Descendants through parentInvalid/ancestorInvalid.
+      - All its timers/requests from ChainWork.
 
-      هذا سلوك تنفيذ العقدة لا أمر تجهيز، ويُسجل في pocol_getRejects. لكل مدخل في ChainWork مفتاح هو هاش كتلته، فالإلغاء يتبعه.
-    - EnvReject (D130): رفض نسخة بخرق غلاف (envPre أو envOwn) يُسقط النسخة ويعاقب مرسلها. يبقى الرأس ومدخله ونسله وطلباته، دون RejectPath.cancel ودون HfullDone، ويُجلب غلاف بديل عبر EnvFetch (network، D131). إن لم يحز أي صادق نسخة صالحة فالكتلة خارج Rec بسبب envUnavailable.
-    - BodyMismatch (D125): رد جسم لا يطابق txRoot أو evidenceRoot للرأس خطأ رد لا بطلان كتلة. يقع فيه ما يلي:
-      - يُسقط الرد، ويُعاقب مصدره ويُحظر وفق حدود P2P.
-      - يبقى الرأس ومدخله وطلبه، ويُعاد الطلب فورًا من حائز آخر (N5).
-      - لا شيء في pocol_getRejects للكتلة.
-      - الجسم المطابق للجذور الذي يخالف البند 15 (مثل BODY_MAX) أو البند 17 بطلان كتلة بالمسار V.
-    - الرد NotFound ينقل الطلب فورًا إلى نظير صادق آخر، دون انتظار SYNC_RETRY_MAX.
-  - الرؤوس اليتيمة التي لا يعرف أي صادق أباها لا تمنع Quiet.
-  - DRAIN_MAX(run) (D124) يُحسب لكل تشغيل من TraceDB. عدم بلوغ Quiet قبل t_halt+DRAIN_MAX(run) فشل G.
-    - الصيغة (D125، والتعريفات المعدلة في D126): DRAIN_MAX(run) = max(Δ, RESTART_MAX) + 3Φ + SYNC_RETRY_MAX + Σ_{i∈H} (|Need(i)|·c_b(i) + HR_i + RB_i) + 2s. الجمع تسلسلي على العقد، فهو محافظ. التعريفات:
-      - HR_i (D131، يحل محل صيغتي D128 وD129) = (|Kmiss_i| + (1+S_i)·(|H|−1))·RTT_i + (|Kmiss_i| + |Kpend_i|)·c_h + Venv_i·c_env + |Henv_i|·(|H|−1)·RTT_i.
-        - Henv_i (D131) = رؤوس x ∈ Kmiss_i ∪ Kpend_i ∪ Need(i) لا يحوز i لها نسخة envOk عند t_avail. هذا تقدير أعلى، لأن ما يصل عبر GetHeaders لا يحتاج EnvFetch.
-        - الحد الأول: طلبات FetchSched المنتجة وغير المنتجة.
-        - الحد الثاني: فحص الرؤوس على مستوى الكتلة.
-        - الحد الثالث: فحص الأغلفة، كل hdrId مرة واحدة.
-        - الحد الرابع: طلبات GetEnvelope المنتجة وغير المنتجة (network، EnvFetch، D131).
-        - Venv_i = Σ V_x على x ∈ Kmiss_i ∪ Kpend_i ∪ Need(i). V_x عدد نسخ الرأس المتمايزة (hdrId) لـx لدى الصادقين عند t_avail، ويُقرأ من السجل.
-        - لِمّة النسخ: بعد t_avail لا تنشأ نسخة جديدة، للأسباب التالية:
-          - الخصم مفصول.
-          - الصادقون لا يوقّعون (stopMining)، ويمررون البايتات كما استلموها.
-          - كل hdrId يُفحص مرة واحدة.
-        - c_env = c_rec + c_own (D130): c_rec استرداد التوقيعين (envPre)، وc_own حساب مالك nonce من حالة الأب دون تنفيذ (envOwn). القيمتان في SimParams. حد ⌈|Kmiss_i|/512⌉ السابق أُلغي، لأن تداخل الردود بين النظراء لا يضمنه. التعريفات:
-        - Kpend_i (D127): رؤوس يعرفها i عند t_avail ولم يكتمل H-pre لها لديه، في طوابير المزامنة أو unknownParent أو الاستلام. Kpend_i ∩ Kmiss_i = ∅.
-        - HdrCache (D128، يعدّل D127، سلوك عقدة لا قاعدة صلاحية):
-          - H-pre مرحلتان:
-            - Hs: البندان 1 و1ب، بلا حالة.
-            - Hp: البنود 2–9، وتتطلب رأس الأب.
-          - (D129، يعدّل D128) التخزين بمفتاحين:
-            - BlockCache بمفتاح blockHash: أحكام المحتوى الملتزم المكتملة فقط، أي valid أو blockReject{rule}.
-            - EnvCache بمفتاح hdrId: أحكام الغلاف، أي envOk أو envReject{rule}، وفق تصنيف consensus.
-            - توزيع الفحوص:
-              - Hs يضم فحوص الغلاف عديمة الحالة (الجزء التوقيعي من البندين 3 و8).
-              - Hp يبقى للبنود 2–9 في جزئها الملتزم.
-              - الجزء التوقيعي من البند 13 هو envOwn (D130): يُفحص بحالة الأب دون تنفيذ، ويُخزن حكمه النهائي في EnvCache بمفتاح hdrId. قبل حالة الأب تكون النسخة envPending دون حكم.
-              - التنفيذ مرة واحدة لكل blockHash بعد أول نسخة envOk، وحكمه في BlockCache.
-            - envReject لا يكتب في BlockCache ولا يطلق إلغاء النسل. الكتلة تنتظر نسخة أخرى.
-          - notEvaluable وunknownParent لا يُخزنان حكمًا. الرأس ينتظر في unknownParent بنتيجة Hs، وتُقيَّم Hp مرة واحدة عند توفر رأس أبيه.
-          - inFlightHdr (D129) بمفتاحين: hdrId لفحوص الغلاف، وblockHash لفحوص المحتوى.
-            - نسختان مختلفتا الغلاف لا تُدمجان.
-            - نسختان متطابقتان بايتيًا تُدمجان.
-          - إذن لكل blockHash ≤ تقييم ملتزم واحد في كل مرحلة، بكلفة c_h للمرحلتين معًا. ولكل hdrId ≤ فحص غلاف واحد، بكلفة c_env (D129).
-        - FetchSched (D128، سلوك عقدة لا قاعدة صلاحية) يجعل حدود الجلب ملزمة:
-          - DiscRun: تشغيلة اكتشاف رؤوس واحدة على الأكثر لكل عقدة.
-            - Status يعلن رأسًا مجهولًا أو أثقل أثناء تشغيلة جارية يضع علم dirty ولا يبدأ تشغيلة.
-            - عند انتهاء التشغيلة مع dirty تبدأ واحدة جديدة تعيد حساب الرؤوس المعلنة المجهولة.
-            - إذن عدد التشغيلات R_i ≤ 1+S_i.
-          - داخل التشغيلة: النظراء بترتيب معرّفهم. لكل نظير j أعلن رأسًا مجهولًا يُرسل طلب GetHeaders، مرساته اللوكيتور في الطلب الأول ثم آخر رأس تسلمه من j.
-            - الرد المنتج يحوي ≥ 1 هاشًا غير معروف لحظة الاستلام.
-            - الرد غير المنتج (فارغ، أو NotFound، أو كله معروف) يضع j في tried للتشغيلة، ولا يُطلب من نظير في tried.
-            - كل هاش جديد بعد t_avail في Kmiss_i، فالطلبات المنتجة بعدها ≤ |Kmiss_i|، وغير المنتجة ≤ R_i·(|H|−1).
-          - BodySched: لكل هاش كتلة طلب جسم جارٍ واحد على الأكثر، وسجل triedPeers.
-            - NotFound أو BodyMismatch يضيف النظير إلى triedPeers وينقل الطلب فورًا.
-            - بداية اكتشاف جديدة لا تعيد طلب هاش له طلب جارٍ، ولا تزور نظيرًا في triedPeers.
-            - إعادة الأهلية (D129، وD130): triedPeers لا يستبعد نهائيًا، لكن إعادة الأهلية لا تمحوه.
-              - Status من j يضعه في reeligible لكل الهاشات، ويبقى في tried للدورة الجارية.
-              - إعلان j الكتلة x أو نسلها، أو انقضاء min(1s·2^k, 60s) بعد NotFound رقم k من j لـx، يضع j في reeligible لـx وحدها. الانقضاء لا يرسل طلبًا بذاته.
-            - الاختيار بصرامة: غير المجرَّب في الدورة بترتيب المعرّف، ثم reeligible بترتيب الإعلان. لا طلب لنظير reeligible ما دام لـx نظير غير مجرَّب في الدورة.
-            - المحاولات تنتهي بإزالة الرأس بحدود طوابير المزامنة أو بـD118.
-            - لِمّة التصريف:
-              - BodySched.cycleReset في خطوة t_avail الذرية يمحو tried وreeligible ومؤقتات المهلة لكل الهاشات قبل أي طلب. statusSweep اللاحق لا يمحو tried.
-              - لكل x ∈ Need(i) حائز h* عند t_avail، مثبت حتى Quiet، ويرد Ok خلال RTT_halt.
-              - h* غير مجرَّب في الدورة الجديدة. كل طلب لـx يذهب إلى غير مجرَّب، فيُبلغ h* خلال ≤ |H|−1 طلبًا، والصادق غير الحائز يرد NotFound ولا يرد BodyMismatch. ولا طلب بعد Ok.
-              - الهاش الذي يعرفه i بعد t_avail يبدأ بدورة فارغة، فتسري عليه الحجة نفسها.
-              - إذن بعد t_avail: كل زوج (هاش، نظير) ≤ طلب واحد، وكل هاش ≤ |H|−1 طلبًا، وصفر طلب من صنف reeligible. Status والإعلانات أثناء التصريف قد تضع نظراء في reeligible، دون طلب (D130).
-            - هذا الحد يخص التصريف المغلق. في الشبكة الحية يحد الحملَ عددُ النظراء والمهلةُ الأسية، ويختبره T23 N9.
-          - HfullDone (D130): الكتلة التي حُسم محتواها (استيراد أو blockReject) لا يُعاد تقييمها. envReject لا يضع HfullDone، فتُفحص النسخة التالية. إعادة التنفيذ عند إعادة التنظيم صنف reexec لا hfull.
-          - ترتيب الجلب: الفرع ذو العمل المعلن الأكبر، ثم أقدم إعلان. الترتيب لا يدخل الحد، فالحد يصح لكل ترتيب.
-          - في SimNet لا يُطرد مدخل قبل Quiet. في pocold حده حد طوابير المزامنة (16384).
-          - إذن hdrCheck لكل i بعد t_avail ≤ |Kmiss_i|+|Kpend_i| هاشًا متمايزًا، كل منها مرة واحدة.
-        - K = كل رأس يعرفه صادق ما عند t_avail بعد تطبيق U. لا رأس جديد بعدها، لأن الإنتاج متوقف والخصم مفصول.
-        - Kmiss_i = رؤوس K التي لا يعرفها i. رؤوس مدخلات F3 تبقى في K إن عُرفت قبل t_avail، فتُحتسب ولا تُستثنى.
-        - S_i = عدد بدايات الاكتشاف لدى i: Status واحد من كل صادق آخر في statusSweep الأول، وواحد بعد كل تغير رأس لصادق آخر. ويُضاف Status واحد من كل صادق في statusSweep عند t_avail (D129). إذن S_i ≤ 2(|H|−1) + Σ_{j≠i} T_j.
-        - (D128) البدايات تُدمج في تشغيلات DiscRun، فالتشغيلات R_i ≤ 1+S_i، وكل تشغيلة تكلف ≤ |H|−1 طلبًا غير منتج إضافة إلى المنتجة.
-        - c_h: زمن H-pre لرأس واحد في SimNet.
-      - RB_i (D126) = T_i·(d*_i·(c_rd + t_exec_sim) + [d*_i > K_eff]·T_REBUILD_MAX). التعريفات:
-        - T_i = |Need(i)| حد لعدد انتقالات رأس i.
-          - لِمّة الانتقالات: العمل لا يُحتسب قبل H-full (D38)، فرأس i لا يتغير إلا عند استيراد كتلة جديدة.
-          - الرفض لا يغير رأسًا، لأن الكتلة المرفوضة لم تُتبنَّ قط.
-          - الرأس هو الأعظم في الترتيب الكلي ≻ (D133). مفاتيح ≻ ثابتة، فلا تغير الرأس إلا كتلة مستوردة جديدة (لِمّة الانتقال في consensus §9).
-          - إذن كل استيراد يغير الرأس مرة واحدة على الأكثر، فعدد الانتقالات ≤ عدد الاستيرادات ≤ |Need(i)|، مهما تعاقبت امتدادات الفروع.
-        - d*_i = min(R_keep, Hmax_i − Lmin_i). Hmax_i أعلى ارتفاع في Rec ∪ imported_i، وLmin_i أدنى ارتفاع لسلف مشترك بين أي كتلتين في Rec ∪ imported_i.
-          - كل انتقال يتراجع بعمق ≤ d*_i، ثم يعيد تطبيق ≤ d*_i كتلة سبق استيرادها. لذلك يدخل t_exec_sim في العامل.
-        - لا يعتمد الحد على تعريف «الفرع المتمايز» ولا على عددها.
-      - c_rd: زمن تراجع كتلة واحدة بفروق عكسية في SimNet.
-      - T_REBUILD_MAX: حد TrieRebuild المقيس لحالة simnet، ويُثبت في VA-spec. تجاوزه في تشغيل فشل G (rebuildOverrun)، لا انتظار.
-      - إن تطلب انتقال فعلي عمقًا > R_keep فلا يُنفذ: HeadCheck يبلّغ Q5 بسبب deepReorgRequired، وهو الإجراء 5 في governance. لذلك يُقص d*_i إلى R_keep في الحد.
-      - SYNC_RETRY_MAX: أقصى مهلة لطلب مزامنة صدر قبل الحاجز ولم يُرد عليه.
-        - يدخل الحد مرة واحدة فقط.
-        - بعد الحاجز يُرد على كل طلب بين صادقين خلال RTT_halt (الافتراضي 0.1s في SimParams). SimParams (D127) سجل واحد يقرؤه NetSim وdrainBound وHeadCheckRef معًا، ولا يجوز تجاوز قيمه (RTT_halt، وc_h، وc_rd، وt_exec_sim، وt_halt) إلا لمتجه QV يعلن ذلك صراحة، ودون مساس بأي قاعدة صلاحية، ولا انتظار بعد NotFound، فلا تبلغ أي مهلة أخرى SYNC_RETRY_MAX.
-        - تُثبت قيمته في VA-spec.
-      - c_b(i) = (|H|−1)·(RTT_i+t_exec_sim) + 2·t_exec_sim (D131): أسوأ كلفة لكتلة واحدة للصادق i.
-        - RTT(i,j) (D131): حد أعلى لزمن طلب ورده على الوصلة بعد الحاجز. قيمته الافتراضية RTT_halt، ويجوز تجاوزه لكل وصلة في SimParams، وNetSim يضمنه لكل طلب بين صادقين.
-        - RTT_i = max_j RTT(i,j). هو القيمة الوحيدة في HR_i وc_b(i) وحدود BudgetCheck للصادق i، ولا يُستعمل RTT_halt مباشرة في أي حد. تشمل محاولة كل نظير، ثم التحقق، ثم تراجعًا محتملًا.
-        - t_exec_sim زمن التحقق الافتراضي في SimNet، وt_exec_sim ≤ t_exec.
-      - N_miss = Σ_{i∈H} |Need(i)| (D126). Need(i) = Rec(t_avail) \ imported_i(t_avail)، أي كل كتلة في Rec لم يستوردها i.
-        - لا قيد على المسار ولا على العمل التراكمي، فقد ألغى D126 قيد «بعمل ≥ work(head_i)» في D125.
-        - إذن تشمل الفروع الأخف والجانبية في ChainWork(i)، وما قد يدخلها بعد statusSweep.
-        - لِمّة الإغلاق: كل كتلة يستوردها i بعد t_avail تقع في Rec. بالاستقراء:
-          - جسمها من صادق حائز، لا من مصدر آخر.
-          - غلافها الصالح من صادق حائز، فـvalidEnv صحيحة (D132)، لأن لا نسخة تنشأ بعد t_avail.
-          - أبوها مستورد.
-          - الكتل الجديدة غير موجودة. إذن Need(i) يغطي كل استيراد أو رفض ممكن لـi.
-        - المجموعة أوسع من اللازم عمدًا، فالحد محافظ.
-        - تشمل كامل التاريخ الناقص لعقدة أُعيد تشغيلها، ولو خلت ChainWork لديها.
-        - وتحقق الشروط الثلاثة:
-        - يحوز صادق ما جسم b أو استوردها.
-        - لم يستوردها i.
-        - لم تُرفض.
+      Node implementation behavior, not fixture command; recorded in pocol_getRejects. Each ChainWork entry keyed by its block hash, followed by cancellation.
+    - EnvReject (D130): envelope violation (envPre/envOwn) drops version and penalizes sender. Header, entry, descendants and requests remain, without RejectPath.cancel/HfullDone; fetch alternate through EnvFetch (network, D131). Without any honest-held valid version, block outside Rec as envUnavailable.
+    - BodyMismatch (D125): body response mismatching header txRoot/evidenceRoot is a response error, not block invalidity:
+      - Drop response, penalize/ban source under P2P limits.
+      - Retain header, entry and request; immediately retry another holder (N5).
+      - Nothing for the block in pocol_getRejects.
+      - Body matching roots but violating item 15 (e.g. BODY_MAX) or 17 is block invalidity through V.
+    - NotFound immediately moves request to another honest peer, without waiting SYNC_RETRY_MAX.
+  - Orphan headers whose parent is unknown to every honest node do not prevent Quiet.
+  - DRAIN_MAX(run) (D124) computed per run from TraceDB. Failure to reach Quiet before t_halt+DRAIN_MAX(run) fails G.
+    - Formula (D125, definitions amended in D126): DRAIN_MAX(run) = max(Δ, RESTART_MAX) + 3Φ + SYNC_RETRY_MAX + Σ_{i∈H} (|Need(i)|·c_b(i) + HR_i + RB_i) + 2s. Summing serially across nodes is conservative. Definitions:
+      - HR_i (D131, replaces D128/D129 formulas) = (|Kmiss_i| + (1+S_i)·(|H|−1))·RTT_i + (|Kmiss_i| + |Kpend_i|)·c_h + Venv_i·c_env + |Henv_i|·(|H|−1)·RTT_i.
+        - Henv_i (D131) = headers x ∈ Kmiss_i ∪ Kpend_i ∪ Need(i) for which i holds no envOk at t_avail. Upper bound, because GetHeaders arrivals need no EnvFetch.
+        - First term: productive/nonproductive FetchSched requests.
+        - Second: block-level header checking.
+        - Third: envelope checking, each hdrId once.
+        - Fourth: productive/nonproductive GetEnvelope requests (network, EnvFetch, D131).
+        - Venv_i = Σ V_x over x ∈ Kmiss_i ∪ Kpend_i ∪ Need(i). V_x = distinct header versions (hdrId) of x at honest nodes at t_avail, read from log.
+        - Version lemma: no new version after t_avail because:
+          - Adversary disconnected.
+          - Honest nodes do not sign (stopMining); forward received bytes unchanged.
+          - Each hdrId checked once.
+        - c_env = c_rec + c_own (D130): c_rec recovers both signatures (envPre), c_own computes nonce owner from parent state without execution (envOwn). Both in SimParams. Earlier ⌈|Kmiss_i|/512⌉ bound withdrawn because overlapping peer responses do not ensure it. Definitions:
+        - Kpend_i (D127): headers known by i at t_avail with incomplete H-pre, in sync, unknownParent or receive queues. Kpend_i ∩ Kmiss_i = ∅.
+        - HdrCache (D128, amends D127, node behavior not validity rule):
+          - H-pre has two phases:
+            - Hs: items 1/1b, stateless.
+            - Hp: items 2–9, requiring parent header.
+          - (D129, amends D128) Two-key caching:
+            - BlockCache keyed by blockHash: only completed committed-content judgments, valid or blockReject{rule}.
+            - EnvCache keyed by hdrId: envelope judgments envOk/envReject{rule}, under consensus classification.
+            - Check distribution:
+              - Hs includes stateless envelope checks (signature parts of 3/8).
+              - Hp retains committed parts of 2–9.
+              - Signature part of 13 is envOwn (D130): checked with parent state without execution, final judgment cached by hdrId in EnvCache. Before parent state, envPending without judgment.
+              - Execution once per blockHash after first envOk, result in BlockCache.
+            - envReject writes no BlockCache entry and does not cancel descendants. Block awaits another version.
+          - notEvaluable/unknownParent are not cached judgments. Header waits in unknownParent with Hs result; Hp evaluated once parent header available.
+          - inFlightHdr (D129), two keys: hdrId for envelopes, blockHash for content.
+            - Different-envelope versions not coalesced.
+            - Byte-identical versions coalesced.
+          - Hence per blockHash ≤ one committed evaluation per phase, combined cost c_h; per hdrId ≤ one envelope check, cost c_env (D129).
+        - FetchSched (D128, node behavior not validity rule) enforces fetch bounds:
+          - DiscRun: at most one header-discovery run per node.
+            - Status advertising unknown/heavier head during a run sets dirty, starts no new run.
+            - Run finishing dirty starts a new run recomputing unknown advertised heads.
+            - Thus run count R_i ≤ 1+S_i.
+          - Within run: peers ordered by ID. For each j advertising unknown head, send GetHeaders; anchor first request at locator, then at last header received from j.
+            - Productive response contains ≥ 1 hash unknown at receipt.
+            - Nonproductive response (empty, NotFound, all known) adds j to run's tried; do not request tried peers.
+            - Each new post-t_avail hash lies in Kmiss_i; subsequent productive requests ≤ |Kmiss_i|, nonproductive ≤ R_i·(|H|−1).
+          - BodySched: at most one ongoing body request per block hash, with triedPeers.
+            - NotFound/BodyMismatch adds peer to triedPeers and immediately moves request.
+            - New discovery does not re-request a hash with an active request or visit triedPeers.
+            - Reeligibility (D129/D130): triedPeers not permanent exclusion, but reeligibility does not clear it.
+              - Status from j marks it reeligible for all hashes, retaining tried for current cycle.
+              - j announcing x/descendant, or expiry of min(1s·2^k, 60s) after j's kth NotFound for x, marks j reeligible for x only. Expiry alone sends no request.
+            - Strict selection: untried this cycle by ID, then reeligible by announcement order. No reeligible request while x has an untried peer this cycle.
+            - Attempts end when header removed by sync-queue limits or D118.
+            - Drain lemma:
+              - BodySched.cycleReset in atomic t_avail step clears tried/reeligible/timeout timers for all hashes before any request. Subsequent statusSweep does not clear tried.
+              - Every x ∈ Need(i) has holder h* at t_avail, pinned until Quiet, replying Ok within RTT_halt.
+              - h* untried in new cycle. Each x request visits an untried peer; reaches h* within ≤ |H|−1 requests. Honest nonholder replies NotFound, never BodyMismatch. No request after Ok.
+              - A hash learned by i after t_avail starts with empty cycle, same argument.
+              - Thus after t_avail: each (hash, peer) ≤ one request, each hash ≤ |H|−1 requests, zero reeligible-class requests. Status/announcements during drain may mark reeligible without requesting (D130).
+            - Bound applies to closed drain. On live network, peer count/exponential backoff bound load, tested by T23 N9.
+          - HfullDone (D130): settled content (import/blockReject) not reevaluated. envReject does not set HfullDone; next version checked. Reorganization reexecution classed reexec, not hfull.
+          - Fetch ordering: greatest advertised-work branch, then oldest announcement. Ordering irrelevant to bound, which holds for every order.
+          - SimNet evicts no entry before Quiet. pocold bound is sync-queue limit (16384).
+          - Thus hdrCheck per i after t_avail ≤ |Kmiss_i|+|Kpend_i| distinct hashes, each once.
+        - K = all headers known by any honest node at t_avail after U. No new header afterward: production stopped, adversary disconnected.
+        - Kmiss_i = K headers unknown to i. F3-entry headers remain in K if known before t_avail; counted, not excluded.
+        - S_i = discovery triggers at i: one Status from each other honest node in first statusSweep, and one after each other honest head change. Add one Status from each honest node in t_avail statusSweep (D129). Thus S_i ≤ 2(|H|−1) + Σ_{j≠i} T_j.
+        - (D128) Triggers coalesced into DiscRun runs, R_i ≤ 1+S_i; each costs ≤ |H|−1 nonproductive requests plus productive ones.
+        - c_h: SimNet H-pre time per header.
+      - RB_i (D126) = T_i·(d*_i·(c_rd + t_exec_sim) + [d*_i > K_eff]·T_REBUILD_MAX). Definitions:
+        - T_i = |Need(i)| bounds i's head transitions.
+          - Transition lemma: work uncounted before H-full (D38), so head changes only on new-block import.
+          - Rejection changes no head because rejected block was never adopted.
+          - Head is maximum under total order ≻ (D133). Keys fixed, so only newly imported block changes head (consensus §9 transition lemma).
+          - Thus each import changes head at most once; transitions ≤ imports ≤ |Need(i)| regardless of branch-extension alternation.
+        - d*_i = min(R_keep, Hmax_i − Lmin_i). Hmax_i highest height in Rec ∪ imported_i; Lmin_i lowest common-ancestor height of any two blocks there.
+          - Each transition rolls back ≤ d*_i, then reapplies ≤ d*_i previously imported blocks. Hence t_exec_sim in factor.
+        - Bound independent of “distinct branch” definition/count.
+      - c_rd: SimNet reverse-diff rollback time per block.
+      - T_REBUILD_MAX: measured TrieRebuild bound for simnet state, fixed in VA-spec. Exceeding it in a run fails G (rebuildOverrun), not a wait.
+      - Actual transition requiring depth > R_keep not executed: HeadCheck reports Q5, deepReorgRequired, governance action 5. Therefore d*_i clipped to R_keep.
+      - SYNC_RETRY_MAX: maximum timeout of an unanswered pre-barrier sync request.
+        - Included once only.
+        - After barrier, every honest-to-honest request answered within RTT_halt (default 0.1s in SimParams). SimParams (D127) is a single record jointly read by NetSim/drainBound/HeadCheckRef. Values (RTT_halt, c_h, c_rd, t_exec_sim, t_halt) may be overridden only by an explicitly declared QV vector, without validity changes. No waiting after NotFound; no other timeout reaches SYNC_RETRY_MAX.
+        - Value fixed in VA-spec.
+      - c_b(i) = (|H|−1)·(RTT_i+t_exec_sim) + 2·t_exec_sim (D131): worst per-block cost for honest i.
+        - RTT(i,j) (D131): upper bound on post-barrier link request/response duration. Defaults to RTT_halt; per-link overrides in SimParams permitted; NetSim guarantees it for every honest-to-honest request.
+        - RTT_i = max_j RTT(i,j). Only RTT value used in HR_i, c_b(i) and i's BudgetCheck bounds; never use RTT_halt directly in a bound. Covers each-peer attempts, verification and possible rollback.
+        - t_exec_sim is SimNet virtual verification time, t_exec_sim ≤ t_exec.
+      - N_miss = Σ_{i∈H} |Need(i)| (D126). Need(i) = Rec(t_avail) \ imported_i(t_avail): every Rec block not imported by i.
+        - No path/work restriction; D126 removed D125's “work ≥ work(head_i)” restriction.
+        - Includes lighter/side branches in ChainWork(i) and those entering after statusSweep.
+        - Closure lemma: every i import after t_avail lies in Rec. By induction:
+          - Body comes from honest holder, no other source.
+          - Valid envelope comes from honest holder, hence validEnv (D132); no new version after t_avail.
+          - Parent imported.
+          - No new blocks. Thus Need(i) covers every possible import/rejection by i.
+        - Set intentionally broader than necessary; conservative bound.
+        - Includes restarted node's entire missing history even if its ChainWork empty.
+        - Also satisfies three conditions:
+        - Some honest node holds b's body or imported it.
+        - i has not imported it.
+        - It was not rejected.
 
-        الحد يجمع الأزواج تسلسليًا، فتبعية السلاسل محسوبة.
-      - DRAIN_CAP = 3600s. إن تجاوزه DRAIN_MAX(run) فالبذرة «غير قابلة للتقييم» لهذا البند، وتُعد ضمن نصاب المتوقفة (D121). تُعلن مكونات الحد: Need(i) وHR_i وRB_i لكل i.
-      - (D125) SimNet.drainBound يجب أن يطابق HeadCheckRef حرفيًا بالمللي ثانية الصحيحة في كل تشغيل، والاختلاف فشل G. هذا يكشف اختلاف التنفيذ عن الصيغة فقط، ولا يثبت شمولها.
-      - BudgetCheck (D126، G، مستقل عن الصيغة): ActLog في بناء simnet يسجل لكل صادق كل نشاط بعد t_avail مع مدته الافتراضية. الأصناف: hdrFetch، وhdrCheck، وbodyFetch، وhfull (استيراد أو رفض)، وreorg، وreexec، وrebuild، وeligibilityWait، وpreHaltRetry، وnotFoundHop. كل مؤقت ChainTimer يحمل صنفه. المعايير:
-        - جدول الميزانيات (D127) لكل صادق i. لكل صنف: العدد، ثم المدة التسلسلية، ثم مكوّن DRAIN_MAX:
-          - hdrFetch (D128): طلبات GetHeaders المنتجة ≤ |Kmiss_i|، وغير المنتجة ≤ (1+S_i)·(|H|−1). صفر طلب لنظير في tried لتشغيلته، وتشغيلة جارية واحدة في كل لحظة. المدة ≤ Σ RTT(i,j) للطلبات ≤ العدد·RTT_i (D131)، والمكوّن الحد الأول في HR_i.
-          - hdrCheck (ومنه envCheck، D129):
-            - المحتوى: ≤ |Kmiss_i|+|Kpend_i| blockHash متمايزًا، كل منها مرة واحدة بمدة c_h.
-            - الغلاف: ≤ Venv_i فحصًا، كل hdrId مرة واحدة بمدة c_env.
-            - envFetch (D131، صنف فرعي من hdrFetch في ActLog):
-              - طلبات GetEnvelope ≤ |Henv_i|·(|H|−1).
-              - كل زوج (هاش، نظير) ≤ طلب واحد، وصفر طلب reeligible.
-              - المدة ≤ العدد·RTT_i، والمكوّن الحد الرابع في HR_i.
-              - (D137) EnvSlots محلية لكل عقدة. لذلك في كل لحظة انتظار لمقعد يكون كل مقعد مشغولًا بطلب أو فحص للعقدة نفسها. زمن الانتظار ≤ مجموع مدد تلك الطلبات والفحوص، وهي محسوبة تسلسليًا في الحدين الثالث والرابع، فلا يضيف الانتظار مكوّنًا.
-              - بعد t_avail يرد الصادق خلال RTT_i < ENV_REQ_TIMEOUT. SimNet يشترط RTT_i < ENV_REQ_TIMEOUT لكل i، وإلا FixtureSetupError. إذن لا مهلة في التصريف، لأن المهلة تقيس الاستقبال وحده حتى آخر بايت، والفحص بعدها خارجها (D138).
-              - الفحوص الملغاة تحتجز مقاعدها حتى استقرارها. كل منها فحص hdrId واحد بمدة c_env، محسوب في الحد الثالث، فلا يضيف انتظار المقعد مكوّنًا.
-              - مسند G إضافي: envTimeouts = 0 بعد t_avail.
-              - (D139) c_env في SimParams هو حد مدى checking المشتق من EnvCheckPool. SimNet ينمذج W وc_exec، فمجموع انشغال المجمع لكل i ≤ Venv_i·c_env، وهو محسوب في الحد الثالث.
-              - مسند G: صفر طلب envFetch دون مقعد، وsolicitHeld ≤ 32.
-            - المكوّن: الحدان الثاني والثالث في HR_i.
-          - bodyFetch وnotFoundHop: الطلبات وفحوص الجذور ≤ |Need(i)|·(|H|−1)، والمدة ≤ |Need(i)|·(|H|−1)·(RTT_i+t_exec_sim)، والمكوّن الجزء الأول من |Need(i)|·c_b(i).
-          - (D128، D129) قيود إضافية على bodyFetch بعد t_avail:
-            - كل زوج (هاش، نظير) ≤ طلب واحد.
-            - طلب جارٍ واحد لكل هاش في كل لحظة.
-            - صفر طلب من صنف reeligible لـBodySched، وصفر طلب لزوج سبق طلبه في الدورة (D130).
-          - hfull: ≤ |Need(i)| تنفيذًا، وكل blockHash مرة واحدة (HfullDone)، والمدة ≤ |Need(i)|·2·t_exec_sim، والمكوّن بقية |Need(i)|·c_b. فحص envOwn لا يُحتسب hfull، بل envCheck بمدة c_env (D130).
-          - reorg: انتقالات ≤ T_i، وعمق كل منها ≤ d*_i، والمدة ≤ T_i·d*_i·c_rd.
-          - reexec: ≤ T_i·d*_i كتلة، والمدة ≤ T_i·d*_i·t_exec_sim.
-          - rebuild: ≤ T_i·[d*_i > K_eff]، وكل منها ≤ T_REBUILD_MAX. والأصناف الثلاثة الأخيرة معًا = RB_i.
-          - بدايات الاكتشاف: ≤ S_i (عدّ لا مدة).
-        - الانتظارات المتوازية لا تُجمع مددها، بل يُقاس فاصل كل منها على الساعة الافتراضية:
-          - restart: يكتمل عند ≤ t_halt+RESTART_MAX، ومكوّنه max(Δ, RESTART_MAX).
-          - eligibilityWait: آخر أهلية لمدخل F1 أو F2 عند ≤ t_halt+3Φ، ومكوّنه 3Φ.
-          - preHaltRetry: كل طلب صدر قبل الحاجز يُرد عليه أو تنقضي مهلته عند ≤ t_avail+SYNC_RETRY_MAX، ومكوّنه SYNC_RETRY_MAX مرة واحدة. ما يُعاد بعده يُحتسب في bodyFetch أو hdrFetch.
-        - لِمّة الحد (D127): الزمن من t_halt حتى Quiet ≤ مجموع مكوّنات الانتظارات الثلاثة + Σ_i مجموع المدد التسلسلية + 2s. هذا هو DRAIN_MAX(run)، ولكل مكوّن منه سطر واحد في الجدول.
-        - صفر نشاط بصنف غير معروف (unknownWorkClass)، وصفر زمن غير منسوب لعمل ChainWork.
-        - (D131) لكل طلب بين صادقين بعد t_avail: مدته المقيسة ≤ RTT(i,j) ≤ RTT_i المستعمل في drainBound، وإلا فشل G.
-        - لكل صنف تسلسلي: مجموع مدده ≤ حد المدة في الجدول. لكل انتظار متوازٍ: فاصله ≤ حده، دون جمع مدده.
-        - فشل أي بند فشل G، ولو بلغ Quiet ضمن الحد. بذلك يُكشف نقص الصيغة حتى حين تخفيه الموازاة.
-      - لِمّة الشمول (D126، مشروطة باكتمال تصنيف ActLog الذي يفرضه ChainTimer وBudgetCheck): كل زمن تصريف بعد t_avail يقع في أحد الأصناف العشرة، وكل صنف مغطى بحد في الصيغة. التحقق والانتظار والمحاولة لكل نظير محسوبة تسلسليًا، فالمجموع حد أعلى.
-      - DRAIN_CAP لا يسري على متجهات QV. تجاوزه فيها FixtureSetupError يوقف M5.
-      - HeadCheckRef يحسب N_miss وDRAIN_MAX(run) بمرجع Python مستقل.
-    - السبب: الشبكة عندها صادقة كلها، بلا إنتاج ولا أعطال ولا خصم، فعدم اكتمال المزامنة عيب تقدم لا حدث احتمالي.
-  - لِمّة السكون (D123، مشروطة):
-    - عند Quiet تكون ChainWork فارغة لدى كل صادق، ولا رسائل ولا إنتاج ولا أعطال بعد الحاجز.
-    - إذن لا حدث يغير رأسًا أو حالة، فتبقى الرؤوس ثابتة.
-    - شرطها أمران: اكتمال تسجيل ChainTimer، وإلغاء مدخلات المسار V عند الرفض. نقص التسجيل أو الإلغاء يكشفه QV7–QV14 وفحص PostQuiet، ولا يُفترض غيابه.
-  - لِمّة البلوغ (D124، مشروطة بلِمّة السكون وبصحة المزامنة):
-    - بعد t_avail وتطبيق المسار U، كل مدخل باقٍ في Rec. إذن:
-      - يحوز صادقٌ جسمَه وجسمَ كل سلف ناقص له.
-      - يحوز صادقٌ نسخة validEnv له ولكل سلف ناقص (D132).
-      - تبقى الحيازتان بـDrainPin.
+        Bound sums pairs serially, accounting for chain dependencies.
+      - DRAIN_CAP = 3600s. If DRAIN_MAX(run) exceeds it, seed “unevaluable” for this item, counted in stalled quota (D121). Disclose bound components: Need(i), HR_i, RB_i per i.
+      - (D125) SimNet.drainBound must literally match HeadCheckRef in integer milliseconds every run; mismatch fails G. Detects implementation/formula disagreement only, not completeness.
+      - BudgetCheck (D126, G, independent of formula): simnet-build ActLog records each honest node's post-t_avail activity and virtual duration. Classes: hdrFetch, hdrCheck, bodyFetch, hfull (import/reject), reorg, reexec, rebuild, eligibilityWait, preHaltRetry, notFoundHop. Every ChainTimer timer has class. Criteria:
+        - Budget table (D127) per honest i. Each class: count, serial duration, DRAIN_MAX component:
+          - hdrFetch (D128): productive GetHeaders ≤ |Kmiss_i|, nonproductive ≤ (1+S_i)·(|H|−1). Zero requests to tried peers in run; one active run at any instant. Duration ≤ request Σ RTT(i,j) ≤ count·RTT_i (D131); first HR_i term.
+          - hdrCheck (including envCheck, D129):
+            - Content: ≤ |Kmiss_i|+|Kpend_i| distinct blockHash, once each at c_h.
+            - Envelope: ≤ Venv_i checks, each hdrId once at c_env.
+            - envFetch (D131, ActLog hdrFetch subclass):
+              - GetEnvelope requests ≤ |Henv_i|·(|H|−1).
+              - Each (hash, peer) ≤ one request; zero reeligible requests.
+              - Duration ≤ count·RTT_i; fourth HR_i term.
+              - (D137) EnvSlots local per node. Thus while waiting for a slot, each occupied slot belongs to that node's own request/check. Wait ≤ sum of those durations, already serialized in third/fourth terms; no extra component.
+              - After t_avail honest peer replies within RTT_i < ENV_REQ_TIMEOUT. SimNet requires RTT_i < ENV_REQ_TIMEOUT for every i, otherwise FixtureSetupError. Thus no drain timeout: timer measures receive only through last byte; later checking excluded (D138).
+              - Cancelled checks hold slots until settlement. Each is one hdrId check at c_env, counted in third term; slot waiting adds no component.
+              - Additional G assertion: envTimeouts = 0 after t_avail.
+              - (D139) SimParams c_env bounds checking interval derived from EnvCheckPool. SimNet models W/c_exec; total pool occupancy per i ≤ Venv_i·c_env, counted in third term.
+              - G assertion: zero envFetch requests without slots, solicitHeld ≤ 32.
+            - Component: second/third HR_i terms.
+          - bodyFetch/notFoundHop: requests/root checks ≤ |Need(i)|·(|H|−1), duration ≤ |Need(i)|·(|H|−1)·(RTT_i+t_exec_sim); first part of |Need(i)|·c_b(i).
+          - (D128/D129) Additional post-t_avail bodyFetch constraints:
+            - Each (hash, peer) ≤ one request.
+            - One active request per hash at any instant.
+            - Zero BodySched reeligible requests; zero requests for pairs already requested in cycle (D130).
+          - hfull: ≤ |Need(i)| executions, each blockHash once (HfullDone), duration ≤ |Need(i)|·2·t_exec_sim; remaining |Need(i)|·c_b. envOwn not hfull; envCheck at c_env (D130).
+          - reorg: transitions ≤ T_i, each depth ≤ d*_i, duration ≤ T_i·d*_i·c_rd.
+          - reexec: ≤ T_i·d*_i blocks, duration ≤ T_i·d*_i·t_exec_sim.
+          - rebuild: ≤ T_i·[d*_i > K_eff], each ≤ T_REBUILD_MAX. Last three classes together = RB_i.
+          - Discovery triggers: ≤ S_i (count, not duration).
+        - Parallel waits not summed; each interval measured on virtual clock:
+          - restart: completes ≤ t_halt+RESTART_MAX; component max(Δ, RESTART_MAX).
+          - eligibilityWait: last F1/F2 eligibility ≤ t_halt+3Φ; component 3Φ.
+          - preHaltRetry: every pre-barrier request answered/timed out ≤ t_avail+SYNC_RETRY_MAX; component SYNC_RETRY_MAX once. Retries then counted in bodyFetch/hdrFetch.
+        - Bound lemma (D127): t_halt-to-Quiet ≤ sum of three wait components + Σ_i serial durations + 2s. This is DRAIN_MAX(run); every component has one table row.
+        - Zero unknown activity classes (unknownWorkClass), zero time unattributed to ChainWork.
+        - (D131) Every honest-to-honest request after t_avail: measured duration ≤ RTT(i,j) ≤ RTT_i used in drainBound; otherwise G failure.
+        - Every serial class: sum durations ≤ table duration bound. Every parallel wait: interval ≤ bound, without summing durations.
+        - Any violation fails G even if Quiet reached within bound. Exposes missing formula terms even when parallelism conceals them.
+      - Coverage lemma (D126, conditional on complete ActLog classification enforced by ChainTimer/BudgetCheck): every post-t_avail drain interval belongs to one of ten classes, each covered by formula. Verification, waiting and each-peer attempt serialized, so sum is upper bound.
+      - DRAIN_CAP does not apply to QV vectors. Exceeding it there is FixtureSetupError stopping M5.
+      - HeadCheckRef computes N_miss/DRAIN_MAX(run) through independent Python reference.
+    - Rationale: network entirely honest, no production/fault/adversary; incomplete sync is a progress defect, not probabilistic event.
+  - Quiescence lemma (D123, conditional):
+    - At Quiet, ChainWork empty at every honest node, no post-barrier messages/production/faults.
+    - Hence no event changes head/state; heads remain fixed.
+    - Requires complete ChainTimer registration and cancellation of path-V entries upon rejection. Missing registration/cancellation detected by QV7–QV14/PostQuiet, not assumed absent.
+  - Reachability lemma (D124, conditional on quiescence lemma and correct sync):
+    - After t_avail/U, every remaining entry in Rec. Thus:
+      - An honest node holds its body and each missing ancestor's body.
+      - An honest node holds its validEnv and each missing ancestor's (D132).
+      - Both possessions retained by DrainPin.
 
-      فيُستورد بالجلب وBodySched وEnvFetch، بحدود HR_i وc_b(i).
-    - إذن كل مدخل يُستورد بالجلب أو يُرفض بالمسار V، خلال DRAIN_MAX(run).
-    - عدم البلوغ يدل على عطل تقدم، لا على حجب.
-  - PostQuiet (G): بعد Quiet يستمر التشغيل QUIET_HOLD = 3Φ+60s، أو المدة المحددة لكل متجه QV. أي تغير في رأس صادق أو stateRoot خلاله فشل.
-  - HeadCheck يُقيّم عند Quiet، ويُعاد عند نهاية PostQuiet، ويجب تطابق النتيجتين.
-  - HeadCheck على مجموعة الصادقين H بعد Quiet، وكل بنوده G:
-    - (Q1) W* = أعلى عمل تراكمي بين رؤوس H. لكل i ∈ H يجب work(head_i) = W*.
-    - (Q2، D133) إن اختلف رأسا صادقين: ابنا السلف المشترك الأدنى على فرعيهما من النوع نفسه، موقّعان أو احتياطيان.
-      - موقّع مقابل احتياطي خرق D15، لأن signed يسبق importSeq في المفتاح.
-      - الاختلاف المشروع يُسجل tie قياسًا، ولا يُعد خرقًا.
-    - (Q2b، D133) لكل صادق i: head_i = ForkChoiceRef(imported_i، importSeq_i)، محسوبًا من TraceDB.
-      - ForkChoiceRef مرجع Python مستقل، يحسب الأعظم بثلاثة ترتيبات فحص: الإدراج، والعكس، وblockHash.
-      - اختلاف النتائج الثلاث خطأ مرجع يوقف M5. مخالفة head_i فشل G.
-    - (Q3) لكل كتلة يملكها صادقان: stateRoot وreceiptsRoot وgasUsed متطابقة. هذا البند G في كل لحظة، لا بعد Quiet فقط.
-    - (Q4) حالة كل صادق عند رأسه مطابقة بايتيًا لحالة RefReplay، وهي عقدة مرجعية تستورد من genesis كتل فرع ذلك الرأس وحده بالترتيب.
-    - (Q5) كل تراجع وقع لصادق خلال التشغيل ≤ R_keep.
-  - لا يشترط HeadCheck وقوع كتلة جديدة ولا حسم التعادل، فلا يدخل أي حدث PoW تحت G.
-  - متجهات HeadCheckRef الحتمية، وهي بوابة قبل تشغيل VA، تُنفذ بسكربت SimNet مصغر لا ببذور:
-    - QV1: N3 ينتج كتلة صالحة قبل الحاجز بـ10 ms، والوصلة 50 ms. عند الحاجز تختلف الرؤوس. بعد Quiet كل الرؤوس هي كتلة N3، وHeadCheck ناجح، وصفر كتلة منتجة بعد stopMining. المرجع لا يسجل خرقًا G عند لحظة الحاجز.
-    - QV2: N0 وN1 ينتجان كتلتين احتياطيتين أختين بالعمل نفسه في اللحظة نفسها، ثم الحاجز.
-      - بعد Quiet قد يختلف الرأسان بقاعدة أول ما رُئي.
-      - النتيجة: Q1 وQ2 ناجحان، وtie = 1، وصفر خرق G.
-    - QV3: أختان بالعمل نفسه، إحداهما موقّعة والأخرى احتياطية. بعد Quiet كل الرؤوس هي الموقّعة.
-      - الضابط السالب simnet-fault:noSignedTiebreak يبقي بعض العقد على الاحتياطية، فيفشل Q2.
-    - QV4: الضابط السالب simnet-fault:noReorgOnHeavier يبقي عقدة على فرع أخف، فيفشل Q1.
-    - QV5: الضابط السالب simnet-fault:execDrift يغير gasUsed لمعاملة في عقدة واحدة، فيفشل Q3.
-    - QV6: رأس يتيم من الخصم أبوه محجوب عن الكل لا يمنع Quiet، ويبقى الطابور ضمن حده.
-    - ملف qv/net (simnet):
-      - va/base مع كتلة توقيت network: T_blk=60، وτ=3600، وD_att=300، وΔ_fb_wait=25 [CP]، وΔ_rel=26، وΦ=10، وφ=5، وΔ=5، وt_exec=3، وΓ=30.
-      - chainId=777922، وtarget_g = floor(2^256/88320)−1. يجتاز R1–R7 بقيم network.
-      - السبب: Φ = 10 > نافذة Quiet (2s)، فيظهر فيه خطأ الطابور، بينما Φ = 2 في va/base يخفيه.
-    - إعداد QV7–QV10:
-      - التعدين الصادق معطل طوال السكربت، والكتل من FixtureMiner.
-      - P رأس كل الصادقين بـts=988، وt_halt=1000.
-      - الساعات: N3 = t+5، وN4 = t−5، والبقية = t.
-    - QV7 (مستقبل استورده بعضهم): X احتياطية على P عند a=0، بـts = P.ts+1+25 = 1014، تُسلم لكل الصادقين عند 999.5.
-      - N3: C+Φ = 1014.5 ≥ 1014، فيستوردها.
-      - البقية عدا N4: 1009.5 < 1014، فتدخل الطابور، والأهلية عند t=1004.
-      - N4: الأهلية عند C_N4 ≥ 1004، أي t=1009.
-      - المتوقع:
-        - لا Quiet قبل اكتمال استيراد N4 (≥ 1009).
-        - HeadCheck ناجح، وكل الرؤوس X، وfuturePurged=0.
-        - PostQuiet حتى 1100 دون تغير.
-      - الضابط السالب simnet-fault:quietIgnoresFuture يعلن Quiet قبل 1009، فيفشل Q1 (N3 على X وغيرها على P)، ويفشل فحص فراغ ChainWork.
-      - الضابط السالب simnet-fault:purgeImported يزيل X من الطوابير رغم استيراد N3، فيفشل Q1.
-    - QV8 (مستقبل بعيد لم يستورده أحد): X' احتياطية على P عند a=1، بـts = L(1) = 988+301 = 1289، تُسلم للكل عند 999.5.
-      - أقصى C+Φ = 1014.5، فلا يستوردها أحد. أقرب أهلية 1274 > t_halt+2Φ = 1020.
-      - المتوقع:
-        - purgeFuture عند أول لحظة تخلو فيها ChainWork من غيرها، وfuturePurged=1.
-        - Quiet، وكل الرؤوس P.
-        - PostQuiet حتى 1400 دون تغير.
-      - quietIgnoresFuture يعلن Quiet دون إزالة، فتتغير الرؤوس إلى X' بين 1274 و1284 داخل PostQuiet، فيفشل.
-    - QV9 (ابن على مستقبل): مثل QV7 مع Y ابن X، يصل الكل عند 999.6.
-      - لدى غير N3 يبقى Y في unknownParent وأبوه معروف لـN3، فيمنع Quiet حتى استيراد X ثم Y.
-      - المتوقع: كل الرؤوس Y، وHeadCheck ناجح.
-    - QV10 (مؤقت مزامنة):
-      - N5 على فرع أخف بكتلة واحدة. أول GetBodies منها إلى N6 يُسقط بالسكربت قبل t_halt، فتجدول المزامنة إعادة بمهلة 5s، وتُثبت القيمة في VA-spec.
-      - المتوقع: لا Quiet قبل الإعادة واكتمال التبني، ثم HeadCheck ناجح.
-      - الضابط السالب simnet-fault:untaggedTimer يجدول الإعادة خارج ChainTimer، فيُعلن Quiet مبكرًا، ويفشل Q1 أو PostQuiet.
-    - إعداد QV11–QV14 (D124):
-      - إعداد QV7 نفسه، مع AdvPeer: نظير خصم مسكرت متصل بكل الصادقين، يُفصل عند الحاجز t_halt=1000.
-      - t_avail = 1005، لأن Δ=5.
-      - الكتل من FixtureMiner بمفاتيح التجهيز، وكلها صالحة لـH-pre. AdvPeer لا يسلم إلا ما يحدده السكربت.
-    - QV11 (حجب كامل):
-      - AdvPeer يرسل عند 999.0 رأس Hx، وهي موقّعة على P بـts=990 وجسمها [tx1]. ثم يرسل عند 999.1 رأس ابنها Hy.
-      - يرد على GetBodies بـNotFound، فلا يحوز أي صادق جسم Hx ولا Hy.
-      - المتوقع:
-        - purgeUnavailable عند 1005 يزيل Hx وHy من كل الصادقين مع طلباتهما ومؤقتاتهما، وbodyPurged=2.
-        - Quiet عند ≤ 1007، وكل الرؤوس P، وHeadCheck ناجح.
-        - PostQuiet حتى 1100 دون تغير.
-      - الضابط السالب simnet-fault:keepUnavailable يعطل المسار U، فلا يُبلغ Quiet قبل t_halt+DRAIN_MAX(run)، ويفشل G. هذا يثبت أن البوابة تميز الحالة.
-    - QV12 (حائز صادق واحد): مثل QV11، لكن AdvPeer يسلم جسم Hx إلى N7 وحده عند 999.2، ويحجب جسم Hy.
-      - المتوقع:
-        - N7 يستورد Hx.
-        - المسار U يزيل Hy وحده (bodyPurged=1) ولا يمس Hx.
-        - البقية يجلبون جسم Hx من N7 بعد statusSweep.
-        - كل الرؤوس Hx، وQ4 ناجح.
-      - الضابط السالب simnet-fault:purgeHeld يزيل كل مدخل لم يستورده صاحبه، فيُسقط Hx لدى غير N7، ويفشل Q1.
-      - الضابط السالب simnet-fault:skipHolder يمنع طلب الأجسام من N7، فلا يُبلغ Quiet قبل t_halt+DRAIN_MAX(run)، ويفشل G كعطل مزامنة. المسار U لا يخفي هذا العطل، لأن N7 يحوز الجسم.
-    - QV13 (رفض H-full):
-      - AdvPeer يرسل عند 999.0 رأس Hz وجسمه لكل الصادقين. stateRoot فيه مخالف عمدًا، والتوقيعات صالحة. ثم يرسل رأس ابنه Hw دون جسم.
-      - المتوقع:
-        - كل صادق يرفض Hz بالبند 17، ويرفض Hw بـancestorInvalid.
-        - ChainWork فارغة دون أي purge، وbodyPurged=0.
-        - كل الرؤوس P، وpocol_getRejects يسجل الرفض.
-      - المتغير QV13b: Hz موقّعة بـts=1014، أي في المستقبل كما في QV7.
-        - تؤهل عند وصولها لدى N3، وعند 1004 لدى معظم العقد، وعند 1009 لدى N4، ثم تُرفض بالبند 17.
-        - Quiet لا يسبق 1009، وbodyPurged=0، وfuturePurged=0.
-      - الضابط السالب simnet-fault:noCancelOnReject يبقي مؤقتات جلب Hz وHw بعد الرفض، فلا يُبلغ Quiet، ويفشل G.
-    - QV14 (مستقبل بلا جسم):
-      - AdvPeer يرسل عند 999.5 رأس Xf، وهي موقّعة على P بـts=1014 وجسمها [tx1]، دون أن يسلم جسمها لأي صادق.
-      - المتوقع:
-        - المسار U عند 1005 يزيلها، فـbodyPurged=1 وfuturePurged=0.
-        - تُلغى معها الطلبات التي صدرت عند أهليتها لدى N3.
-        - ثم Quiet، وكل الرؤوس P.
-    - QV15 (جسم خاطئ ثم صحيح، D125): إعداد QV11.
-      - AdvPeer يرسل عند 999.0 رأس Hb لكل الصادقين، وهي موقّعة على P بـts=990 وجسمها [tx1]. يسلم جسم Hb الصحيح إلى N7 عند 999.2.
-      - يرد على GetBodies من N3 عند 999.3 بجسم [tx2] لا يطابق txRoot.
-      - المتوقع:
-        - N3 يسجل BodyMismatch، ويعاقب AdvPeer، ويبقي Hb، ويجلب الجسم من N7.
-        - كل الرؤوس Hb، وصفر مدخل لـHb في pocol_getRejects، وbodyPurged=0.
-      - الضابط السالب simnet-fault:rejectOnBadBody يلغي Hb بالمسار V لدى N3، فيفشل Q1 ومعيار سجل الرفض.
-    - QV16 (اعتماد غير قابل للاستعادة):
-      - AdvPeer يرسل عند 999.0 رأس Pa (على P بـts=990)، ثم رأس ابنها Ca.
-      - يحجب جسم Pa عن الكل، ويسلم جسم Ca إلى N7 وحده عند 999.2.
-      - المتوقع:
-        - Pa ∉ Rec فـCa ∉ Rec. purgeUnavailable عند 1005 يزيلهما.
+      Therefore imported by fetching/BodySched/EnvFetch within HR_i/c_b(i) bounds.
+    - Thus every entry fetched/imported or rejected through V within DRAIN_MAX(run).
+    - Failure to reach implies progress defect, not withholding.
+  - PostQuiet (G): after Quiet run for QUIET_HOLD = 3Φ+60s, or per-QV duration. Any honest head/stateRoot change fails.
+  - Evaluate HeadCheck at Quiet, repeat at PostQuiet end; results must match.
+  - HeadCheck on honest set H after Quiet, all items G:
+    - (Q1) W* = highest cumulative work among H heads. Every i ∈ H must have work(head_i) = W*.
+    - (Q2, D133) If two honest heads differ: children of their lowest common ancestor along both branches have same type, signed or fallback.
+      - Signed versus fallback violates D15, since signed precedes importSeq in key.
+      - Legitimate difference recorded as tie measurement, not violation.
+    - (Q2b, D133) Every honest i: head_i = ForkChoiceRef(imported_i, importSeq_i), computed from TraceDB.
+      - Independent Python ForkChoiceRef computes maximum in three scan orders: insertion, reverse, blockHash.
+      - Differing reference results stop M5 as reference error. head_i mismatch fails G.
+    - (Q3) Every block held by two honest nodes has identical stateRoot/receiptsRoot/gasUsed. G at every instant, not just after Quiet.
+    - (Q4) Every honest node's head state byte-matches RefReplay, a reference node importing only that head branch from genesis in order.
+    - (Q5) Every honest rollback during run ≤ R_keep.
+  - HeadCheck requires neither new block nor tie resolution; no PoW event placed under G.
+  - Deterministic HeadCheckRef vectors gate VA; run by miniature SimNet script, not seeds:
+    - QV1: N3 produces valid block 10 ms before barrier, link 50 ms. Heads differ at barrier. After Quiet all heads N3 block, HeadCheck passes, zero post-stopMining blocks. Reference records no G violation at barrier instant.
+    - QV2: N0/N1 simultaneously produce equal-work fallback siblings, then barrier.
+      - After Quiet heads may differ under first-seen rule.
+      - Result: Q1/Q2 pass, tie = 1, zero G violations.
+    - QV3: equal-work siblings, one signed, one fallback. After Quiet all heads signed.
+      - Negative control simnet-fault:noSignedTiebreak leaves some on fallback, fails Q2.
+    - QV4: simnet-fault:noReorgOnHeavier leaves a node on lighter branch, fails Q1.
+    - QV5: simnet-fault:execDrift changes one transaction's gasUsed at one node, fails Q3.
+    - QV6: adversary orphan header whose parent withheld from everyone does not prevent Quiet; queue remains bounded.
+    - qv/net profile (simnet):
+      - va/base with network timing block: T_blk=60, τ=3600, D_att=300, Δ_fb_wait=25 [CP], Δ_rel=26, Φ=10, φ=5, Δ=5, t_exec=3, Γ=30.
+      - chainId=777922, target_g = floor(2^256/88320)−1. Passes R1–R7 with network values.
+      - Rationale: Φ = 10 > Quiet window (2s), exposing queue defect hidden by va/base's Φ = 2.
+    - QV7–QV10 setup:
+      - Honest mining disabled throughout script; blocks from FixtureMiner.
+      - P head at all honest nodes, ts=988, t_halt=1000.
+      - Clocks: N3 = t+5, N4 = t−5, others = t.
+    - QV7 (future block imported by some): fallback X on P at a=0, ts = P.ts+1+25 = 1014, delivered to all at 999.5.
+      - N3: C+Φ = 1014.5 ≥ 1014, imports.
+      - Others except N4: 1009.5 < 1014, queued, eligible t=1004.
+      - N4: eligible at C_N4 ≥ 1004, i.e. t=1009.
+      - Expected:
+        - No Quiet before N4 import completes (≥ 1009).
+        - HeadCheck passes, all heads X, futurePurged=0.
+        - PostQuiet through 1100 unchanged.
+      - simnet-fault:quietIgnoresFuture declares Quiet before 1009, fails Q1 (N3 on X, others P) and ChainWork-empty check.
+      - simnet-fault:purgeImported removes X from queues despite N3 import, fails Q1.
+    - QV8 (far future, imported by none): fallback X' on P at a=1, ts = L(1) = 988+301 = 1289, delivered to all at 999.5.
+      - Maximum C+Φ = 1014.5, none imports. Earliest eligibility 1274 > t_halt+2Φ = 1020.
+      - Expected:
+        - purgeFuture when ChainWork first contains nothing else; futurePurged=1.
+        - Quiet, all heads P.
+        - PostQuiet through 1400 unchanged.
+      - quietIgnoresFuture declares Quiet without removal; heads change to X' between 1274/1284 during PostQuiet, fails.
+    - QV9 (child of future block): QV7 plus Y child of X, reaches all at 999.6.
+      - Except N3, Y stays unknownParent, parent known by N3; prevents Quiet until importing X then Y.
+      - Expected: all heads Y, HeadCheck passes.
+    - QV10 (sync timer):
+      - N5 on branch lighter by one block. Its first GetBodies to N6 dropped by script before t_halt; sync schedules 5s retry, value fixed in VA-spec.
+      - Expected: no Quiet before retry/adoption completion, then HeadCheck passes.
+      - simnet-fault:untaggedTimer schedules retry outside ChainTimer, declares Quiet early, fails Q1 or PostQuiet.
+    - QV11–QV14 setup (D124):
+      - QV7 setup plus AdvPeer: scripted adversarial peer connected to all honest nodes, disconnected at barrier t_halt=1000.
+      - t_avail = 1005 because Δ=5.
+      - FixtureMiner blocks with fixture keys, all H-pre valid. AdvPeer delivers only scripted data.
+    - QV11 (complete withholding):
+      - AdvPeer sends header Hx at 999.0, signed on P at ts=990, body [tx1]; at 999.1 sends child header Hy.
+      - Replies NotFound to GetBodies; no honest node holds Hx/Hy bodies.
+      - Expected:
+        - purgeUnavailable at 1005 removes Hx/Hy from every honest node with requests/timers; bodyPurged=2.
+        - Quiet by ≤ 1007, all heads P, HeadCheck passes.
+        - PostQuiet through 1100 unchanged.
+      - simnet-fault:keepUnavailable disables U; Quiet not reached before t_halt+DRAIN_MAX(run), fails G. Establishes gate discrimination.
+    - QV12 (one honest holder): QV11, but AdvPeer delivers Hx body only to N7 at 999.2, withholds Hy.
+      - Expected:
+        - N7 imports Hx.
+        - U removes only Hy (bodyPurged=1), leaves Hx.
+        - Others fetch Hx body from N7 after statusSweep.
+        - All heads Hx, Q4 passes.
+      - simnet-fault:purgeHeld removes every entry not imported by its local node, dropping Hx outside N7, fails Q1.
+      - simnet-fault:skipHolder prevents body requests to N7; Quiet not reached before t_halt+DRAIN_MAX(run), G failure as sync defect. U cannot conceal it because N7 holds body.
+    - QV13 (H-full rejection):
+      - AdvPeer sends Hz header/body to all at 999.0. Deliberately wrong stateRoot, valid signatures. Then sends child Hw header without body.
+      - Expected:
+        - Every honest node rejects Hz by item 17, Hw by ancestorInvalid.
+        - ChainWork empty without purge, bodyPurged=0.
+        - All heads P, pocol_getRejects records rejection.
+      - QV13b: Hz signed at ts=1014, future as QV7.
+        - Eligible on arrival at N3, 1004 at most nodes, 1009 at N4; then item 17 rejection.
+        - Quiet not before 1009; bodyPurged=0, futurePurged=0.
+      - simnet-fault:noCancelOnReject retains Hz/Hw fetch timers after rejection; Quiet unreachable, fails G.
+    - QV14 (future without body):
+      - AdvPeer sends Xf header at 999.5, signed on P at ts=1014, body [tx1], but delivers body to no honest node.
+      - Expected:
+        - U removes at 1005; bodyPurged=1, futurePurged=0.
+        - Requests issued on N3 eligibility cancelled with it.
+        - Then Quiet, all heads P.
+    - QV15 (wrong body then correct, D125): QV11 setup.
+      - AdvPeer sends Hb header to all at 999.0, signed on P at ts=990, body [tx1]. Correct body delivered to N7 at 999.2.
+      - Replies to N3 GetBodies at 999.3 with [tx2], mismatching txRoot.
+      - Expected:
+        - N3 records BodyMismatch, penalizes AdvPeer, retains Hb, fetches body from N7.
+        - All heads Hb; zero Hb pocol_getRejects entries; bodyPurged=0.
+      - simnet-fault:rejectOnBadBody cancels Hb through V at N3, fails Q1/rejection-log criterion.
+    - QV16 (unrecoverable dependency):
+      - AdvPeer sends Pa header (on P, ts=990) at 999.0, then child Ca header.
+      - Withholds Pa body from all; delivers Ca body only to N7 at 999.2.
+      - Expected:
+        - Pa ∉ Rec, hence Ca ∉ Rec. purgeUnavailable removes both at 1005.
         - bodyPurged = [{Pa, bodyUnavailable}, {Ca, depUnavailable, missingAncestor: Pa}].
-        - صفر مدخل في pocol_getRejects، وصفر عقوبة لنظير صادق.
-        - كل الرؤوس P، وQuiet ≤ t_halt+DRAIN_MAX(run).
-      - الضابط السالب simnet-fault:excludeDepAsInvalid يسجل Ca بـparentInvalid، فيفشل.
-    - QV16b: مثل QV16 مع تسليم جسم Pa إلى N8 وحده.
-      - المتوقع: Pa وCa في Rec، والجلب من N8 ثم N7، وكل الرؤوس Ca، وbodyPurged=0.
-      - purgeHeld وskipHolder يفشلان فيه.
-    - QV17 (طرد آخر حائز):
-      - إعداد QV12: N7 وحده يحوز جسم Hx، وهي في Rec وعلى أثقل فرع.
-      - عند 1002 ينفذ السكربت evictProbe(N7, Hx)، وهو خطاف بناء simnet يستدعي مسار الطرد في D118 ومخزن الأجسام المعلقة، محاكيًا ضغط ذاكرة.
-      - المتوقع: الطرد مرفوض، وpinRefusals=1، وكل الرؤوس Hx.
-      - المعيار الإضافي (D126): يسجل NetSim أن pinEntries لدى N7 يشمل Hx منذ t_halt=1000، وقبل evictProbe عند 1002.
-      - الضابط السالب simnet-fault:noDrainPin يطرد الجسم. عندها يصنف U الكتلة Hx بـbodyUnavailable رغم HeldAtHalt(Hx) = {N7}، فيفشل pinBreach. لا يُعتمد على عدم بلوغ Quiet، لأن U يجعل بلوغه ممكنًا (صياغة D125 أُلغيت لهذا السبب).
-      - الضابط السالب simnet-fault:pinLate (D126) يفعّل الحماية عند t_avail لا عند t_halt، فيقبل الطرد عند 1002 ويفشل pinBreach بالطريقة نفسها.
-    - QV18 (إعادة تشغيل متأخرة):
-      - N9 يُوقف بـkill دون wipe عند الارتفاع P0. يبني FixtureMiner بعدها L = R_keep+100 = 2148 كتلة احتياطية فارغة. الحاجز عند نهايتها، وrestart لـN9 عنده.
-      - المتوقع:
-        - |Need(N9)| = 2148، وHR_N9 بصيغة D128 مع حد Venv في D129 هو الحد الملزم.
-        - عدد ردود GetHeaders المنتجة قياس لا معيار، والمتوقع نحو 5 بدفعات 512.
-        - تراجع صفري، وكل الرؤوس رأس السلسلة، وQ4 وQ5 ناجحان.
-        - Quiet ≤ t_halt+DRAIN_MAX(run)، وdrainBound = HeadCheckRef.
-      - الضابط السالب simnet-fault:drainUndercount يحسب Need من ChainWork وحدها، فيعطي 0 لـN9، فيفشل بعدم المطابقة.
-    - QV18b (تراجع أعمق من R_keep): N9 على فرع احتياطي خاص بعمق R_keep+1 تحت نقطة التفرع، وأخف من الرئيس.
-      - المتوقع: لا تراجع. HeadCheck يبلّغ Q1 وQ5 بسبب deepReorgRequired، وهي نتيجة المتجه المتوقعة. يُرفع الإجراء 5 في governance.
-      - الضابط السالب simnet-fault:silentDeepReorg يتراجع بصمت أعمق من R_keep، فيفشل.
-    - QV18c (TrieRebuild): N9 على فرع خاص بعمق 40 > K_eff = 32، وأخف من الرئيس.
-      - المتوقع: تراجع ثم TrieRebuild، وrebuildOverrun=0، وQuiet ≤ t_halt+DRAIN_MAX(run) والحد يشمل RB_N9، وQ4 ناجح.
-    - QV19 (فرع أخف مؤجل، D126): إعداد QV11، مع t_exec_sim = 2s في هذا المتجه.
-      - الفرع الرئيس (D127): F ثم M1..M41 = P ثم S1 وS2، والكتل كلها موقّعة بمفاتيح التجهيز بطابع ts = p.ts+1 (فـF.ts = 947 وP.ts = 988) وجسم فارغ، ومسلمة للجميع.
-      - AdvPeer يرسل عند 999.0 إلى N2 وحده رؤوس وأجسام سلسلة جانبية Ls1..Ls40 تتفرع من F، بالطوابع والأجسام نفسها.
-        - Ls1 تشارك M1 قالبها الموقّع وتختلف عنها في nonce والفائز، فلا دليل مراوغة.
-        - لِمّة الوزن: ASERT دالة على (p.ts, p.h) وحدهما، والطوابع متساوية لكل ارتفاع، فالعمل متساوٍ لكل ارتفاع. إذن عمل الجانبية (40 كتلة) أقل بصرامة من الرئيس (43 كتلة).
-        - N2 يتحقق تسلسليًا بـt_exec_sim = 2s، فلا يستورد قبل t_avail = 1005 أكثر من 3 منها، فـhfull_N2 بعد t_avail ≥ 37 من TraceDB.
-      - المتوقع:
-        - لا Quiet قبل أن يكمل N2 التحقق من الأربعين ويخزنها جانبيًا وفق D118.
-        - رؤوس الصادقين لا تتغير.
-        - Need لكل صادق يشمل Ls1..Ls40، وQuiet ≤ t_halt+DRAIN_MAX(run)، وBudgetCheck ناجح.
-      - الضابط السالب simnet-fault:needHeadsOnly يحسب Need من مسارات الرؤوس الأثقل فقط، فلا يضم Ls* إلى Need'(N2). عندها hfull_N2 ≥ 37 > |Need'(N2) ∩ Ls| = 0، فيفشل مسند BudgetCheck حتميًا. وقوع Quiet بعد الحد المعيب غير مشترط، ويُسجل قياسًا.
-    - QV20 (D128، تبنٍّ متأخر لفروع منافسة دون مخالفة D118): ملف qv/net، والتعدين الصادق معطل، وSimParams = {t_halt = 1000، t_exec_sim = 2s}.
-      - الإعداد:
-        - FixtureMiner يبني السلسلة حتى A0 لكل الصادقين.
-        - ثم ثلاثة انقسامات من بعد A0 حتى t_halt: partition({N10}, rest)، وpartition({N11}, rest)، وpartition({N12}, rest).
-        - يبني للبقية الرئيس A0→P بخمس كتل، ويغذي N10 وحدها Fa (6 كتل)، وN11 وحدها Fb (7)، وN12 وحدها Fc (8).
-        - الكتل موقّعة بمفاتيح Draw بـts = p.ts+1 وجسم فارغ، وأبناء A0 تشارك قالبًا موقّعًا واحدًا. إذن العمل متساوٍ لكل ارتفاع (لِمّة QV19)، والوزن يتناسب مع الطول.
-      - الاحتفاظ: كل عقدة تحمل فرعها قانونيًا، ولها جانبية واحدة على الأكثر لكل ارتفاع، فلا طرد بـD118 قبل الحاجز. وHaltPin يحفظ الجميع بعده.
-      - عند الحاجز تلتئم الانقسامات، وstatusSweep يعلن Fa وFb وFc. Rec يضم الفروع الثلاثة، فـ|Need(N4)| = 21 وd*_N4 = 8.
-      - الاشتقاق:
-        - تبني فرع منافس يتطلب استيراد ≥ 6 من كتله بـH-full تسلسلي، أي ≥ 12s بعد أول جسم يصل عند ≥ t_halt+RTT_halt.
-        - إذن لا انتقال لدى N4 قبل t_avail = 1005، ولا فرع مكتمل لديها عندها بعمل يفوق رأسها.
-        - بعد Quiet رأس N4 هو Fc، الأثقل وحده (Q1). إذن انتقالاتها بعد t_avail ≥ 1، بعمق ≥ 5.
-      - المتوقع:
-        - رؤوس الجميع Fc.
-        - انتقالات كل صادق ≤ T_i، وكل تراجع ≤ d*_i، ومدد reorg وreexec وrebuild ضمن RB_i.
-        - Quiet ≤ t_halt+DRAIN_MAX(run)، وBudgetCheck ناجح.
-        - عدد الانتقالات (1–3) وترتيبها يتبعان ترتيب FetchSched ويُسجلان قياسًا. لا جدول أزمنة ثابت، لأن كل انتقال يضيف reorg وreexec محسوبين في RB.
-      - الضابط السالب simnet-fault:rbPerBranch (حد 2·b، صياغة D125): b = 0 لدى N4 بالاشتقاق، والانتقالات ≥ 1 > 0، فيفشل مسند BudgetCheck حتميًا.
-      - النسخة السابقة (D127) أدناه حتى QV21 ملغاة: لا تُنفذ ولا تُعد معيارًا. خالفت D118 قبل الحاجز وأغفلت reorg وreexec في أزمنتها، وتُحذف من VA-spec. نصها للأثر فقط:
-      - الإعداد (D127): SimParams.t_exec_sim = 10s. A0 سلف P بعمق 5. الرئيس A0→P بخمس كتل.
-        - الفروع Fa (6 كتل) وFb (7) وFc (8) تتفرع من A0. كل الكتل موقّعة بـts = p.ts+1 وجسم فارغ، وأبناء A0 الأربعة تشارك قالبًا موقّعًا واحدًا بنونسات مختلفة. فالعمل متساوٍ لكل ارتفاع (لِمّة QV19)، والوزن يتناسب مع الطول.
-        - AdvPeer يسلم N4 وحده عند 800 البادئات Fa1–5 وFb1–5 وFc1–5. يكتمل تحققها عند ≤ 950، وكلها تعادل الرئيس، فيبقى N4 على P بقاعدة أول ما رُئي.
-        - الذيول Fa6 وFb6–7 وFc6–8 لا يحوزها غير N4.
-      - AdvPeer يسلم N4 الذيول عند 999.0 (Fa6) و999.1 (Fb6، Fb7) و999.2 (Fc6–8). التحقق التسلسلي يجعل الاستيرادات عند 1009 و1019 و1029 و1039 و1049 و1059، وكلها بعد t_avail = 1005:
-        - 1009: Fa6 (6 > 5) انتقال أول بتراجع 5.
-        - 1019: Fb6 تعادل، دون انتقال.
-        - 1029: Fb7 انتقال ثانٍ بتراجع 6.
-        - 1049: Fc7 تعادل، دون انتقال.
-        - 1059: Fc8 انتقال ثالث بتراجع 7.
-        - بقية الصادقين يتبعون عبر statusSweep من N4.
-        - d*_N4 = 8، وT_N4 ≥ |Need(N4)| ≥ 6.
-      - المتوقع:
-        - N4 يتبنى Fa، ثم Fb، ثم Fc: ثلاثة انتقالات بعد t_avail بتراجعات 5 و6 و7.
-        - انتقالات N4 الفعلية ≤ T_N4، وكل تراجع ≤ d*_N4.
-        - Quiet ضمن الحد، وBudgetCheck ناجح، وكل الرؤوس Fc.
-      - الضابط السالب simnet-fault:rbPerBranch يحسب حد الانتقالات 2·b (صياغة D125)، حيث b عدد الفروع المكتملة لدى N4 عند t_avail بعمل يفوق رأسه، وb = 0 هنا. عندها انتقالات N4 = 3 > 0، فيفشل مسند BudgetCheck حتميًا. تجاوز Quiet غير مشترط.
-    - QV21 (رؤوس مؤجلة كثيرة، D126):
-      - SimParams (D127، D128): t_halt = 100000، وRTT_halt = 1s، وc_h = 0.01s، وP.ts = 27800.
-        - AdvPeer يسلم N3 وحده عند 99999.0 رؤوس وأجسام 1200 كتلة موقّعة فارغة فوق P، بفاصل طوابع 60s = T_blk (ضمن [L(0), U(0)])، فآخرها 99800. Δt ثابت، فالهدف ثابت وكلفة FixtureMiner نحو 1200·88320 تجزئة.
-      - بقية الصادقين يعرفونها عبر statusSweep وحده. RTT_halt = 1s يدخل NetSim والصيغة والمرجع معًا.
-      - المتوقع (D128):
-        - Kmiss_i وKpend_i تُقرأ من سجل الحالة عند t_avail، ولا تُفترض.
-        - الحد الأدنى: لا يعرف أي صادق الرؤوس قبل 99999.0، وc_h = 0.01s، فكل صادق يتم H-pre لـ≤ 600 منها قبل t_avail = 100005. إذن |Kmiss_i|+|Kpend_i| ≥ 600 لكل i.
-        - hdrCheck بعد t_avail لكل i = |Kmiss_i|+|Kpend_i| هاشًا متمايزًا.
-        - Quiet ضمن الحد، وBudgetCheck ناجح.
-        - إن قلّ المجموع المقيس عن 600 لأي i فالنتيجة FixtureSetupError.
-      - الضابط السالب simnet-fault:hdrUndercount يحسب HR بـ⌈|Kmiss_i|/512⌉·(|H|−1) طلبًا، دون حد c_h ودون Kpend. فحد hdrCheck = 0 والمقيس ≥ 600، فيفشل مسند BudgetCheck حتميًا. مسند البدايات السابق (≥ 15 > 3) أُلغي، لأن DiscRun يدمج البدايات (D128).
-    - QV22 (رؤوس معروفة قيد الفحص، D127): ملف qv/net، والتعدين الصادق معطل. SimParams = {t_halt = 10000، c_h = 0.1s، وc_h(N0) = 0.05s (D128)، وRTT_halt = 0.1s}، وP رأس الجميع بـts = 2700.
-      - (D128) الحائز صادق، ولا AdvPeer في هذا المتجه:
+        - Zero pocol_getRejects entries; zero honest-peer penalties.
+        - All heads P, Quiet ≤ t_halt+DRAIN_MAX(run).
+      - simnet-fault:excludeDepAsInvalid records Ca as parentInvalid, fails.
+    - QV16b: QV16 with Pa body delivered only to N8.
+      - Expected: Pa/Ca in Rec; fetch from N8 then N7; all heads Ca, bodyPurged=0.
+      - purgeHeld/skipHolder fail.
+    - QV17 (evict last holder):
+      - QV12 setup: only N7 holds Hx body, in Rec and on heaviest branch.
+      - At 1002 script executes evictProbe(N7, Hx), simnet-only hook invoking D118/pending-body eviction, simulating memory pressure.
+      - Expected: eviction refused, pinRefusals=1, all heads Hx.
+      - Additional criterion (D126): NetSim records N7 pinEntries including Hx from t_halt=1000, before evictProbe at 1002.
+      - simnet-fault:noDrainPin evicts body; U classifies Hx bodyUnavailable despite HeldAtHalt(Hx) = {N7}, fails pinBreach. Does not rely on Quiet failure: U permits Quiet (D125 wording withdrawn for this reason).
+      - simnet-fault:pinLate (D126) protects at t_avail rather than t_halt; permits 1002 eviction, same pinBreach failure.
+    - QV18 (late restart):
+      - N9 killed without wipe at P0. FixtureMiner then builds L = R_keep+100 = 2148 empty fallback blocks. Barrier at their end, N9 restarted there.
+      - Expected:
+        - |Need(N9)| = 2148; HR_N9 using D128 formula with D129 Venv bound is binding.
+        - Productive GetHeaders response count measured, not criterion; approximately 5 batches of 512 expected.
+        - Zero rollback; all heads chain tip; Q4/Q5 pass.
+        - Quiet ≤ t_halt+DRAIN_MAX(run); drainBound = HeadCheckRef.
+      - simnet-fault:drainUndercount computes Need from ChainWork alone, gives 0 for N9, fails match.
+    - QV18b (rollback deeper than R_keep): N9 on private fallback branch R_keep+1 deep below fork, lighter than main.
+      - Expected: no rollback. HeadCheck reports Q1/Q5, deepReorgRequired; expected vector outcome. Raise governance action 5.
+      - simnet-fault:silentDeepReorg silently rolls back beyond R_keep, fails.
+    - QV18c (TrieRebuild): N9 on private branch depth 40 > K_eff = 32, lighter than main.
+      - Expected: rollback then TrieRebuild, rebuildOverrun=0, Quiet ≤ t_halt+DRAIN_MAX(run), bound includes RB_N9; Q4 passes.
+    - QV19 (deferred lighter branch, D126): QV11 setup, t_exec_sim = 2s for this vector.
+      - Main branch (D127): F then M1..M41 = P then S1/S2; all signed with fixture keys, ts = p.ts+1 (F.ts = 947, P.ts = 988), empty bodies, delivered to all.
+      - AdvPeer at 999.0 delivers only N2 headers/bodies for side chain Ls1..Ls40 forking from F, same timestamps/bodies.
+        - Ls1 shares M1's signed template but differs in nonce/winner; no equivocation evidence.
+        - Weight lemma: ASERT depends only on (p.ts, p.h); equal timestamps per height imply equal work per height. Thus side branch (40 blocks) strictly lighter than main (43).
+        - N2 verifies serially at t_exec_sim = 2s, imports at most 3 before t_avail = 1005; post-t_avail hfull_N2 ≥ 37 from TraceDB.
+      - Expected:
+        - No Quiet before N2 verifies all forty and stores them as side blocks under D118.
+        - Honest heads unchanged.
+        - Need for every honest node includes Ls1..Ls40; Quiet ≤ t_halt+DRAIN_MAX(run); BudgetCheck passes.
+      - simnet-fault:needHeadsOnly computes Need only from heaviest-head paths, excludes Ls* from Need'(N2). Then hfull_N2 ≥ 37 > |Need'(N2) ∩ Ls| = 0, deterministic BudgetCheck failure. Quiet exceeding defective bound not required, measured.
+    - QV20 (D128, late adoption of competing branches without D118 violation): qv/net, honest mining disabled, SimParams = {t_halt = 1000, t_exec_sim = 2s}.
+      - Setup:
+        - FixtureMiner builds chain through A0 for all honest nodes.
+        - Then three partitions after A0 until t_halt: partition({N10}, rest), partition({N11}, rest), partition({N12}, rest).
+        - Builds main A0→P with five blocks for others; feeds only N10 Fa (6 blocks), N11 Fb (7), N12 Fc (8).
+        - Blocks signed by Draw keys, ts = p.ts+1, empty bodies; A0 children share one signed template. Equal work per height (QV19 lemma), weight proportional to length.
+      - Retention: each node's own branch canonical, at most one side block per height; no pre-barrier D118 eviction. HaltPin preserves all afterward.
+      - At barrier heal partitions; statusSweep advertises Fa/Fb/Fc. Rec includes all three; |Need(N4)| = 21, d*_N4 = 8.
+      - Derivation:
+        - Adopting a competitor requires serial H-full import of ≥ 6 of its blocks, ≥ 12s after first body arriving ≥ t_halt+RTT_halt.
+        - Thus no N4 transition before t_avail = 1005; no completed heavier branch there then.
+        - After Quiet N4 head Fc, uniquely heaviest (Q1). Thus post-t_avail transitions ≥ 1, depth ≥ 5.
+      - Expected:
+        - All heads Fc.
+        - Each honest node's transitions ≤ T_i, every rollback ≤ d*_i; reorg/reexec/rebuild durations within RB_i.
+        - Quiet ≤ t_halt+DRAIN_MAX(run); BudgetCheck passes.
+        - Transition count (1–3)/order follow FetchSched, measured. No fixed timeline because each transition adds reorg/reexec counted in RB.
+      - simnet-fault:rbPerBranch (bound 2·b, D125 wording): b = 0 at N4 by derivation, transitions ≥ 1 > 0, deterministic BudgetCheck failure.
+      - Previous version (D127) below through QV21 withdrawn: do not execute/count as criterion. Violated pre-barrier D118 and omitted reorg/reexec from timing; remove from VA-spec. Text retained for traceability only:
+      - Setup (D127): SimParams.t_exec_sim = 10s. A0 ancestor of P at depth 5. Main A0→P has five blocks.
+        - Fa (6), Fb (7), Fc (8) fork from A0. All signed, ts = p.ts+1, empty bodies; four A0 children share one signed template with different nonces. Equal work per height (QV19), weight proportional to length.
+        - AdvPeer delivers prefixes Fa1–5/Fb1–5/Fc1–5 only to N4 at 800. Verification completes ≤ 950; all equal main work; N4 stays P by first seen.
+        - Only N4 holds tails Fa6, Fb6–7, Fc6–8.
+      - AdvPeer delivers tails to N4 at 999.0 (Fa6), 999.1 (Fb6, Fb7), 999.2 (Fc6–8). Serial verification imports at 1009, 1019, 1029, 1039, 1049, 1059, all after t_avail = 1005:
+        - 1009: Fa6 (6 > 5), first transition with rollback 5.
+        - 1019: Fb6 ties, no transition.
+        - 1029: Fb7, second transition with rollback 6.
+        - 1049: Fc7 ties, no transition.
+        - 1059: Fc8, third transition with rollback 7.
+        - The other honest nodes follow via statusSweep from N4.
+        - d*_N4 = 8, and T_N4 ≥ |Need(N4)| ≥ 6.
+      - Expected:
+        - N4 adopts Fa, then Fb, then Fc: three transitions after t_avail with rollbacks 5, 6, and 7.
+        - Actual N4 transitions ≤ T_N4, and every rollback ≤ d*_N4.
+        - Quiet within the bound, BudgetCheck passes, and all heads are Fc.
+      - Negative control simnet-fault:rbPerBranch calculates the transition bound as 2·b (D125 formulation), where b is the number of complete branches at N4 at t_avail with work exceeding its head, and b = 0 here. Thus N4 transitions = 3 > 0, deterministically failing the BudgetCheck predicate. Exceeding Quiet is not required.
+    - QV21 (many deferred headers, D126):
+      - SimParams (D127, D128): t_halt = 100000, RTT_halt = 1s, c_h = 0.01s, and P.ts = 27800.
+        - At 99999.0 AdvPeer delivers to N3 alone the headers and bodies of 1200 empty signed blocks above P, with timestamp spacing 60s = T_blk (within [L(0), U(0)]), making the last 99800. Δt is constant, so the target is constant and FixtureMiner costs about 1200·88320 hashes.
+      - The other honest nodes learn of them only via statusSweep. RTT_halt = 1s is used in NetSim, the formula, and the reference together.
+      - Expected (D128):
+        - Kmiss_i and Kpend_i are read from the state log at t_avail, not assumed.
+        - Lower bound: no honest node knows the headers before 99999.0, and c_h = 0.01s, so each honest node completes H-pre for ≤ 600 of them before t_avail = 100005. Thus |Kmiss_i|+|Kpend_i| ≥ 600 for every i.
+        - hdrCheck after t_avail for each i = |Kmiss_i|+|Kpend_i| distinct hashes.
+        - Quiet within the bound, and BudgetCheck passes.
+        - If the measured sum is below 600 for any i, the result is FixtureSetupError.
+      - Negative control simnet-fault:hdrUndercount calculates HR as ⌈|Kmiss_i|/512⌉·(|H|−1) requests, without the c_h term or Kpend. Thus the hdrCheck bound = 0 and the measurement ≥ 600, deterministically failing the BudgetCheck predicate. The former start predicate (≥ 15 > 3) was withdrawn because DiscRun merges starts (D128).
+    - QV22 (known headers under examination, D127): qv/net profile, honest mining disabled. SimParams = {t_halt = 10000, c_h = 0.1s, c_h(N0) = 0.05s (D128), RTT_halt = 0.1s}, and P is everyone's head with ts = 2700.
+      - (D128) The holder is honest, and this vector has no AdvPeer:
         - partition({N15}, rest, t_P, t_halt).
-        - FixtureMiner يغذي N15 وحدها 120 كتلة موقّعة بمفاتيح Draw فوق P، بفاصل 60s (آخرها 9900، والهدف ثابت).
-        - N15 تستوردها قانونيًا دون فرع جانبي، فلا طرد بـD118 ولا unknownParent، والأجسام محوزة (Rec).
-        - عند الحاجز يلتئم الانقسام، وstatusSweep يعلن رأس N15.
-      - (D128) القيم تُقرأ من سجل الحالة عند t_avail = 10005. الاشتقاق لكل i ≠ N15:
-        - الرؤوس الـ120 تصل في رد GetHeaders واحد عند ≤ 10000.2.
-        - بعدها يجري H-pre بمعدل ≤ 20 رأسًا/s لـN0، و≤ 10/s لغيرها.
-        - إذن |Kmiss_i| = 0، و|Kpend_i| ≥ 24 لـN0 و≥ 72 لغيرها.
-        - إن كان Σ_{i≠N15}|Kpend_i| المقيس = 0 فالنتيجة FixtureSetupError.
-      - الورود المكرر مضمون: كل صادق يبث رأس كل كتلة يستوردها (network، استلام block)، فيرد كل رأس إلى كل صادق من مصدرين على الأقل.
-      - N0 أسرع، فتعلن رؤوسًا أثقل أثناء طلبات أجسام جارية لدى غيرها. هذه الاستثارة تُعد من TraceDB، وغيابها يجعل ضابط noFetchDedup FixtureSetupError.
-      - المتوقع:
-        - hdrCheck لكل i = 120 هاشًا متمايزًا بالضبط في كامل التشغيل، وما بعد t_avail ≤ |Kpend_i|.
-        - كل الرؤوس الكتلة 120، وBudgetCheck ناجح.
-      - الضابط السالب simnet-fault:kpendIgnored يحسب HR بـKmiss وحده، فحد hdrCheck = 0 < |Kpend_i|، فيفشل مسند BudgetCheck.
-      - الضابط السالب simnet-fault:noHdrCache يعيد H-pre عند كل ورود، فيتكرر هاش في hdrCheck، فيفشل مسند «كل هاش مرة واحدة».
-      - الضابط السالب simnet-fault:noFetchDedup (D128) يعيد طلب كل جسم ناقص عند كل بداية اكتشاف، دون اعتبار الطلب الجاري أو triedPeers. عند الاستثارة أعلاه يتكرر زوج (هاش، N15)، فيفشل مسند bodyFetch.
-    - QV22b (رأس قبل أبيه، D128): ملف qv/net، والتعدين الصادق معطل، وt_halt = 1000.
-      - الإعداد:
-        - partition({N15}, rest) حتى t_halt، وN15 تستورد B1 ثم B2 فوق P.
-        - AdvPeer يرسل إلى N7 وحدها رأس B2 عند 999.0، فتجري N7 Hs ويدخل B2 في unknownParent.
-      - بعد الحاجز تجلب N7 الكتلة B1 من N15، فتجري Hp لـB2 مرة واحدة، ثم تستورد B2.
-      - المتوقع:
-        - كل الرؤوس B2.
-        - لـB2 لدى N7 تقييم Hs واحد (الغلاف والبندان 1 و1ب) مخزن منذ 999.0، وتقييم Hp واحد بعد وصول B1.
-        - صفر حكم Hp وصفر blockReject لـB2 في BlockCache قبل وصول B1.
-        - D129 يصحح صياغة «صفر مدخل»، لأن نتيجة Hs مسموح بتخزينها.
-        - B2 في Rec، لأن رأسها معروف وجسمها لدى N15 وأبوها في Rec، وbodyPurged = 0.
-      - الضابط السالب simnet-fault:cacheNotEvaluable يخزن unknownParent رفضًا. عندها تتجاهل N7 ورود B2 اللاحق، فتبقى على B1، فيفشل Q1.
-      - الضابط السالب simnet-fault:skipHp يعامل نتيجة Hs كحكم H-pre كامل. فيسجل ActLog صفر تقييم Hp لـB2، فيفشل المسند.
-    - QV23 (D129، تسميم بالتوقيع): ملف qv/net، والتعدين الصادق معطل، وt_halt = 1000.
-      - الإعداد:
-        - partition({N15}, rest) حتى t_halt.
-        - FixtureMiner يغذي N15 الكتلة Bs فوق P، وهي موقّعة من Draw(h,0) وفائزها مالك nonce، ثم ابنها Cs الاحتياطية. N15 تستوردهما.
-      - AdvPeer يرسل عند 999.0 إلى بقية الصادقين نسخة من رأس Bs تشترك معها في blockHash، بأحد ثلاثة أغلفة تالفة:
-        - (a) winnerSig غير قابل للاسترداد (البند 8).
-        - (b) sig محذوف مع proposer غير فارغ (البند 3).
-        - (c) winnerSig صالح بمفتاح AdvPeer (البند 13 في H-full).
+        - FixtureMiner feeds N15 alone 120 blocks signed with Draw keys above P, spaced 60s apart (last 9900, constant target).
+        - N15 imports them canonically without a side branch, so there is no D118 eviction or unknownParent, and the bodies are held (Rec).
+        - At the barrier the partition heals, and statusSweep announces N15's head.
+      - (D128) Values are read from the state log at t_avail = 10005. Derivation for each i ≠ N15:
+        - The 120 headers arrive in one GetHeaders response at ≤ 10000.2.
+        - H-pre then runs at ≤ 20 headers/s for N0, and ≤ 10/s for the others.
+        - Thus |Kmiss_i| = 0, and |Kpend_i| ≥ 24 for N0 and ≥ 72 for the others.
+        - If measured Σ_{i≠N15}|Kpend_i| = 0, the result is FixtureSetupError.
+      - Duplicate arrival is guaranteed: each honest node broadcasts the header of every block it imports (network, block receipt), so each header reaches every honest node from at least two sources.
+      - N0 is faster and announces heavier heads during other nodes' ongoing body requests. This excitation is counted from TraceDB; its absence makes the noFetchDedup control FixtureSetupError.
+      - Expected:
+        - hdrCheck for each i = exactly 120 distinct hashes over the entire run, and after t_avail ≤ |Kpend_i|.
+        - All heads are block 120, and BudgetCheck passes.
+      - Negative control simnet-fault:kpendIgnored calculates HR using Kmiss alone, so the hdrCheck bound = 0 < |Kpend_i|, failing the BudgetCheck predicate.
+      - Negative control simnet-fault:noHdrCache repeats H-pre on each arrival, repeating a hash in hdrCheck and failing the "each hash once" predicate.
+      - Negative control simnet-fault:noFetchDedup (D128) requests each missing body again at each discovery start, disregarding in-flight requests or triedPeers. Under the excitation above, the pair (hash, N15) repeats, failing the bodyFetch predicate.
+    - QV22b (header before its parent, D128): qv/net profile, honest mining disabled, t_halt = 1000.
+      - Setup:
+        - partition({N15}, rest) until t_halt, and N15 imports B1 then B2 above P.
+        - AdvPeer sends the B2 header to N7 alone at 999.0; N7 performs Hs and B2 enters unknownParent.
+      - After the barrier N7 fetches B1 from N15, performs Hp for B2 once, then imports B2.
+      - Expected:
+        - All heads are B2.
+        - For B2 at N7, one Hs evaluation (envelope and items 1 and 1b) cached since 999.0, and one Hp evaluation after B1 arrives.
+        - Zero Hp verdicts and zero blockReject for B2 in BlockCache before B1 arrives.
+        - D129 corrects the "zero entries" wording, since caching the Hs result is allowed.
+        - B2 is in Rec because its header is known, its body is at N15, and its parent is in Rec; bodyPurged = 0.
+      - Negative control simnet-fault:cacheNotEvaluable caches unknownParent as a rejection. N7 then ignores B2's subsequent arrival and remains on B1, failing Q1.
+      - Negative control simnet-fault:skipHp treats the Hs result as a complete H-pre verdict. ActLog then records zero Hp evaluations for B2, failing the predicate.
+    - QV23 (D129, signature poisoning): qv/net profile, honest mining disabled, t_halt = 1000.
+      - Setup:
+        - partition({N15}, rest) until t_halt.
+        - FixtureMiner feeds N15 block Bs above P, signed by Draw(h,0) with the nonce owner as winner, then its fallback child Cs. N15 imports both.
+      - At 999.0 AdvPeer sends the other honest nodes a copy of the Bs header sharing its blockHash, with one of three corrupt envelopes:
+        - (a) Unrecoverable winnerSig (item 8).
+        - (b) sig omitted with a nonempty proposer (item 3).
+        - (c) Valid winnerSig with AdvPeer's key (item 13 in H-full).
 
-        ثم يرسل رأس Cs الصحيح عند 999.05.
-      - بعد الحاجز تصل نسخة N15 الصحيحة عبر statusSweep وGetHeaders.
-      - المتغير (t): وصلة N15–N7 تلتئم عند 998.9، فتصل النسختان التالفة والصحيحة إلى N7 عند 999.0، ويجري فحصاهما متزامنين.
-      - المتوقع:
-        - كل الرؤوس Cs، وBlockCache(Bs) = valid.
-        - لكل نسخة تالفة envReject واحد، وعقوبة AdvPeer.
-        - صفر مدخل لـBs أو Cs في pocol_getRejects، وصفر parentInvalid وancestorInvalid.
-        - في (c): envCheck فاشل في H-full قبل التنفيذ، ثم envRefetch واحد.
-        - Bs وCs في Rec، وbodyPurged = 0.
-        - Venv المقيس = عدد النسخ عند t_avail، وBudgetCheck ناجح.
-      - الضوابط السالبة:
-        - simnet-fault:cacheByBlockHash يخزن رفض الغلاف بمفتاح blockHash. فتُرفض النسخة الصحيحة وتبقى العقد على P، فيفشل Q1.
-    - QV23d (D130، نسخ قابلة للاسترداد من غير المالك): إعداد QV23.
-      - AdvPeer يرسل عند 999.0 و999.01 و999.02 ثلاث نسخ لرأس Bs بالـblockHash نفسه، كل منها بـwinnerSig صالح من مفتاح خصمي مختلف (a1 وa2 وa3)، ثم رأس Cs الصحيح.
-      - المتغير (t): النسخ الثلاث والنسخة الصحيحة تصل N7 معًا عند 999.0 بعد التئام وصلة N15–N7 عند 998.9.
-      - المتوقع لكل صادق عدا N15:
-        - ثلاثة أحكام envOwn = envReject، كل hdrId مرة واحدة، وصفر تنفيذ لأي منها.
-        - تنفيذ Bs مرة واحدة بعد النسخة الصحيحة، ثم استيراد Bs وCs.
-        - صفر RejectPath.cancel، وصفر parentInvalid وancestorInvalid، وصفر مدخل في pocol_getRejects.
-        - طلبات GetEnvelope ≤ |Henv_i|·(|H|−1)، وBudgetCheck ناجح، وكل الرؤوس Cs.
-      - الضوابط السالبة:
-        - simnet-fault:envRejectCancels يطبق المسار V على envReject، فيُلغى Bs ويُرفض Cs، فيفشل Q1.
-        - simnet-fault:hfullDoneOnEnv يضع HfullDone عند envReject، فلا تُفحص النسخة الصحيحة، فيفشل Q1.
-        - simnet-fault:execPerCopy ينفذ الكتلة قبل envOwn لكل نسخة، فيصير hfull لـBs = 4 > 1، فيفشل BudgetCheck.
-    - QV24 (D130، إعادة أهلية أثناء الجلب): ملف qv/net، والتعدين الصادق معطل، وt_halt = 1000.
-      - SimParams (D131): RTT(link) = 0.1s افتراضيًا، وRTT(N3, j) = 1s لكل j، وt_exec_sim = 0.05s. إذن RTT_N3 = 1s، وRTT_i = 1s لكل صادق آخر أيضًا، لأن له وصلة مع N3. drainBound وHeadCheckRef وBudgetCheck تستعمل هذه القيم وحدها.
-      - الإعداد: partition({N15}, rest) حتى t_halt، وN15 تستورد X1..X5 فوق P.
-      - بعد cycleReset يطلب N3 الجسم X1 من N0 ثم N1 ثم N2 ثم N4..N14 (NotFound، 1s لكل طلب)، ثم N15.
-      - N2 تجلب X1 بوصلات 0.1s وتستوردها نحو t_avail+1.6، فترسل Status وتعلن X1 قبل أن يبلغ N3 الحائز N15 (نحو t_avail+14).
-      - المتوقع:
-        - لدى N3: كل زوج (Xk، نظير) ≤ طلب واحد، وصفر طلب من صنف reeligible، وN2 في reeligible لـX1 دون طلب.
-        - انقضاء مؤقتات المهلة الأسية مسموح، وصفر طلب ناتج عنه.
-        - كل الرؤوس X5، وBudgetCheck ناجح، وQuiet ≤ t_halt+DRAIN_MAX(run).
-      - الضابط السالب simnet-fault:globalRtt (D131) يحسب drainBound بـRTT_halt = 0.1s لكل الوصلات. أول طلب من N3 مدته المقيسة 1s > 0.1s، فيفشل مسند الطلب في BudgetCheck حتميًا، دون اشتراط تجاوز Quiet.
-      - الضابط السالب simnet-fault:statusResetsTried (قاعدة D129 حرفيًا) يمحو N2 من tried عند Status. فيصير N2 أصغر غير مجرَّب، فيُطلب X1 منه ثانية، فيفشل مسند الزوج الواحد.
-        - simnet-fault:mergeInFlight يدمج الفحوص بمفتاح blockHash، فيفشل المتغير (t) بالطريقة نفسها.
-    - QV25 (D131، أغلفة غير صالحة وجلب غلاف بديل):
-      - QV25a (لا نسخة صالحة): إعداد QV11.
-        - FixtureMiner يبني Bz على P بنونس في نطاق N2، دون مفتاح N2.
-        - AdvPeer يرسل عند 999.0 إلى كل الصادقين جسم Bz وثلاث نسخ لرأسها، بـwinnerSig من a1 وa2 وa3.
-        - المتوقع:
-          - لكل صادق ثلاثة envReject، وصفر تنفيذ.
-          - validEnv(Bz) خاطئة، فـBz ∉ Rec. U عند 1005 يزيلها، وbodyPurged = [{Bz, envUnavailable}].
-          - صفر مدخل في pocol_getRejects، وصفر طلب GetEnvelope بعد t_avail.
-          - كل الرؤوس P، وQuiet ≤ t_halt+DRAIN_MAX(run).
-        - الضابط السالب simnet-fault:envAsBlockReject يسجل استنفاد النسخ blockReject، فيظهر مدخل في pocol_getRejects، فيفشل.
-        - الضابط السالب simnet-fault:noEnvUnavailable يبقي Bz في Rec، فيبقى مدخلها بعد استنفاد EnvFetch، فلا Quiet ضمن الحد، فيفشل G.
-      - QV25c (الجسم والغلاف الصالح عند صادقين مختلفين): ملف qv/net، والتعدين الصادق معطل، وt_halt = 1000.
-        - partition({N15}, rest) حتى t_halt.
-        - FixtureMiner يغذي N15 أختين على P بالعمل نفسه: Bm موقّعة، وBv احتياطية فائزها N15. N15 تستوردهما، ورأسها Bm (D15)، وBv جانبية.
-        - AdvPeer، الموصول بالجميع، يرسل إلى N7 عند 999.0 جسم Bv ونسخة h_bad بـwinnerSig من a2.
-        - Bv ∈ Rec، لأن رأسها وجسمها ونسختها الصالحة لدى N15. لدى N7 مدخل Bv بنسخة envReject.
-        - المتوقع:
-          - N7 يطلب GetEnvelope [Bv, [h_bad]] بالترتيب الصارم، ويبلغ N15 خلال ≤ |H|−1 طلبًا، ويستلم النسخة الصالحة.
-          - تنفيذ Bv مرة واحدة، وتخزينها جانبية.
-          - كل الرؤوس Bm، وكل زوج (Bv، نظير) ≤ طلب واحد، وBudgetCheck ناجح، وQuiet ≤ t_halt+DRAIN_MAX(run).
-        - الضابط السالب simnet-fault:noEnvFetch لا يطلب غلافًا بديلًا. N15 لا تعلن Bv لأنها ليست رأسًا، وبثها قبل الحاجز محجوب بالانقسام. فيبقى مدخل N7، فلا Quiet ضمن الحد، فيفشل G.
-        - المتغير QV25c-dup: AdvPeer وAdvPeer2 يرسلان h_bad نفسها إلى N7 عند 999.0 و999.01. المتوقع: envCheck واحد لـh_bad، وعقوبة المرسلين، وبقية النتائج كما سبق.
-    - QV26 (D133، تعدي التفضيل): ملف qv/net، والتعدين الصادق معطل، وt_halt = 1000، وP رأس الجميع.
-      - الكتل (FixtureMiner، أجسام فارغة):
-        - X وY ابنان لـP يشتركان في قالب موقّع واحد من Draw(h,0)، بنونسين في نطاقي مالكين مختلفين. UT واحد، فلا دليل نوع 1.
-        - على X: A2 احتياطية، وC2 موقّعة بالطابع L(0)+Δ_fb_wait نفسه.
-        - على Y: B2 احتياطية بالطابع نفسه.
-        - لِمّة التساوي: X وY بالطابع والارتفاع نفسيهما، فالأهداف في h+1 متساوية، فـW(A2) = W(B2) = W(C2).
-      - الأذرع: كل ترتيب استيراد خطي متوافق مع الآباء للكتل الخمس، وعددها 5!/(3·2) = 20. يُسلم إلى N0 بالترتيب، وكل ذراع يُشغَّل بـSimParams.forkScanOrder ∈ {insertion, reverse, byHash}، وهذا معامل تنفيذ لا قاعدة.
-      - المتوقع لكل ذراع:
-        - الرأس C2 إن كان importSeq(X) < importSeq(Y)، وإلا B2. لا يكون A2 أبدًا.
-        - تطابق الرأس في ترتيبات الفحص الثلاثة.
-        - انتقالات الرأس ≤ عدد الاستيرادات.
-        - Q1 وQ2 وQ2b ناجحة.
-      - المتغير QV26m: N0 يستورد X قبل Y، وN1 يستورد Y قبل X. الرأسان C2 وB2، والتعادل X مقابل Y موقّعان، فـtie = 1 دون خرق G.
-      - الضابط السالب simnet-fault:pairwiseTiebreak يطبق القاعدة القديمة (الموقّع عند أول اختلاف ثم importSeq للرأس) بفحص زوجي تسلسلي. على الترتيب X، A2، Y، B2، C2:
-        - الفحص insertion: A2 مقابل B2 → A2، ثم مقابل C2 → C2.
-        - الفحص reverse: C2 مقابل B2 → B2، ثم مقابل A2 → A2.
-        - الرأس يختلف بترتيب الفحص، والرأس A2 يخالف ForkChoiceRef، فيفشل Q2b حتميًا.
-    - المعيار المشترك لـQV11–QV25 مع QV23d، بحسب سجل NetSim:
-      - كل مدخل يزيله المسار U خارج Rec عند t_avail، بسبب أحد الأسباب الثلاثة فقط (D132):
+        It then sends the correct Cs header at 999.05.
+      - After the barrier N15's correct copy arrives via statusSweep and GetHeaders.
+      - Variant (t): the N15–N7 link heals at 998.9, so the corrupt and correct copies reach N7 at 999.0 and are checked concurrently.
+      - Expected:
+        - All heads are Cs, and BlockCache(Bs) = valid.
+        - One envReject per corrupt copy, and an AdvPeer penalty.
+        - Zero Bs or Cs entries in pocol_getRejects, and zero parentInvalid and ancestorInvalid.
+        - In (c): envCheck fails in H-full before execution, then one envRefetch.
+        - Bs and Cs are in Rec, and bodyPurged = 0.
+        - Measured Venv = number of copies at t_avail, and BudgetCheck passes.
+      - Negative controls:
+        - simnet-fault:cacheByBlockHash caches envelope rejection under blockHash. The correct copy is rejected and nodes remain on P, failing Q1.
+    - QV23d (D130, recoverable copies from nonowners): QV23 setup.
+      - At 999.0, 999.01, and 999.02 AdvPeer sends three copies of the Bs header with the same blockHash, each with a valid winnerSig from a different adversarial key (a1, a2, a3), then the correct Cs header.
+      - Variant (t): the three copies and the correct copy reach N7 together at 999.0 after the N15–N7 link heals at 998.9.
+      - Expected for every honest node except N15:
+        - Three envOwn = envReject verdicts, each hdrId once, and zero execution for any of them.
+        - Execute Bs once after the correct copy, then import Bs and Cs.
+        - Zero RejectPath.cancel, zero parentInvalid and ancestorInvalid, and zero entries in pocol_getRejects.
+        - GetEnvelope requests ≤ |Henv_i|·(|H|−1), BudgetCheck passes, and all heads are Cs.
+      - Negative controls:
+        - simnet-fault:envRejectCancels applies path V to envReject, canceling Bs and rejecting Cs, failing Q1.
+        - simnet-fault:hfullDoneOnEnv sets HfullDone on envReject, so the correct copy is not checked, failing Q1.
+        - simnet-fault:execPerCopy executes the block before envOwn for each copy, making hfull for Bs = 4 > 1, failing BudgetCheck.
+    - QV24 (D130, reeligibility during fetching): qv/net profile, honest mining disabled, t_halt = 1000.
+      - SimParams (D131): RTT(link) = 0.1s by default, RTT(N3, j) = 1s for each j, and t_exec_sim = 0.05s. Thus RTT_N3 = 1s, and RTT_i = 1s for every other honest node too, because it has a link to N3. drainBound, HeadCheckRef, and BudgetCheck use only these values.
+      - Setup: partition({N15}, rest) until t_halt, and N15 imports X1..X5 above P.
+      - After cycleReset, N3 requests body X1 from N0, then N1, then N2, then N4..N14 (NotFound, 1s per request), then N15.
+      - N2 fetches X1 over 0.1s links and imports it around t_avail+1.6, sending Status and announcing X1 before N3 reaches holder N15 (around t_avail+14).
+      - Expected:
+        - At N3: each pair (Xk, peer) ≤ one request, zero requests of class reeligible, and N2 in reeligible for X1 without a request.
+        - Exponential timeout timers may expire, with zero resulting requests.
+        - All heads are X5, BudgetCheck passes, and Quiet ≤ t_halt+DRAIN_MAX(run).
+      - Negative control simnet-fault:globalRtt (D131) calculates drainBound with RTT_halt = 0.1s for every link. N3's first request has measured duration 1s > 0.1s, deterministically failing the request predicate in BudgetCheck, without requiring Quiet to exceed the bound.
+      - Negative control simnet-fault:statusResetsTried (the literal D129 rule) clears N2 from tried upon Status. N2 becomes the smallest untried peer, so X1 is requested from it again, failing the single-pair predicate.
+        - simnet-fault:mergeInFlight merges checks by blockHash, failing variant (t) in the same way.
+    - QV25 (D131, invalid envelopes and alternative envelope fetching):
+      - QV25a (no valid copy): QV11 setup.
+        - FixtureMiner builds Bz on P with a nonce in N2's range, without N2's key.
+        - At 999.0 AdvPeer sends all honest nodes the Bz body and three header copies, with winnerSig from a1, a2, and a3.
+        - Expected:
+          - Three envReject per honest node, and zero execution.
+          - validEnv(Bz) is false, so Bz ∉ Rec. U removes it at 1005, and bodyPurged = [{Bz, envUnavailable}].
+          - Zero entries in pocol_getRejects, and zero GetEnvelope requests after t_avail.
+          - All heads are P, and Quiet ≤ t_halt+DRAIN_MAX(run).
+        - Negative control simnet-fault:envAsBlockReject records exhausted copies as blockReject, creating an entry in pocol_getRejects and failing.
+        - Negative control simnet-fault:noEnvUnavailable keeps Bz in Rec, so its entry remains after EnvFetch is exhausted, preventing Quiet within the bound and failing G.
+      - QV25c (body and valid envelope at different honest nodes): qv/net profile, honest mining disabled, t_halt = 1000.
+        - partition({N15}, rest) until t_halt.
+        - FixtureMiner feeds N15 two siblings on P with equal work: signed Bm, and fallback Bv with winner N15. N15 imports both, its head is Bm (D15), and Bv is on a side branch.
+        - AdvPeer, connected to everyone, sends N7 the Bv body and copy h_bad with winnerSig from a2 at 999.0.
+        - Bv ∈ Rec because its header, body, and valid copy are at N15. N7 has a Bv entry with an envReject copy.
+        - Expected:
+          - N7 requests GetEnvelope [Bv, [h_bad]] in strict order, reaches N15 within ≤ |H|−1 requests, and receives the valid copy.
+          - Execute Bv once, and store it on a side branch.
+          - All heads are Bm, each pair (Bv, peer) ≤ one request, BudgetCheck passes, and Quiet ≤ t_halt+DRAIN_MAX(run).
+        - Negative control simnet-fault:noEnvFetch does not request an alternative envelope. N15 does not announce Bv because it is not a head, and its pre-barrier broadcast is blocked by the partition. N7's entry remains, preventing Quiet within the bound and failing G.
+        - Variant QV25c-dup: AdvPeer and AdvPeer2 send the same h_bad to N7 at 999.0 and 999.01. Expected: one envCheck for h_bad, penalties for both senders, and all other results as above.
+    - QV26 (D133, transitive preference): qv/net profile, honest mining disabled, t_halt = 1000, and P is everyone's head.
+      - Blocks (FixtureMiner, empty bodies):
+        - X and Y are children of P sharing one signed template from Draw(h,0), with two nonces in different owners' ranges. One UT, so no type 1 evidence.
+        - On X: fallback A2, and signed C2 with the same timestamp L(0)+Δ_fb_wait.
+        - On Y: fallback B2 with the same timestamp.
+        - Equality lemma: X and Y have the same timestamp and height, so the targets at h+1 are equal, hence W(A2) = W(B2) = W(C2).
+      - Arms: every parent-compatible linear import order for the five blocks, numbering 5!/(3·2) = 20. Delivered to N0 in order, and each arm runs with SimParams.forkScanOrder ∈ {insertion, reverse, byHash}, an implementation parameter, not a rule.
+      - Expected for each arm:
+        - The head is C2 if importSeq(X) < importSeq(Y), otherwise B2. Never A2.
+        - The head matches across all three scan orders.
+        - Head transitions ≤ number of imports.
+        - Q1, Q2, and Q2b pass.
+      - Variant QV26m: N0 imports X before Y, and N1 imports Y before X. The heads are C2 and B2, and the X versus Y tie is between signed blocks, so tie = 1 without violating G.
+      - Negative control simnet-fault:pairwiseTiebreak applies the old rule (signed at the first difference, then head importSeq) with sequential pairwise scanning. For order X, A2, Y, B2, C2:
+        - insertion scan: A2 versus B2 → A2, then versus C2 → C2.
+        - reverse scan: C2 versus B2 → B2, then versus A2 → A2.
+        - The head varies with scan order, and head A2 violates ForkChoiceRef, deterministically failing Q2b.
+    - Common criterion for QV11–QV25 with QV23d, according to the NetSim log:
+      - Every entry removed by path U is outside Rec at t_avail, for only one of these three reasons (D132):
         - bodyUnavailable.
-        - envUnavailable: الجسم محوز، ولا نسخة validEnv لدى أي صادق.
-        - depUnavailable مع missingAncestor صحيح.
+        - envUnavailable: the body is held, and no honest node has a validEnv copy.
+        - depUnavailable with a correct missingAncestor.
 
-        أي سبب آخر، أو سبب لا يطابق تصنيف HeadCheckRef للكتلة نفسها، فشل G.
-      - لا يُزال أي مدخل في Rec إلا بالمسار V على جسم مطابق أو بـF3، ولا يُفقد آخر حائز لكتلة في Rec.
-      - (D126) صفر pinBreach، وBudgetCheck ناجح.
-      - كل Quiet يقع عند ≤ t_halt+DRAIN_MAX(run) كما يحسبه HeadCheckRef.
-  - بناءات simnet-fault للاختبار فقط، وهي غائبة عن الإصدار.
-- فشل G فوري في أي تشغيل عند أي مما يلي:
-  - انهيار عقدة صادقة.
-  - خرق T17.
-  - خرق Q3 في أي لحظة.
-  - عدم بلوغ Quiet قبل t_halt+DRAIN_MAX(run)، في بذرة لم يتجاوز فيها DRAIN_MAX(run) القيمة DRAIN_CAP.
-  - (D125) اختلاف SimNet.drainBound عن HeadCheckRef.
+        Any other reason, or a reason inconsistent with HeadCheckRef's classification of that block, fails G.
+      - No entry in Rec is removed except by path V on a matching body or by F3, and the last holder of a block in Rec is never lost.
+      - (D126) Zero pinBreach, and BudgetCheck passes.
+      - Every Quiet occurs at ≤ t_halt+DRAIN_MAX(run) as calculated by HeadCheckRef.
+  - simnet-fault builds are for testing only and are absent from the release.
+- Immediate G failure in any run upon any of the following:
+  - An honest node crashes.
+  - A T17 violation.
+  - A Q3 violation at any moment.
+  - Failure to reach Quiet before t_halt+DRAIN_MAX(run), for a seed where DRAIN_MAX(run) did not exceed DRAIN_CAP.
+  - (D125) SimNet.drainBound differs from HeadCheckRef.
   - rebuildOverrun > 0.
-  - فقد آخر حائز لكتلة في Rec قبل Quiet، أو pinBreach (D126).
-  - فشل BudgetCheck (D126).
-  - (D132) مدخل استُبعد بأي من الأسباب الثلاثة (bodyUnavailable أو envUnavailable أو depUnavailable) وحدث له أي مما يلي:
-    - ظهر في pocol_getRejects.
-    - أطلق parentInvalid أو ancestorInvalid لنسله.
-    - وضع HfullDone أو حكم blockReject في BlockCache.
-    - عوقب بسببه نظير صادق.
+  - Loss of the last holder of a block in Rec before Quiet, or pinBreach (D126).
+  - BudgetCheck failure (D126).
+  - (D132) An entry excluded for any of the three reasons (bodyUnavailable, envUnavailable, or depUnavailable) experiences any of the following:
+    - Appears in pocol_getRejects.
+    - Triggers parentInvalid or ancestorInvalid for its descendants.
+    - Sets HfullDone or a blockReject verdict in BlockCache.
+    - Causes an honest peer to be penalized.
 
-    هذا يجعل الضابط simnet-fault:envAsBlockReject يفشل بقاعدة G صريحة.
-  - تغير رأس أو stateRoot لصادق خلال PostQuiet (D123).
+    This makes control simnet-fault:envAsBlockReject fail under an explicit G rule.
+  - An honest node's head or stateRoot changes during PostQuiet (D123).
 
-**T7 (تناسب المكافأة، S، بوابة)**
-- الإعداد: دون خصم.
-- المقياس: r_i = ما دفعه settle للهوية i، شاملًا winnerPart وpropPart، ÷ مجموع المدفوع لكل الهويات في النافذة. h_i = معدلها/46. ρ_i = r_i/h_i.
-- القبول: TOST بـCI 90% يضع كل ρ_i داخل [0.98, 1.02].
-- الفشل: CI لأي ρ_i خارج النطاق بكامله.
+**T7 (reward proportionality, S, gate)**
+- Setup: no adversary.
+- Metric: r_i = what settle paid identity i, including winnerPart and propPart, ÷ total paid to all identities in the window. h_i = its rate/46. ρ_i = r_i/h_i.
+- Acceptance: TOST with 90% CI places every ρ_i within [0.98, 1.02].
+- Failure: the CI of any ρ_i lies entirely outside the range.
 
-**T7b (تقسيم الهوية بعمل ثابت، S، بوابة)**
-- الإعداد: خصم بـβ = 16/62.
-  - الذراع الأساسي: هوية واحدة بمعدل 16.
-  - الأذرع k ∈ {2, 4, 8}: k هويات بمعدل 16/k لكل منها، مسجلة في genesis بسندات k·B_reg.
-  - ذراع الدوران (k=4): كل هوية تنفذ deregister ثم reactivate بعد W_act، بإزاحات متعاقبة ضمن R_max، مع إعادة الاتصال بنظراء جدد بعد كل عودة.
-- المقياس: Δ_k = (R_k − R_1)/R_1، حيث R مجموع المدفوع لهويات الخصم في النافذة، مقترنًا بالبذرة. حصة الخصم من Draw تُسجل قياسًا منفصلًا.
-- القبول: الحد الأعلى لـCI ≤ 0.01 لكل ذراع.
-- الفشل: الحد الأدنى > 0.01.
-- Δ < 0 ليس فشلًا.
+**T7b (identity splitting at constant work, S, gate)**
+- Setup: adversary with β = 16/62.
+  - Baseline arm: one identity at rate 16.
+  - Arms k ∈ {2, 4, 8}: k identities at rate 16/k each, registered in genesis with bonds k·B_reg.
+  - Churn arm (k=4): each identity performs deregister then reactivate after W_act, with staggered offsets within R_max, reconnecting to new peers after each return.
+- Metric: Δ_k = (R_k − R_1)/R_1, where R is total paid to adversarial identities in the window, paired by seed. The adversary's Draw share is recorded as a separate measurement.
+- Acceptance: CI upper bound ≤ 0.01 for every arm.
+- Failure: lower bound > 0.01.
+- Δ < 0 is not a failure.
 
-**T7c (حجب حصص الآخرين، G وS، بوابة)**
-- الإعداد (D120): أذرع مقترنة بالبذرة وفق تعريفات incentives، والخصم بـβ = 16/62. في ownSharesOnly يضع الفائز الخصم في shareList حصصه الواردة في E_full وحدها، وفي ذراع ثانٍ قائمة فارغة. الذراع المرجعي بالبذرة نفسها يضع الحصص الكاملة.
-- (G) لكل كتلة فاز بها الخصم:
-  - E_full من سجل NetSim: الحصص الصريحة الصالحة للارتفاع التي وصلت عقدة الخصم قبل نشره رأسه، دون ν، مقصوصة إلى S_max بأصغر nonce. C_full = 1+|E_full|.
-  - التسوية المرجعية تُحسب بـExecFixture من {ν}∪E_full، والفعلية من الرأس.
-  - g_dir يطابق الصيغة العامة في D120 بالضبط في الذراعين.
-  - في ownSharesOnly يجب أيضًا c_w^kept = c_w^full، وتحقق الحد.
-  - emptyShares لا حد له غير الصيغة.
-  - يُسجل لكل كتلة (C_full، C_kept، c_w^full، c_w^kept، g_dir).
-  - SV10a–f بوابة تسبق التشغيل، وتغطي حتميًا فرعي العتبة والقائمة الفارغة وحد S_max.
-  - لذلك لا يشترط (G) ظهور C_full > κm في SimNet، وقد يندر ذلك عند m=32. يُسجل عدد هذه الكتل قياسًا، ولا وسم underpowered.
-- (S) لكل ذراع خصمي:
-  - g_seed = (R_arm − R_ref)/R_ref، حيث R مجموع ما دُفع لهويات الخصم في النافذة، شاملًا winnerPart وpropPart.
-  - R_ref = 0، أو توقف أي ذراع، يعطي القيمة الرقابية من CEN.
-  - القبول لكل ذراع: الحد الأعلى لـCI ≤ 0.02.
-  - T7c ليس مشروطًا بحدث، فلا يُطبق عليه نصاب الاستثارة. البذرة التي لم يفز فيها الخصم صالحة، لأن R يشمل propPart والأثر غير المباشر.
+**T7c (withholding others' shares, G and S, gate)**
+- Setup (D120): arms paired by seed per the incentives definitions, with adversary β = 16/62. In ownSharesOnly the adversarial winner puts only its own shares from E_full in shareList, and in a second arm an empty list. The reference arm with the same seed includes all shares.
+- (G) For every block won by the adversary:
+  - E_full from the NetSim log: valid explicit shares for the height that reached the adversarial node before it published its header, excluding ν, truncated to S_max by smallest nonce. C_full = 1+|E_full|.
+  - Reference settlement is calculated by ExecFixture from {ν}∪E_full, and actual settlement from the header.
+  - g_dir matches the general formula in D120 exactly in both arms.
+  - ownSharesOnly must also have c_w^kept = c_w^full and satisfy the bound.
+  - emptyShares has no bound other than the formula.
+  - Record (C_full, C_kept, c_w^full, c_w^kept, g_dir) for each block.
+  - SV10a–f is a pre-run gate, deterministically covering both threshold branches, the empty list, and the S_max limit.
+  - Therefore (G) does not require C_full > κm to occur in SimNet, which may be rare at m=32. Record the count of these blocks as a measurement, without an underpowered label.
+- (S) For each adversarial arm:
+  - g_seed = (R_arm − R_ref)/R_ref, where R is total paid to adversarial identities in the window, including winnerPart and propPart.
+  - R_ref = 0, or a stall in either arm, yields the censored value from CEN.
+  - Acceptance for each arm: CI upper bound ≤ 0.02.
+  - T7c is not event-conditioned, so the excitation quota does not apply. A seed where the adversary never wins is valid, since R includes propPart and indirect effects.
 
-**T7e (مراوغة الفائز، G وS، بوابة)**
-- الإعداد: عند أول فوز للخصم بارتفاع j ∈ [1000, 1500]، والتشغيل حتى هدوء 3600، فـj+E_win ≤ 3548 < H_CLOSE.
-  - غياب الفوز في المدى يعني بذرة غير مستثارة.
-  - غياب كتلة موقّعة صادقة رأى مقترحها الرأسين ضمن [j+1, j+E_win] يجعل البذرة غير مستثارة للبندين (b) و(c) وحدهما. يُطبق البندان (a) و(d) فيها.
-  - يوقّع رأسين بالـnonce نفسه وshareRoot1 ≠ shareRoot2.
-  - يرسل الأول إلى نصف الصادقين والثاني إلى النصف الآخر، بانقسام 20s، ثم يحدث الالتئام.
-- المعايير:
-  - (a) (G) HeadCheck بعد الحاجز (Q1–Q5). (S) التقارب خلال 30·T_blk بعد الالتئام، بقاعدة التقارب على البذور المستثارة.
-  - (b) إن وُجدت كتلة موقّعة صادقة في [j+1, j+D−1] بعد أن رأى مقترحها الرأسين: دليل النوع 2 مُدرج فيها أو قبلها، وsettle(j) يعطي invalidBurn = pot_j، والمتهم tomb=1 وسنده BURNED.
-  - (c) إن لم توجد تلك الكتلة: إدراج الدليل خلال E_win يعطي tomb=1، وصفر أثر على pot_j المسوى. الحالتان تُسجلان.
-  - (d) الدليل المخالف لشروطه يبطل الكتلة الحاملة (ضابط سالب بالسكربت نفسه).
+**T7e (winner equivocation, G and S, gate)**
+- Setup: at the adversary's first win at height j ∈ [1000, 1500], running through quiescence at 3600, so j+E_win ≤ 3548 < H_CLOSE.
+  - No win in the range means an unexcited seed.
+  - No honest signed block whose proposer saw both headers within [j+1, j+E_win] makes the seed unexcited for items (b) and (c) only. Items (a) and (d) still apply.
+  - Sign two headers with the same nonce and shareRoot1 ≠ shareRoot2.
+  - Send the first to half the honest nodes and the second to the other half, with a 20s partition, then heal.
+- Criteria:
+  - (a) (G) HeadCheck after the barrier (Q1–Q5). (S) Convergence within 30·T_blk after healing, using the convergence rule on excited seeds.
+  - (b) If an honest signed block exists in [j+1, j+D−1] after its proposer saw both headers: type 2 evidence is included in it or earlier, settle(j) gives invalidBurn = pot_j, and the accused has tomb=1 and bond BURNED.
+  - (c) If that block does not exist: including evidence within E_win gives tomb=1 and zero effect on settled pot_j. Record both cases.
+  - (d) Evidence violating its conditions invalidates the carrying block (negative control in the same script).
 
-**T9 (التقدم مع مقترحين صامتين، S، بوابة)**
-- الإعداد: أربع هويات صادقة الأوزان (8 و4 و2 و1، أي 15/46) مقترحات صامتة: لا ترسل قوالب، وتعدّن على الاحتياطي.
-- المقياس: لكل h في النافذة على N0، I_h = 1 إن وصلت الكتلة h خلال X^W+5·T_blk من وصول أبيها. T9 = ΣI_h/3000.
-- القبول: الحد الأدنى لـCI ≥ 0.95.
+**T9 (progress with silent proposers, S, gate)**
+- Setup: four honest identities with weights (8, 4, 2, 1, totaling 15/46) are silent proposers: they send no templates and mine on fallback.
+- Metric: for each h in the window at N0, I_h = 1 if block h arrives within X^W+5·T_blk of its parent's arrival. T9 = ΣI_h/3000.
+- Acceptance: CI lower bound ≥ 0.95.
 
-**T10 (قياس فقط)**
-- الإعداد: β ∈ {0.098, 0.207, 0.303} بسياستين:
-  - تعدين أناني: حجب الكتل وكشفها عند تقدم الصادقين.
-  - إنفاق مزدوج: دفع ثم فرع خاص يستبعده، يُكشف إن تجاوز عمله.
-- المقاييس:
-  - حصة الخصم من الكتل القانونية مقابل β.
-  - توزيع عمق إعادة التنظيم.
-  - نسبة نجاح الإنفاق المزدوج بعد k ∈ {1, 6, 60} تأكيدًا لكل 1000 محاولة.
-- لا تُستنتج منه عتبة أمان [PDF:74].
+**T10 (measurement only)**
+- Setup: β ∈ {0.098, 0.207, 0.303} with two policies:
+  - Selfish mining: withhold blocks and reveal them when honest nodes advance.
+  - Double spending: pay, then build a private branch excluding the payment, revealed if its work exceeds the other branch.
+- Metrics:
+  - Adversarial share of canonical blocks versus β.
+  - Reorganization depth distribution.
+  - Double-spend success rate after k ∈ {1, 6, 60} confirmations per 1000 attempts.
+- No security threshold is inferred from this [PDF:74].
 
-**T10b (بوابة: i وii وiii وvi. قياس: iv وv)**
-- (i) دون خصم: عينة كل ثانية افتراضية، وتنجح إن تطابقت بادئات كل الصادقين حتى head_min−6. القبول: الحد الأدنى لـCI لنسبة العينات الناجحة ≥ 0.99.
-- (ii) انقسام 23/23 بالأوزان لمدة 600s عند الكتلة 1000، ثم الالتئام. G لكل بذرة مقيّمة بعد الحاجز:
+**T10b (gate: i, ii, iii, vi. Measurement: iv, v)**
+- (i) No adversary: sample every virtual second, passing if all honest prefixes through head_min−6 match. Acceptance: CI lower bound for the fraction of successful samples ≥ 0.99.
+- (ii) Partition 23/23 by weight for 600s at block 1000, then heal. G for every evaluated seed after the barrier:
   - HeadCheck (Q1–Q5).
-  - يشمل ذلك Q4: حالة كل صادق مطابقة بايتيًا لعقدة رأت فرع رأسه وحده، وهذا يغطي الفرع الفائز دون افتراض حسم التعادل.
-  - (S) التقارب خلال 30·T_blk من الالتئام، بقاعدة التقارب.
-  - معاملات الفرع الخاسر تعود إلى المجمع بعد إعادة فحصها.
-  - العمق قياس.
-- (iii) قالبان مع حجب الجسم:
-  - الاستثارة: أول h ∈ [1000, 2500] يكون فيه Draw(h,0) هوية الخصم، ويجد فيه AdvOracle nonce.
-    - AdvOracle يبحث خارج الزمن الافتراضي في نطاق الخصم R(adv) لـUT1 حتى 2^28 تجزئة.
-    - إن لم يجد يُجرب h التالي المؤهل، فإن نفد المدى فالبذرة غير مستثارة.
-    - AdvOracle يمنح الخصم قدرة بحث غير واقعية، فالذراع يختبر معالجة القواعد لا احتمال نجاح الخصم.
-  - t0 = L(0) للارتفاع h. partition(A, B, t0−1s, t0+X^W+120s)، والخصم موصول بالنصفين.
-  - عند t0: يرسل UT2 بجسمه إلى B وحده، ولا يرسل قالبًا إلى A.
-  - عند t0+X^W: ينشر رأس UT1 بالـnonce إلى A وحده، ويرفض GetBodies حتى t0+X^W+120s.
-  - بعد ذلك ينشر الجسم للجميع، ثم يلتئم الانقسام.
-  - البند (d) مشروط كما في T7e(c).
-  - المعايير (G):
-    - (a) لا تحتسب عقدة صادقة عملًا ولا تغير رأسها لكتلة لم تتحقق من جسمها (D38).
-    - (b) (S، لا G): نسبة البذور المستثارة التي أنتج فيها كل نصف كتلة صالحة واحدة على الأقل خلال [t0, t0+X^W+120s]، بالاحتياطي أو بـUT2. القبول بحد أدنى للـCI ≥ 0.9. البذرة التي لم ينتج فيها نصفٌ كتلةً تُسجل، ولا تُعد خرقًا G.
-    - (c) (G) HeadCheck بعد الحاجز (Q1–Q5). (S) التقارب خلال 30·T_blk بعد نشر الجسم والالتئام، بقاعدة التقارب على البذور المستثارة.
-    - (d) دليل النوع 1 يُدرج في أول كتلة موقّعة صادقة رأى مقترحها القالبين ضمن E_win، والمتهم tomb=1.
-    - (e) طوابير unknownParent والجانبية ضمن حدودها.
-- (iv) تواطؤ المقترح والفائز للتعدين المسبق: يُقاس زمن السبق.
-- (v) الطوابع المتطرفة بالتواطؤ: قياس مع T10c.
-- (vi) العزل وإعادة الاتصال: الخصم يعزل N5 لمدة 300s، ويغذيها بفرع خاص بمعدل 5 يحوي رأسًا مخالف الهوية، ثم يعيد وصلها. G بعد الحاجز:
-  - HeadCheck يشمل N5، فرأسها بعمل W* لا على الفرع الخاص، وحالتها مطابقة لـRefReplay لفرع رأسها (Q4).
-  - (S) تبنيها الفرع الأثقل خلال 60s افتراضية بعد إعادة الوصل، بقاعدة التقارب.
-  - التراجع ≤ R_keep (Q5).
-  - النظير المرسل للرأس المخالف محظور.
+  - This includes Q4: each honest node's state is byte-identical to a node that saw only its head's branch, covering the winning branch without assuming tie resolution.
+  - (S) Convergence within 30·T_blk of healing, using the convergence rule.
+  - Losing-branch transactions return to the mempool after revalidation.
+  - Depth is a measurement.
+- (iii) Two templates with body withholding:
+  - Excitation: the first h ∈ [1000, 2500] where Draw(h,0) is the adversarial identity and AdvOracle finds a nonce.
+    - AdvOracle searches outside virtual time in the adversary's range R(adv) for UT1, up to 2^28 hashes.
+    - If unsuccessful, try the next eligible h; if the range is exhausted, the seed is unexcited.
+    - AdvOracle gives the adversary unrealistic search power, so this arm tests rule handling, not adversarial success probability.
+  - t0 = L(0) for height h. partition(A, B, t0−1s, t0+X^W+120s), with the adversary connected to both halves.
+  - At t0: send UT2 with its body to B only, and no template to A.
+  - At t0+X^W: publish the UT1 header with the nonce to A only, and refuse GetBodies until t0+X^W+120s.
+  - Then publish the body to everyone and heal the partition.
+  - Item (d) is conditional as in T7e(c).
+  - Criteria (G):
+    - (a) No honest node counts work or changes its head for a block whose body it has not verified (D38).
+    - (b) (S, not G): fraction of excited seeds where each half produced at least one valid block during [t0, t0+X^W+120s], via fallback or UT2. Acceptance requires CI lower bound ≥ 0.9. Record a seed where one half produced no block; it is not a G violation.
+    - (c) (G) HeadCheck after the barrier (Q1–Q5). (S) Convergence within 30·T_blk after body publication and healing, using the convergence rule on excited seeds.
+    - (d) Type 1 evidence is included in the first honest signed block whose proposer saw both templates within E_win, and the accused has tomb=1.
+    - (e) unknownParent and side-branch queues remain within their bounds.
+- (iv) Proposer–winner collusion for premining: measure the head start time.
+- (v) Collusive extreme timestamps: measurement with T10c.
+- (vi) Isolation and reconnection: the adversary isolates N5 for 300s, feeds it a private branch at rate 5 containing a header with an invalid identity, then reconnects it. G after the barrier:
+  - HeadCheck includes N5: its head has work W*, is not on the private branch, and its state matches RefReplay for its head's branch (Q4).
+  - (S) It adopts the heavier branch within 60s virtual time after reconnection, using the convergence rule.
+  - Rollback ≤ R_keep (Q5).
+  - The peer sending the invalid header is banned.
 
-**T19 (الإدراج تحت رقابة جزئية، S، بوابة)**
-- الإعداد: مقترحون خصميون بالأوزان (8 و4 و2 و1) يستبعدون معاملات هدف موسومة. مولد يرسل معاملة هدف كل 5 كتل إلى عقد صادقة.
-- المقياس (لكل ارتفاع، D47): الارتفاعات المؤهلة هي التي فيها معاملة هدف وصلت المجمع الصادق قبل L(0) لأبيها بأكثر من X^W. I_h = 1 إن أُدرجت كلها حتى h+10. T19 = ΣI_h ÷ عدد الارتفاعات المؤهلة.
-- القبول: الحد الأدنى لـCI ≥ 0.8.
+**T19 (inclusion under partial censorship, S, gate)**
+- Setup: adversarial proposers with weights (8, 4, 2, 1) exclude tagged target transactions. A generator sends a target transaction every 5 blocks to honest nodes.
+- Metric (per height, D47): eligible heights are those with a target transaction that reached the honest mempool more than X^W before its parent's L(0). I_h = 1 if all are included by h+10. T19 = ΣI_h ÷ number of eligible heights.
+- Acceptance: CI lower bound ≥ 0.8.
 
-**T20 (FSM1–FSM10، G، ساعة وهمية)**
-- FSM1: قالب صالح قبل T_j يقفل.
-- FSM2: الوصول عند T_j بالضبط يقفل، وبعده بـ1 ms يعطي FB.
-- FSM3: الغياب يعطي FB لاصقًا لا يعود.
-- FSM4: قالب مخالف يُعامل كغياب مع عقوبة النظير.
-- FSM5: قالب ثانٍ من المقترح يعطي دليل النوع 1 ثم FB.
-- FSM6: القالب السابق لأبيه يُخزن ثم يُطبق عند وصول الأب، بحد 4 لكل أب و64 إجمالًا.
-- FSM7: parentInvalid يحذفه.
-- FSM8: عند a ≥ 1 يكون FB عند L(a).
-- FSM9: الانتقال إلى a+1 عند C > U(a)+Γ.
-- FSM10: Act فارغة تعني توقفًا.
-- المعيار: الحالة والأحداث مطابقة لجدول VA-spec.
+**T20 (FSM1–FSM10, G, fake clock)**
+- FSM1: a valid template before T_j locks.
+- FSM2: arrival exactly at T_j locks; 1 ms later gives FB.
+- FSM3: absence gives sticky FB with no return.
+- FSM4: an invalid template is treated as absence, with a peer penalty.
+- FSM5: a second template from the proposer gives type 1 evidence, then FB.
+- FSM6: a template preceding its parent is stored, then applied when the parent arrives, limited to 4 per parent and 64 total.
+- FSM7: parentInvalid deletes it.
+- FSM8: when a ≥ 1, FB occurs at L(a).
+- FSM9: transition to a+1 when C > U(a)+Γ.
+- FSM10: empty Act means a halt.
+- Criterion: state and events match the VA-spec table.
 
-**T23 (N1–N10، G، NetSim)**
-- N1: تأخير Δ كامل على كل الوصلات.
-- N2: فقد 10% من رسائل gossip.
-- N3: ثلاث مخالفات 1ب من نظير تؤدي إلى حظره.
-- N4: نظير يرسل 100 رأس بأب مجهول: الطابور ≤ 64، ودون ASERT.
-- N5: جسم غير مطابق للجذور في GetBodies: يُرفض الرد لا الكتلة (BodyMismatch، D125)، ويُعاقب النظير، ويُجلب الجسم من نظير آخر.
-- N6: نظير يرفض GetBodies دائمًا.
-  - (G) يكتمل الجلب من نظير آخر قبل نهاية السكربت.
-  - (S) يكتمل خلال 3Δ من الرفض، بحد أدنى للـCI ≥ 0.95.
-- N7: مزامنة 3000 كتلة من نظيرين أحدهما يرسل رؤوسًا مخالفة: يُحظر ويكتمل.
-- N8: إعادة تشغيل أثناء المزامنة: استئناف دون تلف.
-- N9 (D129، توافر متأخر في الشبكة الحية):
-  - t=10: N3 يعرف رأس X، ولا يحوز أي نظير جسمه. يرد كل نظراء N3 بـNotFound، فيدخلون كلهم triedPeers.
-  - t=20: FixtureMiner يسلم جسم X إلى N5، فتستورده وتبث رأسه.
-  - (G) N3 يستورد X قبل نهاية السكربت (t=200)، وأول طلب بعد البث موجه إلى N5.
-  - (S) الاستيراد خلال 2s من البث.
-  - المتغير: drop(N5→N3, block) دون Status. N3 يعيد طلب N5 بالمهلة الأسية خلال ≤ 60s. (G) الاستيراد قبل t=200.
-  - الضابط السالب simnet-fault:noReeligible يبقي N5 مستبعدًا، فيفشل الحالتان.
-- N10 (D131، غلاف صالح متأخر في الشبكة الحية):
-  - t=10: AdvPeer يرسل إلى N3 جسم X وثلاث نسخ لرأسها بـwinnerSig من غير المالك. لدى N3 ثلاثة envReject، وX في envWait دون حكم على blockHash.
-  - t=40: FixtureMiner يسلم X بنسختها الصحيحة إلى N5، فتستوردها وتبثها.
-  - (G) صفر blockReject وصفر مدخل لـX في pocol_getRejects لدى N3، وN3 يستورد X قبل t=200.
-  - (S) الاستيراد خلال 2s من البث.
-  - الضابط السالب simnet-fault:envAsBlockReject يجعل N3 ترفض X نهائيًا، فيفشل.
-- N11 (D136، إغراق الأغلفة في الشبكة الحية، I75):
-  - الإعداد: sv-fix في SimNet. N3 يعرف رأس X بجسمها، ولا يحوز نسخة envOk.
-  - AdvPool: 300 هوية نظير تتصل تباعًا، ≤ 20 متزامنة. كل منها يرسل إلى N3 عبر gossip نسختين مختلفتين لرأس X بـwinnerSig من غير المالك، ثم ينقطع قبل الحظر. المجموع 600 hdrId.
-  - أثناء ذلك يرد كل نظير خصمي على GetEnvelope بنسخة تالفة جديدة.
-  - t=60: FixtureMiner يسلم X بنسختها الصحيحة إلى N5 وحدها.
-  - (G) في كل عينة: rej(X) ≤ 8، وpending(X) ≤ 4، وenvRejEntries ≤ 16384، وذاكرة الأغلفة ≤ ENV_MEM_MAX.
-  - (G) فحوص النسخ غير المطلوبة لـX ≤ 8 + عدد الأحكام المطرودة لـX. صفر blockReject لـX، وصفر مدخل له في pocol_getRejects.
-  - (G) N3 يستورد X قبل t=200، والطلب الذي جلب النسخة الصحيحة رد مطلوب.
-  - (S) الاستيراد خلال 30s من t=60، والزمن قياس.
-  - envFloodDropped وenvEvicted قياس.
-- N11b (G، وحدة EnvCache بساعة وهمية):
-  - 20000 حكم لـ5000 blockHash لها مداخل محلية.
-  - المتوقع: المجموع ≤ 16384 في كل خطوة، والطرد FIFO بالترتيب الحرفي، وrej لكل كتلة ≤ 8.
-  - إزالة blockHash تحذف أحكامه كلها. حكم لـblockHash بلا مدخل لا يُحفظ.
-- N11c: كـN11 مع ورود النسخة الصحيحة عبر gossip أثناء الامتلاء.
-  - المتوقع: تُسقط دون فحص ودون عقوبة لـN5، ثم يجلبها EnvFetch خلال حد N11.
-- الضوابط السالبة:
-  - simnet-fault:envCacheUnbounded يعطل السقوف. يفشل N11b (20000 > 16384)، ويفشل N11 (rej(X) > 8).
-  - simnet-fault:envFullAsBlockReject يسجل blockReject عند بلوغ السقف، فيفشل N11.
-  - simnet-fault:envDropSolicited يسقط الردود المطلوبة عند الامتلاء. لا يُستورد X قبل t=200، فيفشل N11.
-  - simnet-fault:envSolicitUnbounded (D137) يصدر طلبات ويفحص كل رد مطلوب دون مقاعد. يتجاوز الفحوص الجارية 64 في N12، فيفشل.
-  - simnet-fault:envReplyUnreserved يصدر الطلبات دون حجز ويخزن الردود في طابور. يتجاوز طلبات جارية 32 أو envMemBytes > ENV_MEM_MAX في N12، فيفشل.
-  - simnet-fault:envTimeoutExclude يستبعد النظير نهائيًا بعد Timeout. لا يُستورد X100 في N12t، فيفشل.
-  - simnet-fault:envReleaseOnCancel (D138) يحرر المقعد عند طلب الإلغاء قبل استقرار الفحص. في N12c يمنح 32 مقعدًا جديدًا عند t=1، فتصير liveChecks = 96 > 64، فيفشل.
-  - simnet-fault:envTimeoutCoversCheck (D138) يبقي مهلة الطلب سارية أثناء checking ويحرر المقعد عندها.
-  - simnet-fault:envCheckSharedPool (D139) ينفذ فحوص الغلاف في ComputePool المشترك، فيفشل في N12w.
-    - في N12c تنقضي المهلة عند 2.5s والفحص جارٍ، فيفشل مسند liveChecks.
-    - في N12r(r1) يحرر المقعد بعد الدخول في checking، فيفشل.
-    - في QV25c، مع c_env المضبوط في SimParams بحيث RTT_i+c_env > 2s، تقع مهلة في التصريف، فيفشل مسند envTimeouts = 0.
-- N12 (D137، امتلاء الفحوص بردود مطلوبة لكتل متعددة):
-  - الإعداد: sv-fix في SimNet، وENV_REQ_TIMEOUT = 2s.
-    - لدى N3 مئة مدخل X1..X100 بأجسامها وحالة آبائها، ولا نسخة envOk لأي منها.
-    - نظراء N3: عشرون نظيرًا خصميًا، وN5.
-  - الخصوم يردون على كل GetEnvelope بعد 1.5s بنسخة تالفة جديدة. ويرسلون عبر gossip نسخًا تالفة لكل Xk بأقصى معدل.
-  - t=30: FixtureMiner يسلم X100 بنسختها الصحيحة إلى N5 وحدها، مع drop(N5→N3, block).
-  - (G) في كل انتقال:
-    - solicitHeld ≤ 32، وgossipHeld ≤ 32، والفحوص الجارية ≤ 64، وenvMemBytes ≤ ENV_MEM_MAX.
-    - صفر طلب أو فحص مطلوب دون مقعد.
-    - release واحد لكل مقعد.
-    - ترتيب المنح يطابق EnvQueue FIFO في ActLog.
-  - (G) صفر blockReject، وصفر مدخل في pocol_getRejects لأي Xk.
-  - (G) N3 يستورد X100 قبل t=600 بنسخة من رد مطلوب من N5.
-  - (S) زمن الاستيراد قياس، ويُقارن بحد لِمّة التعافي.
-  - N12t: وصلة N5→N3 بتأخير 3s حتى t=40، ثم 50 ms.
-    - أول طلب لـN5 بعد t=30 ينقضي بـTimeout، ثم يصير reeligible بالمهلة الأسية.
-    - (G) الاستيراد قبل t=600، والرد المتأخر يمر بمسار gossip دون عقوبة.
-- N12b (G، وحدة EnvSlots بساعة وهمية): لكل مخرج من الثمانية في network:
-  - الانتقال الحرفي للحالة، وrelease واحد، وعودة x إلى الذيل أو انتظار إعادة الأهلية.
-  - الرد الأكبر من ENV_REPLY_MAX يُقطع عند 3131 B ويُعاقب.
-  - رد بعد release لا يحجز مقعدًا مطلوبًا.
-- N12c (G، وحدة EnvSlots، D138، الإلغاء أثناء checking):
-  - الإعداد:
-    - ساعة وهمية.
-    - CheckGate خطاف في بناء simnet فقط، يحتجز اكتمال كل فحص حتى settle(i).
-    - 64 كتلة X1..X64 في envWait، وحالات آبائها متوفرة.
+**T23 (N1–N10, G, NetSim)**
+- N1: full Δ delay on every link.
+- N2: 10% gossip message loss.
+- N3: three item 1b violations from a peer cause its ban.
+- N4: a peer sends 100 headers with unknown parents: queue ≤ 64, and no ASERT.
+- N5: a body not matching the roots in GetBodies: reject the response, not the block (BodyMismatch, D125), penalize the peer, and fetch the body from another peer.
+- N6: a peer always refuses GetBodies.
+  - (G) Fetching from another peer completes before the script ends.
+  - (S) Completes within 3Δ of refusal, with CI lower bound ≥ 0.95.
+- N7: synchronize 3000 blocks from two peers, one sending invalid headers: ban it and complete.
+- N8: restart during synchronization: resume without corruption.
+- N9 (D129, late availability on the live network):
+  - t=10: N3 knows header X, and no peer holds its body. All N3 peers reply NotFound, so all enter triedPeers.
+  - t=20: FixtureMiner delivers body X to N5, which imports it and broadcasts its header.
+  - (G) N3 imports X before the script ends (t=200), and the first request after broadcast targets N5.
+  - (S) Import within 2s of broadcast.
+  - Variant: drop(N5→N3, block) without Status. N3 requests N5 again via exponential backoff within ≤ 60s. (G) Import before t=200.
+  - Negative control simnet-fault:noReeligible keeps N5 excluded, failing both cases.
+- N10 (D131, late valid envelope on the live network):
+  - t=10: AdvPeer sends N3 body X and three header copies with winnerSig from nonowners. N3 has three envReject, and X is in envWait without a verdict on blockHash.
+  - t=40: FixtureMiner delivers X with its correct copy to N5, which imports and broadcasts it.
+  - (G) Zero blockReject and zero X entries in pocol_getRejects at N3, and N3 imports X before t=200.
+  - (S) Import within 2s of broadcast.
+  - Negative control simnet-fault:envAsBlockReject makes N3 reject X permanently, failing.
+- N11 (D136, envelope flooding on the live network, I75):
+  - Setup: sv-fix in SimNet. N3 knows header X with its body and holds no envOk copy.
+  - AdvPool: 300 peer identities connect successively, ≤ 20 concurrently. Each sends N3 two different X header copies with winnerSig from nonowners via gossip, then disconnects before being banned. Total 600 hdrId.
+  - Meanwhile every adversarial peer responds to GetEnvelope with a new corrupt copy.
+  - t=60: FixtureMiner delivers X with its correct copy to N5 alone.
+  - (G) At every sample: rej(X) ≤ 8, pending(X) ≤ 4, envRejEntries ≤ 16384, and envelope memory ≤ ENV_MEM_MAX.
+  - (G) Checks of unsolicited copies for X ≤ 8 + number of evicted verdicts for X. Zero blockReject for X, and zero entries for it in pocol_getRejects.
+  - (G) N3 imports X before t=200, and the request that obtained the correct copy has a solicited response.
+  - (S) Import within 30s of t=60; time is a measurement.
+  - envFloodDropped and envEvicted are measurements.
+- N11b (G, EnvCache unit with a fake clock):
+  - 20000 verdicts for 5000 blockHash values with local entries.
+  - Expected: total ≤ 16384 at every step, eviction strictly in FIFO order, and rej per block ≤ 8.
+  - Removing a blockHash deletes all its verdicts. A verdict for a blockHash without an entry is not retained.
+- N11c: as N11, with the correct copy arriving via gossip while full.
+  - Expected: dropped without checking and without penalizing N5, then fetched by EnvFetch within the N11 bound.
+- Negative controls:
+  - simnet-fault:envCacheUnbounded disables caps. Fails N11b (20000 > 16384), and fails N11 (rej(X) > 8).
+  - simnet-fault:envFullAsBlockReject records blockReject when the cap is reached, failing N11.
+  - simnet-fault:envDropSolicited drops solicited responses when full. X is not imported before t=200, failing N11.
+  - simnet-fault:envSolicitUnbounded (D137) issues requests and checks every solicited response without slots. In-flight checks exceed 64 in N12, failing.
+  - simnet-fault:envReplyUnreserved issues requests without reservation and queues responses. In-flight requests exceed 32 or envMemBytes > ENV_MEM_MAX in N12, failing.
+  - simnet-fault:envTimeoutExclude permanently excludes the peer after Timeout. X100 is not imported in N12t, failing.
+  - simnet-fault:envReleaseOnCancel (D138) releases the slot when cancellation is requested before the check settles. In N12c it grants 32 new slots at t=1, making liveChecks = 96 > 64, failing.
+  - simnet-fault:envTimeoutCoversCheck (D138) keeps the request timeout active during checking and releases the slot when it expires.
+  - simnet-fault:envCheckSharedPool (D139) runs envelope checks in the shared ComputePool, failing N12w.
+    - In N12c the timeout expires at 2.5s while checking continues, failing the liveChecks predicate.
+    - In N12r(r1) it releases the slot after entering checking, failing.
+    - In QV25c, with c_env set in SimParams so RTT_i+c_env > 2s, a timeout occurs during draining, failing the envTimeouts = 0 predicate.
+- N12 (D137, checks saturated by solicited responses for multiple blocks):
+  - Setup: sv-fix in SimNet, and ENV_REQ_TIMEOUT = 2s.
+    - N3 has one hundred entries X1..X100 with their bodies and parent states, and no envOk copy for any.
+    - N3's peers: twenty adversarial peers, and N5.
+  - Adversaries reply to every GetEnvelope after 1.5s with a new corrupt copy. They send corrupt copies for each Xk via gossip at the maximum rate.
+  - t=30: FixtureMiner delivers X100 with its correct copy to N5 alone, with drop(N5→N3, block).
+  - (G) At every transition:
+    - solicitHeld ≤ 32, gossipHeld ≤ 32, in-flight checks ≤ 64, and envMemBytes ≤ ENV_MEM_MAX.
+    - Zero solicited requests or checks without a slot.
+    - One release per slot.
+    - Grant order matches EnvQueue FIFO in ActLog.
+  - (G) Zero blockReject, and zero entries in pocol_getRejects for any Xk.
+  - (G) N3 imports X100 before t=600 with a copy from a solicited response from N5.
+  - (S) Import time is a measurement, compared with the recovery lemma's bound.
+  - N12t: N5→N3 link delay 3s until t=40, then 50 ms.
+    - The first request to N5 after t=30 expires with Timeout, then becomes reeligible via exponential backoff.
+    - (G) Import before t=600, and the late response follows the gossip path without a penalty.
+- N12b (G, EnvSlots unit with a fake clock): for each of the eight outcomes in network:
+  - The exact state transition, one release, and x returning to the tail or awaiting reeligibility.
+  - A response larger than ENV_REPLY_MAX is cut off at 3131 B and penalized.
+  - A response after release does not reserve a solicited slot.
+- N12c (G, EnvSlots unit, D138, cancellation during checking):
+  - Setup:
+    - Fake clock.
+    - CheckGate is a hook in simnet builds only, holding completion of every check until settle(i).
+    - 64 blocks X1..X64 in envWait, with parent states available.
   - t=0:
-    - 32 طلبًا مطلوبًا لـX1..X32، تكتمل ردودها عند 0.5s فتدخل checking.
-    - 32 نسخة gossip لـX33..X64 تدخل checking.
-    - liveChecks = 64، وliveBuffers = 64.
-  - t=1، أسباب إنهاء أثناء checking:
-    - انقطاع نظراء X1..X8.
-    - استيراد X9..X16 من مسار آخر.
-    - envOk لـX17..X24 من مسار آخر.
-    - إزالة X25..X32 بـD118.
-    - استيراد X33..X64.
-  - من t=1 حتى t=3، مع تقديم الساعة بعد مهلة كل طلب:
-    - solicitHeld = 32، وgossipHeld = 32.
-    - صفر منح جديد، وصفر release.
-    - liveChecks = 64، وliveBuffers = 64.
-  - t=4: settle لكل الفحوص، نصفها envOk ونصفها envReject. المتوقع:
-    - 64 release بالضبط.
-    - صفر استيراد لكتلة مستوردة أو مزالة.
-    - lateCheckDropped = عدد النتائج المهملة وفق قاعدة network.
-    - المنح الجديد يبدأ بعد الاستقرار وحده.
-  - المسند في كل انتقال:
-    - liveChecks ≤ 64، وsolicitChecks ≤ 32، وliveBuffers·3131 ≤ 200384 B.
-    - لا حدث بمعرّف محاولة قديم يغيّر مقعدًا.
-- N12p (G، وحدة EnvFetch مع EnvSlots وEnvCheckPool بساعة وهمية وFakeExec، D139، الحالة الدنيا):
-  - الثوابت: ENV_REQ_TIMEOUT = 2000 ms، وW = 4، وc_exec = 50 ms لكل فحص. إذن c_env = 850 ms، وT_role = 2850 ms.
-  - t=0: Y1..Y32 تُمنح للنظير A. وx تدخل EnvQueue وحدها (Q=1)، ونظيرها الوحيد h* = N5 غير مجرَّب (P=1، B=0).
-  - A يكمل آخر بايت لكل رد عند 1999، فتدخل 32 فحصًا EnvCheckPool، وتستقر على دفعات من 4 عند 2049، و2099، …، و2399.
-  - 2049: أول مقعد يتحرر ويُمنح لـx في الخطوة نفسها. N5 يرد آخر بايت عند 3549 (RTT 1500)، والفحص يستقر عند 3599، ثم الاستيراد.
-  - المتوقع: D_x المقيس = 3599 ≤ D_x المحسوب = 5700، وكل span ≤ 850.
-  - (p-c) تبدل: نظير جديد C بمعرّف أصغر يتصل عند 2000، فـP = 2.
-    - x تُمنح لـC عند 2049، فيرد NotFound عند 3549.
-    - تُمنح لـN5 في الخطوة نفسها، فيرد عند 5049، والاستقرار عند 5099.
-    - المتوقع: 5099 ≤ 3·2·2850 = 17100.
-  - الضابط السالب ref-fault:recoveryOldBound في RecoveryRef يحسب (P−1)·⌈Q/32⌉·T_role = 0 < 3599، فيفشل.
-- N12h (G، وحدة، بلوغ الحائز بعد P−1 فشلًا، D139):
-  - الإعداد: P = 5، حيث A1..A4 بمعرّفات أصغر من N5 ولا يحوزون x. وQ=1، ولا حمل آخر.
-  - (h-a) كل Ai يرد NotFound بعد 1900 ms. الطلبات عند 0 و1900 و3800 و5700، ثم N5 عند 7600، فيرد عند 9100، والاستقرار عند 9150.
-  - (h-b) Ai لا يردون، فالمهلة عند 2000 لكل منهم. N5 يُطلب عند 8000، والاستقرار عند 9550.
-  - (h-c) N5 جُرِّب سابقًا بـNotFound عند −1000 (k=1)، فيصير reeligible عند 1000، وB = 1000. A1..A4 غير مجرَّبين فيُطلبون أولًا بأزمنة (h-a)، ثم N5.
-  - المتوقع: عدد الطلبات = 5 ≤ 2P−1 = 9، وكل زمن ≤ 9·2·2850+B، والترتيب مطابق حرفيًا لـRecoveryRef.
-- N12a (G، وحدة EnvFetch مع RecoveryRef، D140، أب متأخر):
-  - الثوابت كـN12p: T_role = 2850 ms، وW = 4، وc_exec = 50 ms، وRTT(N5, N3) = 1500 ms.
-  - t=0: x في envWait لدى N3 برأسها وجسمها، وN5 حائز وحيد (P=1، Q=1، B=0)، وحالة أب x غير متوفرة.
-  - t=20000: تتوفر حالة الأب باستيراد متأخر لجسم الأب.
-  - المتوقع:
-    - صفر GetEnvelope لـx قبل 20000.
-    - أول طلب عند 20000، والرد عند 21500، والاستقرار عند 21550، ثم الاستيراد.
-    - RecoveryRef: t_0 = 20000، وpreCondWait = 20000، والتأخر بعد t_0 = 1550 ≤ D_x = 5700، والحكم withinBound.
-  - الضوابط السالبة:
-    - simnet-fault:envRequestBeforeParent يرسل الطلب قبل حالة الأب، فيفشل مسند «صفر طلب قبل 20000».
-    - ref-fault:t0Unconditioned يحسب t_0 = 0، فيعلن boundViolated (21550 > 5700) لتنفيذ مطابق، فيفشل تطابق المرجع مع الحكم المتوقع.
-- N12s (G، SimNet، D140، حائز بطيء دائمًا):
-  - الإعداد: N3 لديه x في envWait بحالة أبيها، وN5 حائز وحيد بـRTT(N5, N3) = 3000 ms دائمًا، وENV_REQ_TIMEOUT = 2000 ms، وdrop(N5→N3, block)، والسكربت حتى t=200000.
-  - المتوقع:
-    - كل طلب إلى N5 ينقضي عند +2000 بإعادة ضبط substream، وصفر بايت متأخر يُقرأ في مخزن، وenvTimeouts ≥ 1.
-    - صفر استيراد لـx، وصفر blockReject، وصفر مدخل لـx في pocol_getRejects، وx باقية في envWait.
-    - RecoveryRef: G3 غير متحقق، فالحكم noGuarantee، ولا يُسجل نجاح ولا فشل زمني.
-  - المتغير N12s-i: من t=60000 يصير RTT(N5, N3) = 500 ms.
-    - t_0' = 60000، وB = الباقي من مهلة N5 الأسية عند 60000 من التتبع (≤ 60000).
-    - المتوقع: الاستيراد عند ≤ 60000 + 2·2850 + B، والحكم withinBound.
-  - ref-fault:t0Unconditioned يعلن boundViolated في N12s، فيفشل.
-- N12w (G، وحدة EnvCheckPool، D139):
-  - t=0: 64 فحصًا حيًا (32 مطلوبة و32 gossip) بـc_exec = 50 ms.
-  - المتوقع: الاستقرار على 16 دفعة حتى 800، وأقصى span = 800 ≤ c_env = 850، وliveChecks ≤ 64، وصفر فحص خارج EnvCheckPool.
-  - (w-o) فحص واحد بـc_exec = 900:
-    - envCheckOverrun = 1، ولا release قبل استقراره، والسقف محفوظ.
-    - لا يُعلن اجتياز الحد الزمني لذلك الفحص.
-  - الضابط السالب simnet-fault:envCheckSharedPool ينفذ الفحوص في ComputePool المشترك. الاختبار يملأ المجمع بعشرين مهمة مدة كل منها 5s، فيصير span ≥ 5050 > 850، فيفشل.
-- N12r (G، وحدة، سباق الرد والمهلة، D138):
-  - (r1) آخر بايت عند sendTime+2000 ms بالضبط → checking، ولا مهلة.
-  - (r2) آخر بايت عند +2001 ms:
-    - المهلة عند +2000 تعيد ضبط substream وتحرر المقعد.
-    - البايتات المتأخرة لا تُقرأ في أي مخزن.
-    - المقعد يُمنح لمحاولة جديدة بـattemptId أكبر.
-  - (r3) يحقن الخطاف نتيجة فحص بمعرّف محاولة سابقة بعد إعادة المنح → تُهمل، ولا يقع release للمحاولة الجديدة.
-  - (r4) إلغاء في buffered بعد 1500 بايت → release فوري، وliveBuffers ينقص في الخطوة نفسها.
-- المعيار:
-  - HeadCheck بعد الحاجز، ويُطبق الحاجز عند نهاية كل سكربت.
-  - صفر انهيار.
-  - حدود P2P محفوظة.
+    - 32 solicited requests for X1..X32, whose responses complete at 0.5s and enter checking.
+    - 32 gossip copies for X33..X64 enter checking.
+    - liveChecks = 64, and liveBuffers = 64.
+  - t=1, termination reasons during checking:
+    - X1..X8 peers disconnect.
+    - X9..X16 imported via another path.
+    - envOk for X17..X24 via another path.
+    - X25..X32 removed by D118.
+    - X33..X64 imported.
+  - From t=1 until t=3, advancing the clock past each request's timeout:
+    - solicitHeld = 32, and gossipHeld = 32.
+    - Zero new grants, and zero release.
+    - liveChecks = 64, and liveBuffers = 64.
+  - t=4: settle all checks, half envOk and half envReject. Expected:
+    - Exactly 64 release.
+    - Zero imports of an imported or removed block.
+    - lateCheckDropped = number of discarded results under the network rule.
+    - New grants begin only after settlement.
+  - Predicate at every transition:
+    - liveChecks ≤ 64, solicitChecks ≤ 32, and liveBuffers·3131 ≤ 200384 B.
+    - No event with an old attempt ID changes a slot.
+- N12p (G, EnvFetch unit with EnvSlots and EnvCheckPool, fake clock and FakeExec, D139, minimal case):
+  - Constants: ENV_REQ_TIMEOUT = 2000 ms, W = 4, and c_exec = 50 ms per check. Thus c_env = 850 ms, and T_role = 2850 ms.
+  - t=0: Y1..Y32 granted to peer A. x enters EnvQueue alone (Q=1), and its only peer h* = N5 is untried (P=1, B=0).
+  - A completes the last byte of every response at 1999, so 32 checks enter EnvCheckPool and settle in batches of 4 at 2049, 2099, …, 2399.
+  - 2049: the first slot is released and granted to x in the same step. N5 responds with the last byte at 3549 (RTT 1500), the check settles at 3599, then import.
+  - Expected: measured D_x = 3599 ≤ calculated D_x = 5700, and every span ≤ 850.
+  - (p-c) Churn: a new peer C with a smaller ID connects at 2000, so P = 2.
+    - x is granted to C at 2049, which replies NotFound at 3549.
+    - Granted to N5 in the same step, which replies at 5049, with settlement at 5099.
+    - Expected: 5099 ≤ 3·2·2850 = 17100.
+  - Negative control ref-fault:recoveryOldBound in RecoveryRef calculates (P−1)·⌈Q/32⌉·T_role = 0 < 3599, failing.
+- N12h (G, unit, reaching the holder after P−1 failures, D139):
+  - Setup: P = 5, with A1..A4 having IDs smaller than N5 and not holding x. Q=1, and no other load.
+  - (h-a) Each Ai replies NotFound after 1900 ms. Requests at 0, 1900, 3800, 5700, then N5 at 7600, replying at 9100, with settlement at 9150.
+  - (h-b) Ai do not respond, so each times out at 2000. N5 is requested at 8000, with settlement at 9550.
+  - (h-c) N5 was previously tried with NotFound at −1000 (k=1), becomes reeligible at 1000, and B = 1000. A1..A4 are untried, so requested first at (h-a) times, then N5.
+  - Expected: request count = 5 ≤ 2P−1 = 9, every time ≤ 9·2·2850+B, and order matches RecoveryRef exactly.
+- N12a (G, EnvFetch unit with RecoveryRef, D140, late parent):
+  - Constants as N12p: T_role = 2850 ms, W = 4, c_exec = 50 ms, and RTT(N5, N3) = 1500 ms.
+  - t=0: x is in envWait at N3 with its header and body, N5 is the sole holder (P=1, Q=1, B=0), and x's parent state is unavailable.
+  - t=20000: the parent state becomes available through late import of the parent body.
+  - Expected:
+    - Zero GetEnvelope for x before 20000.
+    - First request at 20000, response at 21500, settlement at 21550, then import.
+    - RecoveryRef: t_0 = 20000, preCondWait = 20000, delay after t_0 = 1550 ≤ D_x = 5700, and verdict withinBound.
+  - Negative controls:
+    - simnet-fault:envRequestBeforeParent sends the request before the parent state, failing the "zero requests before 20000" predicate.
+    - ref-fault:t0Unconditioned calculates t_0 = 0, declaring boundViolated (21550 > 5700) for a conforming execution, failing reference agreement with the expected verdict.
+- N12s (G, SimNet, D140, persistently slow holder):
+  - Setup: N3 has x in envWait with its parent state, N5 is the sole holder with RTT(N5, N3) = 3000 ms permanently, ENV_REQ_TIMEOUT = 2000 ms, drop(N5→N3, block), and the script runs until t=200000.
+  - Expected:
+    - Every request to N5 expires at +2000 with substream reset, zero late bytes read into a buffer, and envTimeouts ≥ 1.
+    - Zero x imports, zero blockReject, zero x entries in pocol_getRejects, and x remains in envWait.
+    - RecoveryRef: G3 is not satisfied, so the verdict is noGuarantee; neither timing success nor timing failure is recorded.
+  - Variant N12s-i: from t=60000, RTT(N5, N3) = 500 ms.
+    - t_0' = 60000, and B = remaining N5 exponential backoff at 60000 from the trace (≤ 60000).
+    - Expected: import at ≤ 60000 + 2·2850 + B, and verdict withinBound.
+  - ref-fault:t0Unconditioned declares boundViolated in N12s, failing.
+- N12w (G, EnvCheckPool unit, D139):
+  - t=0: 64 live checks (32 solicited, 32 gossip) with c_exec = 50 ms.
+  - Expected: settlement in 16 batches through 800, maximum span = 800 ≤ c_env = 850, liveChecks ≤ 64, and zero checks outside EnvCheckPool.
+  - (w-o) One check with c_exec = 900:
+    - envCheckOverrun = 1, no release before it settles, and the cap is preserved.
+    - No claim that this check passed the time bound.
+  - Negative control simnet-fault:envCheckSharedPool runs checks in the shared ComputePool. The test fills the pool with twenty tasks lasting 5s each, making span ≥ 5050 > 850, failing.
+- N12r (G, unit, response–timeout race, D138):
+  - (r1) Last byte exactly at sendTime+2000 ms → checking, and no timeout.
+  - (r2) Last byte at +2001 ms:
+    - Timeout at +2000 resets the substream and releases the slot.
+    - Late bytes are not read into any buffer.
+    - The slot is granted to a new attempt with a larger attemptId.
+  - (r3) The hook injects a check result with a previous attempt ID after regrant → discarded, with no release for the new attempt.
+  - (r4) Cancellation in buffered after 1500 bytes → immediate release, and liveBuffers decreases in the same step.
+- Criterion:
+  - HeadCheck after the barrier, with the barrier applied at the end of each script.
+  - Zero crashes.
+  - P2P limits preserved.
 
-**T18b (L1–L13، G، caps/64)**
+**T18b (L1–L13, G, caps/64)**
 
-الملف caps/64 (simnet):
-- القيم: sv-fix مع chainId=777903، وH_END=4000، وH_CLOSE=3840، وZ_close=160.
-- السقوف: CODE_CAP=2^21، وTXBYTES_CAP=2^24، وTX_CAP=20000، وSLOT_CAP=50000، وACCT_CAP=20000.
-- العضوية والأدلة: R_max=2، وM_max=64، وE_win=64، وU=96، وD=16. إذن Lmax=145، وREG_RECORDS_MAX = 64+2·(145+2048) = 4450، أي حد R16 بالضبط.
-- SYS_SLOT_MAX = أصغر قيمة تجتاز R18 بـParamGate.derive، وتُثبت في VA-spec.
-- ثوابت البناء caps-test (simnet فقط، غائبة عن الإصدار): LOG_CAP=2^24، وHIST_TRIE_BUDGET=64 MiB (استثناء R21).
-- أي خرق لـParamGate يعطي FixtureSetupError.
+Profile caps/64 (simnet):
+- Values: sv-fix with chainId=777903, H_END=4000, H_CLOSE=3840, and Z_close=160.
+- Caps: CODE_CAP=2^21, TXBYTES_CAP=2^24, TX_CAP=20000, SLOT_CAP=50000, and ACCT_CAP=20000.
+- Membership and evidence: R_max=2, M_max=64, E_win=64, U=96, and D=16. Thus Lmax=145, and REG_RECORDS_MAX = 64+2·(145+2048) = 4450, exactly the R16 bound.
+- SYS_SLOT_MAX = smallest value passing R18 through ParamGate.derive, fixed in VA-spec.
+- caps-test build constants (simnet only, absent from release): LOG_CAP=2^24, HIST_TRIE_BUDGET=64 MiB (R21 exception).
+- Any ParamGate violation gives FixtureSetupError.
 
-الحمولات: كل Lk تشغيل مستقل من genesis بالبذرة b1.
-- L1: store لقطع 24575 بايتًا مختلفة، قطعة لكل كتلة.
-- L2: معاملات بـcalldata 131000 بايت إلى Rv، تملأ BODY_MAX.
-- L3: تحويلات بـ21000 gas.
-- L4: عقد SlotFill يكتب 300 خانة جديدة لكل معاملة.
-- L5: تحويل 1 wei إلى عناوين جديدة.
+Loads: each Lk is an independent run from genesis with seed b1.
+- L1: store distinct 24575-byte chunks, one per block.
+- L2: transactions with 131000-byte calldata to Rv, filling BODY_MAX.
+- L3: transfers with 21000 gas.
+- L4: a SlotFill contract writes 300 new slots per transaction.
+- L5: transfer 1 wei to new addresses.
 - L6: LogBomb.
-- L7 وL8 (بوابتا حد لا بلوغ، لأن R16 يجعل البلوغ مستحيلًا بالبناء): دوران أقصى لمدة 2000 كتلة، أي R_max تسجيلًا أو إعادة تفعيل لكل كتلة مع deregister وclaimBond بمفاتيح اختبار ممولة. المعيار:
-  - RecLen ≤ 4450 واستخدام SYS ≤ SYS_SLOT_MAX في كل كتلة.
-  - RegOpsLimit فوق R_max.
-  - بلوغ أي منهما فشل للِمّة.
-- L9: 600 معاملة بـ131072 بايتًا إلى المجمع.
-- L10: نظير يرسل 100 رأس بأب مجهول. الطابور ≤ 64، والوارد عند الامتلاء يُسقط دون تخزين، ودون ASERT.
-- L11: ثلاث كتل بالارتفاع نفسه بأعمال فروع مختلفة، تصل بترتيب القانونية ثم الأدنى ثم الأعلى. يُحتفظ بالقانونية والأعلى وفق D118، ويُعاد التنظيم إن صار الأعلى أثقل من القانوني.
-- L12: تغيير حالة كثيف حتى تجاوز HIST_TRIE_BUDGET. ينخفض K_eff، ويعطي ما خارجه −32017.
-- L13: K_eff < k_view يطلق الإجراء 7.
+- L7 and L8 (bound gates, not reachability gates, since R16 makes reaching the limits impossible by construction): maximum churn for 2000 blocks, meaning R_max registrations or reactivations per block with deregister and claimBond using funded test keys. Criterion:
+  - RecLen ≤ 4450 and SYS usage ≤ SYS_SLOT_MAX in every block.
+  - RegOpsLimit above R_max.
+  - Reaching either is a failure of the lemma.
+- L9: 600 transactions of 131072 bytes to the mempool.
+- L10: a peer sends 100 headers with unknown parents. Queue ≤ 64; arrivals when full are dropped without storage, and without ASERT.
+- L11: three blocks at the same height with different branch work, arriving in order canonical, lower, then higher. Retain canonical and higher under D118, and reorganize if higher becomes heavier than canonical.
+- L12: intensive state changes until HIST_TRIE_BUDGET is exceeded. K_eff decreases, and anything outside it gives −32017.
+- L13: K_eff < k_view triggers procedure 7.
 
-استجابة L9: −32016 بعد 64 MiB، وRSS ضمن T14.
-- المعيار:
-  - الاستجابة المعلنة في execution وstorage بالضبط: فشل الإيداع، أو توقف استثنائي، أو بطلان الكتلة وتخطي المعاملة، أو تجميد.
-  - بعدها 20 كتلة على الأقل تجتاز T17.
-  - صفر انهيار، وRSS ضمن T14.
+L9 response: −32016 after 64 MiB, and RSS within T14.
+- Criterion:
+  - Exactly the response declared in execution and storage: deposit failure, exceptional halt, or block invalidity and transaction skipping, or freezing.
+  - At least 20 subsequent blocks pass T17.
+  - Zero crashes, and RSS within T14.
 
-**T25 (فقد النسخ أثناء التحديث والاسترجاع، G)**
-- الإعداد (ReplicaHarness):
-  - الأجهزة: M1 يشغّل R1 وR2، وM2 يشغّل R3. على جهاز واحد تُعلن النتيجة «غير ممثلة للتوافر».
-  - الملف: sv-fix مع chainId=777921. الهويات: w على R1، وx على R2، وy وz على R3. كل نسخة pocold كاملة الاحتفاظ.
-  - الموقع T25Site:
-    - v1 = {index.html 4096 B، وstyle.css 8192 B، وapp.js 614400 B}.
-    - v2 = {index.html 4100 B، وstyle.css ببايتات v1 (عنوان القطعة نفسه)، وapp.js 1032192 B}.
-    - n = 44 قطعة جديدة لـv2.
-  - اللقطة S0: نسخة كاملة لمجلد RetentionStore في R3 (الحالة، وكل الكتل والأجسام والإيصالات حتى H_s)، حيث H_s ارتفاع setCurrent(v1). تُوقع بمفتاح الاختبار 1 مع keccak256 لكل ملف.
-  - wipe: kill ثم حذف مجلد البيانات كاملًا، مع إبقاء مفتاح الهوية وcfg.
-  - العد: ReplicaMonitor (D119) في R1 بقائمة {R1, R2, R3}.
-  - مصدر الحقيقة: ملفات الناشر المحلية وkeccak256 لكل ملف، وstateRoot لـR3 عند الارتفاع نفسه.
-- السكربت:
-  - (a) بعد إدراج n/2 قطعة: kill وwipe لـR1.
-  - (b) إكمال النشر ثم setCurrent(v2).
-  - (c) استرجاع R1 من S0 بعد التحقق من توقيعها، ثم المزامنة من R2 وR3. عند بلوغ رأس R1 القيمة H_s+⌊(head_R3−H_s)/2⌋: kill وwipe لـR2.
-  - (d) R1 يكمل المزامنة من R3 وحده.
-  - (e) الإضافة في LN على R1 تجلب v2 وv1@v1.
-  - (f) ذراع منفصل: kill وwipe للنسخ الثلاث دون استرجاع.
-  - (f2) ذراع منفصل: استرجاع R1 وحده من S0 دون نظراء.
-- المعايير:
-  - stateRoot لـR1 = stateRoot لـR3.
-  - بايتات v1 وv2 مطابقة لبصمات الناشر.
-  - يظهر «الاحتفاظ غير مستوفى» خلال ≤ 30s من صيرورة replicasLive < 2، ويزول خلال ≤ 30s من عودته إلى ≥ 2.
-  - في (f): «العقدة المحلية غير متاحة» و«المحتوى غير متاح» صريحًا، دون عرض جزئي ودون بايتات غير مطابقة.
-  - في (f2): head = H_s، وv1 يُعرض مطابقًا، وv2 يعطي «الإصدار غير موجود عند هذا الارتفاع». التحذير قائم (replicasLive = 1)، وفقد ما بعد H_s معلن.
-- الفشل: أي عدم تطابق، أو عرض صامت، أو عرض جزئي.
-- زمن الاسترجاع قياس. (f) يثبت الفشل الصحيح لا التوافر.
+**T25 (replica loss during update and recovery, G)**
+- Setup (ReplicaHarness):
+  - Machines: M1 runs R1 and R2, and M2 runs R3. On one machine, declare the result "not representative of availability".
+  - Profile: sv-fix with chainId=777921. Identities: w on R1, x on R2, y and z on R3. Every pocold replica retains everything.
+  - Site T25Site:
+    - v1 = {index.html 4096 B, style.css 8192 B, app.js 614400 B}.
+    - v2 = {index.html 4100 B, style.css with v1 bytes (same chunk address), app.js 1032192 B}.
+    - n = 44 new chunks for v2.
+  - Snapshot S0: complete copy of R3's RetentionStore directory (state, all blocks, bodies, and receipts through H_s), where H_s is the height of setCurrent(v1). Signed with test key 1, with keccak256 for every file.
+  - wipe: kill, then delete the entire data directory, retaining the identity key and cfg.
+  - Counting: ReplicaMonitor (D119) on R1 with list {R1, R2, R3}.
+  - Source of truth: publisher's local files and keccak256 for each file, and R3's stateRoot at the same height.
+- Script:
+  - (a) After n/2 chunks are included: kill and wipe R1.
+  - (b) Complete publication, then setCurrent(v2).
+  - (c) Restore R1 from S0 after verifying its signature, then synchronize from R2 and R3. When R1's head reaches H_s+⌊(head_R3−H_s)/2⌋: kill and wipe R2.
+  - (d) R1 completes synchronization from R3 alone.
+  - (e) The extension in LN on R1 fetches v2 and v1@v1.
+  - (f) Separate arm: kill and wipe all three replicas without recovery.
+  - (f2) Separate arm: restore R1 alone from S0 without peers.
+- Criteria:
+  - R1 stateRoot = R3 stateRoot.
+  - v1 and v2 bytes match publisher hashes.
+  - "Retention requirement unmet" appears within ≤ 30s of replicasLive falling below 2, and disappears within ≤ 30s of its return to ≥ 2.
+  - In (f): explicit "Local node unavailable" and "Content unavailable", without partial display or mismatching bytes.
+  - In (f2): head = H_s, v1 displays identically, and v2 gives "Version does not exist at this height". The warning remains (replicasLive = 1), and loss after H_s is declared.
+- Failure: any mismatch, silent display, or partial display.
+- Recovery time is a measurement. (f) proves correct failure, not availability.
 
-**ربط الادعاءات المشروطة**
-- عدم ربح تقسيم الهوية ← T7b. الفشل يعني أن D7 وκm لا يكفيان، ويلزم تعديل الحوافز قبل أي شبكة عامة.
-- حد مكسب الاستبعاد ← T7c.
-  - فشل (G) يعني خطأ تنفيذ، لأن الصيغة والحد حسابيان (D116، D120).
-  - فشل (S) يعني أن الأثر غير المباشر عبر Draw يتجاوز 2%، ويلزم تعديل الحوافز قبل أي شبكة عامة، مثل Draw موحد أو γ_bp=0.
-- ردع المراوغة ← T7e. الفشل يبطل D29 كما هو مطبق.
-- التقدم مع مقترحين غائبين ← T9 مع C1 وC2. الفشل يعني أن D22 وD40 لا يحققان التقدم المعلن.
-- التقارب بعد الانقسام والعزل وحجب الجسم ← T10b(ii، iii، vi). الفشل يمنع M5.
-- الإدراج تحت رقابة جزئية ← T19.
-- تجميد المكوّن لا السلسلة ← T18b.
-- الاسترجاع والإعلان الصادق عن نقص النسخ ← T25.
-- T10 وT10b(iv، v) قياسات لا تثبت أمانًا.
-- نجاح أي اختبار في VA لا يثبت أمانًا عامًا، ولا يُنقل إلى شبكة حقيقية دون T3 وT14.
+**Mapping conditional claims**
+- No profit from identity splitting ← T7b. Failure means D7 and κm are insufficient, requiring incentive changes before any public network.
+- Bound on exclusion gain ← T7c.
+  - (G) failure means an implementation error, since the formula and bound are arithmetic (D116, D120).
+  - (S) failure means the indirect effect through Draw exceeds 2%, requiring incentive changes before any public network, such as uniform Draw or γ_bp=0.
+- Equivocation deterrence ← T7e. Failure invalidates D29 as implemented.
+- Progress with absent proposers ← T9 with C1 and C2. Failure means D22 and D40 do not achieve the declared progress.
+- Convergence after partition, isolation, and body withholding ← T10b(ii, iii, vi). Failure blocks M5.
+- Inclusion under partial censorship ← T19.
+- Freezing the component, not the chain ← T18b.
+- Recovery and truthful reporting of insufficient replicas ← T25.
+- T10 and T10b(iv, v) are measurements and do not prove security.
+- Passing any VA test does not prove general security, and does not transfer to a real network without T3 and T14.
 
-**فصل الأدلة**
-- المرحلة A لا تُستعمل لأي ادعاء عن PoCol، وExecFixture لا تثبت صلاحية كتلة.
-- ChainFixture وNX وRW وHG وHC وCL-END وLC وRG لا تثبت سلوكًا عامًا تحت خصم.
-- RG يثبت حدود موارد عقدة واحدة على جهاز محدد.
-- PS يثبت منطق الضابط وتمييز sendDone عن receiveDone على النموذج الافتراضي المعرّف.
-- مسندات التتبع تثبت تطبيق القاعدة على قيم التنفيذ نفسه، ولا تثبت دقة A مقابل النواة.
-- DiscriminationCheck يثبت قدرة البوابة على كشف الخطأ المحقون فقط حين يظهر المسار المقيس خرقًا.
-- LC يثبت منطق العميل أمام خادم وهمي، وRG3 وRG3b أمام pocold في سيناريوهات محددة.
-- BR يثبت رفض الحالات المعدودة والعشوائية المختبرة ونجاح المسارات المشروعة المعدودة، ولا يثبت خلو محلل JSON من كل ثغرة. BR17e يثبت محاسبة الحصة وذريتها على الجدول المحدد وحده. BR19a وBR19b يثبتان منطق الدلو والتعليق على ساعة وناقل وهميين، وBR19c يثبت اتساق التنفيذ في Chrome مع المرجع على أوقات وصوله المسجلة هو، لا دقة تلك الأوقات.
-- SimNet لا يُنقل إلى شبكة حقيقية دون T3 وT14.
-- لا نجاح هنا إثبات أمان.
+**Separation of evidence**
+- Phase A is not used for any PoCol claim, and ExecFixture does not prove block validity.
+- ChainFixture, NX, RW, HG, HC, CL-END, LC, and RG do not prove general behavior under an adversary.
+- RG proves resource bounds for one node on a specified machine.
+- PS proves the control's logic and the distinction between sendDone and receiveDone on the defined virtual model.
+- Trace predicates prove rule application to the execution's own values, not the accuracy of A against the kernel.
+- DiscriminationCheck proves the gate's ability to detect the injected fault only when the measured path exhibits a violation.
+- LC proves client logic against a fake server, and RG3 and RG3b against pocold in specific scenarios.
+- BR proves rejection of the enumerated and tested random cases and success of the enumerated legitimate paths, not freedom of the JSON parser from all vulnerabilities. BR17e proves quota accounting and atomicity only on the specified schedule. BR19a and BR19b prove bucket and pending-request logic on a fake clock and transport, and BR19c proves consistency of the Chrome implementation with the reference using its own recorded arrival times, not the accuracy of those times.
+- SimNet does not transfer to a real network without T3 and T14.
+- No success here is proof of security.

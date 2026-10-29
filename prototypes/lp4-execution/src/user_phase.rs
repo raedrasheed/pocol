@@ -10,7 +10,7 @@ use crate::{native::{self,NativeBlockContext},wire::{self,WireError},receipts,fe
 /// limit, so the transaction cannot be included (block invalid; builders skip it).
 #[derive(Debug,Clone,PartialEq,Eq)] pub enum UserError{Context,Budget,Wire(usize,WireError),Execution(usize,String),Gas,Arithmetic,Root,Commitments,DirtyAccounts(usize),AcctCap(usize)}
 
-/// execution.md السقوف (A03): limits whose violation is an exceptional halt of the
+/// execution.md Caps (A03): limits whose violation is an exceptional halt of the
 /// transaction. All of its gas is charged, its state changes are reverted except the
 /// nonce increment and the fee payment, its receipt has status 0 and no logs, and the
 /// block stays valid. Log accounting follows decision LOG-ACCT-01.

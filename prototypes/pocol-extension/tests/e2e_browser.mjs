@@ -211,7 +211,7 @@ async function main() {
     tap.log.length = 0;
     const { page, errors } = await openSite(b, 'devnet', S_A); let { fr, n } = await siteFrame(page);
     const trust = await page.textContent('#trust');
-    ok('RP trust banner shown outside the frame (13 headers, work bound)', /^RP: مرتبط بالعمل والهوية لـ13 رأسًا/.test(trust) && (await page.getAttribute('#trust', 'data-level')) === 'RP', trust.slice(0, 80));
+    ok('RP trust banner shown outside the frame (13 headers, work bound)', /^RP: work and identity bound for 13 headers/.test(trust) && (await page.getAttribute('#trust', 'data-level')) === 'RP', trust.slice(0, 80));
     const view = await fr.evaluate(async () => { await new Promise((r) => setTimeout(r, 800)); const h = document.getElementById('t'); const img = document.getElementById('logo');
       return { h1: h.textContent, color: getComputedStyle(h).color, bg: getComputedStyle(document.body).backgroundColor, loaded: h.dataset.loaded, inline: h.dataset.inline || null, dcl: document.body.dataset.dcl, img: img.naturalWidth,
         cssBg: getComputedStyle(document.getElementById('bg')).backgroundImage.slice(0, 9), fetch: document.body.dataset.fetch, xhr: document.body.dataset.xhr, iframes: document.querySelectorAll('iframe,object,embed').length,
@@ -291,7 +291,7 @@ async function main() {
     const rec = await fr.evaluate(() => ({ k00: localStorage.getItem('k00'), k17: (localStorage.getItem('k17') || '').length, k01: localStorage.getItem('k01') }));
     const st2 = await storedDict(b, dist, stKey);
     ok('D103 worker restart: frame torn down with the loss notice; reload recovers the committed dictionary under epoch 2',
-      /انقطع عامل الإضافة/.test(lost) && rec.k00 === 'b' && rec.k17 === 4042 && rec.k01 === null && st2.epochs.some((e) => e.endsWith('0000000000000002')) && st2.names.every((x) => x.includes(':r:0000000000000002:')),
+      /The extension worker disconnected/.test(lost) && rec.k00 === 'b' && rec.k17 === 4042 && rec.k01 === null && st2.epochs.some((e) => e.endsWith('0000000000000002')) && st2.names.every((x) => x.includes(':r:0000000000000002:')),
       JSON.stringify({ rec, epochs: st2.epochs.map((e) => e.slice(-4)), names: st2.names.map((x) => x.slice(-26)) }));
 
     // --- navigation (BR18, D26/D99) ---

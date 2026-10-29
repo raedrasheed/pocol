@@ -226,7 +226,7 @@ def x3_checks():
     t = doc['translations']
     q = ['Q8', 'Q9a', 'Q9b', 'Q9c', 'Q10', 'Q11', 'Q12']
     x = ['X%d' % i for i in range(1, 8)]
-    d = ['\u062f%d' % i for i in range(1, 6)]
+    d = ['DNR-d%d' % i for i in range(1, 6)]
     check('x3.allRequiredIdsRestored (17 incl. Q9 a/b/c)', all(k in t and t[k].get('en') for k in q + x + d))
     check('x3.xSitesComplete', [s['id'] for s in doc['xSites']] == x and all(s['files'] and s['expected'] for s in doc['xSites']))
     scen = {s['id'] for s in load(VEC / 'profile-race-cases.json')['scenarios']}
@@ -354,7 +354,7 @@ def main():
     out = {'package': 'M1 draft 0.6', 'executedAtUtc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
            'environment': {'python': sys.version.split()[0], 'executable': sys.executable, 'platform': platform.platform(),
                            'thirdPartyPackages': 'none'},
-           'notExecuted': ['browser / MV3 extension (X1-X7, د1-د5, Q8-Q12 browser runs)', 'Chrome DNR itself (modelled)',
+           'notExecuted': ['browser / MV3 extension (X1-X7, DNR-d1-DNR-d5, Q8-Q12 browser runs)', 'Chrome DNR itself (modelled)',
                            'anvil / pocold', 'MPT proofs', 'ESLint / dependency-cruiser', 'real transactions'],
            'summary': {'checks': len(results), 'passed': sum(r['status'] == 'pass' for r in results),
                        'recorded': sum(r['status'] == 'recorded' for r in results), 'failed': len(failed),

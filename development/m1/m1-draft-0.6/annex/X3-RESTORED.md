@@ -1,4 +1,4 @@
-# X3 Restored: Q8–Q12, X1–X7, د1–د5 (English, traceable)
+# X3 Restored: Q8–Q12, X1–X7, DNR-d1–DNR-d5 (English, traceable)
 
 Revision R6-04 (C13). Machine-readable form: `x3-restored.json`.
 
@@ -66,9 +66,9 @@ Pass in every configuration:
 | X6 | window.open for a new window | `window.open('https://example.com/x6')` | Returns null; 0 windows or tabs |
 | X7 | Form submission to an external destination | `form.submit()` with an external action | 0 requests; the frame is not navigated away |
 
-Behaviours that appear only in H15e (a forged `postMessage` to the parent, a transaction on load without a click, 1000 messages per second, an external link stylesheet, and storage_set with another netKey) are listed as **supplementary**, with their current B coverage (T12, BR14, BR19, BR17e/f, د4). They do not renumber the IDs.
+Behaviours that appear only in H15e (a forged `postMessage` to the parent, a transaction on load without a click, 1000 messages per second, an external link stylesheet, and storage_set with another netKey) are listed as **supplementary**, with their current B coverage (T12, BR14, BR19, BR17e/f, DNR-d4). They do not renumber the IDs.
 
-## د1–د5: DNR rule lifecycle
+## DNR-d1–DNR-d5: DNR rule lifecycle
 
 All are fail-closed. Executable model: `tools/dnr_ref.py`, run over `vectors/dnr-cases.json`.
 
@@ -80,11 +80,11 @@ RT is every resource type except main_frame. The ids, priorities and urlFilter a
 
 | ID | Restored definition | Pass | Trace |
 |---|---|---|---|
-| د1 | Both rules are installed and verified before the frame is created | getSessionRules shows exactly ids 2t and 2t+1 with these fields; event order: installed and verified, then frame created | H31; B FD:L1352; field check from H15e |
-| د2 | An injected updateSessionRules failure means the frame is not created | No frame, no rules. A read-back mismatch also gives no frame, and the rules are removed | H31; B fail-closed |
-| د3 | Closing the tab removes both rules | Rules removed (H15e bound: within 1 s) | H31 / H15e |
-| د4 | `chrome-extension://<ID>/` resources are allowed; every external destination is blocked for every RT | The allow rule (priority 2) beats the block rule; `https://example.org` and `http://127.0.0.1:18080` (H15e) are blocked; main_frame and other tabs are unaffected | H31 + H15e |
-| د5 | A worker restart and a failed ping tear the frame down; leftover rules are verified and removed | Frame torn down; rules 2t and 2t+1 removed | H31 |
+| DNR-d1 | Both rules are installed and verified before the frame is created | getSessionRules shows exactly ids 2t and 2t+1 with these fields; event order: installed and verified, then frame created | H31; B FD:L1352; field check from H15e |
+| DNR-d2 | An injected updateSessionRules failure means the frame is not created | No frame, no rules. A read-back mismatch also gives no frame, and the rules are removed | H31; B fail-closed |
+| DNR-d3 | Closing the tab removes both rules | Rules removed (H15e bound: within 1 s) | H31 / H15e |
+| DNR-d4 | `chrome-extension://<ID>/` resources are allowed; every external destination is blocked for every RT | The allow rule (priority 2) beats the block rule; `https://example.org` and `http://127.0.0.1:18080` (H15e) are blocked; main_frame and other tabs are unaffected | H31 + H15e |
+| DNR-d5 | A worker restart and a failed ping tear the frame down; leftover rules are verified and removed | Frame torn down; rules 2t and 2t+1 removed | H31 |
 
 ## Reconciliation with the current baseline (exact)
 

@@ -51,8 +51,8 @@ HeaderNetCheck sends single requests (P-V1-1), so under F1 a conforming server s
 ## 3. U14 and the 10 s protection: both branches, conditional
 
 **The sources.**
-- FD:L905 lists «مهلة 10s» among the content-retrieval client limits and «ردود −32021 تُعاد بعد retryAfterMs».
-- network.md:374 says the extension protects itself in RP with, among other things, «مهلة 10s».
+- FD:L905 lists «10s timeout» among the content-retrieval client limits and «−32021 responses are retried after retryAfterMs».
+- network.md:374 says the extension protects itself in RP with, among other things, «10s timeout».
 - U14 (open owner item) asks whether such a 10 s timeout is **per request** or **whole load**.
 - Whether the HeaderNetCheck requests fall under the same 10 s rule is not stated. This annex models both readings and adopts neither.
 

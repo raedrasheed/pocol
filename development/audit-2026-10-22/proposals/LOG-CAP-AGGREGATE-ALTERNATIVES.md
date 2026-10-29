@@ -15,30 +15,30 @@
 
 | ref | Arabic (excerpt) | English |
 |---|---|---|
-| execution.md:82 | … وLOG_BLOCK_MAX=32 KiB، وLOG_CAP=1 GiB: توقف استثنائي. | "… LOG_BLOCK_MAX = 32 KiB, LOG_CAP = 1 GiB: exceptional halt." |
-| execution.md:83 | TXBYTES_CAP وTX_CAP: الكتلة باطلة، والبنّاء يتخطى المعاملة. | "TXBYTES_CAP and TX_CAP: the block is invalid, and the builder skips the transaction." |
-| execution.md:84 | LOG_BLOCK_MAX مع حد عدد السجلات المشتق في LG2 (546) أساس لِمّتي P1 وP3 (D89). | "LOG_BLOCK_MAX, with the log-count limit derived in LG2 (546), is the basis of lemmas P1 and P3." |
-| execution.md:97 | GAS_LIMIT=8M بهدف 4M، وbaseFee بصيغة London. في الكتل الفارغة يستقر دون 8 wei | "GAS_LIMIT = 8M with a 4M target, baseFee by the London formula. In empty blocks it settles below 8 wei" |
-| execution.md:106 | GeneralStateTests لـCancun عدا الاستثناءات المعلنة … | "Cancun GeneralStateTests, except the declared exceptions …" |
-| storage.md:53 | … والسجل = 36+len. | "… and a log = 36 + len." |
-| storage.md:57–58 | LG1 = d7 94 ‹20› c0 80، بمخزن 60 B. / LG2: 546 سجلًا تنجح، و547 تتوقف. | "LG1 = d7 94 ‹20› c0 80, stored in 60 B." / "LG2: 546 logs succeed, and 547 halt." |
-| storage.md:70 | الكتل والإيصالات والسجلات والكود والفهارس حتى النهاية … | "[Retention:] blocks, receipts, logs, code and indexes until the end …" |
-| storage.md:73 | عدد الكتل ≤ H_END=129600، وهو حد فعلي بـE1. المجموع نحو 19.65 GiB منطقيًا ونحو 29.5 GiB على القرص. | "The number of blocks ≤ H_END = 129600, an actual bound by E1. The total is about 19.65 GiB logical, 29.5 GiB on disk." |
-| storage.md:77 | المخرجات: الكود 1.03، والسجلات 1.00، والإيصالات 0.50، والفهارس 0.63. | "Outputs [GiB]: code 1.03, logs 1.00, receipts 0.50, indexes 0.63." |
-| governance.md:5, :9 | … T_blk=60s … / الاقتصاد [CP]: subsidy=2·10^18 … | "… T_blk = 60 s …" / "Economics [CP]: subsidy = 2·10^18 …" |
-| governance.md:12–13 | الكتلة [CP]: GAS_LIMIT=8000000، وbaseFee0=10^9، … وBODY_MAX=196608. / السقوف [CP]: … وTXBYTES_CAP=2^33، وTX_CAP=10^7 … | "Block [CP]: GAS_LIMIT = 8,000,000, baseFee0 = 10^9, … BODY_MAX = 196608." / "Caps [CP]: … TXBYTES_CAP = 2^33, TX_CAP = 10^7 …" — LOG_CAP and LOG_BLOCK_MAX are not listed, nor among CP's 52 fields (consensus.md:18–25) |
-| governance.md:15 | الاحتفاظ (محلي): K_hist=32، وHIST_TRIE_BUDGET=1717986918، وR_keep=2048. | "Retention (local): K_hist = 32, HIST_TRIE_BUDGET = 1717986918, R_keep = 2048." |
-| governance.md:16 | النهاية [CP]: H_END=129600، وT_END=g_ts+10368000، وH_CLOSE=129440 … | "End [CP]: H_END = 129600, T_END = g_ts + 10368000, H_CLOSE = 129440 …" |
-| governance.md:71 | … غير ok على العقدة الحقيقية يعني رفض الإقلاع بـ−32018. | "… a non-ok [ParamGate] result on the real node means refusing to boot with −32018." |
-| governance.md:100 | R21: trie التاريخي، والاستثناء الوحيد simnet مع retentionStress. | "R21: the historical trie; the only exception is simnet with retentionStress." |
-| governance.md:197, :200 | بلوغ سقف: تجميد وتنبيه. / تراجع أعمق من R_keep: checkpoint يدوي. | "Reaching a cap: freeze and alert." / "A rollback deeper than R_keep: manual checkpoint." |
-| consensus.md:29 | المعلمات المحلية خارج CP لا تدخل genesisHash ولا الصلاحية: … | "Local parameters outside CP enter neither genesisHash nor validity: …" |
-| consensus.md:46 | ForkSchedule = [(v, H_v)] … activeVersion(h) = آخر v بحيث H_v ≤ h. | "ForkSchedule = [(v, H_v)] …; activeVersion(h) = the last v with H_v ≤ h." |
-| network.md:360 | … و−32017 خارج نافذة trie. | "… −32017: outside the trie window." |
-| validation.md:985–986 | 50..1073 … كل منها معاملة … تستدعي LogBomb(1) (546 سجلًا، نحو 32 KiB). / B يتفرع من 999، وكتل 1000'..1080' تستدعي LogBomb(2) | "[RG:] blocks 50..1073 each hold a transaction calling LogBomb(1) (546 logs, about 32 KiB)." / "B forks from 999, and blocks 1000'..1080' call LogBomb(2)" |
-| validation.md:2061, :2065 | sv-fix مع chainId=777903، وH_END=4000 … / ثوابت البناء caps-test (simnet فقط، غائبة عن الإصدار): LOG_CAP=2^24 … | "[caps/64:] sv-fix with chainId = 777903, H_END = 4000 …" / "caps-test build constants (simnet only, absent from the release): LOG_CAP = 2^24 …" |
-| validation.md:2087–2088 | الاستجابة المعلنة … أو توقف استثنائي … أو تجميد. / بعدها 20 كتلة على الأقل تجتاز T17. | "[T18b:] exactly the declared response: … exceptional halt … or freeze." / "Then at least 20 blocks pass T17." |
-| validation.md:2129 | تجميد المكوّن لا السلسلة ← T18b. | "Freezing the component, not the chain → T18b." |
+| execution.md:82 | "… LOG_BLOCK_MAX = 32 KiB, LOG_CAP = 1 GiB: exceptional halt." | "… LOG_BLOCK_MAX = 32 KiB, LOG_CAP = 1 GiB: exceptional halt." |
+| execution.md:83 | "TXBYTES_CAP and TX_CAP: the block is invalid, and the builder skips the transaction." | "TXBYTES_CAP and TX_CAP: the block is invalid, and the builder skips the transaction." |
+| execution.md:84 | "LOG_BLOCK_MAX, with the log-count limit derived in LG2 (546), is the basis of lemmas P1 and P3." | "LOG_BLOCK_MAX, with the log-count limit derived in LG2 (546), is the basis of lemmas P1 and P3." |
+| execution.md:97 | "GAS_LIMIT = 8M with a 4M target, baseFee by the London formula. In empty blocks it settles below 8 wei" | "GAS_LIMIT = 8M with a 4M target, baseFee by the London formula. In empty blocks it settles below 8 wei" |
+| execution.md:106 | "Cancun GeneralStateTests, except the declared exceptions …" | "Cancun GeneralStateTests, except the declared exceptions …" |
+| storage.md:53 | "… and a log = 36 + len." | "… and a log = 36 + len." |
+| storage.md:57–58 | "LG1 = d7 94 ‹20› c0 80, stored in 60 B." / "LG2: 546 logs succeed, and 547 halt." | "LG1 = d7 94 ‹20› c0 80, stored in 60 B." / "LG2: 546 logs succeed, and 547 halt." |
+| storage.md:70 | "[Retention:] blocks, receipts, logs, code and indexes until the end …" | "[Retention:] blocks, receipts, logs, code and indexes until the end …" |
+| storage.md:73 | "The number of blocks ≤ H_END = 129600, an actual bound by E1. The total is about 19.65 GiB logical, 29.5 GiB on disk." | "The number of blocks ≤ H_END = 129600, an actual bound by E1. The total is about 19.65 GiB logical, 29.5 GiB on disk." |
+| storage.md:77 | "Outputs [GiB]: code 1.03, logs 1.00, receipts 0.50, indexes 0.63." | "Outputs [GiB]: code 1.03, logs 1.00, receipts 0.50, indexes 0.63." |
+| governance.md:5, :9 | "… T_blk = 60 s …" / "Economics [CP]: subsidy = 2·10^18 …" | "… T_blk = 60 s …" / "Economics [CP]: subsidy = 2·10^18 …" |
+| governance.md:12–13 | "Block [CP]: GAS_LIMIT = 8,000,000, baseFee0 = 10^9, … BODY_MAX = 196608." / "Caps [CP]: … TXBYTES_CAP = 2^33, TX_CAP = 10^7 …" — LOG_CAP and LOG_BLOCK_MAX are not listed, nor among CP's 52 fields (consensus.md:18–25) | "Block [CP]: GAS_LIMIT = 8,000,000, baseFee0 = 10^9, … BODY_MAX = 196608." / "Caps [CP]: … TXBYTES_CAP = 2^33, TX_CAP = 10^7 …" — LOG_CAP and LOG_BLOCK_MAX are not listed, nor among CP's 52 fields (consensus.md:18–25) |
+| governance.md:15 | "Retention (local): K_hist = 32, HIST_TRIE_BUDGET = 1717986918, R_keep = 2048." | "Retention (local): K_hist = 32, HIST_TRIE_BUDGET = 1717986918, R_keep = 2048." |
+| governance.md:16 | "End [CP]: H_END = 129600, T_END = g_ts + 10368000, H_CLOSE = 129440 …" | "End [CP]: H_END = 129600, T_END = g_ts + 10368000, H_CLOSE = 129440 …" |
+| governance.md:71 | "… a non-ok [ParamGate] result on the real node means refusing to boot with −32018." | "… a non-ok [ParamGate] result on the real node means refusing to boot with −32018." |
+| governance.md:100 | "R21: the historical trie; the only exception is simnet with retentionStress." | "R21: the historical trie; the only exception is simnet with retentionStress." |
+| governance.md:197, :200 | "Reaching a cap: freeze and alert." / "A rollback deeper than R_keep: manual checkpoint." | "Reaching a cap: freeze and alert." / "A rollback deeper than R_keep: manual checkpoint." |
+| consensus.md:29 | "Local parameters outside CP enter neither genesisHash nor validity: …" | "Local parameters outside CP enter neither genesisHash nor validity: …" |
+| consensus.md:46 | "ForkSchedule = [(v, H_v)] …; activeVersion(h) = the last v with H_v ≤ h." | "ForkSchedule = [(v, H_v)] …; activeVersion(h) = the last v with H_v ≤ h." |
+| network.md:360 | "… −32017: outside the trie window." | "… −32017: outside the trie window." |
+| validation.md:985–986 | "[RG:] blocks 50..1073 each hold a transaction calling LogBomb(1) (546 logs, about 32 KiB)." / "B forks from 999, and blocks 1000'..1080' call LogBomb(2)" | "[RG:] blocks 50..1073 each hold a transaction calling LogBomb(1) (546 logs, about 32 KiB)." / "B forks from 999, and blocks 1000'..1080' call LogBomb(2)" |
+| validation.md:2061, :2065 | "[caps/64:] sv-fix with chainId = 777903, H_END = 4000 …" / "caps-test build constants (simnet only, absent from the release): LOG_CAP = 2^24 …" | "[caps/64:] sv-fix with chainId = 777903, H_END = 4000 …" / "caps-test build constants (simnet only, absent from the release): LOG_CAP = 2^24 …" |
+| validation.md:2087–2088 | "[T18b:] exactly the declared response: … exceptional halt … or freeze." / "Then at least 20 blocks pass T17." | "[T18b:] exactly the declared response: … exceptional halt … or freeze." / "Then at least 20 blocks pass T17." |
+| validation.md:2129 | "Freezing the component, not the chain → T18b." | "Freezing the component, not the chain → T18b." |
 
 **Not specified anywhere:** what LOG_CAP sums (the LOG-CAP-AGGREGATE question); what "freeze"
 (governance.md:197) does operationally; any reset, decay or window for any cap; an RPC answer for logs a
@@ -166,7 +166,7 @@ today and is not changed.
 
 ### A4 — remove LOG_CAP from consensus; total log storage becomes a local retention matter
 - **(a) Normative change.**
-  - Delete "وLOG_CAP=1 GiB" at execution.md:82 (and FINAL_DESIGN.md:819) and "LOG_CAP=2^24" at
+  - Delete "LOG_CAP=1 GiB" at execution.md:82 (and FINAL_DESIGN.md:819) and "LOG_CAP=2^24" at
     validation.md:2065; storage.md:77 becomes H_END·LOG_BLOCK_MAX.
   - Optional pruning also needs: storage.md:70 amended (logs are kept "until the end"); a local
     parameter at governance.md:15 (outside CP, consensus.md:29); an RPC answer for pruned ranges
@@ -238,8 +238,8 @@ Draft text for the owner:
   included; the first transaction that would exceed it halts exceptionally. R27: H_END·LOG_BLOCK_MAX
   ≤ LOG_CAP; the only exception is the simnet caps-test build."
 - Arabic:
-  > يحد LOG_CAP=2^32 مجموع بايتات السجلات المحسوبة على السلسلة القانونية شاملة الكتلة الحالية، وأول معاملة تتجاوزه تتوقف استثنائيًا. R27: H_END·LOG_BLOCK_MAX ≤ LOG_CAP، والاستثناء الوحيد بناء caps-test في simnet.
-- Follow-on edits: validation.md:2065 reads "LOG_CAP=2^24 (استثناء R27)"; storage.md:77 logs → 3.96,
+  > LOG_CAP=2^32 bounds the sum of charged log bytes on the canonical chain, including the current block; the first transaction exceeding it halts exceptionally. R27: H_END·LOG_BLOCK_MAX ≤ LOG_CAP; the only exception is the simnet caps-test build.
+- Follow-on edits: validation.md:2065 reads "LOG_CAP=2^24 (R27 exception)"; storage.md:77 logs → 3.96,
   with the storage.md:73 total re-derived; A13 uses `min(LOG_CAP, H_END·LOG_BLOCK_MAX)·33/32`, which is
   local.
 

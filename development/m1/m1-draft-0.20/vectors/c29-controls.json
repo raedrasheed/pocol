@@ -1,7 +1,7 @@
 {
   "schema": "pocol-m1-c29-controls/0.20",
   "source": {"file": "reference/browser.md", "lines": [117, 130], "literals": ["begin(attemptId, anchor)", "piece(attemptId, seq, range, logs)", "abort(attemptId, reason)",
-             "commit(attemptId, summary)", "summary = {pieces, logs, logRequests, headRequests, totalRequests, anchor}", "(S-a)", "حدث نهائي واحد بالضبط (abort أو commit)"]},
+             "commit(attemptId, summary)", "summary = {pieces, logs, logRequests, headRequests, totalRequests, anchor}", "(S-a)", "\u062d\u062f\u062b \u0646\u0647\u0627\u0626\u064a \u0648\u0627\u062d\u062f \u0628\u0627\u0644\u0636\u0628\u0637 (abort \u0623\u0648 commit)"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "rootProbe": {"file": "coordination/review-001/sink-unknown-terminal-probe.json", "expectedRule": "S-a", "observedOldResult": []},
   "note": [
     "Hand-derived. 'new' = tools/sink_checker_strict.py; 'old' = the 0.19 SinkChecker as published (recorded to show the defect; old 'crash' = an exception).",

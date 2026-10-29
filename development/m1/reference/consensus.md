@@ -1,251 +1,251 @@
-# قواعد الإجماع
+# Consensus rules
 
-**0. الإعداد المثبت (D72، D77، D79)**
+**0. Pinned configuration (D72, D77, D79)**
 
-cfg = {chainId، genesisHash، ForkSchedule، CP، M_0}.
+cfg = {chainId, genesisHash, ForkSchedule, CP, M_0}.
 
 GenesisSpec = RLP([specVersion, chainId, CP, allocRoot, M_0List, sysCodeHash]):
-- specVersion: u8 = 1، وإلا gsVersion.
+- specVersion: u8 = 1; otherwise gsVersion.
 - chainId: u64 ∈ [1, 2^64−1].
-- allocRoot وsysCodeHash: 32 بايتًا بالضبط.
-- genesisHash = keccak256(GenesisSpec)، ولا يشمل ForkSchedule.
+- allocRoot and sysCodeHash: exactly 32 bytes.
+- genesisHash = keccak256(GenesisSpec), excluding ForkSchedule.
 
-الفك:
-- RLP صارم، والأعداد بأقل بايتات، والصفر = 0x80.
-- الأخطاء: gsInt (بادئة صفرية أو عدد ≤ 0x7f بغير بايت مفرد)، وgsCount، وgsRange (خارج المدى أو تعداد مجهول)، وgsLen.
-- ترتيب التقييم: البنية، ثم gsVersion، ثم gsCount، ثم gsInt، ثم gsLen، ثم gsRange، ثم gsOrder، ثم gsSys.
+Decoding:
+- Strict RLP, minimal-byte integers, zero = 0x80.
+- Errors: gsInt (leading zero or integer ≤ 0x7f not encoded as one byte), gsCount, gsRange (out of range or unknown enum), and gsLen.
+- Evaluation order: structure, gsVersion, gsCount, gsInt, gsLen, gsRange, gsOrder, then gsSys.
 
-CP (الإصدار 1، 52 عنصرًا بالترتيب):
-- 1–8: g_ts u64، وtarget_g u256 [1, 2^256−1]، وT_blk u32 ≥ 1، وtau u32 ≥ 1، وnonceMode u8 (0 bounded، 1 unbounded)، وc u8 ≥ 1، وD_att u32، وdFbWait u32.
-- 9–15: m u16 ≥ 1، وkappa u8 ≥ 1، وS_max u16 ≤ 256، وD u16، وW_w u16، وalpha_bp u16 ≤ 10^4، وgamma_bp u16 ≤ 10^4−alpha_bp.
-- 16–24: subsidy u256، وB_reg u256، وR_max u8، وM_max u16 ≥ 1، وM_min u16 ≥ 1، وREG_RECORDS_MAX u32، وSWEEP_MAX u16، وSWEEP_SCAN u16، وREG_OPS u16.
-- 25–30: W_act u32، وTheta_inact u32، وE_win u32، وU u32، وE_max u8، وEVID_BYTES_MAX u32.
-- 31–40: GAS_LIMIT u64، وbaseFee0 u256، وTX_MAX u32، وBODY_MAX u32، وB_code_max u32، وCODE_CAP u64، وTXBYTES_CAP u64، وTX_CAP u64، وSLOT_CAP u64، وACCT_CAP u64.
-- 41–45: SYS_SLOT_MAX u32، وSYS_KEYS_BLOCK_MAX u32، وSYS_KEYS_USER_MAX u32، وSYS_ACCT_BLOCK_MAX u32، وG_SYS u64.
-- 46–52: H_END u64، وT_END u64، وH_CLOSE u64، وT_CLOSE u64، وZ_close u32، وRET u32 ≥ 1، وP2 u32.
+CP (version 1, 52 ordered elements):
+- 1–8: g_ts u64, target_g u256 [1, 2^256−1], T_blk u32 ≥ 1, tau u32 ≥ 1, nonceMode u8 (0 bounded, 1 unbounded), c u8 ≥ 1, D_att u32, dFbWait u32.
+- 9–15: m u16 ≥ 1, kappa u8 ≥ 1, S_max u16 ≤ 256, D u16, W_w u16, alpha_bp u16 ≤ 10^4, gamma_bp u16 ≤ 10^4−alpha_bp.
+- 16–24: subsidy u256, B_reg u256, R_max u8, M_max u16 ≥ 1, M_min u16 ≥ 1, REG_RECORDS_MAX u32, SWEEP_MAX u16, SWEEP_SCAN u16, REG_OPS u16.
+- 25–30: W_act u32, Theta_inact u32, E_win u32, U u32, E_max u8, EVID_BYTES_MAX u32.
+- 31–40: GAS_LIMIT u64, baseFee0 u256, TX_MAX u32, BODY_MAX u32, B_code_max u32, CODE_CAP u64, TXBYTES_CAP u64, TX_CAP u64, SLOT_CAP u64, ACCT_CAP u64.
+- 41–45: SYS_SLOT_MAX u32, SYS_KEYS_BLOCK_MAX u32, SYS_KEYS_USER_MAX u32, SYS_ACCT_BLOCK_MAX u32, G_SYS u64.
+- 46–52: H_END u64, T_END u64, H_CLOSE u64, T_CLOSE u64, Z_close u32, RET u32 ≥ 1, P2 u32.
 
-العلاقات بين الحقول تفحصها ParamGate لا الفك. R_max=0 صالحة وتمنع register وreactivate.
+ParamGate, not decoding, checks inter-field relationships. R_max=0 is valid and disables register and reactivate.
 
-المعلمات المحلية خارج CP لا تدخل genesisHash ولا الصلاحية: Δ، وφ، وΦ، وt_exec، وΔ_rel، وΓ، وA_fb، وK_hist، وR_keep، وk_*، وVIEW_SLACK_S، ومعلمات RpcGuard وBridgeAuth.
+Local parameters outside CP enter neither genesisHash nor validity: Δ, φ, Φ, t_exec, Δ_rel, Γ, A_fb, K_hist, R_keep, k_*, VIEW_SLACK_S, and RpcGuard/BridgeAuth parameters.
 
 M_0List = [[id 20 B, rewardAddr 20 B]…]:
-- M_min ≤ |M_0List| ≤ M_max، و|M_0List| ≥ 1.
-- id تصاعدي بايتيًا بصرامة، والتكرار gsOrder.
-- id ∉ {0x00×20، SYSTEM_ADDRESS، 0x…C0C001–0x…C0C0FF}، وإلا gsSys.
+- M_min ≤ |M_0List| ≤ M_max, and |M_0List| ≥ 1.
+- id strictly increases bytewise; duplicates give gsOrder.
+- id ∉ {0x00×20, SYSTEM_ADDRESS, 0x…C0C001–0x…C0C0FF}; otherwise gsSys.
 
-اشتقاق حالة genesis:
+Deriving genesis state:
 1. alloc.
-2. أكواد النظام.
-3. لكل مدخل سجل MinerRegistry: active وHELD، وbond = B_reg، وlastShare = 0، وgraceStart = 0. ActList بترتيب M_0List، وRecLen = ActLen = |M_0|.
-4. Escrow += |M_0|·B_reg، وheldTotal = |M_0|·B_reg.
+2. System code.
+3. For each MinerRegistry entry: active and HELD, bond = B_reg, lastShare = 0, graceStart = 0. ActList follows M_0List order; RecLen = ActLen = |M_0|.
+4. Escrow += |M_0|·B_reg; heldTotal = |M_0|·B_reg.
 
-allocRoot = جذر MPT للحالة الناتجة، وعدم المطابقة يخرق R24(أ).
+allocRoot = the resulting state's MPT root; a mismatch violates R24(A).
 
-sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 لـPAY])).
+sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 for PAY])).
 
-ForkSchedule = [(v, H_v)] مرتبة، تبدأ بـ(1,0). activeVersion(h) = آخر v بحيث H_v ≤ h. لا يُقرأ cfg من رأس أو نظير أو RPC.
+ForkSchedule = ordered [(v, H_v)], starting with (1,0). activeVersion(h) = the last v with H_v ≤ h. cfg is never read from a header, peer or RPC.
 
-**1. الترميز**
+**1. Encoding**
 
-RLP صارم: بلا أصفار بادئة، وبأقصر بادئة، وبعدد عناصر دقيق، وبلا بايتات زائدة.
+Strict RLP: no leading zeros, shortest prefixes, exact element counts and no trailing bytes.
 
-البنى:
-- UT (18 عنصرًا، ≤ 613 B): [tag 'PoCol-tpl-v1', chainId u64, genesisHash, parentHash, h u64, a u32, protocolVersion u16, ts u64, target ∈ [1, 2^256−1], stateRoot, txRoot, receiptsRoot, logsBloom 256, gasLimit, gasUsed, baseFee, evidenceRoot, proposer 20 B أو فارغ].
-- SignedTemplate = [UT, sig 65 أو فارغ] ≤ 682 B.
+Structures:
+- UT (18 elements, ≤ 613 B): [tag 'PoCol-tpl-v1', chainId u64, genesisHash, parentHash, h u64, a u32, protocolVersion u16, ts u64, target ∈ [1, 2^256−1], stateRoot, txRoot, receiptsRoot, logsBloom 256, gasLimit, gasUsed, baseFee, evidenceRoot, proposer 20 B or empty].
+- SignedTemplate = [UT, sig 65 or empty] ≤ 682 B.
 - Header = [SignedTemplate, nonce 8, shareList ≤ 256, winnerSig 65] ≤ 3067 B.
 - Body = [txs, evidence] ≤ BODY_MAX.
 
-الاشتقاقات:
+Derivations:
 - TemplateID = SHA256(RLP(UT)).
 - SigMsg = keccak256(0x19‖'PoCol template'‖0x0a‖TemplateID).
 - powHash = SHA256(TemplateID‖be64(nonce)).
-- seal = keccak256(TemplateID‖be64(nonce))، وseal_genesis = keccak256(genesisHash).
+- seal = keccak256(TemplateID‖be64(nonce)); seal_genesis = keccak256(genesisHash).
 - shareRoot = keccak256(RLP(shareList)).
-- blockHash = keccak256(TemplateID‖be64(nonce)‖shareRoot)، وهاش الكتلة 0 = genesisHash.
+- blockHash = keccak256(TemplateID‖be64(nonce)‖shareRoot); block-0 hash = genesisHash.
 - WinMsg = keccak256(0x19‖'PoCol winner'‖0x0a‖TemplateID‖be64(nonce)‖shareRoot).
 
-قواعد إضافية:
-- txRoot وevidenceRoot شجرتا MPT بمفتاح RLP(i).
-- التوقيع: s ≤ n/2، وv ∈ {0,1}، وRFC6979.
-- shareList تصاعدية بصرامة، ولا تحوي nonce الفائز.
-- رأس genesis الافتراضي = {h=0، ts=CP.g_ts، seal=seal_genesis، blockHash=genesisHash}.
+Additional rules:
+- txRoot and evidenceRoot are MPTs keyed by RLP(i).
+- Signature: s ≤ n/2, v ∈ {0,1}, RFC6979.
+- shareList is strictly increasing and excludes the winning nonce.
+- Virtual genesis header = {h=0, ts=CP.g_ts, seal=seal_genesis, blockHash=genesisHash}.
 
-**1ب. استقلال القالب عن نتيجة التعدين (D141)**
-- كل حقل في UT، ومنه stateRoot وreceiptsRoot وlogsBloom وgasUsed، دالة على ما يلي فقط: حالة الأب، ورأس الأب، وcfg، وحقول UT غير الجذور، والجسم.
-- apply للكتلة h لا يقرأ أيًا مما يلي من الكتلة h: nonce، أو مالكه، أو shareList، أو winnerSig، أو sig.
-- نتيجة الكتلة h (فائزها وحصصها) تُسجل في الكتلة h+1 بـrecordShares(h) وrecordResult(h)، من ParentResult(h) (D142) لا من أي حالة محلية.
-  - ParentResult(p) = {blockHash(p)، winner، shares}. shares قائمة [(n, owner(n))] لكل n في shareList(p) بترتيبها التصاعدي، وwinner = owner(p.nonce). nonce الفائز حصة ضمنية تُعد لـwinner.
-  - shareList ملتزم بـshareRoot داخل blockHash، فكل نسخ غلاف p تعطي القائمة نفسها.
-  - المالكون من تعيين p: البذرة من seal الجد، وA_p* من حالة الجد. إذن ParentResult دالة على المحتوى الملتزم وحده.
-  - أبوان بالقالب والnonce نفسيهما وshareRoot مختلفين كتلتان مختلفتا blockHash، ولكل منهما ParentResult مستقل. فيختلف stateRoot لابنيهما إن اختلفت الحصص، ولا يُخلط بينهما.
-- لِمّة: لقالب UT ثابت، كل nonce يجتاز البنود 6–9 و13 في نطاق أي مالك في A_h* يعطي الجذور نفسها. إذن كتلتان بالقالب نفسه تشتركان في TemplateID وstateRoot، وتختلفان في blockHash فقط.
-- الكتلة النهائية F بلا ابن، فلا تُسجل نتيجتها، وهذا متسق مع غياب مكافأتها المباشرة.
+**1b. Template independence from the mining result (D141)**
+- Every UT field, including stateRoot, receiptsRoot, logsBloom and gasUsed, depends only on parent state, parent header, cfg, non-root UT fields and the body.
+- apply for block h reads none of these from block h: nonce, its owner, shareList, winnerSig or sig.
+- Block h's result (winner and shares) is recorded in h+1 through recordShares(h) and recordResult(h), using ParentResult(h) (D142), not local state.
+  - ParentResult(p) = {blockHash(p), winner, shares}. shares is [(n, owner(n))] for each n in shareList(p), in its ascending order; winner = owner(p.nonce). The winning nonce is an implicit share counted for winner.
+  - shareList is committed by shareRoot inside blockHash, so every envelope copy of p yields the same list.
+  - Owners come from p's assignment: the seed from the grandparent's seal and A_p* from grandparent state. ParentResult therefore depends only on committed content.
+  - Two parents with the same template/nonce but different shareRoot values have different blockHash values and independent ParentResult values. Their children's stateRoot values therefore differ if the shares differ; they are not mixed.
+- Lemma: for fixed UT, every nonce satisfying items 6–9 and 13 in any A_h* owner's range yields the same roots. Thus two blocks with the same template share TemplateID and stateRoot and differ only in blockHash.
+- Final block F has no child, so its result is not recorded, consistently with its lack of a direct reward.
 
-**2. العضوية**
-- M_h = سجلات MinerRegistry في حالة الأب [PDF:87]، وAct_h = ActList ≤ M_max.
-- A_h = {m ∈ Act_h، tomb=0 : lastShare ≥ h−W_act أو graceStart ≥ h−W_act}.
-- A_h* = A_h، أو Act_h دون القبور إن كانت A_h فارغة.
-- deregister وremoveInactive يفشلان إن جعلا |Act| < M_min.
-- register وreactivate ≤ R_max لكل كتلة، ويسريان من h+1.
-- في الإغلاق تُرفض عمليات السجل، فلا يزيد RecLen بعد closeH.
+**2. Membership**
+- M_h = MinerRegistry records in parent state [PDF:87]; Act_h = ActList ≤ M_max.
+- A_h = {m ∈ Act_h, tomb=0 : lastShare ≥ h−W_act or graceStart ≥ h−W_act}.
+- A_h* = A_h, or Act_h excluding tombstones if A_h is empty.
+- deregister and removeInactive fail if they would make |Act| < M_min.
+- register and reactivate ≤ R_max per block, effective from h+1.
+- Registry operations are rejected during closing, so RecLen does not increase after closeH.
 
-**3. التوقيت**
-- L(a) = p.ts+a·D_att+1، وU(a) = p.ts+(a+1)·D_att، بحساب u128. الكتلة باطلة إن كان U(a) ≥ 2^63.
-- الصلاحية: L(a) ≤ ts ≤ U(a).
-- طابع الاحتياطي: L(0)+Δ_fb_wait عند a=0، وL(a) عند a ≥ 1.
-- ts > C+Φ يعني طابورًا ≤ 256.
-- المقترح يبني بـmax(L(0), C)، والانتقال إلى a+1 عند C > U(a)+Γ.
-- T_j بالمللي ثانية، والوصول عند T_j بالضبط يقفل.
+**3. Timing**
+- L(a) = p.ts+a·D_att+1 and U(a) = p.ts+(a+1)·D_att, computed in u128. A block is invalid if U(a) ≥ 2^63.
+- Validity: L(a) ≤ ts ≤ U(a).
+- Fallback timestamp: L(0)+Δ_fb_wait at a=0; L(a) at a ≥ 1.
+- ts > C+Φ means a queue bounded to ≤ 256.
+- The proposer builds with max(L(0), C); transition to a+1 occurs when C > U(a)+Γ.
+- T_j is in milliseconds; arrival exactly at T_j locks.
 
-**4. آلة الحالات لكل (parentHash, h, a)**
-- (أ) a=0: WAIT حتى T_j. القالب الموقّع الصالح من Draw(h,0) في لحظة ≤ T_j يقفل ثم PROP، وإلا FB لاصق. القالب المخالف كغياب، ويُعاقب النظير.
-- (ب) Act فارغة: توقف.
-- (ج) a ≥ 1: FB عند C ≥ L(a).
-- قالب ثانٍ من المقترح نفسه: دليل من النوع 1، ثم FB.
-- القالب السابق لأبيه يُخزن بعد فحص الشكل و1ب (≤ 4 لكل أب، و≤ 64 إجمالًا)، ويُحذف بـparentInvalid.
+**4. State machine per (parentHash, h, a)**
+- (A) a=0: WAIT until T_j. A valid signed template from Draw(h,0) arriving at time ≤ T_j locks, then PROP; otherwise sticky FB. An invalid template counts as absent and the peer is penalized.
+- (B) Empty Act: stop.
+- (C) a ≥ 1: FB when C ≥ L(a).
+- A second template from the same proposer: type-1 evidence, then FB.
+- A template preceding its parent is stored after form and 1b checks (≤ 4 per parent, ≤ 64 total), and removed on parentInvalid.
 
-**4ب. Build_fb(p, a)**
-- chainId وgenesisHash من cfg، وprotocolVersion = activeVersion(h).
-- proposer وsig فارغان، وts وفق §3.
-- target = ASERT(p)، وgasLimit = GAS_LIMIT، وbaseFee = nextBaseFee(p).
-- Body = 0xc2c0c0، والجذور من apply الكامل.
+**4b. Build_fb(p, a)**
+- chainId and genesisHash from cfg; protocolVersion = activeVersion(h).
+- proposer and sig are empty; ts follows §3.
+- target = ASERT(p), gasLimit = GAS_LIMIT, baseFee = nextBaseFee(p).
+- Body = 0xc2c0c0; roots come from full apply.
 
-**5. البذرة والتقسيم**
+**5. Seed and partition**
 - seed = SHA256('PoColNonce'‖seal_p‖be64(h)‖be32(a)).
-- ticket = SHA256(seed‖id20)، مرتبة تصاعديًا على A_h* [PDF:91، معدّل].
-- start(i) = floor(i·nMax/n)، وend(i) = floor((i+1)·nMax/n)−1 [PDF:92].
+- ticket = SHA256(seed‖id20), sorted ascending over A_h* [PDF:91, modified].
+- start(i) = floor(i·nMax/n); end(i) = floor((i+1)·nMax/n)−1 [PDF:92].
 - work(t) = floor(2^256/(t+1)).
-- nMax = min(2^64, c·work(target)) في nonceMode=0، و2^64 في nonceMode=1.
+- nMax = min(2^64, c·work(target)) in nonceMode=0; 2^64 in nonceMode=1.
 
 **6. Draw**
-- w(m) = Σcount[j][m] على j ∈ [h−1−W_w, h−2] لأعضاء A_h*.
-- P+ = {w > 0}، وفراغها يعني اختيارًا موحدًا.
-- x_k = SHA256('PoColProposer'‖seal_p‖be64(h)‖be32(0)‖be32(k))، مع رفض الانحياز.
-- يُختار أول عضو بترتيب العنوان يتجاوز مجموعه التراكمي x_k mod W.
+- w(m) = Σcount[j][m] over j ∈ [h−1−W_w, h−2], for A_h* members.
+- P+ = {w > 0}; if empty, select uniformly.
+- x_k = SHA256('PoColProposer'‖seal_p‖be64(h)‖be32(0)‖be32(k)), with rejection sampling to remove bias.
+- Select the first member in address order whose cumulative sum exceeds x_k mod W.
 
-**7. ASERT بعرض ثابت (D74، D83)**
+**7. Fixed-width ASERT (D74, D83)**
 
-floor_div تقرب نحو −∞.
-1. Δt = (p.ts−g_ts) − T_blk·p.h، في i128، و|Δt| < 2^97.
+floor_div rounds toward −∞.
+1. Δt = (p.ts−g_ts) − T_blk·p.h, in i128, with |Δt| < 2^97.
 2. e = floor_div(Δt·65536, τ).
-3. s = floor_div(e, 65536)، وf = e−65536·s ∈ [0, 65535].
-4. s ≥ 256 يعطي 2^256−1، وs ≤ −257 يعطي 1، وينتهي الحساب.
-5. F = 65536 + floor_div(195766423245049·f + 971821376·f² + 5127·f³ + 2^47, 2^48)، في u128، وF ∈ [65536, 131071].
-6. X = target_g·F < 2^273، وk = s−16 ∈ [−272, 239]. Y = X·2^k إن كان k ≥ 0، وإلا Y = floor(X/2^(−k)).
+3. s = floor_div(e, 65536); f = e−65536·s ∈ [0, 65535].
+4. s ≥ 256 gives 2^256−1; s ≤ −257 gives 1; computation ends.
+5. F = 65536 + floor_div(195766423245049·f + 971821376·f² + 5127·f³ + 2^47, 2^48), in u128, with F ∈ [65536, 131071].
+6. X = target_g·F < 2^273; k = s−16 ∈ [−272, 239]. Y = X·2^k if k ≥ 0; otherwise Y = floor(X/2^(−k)).
 7. target = min(max(Y, 1), 2^256−1).
 
-لِمّة التكافؤ: X ∈ [2^16, 2^273)، فـk ≥ 240 يُقص إلى 2^256−1، وk ≤ −273 يعطي 0 ثم 1. إذن D83 = D74. للكتلة h=1 يكون الهدف target_g.
+Equivalence lemma: X ∈ [2^16, 2^273), so k ≥ 240 clamps to 2^256−1, while k ≤ −273 yields 0 then 1. Hence D83 = D74. At block h=1 the target is target_g.
 
-**8. الإغلاق والنهاية (D57، D85)**
-- closing لاصقة، تبدأ عند h ≥ H_CLOSE أو ts ≥ T_CLOSE. closeH في أول كتلة closing، وcloseH ≤ H_CLOSE.
-- المؤشر يعالج ≤ RET سجلًا لكل كتلة من closeH. cursorDone صحيح في حالة closeH+⌈RecLen_closeH/RET⌉−1 على الأكثر.
-- gate2: h ≥ H_END−P2 أو ts ≥ T_END−P2·T_blk.
-- final = closing_p و cursorDone_p و h ≥ closeH_p+D و (h ≥ H_END أو ts ≥ T_END). الكتلة النهائية بلا ابن صالح.
-- البند 10أ: h ≤ H_END.
+**8. Closing and finalization (D57, D85)**
+- closing is sticky, beginning when h ≥ H_CLOSE or ts ≥ T_CLOSE. closeH is the first closing block; closeH ≤ H_CLOSE.
+- The cursor processes ≤ RET records per block starting at closeH. cursorDone is true in state closeH+⌈RecLen_closeH/RET⌉−1 at the latest.
+- gate2: h ≥ H_END−P2 or ts ≥ T_END−P2·T_blk.
+- final = closing_p and cursorDone_p and h ≥ closeH_p+D and (h ≥ H_END or ts ≥ T_END). The final block has no valid child.
+- Item 10a: h ≤ H_END.
 
-المبرهنة E1 (تحت R13 وR20):
-- عند h = H_END يكون p.h ≥ closeH+⌈REG_RECORDS_MAX/RET⌉+P2+D.
-- إذن cursorDone_p صحيح والكتلة H_END نهائية، ولا كتلة فوقها، وعدد الكتل غير genesis ≤ H_END.
-- E1 حد أعلى لا ضمان وصول.
+Theorem E1 (under R13 and R20):
+- At h = H_END, p.h ≥ closeH+⌈REG_RECORDS_MAX/RET⌉+P2+D.
+- Thus cursorDone_p is true and H_END is final; no block lies above it, and the non-genesis block count is ≤ H_END.
+- E1 is an upper bound, not an arrival guarantee.
 
-**H-pre** (بلا حالة، مع رأس الأب أو رأس genesis الافتراضي):
-1. الترميز والأحجام، وكل معاملة ≤ TX_MAX.
-1ب. NetID بالترتيب: chainId، ثم genesisHash، ثم activeVersion. الأخطاء: netChain، ثم netGenesis، ثم netVersion.
-2. h = p.h+1، وparentHash = blockHash(p)، وh ≤ H_END (10أ).
-3. الشكل: إما (proposer≠∅ وsig≠∅ وa=0 وecrecover = proposer)، وإما (proposer=∅ وsig=∅).
-4. النافذة الزمنية وطابع الاحتياطي.
+**H-pre** (stateless, with parent header or virtual genesis header):
+1. Encoding and sizes; each transaction ≤ TX_MAX.
+1b. NetID in order: chainId, genesisHash, activeVersion. Errors: netChain, netGenesis, netVersion.
+2. h = p.h+1, parentHash = blockHash(p), h ≤ H_END (10a).
+3. Form: either (proposer≠∅ and sig≠∅ and a=0 and ecrecover = proposer), or (proposer=∅ and sig=∅).
+4. Time window and fallback timestamp.
 5. target = ASERT(p).
 6. nonce < nMax.
 7. powHash ≤ target.
-8. winnerSig قابل للاسترداد.
-9. كل حصة < nMax ومختلفة عن nonce، وSHA256(TemplateID‖be64(n)) ≤ T_share.
+8. winnerSig is recoverable.
+9. Every share < nMax and distinct from nonce; SHA256(TemplateID‖be64(n)) ≤ T_share.
 
-**H-full** (بحالة الأب):
+**H-full** (with parent state):
 10. final_p = false.
-11. gasLimit وbaseFee.
-12. التفرع الحصري: الموقّع يتطلب proposer = Draw(h,0). الاحتياطي يتطلب RLP(UT) = Build_fb(p,a).UT بايتيًا، وBody = 0xc2c0c0.
-13. مالك nonce ∈ A_h*، وwinnerSig منه.
-14. مالكو الحصص ∈ A_h*.
-15. الجسم يطابق الجذور والحدود.
-16. txBytes وtxCount ضمن السقوف.
-17. apply يطابق stateRoot وreceiptsRoot وlogsBloom وgasUsed، وتأكيدات النظام محققة.
+11. gasLimit and baseFee.
+12. Exclusive branching: signed requires proposer = Draw(h,0). Fallback requires byte-identical RLP(UT) = Build_fb(p,a).UT and Body = 0xc2c0c0.
+13. nonce owner ∈ A_h*; winnerSig is from that owner.
+14. Share owners ∈ A_h*.
+15. Body matches roots and limits.
+16. txBytes and txCount are within caps.
+17. apply matches stateRoot, receiptsRoot, logsBloom and gasUsed; system assertions hold.
 
-ترتيب التقييم (D75):
-- العقدة تتوقف عند أول خرق (firstReject)، والتشخيص يقيّم كل بند قابل للتقييم.
-- دون رأس الأب: البنود 2–9 notEvaluable. دون حالة الأب: البنود 10–17 notEvaluable.
-- رسائل إضافية: unknownParent، وancestorInvalid، وparentInvalid، وtemplateForm.
-- صنف الغلاف (D129): blockHash لا يلتزم بـsig ولا بـwinnerSig، فيُقسم كل خرق إلى صنفين:
-  - envReject: خرق يتوقف على بايتات sig أو winnerSig وحدها. يشمل:
-    - تعذر فك الرأس، أو ترميز حقلي التوقيع (البند 1).
-    - تطابق وجود sig مع proposer واسترداده (البند 3، عدا شرط a=0 الملتزم).
-    - استرداد winnerSig (البند 8).
-    - كون موقّع winnerSig مالك nonce (الجزء التوقيعي من البند 13).
+Evaluation order (D75):
+- The node stops at the first violation (firstReject); diagnostics evaluate every evaluable item.
+- Without parent header: items 2–9 are notEvaluable. Without parent state: items 10–17 are notEvaluable.
+- Additional messages: unknownParent, ancestorInvalid, parentInvalid, templateForm.
+- Envelope classification (D129): blockHash commits to neither sig nor winnerSig; each violation belongs to one of two classes:
+  - envReject: a violation depending only on sig or winnerSig bytes. Includes:
+    - Failure to decode the header, or malformed encoding of the two signature fields (item 1).
+    - Agreement between sig presence and proposer, and signature recovery (item 3, excluding committed condition a=0).
+    - winnerSig recovery (item 8).
+    - The winnerSig signer being the nonce owner (signature portion of item 13).
 
-    أثره: يرفض نسخة الرأس hdrId = keccak256(RLP(Header)) لا الكتلة. يُعاقب المرسل، ولا يُسجل في pocol_getRejects ككتلة، ولا يطلق parentInvalid ولا ancestorInvalid، وتبقى الكتلة قابلة للقبول بنسخة أخرى.
-  - blockReject: كل خرق آخر. هو دالة على المحتوى الملتزم، فيرفض blockHash ونسله.
-- الكتلة صالحة إن صح محتواها الملتزم ووُجدت لها نسخة غلاف صالحة.
-- العقدة تخزن أول نسخة صالحة الغلاف، وتخدمها في البث والمزامنة وpocol_getHeaders وGetEnvelope (D131).
-- envWait (D131): الكتلة التي رُفضت كل نسخها المعروفة بـenvReject تبقى بلا حكم على blockHash. يستمر جلب غلاف بديل حتى تصل نسخة صالحة، أو تُزال الكتلة بحدود طوابير المزامنة أو D118. هذه الإزالة احتفاظ محلي لا بطلان. بقية النسخ لـblockHash مقبول تُسقط دون فحص.
-- هذا تحديد تنفيذي، لا يغير ناتج الصلاحية ولا اختيار السلسلة.
-- مراحل فحص الغلاف (D130):
-  - envPre: بلا حالة، ويشمل فك حقلي التوقيع واسترداد sig وwinnerSig (البنود 1 و3 و8 في جزئها التوقيعي).
-  - envOwn: بحالة الأب دون تنفيذ، ويشمل كون موقّع winnerSig مالك nonce في A_h* (الجزء التوقيعي من البند 13). كلفته حساب التعيين من حالة الأب، ويُخزن لكل أب.
-  - قبل توفر حالة الأب تكون النسخة envPending، فلا حكم ولا رفض.
-  - حكم envOwn نهائي لكل hdrId، لأن الأب ملتزم في blockHash. الاحتفاظ بالحكم المحسوم محدود بسياسة D136 المحلية (network). الطرد يسمح بإعادة فحص hdrId، والنتيجة الحتمية نفسها، ولا يغير صلاحية الكتلة.
-- التنفيذ (apply) يجري مرة واحدة لكل blockHash، بعد أول نسخة envOk، ويُخزن حكمه في BlockCache.
-- envReject لا يطلق RejectPath.cancel، ولا يضع HfullDone، ولا يُسجل في pocol_getRejects ككتلة. هذه الثلاثة مقصورة على blockReject أو الاستيراد.
+    Effect: reject header copy hdrId = keccak256(RLP(Header)), not the block. Penalize the sender; do not record a block in pocol_getRejects or trigger parentInvalid/ancestorInvalid. The block remains admissible through another copy.
+  - blockReject: every other violation. It depends on committed content and rejects blockHash and its descendants.
+- A block is valid if its committed content is valid and a valid envelope copy exists.
+- The node stores the first envelope-valid copy and serves it through gossip, synchronization, pocol_getHeaders and GetEnvelope (D131).
+- envWait (D131): a block whose known copies all received envReject remains undecided at blockHash level. Alternative-envelope fetching continues until a valid copy arrives or the block is removed under sync-queue limits or D118. Removal is local retention, not invalidity. Further copies of an accepted blockHash are dropped without checking.
+- This is an implementation specification; it changes neither validity outcomes nor chain selection.
+- Envelope-check stages (D130):
+  - envPre: stateless; decoding both signature fields and recovering sig/winnerSig (signature portions of items 1, 3 and 8).
+  - envOwn: parent state, no execution; checks that the winnerSig signer owns nonce in A_h* (signature portion of item 13). Cost is assignment computation from parent state, cached per parent.
+  - Before parent state is available, the copy is envPending, with neither verdict nor rejection.
+  - An envOwn verdict is final for each hdrId because the parent is committed in blockHash. Retaining settled verdicts is bounded by local policy D136 (network). Eviction allows rechecking hdrId with the same deterministic result and does not change block validity.
+- Execution (apply) occurs once per blockHash after its first envOk copy; its verdict is cached in BlockCache.
+- envReject does not invoke RejectPath.cancel, set HfullDone or record a block in pocol_getRejects. These three are restricted to blockReject or import.
 
-**9. اختيار السلسلة (D133، يعدّل D15)**
+**9. Chain selection (D133, amends D15)**
 
-من الأطروحة [PDF:74 §4.2]: قاعدة العمل التراكمي فقط. كاسر التعادل غير متاح في المقاطع المرسلة، فما يلي إضافة منا.
+From the thesis [PDF:74 §4.2]: only the cumulative-work rule. The tie-break is unavailable in the provided excerpts; the following is our addition.
 
-التعريفات:
-- المرشحون: رؤوس الكتل المستوردة (المجتازة لـH-full) لدى العقدة.
-- W(t) = Σwork من genesis حتى t.
-- importSeq(b): عداد محلي رتيب يُسند لكل blockHash لحظة أول استيراد ناجح. لا يتغير ما بقيت الكتلة مخزنة. الكتلة المحذوفة بـD118 ثم المستوردة ثانية تأخذ رقمًا جديدًا.
-- key(b) = (signed(b) ? 0 : 1, importSeq(b), blockHash(b))، والأصغر معجميًا أفضل.
+Definitions:
+- Candidates: headers of blocks imported (passed H-full) by the node.
+- W(t) = Σwork from genesis to t.
+- importSeq(b): a local monotonic counter assigned to each blockHash at its first successful import. It remains unchanged while the block is stored. A block removed by D118 and imported again receives a new number.
+- key(b) = (signed(b) ? 0 : 1, importSeq(b), blockHash(b)); lexicographically smaller is better.
 
-الترتيب t1 ≻ t2 يتحقق في إحدى حالتين:
+The ordering t1 ≻ t2 holds in either case:
 - W(t1) > W(t2).
-- أو تساوى W، وkey(c1) < key(c2)، حيث c1 وc2 ابنا السلف المشترك الأدنى على مساري t1 وt2.
+- Or W is equal and key(c1) < key(c2), where c1 and c2 are children of the lowest common ancestor on the paths to t1 and t2.
 
-لِمّة الترتيب الكلي:
-- work(t) ≥ 1 لكل هدف، فلا يكون مسار مرشح بادئة لآخر بالعمل نفسه. إذن الابنان c1 ≠ c2 موجودان دائمًا عند تساوي W.
-- المقارنة معجمية لمسارات من genesis، والمفتاح كلي على الأشقاء، فـ≻ ترتيب كلي متعدٍ.
-- الرأس = الأعظم بـ≻، مستقلًا عن ترتيب الفحص. لا مقارنة زوجية تسلسلية.
+Total-order lemma:
+- work(t) ≥ 1 for every target, so a candidate's path cannot prefix another's with equal work. Thus distinct children c1 ≠ c2 always exist when W is equal.
+- Comparison is lexicographic over paths from genesis; the key totally orders siblings, so ≻ is a transitive total order.
+- Head = maximum under ≻, independent of examination order. No sequential pairwise comparison.
 
-لِمّة الانتقال:
-- W وkey ثابتان لكل كتلة مخزنة.
-- المجموعة تنمو بالاستيراد فقط، وD118 لا يحذف القانونية.
-- إذن يتغير الرأس عند الاستيراد فقط، ومرة واحدة على الأكثر لكل استيراد.
+Transition lemma:
+- W and key are fixed for each stored block.
+- The set grows only through import; D118 does not remove canonical blocks.
+- Hence head changes only on import, at most once per import.
 
-الأثر:
-- الموقّع يسبق الاحتياطي عند أول اختلاف (D15).
-- التعادل بين شقيقين من النوع نفسه محلي بأسبقية الاستيراد، وغير قابل للطحن.
-- القاعدة لا تغير صلاحية أي كتلة.
+Effect:
+- Signed precedes fallback at the first divergence (D15).
+- Same-type sibling ties use local import precedence and cannot be ground.
+- The rule changes no block's validity.
 
-**10. التعافي**
-- المعاملات المستبعدة تعود إلى المجمع بعد إعادة فحصها.
-- التراجع بفروق عكسية لكل الحالة، ومنها pending[j] (D78).
-- نافذة trie: K_eff ≤ K_hist، وما خارجها يعطي −32017.
-- التراجع حتى R_keep، ثم TrieRebuild.
-- الكتل الجانبية ≤ 2 لكل ارتفاع (D118):
-  - يُحتفظ بالقانونية إن وُجدت، وبغير قانونية واحدة هي الأعلى عملًا تراكميًا لفرعها، ثم الأسبق رؤية.
-  - عند وصول أخرى تُقارن بالمخزنة غير القانونية، وتُبقى الأعلى، ويُحذف الساقط مع نسله المخزن.
-  - الفرع الذي يصير أثقل لاحقًا يُجلب بالمزامنة عبر Status.
-  - القاعدة احتفاظ محلي لا صلاحية.
+**10. Recovery**
+- Displaced transactions return to the pool after revalidation.
+- Rollback uses inverse diffs for all state, including pending[j] (D78).
+- Trie window: K_eff ≤ K_hist; requests outside it return −32017.
+- Roll back up to R_keep, then TrieRebuild.
+- Side blocks ≤ 2 per height (D118):
+  - Retain the canonical block if present and one noncanonical block ranked by its branch's highest cumulative work, then first seen.
+  - Compare another arrival with the stored noncanonical block, retain the higher-ranked one and delete the loser with its stored descendants.
+  - A branch that later becomes heavier is fetched through synchronization via Status.
+  - This is a local-retention rule, not validity.
 
-**11. التقدم (مشروط)**
-الصادق يبدأ خلال X^W، وفي النمط المحدود p0 ≥ 1−exp(−c·ρ_hon).
+**11. Progress (conditional)**
+An honest miner starts within X^W; in bounded mode p0 ≥ 1−exp(−c·ρ_hon).
 
-**12. النهائية**
-احتمالية: safe = head−6، وfinalized = head−60 [PDF:76-77]، دون ضمان رياضي.
+**12. Finality**
+Probabilistic: safe = head−6, finalized = head−60 [PDF:76-77], without a mathematical guarantee.
 
-**13. استقلال الإجماع عن RPC والإضافة (D87–D97)**
-- التحقق والتعدين في runtime مستقل ذي أولوية، بكاتب redb واحد.
-- قراءات RPC من لقطات تُحرر عند نهاية الحساب.
-- العناصر التالية لا تدخل أي بند صلاحية:
-  - RpcGuard وSendPacer وPacerTrace.
-  - مرساة pocol_getLogs، وحدثا sendDone وreceiveDone.
-  - BridgeAuth وغلاف رسائل الجسر ودلو معدله وعدّاد تعليقه وحصة SiteStorage، وحجب الأصل في العقدة.
-- pocol_getLogs يقرأ السلسلة القانونية ولا يغيرها.
+**13. Consensus independence from RPC and the extension (D87–D97)**
+- Validation/mining run in a separate prioritized runtime with one redb writer.
+- RPC reads use snapshots released at computation completion.
+- The following enter no validity item:
+  - RpcGuard, SendPacer and PacerTrace.
+  - The pocol_getLogs anchor and sendDone/receiveDone events.
+  - BridgeAuth, bridge-message envelope, rate bucket, pending counter, SiteStorage quota and node origin blocking.
+- pocol_getLogs reads the canonical chain without changing it.

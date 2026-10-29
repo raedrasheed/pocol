@@ -19,8 +19,8 @@ wf/rpcguard (findings M1, M2, B3) and the fix round on wf/rpcguard-r2.
 
 ### What the approved text says, and what pocold does
 
-> دلو رموز لكل اتصال بمعدل 20/s وسعة 20: المنفرد يستهلك رمزًا، والدفعة k رموزًا عند التحليل. النقص يعطي
-> −32021 {rate, retryAfterMs} دون تنفيذ. … لا انتظار للرموز داخل طلب أو دفعة.
+> A token bucket per connection at 20/s with capacity 20: a single request consumes one token and a batch k tokens at parsing. Insufficient tokens return
+> −32021 {rate, retryAfterMs} without execution. … No waiting for tokens inside a request or batch.
 
 "A token bucket per connection, 20/s with capacity 20. A singleton takes one token, a batch of k
 takes k at parse. A shortfall gives −32021 {rate, retryAfterMs} without running. … No waiting for
@@ -71,8 +71,8 @@ Tests it would need:
 
 ### What the approved text says, and what pocold does
 
-> رمز يُضبط عند الإغلاق أو أي مهلة، ويُفحص كل 16 كتلة ممسوحة وكل 1 MiB مرمّز وكل 10^6 gas. يحرر كل
-> الموارد خلال ≤ CANCEL_MAX = 100 ms.
+> A token set on close or any timeout, polled every 16 scanned blocks, every 1 MiB encoded and every 10^6 gas. It releases all
+> resources within ≤ CANCEL_MAX = 100 ms.
 
 "A token is set at close or at any timeout, checked every 16 blocks scanned, every 1 MiB encoded and
 every 10^6 gas. It releases every resource within ≤ CANCEL_MAX = 100 ms."
@@ -102,7 +102,7 @@ host and on the Windows CI host.
 
 ### What the approved text says, and what pocold does
 
-> COMPUTE_DEADLINE من القبول شاملًا الترميز: 5s ثقيل و500 ms خفيف، وانتهاؤها −32020 {deadline}.
+> COMPUTE_DEADLINE starts at admission and includes encoding: 5s heavy and 500 ms light; expiry returns −32020 {deadline}.
 
 "COMPUTE_DEADLINE runs from admission, including encoding: 5 s heavy and 500 ms light, and its expiry is
 −32020 {deadline}."
@@ -144,12 +144,12 @@ Added in round 3, after the second review of round 2 (finding RG2-M4).
 
 ### What the approved text says, and what pocold does
 
-> الطريقة غير المدرجة: −32601 قبل القبول، وإضافتها تتطلب سطرًا في الجدول واجتياز RG13.
+> Unlisted method: −32601 before admission; adding it requires a table row and passing RG13.
 
 "An unlisted method: −32601 before admission; adding one requires a line in the table and passing
 RG13."
 
-The table (network.md (ب)) lists the light and heavy methods. pocold differs in two ways.
+The table (network.md (b)) lists the light and heavy methods. pocold differs in two ways.
 
 1. **It serves nine methods that are not in the table**, on the heavy lane (anything not light is
    heavy), after admission, with a RESP_MAX reservation and the heavy COMPUTE_DEADLINE:
@@ -179,7 +179,7 @@ RPCGUARD.md marks the two classification rows PARTIAL for this reason.
 | option | rule | effect on pocold's tools | RPC-visible change |
 |---|---|---|---|
 | A (current) | serve the nine methods as heavy; −32601 for unknown methods after admission | none | none |
-| B | add a table line for each served method (network.md (ب)), with its class and its worst encoded answer, and pass RG13 for the light ones; −32601 before admission for every other method | none, once the lines exist | an unknown method is −32601 at once, never busy |
+| B | add a table line for each served method (network.md (b)), with its class and its worst encoded answer, and pass RG13 for the light ones; −32601 before admission for every other method | none, once the lines exist | an unknown method is −32601 at once, never busy |
 | C | a pocold-local "inspection" class, outside RpcGuard's table, served only without an Origin header (as ORIGIN_DENY), so a site cannot reach it; −32601 before admission otherwise | the extension's pocol_status call needs a table line or must move to an approved method | sites lose pocol_status and the pocold_* methods |
 | D | refuse every unlisted method (the literal reading) | breaks the extension, scripts/devnet.py, tests/e2e_devnet.py, tests/e2e_site.py and the test suites | the nine methods disappear |
 

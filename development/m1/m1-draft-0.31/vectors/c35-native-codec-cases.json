@@ -2,7 +2,7 @@
   "schema": "pocol-m1-c35/0.31",
   "status": "C35 fixtures: error-data size and error clipping measured by the native Node JSON codec (tools/json_codec_031.mjs) behind the unchanged-order receive guard (tools/guard_ref_031.py). Expected byte counts come from root's native oracles; the author computed nothing. Root executes.",
   "sources": {
-    "bound": {"file": "reference/browser.md", "lines": [283, 285], "literals": ["message يُقص إلى 256 وحدة UTF-16", "≤ 4 KiB"]},
+    "bound": {"file": "reference/browser.md", "lines": [283, 285], "literals": ["message \u064a\u064f\u0642\u0635 \u0625\u0644\u0649 256 \u0648\u062d\u062f\u0629 UTF-16", "≤ 4 KiB"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "decision": {"file": "coordination/review-001/REVIEW-DECISIONS-0.30.json", "json": "sourceEncodingDecision",
                  "contains": ["well-formed nativeJSON.stringify UTF8 bytes", "lone-surrogate escaping", "NativeNode referencecodec preferred"]},
     "review": {"file": "coordination/review-001/REVIEW-0.30.md", "lines": [9, 11], "literals": ["6647", "3347", "lone-surrogate"]}

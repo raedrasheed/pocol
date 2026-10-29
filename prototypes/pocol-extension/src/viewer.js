@@ -26,7 +26,7 @@ const ARM_MS = 600;
 function pump() {
   if (showing || !confirms.length) return;
   const { q, id, resolve } = confirms.shift();
-  const titles = { confirmExternal: 'فتح رابط خارجي في تبويب جديد', confirmAccounts: 'منح الموقع حسابك على هذه الشبكة', confirmTx: 'توقيع معاملة وإرسالها' };
+  const titles = { confirmExternal: 'Open an external link in a new tab', confirmAccounts: 'Grant this site access to your account on this network', confirmTx: 'Sign and send a transaction' };
   $('mtitle').textContent = titles[q.type] || q.type;
   $('mtext').textContent = q.type === 'confirmExternal' ? q.url
     : q.type === 'confirmAccounts' ? `site: ${q.site}\nnetwork: ${q.network}\naccount: ${q.address}`
@@ -56,7 +56,7 @@ async function mount(path, opts = {}) {
   let loads = 0;
   iframe.addEventListener('load', () => {
     loads++;
-    if (loads > 1) { teardown('أُزيل الإطار: حاول الموقع الانتقال بنفسه (D26)'); return; }
+    if (loads > 1) { teardown('Frame removed: the site attempted to navigate itself (D26)'); return; }
     // Bridge text is forwarded as-is; only the envelope {seq, text} shape is checked here.
     channel.port1.onmessage = (e) => {
       const m = e.data; if (!ctx.current || ctx.current.frame !== frame) return;
@@ -75,17 +75,17 @@ async function mount(path, opts = {}) {
 function workerLost() {
   dismissAll();
   if (!ctx || ctx.revoked) return; teardown(); ctx.current = null; ctx.frame = Number.MAX_SAFE_INTEGER;
-  const p = Object.assign(document.createElement('p'), { className: 'err', textContent: 'انقطع عامل الإضافة؛ قد تكون آخر الكتابات غير محفوظة ' });
-  const b = Object.assign(document.createElement('button'), { type: 'button', id: 'reload', textContent: 'إعادة التحميل' }); b.onclick = () => location.reload();
+  const p = Object.assign(document.createElement('p'), { className: 'err', textContent: 'The extension worker disconnected; recent writes may not have been saved ' });
+  const b = Object.assign(document.createElement('button'), { type: 'button', id: 'reload', textContent: 'Reload' }); b.onclick = () => location.reload();
   p.append(b); $('stage').replaceChildren(p); status('');
 }
 async function start() {
   const t = TARGET.exec(decodeURI(location.hash.slice(1)));
-  if (!t) { fail('العنوان: #<profile>/<0x…address>[/path]'); return; }
+  if (!t) { fail('Address: #<profile>/<0x…address>[/path]'); return; }
   const [, name, site, path = '/'] = t;
-  $('where').textContent = `${name}/${site}`; status('جارٍ الجلب والتحقق…');
+  $('where').textContent = `${name}/${site}`; status('Fetching and verifying…');
   const r = await chrome.runtime.sendMessage({ type: 'open', name, site, path });
-  if (!r || !r.ok) { fail('تعذر فتح الموقع: ' + (r && r.error ? (r.error.message || r.error) : 'unknown')); $('trust').textContent = 'رُفض'; return; }
+  if (!r || !r.ok) { fail('Could not open site: ' + (r && r.error ? (r.error.message || r.error) : 'unknown')); $('trust').textContent = 'Rejected'; return; }
   $('trust').textContent = r.trust.message; $('trust').className = 'badge ' + r.trust.level; $('trust').dataset.level = r.trust.level;
   $('ver').textContent = `version ${r.version} · block ${r.publishedBlock}`;
   const files = new Map(); for (const p of Object.keys(r.files)) files.set(p, { mime: r.files[p].mime, data: unb64(r.files[p].b64) });
@@ -97,7 +97,7 @@ async function start() {
     if (m.ask !== undefined) { const ok = await confirmUI(m.q, m.ask); try { port.postMessage({ answer: m.ask, ok }); } catch {} return; }
     if (m.dismiss !== undefined) { dismiss(m.dismiss); return; }
     // Identity or profile change (browser.md: 4901): the frame is torn down, nothing reloads by itself.
-    if (m.revoked) { ctx.revoked = true; dismissAll(); teardown(); ctx.frame = Number.MAX_SAFE_INTEGER; fail(`أُنهيت الجلسة (${m.revoked.code}): ${m.revoked.message}`); return; }
+    if (m.revoked) { ctx.revoked = true; dismissAll(); teardown(); ctx.frame = Number.MAX_SAFE_INTEGER; fail(`Session terminated (${m.revoked.code}): ${m.revoked.message}`); return; }
     if (!ctx.current || m.frame !== ctx.current.frame) return; // replies to a torn-down frame are dropped (D99)
     if (m.navigate) {
       const to = m.navigate;

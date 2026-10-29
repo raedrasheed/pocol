@@ -98,7 +98,7 @@ test('a reused connection keeps the open browser working and the reviewer API un
   assert.equal((await req('/api/reviewer/ack', { 'x-pocol-reviewer': REV, origin: `http://127.0.0.1:${port}`, 'content-type': 'application/json' }, 'POST', { itemId: 'x' })).status, 403,
     'a browser-originated request never reaches the reviewer API, even with the host capability');
   assert.equal((await req('/api/reviewer/queue', { 'x-pocol-reviewer': REV, 'sec-fetch-site': 'same-origin' })).status, 403);
-  assert.match((await req('/')).text, /التفويض الدائم والمتابعة/, 'the read-only authority section is served');
+  assert.match((await req('/')).text, /Standing authorization and continuation/, 'the read-only authority section is served');
 });
 
 test('a saved valid connection never bypasses the single-service lock', () => {
@@ -107,6 +107,6 @@ test('a saved valid connection never bypasses the single-service lock', () => {
   const a = new Controller({ workspace: ws, isAlive: () => false });
   const b = new Controller({ workspace: ws, isAlive: () => false });
   a.acquireService(null);
-  assert.throws(() => b.acquireService(null), /تعمل بالفعل/, 'a second service cannot start or take over');
+  assert.throws(() => b.acquireService(null), /already running/, 'a second service cannot start or take over');
   a.releaseService();
 });

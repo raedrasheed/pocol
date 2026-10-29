@@ -8,31 +8,31 @@
 ## Exact normative text
 
 1. `development/m1/reference/execution.md:82` (identical in FINAL_DESIGN.md:819):
-   > SLOT_CAP، وACCT_CAP، وDIRTY_BLOCK_MAX=4096، وACCT_DIRTY_BLOCK_MAX=2048، وLOG_BLOCK_MAX=32 KiB، وLOG_CAP=1 GiB: توقف استثنائي.
+   > SLOT_CAP, ACCT_CAP, DIRTY_BLOCK_MAX=4096, ACCT_DIRTY_BLOCK_MAX=2048, LOG_BLOCK_MAX=32 KiB, LOG_CAP=1 GiB: exceptional halt.
 
    "SLOT_CAP, ACCT_CAP, DIRTY_BLOCK_MAX=4096, ACCT_DIRTY_BLOCK_MAX=2048, LOG_BLOCK_MAX=32 KiB,
    LOG_CAP=1 GiB: exceptional halt."
 2. `execution.md:84`:
-   > LOG_BLOCK_MAX مع حد عدد السجلات المشتق في LG2 (546) أساس لِمّتي P1 وP3 (D89).
+   > LOG_BLOCK_MAX, with the log-count bound derived in LG2 (546), is the basis of lemmas P1 and P3 (D89).
 
    "LOG_BLOCK_MAX, with the log-count limit derived in LG2 (546), is the basis of lemmas P1 and P3
    (D89)."
 3. `storage.md:53` (RetentionStore sizes):
-   > … والسجل = 36+len.
+   > … and a log = 36+len.
 
    "… and a log = 36+len."
 4. `storage.md:56–58`:
-   > LG1 = d7 94 ‹20› c0 80، بمخزن 60 B. … LG2: 546 سجلًا تنجح، و547 تتوقف.
+   > LG1 = d7 94 ‹20› c0 80, stored in 60 B. … LG2: 546 logs succeed, and 547 halt.
 
    "LG1 = d7 94 ‹20› c0 80, stored in 60 B. … LG2: 546 logs succeed, and 547 halt."
 5. `governance.md:168`:
-   > LogBomb: 546 سجل LOG0 لكل نداء، والبيانات 24 بايتًا آخر 8 منها = be64(arg).
+   > LogBomb: 546 LOG0 records per call, with 24 data bytes whose final 8 bytes are be64(arg).
 
    "LogBomb: 546 LOG0 logs per call; data of 24 bytes, the last 8 = be64(arg)."
 6. `network.md:202` and `network.md:304`:
    > eth_getTransactionReceipt: ≤ 2·LOG_BLOCK_MAX+546·512 B+2 KiB ≈ 339 KiB.
    >
-   > لِمّة P1: كتلة واحدة ≤ 32 KiB خامًا و≤ 546 سجلًا، وترميزها < 400 KiB.
+   > Lemma P1: one block ≤ 32 KiB raw and ≤ 546 logs, encoded in < 400 KiB.
 
    "eth_getTransactionReceipt: ≤ 2·LOG_BLOCK_MAX + 546·512 B + 2 KiB ≈ 339 KiB." / "Lemma P1: one
    block ≤ 32 KiB raw and ≤ 546 logs, and its encoding < 400 KiB."
@@ -61,7 +61,7 @@ charged 36 + |data|.
 - It charges topics, which the receipt bound encodes.
 - It makes P1's "≤ 546 logs" a rule rather than a hope.
 
-## Proposed amendment (to execution.md §السقوف, recorded here only)
+## Proposed amendment (to execution.md §Caps, recorded here only)
 English:
 - One log is charged 36 + 32·|topics| + |data| bytes.
 - The charges of a block's logs sum to at most LOG_BLOCK_MAX (equality allowed), and a block holds at
@@ -70,7 +70,7 @@ English:
   nothing to either sum.
 
 Arabic:
-> يُحسب لكل سجل 36 + 32·|topics| + |data| بايتًا، ومجموع سجلات الكتلة ≤ LOG_BLOCK_MAX (المساواة مسموحة)، وعدد سجلات الكتلة ≤ 546. أول معاملة تتجاوز أحد الحدين تتوقف استثنائيًا، ولا يُضاف من سجلاتها شيء إلى أي من الحدين.
+> Each log is charged 36 + 32·|topics| + |data| bytes; the block's total log charge is ≤ LOG_BLOCK_MAX (equality allowed), and its log count is ≤ 546. The first transaction exceeding either limit halts exceptionally; none of its logs contributes to either total.
 
 ## Minimal examples (model vectors `vectors/log-acct-01.json`)
 

@@ -65,7 +65,7 @@ async function checkNetwork(profile, rpc) {
   if (st.genesisHash.toLowerCase() !== profile.genesisHash.toLowerCase()) throw Object.assign(new Error('endpoint genesis differs from profile'), { code: 4901 });
 }
 
-// ---------------- signing eligibility (browser.md "أهلية التوقيع", A06) ----------------
+// ---------------- signing eligibility (browser.md "Signing eligibility", A06) ----------------
 // Every profile change runs under ProfileMutex and bumps eligibilityEpoch; every wallet
 // transition (create, unlock, lock, timeout) bumps walletEpoch. Either cancels pending
 // approvals, and a wallet request re-checks both after every await, so an old request never
@@ -178,7 +178,7 @@ async function openSite({ name, site, path, tabId }) {
 async function openVerified(profile, site, path, tabId, ep0) {
   /*@fault noDnr*/await installDnr(tabId);/*@else*//* TEST FAULT: DNR not installed *//*@end*/
   const rpc = rpcFor(profile, pools.trust); await checkNetwork(profile, rpc);
-  let trust = { level: profile.trustLevel, message: profile.trustLevel === 'LN' ? 'LN: عقدة محلية تتحقق من التنفيذ كاملًا' : 'DEV: شبكة تطوير بلا تحقق' };
+  let trust = { level: profile.trustLevel, message: profile.trustLevel === 'LN' ? 'LN: a local node verifies full execution' : 'DEV: development network without verification' };
   if (profile.trustLevel === 'RP') {
     const spec = decodeSpec(fromHex(profile.genesisPre));
     try { trust = { level: 'RP', ...(await verifyWindow(rpc, spec)) }; }

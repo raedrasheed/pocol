@@ -787,7 +787,7 @@ fn pacer_batch()->String{
     let v:serde_json::Value=serde_json::from_str(&answer(&mut n,&req()).body).unwrap();assert!(v["result"].is_string(),"{v}");assert_eq!(n.pool.txs.len(),1);
 }
 /// Review R2-2: the pool admission of eth_sendRawTransaction runs under the request's COMPUTE_DEADLINE
-/// (network.md RpcGuard (د) step 4, (و)). An interpreted execution is stopped at its next poll; a
+/// (network.md RpcGuard (D) step 4, (F)). An interpreted execution is stopped at its next poll; a
 /// precompile run, which no poll can cut short, is checked again before the commit. Either way the
 /// transaction is refused with -32020 {deadline} and nothing is pooled. In process, deterministically.
 #[test] fn a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled(){let _g=serial();
@@ -1141,7 +1141,7 @@ fn blake_then(rounds:u32,tail:&str)->String{
     }
     let a=answer(&mut n,&req(body(LIGHT_RESP_MAX/2),true));assert!(a.body.contains("\"result\""),"within the limit it is answered");
 }
-/// Review 2 (RG2-m5): the COMPUTE_DEADLINE follows the method's class (network.md (ب), :235), as for
+/// Review 2 (RG2-m5): the COMPUTE_DEADLINE follows the method's class (network.md (B), :235), as for
 /// batch members: a light method whose body is over LIGHT_BODY_MAX (so it runs on the heavy lane) has
 /// the light deadline (here zero: -32020 {deadline}), and a heavy method with the same body the heavy one.
 #[test] fn a_light_method_over_light_body_max_has_the_light_deadline(){let _g=serial();
@@ -1150,7 +1150,7 @@ fn blake_then(rounds:u32,tail:&str)->String{
     let v=rpc_json(r.rpc,&big);assert_eq!(v["error"]["code"],-32020,"{v}");assert_eq!(v["error"]["data"]["reason"],"deadline");
     let v=rpc_json(r.rpc,&format!(r#"{{"jsonrpc":"2.0","id":3,"method":"pocol_status","params":[],"pad":"{pad}"}}"#));assert!(v["result"].is_object(),"{v}");
 }
-/// Review 3 (RG3V-M3): the class limit follows the method (network.md (ب), :210), whatever the lane. An
+/// Review 3 (RG3V-M3): the class limit follows the method (network.md (B), :210), whatever the lane. An
 /// eth_blockNumber answer inflated past LIGHT_RESP_MAX by a 600 KiB id (RG12's lightInflate) arrives
 /// on the heavy lane (its body is over LIGHT_BODY_MAX) and is still -32020 {resultBytes}, the id elided,
 /// alone or as a batch member; within LIGHT_RESP_MAX it is answered, and a heavy method with the same id
@@ -1166,7 +1166,7 @@ fn blake_then(rounds:u32,tail:&str)->String{
     let v=rpc_json(r.rpc,&one("pocol_status",600<<10));assert!(v["result"].is_object(),"a heavy method's limit is RESP_MAX");
     assert!(wait_until(5000,||{let s=stats(r.rpc);s["heavyReserved"].as_u64()==Some(pocold::rpc::RESP_MAX as u64)&&s["lightReserved"]==0}),"released (only the stats request's own remains): {}",stats(r.rpc));
 }
-/// Review 3 (RG3V-m1): the conditional light entries of network.md (ب) have the light class's
+/// Review 3 (RG3V-m1): the conditional light entries of network.md (B) have the light class's
 /// COMPUTE_DEADLINE (:235; here zero, so -32020 {deadline}): eth_getBlockBy* with hashes only (the full
 /// flag false or absent) and pocol_getHeaders with count <= 64, alone or as batch members. Their heavy
 /// forms (full blocks; count > 64) keep the heavy deadline. A listed light method over LIGHT_BODY_MAX
@@ -1208,7 +1208,7 @@ fn blake_then(rounds:u32,tail:&str)->String{
     let a=v.as_array().unwrap_or_else(||panic!("{v}"));assert!(a[0]["result"].is_string()&&dl(&a[1]),"batch member: {v}");
 }
 
-/// PR #27 review R2-1 (network.md (ط): RPC does not hold up validation, mining or sync): one batch of
+/// PR #27 review R2-1 (network.md (I): RPC does not hold up validation, mining or sync): one batch of
 /// heavy eth_call members used to run on the consensus thread with only the light lane drained between
 /// members, so a P2P Hello waited for the whole batch. Queued P2P, miner and timer events now run between
 /// members: a peer that connects during the batch gets the node's Hello long before the batch ends.

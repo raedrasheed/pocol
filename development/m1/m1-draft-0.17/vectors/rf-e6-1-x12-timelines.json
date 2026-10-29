@@ -4,8 +4,8 @@
   "eventsFrom": {"file": "m1-draft-0.16/vectors/e6-admin.json", "case": "BR24-x12"},
   "until": 12000,
   "source": {"file": "reference/validation.md", "lines": [715, 741],
-             "literals": ["0: deleteSite(K1)", "1: deleteSite(K2)", "4000: deleteSite(K3)", "5000: مهلة T1a", "سحب T1b", "held=1", "held=0",
-                          "adminStaleDropped = 0", "adminStaleDropped = 1", "bridge-fault:adminNoCancel"]},
+             "literals": ["0: deleteSite(K1)", "1: deleteSite(K2)", "4000: deleteSite(K3)", "5000: \u0645\u0647\u0644\u0629 T1a", "\u0633\u062d\u0628 T1b", "held=1", "held=0",
+                          "adminStaleDropped = 0", "adminStaleDropped = 1", "bridge-fault:adminNoCancel"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "cells": [
     {"t": 0, "tag": "source", "cell": "op1 T1a granted slot A (set#4, K1 (2,1))"},
     {"t": 1, "tag": "source", "cell": "op2 T2a granted slot B (set#5, K2 (2,1)); held=2"},

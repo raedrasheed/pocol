@@ -1,4 +1,4 @@
-//! PoCol block apply (M1 execution.md "مراحل الكتلة", D141/D142, LEDGER-01).
+//! PoCol block apply (M1 execution.md "Block phases", D141/D142, LEDGER-01).
 //!
 //! apply(S_parent, ctx, body) runs, as one private candidate:
 //!   phase 0: applyEvidence, markClose, pruneShares, recordShares(h-1),

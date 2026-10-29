@@ -55,7 +55,7 @@ Missing annex work is not a blocker. It is scheduled.
 ## 4. Pending owner decisions
 
 1. **CR-M1-01:** approve, amend or reject. If rejected, P36 applies.
-2. **ADD-M1-01:** sign, amend, or supply the original definitions of Q8–Q12, X1–X7 and د1–د5. This includes the mapping decisions for Q_i ↔ site i, and د versus BR23.
+2. **ADD-M1-01:** sign, amend, or supply the original definitions of Q8–Q12, X1–X7 and DNR-d1–DNR-d5. This includes the mapping decisions for Q_i ↔ site i, and DNR-d versus BR23.
 3. **PR-1/PR-2 trie premise** (BLK-03).
 4. **U33:** accept ESLint for the FD:L3264 fetch rule. The baseline names dependency-cruiser.
 5. Still open from 0.2/0.3: U01 (factory address), U02 (revoked interstitial), U10, U14 (timeout meaning), U15 (gate carve-out; the default is the full gate), U16.

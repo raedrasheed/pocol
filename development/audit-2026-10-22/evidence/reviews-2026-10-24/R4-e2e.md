@@ -144,7 +144,7 @@ Summary of the 8 new e2e mutants: 1 caught (Nwantsh), 7 survived. Of the 7 survi
   is (re)started fresh before it must sync (`:276`, `:371`, `:380`, `:402`).
 - **Claim:**
   - Every node receives each block directly from its miner, so a node that never forwards peer blocks
-    is never noticed. Relay is required: network.md "استلام block" step 3, "… ثم البث" ("… then the broadcast").
+    is never noticed. Relay is required: network.md "Receiving block" step 3, "… then broadcast" ("… then the broadcast").
   - Every sync starts from a first Hello on a new connection, so Status refreshes, the later Hellos
     that sync_tick's round-robin relies on, are never needed.
 - **Evidence:** Nnorelay and Nhello1 each passed 38/38 (`run-Nnorelay.log`, `run-Nhello1.log`). Both

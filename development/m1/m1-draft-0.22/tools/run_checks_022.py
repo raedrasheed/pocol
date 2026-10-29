@@ -29,6 +29,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
+
 HERE = Path(__file__).resolve().parent
 PKG, ROOT = HERE.parent, HERE.parent.parent
 RES = PKG / 'results'
@@ -79,7 +96,7 @@ def check(label, condition, /, **diag):
 
 
 def sha(p):
-    return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    return hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None
 
 
 def load_module(rel, modname):
@@ -90,11 +107,11 @@ def load_module(rel, modname):
 
 
 def load_json(rel):
-    return json.loads((ROOT / rel).read_text(encoding='utf-8'))
+    return json.loads(source_text(ROOT / rel))
 
 
 def provenance(label, src):
-    lines = (ROOT / src['file']).read_text(encoding='utf-8').splitlines()
+    lines = source_text(ROOT / src['file']).splitlines()
     a, b = src['lines']
     text = '\n'.join(lines[a - 1:b])
     missing = [lit for lit in src.get('literals', []) if lit not in text]
@@ -242,7 +259,7 @@ def replay_021(R21, e05_python_sha):
         R21.record('input.sha256 ' + rel, 'recorded', exists=(ROOT / rel).exists(), sha256=R21.sha(ROOT / rel))
     R21.check('boundary.positionalOnly', R21.record.__code__.co_posonlyargcount == 2 and R21.check.__code__.co_posonlyargcount == 2
               and R21.gap.__code__.co_posonlyargcount == 1)
-    calls = [n.lineno for n in ast.walk(ast.parse((ROOT / 'm1-draft-0.21/tools/run_checks_021.py').read_text(encoding='utf-8')))
+    calls = [n.lineno for n in ast.walk(ast.parse(source_text(ROOT / 'm1-draft-0.21/tools/run_checks_021.py')))
              if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == 'main']
     R21.check('boundary.noOldMainCalled', not calls, attributeMainCallsAtLines=calls)
     k_ok, k_diag = role_content_ok(R21.NP.K, 'm1-draft-0.2/tools/keccak.py', e05_python_sha)

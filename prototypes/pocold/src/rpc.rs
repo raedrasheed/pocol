@@ -237,7 +237,7 @@ impl Budget{
 pub fn rate_refused(k:u32,l:&Limits)->Option<u64>{
     (k>l.bucket_cap).then(||(u64::from(k-l.bucket_cap)*1000).div_ceil(u64::from(l.rate.max(1))).max(1))
 }
-/// The SendPacer's backstop check (network.md:246: "فحص احتياطي كل 50 ms").
+/// The SendPacer's backstop check (network.md:246: "Fallback check every 50 ms").
 pub const PACER_BACKSTOP:Duration=Duration::from_millis(50);
 /// SendPacer (network.md:237-256). The answer is written in chunks on a non-blocking socket (a write
 /// that would block sends nothing, on every platform). A is the bytes the socket has accepted, size
@@ -298,7 +298,7 @@ fn pace_write(s:&mut TcpStream,body:&[u8],l:&Limits,batch_from:Option<Instant>)-
 }
 
 /// Response memory (local; after RpcGuard LIGHT_RESP_MAX, HEAVY_RESP_MEM and LIGHT_RESP_MEM,
-/// network.md (ج)). When it admits a request, the consensus thread reserves its class maximum:
+/// network.md (C)). When it admits a request, the consensus thread reserves its class maximum:
 /// LIGHT_RESP_MAX for a light request, RESP_MAX for a heavy one, BATCH_BYTES_HARD for a batch.
 /// After it runs, the reservation shrinks to the response's allocation, and it is released when
 /// the connection has written the response or failed (the Reply is dropped). So answers waiting
@@ -373,7 +373,7 @@ pub fn answer(n:&mut Node,q:&Request)->Reply{
     let (pool,need)=if q.light{(n.resp_pools().light,LIGHT_RESP_MAX)}else if batch{(n.resp_pools().heavy,BATCH_BYTES_HARD)}else{(n.resp_pools().heavy,RESP_MAX)};
     let Some(mut resv)=RespPools::take(&pool,need) else{COUNTERS.busy.fetch_add(1,Ordering::SeqCst);return Reply::small(busy(&q.body))};
     let _active=Active::new(if q.light{&COUNTERS.light_active}else{&COUNTERS.heavy_active});
-    // The class's deadline by method (network.md (ب), :235), as for batch members: a light-table entry
+    // The class's deadline by method (network.md (B), :235), as for batch members: a light-table entry
     // whose body exceeds LIGHT_BODY_MAX, or a conditional one, runs on the heavy lane (and reservation)
     // under the light deadline; its answer has the light limit (`member`).
     let light=q.light||(!batch&&light_class(&q.body));
@@ -533,7 +533,7 @@ pub fn light_method(body:&[u8])->bool{
     #[derive(serde::Deserialize)] struct Probe<'a>{#[serde(borrow,default)] method:Option<std::borrow::Cow<'a,str>>}
     body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),Ok(Probe{method:Some(m)}) if LIGHT_METHODS.contains(&m.as_ref()))
 }
-/// The conditional light entries of network.md (ب), read as their handlers read params[1]:
+/// The conditional light entries of network.md (B), read as their handlers read params[1]:
 /// eth_getBlockBy* with hashes only (the full flag not `true`) and pocol_getHeaders with count <= 64.
 fn light_cond(m:&str,flag:Option<bool>,count:Option<u64>)->bool{
     match m{"eth_getBlockByNumber"|"eth_getBlockByHash"=>flag!=Some(true),"pocol_getHeaders"=>count.is_some_and(|c|c<=64),_=>false}
@@ -565,7 +565,7 @@ impl<'de> serde::de::Visitor<'de> for ParamsV{type Value=Params;
         while q.next_element::<serde::de::IgnoredAny>()?.is_some(){}Ok(Params(a))
     }
 }
-/// The class of a single object by the classification table (network.md (ب)): a listed light method,
+/// The class of a single object by the classification table (network.md (B)): a listed light method,
 /// or a conditional light entry by its params[1]. Like `light_method` it borrows and skips, allocating
 /// nothing in proportion to the body; any parse error is heavy.
 pub fn light_class(body:&[u8])->bool{
@@ -842,7 +842,7 @@ const LOGS:&[&str]=&["eth_getLogs","pocol_getLogs"];
 /// exercised. 0 in the node.
 pub static ENCODE_DELAY_MS:AtomicUsize=AtomicUsize::new(0);
 pub const ENCODE_DELAY_ID:&str="encode-delay";
-/// One request or batch member, encoded. Its class's answer limit (network.md (ب), :210): a light
+/// One request or batch member, encoded. Its class's answer limit (network.md (B), :210): a light
 /// entry's answer over LIGHT_RESP_MAX is -32020 {resultBytes} on either lane, a heavy one's over
 /// RESP_MAX (`capped`). COMPUTE_DEADLINE includes encoding (network.md:235): any answer completed
 /// after the deadline, a result or an error (an eth_call that reverts or halts after an
@@ -1137,7 +1137,7 @@ fn logs(n:&Node,f:&Value,b:&mut Budget)->R{
     let topics:Vec<Option<Vec<B256>>>=f["topics"].as_array().map(|t|t.iter().map(|x|match x{Value::Null=>None,Value::String(s)=>s.parse().ok().map(|b|vec![b]),Value::Array(a)=>Some(a.iter().filter_map(|y|y.as_str()?.parse().ok()).collect()),_=>None}).collect()).unwrap_or_default();
     // network.md:298: the block x whose logs would pass a limit is not returned; the client resumes from x.
     // -32020 for a per-block limit, a COMPUTE_DEADLINE or a SCRATCH overflow all carry the same resume
-    // data {reason, fromBlock, lastCompleteBlock, nextFromBlock} (network.md (ز)).
+    // data {reason, fromBlock, lastCompleteBlock, nextFromBlock} (network.md (G)).
     let stop=|reason:&str,x:u64|{if !matches!(reason,"deadline"|"scratch"){COUNTERS.limit_hits.fetch_add(1,Ordering::SeqCst);}
         Fail(-32020,format!("log query limit ({reason})"),Some(json!({"reason":reason,"fromBlock":qty(from),"lastCompleteBlock":if x>from{Value::from(qty(x-1))}else{Value::Null},"nextFromBlock":qty(x)})))};
     let mut out=vec![];let mut scanned=0usize;let mut bytes=2usize;
@@ -1167,7 +1167,7 @@ fn logs_from(n:&Node,m:&str,f:&Value)->Option<u64>{
 
 #[cfg(test)]
 mod tests{
-    /// Review 3 (RG3V-m1): the class by the table's rows (network.md (ب)), from the body probe and from
+    /// Review 3 (RG3V-m1): the class by the table's rows (network.md (B)), from the body probe and from
     /// the parsed member alike: listed methods, the conditional entries by params[1] as their handlers
     /// read it, and heavy for everything else (a probe parse error included).
     #[test] fn the_class_probe_agrees_with_the_parsed_class(){

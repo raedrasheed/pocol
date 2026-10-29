@@ -4,8 +4,8 @@
   "supplement": true,
   "status": "proposed supplement for root review; not approved. Experiment definition only: no pocold, Node or chain run exists or is claimed.",
   "closesGap": ["V2-definitionGap.DG-V2-1"],
-  "source": {"file": "reference/validation.md", "lines": [1007, 1007], "literals": ["بعد piece الثالث", "anchorNotCanonical", "commit(2)", "commit(3)", "خطاف قبل فحص المرساة"]},
-  "fixtureSource": {"file": "reference/validation.md", "lines": [985, 989], "literals": ["B يتفرع من 999", "A' يتفرع من 999", "ReferenceLogs"]},
+  "source": {"file": "reference/validation.md", "lines": [1007, 1007], "literals": ["\u0628\u0639\u062f piece \u0627\u0644\u062b\u0627\u0644\u062b", "anchorNotCanonical", "commit(2)", "commit(3)", "\u062e\u0637\u0627\u0641 \u0642\u0628\u0644 \u0641\u062d\u0635 \u0627\u0644\u0645\u0631\u0633\u0627\u0629"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+  "fixtureSource": {"file": "reference/validation.md", "lines": [985, 989], "literals": ["B \u064a\u062a\u0641\u0631\u0639 \u0645\u0646 999", "A' \u064a\u062a\u0641\u0631\u0639 \u0645\u0646 999", "ReferenceLogs"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "hookProtocol": {
     "id": "P-RG3B-1",
     "hookPoint": "The fetchEach tool's external sink handles each sink call before returning. The hook is armed for one event: 'piece(attempt, seq)' or 'begin(attempt)'. When that event arrives the handler does not return until the hook completes. LogClient sends its next request only after the sink call has returned.",

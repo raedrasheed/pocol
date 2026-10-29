@@ -211,7 +211,7 @@ are evicted. B later gets a heavy extension and becomes the single heaviest vali
 re-delivery its blocks are refused by `was_evicted` until the 1024-entry FIFO drains
 (adversarially controllable). A **valid heavier branch within R_keep is not adopted** — defeating the
 Goal and contradicting the proposal's "holding R_keep metadata removes the eviction within R_keep."
-D118 explicitly expects the dropped branch to be "يُعاد جلبه بالمزامنة إن صار أثقل" (re-fetched by sync
+D118 explicitly expects the dropped branch to be "re-fetched by synchronization if it becomes heavier" (re-fetched by sync
 if it becomes heavier); the refusal blocks exactly that path.
 
 **Fix (two parts, both within D118/D133):**
@@ -259,9 +259,9 @@ loudly rather than create an offloaded entry with no journal backing.
 
 ### R5. Citation fix (both files)
 
-The manual-checkpoint-beyond-R_keep text is **governance.md:200** ("تراجع أعمق من R_keep: checkpoint
-يدوي"), and the rollback-to-R_keep-then-TrieRebuild text is **consensus.md §10 (التعافي, lines
-227-231)** — not "consensus.md §11", which is "التقدم (مشروط)". Fixed here and in D-REORG-REDB.md.
+The manual-checkpoint-beyond-R_keep text is **governance.md:200** ("Rollback deeper than R_keep: manual
+checkpoint"), and the rollback-to-R_keep-then-TrieRebuild text is **consensus.md §10 (Recovery, lines
+227-231)** — not "consensus.md §11", which is "Progress (conditional)". Fixed here and in D-REORG-REDB.md.
 
 ### Net effect on the plan
 
@@ -284,12 +284,12 @@ untouched, and no retention limit becomes a validity rule.
 
 ### R2.0 Citation fix
 
-"Adoption at depth <= R_keep" is **network.md:144** (`4. التبني بعمق ≤ R_keep.`), not :143 as earlier
+"Adoption at depth <= R_keep" is **network.md:144** (`4. Adoption at depth ≤ R_keep.`), not :143 as earlier
 documents had it. That citation has been corrected in every audit document, including the text above;
-the evidence logs are left unchanged. The sync stage bound is **network.md:27** (`≤ 4096 لكل فرع و≤ 16384
-إجمالًا`). The re-import rule is **consensus.md:205** (`الكتلة المحذوفة بـD118 ثم المستوردة ثانية تأخذ
-رقمًا جديدًا`), and the re-fetch rule is **consensus.md:235** (`الفرع الذي يصير أثقل لاحقًا يُجلب
-بالمزامنة عبر Status`).
+the evidence logs are left unchanged. The sync stage bound is **network.md:27** (`≤ 4096 per branch and ≤ 16384
+in total`). The re-import rule is **consensus.md:205** (`A block removed by D118 and later reimported receives
+a new number`), and the re-fetch rule is **consensus.md:235** (`A branch that later becomes heavier is fetched
+by synchronization through Status`).
 
 ### R2.1 Why a metadata cap alone is not enough
 

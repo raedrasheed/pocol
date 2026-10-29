@@ -406,17 +406,17 @@
     },
     {
       "revision": "0.16",
-      "result": "\u0645\u0631\u0627\u062c\u0639\u0629 \u0645\u0633\u062a\u0642\u0644\u0629: 944 \u0646\u062c\u0627\u062d\u064b\u0627\u060c 140 \u0645\u0648\u062b\u0642\u064b\u0627\u060c \u0641\u0634\u0644\u0627\u0646\u061b \u0645\u0637\u0644\u0648\u0628 \u062a\u0639\u062f\u064a\u0644 \u062c\u062f\u0648\u0644 \u0627\u0644\u062d\u0630\u0641. | 944pass140recorded2FAIL exit1; C27 truncated faulty-path golden; revise; accepted0.15",
+      "result": "Independent review: 944 passed, 140 recorded, two failures; revise the deletion table. | 944pass140recorded2FAIL exit1; C27 truncated faulty-path golden; revise; accepted0.15",
       "evidence": "review-001/REVIEW-0.16.md"
     },
     {
       "revision": "0.17",
-      "result": "\u0645\u0631\u0627\u062c\u0639\u0629 \u0645\u0633\u062a\u0642\u0644\u0629: 1037 \u0646\u062c\u0627\u062d\u064b\u0627\u060c 156 \u0645\u0648\u062b\u0642\u064b\u0627\u060c \u0641\u0634\u0644 \u0648\u0627\u062d\u062f \u0641\u064a \u062d\u0641\u0638 \u0644\u0642\u0637\u0629 \u0627\u0644\u0645\u0627\u0636\u064a\u061b \u0645\u0637\u0644\u0648\u0628 \u062a\u0639\u062f\u064a\u0644. | 1037pass156recorded1FAIL exit1; C27closed,C28 snapshot alias; revise; accepted0.15",
+      "result": "Independent review: 1037 passed, 156 recorded, one historical-snapshot preservation failure; revision required. | 1037pass156recorded1FAIL exit1; C27closed,C28 snapshot alias; revise; accepted0.15",
       "evidence": "review-001/REVIEW-0.17.md"
     },
     {
       "revision": "0.18",
-      "result": "\u0645\u0631\u0627\u062c\u0639\u0629 \u0645\u0633\u062a\u0642\u0644\u0629: 1060 \u0646\u062c\u0627\u062d\u064b\u0627\u060c 168 \u0645\u0648\u062b\u0642\u064b\u0627\u060c \u0635\u0641\u0631 \u0641\u0634\u0644\u061b \u0642\u0628\u0648\u0644 \u062f\u0641\u0639\u0629 \u0627\u0644\u0645\u0648\u0627\u0635\u0641\u0627\u062a \u0648\u0627\u0644\u0645\u062a\u062c\u0647\u0627\u062a \u0641\u0642\u0637. \u062a\u0639\u0627\u0631\u0636 x12b \u0648\u0642\u0631\u0627\u0631\u0627\u062a \u0627\u0644\u0645\u0627\u0644\u0643 \u063a\u064a\u0631 \u0645\u0639\u062a\u0645\u062f\u0629. | 1060pass168recorded0fail exit0; independentC28 4/4,site21/21 applicable;38Partial3NotStarted0Complete; RF-E6-1unapproved",
+      "result": "Independent review: 1060 passed, 168 recorded, zero failures; accept only this specification/vector batch. The x12b conflict and owner decisions are unapproved. | 1060pass168recorded0fail exit0; independentC28 4/4,site21/21 applicable;38Partial3NotStarted0Complete; RF-E6-1unapproved",
       "evidence": "review-001/REVIEW-0.18.md"
     },
     {

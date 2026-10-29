@@ -3,10 +3,10 @@
   "id": "CR-E4-02",
   "status": "proposed resolution for review. Nothing is applied to the baseline or to earlier packages; nothing is owner-approved.",
   "sources": {
-    "strType": {"file": "reference/browser.md", "lines": [200, 200], "literals": ["lone surrogates", "str(n)"]},
-    "storageMatrix": {"file": "reference/browser.md", "lines": [225, 225], "literals": ["site_storageSet: [str(256), str(61440) أو null]"]},
-    "accounting": {"file": "reference/browser.md", "lines": [396, 396], "literals": ["بعد فك JSON"]},
-    "textEncoder": {"file": "reference/implementation.md", "lines": [206, 206], "literals": ["TextEncoder"]},
+    "strType": {"file": "reference/browser.md", "lines": [200, 200], "literals": ["lone surrogates", "str(n)"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "storageMatrix": {"file": "reference/browser.md", "lines": [225, 225], "literals": ["site_storageSet: [str(256), str(61440) \u0623\u0648 null]"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "accounting": {"file": "reference/browser.md", "lines": [396, 396], "literals": ["\u0628\u0639\u062f \u0641\u0643 JSON"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "textEncoder": {"file": "reference/implementation.md", "lines": [206, 206], "literals": ["TextEncoder"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "openItem": {"file": "m1-draft-0.13/annex/E4-E5-RECOVERY.md", "lines": [80, 86], "literals": ["P-E4-2, proposed CR-E4-02", "needs a baseline change"]},
     "b3Model": {"file": "m1-draft-0.4/annex/bridge-matrix.json", "lines": [16, 16], "literals": ["JSON string without lone surrogates"]},
     "existingCase": {"file": "m1-draft-0.4/vectors/bridge-check-cases.json", "lines": [86, 86], "literals": ["BR17d-lone-surrogate"]}

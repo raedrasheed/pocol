@@ -1,6 +1,6 @@
 {
   "schema": "pocol-m1-c30-depth/0.22",
-  "source": {"file": "reference/consensus.md", "lines": [13, 16], "literals": ["RLP صارم", "ترتيب التقييم: البنية، ثم gsVersion"]},
+  "source": {"file": "reference/consensus.md", "lines": [13, 16], "literals": ["RLP \u0635\u0627\u0631\u0645", "\u062a\u0631\u062a\u064a\u0628 \u0627\u0644\u062a\u0642\u064a\u064a\u0645: \u0627\u0644\u0628\u0646\u064a\u0629\u060c \u062b\u0645 gsVersion"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "rootProbe": {"file": "coordination/review-001/genesis-depth-independent-probe.json", "depth": 1500, "bytes": 4291, "oldActual": "RecursionError"},
   "note": [
     "Hand-derived lengths and codes. wrap(x) = RLP list header for len(x) followed by x, applied 'depth' times by a loop (no recursion).",

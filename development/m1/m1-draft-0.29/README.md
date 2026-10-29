@@ -13,7 +13,7 @@
 |---|---|
 | `M1-SPEC-0.29-OVERLAY.md` | the effective-specification overlay: the nine delegated decisions with sources, alternatives, consequences, gates and hash groups; U14 and CR-M1-01 reconciled; the V1 cost sentence; the conventions pending root decision |
 | `M1-STATUS-0.29.md` | the 41 rows, the exact remaining criteria and the historical failures |
-| `M1-DASHBOARD-0.29-AR.md` | plain Arabic summary |
+| `M1-DASHBOARD-0.29-EN.md` | plain English summary |
 | `decisions/adopted-decisions-0.29.json` | machine-readable register: authority, the nine decisions, reviewer tokens, pending conventions |
 | `audit/acceptance-inventory-0.29.json` | row and finding deltas, historical FAIL rebinding, experiment-definition map, proposed statuses |
 | `vectors/deadline-cases-0.29.json` | virtual-time deadline fixtures: HeaderNetCheck (real checker, literal replies), content load, BUD re-expression, RP pair, 0.28 binding, rerun profiles |
@@ -37,6 +37,6 @@ The runner writes only into `--out`, and an earlier file is never overwritten. I
 - `decision-register-0.29.json`;
 - `hash-bindings-0.29.json`;
 - `deadline-rerun-0.29.json`;
-- `dashboard-0.29-ar.json`.
+- `dashboard-0.29-en.json`.
 
 It rebuilds no header, nonce or share. Expect a run of a few minutes, mostly pure-Python signature recovery while the 0.27 transcripts are replayed under three latency profiles.

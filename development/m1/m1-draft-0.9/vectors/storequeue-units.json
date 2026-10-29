@@ -2,14 +2,14 @@
   "schema": "pocol-m1-storequeue-units/0.9",
   "note": "Golden values are hand calculations from the cited baseline lines, not output of the model. Values {rep, n} mean the character rep repeated n times.",
   "utf8": {
-    "source": {"file": "reference/implementation.md", "lines": [206, 206], "literals": ["TextEncoder"]},
+    "source": {"file": "reference/implementation.md", "lines": [206, 206], "literals": ["TextEncoder"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "cases": [
       {"id": "ascii", "s": "abc", "len": 3},
       {"id": "empty", "s": "", "len": 0},
       {"id": "null", "s": null, "len": 0},
       {"id": "latin1", "s": "é", "len": 2},
-      {"id": "arabic-salam", "s": "سلام", "len": 8},
-      {"id": "arabic-word-space-emoji", "s": "العربية 😀", "len": 19},
+      {"id": "arabic-salam", "s": "\u0633\u0644\u0627\u0645", "len": 8},
+      {"id": "arabic-word-space-emoji", "s": "\u0627\u0644\u0639\u0631\u0628\u064a\u0629 😀", "len": 19},
       {"id": "euro-bmp3", "s": "€", "len": 3},
       {"id": "bmp-max", "s": "￿", "len": 3},
       {"id": "non-bmp-emoji", "s": "😀", "len": 4, "jsStringLength": 2},
@@ -21,7 +21,7 @@
     ]
   },
   "qbytes": {
-    "source": {"file": "reference/browser.md", "lines": [409, 412], "literals": ["64", "256", "61440", "61760"]},
+    "source": {"file": "reference/browser.md", "lines": [409, 412], "literals": ["64", "256", "61440", "61760"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "cases": [
       {"id": "M", "op": {"op": "set", "k": "k00", "v": {"rep": "a", "n": 61440}}, "qbytes": 61507},
       {"id": "m", "op": {"op": "set", "k": "k90", "v": "x"}, "qbytes": 68},
@@ -31,13 +31,13 @@
       {"id": "max", "op": {"op": "set", "k": {"rep": "k", "n": 256}, "v": {"rep": "a", "n": 61440}}, "qbytes": 61760},
       {"id": "br21e-k50", "op": {"op": "set", "k": "k50", "v": {"rep": "a", "n": 53905}}, "qbytes": 53972},
       {"id": "br21f-m0", "op": {"op": "set", "k": "k17", "v": {"rep": "a", "n": 4042}}, "qbytes": 4109},
-      {"id": "arabic-value", "op": {"op": "set", "k": "k", "v": "سلام"}, "qbytes": 73},
-      {"id": "arabic-key-emoji-value", "op": {"op": "set", "k": "مفتاح", "v": "😀"}, "qbytes": 78},
+      {"id": "arabic-value", "op": {"op": "set", "k": "k", "v": "\u0633\u0644\u0627\u0645"}, "qbytes": 73},
+      {"id": "arabic-key-emoji-value", "op": {"op": "set", "k": "\u0645\u0641\u062a\u0627\u062d", "v": "😀"}, "qbytes": 78},
       {"id": "lone-surrogate-key", "op": {"op": "set", "k": "k\ud800", "v": "x"}, "qbytes": 69}
     ]
   },
   "admission": {
-    "source": {"file": "reference/browser.md", "lines": [414, 420], "literals": ["8", "262144", "64", "4194304"]},
+    "source": {"file": "reference/browser.md", "lines": [414, 420], "literals": ["8", "262144", "64", "4194304"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "note": "sess and glob are [n, bytes] BEFORE the message; violated lists fields in the order sessN, sessBytes, globN, globBytes. Equality is accepted.",
     "cases": [
       {"id": "q3-sessBytes", "params": "DEFAULTS", "sess": [4, 246028], "glob": [4, 246028], "q": 61507, "violated": ["sessBytes"]},
@@ -53,7 +53,7 @@
     ]
   },
   "quotaBR17e": {
-    "source": {"file": "reference/validation.md", "lines": [198, 206], "literals": ["61443", "1044531", "1105974", "1048577", "1048576", "1048580", "987137", "925694"]},
+    "source": {"file": "reference/validation.md", "lines": [198, 206], "literals": ["61443", "1044531", "1105974", "1048577", "1048576", "1048580", "987137", "925694"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "note": "SiteStorageRef.apply applied in sequence to one dictionary that starts empty. after = confirmed total after the message.",
     "steps": [
       {"id": "e1.1", "op": ["k00", {"rep": "a", "n": 61440}], "decision": null, "after": 61443},
@@ -85,7 +85,7 @@
     "finalTotal": 925694
   },
   "quotaUtf8Boundary": {
-    "source": {"file": "reference/browser.md", "lines": [396, 398], "literals": ["1048576"]},
+    "source": {"file": "reference/browser.md", "lines": [396, 398], "literals": ["1048576"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "note": "Author vectors (hand calculation). Start: k00..k16 = 61440 x 'a' (17 x 61443 = 1044531) plus k17 = 4036 x 'a' (entry 4039): total 1048570. Each step is applied to that SAME start dictionary independently.",
     "start": {"series": {"keys": ["k00", "k01", "k02", "k03", "k04", "k05", "k06", "k07", "k08", "k09", "k10", "k11", "k12", "k13", "k14", "k15", "k16"], "v": {"rep": "a", "n": 61440}}, "extra": {"k17": {"rep": "a", "n": 4036}}},
     "startTotal": 1048570,
@@ -94,14 +94,14 @@
       {"id": "two-emoji-over", "op": ["e", "😀😀"], "decision": 4300, "attempted": 1048579, "after": 1048570, "note": "String.length accounting would give 1+4 = 5 and wrongly accept"},
       {"id": "lone-surrogate-fits", "op": ["e", "\ud800"], "decision": null, "after": 1048574},
       {"id": "two-lone-over", "op": ["e", "\ud800\ud800"], "decision": 4300, "attempted": 1048577, "after": 1048570},
-      {"id": "arabic-equality", "op": ["e", "سلa"], "decision": null, "after": 1048576, "note": "entry 1+(2+2+1) = 6 -> exactly 1048576, accepted"},
-      {"id": "arabic-one-over", "op": ["e", "سلا"], "decision": 4300, "attempted": 1048577, "after": 1048570, "note": "entry 1+6 = 7 -> 1048577"},
+      {"id": "arabic-equality", "op": ["e", "\u0633\u0644a"], "decision": null, "after": 1048576, "note": "entry 1+(2+2+1) = 6 -> exactly 1048576, accepted"},
+      {"id": "arabic-one-over", "op": ["e", "\u0633\u0644\u0627"], "decision": 4300, "attempted": 1048577, "after": 1048570, "note": "entry 1+6 = 7 -> 1048577"},
       {"id": "clear", "op": "clear", "decision": null, "after": 0},
       {"id": "delete-missing", "op": ["zz", null], "decision": null, "after": 1048570}
     ]
   },
   "config": {
-    "source": {"file": "reference/governance.md", "lines": [132, 142], "literals": ["61760", "3952640", "4194304"]},
+    "source": {"file": "reference/governance.md", "lines": [132, 142], "literals": ["61760", "3952640", "4194304"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "note": "BG1 StoreQueue lines. P-Q1-3: a test build may deviate only in the global-bytes bound (TQ).",
     "cases": [
       {"id": "defaults-release", "params": "DEFAULTS", "build": "release", "ok": true, "violations": []},

@@ -11,10 +11,10 @@
     "expiry": "HeaderNetCheck: viewIncomplete, no frame, 4901. Content load: 'unavailable', zero frames (P-D29-2)"
   },
   "sources": {
-    "fd905": {"file": "reference/FINAL_DESIGN.md", "lines": [905, 905], "literals": ["ومهلة 10s", "retryAfterMs"]},
-    "rp374": {"file": "reference/network.md", "lines": [374, 374], "literals": ["مهلة 10s"]},
-    "retry": {"file": "reference/browser.md", "lines": [41, 41], "literals": ["retryAfterMs حتى 3 مرات"]},
-    "busy": {"file": "reference/network.md", "lines": [234, 234], "literals": ["retryAfterMs ∈ [250, 2000]"]},
+    "fd905": {"file": "reference/FINAL_DESIGN.md", "lines": [905, 905], "literals": ["\u0648\u0645\u0647\u0644\u0629 10s", "retryAfterMs"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "rp374": {"file": "reference/network.md", "lines": [374, 374], "literals": ["\u0645\u0647\u0644\u0629 10s"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "retry": {"file": "reference/browser.md", "lines": [41, 41], "literals": ["retryAfterMs \u062d\u062a\u0649 3 \u0645\u0631\u0627\u062a"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "busy": {"file": "reference/network.md", "lines": [234, 234], "literals": ["retryAfterMs ∈ [250, 2000]"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "rev2Timeout": {"file": "m1-draft-0.5/CR-M1-01-REV2.md", "lines": [24, 24], "literals": ["the 10 s per-request deadline"]},
     "rev2SingleWait": {"file": "m1-draft-0.5/CR-M1-01-REV2.md", "lines": [85, 85], "literals": ["Single wait", "0–10000 ms (P)"]},
     "rev2Cumulative": {"file": "m1-draft-0.5/CR-M1-01-REV2.md", "lines": [86, 86], "literals": ["Cumulative wait per load", "≤ 20000 ms (P)"]},

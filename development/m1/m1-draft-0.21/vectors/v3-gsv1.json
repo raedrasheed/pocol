@@ -1,10 +1,10 @@
 {
   "schema": "pocol-m1-v3-gsv1/0.21",
-  "source": {"file": "reference/validation.md", "lines": [64, 77], "literals": ["GSV1 (341 بايتًا، غير قابل للإقلاع)", "f9 01 52 | 01 | 83 0b de ae", "CP: f8 b1",
-             "a0 ‹22×32›", "f8 56 ea 94 ‹a1×20› 94 ‹b1×20› ea 94 ‹a2×20› 94 ‹b2×20›", "a0 ‹33×32›", "CP 179، وM_0List 88، والحمولة 338",
-             "N1 حذف 52 → gsCount", "N6 rewardAddr بـ19 بايتًا → gsLen", "N11 genesisHash مختلف → رفض الملف وR24(أ)"]},
+  "source": {"file": "reference/validation.md", "lines": [64, 77], "literals": ["GSV1 (341 \u0628\u0627\u064a\u062a\u064b\u0627\u060c \u063a\u064a\u0631 \u0642\u0627\u0628\u0644 \u0644\u0644\u0625\u0642\u0644\u0627\u0639)", "f9 01 52 | 01 | 83 0b de ae", "CP: f8 b1",
+             "a0 ‹22×32›", "f8 56 ea 94 ‹a1×20› 94 ‹b1×20› ea 94 ‹a2×20› 94 ‹b2×20›", "a0 ‹33×32›", "CP 179\u060c \u0648M_0List 88\u060c \u0648\u0627\u0644\u062d\u0645\u0648\u0644\u0629 338",
+             "N1 \u062d\u0630\u0641 52 → gsCount", "N6 rewardAddr \u0628\u064019 \u0628\u0627\u064a\u062a\u064b\u0627 → gsLen", "N11 genesisHash \u0645\u062e\u062a\u0644\u0641 → \u0631\u0641\u0636 \u0627\u0644\u0645\u0644\u0641 \u0648R24(\u0623)"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
   "keccakVectors": {"source": {"file": "reference/validation.md", "lines": [60, 62], "literals": ["c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
-                    "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347", "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"]},
+                    "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347", "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
                     "K1": ["", "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"],
                     "K2": ["c0", "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"],
                     "K3": ["80", "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"]},
@@ -37,7 +37,7 @@
            131072, 2048, 256, 512, 96000000, 200, 1710000000, 40, 1710000000, 160, 128, 2],
     "allocRoot": {"repeat": "22", "count": 32}, "sysCodeHash": {"repeat": "33", "count": 32},
     "m0": [[{"repeat": "a1", "count": 20}, {"repeat": "b1", "count": 20}], [{"repeat": "a2", "count": 20}, {"repeat": "b2", "count": 20}]],
-    "svFixCrossCheck": {"source": {"file": "reference/governance.md", "lines": [152, 157], "literals": ["nonceMode=1", "subsidy=80000 wei", "target_g=2^240", "chainId=777902", "g_ts=1700000000", "H_END=200", "H_CLOSE=40", "Z_close=160", "CP مطابق لـGSV1"]}}
+    "svFixCrossCheck": {"source": {"file": "reference/governance.md", "lines": [152, 157], "literals": ["nonceMode=1", "subsidy=80000 wei", "target_g=2^240", "chainId=777902", "g_ts=1700000000", "H_END=200", "H_CLOSE=40", "Z_close=160", "CP \u0645\u0637\u0627\u0628\u0642 \u0644\u0640GSV1"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"}}
   },
   "negatives": [
     {"id": "N1", "required": true, "edits": [{"op": "delete", "path": [2, 51]}], "expect": "gsCount"},
@@ -74,7 +74,7 @@
     {"id": "O4-orderBeforeSys", "supplement": true, "edits": [{"op": "set", "path": [4, 0, 0], "value": {"concat": ["94", {"repeat": "00", "count": 17}, "c0c001"]}}, {"op": "copy", "from": [4, 0], "to": [4, 1]}], "expect": "gsOrder"},
     {"id": "O5-countBeforeInt", "supplement": true, "edits": [{"op": "set", "path": [2, 2], "value": "810a"}, {"op": "delete", "path": [2, 51]}], "expect": "gsCount"}
   ],
-  "l4nSource": {"file": "reference/validation.md", "lines": [77, 77], "literals": ["N2 العنصر 5 = 02 → gsRange", "N3 العنصر 3 = 81 0a → gsInt", "N4 تبديل المدخلين → gsOrder",
-                "N5 مدخل مكرر → gsOrder", "N7 specVersion=02 → gsVersion", "N8 العنصر 2 = 80 → gsRange", "N9 بايت زائد → L0", "N10 id=…C0C001 → gsSys"]},
-  "orderSource": {"file": "reference/consensus.md", "lines": [15, 16], "literals": ["ترتيب التقييم: البنية، ثم gsVersion، ثم gsCount، ثم gsInt، ثم gsLen، ثم gsRange، ثم gsOrder، ثم gsSys"]}
+  "l4nSource": {"file": "reference/validation.md", "lines": [77, 77], "literals": ["N2 \u0627\u0644\u0639\u0646\u0635\u0631 5 = 02 → gsRange", "N3 \u0627\u0644\u0639\u0646\u0635\u0631 3 = 81 0a → gsInt", "N4 \u062a\u0628\u062f\u064a\u0644 \u0627\u0644\u0645\u062f\u062e\u0644\u064a\u0646 → gsOrder",
+                "N5 \u0645\u062f\u062e\u0644 \u0645\u0643\u0631\u0631 → gsOrder", "N7 specVersion=02 → gsVersion", "N8 \u0627\u0644\u0639\u0646\u0635\u0631 2 = 80 → gsRange", "N9 \u0628\u0627\u064a\u062a \u0632\u0627\u0626\u062f → L0", "N10 id=…C0C001 → gsSys"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+  "orderSource": {"file": "reference/consensus.md", "lines": [15, 16], "literals": ["\u062a\u0631\u062a\u064a\u0628 \u0627\u0644\u062a\u0642\u064a\u064a\u0645: \u0627\u0644\u0628\u0646\u064a\u0629\u060c \u062b\u0645 gsVersion\u060c \u062b\u0645 gsCount\u060c \u062b\u0645 gsInt\u060c \u062b\u0645 gsLen\u060c \u062b\u0645 gsRange\u060c \u062b\u0645 gsOrder\u060c \u062b\u0645 gsSys"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"}
 }

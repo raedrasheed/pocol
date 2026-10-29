@@ -10,15 +10,15 @@
 
 ## Exact normative text
 1. `development/m1/reference/execution.md:82`:
-   > SLOT_CAP، وACCT_CAP، وDIRTY_BLOCK_MAX=4096، وACCT_DIRTY_BLOCK_MAX=2048، وLOG_BLOCK_MAX=32 KiB، وLOG_CAP=1 GiB: توقف استثنائي.
+   > SLOT_CAP, ACCT_CAP, DIRTY_BLOCK_MAX=4096, ACCT_DIRTY_BLOCK_MAX=2048, LOG_BLOCK_MAX=32 KiB, LOG_CAP=1 GiB: exceptional halt.
 
    "… DIRTY_BLOCK_MAX=4096, ACCT_DIRTY_BLOCK_MAX=2048 …: exceptional halt."
 2. `execution.md:83`:
-   > TXBYTES_CAP وTX_CAP: الكتلة باطلة، والبنّاء يتخطى المعاملة.
+   > TXBYTES_CAP and TX_CAP: the block is invalid, and the builder skips the transaction.
 
    "TXBYTES_CAP and TX_CAP: the block is invalid, and the builder skips the transaction."
 3. `validation.md:2087` (T18b criterion):
-   > الاستجابة المعلنة في execution وstorage بالضبط: فشل الإيداع، أو توقف استثنائي، أو بطلان الكتلة وتخطي المعاملة، أو تجميد.
+   > Exactly the response declared in execution and storage: commit failure, exceptional halt, invalid block with the transaction skipped, or freeze.
 
    "Exactly the response declared in execution and storage: deposit failure, exceptional halt, block
    invalid and the transaction skipped, or freeze."
@@ -86,7 +86,7 @@ range of new accounts. Every transaction pays a tip, so the Escrow coinbase chan
 Scenario D4 is the same as D3, but tx1 is sent by Alice. Its residue (Alice, the Escrow) is already
 dirty, so it fits. Under both A and B, tx1 halts with status 0 and the block is valid.
 
-## Proposed amendment (to execution.md §السقوف, recorded here only)
+## Proposed amendment (to execution.md §Caps, recorded here only)
 English:
 - DIRTY_BLOCK_MAX and ACCT_DIRTY_BLOCK_MAX bound the union, over a block's USER transactions, of
   the storage keys and accounts whose value a transaction changes (net, per transaction).
@@ -96,7 +96,7 @@ English:
   skips the transaction.
 
 Arabic:
-> يحد DIRTY_BLOCK_MAX وACCT_DIRTY_BLOCK_MAX اتحاد مفاتيح التخزين والحسابات التي تغيّر كل معاملة مستخدم قيمتها في الكتلة (التغير الصافي لكل معاملة). المعاملة التي يتجاوز تغييرها أحد الحدين تتوقف استثنائيًا. إن كانت آثار التوقف نفسه (nonce المرسل ورسومه وإكرامية COINBASE) تتجاوز ACCT_DIRTY_BLOCK_MAX، أو تنشئ حسابًا فوق ACCT_CAP، فالكتلة باطلة، والبنّاء يتخطى المعاملة.
+> DIRTY_BLOCK_MAX and ACCT_DIRTY_BLOCK_MAX bound the union of storage keys and accounts whose values each user transaction changes in the block (net change per transaction). A transaction whose changes exceed either limit halts exceptionally. If the halt's own effects (sender nonce, fees and COINBASE tip) exceed ACCT_DIRTY_BLOCK_MAX or create an account above ACCT_CAP, the block is invalid and the builder skips the transaction.
 
 ## Minimal examples (`vectors/d-a03-dirty.json`)
 

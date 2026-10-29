@@ -2,7 +2,7 @@
   "schema": "pocol-m1-u02/0.29",
   "status": "delegated U02 'interstitial': warning page, deliberate click, then a persistent revoked banner; the default display of a revoked version stays refused. Executed through the unchanged 0.25 select_version (m1-draft-0.25/tools/supplements_ref.py) plus the 0.29 action layer (overlay_ref_029.view). Expected traces hand-derived by the author.",
   "sources": {
-    "baseline": {"file": "reference/FINAL_DESIGN.md", "lines": [914, 914], "literals": ["revoke يمنع العرض الافتراضي"]},
+    "baseline": {"file": "reference/FINAL_DESIGN.md", "lines": [914, 914], "literals": ["revoke \u064a\u0645\u0646\u0639 \u0627\u0644\u0639\u0631\u0636 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "table02": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [221, 221], "literals": ["**U02.**", "an interstitial that names the version as revoked and needs an explicit click, then a persistent banner"]},
     "p30": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [223, 223], "literals": ["**P30.**", "A user-initiated reload re-runs §4.2 for the original request"]},
     "e07": {"file": "m1-draft-0.25/supplements/s25-e07-viewer-table.json", "lines": [27, 31], "literals": ["interstitialRevoked", "afterExplicitClick", "refuseRevoked"]}

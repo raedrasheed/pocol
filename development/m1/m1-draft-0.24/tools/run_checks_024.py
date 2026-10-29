@@ -26,6 +26,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
+
 HERE = Path(__file__).resolve().parent
 PKG, ROOT = HERE.parent, HERE.parent.parent
 RES = PKG / 'results'
@@ -77,7 +94,7 @@ def gap(label, /, **diag):
 
 
 def sha(p):
-    return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    return hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None
 
 
 def load_module(rel, modname):
@@ -88,7 +105,7 @@ def load_module(rel, modname):
 
 
 def load_json(rel):
-    return json.loads((ROOT / rel).read_text(encoding='utf-8'))
+    return json.loads(source_text(ROOT / rel))
 
 
 sys.path.insert(0, str(HERE))
@@ -104,7 +121,7 @@ def replay_023(R23):
         R23.record('input.sha256 ' + rel, 'recorded', exists=(ROOT / rel).exists(), sha256=R23.sha(ROOT / rel))
     R23.check('boundary.positionalOnly', R23.record.__code__.co_posonlyargcount == 2 and R23.check.__code__.co_posonlyargcount == 2
               and R23.gap.__code__.co_posonlyargcount == 1)
-    calls = [n.lineno for n in ast.walk(ast.parse((ROOT / 'm1-draft-0.23/tools/run_checks_023.py').read_text(encoding='utf-8')))
+    calls = [n.lineno for n in ast.walk(ast.parse(source_text(ROOT / 'm1-draft-0.23/tools/run_checks_023.py')))
              if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == 'main']
     R23.check('boundary.noOldMainCalled', not calls, attributeMainCallsAtLines=calls)
     cfg = R23.load_json(R23.REL + 'vectors/x8-config.json')
@@ -296,7 +313,7 @@ def c7_plan():
 def boundary_static():
     bad = {}
     for f in (HERE / 'x8_eval_v2.py', HERE / 'run_checks_024.py'):
-        tree = ast.parse(f.read_text(encoding='utf-8'))
+        tree = ast.parse(source_text(f))
         mods = {a.name.split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         mods |= {(n.module or '').split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         hit = sorted(mods & {'socket', 'urllib', 'http', 'requests', 'ssl', 'asyncio', 'subprocess'})
@@ -305,7 +322,7 @@ def boundary_static():
     check('boundary.noNetworkModules', not bad, imports=bad)
     markers = ('PoCol_' + 'Dialogue', 'state' + '.json', 'source' + 'State', 'historical-x8-full' + '-source-private')
     leaks = [str(f.relative_to(PKG)) for f in sorted(PKG.rglob('*')) if f.is_file() and 'results' not in f.parts
-             and f.suffix in ('.json', '.md', '.js', '.html', '.py') and any(m in f.read_text(encoding='utf-8') for m in markers)]
+             and f.suffix in ('.json', '.md', '.js', '.html', '.py') and any(m in source_text(f) for m in markers)]
     check('boundary.noPrivatePathInPackage', not leaks, files=leaks)
 
 

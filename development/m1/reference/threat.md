@@ -1,198 +1,198 @@
-# نموذج الخصم والثقة
+# Adversary and trust model
 
-**من الأطروحة**
-- خصم PPT بحصة β. يحجب، وينشر تواريخ متناقضة، ويتجاهل النطاقات، ويعدّل القالب، ويشن eclipse، دون كسر التشفير [PDF:74-75 §4.3].
-- الشبكة متزامنة جزئيًا بحد Δ بعد GST [PDF:73].
-- عتبة 0.5 لا تنتقل تلقائيًا [PDF:74].
-- Sybil والطحن والمساهمة تحتاج تحليلًا [PDF:75].
+**From the thesis**
+- A PPT adversary with share β. It withholds, publishes conflicting histories, ignores ranges, modifies the template and mounts eclipse attacks without breaking cryptography [PDF:74-75 §4.3].
+- The network is partially synchronous with bound Δ after GST [PDF:73].
+- The 0.5 threshold does not transfer automatically [PDF:74].
+- Sybil attacks, grinding and contribution need analysis [PDF:75].
 
-**افتراضاتنا**
-- A1: SHA-256 وkeccak256 وsecp256k1 آمنة.
-- A2: بعد GST تصل الرسالة والجسم خلال Δ، والتحقق والبناء وBuild_fb خلال t_exec.
-- A3: |C_j−t| ≤ φ، وΦ = 2φ، والساعة رتيبة.
-- A4a: مقترح المحاولة 0 صادق ومتصل باحتمال q > 0.
-- A4b: H_hon > 0، والصادق يكمل نطاقه خلال c·T_blk.
-- A5: لا عتبة آمنة مفترضة لـH_adv.
-- A6: كل هوية تكلّف B_reg محتجزًا.
-- A7: المتصفح والإضافة والعقدة المحلية موثوقة، وRPC البعيد غير موثوق. قد يرسل RPC البعيد ردًا ناجحًا أو خطأً بأي صفة مما يلي (D98):
-  - أي حجم أو عمق.
-  - أي ترميز ضغط.
-  - أي بطء.
-  - Content-Length كاذب.
-- A7b (D95، D96، D97): JavaScript الموقع خصم كامل داخل إطار sandbox:
-  - يرسل أي رسالة جسر بأي id وkind وmethod وparams وبنية وتوقيت، ومنها الدفعات والأسماء المشوهة ومفاتيح النموذج الأولي والشكل القديم للرسائل المحلية والرشقات المتلاحقة.
-  - قد يحمل معاملات موقعة مسبقًا صالحة.
-  - قدراته محصورة في مصفوفة BridgeAuth. لا يصل إلى RPC إلا عبر RpcReadClient أو LogClient أو Wallet بعد موافقة، ولا إلى التخزين والتنقل إلا عبر SiteStorage وNavigator.
-  - لا يرى chrome.* ولا المفاتيح ولا ساعة العامل التي يُختم بها الوصول.
-- A15e (D134): لا حد مفترض لعدد الإقلاعات، ولا لعدد الأجيال التي تزول قبل تأكيد عنصر epoch.
-  - حد أسماء السياج لا يعتمد على معدل الزوال، بل على اسم مشترك لكل E وعلى بوابة الأسماء.
-  - حلقة زوال أقصر من T_LATE بعد بلوغ الحد تعطل التخزين المحلي بإغلاق آمن، ولا تتجاوز الحد.
-- A8: trie التاريخي ≤ HIST_TRIE_BUDGET.
-- A9: مدفوعات النظام لا تنفذ كود المستلم.
-- A10 (RPC): الخصم يرسل أي طلب بأي معلمات وتوقيت، ويستطيع ما يلي:
-  - يفتح اتصالات متعددة ويرسل دفعات.
-  - يقرأ ببطء أو بتقطع، أو يتوقف عند بداية كل عنصر، أو يقرأ بسرعة ثم يتوقف.
-  - يترك بايتات مقبولة في المقبس دون قراءة، ويضبط نافذة استقباله، ويقطع في أي لحظة.
-  - يصل إلى RPC المحلي من عملية محلية أو صفحة يسمح بها Origin.
-  - إن ملك عملًا كافيًا يحدث reorg بين طلبين أو قبل الاعتماد.
+**Our assumptions**
+- A1: SHA-256, keccak256 and secp256k1 are secure.
+- A2: after GST, the message and body arrive within Δ; verification, construction and Build_fb finish within t_exec.
+- A3: |C_j−t| ≤ φ, Φ = 2φ, and the clock is monotonic.
+- A4a: the attempt-0 proposer is honest and online with probability q > 0.
+- A4b: H_hon > 0, and an honest miner completes its range within c·T_blk.
+- A5: no safe threshold for H_adv is assumed.
+- A6: each identity costs a locked B_reg.
+- A7: the browser, extension and local node are trusted; remote RPC is untrusted. Remote RPC may send success or error responses with any of these properties (D98):
+  - Any size or depth.
+  - Any compression encoding.
+  - Any degree of slowness.
+  - A false Content-Length.
+- A7b (D95, D96, D97): site JavaScript is a fully adversarial actor inside the sandbox frame:
+  - Sends any bridge message with any id, kind, method, params, structure and timing, including batches, malformed names, prototype keys, legacy local-message forms and successive bursts.
+  - May hold valid presigned transactions.
+  - Its capabilities are restricted by the BridgeAuth matrix. RPC access is only through RpcReadClient, LogClient or Wallet after approval; storage/navigation access is only through SiteStorage and Navigator.
+  - It cannot see chrome.*, keys or the worker clock used to timestamp arrival.
+- A15e (D134): no bound is assumed on boot count or the number of generations that disappear before an epoch item is confirmed.
+  - The fence-name bound depends on a shared name per E and the name gate, not the disappearance rate.
+  - A disappearance loop shorter than T_LATE after the limit is reached disables local storage fail-closed without exceeding the limit.
+- A8: historical trie ≤ HIST_TRIE_BUDGET.
+- A9: system payments do not execute recipient code.
+- A10 (RPC): the adversary sends any request with any parameters/timing and can:
+  - Open multiple connections and send batches.
+  - Read slowly or intermittently, stop at the beginning of each item, or read quickly and then stop.
+  - Leave accepted socket bytes unread, adjust its receive window and disconnect at any time.
+  - Access local RPC from a local process or an Origin-allowed page.
+  - With enough work, cause a reorg between two requests or before commitment.
 
-  العملية المحلية الخبيثة تستطيع حذف Origin، فحجب الأصل في العقدة (D95) لا يحمي منها.
-- A11: nodeKind صادقة.
-- A12: cfg محلي، والخصم قد يكون مقترحًا مخوّلًا أو فائزًا متواطئًا يوقّع أي UT.
-- A13: الخصم يختار ts ضمن [L(a), U(a)] وC+Φ.
-- A14: ملف الشبكة يحمل genesisPre بمخطط D79، ويُقبل فقط إن فُك دون خطأ وطابق هاشه genesisHash الموقّع أو المؤكد. الإضافة لا ترى alloc، والعقدة تعيد حساب allocRoot.
-- A15 (D103): عامل MV3 قد يزول في أي لحظة. عمليات chrome.storage التي أصدرها قبل زواله قد تُطبق لاحقًا في أي موضع، أو لا تُطبق أبدًا.
-  - نفترض: ذرية set لعنصر واحد، وعدم تشغيل نسختين حيتين من العامل معًا.
-  - لا نفترض أي ترتيب بين عمليات جيل ميت وعمليات جيل حي.
-  - يقيس ذلك BR22c.
-- A15c (D104): كل عملية لجيل ميت تُطبق أو تُسقط خلال T_LATE = 60s من إقلاع الجيل التالي، وbootMs من ساعة الجدار لا يقفز للخلف أكثر من ذلك. هذه فرضية يقيسها BR22c. خرقها يبطل حد القرص فقط، ولا يبطل حسم الترتيب في D103.
-- A15d (D112): set أو remove رُفض وعده في الجيل الحي لا يُطبق لاحقًا. هذه فرضية يقيسها BR22c.
-  - كانت ضمنية في D105، لأن التذكرة تُسقط بعد قياس يلي الفشل.
-  - خرقها يبطل حدود القرص والأسماء والمواقع وحدها، ولا يبطل حسم الترتيب ولا عدم تكرار seq. يختبر ذلك متغير fail في BR22a.
+  A malicious local process can omit Origin; node origin blocking (D95) does not protect against it.
+- A11: nodeKind is truthful.
+- A12: cfg is local; the adversary may be an authorized proposer or a colluding winner signing any UT.
+- A13: the adversary chooses ts within [L(a), U(a)] and C+Φ.
+- A14: the network profile carries genesisPre in schema D79 and is accepted only if decoded without error and its hash matches the signed or confirmed genesisHash. The extension does not see alloc; the node recomputes allocRoot.
+- A15 (D103): an MV3 worker may disappear at any time. chrome.storage operations it issued before disappearing may apply later at any point, or never apply.
+  - Assumed: atomic set of one item and no two simultaneously live worker instances.
+  - No ordering is assumed between operations from a dead generation and those from a live generation.
+  - BR22c measures this.
+- A15c (D104): every operation from a dead generation applies or is discarded within T_LATE = 60s of the next generation's boot; wall-clock bootMs does not jump backward by more than that. BR22c measures this assumption. Violating it invalidates only the disk bound, not D103 ordering resolution.
+- A15d (D112): a set or remove whose promise rejects in the live generation does not apply later. BR22c measures this assumption.
+  - It was implicit in D105 because the ticket is dropped after a post-failure measurement.
+  - Violation invalidates only disk, name and site bounds, not ordering resolution or seq uniqueness. The BR22a fail variant tests this.
 
-**التوقيت**
-- ts = max(L(0), C_P) ≤ U(0)، وσ = max(Δ, Φ+1)+t_exec، وT_j = max(b_j+Δ_rel, L(0)+Δ_fb_wait).
-- مبرهنة الوصول (مشروطة): بعد GST ومع مقترح صادق يصل القالب قبل T_j بشرطين:
+**Timing**
+- ts = max(L(0), C_P) ≤ U(0), σ = max(Δ, Φ+1)+t_exec, and T_j = max(b_j+Δ_rel, L(0)+Δ_fb_wait).
+- Arrival theorem (conditional): after GST, with an honest proposer, the template arrives before T_j under two conditions:
   - C1: Δ_rel ≥ σ+Δ+2t_exec.
   - C2: Δ_fb_wait ≥ Φ+Δ+2t_exec.
 
-  الحجب يغطيه FB اللاصق.
-- حدود التعدين المسبق:
+  Sticky FB covers withholding.
+- Pre-mining bounds:
   - X^h = max(Δ+t_exec, Φ+1)+Δ+2t_exec.
   - X^W = max(Φ+1+Δ_fb_wait, Δ+t_exec+Δ_rel).
 
-  القيم 22/36 في genesis و6/10 في P11. التواطؤ يلغيها (T10b(iv-v)).
+  Values are 22/36 in genesis and 6/10 in P11. Collusion invalidates them (T10b(iv-v)).
 
-**الطابع وASERT**
-- أثر طابع واحد في الهدف التالي ≤ 2^((U−L)/τ)، أي نحو 1.059 في genesis.
-- الطحن متعدد الكتل يقيسه T10c، ولا ندعي مقاومته.
-- موارد ASERT (D83): مدخلات بعرض محدود، وتشبع عند s ≥ 256 أو s ≤ −257 قبل الضرب أو الإزاحة. لا وسيط يتجاوز 512 بتًا، وكلفة الرأس المتطرف ثابتة.
+**Timestamp and ASERT**
+- One timestamp's effect on the next target is ≤ 2^((U−L)/τ), about 1.059 in genesis.
+- T10c measures multi-block grinding; resistance is not claimed.
+- ASERT resources (D83): bounded-width inputs and saturation at s ≥ 256 or s ≤ −257 before multiplication/shifting. No intermediate exceeds 512 bits; an extreme header has constant cost.
 
-**موارد RPC (D87، D88، D90، D92، D93، D94)**
+**RPC resources (D87, D88, D90, D92, D93, D94)**
 
-الحقيقة السابقة:
-- eth_getLogs صحيح على 10000 كتلة كان يسمح بنحو 312.5 MiB خامًا.
-- الدفعات المجمعة احتجزت الردود دون حد.
-- حد المعدل العالمي سمح بالتجويع.
-- سماح البدء لكل عنصر أطال الإرسال.
+Previous facts:
+- A valid eth_getLogs over 10000 blocks permitted about 312.5 MiB raw.
+- Aggregated batches held responses without a bound.
+- The global rate limit permitted starvation.
+- A startup grace period per item extended sending.
 
-بعد التعديلات:
-- HTTP/1.1 تسلسلي، فلكل اتصال حجز رد واحد على الأكثر (S1).
-- حجوزات الثقيل ≤ 48 MiB، والخفيف ≤ 16 MiB.
-- SCRATCH ≤ 16 MiB لكل تصريح ثقيل و≤ 1 MiB لكل خفيف بعداد خيطي. المخازن ≤ 32·(1 MiB+64 KiB)، والمجموع 178 MiB ≤ 192 MiB.
-- اللقطة والتصريح يُحرران قبل الإرسال.
-- الإرسال بمعدل تراكمي بساعة واحدة لكل رد ولكل دفعة، وسماح بدء واحد. الرصيد في أي لحظة A−R·sendTime، ولا يرفع الحد الأقصى، لأن sendTime ≤ max(GRACE, A/R)+ENFORCE_SLACK.
-- إرسال الدفعة ≤ 258.2791015625s، والكلي ≤ BATCH_WALL = 420s احتياطيًا. الانقطاع يحرر كل الموارد خلال ≤ 100 ms. runtime الخاص بـRPC منفصل.
-- A يقيس قبول مقبس الخادم لا قراءة العميل، والفرق بينهما غير محدود عمومًا. SO_SNDBUF = 32 KiB صريح. التحقق يعتمد PacerSim ومسندات التتبع (D93) لا حدًا مفترضًا للفرق.
-- (D94) انتهاء التزام الخادم عند sendDone (A = P = size). البايتات المقبولة غير المقروءة بعده في مخازن النواة خارج حجز الرد، ولا تمدد أي مورد في RpcGuard.
+After the changes:
+- Sequential HTTP/1.1 gives each connection at most one response reservation (S1).
+- Heavy reservations ≤ 48 MiB; light reservations ≤ 16 MiB.
+- SCRATCH ≤ 16 MiB per heavy permit and ≤ 1 MiB per light permit, tracked by a thread-local counter. Buffers ≤ 32·(1 MiB+64 KiB); total 178 MiB ≤ 192 MiB.
+- Snapshot and permit are released before sending.
+- Sending uses a cumulative rate, one clock per response/batch and one startup grace. Credit at any instant is A−R·sendTime; it does not raise the maximum because sendTime ≤ max(GRACE, A/R)+ENFORCE_SLACK.
+- Batch sending ≤ 258.2791015625s; total ≤ BATCH_WALL = 420s conservatively. Disconnection releases all resources within ≤ 100 ms. RPC has a separate runtime.
+- A measures server-socket acceptance, not client reads; their difference is generally unbounded. SO_SNDBUF = 32 KiB explicitly. Verification uses PacerSim and trace predicates (D93), not an assumed difference bound.
+- (D94) The server's obligation ends at sendDone (A = P = size). Accepted unread bytes thereafter occupy kernel buffers outside the response reservation and do not extend any RpcGuard resource.
 
-المتبقي المعلن:
-- خصم محلي يحتل 32 اتصالًا يحرم الاتصالات الجديدة، وستة قراء بطيئين يحرمون الطرق الثقيلة (−32021).
-- الاتصال الصادق القائم يبقى مخدومًا في الخفيف.
-- كل اتصال مهاجم ≤ 420s لكل دفعة.
-- القارئ السريع ثم المتوقف يحتجز الحجز حتى نفاد رصيده ضمن الحد نفسه.
-- المهاجم الذي لا يقرأ بعد sendDone يحتل اتصالًا حتى IDLE (30s) ومخازن النواة لاتصاله فقط، وتُقاس ضمن RSS.
-- لا مساس بالإجماع أو الذاكرة. يقيس ذلك RG5 وRG8 وRG9 وRG14.
+Declared residual limits:
+- A local adversary occupying 32 connections denies new connections; six slow readers deny heavy methods (−32021).
+- An existing honest connection continues receiving light service.
+- Each adversarial connection is bounded to ≤ 420s per batch.
+- A reader that first reads quickly and then stops holds the reservation until its credit expires, within the same bound.
+- An adversary not reading after sendDone occupies only a connection until IDLE (30s) and its connection's kernel buffers, measured within RSS.
+- Consensus and memory are unaffected. RG5, RG8, RG9 and RG14 measure this.
 
-**استرجاع السجلات (D89، D91)**
-- pocol_getLogs يرفض مرساة غير قانونية، فلا تختلط قطع فرعين (P2).
-- القطع المسلمة قبل اكتشاف التغير تُبطل بـabort، ويُعتمد ناتج محاولة واحدة.
-- قبل الاعتماد يُعاد فحص المرساة. إعادة التنظيم بعد ذلك لا تُكشف، وهذا معلن.
-- نفاد SCRATCH أو المهلة لا يُفترض فيه تقدم: العميل يقسم أو ينصّف، ويفشل صراحة عند كتلة واحدة.
-- في RP يبقى الكذب المتسق ممكنًا (D13).
+**Log retrieval (D89, D91)**
+- pocol_getLogs rejects a noncanonical anchor, preventing chunks from two branches from mixing (P2).
+- Chunks delivered before detecting a change are invalidated by abort; one attempt's result is committed.
+- The anchor is rechecked before commitment. A later reorg is not detected; this is disclosed.
+- SCRATCH or deadline exhaustion does not imply progress: the client splits/bisects, and explicitly fails at one block.
+- Consistent lying remains possible in RP (D13).
 
-**الهوية والإصدار والشبكة**
-- D72: البند 1ب بلا حالة، ويُطبق قبل التخزين واحتساب العمل. المخالفة ترفض الكتلة ونسلها وتعاقب النظير. المتبقي هدر عمل الخصم والمحاولة a=0، ويعالجه FB.
-- D79: تنفيذان مطابقان ينتجان البايتات نفسها، والفك صارم قبل الهاش.
-- D75: قناة القوالب لا تقبل إلا الشكل الموقّع عند a=0.
-- D136: خصم يبدّل النظراء قد يرسل أغلفة توقيعية مختلفة بلا حد لكتلة ثابتة.
-  - الذاكرة محدودة بسقف لكل كتلة وسقف عام.
-  - الامتلاء يؤخر قبول غلاف صالح عبر gossip ولا يمنعه (D137):
-    - كل طلب GetEnvelope يحجز قبل إصداره مقعد فحص ومخزن رد من مجمع مستقل عن gossip، فيُفحص رده دائمًا دون تجاوز السقف.
-    - خصم يحتجز المقاعد المطلوبة بردود بطيئة يؤخر التعافي حتى ENV_REQ_TIMEOUT لكل دور. حده D_x في لِمّة التعافي (network، D139)، ويحتسب الطلب الناجح وانتظار EnvCheckPool. الحد مشروط بالشروط G1–G4 في network (D140): حالة الأب متوفرة، وحائز صادق متصل يرد ضمن ENV_REQ_TIMEOUT، وثبات مجموعة نظراء i. الزمن قبل تحقق الشروط خارج الحد. كل اتصال جديد يضيف طلبًا محتملًا، فلا حد ثابت تحت تبدل هويات غير محدود. والحائز الأبطأ من المهلة باستمرار لا يملك ضمان قبول بهذا المسار، وخصم يتحكم في وصلة الحائز يستطيع فرض ذلك.
-    - (D138) الإلغاء لا يحرر سعة قبل استقرار الفحص، فلا يستطيع خصم مضاعفة الفحوص الجارية بإطلاق مهل أو انقطاعات أو استيرادات متوازية. أقصى ما يفعله إبقاء المقعد حتى c_env بعد الإلغاء.
-  - كلفة المعالج لكل نسخة غير مطلوبة ≤ c_env قبل بلوغ السقف، وصفر بعده.
-  - الحد الكلي لمعدل الفحص يحكمه حد gossip وعدد النظراء، ويُقاس في T23 N11.
+**Identity, version and network**
+- D72: stateless item 1b applies before storage and work accounting. Violation rejects the block and descendants and penalizes the peer. Residual cost is wasted adversarial work and attempt a=0, handled by FB.
+- D79: two conforming implementations produce identical bytes; strict decoding precedes hashing.
+- D75: the template channel accepts only the signed form at a=0.
+- D136: an adversary rotating peers may send unbounded distinct signature envelopes for a fixed block.
+  - Memory is bounded by per-block and global caps.
+  - Saturation delays acceptance of a valid gossip envelope without preventing it (D137):
+    - Before issuance, each GetEnvelope request reserves a checking slot and response buffer from a pool independent of gossip; its response is always checked without exceeding the cap.
+    - An adversary holding requested slots with slow responses delays recovery up to ENV_REQ_TIMEOUT per turn. Its bound is D_x in the recovery lemma (network, D139), including the successful request and EnvCheckPool wait. The bound is conditional on network G1–G4 (D140): parent state available, an honest connected holder replying within ENV_REQ_TIMEOUT, and a stable peer set for i. Time before those conditions hold is outside the bound. Each new connection adds a potential request, so there is no fixed bound under unbounded identity churn. A holder consistently slower than the timeout has no acceptance guarantee on this path; an adversary controlling the holder's link can enforce that.
+    - (D138) Cancellation does not release capacity before checking settles, so an adversary cannot multiply running checks through timeouts, disconnections or concurrent imports. At most it keeps the slot for c_env after cancellation.
+  - CPU cost per unsolicited copy is ≤ c_env before the cap is reached and zero afterward.
+  - The total checking-rate bound is governed by the gossip limit and peer count, and measured in T23 N11.
 
-**Sybil وتقسيم الهوية**
-- Draw والحصص جمعية، والمقام max(C, κm)، والرادع B_reg (T7b).
-- reactivate من صاحب الهوية فقط، وبسند، وبعد W_act، وضمن R_max.
-- السجلات ≤ M_max+R_max·(Lmax+LAG) ≤ REG_RECORDS_MAX، حيث Lmax = max(U, 2·E_win+D+1)، وLAG = 2048 (D86).
-- الاستبعاد (D116، D120):
-  - C_full وc_w يشملان nonce الفائز الضمني، والقص إلى S_max للحصص الصريحة وحدها.
-  - في ذراع ownSharesOnly بثبات c_w: المكسب المباشر صفر عند C_full ≤ κm، وأقل من R·c_w·(1/κm−1/C_full)+1 فوقه.
-  - في emptyShares يُحسب المكسب بالضبط، وقد يكون سالبًا.
-  - الأثر غير المباشر عبر Draw وlastShare غير محدود تحليليًا، ويقيسه T7c(S).
-- الحرق والرسوم ليست قناة ربح.
-- الإغلاق (D56، D85): الردع يقتصر على شاهد القبر وحرق غير المسوى وفقد العضوية، ولا كتلة فوق H_END (E1).
+**Sybil attacks and identity splitting**
+- Draw and shares are additive; the denominator is max(C, κm), and B_reg is the deterrent (T7b).
+- Only the identity owner can reactivate, with a bond, after W_act and within R_max.
+- Records ≤ M_max+R_max·(Lmax+LAG) ≤ REG_RECORDS_MAX, where Lmax = max(U, 2·E_win+D+1) and LAG = 2048 (D86).
+- Exclusion (D116, D120):
+  - C_full and c_w include the winner's implicit nonce; trimming to S_max applies only to explicit shares.
+  - In the ownSharesOnly arm with fixed c_w: direct gain is zero when C_full ≤ κm, and less than R·c_w·(1/κm−1/C_full)+1 above it.
+  - In emptyShares, gain is computed exactly and may be negative.
+  - Indirect effects through Draw and lastShare have no analytical bound; T7c(S) measures them.
+- Burns and fees are not a profit channel.
+- Closing (D56, D85): deterrence is limited to a tombstone witness, burning unsettled rewards and loss of membership; no block exceeds H_END (E1).
 
-**المتصفح**
-- تصادم chainId (D58) يمنع خلط التخزين والموافقات.
-- نافذة RP (D77، D82، D84):
-  - n ≤ 13 رأسًا بالبنود 1 و1ب و2–9 مع viewFuture وviewTargetCeil.
-  - عند b > 1 يُضاف رأس مرجعي بالبندين 1 و1ب وviewFuture.
-- ceilTarget = min(2^256−1, target_g·2^VIEW_SLACK_S)، وminWorkRP = work(ceilTarget). القيمة 4095 عند target_g = 2^240، و1 عند التشبع، أي لا حد فعليًا (HC3، HC5).
-- تقدير تقريبي لا ضمان: نحو 49 ثانية من H_cal لـ13 رأسًا في network.
-- عند h=0 (D80) لا عرض ولا توقيع في RP. الطلبات المشوهة تُرفض بترتيب ثابت دون قراءة الحالة (D81).
-- التسرب يُختبر بمصارف كناري (D37، D63).
+**Browser**
+- chainId collisions (D58) do not mix storage or approvals.
+- RP window (D77, D82, D84):
+  - n ≤ 13 headers under items 1, 1b and 2–9, with viewFuture and viewTargetCeil.
+  - At b > 1, add a reference header under items 1 and 1b and viewFuture.
+- ceilTarget = min(2^256−1, target_g·2^VIEW_SLACK_S); minWorkRP = work(ceilTarget). The value is 4095 at target_g = 2^240 and 1 at saturation, effectively no bound (HC3, HC5).
+- Rough estimate, not a guarantee: about 49 seconds of H_cal for 13 headers in network.
+- At h=0 (D80), RP permits neither display nor signing. Malformed requests are rejected in a fixed order without reading state (D81).
+- Leakage is tested using canary sinks (D37, D63).
 
-**الجسر (D95، D96، D97)**
+**Bridge (D95, D96, D97)**
 
-الحقيقة السابقة:
-- قبل D95 كان rpc_read بلا قائمة سماح، فيمكن لموقع أن يمرر eth_sendRawTransaction بمعاملة موقعة مسبقًا، أو pocol_submitShare، دون موافقة.
-- قبل D96 كان غلاف storage_set وnav مخالفًا لـB0.
-- قبل D97 كان متجه المعدل يتوقع عددًا ثابتًا لا يلزم من دلو يتجدد ومن حد تعليق مستقل.
-- قبل هذه النسخة لم يبلغ متجه الحصة BR17e الحد، فلم تُختبر الذرية عند التجاوز (I50).
+Previous facts:
+- Before D95, rpc_read had no allowlist; a site could pass eth_sendRawTransaction with a presigned transaction, or pocol_submitShare, without approval.
+- Before D96, storage_set and nav envelopes violated B0.
+- Before D97, the rate vector expected a fixed count not implied by a refilling bucket and an independent pending limit.
+- Before this version, quota vector BR17e did not reach the limit, so overflow atomicity was not tested (I50).
 
-بعد D95–D97:
-- غلاف واحد لكل kind، وترتيب فحص واحد.
-- BridgeAuth يرفض قبل أي اتصال أو أثر محلي كل (kind, method) خارج المصفوفة، وكل params تخالف المخطط.
-- الكتابة على الشبكة الوحيدة عبر wallet_req وموافقة صريحة. التنقل الخارجي بتأكيد صريح.
-- المعدل دلو صحيح حتمي لكل جلسة موقع، والتعليق عدّاد معرّف الحدود لكل جلسة. لا يُصفّر أي منهما بالتنقل (D99).
-- الطلبات اليتيمة من إطار مهدوم تبقى محسوبة حتى تستقر.
-- كل رد بعيد يمر بـRecvGuard (D98):
-  - حد بايتي لكل طريقة يُفحص أثناء القراءة.
-  - مجمعات حجز محدودة.
-  - لا اعتماد لأي محتوى جزئي.
-- حصة التخزين المحلي محسوبة حرفيًا مع الاستبدال، والتجاوز ذري.
-- العقدة ترفض طرق التعدين من أي طلب يحمل Origin.
+After D95–D97:
+- One envelope per kind and one checking order.
+- Before any connection or local effect, BridgeAuth rejects every (kind, method) outside the matrix and every params value violating its schema.
+- The only network write is through wallet_req and explicit approval. External navigation requires explicit confirmation.
+- Rate limiting uses a deterministic integer bucket per site session; pending requests use a precisely bounded counter per session. Neither resets on navigation (D99).
+- Orphaned requests from a torn-down frame stay counted until they settle.
+- Every remote response passes RecvGuard (D98):
+  - Per-method byte limit checked during reading.
+  - Bounded reservation pools.
+  - No partial content is committed.
+- Local-storage quota is accounted literally, including replacement; overflow is atomic.
+- The node rejects mining methods from any request carrying Origin.
 
-المتبقي المعلن:
-- طرق القراءة المسموحة تتيح للموقع معرفة الحالة العامة والأرصدة، وهي عامة أصلًا.
-- eth_call وeth_estimateGas تستهلك حصة RpcGuard ضمن حدود الجسر (≤ 4 معلقة و≤ 50 رسالة/s مع سعة 50).
-- الموقع يملأ تخزينه المحلي حتى 1 MiB لكل (netKey، عنوان)، ولا يصل إلى تخزين موقع آخر.
-- كتابات storage_set المعلقة محدودة (D101) بما يلي:
-  - لكل جلسة: ≤ 8 رسائل و≤ 256 KiB، والعدّ يشمل الكتابة النشطة.
-  - لكل الإضافة: ≤ 64 رسالة و≤ 4 MiB، و≤ 2 كتابات نشطة متزامنة.
-  - الرفض قبل الإلحاق.
-  - بطء chrome.storage يؤخر الكتابات ويرفضها بعد المهلة، ولا يراكمها دون حد.
-  - المتبقي المعلن: chrome.storage المعلق محليًا يحتجز مقعد كتابة نشطة حتى يستقر، فقد تتوقف كتابات المواقع الأخرى مؤقتًا.
-- الموقع يستطيع طلب فتح رابط https خارجي، ولا يُفتح إلا بنقر المستخدم على تأكيد يعرض الرابط كاملًا. تضليل المستخدم بمحتوى الرابط خارج نطاق الحماية.
-- عزل الشبكة (D37) يمنع الإطار من بث معاملة موقعة مسبقًا عبر قناة خارج الإضافة.
-- المواقع المختلفة والتبويبات المختلفة تملك جلسات منفصلة، فقد يتجاوز مجموعها 50 رسالة/s.
-  - يحدها أولًا حدود عامة في الإضافة: ≤ 16 قراءة معلقة، و≤ 32 MiB استقبال محجوز للمواقع.
-  - ثم يحدها RpcGuard في العقدة.
-- الموقع لا ينشئ جلسة لنفسه، لأن فتح موقع PoCol في تبويب لا يتم إلا بفعل المستخدم.
-- المتبقي من D98:
-  - حدود ترويسات HTTP يفرضها Chrome لا الإضافة.
-  - ذاكرة التحليل المؤقتة تتناسب مع حد الطريقة (حتى 8 MiB لـpocol_getLogs)، وتُقاس في MR10.
-- عيب في BridgeAuth نفسه يكشفه BR16 ولا يُفترض غيابه.
+Declared residual limits:
+- Permitted read methods reveal public state and balances to the site; these are already public.
+- eth_call and eth_estimateGas consume RpcGuard capacity within bridge limits (≤ 4 pending and ≤ 50 messages/s with capacity 50).
+- A site can fill its local storage to 1 MiB per (netKey, address), but cannot access another site's storage.
+- Pending storage_set writes are bounded (D101):
+  - Per session: ≤ 8 messages and ≤ 256 KiB, counting the active write.
+  - Extension-wide: ≤ 64 messages and ≤ 4 MiB, with ≤ 2 concurrently active writes.
+  - Rejection occurs before enqueueing.
+  - Slow chrome.storage delays writes and rejects them after timeout; they do not accumulate unboundedly.
+  - Declared residual: a locally hanging chrome.storage operation holds an active-write slot until settling, potentially pausing other sites' writes temporarily.
+- A site may request an external https link; it opens only when the user clicks a confirmation displaying the complete URL. Misleading users through link content is outside the protection scope.
+- Network isolation (D37) prevents the frame from broadcasting a presigned transaction over a channel outside the extension.
+- Different sites and tabs have separate sessions, so their aggregate may exceed 50 messages/s.
+  - Extension-wide limits apply first: ≤ 16 pending reads and ≤ 32 MiB reserved site-receive memory.
+  - Node RpcGuard applies afterward.
+- A site cannot create its own session: opening a PoCol site in a tab requires a user action.
+- Remaining D98 limits:
+  - Chrome, not the extension, enforces HTTP-header limits.
+  - Temporary parsing memory scales with the method bound (up to 8 MiB for pocol_getLogs) and is measured in MR10.
+- BR16 detects defects in BridgeAuth itself; their absence is not assumed.
 
-**إغراق التخزين**
-لكل مكوّن سقف أو حد مشتق. بلوغه يجمد المكوّن ولا يوقف الكتل (T18b). المدى الزمني محدود بـH_END.
+**Storage flooding**
+Each component has a cap or derived bound. Reaching it freezes that component without stopping blocks (T18b). The time horizon is bounded by H_END.
 
-**التجهيزات**
-- ExecFixture ليست خصمًا.
-- ChainFixture (ومنها end/full وlogs/dense) تمر بكل القواعد، دون إعفاء من ParamGate غير profileKind=simnet.
-- NX خصم مخوّل، وMaliciousRpc خصم RPC بعيد، وRpcAttacker خصم RPC محلي، وBadSite خصم جسر.
+**Fixtures**
+- ExecFixture is not an adversary.
+- ChainFixture (including end/full and logs/dense) passes every rule, without a ParamGate exemption except profileKind=simnet.
+- NX is an authorized adversary; MaliciousRpc a remote-RPC adversary; RpcAttacker a local-RPC adversary; BadSite a bridge adversary.
 
-**خارج النطاق**
-كسر التشفير، واختراق الجهاز، وثغرات Chrome، وتعديل cfg لدى الضحية، والإغراق على مستوى نظام التشغيل.
+**Out of scope**
+Breaking cryptography, device compromise, Chrome vulnerabilities, modification of the victim's cfg and OS-level flooding.
 
-**غير مثبت**
-- common prefix واحتمالات التراجع [PDF:76-77].
-- الحوافز والحجب الأناني، والسلوك قبل GST.
-- اكتمال قنوات التسرب، وحافز إنتاج F، ومقاومة الطحن الزمني.
-- كفاية حد عمل RP، وكفاية حدود RPC الرقمية.
-- دقة المؤقتات على أجهزة أخرى، وحد فرق قبول المقبس عن قراءة العميل.
-- خلو تنفيذ BridgeAuth من ثغرات تحليل JSON.
+**Not established**
+- Common prefix and rollback probabilities [PDF:76-77].
+- Incentives, selfish withholding and behavior before GST.
+- Completeness of leakage-channel coverage, incentives to produce F and resistance to timestamp grinding.
+- Adequacy of the RP work bound and numeric RPC limits.
+- Timer accuracy on other devices and the bound between socket acceptance and client reading.
+- Absence of JSON-parsing vulnerabilities in BridgeAuth's implementation.

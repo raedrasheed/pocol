@@ -30,6 +30,23 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Provenance checks refer to the immutable pre-translation source revision.
+import sys as _source_sys
+import os as _source_os
+_source_candidates = []
+if '--root' in _source_sys.argv:
+    _source_arg = _source_sys.argv.index('--root') + 1
+    if _source_arg < len(_source_sys.argv):
+        _source_candidates.append(Path(_source_sys.argv[_source_arg]))
+if _source_os.environ.get('POCOL_M1_ROOT'):
+    _source_candidates.append(Path(_source_os.environ['POCOL_M1_ROOT']))
+_source_candidates.extend(Path(__file__).resolve().parents)
+_source_home = next((p for p in _source_candidates if (p / 'historical_source.py').is_file()), None)
+if _source_home is None:
+    raise RuntimeError('Historical M1 checks require historical_source.py; use --root or POCOL_M1_ROOT for the repository M1 directory')
+_source_sys.path.insert(0, str(_source_home))
+from historical_source import source_text, source_bytes
+
 HERE = Path(__file__).resolve().parent
 PKG = HERE.parent
 CORE_STATUS = ('pass', 'recorded', 'FAIL')
@@ -104,11 +121,11 @@ def gap(label, /, **diag):
 
 
 def sha(p):
-    return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    return hashlib.sha256(source_bytes(p)).hexdigest() if p.exists() else None
 
 
 def rj(rel):
-    return json.loads((ROOT / rel).read_text(encoding='utf-8'))
+    return json.loads(source_text(ROOT / rel))
 
 
 def own(rel):
@@ -128,7 +145,7 @@ _lines = {}
 def provenance(label, src):
     p = ROOT / src['file']
     if p not in _lines:
-        _lines[p] = p.read_text(encoding='utf-8').splitlines() if p.exists() else []
+        _lines[p] = source_text(p).splitlines() if p.exists() else []
     a, b = src['lines']
     seg = '\n'.join(_lines[p][a - 1:b])
     missing = [x for x in src.get('literals', []) if x not in seg]
@@ -137,7 +154,7 @@ def provenance(label, src):
 
 def contains(rel, text):
     p = ROOT / rel
-    return p.exists() and text in p.read_text(encoding='utf-8')
+    return p.exists() and text in source_text(p)
 
 
 def num(v):
@@ -174,7 +191,7 @@ _RES = {}
 def results_of(key):
     if key not in _RES:
         p = ROOT / RESULT_FILES[key]
-        _RES[key] = json.loads(p.read_text(encoding='utf-8'))['results'] if p.exists() else None
+        _RES[key] = json.loads(source_text(p))['results'] if p.exists() else None
     return _RES[key]
 
 
@@ -230,7 +247,7 @@ def review_copies():
                 only.append(rel.as_posix())
                 continue
             compared += 1
-            if f.read_bytes() != main_file.read_bytes():
+            if source_bytes(f) != source_bytes(main_file):
                 mism.append(rel.as_posix())
         check('evidence.reviewCopy.' + pkg, compared > 0 and not mism, compared=compared, mismatches=mism, copyOnly=only[:20])
 
@@ -273,7 +290,7 @@ def binding_026():
 
 
 def hash_groups_025():
-    exp = (ROOT / 'coordination/review-001/m1-draft-0.25/results/hash-freeze-export-0.25.json').read_text(encoding='utf-8')
+    exp = source_text(ROOT / 'coordination/review-001/m1-draft-0.25/results/hash-freeze-export-0.25.json')
     entries = [json.loads(line.rstrip(',')) for line in exp.split('\n')[1:] if line.startswith('{')]
     e05 = rj('coordination/review-001/e05-new-three-library-0.25.json')
     rootv = {x['id']: x for x in e05['results']}
@@ -685,7 +702,7 @@ def consolidate(groups, statuses026):
 def boundary_static(texts):
     bad = {}
     for f in (HERE / 'v1_ref_027.py', HERE / 'run_checks_027.py'):
-        tree = ast.parse(f.read_text(encoding='utf-8'))
+        tree = ast.parse(source_text(f))
         mods = {a.name.split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         mods |= {(n.module or '').split('.')[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         hit = sorted(mods & {'socket', 'urllib', 'http', 'requests', 'ssl', 'asyncio', 'subprocess'})
@@ -694,7 +711,7 @@ def boundary_static(texts):
     check('boundary.noNetworkModules', not bad, imports=bad)
     markers = ('PoCol_' + 'Dialogue', 'state' + '.json', 'source' + 'State', 'historical-x8-full' + '-source-private', 'transcript' + '-private')
     leaks = [str(f.relative_to(PKG)) for f in sorted(PKG.rglob('*')) if f.is_file() and 'results' not in f.parts
-             and f.suffix in ('.json', '.md', '.py') and any(m in f.read_text(encoding='utf-8') for m in markers)]
+             and f.suffix in ('.json', '.md', '.py') and any(m in source_text(f) for m in markers)]
     check('boundary.noPrivatePathInPackage', not leaks, files=leaks)
     keys = [v['priv'][2:].lower() for v in rj('coordination/review-001/m1-draft-0.5/results/txa-node-check.json')['keys'].values()]
     leaked = [name for name, t in texts.items() if any(k in t.lower() for k in keys)]
@@ -705,7 +722,7 @@ def write_asset(name, text, label):
     OUT.mkdir(parents=True, exist_ok=True)
     p = OUT / name
     data = text.encode('utf-8')
-    if p.exists() and p.read_bytes() != data:
+    if p.exists() and source_bytes(p) != data:
         k = 1
         while (OUT / ('%s-rerun-%d%s' % (p.stem, k, p.suffix))).exists():
             k += 1
@@ -715,7 +732,7 @@ def write_asset(name, text, label):
         return
     if not p.exists():
         p.write_bytes(data)
-    check(label + '.writtenAndReadBack', p.read_bytes() == data, file=name, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
+    check(label + '.writtenAndReadBack', source_bytes(p) == data, file=name, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
 
 
 def coverage():

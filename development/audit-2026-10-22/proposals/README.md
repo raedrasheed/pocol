@@ -22,7 +22,7 @@ relative to a literal reading of the M1 reference. None is approved.
 | D-A03-SYSUSER | [D-A03-SYSUSER.md](D-A03-SYSUSER.md) | what the user-context SYS allowance counts (halts) | **PROPOSED**, not approved | recommended alternative (a) implemented provisionally; vacuous for the v1 programs |
 | LOG-CAP-AGGREGATE | [LOG-CAP-AGGREGATE.md](LOG-CAP-AGGREGATE.md) | the scope of LOG_CAP (halts) | **PROPOSED**, not approved | recommended alternative (chain) implemented provisionally |
 
-**Decision package (2026-10-24):** [DECISION-PACKAGE.md](DECISION-PACKAGE.md) (Arabic summary: [DECISION-PACKAGE-AR.md](DECISION-PACKAGE-AR.md)) lists every open decision by your priorities, with the problem, the alternatives, a recommendation, the effects on consensus, genesisHash, compatibility and resources, and acceptance tests. It separates conformance work (being implemented) from normative changes (awaiting approval).
+**Decision package (2026-10-24):** [DECISION-PACKAGE.md](DECISION-PACKAGE.md) (English summary: [DECISION-PACKAGE-EN.md](DECISION-PACKAGE-EN.md)) lists every open decision by your priorities, with the problem, the alternatives, a recommendation, the effects on consensus, genesisHash, compatibility and resources, and acceptance tests. It separates conformance work (being implemented) from normative changes (awaiting approval).
 
 Related reviews (not decisions): [INDEPENDENT-REVIEW-SIX-PROPOSALS.md](INDEPENDENT-REVIEW-SIX-PROPOSALS.md)
 frames the six for an independent reviewer. [LOG-CAP-AGGREGATE-ALTERNATIVES.md](LOG-CAP-AGGREGATE-ALTERNATIVES.md)

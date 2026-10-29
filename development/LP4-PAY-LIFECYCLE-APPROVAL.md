@@ -2,7 +2,7 @@
 
 The owner explicitly approved **option 1 in full** in
 [PAYMENT-LIFECYCLE-DECISION.md](lp4/p2-runtime/codex-r4/PAYMENT-LIFECYCLE-DECISION.md):
-«اعتماد عقد الخيار 1 كاملًا كإضافة LP4».
+“Approve the option 1 contract in full as an LP4 addition” (translated from Arabic).
 
 The linked seven-part option is incorporated in full, including Escrow custody,
 authenticated releaseBond(id) deriving real Registry records, reverting atomic

@@ -2,9 +2,9 @@
   "schema": "pocol-m1-c33-guard/0.30",
   "status": "receive-guard fixtures for the guarded HeaderNetCheck adapter (tools/guard_ref_030.py) in front of the unchanged 0.27 checker. Expected values hand-derived by the author; root executes them. Virtual time, latency 0 unless stated.",
   "sources": {
-    "recvGuard": {"file": "reference/browser.md", "lines": [271, 288], "literals": ["HeaderNetCheck", "HttpTransport.request", "TextDecoder بوضع fatal", "parseStrict بعمق ≤ 16 ورفض المفاتيح المكررة", "message يُقص إلى 256 وحدة UTF-16", "≤ 4 KiB"]},
-    "limit4096": {"file": "reference/browser.md", "lines": [299, 299], "literals": ["4096 [exact]", "eth_blockNumber"]},
-    "limit98304": {"file": "reference/browser.md", "lines": [301, 302], "literals": ["98304 (96 KiB) [exact]", "pocol_getHeaders"]},
+    "recvGuard": {"file": "reference/browser.md", "lines": [271, 288], "literals": ["HeaderNetCheck", "HttpTransport.request", "TextDecoder \u0628\u0648\u0636\u0639 fatal", "parseStrict \u0628\u0639\u0645\u0642 ≤ 16 \u0648\u0631\u0641\u0636 \u0627\u0644\u0645\u0641\u0627\u062a\u064a\u062d \u0627\u0644\u0645\u0643\u0631\u0631\u0629", "message \u064a\u064f\u0642\u0635 \u0625\u0644\u0649 256 \u0648\u062d\u062f\u0629 UTF-16", "≤ 4 KiB"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "limit4096": {"file": "reference/browser.md", "lines": [299, 299], "literals": ["4096 [exact]", "eth_blockNumber"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
+    "limit98304": {"file": "reference/browser.md", "lines": [301, 302], "literals": ["98304 (96 KiB) [exact]", "pocol_getHeaders"], "sourceRevision": "3b861aaafceecdea722a2a262cfe060d04b04f04"},
     "c19": {"file": "m1-draft-0.6/tools/bridge_ref_06.py", "lines": [22, 36], "literals": ["def integral_value", "isinstance(v, bool)", "ID_MAX"]},
     "parser": {"file": "m1-draft-0.4/tools/bridge_ref.py", "lines": [54, 99], "literals": ["def _no_constants", "def _pairs", "def json_depth", "def parse_strict"]},
     "rootProbes": {"file": "coordination/review-001/v1-guard-integration-probes-029.json", "lines": [1, 6], "literals": ["\"failed\": 3", "browser.md:270-283"]},
