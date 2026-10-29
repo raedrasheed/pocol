@@ -1,13 +1,14 @@
 # PoCol — Proof-of-Collaboration
 
-PoCol is a coordinated proof-of-work consensus protocol. It keeps the parts of PoW that give it its security: the
-hash-target puzzle and the chain with the most cumulative work. What it changes is how the mining work is organized.
+PoCol is a coordinated proof-of-work consensus protocol. It retains the
+hash-target puzzle and cumulative-work chain selection; this does not automatically transfer PoW's security guarantees to PoCol. What it changes is how the mining work is organized.
 Instead of every miner hashing its own competing candidate headers, all miners in a round work on **one canonical block
-template**, and a deterministic seed gives each registered miner a **disjoint slice of the nonce space**. Honest miners
-therefore never hash the same candidate header twice in a round, and the reward is shared among the winner and the
-miners whose work is evidenced by *shares*.
+template**, and a deterministic seed gives each registered miner a **disjoint slice of the nonce space**. Under the common-template and honest-assignment assumptions, honest miners
+do not hash the same candidate-header input in that round, and the reward is shared among the winner and the
+miners whose work is evidenced by _shares_.
 
 This repository holds the specification and an experimental implementation:
+
 - `pocold`, a Rust node with an EVM (revm, Cancun rules), P2P networking, mining, persistence and JSON-RPC;
 - an execution layer with system contracts;
 - on-chain website storage;
@@ -32,7 +33,9 @@ This repository holds the specification and an experimental implementation:
 9. [Tests](#tests)
 10. [Contributing](#contributing)
 11. [Current status and limits](#current-status-and-limits)
-12. [License](#license)
+12. [Troubleshooting](#troubleshooting)
+13. [Further reading](#further-reading)
+14. [License](#license)
 
 ---
 
@@ -42,9 +45,9 @@ PoCol was conceived by **Raed S. Rasheed**.
 
 The original design is described in [PhD-thesis-Raed-Rasheed-120211566-61.pdf](PhD-thesis-Raed-Rasheed-120211566-61.pdf).
 The design was evaluated in simulation, using BlockSim extended with energy modelling, not on a distributed network:
+
 - **Setup:** 20 logical miners (16 active, 4 reserve) and a nonce domain of 1,600 values, 100 per active miner.
-- **Best result:** the best throughput-oriented policy kept **90.39%** of accepted-block output with a **55.05%**
-  calculated energy reduction.
+- **Best result:** the best throughput-oriented policy retained **90.39%** of the no-floor PoCol control's accepted-block output, with a **55.05%** calculated energy reduction against the within-run power-null reference. These are distinct baselines, not a blanket energy reduction against PoW or a benchmark of this Rust implementation.
 - **Against PoW:** in a matched comparison PoCol also used less energy, but produced fewer accepted blocks and had
   much longer rounds. The thesis reports this as an energy versus service-level trade-off under the configurations
   evaluated.
@@ -60,45 +63,51 @@ This is an outline. The normative rules are in [development/m1/reference/](devel
 `execution.md`, `network.md`, `storage.md`, `browser.md`, `governance.md`, `incentives.md` and `validation.md`.
 
 ### Network identity
+
 - A network is defined by a `GenesisSpec`: a strict RLP encoding of the spec version, chainId, consensus parameters
   (`CP`), the initial allocation root, the initial miner list `M_0` and the system-contract code hash.
-- `genesisHash = keccak256(GenesisSpec)`. Peers with a different identity or protocol version are disconnected.
+- `genesisHash = keccak256(GenesisSpec)`. Nodes and the extension check the network identity before accepting its data.
 - Before boot, **ParamGate** evaluates rules R1–R26 over the consensus and local parameters. A profile that violates a
   rule is refused, and the refusal lists the rules it violates.
 
 ### A mining round
+
 1. **Template.** The proposer of attempt 0 signs the block template: transactions, timestamp and target. If the
    proposer is late, a deterministic, unsigned **fallback block** is built after `Δ_fb_wait`.
 2. **Seed and assignment.** The seed is derived from the parent block's seal. It assigns each active miner a disjoint
    nonce range (`pocol_getAssignment`).
-3. **Proof of work.** The PoW input is `TemplateID ‖ nonce`. A block is valid when its hash is below the target.
-4. **Shares.** A nonce that meets the easier share target `T_share = target · m` is a share. The winner includes the
+3. **Proof of work.** The PoW input is `TemplateID ‖ nonce`. Meeting the target is necessary but not sufficient: range ownership, timing, signatures, the body and execution roots must also pass the applicable `H-full` checks.
+4. **Shares.** A nonce that meets the easier share target `T_share = min(2^256 - 1, target · m)` is a share. The winner includes the
    share list in the block header.
 5. **Difficulty.** ASERT, with an absolute anchor and a fixed width, steers the block time towards `T_blk`.
 
 ### Fork choice
+
 - The chain with the **most cumulative work** wins. Ties are broken lexicographically along the branch path (D133).
 - Reorganizations are bounded by `R_keep`; a deeper fork is refused.
 
 ### Rewards and settlement
+
 - `R_tot = subsidy + fees`. The winner and the shares of a block are recorded in its child block (`ParentResult`).
 - Settlement is deferred and runs through system contracts (Registry, Escrow, PAY), with exact rounding and
   classified burns.
-- Miners register with a bond (`B_reg`). A miner inactive for long enough leaves the active set.
+- The design specifies a registration bond (`B_reg`) and activity eligibility. The current devnet builder sets `R_max=0`, so new registration/reactivation is disabled in that profile; the initial miners come from genesis.
 
 ### Execution (EVM)
+
 - User transactions run on revm 19.7 with Cancun rules. Consensus and execution are kept apart:
   `apply(S_parent, ctx, body, parentHeader) → (S, receipts, roots, …)`.
 - The network has cumulative caps on accounts, storage slots, code and transaction bytes, and a final closing
   height `H_END`.
 
 ### Site storage and the browser
+
 - **Storage.** A website is split into chunks deployed as contracts at CREATE2 addresses through `ChunkFactory`, with a
   manifest that carries every file's hash. Each site has versions and a `current()` pointer.
 - **Verification.** The Chrome extension fetches a site and checks every chunk's address, the manifest hash and every
   file hash. It then renders the site in a sandboxed frame with no network access (CSP, per-tab DNR rules,
   RtcLockdown), and every request from the site goes through BridgeAuth.
-- **Light client (RP).** Checks a window of 13 headers.
+- **Light client (RP).** Checks network identity and a window of at most 13 headers. It does not reexecute the full chain or prove the complete EVM state. **LN** relies on a trusted local node. Read the trust banner outside the site frame and the [extension coverage table](development/lp9/LP9-EXTENSION.md).
 - **Wallet.** Devnet only. Every signature needs a confirmation that shows the exact bytes.
 
 ## How the project was developed
@@ -112,27 +121,41 @@ in separate roles:
   explicitly. Open decisions are recorded in `development/audit-2026-10-22/proposals/`.
 
 The working rules are in [development/README.md](development/README.md):
+
 - every finding is tied to a requirement and to evidence;
 - no item is closed by elapsed time or by agreement alone;
 - a passing rerun does not explain an earlier failure.
 
 Stages, in order:
 
-| Stage | What it delivered | Where |
-|---|---|---|
-| **M1** | The specification: from the Arabic baseline to English drafts 0.1–0.33, with byte-level vectors and independent reviews | `development/m1/` |
-| **LP1–LP2** | A first Rust node (RLP, GenesisSpec, ParamGate, headers, ASERT, assignment) and a candidate-header journal | `prototypes/lp1-node/`, `development/lp1`, `lp2` |
-| **LP3** | A TypeScript reference model of the arithmetic, timing, membership and assignment, cross-checked against Rust | `prototypes/lp3-model/`, `development/lp3` |
-| **LP4–LP8** | The execution layer: revm, system contracts, mempool, PAY, settlement, caps and resource bounds | `prototypes/lp4-execution/`, `development/lp4` |
-| **LP5–LP7** | The `pocold` node: block production and mining, fork choice, multi-node sync, P2P and RPC | `prototypes/pocold/` |
-| **LP9** | The Chrome MV3 extension | `prototypes/pocol-extension/`, `development/lp9` |
-| **LP10** | An integrated devnet: site publishing, reorganization, restart and the browser | `prototypes/lp10/`, `development/lp10` |
-| **Audit of 2026-10-22 and its rounds** | Repairs A01–A14, the A13 memory bound, the on-disk state store (redb), checkpoints, RpcGuard, I/O-fault handling, Windows and Chrome verification | `development/audit-2026-10-22/` |
+| Stage                                  | What it delivered                                                                                                                                 | Where                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **M1**                                 | The specification: from the Arabic baseline to English drafts 0.1–0.33, with byte-level vectors and independent reviews                           | `development/m1/`                                                                          |
+| **LP1–LP2**                            | A first Rust node (RLP, GenesisSpec, ParamGate, headers, ASERT, assignment) and a candidate-header journal                                        | `prototypes/lp1-node/`, `development/lp1`, `lp2`                                           |
+| **LP3**                                | A TypeScript reference model of the arithmetic, timing, membership and assignment, cross-checked against Rust                                     | `prototypes/lp3-model/`, `development/lp3`                                                 |
+| **LP4**                                | The execution layer: revm, system contracts, mempool, PAY, settlement, caps and resource bounds                                                   | `prototypes/lp4-execution/`, `development/lp4`                                             |
+| **LP5–LP7**                            | The `pocold` node: block production and mining, fork choice, multi-node sync, P2P and RPC                                                         | `prototypes/pocold/`                                                                       |
+| **LP8**                                | Site contracts, chunk storage, publishing and verified fetching                                                                                   | `prototypes/lp4-execution/contracts/`, `prototypes/pocold/src/site.rs`, `development/lp8/` |
+| **LP9**                                | The Chrome MV3 extension                                                                                                                          | `prototypes/pocol-extension/`, `development/lp9`                                           |
+| **LP10**                               | An integrated devnet: site publishing, reorganization, restart and the browser                                                                    | `prototypes/lp10/`, `development/lp10`                                                     |
+| **Audit of 2026-10-22 and its rounds** | Repairs A01–A14, the A13 memory bound, the on-disk state store (redb), checkpoints, RpcGuard, I/O-fault handling, Windows and Chrome verification | `development/audit-2026-10-22/`                                                            |
 
 Stage reports: [development/reports/](development/reports/) and [development/STATUS-AR.md](development/STATUS-AR.md),
 written in Arabic. The status of every audit finding: `development/audit-2026-10-22/FINDING-STATUS.json`.
 
 ## Repository and code layout
+
+This is a multi-package repository, not a single root Cargo/npm workspace. Some LP1 source files are imported directly by
+LP4 and `pocold`, so changing a shared primitive can affect more than one package.
+
+```mermaid
+flowchart TD
+    Publisher["pocol-site: website files"] --> Contracts["ChunkFactory + Website"]
+    Contracts --> Node["pocold: chain state and RPC"]
+    Peers["PoCol peers"] <--> Node
+    Node --> Extension["Extension: verify and fetch"]
+    Extension --> Frame["Sandboxed page + BridgeAuth"]
+```
 
 ```
 .
@@ -157,26 +180,27 @@ written in Arabic. The status of every audit finding: `development/audit-2026-10
 
 ### `prototypes/pocold` — the node
 
-| File | Responsibility |
-|---|---|
-| `src/main.rs` | Command line: `init-devnet`, `run`, `status` |
-| `src/node.rs` | Event loop: import, validation, mempool, templates, recovery at open |
-| `src/chain.rs` | Block tree, work-based fork choice, reorganization, retention, side blocks |
-| `src/miner.rs` | Mining inside the assigned range, shares |
-| `src/net.rs` | P2P over TCP: handshake, sync, gossip, connection limits |
-| `src/rpc.rs` | JSON-RPC server with RpcGuard (queues, deadlines, rate limits, memory bounds) |
-| `src/store.rs` | Block journal `blocks.journal` (append-only, torn-tail recovery) |
-| `src/history.rs` | `history.redb`: receipts and the transaction index |
-| `src/state_store.rs` | `state.redb`: state versions as on-disk tries (experimental `--state-store` mode) |
-| `src/checkpoint.rs` | Sealed state checkpoints bound to the journal |
-| `src/statediff.rs` | State diffs between blocks |
-| `src/resources.rs` | The A13 model: the computed memory bound, checked at boot |
-| `src/site.rs`, `src/bin/pocol-site.rs` | Publishing, fetching and verifying sites |
-| `src/bin/pocol-sign.rs` | Signing a devnet transaction |
-| `scripts/devnet.py` | Create, start, inspect and stop a local network |
-| `tests/` | Consensus, network, storage, caps and budget tests; Python end-to-end tests |
+| File                                   | Responsibility                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------- |
+| `src/main.rs`                          | Command line: `init-devnet`, `run`, `status`                                      |
+| `src/node.rs`                          | Event loop: import, validation, mempool, templates, recovery at open              |
+| `src/chain.rs`                         | Block tree, work-based fork choice, reorganization, retention, side blocks        |
+| `src/miner.rs`                         | Mining inside the assigned range, shares                                          |
+| `src/net.rs`                           | P2P over TCP: handshake, sync, gossip, connection limits                          |
+| `src/rpc.rs`                           | JSON-RPC server with RpcGuard (queues, deadlines, rate limits, memory bounds)     |
+| `src/store.rs`                         | Block journal `blocks.journal` (append-only, torn-tail recovery)                  |
+| `src/history.rs`                       | `history.redb`: receipts and the transaction index                                |
+| `src/state_store.rs`                   | `state.redb`: state versions as on-disk tries (experimental `--state-store` mode) |
+| `src/checkpoint.rs`                    | Sealed state checkpoints bound to the journal                                     |
+| `src/statediff.rs`                     | State diffs between blocks                                                        |
+| `src/resources.rs`                     | The A13 model: the computed memory bound, checked at boot                         |
+| `src/site.rs`, `src/bin/pocol-site.rs` | Publishing, fetching and verifying sites                                          |
+| `src/bin/pocol-sign.rs`                | Signing a devnet transaction                                                      |
+| `scripts/devnet.py`                    | Create, start, inspect and stop a local network                                   |
+| `tests/`                               | Consensus, network, storage, caps and budget tests; Python end-to-end tests       |
 
 ### `prototypes/lp4-execution` — execution
+
 - **Sources:**
   - `apply.rs` and `apply/`: block application;
   - `system.rs` and `system/`: system phases;
@@ -191,6 +215,7 @@ written in Arabic. The status of every audit finding: `development/audit-2026-10
   storage layout is in `REGISTRY-LAYOUT.md`.
 
 ### `prototypes/pocol-extension` — the Chrome extension
+
 - `src/sw.js`: the service worker (network profiles, DNR rules, routing).
 - `src/lib/`:
   - `rp.js`: header window;
@@ -203,130 +228,244 @@ written in Arabic. The status of every audit finding: `development/audit-2026-10
 
 ## Requirements
 
-| Tool | Version | Used for |
-|---|---|---|
-| Rust | 1.99.1 (pinned in `rust-toolchain.toml`) | `pocold`, `lp4-execution` |
-| Rust | 1.58.1 | `lp1-node` only |
-| Python | 3.10 or newer | `devnet.py`, end-to-end tests |
-| Node.js | 22 or newer | building and testing the extension |
-| Chromium/Chrome + Playwright 1.62.1 | — | browser tests only |
+| Tool            | Version / environment                                                                                  | Used for                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Git and Bash    | Linux or WSL2 for the commands below                                                                   | Source checkout and local launcher                                         |
+| Rust via rustup | **1.99.1**, pinned in the current node/execution crates                                                | `pocold`, `lp4-execution`; native build tools and a linker are also needed |
+| Rust            | **1.58.1** in the legacy verification workflow                                                         | LP1 compatibility checks                                                   |
+| Python 3        | Existing verification paths use 3.11/3.12                                                              | Devnet launcher and integration tests                                      |
+| Node.js and npm | **22.22.0** is used in Windows verification; use at least 22.18 for the TypeScript test commands below | Extension and reference model                                              |
+| Chrome/Chromium | Extension manifest minimum: **130**                                                                    | Loading the MV3 extension                                                  |
+| Playwright      | **1.62.1** in the current browser workflow                                                             | Automated browser tests only                                               |
 
-The code builds on Linux, macOS and Windows. Windows and Chrome are checked automatically by the workflows in
-`.github/workflows/`. Local networks bind to `127.0.0.1` only and use deterministic, worthless devnet keys.
+Linux, Windows Server 2022 and real Chrome verification are recorded in the [R6 report](development/audit-2026-10-22/evidence/codex-r6/STATUS-AR.md).
+The walkthrough below uses Bash; it is not a claim that every command is portable to PowerShell or tested on macOS.
+On Ubuntu, `build-essential` supplies the usual native compiler/linker basics. Docker and a production server are not required.
+Builds and long-running tests need disk and memory headroom; a node's resource model is not a total-machine build requirement.
 
 ## Quick start: a local devnet
 
-```sh
-git clone https://github.com/palcertcom/pocol.git && cd pocol
+### 1. Build from the repository root
 
-# 1) Build the node and its tools
-cd prototypes/pocold && cargo build --release --locked && cd ../..
-# -> prototypes/pocold/target/release/{pocold,pocol-site,pocol-sign}
+Keep the same terminal for the variables used later. The commands use the default Cargo target directory.
 
-# 2) A three-node network (a, b, c)
-D=prototypes/pocold/scripts/devnet.py
-python3 $D init  /tmp/devnet --miners a,b,c --t-blk 2   # genesis, devnet.json, profile.json
-python3 $D start /tmp/devnet --log                      # P2P on 30300+i, RPC on 8540+i
-python3 $D status /tmp/devnet                           # height, head, peers, production
-python3 $D rpc /tmp/devnet a eth_blockNumber
-python3 $D stop /tmp/devnet                             # or --only b to stop one node
+```bash
+git clone https://github.com/palcertcom/pocol.git
+cd pocol
+git rev-parse HEAD
+
+rustup toolchain install 1.99.1 --profile minimal
+cargo +1.99.1 build --release --locked \
+  --manifest-path prototypes/pocold/Cargo.toml --bins
+
+npm ci --ignore-scripts --prefix prototypes/pocol-extension
+npm run build --prefix prototypes/pocol-extension
 ```
 
-Notes:
-- **Timing.** Keep `T_blk ≥ 1 + dFbWait`. The defaults (`--t-blk 2 --fb-wait 1`) are sustainable.
-- **Restart.** A node restarted with the same `--data` directory replays its journal and recovers torn tails.
-  `pocold status --network DIR --data DIR` prints the head without starting the node.
-- **On-disk state store (experimental).** Add `--state-store` to `pocold run`, or set `POCOLD_RUN_ARGS=--state-store`
-  for `devnet.py`. Always open a data directory in the mode it was created in.
-- **Running `pocold` directly:**
-  ```sh
-  pocold init-devnet --out NET --miners a,b,c [--chain-id 777900] [--t-blk S] ...
-  pocold run --network NET --data DATA --name a --miner a --listen 127.0.0.1:30300 --rpc 127.0.0.1:8540 [--peer ADDR]...
-  ```
-  `pocold help` lists every option.
-- **Allowed networks.** The default chainId is 777900 (simnet). The production network profile (chainId 777001)
-  deliberately does not boot.
+Binaries: `prototypes/pocold/target/release/{pocold,pocol-site,pocol-sign}`.
+Extension: `prototypes/pocol-extension/dist/`. Edit `src/`, not generated `dist/`; the extension build replaces its output directory.
+
+### 2. Create and start three nodes
+
+All generated accounts and miner identities are deterministic, disposable devnet keys. Never use them to hold real funds.
+
+```bash
+POCOL_WORK=$(mktemp -d /tmp/pocol-devnet.XXXXXX)
+printf 'Devnet directory: %s\n' "$POCOL_WORK"
+
+python3 prototypes/pocold/scripts/devnet.py init "$POCOL_WORK" --miners a,b,c
+python3 prototypes/pocold/scripts/devnet.py start "$POCOL_WORK" --log
+python3 prototypes/pocold/scripts/devnet.py status "$POCOL_WORK"
+python3 prototypes/pocold/scripts/devnet.py rpc "$POCOL_WORK" a eth_blockNumber
+```
+
+After startup, block heights should increase. Repeat `status` if the processes are still starting.
+
+| Item                        | Default                                      |
+| --------------------------- | -------------------------------------------- |
+| Network                     | Local `simnet`, chainId **777900**           |
+| Node RPC endpoints          | `127.0.0.1:8540`, `8541`, `8542`             |
+| Peer endpoints              | `127.0.0.1:30300` through `30302`            |
+| Genesis and browser profile | `$POCOL_WORK/net/`, including `profile.json` |
+| Per-node data               | `$POCOL_WORK/data/<label>/`                  |
+| Logs                        | `$POCOL_WORK/a.log`, `b.log`, `c.log`        |
+
+Use the current timing defaults in [`DevnetConfig`](prototypes/lp4-execution/src/devnet.rs): **`T_blk=4`, `dFbWait=3`**.
+Some historical LP10 examples use older values. Do not copy `--t-blk 2` into the current profile by itself; timing must satisfy
+admission and fallback rules. The devnet builder deliberately refuses the network chainId **777001**.
+
+Only run one network on these ports. Do not call `start` twice on a running network or expose RPC publicly.
+`prototypes/pocold/target/release/pocold help` lists direct node commands and options.
+
+### 3. Stop and resume without replacing data
+
+```bash
+python3 prototypes/pocold/scripts/devnet.py stop "$POCOL_WORK"
+# After the processes exit, resume from the same directory when needed:
+python3 prototypes/pocold/scripts/devnet.py start "$POCOL_WORK" --log
+```
+
+Keep the printed `POCOL_WORK` path to resume from another terminal. Do not rerun `init` to resume an existing network.
+The default mode keeps whole-state snapshots in memory alongside a durable block journal. Experimental on-disk state mode
+is available through `POCOLD_RUN_ARGS=--state-store`; use a fresh data directory for it and the same mode on every restart.
+Do not switch an existing directory's mode or delete its journal to make an error disappear.
 
 ## Publishing a site and viewing it in Chrome
 
-```sh
-CID=$(python3 -c "import json;print(json.load(open('/tmp/devnet/net/devnet.json'))['chainId'])")
-B=prototypes/pocold/target/release
-$B/pocol-site publish --rpc 127.0.0.1:8540 --chain-id $CID --account alice --dir ./mysite
-#   -> {"site":"0x…","version":0,...}   to publish an update, add --site 0x…
-$B/pocol-site fetch --rpc 127.0.0.1:8541 --site 0x… --out ./fetched   # verifies every chunk and file
+With the preceding network running, publish a small site using the genesis-funded test account `alice`:
+
+```bash
+mkdir "$POCOL_WORK/site"
+printf '%s\n' '<!doctype html><html lang="en"><meta charset="utf-8"><title>PoCol</title><h1>Hello from PoCol</h1></html>' \
+  > "$POCOL_WORK/site/index.html"
+
+POCOL_CHAIN_ID=$(python3 -c \
+  'import json,sys; print(json.load(open(sys.argv[1]))["chainId"])' \
+  "$POCOL_WORK/net/devnet.json")
+
+prototypes/pocold/target/release/pocol-site publish \
+  --rpc 127.0.0.1:8540 --chain-id "$POCOL_CHAIN_ID" \
+  --account alice --dir "$POCOL_WORK/site" \
+  > "$POCOL_WORK/published.json"
+
+POCOL_SITE=$(python3 -c \
+  'import json,sys; print(json.load(open(sys.argv[1]))["site"])' \
+  "$POCOL_WORK/published.json")
+printf 'Site address: %s\n' "$POCOL_SITE"
+
+prototypes/pocold/target/release/pocol-site fetch \
+  --rpc 127.0.0.1:8541 --site "$POCOL_SITE" \
+  --out "$POCOL_WORK/fetched"
 ```
 
-The Chrome extension:
-1. Build it:
-   ```sh
-   cd prototypes/pocol-extension
-   npm ci
-   node build.mjs    # -> dist/
-   ```
-2. Open `chrome://extensions`, turn on Developer mode, choose **Load unpacked** and select
-   `prototypes/pocol-extension/dist`.
-3. On the extension's options page, paste `/tmp/devnet/net/profile.json` and click **Add**. The profile is accepted
-   only if `genesisPre` hashes to `genesisHash` and the chainId matches.
-4. To open a site, type `pocol devnet/0x<site>/` in the address bar.
-5. The wallet is devnet only. Fund it with `pocol-sign`, then send the output with `eth_sendRawTransaction`.
+Publishing may wait for several transactions to be included. Success returns the site address, version and manifest data.
+The second node must have synchronized before it can fetch the site; check its height and retry the fetch if needed.
+The fetch verifies chunk addresses, the manifest and every file. Its output directory must be new or empty.
+To update the same site later, edit the source files and repeat **only** the publish command with `--site "$POCOL_SITE"`.
 
-Full details: [development/lp10/LP10-RUNBOOK.md](development/lp10/LP10-RUNBOOK.md) and
-[development/lp9/LP9-EXTENSION.md](development/lp9/LP9-EXTENSION.md).
+### Load the extension
+
+1. Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select `prototypes/pocol-extension/dist`.
+2. Open the extension options. Paste the **contents** of `$POCOL_WORK/net/profile.json`, not just its pathname, and add the profile.
+3. Wait for enough headers for the RP window. In the address bar, enter the keyword `pocol`, press Space or Tab, then enter
+   `devnet/<site-address>/`; alternatively open the site from the options page.
+4. Read the trust banner outside the page frame. RP verification is not full-chain execution.
+
+For WSL, the browser must be able to reach the node at `http://127.0.0.1:8540`. Keep the node and browser local; exposing RPC
+on a public interface is not a setup workaround.
+
+The extension wallet is experimental and local-devnet-only. Creating it, granting a site access and confirming a transaction
+are separate actions. See [LP9](development/lp9/LP9-EXTENSION.md) for the wallet, isolation and feature-coverage details.
+Do not import a key that protects real assets.
+
+The [historical LP10 runbook](development/lp10/LP10-RUNBOOK.md) documents the broader scenario; prefer the current defaults
+and root-relative commands above when its older examples differ.
 
 ## JSON-RPC
 
 The node serves a subset of the standard `eth_*` methods:
+
 - `eth_blockNumber`, `eth_chainId`, `eth_getBalance`, `eth_getCode`, `eth_getStorageAt`;
 - `eth_call`, `eth_estimateGas`, `eth_sendRawTransaction`, `eth_getTransactionReceipt`;
 - `eth_getLogs`, `eth_getBlockByNumber`, `eth_feeHistory`, and others.
 
 It also serves `net_*`, `web3_clientVersion`, and PoCol-specific methods:
 
-| Method | Purpose |
-|---|---|
-| `pocol_status`, `pocol_syncStatus` | Node and sync status |
-| `pocol_getTemplate`, `pocol_getAssignment`, `pocol_getTarget`, `pocol_submitShare` | Template, nonce range, target, share submission (local only) |
-| `pocol_getMiners`, `pocol_getMinerSet` | Miners and the active set |
-| `pocol_getSettlement`, `pocol_getEscrow`, `pocol_getPot`, `pocol_getBurnTotals` | Rewards, settlement, burns |
-| `pocol_getHeaders`, `pocol_getBlockRlp`, `pocol_getLogs` | Headers for light clients, raw blocks, branch-bound logs |
-| `pocol_getParams`, `pocol_getCaps`, `pocol_getTiming`, `pocol_getClosing`, `pocol_getRetention` | Parameters, caps, timing, closing, retention |
-| `pocol_getRejects`, `pocol_getRpcStats` | Diagnostics |
+| Method                                                                                          | Purpose                                                      |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `pocol_status`, `pocol_syncStatus`                                                              | Node and sync status                                         |
+| `pocol_getTemplate`, `pocol_getAssignment`, `pocol_getTarget`, `pocol_submitShare`              | Template, nonce range, target, share submission (local only) |
+| `pocol_getMiners`, `pocol_getMinerSet`                                                          | Miners and the active set                                    |
+| `pocol_getSettlement`, `pocol_getEscrow`, `pocol_getPot`, `pocol_getBurnTotals`                 | Rewards, settlement, burns                                   |
+| `pocol_getHeaders`, `pocol_getBlockRlp`, `pocol_getLogs`                                        | Headers for light clients, raw blocks, branch-bound logs     |
+| `pocol_getParams`, `pocol_getCaps`, `pocol_getTiming`, `pocol_getClosing`, `pocol_getRetention` | Parameters, caps, timing, closing, retention                 |
+| `pocol_getRejects`, `pocol_getRpcStats`                                                         | Diagnostics                                                  |
 
 RPC limits (connections, sizes, deadlines) are described in `development/m1/reference/network.md` and
 `development/audit-2026-10-22/RPCGUARD.md`.
 
 ## Tests
 
-```sh
-# Every suite (evidence -> development/lp10/LP10-EVIDENCE.json)
-python3 prototypes/lp10/run_lp10.py
-python3 prototypes/lp10/run_lp10.py --only e2e-browser
+### Component tests
 
-# The node
-cd prototypes/pocold
-cargo test --release --locked
-cargo test --release --locked --features io-fault \
-  --test state_store --test consensus --test checkpoint_source --test eviction_memory   # deterministic I/O faults
-cargo test --release --locked --features crash-test --test consensus                     # crashes at named steps
-python3 tests/e2e_devnet.py && python3 tests/e2e_site.py
+Run from the repository root after the build/install steps above:
 
-# The execution layer
-cargo test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml
+```bash
+cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml
+cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml
+npm test --prefix prototypes/pocol-extension
 
-# The extension
-cd prototypes/pocol-extension && npm ci && npm test
-node tests/e2e_browser.mjs       # needs Chromium, Playwright and local nodes
-node tests/e2e_integrated.mjs    # partition, reorganization, restart
+npm ci --ignore-scripts --prefix prototypes/lp3-model
+npm run typecheck --prefix prototypes/lp3-model
+npm test --prefix prototypes/lp3-model
 ```
 
-- **Long measurements.** Journal growth to `H_END`, runs at the network's state caps and performance measurements are
-  `#[ignore]` tests in `tests/journal_measure.rs`. Run them with `-- --ignored`.
-- **Ports.** The suites use ports 30300–30302, 8540–8542 and 8600–8602. Run one suite at a time.
-- **Failure evidence.** On a failure, the end-to-end harnesses keep the node logs, inputs and seeds in
-  `POCOL_E2E_KEEP` or `tests/failures/`.
+LP1 compatibility is also checked with Rust 1.58.1 by the [Windows verification script](.github/scripts/audit-r2-windows-verify.ps1).
+I/O faults, process crashes and cap controls have separate suites and build features. Run them only against disposable test data:
+
+```bash
+cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml \
+  --features io-fault --test state_store --test consensus --test checkpoint_source --test eviction_memory
+cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml \
+  --features crash-test --test consensus
+```
+
+Fault-enabled binaries are test instruments. Rebuild the normal `--release --locked --bins` target before using the regular
+walkthrough again. Do not use extension `dist-fault-*` builds for normal browsing.
+
+### Live network and browser tests
+
+Stop the demonstration devnet first. These tests reuse the node ports and also use `8600–8602`; run one suite at a time.
+
+```bash
+python3 prototypes/pocold/scripts/devnet.py stop "$POCOL_WORK"
+python3 prototypes/pocold/tests/e2e_devnet.py
+python3 prototypes/pocold/tests/e2e_site.py
+```
+
+Browser tests need Playwright and Chromium. This setup uses the version pinned in the browser workflow and keeps the tools
+outside project dependencies:
+
+```bash
+POCOL_BROWSER_TOOLS=$(mktemp -d /tmp/pocol-browser-tools.XXXXXX)
+npm install --prefix "$POCOL_BROWSER_TOOLS" --ignore-scripts --no-audit --no-fund playwright@1.62.1
+export PLAYWRIGHT_MODULE="$POCOL_BROWSER_TOOLS/node_modules/playwright/index.mjs"
+node "$POCOL_BROWSER_TOOLS/node_modules/playwright/cli.js" install --with-deps chromium
+
+node prototypes/pocol-extension/tests/e2e_browser.mjs
+node prototypes/pocol-extension/tests/e2e_integrated.mjs
+```
+
+Installing Chromium's system dependencies may need administrator privileges. The suites launch real nodes and temporary
+browser profiles, including deliberate negative controls and network canaries. Use an isolated development machine.
+
+### Combined runner and evidence
+
+The combined runner invokes Cargo offline. Fetch the locked dependencies before the first run, and complete the extension
+build and browser setup above:
+
+```bash
+cargo +1.99.1 fetch --locked --manifest-path prototypes/lp4-execution/Cargo.toml
+cargo +1.99.1 fetch --locked --manifest-path prototypes/pocold/Cargo.toml
+python3 prototypes/lp10/run_lp10.py
+```
+
+- Logs go to `development/lp10/logs/`; the runner **updates** `development/lp10/LP10-EVIDENCE.json`. Preserve a previous result
+  separately if you need to compare it, and inspect `git diff` before committing generated evidence.
+- `--only e2e-browser` runs a subset, not the full acceptance suite. A successful subset cannot stand in for all tests.
+- Long-running, explicitly ignored measurements are documented with their tests, including `tests/journal_measure.rs`.
+  Inspect the individual test's scope before opting into it; an ignored test is not a pass.
+- On E2E failure, the harness keeps logs and inputs under `POCOL_E2E_KEEP` or `tests/failures/`. Preserve the failure evidence.
+- Check [Actions](https://github.com/palcertcom/pocol/actions) and the exact checkout SHA. The Windows workflow and real-browser
+  workflow cover different surfaces; some older workflows target historical branches. Path filters mean not every docs edit
+  runs application CI. Never count cancelled or unexecuted tests as passing.
 
 ## Contributing
+
+Start from current `main` on a separate branch, record its SHA, and preserve earlier specifications and evidence.
+A useful pull request explains the concrete problem, the before/after behaviour, the commands and tool versions used,
+the tested commit, and any missing checks. Changes to shared LP1 sources need consideration of their LP4/node consumers.
+For a first contribution, reproduce a documented bug, add a focused boundary test, or improve a command's documentation.
 
 - **Consensus is owner-gated.** A change to a consensus rule, a `CP` parameter or a wire encoding needs an owner
   decision. Write a proposal in `development/audit-2026-10-22/proposals/` with the alternatives and their effects, and
@@ -351,6 +490,7 @@ node tests/e2e_integrated.mjs    # partition, reorganization, restart
 ## Current status and limits
 
 **Shown by tests, locally and in CI:**
+
 - a three-node devnet produces blocks and stays in sync;
 - reorganization at a network heal, in both directions;
 - recovery after `SIGKILL`;
@@ -361,6 +501,7 @@ node tests/e2e_integrated.mjs    # partition, reorganization, restart
 - passing runs on Linux, Windows Server 2022 and Chrome.
 
 **Not established, or still open:**
+
 - **The production network profile does not boot on `pocold`.**
   - There is no approved network genesis.
   - Whole-state mode does not meet the A13 memory condition.
@@ -376,10 +517,39 @@ node tests/e2e_integrated.mjs    # partition, reorganization, restart
 
 **Do not use this code for a real network or with real funds.**
 
+## Troubleshooting
+
+| Symptom                              | What to check                                                                                                      |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `pocold` binary not found            | Build `--release --bins`; tools expect the default `prototypes/pocold/target/release` path                         |
+| RPC unavailable / nodes not starting | Read `a.log`, `b.log`, `c.log`; check ports and the generated profile before starting more processes               |
+| ParamGate refusal / `-32018`         | Read the specific rule and actual values; do not disable the gate or replace a measurement with a constant         |
+| `viewIncomplete` / `viewTargetCeil`  | Check header count and timing; keep the current devnet defaults instead of shortening `T_blk` arbitrarily          |
+| Network identity mismatch            | Check `chainId`, `genesisHash`, `genesisPre` and endpoint together                                                 |
+| Playwright cannot be imported        | Set `PLAYWRIGHT_MODULE` to the installed absolute `index.mjs` path and install Chromium                            |
+| Existing data cannot open            | Check its original state mode and retain the journal and databases for diagnosis; do not delete them automatically |
+| E2E port conflicts                   | Stop the demonstration network and run one E2E suite at a time                                                     |
+
+## Further reading
+
+- [Research scope and later implementation additions](development/m1/reference/scope.md).
+- [Consensus](development/m1/reference/consensus.md), [execution](development/m1/reference/execution.md),
+  [storage](development/m1/reference/storage.md) and [threat model](development/m1/reference/threat.md).
+- [Ordered local-network plan](development/LOCAL-DEVNET-PLAN.md) and [extension coverage](development/lp9/LP9-EXTENSION.md).
+- [R6 status, 29 October 2026](development/audit-2026-10-22/evidence/codex-r6/STATUS-AR.md): measured results and their limits.
+- [Network boot blockers by cause](development/audit-2026-10-22/BOOT-BLOCKERS-2026-10-28.md) and
+  [open decisions](development/audit-2026-10-22/proposals/DECISION-TABLE-2026-10-28.md).
+
+Historical progress pages describe their own revisions, not every later commit. Cite the thesis for the research idea,
+and the repository URL **plus the commit SHA** when discussing this implementation. Treat proposed decisions as proposals
+until explicitly approved, and distinguish measured results from computed resource models.
+
 ## License
 
-The code in `prototypes/` is licensed under **Apache-2.0**, as declared in its `Cargo.toml` and `package.json` files.
-Third-party licenses are in `prototypes/lp4-execution/licenses/` and ship with the libraries vendored into the
-extension. The thesis remains the copyright of its author.
+The LP1, LP4, `pocold`, TypeScript-model and extension package manifests declare **Apache-2.0**.
+Third-party notices are also present, including `prototypes/lp4-execution/licenses/` and the Noble notices copied into the
+extension build. There is currently **no repository-wide root `LICENSE` file**. Do not assume that a code package's license
+statement also licenses the thesis and every evidence asset; check the relevant component's declaration and retain its
+source notices when reusing or distributing it. This README records existing declarations, not a new license grant.
 
-For questions about the idea or the project, open an issue in this repository.
+For questions about the idea or the project, open an [issue](https://github.com/palcertcom/pocol/issues).
