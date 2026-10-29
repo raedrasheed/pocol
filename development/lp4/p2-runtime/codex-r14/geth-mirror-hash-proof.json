@@ -1,0 +1,143 @@
+{
+  "scope": "Module ZIP source content identity only; compiler/binary and remaining provenance separate",
+  "originalGoSumSHA256": "b8af3d1fed1d12cd2cf47ecae6990286444d56a345d01bf9c27114b46dc87ba3",
+  "targetClosureSHA256": "fbd7ed808ecfe6c80cc14b772164dc348838550dc4257b8d5f70415812bbed2d",
+  "declaredMappings": 14,
+  "unusedMappings": [
+    {
+      "original": "golang.org/x/tools",
+      "version": "v0.20.0",
+      "mirror": "github.com/golang/tools",
+      "status": "NOT IN TARGET CLOSURE; not credited as verified"
+    },
+    {
+      "original": "golang.org/x/mod",
+      "version": "v0.17.0",
+      "mirror": "github.com/golang/mod",
+      "status": "NOT IN TARGET CLOSURE; not credited as verified"
+    }
+  ],
+  "verified": 12,
+  "modules": [
+    {
+      "original": "golang.org/x/crypto",
+      "version": "v0.22.0",
+      "mirror": "github.com/golang/crypto",
+      "files": 365,
+      "zipSHA256": "fd9e74ad1f8dc139be79ed2b456e9579ba9a738d6de0621f983016496941fd65",
+      "mirrorH1": "h1:0leFliiWxQdVUY//t9qOA7N4yaUb82TSDM1wTO03lc4=",
+      "originalH1": "h1:g1v0xeRhjcugydODzvb3mEM9SQ0HGp9s/nh3COQ/C30=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "golang.org/x/exp",
+      "version": "v0.0.0-20231110203233-9a3e6036ecaa",
+      "mirror": "github.com/golang/exp",
+      "files": 406,
+      "zipSHA256": "2545585052008843d47e5c406463c91cb24947eaf39c153f9f91e2ba036cfb92",
+      "mirrorH1": "h1:6afd+lVkvrwyHhJ817aec4gxC6/NBLiFf87W2LymeuI=",
+      "originalH1": "h1:FRnLl4eNAQl8hwxVVC17teOw8kdjVDVAiFMtgUdTSRQ=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "golang.org/x/sync",
+      "version": "v0.7.0",
+      "mirror": "github.com/golang/sync",
+      "files": 22,
+      "zipSHA256": "242ba8fb6e49cbf845cb014fd2a10e3c5348620990a0b5375225f3d996841ef5",
+      "mirrorH1": "h1:LrQ0FXlIEEEqmu6eSUpFHl0/eFnEfspNr3v19MzIttk=",
+      "originalH1": "h1:YsImfSBoP9QPYL0xyKJPq0gcaJdG3rInoqxTWbfQu9M=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "golang.org/x/sys",
+      "version": "v0.22.0",
+      "mirror": "github.com/golang/sys",
+      "files": 527,
+      "zipSHA256": "fb4603dea8a35f185b6e1b089f05d0ff14f458a6625b5ca6b6b41665e7ff59be",
+      "mirrorH1": "h1:NyJe5QtFMczJ5G0kxP6sYaRB9ziJaRtYA3cETlWWrMk=",
+      "originalH1": "h1:RI27ohtqKCnwULzJLqkv897zojh5/DwS/ENaMzUOaWI=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "golang.org/x/text",
+      "version": "v0.14.0",
+      "mirror": "github.com/golang/text",
+      "files": 542,
+      "zipSHA256": "921d03fc9788064bff0cb42ca222071dac0833c14f6e6eb3709322dcd1f4df26",
+      "mirrorH1": "h1:GF4MlwaDCyaJpbmRJTlN4gjsuesoOWAdHLtN3I63Fd8=",
+      "originalH1": "h1:ScX5w1eTa3QqT8oi6+ziP7dTV1S2+ALU0bI+0zXKWiQ=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "golang.org/x/time",
+      "version": "v0.5.0",
+      "mirror": "github.com/golang/time",
+      "files": 9,
+      "zipSHA256": "0d281af95cee351c84d63fcf8143dcec601803ffda19e908a7fac237904522b9",
+      "mirrorH1": "h1:Ze3oKRsu5deLngCC2h9OjDr/CoEGR0UKM5NhoMb5Zjo=",
+      "originalH1": "h1:o7cqy6amK/52YcAKIPlM3a+Fpj35zvRj2TP+e1xFSfk=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "google.golang.org/protobuf",
+      "version": "v1.34.2",
+      "mirror": "github.com/protocolbuffers/protobuf-go",
+      "files": 506,
+      "zipSHA256": "3368e617cb0bd1517450400c98c86e168601c5ca175b40789cbc457707bb1c00",
+      "mirrorH1": "h1:/mKZtacKo6mtfYX8RvoyXDQFPAgeslXDSTWuxZYnewA=",
+      "originalH1": "h1:6xV6lTsCfpGD21XK49h7MhtcApnLqkfYgPcdHftf6hg=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "golang.org/x/net",
+      "version": "v0.24.0",
+      "mirror": "github.com/golang/net",
+      "files": 778,
+      "zipSHA256": "a8f7602c6632ae928d63b7bee62921fe09ed5d1a6feea4e4270f811f2d75742c",
+      "mirrorH1": "h1:OXn1FLWDJTCezp9STEdJZv/q7hpMmZfjYiFhS1VfR5c=",
+      "originalH1": "h1:1PcaxkF854Fu3+lvBIx5SYn9wRlBzzcnHZSiaFFAb0w=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "rsc.io/tmplfunc",
+      "version": "v0.0.3",
+      "mirror": "github.com/rsc/tmplfunc",
+      "files": 13,
+      "zipSHA256": "7cf67575da89e55bbd56362db5ef934a15a47c6cacee01616b90809f2c136e56",
+      "mirrorH1": "h1:+tGQ+d77id9jBL3Jo17T/pQa1FrHa7atDvFjVqqu04k=",
+      "originalH1": "h1:53XFQh69AfOa8Tw0Jm7t+GV7KZhOi6jzsCzTtKbMvzU=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "gopkg.in/yaml.v3",
+      "version": "v3.0.1",
+      "mirror": "github.com/go-yaml/yaml/v3",
+      "files": 24,
+      "zipSHA256": "615502a55ae4ebf97ed81ebfcc80a9abf166e7e7d83d90ff2da1492ffd3d3404",
+      "mirrorH1": "h1:lLakvY+lWMEToth2+yyGyq9wAa91oSm971MQysWD8Q4=",
+      "originalH1": "h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "gopkg.in/yaml.v2",
+      "version": "v2.4.0",
+      "mirror": "github.com/go-yaml/yaml/v2",
+      "files": 24,
+      "zipSHA256": "eedecfd9e8dc8c208dd69ba330ce67cbd900186705026ed1c239a35cc1084ffe",
+      "mirrorH1": "h1:FNqNkD8zxfgoQ6pSknwk+CnijAT6ijXMqcUg7FXN3LU=",
+      "originalH1": "h1:D8xgwECY7CYvx+Y2n4sBz93Jn9JRvxdiyyo8CTfuKaY=",
+      "identicalToOriginalGoSum": true
+    },
+    {
+      "original": "gopkg.in/natefinch/lumberjack.v2",
+      "version": "v2.2.1",
+      "mirror": "github.com/natefinch/lumberjack/v2",
+      "files": 14,
+      "zipSHA256": "17306f666e9f833116f9dd8d4de701d578bdadacc53e53e21093f64e1350d93a",
+      "mirrorH1": "h1:0EEGfYddtRt8K4PZsiXkVQhTnoe+J7a0qHspcx/bdro=",
+      "originalH1": "h1:bBRl1b0OH9s/DuPhuXpNl+VtCaJXFZ5/uEFST95x9zc=",
+      "identicalToOriginalGoSum": true
+    }
+  ]
+}

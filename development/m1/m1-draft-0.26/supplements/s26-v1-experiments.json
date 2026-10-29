@@ -1,0 +1,26 @@
+{
+  "schema": "pocol-m1-supplement/0.26",
+  "id": "S26-V1EXP",
+  "status": "experiment definitions only; nothing run; Phase A (implementation acceptance), not M1-spec conditions",
+  "experiments": [
+    {"id": "S26-NXV3E-PING", "source": {"file": "reference/validation.md", "lines": [1075, 1075], "literals": ["والعامل يستجيب لـping خلال ≤ 100 ms"]},
+     "what": "the extension worker stays responsive while HeaderNetCheck rejects the NX-V3e reference",
+     "inputs": ["the literal NX-V3e transcript of results/v1-transcripts-0.26.json (eth_blockNumber '0x14', then the pocol_getHeaders reply whose reference has ts = g_ts + 2^62)",
+                "V1NET profile in RP; MaliciousRpc serving the literal replies; browser clock C = 1700000205"],
+     "procedure": ["start the RP window check", "from a second extension context send {kind:'ping'} to the worker every 10 ms from the moment the pocol_getHeaders reply is delivered until 1000 ms later",
+                   "record the reply delay of every ping and the HeaderNetCheck call counters (decodes, ASERT, powHash, TemplateID)"],
+     "pass": ["outcome viewFuture at height 7; no frame; pending account/sign requests get 4901",
+              "ASERT counter = 0 and powHash counter = 0",
+              "every ping is answered within 100 ms (maximum over 3 repetitions, as validation.md:1041 requires for timing)",
+              "no BigInt created by the check exceeds 512 bits (instrumented maxBits <= 512); no allocation proportional to 2^62"],
+     "outcomes": {"PASS": "all criteria", "FAIL": "any criterion violated", "INCONCLUSIVE": "the harness cannot deliver the literal reply or the worker is restarted by Chrome"}},
+    {"id": "S26-NX-D", "source": {"file": "reference/validation.md", "lines": [1050, 1052], "literals": ["(د) MaliciousRpc في RP", "ts الرأس+5s"]},
+     "what": "path (d): every window case of vectors/v1-window-cases.json through MaliciousRpc and the real extension",
+     "inputs": ["results/v1-transcripts-0.26.json (requests, literal replies, clocks)"],
+     "pass": ["for every case: the extension sends exactly the listed requests in order (and at the listed times for NX-V4 and NX-V6), shows exactly the expected message or rejects with the expected rule, creates no frame on rejection, answers 4901 to pending eth_requestAccounts/eth_sendTransaction, and its HeaderNetCheck counters equal the case counters"]},
+    {"id": "S26-NXV4-LIVE", "source": {"file": "reference/validation.md", "lines": [1078, 1078], "literals": ["NX-V4", "≤ 30s"]},
+     "what": "honest node at h = 0, then block 1",
+     "pass": ["viewNoBlocks with the literal message, zero pocol_getHeaders, no frame, 4901, zero transactions", "after block 1, within <= 30 s: n = 1 'حتى genesis' and 'لا موقع'"]}
+  ],
+  "notM1Conditions": "These are Phase A runs (R3-08, R4-02). The M1 spec content they need is complete: literal requests, literal reply bytes, clocks, expected outcomes and counters."
+}

@@ -1,0 +1,16 @@
+# caps round 3: the A13 model at the integrated head (review R2C-3)
+# commit fa9759415a8817512ee3420f8978853fa110d58d, clean tree (branch wf/caps-r3 just created from it); Linux, release, toolchain 1.99.1,
+# this track's own target directory, under the shared CPU lock. "Compiling" lines removed; nothing else edited.
+# total 5577343580 = RPCGUARD.md:158; ceil(8*total/7) = 6374106949 <= 6442450944, unused 68343995 (see o2-memory-fa97594.json)
+### cmd: (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --test consensus -- --exact a13_bound_breakdown --nocapture)
+### start 2026-10-23T21:36:36Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 47.30s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-caps/release/deps/consensus-cc9846d20d049f39)
+
+running 1 test
+A13-BREAKDOWN {"items":[["snapshots/head and K_hist retained states","1320217206"],["snapshots/side_max side-branch states","80013164"],["snapshots/transient working copies","400065820"],["snapshots/table growth in a working copy","40006582"],["code/head and K_hist retained states","141892773"],["code/side_max side-branch states","8599562"],["code/transient working copies","42997810"],["history/blocks (H_END+1)","521366067"],["history/transaction bytes (TXBYTES_CAP)","16777216"],["history/transaction index and receipts (TX_CAP)","7600000"],["history/logs (LOG_CAP)","1107296256"],["history/evidence","525824"],["side/offloaded side-block metadata (side_cap + 2·r_keep entries)","140986368"],["side/one full block before offload or during restore","433635"],["side/evicted-hash FIFO (EVICTED_MAX)","98304"],["queues/transaction pool","65135072"],["queues/orphan blocks","17448960"],["queues/future blocks","16815104"],["queues/templates","34117200"],["queues/seen sets","39068992"],["queues/rejection and evidence caches","2133952"],["queues/peer send queues and frames","26255360"],["queues/main event queue","33587200"],["queues/network event forwarders","25977600"],["rpc/connection requests (conn_max)","36700160"],["rpc/heavy response pool","50331648"],["rpc/light response pool ((conn_max+1) x LIGHT_RESP_MAX)","17301504"],["rpc/small answers outside the pools (conn_max)","165888"],["rpc/queued heavy bodies (HEAVY_QUEUE)","16781312"],["rpc/light lane (LIGHT_QUEUE)","139264"],["rpc/request parse tree","9175040"],["rpc/answer being built","83901632"],["threads/I/O thread stacks and heap","16506880"],["threads/consensus stack","16777216"],["threads/main stack and heap","1056768"],["threads/exited-stack cache","41943040"],["threads/exiting not-yet-joined (conservative)","11010048"],["execution/frames, code analysis, preallocations, precompiles","134896909"],["execution/memory and operation classes (worst gas split)","1051240244"]],"total":"5577343580"}
+test a13_bound_breakdown ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.06s
+
+### exit 0 elapsed 56s

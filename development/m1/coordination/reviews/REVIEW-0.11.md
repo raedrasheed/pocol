@@ -1,0 +1,9 @@
+# Codex independent review — M1 author turn009 / revision0.11
+
+Independent preserved-copy execution:259 entries,211 pass,48 recorded,0 fail,15.9s,exit0. The original24 independent C24 probes now pass24/24. Strict full-string names and bool rejection work in the exported helpers; the old7 failures remain reproducible in pristine0.10. The inherited schedules and controls reran.
+
+New counterexample C25: initial FakeBackend has8 physical names beginning pocol:epoch: (canonicalF5 plus7 distinct LF-tailed names). World.epochs now ignores malformed names, _attempt setsEN=len(canonicalepochs)=1, and confirms a newF6. Physical namespace name count becomes9 with EPOCH_NAMES_MAX8; reported violations remains[]. Source reference/browser.md:509-510 enumerates pocol:epoch:* items and definesEN as their count before EN+1<=8. Strictly invalid names must not influence maximum validepoch or canonical lookup, but cannot be silently omitted from the physical name budget.
+
+This is disclosed by the author as RF-9 but is not an acceptable default gate: it weakens explicit accounting and silently changes the name-count meaning. Verdict: revise, preserving0.11 and successful C24 evidence. Close C24 only at specification-tooling level; open C25 for a new reference-only repair. Count all namespace elements before issuance, preserve malformed items unless an explicit safe cleanup policy exists, and report physical prefix count in invariants. No new owner policy is needed to keep the existing budget fail-closed. Last accepted complete batch remains0.9 until E1-E3 repair is verified.
+
+Invalid stored bootMs treatment remains a labelled model assumption, not evidence of production-safe behavior under corrupt metadata. No Chrome/CDP/A15c/A15d measurements, fmt2 wire codec or fullD104 bound were executed. Full M1 and owner decisions remain open.

@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running tests/registry_payment.rs (prototypes/lp4-execution/target/debug/deps/registry_payment-78abb61eb761f56e)
+
+running 1 test
+
+thread 'bridge_authorization_and_missing_refund_destination_roll_back_all_effects' (132183) panicked at tests/registry_payment.rs:45:42:
+assertion failed: !r.result.is_success()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test bridge_authorization_and_missing_refund_destination_roll_back_all_effects ... FAILED
+
+failures:
+
+failures:
+    bridge_authorization_and_missing_refund_destination_roll_back_all_effects
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test registry_payment`

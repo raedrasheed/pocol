@@ -1,0 +1,14 @@
+2026-10-17T13:53:56.7960787Z node: v22.18.0
+2026-10-17T13:53:58.3044867Z v22.18.0
+2026-10-17T13:53:58.6928577Z Version 5.9.3
+2026-10-17T13:54:01.4769774Z ##[error]genesis.ts(43,96): error TS2339: Property 'list' does not exist on type 'Rlp'.
+2026-10-17T13:54:01.4782745Z ##[error]genesis.ts(44,77): error TS7006: Parameter 'f' implicitly has an 'any' type.
+2026-10-17T13:54:01.4785161Z ##[error]genesis.ts(44,79): error TS7006: Parameter 'i' implicitly has an 'any' type.
+2026-10-17T13:54:01.4787149Z ##[error]genesis.ts(46,13): error TS7006: Parameter 'f' implicitly has an 'any' type.
+2026-10-17T13:54:01.4789107Z ##[error]genesis.ts(47,55): error TS7006: Parameter 'n' implicitly has an 'any' type.
+2026-10-17T13:54:01.4791060Z ##[error]genesis.ts(51,87): error TS7006: Parameter 'f' implicitly has an 'any' type.
+2026-10-17T13:54:01.4793845Z ##[error]genesis.ts(51,89): error TS7006: Parameter 'i' implicitly has an 'any' type.
+2026-10-17T13:54:01.4795844Z ##[error]genesis.ts(53,26): error TS7006: Parameter 'm' implicitly has an 'any' type.
+2026-10-17T13:54:01.4797800Z ##[error]genesis.ts(53,89): error TS7006: Parameter 'b' implicitly has an 'any' type.
+2026-10-17T13:54:01.4799834Z ##[error]genesis.ts(54,113): error TS7006: Parameter 'f' implicitly has an 'any' type.
+2026-10-17T13:54:01.5043655Z ##[error]Process completed with exit code 2.

@@ -1,0 +1,22 @@
+{
+  "scope": "Unapproved issuance countermodels, unsigned EVM controls, not PoCol block acceptance",
+  "inputSHA256": "ce58ae8fe77f79a2c374961b1bc1f39c403631f1a5145773f312f23225beec85",
+  "comparisons": [
+    {
+      "model": "credit-before-USER",
+      "observed": 81000,
+      "stateRoot": "0x60025380d016ee7bdc6f7ab101be45cf7217c3d35175997e0528cad33cbaab39",
+      "gasUsed": 43452,
+      "approved": false
+    },
+    {
+      "model": "credit-after-USER-before-closeBlock",
+      "observed": 1000,
+      "stateRoot": "0xfd7a260b248eb962da76f86ea166190994422c16a9c9a6ba6452ed8623459087",
+      "gasUsed": 43452,
+      "approved": false
+    }
+  ],
+  "rootsDiffer": true,
+  "bootable": false
+}

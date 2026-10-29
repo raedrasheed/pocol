@@ -1,0 +1,2087 @@
+{
+ "tree": "d0e87f93a417ec6888fc9bd0d433136ab238d741",
+ "runner": "run_mutations_rpcguard_r3_final.py",
+ "runnerSha256": "f9c6822cb27552875ccd0276bf949a1b6868cc910adcb705ef72e5eee23e2cae",
+ "parts": 4,
+ "mutants": [
+  {
+   "id": "RGM1-PACER",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     20.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     179.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM2-RATE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_per_connection_bucket_charges_k_tokens_per_request"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_per_connection_bucket_charges_k_tokens_per_request",
+     "OK",
+     57.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_per_connection_bucket_charges_k_tokens_per_request"
+     ],
+     "FAILED",
+     12.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM3-HEAVYQUEUE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "abandoned_queued_bodies_are_capped_and_released"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "abandoned_queued_bodies_are_capped_and_released",
+     "OK",
+     12.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "abandoned_queued_bodies_are_capped_and_released"
+     ],
+     "FAILED",
+     13.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM4-ENTRY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "light_compute_deadline_fires",
+     "OK",
+     12.2
+    ],
+    [
+     "a_request_reaching_its_handler_past_the_deadline_never_runs",
+     "OK",
+     0.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ],
+     "FAILED",
+     321.2
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM5-STOPHOOK",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "heavy_compute_deadline_cancels_eth_call"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "heavy_compute_deadline_cancels_eth_call",
+     "OK",
+     16.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "heavy_compute_deadline_cancels_eth_call"
+     ],
+     "FAILED",
+     12.6
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM6-SCRATCH",
+   "groups": [
+    [
+     [
+      "--test",
+      "consensus"
+     ],
+     [
+      "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "get_logs_scratch_limit_is_32020_scratch_with_resume_data",
+     "OK",
+     13.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+     ],
+     "FAILED",
+     13.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM7-PARAMS",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "get_params_and_rpc_stats_report_the_limits"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "get_params_and_rpc_stats_report_the_limits",
+     "OK",
+     47.6
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "get_params_and_rpc_stats_report_the_limits"
+     ],
+     "FAILED",
+     13.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM8-POSTCHECK",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+      "a_late_revert_or_halt_past_its_deadline_is_32020",
+      "a_late_get_logs_answer_carries_resume_data"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+     "OK",
+     26.6
+    ],
+    [
+     "a_late_revert_or_halt_past_its_deadline_is_32020",
+     "OK",
+     16.1
+    ],
+    [
+     "a_late_get_logs_answer_carries_resume_data",
+     "OK",
+     14.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+      "a_late_revert_or_halt_past_its_deadline_is_32020",
+      "a_late_get_logs_answer_carries_resume_data"
+     ],
+     "FAILED",
+     13.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM9-FROM-ARRIVAL",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+      "light_requests_behind_long_heavy_work_are_answered_never_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+     "OK",
+     17.8
+    ],
+    [
+     "light_requests_behind_long_heavy_work_are_answered_never_deadline",
+     "OK",
+     45.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+      "light_requests_behind_long_heavy_work_are_answered_never_deadline"
+     ],
+     "FAILED",
+     16.7
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM10-STOPGAS",
+   "groups": [
+    [
+     [
+      "--test",
+      "simulate_stop"
+     ],
+     [
+      "the_stop_hook_is_polled_at_least_every_stop_gas"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_stop_hook_is_polled_at_least_every_stop_gas",
+     "OK",
+     15.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_stop_hook_is_polled_at_least_every_stop_gas"
+     ],
+     "FAILED",
+     14.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM11-PARSE-TREE",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::a_busy_answer_allocates_no_parse_tree"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "rpc::tests::a_busy_answer_allocates_no_parse_tree",
+     "OK",
+     119.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "rpc::tests::a_busy_answer_allocates_no_parse_tree"
+     ],
+     "FAILED",
+     4.6
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V1a-NO-QUEUE-WAIT-CONN",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "queued_requests_are_busy_at_queue_wait"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "queued_requests_are_busy_at_queue_wait",
+     "OK",
+     14.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "queued_requests_are_busy_at_queue_wait"
+     ],
+     "FAILED",
+     14.3
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V1b-NO-QUEUE-WAIT-NODE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+     "OK",
+     17.8
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission"
+     ],
+     "FAILED",
+     14.2
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V2-PACER-LATE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     20.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     14.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V3-LIGHT-FULL-503",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_full_light_lane_answers_busy"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_full_light_lane_answers_busy",
+     "OK",
+     13.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_full_light_lane_answers_busy"
+     ],
+     "FAILED",
+     13.0
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V4a-NO-BATCH-WALL",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "batch_wall_closes_the_batch"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "batch_wall_closes_the_batch",
+     "OK",
+     14.6
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "batch_wall_closes_the_batch"
+     ],
+     "FAILED",
+     16.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V4b-NO-SEND-WALL",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "batch_wall_closes_the_batch"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "batch_wall_closes_the_batch",
+     "OK",
+     14.6
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "batch_wall_closes_the_batch"
+     ],
+     "FAILED",
+     96.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V5-NO-LOGS-DEADLINE",
+   "groups": [
+    [
+     [
+      "--test",
+      "consensus"
+     ],
+     [
+      "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "get_logs_scratch_limit_is_32020_scratch_with_resume_data",
+     "OK",
+     94.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+     ],
+     "FAILED",
+     13.7
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V6-BATCH-ONE-TOKEN",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_per_connection_bucket_charges_k_tokens_per_request"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_per_connection_bucket_charges_k_tokens_per_request",
+     "OK",
+     12.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_per_connection_bucket_charges_k_tokens_per_request"
+     ],
+     "FAILED",
+     12.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V7-ESTIMATE-SWALLOWS-DEADLINE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "estimate_gas_stops_its_search_at_the_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "estimate_gas_stops_its_search_at_the_deadline",
+     "OK",
+     12.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "estimate_gas_stops_its_search_at_the_deadline"
+     ],
+     "FAILED",
+     12.3
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V8-NO-ENTRY-CHECK-HEAVY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ]
+    ]
+   ],
+   "expect": "survivor: equivalent (RPCGUARD.md \u00a79 V8): every heavy handler that works re-checks the deadline, the others are bounded and their late answer is replaced",
+   "control": [
+    [
+     "light_compute_deadline_fires",
+     "OK",
+     11.9
+    ],
+    [
+     "a_request_reaching_its_handler_past_the_deadline_never_runs",
+     "OK",
+     2.0
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ],
+     "OK",
+     11.9
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "I1-NO-SET-SOCKBUF",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "get_params_and_rpc_stats_report_the_limits"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "get_params_and_rpc_stats_report_the_limits",
+     "OK",
+     16.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "get_params_and_rpc_stats_report_the_limits"
+     ],
+     "FAILED",
+     12.2
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "I2-SOCKBUF-ERROR-SERVED",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_connection_whose_send_buffer_cannot_be_set_is_refused"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_connection_whose_send_buffer_cannot_be_set_is_refused",
+     "OK",
+     15.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_connection_whose_send_buffer_cannot_be_set_is_refused"
+     ],
+     "FAILED",
+     12.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "I3b-NO-WRITE-CAP",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "batch_wall_closes_the_batch",
+      "an_answer_is_reserved_until_its_connection_has_written_it"
+     ]
+    ]
+   ],
+   "expect": "survivor on Linux: a non-blocking send takes at most the free (locked) send buffer, so A is unchanged; the cap bounds Windows, which takes a whole send() (runs 3, 5, 7), and on Linux it keeps throughput (no delayed-ACK stall)",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     13.7
+    ],
+    [
+     "batch_wall_closes_the_batch",
+     "OK",
+     14.6
+    ],
+    [
+     "an_answer_is_reserved_until_its_connection_has_written_it",
+     "OK",
+     73.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "batch_wall_closes_the_batch",
+      "an_answer_is_reserved_until_its_connection_has_written_it"
+     ],
+     "OK",
+     1591.9
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "I4-READ-BY-NO-CLOSED",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown",
+     "OK",
+     4.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown"
+     ],
+     "FAILED",
+     6.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N1-PLACE-WAIT-TO-WORK-DEADLINE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "queue_wait_bounds_the_wait_for_a_heavy_queue_place"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "queue_wait_bounds_the_wait_for_a_heavy_queue_place",
+     "OK",
+     14.8
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "queue_wait_bounds_the_wait_for_a_heavy_queue_place"
+     ],
+     "FAILED",
+     18.7
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N2-MAINQ-WAIT-TO-WORK-DEADLINE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "queue_wait_bounds_the_wait_on_a_full_main_queue"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "queue_wait_bounds_the_wait_on_a_full_main_queue",
+     "OK",
+     136.6
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "queue_wait_bounds_the_wait_on_a_full_main_queue"
+     ],
+     "FAILED",
+     14.6
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N3-PARTIAL-WRITE-AS-WHOLE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "an_answer_is_reserved_until_its_connection_has_written_it"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     13.7
+    ],
+    [
+     "an_answer_is_reserved_until_its_connection_has_written_it",
+     "OK",
+     73.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "an_answer_is_reserved_until_its_connection_has_written_it"
+     ],
+     "FAILED",
+     14.7
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N4-HEADER-BODY-BOUNDARY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     13.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     13.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N5-ADMITTED-ANSWERED-BUSY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "queued_requests_are_busy_at_queue_wait"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "queued_requests_are_busy_at_queue_wait",
+     "OK",
+     13.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "queued_requests_are_busy_at_queue_wait"
+     ],
+     "FAILED",
+     86.2
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N6-NODE-ADMIT-WITHOUT-CAS",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_node_never_runs_a_request_its_connection_gave_up"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_node_never_runs_a_request_its_connection_gave_up",
+     "OK",
+     297.6
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_node_never_runs_a_request_its_connection_gave_up"
+     ],
+     "FAILED",
+     73.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N7-BATCH-WALL-FROM-ADMISSION",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "batch_wall_counts_the_time_queued"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "batch_wall_counts_the_time_queued",
+     "OK",
+     165.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "batch_wall_counts_the_time_queued"
+     ],
+     "FAILED",
+     423.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N8-LATE-LOGS-WITHOUT-RESUME-DATA",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_late_get_logs_answer_carries_resume_data"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_late_get_logs_answer_carries_resume_data",
+     "OK",
+     27.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_late_get_logs_answer_carries_resume_data"
+     ],
+     "FAILED",
+     827.0
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N9-ONE-DEADLINE-PER-BATCH",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "batch_members_each_get_their_own_compute_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "batch_members_each_get_their_own_compute_deadline",
+     "OK",
+     15.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "batch_members_each_get_their_own_compute_deadline"
+     ],
+     "FAILED",
+     13.7
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N10-RATE-OVER-BATCH-MAX",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_per_connection_bucket_charges_k_tokens_per_request"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_per_connection_bucket_charges_k_tokens_per_request",
+     "OK",
+     12.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_per_connection_bucket_charges_k_tokens_per_request"
+     ],
+     "FAILED",
+     46.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N11-LIGHT-USES-HEAVY-DEADLINE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "light_compute_deadline_fires",
+     "OK",
+     20.7
+    ],
+    [
+     "a_request_reaching_its_handler_past_the_deadline_never_runs",
+     "OK",
+     8.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ],
+     "FAILED",
+     25.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "NF1-NOMINAL-COMPUTE-HEAVY-FACT",
+   "groups": [
+    [
+     [
+      "--test",
+      "admission"
+     ],
+     [
+      "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms",
+     "OK",
+     12.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms"
+     ],
+     "FAILED",
+     12.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "NF2-NOMINAL-CONN-MAX-FACT",
+   "groups": [
+    [
+     [
+      "--test",
+      "admission"
+     ],
+     [
+      "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms",
+     "OK",
+     12.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms"
+     ],
+     "FAILED",
+     308.2
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "NF3-NOMINAL-LIGHT-RESP-MEM-FACT",
+   "groups": [
+    [
+     [
+      "--test",
+      "admission"
+     ],
+     [
+      "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms",
+     "OK",
+     12.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms"
+     ],
+     "FAILED",
+     617.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M1-RESULTS-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_late_revert_or_halt_past_its_deadline_is_32020"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_late_revert_or_halt_past_its_deadline_is_32020",
+     "OK",
+     91.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_late_revert_or_halt_past_its_deadline_is_32020"
+     ],
+     "FAILED",
+     14.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M1-OWN-DEADLINE-REPLACED",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "estimate_gas_stops_its_search_at_the_deadline",
+      "a_late_revert_or_halt_past_its_deadline_is_32020"
+     ]
+    ],
+    [
+     [
+      "--test",
+      "consensus"
+     ],
+     [
+      "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "estimate_gas_stops_its_search_at_the_deadline",
+     "OK",
+     13.5
+    ],
+    [
+     "a_late_revert_or_halt_past_its_deadline_is_32020",
+     "OK",
+     91.3
+    ],
+    [
+     "get_logs_scratch_limit_is_32020_scratch_with_resume_data",
+     "OK",
+     7.0
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "estimate_gas_stops_its_search_at_the_deadline",
+      "a_late_revert_or_halt_past_its_deadline_is_32020"
+     ],
+     "FAILED",
+     15.4
+    ],
+    [
+     [
+      "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+     ],
+     "OK",
+     6.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M2-SLEEP-POLL-1MS",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     14.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     13.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M2-NO-WALL-IN-WAIT",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "batch_wall_closes_the_batch"
+     ]
+    ]
+   ],
+   "expect": "survivor: bounded by the backstop: BATCH_WALL is then seen at most PACER_BACKSTOP (50 ms) late, within its 100 ms release (network.md:282)",
+   "control": [
+    [
+     "batch_wall_closes_the_batch",
+     "OK",
+     14.8
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "batch_wall_closes_the_batch"
+     ],
+     "OK",
+     14.8
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m4-READ-POLL-TIMEOUT-FATAL",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "idle_peers_without_hello_are_bounded_and_expire",
+      "a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving",
+      "inbound_floods_cannot_take_the_slots_for_configured_peers"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "idle_peers_without_hello_are_bounded_and_expire",
+     "OK",
+     13.4
+    ],
+    [
+     "a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving",
+     "OK",
+     0.8
+    ],
+    [
+     "inbound_floods_cannot_take_the_slots_for_configured_peers",
+     "OK",
+     0.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "idle_peers_without_hello_are_bounded_and_expire",
+      "a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving",
+      "inbound_floods_cannot_take_the_slots_for_configured_peers"
+     ],
+     "FAILED",
+     14.3
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m4-NO-WAIT-BEFORE-READ",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown",
+     "OK",
+     4.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown"
+     ],
+     "FAILED",
+     6.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M4-32008",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::responses_above_resp_max_become_an_error"
+     ]
+    ],
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "rpc::tests::responses_above_resp_max_become_an_error",
+     "OK",
+     4.4
+    ],
+    [
+     "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release",
+     "OK",
+     12.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "rpc::tests::responses_above_resp_max_become_an_error"
+     ],
+     "FAILED",
+     4.5
+    ],
+    [
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release"
+     ],
+     "FAILED",
+     13.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M4-NO-CLASS-LIMIT",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release",
+     "OK",
+     12.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release"
+     ],
+     "FAILED",
+     12.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m5-DEADLINE-BY-LANE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_light_method_over_light_body_max_has_the_light_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_light_method_over_light_body_max_has_the_light_deadline",
+     "OK",
+     12.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_light_method_over_light_body_max_has_the_light_deadline"
+     ],
+     "FAILED",
+     12.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m6-READBACK-UNCHECKED",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_connection_whose_send_buffer_cannot_be_set_is_refused"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_connection_whose_send_buffer_cannot_be_set_is_refused",
+     "OK",
+     12.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_connection_whose_send_buffer_cannot_be_set_is_refused"
+     ],
+     "FAILED",
+     12.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m6-SHARED-COUNTER",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_connection_whose_send_buffer_cannot_be_set_is_refused"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_connection_whose_send_buffer_cannot_be_set_is_refused",
+     "OK",
+     12.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_connection_whose_send_buffer_cannot_be_set_is_refused"
+     ],
+     "FAILED",
+     12.6
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m1-RATE-NOTE",
+   "groups": [
+    [
+     [
+      "--test",
+      "admission"
+     ],
+     [
+      "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms",
+     "OK",
+     9.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms"
+     ],
+     "FAILED",
+     9.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m2-SMALL-TERM",
+   "groups": [
+    [
+     [
+      "--test",
+      "consensus"
+     ],
+     [
+      "a13_bound_breakdown"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a13_bound_breakdown",
+     "OK",
+     14.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a13_bound_breakdown"
+     ],
+     "FAILED",
+     14.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m2-NO-PARSE-FILTER",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::a_busy_answer_allocates_no_parse_tree",
+      "rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo"
+     ]
+    ]
+   ],
+   "expect": "survivor: the measured peaks stay below SMALL_REPLY_PEAK without the filter (worst parse transient about 85 KB); the filter is what bounds ID_PARSE_PEAK by derivation",
+   "control": [
+    [
+     "rpc::tests::a_busy_answer_allocates_no_parse_tree",
+     "OK",
+     4.3
+    ],
+    [
+     "rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo",
+     "OK",
+     0.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "rpc::tests::a_busy_answer_allocates_no_parse_tree",
+      "rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo"
+     ],
+     "OK",
+     4.3
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "R3-SOCKWAIT-ROUND-DOWN",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::sockwait_reports_readiness_within_its_timeout"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "rpc::tests::sockwait_reports_readiness_within_its_timeout",
+     "OK",
+     4.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "rpc::tests::sockwait_reports_readiness_within_its_timeout"
+     ],
+     "FAILED",
+     4.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-SOCKWAIT-EVENTS-SWAPPED",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::sockwait_reports_readiness_within_its_timeout"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "rpc::tests::sockwait_reports_readiness_within_its_timeout",
+     "OK",
+     4.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "rpc::tests::sockwait_reports_readiness_within_its_timeout"
+     ],
+     "FAILED",
+     4.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m4-WAIT-WITHOUT-READ-POLL",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown",
+     "OK",
+     4.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "net::tests::a_reader_sees_its_closed_flag_without_a_shutdown"
+     ],
+     "FAILED",
+     6.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M2-BACKSTOP-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "survivor: the close is then up to PACER_BACKSTOP (50 ms) after s_v, within ENFORCE_SLACK (200 ms), the bound network.md:247 binds and the test asserts",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     13.8
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "OK",
+     13.9
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m6-NO-UPPER-BOUND",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_connection_whose_send_buffer_cannot_be_set_is_refused"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_connection_whose_send_buffer_cannot_be_set_is_refused",
+     "OK",
+     12.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_connection_whose_send_buffer_cannot_be_set_is_refused"
+     ],
+     "FAILED",
+     12.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-P3-NO-EFFECTFUL-EXEMPTION",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_request_reaching_its_handler_past_the_deadline_never_runs",
+      "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission"
+     ]
+    ]
+   ],
+   "expect": "survivor: no committed test pins P3 option A (a late effectful answer keeps its result): it is the running reading pending a decision (proposals P3), deliberately not pinned",
+   "control": [
+    [
+     "a_request_reaching_its_handler_past_the_deadline_never_runs",
+     "OK",
+     12.5
+    ],
+    [
+     "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+     "OK",
+     2.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_request_reaching_its_handler_past_the_deadline_never_runs",
+      "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission"
+     ],
+     "OK",
+     13.8
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  }
+ ]
+}

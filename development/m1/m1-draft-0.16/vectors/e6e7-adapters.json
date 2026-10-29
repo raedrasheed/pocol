@@ -1,0 +1,20 @@
+{
+  "schema": "pocol-m1-e6e7-adapters/0.16",
+  "note": "BR23 cells carried by earlier read-only components: d3 by the 0.12 World (E2 generation window), d7 by the 0.13 fmt-2 codec. Hand-derived; not model output.",
+  "cases": [
+    {"id": "BR23-d3", "source": {"file": "reference/validation.md", "lines": [563, 563], "literals": ["(d3)", "60s"]},
+     "component": "m1-draft-0.12/tools/sr_ref.py World (empty backend, default site)",
+     "events": [{"t": 0, "do": "boot", "gen": 1}, {"t": 1000, "do": "boot", "gen": 2}, {"t": 2000, "do": "boot", "gen": 3},
+                {"t": 3000, "do": "boot", "gen": 4}, {"t": 4000, "do": "boot", "gen": 5}],
+     "until": 70000,
+     "derivation": "Gens 1-4 see 0..3 window items and fence E=1..4 (settle +1). Gen 5 at 4000 sees 4 items with bootMs >= 4000-60000, so it waits until min(bootMs)+T_LATE+1 = 60001. Gen 1's sweep at 60000 removes E1-E3 (settle 60001, priority 2) before gen 5's attempt (priority 3); M = 4, so gen 5 fences E = 5 at 60001 and is confirmed at 60002.",
+     "expect": {"gens": {"1": {"E": 1, "state": "confirmed", "confirmedAt": 1}, "2": {"E": 2, "state": "confirmed", "confirmedAt": 1001},
+                         "3": {"E": 3, "state": "confirmed", "confirmedAt": 2001}, "4": {"E": 4, "state": "confirmed", "confirmedAt": 3001},
+                         "5": {"E": 5, "state": "confirmed", "confirmedAt": 60002, "fenceIssues": 1}},
+                "windowWait": {"t": 4000, "gen": 5, "count": 4, "until": 60001},
+                "gen5FirstEpochOpAt": 60001, "violations": [], "maxEpochNamesAtMost": 8}},
+    {"id": "BR23-d7", "source": {"file": "reference/validation.md", "lines": [570, 570], "literals": ["(d7)", "4097", "4300 {entries, 4096}"]},
+     "component": "m1-draft-0.13/tools/fmt2_codec.py serialize_pairs, mapped to the admission reply (P-E6-5)",
+     "expect": {"entries4096": "ok", "entries4097": {"code": 4300, "reason": "entries", "limit": 4096}}}
+  ]
+}

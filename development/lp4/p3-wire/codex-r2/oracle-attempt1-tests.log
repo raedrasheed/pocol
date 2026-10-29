@@ -1,0 +1,23 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.12s
+     Running tests/user_phase.rs (prototypes/lp4-execution/target/debug/deps/user_phase-355de0018884ed41)
+
+running 2 tests
+test sequential_signed_execution_refund_revert_and_commitments ... FAILED
+test wrong_commitments_and_late_invalid_transaction_leave_snapshot_unchanged ... ok
+
+failures:
+
+---- sequential_signed_execution_refund_revert_and_commitments stdout ----
+
+thread 'sequential_signed_execution_refund_revert_and_commitments' (29662) panicked at tests/user_phase.rs:14:82:
+called `Result::unwrap()` on an `Err` value: Commitments
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    sequential_signed_execution_refund_revert_and_commitments
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test user_phase`

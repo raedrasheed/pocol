@@ -1,0 +1,62 @@
+{"corpus":"S8 TS Genesis","seed":"0x5338c0de","counts":{"L0":6458,"ok":4871,"gsCount":366,"gsStructure":129,"gsInt":86,"gsRange":65,"gsOrder":19,"gsVersion":6}}
+✔ AS1-AS19 targets, traces and bounded intermediates (1.870727ms)
+✔ 1027 previously frozen ASERT rows (9.766974ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.426633ms)
+✔ membership, partition completeness, owner and exact hashes (3.148985ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (2.008148ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (7.549613ms)
+✖ full schema width/order/reserved failures and deep malformed framing (3.916127ms)
+✖ all accepted L4n/order supplements and 1500-level malformed twins (4.723662ms)
+✔ SV1-SV5/SV7/SV7s pure settlement arithmetic; execution and SV6 deferred LP4 (0.90102ms)
+✔ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (0.984643ms)
+✔ S8 seeded adversarial Genesis framing and canonical acceptance (1467.413447ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 9
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1517.81449
+
+✖ failing tests:
+
+test at ../work/lp3-s8/reference-replay-fixed/mutations/ts-schema-ignore-width-52d0qg75/prototypes/lp3-model/tests.ts:69:1
+✖ full schema width/order/reserved failures and deep malformed framing (3.916127ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at code (file:///workspace/work/lp3-s8/reference-replay-fixed/mutations/ts-schema-ignore-width-52d0qg75/prototypes/lp3-model/tests.ts:71:47)
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s8/reference-replay-fixed/mutations/ts-schema-ignore-width-52d0qg75/prototypes/lp3-model/tests.ts:73:281)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [Function (anonymous)],
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at ../work/lp3-s8/reference-replay-fixed/mutations/ts-schema-ignore-width-52d0qg75/prototypes/lp3-model/tests.ts:76:1
+✖ all accepted L4n/order supplements and 1500-level malformed twins (4.723662ms)
+  AssertionError [ERR_ASSERTION]: W2-u64
+  
+  'ok' !== 'gsRange'
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s8/reference-replay-fixed/mutations/ts-schema-ignore-width-52d0qg75/prototypes/lp3-model/tests.ts:83:105)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'ok',
+    expected: 'gsRange',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

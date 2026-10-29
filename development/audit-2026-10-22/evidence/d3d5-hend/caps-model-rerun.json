@@ -1,0 +1,728 @@
+{
+ "assumptions": [
+  "Cancun gas (execution.md:106): 21000 per transaction, 4 per zero calldata byte, LOG0 375 + 8 per byte + memory 3w + w^2/512",
+  "London base fee (execution.md:97), burned (economics.md:66); priority fees 0 (the attacker may be the proposer; pocold's pool is FIFO)",
+  "idle base fee 7 wei (execution.md:97: below 8 wei in empty blocks); baseFee0 = 10^9 (governance.md:12)",
+  "minimal transaction: signed EIP-155 legacy transfer with 32-byte r and s and a 1-byte gas price"
+ ],
+ "checks": [
+  {
+   "check": "K1-K3 present in validation.md",
+   "detail": [
+    "1",
+    "2",
+    "3"
+   ],
+   "pass": true
+  },
+  {
+   "check": "K1",
+   "detail": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+   "pass": true
+  },
+  {
+   "check": "K2",
+   "detail": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+   "pass": true
+  },
+  {
+   "check": "K3",
+   "detail": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+   "pass": true
+  },
+  {
+   "check": "Keccak-256 empty",
+   "detail": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+   "pass": true
+  },
+  {
+   "check": "Keccak-256 abc",
+   "detail": "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45",
+   "pass": true
+  },
+  {
+   "check": "Keccak-256 fox (43 B)",
+   "detail": "4d741b6f1eb29cb2a9b9911c82f56fa8d73b04959d3d9d222895df6c0b28aa15",
+   "pass": true
+  },
+  {
+   "check": "permutation = hashlib SHA3-256 for lengths 0..700 (up to 6 rate blocks with padding)",
+   "detail": [],
+   "pass": true
+  },
+  {
+   "check": "round constant 23",
+   "detail": "0x8000000080008008",
+   "pass": true
+  },
+  {
+   "check": "GSV1 literal is 341 bytes",
+   "detail": 341,
+   "pass": true
+  },
+  {
+   "check": "GSV1 literal SHA-256 = E05 inputSha256",
+   "detail": "2905b38d045661682f75beda865a447ed22e43e1e288b622a78a4e9833a4bf84",
+   "pass": true
+  },
+  {
+   "check": "GSV1 from field values = literal bytes",
+   "detail": "",
+   "pass": true
+  },
+  {
+   "check": "GSV1 lengths CP 179, M_0List 88, payload 338",
+   "detail": [
+    179,
+    88,
+    338
+   ],
+   "pass": true
+  },
+  {
+   "check": "H_GSV1 = the recorded three-library value",
+   "detail": "de518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+   "pass": true
+  },
+  {
+   "check": "GSV1 TX_CAP+1 changes genesisHash",
+   "detail": "bf9aeabeb49cad034bebea26dfd14d7085f604110260233d076e5ffea256aa39",
+   "pass": true
+  },
+  {
+   "check": "GSV1 TXBYTES_CAP+1 changes genesisHash",
+   "detail": "90e4a9077d9ea521aa70667accfa3ad771b98fcec258867728eeabfcc0c25c8c",
+   "pass": true
+  },
+  {
+   "check": "Rust CP table names = specification CP names",
+   "detail": "",
+   "pass": true
+  },
+  {
+   "check": "LOG_CAP absent from GenesisSpec, CP (spec) and the Rust table",
+   "detail": "",
+   "pass": true
+  },
+  {
+   "check": "LOG_BLOCK_MAX absent from GenesisSpec, CP (spec) and the Rust table",
+   "detail": "",
+   "pass": true
+  },
+  {
+   "check": "devnet spec re-encodes byte for byte",
+   "detail": "",
+   "pass": true
+  },
+  {
+   "check": "devnet CP: TX_CAP 20000, TXBYTES_CAP 2^24, H_END 20000, T_blk 4",
+   "detail": "",
+   "pass": true
+  },
+  {
+   "check": "devnet sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of tests/data/system-v1.json",
+   "detail": "4f8712dd69798abf0a9e14cea4cb560637b4b1d0bce3fb7784d244af820aaf7a",
+   "pass": true
+  },
+  {
+   "check": "no system program has a LOG opcode",
+   "detail": "",
+   "pass": true
+  },
+  {
+   "check": "devnet TX_CAP+1 changes genesisHash",
+   "detail": "",
+   "pass": true
+  },
+  {
+   "check": "devnet TXBYTES_CAP+1 changes genesisHash",
+   "detail": "",
+   "pass": true
+  }
+ ],
+ "devnet": {
+  "allocRoot": "bb003f81626518d91af7d540ade20394647e24530cf136150a148aed8acfd0d2",
+  "config": "DevnetConfig::new(777900, 1700000000, [a, b, c]) defaults (devnet.rs)",
+  "genesisHash": "4db6aa5ce711e58c2d5bfaa9ffd04e0ad172824f8410ef28341fd77308d8e638",
+  "note": "CP-only variants keep allocRoot; a rebuilt genesis also changes allocRoot, since ChainCaps (C0C004) stores all 52 CP values at slots 0..51",
+  "specBytes": 375,
+  "sysCodeHash": "4f8712dd69798abf0a9e14cea4cb560637b4b1d0bce3fb7784d244af820aaf7a",
+  "variants": [
+   {
+    "bytes": "f9017401830bdeacf8a8846553f1009e3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff042880021903200282010004088203e88201f4881bc16d674ec8000089056bc75e2d631000008040018220001040102040102804822000837a1200843b9aca008302000083030000828000832000008401000000824e2182c350824e20830100008208008201008202008405b8d800824e208465ec8780824a388465ec607081a0818002a0bb003f81626518d91af7d540ade20394647e24530cf136150a148aed8acfd0d2f881ea9486a412863a3eb23f4b7a9ffbc69a42fd25dea73f94e590a831d626d1c20da9f3763c97a4cd7a3da9b1ea94eb59c60584bb0fb67132cc4a3f9639c31cdb4935943e381e57ba2c894cd43b25bf592754bd3451c219ea94fcd55660d527e67fabf17f27c4038a3799512ba094b9abf100add97b76683bf6e9ad4372875d897db1a04f8712dd69798abf0a9e14cea4cb560637b4b1d0bce3fb7784d244af820aaf7a",
+    "field": "TX_CAP",
+    "genesisHash": "979fda9ce390822e115a181e5848fd8a69223fe9e4ce95f19db989069de75eed",
+    "index": 38,
+    "value": 20001
+   },
+   {
+    "bytes": "f9017401830bdeacf8a8846553f1009e3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff042880021903200282010004088203e88201f4881bc16d674ec8000089056bc75e2d631000008040018220001040102040102804822000837a1200843b9aca008302000083030000828000832000008401000001824e2082c350824e20830100008208008201008202008405b8d800824e208465ec8780824a388465ec607081a0818002a0bb003f81626518d91af7d540ade20394647e24530cf136150a148aed8acfd0d2f881ea9486a412863a3eb23f4b7a9ffbc69a42fd25dea73f94e590a831d626d1c20da9f3763c97a4cd7a3da9b1ea94eb59c60584bb0fb67132cc4a3f9639c31cdb4935943e381e57ba2c894cd43b25bf592754bd3451c219ea94fcd55660d527e67fabf17f27c4038a3799512ba094b9abf100add97b76683bf6e9ad4372875d897db1a04f8712dd69798abf0a9e14cea4cb560637b4b1d0bce3fb7784d244af820aaf7a",
+    "field": "TXBYTES_CAP",
+    "genesisHash": "52cbbb44de614476c47c26fe3429e298e4fc0ccb2d32ce8295e41e2df4c0fc58",
+    "index": 37,
+    "value": 16777217
+   }
+  ]
+ },
+ "gsv1": {
+  "bytes": "f9015201830bdeaef8b1846553f1009f010000000000000000000000000000000000000000000000000000000000000a82025801023c06200282010010408203e88201f48301388089056bc75e2d631000000282010001824000104010818082040082080082089804822000837a1200843b9aca008302000083030000828000844000000085020000000083989680833d0900830f4240830200008208008201008202008405b8d80081c88465ec8780288465ec878081a0818002a02222222222222222222222222222222222222222222222222222222222222222f856ea94a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a194b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1ea94a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a294b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a03333333333333333333333333333333333333333333333333333333333333333",
+  "genesisHash": "de518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+  "inputSha256": "2905b38d045661682f75beda865a447ed22e43e1e288b622a78a4e9833a4bf84",
+  "length": 341,
+  "specLines": [
+   "- الرأس: f9 01 52 | 01 | 83 0b de ae.",
+   "- CP: f8 b1، ثم:",
+   "- 1–10: 84 65 53 f1 00 | 9f 01 ‹00×30› | 0a | 82 02 58 | 01 | 02 | 3c | 06 | 20 | 02.",
+   "- 11–17: 82 01 00 | 10 | 40 | 82 03 e8 | 82 01 f4 | 83 01 38 80 | 89 05 6b c7 5e 2d 63 10 00 00.",
+   "- 18–30: 02 | 82 01 00 | 01 | 82 40 00 | 10 | 40 | 10 | 81 80 | 82 04 00 | 82 08 00 | 82 08 98 | 04 | 82 20 00.",
+   "- 31–40: 83 7a 12 00 | 84 3b 9a ca 00 | 83 02 00 00 | 83 03 00 00 | 82 80 00 | 84 40 00 00 00 | 85 02 00 00 00 00 | 83 98 96 80 | 83 3d 09 00 | 83 0f 42 40.",
+   "- 41–52: 83 02 00 00 | 82 08 00 | 82 01 00 | 82 02 00 | 84 05 b8 d8 00 | 81 c8 | 84 65 ec 87 80 | 28 | 84 65 ec 87 80 | 81 a0 | 81 80 | 02.",
+   "- الذيل: a0 ‹22×32› | f8 56 ea 94 ‹a1×20› 94 ‹b1×20› ea 94 ‹a2×20› 94 ‹b2×20› | a0 ‹33×32›."
+  ],
+  "variants": [
+   {
+    "bytes": "f9015201830bdeaef8b1846553f1009f010000000000000000000000000000000000000000000000000000000000000a82025801023c06200282010010408203e88201f48301388089056bc75e2d631000000282010001824000104010818082040082080082089804822000837a1200843b9aca008302000083030000828000844000000085020000000083989681833d0900830f4240830200008208008201008202008405b8d80081c88465ec8780288465ec878081a0818002a02222222222222222222222222222222222222222222222222222222222222222f856ea94a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a194b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1ea94a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a294b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a03333333333333333333333333333333333333333333333333333333333333333",
+    "field": "TX_CAP",
+    "genesisHash": "bf9aeabeb49cad034bebea26dfd14d7085f604110260233d076e5ffea256aa39",
+    "index": 38,
+    "value": 10000001
+   },
+   {
+    "bytes": "f9015201830bdeaef8b1846553f1009f010000000000000000000000000000000000000000000000000000000000000a82025801023c06200282010010408203e88201f48301388089056bc75e2d631000000282010001824000104010818082040082080082089804822000837a1200843b9aca008302000083030000828000844000000085020000000183989680833d0900830f4240830200008208008201008202008405b8d80081c88465ec8780288465ec878081a0818002a02222222222222222222222222222222222222222222222222222222222222222f856ea94a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a194b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1ea94a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a294b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a03333333333333333333333333333333333333333333333333333333333333333",
+    "field": "TXBYTES_CAP",
+    "genesisHash": "90e4a9077d9ea521aa70667accfa3ad771b98fcec258867728eeabfcc0c25c8c",
+    "index": 37,
+    "value": 8589934593
+   }
+  ]
+ },
+ "keccak": {
+  "K": {
+   "1": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+   "2": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+   "3": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+  },
+  "roundConstants": [
+   "0x1",
+   "0x8082",
+   "0x800000000000808a",
+   "0x8000000080008000",
+   "0x808b",
+   "0x80000001",
+   "0x8000000080008081",
+   "0x8000000000008009",
+   "0x8a",
+   "0x88",
+   "0x80008009",
+   "0x8000000a",
+   "0x8000808b",
+   "0x800000000000008b",
+   "0x8000000000008089",
+   "0x8000000000008003",
+   "0x8000000000008002",
+   "0x8000000000000080",
+   "0x800a",
+   "0x800000008000000a",
+   "0x8000000080008081",
+   "0x8000000000008080",
+   "0x80000001",
+   "0x8000000080008008"
+  ],
+  "sha3CrossCheckLengths": 701,
+  "standard": {
+   "abc": "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45",
+   "empty": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+   "fox (43 B)": "4d741b6f1eb29cb2a9b9911c82f56fa8d73b04959d3d9d222895df6c0b28aa15"
+  }
+ },
+ "reachability": {
+  "caps-test": {
+   "H_END": 4000,
+   "LOG_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.002486002,
+    "attackBaseFeeCoins_fromIdleBase": 1e-09,
+    "attackBaseFeeWei_fromBaseFee0": "2486001957992293",
+    "attackBaseFeeWei_fromIdleBase": "1033442816",
+    "blocksAtTarget": 512,
+    "endBaseFee_fromBaseFee0": 8,
+    "endBaseFee_fromIdleBase": 7,
+    "gasPerBlockAtMax": 288349,
+    "gasPerBlockAtTarget": 288349,
+    "minBlocks": 512,
+    "minSeconds": 5120,
+    "organicPerBlock": 4194.304,
+    "organicShareOfMax": 0.128,
+    "perBlockAtTarget": 32768,
+    "perBlockMax": 32768,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 5120,
+    "sizeToCoverH_END": 131072000,
+    "unit": "charged log bytes (LOG-ACCT-01)",
+    "value": 16777216
+   },
+   "TXBYTES_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.008346034,
+    "attackBaseFeeCoins_fromIdleBase": 0.0,
+    "attackBaseFeeWei_fromBaseFee0": "8346033984941536",
+    "attackBaseFeeWei_fromIdleBase": "498171856",
+    "blocksAtTarget": 86,
+    "endBaseFee_fromBaseFee0": 126053,
+    "endBaseFee_fromIdleBase": 7,
+    "gasPerBlockAtMax": 827528,
+    "gasPerBlockAtTarget": 827528,
+    "minBlocks": 86,
+    "minSeconds": 860,
+    "organicPerBlock": 4194.304,
+    "organicShareOfMax": 0.0213,
+    "perBlockAtTarget": 196592,
+    "perBlockMax": 196592,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 860,
+    "sizeToCoverH_END": 786368000,
+    "unit": "raw transaction bytes (D49)",
+    "value": 16777216
+   },
+   "TX_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.416075721,
+    "attackBaseFeeCoins_fromIdleBase": 3e-09,
+    "attackBaseFeeWei_fromBaseFee0": "416075721122460000",
+    "attackBaseFeeWei_fromIdleBase": "2960580000",
+    "blocksAtTarget": 106,
+    "endBaseFee_fromBaseFee0": 967412665,
+    "endBaseFee_fromIdleBase": 7,
+    "fullBlocksUntilOneBlockCostsASubsidy": 212,
+    "gasPerBlockAtMax": 7980000,
+    "gasPerBlockAtTarget": 3990000,
+    "minBlocks": 53,
+    "minSeconds": 530,
+    "organicPerBlock": 5.0,
+    "organicShareOfMax": 0.0132,
+    "perBlockAtTarget": 190,
+    "perBlockMax": 380,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 1060,
+    "sizeToCoverH_END": 1520000,
+    "unit": "transactions",
+    "value": 20000
+   },
+   "T_blk": 10,
+   "emptyBlocksFromBaseFee0ToIdle": 145,
+   "logFill": {
+    "LOG0dataBytes": 32732,
+    "gas": 288349
+   },
+   "minTxBytes": 100,
+   "source": "caps/64 with the caps-test build constant LOG_CAP=2^24 (validation.md:2065)",
+   "txBytesBlock": {
+    "gas": 827528,
+    "rawLengths": [
+     131072,
+     65520
+    ]
+   }
+  },
+  "caps/64": {
+   "H_END": 4000,
+   "LOG_CAP": {
+    "blocksAtTarget": 32768,
+    "gasPerBlockAtMax": 288349,
+    "gasPerBlockAtTarget": 288349,
+    "minBlocks": 32768,
+    "minSeconds": 327680,
+    "organicPerBlock": 268435.456,
+    "organicShareOfMax": 8.192,
+    "perBlockAtTarget": 32768,
+    "perBlockMax": 32768,
+    "reachableAtTargetBeforeH_END": false,
+    "reachableBeforeH_END": false,
+    "secondsAtTarget": 327680,
+    "sizeToCoverH_END": 131072000,
+    "unit": "charged log bytes (LOG-ACCT-01)",
+    "value": 1073741824
+   },
+   "TXBYTES_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.008346034,
+    "attackBaseFeeCoins_fromIdleBase": 0.0,
+    "attackBaseFeeWei_fromBaseFee0": "8346033984941536",
+    "attackBaseFeeWei_fromIdleBase": "498171856",
+    "blocksAtTarget": 86,
+    "endBaseFee_fromBaseFee0": 126053,
+    "endBaseFee_fromIdleBase": 7,
+    "gasPerBlockAtMax": 827528,
+    "gasPerBlockAtTarget": 827528,
+    "minBlocks": 86,
+    "minSeconds": 860,
+    "organicPerBlock": 4194.304,
+    "organicShareOfMax": 0.0213,
+    "perBlockAtTarget": 196592,
+    "perBlockMax": 196592,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 860,
+    "sizeToCoverH_END": 786368000,
+    "unit": "raw transaction bytes (D49)",
+    "value": 16777216
+   },
+   "TX_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.416075721,
+    "attackBaseFeeCoins_fromIdleBase": 3e-09,
+    "attackBaseFeeWei_fromBaseFee0": "416075721122460000",
+    "attackBaseFeeWei_fromIdleBase": "2960580000",
+    "blocksAtTarget": 106,
+    "endBaseFee_fromBaseFee0": 967412665,
+    "endBaseFee_fromIdleBase": 7,
+    "fullBlocksUntilOneBlockCostsASubsidy": 212,
+    "gasPerBlockAtMax": 7980000,
+    "gasPerBlockAtTarget": 3990000,
+    "minBlocks": 53,
+    "minSeconds": 530,
+    "organicPerBlock": 5.0,
+    "organicShareOfMax": 0.0132,
+    "perBlockAtTarget": 190,
+    "perBlockMax": 380,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 1060,
+    "sizeToCoverH_END": 1520000,
+    "unit": "transactions",
+    "value": 20000
+   },
+   "T_blk": 10,
+   "emptyBlocksFromBaseFee0ToIdle": 145,
+   "logFill": {
+    "LOG0dataBytes": 32732,
+    "gas": 288349
+   },
+   "minTxBytes": 100,
+   "source": "validation.md:2061-2062 on sv-fix = GSV1 CP (validation.md:79)",
+   "txBytesBlock": {
+    "gas": 827528,
+    "rawLengths": [
+     131072,
+     65520
+    ]
+   }
+  },
+  "devnet": {
+   "H_END": 20000,
+   "LOG_CAP": {
+    "blocksAtTarget": 32768,
+    "gasPerBlockAtMax": 288349,
+    "gasPerBlockAtTarget": 288349,
+    "minBlocks": 32768,
+    "minSeconds": 131072,
+    "organicPerBlock": 53687.091,
+    "organicShareOfMax": 1.6384,
+    "perBlockAtTarget": 32768,
+    "perBlockMax": 32768,
+    "reachableAtTargetBeforeH_END": false,
+    "reachableBeforeH_END": false,
+    "secondsAtTarget": 131072,
+    "sizeToCoverH_END": 655360000,
+    "unit": "charged log bytes (LOG-ACCT-01)",
+    "value": 1073741824
+   },
+   "TXBYTES_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.008346034,
+    "attackBaseFeeCoins_fromIdleBase": 0.0,
+    "attackBaseFeeWei_fromBaseFee0": "8346033984941536",
+    "attackBaseFeeWei_fromIdleBase": "498171856",
+    "blocksAtTarget": 86,
+    "endBaseFee_fromBaseFee0": 126053,
+    "endBaseFee_fromIdleBase": 7,
+    "gasPerBlockAtMax": 827528,
+    "gasPerBlockAtTarget": 827528,
+    "minBlocks": 86,
+    "minSeconds": 344,
+    "organicPerBlock": 838.861,
+    "organicShareOfMax": 0.0043,
+    "perBlockAtTarget": 196592,
+    "perBlockMax": 196592,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 344,
+    "sizeToCoverH_END": 3931840000,
+    "unit": "raw transaction bytes (D49)",
+    "value": 16777216
+   },
+   "TX_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.416075721,
+    "attackBaseFeeCoins_fromIdleBase": 3e-09,
+    "attackBaseFeeWei_fromBaseFee0": "416075721122460000",
+    "attackBaseFeeWei_fromIdleBase": "2960580000",
+    "blocksAtTarget": 106,
+    "endBaseFee_fromBaseFee0": 967412665,
+    "endBaseFee_fromIdleBase": 7,
+    "fullBlocksUntilOneBlockCostsASubsidy": 212,
+    "gasPerBlockAtMax": 7980000,
+    "gasPerBlockAtTarget": 3990000,
+    "minBlocks": 53,
+    "minSeconds": 212,
+    "organicPerBlock": 1.0,
+    "organicShareOfMax": 0.0026,
+    "perBlockAtTarget": 190,
+    "perBlockMax": 380,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 424,
+    "sizeToCoverH_END": 7600000,
+    "unit": "transactions",
+    "value": 20000
+   },
+   "T_blk": 4,
+   "emptyBlocksFromBaseFee0ToIdle": 145,
+   "logFill": {
+    "LOG0dataBytes": 32732,
+    "gas": 288349
+   },
+   "minTxBytes": 100,
+   "source": "lp4-execution/src/devnet.rs:36-42 (D-A13-PROFILE, not normative)",
+   "txBytesBlock": {
+    "gas": 827528,
+    "rawLengths": [
+     131072,
+     65520
+    ]
+   }
+  },
+  "network": {
+   "H_END": 129600,
+   "LOG_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.002486076,
+    "attackBaseFeeCoins_fromIdleBase": 6.6e-08,
+    "attackBaseFeeWei_fromBaseFee0": "2486076365875045",
+    "attackBaseFeeWei_fromIdleBase": "66140340224",
+    "blocksAtTarget": 32768,
+    "endBaseFee_fromBaseFee0": 8,
+    "endBaseFee_fromIdleBase": 7,
+    "gasPerBlockAtMax": 288349,
+    "gasPerBlockAtTarget": 288349,
+    "minBlocks": 32768,
+    "minSeconds": 1966080,
+    "organicPerBlock": 8285.045,
+    "organicShareOfMax": 0.2528,
+    "perBlockAtTarget": 32768,
+    "perBlockMax": 32768,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 1966080,
+    "sizeToCoverH_END": 4246732800,
+    "unit": "charged log bytes (LOG-ACCT-01)",
+    "value": 1073741824
+   },
+   "TXBYTES_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 0.008347447,
+    "attackBaseFeeCoins_fromIdleBase": 2.53e-07,
+    "attackBaseFeeWei_fromBaseFee0": "8347446593443152",
+    "attackBaseFeeWei_fromIdleBase": "253111851720",
+    "blocksAtTarget": 43695,
+    "endBaseFee_fromBaseFee0": 10,
+    "endBaseFee_fromIdleBase": 7,
+    "gasPerBlockAtMax": 827528,
+    "gasPerBlockAtTarget": 827528,
+    "minBlocks": 43695,
+    "minSeconds": 2621700,
+    "organicPerBlock": 66280.36,
+    "organicShareOfMax": 0.3371,
+    "perBlockAtTarget": 196592,
+    "perBlockMax": 196592,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 2621700,
+    "sizeToCoverH_END": 25478323200,
+    "unit": "raw transaction bytes (D49)",
+    "value": 8589934592
+   },
+   "TX_CAP": {
+    "attackBaseFeeCoins_fromBaseFee0": 12.768360473,
+    "attackBaseFeeCoins_fromIdleBase": 1.47e-06,
+    "attackBaseFeeWei_fromBaseFee0": "12768360473453760000",
+    "attackBaseFeeWei_fromIdleBase": "1470011760000",
+    "blocksAtTarget": 52632,
+    "endBaseFee_fromBaseFee0": 3199,
+    "endBaseFee_fromIdleBase": 7,
+    "fullBlocksUntilOneBlockCostsASubsidy": 212,
+    "gasPerBlockAtMax": 7980000,
+    "gasPerBlockAtTarget": 3990000,
+    "minBlocks": 26316,
+    "minSeconds": 1578960,
+    "organicPerBlock": 77.16,
+    "organicShareOfMax": 0.2031,
+    "perBlockAtTarget": 190,
+    "perBlockMax": 380,
+    "reachableAtTargetBeforeH_END": true,
+    "reachableBeforeH_END": true,
+    "secondsAtTarget": 3157920,
+    "sizeToCoverH_END": 49248000,
+    "unit": "transactions",
+    "value": 10000000
+   },
+   "T_blk": 60,
+   "emptyBlocksFromBaseFee0ToIdle": 145,
+   "logFill": {
+    "LOG0dataBytes": 32732,
+    "gas": 288349
+   },
+   "minTxBytes": 100,
+   "source": "governance.md:4,5,12,13,16; execution.md:82",
+   "txBytesBlock": {
+    "gas": 827528,
+    "rawLengths": [
+     131072,
+     65520
+    ]
+   }
+  }
+ },
+ "schema": {
+  "genesisSpecFields": [
+   "specVersion",
+   "chainId",
+   "CP",
+   "allocRoot",
+   "M_0List",
+   "sysCodeHash"
+  ],
+  "logCapField": null,
+  "rustCpFields": [
+   "g_ts",
+   "target_g",
+   "T_blk",
+   "tau",
+   "nonceMode",
+   "c",
+   "D_att",
+   "dFbWait",
+   "m",
+   "kappa",
+   "S_max",
+   "D",
+   "W_w",
+   "alpha_bp",
+   "gamma_bp",
+   "subsidy",
+   "B_reg",
+   "R_max",
+   "M_max",
+   "M_min",
+   "REG_RECORDS_MAX",
+   "SWEEP_MAX",
+   "SWEEP_SCAN",
+   "REG_OPS",
+   "W_act",
+   "Theta_inact",
+   "E_win",
+   "U",
+   "E_max",
+   "EVID_BYTES_MAX",
+   "GAS_LIMIT",
+   "baseFee0",
+   "TX_MAX",
+   "BODY_MAX",
+   "B_code_max",
+   "CODE_CAP",
+   "TXBYTES_CAP",
+   "TX_CAP",
+   "SLOT_CAP",
+   "ACCT_CAP",
+   "SYS_SLOT_MAX",
+   "SYS_KEYS_BLOCK_MAX",
+   "SYS_KEYS_USER_MAX",
+   "SYS_ACCT_BLOCK_MAX",
+   "G_SYS",
+   "H_END",
+   "T_END",
+   "H_CLOSE",
+   "T_CLOSE",
+   "Z_close",
+   "RET",
+   "P2"
+  ],
+  "source": "consensus.md:7 and :19-25; prototypes/lp4-execution/src/p1_genesis_spec.rs CP_SCHEMA (names only)",
+  "specCpFields": [
+   "g_ts",
+   "target_g",
+   "T_blk",
+   "tau",
+   "nonceMode",
+   "c",
+   "D_att",
+   "dFbWait",
+   "m",
+   "kappa",
+   "S_max",
+   "D",
+   "W_w",
+   "alpha_bp",
+   "gamma_bp",
+   "subsidy",
+   "B_reg",
+   "R_max",
+   "M_max",
+   "M_min",
+   "REG_RECORDS_MAX",
+   "SWEEP_MAX",
+   "SWEEP_SCAN",
+   "REG_OPS",
+   "W_act",
+   "Theta_inact",
+   "E_win",
+   "U",
+   "E_max",
+   "EVID_BYTES_MAX",
+   "GAS_LIMIT",
+   "baseFee0",
+   "TX_MAX",
+   "BODY_MAX",
+   "B_code_max",
+   "CODE_CAP",
+   "TXBYTES_CAP",
+   "TX_CAP",
+   "SLOT_CAP",
+   "ACCT_CAP",
+   "SYS_SLOT_MAX",
+   "SYS_KEYS_BLOCK_MAX",
+   "SYS_KEYS_USER_MAX",
+   "SYS_ACCT_BLOCK_MAX",
+   "G_SYS",
+   "H_END",
+   "T_END",
+   "H_CLOSE",
+   "T_CLOSE",
+   "Z_close",
+   "RET",
+   "P2"
+  ]
+ },
+ "status": "PROPOSED - not approved (CAPS-SUSTAINABILITY.md); computed by proposals/model/caps_model.py",
+ "systemPrograms": [
+  {
+   "bytes": 7568,
+   "logOpcodes": 0,
+   "program": "MinerRegistry"
+  },
+  {
+   "bytes": 4299,
+   "logOpcodes": 0,
+   "program": "RewardEscrow"
+  },
+  {
+   "bytes": 2766,
+   "logOpcodes": 0,
+   "program": "ShareLedger"
+  },
+  {
+   "bytes": 114,
+   "logOpcodes": 0,
+   "program": "ChainCaps"
+  },
+  {
+   "bytes": 762,
+   "logOpcodes": 0,
+   "program": "ChunkFactory"
+  }
+ ]
+}

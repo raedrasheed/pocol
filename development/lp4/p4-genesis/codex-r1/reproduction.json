@@ -1,0 +1,11 @@
+{
+  "sourceTree": "31c9bb503449d0aebf0cb02883f7bb7c52f699c7",
+  "compilerByteIdentical": true,
+  "actualExecutionsByteIdentical": true,
+  "independentResultsByteIdentical": true,
+  "diagnosticSHA256": "44e2a98e91947be77ec57d7415350eaec6e48210c2b643d177114e07af18ca1e",
+  "independentSHA256": "2bcc32e5d729ad637465986dfdfef88953838f4122debf5dbe4499990606e73f",
+  "scope": "Reproduce diagnostics in an owned scratch copy of the exact R20 tree.\nNo selected SystemCall rule is installed into the repository or live node.\n",
+  "proposedRuleApproved": false,
+  "bootable": false
+}

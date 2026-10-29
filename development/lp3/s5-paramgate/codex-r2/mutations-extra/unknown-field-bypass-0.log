@@ -1,0 +1,10 @@
+warning: unused variable: `allowed`
+   --> /workspace/work/lp3-s5-amended/mutations-extra/unknown-field-bypass-4y6bxven/src/gate.rs:232:57
+    |
+232 | pub fn reject_unknown_fields(value: &serde_json::Value, allowed: &[&str]) -> Result<(), InputError> {
+    |                                                         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_allowed`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: 1 warning emitted
+

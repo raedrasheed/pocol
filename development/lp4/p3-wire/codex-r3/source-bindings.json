@@ -1,0 +1,601 @@
+{
+  "baseHead": "6ce5b5acab41c57da0ca1eb4ba62682185c6e359",
+  "bindings": [
+    {
+      "path": ".github/workflows/lp4-execution-controls.yml",
+      "bytes": 21491,
+      "sha256": "ad484f3c65da0b0dcf43379639397ba1dcf73b0186285850587b6287841df4c0"
+    },
+    {
+      "path": "prototypes/lp4-execution/.gitignore",
+      "bytes": 43,
+      "sha256": "4dcd52da1e7af1107c5bb924a69ca6960f6cfe019943c679958746f6168afcbc"
+    },
+    {
+      "path": "prototypes/lp4-execution/Cargo.lock",
+      "bytes": 64642,
+      "sha256": "d6e757466555edd023347af5b3cc45021ff1bcd88328de8c9a390fd99ad13904"
+    },
+    {
+      "path": "prototypes/lp4-execution/Cargo.toml",
+      "bytes": 206,
+      "sha256": "c262eff944d615cbd20885abb53e08214f29aca9adfd58af1741214e7b81db3d"
+    },
+    {
+      "path": "prototypes/lp4-execution/README.md",
+      "bytes": 5059,
+      "sha256": "a9d72d4a0fdf23cb8b3b8c99aa9d6cd24f4bd64a730501f8d20953e085006624"
+    },
+    {
+      "path": "prototypes/lp4-execution/contracts/PayBoundaryHarness.sol",
+      "bytes": 1806,
+      "sha256": "2931eec4b6470321fd6e8838e8b3fa60de6fa7197d1c0d4e80d0c07ee9b1e10b"
+    },
+    {
+      "path": "prototypes/lp4-execution/contracts/REGISTRY-LAYOUT.md",
+      "bytes": 3181,
+      "sha256": "13a71faf2cf3e502995aceaca2b5e778369731448de2c0f5cbd39bfa3197c563"
+    },
+    {
+      "path": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "bytes": 11113,
+      "sha256": "469ab9352cfbb3d2bf7704951abb490564e4e563d1af468d88af4a1491fbee92"
+    },
+    {
+      "path": "prototypes/lp4-execution/contracts/RegistryWriteBudgetWitness.sol",
+      "bytes": 2495,
+      "sha256": "5bd18377d4b84c89138bbe953701391181ee722b4a825d6053a1fcfc07daac76"
+    },
+    {
+      "path": "prototypes/lp4-execution/contracts/RewardDurabilityWitness.sol",
+      "bytes": 562,
+      "sha256": "17d87605bfa936dd99ed27e722d710dac2f0868f77927ec61587b367c452c51c"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/code_caps_decision.rs",
+      "bytes": 2985,
+      "sha256": "1fd54eb3737656518dd80b454a42a6ba476b9261239c7a2137985d49735038d8"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/context_vectors.rs",
+      "bytes": 1944,
+      "sha256": "cc583a8077a64ac68c0961e41996d6bd052e8a3c329aff554167624e14949372"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/control_vectors.rs",
+      "bytes": 1163,
+      "sha256": "24724b813fda1381a6824306094de186647f0dc3056e3f09c2aef3d27ee94c52"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/lifecycle_vectors.rs",
+      "bytes": 1983,
+      "sha256": "19035444b26d035ce64ef5b130a20542069ec70030e3631903bcd7e73dcc2c35"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/pay_vectors.rs",
+      "bytes": 3878,
+      "sha256": "5cef4dece6785fa326765a63681006f337151e4a85b637d708097b18f57805ad"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/receipt_roots.rs",
+      "bytes": 1697,
+      "sha256": "3f5af4cf4302010049a9ad5ed2b097bce191842d4e218c9de005d838b74db56b"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/registry_vectors.rs",
+      "bytes": 6305,
+      "sha256": "7caac15325bc89046cec76bd12583d6b8d6405494b0de08f90ec8a3c0f788d0c"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/registry_write_budget.rs",
+      "bytes": 5094,
+      "sha256": "624bb83eb769226f7fb4f4b62b79903890bd1eea4224cca5f1d2e784e09c24b7"
+    },
+    {
+      "path": "prototypes/lp4-execution/examples/wire_vectors.rs",
+      "bytes": 3254,
+      "sha256": "42d44d2e096fdb692c9430e9c7df07b323216741e3b0eac3450483be510f6175"
+    },
+    {
+      "path": "prototypes/lp4-execution/licenses/REVM-MIT.txt",
+      "bytes": 1074,
+      "sha256": "06825836055f742ff1891496243101091e5e717dcae96434a14681714ffec9d5"
+    },
+    {
+      "path": "prototypes/lp4-execution/rust-toolchain.toml",
+      "bytes": 76,
+      "sha256": "7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/bin/cancun_control.rs",
+      "bytes": 5598,
+      "sha256": "2e2a73cc1d037d40769076a6b6159908e2244285d0727e108bbfae6af97ae404"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/bin/signed_rejection_control.rs",
+      "bytes": 2305,
+      "sha256": "4f4bf1f0571fa4d09398b8e2690cf3b970fcdda686d0a678f4adfed54a017903"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/collision.rs",
+      "bytes": 3478,
+      "sha256": "9ec5bd416a0f52d244badbb9781198535f2aa5dde3a70d900cd821713c396bc6"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/fees.rs",
+      "bytes": 1092,
+      "sha256": "08a4d4ffeb7cc98f150e75c1e47317d559595110bcb773595769206296eb7542"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/lib.rs",
+      "bytes": 7449,
+      "sha256": "1d08c89a33b85ef27b3234729203645fbae523fff36fb486e78ecb255d456599"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/native.rs",
+      "bytes": 4473,
+      "sha256": "15319c29a3cf4b6da5a025bba748493d28522de5df2c8dfc54fdbb8d85f62506"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/p1_decimal.rs",
+      "bytes": 9720,
+      "sha256": "3ce9f7f85e0b59fe3cbcac91d53ca8c5ac2ed263ce5d379940c5a4d87143f519"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/p1_fixed.rs",
+      "bytes": 11931,
+      "sha256": "6164497f6a75fa0ea4cf4192d3ad377beea45f767e6e7b9db54b72b4daef9be3"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/p1_genesis.rs",
+      "bytes": 6998,
+      "sha256": "5936a950c2224fad7a5dd1eb49dc92088396a1f7e51bf1c9f0c93198462e0389"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/p1_genesis_spec.rs",
+      "bytes": 23671,
+      "sha256": "62fdf19b682fc1a3d01fffd43c25b5a8bd16e602533e40f4b77d23cff778c592"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/p1_hex.rs",
+      "bytes": 1518,
+      "sha256": "e65feef9efe5b60ee1b79316b2f19dd670ef3b43f5d6f75f18378006d4ac3171"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/p1_json.rs",
+      "bytes": 14776,
+      "sha256": "7ff965a553ef89cd061f4dd195ac9306404c2cdd16a3cc0343084cf102c34764"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/p1_profile.rs",
+      "bytes": 10996,
+      "sha256": "afa1d82f6de983b705a6798286c04fab0fa09955b3d04c9933ba18b0dda7dbba"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/p1_trie.rs",
+      "bytes": 5186,
+      "sha256": "2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/pay.rs",
+      "bytes": 4370,
+      "sha256": "dfbe2315507515f27c4ac86858acf3d6c58c27b379e9c5e6d2a2572169e6da88"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/pool.rs",
+      "bytes": 2764,
+      "sha256": "0e9c7b62e9c7f6aadea12de7a63fd53b8c082455eb5039f94fd021cfd332bcac"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/receipts.rs",
+      "bytes": 1898,
+      "sha256": "2d31ccbfe9e4719a68b91ae00cc87d8f550fd6ef50280372d17f90404aceaad1"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/rpc_http.rs",
+      "bytes": 12184,
+      "sha256": "733b2dd2386ae35c33f16e4417df065689ccaadb5b713513f531f7a9cf04dc6a"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/rpc_pool.rs",
+      "bytes": 2900,
+      "sha256": "934023d8439995635ef7171dabe96643cfc64038cb288d5a678867689020842c"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/user_phase.rs",
+      "bytes": 5790,
+      "sha256": "b6c14cd01a50be865e87ecd36dba20616b00ea379b458c4b4493d3539d617cfa"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/wire.rs",
+      "bytes": 7324,
+      "sha256": "c688ea63767d52468c9fd9eecb0fdfae664ad19f3f70e5f075e9a816136bf593"
+    },
+    {
+      "path": "prototypes/lp4-execution/src/wire_rlp.rs",
+      "bytes": 11954,
+      "sha256": "d800b3cb2e9d235b5db23556637947f9c140af919c7fed057881cd380d0826af"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/build_signed_geth.py",
+      "bytes": 2685,
+      "sha256": "d74a5a2e8460e6c11474dc33890d1e01418c4b7b9fb23c29778417f8fa5d42ec"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/compile_budget_witness.cjs",
+      "bytes": 940,
+      "sha256": "83c767942deb60ccdd2c8b52fa3200ab3d0764b39a4242f3f801c51e0aba3049"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/compile_contracts.cjs",
+      "bytes": 924,
+      "sha256": "be63c75bff2e2b12633bdecef78e1e155cfbfd9d937686b5aefafe3d8d09ffe7"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/compile_durability.cjs",
+      "bytes": 797,
+      "sha256": "44dd569055e02b2f39f1fc5882abfe126817ce81e4f3d996e44e6d390a47b6c4"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/compile_registry.cjs",
+      "bytes": 918,
+      "sha256": "a157ac74c51d6c335c603d2671f0fec5cd983eecd378facb739ebe86dfbea5f9"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/context_mutations.py",
+      "bytes": 2777,
+      "sha256": "57b50e388aadcc9ff3ecef8e5eedf40b1a76ad649950901e35779c2835e7ac5f"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/context_oracle.py",
+      "bytes": 2446,
+      "sha256": "3a744bad56bda8d34d2f1d2a2c1ff3b236fae18b3eb0cc600511e64983f017c3"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/control_oracle.py",
+      "bytes": 1663,
+      "sha256": "c484380843365cd73fbc56112b1b4a367b99d835af4927dc05f5296be590d4ee"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/create_collision.rs",
+      "bytes": 9899,
+      "sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/create_mutations.py",
+      "bytes": 3748,
+      "sha256": "a2ec264bb845ad1eefaa36d53f70109f93ac0754faaa23eb0e2959256e872e59"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/execution-profile.hex",
+      "bytes": 683,
+      "sha256": "fc6c76f1089e99698c0625c89cd5520ead2099a6d44f35b973ebd59163c527c4"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/london-fees.json",
+      "bytes": 39546,
+      "sha256": "0448f0d6a29dd138c197b2a45f188261b84f4f73e8118ab60455ee9badd7b8a2"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/pay-harness.json",
+      "bytes": 16308,
+      "sha256": "b324c129adcaf8ca91133d84b33af3f0d1ab6656d3f5004704e1a864935c6f15"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/profile-execution.json",
+      "bytes": 16529,
+      "sha256": "47e0f72167c26b220cf6c9098af9210cb365b02a469c6f0f62ab053f476b6a03"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/registry-payment.json",
+      "bytes": 50813,
+      "sha256": "0186c9b0c722e272081163e6e0782cd1e95d19cbcd6e96634770bab94cfc58df"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/registry-write-budget.json",
+      "bytes": 6869,
+      "sha256": "c858c9c5f743e68f8e6f553877e59c8bee064da8404e8cac188e0bc5909f5a98"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/reward-durability.json",
+      "bytes": 6217,
+      "sha256": "c5aba9fa19ded72a527bb17cad422ef2d2b7c5212ec64d8dd87b279ed8a50b53"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/user-phase.json",
+      "bytes": 4618,
+      "sha256": "553a45c9e8f334b1a82326a87e0350c33bba4529ab8d22f01f2b265193f3fb89"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/data/wire-envelopes.json",
+      "bytes": 32940,
+      "sha256": "67cedea610a77f5205a98264e638e4801cf7e2798106496513d0420c061f4c02"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/fee_fixtures.py",
+      "bytes": 818,
+      "sha256": "b82e7f95c159198a7664ecc83cc6cea7348cd45c9c97a82f690a9ee390a1a6e3"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/fees.rs",
+      "bytes": 2080,
+      "sha256": "0db1b0649143561c91e9d126272e2b7972dd7cdbfe6beea453d3900d6671ce30"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/geth_mirror_verify.py",
+      "bytes": 2912,
+      "sha256": "b951de720c890912c82fdbd49638e52886e0897b397a3a47e22a093e4786d4bb"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_admission_checks.py",
+      "bytes": 2526,
+      "sha256": "0881dfe3f9d9ca4cc326deb36667415d6aeeb2c85869524f90d8ce271dd9b727"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_admission_mutations.py",
+      "bytes": 2145,
+      "sha256": "75ca76388bb7f99c21f6010a776150626a94914f92537c385a137bbda68f3bda"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_alternatives.py",
+      "bytes": 1384,
+      "sha256": "268f379f85863fd36c58bc6619b9085dcd80d8410e47e9917b8d11e4f4b15e32"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_blake2_checks.py",
+      "bytes": 1023,
+      "sha256": "02d77699f9c6e0bc5b550173301a49f2834211ba8bbfe58cd4a467967a8e35a0"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_comparison_checks.py",
+      "bytes": 1994,
+      "sha256": "69edac35fd33aa0bc7fd917ddbdab2ca46416ffdc70b8d7de4ded1c226342257"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_control.py",
+      "bytes": 4208,
+      "sha256": "09cb6601358cd717be17c2b24ce4badc894cea940ccf94fdaf4ac8dc432d9784"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_diagnose.py",
+      "bytes": 3004,
+      "sha256": "6bacdb6b3b1b08fe746e7d8461f1d0133afd0ad0019ed26b232024a1621263a1"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_exception_audit.py",
+      "bytes": 6001,
+      "sha256": "599a92a29119604c548e03c57b82e388fa4d7899b42a85242786ab60eae4a226"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_exception_mutations.py",
+      "bytes": 3108,
+      "sha256": "8f96c01482295cecf518ca12c67778d1166fb81c704fe7af077f3af08f4887b5"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_extract.py",
+      "bytes": 1169,
+      "sha256": "2c53663a88c19bd5f5fc17039dda5aac2f6e4129762e69969703fcd4529e11db"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_geth_control.py",
+      "bytes": 4338,
+      "sha256": "e1530bf28c2efefa0c0ac22a42db34dc683353bb419268713c12ed5f58cdcf9b"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_geth_mutations.py",
+      "bytes": 2952,
+      "sha256": "c992bf38caafb7ba733de8a918d57a2bb382ecf605b000bb0d3bb3f502766750"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_independent.py",
+      "bytes": 8262,
+      "sha256": "1d0f543c3524be92b3ec6c3c10f02cdfc2a2df5a06b37877de3bac88b9716643"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_independent_vm.py",
+      "bytes": 4390,
+      "sha256": "59b809023e8c0326d382142f92b485c98a036d06aef6a4f78b5de5262fbb93d4"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_signed_geth.go",
+      "bytes": 4926,
+      "sha256": "110480e8f698056a0b4de7253bf11219decca2039950c69f92dd7db856b4f029"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_signed_geth_verify.py",
+      "bytes": 2766,
+      "sha256": "ed84eddfb2ae45768462dc8430455cedf6a40084cfe2210b267eabfc36cf0a6a"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/gst_signed_rejections.py",
+      "bytes": 6840,
+      "sha256": "d8d83db26ac2124bad1f3d9a8784d1a6b15e08eb641f09a8d1a9edb053f2023a"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/lifecycle_oracle.py",
+      "bytes": 1921,
+      "sha256": "900ac6da22ab5c3b1b7e14c066e6789f49b2eedf845473348969e8b61d30b501"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/mutations.py",
+      "bytes": 2341,
+      "sha256": "fa01a54b4acdbff896944ef93cfe29a79b0540205378fb24c0ca859f402287a2"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/native_context.rs",
+      "bytes": 3458,
+      "sha256": "cf29caf235c7bd7a393bc51c2aed8d9017a7fb72f75e42c9b6bc4dc3124bc2e0"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/pay_boundary.rs",
+      "bytes": 10315,
+      "sha256": "50c31f2876d533ebbf9e233e15e1f233ddb56a8b05d6ac456ce3eddfb69b735f"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/pay_mutations.py",
+      "bytes": 5668,
+      "sha256": "08bec8656f3b4fd46c5885f0afd42907306307efb198119968742d67721b11d3"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/pay_oracle.py",
+      "bytes": 4936,
+      "sha256": "5a0bc71052693bf0e8fb9e30ad9b4a273fc9b5bc7a926429bea3c1a0656b9c82"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/pool.rs",
+      "bytes": 3826,
+      "sha256": "42bc12de9d967196ab841a5e337fd14ebb3c9031e59e3f9c410a4d77fa7d65e0"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/pool_mutations.py",
+      "bytes": 4216,
+      "sha256": "6579376f00e6bcd440ae67994e2006b36d790a02a74cad310252f1f8bc91851f"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/profile_execution.rs",
+      "bytes": 1436,
+      "sha256": "65a9ce1735c428abee13b2d564ef757d0eb5b0a7f9faf235a830729578b311e0"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/profile_execution_fixtures.py",
+      "bytes": 1855,
+      "sha256": "d820c287c140b7e29871ce7b94199c01e816b05f03f371a69a11b9f6a556fef9"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/python-comparison-extra.lock",
+      "bytes": 261,
+      "sha256": "7f5abddd52b0af32a941d236ed48c5a38878e78a91d0eff28502dac8a3e953a9"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/python-requirements.lock",
+      "bytes": 391,
+      "sha256": "156c782c1b520afeb78cf170eb995620ad56aa0069e6c9dddb7fa68ce0d8ce57"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/receipt_oracle.py",
+      "bytes": 1579,
+      "sha256": "2722d69ce3b7e352d4a67f2ac8018120c38af8001f729a7ca1d61a1903d03adb"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/receipts.rs",
+      "bytes": 1877,
+      "sha256": "6e7a775cf9c259c1257e7fb57941fc45cdea23a5b6b71764dfc81d2e48438b82"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/registry_budget_mutations.py",
+      "bytes": 2947,
+      "sha256": "ab0f890c3b3bb8a6d15b6f3ceb22fa1954490604085d3222733df645e5d54cad"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/registry_budget_oracle.py",
+      "bytes": 3780,
+      "sha256": "57b0f185c5a0e5a4fb62fbefab81bef6214d3e5320e21f3f6ae2a0386bac7ef3"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/registry_execution_oracle.py",
+      "bytes": 4678,
+      "sha256": "92e1dca41909e207824335efce4585cbfead2df445508f6629835f3d7a7cbbcc"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/registry_mutations.py",
+      "bytes": 5420,
+      "sha256": "a051e278d1f5749ff3a416bc729688cc8807d7c0f60451cf6416f081925eec7c"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+      "bytes": 19389,
+      "sha256": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/registry_transition_model.py",
+      "bytes": 8811,
+      "sha256": "c8f1f475e299043b099b9cff1743f85bfa7abd4f8331b77a45f212ca4443afce"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/reward_durability.rs",
+      "bytes": 1894,
+      "sha256": "7dcdb19c0d068c674c5f39d6e8887a989f245468f216217c5318b3d3f0ca856a"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/reward_syntax_witness.py",
+      "bytes": 1560,
+      "sha256": "d989c09a7d193916468e1d37a4c23804286c6ff1416b4bf100b5acf5f4d459bf"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/rpc_pool.rs",
+      "bytes": 4019,
+      "sha256": "984834019d00294350fdc54164c46de1dc9518377edfab707cc9addd3b2a7c49"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/signed_geth_mutations.py",
+      "bytes": 2096,
+      "sha256": "7d7d24f9774d0922c19fe87d5a52a6ca66f7c7f4896ab82cfa4d87676ac57f54"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/source_inventory.py",
+      "bytes": 1527,
+      "sha256": "1b542557c6a656633771a49849ad20da019e77d266571ce69884091f8207d009"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/source_notice_audit.py",
+      "bytes": 6957,
+      "sha256": "afaedfbe6796ef22e820e73fb77485f6103f391e4e9077dc9c8bec2a80a0c9cb"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/support/admission.rs",
+      "bytes": 1636,
+      "sha256": "5f83f142d5de4e06fbf865bf793ed3aba1a33e9fee0cfd58cf52034e74711641"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/tool_inventory.py",
+      "bytes": 4687,
+      "sha256": "2121838c09ab7082ae34959c3f05790167cc2fbfd3760cc69f14881d600b0247"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/user_phase.rs",
+      "bytes": 5218,
+      "sha256": "17d11857f523640c4cc08c2acf5a8c83443cfe850206786391eae8ff3c918c39"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/user_phase_fixtures.py",
+      "bytes": 2850,
+      "sha256": "81b286e0f513063d3d2a2348c58e068875b7f62a81a40f49f0c4801b6348d9c9"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/user_phase_mutations.py",
+      "bytes": 3243,
+      "sha256": "fce23378f3e31306024087998c83652ddc277ec47a89f0d607cf473c23480903"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/wire.rs",
+      "bytes": 1540,
+      "sha256": "1d362885ee3957aa6a6729e330f8bfb48c534e2cd860f70eb7d9cd934ca3bbd6"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/wire_fixtures.py",
+      "bytes": 5550,
+      "sha256": "45f0526f3eb7af9c53caedd27b5c49cf8bdf592c4a8eccd476ffe58eb6dc965c"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/wire_mutations.py",
+      "bytes": 3951,
+      "sha256": "d07a919012ec7b11a86133ec62f3297bf32fa4bc825da7e6e423ba80cb5df4e7"
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/wire_oracle.py",
+      "bytes": 3181,
+      "sha256": "f259dec6a7317e1d21890253920779129006b1b75d2b8f3b91a8f74244c5418d"
+    },
+    {
+      "path": "prototypes/lp4-execution/tools/package-lock.json",
+      "bytes": 3698,
+      "sha256": "d6363f58c38ed34c550f653bb266855d1d661f203cdc8d33d1fbc510f9d19ff1"
+    },
+    {
+      "path": "prototypes/lp4-execution/tools/package.json",
+      "bytes": 49,
+      "sha256": "0d72167ab6f99add1f0990593fd57d6e5ccc6c65f7f012fa990b166e819dd695"
+    }
+  ],
+  "scope": "exact runtime/test/CI source bytes; no complete resource model or boot acceptance"
+}

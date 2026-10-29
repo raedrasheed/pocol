@@ -1,0 +1,35 @@
+lp3-s1-windows-4e26e4d3049731645ab1d85ccfb9972d29d63390.zip: OK
+artifact/commands.json: OK
+artifact/environment.json: OK
+artifact/logs/cargo-build-release.log: OK
+artifact/logs/cargo-build.log: OK
+artifact/logs/cargo-fetch.log: OK
+artifact/logs/cargo-test-full.log: OK
+artifact/logs/cargo-version.log: OK
+artifact/logs/e2e-http.log: OK
+artifact/logs/e2e-store.log: OK
+artifact/logs/genesis-batch-alloc-debug.log: OK
+artifact/logs/genesis-batch-alloc-release-max.log: OK
+artifact/logs/git-version.log: OK
+artifact/logs/lp3-genesis-cli-release-max.log: OK
+artifact/logs/lp3-genesis-cli.log: OK
+artifact/logs/lp3-genesis-diff-release-max.log: OK
+artifact/logs/lp3-genesis-diff.log: OK
+artifact/logs/python-version.log: OK
+artifact/logs/rustc-version.log: OK
+artifact/logs/rustfmt-check.log: OK
+artifact/logs/rustfmt-version.log: OK
+artifact/logs/rustup-toolchain-install.log: OK
+artifact/logs/rustup-version.log: OK
+artifact/logs/store-journal.log: OK
+artifact/logs/store-process-crash-recovery.log: OK
+artifact/logs/verify-fixtures.log: OK
+artifact/lp3-genesis-cli-release-max.json: OK
+artifact/lp3-genesis-cli.json: OK
+artifact/lp3-genesis-diff-release-max.json: OK
+artifact/lp3-genesis-diff.json: OK
+artifact/results.json: OK
+artifact/source-hashes.json: OK
+artifact/summary.md: OK
+github-job-log/0_Windows Server 2022, Rust 1.58.1.txt: OK
+github-job-log/Windows Server 2022, Rust 1.58.1/system.txt: OK

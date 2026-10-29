@@ -1,0 +1,29 @@
+{
+  "runtimeSourceHead": "c70961187c23d3fd4bab6a99a43fd12001f7518e",
+  "hostedRun": 39063488297,
+  "sourceHeadJobs": "3 SUCCESS",
+  "nativeRustTests": {
+    "Linux": 40,
+    "Windows": 40
+  },
+  "independentRegistryStateRootAndDomainComparisons": 63,
+  "compiledRegistryControls": 17,
+  "upstreamCancunControlMatches": 20661,
+  "GSTExceptionReasonEquivalence": "NOT PASSED",
+  "PoColT2": "NOT PASSED",
+  "legacyWindows": {
+    "PASS": 16,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "noticePreparation": {
+    "lockedArchiveSHA256Verified": 266,
+    "activeDefaultAllTargetPackages": 107,
+    "status": "SOURCE-BOUND NOTICE PACK PREPARED; full provenance/optional-feature/tool/release audit NOT PASSED"
+  },
+  "currentAuditHeadCI": "PENDING publication and inspection",
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "all26Obligations": "NOT PASSED",
+  "bootable": false
+}

@@ -1,0 +1,58 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (1.829196ms)
+✔ 1027 previously frozen ASERT rows (8.392804ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.476398ms)
+✔ membership, partition completeness, owner and exact hashes (3.220677ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (2.000764ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (7.960953ms)
+✖ full schema width/order/reserved failures and deep malformed framing (7.017193ms)
+✖ all accepted L4n/order supplements and 1500-level malformed twins (8.618806ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51.657537
+
+✖ failing tests:
+
+test at ../work/lp3-s6/mutations/ts-schema-ignore-width-1jlu6556/prototypes/lp3-model/tests.ts:68:1
+✖ full schema width/order/reserved failures and deep malformed framing (7.017193ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at code (file:///workspace/work/lp3-s6/mutations/ts-schema-ignore-width-1jlu6556/prototypes/lp3-model/tests.ts:70:47)
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/mutations/ts-schema-ignore-width-1jlu6556/prototypes/lp3-model/tests.ts:72:281)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [Function (anonymous)],
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at ../work/lp3-s6/mutations/ts-schema-ignore-width-1jlu6556/prototypes/lp3-model/tests.ts:75:1
+✖ all accepted L4n/order supplements and 1500-level malformed twins (8.618806ms)
+  AssertionError [ERR_ASSERTION]: W2-u64
+  
+  'ok' !== 'gsRange'
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/mutations/ts-schema-ignore-width-1jlu6556/prototypes/lp3-model/tests.ts:82:105)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'ok',
+    expected: 'gsRange',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

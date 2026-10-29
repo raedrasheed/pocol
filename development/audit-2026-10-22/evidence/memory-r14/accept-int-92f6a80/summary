@@ -1,0 +1,3 @@
+pocold-bins exit=0
+e2e-integrated-whole-state-1 exit=1
+e2e-integrated-whole-state-2 exit=1

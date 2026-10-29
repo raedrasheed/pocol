@@ -1,0 +1,10 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.13s
+     Running tests/consensus.rs (target/release/deps/consensus-f29df1f4da34300f)
+
+running 3 tests
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ok
+test a11_deep_reorg_restores_the_oldest_detached_transaction ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 49.09s
+

@@ -1,0 +1,3 @@
+   Compiling pocol-lp4-execution-pay-value v0.1.0 (/workspace/work/lp4/p2-pay02/mutations-reviewed/value)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.66s
+  Executable tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-4452bf1e32ddeb22)

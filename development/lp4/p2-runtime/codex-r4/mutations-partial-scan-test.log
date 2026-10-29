@@ -1,0 +1,29 @@
+warning: unused variable: `value`
+  --> src/collision.rs:16:77
+   |
+16 |     context.evm.db.accounts.get(&address).map(|a|a.storage.iter().any(|(key,value)|{
+   |                                                                             ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pocol-lp4-execution-create-partial-scan` (lib) generated 1 warning (run `cargo fix --lib -p pocol-lp4-execution-create-partial-scan` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running tests/create_collision.rs (prototypes/lp4-execution/target/debug/deps/create_collision-9ee39e62bc85ffa4)
+
+running 1 test
+
+thread 'create_and_create2_block_unloaded_nonzero_and_allow_zero' (92272) panicked at tests/create_collision.rs:26:3:
+assertion `left == right` failed
+  left: 0x894bcfd2eed71b2082101dc85f86865824efb62d
+ right: 0x0000000000000000000000000000000000000000
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test create_and_create2_block_unloaded_nonzero_and_allow_zero ... FAILED
+
+failures:
+
+failures:
+    create_and_create2_block_unloaded_nonzero_and_allow_zero
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test create_collision`

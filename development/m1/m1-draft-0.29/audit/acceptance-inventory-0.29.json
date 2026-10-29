@@ -1,0 +1,98 @@
+{
+  "schema": "pocol-m1-acceptance-inventory/0.29",
+  "status": "author inventory for root review. Every criterion is COMPUTED by tools/run_checks_029.py from this file, the earlier inventories and saved reviewed evidence; nothing here is asserted as satisfied. CompleteCandidate is not Complete; PendingRootReview means every criterion is satisfied except root's review of this 0.29 overlay.",
+  "acceptanceRule": {"file": "m1-draft-0.3/M1-SPEC-0.3-AMENDMENTS.md", "anchor": "R3-08",
+                     "criteria": {"c1": "spec text and literal fixtures", "c2": "every computable claim executed with machine-readable results", "c3": "actual root review",
+                                  "c4": "every affecting decision made by its named decider (here: recorded delegation plus the specific coordinator decision, or a recorded root decision)",
+                                  "c5": "every genuine blocker closed"},
+                     "phases": {"file": "m1-draft-0.4/M1-SPEC-0.4-AMENDMENTS.md", "anchor": "R4-02", "rule": "Phase A outcomes (EVM, Chrome, M3-TS, node) are not M1-spec conditions; a missing experiment definition is"}},
+  "base": {"inventory": "m1-draft-0.25/audit/row-inventory.json", "consolidation0_26": "m1-draft-0.26/audit/consolidation-0.26.json",
+           "consolidation0_27": "m1-draft-0.27/audit/consolidation-0.27.json", "carryForward0_28": "m1-draft-0.28/audit/carry-forward-0.28.json",
+           "findings0_26": "m1-draft-0.26/audit/findings-trace-0.26.json", "gapRegistry0_25": "m1-draft-0.25/audit/gap-registry.json"},
+  "results": {
+    "R16": "coordination/review-001/m1-draft-0.16/results/run-results-0.16.json",
+    "R21F": "coordination/review-001/run-results-0.21-copy-path-failure.json",
+    "R25F": "coordination/review-001/run-results-0.25-copy-output-path-failure.json",
+    "R27": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json",
+    "R28": "coordination/review-001/m1-draft-0.28/results/run-results-0.28.json"
+  },
+  "savedSummaries": [
+    {"key": "R26", "checks": 377, "passed": 302, "recorded": 75, "failed": 0},
+    {"key": "R27", "checks": 320, "passed": 248, "recorded": 72, "failed": 0},
+    {"key": "R28", "checks": 49, "passed": 33, "recorded": 16, "failed": 0}
+  ],
+  "reviewed": {
+    "status": "the 0.26 and 0.27 V1 material flagged pendingRootReview in those consolidations has been reviewed; its own-run evidence is rebound to the saved preserved-copy results",
+    "reviews": [{"file": "coordination/review-001/REVIEW-0.26.md"}, {"file": "coordination/review-001/REVIEW-0.27.md", "literal": "accept the independently demonstrated C32 crash repair and SHA accounting"},
+                {"file": "coordination/review-001/REVIEW-0.28.md", "literal": "accept this narrow correction"}],
+    "reboundEvidence": {"V1": [["R26", "^V1\\."], ["R27", "^V1\\."], ["R27", "^C32\\."], ["R27", "^SHA\\."]]}
+  },
+  "tokenMap": {"U08-CR": "U08"},
+  "rowChanges": {
+    "C1": {"resolveOwner": ["U01"], "addSpec": ["m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md"], "addFixtures": ["m1-draft-0.29/decisions/adopted-decisions-0.29.json"],
+           "currentRunEvidence": ["^U01\\."], "pendingRootReview": true},
+    "C2": {"resolveOwner": ["U01"], "addSpec": ["m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md"], "addFixtures": ["m1-draft-0.29/decisions/adopted-decisions-0.29.json"],
+           "currentRunEvidence": ["^U01\\."], "pendingRootReview": true},
+    "C3": {"resolveOwner": ["U01", "U02", "U10", "U14", "CR-M1-01", "U08-CR"], "addReviewer": ["P-D29-1", "P-D29-2", "P-D29-3", "P-U02-1", "P-U02-2", "P-U10-1"],
+           "addSpec": ["m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md"],
+           "addFixtures": ["m1-draft-0.29/vectors/u02-revoked-viewer-0.29.json", "m1-draft-0.29/vectors/u10-publisher-transfer-0.29.json", "m1-draft-0.29/vectors/u08-canonical-split-0.29.json",
+                           "m1-draft-0.29/vectors/deadline-cases-0.29.json", "m1-draft-0.29/vectors/experiment-amendments-0.29.json"],
+           "currentRunEvidence": ["^U01\\.", "^U02\\.", "^U10\\.", "^U14\\.", "^CRM101\\.", "^U08\\."], "pendingRootReview": true},
+    "C4": {"resolveOwner": ["U01", "U10", "U08-CR"], "addReviewer": ["P-U08-1", "P-U10-1"], "addSpec": ["m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md"],
+           "addFixtures": ["m1-draft-0.29/vectors/u08-canonical-split-0.29.json", "m1-draft-0.29/vectors/u10-publisher-transfer-0.29.json", "m1-draft-0.29/vectors/experiment-amendments-0.29.json"],
+           "currentRunEvidence": ["^U01\\.", "^U10\\.", "^U08\\."], "pendingRootReview": true},
+    "R1": {"resolveOwner": ["CR-M1-01"], "addSpec": ["m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md"], "addFixtures": ["m1-draft-0.29/vectors/deadline-cases-0.29.json"],
+           "currentRunEvidence": ["^CRM101\\."], "pendingRootReview": true},
+    "E6": {"resolveOwner": ["RF-E6-1"], "addSpec": ["m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md"], "addFixtures": ["m1-draft-0.29/vectors/rfe61-x12b-binding-0.29.json"],
+           "currentRunEvidence": ["^RFE61\\."], "pendingRootReview": true},
+    "V1": {"resolveOwner": ["V1-SHA-COST", "P-C32-2"], "removeReviewer": ["P-V1", "P-C32"],
+           "addReviewer": ["P-V1-1", "P-V1-2", "P-V1-4", "P-V1-5", "P-V1-6", "P-V1-7", "P-V1-8", "P-V1-9", "P-V1-10", "P-C32-1", "P-C32-3", "P-C32-4", "P-D29-1", "P-D29-3"],
+           "addSpec": ["m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md"], "addFixtures": ["m1-draft-0.29/vectors/deadline-cases-0.29.json"],
+           "currentRunEvidence": ["^SHA29\\.", "^PC322\\.", "^U14\\.", "^V1rerun\\."], "pendingRootReview": true}
+  },
+  "findingChanges": {
+    "F04": {"addDepends": ["P-U02-1", "P-U02-2"]},
+    "F07": {"addDepends": ["P-D29-1", "P-D29-2"]},
+    "F11": {"addDepends": ["P-U10-1"]},
+    "F17": {"addDepends": ["P-U08-1", "P-U10-1"]},
+    "F25": {"addDepends": ["P-D29-1", "P-D29-2", "P-D29-3"]}
+  },
+  "historicalFailures": {
+    "rule": "every historical FAIL stays in its saved file; each is bound to the repair that superseded it; nothing is deleted or hidden",
+    "entries": [
+      {"id": "HF-1", "results": "R04", "checks": ["bound.length rb-2848-does-not-fit"], "issue": "C14", "closure": [["R06", "^c14\\."]]},
+      {"id": "HF-2", "results": "R05", "checks": ["c14.fixture rb-2848"], "issue": "C14", "closure": [["R06", "^c14\\."]]},
+      {"id": "HF-3", "results": "R06", "checks": ["br19a.a7 sizeLinesKeepTokensBefore"], "issue": "0.6 checker collision (R7-01)", "closure": [["R08", "^br19a\\."]]},
+      {"id": "HF-4", "results": "R16", "checks": ["BR24-x9.faultyPath.adminEarlyRelease.final.adminStats", "BR24-x9.faultyPath.adminEarlyRelease.final.setLog"],
+       "issue": "C27: a final maximum the source does not state (REVIEW-0.16)", "closure": [["R18", "^suite017\\.C27\\."]]},
+      {"id": "HF-5", "results": "R21F", "checks": ["reuse.keccakFrom0.2"], "issue": "0.21 preserved-copy library provenance", "closure": [["R22", "^suite021\\.reuse\\.keccakFrom0\\.2$"]]},
+      {"id": "HF-6", "results": "R25F", "checks": ["S25.expspec.inputsExist", "coverage025.required"], "issue": "0.25 output-path (generated export looked up under the original package)",
+       "closure": [["R25", "^S25\\.expspec\\.inputsExist$"], ["R25", "^coverage025\\.required$"]]},
+      {"id": "HF-7", "rootProbe": "coordination/review-001/v1-malformed-error-probes-0.26.json", "failed": 3, "checks": ["busyDataNull", "missingBusyData", "missingRetryDelay"],
+       "issue": "C32: malformed -32021 replies raised in the 0.26 checker", "closure": [["R27", "^C32\\.case\\.C32-root-"]],
+       "closureProbe": {"file": "coordination/review-001/busy-independent-probes-0.27.json", "checks": 26, "failed": 0}}
+    ],
+    "documentCorrections": [
+      {"id": "DC-1", "what": "0.27 overclaims (rate cap called approved, honest-server compatibility, 6000 ms as a load bound)", "closure": [["R28", "^corrections\\.supersededTextsExist$"], ["R28", "^corrections\\.statusTable$"]]},
+      {"id": "DC-2", "what": "P-V1-3 'SHA-256 = PoW only' withdrawn", "closure": [["R27", "^decision\\.P-V1-3withdrawn$"]]}
+    ]
+  },
+  "gapReclassification": [
+    {"pattern": "(x12b|RF-E6-1)", "was": "ownerDecision", "now": "delegatedDecision RF-E6-1 A (m1-draft-0.29/vectors/rfe61-x12b-binding-0.29.json)"}
+  ],
+  "experimentDefinitions": {
+    "E01": "s25 true; amended 0.29", "E02": "s25 true", "E03": "amended 0.29", "E04": "s25 true", "E05": "s25 true",
+    "E06": "s25 'complete for Stage R by the construction above'", "E07": "amended 0.29", "X-U14": "new 0.29"
+  },
+  "proposedStatus": {
+    "CompleteCandidate": ["X1", "X2", "X3", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "R2", "R3", "R4", "S1", "S2", "S3", "S4",
+                          "Q1", "Q2", "Q3", "Q4", "E1", "E2", "E3", "E4", "E5", "E7", "V2", "V3", "V4"],
+    "PendingRootReview": ["C1", "C2", "R1", "E6"],
+    "Partial": ["C3", "C4", "V1"]
+  },
+  "proposedFindings": {
+    "closableAtSpecScope": ["F01", "F02", "F03", "F05", "F08", "F10", "F12", "F13", "F14", "F15", "F16", "F18", "F19", "F20", "F21", "F22", "F24", "F26"],
+    "closableAfterRootReviewOfOverlay": ["F06", "F09", "F23"],
+    "pendingReviewerDecision": ["F04", "F07", "F11", "F17", "F25"]
+  }
+}

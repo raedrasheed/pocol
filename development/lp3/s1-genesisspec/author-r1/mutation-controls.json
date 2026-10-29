@@ -1,0 +1,78 @@
+{
+ "method": "each fault applied alone to a scratch copy of src/genesis_spec.rs; tests/genesis_spec.rs and tests/lp3_genesis_diff.py run against it; the repository source was not modified",
+ "detected": true,
+ "controls": [
+  {
+   "mutant": "M1-lenBeforeInt",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustTestsFailed": 1,
+   "diffExit": 1,
+   "diffMismatches": 37,
+   "fault": "gsLen root checked before gsInt (stage order)"
+  },
+  {
+   "mutant": "M2-noGamma",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustTestsFailed": 2,
+   "diffExit": 1,
+   "diffMismatches": 9,
+   "fault": "gamma_bp upper bound 10^4 - alpha_bp removed"
+  },
+  {
+   "mutant": "M3-wrappedIsL0",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustTestsFailed": 6,
+   "diffExit": 1,
+   "diffMismatches": 2403,
+   "fault": "wrapped single byte rejected as L0 (the LP1 framing convention)"
+  },
+  {
+   "mutant": "M4-reservedHigh",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustTestsFailed": 2,
+   "diffExit": 1,
+   "diffMismatches": 4,
+   "fault": "reserved id range ends at C0C0FE instead of C0C0FF"
+  },
+  {
+   "mutant": "M5-duplicateIds",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustTestsFailed": 2,
+   "diffExit": 1,
+   "diffMismatches": 220,
+   "fault": "duplicate member ids allowed (> instead of >=)"
+  },
+  {
+   "mutant": "M6-chainIdZero",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustTestsFailed": 4,
+   "diffExit": 1,
+   "diffMismatches": 31,
+   "fault": "chainId 0 accepted"
+  },
+  {
+   "mutant": "M7-sysBeforeOrder",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustTestsFailed": 2,
+   "diffExit": 1,
+   "diffMismatches": 810,
+   "fault": "gsSys judged before gsOrder"
+  },
+  {
+   "mutant": "M8-crossesAsTruncated",
+   "applied": true,
+   "rustTestExit": 101,
+   "rustTestsFailed": 1,
+   "diffExit": 1,
+   "diffMismatches": 2951,
+   "fault": "L0 detail \"item crosses list end\" reported as \"truncated list\""
+  }
+ ]
+}

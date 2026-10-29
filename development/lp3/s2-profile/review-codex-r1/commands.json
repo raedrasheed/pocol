@@ -1,0 +1,152 @@
+[
+  {
+    "name": "rust-version",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "-vV"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.071
+  },
+  {
+    "name": "build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--offline",
+      "--locked"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 29.819
+  },
+  {
+    "name": "regression",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "profile",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "fixtures_integration"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 8.522
+  },
+  {
+    "name": "review-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/pocol-s2-review/review_checks.rs",
+      "--extern",
+      "lp1_node=/workspace/pocol-s2-review/target/debug/liblp1_node.rlib",
+      "-L",
+      "dependency=/workspace/pocol-s2-review/target/debug/deps",
+      "-o",
+      "/workspace/pocol-s2-review/review-checks"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.887
+  },
+  {
+    "name": "review-checks",
+    "args": [
+      "/workspace/pocol-s2-review/review-checks",
+      "--nocapture"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.399
+  },
+  {
+    "name": "verify-fixtures",
+    "args": [
+      "/workspace/pocol-s2-review/target/debug/lp1-node",
+      "verify-fixtures"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.977
+  },
+  {
+    "name": "linux-store-explicit-rejection",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--test",
+      "store_journal",
+      "writer_is_explicitly_unsupported_off_windows",
+      "--",
+      "--exact"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 1.162
+  },
+  {
+    "name": "fmt",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "fmt",
+      "--",
+      "--check"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.177
+  },
+  {
+    "name": "privacy-negative",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "/workspace/pocol-s2-review/privacy.rs",
+      "--extern",
+      "lp1_node=/workspace/pocol-s2-review/target/debug/liblp1_node.rlib",
+      "-L",
+      "dependency=/workspace/pocol-s2-review/target/debug/deps",
+      "-o",
+      "/workspace/pocol-s2-review/privacy"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 1,
+    "seconds": 0.05
+  },
+  {
+    "name": "privacy-profile-negative",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "/workspace/pocol-s2-review/privacy-profile.rs",
+      "--extern",
+      "lp1_node=/workspace/pocol-s2-review/target/debug/liblp1_node.rlib",
+      "-L",
+      "dependency=/workspace/pocol-s2-review/target/debug/deps",
+      "-o",
+      "/workspace/pocol-s2-review/privacy-profile"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 1,
+    "seconds": 0.056
+  }
+]

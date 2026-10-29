@@ -1,0 +1,20 @@
+
+running 5 tests
+test all_named_pg_rpc_rejections_and_405_acceptance ... ok
+test checked_overflow_and_repeating_rationals_never_authorize ... ok
+test each_r26_predicate_has_an_isolated_negative_control ... FAILED
+test pg_l_and_end_registry_derivations ... ok
+test exact_default_rpc_derivations ... ok
+
+failures:
+
+---- each_r26_predicate_has_an_isolated_negative_control stdout ----
+thread 'each_r26_predicate_has_an_isolated_negative_control' panicked at 'predicate 6', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs:91:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    each_r26_predicate_has_an_isolated_negative_control
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

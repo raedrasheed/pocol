@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-70a9bfcae69ef9fe)
+
+running 1 test
+
+thread 'both_roles_transfer_no_callback_and_no_snapshot_commit' (57970) panicked at tests/pay_boundary.rs:43:31:
+assertion `left == right` failed
+  left: 100
+ right: 60
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test both_roles_transfer_no_callback_and_no_snapshot_commit ... FAILED
+
+failures:
+
+failures:
+    both_roles_transfer_no_callback_and_no_snapshot_commit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test pay_boundary`

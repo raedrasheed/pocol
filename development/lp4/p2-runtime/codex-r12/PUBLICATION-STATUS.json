@@ -1,0 +1,57 @@
+{
+  "R11PublishedCommit": "5b8db83b0571f1b9667709e982a0e6d36d0c2ef8",
+  "R12ThisCommit": "Both exact previously blocked gzip files restored with original byte hashes; prior evidence and historical rejection preserved.",
+  "completeLocalBackup": {
+    "path": "/workspace/work/lp4/p2-registry-full/preserved-evidence/r11-r12-complete-local-preservation.tar.gz",
+    "bytes": 717030,
+    "sha256": "09fd010a9e4f355600bbd34b646e535d5252d72a0b817617be09737dc08402b8",
+    "allMembersVerified": 54,
+    "localCommit": "fddca02cf7afa75b229240795c0c96fb577db970"
+  },
+  "preservedCompleteLocalGitCommit": "fddca02cf7afa75b229240795c0c96fb577db970",
+  "cause": "Resolved by explicit file/SHA/destination owner authorization, full decompressed content verification and accepted GitHub blob creation.",
+  "requiredAction": "No repeat publication approval needed for these exact files; inspect remaining P2 execution/provenance/CI requirements.",
+  "noBypass": "The original bytes were uploaded through the same authorized connector after explicit approval; no splitting or alternate route. Existing independent CI summary-only export remains unchanged.",
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false,
+  "previouslyBlockedFiles": [
+    {
+      "name": "attempt1-interrupted-cases.jsonl.gz",
+      "bytes": 22829,
+      "sha256": "13b68164e803b50a790b6d1f9d675dce13ef7ed94ac8902c452b98c16077e6e0",
+      "localPath": "/workspace/work/lp4/p2-registry-full/preserved-evidence/attempt1-interrupted-cases.jsonl.gz",
+      "branchPublication": "BLOCKED; NOT UPLOADED",
+      "reason": "Auto-review rejected public compressed-payload publication despite general authorization; no further attempts or file splitting."
+    },
+    {
+      "name": "independent-unmodified-cases.jsonl.gz",
+      "bytes": 647728,
+      "sha256": "fa975eff51b0de1b81e2599419748e1a48db5045741ad7b46f1e82dcd124255e",
+      "localPath": "/workspace/work/lp4/p2-registry-full/preserved-evidence/independent-unmodified-cases.jsonl.gz",
+      "branchPublication": "BLOCKED; NOT UPLOADED",
+      "reason": "Auto-review rejected public compressed-payload publication despite general authorization; no further attempts or file splitting."
+    }
+  ],
+  "blockedFiles": [],
+  "publishedFiles": [
+    {
+      "name": "attempt1-interrupted-cases.jsonl.gz",
+      "bytes": 22829,
+      "sha256": "13b68164e803b50a790b6d1f9d675dce13ef7ed94ac8902c452b98c16077e6e0",
+      "localPath": "/workspace/work/lp4/p2-registry-full/preserved-evidence/attempt1-interrupted-cases.jsonl.gz",
+      "branchPublication": "Included in this publication commit after explicit owner authorization and full decompressed inspection",
+      "reason": "Auto-review rejected public compressed-payload publication despite general authorization; no further attempts or file splitting.",
+      "gitBlobSHA": "7668559148c1ac0a118f8d481c5175619ffaea7c"
+    },
+    {
+      "name": "independent-unmodified-cases.jsonl.gz",
+      "bytes": 647728,
+      "sha256": "fa975eff51b0de1b81e2599419748e1a48db5045741ad7b46f1e82dcd124255e",
+      "localPath": "/workspace/work/lp4/p2-registry-full/preserved-evidence/independent-unmodified-cases.jsonl.gz",
+      "branchPublication": "Included in this publication commit after explicit owner authorization and full decompressed inspection",
+      "reason": "Auto-review rejected public compressed-payload publication despite general authorization; no further attempts or file splitting.",
+      "gitBlobSHA": "bf07c95837b494f872d93b393a697a0ad7a61ccf"
+    }
+  ]
+}

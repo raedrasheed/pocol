@@ -1,0 +1,10 @@
+{
+  "checkpoint": "coordination/checkpoints/issue3-start.json",
+  "checkpointSha256": "1d8742ba04c99da61cab4f2e827cd99f975e91c9c36521d3d5958ed60da83751",
+  "at": "2026-10-07T19:02:39.715Z",
+  "comparison": "SHA256 hexadecimal normalized to lower case; checkpoint uses upper case",
+  "checked": 139,
+  "passed": 139,
+  "failed": 0,
+  "failures": []
+}

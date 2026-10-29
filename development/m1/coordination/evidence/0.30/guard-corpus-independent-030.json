@@ -1,0 +1,113 @@
+{
+  "source": "Root-selected malformed/wire boundary cases independent of author corpus; no execution before author completion",
+  "cases": [
+    {
+      "id": "missingId",
+      "mutation": "remove response id",
+      "expected": "reject"
+    },
+    {
+      "id": "wrongId",
+      "mutation": "response id9999",
+      "expected": "reject"
+    },
+    {
+      "id": "duplicateResult",
+      "mutation": "duplicate result, first0xc0 secondvalidheader",
+      "expected": "reject"
+    },
+    {
+      "id": "duplicateCode",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32603,\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "expected": "reject"
+    },
+    {
+      "id": "duplicateNestedDelay",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":2000,\"retryAfterMs\":250}}}",
+      "expected": "reject"
+    },
+    {
+      "id": "id-bool",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":true,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "expected": "reject"
+    },
+    {
+      "id": "id-string",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":\"2\",\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "expected": "reject"
+    },
+    {
+      "id": "id-negative",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":-1,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "expected": "reject"
+    },
+    {
+      "id": "id-tooLarge",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":4294967296,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "expected": "reject"
+    },
+    {
+      "id": "id-floatFraction",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2.5,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "expected": "reject"
+    },
+    {
+      "id": "id-floatIntegral",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2.0,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "expected": "retry"
+    },
+    {
+      "id": "depth-16",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250,\"extra\":[[[[[[[[[[[[[0]]]]]]]]]]]]]}}}",
+      "declaredDepth": 16,
+      "expected": "retry"
+    },
+    {
+      "id": "depth-17",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250,\"extra\":[[[[[[[[[[[[[[0]]]]]]]]]]]]]]}}}",
+      "declaredDepth": 17,
+      "expected": "reject"
+    },
+    {
+      "id": "blockNumberBytes-4096",
+      "method": "eth_blockNumber",
+      "padLiteralToBytes": 4096,
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x1\"}",
+      "expected": "pass"
+    },
+    {
+      "id": "blockNumberBytes-4097",
+      "method": "eth_blockNumber",
+      "padLiteralToBytes": 4097,
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x1\"}",
+      "expected": "reject"
+    },
+    {
+      "id": "headersBytes-98304",
+      "method": "pocol_getHeaders",
+      "padSavedValidHeaderToBytes": 98304,
+      "expected": "pass"
+    },
+    {
+      "id": "headersBytes-98305",
+      "method": "pocol_getHeaders",
+      "padSavedValidHeaderToBytes": 98305,
+      "expected": "reject"
+    },
+    {
+      "id": "invalidUTF8",
+      "bytesHex": "ff",
+      "expected": "reject"
+    },
+    {
+      "id": "NaN",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":NaN}}}",
+      "expected": "reject"
+    },
+    {
+      "id": "truncated",
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2,",
+      "expected": "reject"
+    }
+  ]
+}

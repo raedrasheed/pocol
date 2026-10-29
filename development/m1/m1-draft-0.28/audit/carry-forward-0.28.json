@@ -1,0 +1,38 @@
+{
+  "schema": "pocol-m1-carry-forward/0.28",
+  "status": "bindings checked by tools/run_checks_028.py; no 0.27 computation is re-run",
+  "reused": {
+    "package": "m1-draft-0.27",
+    "reviewCopy": "coordination/review-001/m1-draft-0.27",
+    "manifest": "coordination/review-001/m1-draft-0.27/review-copy-manifest.json",
+    "mustBeByteIdentical": ["tools/v1_ref_027.py", "tools/run_checks_027.py", "vectors/c32-error-cases.json", "vectors/v1-sha-accounting.json",
+                            "annex/C32-RPC-ERROR-ENVELOPE.md", "annex/V1-SHA-COST.md", "owner/V1-SHA-COST-CHANGE-REQUEST.md", "audit/consolidation-0.27.json"]
+  },
+  "savedResults": {"file": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json", "checks": 320, "passed": 248, "recorded": 72, "failed": 0,
+                   "rows": {"CompleteCandidate": 34, "Partial": 7}},
+  "independent": [
+    {"file": "coordination/review-001/busy-independent-probes-0.27.json", "checks": 26, "passed": 26, "failed": 0},
+    {"file": "coordination/review-001/v1-sha-independent-0.27.json", "checks": 18, "passed": 18, "failed": 0, "flag": "rateCasesAreConditionalOnUnapprovedCap"},
+    {"file": "coordination/review-001/v1-hash-independent-0.27.json", "checks": 3677, "passed": 3677, "failed": 0},
+    {"file": "coordination/review-001/v1-signatures-independent-0.27.json", "checks": 31, "failed": 0, "flag": "noSigningOrSubmission"},
+    {"file": "coordination/review-001/asert-native-comparison-0.27.json", "checks": 1027, "passed": 1027, "failed": 0}
+  ],
+  "sourceUnchanged": {"results": "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json",
+                      "files": ["reference/browser.md", "reference/consensus.md", "reference/network.md", "reference/validation.md"],
+                      "literal": {"file": "reference/browser.md", "lines": [58, 58], "text": "≤ 13 SHA-256"}},
+  "superseded": [
+    {"file": "m1-draft-0.27/annex/C32-RPC-ERROR-ENVELOPE.md", "text": "the cap reuses the only approved −32021 range"},
+    {"file": "m1-draft-0.27/annex/C32-RPC-ERROR-ENVELOPE.md", "text": "only sends delays inside these ranges, so its behaviour is unchanged"},
+    {"file": "m1-draft-0.27/annex/C32-RPC-ERROR-ENVELOPE.md", "text": "inside the 10 s RP protection of network.md:374"},
+    {"file": "m1-draft-0.27/vectors/c32-error-cases.json", "text": "inside the 10 s RP protection of network.md:374"},
+    {"file": "m1-draft-0.27/tools/run_checks_027.py", "text": "inside the 10 s RP protection"},
+    {"file": "m1-draft-0.27/M1-SPEC-0.27-AMENDMENT.md", "text": "total wait ≤ 6000 ms"}
+  ],
+  "ledgerExpect": {"C32": "closed-reference-repair", "P-C32-2": "open-owner-client-policy", "V1-SHA-COST": "open-source-clarification",
+                   "U08-CR": "pending-owner-change-request", "C07": "open", "C06": "open", "RF-E6-1~": "unapproved"},
+  "ownerOpen": ["U01", "U02", "U10", "U14", "CR-M1-01", "U08", "RF-E6-1", "V1-SHA-COST", "P-C32-2"],
+  "rows": {"CompleteCandidate": ["X1", "X2", "X3", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "R2", "R3", "R4", "S1", "S2", "S3", "S4",
+                                 "Q1", "Q2", "Q3", "Q4", "E1", "E2", "E3", "E4", "E5", "E7", "V2", "V3", "V4"],
+           "ownerBlocked": {"C1": ["U01"], "C2": ["U01"], "C3": ["U01", "U02", "U10", "U14", "CR-M1-01", "U08"], "C4": ["U01", "U10", "U08"],
+                            "R1": ["CR-M1-01"], "E6": ["RF-E6-1"], "V1": ["V1-SHA-COST", "P-C32-2"]}}
+}

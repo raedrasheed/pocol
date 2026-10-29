@@ -1,0 +1,59 @@
+{
+  "schema": "pocol-m1-c35/0.31",
+  "status": "C35 fixtures: error-data size and error clipping measured by the native Node JSON codec (tools/json_codec_031.mjs) behind the unchanged-order receive guard (tools/guard_ref_031.py). Expected byte counts come from root's native oracles; the author computed nothing. Root executes.",
+  "sources": {
+    "bound": {"file": "reference/browser.md", "lines": [283, 285], "literals": ["message يُقص إلى 256 وحدة UTF-16", "≤ 4 KiB"]},
+    "decision": {"file": "coordination/review-001/REVIEW-DECISIONS-0.30.json", "json": "sourceEncodingDecision",
+                 "contains": ["well-formed nativeJSON.stringify UTF8 bytes", "lone-surrogate escaping", "NativeNode referencecodec preferred"]},
+    "review": {"file": "coordination/review-001/REVIEW-0.30.md", "lines": [9, 11], "literals": ["6647", "3347", "lone-surrogate"]}
+  },
+  "oracles": [
+    {"file": "coordination/review-001/error-data-native-oracle-030.json", "node": "v22.13.1", "rowsField": "rows", "dataField": "data", "rows": 3},
+    {"file": "coordination/review-001/error-data-native-expanded-031.json", "node": "v22.13.1", "rowsField": "rows", "rawField": "rawJsonData", "rows": 14}
+  ],
+  "loaderHistory": {
+    "initial": {"file": "coordination/review-001/error-data-native-comparison-030.json", "checks": 3, "failed": 2,
+                "why": "root's first loader read the native UTF-8 file with the platform default encoding (emoji 9947 vs 4447); a harness issue, not a source finding"},
+    "corrected": {"file": "coordination/review-001/error-data-native-comparison-utf8-030.json", "checks": 3, "failed": 1,
+                  "remainingGenuine": "loneSurrogateData: native 6647, 0.30 model 3347 (C35)"},
+    "rule": "every oracle file is read with an explicit UTF-8 reader; their sha256 values are recorded"
+  },
+  "busyTemplate": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":<RAWDATA>}}",
+  "perOracleRow": {
+    "direct": "the native codec on the busy reply carrying the row's raw data reports dataBytes == expectedJsonUtf8Bytes and dataDropped == shouldDrop",
+    "integrated": "S1BN, busy reply, S1HDR through the guarded HeaderNetCheck at latency 0: shouldDrop -> viewIncomplete, guard null, sleptMs 0, requests 2, decodes 0, no frame; else ok, sleptMs 250, requests 3, decodes 1",
+    "previousModel": "the 0.30 Python measurement (guard_ref_030.compact_bytes on the Python-parsed data) is recorded beside the native count; it is evidence of the defect, never an expectation"
+  },
+  "boundaries": [
+    {"id": "LS-4096", "pad": {"lone": 675, "ascii": 1}, "expectedDataBytes": 4096, "drop": false, "why": "45 + 675 x 6 (\\ud800 escaped by JSON.stringify) + 1"},
+    {"id": "LS-4097", "pad": {"lone": 675, "ascii": 2}, "expectedDataBytes": 4097, "drop": true},
+    {"id": "EM-4096", "pad": {"emoji": 1012, "ascii": 3}, "expectedDataBytes": 4096, "drop": false, "why": "45 + 1012 x 4 (U+1F600 raw UTF-8) + 3"},
+    {"id": "EM-4097", "pad": {"emoji": 1012, "ascii": 4}, "expectedDataBytes": 4097, "drop": true},
+    {"id": "AS-4096", "pad": {"ascii": 4051}, "expectedDataBytes": 4096, "drop": false},
+    {"id": "AS-4097", "pad": {"ascii": 4052}, "expectedDataBytes": 4097, "drop": true}
+  ],
+  "boundaryShape": "data = {\"reason\":\"busy\",\"retryAfterMs\":250,\"pad\":\"<pad>\"} written as raw JSON text: lone surrogates as the escape \\ud800, emoji as raw UTF-8, then ASCII 'x'; 45 bytes without pad content",
+  "clip": [
+    {"id": "CLIP-pairSplit", "message": {"ascii": 255, "emoji": 1, "tail": 10}, "expect": {"messageUnits": 267, "clipped": true, "textContains": "\\ud83d\"", "outcome": "ok", "sleptMs": 250},
+     "why": "slice(0, 256) cuts the surrogate pair; JSON.stringify escapes the lone half, so the re-serialized reply is valid JSON for the unchanged checker"},
+    {"id": "CLIP-256", "message": {"ascii": 256}, "expect": {"messageUnits": 256, "clipped": false, "passedOriginal": true, "outcome": "ok", "sleptMs": 250}},
+    {"id": "CLIP-257", "message": {"ascii": 257}, "expect": {"messageUnits": 257, "clipped": true, "passedOriginal": false, "outcome": "ok", "sleptMs": 250}}
+  ],
+  "ordering": {
+    "rule": "a reply that fails size, UTF-8, depth, parseStrict or the envelope id never reaches the native codec (codecCalled false for that reply)",
+    "cases": [
+      {"id": "ORD-utf8", "reply": {"seq": [{"t": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32021,\"message\":\"bu"}, {"h": "ff"}, {"t": "sy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}"}]}, "guard": ["recvParse", "utf8"]},
+      {"id": "ORD-depth", "reply": {"depthBusy": 17}, "guard": ["recvDepth", "depth"]},
+      {"id": "ORD-duplicate", "reply": {"text": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250,\"retryAfterMs\":2000}}}"}, "guard": ["recvParse", "parseStrict"]},
+      {"id": "ORD-constant", "reply": {"text": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":NaN}}}"}, "guard": ["recvParse", "parseStrict"]},
+      {"id": "ORD-wrongId", "reply": {"text": "{\"jsonrpc\":\"2.0\",\"id\":9999,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}"}, "guard": ["envelope", "idMismatch"]},
+      {"id": "ORD-oversize", "reply": {"oversizeBusy": 98305}, "guard": ["recvLimit", "stream"]},
+      {"id": "ORD-declared", "reply": {"declaredBusy": 98305}, "guard": ["recvLimit", "contentLength"]}
+    ],
+    "positive": [
+      {"id": "ORD-result", "why": "a result reply never calls the codec and reaches the checker byte for byte", "replies": ["S1BN", "S1HDR"]},
+      {"id": "ORD-smallBusy", "why": "an unchanged small error reply calls the codec once and is passed as its original text", "replies": ["S1BN", "busy:250", "S1HDR"]}
+    ]
+  },
+  "unchanged": "rate [0, 2000] and busy [250, 2000] delays, at most 3 retries, the shared 10 s RP budget, numeric id matches 2.0/2e0, byte and depth limits, the UTF-16 message cap and the declared-length order are re-run through 0.31 via the 0.30 C33 cases, the 0.29 HeaderNetCheck deadline cases and the saved 0.27 transcripts"
+}

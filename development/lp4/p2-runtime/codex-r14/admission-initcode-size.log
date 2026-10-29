@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/initcode-size/gst_admission_checks.py", line 37, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/initcode-size/gst_admission_checks.py", line 29, in main
+    check(True,to=b'',data=bytes(49152),gas=1000000);check(False,to=b'',data=bytes(49153),gas=1000000)
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/initcode-size/gst_admission_checks.py", line 24, in check
+    assert actual==expected,('admission boundary',count,actual,expected)
+           ^^^^^^^^^^^^^^^^
+AssertionError: ('admission boundary', 7, True, False)

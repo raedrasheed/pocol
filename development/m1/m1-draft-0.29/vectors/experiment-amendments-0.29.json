@@ -1,0 +1,34 @@
+{
+  "schema": "pocol-m1-experiment-amendments/0.29",
+  "status": "experiment DEFINITIONS amended for the delegated overlay; nothing here has run. Implementation experiments (Phase A: EVM, Chrome, M3-TS, node) are not M1-specification gate conditions (m1-draft-0.4 R4-02); a missing definition is. Base: m1-draft-0.25/supplements/s25-experiment-specs.json.",
+  "base": "m1-draft-0.25/supplements/s25-experiment-specs.json",
+  "amended": [
+    {"id": "E01", "phase": "A", "change": "T1-12 follows U10 keep-with-warning with the P-U10-1 warning points; T1-14 is extended by the U08 rows",
+     "addInputs": ["m1-draft-0.29/vectors/u10-publisher-transfer-0.29.json", "m1-draft-0.29/vectors/u08-canonical-split-0.29.json"],
+     "addPass": ["every u10 case gives its step results, events and final roles on the deployed Website contract", "every u08 contract row reverts with its exact error (invalid lengths, arrays, noncanonical) and every boundary length is accepted"],
+     "dependsOnDecisions": ["P-U08-1 (root) for the ManifestSplit index of rows other than [40, 39]", "P-U10-1 (root) for the publisher-tool warning points"],
+     "definitionComplete": true},
+    {"id": "E03", "phase": "A", "change": "CR-M1-01 adopted (delegated) with the deadline amendment: retries use the busy/rate ranges, no wait or success at elapsed >= 10000, request timeout min(10000, remaining); the 20000 ms cumulative wait and the 0..10000 single wait are superseded",
+     "addInputs": ["m1-draft-0.29/vectors/deadline-cases-0.29.json (content and bud sections)"],
+     "retainedInputs": ["m1-draft-0.3/vectors/snapshot-mock-scenarios.json", "m1-draft-0.4/vectors/snapshot-invariants.json", "m1-draft-0.5/vectors/proof-response-cases.json"],
+     "replacedPass": {"MPT-15": "a -32021 from pocold is waited exactly retryAfterMs only if it is in range and ends before the deadline; same anchor; counted in the 10 s whole-load budget (was: counted per rev 2 section 6)"},
+     "addPass": ["no state-read request is sent and no reply is used at elapsed >= 10000", "the eth_getProof reply limit 524288, STATE_POOL 1 MiB, the site ban and the 6-key proof are observed unchanged"],
+     "claims": "none: actual node compatibility of eth_getProof is the experiment's result, not an assumption",
+     "definitionComplete": true},
+    {"id": "E07", "phase": "A", "change": "U02 column chosen (interstitial); the action rows of the 0.29 viewer table are added",
+     "addInputs": ["m1-draft-0.29/vectors/u02-revoked-viewer-0.29.json"],
+     "addPass": ["every row's action trace is observed, including zero chunk fetches before the click", "the revoked banner persists across in-session navigation"],
+     "dependsOnDecisions": ["P-U02-1 and P-U02-2 (root)"],
+     "definitionComplete": true}
+  ],
+  "new": [
+    {"id": "X-U14", "phase": "A", "what": "browser enforcement of the U14 whole-load deadline for the HeaderNetCheck initial load and the content load",
+     "inputs": ["m1-draft-0.29/vectors/deadline-cases-0.29.json (hnc, content, rp sections)"],
+     "harness": "the extension against a scripted RP/LN mock that injects the listed latencies, error replies and computation stalls; first run on a virtual clock (fake timers), then on the real clock",
+     "pass": ["virtual clock: every case gives its outcome; no request is sent, no sleep ends and no frame is created at elapsed >= 10000", "real clock: the same outcomes; the observed verdict times are RECORDED (a measurement, not a gate)"],
+     "dependsOnDecisions": ["P-D29-1, P-D29-2, P-D29-3 (root)"],
+     "notInM1Gate": "the outcome of this run is an implementation result (R4-02); only its definition is an M1 condition",
+     "definitionComplete": true}
+  ],
+  "unchanged": ["E02", "E04", "E05", "E06"]
+}

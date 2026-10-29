@@ -1,0 +1,1 @@
+{"error":{"kind":"unsupportedPlatform","detail":"exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed"}}

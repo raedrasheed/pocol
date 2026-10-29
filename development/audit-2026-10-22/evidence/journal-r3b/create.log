@@ -1,0 +1,16 @@
+cmd: env  flock cpu.lock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-journal/release/deps/journal_measure-38e7084ad7dc4091 jm_create_state_term --exact --ignored --nocapture --test-threads=1
+=== start 2026-10-24T05:47:29Z ===
+
+running 1 test
+test jm_create_state_term ... JM-CREATE {"buildSeconds":0.591035174,"coldCallChildMs":7.548033,"create2ChildMs":17.409834999999998,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":63.12411740890687,"emptyChildMs":1.8181779999999998,"liveUserAccounts":5,"liveUserSlots":0,"manySmallCreateMs":35.596833000000004,"manySmallCreateTxs":149,"manySmallPerCreateMicros":226.70238255033556,"stateAccountsAll":10}
+JM-CREATE {"buildSeconds":3.816979672,"coldCallChildMs":25.386313,"create2ChildMs":85.200504,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":272.54653846153843,"emptyChildMs":17.881509,"liveUserAccounts":2765,"liveUserSlots":0,"manySmallCreateMs":167.120248,"manySmallCreateTxs":149,"manySmallPerCreateMicros":1001.6022751677853,"stateAccountsAll":2770}
+JM-CREATE {"buildSeconds":10.146309284,"coldCallChildMs":40.326931,"create2ChildMs":153.601031,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":470.65774089068833,"emptyChildMs":37.348569,"liveUserAccounts":5525,"liveUserSlots":0,"manySmallCreateMs":338.095782,"manySmallCreateTxs":149,"manySmallPerCreateMicros":2018.4376711409395,"stateAccountsAll":5530}
+JM-CREATE {"buildSeconds":20.846421396,"coldCallChildMs":107.291448,"create2ChildMs":263.419265,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":848.543020242915,"emptyChildMs":53.829139,"liveUserAccounts":8055,"liveUserSlots":0,"manySmallCreateMs":544.621799,"manySmallCreateTxs":149,"manySmallPerCreateMicros":3293.910469798658,"stateAccountsAll":8060}
+JM-CREATE {"buildSeconds":33.795288121,"coldCallChildMs":78.938164,"create2ChildMs":358.224853,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":1174.2625020242915,"emptyChildMs":68.18201499999999,"liveUserAccounts":10815,"liveUserSlots":0,"manySmallCreateMs":635.612705,"manySmallCreateTxs":149,"manySmallPerCreateMicros":3808.2596644295304,"stateAccountsAll":10820}
+JM-CREATE {"buildSeconds":49.037670465,"coldCallChildMs":96.652065,"create2ChildMs":380.213622,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":1179.6487408906883,"emptyChildMs":88.84038299999999,"liveUserAccounts":13345,"liveUserSlots":0,"manySmallCreateMs":696.5399960000001,"manySmallCreateTxs":149,"manySmallPerCreateMicros":4078.5208926174505,"stateAccountsAll":13350}
+JM-CREATE {"buildSeconds":68.124021314,"coldCallChildMs":125.34845,"create2ChildMs":589.252126,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":1971.7434534412955,"emptyChildMs":102.231493,"liveUserAccounts":15645,"liveUserSlots":0,"manySmallCreateMs":895.660109,"manySmallCreateTxs":149,"manySmallPerCreateMicros":5325.024268456376,"stateAccountsAll":15650}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 68.23s
+
+=== end 2026-10-24T05:49:04Z exit=0 ===

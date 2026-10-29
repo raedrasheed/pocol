@@ -1,0 +1,28 @@
+{
+  "schema": "pocol-m1-rfe61-binding/0.29",
+  "status": "delegated RF-E6-1 option A: the effective x12b literal is adminStaleDropped = 2 (op1 1, op2 1) with the derived 5001 cell, and zero allocation, ticket and set for both stale requests. The total is NOT re-simulated here: it is bound exactly to the executed, root-reviewed 0.18 results (the 0.17 suite re-run inside 0.18), whose input vector must be byte-identical to the current 0.17 file. The source literal 'adminStaleDropped = 1' stays preserved history.",
+  "source": {"file": "reference/validation.md", "lines": [738, 738], "literals": ["adminStaleDropped = 1", "op1"]},
+  "vector": {"file": "m1-draft-0.17/vectors/rf-e6-1-x12-timelines.json", "mode": "x12b", "adminStaleDropped": 2, "staleDroppedByOp": {"op1": 1, "op2": 1}, "derivedCell": 5001},
+  "results": {"file": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+              "inputRecord": "suite017.input.sha256 m1-draft-0.17/vectors/rf-e6-1-x12-timelines.json",
+              "review": {"file": "coordination/review-001/REVIEW-0.18.md", "literals": ["global noCancel has two stale drops", "adds5001retry"]}},
+  "bindings": [
+    {"check": "suite017.RF-E6-1.x12b.adminStaleDroppedTotal", "status": "pass", "actual": 2},
+    {"check": "suite017.RF-E6-1.x12b.staleDroppedByOp", "status": "pass", "fifo": {"op1": 1, "op2": 1}, "trace": {"op1": 1, "op2": 1}},
+    {"check": "suite017.RF-E6-1.x12b.fifoLog", "status": "pass", "contains": [["request", 5001, "op2", 2], ["staleDrop", 7000, "op1", 2], ["staleDrop", 7000, "op2", 2]]},
+    {"check": "suite017.RF-E6-1.x12b.zeroAllocForStale", "status": "pass"},
+    {"check": "suite017.RF-E6-1.x12b.zeroTicketForStale", "status": "pass"},
+    {"check": "suite017.RF-E6-1.x12b.zeroSetAfterResolution", "status": "pass"},
+    {"check": "suite017.RF-E6-1.x12b.noViolations", "status": "pass"},
+    {"check": "suite017.RF-E6-1.x12b.tracedEqualsUntraced", "status": "pass"},
+    {"check": "suite017.RF-E6-1.x12b.literalWitnessOp1", "status": "pass"},
+    {"check": "suite017.RF-E6-1.x12b-op1only.adminStaleDroppedTotal", "status": "pass", "actual": 1},
+    {"check": "suite017.RF-E6-1.x12.adminStaleDroppedTotal", "status": "pass", "actual": 0},
+    {"check": "suite017.RF-E6-1.supplementalCellsTagged", "status": "pass"}
+  ],
+  "historicalGaps": [
+    {"check": "suite017.RF-E6-1.x12b.literalTotal", "status": "recorded", "reboundTo": "this overlay: effective literal total 2 (delegated RF-E6-1 A)"},
+    {"check": "suite017.suite016.BR24-x12b.literalConflict.RF-E6-1", "status": "recorded", "model": 2, "reboundTo": "this overlay: effective literal total 2 (delegated RF-E6-1 A)"}
+  ],
+  "effectiveText": "x12b (bridge-fault:adminNoCancel, every operation): add the cell '5001: T2a deadline -> T2b queued behind T1b; T2a keeps slot B'. Criterion: adminStaleDropped = 2 (op1: 1, op2: 1); zero alloc, DiskLedger ticket and set for both stale requests; K1 = {k9:'n'}."
+}

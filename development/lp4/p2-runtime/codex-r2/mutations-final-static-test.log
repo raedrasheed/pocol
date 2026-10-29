@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-a42b74a75984f846)
+
+running 1 test
+
+thread 'inherited_static_call_cannot_write_balances' (67028) panicked at tests/pay_boundary.rs:110:5:
+assertion `left == right` failed
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test inherited_static_call_cannot_write_balances ... FAILED
+
+failures:
+
+failures:
+    inherited_static_call_cannot_write_balances
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test pay_boundary`

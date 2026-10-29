@@ -1,0 +1,24 @@
+   Compiling lp1-node v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 4.12s
+     Running tests/envelope.rs (prototypes/lp1-node/target/debug/deps/envelope-51a199780388289c)
+
+running 3 tests
+test t0_l0_shapes_and_canonical_rejections ... ok
+test t0_l2_pow_and_max_shape_not_full_validity ... FAILED
+test t0_l1_net_and_signed_diagnostics ... ok
+
+failures:
+
+---- t0_l2_pow_and_max_shape_not_full_validity stdout ----
+thread 't0_l2_pow_and_max_shape_not_full_validity' panicked at 'assertion failed: `(left == right)`
+  left: `3069`,
+ right: `3067`', tests/envelope.rs:42:19
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    t0_l2_pow_and_max_shape_not_full_validity
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+error: test failed, to rerun pass '--test envelope'

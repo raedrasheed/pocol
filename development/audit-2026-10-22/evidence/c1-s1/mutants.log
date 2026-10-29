@@ -1,0 +1,67 @@
+C-1 S1 mutation controls, 2026-10-24, on the tree of b517b0f (each mutant applied to a fresh copy, built in its own target dir; tests: cargo test --release --test consensus history).
+The runner (scratch, not committed) lists each mutant as (file, original text, mutated text).
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "M1 receipts read from the parent block", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt", "canonical_history_off_the_heap_answers_as_it_did_resident"]}
+{"mutant": "M2 first transaction of each block not indexed", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt", "canonical_history_off_the_heap_answers_as_it_did_resident"]}
+{"mutant": "M3 offload inside the resident window", "status": "KILLED", "failed": ["canonical_history_off_the_heap_answers_as_it_did_resident"]}
+{"mutant": "M4 replay does not refill history", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt", "canonical_history_off_the_heap_answers_as_it_did_resident"]}
+{"mutant": "M5 import does not write history", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt", "canonical_history_off_the_heap_answers_as_it_did_resident"]}
+{"mutant": "M6 find_tx takes any stored block", "status": "KILLED", "failed": ["canonical_history_off_the_heap_answers_as_it_did_resident"]}
+{"mutant": "M7 receipts seal not checked", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt"]}
+{"mutant": "M8 index entry not checked against its block", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt"]}
+{"mutant": "M9 no integrity check at open", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt"]}
+{"mutant": "M10 restore below the resident window", "status": "KILLED", "failed": ["canonical_history_off_the_heap_answers_as_it_did_resident", "a_damaged_history_store_is_never_served_and_is_rebuilt"]}
+{"mutant": "M11 a damaged store answers with empty receipts", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt"]}
+{"mutant": "M12 logs stop at an unreadable block", "status": "KILLED", "failed": ["a_damaged_history_store_is_never_served_and_is_rebuilt"]}
+
+Mutants (file: original -> mutated):
+M1 receipts read from the parent block
+  pocold/src/node.rs
+  - match self.history.receipts(&hash){
+  + match self.history.receipts(&e.parent.unwrap_or_default()){
+M2 first transaction of each block not indexed
+  pocold/src/history.rs
+  - for (i,h) in tx_hashes.iter().enumerate(){
+  + for (i,h) in tx_hashes.iter().enumerate().skip(1){
+M3 offload inside the resident window
+  pocold/src/chain.rs
+  - let below=head_h.saturating_sub(w)+1;
+  + let below=head_h.saturating_sub(w/2)+1;
+M4 replay does not refill history
+  pocold/src/node.rs
+  - if history.put_with(&entry.hash,&entry.receipts,&entry.tx_hashes,false)
+  + if Ok::<bool,crate::history::HistoryError>(false)
+M5 import does not write history
+  pocold/src/node.rs
+  - if let Err(e)=self.history.put(&entry.hash,&entry.receipts,&entry.tx_hashes){
+  + if let Err(e)=Ok::<bool,crate::history::HistoryError>(false){
+M6 find_tx takes any stored block
+  pocold/src/rpc.rs
+  - let Some((b,i))=at.into_iter().find(|(b,_)|n.chain.is_canonical(b)) else{return Ok(None)};
+  + let Some((b,i))=at.into_iter().next() else{return Ok(None)};
+M7 receipts seal not checked
+  pocold/src/history.rs
+  - if v.len()<32||v[..32]!=seal(block,&v[32..])[..]{
+  + if v.len()<32{
+M8 index entry not checked against its block
+  pocold/src/rpc.rs
+  - if e.tx_hashes.get(i)!=Some(h){
+  + if false{
+M9 no integrity check at open
+  pocold/src/history.rs
+  - match catch_unwind(AssertUnwindSafe(||db.check_integrity())){Ok(Ok(true))=>{}_=>return Err(HistoryError("integrity check failed".into()))}
+  + let _=&mut db;
+M10 restore below the resident window
+  pocold/src/chain.rs
+  - let Some(first)=(from_h.max(1).max(window_start)..=head_h)
+  + let Some(first)=(from_h.max(1).max(window_start.min(1))..=head_h)
+M11 a damaged store answers with empty receipts
+  pocold/src/node.rs
+  - Err(err)=>{self.log(&format!("history read for {}: {}",&hex(&hash)[..14],err.0));return None}}
+  + Err(err)=>{self.log(&format!("history read for {}: {}",&hex(&hash)[..14],err.0));}}
+M12 logs stop at an unreadable block
+  pocold/src/rpc.rs
+  - for h in from..=to{let Some(e)=n.chain.canonical_at(h) else{break};let e=whole(n,e)?;let e=&*e;
+  + for h in from..=to{let Some(e)=n.chain.canonical_at(h).and_then(|e|n.view(e)) else{break};let e=&*e;
+
+Result: BASE PASS; 12 of 12 mutants KILLED.

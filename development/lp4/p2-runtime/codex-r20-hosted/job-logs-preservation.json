@@ -1,0 +1,34 @@
+{
+  "archivePath": "/workspace/work/lp4/p2-code01-evidence/preserved/r20-hosted-all-five-with-job-logs.tar.gz",
+  "archiveBytes": 4897017,
+  "archiveSHA256": "3760984cf95026b9193efba9d2743a96e10fd6d54ab96a28fc0adc4010a9062a",
+  "decodedJobLogs": [
+    {
+      "name": "job-118656772221.log",
+      "bytes": 97244,
+      "sha256": "204c5f350ca47d9dbb29ff2c6d472d2ac3c6d834ec2f5b4bf92a6c3ed09bcce5"
+    },
+    {
+      "name": "job-118656772562.log",
+      "bytes": 54032,
+      "sha256": "7f6d9ebf4e55f67769e43e22fa8f316a4315bd5594108fb629c8f7c00577017c"
+    },
+    {
+      "name": "job-118656772642.log",
+      "bytes": 22818,
+      "sha256": "dfa478e0843ae37eeb1f4dbcf60f71732a82f47c0777b48e07f55c05c3d8cc10"
+    },
+    {
+      "name": "job-118656772696.log",
+      "bytes": 40566,
+      "sha256": "6c111aa747ac7fd071174a2cbd9d60035d69c0c49b668cc0e4a825b6607b7502"
+    },
+    {
+      "name": "job-118656772757.log",
+      "bytes": 42002,
+      "sha256": "681889c25dd62d064a0aa8a3361fd1d22651a4f024ec8eb56c889a9bd5907dfc"
+    }
+  ],
+  "publication": "All available artifact members and five full decoded job logs LOCAL ONLY; metadata/digests public. Prior archive remains unchanged.",
+  "bootable": false
+}

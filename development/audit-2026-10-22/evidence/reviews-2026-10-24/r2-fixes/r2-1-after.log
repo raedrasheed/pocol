@@ -1,0 +1,6 @@
+BATCH-P2P {"batchMs":4950,"helloMs":390}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 5.12s
+BATCH-P2P {"batchMs":5117,"helloMs":437}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 5.33s
+BATCH-P2P {"batchMs":5191,"helloMs":446}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 5.38s

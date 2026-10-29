@@ -1,0 +1,14 @@
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "C1 with_store keeps the in-memory times", "status": "KILLED", "failed": ["admission::tests::a_store_mode_timing_takes_the_larger_phase_and_gates_r14_r19"]}
+{"mutant": "C2 with_store accepts another genesis", "status": "KILLED", "failed": ["admission::tests::a_store_mode_timing_takes_the_larger_phase_and_gates_r14_r19"]}
+{"mutant": "C3 a block's nodes are not committed", "status": "KILLED", "failed": ["admission::tests::the_store_calibration_runs_the_same_blocks_through_the_node_store_and_releases_its_pins", "admission::tests::the_store_calibration_times_each_block_commit", "a_store_mode_boot_is_timed_through_a_scratch_state_store_in_its_data_directory"]}
+{"mutant": "C4 the commit is outside the timed span", "status": "KILLED", "failed": ["admission::tests::the_store_calibration_times_each_block_commit"]}
+{"mutant": "C5 the parent version is not released", "status": "KILLED", "failed": ["admission::tests::the_store_calibration_runs_the_same_blocks_through_the_node_store_and_releases_its_pins"]}
+{"mutant": "C6 the last version is not released", "status": "KILLED", "failed": ["admission::tests::the_store_calibration_runs_the_same_blocks_through_the_node_store_and_releases_its_pins"]}
+{"mutant": "C7 the store timing is not marked stored", "status": "KILLED", "failed": ["admission::tests::the_store_calibration_runs_the_same_blocks_through_the_node_store_and_releases_its_pins"]}
+{"mutant": "C8 the condition does not name the store", "status": "KILLED", "failed": ["admission::tests::the_store_calibration_runs_the_same_blocks_through_the_node_store_and_releases_its_pins", "a_store_mode_boot_is_timed_through_a_scratch_state_store_in_its_data_directory"]}
+{"mutant": "C9 the store path reuses the in-memory apply", "status": "KILLED", "failed": ["admission::tests::the_store_calibration_runs_the_same_blocks_through_the_node_store_and_releases_its_pins", "admission::tests::the_store_calibration_times_each_block_commit"]}
+{"mutant": "C10 load_spec_for ignores the store directory", "status": "KILLED", "failed": ["a_store_mode_boot_is_timed_through_a_scratch_state_store_in_its_data_directory"]}
+{"mutant": "C11 the scratch store is left behind", "status": "KILLED", "failed": ["a_store_mode_boot_is_timed_through_a_scratch_state_store_in_its_data_directory"]}
+{"mutant": "C12 a crash's scratch store is not cleared first", "status": "PASS", "failed": []}
+exit 0

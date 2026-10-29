@@ -1,0 +1,77 @@
+# commit 0b9b4d082b56605cc700a826b72497d81773c3ae (tracked changes under prototypes/ and proposals/: none)
+# host Linux 6.18.44-fc-v153 x86_64; rustc rustc 1.99.1 (58cf8f9c3 2026-10-13)
+# start 2026-10-23T15:30:07Z
+$ (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --features caps-test --test caps -- --nocapture)
+   Compiling pocol-lp4-execution v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-9/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-9/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 18.45s
+     Running tests/caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps-b5d5ad90bfcd3015)
+
+running 7 tests
+test a_received_template_past_the_caps_is_treated_as_absent ... ok
+test counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary ... ok
+CAPS {"cumTxBytes":226,"profile":"txbytes_cap=a0+b0-0=226","roomLeft":0,"templateSizes":[2,0,0]}
+CAPS {"cumTxBytes":113,"profile":"txbytes_cap=a0+b0-1=225","roomLeft":112,"templateSizes":[1,0,0]}
+test txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16 ... ok
+CAPS {"cumTxs":5,"head":25,"pool":5,"profile":"tx_cap=5","templateSizes":[5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
+test tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing ... ok
+[txbytes 69489061] lock h=1 a=0 PROP tid=0x840568d767
+[txcap 69489061] lock h=1 a=0 PROP tid=0x2bcb48b846
+[txbytes 69489065] head h=1 0x080de95cae88 signed=true txs=2
+[txcap 69489067] head h=1 0x7a3b4994b756 signed=true txs=3
+CAPS {"cumTxBytes":339,"pool":3,"profile":"txbytes_cap=395","templateSizes":[3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
+test txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones ... ok
+[txbytes 69490069] lock h=2 a=0 PROP tid=0x7403fa0224
+[txcap 69490072] lock h=2 a=0 PROP tid=0xfe893e4d50
+[txbytes 69490073] head h=2 0x5dd579427228 signed=true txs=0
+[txcap 69490078] head h=2 0x775b8b63f8ef signed=true txs=0
+[txbytes 69491076] lock h=3 a=0 PROP tid=0x012c9926dd
+[txcap 69491082] lock h=3 a=0 PROP tid=0x4434c1b1cd
+[txbytes 69491082] head h=3 0x8f8484d6121f signed=true txs=0
+[txcap 69491086] head h=3 0xf7e4cab350f3 signed=true txs=0
+[txbytes 69492087] lock h=4 a=0 PROP tid=0x7bbf8d8ad3
+[txcap 69492090] lock h=4 a=0 PROP tid=0x276bb10730
+[txbytes 69492098] head h=4 0x982fd4594a7b signed=true txs=0
+[txcap 69492098] head h=4 0x0935b4753dbf signed=true txs=0
+[txbytes 69493102] lock h=5 a=0 PROP tid=0xbe71538714
+[txcap 69493102] lock h=5 a=0 PROP tid=0x85aded776a
+[txbytes 69493106] head h=5 0x111e48b55a66 signed=true txs=0
+[txcap 69493107] head h=5 0xb09f1adc7417 signed=true txs=0
+[txcap 69494110] lock h=6 a=0 PROP tid=0x01d40303fc
+[txbytes 69494112] lock h=6 a=0 PROP tid=0xc77ce975d5
+[txcap 69494114] head h=6 0x7643c8eb8ce8 signed=true txs=0
+[txbytes 69494117] head h=6 0xcf4bd477ff93 signed=true txs=0
+[txcap 69495121] lock h=7 a=0 PROP tid=0x8cb87ac0da
+[txbytes 69495123] lock h=7 a=0 PROP tid=0x537d3d3bd9
+[txcap 69495125] head h=7 0x2ac1bad4c1e3 signed=true txs=0
+[txbytes 69495127] head h=7 0xb18ed56a3cd4 signed=true txs=0
+[txcap 69496131] lock h=8 a=0 PROP tid=0x7fa913f521
+[txbytes 69496132] lock h=8 a=0 PROP tid=0xad20e0346a
+[txcap 69496136] head h=8 0xb7048aa1459c signed=true txs=0
+[txbytes 69496137] head h=8 0x3133c06a452b signed=true txs=0
+CAPS {"cumTxBytes":226,"cumTxs":2,"head":8,"profile":"live txbytes","rejects":[],"seconds":7.713858433,"signed":[true,true,true,true,true,true,true,true]}
+CAPS {"cumTxBytes":339,"cumTxs":3,"head":8,"profile":"live txcap","rejects":[],"seconds":7.714651726,"signed":[true,true,true,true,true,true,true,true]}
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... ok
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.90s
+
+exit=0
+# end 2026-10-23T15:31:36Z
+
+$ (cd prototypes/lp4-execution && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --features caps-test --test caps_identity -- --nocapture)
+   Compiling pocol-lp4-execution v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-9/prototypes/lp4-execution)
+    Finished `release` profile [optimized] target(s) in 15.75s
+     Running tests/caps_identity.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps_identity-419032da4072db4a)
+
+running 3 tests
+test gsv1_and_the_cap_variants_match_the_model ... ok
+test log_cap_is_not_representable_in_the_genesis_spec ... ok
+LOG_CAP 16777216 genesisHash 4db6aa5ce711e58c2d5bfaa9ffd04e0ad172824f8410ef28341fd77308d8e638 specBytes 375
+test the_devnet_genesis_hash_does_not_depend_on_log_cap ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+exit=0
+# end 2026-10-23T15:32:47Z
+

@@ -1,0 +1,16 @@
+== M3b 2026-10-23T12:48:34Z
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-3/prototypes/pocold/tests/e2e_devnet.py sha256=31cace514f472f54b1f72ca21c0e9ec8ec75da3558f908eeea71b6dbd206fd76
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/bins/M3b/pocold sha256=ef6103cd07220c3b4555f9644af4f1f1da8fba6a7bc0b2a64ce6fda17ee9d7fb
+== pocol-sign sha256=e4e209e4ef1fe556fb004714906a140e594815d01569abbaf6b84e3c160d72da
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/bins/M3b/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-3/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-3/prototypes/pocold)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x12
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=True valid kept=True
+PASS malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing — new reject=True rejects=1 a 20->21
+PASS partition: isolated c builds a branch strictly heavier than the frozen a/b tips — c=25:0x70c53e9741:w=0x107b85 a/b=['23:0xd066d8ab34:w=0xf2738', '23:0xd2c6f63634:w=0xf2738'] in 13s
+PASS partition: branches diverge; c's tip is strictly heavier and each a/b tip is >= 2 blocks past the fork — c=25:0x70c53e9741:w=0x107b85 a/b=['23:0xd066d8ab34:w=0xf2738', '23:0xd2c6f63634:w=0xf2738'] fork=[21, 21]
+FAIL heal: every node's head is c's tip (the strictly heavier branch) — heads a/b/c=['23:0xd066d8ab34:w=0xf2738', '23:0xd2c6f63634:w=0xf2738', '25:0x70c53e9741:w=0x107b85'] c_tip=25:0x70c53e9741:w=0x107b85 in 120s
+{"result": "FAIL", "error": "heal: every node's head is c's tip (the strictly heavier branch)", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts identical on all nodes", "transfer value applied", "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing", "partition: isolated c builds a branch strictly heavier than the frozen a/b tips", "partition: branches diverge; c's tip is strictly heavier and each a/b tip is >= 2 blocks past the fork"], "work": "/tmp/pocol-e2e-71pj9l58"}
+== summary {"label": "M3b", "exit": 1, "outcome": "FAIL", "first_fail": "heal: every node's head is c's tip (the strictly heavier branch)", "elapsed_s": 165.8, "leftover_killed": [], "ports_busy_after": []}

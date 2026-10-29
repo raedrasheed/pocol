@@ -1,0 +1,9 @@
+{
+  "path": "/workspace/work/lp4/p4-system-retention-r5/chunk-final-v2-vectors.json",
+  "bytes": 110297,
+  "sha256": "86008a859e29e77e3fb2d3ff57aec079dab1c09ac2c259f01c3d6a0bb815e317",
+  "publication": "Complete vectors LOCAL; new-source CI must upload them, compact independent result/public receipt only",
+  "cases": 3,
+  "actualExecutions": 6,
+  "bootable": false
+}

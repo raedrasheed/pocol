@@ -1,0 +1,39 @@
+{
+  "schema": "pocol-m1-supplement/0.25",
+  "id": "S25-SWEEPMAX",
+  "supplement": true,
+  "status": "proposed supplement for root review; not approved",
+  "closesGap": ["suite017.suite016.BR22a-sweepMax.gap", "suite017.suite016.coverage.BR22a-sweepMax"],
+  "source": {"file": "reference/validation.md", "lines": [682, 682], "literals": ["sweepMax", "BR22a", "P1"]},
+  "criterionSource": {"file": "reference/validation.md", "lines": [416, 416], "literals": ["أكبر سجل موجود دائمًا"]},
+  "sweepSource": {"file": "reference/browser.md", "lines": [542, 542], "literals": []},
+  "base": {"vectors": "m1-draft-0.10/vectors/e3-br22a.json", "events": "m1-draft-0.10/tools/run_checks_010.py (br22a_events, criteria, k1_rule, combos)",
+           "model": "m1-draft-0.12/tools/sr_ref.py (the accepted World; loaded read-only, never edited)"},
+  "fault": {
+    "id": "sweepMax",
+    "definition": "When a data record (E, s) is issued, the key's sweep runs at once against (E, s): every record of the key below (E, s) is removed, the current maximum included, before the new record is applied. The correct sweep runs only after a record succeeds and removes records below the confirmed one.",
+    "reading": "validation.md:682 names the control and its failing cell (BR22a, P1, late apply of the remove); it does not spell out the mutation. This is the reading under which a remove can be pending at P1: in the correct model no gen-1 remove exists at P1, so no 'late remove' could be applied.",
+    "convention": {"id": "P-SM-1", "text": "A remove issued together with a set of a generation whose records do not settle by themselves (BR22a gen1, cfg settleRecords = false) is held like that set until the schedule places it. Otherwise it settles 1 ms after issue, as every other remove of the World."}
+  },
+  "pendingLabelAdded": {"RM": "gen1 removes issued under the fault; placed at L1..L5 like A (category 'remove'); L0 = never applied. Only meaningful when first in {P1, P3, fail}."},
+  "control": {
+    "combo": {"first": "P1", "second": "none", "extraDeath": "no", "L": {"A": "L0", "RM": "L1"}},
+    "mustFail": ["c1", "c7a"],
+    "mustViolate": ["removedWithoutGreater", "greatestRecordLost"],
+    "handDerivation": [
+      "t=10: T1 sends A = ['k1','x']; gen1 issues record (1,2). Under sweepMax it also issues remove (1,1) at once. Both are held (gen1 settleRecords = false; P-SM-1).",
+      "t=20: gen1 dies (P1). The new generation R = gen2 boots at rR = 70.",
+      "t=69 (L1 = rR - 1): the held remove of (1,1) is applied. No record of S_A remains, and none is greater: removedWithoutGreater and greatestRecordLost, so c7a fails.",
+      "gen2 reads no record, so its checkpoint and every snapshot lack k0; the final dictionary is {k1:'z', k2:'y'} without k0, so c1 fails.",
+      "A is never applied (L0)."
+    ]
+  },
+  "baselineSameCell": {"combo": {"first": "P1", "second": "none", "extraDeath": "no", "L": {"A": "L0", "RM": "L1"}}, "faults": [],
+                       "expect": "every criterion of run_checks_010.criteria passes, E rule holds, no violation; the correct model issues no gen-1 remove, so the RM placement finds nothing to apply"},
+  "properties": [
+    {"id": "SM-equivalence", "text": "With sweepMax off, the subclass reproduces run_checks_010.br22a_world exactly (items, snapshots, replies, violations, trace) on all 520 original combinations."},
+    {"id": "SM-noGen1RemoveWhenCorrect", "text": "In the correct model no gen-1 remove is left unapplied at the end of any original combination: a remove never waits behind an unsettled greater record."}
+  ],
+  "grid": {"firsts": ["P1", "P3", "fail"], "labels": "A, F2 or CP2 as in 0.10, plus RM", "assert": "nothing beyond the control; the failing distribution is recorded"},
+  "preserved": "The 0.16 gap entries 'BR22a-sweepMax.gap' and 'coverage.BR22a-sweepMax' stay in their saved results unchanged; this file supplements them."
+}

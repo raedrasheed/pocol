@@ -1,0 +1,87 @@
+{
+  "schema": "pocol-m1-representation/0.25",
+  "id": "CR-E4-02",
+  "status": "proposed resolution for review. Nothing is applied to the baseline or to earlier packages; nothing is owner-approved.",
+  "sources": {
+    "strType": {"file": "reference/browser.md", "lines": [200, 200], "literals": ["lone surrogates", "str(n)"]},
+    "storageMatrix": {"file": "reference/browser.md", "lines": [225, 225], "literals": ["site_storageSet: [str(256), str(61440) أو null]"]},
+    "accounting": {"file": "reference/browser.md", "lines": [396, 396], "literals": ["بعد فك JSON"]},
+    "textEncoder": {"file": "reference/implementation.md", "lines": [206, 206], "literals": ["TextEncoder"]},
+    "openItem": {"file": "m1-draft-0.13/annex/E4-E5-RECOVERY.md", "lines": [80, 86], "literals": ["P-E4-2, proposed CR-E4-02", "needs a baseline change"]},
+    "b3Model": {"file": "m1-draft-0.4/annex/bridge-matrix.json", "lines": [16, 16], "literals": ["JSON string without lone surrogates"]},
+    "existingCase": {"file": "m1-draft-0.4/vectors/bridge-check-cases.json", "lines": [86, 86], "literals": ["BR17d-lone-surrogate"]}
+  },
+  "finding": {
+    "id": "F25-SUR-1",
+    "text": "The 0.13 annex states that scalar validation at the bridge 'needs a baseline change'. It does not: browser.md:200 defines str(n) as a text without lone surrogates, and browser.md:225 types site_storageSet as [str(256), str(61440) or null]. B3 therefore rejects every storage_set key or value that contains a lone surrogate with -32602 {path}, before StoreQueue accounting and before persistence. The 0.4 model implements this (bridge-matrix.json 'str'; case BR17d-lone-surrogate, executed and reviewed in 0.4). The 0.13 collision ('\\ud800' and '\\ud801' -> EF BF BD) is real for TextEncoder but unreachable through the bridge.",
+    "consequence": "Every string that reaches the StoreQueue accounting and the fmt-2 codec is a sequence of Unicode scalar values; for those, TextEncoder bytes = UTF-8 bytes, and the strict UTF-8 codec round-trips exactly. Valid surrogate pairs (supplementary characters) are accepted and preserved."
+  },
+  "alternatives": [
+    {"id": "R", "recommended": true, "name": "baseline already decides (reject at B3)",
+     "text": "No baseline change. Record that str(n) rejects lone surrogates at B3 for storage_set keys and values. Relabel P-Q1-1 (lone surrogate counted as U+FFFD, 3 bytes) as a defensive rule that the bridge makes unreachable. The fmt-2 codec keeps raising unpairedSurrogate and never normalizes. Codec claims then cover every input that can reach it.",
+     "decider": "root reviewer (clarification of an existing baseline rule; no owner policy changes)"},
+    {"id": "C", "name": "accept lone surrogates and persist them as WTF-8",
+     "text": "Only if the owner wanted storage_set to accept lone surrogates (relaxing str(n) for storage, a baseline change): persist keys and values as WTF-8 of their UTF-16 code units. It equals UTF-8 for scalar strings, keeps the TextEncoder byte length exactly, and makes '\\ud800' and '\\ud801' distinct (ED A0 80, ED A0 81). The decoder accepts only canonical WTF-8.",
+     "decider": "owner (changes browser.md:200/225 and the UTF-8 persistence)", "recommended": false},
+    {"id": "N", "name": "lossy TextEncoder persistence", "text": "persist TextEncoder bytes.",
+     "drawback": "distinct keys collide (0.13 vector surrogateCollision: decode gives duplicateKey); rejected", "recommended": false}
+  ],
+  "bridgeCases": {
+    "note": "Executed by run_checks_025.py with the accepted 0.4 bridge model (m1-draft-0.4/tools/bridge_ref.py check). 'raw' is the literal message text.",
+    "cases": [
+      {"id": "SUR-key-lone-d800", "raw": "{\"id\":1,\"kind\":\"storage_set\",\"payload\":{\"method\":\"site_storageSet\",\"params\":[\"\\ud800\",\"v\"]}}", "expected": {"stage": "B3", "code": -32602, "data": {"path": "params[0]"}}},
+      {"id": "SUR-key-lone-d801", "raw": "{\"id\":1,\"kind\":\"storage_set\",\"payload\":{\"method\":\"site_storageSet\",\"params\":[\"\\ud801\",\"v\"]}}", "expected": {"stage": "B3", "code": -32602, "data": {"path": "params[0]"}}},
+      {"id": "SUR-value-lone-dc00", "raw": "{\"id\":1,\"kind\":\"storage_set\",\"payload\":{\"method\":\"site_storageSet\",\"params\":[\"k\",\"\\udc00\"]}}", "expected": {"stage": "B3", "code": -32602, "data": {"path": "params[1]"}}},
+      {"id": "SUR-key-reversed-pair", "raw": "{\"id\":1,\"kind\":\"storage_set\",\"payload\":{\"method\":\"site_storageSet\",\"params\":[\"\\ude00\\ud83d\",\"v\"]}}", "expected": {"stage": "B3", "code": -32602, "data": {"path": "params[0]"}}},
+      {"id": "SUR-key-valid-pair", "raw": "{\"id\":1,\"kind\":\"storage_set\",\"payload\":{\"method\":\"site_storageSet\",\"params\":[\"\\ud83d\\ude00\",\"v\"]}}", "expected": {"stage": "ok", "route": "siteStorage"}},
+      {"id": "SUR-value-valid-pair-max", "raw": "{\"id\":1,\"kind\":\"storage_set\",\"payload\":{\"method\":\"site_storageSet\",\"params\":[\"k\",\"\\udbff\\udfff\"]}}", "expected": {"stage": "ok", "route": "siteStorage"}},
+      {"id": "SUR-delete-null", "raw": "{\"id\":1,\"kind\":\"storage_set\",\"payload\":{\"method\":\"site_storageSet\",\"params\":[\"\\ud800\",null]}}", "expected": {"stage": "B3", "code": -32602, "data": {"path": "params[0]"}}}
+    ]
+  },
+  "scalarCodecCases": {
+    "note": "Strings that pass B3 round-trip through the 0.13 strict codec; TextEncoder length equals UTF-8 length. Values are code units in hex.",
+    "cases": [
+      {"id": "pair-key", "keyUnits": "d83dde00", "valueUnits": "0076", "utf8KeyHex": "f09f9880"},
+      {"id": "max-pair", "keyUnits": "006b", "valueUnits": "dbffdfff", "utf8ValueHex": "f48fbfbf"},
+      {"id": "bmp-edges", "keyUnits": "d7ff", "valueUnits": "e000", "utf8KeyHex": "ed9fbf", "utf8ValueHex": "ee8080"}
+    ]
+  },
+  "wtf8Alternative": {
+    "encode": [
+      {"id": "ascii", "units": "0061", "wtf8": "61", "textEncoderLen": 1, "scalar": true},
+      {"id": "e-acute", "units": "00e9", "wtf8": "c3a9", "textEncoderLen": 2, "scalar": true},
+      {"id": "euro", "units": "20ac", "wtf8": "e282ac", "textEncoderLen": 3, "scalar": true},
+      {"id": "uffff", "units": "ffff", "wtf8": "efbfbf", "textEncoderLen": 3, "scalar": true},
+      {"id": "pair-1f600", "units": "d83dde00", "wtf8": "f09f9880", "textEncoderLen": 4, "scalar": true},
+      {"id": "pair-10000", "units": "d800dc00", "wtf8": "f0908080", "textEncoderLen": 4, "scalar": true},
+      {"id": "pair-10ffff", "units": "dbffdfff", "wtf8": "f48fbfbf", "textEncoderLen": 4, "scalar": true},
+      {"id": "lone-d800", "units": "d800", "wtf8": "eda080", "textEncoderLen": 3, "scalar": false},
+      {"id": "lone-d801", "units": "d801", "wtf8": "eda081", "textEncoderLen": 3, "scalar": false},
+      {"id": "lone-dbff", "units": "dbff", "wtf8": "edafbf", "textEncoderLen": 3, "scalar": false},
+      {"id": "lone-dc00", "units": "dc00", "wtf8": "edb080", "textEncoderLen": 3, "scalar": false},
+      {"id": "lone-dfff", "units": "dfff", "wtf8": "edbfbf", "textEncoderLen": 3, "scalar": false},
+      {"id": "reversed-pair", "units": "de00d83d", "wtf8": "edb880eda0bd", "textEncoderLen": 6, "scalar": false},
+      {"id": "lead-then-ascii", "units": "d83d0041", "wtf8": "eda0bd41", "textEncoderLen": 4, "scalar": false},
+      {"id": "mixed", "units": "0061d800dc000062", "wtf8": "61f090808062", "textEncoderLen": 6, "scalar": true},
+      {"id": "trail-lead-trail", "units": "dc00d800dc00", "wtf8": "edb080f0908080", "textEncoderLen": 7, "scalar": false}
+    ],
+    "decodeRejects": [
+      {"id": "encoded-pair", "hex": "eda0bdedb880", "reason": "nonCanonicalPair"},
+      {"id": "overlong-c0", "hex": "c0af", "reason": "invalidLead"},
+      {"id": "overlong-3", "hex": "e080af", "reason": "overlong"},
+      {"id": "overlong-4", "hex": "f08f8080", "reason": "overlong"},
+      {"id": "above-10ffff", "hex": "f4908080", "reason": "outOfRange"},
+      {"id": "truncated", "hex": "eda0", "reason": "truncated"},
+      {"id": "ff", "hex": "ff", "reason": "invalidLead"},
+      {"id": "bare-continuation", "hex": "80", "reason": "invalidLead"},
+      {"id": "bad-continuation", "hex": "c328", "reason": "invalidContinuation"}
+    ],
+    "collisionResolved": {"pairs": [["d800", "0031"], ["d801", "0032"]], "pairsHex": "00000003eda080000000013100000003eda0810000000132",
+                          "textEncoderPairsHex": "00000003efbfbd000000013100000003efbfbd0000000132"},
+    "byteOrder": {"units": ["d7ff", "d800", "e000", "d800dc00"], "wtf8Order": ["d7ff", "d800", "e000", "d800dc00"],
+                  "utf16Order": ["d7ff", "d800", "d800dc00", "e000"], "note": "key-byte order differs from UTF-16 order, as for UTF-8 (0.13 'utf8-byte-order-not-utf16')"},
+    "property": {"seed": 20261007, "samples": 10000, "maxUnits": 8,
+                 "claims": ["textEncoderLen(u) = len(wtf8(u))", "wtf8Decode(wtf8(u)) = u", "for u without lone surrogates wtf8(u) = UTF-8 of the decoded string"]}
+  },
+  "recommendedAmendment": "Proposal (not applied): replace the 0.13 open item B text 'needs a baseline change' with 'resolved by browser.md:200/225: B3 rejects lone surrogates in storage_set keys and values'; relabel P-Q1-1 as defensive; keep unpairedSurrogate in the codec. No baseline text changes."
+}

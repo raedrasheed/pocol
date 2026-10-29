@@ -1,0 +1,10 @@
+warning: unused variable: `first_close`
+  --> /workspace/work/lp3-s7-cf/reproduction/mutations/cf2-lose-first-close-ieg2124w/src/finality_core.rs:10:16
+   |
+10 | pub fn closing(first_close: Option<u64>, h: u64, ts: u64, h_close: u64, t_close: u64) -> Option<u64> {
+   |                ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_first_close`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: 1 warning emitted
+

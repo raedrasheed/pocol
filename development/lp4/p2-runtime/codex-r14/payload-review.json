@@ -1,0 +1,336 @@
+{
+  "destination": "Existing user-authorized public Proof-of-Collaboration PR24 branch",
+  "scope": "Text source/provenance/summaries/reviews/verified equivalence certificates only; no raw new archive or binaries. Source/license author attributions intentionally public. Public download transport query strings redacted; original failed logs preserved locally.",
+  "patterns": {
+    "PEM": "-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----",
+    "GitHubToken": "\\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\\b",
+    "AWSKey": "\\b(?:AKIA|ASIA)[A-Z0-9]{16}\\b",
+    "SensitiveValueAssignment": "(?i)(?:secretKey|private_key|client_secret|access_token|refresh_token|authorization)\\s*[=:]\\s*[\"\\x27]?[A-Za-z0-9+/=_-]{12,}"
+  },
+  "files": [
+    {
+      "name": "CONTINUATION.md",
+      "bytes": 4118,
+      "sha256": "fdd4af623b6e56928d96eb84c3cb9d4e6e7be25734795aad9587f6de401eda41",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "Go1.23.2-LICENSE.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "README.md",
+      "bytes": 5498,
+      "sha256": "c73ab8c52d0f969dde27087e91ed9a1696cb00cc67b7040d04ca4db8adff5442",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "REPRO.md",
+      "bytes": 2915,
+      "sha256": "a8a40197ae6530cde913d96feb0d9a9bb549e46ff269b18b48de164557120856",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "RESULTS.json",
+      "bytes": 1683,
+      "sha256": "8341c83573e480d3f83b8abb6d54a6fba8bad377b849d6571b6e57d9a787b051",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "REVIEW.md",
+      "bytes": 2816,
+      "sha256": "0d008acdce2ada8a8c8406d63a293dea9af71cd0adb0e3b04f2b0cd85ddadd2e",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-blob-count.log",
+      "bytes": 755,
+      "sha256": "f4f279e9fbd9792834d34451425684c9af8762c4e1ffdaad243bb1107110f03c",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-block-gas.log",
+      "bytes": 751,
+      "sha256": "32d80cfd44f7b9d589d29f0d4be1aa78c02f84757d4bdfd7f995219c874ea6b7",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-boundaries.log",
+      "bytes": 101,
+      "sha256": "8cb768d8f43d64c0e15e66b03fe7d7ec9ab5f89a215222182d0e4704e36e3229",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-initcode-size.log",
+      "bytes": 859,
+      "sha256": "d90ec6697d9825330de2e418e82c459a670600d92b56b34a7315b7d4e9099dc5",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-initcode-word-gas.log",
+      "bytes": 835,
+      "sha256": "7687432cd99b1ad17521f4ad03fd3ab84fedb1d07daa231922ded85249eff840",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-nonce.log",
+      "bytes": 824,
+      "sha256": "8933850cc71e7b82199e09461feb673cece3871b35b0f9403be2ed9b3b171ba7",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-payment-value.log",
+      "bytes": 767,
+      "sha256": "e81f3594eebe8db50880b9f9c744645ccc96bbbe7a78de1c505954b560314c8c",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-priority-fee.log",
+      "bytes": 817,
+      "sha256": "4427be7dc48e9f0190f480a9e33ac59892d2d5244a98f2f1ed6b0df402569a7e",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "admission-sender-code.log",
+      "bytes": 746,
+      "sha256": "a3832affd8a24ed642c28944ae74bf9fa40c67f378da05bc15e88d5a6b23adae",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "blake2-differential.log",
+      "bytes": 143,
+      "sha256": "162d6d8b3052642c648b65a4701daa53950d655d9a1a62c422f6d76ef44256f2",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "blake2b-py-0.3.2-LICENSE.txt",
+      "bytes": 1053,
+      "sha256": "4ead90ab68ada65b287cf19c35d4c4ed25965c606bb1f2d8911728273eaa7cd3",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "blake2b-source-receipt.json",
+      "bytes": 1172,
+      "sha256": "eac2cebde67b54d4806f684f792f74c1f2586487809a6a04c027ef24cf9d6701",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "bloomfilter-license-grant.json",
+      "bytes": 452,
+      "sha256": "90647e53676cf565cd753579e9c7c019251b867e50fc7d74218f1fc2eb57e637",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "bloomfilter-v2-source-attribution.txt",
+      "bytes": 350,
+      "sha256": "fed795da5200fe415756f56f2fa5caf58737f2b6ca6bedb5a3897ea959689fd4",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "bloomfilter-v2-upstream-MIT-LICENSE.txt",
+      "bytes": 1091,
+      "sha256": "f9e93a3c8d61e448bffac8f9c1d45b6418494ab2b683b13425158b9826dab048",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-binary-build-info.txt",
+      "bytes": 9208,
+      "sha256": "ca32e5a9d8adea683636b43c89272294ff7d0cc62224ae4adc31c83d24aa8117",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-build-allowed-mirror.log",
+      "bytes": 260,
+      "sha256": "cf780ea4f4e19108fc949f161f35ed808c61b5c6a70c95cd3b121ddc2993e41b",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-build-official-github-mirrors.log",
+      "bytes": 1164,
+      "sha256": "492379b11382b17ef5da098a8b19b47ccb9adea81cb0346ccb88fdb178a533f7",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-build-official-github-mirrors2.log",
+      "bytes": 248,
+      "sha256": "e456eb6639c9581650449e66b457593fc73e7b98f64eed80d4d57cf66e3d5d03",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-build-public-upstream.log",
+      "bytes": 14529,
+      "sha256": "ae5599fee60db98a6de1453852c8bb197cbc4fbf6a034d1ebca5f4ebed9ac845",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-build-verified-offline.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-build.log",
+      "bytes": 319,
+      "sha256": "cc4429ae5cbaed365d5381139cfc7c9344d43aeff998b4a52aa4127e5de0c048",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-compiled-controls.json",
+      "bytes": 1151,
+      "sha256": "efbcd22de72b2fe2b1a78aa594a9e17476cc95979c3b202ab890083d250f2767",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-compiled-controls.log",
+      "bytes": 94,
+      "sha256": "54bde3e44612ff595b0edc7f3f3697efdfdb397507f038a6e20e16fe10066305",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-first-attempt.json",
+      "bytes": 391,
+      "sha256": "c2d6c54d03047253d83344787bafbf3a98c2840167a1742074c9d5b1c9c87c94",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-initial-parser-failure.log",
+      "bytes": 522,
+      "sha256": "07aba74c929c149a05710add0758588a498a7e4e2f1b32743a4b2ce706091847",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-initial-parser.py",
+      "bytes": 3712,
+      "sha256": "bb961f4166d599a45646beeee2a57ce4066b620a837e06e000f034d3b8a71096",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-linked-source-inventory.json",
+      "bytes": 45088,
+      "sha256": "be7a696c12356e69119d5a309482243979ffc1e2dbeb2e9d34d7826d288c48a6",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-mirror-build-replacements.json",
+      "bytes": 1829,
+      "sha256": "747f8c531424518c04e46640bd5a3ddfa7044a15b1e6afd339d456275ac9e967",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-mirror-hash-proof.json",
+      "bytes": 5724,
+      "sha256": "4cd0c370a52b75043cd102cf996e83773ec154599ea0e0b696ab0b236e59f496",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-mul-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-process-receipt.json",
+      "bytes": 344,
+      "sha256": "1dc71c4416f9edd788acb9a7ccad501d9519774c0bec22261072b1f65b567ff1",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-reference-equivalence.json",
+      "bytes": 928,
+      "sha256": "1c1a5c52d785749b1ff1b0089bac103cd0ea803246d39ea1f5aa64703df5e43f",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-reviewed.log",
+      "bytes": 444,
+      "sha256": "ffd9ce60a2b7ee53f776d4ae219e937b5c6aeaea7c9b04d734ff7a6152ee073c",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-smoke-summary.json",
+      "bytes": 421,
+      "sha256": "a2d51b6453d5b9eb98b1116cf8c9d76b0ecb361841a1ca32c761e732dddd4cef",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-source-identity.json",
+      "bytes": 696,
+      "sha256": "6a8c8b05da687b37db1aa05bf2712593abff63fad8a99e1c6e7c64dc001ae06a",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-storage-collision-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "geth-summary.json",
+      "bytes": 482,
+      "sha256": "2c1f6660667a3f9eb96bfb4071d398a39e2c1f1c968645ea8554bc99c2e73eac",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "go-release-receipt.json",
+      "bytes": 230,
+      "sha256": "12c1bb059dcb1cc7761a65c393342a0703a99d504fe3839bd08ea667713580c7",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "hosted-d955-independent-summary.json",
+      "bytes": 448,
+      "sha256": "e0deb35834f48e8b6610e72d803576aea81648df78ce3d3110a1343ec782d38e",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "hosted-d955-receipt.json",
+      "bytes": 7833,
+      "sha256": "dfc0895dbe927b836b9244e94f99275bc4d3555e422e374e76d892be07d319d6",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "local-preservation.json",
+      "bytes": 436,
+      "sha256": "fecfb5fffef0b4ba5766f5cfe47fed93e0c666571aad4b542dd7ae394625b543",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "python-admission-mutations.json",
+      "bytes": 2005,
+      "sha256": "8b1d189ff0557791b2e6130e49e8a2845ac78366e02aebe1a6b4e26708554a78",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "python-admission-mutations.log",
+      "bytes": 103,
+      "sha256": "bd193cf00fefd04261f75a9144782409c645574f74b849c4c63ecfe44e1ecbed",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "python-equivalence.json",
+      "bytes": 1386,
+      "sha256": "6e5f0e7af0be3338b252baff721e15c2e2bea9e8b4a9153527ade8aa2da1fa44",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "python-full-summary.json",
+      "bytes": 440,
+      "sha256": "23a8dd5a2f3546388d3456cab609119c25001bc59152b953345444fdda31e046",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "python-full.log",
+      "bytes": 7356,
+      "sha256": "b7ac306820444cc9989fc10585c0471c2e41e4c213277a20a4c3d96c35f64403",
+      "credentialPatternHits": []
+    },
+    {
+      "name": "source-sha256.json",
+      "bytes": 2477,
+      "sha256": "bd247facbba839db38189291ac2a0771db1c886007fe8c22795b796d76563ed1",
+      "credentialPatternHits": []
+    }
+  ]
+}

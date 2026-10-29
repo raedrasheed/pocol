@@ -1,0 +1,39 @@
+{
+  "schema": "pocol-m1-findings-trace/0.26",
+  "status": "proposals for root; nothing is closed by this file. Evidence patterns are inherited from m1-draft-0.25/audit/findings-trace.json and re-run.",
+  "base": "m1-draft-0.25/audit/findings-trace.json",
+  "decisionSource": "coordination/review-001/REVIEWER-DECISIONS-0.25.json",
+  "vocabulary": {
+    "closableAtSpecScope": "spec, fixtures, executed evidence and root review exist and every reviewer decision it depends on is recorded as accepted; Phase A outcomes stay deferred; root records the closure in the ledger",
+    "openOwner": "a named owner item still changes the remedy"
+  },
+  "findings": [
+    {"id": "F01", "disposition": "closableAtSpecScope", "dependsOn": []},
+    {"id": "F02", "disposition": "closableAtSpecScope", "dependsOn": ["U22"], "phaseA": ["E01"]},
+    {"id": "F03", "disposition": "closableAtSpecScope", "dependsOn": []},
+    {"id": "F04", "disposition": "openOwner", "dependsOn": ["U02", "U03"], "phaseA": ["E07"]},
+    {"id": "F05", "disposition": "closableAtSpecScope", "dependsOn": ["U04"], "phaseA": ["E06"]},
+    {"id": "F06", "disposition": "openOwner", "dependsOn": ["U01"]},
+    {"id": "F07", "disposition": "openOwner", "dependsOn": ["CR-M1-01", "U36"], "phaseA": ["E03"]},
+    {"id": "F08", "disposition": "closableAtSpecScope", "dependsOn": ["U06", "U22"], "phaseA": ["E04"]},
+    {"id": "F09", "disposition": "openOwner", "dependsOn": ["U07", "U08-CR"], "phaseA": ["E02"],
+     "note": "U07 is accepted as the conditional E02 decision procedure with both branches, not as a measured outcome or an enabled feature; U08 is now an owner change request"},
+    {"id": "F10", "disposition": "closableAtSpecScope", "dependsOn": ["U09"], "phaseA": ["E01"]},
+    {"id": "F11", "disposition": "openOwner", "dependsOn": ["U10"], "phaseA": ["E01"]},
+    {"id": "F12", "disposition": "closableAtSpecScope", "dependsOn": ["U11", "U22"], "phaseA": ["E01"]},
+    {"id": "F13", "disposition": "closableAtSpecScope", "dependsOn": []},
+    {"id": "F14", "disposition": "closableAtSpecScope", "dependsOn": []},
+    {"id": "F15", "disposition": "closableAtSpecScope", "dependsOn": [], "phaseA": ["E01"]},
+    {"id": "F16", "disposition": "closableAtSpecScope", "dependsOn": ["U12", "U17"]},
+    {"id": "F17", "disposition": "openOwner", "dependsOn": ["U10", "U08-CR", "U11"], "phaseA": ["E01"]},
+    {"id": "F18", "disposition": "closableAtSpecScope", "dependsOn": ["U13"]},
+    {"id": "F19", "disposition": "closableAtSpecScope", "dependsOn": ["U20"]},
+    {"id": "F20", "disposition": "closableAtSpecScope", "dependsOn": [], "phaseA": ["E01"]},
+    {"id": "F21", "disposition": "closableAtSpecScope", "dependsOn": ["U21"], "phaseA": ["E01"]},
+    {"id": "F22", "disposition": "closableAtSpecScope", "dependsOn": [], "phaseA": ["E04"]},
+    {"id": "F23", "disposition": "openOwner", "dependsOn": ["U01"]},
+    {"id": "F24", "disposition": "closableAtSpecScope", "dependsOn": ["U16"], "phaseA": ["E01"]},
+    {"id": "F25", "disposition": "openOwner", "dependsOn": ["U14"]},
+    {"id": "F26", "disposition": "closableAtSpecScope", "dependsOn": [], "note": "the gate text is complete; the gate itself (C01) stays unmet while any row is not Complete"}
+  ]
+}

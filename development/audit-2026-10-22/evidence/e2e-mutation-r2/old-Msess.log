@@ -1,0 +1,32 @@
+== old-Msess 2026-10-23T18:43:48Z
+== script /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/oldtest/tests/e2e_devnet.py sha256=31cace514f472f54b1f72ca21c0e9ec8ec75da3558f908eeea71b6dbd206fd76
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/bins/Msess/pocold sha256=5fb52622900aca58e1e99a40dbac3b3d913875171633de14ab9567d2a54903e3
+== pocol-sign sha256=1aa79f9db56db49a23bd72abbfb05e37eba6e48bcb11b37968fe16290e418f29
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/bins/Msess/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/oldtest/tests/e2e_devnet.py (cwd /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/oldtest)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=True valid kept=True
+PASS malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing — new reject=True rejects=1 a 19->20
+PASS partition: isolated c builds a branch strictly heavier than the frozen a/b tips — c=23:0x27e0d8b6f4:w=0xeaa51 a/b=['22:0x5142289db4:w=0xe0a86', '22:0x5142289db4:w=0xe0a86'] in 8s
+PASS partition: branches diverge; c's tip is strictly heavier and each a/b tip is >= 2 blocks past the fork — c=23:0x27e0d8b6f4:w=0xeaa51 a/b=['22:0x5142289db4:w=0xe0a86', '22:0x5142289db4:w=0xe0a86'] fork=[19, 19]
+PASS heal: every node's head is c's tip (the strictly heavier branch) — heads a/b/c=['23:0x27e0d8b6f4:w=0xeaa51', '23:0x27e0d8b6f4:w=0xeaa51', '23:0x27e0d8b6f4:w=0xeaa51'] c_tip=23:0x27e0d8b6f4:w=0xeaa51 in 0s
+PASS heal: on every node the canonical block at c's tip height is c's tip
+PASS heal: no a/b tip is canonical on any node — a/b=['22:0x5142289db4:w=0xe0a86', '22:0x5142289db4:w=0xe0a86']
+PASS heal: a and b reorganized (their reorg counters moved) — a/b reorgs [0, 0] -> [1, 1]
+PASS relay: c stores the lighter a/b branch delivered after the heal — 3 blocks h=20..22
+PASS relay: c keeps its head and the relayed lighter tip is not canonical (head = maximum of ≻, consensus.md:215) — c head=23:0x27e0d8b6f4:w=0xeaa51
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=25
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+PASS every miner produced blocks — {"a": 49, "b": 54, "c": 46}
+PASS every miner won canonical blocks — {"a": 32, "b": 36, "c": 32}
+PASS signed and fallback templates both occur — signed=88/100
+PASS replay of a reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of a agree — 0xe59820596c16
+PASS replay of b reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of b agree — 0xe59820596c16
+PASS replay of c reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of c agree — 0xe59820596c16
+{"result": "PASS", "checks": 25, "work": "/tmp/pocol-e2e-nrpqtbew"}
+== summary {"label": "old-Msess", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 151.0, "leftover_killed": [], "ports_busy_after": []}

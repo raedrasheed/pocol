@@ -1,0 +1,46 @@
+{
+  "schema": "pocol-m1-c34/0.30",
+  "status": "C34 repair: per-case sum invariants for every U08 fixture of m1-draft-0.29/vectors/u08-canonical-split-0.29.json (read unchanged; its sha256 must equal the value recorded by root's 0.29 run). The 0.29 runner wrongly asserted sum(lens) == len for EVERY noncanonical case; N05 deliberately declares 24576 with chunks summing to 24575. Each case now states its own expected sum, delta and sumMatches; no case is removed and the blanket coverage stays: every case must carry an invariant and satisfy it.",
+  "base": {"file": "m1-draft-0.29/vectors/u08-canonical-split-0.29.json", "recordedBy": "coordination/review-001/m1-draft-0.29/results/run-results-0.29.json",
+           "record": "input.sha256 <package>/vectors/u08-canonical-split-0.29.json"},
+  "review": {"file": "coordination/review-001/REVIEW-0.29.md", "lines": [7, 7], "literals": ["U08.noncanonical.N05", "declaredlength24576", "actualsum24575", "ManifestSplit(1)"]},
+  "invariants": {
+    "boundaries": {"1": {"expectedSum": 1, "delta": 0, "sumMatches": true}, "24575": {"expectedSum": 24575, "delta": 0, "sumMatches": true},
+                   "24576": {"expectedSum": 24576, "delta": 0, "sumMatches": true}, "49150": {"expectedSum": 49150, "delta": 0, "sumMatches": true},
+                   "49151": {"expectedSum": 49151, "delta": 0, "sumMatches": true}, "65536": {"expectedSum": 65536, "delta": 0, "sumMatches": true}},
+    "invalidLength": {"L0": {"expectedSum": 0, "delta": 0, "sumMatches": true}, "L65537": {"expectedSum": 65537, "delta": 0, "sumMatches": true}},
+    "arrays": {"A1": {"expectedSum": 79, "delta": 0, "sumMatches": true}},
+    "noncanonical": {
+      "N01": {"expectedSum": 79, "delta": 0, "sumMatches": true},
+      "N02": {"expectedSum": 2, "delta": 0, "sumMatches": true},
+      "N03": {"expectedSum": 24576, "delta": 0, "sumMatches": true},
+      "N04": {"expectedSum": 24576, "delta": 0, "sumMatches": true},
+      "N05": {"expectedSum": 24575, "delta": -1, "sumMatches": false, "why": "deliberate: too few chunks for the declared length; rejected by ManifestSplit(1) and manifest.split"},
+      "N06": {"expectedSum": 24575, "delta": 0, "sumMatches": true},
+      "N07": {"expectedSum": 49150, "delta": 0, "sumMatches": true},
+      "N08": {"expectedSum": 49151, "delta": 0, "sumMatches": true},
+      "N09": {"expectedSum": 49151, "delta": 0, "sumMatches": true},
+      "N10": {"expectedSum": 65536, "delta": 0, "sumMatches": true},
+      "N11": {"expectedSum": 65536, "delta": 0, "sumMatches": true},
+      "N12": {"expectedSum": 65536, "delta": 0, "sumMatches": true}
+    }
+  },
+  "mutants": {
+    "rule": "each mutant is evaluated by the SAME case evaluator as the real fixtures and must be reported as failing (killed); a surviving mutant is a FAIL",
+    "list": [
+      {"id": "M1", "case": "N05", "set": {"lens": [24575, 1]}, "why": "canonical lengths: the contract accepts, so the expected ManifestSplit(1) no longer holds"},
+      {"id": "M2", "case": "N05", "setInvariant": {"expectedSum": 24576}, "why": "invariant no longer equals the actual sum"},
+      {"id": "M3", "case": "N05", "setInvariant": {"sumMatches": true}, "why": "sumMatches contradicts the declared length"},
+      {"id": "M4", "case": "N05", "set": {"contract": "ManifestSplit(0)"}, "why": "wrong index"},
+      {"id": "M5", "case": "N06", "set": {"lens": [24575]}, "why": "the canonical split is accepted, not ManifestSplit(1)"},
+      {"id": "M6", "case": "N10", "set": {"len": 65537}, "why": "ManifestLength precedes ManifestSplit"},
+      {"id": "M7", "case": "N01", "setInvariant": {"delta": 1}, "why": "delta inconsistent with the sum"},
+      {"id": "M8", "drop": "N05", "why": "a dropped case must fail the case-set equality with 0.29"}
+    ]
+  },
+  "reboundFailures": {
+    "results": "coordination/review-001/m1-draft-0.29/results/run-results-0.29.json",
+    "failures": {"U08.noncanonical.N05": "U08.noncanonical.N05", "decision.U08.applied": "decision.U08.applied",
+                 "consolidation.findingsMatchProposal": "consolidation.findingsMatchProposal", "coverage029.required": "coverage030.required"}
+  }
+}

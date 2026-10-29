@@ -1,0 +1,57 @@
+# RpcGuard round 3, scratch bench (not pocold): honest-reader throughput and writer-thread CPU of a non-blocking
+# writer on a loopback socket with SO_SNDBUF = 32 KiB and TCP_NODELAY, writing 14,681,000 B, waiting on WouldBlock by
+# sleep(1 ms) (round 2's pacer) or poll(POLLOUT, 1 or 50 ms); cap = bytes per write call (32768 = SEND_SOCK_BUF;
+# 1073741824 = uncapped); readBuf = the reader's read size. Source: scratchpad r3-pollbench/src/main.rs (sha256 below).
+fa0415fe2e8ba756181b2cabe01129fa50a68482985e5b08fd855e344905bfdf  src/main.rs
+Linux 6.18.44-fc-v153 x86_64
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+$ flock cpu.lock cargo run --release --offline -q --bin bench
+sleep1 cap=32768 readBuf=65536 55.7 MiB/s writerCpu=0.012s waits=213
+sleep1 cap=32768 readBuf=65536 64.4 MiB/s writerCpu=0.011s waits=184
+poll50 cap=32768 readBuf=65536 1502.4 MiB/s writerCpu=0.006s waits=50
+poll50 cap=32768 readBuf=65536 1336.6 MiB/s writerCpu=0.008s waits=13
+poll1 cap=32768 readBuf=65536 1492.2 MiB/s writerCpu=0.008s waits=5
+poll1 cap=32768 readBuf=65536 1535.8 MiB/s writerCpu=0.008s waits=34
+poll50 cap=32768 readBuf=4096 1936.2 MiB/s writerCpu=0.005s waits=134
+poll50 cap=32768 readBuf=4096 1628.3 MiB/s writerCpu=0.006s waits=90
+poll50 cap=1073741824 readBuf=65536 1.8 MiB/s writerCpu=0.019s waits=218
+poll50 cap=1073741824 readBuf=65536 1.8 MiB/s writerCpu=0.020s waits=220
+sleep1 cap=1073741824 readBuf=65536 1.8 MiB/s writerCpu=0.192s waits=7169
+sleep1 cap=1073741824 readBuf=65536 1.7 MiB/s writerCpu=0.181s waits=7238
+exit=0
+# --- source of the bench (src/main.rs) ---
+// Scratch bench: honest-reader throughput and writer CPU of a non-blocking writer on a socket with
+// SO_SNDBUF = 32 KiB and TCP_NODELAY, waiting on WouldBlock by sleep(1 ms) or poll(POLLOUT).
+use std::io::{Read,Write};use std::net::{TcpListener,TcpStream};use std::time::{Duration,Instant};
+use std::os::unix::io::AsRawFd;
+fn setbuf(s:&TcpStream,n:i32){let v=n;unsafe{libc::setsockopt(s.as_raw_fd(),libc::SOL_SOCKET,libc::SO_SNDBUF,&v as *const i32 as *const libc::c_void,4);}}
+fn pollout(s:&TcpStream,ms:i32)->bool{let mut p=libc::pollfd{fd:s.as_raw_fd(),events:libc::POLLOUT,revents:0};(unsafe{libc::poll(&mut p,1,ms)})>0}
+fn thread_cpu()->f64{let mut t=libc::timespec{tv_sec:0,tv_nsec:0};unsafe{libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID,&mut t)};t.tv_sec as f64+t.tv_nsec as f64/1e9}
+fn run(mode:&'static str,cap:usize,rbuf:usize)->(f64,f64,usize){
+    let l=TcpListener::bind("127.0.0.1:0").unwrap();let a=l.local_addr().unwrap();
+    let w=std::thread::spawn(move||{let (mut s,_)=l.accept().unwrap();s.set_nodelay(true).unwrap();setbuf(&s,32768);s.set_nonblocking(true).unwrap();
+        let body=vec![b'x';14_681_000];let mut off=0;let c0=thread_cpu();let mut waits=0usize;
+        while off<body.len(){let end=body.len().min(off+cap);match s.write(&body[off..end]){Ok(n)=>off+=n,Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>{waits+=1;
+            match mode{"sleep1"=>std::thread::sleep(Duration::from_millis(1)),"poll50"=>{pollout(&s,50);}_=>{pollout(&s,1);}}}Err(e)=>panic!("{e}")}}
+        (thread_cpu()-c0,waits)});
+    let mut c=TcpStream::connect(a).unwrap();let mut b=vec![0u8;rbuf];let mut n=0;let t=Instant::now();
+    loop{match c.read(&mut b){Ok(0)=>break,Ok(k)=>n+=k,Err(_)=>break}}let d=t.elapsed();let (cpu,waits)=w.join().unwrap();
+    (n as f64/1048576.0/d.as_secs_f64(),cpu,waits)
+}
+fn main(){
+    for (m,cap,rb) in [("sleep1",32768,1<<16),("poll50",32768,1<<16),("poll1",32768,1<<16),("poll50",32768,4096),("poll50",1<<30,1<<16),("sleep1",1<<30,1<<16)]{
+        for _ in 0..2{let (mbs,c,w)=run(m,cap,rb);println!("{m} cap={cap} readBuf={rb} {mbs:.1} MiB/s writerCpu={c:.3}s waits={w}");}
+    }
+}
+# --- Cargo.toml ---
+[package]
+name = "sockbuf-check"
+version = "0.1.0"
+edition = "2021"
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.191"
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Networking_WinSock"] }
+[[bin]]
+name = "bench"
+path = "src/main.rs"

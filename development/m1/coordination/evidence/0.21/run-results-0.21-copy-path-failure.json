@@ -1,0 +1,1119 @@
+{
+  "package": "M1 draft 0.21 (V3 NetworkProfiles.validate: GSV1, L4n, RF1-RF4, trust-pool fetch)",
+  "executedAtUtc": "2026-10-07T17:29:27+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "statusSchema": {
+    "coreStatus": [
+      "pass",
+      "recorded",
+      "FAIL"
+    ],
+    "diagnosticRenames": {
+      "name": "diagName",
+      "check": "diagCheck",
+      "status": "proposalStatus",
+      "ok": "diagOk",
+      "label": "diagLabel",
+      "condition": "diagCondition"
+    },
+    "partialGap": "recorded entries with partialGap=true"
+  },
+  "evidenceKind": "reference model of the specification text; FakeTransport only; no network, no node",
+  "notExecuted": [
+    "TypeScript/Chrome options page",
+    "Rust GenesisSpec decoder",
+    "three-library H_GSV1 agreement (M0)",
+    "real HttpTransport"
+  ],
+  "summary": {
+    "checks": 139,
+    "passed": 109,
+    "recorded": 29,
+    "failed": 1,
+    "partialGaps": 12,
+    "seconds": 11.9
+  },
+  "results": [
+    {
+      "exists": true,
+      "sha256": "2584d98e17065a4e3279649823536fb6dadee903175c8e26a4f61c94d7900d97",
+      "check": "input.sha256 coordination/task-019.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "3716a2b433a52ae0029a6face16c78d311a5111cc011e5099152867795a314aa",
+      "check": "input.sha256 coordination/review-001/REVIEW-0.20.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "f0515b48f0f9cd8c447646f372b5ce91f241bc604e78c128bec8299bc2a7dd47",
+      "check": "input.sha256 coordination/issue-ledger.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1",
+      "check": "input.sha256 reference/validation.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7",
+      "check": "input.sha256 reference/browser.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+      "check": "input.sha256 reference/consensus.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b",
+      "check": "input.sha256 reference/governance.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "7701f1c9fdc16e18dc5434f7a6eaa197a933b0c11b1262b5c78adf2f289df7f3",
+      "check": "input.sha256 reference/implementation.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d",
+      "check": "input.sha256 m1-draft-0.2/tools/keccak.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "abd9ba9accacdefff7edc1fc18eb7513402e2ef21528ebac64c6e84cde6a236a",
+      "check": "input.sha256 m1-draft-0.2/tools/rlp_strict.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "5be4184ae3644c1c19b3b1fd7959459aa8bb594e13cc0f4917e95e28d54ffaad",
+      "check": "input.sha256 m1-draft-0.5/tools/eth_keys_ref.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "9fa3d81b757205bfb2161d4d3dc3eda9a1dbfe4f07484358d07534ffb7de7693",
+      "check": "input.sha256 m1-draft-0.4/annex/recv-limits.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "ca94ef3423222016a63808685e56869e5ed732a3cce732b9c29fc022221690e5",
+      "check": "input.sha256 m1-draft-0.21/tools/netprofile_ref.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "cb5dbdd9b857cad89667ddbe880dc84c19ab305f2a14c2f5bb5ee0c13635caeb",
+      "check": "input.sha256 m1-draft-0.21/tools/run_checks_021.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "88097ee293aeab70c2089c2b61da8ce624503a59dfafd34657e9c1a465056f32",
+      "check": "input.sha256 m1-draft-0.21/vectors/v3-gsv1.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "0602cd0293d43a4ae8b623aa4b71048ccaa5c55cd0742c96c668acc8d95aa1bd",
+      "check": "input.sha256 m1-draft-0.21/vectors/v3-profiles.json",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.positionalOnly",
+      "status": "pass"
+    },
+    {
+      "attributeMainCallsAtLines": [],
+      "check": "boundary.noOldMainCalled",
+      "status": "pass"
+    },
+    {
+      "check": "reuse.keccakFrom0.2",
+      "status": "FAIL"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        64,
+        77
+      ],
+      "missingLiterals": [],
+      "check": "GSV1.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        77,
+        77
+      ],
+      "missingLiterals": [],
+      "check": "GSV1.l4n.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/consensus.md",
+      "lines": [
+        15,
+        16
+      ],
+      "missingLiterals": [],
+      "check": "GSV1.order.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/governance.md",
+      "lines": [
+        152,
+        157
+      ],
+      "missingLiterals": [],
+      "check": "GSV1.svFix.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        60,
+        62
+      ],
+      "missingLiterals": [],
+      "check": "K.provenance",
+      "status": "pass"
+    },
+    {
+      "input": "",
+      "check": "K1",
+      "status": "pass"
+    },
+    {
+      "input": "c0",
+      "check": "K2",
+      "status": "pass"
+    },
+    {
+      "input": "80",
+      "check": "K3",
+      "status": "pass"
+    },
+    {
+      "flatLen": 341,
+      "check": "GSV1.flatEqualsTree",
+      "status": "pass"
+    },
+    {
+      "length": 341,
+      "cp": 179,
+      "m0": 88,
+      "check": "GSV1.length",
+      "status": "pass"
+    },
+    {
+      "mismatchedFields": [],
+      "check": "GSV1.decode",
+      "status": "pass"
+    },
+    {
+      "check": "GSV1.reencode",
+      "status": "pass"
+    },
+    {
+      "H_GSV1": "0xde518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+      "libraries": [
+        "m1-draft-0.2/tools/keccak.py (pure Python)"
+      ],
+      "certified": false,
+      "note": "three-library agreement (validation.md:75 iii) is outstanding: DG-V3-3",
+      "check": "GSV1.hashRecorded",
+      "status": "recorded"
+    },
+    {
+      "expected": "gsCount",
+      "actual": "gsCount",
+      "length": 340,
+      "check": "neg.N1",
+      "status": "pass"
+    },
+    {
+      "expected": "gsRange",
+      "actual": "gsRange",
+      "length": 341,
+      "check": "neg.N2",
+      "status": "pass"
+    },
+    {
+      "expected": "gsInt",
+      "actual": "gsInt",
+      "length": 342,
+      "check": "neg.N3",
+      "status": "pass"
+    },
+    {
+      "expected": "gsOrder",
+      "actual": "gsOrder",
+      "length": 341,
+      "check": "neg.N4",
+      "status": "pass"
+    },
+    {
+      "expected": "gsOrder",
+      "actual": "gsOrder",
+      "length": 341,
+      "check": "neg.N5",
+      "status": "pass"
+    },
+    {
+      "expected": "gsLen",
+      "actual": "gsLen",
+      "length": 340,
+      "check": "neg.N6",
+      "status": "pass"
+    },
+    {
+      "expected": "gsVersion",
+      "actual": "gsVersion",
+      "length": 341,
+      "check": "neg.N7",
+      "status": "pass"
+    },
+    {
+      "expected": "gsRange",
+      "actual": "gsRange",
+      "length": 310,
+      "check": "neg.N8",
+      "status": "pass"
+    },
+    {
+      "expected": "L0",
+      "actual": "L0",
+      "length": 342,
+      "check": "neg.N9",
+      "status": "pass"
+    },
+    {
+      "expected": "gsSys",
+      "actual": "gsSys",
+      "length": 341,
+      "check": "neg.N10",
+      "status": "pass"
+    },
+    {
+      "expected": "gsRange",
+      "actual": "gsRange",
+      "length": 343,
+      "check": "neg.W1-u8",
+      "status": "pass"
+    },
+    {
+      "expected": "gsRange",
+      "actual": "gsRange",
+      "length": 346,
+      "check": "neg.W2-u64",
+      "status": "pass"
+    },
+    {
+      "expected": "gsInt",
+      "actual": "gsInt",
+      "length": 343,
+      "check": "neg.W3-leadingZero",
+      "status": "pass"
+    },
+    {
+      "expected": "gsInt",
+      "actual": "gsInt",
+      "length": 341,
+      "check": "neg.W4-zeroAsByte",
+      "status": "pass"
+    },
+    {
+      "expected": "gsRange",
+      "actual": "gsRange",
+      "length": 338,
+      "check": "neg.W5-chainIdZero",
+      "status": "pass"
+    },
+    {
+      "expected": "gsRange",
+      "actual": "gsRange",
+      "length": 341,
+      "check": "neg.W6-gamma",
+      "status": "pass"
+    },
+    {
+      "expected": "ok",
+      "actual": "ok",
+      "length": 341,
+      "check": "neg.W6b-gammaEdge-ok",
+      "status": "pass"
+    },
+    {
+      "expected": "gsRange",
+      "actual": "gsRange",
+      "length": 343,
+      "check": "neg.W7-target2pow256",
+      "status": "pass"
+    },
+    {
+      "expected": "gsLen",
+      "actual": "gsLen",
+      "length": 340,
+      "check": "neg.W8-allocRoot31",
+      "status": "pass"
+    },
+    {
+      "expected": "gsSys",
+      "actual": "gsSys",
+      "length": 341,
+      "check": "neg.S1-systemAddress",
+      "status": "pass"
+    },
+    {
+      "expected": "gsSys",
+      "actual": "gsSys",
+      "length": 341,
+      "check": "neg.S2-zeroId",
+      "status": "pass"
+    },
+    {
+      "expected": "gsSys",
+      "actual": "gsSys",
+      "length": 341,
+      "check": "neg.S3-C0C0FF",
+      "status": "pass"
+    },
+    {
+      "expected": "ok",
+      "actual": "ok",
+      "length": 341,
+      "check": "neg.S4-C0C100-ok",
+      "status": "pass"
+    },
+    {
+      "expected": "ok",
+      "actual": "ok",
+      "length": 341,
+      "check": "neg.S5-C0C000-ok",
+      "status": "pass"
+    },
+    {
+      "expected": "L0",
+      "actual": "L0",
+      "length": 341,
+      "check": "neg.H1-header",
+      "status": "pass"
+    },
+    {
+      "expected": "gsStructure",
+      "actual": "gsStructure",
+      "length": 162,
+      "check": "neg.H2-cpNotList",
+      "status": "pass"
+    },
+    {
+      "expected": "gsCount",
+      "actual": "gsCount",
+      "length": 253,
+      "check": "neg.H3-emptyM0",
+      "status": "pass"
+    },
+    {
+      "expected": "gsVersion",
+      "actual": "gsVersion",
+      "length": 340,
+      "check": "neg.O1-versionBeforeCount",
+      "status": "pass"
+    },
+    {
+      "expected": "gsInt",
+      "actual": "gsInt",
+      "length": 341,
+      "check": "neg.O2-intBeforeLen",
+      "status": "pass"
+    },
+    {
+      "expected": "gsLen",
+      "actual": "gsLen",
+      "length": 340,
+      "check": "neg.O3-lenBeforeRange",
+      "status": "pass"
+    },
+    {
+      "expected": "gsOrder",
+      "actual": "gsOrder",
+      "length": 341,
+      "check": "neg.O4-orderBeforeSys",
+      "status": "pass"
+    },
+    {
+      "expected": "gsCount",
+      "actual": "gsCount",
+      "length": 341,
+      "check": "neg.O5-countBeforeInt",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        8,
+        16
+      ],
+      "missingLiterals": [],
+      "check": "V3.acceptance.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        300,
+        306
+      ],
+      "missingLiterals": [],
+      "check": "V3.limits.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        780,
+        784
+      ],
+      "missingLiterals": [],
+      "check": "V3.rf.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/governance.md",
+      "lines": [
+        4,
+        16
+      ],
+      "missingLiterals": [],
+      "check": "V3.network.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/governance.md",
+      "lines": [
+        159,
+        161
+      ],
+      "missingLiterals": [],
+      "check": "V3.endfull.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        318,
+        318
+      ],
+      "missingLiterals": [],
+      "check": "V3.trustPool.provenance",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": null,
+      "check": "profile.GSV1-signed",
+      "status": "pass"
+    },
+    {
+      "check": "profile.GSV1-signed.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": null,
+      "check": "profile.GSV1-confirmed",
+      "status": "pass"
+    },
+    {
+      "check": "profile.GSV1-confirmed.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "unconfirmed"
+      },
+      "check": "profile.GSV1-unconfirmed",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "unconfirmed"
+      },
+      "check": "profile.GSV1-confirmedOtherHash",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "gsCount",
+        "detail": "CP 51"
+      },
+      "check": "profile.N1",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "gsLen",
+        "detail": "M_0List address"
+      },
+      "check": "profile.N6",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "genesisHash",
+        "rule": "R24(a)"
+      },
+      "check": "profile.N11",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "chainId"
+      },
+      "check": "profile.ID-chainId",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "profileShape",
+        "field": "genesisPre"
+      },
+      "check": "profile.SH-upperHex",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "profileShape",
+        "field": "chainId"
+      },
+      "check": "profile.SH-chainIdString",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "profileShape",
+        "field": "chainId"
+      },
+      "check": "profile.SH-chainIdBool",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "profileShape",
+        "field": "trustLevel"
+      },
+      "check": "profile.SH-trustLevelCase",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "profileShape",
+        "field": "keys"
+      },
+      "check": "profile.SH-extraKey",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "profileShape",
+        "field": "genesisHash"
+      },
+      "check": "profile.SH-shortHash",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": "profileShape",
+        "field": "genesisPre"
+      },
+      "check": "profile.SH-oddHexLength",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "CP grows by D_att +2, subsidy +5, H_END +2, H_CLOSE +3 = 189-byte body, 191 encoded; M_0 4\u00b743 = 172 -> 174; payload 1+4+191+33+174+33 = 436; total 439. g_ts/target_g/M_0/roots are placeholders (DG-V3-1); RecvFit depends only on the listed widths and lengths.",
+      "error": null,
+      "check": "profile.RF1",
+      "status": "pass"
+    },
+    {
+      "check": "profile.RF1.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "derived": [
+        "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+        "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
+        "0x15d34aaf54267db7d7c367839aaf71a00a2c6a65",
+        "0x9965507d1a55bcc2695c58ba16fb37d819b0a4dc"
+      ],
+      "known": [
+        "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+        "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
+        "0x15d34aaf54267db7d7c367839aaf71a00a2c6a65",
+        "0x9965507d1a55bcc2695c58ba16fb37d819b0a4dc"
+      ],
+      "check": "RF2.fixtureKeys3to6MatchKnownAddresses",
+      "status": "pass"
+    },
+    {
+      "count": 1024,
+      "check": "RF2.fixtureSetupIds",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "CP: RET -1, H_END +1, H_CLOSE +2 -> body 179, encoded 181; M_0 1024\u00b743 = 44032 -> 44035; payload 1+4+181+33+44035+33 = 44287; total 44290; worst getParams 2\u00b744290+4096 = 92676 <= 98304",
+      "error": null,
+      "check": "profile.RF2",
+      "status": "pass"
+    },
+    {
+      "check": "profile.RF2.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "256 + 43\u00b71100 = 47556 > 47104; worst 2\u00b747556+4096 = 99208 > 98304. M_max set to 1100 (same 3-byte width) so the fixture does not also violate R12, which is a ParamGate rule outside validate.",
+      "error": {
+        "code": -32019,
+        "data": {
+          "rule": "recvFit",
+          "violations": [
+            {
+              "method": "pocol_getParams",
+              "worst": 99208,
+              "limit": 98304
+            }
+          ]
+        }
+      },
+      "check": "profile.RF3",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "256 + 43\u00b71089 = 47083 <= 47104 (largest n that fits with the GSV1 CP)",
+      "error": null,
+      "check": "profile.RF3-n1089",
+      "status": "pass"
+    },
+    {
+      "check": "profile.RF3-n1089.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "256 + 43\u00b71090 = 47126 > 47104; worst 98348",
+      "error": {
+        "code": -32019,
+        "data": {
+          "rule": "recvFit",
+          "violations": [
+            {
+              "method": "pocol_getParams",
+              "worst": 98348,
+              "limit": 98304
+            }
+          ]
+        }
+      },
+      "check": "profile.RF3-n1090",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "subsidy 2^184 encodes in 25 bytes (was 4): +21 -> 47104 exactly; CP body 198 keeps a 2-byte header; worst 2\u00b747104+4096 = 98304 = limit -> accept",
+      "error": null,
+      "check": "profile.RF3-edge-equal",
+      "status": "pass"
+    },
+    {
+      "check": "profile.RF3-edge-equal.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "subsidy 2^192 encodes in 26 bytes: +22 -> 47105; worst 98306 > 98304",
+      "error": {
+        "code": -32019,
+        "data": {
+          "rule": "recvFit",
+          "violations": [
+            {
+              "method": "pocol_getParams",
+              "worst": 98306,
+              "limit": 98304
+            }
+          ]
+        }
+      },
+      "check": "profile.RF3-edge-over",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "floor(262144/85) = 3084; 2048 + 3084\u00b770 = 217928 > 167936 (width 83 04 00 00 unchanged: length 341)",
+      "error": {
+        "code": -32019,
+        "data": {
+          "rule": "recvFit",
+          "violations": [
+            {
+              "method": "eth_getBlockByHash/Number",
+              "worst": 217928,
+              "limit": 167936
+            }
+          ]
+        }
+      },
+      "check": "profile.RF4",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "2048 + 70k <= 167936 -> k <= 2369 (165888/70 = 2369.83); largest BODY_MAX with floor(B/85) = 2369 is 2369\u00b785+84 = 201449; worst 167878. Equality is unreachable (step 70).",
+      "error": null,
+      "check": "profile.RF4-edge-ok",
+      "status": "pass"
+    },
+    {
+      "check": "profile.RF4-edge-ok.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "floor(201450/85) = 2370; 2048 + 165900 = 167948 > 167936",
+      "error": {
+        "code": -32019,
+        "data": {
+          "rule": "recvFit",
+          "violations": [
+            {
+              "method": "eth_getBlockByHash/Number",
+              "worst": 167948,
+              "limit": 167936
+            }
+          ]
+        }
+      },
+      "check": "profile.RF4-edge-over",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "2\u00b734304+1024 = 69632 = limit",
+      "error": null,
+      "check": "profile.RFC-edge-equal",
+      "status": "pass"
+    },
+    {
+      "check": "profile.RFC-edge-equal.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "2\u00b734305+1024 = 69634 > 69632",
+      "error": {
+        "code": -32019,
+        "data": {
+          "rule": "recvFit",
+          "violations": [
+            {
+              "method": "eth_getCode",
+              "worst": 69634,
+              "limit": 69632
+            }
+          ]
+        }
+      },
+      "check": "profile.RFC-edge-over",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "2\u00b7132096+2048 = 266240 = limit",
+      "error": null,
+      "check": "profile.RFT-edge-equal",
+      "status": "pass"
+    },
+    {
+      "check": "profile.RFT-edge-equal.netKeyShape",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": "2\u00b7132097+2048 = 266242 > 266240",
+      "error": {
+        "code": -32019,
+        "data": {
+          "rule": "recvFit",
+          "violations": [
+            {
+              "method": "eth_getTransactionByHash",
+              "worst": 266242,
+              "limit": 266240
+            }
+          ]
+        }
+      },
+      "check": "profile.RFT-edge-over",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "derivation": null,
+      "error": {
+        "code": -32019,
+        "data": {
+          "rule": "recvFit",
+          "violations": [
+            {
+              "method": "eth_getCode",
+              "worst": 69634,
+              "limit": 69632
+            },
+            {
+              "method": "eth_getBlockByHash/Number",
+              "worst": 217928,
+              "limit": 167936
+            }
+          ]
+        }
+      },
+      "check": "profile.RF-multi",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "transport.T1-ok",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "transport.T2-capEqual",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "transport.T2-capOver",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "transport.T3-deadlineEqual",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "transport.T3-deadlineOver",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "transport.T4-poolEqual",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "transport.T4-poolShort",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "transport.T5-mixedList",
+      "status": "pass"
+    },
+    {
+      "limits": {
+        "eth_getCode": 69632,
+        "pocol_getParams": 98304,
+        "eth_getBlockByHash/eth_getBlockByNumber": 167936,
+        "eth_getTransactionByHash": 266240
+      },
+      "check": "reuse.acceptedRecvTableLimits",
+      "status": "pass"
+    },
+    {
+      "check": "reuse.modelRowsMatchAccepted",
+      "status": "pass"
+    },
+    {
+      "check": "reuse.rf3rf4AcceptedArithmetic",
+      "status": "pass"
+    },
+    {
+      "partialGap": true,
+      "text": "The network profile genesisPre is not literal in the source: g_ts, target_g, the four HELD M_0 identities, alloc (allocRoot) and sysCodeHash are absent. RF1 uses network CP values with placeholders; its decision depends only on field widths and |genesisPre| (439 B).",
+      "check": "gap.DG-V3-1",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "end/full allocRoot and sysCodeHash need node-side alloc and system code; placeholders used. w..z come from TK-1 (0.5 proposal); the well-known addresses are an author recollection to be confirmed by an independent root oracle.",
+      "check": "gap.DG-V3-2",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "H_GSV1 must be agreed by three Keccak libraries after K1-K3 (validation.md:75 iii). Only the accepted pure-Python Keccak runs here: H_GSV1 is recorded, not certified.",
+      "check": "gap.DG-V3-3",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "The decode error name for the first stage (structure) is not given; this model reports gsStructure (P-V3-2).",
+      "check": "gap.DG-V3-4",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "consensus.md:27 puts field relations in ParamGate, yet gamma_bp <= 10^4 - alpha_bp is written in the CP field list and |M_0List| bounds in the M_0List rules. Model: gamma relation and |M_0List| >= 1 at decode; M_min/M_max bounds left to ParamGate (R12). Proposal P-V3-3.",
+      "check": "gap.DG-V3-5",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "networks.json fetch: response cap, deadline and pool reservation semantics are not specified; fixtures use proposals P-V3-6/P-V3-7 (1048576 B, 10000 ms inclusive, reserve recvLimit from TRUST_POOL).",
+      "check": "gap.DG-V3-6",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "forkSchedule (R24 b-d) is not among the acceptance steps of browser.md:11-16; validate checks its JSON shape only. Step 3 \"chainId match\" is read as profile.chainId = GenesisSpec.chainId; the endpoint chainId is the netKey check at open (browser.md:19).",
+      "check": "gap.DG-V3-7",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "No string/URL rules are given for profile fields; validate rejects non-canonical hex and wrong types without normalizing (P-V3-1); endpoint URL syntax is not validated.",
+      "check": "gap.DG-V3-8",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "implementation.md:292 says NetworkProfiles.validate imports asert and the M3-TS model; no acceptance step uses ASERT. This model does not evaluate ASERT; the dependency is recorded, not faked.",
+      "check": "gap.DG-V3-9",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "Identity line format \"<name> \u00b7 chainId <n> \u00b7 genesisHash <full 0x hash>\" is a proposal for the step-4 confirmation (the source requires the full hash only).",
+      "check": "gap.P-V3-4",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "A validated profile never starts a node in this model: node start needs node-side R24(a) on alloc; GSV1 is additionally on a known-non-bootable list.",
+      "check": "gap.P-V3-5",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "Model only: no TypeScript/Chrome options page, no Rust decoder, no real HttpTransport, no signed networks.json signature scheme (signature verification is an input flag).",
+      "check": "gap.V3-scope",
+      "status": "recorded"
+    },
+    {
+      "missing": [],
+      "check": "coverage021.required",
+      "status": "pass"
+    },
+    {
+      "rfChecks": [
+        "profile.RF-multi",
+        "profile.RF1",
+        "profile.RF2",
+        "profile.RF3",
+        "profile.RF3-edge-equal",
+        "profile.RF3-edge-over",
+        "profile.RF3-n1089",
+        "profile.RF3-n1090",
+        "profile.RF4",
+        "profile.RF4-edge-ok",
+        "profile.RF4-edge-over",
+        "profile.RFC-edge-equal",
+        "profile.RFC-edge-over",
+        "profile.RFT-edge-equal",
+        "profile.RFT-edge-over"
+      ],
+      "check": "coverage021.rfVariants",
+      "status": "pass"
+    },
+    {
+      "count": 32,
+      "check": "coverage021.decodeNegatives",
+      "status": "pass"
+    },
+    {
+      "check": "coverage021.noStepAborted",
+      "status": "pass"
+    },
+    {
+      "before": {
+        "m1-draft-0.20/results/run-results-0.20.json": null,
+        "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json": "f87710014cec5afc40044fb7717b77511b2a68a12a6440db1c1255d518f963bf",
+        "coordination/issue-ledger.json": "f0515b48f0f9cd8c447646f372b5ce91f241bc604e78c128bec8299bc2a7dd47",
+        "m1-draft-0.2/tools/keccak.py": "99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d",
+        "m1-draft-0.2/tools/rlp_strict.py": "abd9ba9accacdefff7edc1fc18eb7513402e2ef21528ebac64c6e84cde6a236a"
+      },
+      "after": {
+        "m1-draft-0.20/results/run-results-0.20.json": null,
+        "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json": "f87710014cec5afc40044fb7717b77511b2a68a12a6440db1c1255d518f963bf",
+        "coordination/issue-ledger.json": "f0515b48f0f9cd8c447646f372b5ce91f241bc604e78c128bec8299bc2a7dd47",
+        "m1-draft-0.2/tools/keccak.py": "99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d",
+        "m1-draft-0.2/tools/rlp_strict.py": "abd9ba9accacdefff7edc1fc18eb7513402e2ef21528ebac64c6e84cde6a236a"
+      },
+      "check": "preserved.olderFilesUnchanged",
+      "status": "pass"
+    }
+  ]
+}

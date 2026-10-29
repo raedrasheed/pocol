@@ -1,0 +1,8 @@
+# ext-unit (rerun with node_modules linked from the main worktree; the extension tree equals it): (cd prototypes/pocol-extension; node tests/unit.mjs)
+# start 2026-10-25T07:47:17Z
+{
+ "result": "PASS",
+ "passed": 234,
+ "failed": []
+}
+# end 2026-10-25T07:47:48Z exit=0

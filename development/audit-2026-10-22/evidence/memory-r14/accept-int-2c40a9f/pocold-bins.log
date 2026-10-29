@@ -1,0 +1,4 @@
+# pocold-bins: (cd prototypes/pocold; cargo build --release --locked --offline --bins)
+# start 2026-10-27T14:54:00Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.21s
+# end 2026-10-27T14:54:00Z exit=0

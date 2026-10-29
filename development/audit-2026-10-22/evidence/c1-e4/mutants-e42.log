@@ -1,0 +1,46 @@
+# C-1 E4.2 mutation controls (state.redb node store; lp4 apply_block_on overlay path). Each mutant on a fresh copy of the
+# tree with new file times and its own target dir. Stages, in order (a mutant stops at its first failing stage; the base runs
+# all): pocold --test state_store; lp4 --lib; pocold consensus e1_ s3a_every pool e3_ (and e4_ in pass 2); pocold --test caps.
+# Runners are kept out of the repository; only this log is committed.
+# S1 a stored node named again is not counted: pocold/src/state_store.rs: replace 'Some(v)=>{let n=u32::from_be_bytes(v[..4].try_into().unwrap());t.insert(&id,node_value(n+1,&v[4..]).as_slice()).map_err(err)?;}' with 'Some(_)=>{}'
+# S2 releasing a pin does not release the nodes below: pocold/src/state_store.rs: replace 't.remove(&id).map_err(err)?;gone.push(id);\n                    let node=Node::decode(&v[4..]).ok_or_else(||StateStoreError(\"a node does not decode\".into()))?;stack.extend(node.children());' with 't.remove(&id).map_err(err)?;gone.push(id);'
+# S3 a node read is not checked against its id: pocold/src/state_store.rs: replace 'if v.len()<4||keccak256(&v[4..]).0!=*id{return Err(self.mark_damaged(\"a node's bytes do not hash to its id\"))}' with 'if v.len()<4{return Err(self.mark_damaged(\"short\"))}'
+# S4 a store marked damaged is opened as it is: pocold/src/state_store.rs: replace 'let first=if marker.exists(){Err(StateStoreError(\"marked damaged\".into()))}else{create(&path)};' with 'let first=create(&path);'
+# S5 code read is not checked against its hash: pocold/src/state_store.rs: replace 'if keccak256(&b)!=*h{panic!(' with 'if false{panic!('
+# S6 a released node stays in the cache: pocold/src/state_store.rs: replace 'let mut c=self.cache.lock().unwrap();for id in &gone{c.remove(id);}' with 'let _=&gone;'
+# S7 the cache bound is ignored: pocold/src/state_store.rs: replace 'while self.bytes>cap{' with 'while false&&self.bytes>cap{'
+# S8 a damaged store keeps serving: pocold/src/state_store.rs: replace 'if self.is_damaged(){return Err(StateStoreError(\"state store damaged\".into()))}' with ''
+# A1 the candidate's summary check is skipped on the overlay path: lp4-execution/src/apply.rs: replace '    r.map_err(|e|ApplyError::Genesis(format!(\"candidate {e:?}\")))?;\n    check_escrow_invariant(child,profile,h,is_final)?;' with '    let _=r;\n    check_escrow_invariant(child,profile,h,is_final)?;'
+# A2 the overlay path's escrow invariant is skipped: lp4-execution/src/apply.rs: replace '    check_escrow_invariant(child,profile,h,is_final)?;\n    let c=users.commitments().clone();' with '    let _=is_final;\n    let c=users.commitments().clone();'
+# A3 the overlay path does not check the parent: lp4-execution/src/apply.rs: replace '    r.map_err(|e|ApplyError::Genesis(format!(\"parent {e:?}\")))?;\n    let job=job(pv,' with '    let _=r;\n    let job=job(pv,'
+# A4 the overlay path's write set is empty: lp4-execution/src/apply.rs: replace '    let writes=ran.state.touched();' with '    let writes=crate::state_trie::Touched::default();'
+## pass 1 (2026-10-25 02:50-03:16 UTC): copies of the working tree while 6c6e192 was being committed; the tree was not frozen
+## to a commit, so this pass is not attributed to one and is superseded by pass 2. A1-A3 survived: no test failed a candidate
+## or a parent on the overlay path (apply::tests::e4_failing_children_fail_alike_on_the_overlay_path was added in 8f4b473).
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "S1 a stored node named again is not counted", "status": "KILLED", "failed": ["a_released_version_is_not_served_from_the_cache", "stored_versions_have_their_roots_and_states_and_survive_reopen"]}
+{"mutant": "S2 releasing a pin does not release the nodes below", "status": "KILLED", "failed": ["a_released_version_is_not_served_from_the_cache", "stored_versions_have_their_roots_and_states_and_survive_reopen"]}
+{"mutant": "S3 a node read is not checked against its id", "status": "KILLED", "failed": ["a_damaged_node_is_never_served_and_the_store_is_rebuilt"]}
+{"mutant": "S4 a store marked damaged is opened as it is", "status": "KILLED", "failed": ["a_damaged_node_is_never_served_and_the_store_is_rebuilt", "code_that_does_not_hash_to_its_key_is_never_served"]}
+{"mutant": "S5 code read is not checked against its hash", "status": "KILLED", "failed": ["code_that_does_not_hash_to_its_key_is_never_served"]}
+{"mutant": "S6 a released node stays in the cache", "status": "KILLED", "failed": ["a_released_version_is_not_served_from_the_cache"]}
+{"mutant": "S7 the cache bound is ignored", "status": "KILLED", "failed": ["a_small_node_cache_reads_the_same"]}
+{"mutant": "S8 a damaged store keeps serving", "status": "KILLED", "failed": ["a_damaged_node_is_never_served_and_the_store_is_rebuilt"]}
+{"mutant": "A1 the candidate's summary check is skipped on the overlay path", "status": "PASS", "failed": []}
+{"mutant": "A2 the overlay path's escrow invariant is skipped", "status": "PASS", "failed": []}
+{"mutant": "A3 the overlay path does not check the parent", "status": "PASS", "failed": []}
+{"mutant": "A4 the overlay path's write set is empty", "status": "KILLED", "failed": ["apply::tests::e2_blocks_with_trie_and_summary_equal_the_reference", "apply::tests::e2_code_cap_reached_exactly_with_the_summary", "apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state"]}
+## pass 2 (frozen tree b91c490754cb42a5fd8acc223de24fd13522b729, consensus filter adds e4_): 12 of 12 killed
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "S1 a stored node named again is not counted", "status": "KILLED", "failed": ["a_released_version_is_not_served_from_the_cache", "stored_versions_have_their_roots_and_states_and_survive_reopen"]}
+{"mutant": "S2 releasing a pin does not release the nodes below", "status": "KILLED", "failed": ["a_released_version_is_not_served_from_the_cache", "stored_versions_have_their_roots_and_states_and_survive_reopen"]}
+{"mutant": "S3 a node read is not checked against its id", "status": "KILLED", "failed": ["a_damaged_node_is_never_served_and_the_store_is_rebuilt"]}
+{"mutant": "S4 a store marked damaged is opened as it is", "status": "KILLED", "failed": ["a_damaged_node_is_never_served_and_the_store_is_rebuilt", "code_that_does_not_hash_to_its_key_is_never_served"]}
+{"mutant": "S5 code read is not checked against its hash", "status": "KILLED", "failed": ["code_that_does_not_hash_to_its_key_is_never_served"]}
+{"mutant": "S6 a released node stays in the cache", "status": "KILLED", "failed": ["a_released_version_is_not_served_from_the_cache"]}
+{"mutant": "S7 the cache bound is ignored", "status": "KILLED", "failed": ["a_small_node_cache_reads_the_same"]}
+{"mutant": "S8 a damaged store keeps serving", "status": "KILLED", "failed": ["a_damaged_node_is_never_served_and_the_store_is_rebuilt"]}
+{"mutant": "A1 the candidate's summary check is skipped on the overlay path", "status": "KILLED", "failed": ["apply::tests::e4_failing_children_fail_alike_on_the_overlay_path"]}
+{"mutant": "A2 the overlay path's escrow invariant is skipped", "status": "KILLED", "failed": ["apply::tests::e4_failing_children_fail_alike_on_the_overlay_path"]}
+{"mutant": "A3 the overlay path does not check the parent", "status": "KILLED", "failed": ["apply::tests::e4_failing_children_fail_alike_on_the_overlay_path"]}
+{"mutant": "A4 the overlay path's write set is empty", "status": "KILLED", "failed": ["apply::tests::e2_code_cap_reached_exactly_with_the_summary", "apply::tests::e2_blocks_with_trie_and_summary_equal_the_reference", "apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "apply::tests::e4_failing_children_fail_alike_on_the_overlay_path"]}

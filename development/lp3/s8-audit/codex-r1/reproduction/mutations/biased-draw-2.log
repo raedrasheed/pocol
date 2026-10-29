@@ -1,0 +1,25 @@
+
+running 8 tests
+test exact_seed_ticket_and_proposer_hash_domains ... ok
+test exact_weight_window_sorted_choice_uniform_fallback_and_duplicates ... ok
+test inconsistent_parent_views_are_errors_not_certificates ... ok
+test membership_cutoff_grace_tombs_and_fallback ... ok
+test nonce_max_exact_work_and_full_64bit_space ... ok
+test partition_empty_ranges_completeness_and_owner_edges ... ok
+test full_256bit_unbiased_rejection_boundaries ... FAILED
+test seeded_partition_properties_and_permutation_invariance ... ok
+
+failures:
+
+---- full_256bit_unbiased_rejection_boundaries stdout ----
+thread 'full_256bit_unbiased_rejection_boundaries' panicked at 'assertion failed: `(left == right)`
+  left: `Some(0)`,
+ right: `None`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/assignment.rs:146:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    full_256bit_unbiased_rejection_boundaries
+
+test result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+

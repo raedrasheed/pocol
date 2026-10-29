@@ -1,0 +1,39 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (1.626582ms)
+✔ 1027 previously frozen ASERT rows (6.836681ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.216471ms)
+✖ membership, partition completeness, owner and exact hashes (8.927499ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (1.388061ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (6.149798ms)
+✔ full schema width/order/reserved failures and deep malformed framing (10.376946ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (70.635295ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.239851
+
+✖ failing tests:
+
+test at ../work/lp3-s6/mutations/ts-partition-gap-p74w66a7/prototypes/lp3-model/tests.ts:38:1
+✖ membership, partition completeness, owner and exact hashes (8.927499ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(m.owner(a.ranges,j))
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/mutations/ts-partition-gap-p74w66a7/prototypes/lp3-model/tests.ts:45:220)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

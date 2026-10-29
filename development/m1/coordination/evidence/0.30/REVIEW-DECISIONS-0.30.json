@@ -1,0 +1,19 @@
+{
+  "authority": "Independent rootreview under recordeduserstandingdelegation; not personalownerapproval",
+  "revision": "0.30",
+  "acceptedUnaffectedRows": [
+    "C1",
+    "C2",
+    "R1",
+    "E6"
+  ],
+  "basis": [
+    "REVIEW-0.29.md: qualified acceptance of unaffecteddelegatedchoices/evidence",
+    "actual0.29passed computations for these rows and matchedhistoricalbindings",
+    "0.30C34negativecase corrected; guardedadapteroriginalC33probes23/23independent pass"
+  ],
+  "conditions": "All other38candidate rows retainreviewed evidence. C3/C4 newcorrections need finalbindings; V1 guardederror-data serialization C35requiresrepair. NofullM1acceptanceyet.",
+  "sourceBOMDecision": "Adopt one-leadingUTF8BOM stripping asnativeTextDecoder default; othermalformedUTF8rejects.",
+  "sourceEncodingDecision": "Error-data compactencoding mustmatch well-formed nativeJSON.stringify UTF8 bytes, including lone-surrogate escaping and IEEE754number normalization. NativeNode referencecodec preferred overinventing a serializer; Nodealreadyinstalled and usedbyM1tools.",
+  "personalOwnerAnswersRecorded": 0
+}

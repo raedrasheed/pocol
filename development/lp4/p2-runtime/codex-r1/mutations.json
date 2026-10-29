@@ -1,0 +1,20 @@
+[
+  {
+    "name": "wrong-chain",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": false
+  },
+  {
+    "name": "unguarded-pay",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "wrong-spec",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

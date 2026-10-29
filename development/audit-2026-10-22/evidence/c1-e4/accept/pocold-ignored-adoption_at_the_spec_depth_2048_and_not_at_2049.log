@@ -1,0 +1,12 @@
+# pocold-ignored-adoption_at_the_spec_depth_2048_and_not_at_2049: (cd prototypes/pocold; cargo test --release --locked --offline --test consensus -- --ignored --exact adoption_at_the_spec_depth_2048_and_not_at_2049)
+# start 2026-10-25T07:58:33Z (alongside the final mutation pass)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.21s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/target/release/deps/consensus-8931e1cfd46c771d)
+
+running 1 test
+test adoption_at_the_spec_depth_2048_and_not_at_2049 has been running for over 60 seconds
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 78 filtered out; finished in 189.96s
+
+# end 2026-10-25T08:01:43Z exit=0

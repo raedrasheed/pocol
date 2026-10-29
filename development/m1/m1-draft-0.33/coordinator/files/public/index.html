@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PoCol · المنسق المحلي</title>
+<link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/coordinator.css"><script src="/app.js" defer></script></head>
+<body>
+<main>
+  <header><span class="eyebrow">POCOL / LOCAL COORDINATOR</span><h1>متابعة عمل M1 والتحكم فيه</h1>
+    <p>هذه الصفحة واجهة لوسيط محلي يخدم المنسق الحالي. لا تشغّل حلقة مستقلة، ولا تنشئ مراجعًا، ولا تبدأ دورة مؤلف إلا بطلبك وبعد موافقة المنسق.</p>
+    <p id="connection" class="connection" role="status">جارٍ الاتصال بالخادم المحلي…</p></header>
+
+  <section class="card" aria-labelledby="statusTitle">
+    <div class="section-head"><h2 id="statusTitle">الحالة الحالية</h2><span id="updatedAt" dir="ltr"></span></div>
+    <dl class="facts">
+      <dt>المرحلة</dt><dd id="phase"></dd>
+      <dt>آخر فحص متحقق</dt><dd id="latestCheck"></dd>
+      <dt>العامل النشط</dt><dd id="activeWorker"></dd>
+      <dt>المراجع (المنسق المضيف)</dt><dd id="reviewer"></dd>
+      <dt>ناقل الإشعار إلى خيط Codex القائم</dt><dd id="notifier"></dd>
+      <dt>حالة الإيقاف</dt><dd id="pauseState"></dd>
+      <dt>ما ننتظره</dt><dd id="waiting"></dd>
+    </dl>
+    <details><summary>الملاحظات المفتوحة في سجل المنسق</summary><ul id="findings" class="plain"></ul></details>
+    <p id="statusNote" class="muted"></p>
+  </section>
+
+  <section class="card" aria-labelledby="authorityTitle">
+    <div class="section-head"><h2 id="authorityTitle">التفويض الدائم والمتابعة</h2><span>للعرض فقط</span></div>
+    <dl class="facts">
+      <dt>التفويض المسجل</dt><dd id="authStanding"></dd>
+      <dt>النطاق</dt><dd id="authScope"></dd>
+      <dt>قائمة العمل المستقل</dt><dd id="authWorklist"></dd>
+      <dt>طلب المتابعة بعد المراجعة</dt><dd id="authContinuation"></dd>
+    </dl>
+    <p id="authNote" class="muted"></p>
+  </section>
+
+  <section class="card" aria-labelledby="controlTitle">
+    <div class="section-head"><h2 id="controlTitle">التوجيه والتحكم</h2><span>يُحفظ كل طلب بمفتاح فريد ولا يتكرر</span></div>
+    <label for="guidance">توجيه للمنسق</label>
+    <textarea id="guidance" rows="4" maxlength="8000" placeholder="اكتب ملاحظتك أو طلبك. يُحفظ ويُسلم للمنسق المضيف ليؤكد استلامه."></textarea>
+    <div class="row"><button id="sendGuidance">إرسال التوجيه</button>
+      <select id="jobMode" aria-label="نوع دورة المؤلف"><option value="smoke">فحص قراءة فقط (لا يكتب ملفات)</option><option value="author">دورة مؤلف في مسودة جديدة</option></select>
+      <button id="requestJob" class="secondary">طلب دورة مؤلف</button>
+      <button id="pause" class="secondary danger">إيقاف مؤقت عند حد آمن</button>
+      <button id="resume" class="secondary">استئناف</button></div>
+    <p class="muted">طلب الدورة لا يشغّل شيئًا مباشرة: ينتظر موافقة المنسق وخطة المهمة، ثم مراجعة Codex الفعلية قبل أي دورة تالية. الإيقاف ينتظر انتهاء المهمة الجارية ولا يحذف أي ملف.</p>
+    <p id="error" role="alert" hidden></p>
+    <h3 class="sub">الطابور المحفوظ</h3>
+    <div id="queue"><p class="empty">لا توجد طلبات بعد.</p></div>
+  </section>
+
+  <section class="card" aria-labelledby="ownerTitle">
+    <div class="section-head"><h2 id="ownerTitle">أسئلة صاحب المشروع</h2><span>توصيات، وليست موافقات</span></div>
+    <p class="muted">تُحفظ إجابتك وتُسلم للمنسق المضيف، ولا تُعد قرارًا مسجلًا قبل أن يؤكد استلامها. لا يُعتمد شيء تلقائيًا.</p>
+    <div id="owner"></div>
+  </section>
+
+  <section class="card" aria-labelledby="historyTitle">
+    <div class="section-head"><h2 id="historyTitle">السجل: التاريخي والحالي</h2><span id="historyCount"></span></div>
+    <p class="muted">البطاقات التاريخية مستوردة من ملفات مساحة العمل دون تشغيل أي وكيل. البطاقات الحالية هي إيصالات مهام المؤلف التي شغّلها هذا الوسيط، والمراجعات التي سجلها المنسق المضيف فعلًا عبر واجهة المراجع. الترتيب زمني حسب الوقت المسجل؛ ما لا وقت له يظهر «غير متاح» ويبقى في موضعه بين جيرانه. يُعرض النص المسموح فقط: نص الرد، والأدوات المستدعاة ونتائجها المختصرة، والنتيجة النهائية. لا تُعرض أفكار النموذج الداخلية ولا القيم السرية.</p>
+    <div id="history"><p class="empty">جارٍ التحميل…</p></div>
+  </section>
+  <footer>اتفاق Claude وCodex ليس اختبارًا. الخادم محلي على 127.0.0.1 فقط.</footer>
+</main>
+</body></html>

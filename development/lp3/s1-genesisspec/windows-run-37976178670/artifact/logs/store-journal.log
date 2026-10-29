@@ -1,0 +1,21 @@
+
+running 12 tests
+test exclusive_writer_in_process ... ok
+test p1_append_batches_across_reopen_match_fixture_chain ... ok
+test p1_init_status_and_never_overwrite ... ok
+test p2_idempotent_tip_and_linear_store_rules ... ok
+test p2_invalid_append_leaves_state_unchanged ... ok
+test p3_deterministic_corruption_corpus_never_clean ... {"corpus":"journal-flips","kinds":{"corrupt": 1289, "metadataCorrupt": 211}}
+ok
+test p3_metadata_incomplete_and_corrupt ... ok
+test p3_profile_binding_is_exact ... ok
+test p3_record_corruption_reorder_duplicate_and_bounds ... ok
+test p4_every_truncation_of_the_final_record ... ok
+test p4_partial_guard_and_checksum_bytes_are_verified ... ok
+test write_and_sync_failures_poison_the_writer ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.36s
+
+   Compiling lp1-node v0.1.0 (D:\a\Proof-of-Collaboration\Proof-of-Collaboration\prototypes\lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 1.26s
+     Running tests\store_journal.rs (D:\a\_temp\lp3-target\debug\deps\store_journal-d6d8fd240b507529.exe)

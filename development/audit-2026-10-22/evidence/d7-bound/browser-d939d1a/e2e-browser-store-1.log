@@ -1,0 +1,65 @@
+# e2e-browser-store-1: (cd prototypes/pocol-extension; node tests/e2e_browser.mjs)
+# start 2026-10-25T15:06:14Z
+PASS every node runs in the requested state mode — stateStore=true,true,true
+PASS LP8 sites published into PoCol state through nodes a and b — S_A=0x75af12b158a77eded723e383d66f58b833f36e7f S_B=0xeb66bd3b97d287ec77a7ddc0a409c5ab0d2ebeea
+PASS RP window over real headers accepted (items 1, 1b, viewFuture, 2-9, viewTargetCeil) — RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 2048 لكل رأس (work(ceilTarget))، دون تحقق تنفيذ أو عضوية
+PASS RP trust message names the header count and the work bound
+PASS RP mutation window ends at a fallback header (items 4 and 5 are reachable) — height 37 of tip 40
+PASS frozen real window accepted
+PASS RP mutation: chainId changed -> netChain — got netChain
+PASS RP mutation: genesisHash changed -> netGenesis — got netGenesis
+PASS RP mutation: timestamp in the far future -> viewFuture — got viewFuture
+PASS RP mutation: parentHash changed -> 2 — got 2
+PASS RP mutation: timestamp below L(a) -> 4 — got 4
+PASS RP mutation: target not equal to ASERT -> 5 — got 5
+PASS RP mutation: nonce below nMax but PoW fails -> 7 — got 7
+PASS RP mutation: nonce >= nMax -> 6 — got 6
+PASS RP mutation: winnerSig r=0 -> 8 — got 8
+PASS RP mutation: share equal to the winning nonce -> 9 — got 9
+PASS RP mutation: bad header shape -> 1 — got 1 header arity
+PASS RP mutation: proposer signature altered -> 3 — got 3
+PASS RP window with a missing header -> viewIncomplete — got viewIncomplete
+PASS profile accepted (genesisPre hashes to genesisHash, chainId matches) — 0xd1d2c29c14c0bb9a946cb52cc2fe2cf8c4b2d7bcc65fec2ce0bf322da8d2c7df
+PASS profile with a genesisHash that genesisPre does not hash to is rejected — {"code":-32603,"message":"genesisHash mismatch"}
+PASS RP trust banner shown outside the frame (13 headers, work bound) — RP: مرتبط بالعمل والهوية لـ13 رأسًا، بعمل محتسب لا يقل عن 2048 لكل رأس (work(cei
+PASS site rendered from verified chunks: HTML + @import CSS + JS + PNG + url() in CSS — {"h1":"PoCol on-chain site v1","color":"rgb(17, 170, 85)","bg":"rgb(244, 246, 248)","loaded":"yes","inline":"yes","dcl":"yes","img":2,"cssBg":"url(\"blob","fetch":"1400","xhr":"1400","iframes":0,"title":"PoCol test site v1","jsHref":null,"refresh":false,"prefetch":false}
+PASS scripts run in order from blob:, DOMContentLoaded delivered, fetch/XHR served from the file map — {"h1":"PoCol on-chain site v1","color":"rgb(17, 170, 85)","bg":"rgb(244, 246, 248)","loaded":"yes","inline":"yes","dcl":"yes","img":2,"cssBg":"url(\"blob","fetch":"1400","xhr":"1400","iframes":0,"title":"PoCol test site v1","jsHref":null,"refresh":false,"prefetch":false}
+PASS sanitizer removed iframe/object/meta refresh/prefetch, on* handlers and javascript: URLs — {"h1":"PoCol on-chain site v1","color":"rgb(17, 170, 85)","bg":"rgb(244, 246, 248)","loaded":"yes","inline":"yes","dcl":"yes","img":2,"cssBg":"url(\"blob","fetch":"1400","xhr":"1400","iframes":0,"title":"PoCol test site v1","jsHref":null,"refresh":false,"prefetch":false}
+PASS RpcTap: site load used only read methods (pocol_status, pocol_getHeaders, eth_call, eth_getCode, eth_chainId, eth_blockNumber) — eth_chainId,pocol_status,eth_blockNumber,pocol_getHeaders,eth_call,eth_getCode
+PASS RpcTap: extension requests carry the extension Origin (ORIGIN_DENY applies) — chrome-extension://gdppclkanhacbfnkcdmolebclaicimbp
+PASS isolation probes: WebSocket/RTCPeerConnection undefined, nested frames refused, fetch/XHR to network fail — {"fetchAbs":"blocked:TypeError","img":"error","ws":"undefined","rtcType":"undefined","beacon":"false","iframeAppend":"blocked:NotSupportedError","iframeInnerHTML":"iframes=0","cssImport":"added","linkCss":"added","xhrAbs":"error","windowOpen":"null","rtc":"no RTCPeerConnection","formPost":"submitted
+PASS HTTP canary: zero requests from the site (img/css/@import/link/beacon/form/popup/frames)
+PASS UDP (STUN) canary: zero packets — 0
+PASS frame alive after probes; legitimate read succeeds
+PASS BridgeAuth replies in Chrome match BR1-BR13 — {"BR1":4200,"BR2":4200,"BR3a":4200,"BR3b":4200,"BR4":4200,"BR5":-32600,"BR6":-32600,"BR7b":4200,"BR9":-32602,"BR11":4200,"BR12":-32602,"BR13":-32600,"debug":4200,"getProof":4200}
+PASS RpcTap: zero requests for rejected messages
+PASS BR10 eth_getLogs -> pocol_getLogs only; 1..1025 -> -32020 {range} without request — {"n":0,"m":["pocol_getLogs"],"big":{"code":-32020,"message":"range","data":{"reason":"range","limit":1024}}}
+PASS BR19b pendingReads: 4 forwarded, the 5th -32005 {pending} — ok,ok,ok,ok,-32005:pending
+PASS BR19c burst of 60: rate rejections occur, later read succeeds — ok=8 rate=10 pending=42
+PASS BR17a localStorage write persisted through BridgeAuth as a versioned record (D103) — {"d":{"k":"v"},"n":[":0000000000000001:00000002"]}
+PASS BR17a after reload localStorage.getItem(k) = v (new session, same netKey/site)
+PASS BR17e quota table (e1-e8) through Chrome — null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,4300,4300,null,4300,4300,null,null
+PASS BR17e(e9) stored dictionary total = 925694, k00=b, k01/k18 absent, k17 = 4042 bytes — 925694
+PASS BR17f S_B sees none of S_A keys; its quota is independent — {"k00":null,"w":"null"}
+PASS D103 worker restart: frame torn down with the loss notice; reload recovers the committed dictionary under epoch 2 — {"rec":{"k00":"b","k17":4042,"k01":null},"epochs":["0001","0002"],"names":[":0000000000000002:00000000"]}
+PASS BR18a site_navigate(/about.html): old frame torn down, new frame shows about.html, no new tab — frame 2
+PASS BR18b /docs/ -> docs/index.html
+PASS link interception: relative ../ link -> site_navigate -> entry
+PASS D99 4th rapid navigation -> -32005 {nav}, frame kept — {"error":{"code":-32005,"message":"nav","data":{"reason":"nav"}}}
+PASS link interception: <a href=docs/> navigates inside the site
+PASS BR18c /a/../b.html -> viewer 404 page
+PASS BR18h second confirm while one is pending -> -32005 {pending} — {"error":{"code":-32005,"message":"pending","data":{"reason":"pending"}}}
+PASS BR18e openExternal: confirm shows the full URL, approve opens one new tab that navigates to it, reply null — https://example.org/ {"r":null} history=https://example.org/
+PASS BR18f reject -> 4001 and no tab
+PASS D26 a self-navigating frame is torn down on its second load
+PASS A06 Chrome: a profile with the same chainId and another genesis flags both as conflicting; eth_requestAccounts -> 4100 without a dialog — 4100 [["devnet",true],["node-a",true],["node-b",true],["node-c",true],["othernet",true]]
+PASS A06 Chrome: approve is not armed the moment a dialog appears (a double click cannot approve it)
+PASS BR14 eth_requestAccounts after click returns the per-network wallet address — 0x661d5e1e2a875b9a1fe18e34c246a24a9694b4cc
+PASS BR14 no eth_sendRawTransaction before the click
+PASS BR14 exactly one eth_sendRawTransaction; its signed preimage = displayed unsigned bytes, keccak of them = displayed signingHash, signer = wallet, result = keccak(raw) — 1 0x661d5e1e2a875b9a1fe18e34c246a24a9694b4cc 0x2bd96e1dadfb8e11910187e76bf9282cfc7940cee387846e4358aedf53a1fb08
+PASS A06 Chrome: endpoint identity re-checked after the click, before the submission (eth_chainId, pocol_status, then eth_sendRawTransaction) — eth_chainId,pocol_status,eth_sendRawTransaction
+FAIL e2e driver completed — Error: timeout: receipts
+    at wait (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7c/prototypes/pocol-extension/tests/e2e_browser.mjs:27:202)
+    at async main (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83
+{"result":"FAIL","checks":59,"failed":1,"work":"/tmp/pocol-browser-MddD9u"}
+# end 2026-10-25T15:08:43Z exit=1

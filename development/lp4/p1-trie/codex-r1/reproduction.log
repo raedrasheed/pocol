@@ -1,0 +1,9 @@
+rust-version 0
+python-version 0
+release-build 0
+format 0
+regression 0
+probe-compile 0
+oracle 0
+mutations 0
+PASS P1 root primitive only; all deferred LP4 execution/resource gates NOT PASSED; boot off

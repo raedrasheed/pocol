@@ -1,0 +1,117 @@
+{
+  "schema": "pocol-m1-storequeue-units/0.9",
+  "note": "Golden values are hand calculations from the cited baseline lines, not output of the model. Values {rep, n} mean the character rep repeated n times.",
+  "utf8": {
+    "source": {"file": "reference/implementation.md", "lines": [206, 206], "literals": ["TextEncoder"]},
+    "cases": [
+      {"id": "ascii", "s": "abc", "len": 3},
+      {"id": "empty", "s": "", "len": 0},
+      {"id": "null", "s": null, "len": 0},
+      {"id": "latin1", "s": "é", "len": 2},
+      {"id": "arabic-salam", "s": "سلام", "len": 8},
+      {"id": "arabic-word-space-emoji", "s": "العربية 😀", "len": 19},
+      {"id": "euro-bmp3", "s": "€", "len": 3},
+      {"id": "bmp-max", "s": "￿", "len": 3},
+      {"id": "non-bmp-emoji", "s": "😀", "len": 4, "jsStringLength": 2},
+      {"id": "non-bmp-max", "s": "􏿿", "len": 4},
+      {"id": "lone-high", "s": "\ud800", "len": 3},
+      {"id": "lone-low", "s": "\udc00", "len": 3},
+      {"id": "reversed-pair", "s": "\udc00\ud800", "len": 6},
+      {"id": "lone-inside", "s": "a\ud800b", "len": 5}
+    ]
+  },
+  "qbytes": {
+    "source": {"file": "reference/browser.md", "lines": [409, 412], "literals": ["64", "256", "61440", "61760"]},
+    "cases": [
+      {"id": "M", "op": {"op": "set", "k": "k00", "v": {"rep": "a", "n": 61440}}, "qbytes": 61507},
+      {"id": "m", "op": {"op": "set", "k": "k90", "v": "x"}, "qbytes": 68},
+      {"id": "delete", "op": {"op": "set", "k": "k01", "v": null}, "qbytes": 67},
+      {"id": "kv", "op": {"op": "set", "k": "k", "v": "v"}, "qbytes": 66},
+      {"id": "clear", "op": {"op": "clear"}, "qbytes": 64},
+      {"id": "max", "op": {"op": "set", "k": {"rep": "k", "n": 256}, "v": {"rep": "a", "n": 61440}}, "qbytes": 61760},
+      {"id": "br21e-k50", "op": {"op": "set", "k": "k50", "v": {"rep": "a", "n": 53905}}, "qbytes": 53972},
+      {"id": "br21f-m0", "op": {"op": "set", "k": "k17", "v": {"rep": "a", "n": 4042}}, "qbytes": 4109},
+      {"id": "arabic-value", "op": {"op": "set", "k": "k", "v": "سلام"}, "qbytes": 73},
+      {"id": "arabic-key-emoji-value", "op": {"op": "set", "k": "مفتاح", "v": "😀"}, "qbytes": 78},
+      {"id": "lone-surrogate-key", "op": {"op": "set", "k": "k\ud800", "v": "x"}, "qbytes": 69}
+    ]
+  },
+  "admission": {
+    "source": {"file": "reference/browser.md", "lines": [414, 420], "literals": ["8", "262144", "64", "4194304"]},
+    "note": "sess and glob are [n, bytes] BEFORE the message; violated lists fields in the order sessN, sessBytes, globN, globBytes. Equality is accepted.",
+    "cases": [
+      {"id": "q3-sessBytes", "params": "DEFAULTS", "sess": [4, 246028], "glob": [4, 246028], "q": 61507, "violated": ["sessBytes"]},
+      {"id": "q5-sessN", "params": "DEFAULTS", "sess": [8, 246300], "glob": [8, 246300], "q": 68, "violated": ["sessN"]},
+      {"id": "q10-globN", "params": "DEFAULTS", "sess": [0, 0], "glob": [64, 3936448], "q": 61507, "violated": ["globN"]},
+      {"id": "e-t5-globBytes", "params": "TQ", "sess": [1, 53972], "glob": [5, 300000], "q": 68, "violated": ["globBytes"]},
+      {"id": "e-t4-exact", "params": "TQ", "sess": [0, 0], "glob": [4, 246028], "q": 53972, "violated": []},
+      {"id": "all-four", "params": "DEFAULTS", "sess": [8, 246300], "glob": [64, 4194000], "q": 61507, "violated": ["sessN", "sessBytes", "globN", "globBytes"]},
+      {"id": "sess-bytes-equality", "params": "DEFAULTS", "sess": [7, 200637], "glob": [7, 200637], "q": 61507, "violated": []},
+      {"id": "sess-n-equality", "params": "DEFAULTS", "sess": [7, 476], "glob": [7, 476], "q": 68, "violated": []},
+      {"id": "glob-bytes-equality-function-only", "params": "DEFAULTS", "sess": [0, 0], "glob": [63, 4194236], "q": 68, "violated": [], "note": "function-level vector; this state is not reachable with defaults (I55)"},
+      {"id": "glob-bytes-over-function-only", "params": "DEFAULTS", "sess": [0, 0], "glob": [63, 4194237], "q": 68, "violated": ["globBytes"], "note": "function-level vector; not reachable with defaults (I55)"}
+    ]
+  },
+  "quotaBR17e": {
+    "source": {"file": "reference/validation.md", "lines": [198, 206], "literals": ["61443", "1044531", "1105974", "1048577", "1048576", "1048580", "987137", "925694"]},
+    "note": "SiteStorageRef.apply applied in sequence to one dictionary that starts empty. after = confirmed total after the message.",
+    "steps": [
+      {"id": "e1.1", "op": ["k00", {"rep": "a", "n": 61440}], "decision": null, "after": 61443},
+      {"id": "e1.2", "op": ["k01", {"rep": "a", "n": 61440}], "decision": null, "after": 122886},
+      {"id": "e1.3", "op": ["k02", {"rep": "a", "n": 61440}], "decision": null, "after": 184329},
+      {"id": "e1.4", "op": ["k03", {"rep": "a", "n": 61440}], "decision": null, "after": 245772},
+      {"id": "e1.5", "op": ["k04", {"rep": "a", "n": 61440}], "decision": null, "after": 307215},
+      {"id": "e1.6", "op": ["k05", {"rep": "a", "n": 61440}], "decision": null, "after": 368658},
+      {"id": "e1.7", "op": ["k06", {"rep": "a", "n": 61440}], "decision": null, "after": 430101},
+      {"id": "e1.8", "op": ["k07", {"rep": "a", "n": 61440}], "decision": null, "after": 491544},
+      {"id": "e1.9", "op": ["k08", {"rep": "a", "n": 61440}], "decision": null, "after": 552987},
+      {"id": "e1.10", "op": ["k09", {"rep": "a", "n": 61440}], "decision": null, "after": 614430},
+      {"id": "e1.11", "op": ["k10", {"rep": "a", "n": 61440}], "decision": null, "after": 675873},
+      {"id": "e1.12", "op": ["k11", {"rep": "a", "n": 61440}], "decision": null, "after": 737316},
+      {"id": "e1.13", "op": ["k12", {"rep": "a", "n": 61440}], "decision": null, "after": 798759},
+      {"id": "e1.14", "op": ["k13", {"rep": "a", "n": 61440}], "decision": null, "after": 860202},
+      {"id": "e1.15", "op": ["k14", {"rep": "a", "n": 61440}], "decision": null, "after": 921645},
+      {"id": "e1.16", "op": ["k15", {"rep": "a", "n": 61440}], "decision": null, "after": 983088},
+      {"id": "e1.17", "op": ["k16", {"rep": "a", "n": 61440}], "decision": null, "after": 1044531},
+      {"id": "e2", "op": ["k17", {"rep": "a", "n": 61440}], "decision": 4300, "attempted": 1105974, "after": 1044531},
+      {"id": "e3", "op": ["k17", {"rep": "a", "n": 4043}], "decision": 4300, "attempted": 1048577, "after": 1044531},
+      {"id": "e4", "op": ["k17", {"rep": "a", "n": 4042}], "decision": null, "after": 1048576},
+      {"id": "e5", "op": ["k18", "x"], "decision": 4300, "attempted": 1048580, "after": 1048576},
+      {"id": "e6", "op": ["k17", {"rep": "a", "n": 4043}], "decision": 4300, "attempted": 1048577, "after": 1048576},
+      {"id": "e7", "op": ["k00", "b"], "decision": null, "after": 987137},
+      {"id": "e8", "op": ["k01", null], "decision": null, "after": 925694}
+    ],
+    "finalKeys": ["k00", "k02", "k03", "k04", "k05", "k06", "k07", "k08", "k09", "k10", "k11", "k12", "k13", "k14", "k15", "k16", "k17"],
+    "finalTotal": 925694
+  },
+  "quotaUtf8Boundary": {
+    "source": {"file": "reference/browser.md", "lines": [396, 398], "literals": ["1048576"]},
+    "note": "Author vectors (hand calculation). Start: k00..k16 = 61440 x 'a' (17 x 61443 = 1044531) plus k17 = 4036 x 'a' (entry 4039): total 1048570. Each step is applied to that SAME start dictionary independently.",
+    "start": {"series": {"keys": ["k00", "k01", "k02", "k03", "k04", "k05", "k06", "k07", "k08", "k09", "k10", "k11", "k12", "k13", "k14", "k15", "k16"], "v": {"rep": "a", "n": 61440}}, "extra": {"k17": {"rep": "a", "n": 4036}}},
+    "startTotal": 1048570,
+    "steps": [
+      {"id": "emoji-fits", "op": ["e", "😀"], "decision": null, "after": 1048575},
+      {"id": "two-emoji-over", "op": ["e", "😀😀"], "decision": 4300, "attempted": 1048579, "after": 1048570, "note": "String.length accounting would give 1+4 = 5 and wrongly accept"},
+      {"id": "lone-surrogate-fits", "op": ["e", "\ud800"], "decision": null, "after": 1048574},
+      {"id": "two-lone-over", "op": ["e", "\ud800\ud800"], "decision": 4300, "attempted": 1048577, "after": 1048570},
+      {"id": "arabic-equality", "op": ["e", "سلa"], "decision": null, "after": 1048576, "note": "entry 1+(2+2+1) = 6 -> exactly 1048576, accepted"},
+      {"id": "arabic-one-over", "op": ["e", "سلا"], "decision": 4300, "attempted": 1048577, "after": 1048570, "note": "entry 1+6 = 7 -> 1048577"},
+      {"id": "clear", "op": "clear", "decision": null, "after": 0},
+      {"id": "delete-missing", "op": ["zz", null], "decision": null, "after": 1048570}
+    ]
+  },
+  "config": {
+    "source": {"file": "reference/governance.md", "lines": [132, 142], "literals": ["61760", "3952640", "4194304"]},
+    "note": "BG1 StoreQueue lines. P-Q1-3: a test build may deviate only in the global-bytes bound (TQ).",
+    "cases": [
+      {"id": "defaults-release", "params": "DEFAULTS", "build": "release", "ok": true, "violations": []},
+      {"id": "defaults-test", "params": "DEFAULTS", "build": "test", "ok": true, "violations": []},
+      {"id": "tq-test", "params": "TQ", "build": "test", "ok": true, "violations": []},
+      {"id": "tq-release-rejected", "params": "TQ", "build": "release", "ok": false, "violations": ["nonDefaultRelease", "globBytesBound"]},
+      {"id": "wait-not-after-write", "params": {"base": "DEFAULTS", "set": {"wait": 5000}}, "build": "test", "ok": false, "violations": ["waitAfterWrite"]},
+      {"id": "sess-bytes-too-small", "params": {"base": "DEFAULTS", "set": {"sessBytes": 61759}}, "build": "test", "ok": false, "violations": ["sessBytesFitsMax"]},
+      {"id": "active-zero-release", "params": {"base": "DEFAULTS", "set": {"active": 0}}, "build": "release", "ok": false, "violations": ["nonDefaultRelease", "activeMin"]},
+      {"id": "sess-msgs-over-glob", "params": {"base": "DEFAULTS", "set": {"sessMsgs": 65}}, "build": "test", "ok": false, "violations": ["msgsOrder"]}
+    ]
+  }
+}

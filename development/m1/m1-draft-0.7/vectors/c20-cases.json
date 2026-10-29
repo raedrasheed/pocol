@@ -1,0 +1,34 @@
+{
+  "specVersion": "M1 draft 0.7",
+  "revision": "R7-02 (C20)",
+  "semantics": "Each path case builds a one-file manifest {path, mime 1, content 'a' (one chunk)} and validates it with every rule enabled (normal) and with exactly one rule disabled (mutant). Expected results are hand-derived from the ordered violation list of tools/m1model_07.path_violations. 'v03' records what the 0.3 instrumentation did (Codex rule-disable-probe.json) where it differs.",
+  "pathCases": [
+    {"path": "/a//..", "violations": ["path.grammar", "path.dotSegment"], "normal": "path.grammar", "disable": "path.grammar", "mutant": "path.dotSegment", "v03": "accept"},
+    {"path": "/./%", "violations": ["path.dotSegment", "path.grammar"], "normal": "path.dotSegment", "disable": "path.dotSegment", "mutant": "path.grammar", "v03": "accept"},
+    {"path": "", "violations": ["path.length", "path.grammar", "path.grammar"], "normal": "path.length", "disable": "path.length", "mutant": "path.grammar", "v03": "accept",
+     "note": "corrects 0.2 neg-path-empty: its isolation is 'next' -> path.grammar, not 'full'"},
+    {"path": "a/..", "violations": ["path.grammar", "path.dotSegment"], "normal": "path.grammar", "disable": "path.grammar", "mutant": "path.dotSegment"},
+    {"path": "/..//x", "violations": ["path.dotSegment", "path.grammar"], "normal": "path.dotSegment", "disable": "path.dotSegment", "mutant": "path.grammar"},
+    {"path": "/a b/../c", "violations": ["path.grammar", "path.dotSegment"], "normal": "path.grammar", "disable": "path.grammar", "mutant": "path.dotSegment"},
+    {"path": "/..", "violations": ["path.dotSegment"], "normal": "path.dotSegment", "disable": "path.dotSegment", "mutant": "accept", "note": "single fault: full isolation unchanged"},
+    {"path": "/a b", "violations": ["path.grammar"], "normal": "path.grammar", "disable": "path.grammar", "mutant": "accept"},
+    {"lengthOver": true, "path": "@'/'+256*'a'+'/..'", "violations": ["path.length", "path.dotSegment"], "normal": "path.length", "disable": "path.length", "mutant": "path.dotSegment"}
+  ],
+  "fixtureIsolationCorrections": [
+    {"fixture": "m1-draft-0.2/vectors/manifest-negative.json neg-path-empty", "was": {"isolation": "full"}, "now": {"isolation": "next", "nextRuleWhenDisabled": "path.grammar"}}
+  ],
+  "regression": "Every 0.2 negative fixture keeps its normal first rule and stage under m1model_07, and every isolation claim holds as stated, except neg-path-empty, which uses the corrected claim above. Every 0.2 positive and version-record fixture keeps its result and request counts.",
+  "cacheCases": [
+    {"id": "CACHE-1-cross-stage-mutant",
+     "setup": "address A = chunk_address(b'honest') holds code 0x00 || b'forged!' (6+1 bytes, not factory-derived for its address)",
+     "steps": [["fetch", "mfetch", "disabled mfetch.origin"], ["fetch", "fetch", "all rules enabled"]],
+     "expected": {"step1": "returns b'forged!' (mutant accepted)", "step2": {"reject": "fetch.origin"}, "requests": 2, "cached": false},
+     "v03": "step 2 was served from the shared cache and returned b'forged!' with fetch.origin enabled (bypass)"},
+    {"id": "CACHE-2-normal-sharing-unchanged", "setup": "address A holds honest code 0x00 || b'honest'",
+     "steps": [["fetch", "mfetch", "all rules enabled"], ["fetch", "fetch", "all rules enabled"]],
+     "expected": {"step2": "returns b'honest' from the cache", "requests": 1, "cached": true}},
+    {"id": "CACHE-3-content-mutant-not-cached", "setup": "address A holds code 0x01 || b'honest' (bad prefix)",
+     "steps": [["fetch", "fetch", "disabled fetch.prefix"], ["fetch", "fetch", "all rules enabled"]],
+     "expected": {"step2": {"reject": "fetch.prefix"}, "requests": 2, "cached": false}}
+  ]
+}

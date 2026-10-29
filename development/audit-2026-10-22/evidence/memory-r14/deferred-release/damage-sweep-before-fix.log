@@ -1,0 +1,779 @@
+# Sweep over every node only one middle version of the newest checkpoint names (an uncommitted scratch change to e4_checkpoint_damage_falls_back_to_a_verified_state, DMG_SWEEP): each removed in turn from a copy of the directory, the node reopened inside catch_unwind and compared with replay from genesis. Tree: ad301e7 (before the fix). Stopped after 363 of 587 candidates. Lines: each candidate's result, and each panic's message and the backtrace frames in pocold and lp4.
+DMG candidates 587
+             at ./src/node.rs:373:38
+DMG 0 0011e0e2fde27f19155656be89a5ef9f0aa19b892f4843e071ccdbcb95c42187 ok resumed None
+             at ./src/node.rs:373:38
+DMG 1 003d53b32be09ab77d716f0a9e8c7fc06b661885d1b591acdd5d4a802dbfbe1b ok resumed None
+             at ./src/node.rs:373:38
+DMG 2 0096d721b421775951f281a0a047e0d83ef5ed4986d9805b2fd0a53bb30e3c54 ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 3 00e50bd2ed7147119190367286d81f5213b543c2902ecdbd9d456237cf37aa20 PANIC
+             at ./src/node.rs:373:38
+DMG 4 0138f1f0f89e151146ad9ede66085efe39f3ca835c63154b340038017a0ae7a1 ok resumed None
+             at ./src/node.rs:373:38
+DMG 5 01520e5509c6da242dd387b109fb182b07e0a627c16228bc46eaf8ddad329755 ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 6 02a1c8e6a4d3d948d2e97fa15f13021c3599f198f9db6cfca8e90d6fe9f4f2f4 PANIC
+             at ./src/node.rs:373:38
+DMG 7 02c68cb6b819746ca9fe48d61f63f1e1218dce92e2ede55576b166b2844fc581 ok resumed None
+             at ./src/node.rs:373:38
+DMG 8 02c6bfaec949265a6c1dff314228e617c50a9918516ae253f20f486c9c6b328b ok resumed None
+             at ./src/node.rs:373:38
+DMG 9 03c5136d80f87eb88b069ec92dfc427c6eeb7d3d4cad826f3a33d9c6cc0fa7ab ok resumed None
+             at ./src/node.rs:373:38
+DMG 10 03ebd10f2756369e59933bbfc156a1e38492f728552fa19620947b896f7199cb ok resumed None
+             at ./src/node.rs:373:38
+DMG 11 044f5c09d82195fa98025872042bab67d2235fdeb29adff8dc44f3be1a17dacb ok resumed None
+             at ./src/node.rs:373:38
+DMG 12 045de9f2f38a0b16fd40316e7507664d333740ced076fb9b68eb04113758de80 ok resumed None
+             at ./src/node.rs:373:38
+DMG 13 04766e73b80623b938b512f9748214e4fde30addfb1ca5445e179975e70fa0d1 ok resumed None
+             at ./src/node.rs:373:38
+DMG 14 053e6554b9eb133d2fe583c4e86372bacb91736c2dcfa946f9d523c28e74e979 ok resumed None
+             at ./src/node.rs:373:38
+DMG 15 064bfe71048226d1a1f9f5e9d90813d97e6081dff4b6794a4d527ef3179140ac ok resumed None
+             at ./src/node.rs:373:38
+DMG 16 065847ace4eb6ab154931f0c1840f81c822942ccd536020b6a65a4d9f2078d27 ok resumed None
+             at ./src/node.rs:373:38
+DMG 17 074ad933b4859819376c1a1397538454ddd9ca94b217010f1dfbab78993133ce ok resumed None
+             at ./src/node.rs:373:38
+DMG 18 075396659205ea758b7f4af452b93a5b55cab0f5fa3b9351c0991ca5dd466a12 ok resumed None
+             at ./src/node.rs:373:38
+DMG 19 07e5f5dc7f5a243c9262fcab763c01837229646483b770d0c7d340daa282a702 ok resumed None
+             at ./src/node.rs:373:38
+DMG 20 080a8c073ca3f0e12d428eda2d5b6460e494439cda641b46e98b4408f242c5c1 ok resumed None
+             at ./src/node.rs:373:38
+DMG 21 08e4374bf6a542be220a7a4c8e4d37954c4dffc630561def4ecbd3df73e3b28f ok resumed None
+             at ./src/node.rs:373:38
+DMG 22 08fc1fe279139b43f925563d60db1ddcbbec7f57b4f7075a88fedc15a3c6097e ok resumed None
+             at ./src/node.rs:373:38
+DMG 23 091df6febae385b86ff925e3b4b4b80943061be373d918794513d5f77b2b773c ok resumed None
+             at ./src/node.rs:373:38
+DMG 24 094253aebb2c2d41d1dd3754b2a030bdca20050296d3e74026af8c33e7396ee7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 25 094dc096954ca6f89008b217c2f67b20448aafeba89e7014ccbad6463ceab97f ok resumed None
+             at ./src/node.rs:373:38
+DMG 26 0a4fb18f1d8a56a6aabb02d27329d6be1ef1edf760d3cdfd780ae6787d9aa4a9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 27 0a86599d6ed41eebbb5418ca31f208ec5e3189871a1fa680aefd95524f5af5b7 ok resumed None
+DMG 28 0a89f4bcb5400a833f7ab0beb493cce5aacceea252fc08d6befbc509c7973041 ok resumed None
+             at ./src/node.rs:373:38
+DMG 29 0af09f97c2b715fd6653a2c7590058af31b443ebb35748a1502fbda19a025e08 ok resumed None
+             at ./src/node.rs:373:38
+DMG 30 0b5113b31ccd6082126ee586e57ced85253543bb00982f0ec7544655a79afb75 ok resumed None
+             at ./src/node.rs:373:38
+DMG 31 0b80dd3f36bb57508607143851fe8519947a9d4a4fa4c08d9b245868293d3eaf ok resumed None
+             at ./src/node.rs:373:38
+DMG 32 0bba1eb563a794c4c1ab7a3dbbe322e150a281c96a18336697675e8c9aab2c9e ok resumed None
+             at ./src/node.rs:373:38
+DMG 33 0bbd6c48ad036009d92440e4c05449e001b3b37ebc263fe251ce8e60937098a6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 34 0be302e4f65a9a5c48dab1c61178c0de340a31e48a57226c56bd7a24cc50fa3a ok resumed None
+             at ./src/node.rs:373:38
+DMG 35 0c2ef3c4f4578895691dec195fac92aeb2b058b9673395e5bcb08d6059ef3b4e ok resumed None
+             at ./src/node.rs:373:38
+DMG 36 0c9f788e1747f21eabdd905c9f2bd4b24fff6c04a138805953c70fa36841969a ok resumed None
+             at ./src/node.rs:373:38
+DMG 37 0ce55878e4a8f2e18b20f3a3e1c75f689dbed3ae76ff8be872325784c10d12b5 ok resumed None
+             at ./src/node.rs:373:38
+DMG 38 0cf784655710a9e4348d4549cad5962c6190ee71858075245487ca496001fc21 ok resumed None
+             at ./src/node.rs:373:38
+DMG 39 0d0ff07139535c33f098dc2264ed7d9b895ce0b6501d450743134ae3e225e62c ok resumed None
+             at ./src/node.rs:373:38
+DMG 40 0d5855816f65a054e6951d1dbbe65a4932ddea419a9a466a52ea6f0b8512b5d0 ok resumed None
+             at ./src/node.rs:373:38
+DMG 41 0d6226eea2b311b086cb2c6fc3d56eeac1bae35fcb6fbfef3c24715ede079384 ok resumed None
+             at ./src/node.rs:373:38
+DMG 42 0d7c8978c2e855def9bacb68489e713773153fb7ae8cc628fa7e25a98414b3b0 ok resumed None
+             at ./src/node.rs:373:38
+DMG 43 0dae5de0509bf20701d2de71b57abcc78d4b4f89ecdd52d9f4ca7bc38e099a30 ok resumed None
+             at ./src/node.rs:373:38
+DMG 44 0f4698ee2a5a6ed7c8b8789638dc1752c6fd6aafc391e83bd3b34548e70c6fc2 ok resumed None
+             at ./src/node.rs:373:38
+DMG 45 0f69286e065829211e2811e0a36df617ddbee5a971d737167abb5313800e1cf8 ok resumed None
+             at ./src/node.rs:373:38
+DMG 46 1157b96fb344678691a27e95d9270437a66d4696eb6acbda7e737c8102d0422a ok resumed None
+             at ./src/node.rs:373:38
+DMG 47 11b4479046ca40eb3ae81cdfe10b764c15cb8952133c23abd848b724a0595aed ok resumed None
+             at ./src/node.rs:373:38
+DMG 48 124fd2fbdabc73463f850940d41f918da16b09f581e7bb29e5a6504952bfce1a ok resumed None
+             at ./src/node.rs:373:38
+DMG 49 12a85bc9e593b01143b012ce17da96bab2d937dc02f9540cc348a17e2acee78c ok resumed None
+             at ./src/node.rs:373:38
+DMG 50 12db3f8ff36810379981f4d09013e8e360e14a4e71f55af5c01f5984433210bb ok resumed None
+             at ./src/node.rs:373:38
+DMG 51 12e535f1eb172c732f26c1e3eb3810e22a542ebebb1aef837eb931918089db08 ok resumed None
+DMG 52 12e5922568eb39a1a808ee4ccebb452438a78c63edd53aec49dc1fcac301533a ok resumed None
+             at ./src/node.rs:373:38
+DMG 53 139a2ca9b0c0fefd7d1a03f0f32f5b49af9cafb3034d17dcd708bfb67bd28546 ok resumed None
+             at ./src/node.rs:373:38
+DMG 54 13b0921a551e9d95a86e0f60c7157efd1ff0e210ff12eff64e3ab9a82afc7922 ok resumed None
+             at ./src/node.rs:373:38
+DMG 55 13f3d7278e96f401052661689188c2022067883a7d735c37dbaf85809038912b ok resumed None
+             at ./src/node.rs:373:38
+DMG 56 14ef9b06cb4d7d10d188c8f0a2d9a0da661488ec02f892f6e6b6bcdf63b91c93 ok resumed None
+             at ./src/node.rs:373:38
+DMG 57 1556e06d00ec879a69a2bb23c2e10f6a9bbd11d537ea0c5fcb62dd185aee5ae9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 58 1566324af722be35fd5f4e7cb81067f4ee5edb268b60e41ff9b79a8f3835355b ok resumed None
+             at ./src/node.rs:373:38
+DMG 59 16a9ad767de3ae39472666260b4471c61b582e46702f810f492377557910395c ok resumed None
+             at ./src/node.rs:373:38
+DMG 60 16ec1bae5bcbab1bf154e58a5cd847ec38e53911dcef1f3e8dab3815eb82542e ok resumed None
+             at ./src/node.rs:373:38
+DMG 61 1715f96c49b2bab3715b93eaf6cc1965837f88d2b699672c56042266afdcf788 ok resumed None
+             at ./src/node.rs:373:38
+DMG 62 17c3d4a8471fcf2b03a08e13bee2ac9ea090b3ebe31bf74bb6602bfc107d0420 ok resumed None
+             at ./src/node.rs:373:38
+DMG 63 180d185e2e8a929a7581dece3d1e4b4423ed700c5654060961d0fc5a17561880 ok resumed None
+             at ./src/node.rs:373:38
+DMG 64 184c3e45eb77f98e824e9af0f881c2752939a086d56af7f260d5a2bcaeba72ee ok resumed None
+             at ./src/node.rs:373:38
+DMG 65 189d55cbeadc813fad92ba8bc505557461fda070759a9cbf4bc1f52f5408a7af ok resumed None
+             at ./src/node.rs:373:38
+DMG 66 18b63779ae851014cc1b8d84c6be41be679b696147991937885bdcc9fda45199 ok resumed None
+             at ./src/node.rs:373:38
+DMG 67 19230f8a1691155a67ea5d75d71fad863648a6008e9408ea269668f4f5f82531 ok resumed None
+             at ./src/node.rs:373:38
+DMG 68 19a18770977d8c17bcd222d1f6ae4b5db4d867cee2d001ee6bf6b0608393d639 ok resumed None
+             at ./src/node.rs:373:38
+DMG 69 1a9c5637323cc440c2174b110dba1f4efff1b71ad8a37afc5d1a4d65a0b6f3d0 ok resumed None
+             at ./src/node.rs:373:38
+DMG 70 1b3ffddb7f9aad3af2c672d756ac24b81df7c20625a257f8c375cf3241365dff ok resumed None
+             at ./src/node.rs:373:38
+DMG 71 1bc6d7f95f19132a064557cf6481de4331b3d51642846423c4bd1b12a4b45df7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 72 1c90e300c5f602d67e8ec2fb26cca6ab766181d76d7fb521a258825ba1f6fe93 ok resumed None
+             at ./src/node.rs:373:38
+DMG 73 1d9d93826bb91c2023c9f80210ac4e670be130fe6bac0fa933078244631cb1df ok resumed None
+             at ./src/node.rs:373:38
+DMG 74 1ea63a813172cc1f4292fafaeff2965467b14cf32f32243d928be8257ce508fc ok resumed None
+             at ./src/node.rs:373:38
+DMG 75 1eaa74c886d62b56e3a5e156ad9c63186412a4f4332a05fd19520ab8e8db882f ok resumed None
+             at ./src/node.rs:373:38
+DMG 76 1ed4219c5eb996f9aa6eda58a7eea78549ebedbd745d13c146ce6b899dcdd7fb ok resumed None
+             at ./src/node.rs:373:38
+DMG 77 1f4315b759e9e2ab79baf4e8d7acb8e59936e0038ceb416ad45fac8820632c38 ok resumed None
+             at ./src/node.rs:373:38
+DMG 78 1ff1c447710b24decd3e05640ad29f6671fff5de2991d21a85258724703f5455 ok resumed None
+             at ./src/node.rs:373:38
+DMG 79 2038f45da6d9e28f79614a1b87873253f35e25aa584e851197bc432fbd620ab6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 80 20d12f8144c659f5e08f492dacd78fc6bdf43b48c01292294f603acdcedd3d04 ok resumed None
+             at ./src/node.rs:373:38
+DMG 81 20e5b457105910e95ed9aee29cda814cca927573260f2119f3c971cd150a6571 ok resumed None
+             at ./src/node.rs:373:38
+DMG 82 211529afdb348d8a54a2e18dab837377a261ea5b729ff2c7bde56ae3c6299e39 ok resumed None
+             at ./src/node.rs:373:38
+DMG 83 21d950aa83fef5e15409657a5938d2c4a591d60e9c999bc38f5b71661f567044 ok resumed None
+             at ./src/node.rs:373:38
+DMG 84 223476b24a75b037a8d279afbdef4e3643197153556eb2a783a96c54c0e94208 ok resumed None
+             at ./src/node.rs:373:38
+DMG 85 22f4a86389cf2916ef2d478741895c7e4a9c6bf1b0e65f4ec8c8c4bea8f6e891 ok resumed None
+             at ./src/node.rs:373:38
+DMG 86 2382893cffcae2af6c14aaeea14475ce57f64a75ce5a7788c105f9f3299ee72c ok resumed None
+             at ./src/node.rs:373:38
+DMG 87 239f2b906029bbe69e87589f27ee4153321296be0a29bf9dbe9b06f0a88ea4f6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 88 23aba032301198948f0edb1871ba9bb23291dd98e7149e1032b77988e20715c7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 89 25e86aebb1cdeddb6631ebdfa2cd14bc2e869f1fd76ddc9dfff57ae6ef8e7f7f ok resumed None
+             at ./src/node.rs:373:38
+DMG 90 26330fd5a7eeaa8aae16b6afb270f8cd2417b9d9c1e7a94eebe3db4fd539c23e ok resumed None
+             at ./src/node.rs:373:38
+DMG 91 26652c2a3ae0dd3921dbeed713e741ff58220c77e150140a8d0d350f97362235 ok resumed None
+             at ./src/node.rs:373:38
+DMG 92 266e844848602a7d42a0ccbb42f171f8227a8dc2c92f4aeb4587e8c8f21bf0fc ok resumed None
+             at ./src/node.rs:373:38
+DMG 93 26a5c135608b416d1d4405ddc78926848873bc5278e65766173e7f4f355dab44 ok resumed None
+             at ./src/node.rs:373:38
+DMG 94 26bbfcbc09d0b16878d1d388b7b8ca75f59dc2af31fff6406797bcbf2b05511f ok resumed None
+             at ./src/node.rs:373:38
+DMG 95 279a9e71c26f8c115ea7734851ea1977f0892e5c8960ed5925e242a8c9187b53 ok resumed None
+             at ./src/node.rs:373:38
+DMG 96 27b8c9f25adcccd0b8013b5b1bf2a21758dd446760431b940844eeeda08e5a70 ok resumed None
+             at ./src/node.rs:373:38
+DMG 97 27da4131e6f0e023d8aa6c8f29efe9875ab821f32f098032d116a994a9a701d5 ok resumed None
+             at ./src/node.rs:373:38
+DMG 98 2884f8e6c6b5eb2a62d00e37ec6d5ac57af7988e2500d6544a8d6d8dbc89d417 ok resumed None
+             at ./src/node.rs:373:38
+DMG 99 28f094161b6a727ea34b14463e00643779fa3c7d19c5a592cd68c4c439c72d69 ok resumed None
+             at ./src/node.rs:373:38
+DMG 100 2926b880b8bcc688735ff5fc6b438d576cef2259616a56654113e1cc7664ab1c ok resumed None
+             at ./src/node.rs:373:38
+DMG 101 29287973bb0beeae86c95822a7317e8f26d25878244326e149dda3fec458b02d ok resumed None
+             at ./src/node.rs:373:38
+DMG 102 2afd15efbdd24d18955ef757abdb50995197fde301d670d3d51d36b265f6fb94 ok resumed None
+             at ./src/node.rs:373:38
+DMG 103 2b01f203ecff40177a403c597980a03905ff53c5a0d15be859c8f3b6b20ca6c7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 104 2b72370183613cecce4b6334f05797e801641ebd3c1d8735d51cebc61785e013 ok resumed None
+             at ./src/node.rs:373:38
+DMG 105 2bd8cd6143d356e9af83ecc2d9f99f3f5a6ae8b21486829e6e7a54e9dbf774a9 ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 106 2c863e4c65c7e6d34cdfef55f05289f952a8916ae7fb6a0f15e6ee9cab2e53e3 PANIC
+             at ./src/node.rs:373:38
+DMG 107 2cf887f693a4e2c77132a6b7b9d2a0959213488345a1f6d7873f9321a0d49253 ok resumed None
+             at ./src/node.rs:373:38
+DMG 108 2d0162e4e8fbbaadfc571edb801158eeaf9a83a0d10a97b06588a87f9fef2818 ok resumed None
+             at ./src/node.rs:373:38
+DMG 109 2dd3ad1f71964369eb91b51e833aac348b6e92e8673b1c84e9215ddb0f4488c5 ok resumed None
+             at ./src/node.rs:373:38
+DMG 110 2e2eb8bc0a95afa993e264ee671e79f28e152c4e3d5fd2e2cf080c7b7c4f772f ok resumed None
+             at ./src/node.rs:373:38
+DMG 111 2e317b4b8d7c67b54f8e08eb305cf1988fba0e04dbb353c04a44d6d17cef7c5a ok resumed None
+             at ./src/node.rs:373:38
+DMG 112 2f3622b12ee091ce3761e82417c3345c566aa26bf0fb8c022b13329374d0f57e ok resumed None
+             at ./src/node.rs:373:38
+DMG 113 2feff59726af6fc9bb21963f5dc54d6fcdce99f5074666efd0f1a9ce76b2fb4f ok resumed None
+             at ./src/node.rs:373:38
+DMG 114 30daf825f1c3a274f4af52c9416810f85e2e4ec98882d4db5bba8517bcdcc1f8 ok resumed None
+             at ./src/node.rs:373:38
+DMG 115 30f74fe9076cd48c7b0ecf0e6e803c3279e8fe198a639381c1d906878a50c2d2 ok resumed None
+             at ./src/node.rs:373:38
+DMG 116 313e8e21cf80653de4cc828e4fabf64825f3753d17035179aec9d5af3761e610 ok resumed None
+             at ./src/node.rs:373:38
+DMG 117 3144d521396400daebb134b3074485ec0b479b2380c22b464e1ee26c4c7fb6ef ok resumed None
+             at ./src/node.rs:373:38
+DMG 118 314d7a7b354d177cd9540d78f7e5a48f7edd66ae35533b042ea934b627b193d1 ok resumed None
+             at ./src/node.rs:373:38
+DMG 119 316b366bc5f996341faea1ad33119268575d70d3fc2af56124fbeba22cb1d215 ok resumed None
+             at ./src/node.rs:373:38
+DMG 120 31a2e4707a5ee5c5c2ae553a51be4adf803fabc8155954cdd61449634625407b ok resumed None
+             at ./src/node.rs:373:38
+DMG 121 3253153e15d7bd015ac4821df60e1768216b6bd96f2bdbd3e8efae10932e943a ok resumed None
+             at ./src/node.rs:373:38
+DMG 122 32b6ad73e48b11690c161a0f328f840b743e0e8a669c47c7ffe11961135a8151 ok resumed None
+             at ./src/node.rs:373:38
+DMG 123 32d89ffd1cfb8c01b8926da64ae9ec10eb0ae37689d957cf490cc173762afa31 ok resumed None
+             at ./src/node.rs:373:38
+DMG 124 3301eca777d08897b36d763c37a059e919e116de4e3e5034c3b878123b5a13c1 ok resumed None
+             at ./src/node.rs:373:38
+DMG 125 331132a63dfc80979fc1e679875f0ea589f174f0f01b56db195ea6dcf7f459ca ok resumed None
+             at ./src/node.rs:373:38
+DMG 126 337a49767221ed5625353f297e6ff0f08d7b8753ca426d870438644f41466318 ok resumed None
+             at ./src/node.rs:373:38
+DMG 127 33eeccaaf0a05df0c529cf8ae5718fb7fd196d5a7cc391d5d18e483c0a1bfaa8 ok resumed None
+             at ./src/node.rs:373:38
+DMG 128 33f049e7e3ff90c380d386513af51ae5370e61854676ff45d2b9152b86a825e3 ok resumed None
+             at ./src/node.rs:373:38
+DMG 129 342a27fe63af5453c6a65c96b582a884b9d0523f72cfd665ca1bd19b50794589 ok resumed None
+             at ./src/node.rs:373:38
+DMG 130 34f5a3714e40933f1acfc3844f51999e18d64bd017f94b2d11653c7918c859a9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 131 350d7753dea392237b483f8a628cd74b06003bd9e75d7fb9ef303b4357e7085f ok resumed None
+             at ./src/node.rs:373:38
+DMG 132 35594c4c45806e1c49c5b26de004c3debec7f54014013b483326ab8531fb68ea ok resumed None
+             at ./src/node.rs:373:38
+DMG 133 35a52dce1d439b35057c427ba1cadab5fb3a9cd61e6290f275d589ca8b3463d7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 134 35ca21b2c85675acd659941fe2011600ea6f6c7f15235795a84aff501da27020 ok resumed None
+             at ./src/node.rs:373:38
+DMG 135 361fb927902f2f08d9fd8805bfdbd361e5b2aeaafe53f0f1a90c4d8a5a0dd2e9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 136 366791ebdb816dc8baff572515349a161525360ec4b7610e583da270e76f649f ok resumed None
+             at ./src/node.rs:373:38
+DMG 137 36872b8ffacb8c76c298a71f1220ed96cc7c28bf041a507c1bab05faabf86f89 ok resumed None
+             at ./src/node.rs:373:38
+DMG 138 36d4f2cc212a55d87899ee8a97fb55d793a98aaecf8c9e83740bc098de503156 ok resumed None
+             at ./src/node.rs:373:38
+DMG 139 3771d1c7458035fb8df86a22f9c4525c2a0ecb43301730b168c1a870238754ff ok resumed None
+             at ./src/node.rs:373:38
+DMG 140 379bbd1ae6faa06f5593ec31f3f8edd20b8bbea96d73eaea44624e48ef23c6f2 ok resumed None
+             at ./src/node.rs:373:38
+DMG 141 3862a11cf4d46bc1da9d84ca56f7b32e50ced40353d1ce48221ae000c5dded37 ok resumed None
+             at ./src/node.rs:373:38
+DMG 142 3877fd35523c27d6091298c2839705a6176cf263f97f6602c571ee2eb5761dba ok resumed None
+             at ./src/node.rs:373:38
+DMG 143 38e3dbfe25f01b24a33b65e4b658684b0fd7fc81a863b432a1a13063dce0b119 ok resumed None
+             at ./src/node.rs:373:38
+DMG 144 38ef88daccf19eacdfa4380aea74f56c326398ffe8f4c866ea39e3e1d859b40f ok resumed None
+             at ./src/node.rs:373:38
+DMG 145 38f17b982364994372eae459ff4cd51c62961658b8f6d1a6631c9218b64731db ok resumed None
+             at ./src/node.rs:373:38
+DMG 146 39242589885053247ee7e8b9cae28103b19378226664644d4c263f1b5a22b1b5 ok resumed None
+DMG 147 399bbcd2959330312b528fff60f2e677c5a334be52d3a590d8621c282095e2aa ok resumed None
+             at ./src/node.rs:373:38
+DMG 148 3aa978ca6385808999f6a504bdcb39e68df26b1c34ffd4882ac59931e9406a92 ok resumed None
+             at ./src/node.rs:373:38
+DMG 149 3ab25628a7ac7fea7a340ffa2af6f87a91d4e608bf60b589117310b37dd40916 ok resumed None
+             at ./src/node.rs:373:38
+DMG 150 3b0d8a57bdd39f4b76074a9b8c492da65999ad12994ae0cf49dbc269dd0be143 ok resumed None
+             at ./src/node.rs:373:38
+DMG 151 3c757dca53d657416ad35195448bf3f202c4270736bd4db2a5f0805d5cfbaac9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 152 3cc0f442c20264b1eb65c41dddac9c991614ff9219c0be5251c2dfbedce6ef70 ok resumed None
+             at ./src/node.rs:373:38
+DMG 153 3d6a3a0c97528ad83ca6f813f0598642e041b160dc509a51dd646486bd3098dd ok resumed None
+             at ./src/node.rs:373:38
+DMG 154 3dd674aa6b30341fde2702442311924492efe792006acb8a70aa2b3de842c601 ok resumed None
+             at ./src/node.rs:373:38
+DMG 155 3dd67ca7b0d3db4900be9d38d7c5ff17da69de892182bd33a076ce2fd8b26b95 ok resumed None
+             at ./src/node.rs:373:38
+DMG 156 3dea717d4e82d199afde399361233d437882ae742cd9935eca266ea68504fe04 ok resumed None
+             at ./src/node.rs:373:38
+DMG 157 3e3a3408b8b6828ffb6cbe81778e7e4db224b495668a04cef98207d8783d68fa ok resumed None
+             at ./src/node.rs:373:38
+DMG 158 3e81829a1ba5e40646ca8d505d25199a6ed030945fd8f6a12835582548c56928 ok resumed None
+             at ./src/node.rs:373:38
+DMG 159 3ed51ee4b5a264030e0bc7c4c0e2df5b6aa4242d98abc1fc77bcb1894eb2dd06 ok resumed None
+             at ./src/node.rs:373:38
+DMG 160 3f0ba73a2117b06e5f759f6b21303e8ed3d7f61aa519ab7eaa2eb6488fde8322 ok resumed None
+             at ./src/node.rs:373:38
+DMG 161 3f8ea39e6ac149a15f1e345c3413e15a95ee3644fff9ba65a49d0c21d016c493 ok resumed None
+             at ./src/node.rs:373:38
+DMG 162 3f94cd163dae8ffc4a4735ccdb0fada4c3008f5e9a1ea9f173f803bfcfae3e2e ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 163 3fcb80a46b605b752edf64092fc4018f84fcbac4b54d06ededc90ee13205c524 PANIC
+             at ./src/node.rs:373:38
+DMG 164 40e327bf63e66cc5b2f3949199449a985f0d96d8efab9565bef18b9ad42fe563 ok resumed None
+             at ./src/node.rs:373:38
+DMG 165 40e631f1e09820f64025fb13cdb0202c18ef278ac5367e3dbbe1d6271bee58e6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 166 439d6f0db28979e02acb17aaf421322f6357f50270ff3c8cf5f78d60deee8079 ok resumed None
+             at ./src/node.rs:373:38
+DMG 167 43b389993291ec8dd3d8bb3198238abe7d3176439f6b401eb9b735258f98e697 ok resumed None
+             at ./src/node.rs:373:38
+DMG 168 43b7b4d29220c2a6e2551c7f7ea560b8c969004e32169946e40ec9464c471b7a ok resumed None
+             at ./src/node.rs:373:38
+DMG 169 43bd57bb4c87c3da47e6d22755b9e7963908f92f20b419b578a4ac55efbd865e ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 170 43e1eac6b6e30133cd688cb089d9debecc492a78a4c9af6bbe60706c6e3cb5f1 PANIC
+             at ./src/node.rs:373:38
+DMG 171 43f1fa7cefa0c6cf284da1326bb7c78f66c5776670b8d35780cc33039365ac7a ok resumed None
+             at ./src/node.rs:373:38
+DMG 172 4422f2bd221da00e4c786a168bb877ee9ec6b8042a7aceda51fba894048c9ba9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 173 450095bce2ce271e08334b958d3e70687f6a10ec290ed36d07c6b38d1787eec8 ok resumed None
+             at ./src/node.rs:373:38
+DMG 174 4545a123317723bc8f55eca35a371ee6ea68697b09f69aa672d44302de81b5b0 ok resumed None
+             at ./src/node.rs:373:38
+DMG 175 45a0b20598b1218da1aa6d998985d22cae9437ef4851e2d6156162ea29185da8 ok resumed None
+             at ./src/node.rs:373:38
+DMG 176 45ed618a3f874368264886289f4f515968cda07bccbc1d364d29a25fed8bbc2d ok resumed None
+             at ./src/node.rs:373:38
+DMG 177 462a1ec6577f4f1032d825f8f0b6e1ee0fa30727cbef0be79a2e4346f72f853e ok resumed None
+             at ./src/node.rs:373:38
+DMG 178 463beaa9538ed83ec63bac60d885a291d16689a0f9e80db44cd901ff39429333 ok resumed None
+             at ./src/node.rs:373:38
+DMG 179 4707a0b5e4ce456e71065813350f3d98c92999399987ea811ff7ec862a60705e ok resumed None
+             at ./src/node.rs:373:38
+DMG 180 47125cd9e4f95d34c00809dde137bfa5b394b8414b166f3611d020dc48377370 ok resumed None
+             at ./src/node.rs:373:38
+DMG 181 474ae5b478bb54fd90b7091feea89d22a3bd06a432990bbff524a7b6d03aea15 ok resumed None
+             at ./src/node.rs:373:38
+DMG 182 477524f8d8dd9393644c526eceadeed5f85d25ff0bce9f0d8a4b0e1ff4a5cfc4 ok resumed None
+             at ./src/node.rs:373:38
+DMG 183 47f5d89467f2bd0a8f2b77a31c95c74c196af7599926e889786eb234658740bf ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 184 486e9c742f04a58c38bbd1b92e8a6a7d8505f58242747dba72f31c8248283274 PANIC
+             at ./src/node.rs:373:38
+DMG 185 48c99184349c4ea89bb18658500b1f7485be9f568b2f99a19ecfa6ea0b8d0179 ok resumed None
+             at ./src/node.rs:373:38
+DMG 186 4942cbd3d6aee3440a0069d6f30b5e05d6fdf994bcabd64ff0a4ed619cdc4f25 ok resumed None
+             at ./src/node.rs:373:38
+DMG 187 49ac8a7a15a791ecdef0910b89d674330cc2ea6fc6334e94bcac0e377f44a44a ok resumed None
+             at ./src/node.rs:373:38
+DMG 188 49c07d7070eabafda61853df95bb1f47c90db466c4cce6b5e087e2a95b0467db ok resumed None
+             at ./src/node.rs:373:38
+DMG 189 49ef5dd31589b71cf21afc75d606af931c3e3c3133ecd59e2d62c422074952cf ok resumed None
+             at ./src/node.rs:373:38
+DMG 190 4a1b334ea792b03787dbc8bbe8c4f208c04160a89a49d728697814b34fcb9d07 ok resumed None
+             at ./src/node.rs:373:38
+DMG 191 4a5aeccb127c12b19d3dd93994088f609f11a1257479057bb36499e1d051ca9e ok resumed None
+             at ./src/node.rs:373:38
+DMG 192 4ae5bf6bb591b6c7583925b18047d73e6a01da778824cbcdb143f59751cd4ee3 ok resumed None
+             at ./src/node.rs:373:38
+DMG 193 4b2dfe60c2feac1b4601285edd7cbaaebcafa6ebad18fad1361ba9498f04fe9f ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 194 4b340f7b59f50f4e4bc60ec9e80c08ea82087d2372a63a22815c59cfefb5baa1 PANIC
+             at ./src/node.rs:373:38
+DMG 195 4b515e090ca72a1083b357df3eceab971eeff70230740e7913ec1f01d88e18f6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 196 4b7d26cb64a3e2d6fdf3fa822b456bca98399ca7d8d52db2bb7ed449e6198205 ok resumed None
+             at ./src/node.rs:373:38
+DMG 197 4b864b47575d5e2245502c113caf408ffdc2c2a3e361ccb11566806c66eef294 ok resumed None
+             at ./src/node.rs:373:38
+DMG 198 4c2b9e7d747e830fb93cb3685d77be628f1408b1b6778ed6f7924e07fcaba6e2 ok resumed None
+             at ./src/node.rs:373:38
+DMG 199 4c8e319275dfa999f5e591b55f32e80cee370aec79b36141fcf4fa9294d3fa9a ok resumed None
+             at ./src/node.rs:373:38
+DMG 200 4c8fc45c858275fffea531bc9e4289cbfeb68a53964d8896015c93600f74d5c2 ok resumed None
+             at ./src/node.rs:373:38
+DMG 201 4e0414a305c21b93cfc512f0ac87e82bbca75a7f5f29473a5ee6228218a2ca59 ok resumed None
+             at ./src/node.rs:373:38
+DMG 202 4efc98c8a59da4a6e3dc74f573c1e925fff5172e052748a1a8ac666f42f34938 ok resumed None
+             at ./src/node.rs:373:38
+DMG 203 4f9a6f37cfbcaf13de075e11da4df9451e5c2e266862077eed26c0570d82c67b ok resumed None
+             at ./src/node.rs:373:38
+DMG 204 4fed975d63b78fba5bd164bfd2a1225fbc98a4b9437c70c2e86c782ee9ecb418 ok resumed None
+             at ./src/node.rs:373:38
+DMG 205 50388e5eba657ecc9469c3b07e79fc10d9073fad1bc86786bef91220a98a3c86 ok resumed None
+             at ./src/node.rs:373:38
+DMG 206 509d09131ed8af8ba508a8d5f6fc17b00f7b3aa10f8db4b95709a58a3711c5c3 ok resumed None
+             at ./src/node.rs:373:38
+DMG 207 50a5a647e7bb87b2f16453a2807b0d3af8cefdca53882475263b4378b0dd33f2 ok resumed None
+             at ./src/node.rs:373:38
+DMG 208 51b250d4b7e587a5c6b78b169fd116aa064a462ca0b266be2bfc527b0b9f2059 ok resumed None
+             at ./src/node.rs:373:38
+DMG 209 51fdefd2e8a931fba45d0d9dbbf4d3c6bbf2774cbe597456bdf0c208949cf546 ok resumed None
+             at ./src/node.rs:373:38
+DMG 210 5225c7e2725574ed269fe3fdc54ea52b10555c9c7d5015c4109abd311ddad58f ok resumed None
+             at ./src/node.rs:373:38
+DMG 211 530d3104d15ba7c407e7ab67addd6f2b6625a7fc58f710604ad4f49dbfe7c7fb ok resumed None
+             at ./src/node.rs:373:38
+DMG 212 53b97837f45aa157092a9d10669a24f3d1bf96cff45adbb6fcca5284904a6042 ok resumed None
+             at ./src/node.rs:373:38
+DMG 213 53cb2be2654d5c36f39278be22921aabcbcc791fd30d594e3ba9c801c74f65d6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 214 54910166636b7a6ceb44def5b67d9bf826e98c2cda24b64cc8329e000f5302c5 ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 215 54c9462ee8f6e658f61294192010483bae95218018715644743f39a729ba0136 PANIC
+             at ./src/node.rs:373:38
+DMG 216 54d70edb49eec1cf0fe57066668134512ca0c8879afb495d7645dc1c92d592a1 ok resumed None
+             at ./src/node.rs:373:38
+DMG 217 5558545310aea496b00f6d565dce399287a6f9e232aeba8872bf57a7f927d3df ok resumed None
+             at ./src/node.rs:373:38
+DMG 218 55b4010651ff3e5d21270f004b318aa4effd61cea3af0dfe0406dfc8778d4007 ok resumed None
+             at ./src/node.rs:373:38
+DMG 219 55ce395dd45dc35da7b4fc8962e27fc52cd23be3688da68283b6a6228256fb5a ok resumed None
+             at ./src/node.rs:373:38
+DMG 220 55fd65f5f01925b43b340425e2c4a50fab51e4202fb6c90e799a5b5ab789e7d8 ok resumed None
+             at ./src/node.rs:373:38
+DMG 221 561043a197b5f9e22b2c18953856e3b11a74213ed0c7feddd459bc7c0969e7fd ok resumed None
+             at ./src/node.rs:373:38
+DMG 222 564e9fc47a0da20c73a57c8d99f9f56aa976450f505ccaefd6e71e61b06642d7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 223 5654e15ab15dd40535073ee46642282334a94c9612b637d8696461844f4f4ab6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 224 5735f15a34482b5f9e8307f8683bac11465d1fb95a4add3d1f39351e1916d72c ok resumed None
+             at ./src/node.rs:373:38
+DMG 225 578788295fa12617fd37c3ed4221fe54e588ec3767f45ec9dd6de0257f55802e ok resumed None
+             at ./src/node.rs:373:38
+DMG 226 58bae5819693d13a077dbf2735f2f2c159e2a3673c772e892b6dc15f7047daba ok resumed None
+             at ./src/node.rs:373:38
+DMG 227 594adc67e677c8c236e9cfae2c1e6b8a54d8920255fc14d8a280c60df7326e34 ok resumed None
+             at ./src/node.rs:373:38
+DMG 228 59b2947c03ea80b9c0cf3c5cf6ea0fd905d81379a59a6a05c852cbc480743573 ok resumed None
+             at ./src/node.rs:373:38
+DMG 229 5a1ec509d7a8d214a497f958de6531ddee6e3857761d3cbca2ae6cec007d63be ok resumed None
+             at ./src/node.rs:373:38
+DMG 230 5a94bbca26476c94e186f81ec9976d813c9927c464262c5180488c19a7481aa0 ok resumed None
+             at ./src/node.rs:373:38
+DMG 231 5ab70308c7c92bcb336532ad7abec130c1a7582608c12d8f46748beef76865ab ok resumed None
+             at ./src/node.rs:373:38
+DMG 232 5b05f4bf9bf197125b5c509279f91e8af5a4d9d44edd46adca8261099bff5bec ok resumed None
+             at ./src/node.rs:373:38
+DMG 233 5cadd7df93611f9b4a6a1b77dd1d23b054cc4ae16b7505b777d374e95f96dc99 ok resumed None
+             at ./src/node.rs:373:38
+DMG 234 5da659c3140f81a249a69101fb381052e3ade2f6cf83d0fd2c86dcec70bb6eec ok resumed None
+             at ./src/node.rs:373:38
+DMG 235 5ddee941324fff7b11673b83a6d89d7fcb068129e99858336e537dd71bdb1700 ok resumed None
+             at ./src/node.rs:373:38
+DMG 236 5e09c77de6208f0bf7b9f4c0dfca8f197c97badf9672cce9f2e608412a003c97 ok resumed None
+             at ./src/node.rs:373:38
+DMG 237 5e799a70cdb1f742a75ec332ce14bb0d3fd21f9edcfa51f1b21f137a202176e7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 238 5e8962bd32d373c0cc6091879a2ff79b7d62f25ddfdc03bab6202cd1dac05ccc ok resumed None
+             at ./src/node.rs:373:38
+DMG 239 5eb656b9fc0d4416b897471590b6dd13dfd54a54732d84ba48176f43acb565a5 ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 240 5eff13a70603fd5237daf291d1461cad40a539f0e7fa8e42034ad7bdd20b2100 PANIC
+             at ./src/node.rs:373:38
+DMG 241 5f23438d36aa4e7f843ac2bdc66c929bc6e757eb825799ae67557ac99a2f82a9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 242 5f2e142010b1d863080454ecc7e828a63b402a645c7191db41fb481318a859a6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 243 5f33a121c898ee922fae910587c6208d1c402c0e71fe49004433393fcaaeea75 ok resumed None
+             at ./src/node.rs:373:38
+DMG 244 5f585c229df8e687b16977f5722d80fd937879fc98f9484fd6d701e7e69f169a ok resumed None
+             at ./src/node.rs:373:38
+DMG 245 5fa2b91a4a4e6af87e9394b4a4efea9ba3fcd4f3bd47acf80e352dd91db16151 ok resumed None
+DMG 246 5fca60cbbe09638d5def2d9415a9a14fa1c9a7a71d830cfbe07d85367c690f28 ok resumed None
+             at ./src/node.rs:373:38
+DMG 247 5fd28d34e5872c9f095953614a5d2f15bf2e9694b31eb9282f81ad1d09f5ea90 ok resumed None
+             at ./src/node.rs:373:38
+DMG 248 5fe0568542d440c38eaa09a177dc77ba627507f71338ca8691b6c8fddf5dca29 ok resumed None
+             at ./src/node.rs:373:38
+DMG 249 5ff919445a27bc2b86dcd20f0e74b096da9b54a4188fa75290658ceee56b0e99 ok resumed None
+             at ./src/node.rs:373:38
+DMG 250 6038ec7c6963973910430170055d41119a45805a6d959f0f2a3635f641b2b6cc ok resumed None
+             at ./src/node.rs:373:38
+DMG 251 607f6e4a9f5e984ea5e163ab0be2ea38053a32ec5829da71329fa2132d8a464d ok resumed None
+             at ./src/node.rs:373:38
+DMG 252 60dd41039b102bba4df4ac7962b4c46936b9a0660040b845d106d4a99a5e16a1 ok resumed None
+             at ./src/node.rs:373:38
+DMG 253 610dd65eba8588d4849ae556925f51111080a1f07eaef4c20d440347afbb7fc3 ok resumed None
+             at ./src/node.rs:373:38
+DMG 254 614a66ea5188b5f8379316b5ee696058f07c9646a02203be343069858ee3c098 ok resumed None
+             at ./src/node.rs:373:38
+DMG 255 614f7fbb7c3cf989278398c66d4eda47812b20ae52776f509f88afc4a0252165 ok resumed None
+             at ./src/node.rs:373:38
+DMG 256 61fc515bba016422b2ddbbeb02d2ba3c29877e7048afbfd4e2aba77a495d9aa4 ok resumed None
+             at ./src/node.rs:373:38
+DMG 257 6273ab41c1c1ccd731dc5f0646dba9596169e8a429f818e551a6fad1e48a2807 ok resumed None
+             at ./src/node.rs:373:38
+DMG 258 62a2a14ce8ec6f256422fce3f8aa884badd544b2c30932b91eb40d9d16a56110 ok resumed None
+             at ./src/node.rs:373:38
+DMG 259 630833534ca369c2beae9808ac7e2304ff51e666bf845c8aaad49c1f17cfe25d ok resumed None
+             at ./src/node.rs:373:38
+DMG 260 63d7f2edb1e1f64ebf9ed1bc90b1e3a3238f8eea95337b9d1ff2eac96f84c25d ok resumed None
+             at ./src/node.rs:373:38
+DMG 261 641d6bf130ffca843b85c12c05864b7de1ad1e62ed5937e89b5bb11a7812b2d6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 262 648a83036d1e5d54dd8df65c39c0ae911ed81f6b50a316dc1dcaf2de4da51107 ok resumed None
+             at ./src/node.rs:373:38
+DMG 263 651608af0a2492839329aa016ab6cde884c3e800536fe0ecee13b02e8d730b3f ok resumed None
+             at ./src/node.rs:373:38
+DMG 264 657bf87e266795e47944ccd792f1574335eb1b1bb57bcb4b190de9b6949d78e9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 265 65ceac2a58597422d352c7a910164bd6ba7cc6dd7beeb72868e7780ef29e44cc ok resumed None
+             at ./src/node.rs:373:38
+DMG 266 6652d2635667b38918a0c081ad1e6c98e25250522abb436aa8ee40e97e67fb13 ok resumed None
+             at ./src/node.rs:373:38
+DMG 267 66811d2f9f418260fecb7c7ce992d3560586fedd89500f175b7b5589369ff1ac ok resumed None
+             at ./src/node.rs:373:38
+DMG 268 66abdc515ff22c609b639b6cf1c2ba630035c3e58d0cc6ef570bf7ca98533565 ok resumed None
+             at ./src/node.rs:373:38
+DMG 269 66e8ab44c687b67dd89951da26642f95729dc009bbaa7d0d7ad5cc4b18fd355a ok resumed None
+             at ./src/node.rs:373:38
+DMG 270 66fe366866f13c6aa5a99e221b947da7c72b19a9a90bd2278edd83223330a64e ok resumed None
+             at ./src/node.rs:373:38
+DMG 271 67519b6f9e2b878bfbbe8bfb53c6917d7012d2da07df775ee1e1554aa8a689f5 ok resumed None
+             at ./src/node.rs:373:38
+DMG 272 69121b702cb42bc62ea46fb376ca1e5028de4010672d8e7136b81044f134e480 ok resumed None
+             at ./src/node.rs:373:38
+DMG 273 6927cdc09a9c2da33498458300e1dde8d302091dccd8d1b21f1361d4309ad60f ok resumed None
+             at ./src/node.rs:373:38
+DMG 274 699ac71af336b24d5c23a862eea21028255612be20ffcefae8f28ccd4333b711 ok resumed None
+             at ./src/node.rs:373:38
+DMG 275 69b4ae4100ebd69a07fa8112cbfa6007854b62a58a2d897c1edd648bd01bc17f ok resumed None
+             at ./src/node.rs:373:38
+DMG 276 6a7860339e34e7c137ecc122b98c629d5e462866c0a22efbdfd4b2f7c6160de0 ok resumed None
+             at ./src/node.rs:373:38
+DMG 277 6aab5b82e28767471129e3816c73b5a3e32cfe70b45aef278cf2cbb6277afc53 ok resumed None
+             at ./src/node.rs:373:38
+DMG 278 6aad5dbc6d934acceb4561fbd2d23b5df87b22dfd84511f32754a8bb0719ccfc ok resumed None
+             at ./src/node.rs:373:38
+DMG 279 6af2615764876f88a114f7683fd0b4bc4d3bd875d46108b0d54882391fabf40c ok resumed None
+             at ./src/node.rs:373:38
+DMG 280 6be5fd6c8e8d5dd0634e69d28d2a01f82cf88a226993e5a9237dc9cf53629ebd ok resumed None
+             at ./src/node.rs:373:38
+DMG 281 6bf6cb07dbf508ae0f4ea52876bdb8e8d79ba7b4ce4c85295783928c631ca80b ok resumed None
+             at ./src/node.rs:373:38
+DMG 282 6c9d1208cd1a73b5be0240b300f052e2186c111d17eff4e3d38c0b3521e40719 ok resumed None
+             at ./src/node.rs:373:38
+DMG 283 6d81019ecaadd227c084160e36afd6334525590a3bb1d28d85eb821613c487e6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 284 6db9c1bdb67672053884dceeb9150afed384376fc192564b8bccbabff5984849 ok resumed None
+             at ./src/node.rs:373:38
+DMG 285 6dbf069258d5a1323619f16b7dcd6197c2c7119375cc121404ab7a9a77bcdfad ok resumed None
+             at ./src/node.rs:373:38
+DMG 286 6dd74ff4a33c62970b3c2d3f1773e78ef2354d9889cfc158acf8bceafb771c62 ok resumed None
+             at ./src/node.rs:373:38
+DMG 287 6e855e86aeafd8567c3b3ff4132db073294257338c1792fc569e2e42b39b9710 ok resumed None
+             at ./src/node.rs:373:38
+DMG 288 6e8d70f10e243e8f2aec9905ec99b65fb906f841ffaea00e5560075df86b7170 ok resumed None
+             at ./src/node.rs:373:38
+DMG 289 6f4954c0945ee3fd0e870eac08ee404e90a2bf99b9ea8ae021546a3a15e338ae ok resumed None
+             at ./src/node.rs:373:38
+DMG 290 70f672922ff14ee6c7be7e0379ad3c9a89311e6ea83b6a992f491f07d1e03ac2 ok resumed None
+             at ./src/node.rs:373:38
+DMG 291 7111521286727718f887db732e2a2aa943f08a3add040d8e97467f3d14cc3479 ok resumed None
+DMG 292 717b15b938e4d2b151e0617b682dafe03c9cac6c100208434d660a8505ebb3ed ok resumed None
+             at ./src/node.rs:373:38
+DMG 293 7192e6e51b17448ae56ddbd9633178b9c22f3df02c2783485756f759169abe44 ok resumed None
+             at ./src/node.rs:373:38
+DMG 294 7270c646dba0eb0ebc9972e8d1016a4efc7b38f51a37a519bb500246f1c27ba4 ok resumed None
+             at ./src/node.rs:373:38
+DMG 295 7276693c3d36b14ed5d21c1554d1d4e30472713790dfd2dd592c39b219fb16c7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 296 73f28fb1b0ff68aa7dc1ecb037c4bf2606f37b3695c8767154ecb3484a57361d ok resumed None
+             at ./src/node.rs:373:38
+DMG 297 73f864146ba568603d3e28da2850eda482cf5252d092c94e3bf689193d3fafaf ok resumed None
+             at ./src/node.rs:373:38
+DMG 298 74258351536ab431a348cdaede0e6a86b299dc050b0097d58ff2fdfa172ef44d ok resumed None
+             at ./src/node.rs:373:38
+DMG 299 7429d2adb3388548124ca7d10f060d76ee7168b5ab6b8dda9595612b4fbadcbf ok resumed None
+             at ./src/node.rs:373:38
+DMG 300 75fa2748bbb0edf1aad2566e56eeee2667e8936bbea50543c8661357d93f180c ok resumed None
+             at ./src/node.rs:373:38
+DMG 301 764fd108c41d90e8a0fbfae768156e76b81b32f9b6ed8d2aa95ec914f80c6fe6 ok resumed None
+             at ./src/node.rs:373:38
+DMG 302 76820944f33013690314bd64d85bcb016d6842c14d4ae1f25b83698a0b246768 ok resumed None
+             at ./src/node.rs:373:38
+DMG 303 76bca949995fbbab0096e9aa5990a6e282f265f6c688471c925595957976e343 ok resumed None
+             at ./src/node.rs:373:38
+DMG 304 7845102a811b677cc39c053f1cb3ca1f5f8d2b52cc9ae75bd448516bbeb2854c ok resumed None
+             at ./src/node.rs:373:38
+DMG 305 78a6b8ec838f01e5a7661742189994677c33f7891013a4ab22a45d858f4b14a8 ok resumed None
+             at ./src/node.rs:373:38
+DMG 306 78dda7c05895f6eee0fd1f72d0b8d77d3b4b4ef8b283f9cf79d37a4df3fcf21d ok resumed None
+             at ./src/node.rs:373:38
+DMG 307 78df5740f3f44ba343422ef2ad017411214b0e8394a34423db3e79f97b88316e ok resumed None
+             at ./src/node.rs:373:38
+DMG 308 78f1a53574a39ed1394902a21f2e232f6d6c34946815df05308c06448eed50f4 ok resumed None
+             at ./src/node.rs:373:38
+DMG 309 7974ee3e71dc62081a8aa38cfb28f8f195de69b68e159cd09ad1f750e0fea9a3 ok resumed None
+DMG 310 79a73b4a8b24718a27f65614eb748b9142fded5e68721c75924e7e7037af293a ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 311 79bdb4ac3084acf6ec150cf1b2251adaa6487a8bf29a383e28cccf4ba0f69d82 PANIC
+             at ./src/node.rs:373:38
+DMG 312 79f2e20822e5e892888152815d23a0b8f5c195fc48b5f28f217fd02f00dde2e8 ok resumed None
+             at ./src/node.rs:373:38
+DMG 313 7a53ba5ca3817b3aa915b7126528dd51cc139d0d7b0073f2c8da2f3a8fda416a ok resumed None
+             at ./src/node.rs:373:38
+DMG 314 7aa1cca077409abb4fecba692fa8c850520881fdf4718bff8a854ac8f6bcb7af ok resumed None
+             at ./src/node.rs:373:38
+DMG 315 7af55315c6175bd16e6a75c38edc5883e0d7a1345fba65d5718784d36c9f7654 ok resumed None
+             at ./src/node.rs:373:38
+DMG 316 7b02f417b1fb89f3718f0ef55cdd9ec8fac1ee60907e09def8a8c61b3cbb6854 ok resumed None
+             at ./src/node.rs:373:38
+DMG 317 7b248ca5bfcc2a8b6d3639d1016543a96c6082de21c0a858f07f907b8e00f10c ok resumed None
+             at ./src/node.rs:373:38
+DMG 318 7b312ac2dd25cdb5090864eb3a913285037c6b907852d33b21279c48b18d9844 ok resumed None
+             at ./src/node.rs:373:38
+DMG 319 7b8f4e932cba869ea598bd4453b501102fecd7083a68d1f2165c3e429b136381 ok resumed None
+             at ./src/node.rs:373:38
+DMG 320 7bb9261d1fdacc253c96259b83627588cb1d5867f85eee78ca94920344910c0c ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 321 7c61390650c70b43a76453bca53c7096c0c7194f2cd221ce5b60e9ab9556fbdf PANIC
+             at ./src/node.rs:373:38
+DMG 322 7c65ca17832c6bec3d4c4892c9aeda92969f4e732935d02ed5e70b91580975d5 ok resumed None
+             at ./src/node.rs:373:38
+DMG 323 7c831d57e0b46d0d5c39ec19c50842369608d6ff329cb8f8a626f3e93f9d2faf ok resumed None
+             at ./src/node.rs:373:38
+DMG 324 7cae31b7de5ee30cccf14c1bc7926491b39a90e71aedf9e262c7671520ec3b95 ok resumed None
+             at ./src/node.rs:373:38
+DMG 325 7cd59710edd6b9e923094b6385655d7d9b31ed8b34b080a6548cb580c19dc504 ok resumed None
+             at ./src/node.rs:373:38
+DMG 326 7d06b233f8f6dff3d44e1e66e970de7adaa352659c42feb3b6739b7ea93eb075 ok resumed None
+             at ./src/node.rs:373:38
+DMG 327 7d57b994aafe9b05415adfac04cddf0f5a32e1b0bb640a40658bd01ff5203022 ok resumed None
+             at ./src/node.rs:373:38
+DMG 328 7d87f991b8d24e6348a688a81073d368ea9158351f68bcb8c19f3dc930098d07 ok resumed None
+             at ./src/node.rs:373:38
+DMG 329 7dbbda9cdf1f77e4c580504382b2a3b11d8f28f08e9516d33ac3579b3d11ff66 ok resumed None
+             at ./src/node.rs:373:38
+DMG 330 7f3b86518a965c626af35c8bd84381e0f160800525e52bae8eb48ea129122a87 ok resumed None
+             at ./src/node.rs:373:38
+DMG 331 807d637697af72ac52713bac6d2a56bc667847e19f1db432f88c3fab0dc3b5f9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 332 81153df6176ca8dc1ce3605693029163ba1030ea660cd0528f05e487aef1ba64 ok resumed None
+             at ./src/node.rs:373:38
+DMG 333 814833c27a7e07e9fe55d5ac070613b95b1ca6e28d5a5248fbffb763ef06019a ok resumed None
+             at ./src/node.rs:373:38
+DMG 334 8185d551d5a64646f1d6c4a195085dfc28d3a76cab29fff4df8695aee64f89af ok resumed None
+             at ./src/node.rs:373:38
+DMG 335 8290f7e9a6d71840b18abc497f3599a2d54376102575b7be731b19e24839b33d ok resumed None
+             at ./src/node.rs:373:38
+DMG 336 83cb582834164f1c5dd6ac5a40df772c8ca6b59727a43347f93d01bcbb432c15 ok resumed None
+             at ./src/node.rs:373:38
+DMG 337 840ed25bae48595475d265e1e491354ea2bd008161f05052f29c7706545f88c9 ok resumed None
+             at ./src/node.rs:373:38
+DMG 338 8548b04f5824cdebd9ce6683cb71389490934be6f8956cda3bc0b98b6d7469a6 ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 339 85806e7bace871b38a232fa510ad7f9c76a3f4f3807ba0c2a1605c6936159e89 PANIC
+             at ./src/node.rs:373:38
+DMG 340 871902c1118158e99073987585e93dd6672caaecf1caa79f1003d7c1983fd522 ok resumed None
+             at ./src/node.rs:373:38
+DMG 341 871d0824d88494a4fa48b28063a70e085f3f2ccd003be463bcb908d16701a52e ok resumed None
+             at ./src/node.rs:373:38
+DMG 342 873a094f9f530f07d09096f5a950c166d182a662d8f9c6ad293407fdaf102bb4 ok resumed None
+             at ./src/node.rs:373:38
+DMG 343 874b8cba50bca53cba882eef869123b83a794f11d73b3cdc72bd00df8655bf71 ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 344 87ca9b2326dd906005e822ac07f72101869fc602a26db2c1facfa7605a1614f5 PANIC
+             at ./src/node.rs:373:38
+DMG 345 8902aac65174df3300553ed5dd2e6a6bb93b25155e148070b97ad463ca0fefb4 ok resumed None
+             at ./src/node.rs:373:38
+DMG 346 898f2134160fa217db25a45c9ed4d0ad91d0446b2491016d76613e0cccb0dc4b ok resumed None
+             at ./src/node.rs:373:38
+DMG 347 898fe3094331108ea7248cb0fdf4699011ae33d368743ac5e0a9867bc7d3ce31 ok resumed None
+             at ./src/node.rs:373:38
+DMG 348 899cfb215b0757f43fe944b889b359af5b4b88781a6cabf020458147d4b39b94 ok resumed None
+             at ./src/node.rs:373:38
+DMG 349 8a7c1fe373ee0de682826bd20f8c7dab1cfc30e65fbb1785bd4a7af98a9c4efa ok resumed None
+             at ./src/node.rs:373:38
+DMG 350 8a7e40eff5e9d1b2bdc7f27085106f1d6828dd06c1b28f929af6efec005442e7 ok resumed None
+             at ./src/node.rs:373:38
+DMG 351 8ac3601d387ee587b9795985b6643c2cd5bed12c625ce80f4474dd19deba5cb1 ok resumed None
+             at ./src/node.rs:373:38
+DMG 352 8ba726406483dabdf89c87ef2be9d382137ab839f8ffc000516d245068858a42 ok resumed None
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (7490) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+   5: <pocol_lp4_execution::node_trie::NodeTrie>::build
+             at ./src/chain.rs:343:15
+             at ./src/node.rs:361:19
+DMG 353 8bbbc8dce2a66bf90893cb9822de2aa17172bc65e833fd90f9033f41db9ddbb8 PANIC
+             at ./src/node.rs:373:38
+DMG 354 8bd2811553fa7e98ec131befcb4848d53b17bcffe58669f15b184dcb63e1ca30 ok resumed None
+             at ./src/node.rs:373:38
+DMG 355 8c38b303cd507fe4c3bb101f7e4eb4b9d58ad80a0cf88e1dba15ba7d4e294e44 ok resumed None
+             at ./src/node.rs:373:38
+DMG 356 8c3971306e097e40a18d195b8a9565e0046137413180ca18f4e796f202513c62 ok resumed None
+             at ./src/node.rs:373:38
+DMG 357 8c7fa8b7faa4c107b19ad457da892aaafee7b33da5d491764c6a0187398e4114 ok resumed None
+             at ./src/node.rs:373:38
+DMG 358 8c9eea502254bd47ed44fb1c1a1078a6a61b959d123c4cc4a7d2f6b560af0293 ok resumed None
+             at ./src/node.rs:373:38
+DMG 359 8ce57c8824c4da59988f1823de3827f2f2373bffd3ab3c0d1bae21d043d22511 ok resumed None
+             at ./src/node.rs:373:38
+DMG 360 8d6e274d2382faca5a9172c2f3400c2a7a45dd37c2474c5d96e15962d7f5a7bb ok resumed None
+             at ./src/node.rs:373:38
+DMG 361 8d8f2aca50182de43e5e3673b0af0bf87e6677f5b66551d917c76eef6a9adda5 ok resumed None
+             at ./src/node.rs:373:38
+DMG 362 8f1a11eb5af16c2869147da6e9fa94518acc63c70474fa675f20f52367dcd06a ok resumed None
+             at ./src/node.rs:373:38

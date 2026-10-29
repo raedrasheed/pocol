@@ -1,0 +1,19 @@
+{
+  "parentRemote": "d741363e872936764eb27e918332d0f6878b6195",
+  "parentTree": "7fd53dc67c2deb313b590248271307e71dd94b6b",
+  "semanticVersion": "LP4-SYS-01",
+  "unapprovedProposal": "LP4-ISSUANCE-01",
+  "runtimeUnchangedFromR2": true,
+  "files": {
+    "prototypes/lp4-execution/src/native.rs": "2f4a0bc20fc37f84164eb424005ecae50718a146b19f75a5461b39ab02838468",
+    "prototypes/lp4-execution/src/system.rs": "1aaee6503645c7ebc343e648d0612a869cd0912b6e0240e899e4720036e7ff2a",
+    "prototypes/lp4-execution/src/system/tests.rs": "4620e2047b71843578ae2a64b705750476e3dcb9ff02358c79bb31aaa55336f9",
+    "prototypes/lp4-execution/contracts/SystemBoundaryWitness.sol": "71ba4f2041b1ef492ce1572bd01e793c169e967a60f0f0218361e1fc2d906e3f",
+    "prototypes/lp4-execution/tests/compile_system_boundary.cjs": "7062603192e5ce2dd656fc4f3a6da9700358e2027638a26689bbcc92db9cd027",
+    "prototypes/lp4-execution/tests/data/system-boundary-witness.json": "36b2064cde89f9c4116a975a88956cdefc5e371a4cc0ed750f6b43a008b99b2b",
+    "prototypes/lp4-execution/tests/data/system-boundary-independent.json": "7121347d56565f208f0f4df726ee5f7ec014b7eecc3a31173c18ac660b1e9eef",
+    "prototypes/lp4-execution/tests/system_boundary_oracle.py": "8656dccf5daf851a1688187d0d853e467de0b429b57213c746ea27568852e037",
+    "prototypes/lp4-execution/tests/system_mutations.py": "386bcf2fca497b49e560691d23a1c1763fe642dd315af77994fbb93e2cdaa2e7"
+  },
+  "bootable": false
+}

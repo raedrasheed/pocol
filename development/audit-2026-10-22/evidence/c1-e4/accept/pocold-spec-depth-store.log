@@ -1,0 +1,12 @@
+# pocold-spec-depth-store: (cd prototypes/pocold; cargo test --release --locked --offline --test consensus -- --ignored --exact e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node)
+# start 2026-10-25T07:38:14Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.25s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/target/release/deps/consensus-8931e1cfd46c771d)
+
+running 1 test
+test e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node has been running for over 60 seconds
+test e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 78 filtered out; finished in 317.65s
+
+# end 2026-10-25T07:43:32Z exit=0

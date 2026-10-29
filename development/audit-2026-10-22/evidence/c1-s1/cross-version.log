@@ -1,0 +1,9 @@
+C-1 S1 cross-version equivalence (invariant I2), 2026-10-24.
+Scenario: s1_chain() (early reorg, 99 blocks, 49 transactions, 24 LOG0 creates).
+Answers: chain_view (every block with full transactions, every receipt), eth_getTransactionByHash and
+eth_getTransactionReceipt of every transaction (the abandoned block's included), eth_getLogs 0..head,
+pocol_getHeaders 1..head, pocol_getBlockRlp of every height, the P2P Block message of every block.
+pre  (e6025ce, before S1; pre-s1-dump-test.rs.txt): 1156012 B sha256 4c3183ead8e4fb4bf188b2f270d95119752c8d6815c734b12fb71e9ddd791572
+post (S1 tree, reference node of canonical_history_off_the_heap_answers_as_it_did_resident, S1_DUMP): 1156012 B sha256 4c3183ead8e4fb4bf188b2f270d95119752c8d6815c734b12fb71e9ddd791572
+cmp: IDENTICAL
+The same test asserts that the offloading node's answers equal the reference node's.

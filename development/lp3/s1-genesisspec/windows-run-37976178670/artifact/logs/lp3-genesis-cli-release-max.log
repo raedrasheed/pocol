@@ -1,0 +1,131 @@
+{
+ "check": "lp3-genesis-cli",
+ "ok": true,
+ "statuses": {
+  "BLOCKED BY PLATFORM": 8,
+  "PASS": 2
+ },
+ "platform": "Windows",
+ "rlimitAs": false,
+ "defaultLimitMiB": 64,
+ "baselineMaxRssKiB": null,
+ "maxSpecBytes": 2818474,
+ "python": "3.11.9",
+ "results": [
+  {
+   "check": "largeOneLine192MiB.limit256MiB",
+   "status": "BLOCKED BY PLATFORM",
+   "reason": "RLIMIT_AS / wait4 not available on Windows"
+  },
+  {
+   "check": "largeOneLine192MiB.limit64MiB",
+   "status": "BLOCKED BY PLATFORM",
+   "reason": "RLIMIT_AS / wait4 not available on Windows"
+  },
+  {
+   "check": "limitPlusOneThenMaxValid",
+   "status": "BLOCKED BY PLATFORM",
+   "reason": "RLIMIT_AS / wait4 not available on Windows"
+  },
+  {
+   "check": "limitPlusOneThenMaxValid.noLimit",
+   "status": "PASS",
+   "limitMiB": null,
+   "exit": 1,
+   "signal": null,
+   "maxRssKiB": null,
+   "seconds": 0.05,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": false,
+     "refused": "inputTooLarge",
+     "lineBytes": 5636950,
+     "maxSpecBytes": 2818474
+    },
+    {
+     "line": 2,
+     "ok": true,
+     "genesisHash": "0x684bf635f63cd639cc97ab38ffc022a863b49cdec9f96581df1e6ca76929ca89",
+     "chainId": 18446744073709551615,
+     "m0": 65535,
+     "reencodeEqual": true,
+     "bootable": false
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 3,
+     "accepted": 1,
+     "rejected": 1,
+     "refused": 1,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "maxDeepAndFlat",
+   "status": "BLOCKED BY PLATFORM",
+   "reason": "RLIMIT_AS / wait4 not available on Windows"
+  },
+  {
+   "check": "gsv1Times100000",
+   "status": "BLOCKED BY PLATFORM",
+   "reason": "RLIMIT_AS / wait4 not available on Windows"
+  },
+  {
+   "check": "gsVersion262144Bytes",
+   "status": "BLOCKED BY PLATFORM",
+   "reason": "RLIMIT_AS / wait4 not available on Windows"
+  },
+  {
+   "check": "gsVersion2818466Bytes",
+   "status": "BLOCKED BY PLATFORM",
+   "reason": "RLIMIT_AS / wait4 not available on Windows"
+  },
+  {
+   "check": "lineForms",
+   "status": "PASS",
+   "limitMiB": null,
+   "exit": 1,
+   "signal": null,
+   "maxRssKiB": null,
+   "seconds": 0.02,
+   "problems": [],
+   "rows": [
+    {
+     "line": 1,
+     "ok": true,
+     "genesisHash": "0xde518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+     "chainId": 777902,
+     "m0": 2,
+     "reencodeEqual": true,
+     "bootable": false
+    },
+    {
+     "line": 2,
+     "ok": false,
+     "code": "L0",
+     "detail": "truncated"
+    },
+    {
+     "check": "genesis-decode",
+     "inputs": 6,
+     "accepted": 2,
+     "rejected": 2,
+     "refused": 2,
+     "reencodeEqual": true,
+     "maxSpecBytes": 2818474
+    }
+   ],
+   "output": ""
+  },
+  {
+   "check": "reservationFailure.limit8MiB",
+   "status": "BLOCKED BY PLATFORM",
+   "reason": "RLIMIT_AS / wait4 not available on Windows"
+  }
+ ]
+}

@@ -1,0 +1,97 @@
+{
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-04 (C17, C18; CR-M1-01 rev 2)",
+  "status": "Decision-table fixtures. 'verifier' is a stated assumption about what an MPT verifier would conclude; these fixtures test the decision order around it and DO NOT demonstrate Merkle-Patricia verification (that is MPT-1..12, Phase A).",
+  "requestId": 5,
+  "W": "0x1111111111111111111111111111111111111111",
+  "keys": [2],
+  "stateRoot": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "baseResult": {
+    "balance": "0x0",
+    "codeHash": "0xabababababababababababababababababababababababababababababababab",
+    "nonce": "0x1",
+    "storageHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "accountProof": ["0xc180", "0xc281aa"],
+    "storageProof": [{"key": "0x0000000000000000000000000000000000000000000000000000000000000002", "value": "0x400000001", "proof": ["0xc180"]}]
+  },
+  "baseVerifier": {
+    "account": {"outcome": "present", "leaf": {"nonce": "0x1", "balance": "0x0",
+                "storageHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+                "codeHash": "0xabababababababababababababababababababababababababababababababab"}},
+    "storage": [{"outcome": "present", "value": "0x400000001"}]
+  },
+  "pathKats": {
+    "storageSlot0": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    "storageSlot1": "0xb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+    "storageSlot2": "0x405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
+    "emptyTrieRoot": "keccak256(0x80) = 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "keccakEmpty": "keccak256('') = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+    "rule": "account path = keccak256(address, 20 bytes); storage path = keccak256(slot, 32 bytes big-endian). The runner also asserts keccak256(W) != keccak256(pad32(W))."
+  },
+  "envelopeCases": [
+    {"id": "ENV-ok", "raw": "@base", "expected": ["result"]},
+    {"id": "ENV-batch", "raw": "[@base]", "expected": ["fail", "envelope.notObject"]},
+    {"id": "ENV-id-mismatch", "envelopePatch": {"id": 6}, "expected": ["fail", "envelope.id"]},
+    {"id": "ENV-id-string", "envelopePatch": {"id": "5"}, "expected": ["fail", "envelope.id"]},
+    {"id": "ENV-id-float", "rawText": "{\"jsonrpc\":\"2.0\",\"id\":5.0,\"result\":null}", "expected": ["fail", "envelope.id"]},
+    {"id": "ENV-no-jsonrpc", "envelopePatch": {"jsonrpc": null}, "expected": ["fail", "envelope.jsonrpc"]},
+    {"id": "ENV-both", "envelopePatch": {"error": {"code": -32000, "message": "x"}}, "expected": ["fail", "envelope.resultXorError"]},
+    {"id": "ENV-neither", "envelopePatch": {"result": null}, "expected": ["fail", "envelope.resultXorError"], "note": "a null patch value deletes the field"},
+    {"id": "ENV-extra", "envelopePatch": {"extra": 1}, "expected": ["fail", "envelope.extraField"]},
+    {"id": "ENV-duplicate-key", "rawText": "{\"jsonrpc\":\"2.0\",\"id\":5,\"id\":5,\"result\":null}", "expected": ["fail", "recvParse"]},
+    {"id": "ENV-depth-17", "nestedResultArrays": 16, "expected": ["fail", "recvDepth"], "note": "outer object + 16 arrays = depth 17 > 16 (FD:L1244)"},
+    {"id": "ENV-depth-16-control", "nestedResultArrays": 15, "expected": ["result"]}
+  ],
+  "errorCases": [
+    {"id": "ERR-32021-ok", "error": {"code": -32021, "message": "rate", "data": {"rate": true, "retryAfterMs": 500}}, "expected": ["retry", 500]},
+    {"id": "ERR-32021-zero", "error": {"code": -32021, "message": "rate", "data": {"retryAfterMs": 0}}, "expected": ["retry", 0]},
+    {"id": "ERR-32021-missing", "error": {"code": -32021, "message": "rate", "data": {"rate": true}}, "expected": ["attemptFail", "rate.badRetryAfter"]},
+    {"id": "ERR-32021-too-long", "error": {"code": -32021, "message": "rate", "data": {"retryAfterMs": 10001}}, "expected": ["attemptFail", "rate.badRetryAfter"]},
+    {"id": "ERR-32021-negative", "error": {"code": -32021, "message": "rate", "data": {"retryAfterMs": -1}}, "expected": ["attemptFail", "rate.badRetryAfter"]},
+    {"id": "ERR-32017", "error": {"code": -32017, "message": "outside K_eff"}, "expected": ["attemptFail", "outsideKeff"]},
+    {"id": "ERR-other", "error": {"code": -32000, "message": "x"}, "expected": ["attemptFail", "rpcError -32000"]}
+  ],
+  "resultCases": [
+    {"id": "RES-ok", "expected": ["ok", [17179869185]]},
+    {"id": "RES-address-absent-ok", "note": "EIP-1186 does not require address", "expected": ["ok", [17179869185]]},
+    {"id": "RES-address-match", "patch": {"address": "0x1111111111111111111111111111111111111111"}, "expected": ["ok", [17179869185]]},
+    {"id": "RES-address-mismatch", "patch": {"address": "0x2222222222222222222222222222222222222222"}, "expected": ["attemptFail", "bind.address"]},
+    {"id": "RES-missing-storageHash", "patch": {"storageHash": null}, "expected": ["attemptFail", "shape.missing.storageHash"]},
+    {"id": "RES-nonce-over-u64", "patch": {"nonce": "0x10000000000000000"}, "expected": ["attemptFail", "shape.types"]},
+    {"id": "RES-node-too-long", "patch": {"accountProof": ["@node565"]}, "expected": ["attemptFail", "shape.types"]},
+    {"id": "RES-66-nodes", "patch": {"accountProof": ["@nodes66"]}, "expected": ["attemptFail", "shape.types"]},
+    {"id": "RES-storage-count", "storageProof": [], "expected": ["attemptFail", "bind.storageProofCount"]},
+    {"id": "RES-key-compact", "storageKey": "0x2", "expected": ["ok", [17179869185]]},
+    {"id": "RES-key-other", "storageKey": "0x3", "expected": ["attemptFail", "bind.key[0]"]},
+    {"id": "RES-empty-account-proof-nonempty-root", "patch": {"accountProof": []}, "expected": ["attemptFail", "shape.emptyAccountProof"]},
+    {"id": "RES-empty-account-proof-empty-root", "patch": {"accountProof": []}, "stateRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", "expected": ["noWebsite", "accountAbsent"]},
+    {"id": "RES-verified-absence", "verifierAccount": {"outcome": "absent"}, "note": "reported fields (non-empty codeHash) are ignored once absence is proven", "expected": ["noWebsite", "accountAbsent"]},
+    {"id": "RES-account-invalid", "verifierAccount": {"outcome": "invalid"}, "expected": ["attemptFail", "bind.accountProof"]},
+    {"id": "RES-leaf-balance-mismatch", "patch": {"balance": "0x1"}, "expected": ["attemptFail", "bind.leaf.balance"]},
+    {"id": "RES-no-code", "patch": {"codeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"}, "leafPatch": {"codeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"}, "expected": ["noWebsite", "noCode"]},
+    {"id": "RES-storage-absent-zero", "storageValue": "0x0", "verifierStorage": [{"outcome": "absent"}], "expected": ["ok", [0]]},
+    {"id": "RES-storage-absent-nonzero", "verifierStorage": [{"outcome": "absent"}], "expected": ["attemptFail", "bind.storageValue[0]"]},
+    {"id": "RES-storage-value-mismatch", "storageValue": "0x5", "expected": ["attemptFail", "bind.storageValue[0]"]},
+    {"id": "RES-storage-invalid", "verifierStorage": [{"outcome": "invalid"}], "expected": ["attemptFail", "bind.storageProof[0]"]},
+    {"id": "RES-empty-storage-proof-empty-storage", "storageValue": "0x0", "storageProofNodes": [],
+     "patch": {"storageHash": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},
+     "leafPatch": {"storageHash": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"}, "expected": ["ok", [0]]},
+    {"id": "RES-empty-storage-proof-nonempty-storage", "storageProofNodes": [], "expected": ["attemptFail", "shape.emptyStorageProof[0]"]}
+  ],
+  "budget": {
+    "rules": "Per load: at most 4 attempts (3 restarts). Each attempt sends anchor (LN), proof1, proof2. A -32021 with a valid retryAfterMs waits that long and resends the same request with the same anchor; at most 3 such retries per request (FD:L1004 precedent), the 4th -32021 fails the attempt. Cumulative wait per load at most 20000 ms (P); exceeding it ends the load as 'unavailable' with zero frames. Worst case sends per load: 4 x 3 x (1+3) = 48.",
+    "cases": [
+      {"id": "BUD-1-one-retry", "script": [{"ok": true}, {"ok": true}, {"retry": 500}, {"ok": true}], "expected": {"result": "render", "sends": 4, "delayMs": 500, "restarts": 0}},
+      {"id": "BUD-2-retries-exhaust-attempt", "script": [{"ok": true}, {"retry": 100}, {"retry": 100}, {"retry": 100}, {"retry": 100}, {"ok": true}, {"ok": true}, {"ok": true}],
+       "expected": {"result": "render", "sends": 8, "delayMs": 300, "restarts": 1}},
+      {"id": "BUD-3-delay-cap", "script": [{"ok": true}, {"retry": 10000}, {"retry": 10000}, {"retry": 1}],
+       "expected": {"result": "unavailable", "sends": 4, "delayMs": 20000, "restarts": 0}},
+      {"id": "BUD-4-fail-then-render", "script": [{"ok": true}, {"fail": "outsideKeff"}, {"ok": true}, {"ok": true}, {"ok": true}],
+       "expected": {"result": "render", "sends": 5, "delayMs": 0, "restarts": 1}},
+      {"id": "BUD-5-worst-sends", "script": "@worst", "expected": {"result": "inconsistent", "sends": 48, "restarts": 3}},
+      {"id": "BUD-6-no-website-ends", "script": [{"ok": true}, {"noWebsite": true}], "expected": {"result": "noWebsite", "sends": 2, "restarts": 0}},
+      {"id": "BUD-7-invariant-ends", "script": [{"ok": true}, {"ok": true}, {"invariant": "state.statusDomain"}], "expected": {"result": "stateInvariant", "sends": 3, "restarts": 0}}
+    ],
+    "worstScriptNote": "@worst = in each of 4 attempts: anchor and proof1 each get 3 x -32021 (0 ms) then succeed; proof2 gets 4 x -32021, which fails the attempt. Built by the runner; sends = 4 x (4 + 4 + 4) = 48."
+  }
+}

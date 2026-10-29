@@ -1,0 +1,39 @@
+{
+  "schema": "pocol-m1-gap-registry/0.25",
+  "status": "classification of every saved partial gap (entries with partialGap = true) of the latest reviewed results; run_checks_025.py fails on any unclassified gap",
+  "scanned": ["R18", "R20", "R22", "R24"],
+  "classes": {
+    "resolvedBySupplement": "a 0.25 supplement defines and executes what was missing; pending root review",
+    "coveredBySavedEvidence": "the cell is decided by named, already reviewed evidence",
+    "sourceDefinedAsProperties": "the source states properties or invariants, not a literal table; nothing is missing",
+    "reviewerDecision": "a convention or proposal awaiting a recorded root decision",
+    "ownerDecision": "awaiting a named owner (or owner/root) answer",
+    "phaseA": "an implementation-phase run whose definition is complete",
+    "deferredBeyondM1": "required later by the source, not by M1",
+    "sourceAbsentNonBlocking": "values the source does not give, used only by supplementary fixtures; marked placeholder, never frozen",
+    "aggregate": "a summary entry of other registered gaps"
+  },
+  "entries": [
+    {"pattern": "BR22a-sweepMax", "class": "resolvedBySupplement", "by": "S25-SWEEPMAX", "row": "E3"},
+    {"pattern": "BR23-d15c\\.boundary@(10100|60300)$", "class": "coveredBySavedEvidence", "by": ["R18", "e5\\.case BR22d-V-[de]$"], "row": "E7"},
+    {"pattern": "BR23-d13\\.scope$", "class": "sourceDefinedAsProperties", "by": "validation.md:611-619 (properties over 729 placements, executed in 0.16-0.18)", "row": "E6"},
+    {"pattern": "(x12b|RF-E6-1)", "class": "ownerDecision", "by": "RF-E6-1", "row": "E6"},
+    {"pattern": "gap\\.P-V2-[1-8]$", "class": "reviewerDecision", "by": "P-V2", "row": "V2"},
+    {"pattern": "proposal\\.P-V2-(9|10)$", "class": "reviewerDecision", "by": "P-V2", "row": "V2"},
+    {"pattern": "DG-V2-1$", "class": "resolvedBySupplement", "by": "S25-RG3B", "row": "V2"},
+    {"pattern": "DG-V2-2$", "class": "resolvedBySupplement", "by": "S25-LCLIT", "row": "V2"},
+    {"pattern": "DG-V2-3$", "class": "reviewerDecision", "by": "P-V2 (P-V2-9; C29 closed)", "row": "V2"},
+    {"pattern": "DG-V2-4$", "class": "sourceDefinedAsProperties", "by": "validation.md:1005 (RG3 counters are recorded, pass criteria are invariants)", "row": "V2"},
+    {"pattern": "gap\\.V2-scope$", "class": "phaseA", "by": "TS-LC, RG3, RG3b, RG9 (m1-draft-0.20/vectors/v2-deferred-experiments.json)", "row": "V2"},
+    {"pattern": "gap\\.DG-V3-[12]$", "class": "sourceAbsentNonBlocking", "by": "ph.v3.networkProfiles (hash-freeze plan)", "row": "V3"},
+    {"pattern": "gap\\.DG-V3-3$", "class": "coveredBySavedEvidence", "by": ["E05", "coordination/review-001/e05-keccak-three-library.json"], "row": "V3"},
+    {"pattern": "gap\\.DG-V3-[4-9]$", "class": "reviewerDecision", "by": "P-V3", "row": "V3"},
+    {"pattern": "gap\\.P-V3-[1-7]$", "class": "reviewerDecision", "by": "P-V3", "row": "V3"},
+    {"pattern": "gap\\.V3-scope$", "class": "phaseA", "by": "TypeScript/Chrome options page, Rust decoder, real transport", "row": "V3"},
+    {"pattern": "^gap\\.open$", "class": "aggregate", "by": "DG-V3 and P-V3 entries above", "row": "V3"},
+    {"pattern": "gap\\.V4-notExecuted$", "class": "phaseA", "by": "X8 matrix and C7 windows (m1-draft-0.24/vectors/c7-path-plan.json)", "row": "V4"},
+    {"pattern": "gap\\.V4-X8FULL$", "class": "deferredBeyondM1", "by": "H34: required before any public release", "row": "V4"},
+    {"pattern": "gap\\.V4-RtcLimits$", "class": "phaseA", "by": "RtcLockdown argument declared, not proved (implementation phase)", "row": "V4"},
+    {"pattern": "gap\\.PB\\d+$", "class": "reviewerDecision", "by": "PB1-PB12", "row": "V4"}
+  ]
+}

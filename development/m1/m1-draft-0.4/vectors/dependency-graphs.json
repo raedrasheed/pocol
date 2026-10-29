@@ -1,0 +1,28 @@
+{
+  "specVersion": "M1 draft 0.4",
+  "revision": "R4-06 (B7)",
+  "semantics": "Each graph is a list of direct import edges [from, to]. The runner applies annex/dependency-rules.json with dependency-cruiser 'forbidden' semantics (an edge violates a rule when from matches from.path and not from.pathNot, and to matches to.path) and compares the set of violated rule names.",
+  "baseEdges": [
+    ["src/bridge/Bridge.ts", "src/bridge/BridgeAuth.ts"],
+    ["src/bridge/Bridge.ts", "src/net/RpcReadClient.ts"],
+    ["src/net/RpcReadClient.ts", "src/net/HttpTransport.ts"],
+    ["src/wallet/Wallet.ts", "src/wallet/WalletSubmit.ts"],
+    ["src/wallet/WalletSubmit.ts", "src/net/HttpTransport.ts"],
+    ["src/logs/LogClient.ts", "src/net/HttpTransport.ts"],
+    ["src/trust/HeaderNetCheck.ts", "src/net/HttpTransport.ts"],
+    ["src/trust/NetworkProfiles.ts", "src/net/HttpTransport.ts"],
+    ["src/content/ChunkFetcher.ts", "src/net/HttpTransport.ts"],
+    ["test/mr/HttpTransport.test.ts", "src/net/HttpTransport.ts"],
+    ["test/malicious/MaliciousHttp.ts", "test/malicious/scripts.ts"]
+  ],
+  "graphs": [
+    {"id": "G-baseline", "add": [], "expected": []},
+    {"id": "G-bridge-transport", "add": [["src/bridge/BridgeAuth.ts", "src/net/HttpTransport.ts"]], "expected": ["bridge-no-walletsubmit-no-transport", "httptransport-importers-closed"]},
+    {"id": "G-bridge-walletsubmit", "add": [["src/bridge/Bridge.ts", "src/wallet/WalletSubmit.ts"]], "expected": ["bridge-no-walletsubmit-no-transport"]},
+    {"id": "G-bridge-malicious", "add": [["src/bridge/Bridge.ts", "test/malicious/MaliciousHttp.ts"]], "expected": ["bridge-no-malicioushttp", "src-no-test-imports"]},
+    {"id": "G-new-importer", "add": [["src/viewer/StateReader.ts", "src/net/HttpTransport.ts"]], "expected": ["httptransport-importers-closed"], "note": "CR-M1-01 places the Website-state reader inside ChunkFetcher; a separate reader module importing HttpTransport fails"},
+    {"id": "G-reader-in-chunkfetcher", "add": [["src/content/ChunkFetcher.ts", "src/content/websiteState.ts"]], "expected": [], "note": "a helper imported by ChunkFetcher that does not itself import HttpTransport is allowed"},
+    {"id": "G-helper-imports-transport", "add": [["src/content/websiteState.ts", "src/net/HttpTransport.ts"]], "expected": ["httptransport-importers-closed"]},
+    {"id": "G-transitive-allowed", "add": [["src/bridge/BridgeAuth.ts", "src/net/RpcReadClient.ts"]], "expected": []}
+  ]
+}

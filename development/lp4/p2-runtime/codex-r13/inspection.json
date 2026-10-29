@@ -1,0 +1,22 @@
+[
+  {
+    "name": "attempt1-interrupted-cases.jsonl.gz",
+    "bytes": 22829,
+    "sha256": "13b68164e803b50a790b6d1f9d675dce13ef7ed94ac8902c452b98c16077e6e0",
+    "cases": 548,
+    "rawSHA256": "8007c6553990ea822ea7021764bc76230501cbc0f4cb085ef969920f37c1187f",
+    "publicIdentitiesOnly": true,
+    "secretsOrUnintendedPersonalDataFound": false,
+    "personalDataBasis": "All name/file/index/expected fields match public pinned Ethereum corpus; generated values are hashes, booleans, fixed enums or numeric budgets. No account/prestate/calldata/key/message fields allowed."
+  },
+  {
+    "name": "independent-unmodified-cases.jsonl.gz",
+    "bytes": 647728,
+    "sha256": "fa975eff51b0de1b81e2599419748e1a48db5045741ad7b46f1e82dcd124255e",
+    "cases": 20661,
+    "rawSHA256": "50ad9b4d566c9011f5d9a791e262d2c264eeda513610c04efc7967a16872fc60",
+    "publicIdentitiesOnly": true,
+    "secretsOrUnintendedPersonalDataFound": false,
+    "personalDataBasis": "All name/file/index/expected fields match public pinned Ethereum corpus; generated values are hashes, booleans, fixed enums or numeric budgets. No account/prestate/calldata/key/message fields allowed."
+  }
+]

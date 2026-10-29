@@ -1,0 +1,112 @@
+{
+  "scope": "Inspected accepted references/recorded approvals; HTTP Origin matches are not EVM ORIGIN semantics",
+  "files": [
+    {
+      "path": "development/m1/reference/execution.md",
+      "sha256": "67e90f4c6d351e877dd8cdb113d13f14c79745a2be0c89f2772c471ad92f4718",
+      "matches": [
+        {
+          "line": 29,
+          "text": "- closeBlock \u0648finalize \u0644\u0627 \u064a\u0633\u062a\u062f\u0639\u064a\u0647\u0645\u0627 \u0625\u0644\u0627 SYSTEM_ADDRESS."
+        },
+        {
+          "line": 50,
+          "text": "- SYSTEM_ADDRESS = 0xff\u2026fe."
+        },
+        {
+          "line": 71,
+          "text": "- (2) closeBlock(tips): \u064a\u0643\u062a\u0628 pending[h] = {amount\u060c kind\u060c proposer} \u0645\u0639 winner = 0\u060c \u0648\u0644\u0627 \u064a\u0642\u0631\u0623 \u0634\u064a\u0626\u064b\u0627 \u0645\u0646 \u0646\u062a\u064a\u062c\u0629 \u0627\u0644\u0643\u062a\u0644\u0629 h. \u0623\u0648 finalize(tips) \u0639\u0646\u062f F\u060c \u0648\u0644\u0627 \u062a\u064f\u0646\u0634\u0623 pending[F] (D141)."
+        }
+      ]
+    },
+    {
+      "path": "development/m1/reference/incentives.md",
+      "sha256": "ee77e12a5d8e624bc20f6f6704cb38016d60cc47d81e3fd25a32b0af366d1365",
+      "matches": [
+        {
+          "line": 15,
+          "text": "- pocol_submitShare \u0648\u0627\u062c\u0647\u0629 \u062a\u0639\u062f\u064a\u0646 \u0645\u062d\u0644\u064a\u0629 \u0641\u0642\u0637. \u0644\u0627 \u064a\u0635\u0644 \u0625\u0644\u064a\u0647\u0627 \u0645\u0648\u0642\u0639 \u0639\u0628\u0631 \u0627\u0644\u062c\u0633\u0631 (D95)\u060c \u0648\u0644\u0627 \u0637\u0644\u0628 \u064a\u062d\u0645\u0644 Origin."
+        }
+      ]
+    },
+    {
+      "path": "development/m1/reference/consensus.md",
+      "sha256": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+      "matches": [
+        {
+          "line": 34,
+          "text": "- id \u2209 {0x00\u00d720\u060c SYSTEM_ADDRESS\u060c 0x\u2026C0C001\u20130x\u2026C0C0FF}\u060c \u0648\u0625\u0644\u0627 gsSys."
+        }
+      ]
+    },
+    {
+      "path": "development/m1/reference/governance.md",
+      "sha256": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b",
+      "matches": []
+    },
+    {
+      "path": "development/m1/reference/implementation.md",
+      "sha256": "7701f1c9fdc16e18dc5434f7a6eaa197a933b0c11b1262b5c78adf2f289df7f3",
+      "matches": [
+        {
+          "line": 42,
+          "text": "  - \u0627\u0644\u0641\u062d\u0635 \u0627\u0644\u0622\u0644\u064a \u0641\u064a M4 \u064a\u0636\u064a\u0641 \u0634\u0631\u0637\u064a\u0646: closeBlock \u0644\u0627 \u064a\u0643\u062a\u0628 k=2 \u0644\u0640pending[h]\u060c \u0648recordResult \u064a\u064f\u0633\u062a\u062f\u0639\u0649 \u0645\u0646 SYSTEM_ADDRESS \u0641\u0642\u0637."
+        },
+        {
+          "line": 134,
+          "text": "GenesisBuilder.build\u060c \u0648Executor.apply\u060c \u0648TipsAccumulator\u060c \u0648SystemCall\u060c \u0648Pay.credit\u060c \u0648CapsTracker\u060c \u0648Rewards.payInt\u060c \u0648Escrow.pending(j)\u060c \u0648SettlementIndex\u060c \u0648BurnMonitor."
+        },
+        {
+          "line": 184,
+          "text": "- RpcTap.serve(upstream, port) \u2192 \u0633\u062c\u0644 {seq, tIn, tOut, origin, method, params, source \u2208 {readClient, walletSubmit, logClient, headerNet, other}}\u060c \u0648RpcTap.hold(method, ms) \u064a\u0624\u062e\u0631 \u0627\u0644\u0631\u062f. \u0627\u0644\u0645\u0635\u062f\u0631 \u0645\u0646 \u062a\u0631\u0648\u064a\u0633\u0629 \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0636\u064a\u0641\u0647\u0627 \u0627\u0644\u0648\u062d\u062f\u0627\u062a \u0641\u064a \u0628\u0646\u0627\u0621 \u0627\u0644\u0627\u062e\u062a\u0628\u0627\u0631 \u0641\u0642\u0637."
+        }
+      ]
+    },
+    {
+      "path": "development/LP4-CODE-APPROVAL.md",
+      "sha256": "3da001bb3e17407a25a770ec45f71123dc1643008e9b7a824451a25e876b7f42",
+      "matches": []
+    },
+    {
+      "path": "development/LP4-COLLISION-APPROVAL.md",
+      "sha256": "bebfc0facbdb504b9f580fd9f1fdba7d38b54610d4e77a44be66885a6a9bc705",
+      "matches": [
+        {
+          "line": 10,
+          "text": "collision gas, nonce, warmth, journaling and rollback behavior. Require actual"
+        }
+      ]
+    },
+    {
+      "path": "development/LP4-PAY-APPROVAL.md",
+      "sha256": "f2c5a5486ff7210c9302afb21b9cf517ad402d2affd3083b0d3b8e681ac4c795",
+      "matches": []
+    },
+    {
+      "path": "development/LP4-PAY-LIFECYCLE-APPROVAL.md",
+      "sha256": "f271b7ff8cb93398bb296c23d66e1bf54361f34f5f442b96e763e3c210511923",
+      "matches": [
+        {
+          "line": 9,
+          "text": "refund accounting, pre-transaction nonce/code eligibility for every PAY including"
+        }
+      ]
+    },
+    {
+      "path": "development/LP4-REGISTRY-APPROVAL.md",
+      "sha256": "a467cc529b1c38b2b62874ad0218f43bb011bb57954342d3ed0c09496ebda1db",
+      "matches": []
+    },
+    {
+      "path": "development/LP4-REGISTRY-WRITE-APPROVAL.md",
+      "sha256": "4fcfef9d6983b526c3f99193f3d384ef8274c4b5214f437e9116d35a53dd0f58",
+      "matches": []
+    },
+    {
+      "path": "development/LP4-TEST-GATES-APPROVAL.md",
+      "sha256": "d0a509e59702854ce3c728503a99cbd129a72e0393be8f84401fc961da1531ff",
+      "matches": []
+    }
+  ],
+  "conclusion": "No explicit SYS epoch/nonce/intrinsic/refund or EVM ORIGIN metadata contract found; interpretation documented in proposal, not a recovered rule"
+}

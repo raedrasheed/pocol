@@ -1,0 +1,19 @@
+
+running 3 tests
+test concurrent_writer_is_refused_and_killed_writer_releases ... ok
+test crashed_writer_leaves_committed_prefix_and_torn_tail ... ok
+test helper_process_entry ... ignored
+
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 9.78s
+
+warning: function is never used: `h256`
+   --> src\store.rs:309:4
+    |
+309 | fn h256(b: &[u8]) -> H256 {
+    |    ^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `lp1-node` (lib) generated 1 warning
+    Finished test [unoptimized + debuginfo] target(s) in 0.39s
+     Running tests\store_process.rs (coordination/lp2-build/target\debug\deps\store_process-627bedfb6af805f4.exe)

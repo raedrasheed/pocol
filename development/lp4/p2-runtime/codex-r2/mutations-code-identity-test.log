@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.27s
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-3c2a6d1a5711c148)
+
+running 1 test
+
+thread 'delegated_foreign_code_cannot_spend_registry_balance' (54079) panicked at tests/pay_boundary.rs:97:5:
+assertion `left == right` failed
+  left: 60
+ right: 100
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test delegated_foreign_code_cannot_spend_registry_balance ... FAILED
+
+failures:
+
+failures:
+    delegated_foreign_code_cannot_spend_registry_balance
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test pay_boundary`

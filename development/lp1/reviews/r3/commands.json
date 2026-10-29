@@ -1,0 +1,105 @@
+[
+  {
+    "name": "rustc-version",
+    "exitCode": 0,
+    "durationSeconds": 0.047,
+    "args": [
+      "<toolchain>\\rustc.exe",
+      "--version"
+    ]
+  },
+  {
+    "name": "cargo-version",
+    "exitCode": 0,
+    "durationSeconds": 0.063,
+    "args": [
+      "<toolchain>\\cargo.exe",
+      "--version"
+    ]
+  },
+  {
+    "name": "cargo-build",
+    "exitCode": 0,
+    "durationSeconds": 7.406,
+    "args": [
+      "<toolchain>\\cargo.exe",
+      "build",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "<workspace>\\coordination\\lp1-repo\\prototypes\\lp1-node\\Cargo.toml",
+      "--target-dir",
+      "<workspace>\\coordination\\lp1-build-r1\\target"
+    ]
+  },
+  {
+    "name": "cargo-test",
+    "exitCode": 0,
+    "durationSeconds": 46.687,
+    "args": [
+      "<toolchain>\\cargo.exe",
+      "test",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "<workspace>\\coordination\\lp1-repo\\prototypes\\lp1-node\\Cargo.toml",
+      "--target-dir",
+      "<workspace>\\coordination\\lp1-build-r1\\target",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ]
+  },
+  {
+    "name": "rustfmt-check",
+    "exitCode": 0,
+    "durationSeconds": 1.875,
+    "args": [
+      "<toolchain>\\cargo.exe",
+      "fmt",
+      "--manifest-path",
+      "<workspace>\\coordination\\lp1-repo\\prototypes\\lp1-node\\Cargo.toml",
+      "--",
+      "--check"
+    ]
+  },
+  {
+    "name": "verify-fixtures",
+    "exitCode": 0,
+    "durationSeconds": 4.641,
+    "args": [
+      "<workspace>\\coordination\\lp1-build-r1\\target\\debug\\lp1-node.exe",
+      "verify-fixtures",
+      "--fixtures",
+      "<workspace>\\coordination\\lp1-repo\\prototypes\\lp1-node\\fixtures"
+    ]
+  },
+  {
+    "name": "asert-batch",
+    "exitCode": 0,
+    "durationSeconds": 0.484,
+    "args": [
+      "<workspace>\\coordination\\lp1-build-r1\\target\\debug\\lp1-node.exe",
+      "asert-batch",
+      "--fixtures",
+      "<workspace>\\coordination\\lp1-repo\\prototypes\\lp1-node\\fixtures",
+      "--in",
+      "<workspace>\\coordination\\lp1-repo\\prototypes\\lp1-node\\fixtures\\asert-oracle.json",
+      "--out",
+      "<workspace>\\coordination\\lp1-review-r3\\asert-batch.jsonl"
+    ]
+  },
+  {
+    "name": "e2e-http",
+    "exitCode": 0,
+    "durationSeconds": 2.64,
+    "args": [
+      "<workspace>\\coordination\\runtime\\python311\\python.exe",
+      "<workspace>\\coordination\\lp1-repo\\prototypes\\lp1-node\\tests\\e2e_http.py",
+      "--bin",
+      "<workspace>\\coordination\\lp1-build-r1\\target\\debug\\lp1-node.exe",
+      "--fixtures",
+      "<workspace>\\coordination\\lp1-repo\\prototypes\\lp1-node\\fixtures"
+    ]
+  }
+]

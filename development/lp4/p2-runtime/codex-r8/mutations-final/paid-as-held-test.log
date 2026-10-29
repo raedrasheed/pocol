@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+     Running tests/registry_payment.rs (prototypes/lp4-execution/target/debug/deps/registry_payment-ada0cd455c0f67b8)
+
+running 1 test
+
+thread 'strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic' (141204) panicked at tests/registry_payment.rs:45:42:
+assertion failed: !r.result.is_success()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic ... FAILED
+
+failures:
+
+failures:
+    strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test registry_payment`

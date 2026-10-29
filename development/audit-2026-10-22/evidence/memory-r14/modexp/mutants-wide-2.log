@@ -1,0 +1,4 @@
+## MODEXP routing of trivial powers to revm (the 2026-10-27 review's finding 1), on the separate worktree; the file then equals the commit
+WX12 KILLED (41s) lp4-execution/src/modexp.rs: '    if e.is_empty(){return true}\n' -> '    if e.is_empty(){return false}\n'; failing: ['modexp::tests::the_wide_path_leaves_trivial_powers_to_revm', 'modexp::tests::the_wide_even_path_returns_what_revm_returns']
+WX13 KILLED (45s) lp4-execution/src/modexp.rs: '.is_some_and(|x|x<u64::try_from(words(m))' -> '.is_some_and(|x|x<=u64::try_from(words(m))'; failing: ['modexp::tests::the_wide_path_leaves_trivial_powers_to_revm']
+WX14 KILLED (41s) lp4-execution/src/modexp.rs: '        (None,Some(_)) if revm_is_quick(base,exp,&modulus)=>return Non' -> ''; failing: ['modexp::tests::the_wide_path_leaves_trivial_powers_to_revm', 'modexp::tests::the_wide_even_path_returns_what_revm_returns']

@@ -1,0 +1,90 @@
+[
+ {
+  "mutant": "BASE",
+  "status": "PASS",
+  "failed": []
+ },
+ {
+  "mutant": "SM1 a diff misses the slots the child removed",
+  "status": "KILLED",
+  "failed": [
+   "statediff::tests::a_diff_turns_each_state_into_the_other_exactly",
+   "statediff::tests::diffs_compose_along_a_chain",
+   "s3a_state_queries_answer_as_with_full_states",
+   "s3a_every_retained_state_equals_the_full_state_it_replaces"
+  ]
+ },
+ {
+  "mutant": "SM2 slots applied in the wrong direction",
+  "status": "KILLED",
+  "failed": [
+   "statediff::tests::a_diff_turns_each_state_into_the_other_exactly",
+   "statediff::tests::diffs_compose_along_a_chain",
+   "s3a_state_queries_answer_as_with_full_states",
+   "s3a_every_retained_state_equals_the_full_state_it_replaces"
+  ]
+ },
+ {
+  "mutant": "SM3 the head side of a path applied forward",
+  "status": "KILLED",
+  "failed": [
+   "s3a_every_retained_state_equals_the_full_state_it_replaces",
+   "s3a_state_queries_answer_as_with_full_states"
+  ]
+ },
+ {
+  "mutant": "SM4 the diff taken against the child",
+  "status": "KILLED",
+  "failed": [
+   "s3a_every_retained_state_equals_the_full_state_it_replaces",
+   "s3a_state_queries_answer_as_with_full_states"
+  ]
+ },
+ {
+  "mutant": "SM5 restore does not give adopted blocks their diffs",
+  "status": "KILLED",
+  "failed": [
+   "s3a_state_queries_answer_as_with_full_states",
+   "s3a_every_retained_state_equals_the_full_state_it_replaces"
+  ]
+ },
+ {
+  "mutant": "SM6 the node settles before the restore",
+  "status": "KILLED",
+  "failed": [
+   "s3a_state_queries_answer_as_with_full_states"
+  ]
+ },
+ {
+  "mutant": "SM7 restore of missing diffs never needed",
+  "status": "KILLED",
+  "failed": [
+   "s3a_every_retained_state_equals_the_full_state_it_replaces"
+  ]
+ },
+ {
+  "mutant": "SM8 an absent side keeps stale storage",
+  "status": "PASS",
+  "failed": []
+ },
+ {
+  "mutant": "SM9 shed drops the head's full state",
+  "status": "KILLED",
+  "failed": [
+   "s3a_every_retained_state_equals_the_full_state_it_replaces",
+   "s3a_state_queries_answer_as_with_full_states"
+  ]
+ },
+ {
+  "mutant": "SM10 unreachable states are not marked pruned",
+  "status": "PASS",
+  "failed": []
+ },
+ {
+  "mutant": "SM11 kept side states are not made full",
+  "status": "KILLED",
+  "failed": [
+   "s3a_every_retained_state_equals_the_full_state_it_replaces"
+  ]
+ }
+]

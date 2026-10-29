@@ -1,0 +1,533 @@
+{
+  "checks": 105,
+  "passed": 105,
+  "failed": 0,
+  "realBinary": true,
+  "results": [
+    {
+      "check": "newStoreNotConsensus",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "appendRestartBatch7",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "appendRestartBatch20",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "reopen20",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "initNeverOverwrites",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tipReplayIdempotent",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "oldHeightRefusedUnchanged",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "malformedAppendUnchanged",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "metadataChecksumIndependent",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum1",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum2",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum3",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum4",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum5",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum6",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum7",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum8",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum9",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum10",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum11",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum12",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum13",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum14",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum15",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum16",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum17",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum18",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum19",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactRecordAndChecksum20",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactEnd",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix1",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused1",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery1",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix3",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused3",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery3",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix4",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused4",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery4",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix8",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused8",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery8",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix12",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused12",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery12",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix15",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused15",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery15",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix16",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused16",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery16",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix47",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused47",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery47",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix48",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused48",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery48",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix79",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused79",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery79",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix80",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused80",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery80",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix781",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused781",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery781",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix782",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused782",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery782",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix783",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused783",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery783",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix813",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused813",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery813",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornPrefix817",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "tornAppendRefused817",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nonDestructiveRecovery817",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected0",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected8",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected12",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected16",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected48",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected80",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected88",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected120",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected128",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected132",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected140",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected144",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected176",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected208",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected16483",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "completeCorruptRejected16487",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "incompleteMetadata0",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "incompleteMetadata1",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "incompleteMetadata7",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "incompleteMetadata8",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "incompleteMetadata87",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "incompleteMetadata127",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "lengthBound",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "orderRejected",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "duplicateRecordRejected",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "recoveryExistingDestinationRefused",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactProfileBinding",
+      "pass": true,
+      "actual": null
+    }
+  ]
+}

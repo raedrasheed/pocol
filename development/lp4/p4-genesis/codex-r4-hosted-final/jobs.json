@@ -1,0 +1,32 @@
+[
+  {
+    "id": 118767368337,
+    "name": "native-cancun-reference",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  {
+    "id": 118767368722,
+    "name": "legacy-windows-regression",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  {
+    "id": 118767368733,
+    "name": "cancun-pay-controls",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  {
+    "id": 118767368736,
+    "name": "independent-cancun-comparison",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  {
+    "id": 118767368798,
+    "name": "registry-windows-execution",
+    "status": "completed",
+    "conclusion": "success"
+  }
+]

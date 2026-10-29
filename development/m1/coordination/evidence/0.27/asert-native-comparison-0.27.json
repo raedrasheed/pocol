@@ -1,0 +1,7 @@
+{
+  "checks": 1027,
+  "passed": 1027,
+  "failed": 0,
+  "bad": [],
+  "oracle": "asert-native-oracle.json"
+}

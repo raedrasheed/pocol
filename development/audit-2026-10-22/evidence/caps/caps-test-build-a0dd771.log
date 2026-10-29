@@ -1,0 +1,34 @@
+
+# commit a0dd7711df32f65aedbdd956de48eae39b5aead9
+# host Linux 6.18.44-fc-v153 x86_64; rustc rustc 1.99.1 (58cf8f9c3 2026-10-13)
+# start 2026-10-23T11:58:52Z
+$ (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --features caps-test --test log_cap -- --nocapture)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.10s
+     Running tests/log_cap.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/log_cap-cd6a3750fe0a7a98)
+
+running 2 tests
+test the_caps_test_build_sets_log_cap_to_2_pow_24 ... ok
+LOGCAP {"cumLogBytes":16777216,"exhaustedAt":513,"logCap":16777216,"receipts":[{"cumGas":300000,"logs":0,"status":false},{"cumGas":321000,"logs":0,"status":true},{"cumGas":374351,"logs":0,"status":true},{"cumGas":574351,"logs":0,"status":false},{"cumGas":595351,"logs":0,"status":true}]}
+LOGCAP {"blocksAfterExhaustion":22,"exhaustedAt":513,"head":535,"rewardsAfter":"539532357950753124968","rewardsBefore":"522639441202032031218"}
+test log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.69s
+
+exit=0
+# end 2026-10-23T12:00:59Z
+
+$ (cd prototypes/lp4-execution && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --features caps-test --test caps_identity -- --nocapture)
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running tests/caps_identity.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps_identity-419032da4072db4a)
+
+running 3 tests
+test gsv1_and_the_cap_variants_match_the_model ... ok
+test log_cap_is_not_representable_in_the_genesis_spec ... ok
+LOG_CAP 16777216 genesisHash 4db6aa5ce711e58c2d5bfaa9ffd04e0ad172824f8410ef28341fd77308d8e638 specBytes 375
+test the_devnet_genesis_hash_does_not_depend_on_log_cap ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+exit=0
+# end 2026-10-23T12:00:59Z
+

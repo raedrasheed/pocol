@@ -1,0 +1,25 @@
+
+running 8 tests
+test inconsistent_parent_views_are_errors_not_certificates ... ok
+test exact_seed_ticket_and_proposer_hash_domains ... ok
+test membership_cutoff_grace_tombs_and_fallback ... FAILED
+test partition_empty_ranges_completeness_and_owner_edges ... ok
+test exact_weight_window_sorted_choice_uniform_fallback_and_duplicates ... ok
+test full_256bit_unbiased_rejection_boundaries ... ok
+test nonce_max_exact_work_and_full_64bit_space ... ok
+test seeded_partition_properties_and_permutation_invariance ... ok
+
+failures:
+
+---- membership_cutoff_grace_tombs_and_fallback stdout ----
+thread 'membership_cutoff_grace_tombs_and_fallback' panicked at 'assertion failed: `(left == right)`
+  left: `[[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3]]`,
+ right: `[[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]]`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/assignment.rs:20:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    membership_cutoff_grace_tombs_and_fallback
+
+test result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+

@@ -1,0 +1,42 @@
+{
+  "schema": "pocol-m1-v1-network/0.26",
+  "status": "literal fixture network for the RP header-window vectors; hand-written; not approved",
+  "source": {"file": "reference/implementation.md", "lines": [358, 358], "literals": ["chainId=777002", "h=3 مرساة على genesis", "NX-V3e وNX-V3f وNX-V3g"]},
+  "network": {
+    "id": "V1NET",
+    "label": "P-V1-8: the source names chainId 777002 for the HeaderNetCheck vectors but gives no GenesisSpec. V1NET is the literal 341-byte GSV1 of validation.md:64-77 with the chainId item 830bdeae (777902) replaced by 830bdb2a (777002). Same length; non-bootable placeholder roots kept (22 x 32, 33 x 32). It is a fixture network, not a deployed one.",
+    "genesisPre": {"base": "m1-draft-0.21/vectors/v3-gsv1.json flatSegments", "segmentIndex": 2, "replace": "830bdeae", "with": "830bdb2a", "bytes": 341},
+    "genesisHash": "computed: keccak256(genesisPre); exported for three-library verification (hash-freeze-v1-0.26.json)",
+    "chainId": 777002,
+    "forkSchedule": [[1, 0]],
+    "trustLevel": "RP",
+    "cp": {"g_ts": 1700000000, "target_g": "2^240", "T_blk": 10, "tau": 600, "nonceMode": 1, "c": 2, "D_att": 60, "dFbWait": 6, "m": 32,
+           "GAS_LIMIT": 8000000, "baseFee0": 1000000000, "H_END": 200},
+    "cpNote": "Hand-copied from the GSV1 CP list (validation.md:64-77; governance.md:152-157 sv-fix values). run_checks_026 decodes the modified genesisPre with the accepted 0.21 decoder and requires these values."
+  },
+  "clientConstants": {
+    "source": {"file": "reference/browser.md", "lines": [29, 33], "literals": ["VIEW_SLACK_S = 4", "ceilTarget = min(", "minWorkRP = floor(2^256/(ceilTarget+1))", "Φ_view = 10s"]},
+    "VIEW_SLACK_S": 4, "PHI_VIEW_S": 10,
+    "ceilTarget": "2^244",
+    "minWorkRP": 4095,
+    "derivation": "ceilTarget = min(2^256-1, 2^240 * 16) = 2^244; minWorkRP = floor(2^256 / (2^244 + 1)) = 4095 because 4095 * (2^244 + 1) = 2^256 - 2^244 + 4095 < 2^256 and 4096 * (2^244 + 1) > 2^256"
+  },
+  "templateDefaults": {
+    "source": {"file": "reference/consensus.md", "lines": [53, 55], "literals": ["UT (18 عنصرًا، ≤ 613 B)", "SignedTemplate = [UT, sig 65 أو فارغ] ≤ 682 B", "Header = [SignedTemplate, nonce 8, shareList ≤ 256, winnerSig 65] ≤ 3067 B"]},
+    "tag": "PoCol-tpl-v1", "chainId": 777002, "genesisHash": "@V1GENESIS", "a": 0, "protocolVersion": 1,
+    "stateRoot": "0x5555555555555555555555555555555555555555555555555555555555555555",
+    "stateRootLabel": "synthetic opaque: items 15-17 are not evaluable in RP (browser.md:56)",
+    "txRoot": "@K3", "receiptsRoot": "@K3", "evidenceRoot": "@K3", "rootsLabel": "K3 = keccak256(0x80), the empty-trie root, consistent with the empty body; not checked in RP",
+    "logsBloom": "256 zero bytes", "gasLimit": 8000000, "gasUsed": 0, "baseFee": 1000000000,
+    "proposer": "@SIGNER", "shareList": [],
+    "signer": {"policy": "TK-1 (accepted 0.25): fixture key 1 = anvil default account 0", "keySource": "m1-draft-0.5/annex/br-messages.json txA.kats[index = 1]",
+               "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+               "note": "sig (item 3) and winnerSig (item 8) are deterministic RFC 6979 signatures computed by the runner; the private key is read from the published fixture and never written. Membership (items 12-14) is not evaluable in RP."}
+  },
+  "wire": {
+    "label": "P-V1-1",
+    "eth_blockNumber": {"params": [], "result": "JSON quantity, e.g. '0x14'"},
+    "pocol_getHeaders": {"params": ["from as quantity", "count as quantity"], "result": "'0x' + hex(RLP list of the count headers, each header the RLP list of consensus.md:55)"},
+    "source": {"file": "reference/network.md", "lines": [172, 180], "literals": ["RLP list", "F0: كميات JSON صحيحة ضمن u64 (hex بلا أصفار بادئة)", "والعميل يرسل ≤ 14"]}
+  }
+}

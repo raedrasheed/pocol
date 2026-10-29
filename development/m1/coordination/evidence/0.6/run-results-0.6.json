@@ -1,0 +1,1433 @@
+{
+  "package": "M1 draft 0.6",
+  "executedAtUtc": "2026-10-07T09:15:52+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "notExecuted": [
+    "browser / MV3 extension (X1-X7, \u062f1-\u062f5, Q8-Q12 browser runs)",
+    "Chrome DNR itself (modelled)",
+    "anvil / pocold",
+    "MPT proofs",
+    "ESLint / dependency-cruiser",
+    "real transactions"
+  ],
+  "summary": {
+    "checks": 190,
+    "passed": 188,
+    "recorded": 1,
+    "failed": 1,
+    "seconds": 17.2
+  },
+  "results": [
+    {
+      "check": "keccak.selftest",
+      "status": "pass"
+    },
+    {
+      "check": "oracle.url06Available",
+      "status": "pass",
+      "values": 90
+    },
+    {
+      "check": "c14.head24",
+      "status": "pass",
+      "got": "0xfa0100150180fa01000ffa01000b822f6101821640a02fdc"
+    },
+    {
+      "check": "c14.contentHash",
+      "status": "pass"
+    },
+    {
+      "check": "c14.chunksHeaderAtOffset54",
+      "status": "pass"
+    },
+    {
+      "check": "id.nodeOracleAvailable",
+      "status": "pass"
+    },
+    {
+      "check": "id.1",
+      "status": "pass",
+      "python": [
+        "ok",
+        1
+      ],
+      "node": {
+        "token": "1",
+        "accept": true,
+        "returnedId": 1,
+        "replyJson": "{\"id\":1}"
+      }
+    },
+    {
+      "check": "id.1.0",
+      "status": "pass",
+      "python": [
+        "ok",
+        1
+      ],
+      "node": {
+        "token": "1.0",
+        "accept": true,
+        "returnedId": 1,
+        "replyJson": "{\"id\":1}"
+      }
+    },
+    {
+      "check": "id.1e0",
+      "status": "pass",
+      "python": [
+        "ok",
+        1
+      ],
+      "node": {
+        "token": "1e0",
+        "accept": true,
+        "returnedId": 1,
+        "replyJson": "{\"id\":1}"
+      }
+    },
+    {
+      "check": "id.1E0",
+      "status": "pass",
+      "python": [
+        "ok",
+        1
+      ],
+      "node": {
+        "token": "1E0",
+        "accept": true,
+        "returnedId": 1,
+        "replyJson": "{\"id\":1}"
+      }
+    },
+    {
+      "check": "id.10e-1",
+      "status": "pass",
+      "python": [
+        "ok",
+        1
+      ],
+      "node": {
+        "token": "10e-1",
+        "accept": true,
+        "returnedId": 1,
+        "replyJson": "{\"id\":1}"
+      }
+    },
+    {
+      "check": "id.-0",
+      "status": "pass",
+      "python": [
+        "ok",
+        0
+      ],
+      "node": {
+        "token": "-0",
+        "accept": true,
+        "returnedId": 0,
+        "replyJson": "{\"id\":0}"
+      }
+    },
+    {
+      "check": "id.-0.0",
+      "status": "pass",
+      "python": [
+        "ok",
+        0
+      ],
+      "node": {
+        "token": "-0.0",
+        "accept": true,
+        "returnedId": 0,
+        "replyJson": "{\"id\":0}"
+      }
+    },
+    {
+      "check": "id.0",
+      "status": "pass",
+      "python": [
+        "ok",
+        0
+      ],
+      "node": {
+        "token": "0",
+        "accept": true,
+        "returnedId": 0,
+        "replyJson": "{\"id\":0}"
+      }
+    },
+    {
+      "check": "id.1e-400",
+      "status": "pass",
+      "python": [
+        "ok",
+        0
+      ],
+      "node": {
+        "token": "1e-400",
+        "accept": true,
+        "returnedId": 0,
+        "replyJson": "{\"id\":0}"
+      }
+    },
+    {
+      "check": "id.4294967295",
+      "status": "pass",
+      "python": [
+        "ok",
+        4294967295
+      ],
+      "node": {
+        "token": "4294967295",
+        "accept": true,
+        "returnedId": 4294967295,
+        "replyJson": "{\"id\":4294967295}"
+      }
+    },
+    {
+      "check": "id.4294967295.0",
+      "status": "pass",
+      "python": [
+        "ok",
+        4294967295
+      ],
+      "node": {
+        "token": "4294967295.0",
+        "accept": true,
+        "returnedId": 4294967295,
+        "replyJson": "{\"id\":4294967295}"
+      }
+    },
+    {
+      "check": "id.4.294967295e9",
+      "status": "pass",
+      "python": [
+        "ok",
+        4294967295
+      ],
+      "node": {
+        "token": "4.294967295e9",
+        "accept": true,
+        "returnedId": 4294967295,
+        "replyJson": "{\"id\":4294967295}"
+      }
+    },
+    {
+      "check": "id.4294967296",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "4294967296",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.4.294967296e9",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "4.294967296e9",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.4294967295.99999999999",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "4294967295.99999999999",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.-1",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "-1",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.1.5",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "1.5",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.1e400",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "1e400",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.true",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "true",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.null",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "null",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.\"1\"",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "\"1\"",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.[1]",
+      "status": "pass",
+      "python": [
+        "B0",
+        null
+      ],
+      "node": {
+        "token": "[1]",
+        "accept": false,
+        "returnedId": null,
+        "replyJson": null
+      }
+    },
+    {
+      "check": "id.envelope PE-5.0",
+      "status": "pass",
+      "got": "result"
+    },
+    {
+      "check": "id.envelope PE-5e0",
+      "status": "pass",
+      "got": "result"
+    },
+    {
+      "check": "id.envelope PE-minus0",
+      "status": "pass",
+      "got": "result"
+    },
+    {
+      "check": "id.envelope PE-5.5",
+      "status": "pass",
+      "got": "envelope.id"
+    },
+    {
+      "check": "id.envelope PE-true",
+      "status": "pass",
+      "got": "envelope.id"
+    },
+    {
+      "check": "id.envelope PE-code-float",
+      "status": "pass",
+      "got": [
+        "retry",
+        500
+      ]
+    },
+    {
+      "check": "id.envelope PE-retry-nonintegral",
+      "status": "pass",
+      "got": [
+        "attemptFail",
+        "rate.badRetryAfter"
+      ]
+    },
+    {
+      "check": "id.envelope PE-code-nonintegral",
+      "status": "pass",
+      "got": "envelope.errorShape"
+    },
+    {
+      "check": "bridge04.under06 ok-eth_chainId",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_getBalance",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_getStorageAt-qty-tag",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_getBlockByNumber",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_getBlockByHash",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_call",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_estimateGas-1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_estimateGas-2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_feeHistory",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_getLogs-range",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_getLogs-blockHash",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-eth_sendTransaction",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-site_storageSet",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-site_storageSet-delete",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-site_storageClear",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-site_navigate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-site_openExternal",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 ok-id-max",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR3a",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR3b",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR4-upper",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR4-space",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR4-nul",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR4-cyrillic",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR4-65-bytes",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR4-site-case",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR4-astral-truncation",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR6-payload-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR6-outer-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR6-duplicate-method",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7a",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7b",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7c",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7d",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7e",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7f",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7g-storage",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7g-navigate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR7h",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR8",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR9-gas",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR9-no-to",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR9-data-and-input",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR10-17-addresses",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR11-proto",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR11-constructor-nav",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR11-hasOwnProperty-storage",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR11-toString-wallet",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR12-full-block",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR12-pending",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR12-earliest",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR12-eip1898",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR13-depth-9",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR13-depth-8-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR13-size-65537",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR13-size-65536-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR13-invalid-json",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR13-id-negative",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR13-id-2^32",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR13-id-string",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B0-id-1.0",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B0-id-minus-zero",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B0-id-true",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B0-NaN",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B0-top-array",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B0-method-number",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B0-kind-number-before-B1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-short",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-empty-key",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-key-257",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-key-256-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-value-61441",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-value-61440-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-number-key",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-lone-surrogate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR17d-clear-arg",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18d-relative",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18d-space",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18d-2049",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18d-2048-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18c-passes-schema",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18g-http",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18g-javascript",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18g-extension",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18g-userinfo",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 BR18g-empty-host",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-feeHistory-129",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-percentiles-decreasing",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-percentiles-17",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-percentile-100.5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-qty-leading-zero",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-qty-over-u64",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-addr-trailing-newline",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-callObj-unknown-field",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-txObj-missing-from",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-filter-mixed-forms",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-topics-5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-estimateGas-3-params",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge04.under06 B3-estimateGas-0-params",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "profile.Q8",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4100,
+          "atCommit"
+        ],
+        [
+          "acceptNoEffect",
+          "r1"
+        ]
+      ]
+    },
+    {
+      "check": "profile.Q9a",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4100,
+          "atCommit"
+        ],
+        [
+          "acceptNoEffect",
+          "r1"
+        ]
+      ]
+    },
+    {
+      "check": "profile.Q9b",
+      "status": "pass",
+      "state": {
+        "r1": "sent",
+        "r2": "rejected"
+      },
+      "signs": 1,
+      "sends": 1,
+      "epoch": 1,
+      "log": [
+        [
+          "sentBefore",
+          "r1",
+          [
+            "addProfile"
+          ]
+        ]
+      ]
+    },
+    {
+      "check": "profile.Q9c-before-step3",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4100,
+          "atAccept"
+        ]
+      ]
+    },
+    {
+      "check": "profile.Q9c-after-step3",
+      "status": "pass",
+      "state": {
+        "r1": "sent"
+      },
+      "signs": 1,
+      "sends": 1,
+      "epoch": 1,
+      "log": [
+        [
+          "declaredLimit",
+          "rawWriteAfterStep3",
+          "r1"
+        ]
+      ]
+    },
+    {
+      "check": "profile.Q10",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4100,
+          "atCommit"
+        ],
+        [
+          "acceptNoEffect",
+          "r1"
+        ]
+      ]
+    },
+    {
+      "check": "profile.Q11-disconnect",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4100,
+          "atCommit"
+        ]
+      ]
+    },
+    {
+      "check": "profile.Q11-lock",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4100,
+          "atCommit"
+        ]
+      ]
+    },
+    {
+      "check": "profile.Q12",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4901,
+          "atCommit"
+        ]
+      ]
+    },
+    {
+      "check": "profile.SE-eligible",
+      "status": "pass",
+      "state": {
+        "r1": "sent"
+      },
+      "signs": 1,
+      "sends": 1,
+      "epoch": 0,
+      "log": []
+    },
+    {
+      "check": "profile.SE-benign-mutation",
+      "status": "pass",
+      "state": {
+        "r1": "sent"
+      },
+      "signs": 1,
+      "sends": 1,
+      "epoch": 1,
+      "log": []
+    },
+    {
+      "check": "profile.SE-identity-mismatch",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 0,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4901,
+          "atAccept"
+        ]
+      ]
+    },
+    {
+      "check": "profile.SE-endpoint-changed",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4901,
+          "atCommit"
+        ]
+      ]
+    },
+    {
+      "check": "profile.SE-trust-changed",
+      "status": "pass",
+      "state": {
+        "r1": "cancelled"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 1,
+      "log": [
+        [
+          "cancelled",
+          "r1",
+          4901,
+          "atCommit"
+        ]
+      ]
+    },
+    {
+      "check": "profile.SE-rp-no-window",
+      "status": "pass",
+      "state": {
+        "r1": "rejected"
+      },
+      "signs": 0,
+      "sends": 0,
+      "epoch": 0,
+      "log": []
+    },
+    {
+      "check": "profile.SE-rp-window-ok",
+      "status": "pass",
+      "state": {
+        "r1": "sent"
+      },
+      "signs": 1,
+      "sends": 1,
+      "epoch": 0,
+      "log": []
+    },
+    {
+      "check": "dnr.\u062f1",
+      "status": "pass",
+      "rules": [
+        14,
+        15
+      ],
+      "events": [
+        [
+          "installedVerified",
+          7
+        ],
+        [
+          "frameCreated",
+          7
+        ]
+      ]
+    },
+    {
+      "check": "dnr.\u062f2",
+      "status": "pass",
+      "rules": [],
+      "events": [
+        [
+          "installFailed",
+          7
+        ]
+      ]
+    },
+    {
+      "check": "dnr.\u062f2-verify",
+      "status": "pass",
+      "rules": [],
+      "events": [
+        [
+          "verifyFailed",
+          7
+        ]
+      ]
+    },
+    {
+      "check": "dnr.\u062f3",
+      "status": "pass",
+      "rules": [],
+      "events": [
+        [
+          "installedVerified",
+          7
+        ],
+        [
+          "frameCreated",
+          7
+        ],
+        [
+          "removed",
+          7,
+          "tabs.onRemoved"
+        ]
+      ]
+    },
+    {
+      "check": "dnr.\u062f4",
+      "status": "pass",
+      "rules": [
+        14,
+        15
+      ],
+      "events": [
+        [
+          "installedVerified",
+          7
+        ],
+        [
+          "frameCreated",
+          7
+        ]
+      ]
+    },
+    {
+      "check": "dnr.\u062f5",
+      "status": "pass",
+      "rules": [],
+      "events": [
+        [
+          "installedVerified",
+          7
+        ],
+        [
+          "frameCreated",
+          7
+        ],
+        [
+          "frameTornDown",
+          7,
+          "pingFailed"
+        ],
+        [
+          "leftoversRemoved",
+          [
+            14,
+            15
+          ]
+        ]
+      ]
+    },
+    {
+      "check": "x3.allRequiredIdsRestored (17 incl. Q9 a/b/c)",
+      "status": "pass"
+    },
+    {
+      "check": "x3.xSitesComplete",
+      "status": "pass"
+    },
+    {
+      "check": "x3.qScenariosModelled",
+      "status": "pass"
+    },
+    {
+      "check": "x3.dalScenariosModelled",
+      "status": "pass"
+    },
+    {
+      "check": "br19a.a1",
+      "status": "pass"
+    },
+    {
+      "check": "br19a.a2",
+      "status": "pass"
+    },
+    {
+      "check": "br19a.a3",
+      "status": "pass"
+    },
+    {
+      "check": "br19a.a4",
+      "status": "pass"
+    },
+    {
+      "check": "br19a.a5",
+      "status": "pass"
+    },
+    {
+      "check": "br19a.a6",
+      "status": "pass"
+    },
+    {
+      "check": "br19a.a7 sizeLinesKeepTokensBefore",
+      "status": "FAIL"
+    },
+    {
+      "check": "br19a.noRefillFailsA3",
+      "status": "pass"
+    },
+    {
+      "check": "br19b.b1",
+      "status": "pass"
+    },
+    {
+      "check": "br19b.b2",
+      "status": "pass"
+    },
+    {
+      "check": "br19b.b3",
+      "status": "pass"
+    },
+    {
+      "check": "br19b.b4",
+      "status": "pass"
+    },
+    {
+      "check": "br19b.b5",
+      "status": "pass"
+    },
+    {
+      "check": "br19c.synthetic bpre",
+      "status": "pass"
+    },
+    {
+      "check": "br19c.synthetic ethCall",
+      "status": "pass"
+    },
+    {
+      "check": "br19c.synthetic decisive",
+      "status": "pass"
+    },
+    {
+      "check": "br19c.noForwardForRejected",
+      "status": "pass"
+    },
+    {
+      "check": "bridgetrace.format synthetic",
+      "status": "pass"
+    },
+    {
+      "check": "br16.nodeStreamAvailable",
+      "status": "pass"
+    },
+    {
+      "check": "br16.pythonEqualsNode",
+      "status": "pass",
+      "python": "bafd5b01baec76e6f3e91ed046f2adc802ee7910d592b911357fce71d883212b",
+      "node": "bafd5b01baec76e6f3e91ed046f2adc802ee7910d592b911357fce71d883212b"
+    },
+    {
+      "check": "br16.everyMessageDecided",
+      "status": "pass"
+    },
+    {
+      "check": "br16.traceFormat",
+      "status": "pass"
+    },
+    {
+      "check": "br16.noForwardForRejected",
+      "status": "pass"
+    },
+    {
+      "check": "br16.storeTotalWithinQuota",
+      "status": "pass"
+    },
+    {
+      "check": "br16.summary",
+      "status": "recorded",
+      "seedIndex": 0,
+      "streamSha256": "bafd5b01baec76e6f3e91ed046f2adc802ee7910d592b911357fce71d883212b",
+      "decisionsSha256": "bdc1d86d17dba2fa82db53edca681d6cb7599c20285c04dcffa0aea8975d82b0",
+      "histogram": {
+        "pass/B0/-32600/None": 966,
+        "pass/B1/-32600/None": 1770,
+        "pass/B2/4200/None": 3997,
+        "pass/B3/-32602/None": 1388,
+        "pass/ok/None/logClient": 24,
+        "pass/ok/None/navigator": 358,
+        "pass/ok/None/readClient": 459,
+        "pass/ok/None/siteStorage": 509,
+        "pass/ok/None/wallet": 467,
+        "size/None/-32600/None": 62
+      }
+    }
+  ]
+}

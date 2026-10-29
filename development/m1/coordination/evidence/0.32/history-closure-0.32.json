@@ -1,0 +1,448 @@
+{
+ "failures": {
+  "R04::bound.length rb-2848-does-not-fit": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 3
+     },
+     "pattern": "^c14\\."
+    }
+   ]
+  },
+  "R05::c14.fixture rb-2848": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 3
+     },
+     "pattern": "^c14\\."
+    }
+   ]
+  },
+  "R06::br19a.a7 sizeLinesKeepTokensBefore": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^br19a\\."
+    }
+   ]
+  },
+  "R07::step.completed e_checks": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 5,
+      "recorded": 1
+     },
+     "pattern": "^snapshotE\\."
+    },
+    {
+     "absent": true,
+     "pattern": "^step\\.completed e_checks$"
+    }
+   ]
+  },
+  "R13::step.completed e4_checks": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 54,
+      "recorded": 1
+     },
+     "pattern": "(^|\\.)e4\\."
+    },
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^schema\\.noStepAborted$"
+    }
+   ]
+  },
+  "R14::coverage.e4AllExpectedChecksPresent": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^coverage\\.e4AllExpectedChecksPresent$"
+    }
+   ]
+  },
+  "R14::rerun013.step.completed e4_checks": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 54,
+      "recorded": 1
+     },
+     "pattern": "(^|\\.)e4\\."
+    },
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^schema\\.noStepAborted$"
+    }
+   ]
+  },
+  "R14::schema.noStepAborted": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^schema\\.noStepAborted$"
+    }
+   ]
+  },
+  "R16::BR24-x9.faultyPath.adminEarlyRelease.final.adminStats": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 17
+     },
+     "pattern": "^suite017\\.C27\\."
+    }
+   ]
+  },
+  "R16::BR24-x9.faultyPath.adminEarlyRelease.final.setLog": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 17
+     },
+     "pattern": "^suite017\\.C27\\."
+    }
+   ]
+  },
+  "R17::suite016.BR24-x9.faultyPath.adminEarlyRelease.row@5000.violations": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^suite017\\.suite016\\.BR24-x9\\.faultyPath\\.adminEarlyRelease\\.row@5000\\.violations$"
+    }
+   ]
+  },
+  "R21F::reuse.keccakFrom0.2": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^suite021\\.reuse\\.keccakFrom0\\.2$"
+    }
+   ]
+  },
+  "R25F::S25.expspec.inputsExist": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^S25\\.expspec\\.inputsExist$"
+    }
+   ]
+  },
+  "R25F::coverage025.required": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "counts": {
+      "pass": 1
+     },
+     "pattern": "^coverage025\\.required$"
+    }
+   ]
+  },
+  "R29::U08.noncanonical.N05": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "U08.noncanonical.N05",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R29::consolidation.findingsMatchProposal": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "consolidation.findingsMatchProposal",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R29::coverage029.required": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "closed": true,
+     "via": "R30::coverage030.required",
+     "why": [
+      {
+       "check": "coverage031.required",
+       "statuses": [
+        "pass"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "R29::decision.U08.applied": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "decision.U08.applied",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R30::C33.source.scopeProbes.provenance": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "C36.scopeProbes.parsedLiterals",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R30::bind029.reviewAcceptsUnaffected": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "C36.reviewDecisions030.acceptedUnaffected",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R30::consolidation.rowsMatchProposal": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "consolidation.rowsMatchProposal",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R30::convention.P-V1-11.decided": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "convention.P-V1-11.decided",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R30::coverage030.required": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "coverage031.required",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R30::history.HF-8": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "history.HF-8",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "R31::history.HF-12": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "history.HF-12.freshClosure",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/epoch-independent-probes-0.10.json::7": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "failed": 0,
+     "file": "coordination/review-001/epoch-independent-probes-0.11.json"
+    },
+    {
+     "failed": 0,
+     "file": "coordination/review-001/epoch-independent-probes-0.12.json"
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/error-data-native-comparison-030.json::2": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "history.HF-13",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/error-data-native-comparison-utf8-030.json::1": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "check": "history.HF-14",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/full-hash-triad-029.json::611": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "failed": 0,
+     "file": "coordination/review-001/full-hash-triad-executed-029.json"
+    },
+    {
+     "check": "freeze.legacy",
+     "statuses": [
+      "pass"
+     ]
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/genesis-iterative-independent-probes-initial-expectation.json::1": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "failed": 0,
+     "file": "coordination/review-001/genesis-iterative-independent-probes.json"
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/independent-hashes.json::1": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "failed": 0,
+     "file": "coordination/review-001/independent-hashes-corrected.json"
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/v1-guard-integration-probes-029.json::3": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "failed": 0,
+     "file": "coordination/review-001/guard-independent-031.json"
+    },
+    {
+     "counts": {
+      "pass": 3
+     },
+     "pattern": "^C33\\.case\\.G-P[123]-"
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/v1-malformed-error-probes-0.26.json::3": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "failed": 0,
+     "file": "coordination/review-001/busy-independent-probes-0.27.json"
+    },
+    {
+     "counts": {
+      "pass": 3
+     },
+     "pattern": "^C32\\.case\\.C32-root-"
+    }
+   ]
+  },
+  "ROOT::coordination/review-001/x8-independent-probes-0.23.json::1": {
+   "closed": true,
+   "occurrences": 1,
+   "proof": [
+    {
+     "failed": 0,
+     "file": "coordination/review-001/x8-independent-probes-0.24.json"
+    }
+   ]
+  }
+ },
+ "globalClosure": true,
+ "method": "close(): exactly one registry entry per failure, every witness proved; via recursion; fresh complete status maps",
+ "schema": "pocol-m1-history-closure/0.32"
+}

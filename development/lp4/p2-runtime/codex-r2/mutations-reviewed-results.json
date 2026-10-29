@@ -1,0 +1,92 @@
+[
+  {
+    "name": "auth",
+    "file": "pay.rs",
+    "old": "|| ![registry_address(),escrow_address()].contains(&inputs.caller)",
+    "new": "",
+    "test": "auth_modes_value_and_direct_reject",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "code-identity",
+    "file": "pay.rs",
+    "old": "|| context.external.active_code!=Some(inputs.caller)",
+    "new": "",
+    "test": "delegated_foreign_code_cannot_spend_registry_balance",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "gas",
+    "file": "pay.rs",
+    "old": "PAY_GAS: u64 = 5_000",
+    "new": "PAY_GAS: u64 = 4_999",
+    "test": "funding_zero_self_and_exact_boundaries",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "padding",
+    "file": "pay.rs",
+    "old": "|| inputs.input[..12].iter().any(|b|*b!=0)",
+    "new": "",
+    "test": "recipients_overflow_and_encoding_reject_without_effects",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "length",
+    "file": "pay.rs",
+    "old": "inputs.input.len()!=64",
+    "new": "inputs.input.len()<64",
+    "test": "recipients_overflow_and_encoding_reject_without_effects",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "value",
+    "file": "pay.rs",
+    "old": "|| inputs.call_value()!=U256::ZERO",
+    "new": "",
+    "test": "auth_modes_value_and_direct_reject",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "static",
+    "file": "pay.rs",
+    "old": "|| inputs.is_static",
+    "new": "",
+    "test": "inherited_static_call_cannot_write_balances",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "no-transfer",
+    "file": "pay.rs",
+    "old": "amount!=U256::ZERO && recipient!=inputs.caller",
+    "new": "false && amount!=U256::ZERO && recipient!=inputs.caller",
+    "test": "both_roles_transfer_no_callback_and_no_snapshot_commit",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "native-bypass",
+    "file": "native.rs",
+    "old": "if inputs.bytecode_address==pay_address() || inputs.target_address==pay_address()",
+    "new": "if false && (inputs.bytecode_address==pay_address() || inputs.target_address==pay_address())",
+    "test": "both_roles_transfer_no_callback_and_no_snapshot_commit",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

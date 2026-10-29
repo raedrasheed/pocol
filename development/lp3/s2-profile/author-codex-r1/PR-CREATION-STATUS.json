@@ -1,0 +1,11 @@
+{
+  "sourceBranch": "codex-lp3-s2-profile",
+  "targetBranch": "work/lp3-consensus-foundation",
+  "pushedImplementationCommit": "a9f0460335fa9594b943e125dd77d780042eefec",
+  "pushedEvidenceCommit": "9819705f2ebd436f3f2e223dbac15bf84e3b73a3",
+  "draftPrCreated": false,
+  "attempt": "gh pr create --repo raedrasheed/Proof-of-Collaboration --base work/lp3-consensus-foundation --head codex-lp3-s2-profile --draft --title \"LP3 S2: typed CP and non-bootable profile identity\" --body-file development/lp3/s2-profile/author-codex-r1/DRAFT-PR-BODY.md",
+  "exitCode": 1,
+  "error": "Post https://api.github.com/graphql: Forbidden",
+  "remainingAction": "Create a draft PR when authorized GitHub API access is available. Preserve target foundation and do not merge."
+}

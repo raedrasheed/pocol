@@ -1,0 +1,22 @@
+import sys
+"""Separate sequential review: isolated complete Rust library and assertion controls."""
+import json,os,shutil,subprocess,tempfile,time
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[4];CRATE=ROOT/'prototypes/lp1-node';OUT=Path(sys.argv[1]).resolve();OUT.mkdir(exist_ok=True)
+env=dict(os.environ,CARGO_HOME='/workspace/pocol-tools/cargo',RUSTUP_HOME='/workspace/pocol-tools/rustup',CARGO_MANIFEST_DIR=str(CRATE));env['PATH']='/workspace/pocol-tools/cargo/bin:'+env['PATH'];deps=Path(os.environ.get('POCOL_REVIEW_TARGET',str(CRATE/'target')))/'release/deps';extern=[]
+for name in ['sha2','sha3','libsecp256k1','serde_json']:
+ fs=list(deps.glob('lib'+name+'-*.rlib'));assert len(fs)==1;extern+=['--extern',name+'='+str(fs[0])]
+mutants=[('truncate-negative', 'asert.rs', 'num.div_euclid(tau)', 'num / tau', 'asert_named.rs'), ('biased-draw', 'assignment.rs', 'if x > self.last {', 'if false {', 'assignment.rs'), ('include-parent-weight', 'assignment.rs', 'members.height.checked_sub(2)', 'members.height.checked_sub(1)', 'assignment.rs'), ('reserved-member-bypass', 'assignment.rs', 'if reserved(&member.id) {', 'if false {', 'assignment.rs'), ('membership-cutoff', 'assignment.rs', 'member.last_share >= cutoff || member.grace_start >= cutoff', 'member.last_share > cutoff || member.grace_start > cutoff', 'assignment.rs'), ('fork-equal-height', 'profile.rs', 'height <= h', 'height < h', 'profile.rs'), ('fork-unsupported-version', 'profile.rs', 'if version != 1 {', 'if false {', 'profile.rs'), ('gate-bypass-r24', 'gate.rs', 'bad[23] = spec.as_ref()', 'bad[23] = false && spec.as_ref()', 'gate.rs'), ('reject-tj-equality', 'timing.rs', 'arrival_ms <= deadline_ms', 'arrival_ms < deadline_ms', 'timing.rs'), ('schema-width', 'genesis_spec.rs', 'bit_len(v) > field.width as u64', 'false', 'genesis_spec.rs')]
+results=[]
+for name,file,old,new,test in mutants:
+ source=(CRATE/'src'/file).read_text();assert source.count(old)==1,(name,source.count(old))
+ with tempfile.TemporaryDirectory(prefix=name+'-',dir=OUT) as td:
+  td=Path(td);shutil.copytree(CRATE/'src',td/'src');(td/'src'/file).write_text(source.replace(old,new));steps=[]
+  argslist=[['rustc','+1.58.1','--edition=2021','--crate-name','lp1_node','--crate-type','rlib',str(td/'src/lib.rs'),'-L','dependency='+str(deps),*extern,'-o',str(td/'liblp1_node.rlib')],['rustc','+1.58.1','--edition=2021','--test',str(CRATE/'tests'/test),'--extern','lp1_node='+str(td/'liblp1_node.rlib'),'-L','dependency='+str(deps),*extern,'-o',str(td/'tests')],[str(td/'tests')]]
+  for stage,args in enumerate(argslist):
+   t=time.monotonic()
+   with (OUT/(name+'-'+str(stage)+'.log')).open('w') as f:p=subprocess.run(args,env=env,stdout=f,stderr=subprocess.STDOUT)
+   steps.append(dict(args=args,exitCode=p.returncode,seconds=round(time.monotonic()-t,3)))
+   if stage<2:assert p.returncode==0,(name,stage)
+  detected=steps[-1]['exitCode']==101 and 'test result: FAILED' in (OUT/(name+'-2.log')).read_text();results.append(dict(name=name,caught=detected,commands=steps));(OUT/'RESULTS.json').write_text(json.dumps(results,indent=2)+'\n');print(name,detected,flush=True)
+assert all(r['caught'] for r in results),[r['name'] for r in results if not r['caught']]

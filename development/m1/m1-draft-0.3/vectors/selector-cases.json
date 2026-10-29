@@ -1,0 +1,24 @@
+{
+  "specVersion": "M1 draft 0.3",
+  "revision": "R3-02 (C04)",
+  "semantics": "Omnibox input after '<0xaddr>' (M1-SPEC-0.2 section 6.2 as amended by R3-02). Expected values are hand-written. 'input' is literal; 'construction' is prefix + repeat*count (+ suffix), expanded by tools/run_checks_03.py. malformedSelector means no RPC and no frame. The draft 0.2 cases in m1-draft-0.2/vectors/path-cases.json remain in force and are re-run against the 0.3 model.",
+  "cases": [
+    {"id": "sel-u32-max", "input": "/a.html@v4294967295", "expected": {"kind": "lookup", "path": "/a.html", "version": 4294967295}},
+    {"id": "sel-u32-max-plus-1", "input": "/a.html@v4294967296", "expected": {"kind": "malformedSelector"}},
+    {"id": "sel-u32-wrap-to-1", "input": "/a.html@v4294967297", "expected": {"kind": "malformedSelector"}, "note": "a u32-truncating parser would yield 1"},
+    {"id": "sel-u64-wrap-to-1", "input": "/a.html@v18446744073709551617", "expected": {"kind": "malformedSelector"}, "note": "a u64-truncating parser would yield 1"},
+    {"id": "sel-10-digits-over", "input": "/a.html@v9999999999", "expected": {"kind": "malformedSelector"}},
+    {"id": "sel-10-digits-under", "input": "/a.html@v1000000000", "expected": {"kind": "lookup", "path": "/a.html", "version": 1000000000}},
+    {"id": "sel-11-digits", "input": "/a.html@v10000000000", "expected": {"kind": "malformedSelector"}},
+    {"id": "sel-double-zero", "input": "/a.html@v00", "expected": {"kind": "malformedSelector"}},
+    {"id": "sel-leading-zero-10-digits", "input": "/a.html@v0000000001", "expected": {"kind": "malformedSelector"}},
+    {"id": "sel-entry-u32-max", "input": "@v4294967295", "expected": {"kind": "lookup", "path": null, "version": 4294967295}},
+    {"id": "sel-5000-ones", "construction": {"prefix": "/a.html@v", "repeat": "1", "count": 5000}, "expected": {"kind": "malformedSelector"}, "note": "Codex probe C04-selector-5000-digits: draft 0.2 raised ValueError (Python int-string limit 4300)"},
+    {"id": "sel-4301-nines", "construction": {"prefix": "/a.html@v", "repeat": "9", "count": 4301}, "expected": {"kind": "malformedSelector"}},
+    {"id": "sel-5000-zeros", "construction": {"prefix": "/a.html@v", "repeat": "0", "count": 5000}, "expected": {"kind": "malformedSelector"}},
+    {"id": "sel-long-digits-then-query", "construction": {"prefix": "/a.html@v", "repeat": "7", "count": 5000, "suffix": "?x=1"}, "expected": {"kind": "malformedSelector"}, "note": "the query is cut first; the selector is still oversized"},
+    {"id": "sel-long-digits-in-query-only", "construction": {"prefix": "/a.html?x=@v", "repeat": "7", "count": 5000}, "expected": {"kind": "lookup", "path": "/a.html", "version": null}},
+    {"id": "sel-arabic-indic-digit", "input": "/a.html@v٣", "expected": {"kind": "404", "rule": "nav.grammar"}, "note": "U+0663 is not an ASCII digit, so there is no selector; '@' and the non-ASCII character fail the segment grammar"},
+    {"id": "sel-fullwidth-digit", "input": "/a.html@v１", "expected": {"kind": "404", "rule": "nav.grammar"}}
+  ]
+}

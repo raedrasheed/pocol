@@ -1,0 +1,27 @@
+   Compiling lp1-node v0.1.0 (/workspace/pocol-s2/pocol-s2-mutant-8pwmimei/crate)
+    Finished test [unoptimized + debuginfo] target(s) in 4.20s
+     Running tests/profile.rs (/workspace/pocol-tools/target/debug/deps/profile-163c84070b8044e2)
+
+running 6 tests
+test schedule_requires_origin_strict_heights_and_implemented_versions ... FAILED
+test every_width_minimum_and_upper_bound_is_checked_before_narrowing ... ok
+test testfork_v2_never_becomes_bootable_even_on_simnet ... ok
+test typed_cp_preserves_all_values_and_exact_encoding ... ok
+test hash_and_chain_binding_cannot_be_replaced_by_matching_fork_schedule ... ok
+test kind_matrix_and_network_chain_id_separation ... ok
+
+failures:
+
+---- schedule_requires_origin_strict_heights_and_implemented_versions stdout ----
+thread 'schedule_requires_origin_strict_heights_and_implemented_versions' panicked at 'assertion failed: `(left == right)`
+  left: `Ok(ForkSchedule([(1, 0), (1, 0)]))`,
+ right: `Err(ForkHeight)`', tests/profile.rs:83:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    schedule_requires_origin_strict_heights_and_implemented_versions
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass '--test profile'

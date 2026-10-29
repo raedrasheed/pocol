@@ -1,0 +1,39 @@
+{
+  "increment": "P2",
+  "status": "NOT PASSED",
+  "bootable": false,
+  "payAuthority": "development/LP4-PAY-APPROVAL.md",
+  "rustTests": {
+    "library": 8,
+    "nativeIntegration": 8,
+    "scope": "controls only"
+  },
+  "independentPyEVMPayCases": 28,
+  "compiledPayAssertionControls": 13,
+  "compiledOriginalAssertionControls": 3,
+  "initialFullGST": {
+    "total": 20661,
+    "matched": 20648,
+    "failed": 13,
+    "runnerFailureIncluded": 1
+  },
+  "diagnosticProbeGST": {
+    "total": 20661,
+    "matched": 20661,
+    "failed": 0,
+    "ruleApproved": false,
+    "acceptance": "NOT PASSED; experimental upstream controls only"
+  },
+  "legacyFullLocalRegression": "NOT PASSED; Windows-only journal unsupported on Linux, failed logs retained",
+  "githubCI": "PENDING actual PR-head run; no success assumed",
+  "licenseAudit": "NOT PASSED; archive checksums verified, terms/notice audit incomplete",
+  "remaining": [
+    "EIP-7610 fork decision",
+    "actual signed wire validation",
+    "full compiled Registry/Escrow reward and closing policies",
+    "caps and forced-transfer locks",
+    "full PoCol field/root/exception differential",
+    "license audit",
+    "supported-platform CI receipts"
+  ]
+}

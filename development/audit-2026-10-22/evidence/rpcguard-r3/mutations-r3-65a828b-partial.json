@@ -1,0 +1,364 @@
+{
+ "tree": "65a828bcb919f54d5f37e8a0b0d49b14f1e58235",
+ "runner": "run_mutations_rpcguard_r3.py",
+ "mutants": [
+  {
+   "id": "RGM1-PACER",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     14.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     18.3
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM2-RATE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_per_connection_bucket_charges_k_tokens_per_request"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_per_connection_bucket_charges_k_tokens_per_request",
+     "OK",
+     12.9
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_per_connection_bucket_charges_k_tokens_per_request"
+     ],
+     "FAILED",
+     13.0
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM3-HEAVYQUEUE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "abandoned_queued_bodies_are_capped_and_released"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "abandoned_queued_bodies_are_capped_and_released",
+     "OK",
+     13.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "abandoned_queued_bodies_are_capped_and_released"
+     ],
+     "FAILED",
+     13.3
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM4-ENTRY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "light_compute_deadline_fires",
+     "OK",
+     13.1
+    ],
+    [
+     "a_request_reaching_its_handler_past_the_deadline_never_runs",
+     "OK",
+     0.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ],
+     "FAILED",
+     12.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM5-STOPHOOK",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "heavy_compute_deadline_cancels_eth_call"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "heavy_compute_deadline_cancels_eth_call",
+     "OK",
+     12.8
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "heavy_compute_deadline_cancels_eth_call"
+     ],
+     "OK",
+     13.5
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": false
+  },
+  {
+   "id": "RGM6-SCRATCH",
+   "groups": [
+    [
+     [
+      "--test",
+      "consensus"
+     ],
+     [
+      "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "get_logs_scratch_limit_is_32020_scratch_with_resume_data",
+     "OK",
+     15.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "get_logs_scratch_limit_is_32020_scratch_with_resume_data"
+     ],
+     "FAILED",
+     15.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM7-PARAMS",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "get_params_and_rpc_stats_report_the_limits"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "get_params_and_rpc_stats_report_the_limits",
+     "OK",
+     12.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "get_params_and_rpc_stats_report_the_limits"
+     ],
+     "FAILED",
+     12.6
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM8-POSTCHECK",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+      "a_late_revert_or_halt_past_its_deadline_is_32020",
+      "a_late_get_logs_answer_carries_resume_data"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+     "OK",
+     13.2
+    ],
+    [
+     "a_late_revert_or_halt_past_its_deadline_is_32020",
+     "OK",
+     2.3
+    ],
+    [
+     "a_late_get_logs_answer_carries_resume_data",
+     "OK",
+     0.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+      "a_late_revert_or_halt_past_its_deadline_is_32020",
+      "a_late_get_logs_answer_carries_resume_data"
+     ],
+     "FAILED",
+     13.7
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM9-FROM-ARRIVAL",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+      "light_requests_behind_long_heavy_work_are_answered_never_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+     "OK",
+     14.6
+    ],
+    [
+     "light_requests_behind_long_heavy_work_are_answered_never_deadline",
+     "OK",
+     3.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "compute_deadline_runs_from_admission_and_queue_wait_bounds_admission",
+      "light_requests_behind_long_heavy_work_are_answered_never_deadline"
+     ],
+     "FAILED",
+     16.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM10-STOPGAS",
+   "groups": [
+    [
+     [
+      "--test",
+      "simulate_stop"
+     ],
+     [
+      "the_stop_hook_is_polled_at_least_every_stop_gas"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_stop_hook_is_polled_at_least_every_stop_gas",
+     "OK",
+     85.7
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_stop_hook_is_polled_at_least_every_stop_gas"
+     ],
+     "FAILED",
+     14.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  }
+ ]
+}

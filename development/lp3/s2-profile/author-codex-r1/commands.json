@@ -1,0 +1,140 @@
+[
+  {
+    "name": "rust-version",
+    "command": [
+      "rustc",
+      "+1.58.1",
+      "-vV"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.025
+  },
+  {
+    "name": "cargo-version",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "-V"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.012
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--locked",
+      "--offline"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 1.538
+  },
+  {
+    "name": "profile-tests",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "profile"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.627
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "fmt",
+      "--",
+      "--check"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.178
+  },
+  {
+    "name": "mutant-allow-production-simnet",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "profile"
+    ],
+    "cwd": "/workspace/pocol-s2/pocol-s2-mutant-z_7rkrzo/crate",
+    "exitCode": 101,
+    "seconds": 4.008
+  },
+  {
+    "name": "mutant-allow-repeated-heights",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "profile"
+    ],
+    "cwd": "/workspace/pocol-s2/pocol-s2-mutant-8pwmimei/crate",
+    "exitCode": 101,
+    "seconds": 4.227
+  },
+  {
+    "name": "mutant-allow-unknown-version",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "profile"
+    ],
+    "cwd": "/workspace/pocol-s2/pocol-s2-mutant-qd5v7ln7/crate",
+    "exitCode": 101,
+    "seconds": 3.358
+  },
+  {
+    "name": "mutant-skip-hash-binding",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "profile"
+    ],
+    "cwd": "/workspace/pocol-s2/pocol-s2-mutant-y8xn1u8c/crate",
+    "exitCode": 101,
+    "seconds": 3.39
+  },
+  {
+    "name": "mutant-bootable-true",
+    "command": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "profile"
+    ],
+    "cwd": "/workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate",
+    "exitCode": 101,
+    "seconds": 6.279
+  }
+]

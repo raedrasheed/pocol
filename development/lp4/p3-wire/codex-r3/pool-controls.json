@@ -1,0 +1,92 @@
+[
+  {
+    "name": "rpc-chain-code",
+    "old": "=>Some(-32015)",
+    "new": "=>Some(-32016)",
+    "test": "actual_rpc_handler_rejects_chain_type_unprotected_and_keeps_pool_and_snapshot",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "pool-size",
+    "old": "if raw.len()>self.profile.cp().TX_MAX as usize",
+    "new": "if false && raw.len()>self.profile.cp().TX_MAX as usize",
+    "test": "actual_admission_identity_size_capacity_and_reorg_recheck",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "pool-capacity",
+    "old": "if !duplicate && raw.len()>self.budget.saturating_sub(self.bytes)",
+    "new": "if false && !duplicate && raw.len()>self.budget.saturating_sub(self.bytes)",
+    "test": "actual_admission_identity_size_capacity_and_reorg_recheck",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "reorg-clear",
+    "old": "let old=std::mem::take(&mut self.entries);",
+    "new": "let old=self.entries.clone();",
+    "test": "actual_admission_identity_size_capacity_and_reorg_recheck",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "stale-duplicate",
+    "old": "let duplicate=self.entries.iter().any(|s|s.hash()==hash);",
+    "new": "let duplicate=self.entries.iter().any(|s|s.hash()==hash);if duplicate{return Ok(hash)}",
+    "test": "actual_admission_identity_size_capacity_and_reorg_recheck",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "gas-context",
+    "old": "if block.gas_limit!=revm::primitives::U256::from(self.profile.cp().GAS_LIMIT)",
+    "new": "if false && block.gas_limit!=revm::primitives::U256::from(self.profile.cp().GAS_LIMIT)",
+    "test": "source_identity_hash_and_changed_profile_cannot_reuse_admission",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "native-profile-chain",
+    "old": "cfg.chain_id=chain_id",
+    "new": "cfg.chain_id=CHAIN_ID",
+    "test": "network_identity_drives_both_signature_domain_and_actual_chainid_opcode",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "wire-profile-chain",
+    "old": "decode_on_chain(raw,profile.cp().TX_MAX as usize,profile.spec().chain_id)",
+    "new": "decode_on_chain(raw,profile.cp().TX_MAX as usize,CHAIN_ID)",
+    "test": "network_identity_drives_both_signature_domain_and_actual_chainid_opcode",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "http-host",
+    "old": "if value!=format!(\"127.0.0.1:{port}\")",
+    "new": "if false && value!=format!(\"127.0.0.1:{port}\")",
+    "test": "real_loopback_http_submission_delivers_ci2_error_without_state_or_pool_write",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "http-origin",
+    "old": "\"origin\"=>return Err(ReqErr::Status(403,\"originUnconfigured\")),",
+    "new": "\"origin\"=>{},",
+    "test": "real_loopback_http_submission_delivers_ci2_error_without_state_or_pool_write",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

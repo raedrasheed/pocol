@@ -1,0 +1,373 @@
+{
+  "scope": "Installed test-only Python tools match exact PyPI digest-verified wheel payloads; generated RECORD/pyc/installer metadata not counted; source rebuild/distribution audit NOT PASSED",
+  "packages": [
+    {
+      "package": "annotated-types",
+      "version": "0.8.0",
+      "wheel": "annotated_types-0.8.0-py3-none-any.whl",
+      "wheelSHA256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+      "source": "https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 6,
+      "notices": [
+        {
+          "path": "annotated_types-0.8.0.dist-info/licenses/LICENSE",
+          "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "blake2b-py",
+      "version": "0.3.2",
+      "wheel": "blake2b_py-0.3.2-cp312-cp312-manylinux_2_34_x86_64.whl",
+      "wheelSHA256": "cf4ad9a69345091fb578acae2ba4e15cbe8de5dd56a50e46aa4c014c7a41401b",
+      "source": "https://files.pythonhosted.org/packages/6a/07/73c427771a2ff2823cbd494373118767c47760bce9e6046fb555ddeead37/blake2b_py-0.3.2-cp312-cp312-manylinux_2_34_x86_64.whl",
+      "installedArchiveFilesVerified": 4,
+      "notices": [],
+      "priorCandidates": []
+    },
+    {
+      "package": "cached-property",
+      "version": "2.0.1",
+      "wheel": "cached_property-2.0.1-py3-none-any.whl",
+      "wheelSHA256": "f617d70ab1100b7bcf6e42228f9ddcb78c676ffa167278d9f730d1c2fba69ccb",
+      "source": "https://files.pythonhosted.org/packages/11/0e/7d8225aab3bc1a0f5811f8e1b557aa034ac04bdf641925b30d3caf586b28/cached_property-2.0.1-py3-none-any.whl",
+      "installedArchiveFilesVerified": 6,
+      "notices": [
+        {
+          "path": "cached_property-2.0.1.dist-info/AUTHORS.md",
+          "sha256": "775a784279e2a8e83e1e9f396e3f4518990a470b6f265e699f58617d1f57e714"
+        },
+        {
+          "path": "cached_property-2.0.1.dist-info/LICENSE",
+          "sha256": "ba4756c8039b25b66e3c456cc5bf635aa528cf459b97ee1499d06684ccd89b9a"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "ckzg",
+      "version": "2.1.8",
+      "wheel": "ckzg-2.1.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "wheelSHA256": "10339d23e36b8a0a4e6fda7f6c72d6b2fd4e1506f7b64a661ba8c706ee33f335",
+      "source": "https://files.pythonhosted.org/packages/43/af/d0ed7c7b2babfa76e91190a90e8e1f93729d63370493c2c79acfe9002abe/ckzg-2.1.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "installedArchiveFilesVerified": 5,
+      "notices": [
+        {
+          "path": "ckzg-2.1.8.dist-info/licenses/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "cytoolz",
+      "version": "1.2.0",
+      "wheel": "cytoolz-1.2.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "wheelSHA256": "f99e8e1f1e84522257c4c762ed194106b6b40eeca5a5d181b180fdeb3e927ef5",
+      "source": "https://files.pythonhosted.org/packages/8a/25/d782900308fff1872ec5df44b2a2ec36eee97e442657038a2b7e9f25c58c/cytoolz-1.2.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "installedArchiveFilesVerified": 52,
+      "notices": [
+        {
+          "path": "cytoolz-1.2.0.dist-info/licenses/LICENSE.txt",
+          "sha256": "e8447f3095a6bcc4d9f8c814c5a78977bf435c9103769dfecb66dfc8ebfcbc25"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "eth-bloom",
+      "version": "4.0.0",
+      "wheel": "eth_bloom-4.0.0-py3-none-any.whl",
+      "wheelSHA256": "4b5eef1f86546a228320a9737369d87e7a22f0d88d46d108209bdc31ef0a5741",
+      "source": "https://files.pythonhosted.org/packages/ef/92/6115040b9c3ff074a8eba3509f99cde799527e2b2ea6a265e37a30ece133/eth_bloom-4.0.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 7,
+      "notices": [
+        {
+          "path": "eth_bloom-4.0.0.dist-info/licenses/LICENSE",
+          "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "eth-hash",
+      "version": "0.8.0",
+      "wheel": "eth_hash-0.8.0-py3-none-any.whl",
+      "wheelSHA256": "523718a51b369ab89866b929a5c93c52978cd866ea309192ad980dd8271f9fac",
+      "source": "https://files.pythonhosted.org/packages/87/87/b36792150ca0b28e4df683a34be15a61461ca0e349e5b5cf3ec8f694edb9/eth_hash-0.8.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 14,
+      "notices": [
+        {
+          "path": "eth_hash-0.8.0.dist-info/licenses/LICENSE",
+          "sha256": "7b19be588a3307e22e58d7cc2b8b786a3c3f0db4157653af4c84647478f48551"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "eth-keys",
+      "version": "0.8.0",
+      "wheel": "eth_keys-0.8.0-py3-none-any.whl",
+      "wheelSHA256": "a7b94222638cccbdf2b5dae5c365d883a96826d82bb0faeb56baa65375f514ae",
+      "source": "https://files.pythonhosted.org/packages/f9/f5/24806598664a2fbc65d5ed4f0e9e986e7f9061e3b43738412c8df7ba1cbd/eth_keys-0.8.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 24,
+      "notices": [
+        {
+          "path": "eth_keys-0.8.0.dist-info/licenses/LICENSE",
+          "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "eth-typing",
+      "version": "6.0.0",
+      "wheel": "eth_typing-6.0.0-py3-none-any.whl",
+      "wheelSHA256": "ee74fb641eb36dd885e1c42c2a3055314efa532b3e71480816df70a94d35cfb9",
+      "source": "https://files.pythonhosted.org/packages/aa/0d/e756622fab29f404d846d7464f929d642a7ee6eff5b38bcc79e7c64ac630/eth_typing-6.0.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 14,
+      "notices": [
+        {
+          "path": "eth_typing-6.0.0.dist-info/licenses/LICENSE",
+          "sha256": "7b19be588a3307e22e58d7cc2b8b786a3c3f0db4157653af4c84647478f48551"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "eth-utils",
+      "version": "6.0.0",
+      "wheel": "eth_utils-6.0.0-py3-none-any.whl",
+      "wheelSHA256": "63cf48ee32c45541cb5748751909a8345c470432fb6f0fed4bd7c53fd6400469",
+      "source": "https://files.pythonhosted.org/packages/53/45/a20b907227b9d1aea2e36f7b12818d055629ca9bc65fc282b45738f28ca3/eth_utils-6.0.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 32,
+      "notices": [
+        {
+          "path": "eth_utils-6.0.0.dist-info/licenses/LICENSE",
+          "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "hexbytes",
+      "version": "2.0.0",
+      "wheel": "hexbytes-2.0.0-py3-none-any.whl",
+      "wheelSHA256": "5425bd7ac83cdd9791c13a5bf97cfe9b9609a304b1ef3ab146adfd50de06cf0e",
+      "source": "https://files.pythonhosted.org/packages/e8/72/c7049aabd9e05efebc29b10208b11e5ae5cf819f48685ffced6abf871d10/hexbytes-2.0.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 17,
+      "notices": [
+        {
+          "path": "hexbytes-2.0.0.dist-info/licenses/LICENSE",
+          "sha256": "13d2884c02755253a17800472a7d6062a9b84a41a46babf1c6d40a1fde1f0537"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "lru-dict",
+      "version": "1.4.1",
+      "wheel": "lru_dict-1.4.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+      "wheelSHA256": "40927a6a4284d437047f547e652b15f6f0f40210deb6b9e5b77e556ff0faea0f",
+      "source": "https://files.pythonhosted.org/packages/ca/18/fec42416ceff98ae2760067ec72b0b9fc02840e729bbc18059c6a02cb01f/lru_dict-1.4.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+      "installedArchiveFilesVerified": 8,
+      "notices": [
+        {
+          "path": "lru_dict-1.4.1.dist-info/licenses/LICENSE",
+          "sha256": "196a34fbb4dd3cd33542107ce97bd1c903bbdb3cf307f7c94e71aa7acbb2b988"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "pip",
+      "version": "25.0.1",
+      "wheel": "pip-25.0.1-py3-none-any.whl",
+      "wheelSHA256": "c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f",
+      "source": "https://files.pythonhosted.org/packages/c9/bc/b7db44f5f39f9d0494071bddae6880eb645970366d0a200022a1a93d57f5/pip-25.0.1-py3-none-any.whl",
+      "installedArchiveFilesVerified": 437,
+      "notices": [
+        {
+          "path": "pip-25.0.1.dist-info/AUTHORS.txt",
+          "sha256": "1eace90552df4f5941b61a907e20e555e16483ae6127b650bef5a1a2af8102c0"
+        },
+        {
+          "path": "pip-25.0.1.dist-info/LICENSE.txt",
+          "sha256": "634300a669d49aeae65b12c6c48c924c51a4cdf3d1ff086dc3456dc8bcaa2104"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "py-ecc",
+      "version": "8.0.0",
+      "wheel": "py_ecc-8.0.0-py3-none-any.whl",
+      "wheelSHA256": "c0b2dfc4bde67a55122a392591a10e851a986d5128f680628c80b405f7663e13",
+      "source": "https://files.pythonhosted.org/packages/81/58/383335eac96d2f1aba78741c6ce128c54e7eba2ea1dc47408257d751d35c/py_ecc-8.0.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 37,
+      "notices": [
+        {
+          "path": "py_ecc-8.0.0.dist-info/licenses/LICENSE",
+          "sha256": "29e1254f1df58829e3474ab81752b18097d2086f890843f0235331ac953af9ba"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "py-evm",
+      "version": "0.12.1b1",
+      "wheel": "py_evm-0.12.1b1-py3-none-any.whl",
+      "wheelSHA256": "015ebc8dd95925030be87ce4b3fd31e3c70df626c5ad8665fb06cd611c73eb68",
+      "source": "https://files.pythonhosted.org/packages/9f/be/1e0de8a1f1dbe3911ccae2d598a2c60610e2f4984a918690b5469e8c8774/py_evm-0.12.1b1-py3-none-any.whl",
+      "installedArchiveFilesVerified": 315,
+      "notices": [
+        {
+          "path": "py_evm-0.12.1b1.dist-info/licenses/LICENSE",
+          "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "pycryptodome",
+      "version": "3.24.1",
+      "wheel": "pycryptodome-3.24.1-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "wheelSHA256": "93619c3117a8f14ea1267b427e465d152a66c89c3d3c643262070c05b2855aae",
+      "source": "https://files.pythonhosted.org/packages/a0/3f/e6a6b5d261746378a9267af50463d6aa01f88f88c98bedfd404c94eb7ec6/pycryptodome-3.24.1-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "installedArchiveFilesVerified": 351,
+      "notices": [
+        {
+          "path": "pycryptodome-3.24.1.dist-info/AUTHORS.rst",
+          "sha256": "1cb670b6cc5bc3a1c38d7e12cdf944442ca790425cf2a628ffbe3012445fe1e4"
+        },
+        {
+          "path": "pycryptodome-3.24.1.dist-info/LICENSE.rst",
+          "sha256": "4e04660d77c1c64e89d79537919fb8240fa21484a7e3db29f358b2c7f84ea073"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "pydantic",
+      "version": "2.14.1",
+      "wheel": "pydantic-2.14.1-py3-none-any.whl",
+      "wheelSHA256": "9195d967ec791692a04438115466764fb8b9a27b31f14a760437694f40d6b454",
+      "source": "https://files.pythonhosted.org/packages/35/ea/a56b9fe5066f3537b7882f77e9c5dfb26d8c2eefdaed9b5fc73d57b4dc22/pydantic-2.14.1-py3-none-any.whl",
+      "installedArchiveFilesVerified": 110,
+      "notices": [
+        {
+          "path": "pydantic-2.14.1.dist-info/licenses/LICENSE",
+          "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "pydantic_core",
+      "version": "2.50.1",
+      "wheel": "pydantic_core-2.50.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "wheelSHA256": "93ba4e9d8210d941c200431a56b2c0400b131865947903937ed3ec5404307d2e",
+      "source": "https://files.pythonhosted.org/packages/90/24/48cd98388e4ac2c08d0800af36d15413db15e20387f1038123a2c86cb2f6/pydantic_core-2.50.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "installedArchiveFilesVerified": 10,
+      "notices": [
+        {
+          "path": "pydantic_core-2.50.1.dist-info/licenses/LICENSE",
+          "sha256": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "rlp",
+      "version": "5.0.0",
+      "wheel": "rlp-5.0.0-py3-none-any.whl",
+      "wheelSHA256": "9525fb895d3a6540b7401eadd11c1b64740a5eccb82e543ac7e9735d319b0977",
+      "source": "https://files.pythonhosted.org/packages/a7/35/26ea7adca149e506bb03c50ade0c4d96cf269e6fc13a2b3f726d65905ffb/rlp-5.0.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 18,
+      "notices": [
+        {
+          "path": "rlp-5.0.0.dist-info/licenses/LICENSE",
+          "sha256": "79f663f43dae27c6f1633676aebdaf44a7459b27f985a75f38d0b06c0f715d5f"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "sortedcontainers",
+      "version": "2.4.0",
+      "wheel": "sortedcontainers-2.4.0-py2.py3-none-any.whl",
+      "wheelSHA256": "a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0",
+      "source": "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl",
+      "installedArchiveFilesVerified": 8,
+      "notices": [
+        {
+          "path": "sortedcontainers-2.4.0.dist-info/LICENSE",
+          "sha256": "1db7cae7fce6452e2e608e401a0f953e0133e4c2d75db69fb8ae851d2086f5b6"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "toolz",
+      "version": "1.2.0",
+      "wheel": "toolz-1.2.0-py3-none-any.whl",
+      "wheelSHA256": "890f820b1cb8152785aaf9386d8707770110809035800985ca65cb24ce1120ef",
+      "source": "https://files.pythonhosted.org/packages/db/17/4c8beb6c8c4176c6bf143bfd7e1e4dd6719b00ced90738c7ac471b71c1df/toolz-1.2.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 37,
+      "notices": [
+        {
+          "path": "toolz-1.2.0.dist-info/licenses/LICENSE.txt",
+          "sha256": "053664057b295b2f0c1332291a77102f01a099d87926e449e08a117eea9660bf"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "trie",
+      "version": "4.0.0",
+      "wheel": "trie-4.0.0-py3-none-any.whl",
+      "wheelSHA256": "8727564361ca85b309f0345cc2ae09eb61de9b25da84fe6cfcf7edc3867ffe33",
+      "source": "https://files.pythonhosted.org/packages/b6/3f/40f93be1cc64b88bd475215d031fb91da29aeb5eec95af8b53a11efb71e8/trie-4.0.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 23,
+      "notices": [
+        {
+          "path": "trie-4.0.0.dist-info/licenses/LICENSE",
+          "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "typing-inspection",
+      "version": "0.4.4",
+      "wheel": "typing_inspection-0.4.4-py3-none-any.whl",
+      "wheelSHA256": "65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+      "source": "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl",
+      "installedArchiveFilesVerified": 8,
+      "notices": [
+        {
+          "path": "typing_inspection-0.4.4.dist-info/licenses/LICENSE",
+          "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+        }
+      ],
+      "priorCandidates": []
+    },
+    {
+      "package": "typing_extensions",
+      "version": "4.16.0",
+      "wheel": "typing_extensions-4.16.0-py3-none-any.whl",
+      "wheelSHA256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "source": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "installedArchiveFilesVerified": 4,
+      "notices": [
+        {
+          "path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+          "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+        }
+      ],
+      "priorCandidates": []
+    }
+  ],
+  "bootable": false
+}

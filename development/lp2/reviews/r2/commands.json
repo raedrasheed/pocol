@@ -1,0 +1,81 @@
+[
+  {
+    "name": "rustc-version",
+    "exitCode": 0,
+    "seconds": 0.062,
+    "args": [
+      "<toolchain>\\rustc.exe",
+      "--version"
+    ]
+  },
+  {
+    "name": "cargo-build",
+    "exitCode": 0,
+    "seconds": 6.953,
+    "args": [
+      "<toolchain>\\cargo.exe",
+      "build",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "<workspace>\\coordination\\lp2-repo\\prototypes\\lp1-node\\Cargo.toml",
+      "--target-dir",
+      "<workspace>\\coordination\\lp2-build\\target"
+    ]
+  },
+  {
+    "name": "cargo-test",
+    "exitCode": 0,
+    "seconds": 110.266,
+    "args": [
+      "<toolchain>\\cargo.exe",
+      "test",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "<workspace>\\coordination\\lp2-repo\\prototypes\\lp1-node\\Cargo.toml",
+      "--target-dir",
+      "<workspace>\\coordination\\lp2-build\\target",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ]
+  },
+  {
+    "name": "rustfmt-check",
+    "exitCode": 0,
+    "seconds": 1.453,
+    "args": [
+      "<toolchain>\\cargo.exe",
+      "fmt",
+      "--manifest-path",
+      "<workspace>\\coordination\\lp2-repo\\prototypes\\lp1-node\\Cargo.toml",
+      "--",
+      "--check"
+    ]
+  },
+  {
+    "name": "verify-fixtures",
+    "exitCode": 0,
+    "seconds": 3.094,
+    "args": [
+      "<workspace>\\coordination\\lp2-build\\target\\debug\\lp1-node.exe",
+      "verify-fixtures",
+      "--fixtures",
+      "<workspace>\\coordination\\lp2-repo\\prototypes\\lp1-node\\fixtures"
+    ]
+  },
+  {
+    "name": "e2e-http",
+    "exitCode": 0,
+    "seconds": 2.484,
+    "args": [
+      "<workspace>\\coordination\\runtime\\python311\\python.exe",
+      "<workspace>\\coordination\\lp2-repo\\prototypes\\lp1-node\\tests\\e2e_http.py",
+      "--bin",
+      "<workspace>\\coordination\\lp2-build\\target\\debug\\lp1-node.exe",
+      "--fixtures",
+      "<workspace>\\coordination\\lp2-repo\\prototypes\\lp1-node\\fixtures"
+    ]
+  }
+]

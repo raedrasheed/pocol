@@ -1,0 +1,19 @@
+   Compiling pocold v0.1.0 (<mutant>/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.85s
+     Running tests/net.rs (target/release/deps/net-22ad13ad3a88ebd6)
+
+running 1 test
+
+thread 'reconnect_churn_keeps_threads_and_slots_bounded' (198) panicked at tests/net.rs:150:5:
+still accepts peers within 500 ms: attempts=16355, live=0, handshaking=0, refused before=200, after=16555, threads=8 base=8
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test reconnect_churn_keeps_threads_and_slots_bounded ... FAILED
+
+failures:
+
+failures:
+    reconnect_churn_keeps_threads_and_slots_bounded
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.68s
+
+error: test failed, to rerun pass `--test net`

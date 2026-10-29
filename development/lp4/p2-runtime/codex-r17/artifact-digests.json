@@ -1,0 +1,26 @@
+[
+  {
+    "name": "lp4-native-cancun-reference",
+    "sha256": "5b5f5eb9a424a0eee689cf955b0d641fc9f9c0846ad4bbb0bb6766b954626930",
+    "bytes": 135105,
+    "members": 10
+  },
+  {
+    "name": "lp4-native-windows",
+    "sha256": "53074010b572a9565f31f900151f9625257859f45c586ac0309902df25a09eb0",
+    "bytes": 4121,
+    "members": 1
+  },
+  {
+    "name": "lp4-p2-controls",
+    "sha256": "8e698604f72e753816b8d3930eaa4533382a93f057b12f91345ba9bca3218cbf",
+    "bytes": 1127516,
+    "members": 155
+  },
+  {
+    "name": "lp4-legacy-windows",
+    "sha256": "7645e15a88c5606bd0d3e21d30853bc83473f256f5aaed66beb8262065d3e46d",
+    "bytes": 27107,
+    "members": 28
+  }
+]

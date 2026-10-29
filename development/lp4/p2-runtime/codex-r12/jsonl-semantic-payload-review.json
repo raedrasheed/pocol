@@ -1,0 +1,58 @@
+{
+  "attempt1-interrupted-cases.jsonl.gz": {
+    "casesInspected": 548,
+    "compressedBytes": 22829,
+    "compressedSHA256": "13b68164e803b50a790b6d1f9d675dce13ef7ed94ac8902c452b98c16077e6e0",
+    "allCaseIdentitiesMatchPublicPinnedEthereumCorpus": true,
+    "onlyAllowedFields": [
+      "actualLogs",
+      "actualRoot",
+      "comparison",
+      "errorType",
+      "executionSuccess",
+      "expectedException",
+      "expectedLogs",
+      "expectedRoot",
+      "file",
+      "indexes",
+      "name",
+      "variant"
+    ],
+    "noPrestateTransactionKeysCalldataCredentialsOrAccountValues": true,
+    "rootLogFieldsOnly256BitHashes": true,
+    "expectedHashesMatchPublicReference": true
+  },
+  "independent-unmodified-cases.jsonl.gz": {
+    "casesInspected": 20661,
+    "compressedBytes": 647728,
+    "compressedSHA256": "fa975eff51b0de1b81e2599419748e1a48db5045741ad7b46f1e82dcd124255e",
+    "allCaseIdentitiesMatchPublicPinnedEthereumCorpus": true,
+    "onlyAllowedFields": [
+      "actualLogs",
+      "actualRoot",
+      "comparison",
+      "errorType",
+      "executionSuccess",
+      "expectedException",
+      "expectedLogs",
+      "expectedRoot",
+      "file",
+      "indexes",
+      "name",
+      "timeoutSeconds",
+      "variant"
+    ],
+    "noPrestateTransactionKeysCalldataCredentialsOrAccountValues": true,
+    "rootLogFieldsOnly256BitHashes": true,
+    "expectedHashesMatchPublicReference": true
+  },
+  "destination": {
+    "repository": "raedrasheed/Proof-of-Collaboration",
+    "id": 1388115529,
+    "public": true,
+    "authenticatedPush": true,
+    "branch": "codex-lp4-p2-runtime",
+    "PR": 24,
+    "authorization": "Owner expressly authorized implement/test/publish reproducible acceptance evidence and manage PR24 in this named repository. These files contain only public fixture identities and generated comparison hashes/statuses; no credentials or signing keys."
+  }
+}

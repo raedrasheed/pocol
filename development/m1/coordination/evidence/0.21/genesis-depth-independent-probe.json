@@ -1,0 +1,11 @@
+{
+  "depth": 1500,
+  "bytes": 4291,
+  "within47104": true,
+  "expected": "controlled gsStructure rejection (nested list in top[0])",
+  "actual": {
+    "exception": "RecursionError",
+    "controlled": false
+  },
+  "pass": false
+}

@@ -1,0 +1,9 @@
+{
+  "scope": "Actual historical19486 MATCH+1173 presence+2 blocked receipt; validator must reject it",
+  "exit": 1,
+  "archiveProduced": false,
+  "positiveNewSourceValidation": "NOT RUN: producer still running",
+  "rawLog": "/workspace/work/lp4/p4-system-retention-r5/rejected-real-incomplete/validator-final.log",
+  "finalFailure": "Explicit MATCH assertion rejects actual BLOCKED_TIMEOUT row; all source hashes/preceding identities checked",
+  "initialFailure": "Unexpected timeoutSeconds field was also fail-closed; preserved separately, allowlisted public numeric timeout metadata then reran"
+}

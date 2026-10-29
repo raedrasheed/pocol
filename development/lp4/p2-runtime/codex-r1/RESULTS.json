@@ -1,0 +1,22 @@
+{
+  "increment": "P2",
+  "status": "NOT PASSED",
+  "bootable": false,
+  "foundation": "c0ef36c68fb83f9474de7e70fe61973b466647a8",
+  "localControlResults": {
+    "rustUnitTests": 8,
+    "restrictedIndependentOracleCases": 3,
+    "compiledAssertionControls": 3,
+    "acceptedMutationRun": "mutations-identity",
+    "earlierMutationRuns": "REJECTED; diagnostics only"
+  },
+  "notRun": [
+    "full Cancun GeneralStateTests",
+    "independent full EVM and state root differential",
+    "PoCol PAY implementation",
+    "license audit",
+    "legacy regression",
+    "rustfmt"
+  ],
+  "blocker": "Unapproved native PAY interface/authorization contract; see PAY-DECISION.md"
+}

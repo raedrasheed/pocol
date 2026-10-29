@@ -1,0 +1,4 @@
+# deferred releases + timers: tree 16838eb + 6 changed paths; 2026-10-28T09:55:41Z; load 1.60 1.23 1.32
+PROF unpinMs=0 unpins=0 commitMs=150329 commits=896 pruneMs=9
+JM-SCALE {"allocatedBytes":667467776,"extra":{"head":"[45, a3, 33, 41, 76, e4, 4a, 23]","openSeconds":210.309770664,"resumedFrom":28672,"versionsRead":{"byDiff":31,"openTiming":{"checkpointsMs":9358,"historyOpenMs":71,"journalMs":317,"releaseMs":0,"replayCheckpointMs":0,"replayHistoryMs":0,"replayMs":182462,"replayRecords":855,"replayRetainMs":14850,"replayValidateMs":157605,"resetPinsMs":9317,"restoreMs":15593,"storeOpenMs":2368,"totalMs":210255},"whole":2}},
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 212.43s

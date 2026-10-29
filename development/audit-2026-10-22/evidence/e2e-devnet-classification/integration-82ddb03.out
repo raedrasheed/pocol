@@ -1,0 +1,21 @@
+== lp1-node-tests: cargo +1.58.1 test --offline --locked --no-fail-fast
+   exit=101 pass=False 46.8s {"binary": "tests/store_journal.rs", "executed": true, "passed": 1, "failed": 11, "unsupportedPlatformErrors": 11}
+== ext-build: node build.mjs
+   exit=0 pass=True 1.0s {}
+== lp4-tests: cargo test --release --offline
+   exit=0 pass=True 11.2s {"passed": 162, "failed": 0}
+== pocold-build: cargo build --release --offline
+   exit=0 pass=True 0.2s {"lines": ["Finished `release` profile [optimized + debuginfo] target(s) in 0.14s"]}
+== pocold-tests: cargo test --release --offline
+   exit=0 pass=True 59.1s {"passed": 123, "failed": 0}
+== ext-unit: node tests/unit.mjs
+   exit=0 pass=True 22.6s {"result": "PASS", "passed": 234, "failed": []}
+== e2e-devnet: python3 tests/e2e_devnet.py
+   exit=1 pass=False 33.5s {"result": "FAIL", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts identical on all nodes", "transfer value applied", "malicious frames/Hello/invalid block do not stop node a", "partition: branches diverge"]}
+== e2e-site: python3 tests/e2e_site.py
+   exit=0 pass=True 51.1s {"result": "PASS", "checks": 20}
+== e2e-browser: node tests/e2e_browser.mjs
+   exit=0 pass=True 209.3s {"result": "PASS", "checks": 79, "failed": 0}
+== e2e-integrated: node tests/e2e_integrated.mjs
+   exit=0 pass=True 245.0s {"result": "PASS", "checks": 18, "failed": 0}
+{"result": "FAIL", "suites": [["lp1-node-tests", 101, false], ["ext-build", 0, true], ["lp4-tests", 0, true], ["pocold-build", 0, true], ["pocold-tests", 0, true], ["ext-unit", 0, true], ["e2e-devnet", 1, false], ["e2e-site", 0, true], ["e2e-browser", 0, true], ["e2e-integrated", 0, true]]}

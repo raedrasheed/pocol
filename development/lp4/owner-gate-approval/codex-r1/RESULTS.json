@@ -1,0 +1,12 @@
+{
+  "status": "PASS explicit decision recording only",
+  "execution": "NOT PASSED",
+  "executionObligations": 23,
+  "bootable": false,
+  "sourceHashes": {
+    "development/LP4-TEST-GATES-APPROVAL.md": "d0a509e59702854ce3c728503a99cbd129a72e0393be8f84401fc961da1531ff",
+    "development/lp4/p0-plan/codex-r1/NAMED-GATES-PROPOSAL.md": "20b55849dc8457b0b80fd4595aaaf968491ac8aed888fa2d7a8baa184ecfde01"
+  },
+  "review": "Separate sequential decision/scope/preservation check; no code test claimed",
+  "historicalPendingReceiptScripts": "Preserved against their old snapshot; not rewritten"
+}

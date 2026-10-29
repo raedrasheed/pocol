@@ -1,0 +1,52 @@
+{
+  "schema": "pocol-m1-v1-chains/0.26",
+  "status": "hand-derived header field tables; the runner encodes them, computes TemplateID/powHash/blockHash, searches nonces, signs, and exports the literal bytes",
+  "fieldDefaults": "m1-draft-0.26/vectors/v1-network.json templateDefaults",
+  "notation": {"2^k": "power of two", "2^k-1": "power of two minus one", "@H6": "blockHash of chain H height 6", "@KOTHER": "keccak256('other') (validation.md:1070)",
+               "nonce": {"pow": "smallest u64 nonce with powHash <= target", "fail": "smallest u64 nonce with powHash > target", "fixed:n": "nonce n"}},
+  "chains": {
+    "H": {"role": "honest chain at schedule from genesis: dt(p) = 0 for every parent, so ASERT gives target_g at every height",
+          "parentOf1": "genesis virtual header {h=0, ts=g_ts, blockHash=genesisHash} (consensus.md:71)",
+          "rows": [
+            {"h": 1, "ts": 1700000010}, {"h": 2, "ts": 1700000020}, {"h": 3, "ts": 1700000030}, {"h": 4, "ts": 1700000040},
+            {"h": 5, "ts": 1700000050}, {"h": 6, "ts": 1700000060}, {"h": 7, "ts": 1700000070}, {"h": 8, "ts": 1700000080},
+            {"h": 9, "ts": 1700000090}, {"h": 10, "ts": 1700000100}, {"h": 11, "ts": 1700000110}, {"h": 12, "ts": 1700000120},
+            {"h": 13, "ts": 1700000130}, {"h": 14, "ts": 1700000140}, {"h": 15, "ts": 1700000150}, {"h": 16, "ts": 1700000160},
+            {"h": 17, "ts": 1700000170}, {"h": 18, "ts": 1700000180}, {"h": 19, "ts": 1700000190}, {"h": 20, "ts": 1700000200}],
+          "target": "2^240", "nonce": "pow", "parentHash": "@H<h-1> (genesisHash for h = 1)"},
+    "G": {"role": "NX-V3g: honest spacing T_blk = 10 s, 4 tau = 2400 s behind schedule, so ASERT gives exactly 2^244 = ceilTarget",
+          "reference": {"h": 7, "ts": 1700002470, "parentHash": "0x7777777777777777777777777777777777777777777777777777777777777777", "target": "2^244", "nonce": "fixed:0",
+                        "label": "parentHash synthetic opaque; the reference is never linked, counted or PoW-checked (browser.md:26, 43)"},
+          "rows": [
+            {"h": 8, "ts": 1700002480}, {"h": 9, "ts": 1700002490}, {"h": 10, "ts": 1700002500}, {"h": 11, "ts": 1700002510},
+            {"h": 12, "ts": 1700002520}, {"h": 13, "ts": 1700002530}, {"h": 14, "ts": 1700002540}, {"h": 15, "ts": 1700002550},
+            {"h": 16, "ts": 1700002560}, {"h": 17, "ts": 1700002570}, {"h": 18, "ts": 1700002580}, {"h": 19, "ts": 1700002590}, {"h": 20, "ts": 1700002600}],
+          "target": "2^244", "nonce": "pow", "parentHash": "@G<h-1>"},
+    "F": {"role": "NX-V3f: clock C = g_ts + 10^6 = 1701000000; reference ts = C - 200; headers 8..20 every 10 s; ASERT saturates, so every target is 2^256-1 (trivial work)",
+          "reference": {"h": 7, "ts": 1700999800, "parentHash": "0x7777777777777777777777777777777777777777777777777777777777777777", "target": "2^256-1", "nonce": "fixed:0"},
+          "rows": [
+            {"h": 8, "ts": 1700999810}, {"h": 9, "ts": 1700999820}, {"h": 10, "ts": 1700999830}, {"h": 11, "ts": 1700999840},
+            {"h": 12, "ts": 1700999850}, {"h": 13, "ts": 1700999860}, {"h": 14, "ts": 1700999870}, {"h": 15, "ts": 1700999880},
+            {"h": 16, "ts": 1700999890}, {"h": 17, "ts": 1700999900}, {"h": 18, "ts": 1700999910}, {"h": 19, "ts": 1700999920}, {"h": 20, "ts": 1700999930}],
+          "target": "2^256-1", "nonce": "fixed:0", "parentHash": "@F<h-1>"},
+    "Hc": {"role": "NX-V3c: the reference H7 with a nonce whose powHash > target; headers 8..20 rebuilt on it. Shows that the reference is not PoW-checked.",
+           "reference": {"copyOf": "H:7", "nonce": "fail"},
+           "rows": "as H heights 8..20", "target": "2^240", "nonce": "pow", "parentHash": "@Hc<h-1>"}
+  },
+  "variants": {
+    "H1.parentOther": {"copyOf": "H:1", "set": {"parentHash": "@KOTHER"}, "nonce": "fixed:base", "source": "NX-V2 (validation.md:1070)"},
+    "H7.chain777001": {"copyOf": "H:7", "set": {"chainId": 777001}, "nonce": "fixed:base", "source": "NX-V3b (validation.md:1072)"},
+    "H7.genesisOther": {"copyOf": "H:7", "set": {"genesisHash": "0x9999999999999999999999999999999999999999999999999999999999999999"}, "nonce": "fixed:base",
+                        "label": "synthetic opaque wrong genesis hash"},
+    "H7.version2": {"copyOf": "H:7", "set": {"protocolVersion": 2}, "nonce": "fixed:base"},
+    "H7.future": {"copyOf": "H:7", "set": {"ts": 4611686020127387904}, "nonce": "fixed:base", "derivation": "g_ts + 2^62 = 1700000000 + 4611686018427387904",
+                  "source": "NX-V3e (validation.md:1075)"},
+    "H9.parentWrong": {"copyOf": "H:9", "set": {"parentHash": "0x8888888888888888888888888888888888888888888888888888888888888888"}, "nonce": "fixed:base",
+                       "label": "synthetic opaque wrong parent"}
+  },
+  "asertDerivations": [
+    {"parent": "genesis or H:p", "dt": 0, "e": 0, "s": 0, "f": 0, "F": 65536, "target": "2^240"},
+    {"parent": "G:p (p = 7..19)", "dt": 2400, "e": 262144, "s": 4, "f": 0, "F": 65536, "target": "2^244"},
+    {"parent": "F:7", "dt": 999730, "e": 109197175, "s": 1666, "target": "2^256-1", "note": "s >= 256: clamp at step 4, no F, no shift"}
+  ]
+}

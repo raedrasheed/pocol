@@ -1,0 +1,54 @@
+== base: (cwd e2e-r2/src/prototypes/pocold, c195a89 sources (code = a03e089)) cargo test --release --locked --test consensus
+== exit 0
+
+running 44 tests
+test a03_over_limit_log_halts_the_transaction_and_the_block_is_valid ... ok
+test a01_committed_invalid_body_is_still_a_block_rejection_and_cached ... ok
+test a01_malformed_or_unbound_bodies_reject_only_the_copy ... ok
+test a13_bound_breakdown ... ok
+test a11_reorg_restores_detached_transactions_without_resubmission ... ok
+test a13_pool_pending_state_is_capped_and_normalized ... ok
+test a13_side_branch_states_are_capped_and_rebuilt_on_demand ... ok
+test a13_rebuild_of_a_deep_fork_keeps_only_the_target_state ... ok
+test a13_boot_refuses_a_bound_above_the_memory_budget ... ok
+test a11_excludes_included_and_conflicting_transactions_and_keeps_order ... ok
+test a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation ... ok
+test a_crash_around_an_adoption_reopens_on_one_whole_chain ... ok
+test a_max_size_transaction_is_answered_in_the_light_lane ... ok
+test a_session_block_arriving_before_its_parent_stays_protected ... ok
+test a_session_branch_is_adopted_through_a_flood_of_competing_side_branches ... ok
+test a_long_catch_up_is_not_bounded_by_the_protected_branch_size ... ok
+test a_side_branch_below_the_k_hist_window_imports_without_rebuilding_each_parent ... ok
+test a_valid_header_with_a_foreign_body_rejects_only_that_copy ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ignored, spec-depth test: run in release with --ignored
+test an_offloaded_block_is_served_viewed_and_re_executed_from_the_journal ... ok
+test body_max_bounds_the_encoded_body_not_the_item_sum ... ok
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ignored, spec-depth test: run in release with --ignored
+test a_competing_branch_within_side_blocks_max_is_adopted ... ok
+test d_body_max_vectors ... ok
+test every_validity_item_rejects_its_mutation ... ok
+test evidence_type1_and_type2_punish_through_a_signed_block ... ok
+test a_sync_session_refetches_an_evicted_branch_and_serves_it ... ok
+test final_block_has_no_child_and_h_end_is_enforced ... ok
+test fork_choice_heavier_tied_signed_first_and_rollback ... ok
+test get_logs_limits_answer_32020_with_resume_data ... ok
+test k_hist_retention_and_trie_rebuild_for_deep_fork ... ok
+test node_detects_template_equivocation_and_produces_valid_evidence ... ok
+test ordinary_blocks_then_closing_then_final_at_h_end ... ok
+test d133_tie_break_at_depth_holds_through_eviction_and_refetch ... ok
+test journal_replay_rebuilds_pruned_state_for_a_journaled_fork ... ok
+test replay_gives_a_reimported_block_a_new_import_seq ... ok
+test r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond ... ok
+test a_peer_with_a_false_status_cannot_hold_the_sync_session ... ok
+test template_form_classes_follow_d129 ... ok
+test the_r_keep_boundary_removes_a_side_block_exactly_r_keep_below_the_head ... ok
+test replay_uses_the_largest_r_keep_the_data_directory_has_used ... ok
+test thirty_five_blocks_from_fresh_genesis_replay_identically ... ok
+test side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again ... ok
+test range_sync_reaches_the_peer_head_through_truncated_responses ... ok
+
+test result: ok. 42 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 8.42s
+
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/src/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 18.60s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-e2e/release/deps/consensus-69c67b29f5fc4c9b)

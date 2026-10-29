@@ -1,0 +1,2 @@
+{"label": "base-run1", "exit": 1, "outcome": "FAIL", "first_fail": "every miner won canonical blocks", "elapsed_s": 299.5, "leftover_killed": [], "ports_busy_after": []}
+{"label": "base-run2", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 308.0, "leftover_killed": [], "ports_busy_after": []}

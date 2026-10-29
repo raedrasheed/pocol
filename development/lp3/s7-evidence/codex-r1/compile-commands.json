@@ -1,0 +1,38 @@
+[
+  {
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "-O",
+      "/workspace/work/lp3-s7/asert_probe.rs",
+      "--extern",
+      "lp1_node=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/liblp1_node.rlib",
+      "-L",
+      "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+      "--extern",
+      "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+      "-o",
+      "/workspace/work/lp3-s7/asert-probe"
+    ],
+    "exitCode": 0,
+    "seconds": 1.059
+  },
+  {
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "-O",
+      "/workspace/work/lp3-s7/bench.rs",
+      "--extern",
+      "lp1_node=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/liblp1_node.rlib",
+      "-L",
+      "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+      "-o",
+      "/workspace/work/lp3-s7/bench-rust"
+    ],
+    "exitCode": 0,
+    "seconds": 0.458
+  }
+]

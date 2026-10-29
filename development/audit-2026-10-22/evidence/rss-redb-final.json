@@ -1,0 +1,146 @@
+{
+ "commit": "3c3792e90eb3c31c83abc91f26e861c8510a824f",
+ "uncommittedPrototypePaths": [],
+ "host": "6.18.44-fc-v153",
+ "nproc": 4,
+ "idleSeconds": 90,
+ "loadSeconds": 90,
+ "requestsAnswered200": {
+  "light": 71466,
+  "heavy": 3853,
+  "batch": 352,
+  "tx": 193
+ },
+ "nodes": {
+  "a": {
+   "peakRssBytes": 12296192,
+   "vmHwmBytes": 12296192,
+   "maxThreads": 29,
+   "peakRssIdleBytes": 10268672,
+   "peakRssLoadBytes": 12296192,
+   "modelBoundBytes": 5627687516,
+   "hwmOverModel": 0.0022,
+   "status": {
+    "height": 153,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "5627687516",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (10) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      },
+      {
+       "detail": "Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound",
+       "id": "open-replay-transient"
+      }
+     ]
+    }
+   }
+  },
+  "b": {
+   "peakRssBytes": 11976704,
+   "vmHwmBytes": 11976704,
+   "maxThreads": 26,
+   "peakRssIdleBytes": 10149888,
+   "peakRssLoadBytes": 11976704,
+   "modelBoundBytes": 5627687516,
+   "hwmOverModel": 0.0021,
+   "status": {
+    "height": 153,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "5627687516",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (10) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      },
+      {
+       "detail": "Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound",
+       "id": "open-replay-transient"
+      }
+     ]
+    }
+   }
+  },
+  "c": {
+   "peakRssBytes": 12091392,
+   "vmHwmBytes": 12091392,
+   "maxThreads": 26,
+   "peakRssIdleBytes": 10317824,
+   "peakRssLoadBytes": 12091392,
+   "modelBoundBytes": 5627687516,
+   "hwmOverModel": 0.0021,
+   "status": {
+    "height": 153,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "5627687516",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (10) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      },
+      {
+       "detail": "Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound",
+       "id": "open-replay-transient"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "note": "measured RSS of this run; not the model bound (all caps at once) and not a guaranteed ceiling"
+}

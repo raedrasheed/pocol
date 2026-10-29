@@ -1,0 +1,47 @@
+{
+  "scope": "Full new raw receipt preservation LOCAL; exact per-case successful state/log equality to already published approved R4 is checked, not inferred. No passing blocked cases.",
+  "rawFileSHA256": "e00c307a699bcfa9f3751bb3cd89cb177f63a997414b409d1996dbcd4b135bc9",
+  "rawBytes": 11563551,
+  "publicReference": "development/lp4/p2-runtime/codex-r4/gst-source-final-cases.jsonl.gz",
+  "referenceRawSHA256": "1bd455f96ded27e7f7f65253a3a3912f8044089ec60394cc036e994cb3c5a28b",
+  "uniqueCaseIdentities": 20661,
+  "counts": {
+    "exactStateLogEquivalenceToPublishedR4": 19486,
+    "expectedErrorPresenceNotWireProof": 1173,
+    "BLOCKED_TIMEOUT": 2
+  },
+  "errorTypes": {
+    "ValidationError": 1172,
+    "ValueError": 1
+  },
+  "blockedCases": [
+    {
+      "file": "VMTests/vmPerformance/loopMul.json",
+      "name": "loopMul",
+      "variant": 0,
+      "indexes": {
+        "data": 0,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "comparison": "BLOCKED_TIMEOUT",
+      "timeoutSeconds": 300
+    },
+    {
+      "file": "VMTests/vmPerformance/loopMul.json",
+      "name": "loopMul",
+      "variant": 1,
+      "indexes": {
+        "data": 1,
+        "gas": 0,
+        "value": 0
+      },
+      "expectedException": null,
+      "comparison": "BLOCKED_TIMEOUT",
+      "timeoutSeconds": 300
+    }
+  ],
+  "P2": "NOT PASSED",
+  "bootable": false
+}

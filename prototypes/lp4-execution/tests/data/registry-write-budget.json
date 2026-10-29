@@ -1,0 +1,92 @@
+{
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "input": {
+    "language": "Solidity",
+    "sources": {
+      "RegistryWriteBudgetWitness.sol": {
+        "content": "// SPDX-License-Identifier: Apache-2.0\npragma solidity 0.8.28;\n\n/// Only the mandatory storage write sets. NOT the full Registry or accepted\n/// execution: no admission, PAY, phase, timing or eligibility implementation.\n/// Distinct changed slots are a lower bound even before those additional paths.\ncontract RegistryWriteBudgetWitness {\n    function rec(address id) internal pure returns (uint256) {\n        return uint256(keccak256(abi.encode(id, uint256(7))));\n    }\n    function base(uint256 slot) internal pure returns (uint256) {\n        return uint256(keccak256(abi.encode(slot)));\n    }\n    function registerWrites(address reward) external payable {\n        uint256 r=rec(msg.sender);uint256 a=base(5);uint256 b=base(6);\n        uint256 height=block.number;\n        // Positive B_reg, durable reward and h>0 make all four words nonzero.\n        // Append without overwriting the existing active member.\n        assembly {\n            sstore(r, or(0x101,or(shl(16,sload(0)),shl(48,sload(1))))) // witness packing\n            sstore(add(r,1), reward)\n            sstore(add(r,2), callvalue())\n            sstore(add(r,3), shl(192,height)) // graceStart=h\n            sstore(add(a,sload(0)), caller())\n            sstore(add(b,sload(1)), caller())\n            sstore(0, add(sload(0),1)) // RecLen\n            sstore(1, add(sload(1),1)) // ActLen\n            sstore(4, add(sload(4),callvalue())) // heldTotal\n            sstore(3, add(sload(3),1)) // approved successful-user-call budget\n        }\n    }\n    function rewardWrites(address reward) external {\n        uint256 r=rec(msg.sender);\n        assembly {\n            sstore(add(r,1),reward)\n            sstore(3,add(sload(3),1))\n        }\n    }\n    function middleClaimWrites() external {\n        uint256 r=rec(msg.sender);uint256 a=base(5);\n        address moved;uint256 tail;assembly {tail:=add(a,sub(sload(0),1)) moved:=sload(tail)}\n        uint256 m=rec(moved);\n        // Fixture has claimant at0, an unaffected active member at1, and moved\n        // exited record at2; all bonds positive. M_min=1 remains satisfied.\n        assembly {\n            sstore(a,moved)\n            sstore(tail,0)\n            sstore(m,0x201) // exited/HELD, recPos now0 (witness packing)\n            sstore(0,sub(sload(0),1))\n            sstore(4,sub(sload(4),sload(add(r,2))))\n            sstore(r,0)\n            sstore(add(r,1),0)\n            sstore(add(r,2),0)\n            sstore(add(r,3),0)\n            sstore(3,add(sload(3),1))\n        }\n    }\n}\n"
+      }
+    },
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "evmVersion": "cancun",
+      "metadata": {
+        "bytecodeHash": "none",
+        "appendCBOR": false
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "abi",
+            "evm.deployedBytecode.object",
+            "evm.bytecode.object",
+            "storageLayout"
+          ]
+        }
+      }
+    }
+  },
+  "output": {
+    "contracts": {
+      "RegistryWriteBudgetWitness.sol": {
+        "RegistryWriteBudgetWitness": {
+          "abi": [
+            {
+              "inputs": [],
+              "name": "middleClaimWrites",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "address",
+                  "name": "reward",
+                  "type": "address"
+                }
+              ],
+              "name": "registerWrites",
+              "outputs": [],
+              "stateMutability": "payable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "address",
+                  "name": "reward",
+                  "type": "address"
+                }
+              ],
+              "name": "rewardWrites",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "bytecode": {
+              "object": "6080604052348015600e575f5ffd5b506102178061001c5f395ff3fe608060405260043610610033575f3560e01c806301807200146100375780637d80c35f1461004c578063fb758bfc1461006b575b5f5ffd5b61004a6100453660046101ea565b61007f565b005b348015610057575f5ffd5b5061004a6100663660046101ea565b610104565b348015610076575f5ffd5b5061004a610123565b5f61008933610196565b90505f61009660056101d6565b90505f6100a360066101d6565b90505f43905060015460301b5f5460101b176101011784558460018501553460028501558060c01b6003850155335f548401553360015483015560015f54015f55600180540160015534600454016004556001600354016003555050505050565b5f61010e33610196565b90508160018201556001600354016003555050565b5f61012d33610196565b90505f61013a60056101d6565b5f805482015f190180549293509061015183610196565b90508284555f8255610201815560015f54035f556002850154600454036004555f85555f60018601555f60028601555f60038601556001600354016003555050505050565b604080516001600160a01b03831660208201526007918101919091525f906060015b60408051601f19818403018152919052805160209091012092915050565b5f816040516020016101b891815260200190565b5f602082840312156101fa575f5ffd5b81356001600160a01b0381168114610210575f5ffd5b939250505056"
+            },
+            "deployedBytecode": {
+              "object": "608060405260043610610033575f3560e01c806301807200146100375780637d80c35f1461004c578063fb758bfc1461006b575b5f5ffd5b61004a6100453660046101ea565b61007f565b005b348015610057575f5ffd5b5061004a6100663660046101ea565b610104565b348015610076575f5ffd5b5061004a610123565b5f61008933610196565b90505f61009660056101d6565b90505f6100a360066101d6565b90505f43905060015460301b5f5460101b176101011784558460018501553460028501558060c01b6003850155335f548401553360015483015560015f54015f55600180540160015534600454016004556001600354016003555050505050565b5f61010e33610196565b90508160018201556001600354016003555050565b5f61012d33610196565b90505f61013a60056101d6565b5f805482015f190180549293509061015183610196565b90508284555f8255610201815560015f54035f556002850154600454036004555f85555f60018601555f60028601555f60038601556001600354016003555050505050565b604080516001600160a01b03831660208201526007918101919091525f906060015b60408051601f19818403018152919052805160209091012092915050565b5f816040516020016101b891815260200190565b5f602082840312156101fa575f5ffd5b81356001600160a01b0381168114610210575f5ffd5b939250505056"
+            }
+          },
+          "storageLayout": {
+            "storage": [],
+            "types": null
+          }
+        }
+      }
+    },
+    "sources": {
+      "RegistryWriteBudgetWitness.sol": {
+        "id": 0
+      }
+    }
+  }
+}

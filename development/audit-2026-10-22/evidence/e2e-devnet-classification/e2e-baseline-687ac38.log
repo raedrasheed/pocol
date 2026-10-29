@@ -1,0 +1,62 @@
+== old run 1 08:44:46
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious frames/Hello/invalid block do not stop node a — rejects=0
+PASS partition: branches diverge — c=23 ab=71
+PASS heal: c reorganizes to the heavier branch
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=74
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+FAIL every miner produced blocks — {"a": 73, "b": 20, "c": 0}
+{"result": "FAIL", "error": "every miner produced blocks", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts iden
+== old run 2 08:46:51
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious frames/Hello/invalid block do not stop node a — rejects=0
+PASS partition: branches diverge — c=23 ab=74
+PASS heal: c reorganizes to the heavier branch
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=77
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+FAIL every miner produced blocks — {"a": 54, "b": 19, "c": 0}
+{"result": "FAIL", "error": "every miner produced blocks", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts iden
+== old run 3 08:48:43
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious frames/Hello/invalid block do not stop node a — rejects=0
+PASS partition: branches diverge — c=22 ab=30
+PASS heal: c reorganizes to the heavier branch
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=34
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+PASS every miner produced blocks — {"a": 55, "b": 40, "c": 31}
+PASS signed and fallback templates both occur — signed=90/100
+PASS replay of a reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of a agree — 0x07fa5e2c34f7
+PASS replay of b reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of b agree — 0x07fa5e2c34f7
+PASS replay of c reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of c agree — 0x07fa5e2c34f7
+{"result": "PASS", "checks": 17, "work": "/tmp/pocol-e2e-b8w17hab"}
+== old run 4 08:51:11
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious frames/Hello/invalid block do not stop node a — rejects=0
+PASS partition: branches diverge — c=23 ab=38
+PASS heal: c reorganizes to the heavier branch
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=41
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+PASS every miner produced blocks — {"a": 54, "b": 27, "c": 30}
+PASS signed and fallback templates both occur — signed=94/100
+PASS replay of a reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of a agree — 0x23527fc26851
+PASS replay of b reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of b agree — 0x23527fc26851
+PASS replay of c reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of c agree — 0x23527fc26851
+{"result": "PASS", "checks": 17, "work": "/tmp/pocol-e2e-eb12nr5f"}

@@ -1,0 +1,11 @@
+{
+  "command": "python tests/e2e_store.py --bin <built LP2 node> --fixtures fixtures",
+  "exitCode": 0,
+  "observedStdout": {
+    "e2e": "lp2-store",
+    "checks": 24,
+    "failed": 0,
+    "failures": []
+  },
+  "evidence": "Captured actual subprocess output during Codex LP2 R1 verification"
+}

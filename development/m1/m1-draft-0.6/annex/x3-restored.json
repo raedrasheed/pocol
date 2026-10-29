@@ -1,0 +1,216 @@
+{
+  "id": "X3-RESTORED",
+  "specVersion": "M1 draft 0.6",
+  "revision": "R6-04 (C13)",
+  "status": "Restoration of the ORIGINAL named tests from recovered historical source, translated to English and reconciled with the current baseline. The historical text is evidence, not current authority; where it conflicts with the current baseline, the current baseline wins and the difference is recorded. ADD-M1-01 (0.4) is WITHDRAWN.",
+  "sources": {
+    "H31": {
+      "file": "coordination/review-001/historical-round15-source.json",
+      "state": "D:/PoCol/.../runs/2026-10-05T19-56-33-310Z-c99e58/state.json",
+      "messageIndex": 31,
+      "round": 15,
+      "at": "2026-10-06T00:55:24.378Z",
+      "messageSha256": "b7a3fa385acdc73be6ff4665f6b3be71e15f7455177ef03c4c0b1efcf64f99b1",
+      "selection": "the last round-15 proposal whose validation section defines Q8 (export-historical-source.cjs selects the last match)"
+    },
+    "H15e": {
+      "file": "coordination/review-001/historical-test-definition-hits.json",
+      "description": "earlier round-15 proposal text with a different X1-X8 and \u062f1-\u062f5 wording (hits at validation lines 32-48)"
+    },
+    "B": "reference/FINAL_DESIGN.md (current baseline)"
+  },
+  "selectionRule": "Normative restoration follows H31 (latest round-15 text). Where H15e adds a concrete literal compatible with H31 (for example a local-port destination or a 1 s removal bound), it is kept as an added sub-check and labelled H15e. H15e behaviours with no H31 counterpart are listed as supplementary checks with their current-baseline coverage; they do not renumber the IDs.",
+  "translations": {
+    "Q8": {
+      "en": "A signing request is pending on profile A; a conflicting profile B (same chainId, different genesisHash) is added from the options page. Pass: the request is cancelled with 4100 at the moment B commits, before any click; zero sign calls; zero sends; any later click has no effect."
+    },
+    "Q9a": {
+      "en": "Serialization, injection point (a): B is submitted and commits before the acceptance acquires the lock. Pass: 4100 (at commit, or at step 1 at the latest); zero sign and send."
+    },
+    "Q9b": {
+      "en": "Injection point (b): B is submitted while the acceptance holds the lock; the hook delays the identity check by 2 s. Pass: B waits and does not commit before the lock is released; exactly one sign and one send with the previous state, logged as 'sent before the conflict'; then B commits, both profiles are labelled conflicting, and any later request gets 4100."
+    },
+    "Q9c": {
+      "en": "Injection point (c): a bypassing direct write to profiles: while the lock is held. Pass: onChanged detection is processed after the release. If the write precedes step 3 and is visible there, the request is cancelled. The later case is logged and is a declared limit."
+    },
+    "Q10": {
+      "en": "An update of networks.json revokes netKey(A) while a request is pending. Pass: 4100 and zero sends."
+    },
+    "Q11": {
+      "en": "The site connection is withdrawn, or the wallet is locked, while a request is pending. Pass: 4100."
+    },
+    "Q12": {
+      "en": "A direct write to a profiles: key from a non-worker context, outside any acceptance. Pass: detected via onChanged, eligibilityEpoch increases, and the pending request is cancelled."
+    },
+    "X1": {
+      "en": "fetch to an external address."
+    },
+    "X2": {
+      "en": "An external img, together with srcset."
+    },
+    "X3": {
+      "en": "External CSS @import and url()."
+    },
+    "X4": {
+      "en": "Attempts to use chrome.runtime and chrome.storage."
+    },
+    "X5": {
+      "en": "Access to window.top or parent, or top-level navigation."
+    },
+    "X6": {
+      "en": "window.open for a new window."
+    },
+    "X7": {
+      "en": "Form submission to an external destination."
+    },
+    "\u062f1": {
+      "en": "Both rules are installed and verified before the frame is created."
+    },
+    "\u062f2": {
+      "en": "An injected updateSessionRules failure means the frame is not created."
+    },
+    "\u062f3": {
+      "en": "Closing the tab removes both rules."
+    },
+    "\u062f4": {
+      "en": "chrome-extension://<ID>/ resources are allowed; every external destination is blocked for all RT types."
+    },
+    "\u062f5": {
+      "en": "A worker restart followed by a failed ping means the frame is torn down; leftover rules are verified and removed."
+    }
+  },
+  "commonQ": {
+    "en": "Two anvil instances on two ports, both chainId 777001, with a Website contract at the same address but different content. A local proxy records every eth_sendRawTransaction; a wallet test hook counts every sign call (H31).",
+    "model": "vectors/profile-race-cases.json"
+  },
+  "commonX": {
+    "en": "Each malicious site runs with all isolation layers, then with each layer alone (H31: 'both layers together, then each layer alone'; B adds RtcLockdown as layer 3, FD:L1353, so P: all three layers, then CSP-only and DNR-only builds). Pass in every configuration: zero external requests (proxy and DNS log, CanarySink K0-K2 = 0) and zero access to extension APIs.",
+    "layerExpectations": "CSP-only and DNR-only builds must each block X1, X2, X3, X7 alone; X4, X5, X6 are blocked by the sandbox attribute and opaque origin, independently of CSP and DNR."
+  },
+  "xSites": [
+    {
+      "id": "X1",
+      "files": {
+        "/index.html": "<!doctype html><script src=\"x1.js\"></script>",
+        "/x1.js": "fetch('https://example.com/x1').then(function(){window.__x1='reached'},function(e){window.__x1=e.name});"
+      },
+      "expected": "window.__x1 == 'TypeError' (CSP connect-src 'none'; DNR blocks xmlhttprequest); zero external requests"
+    },
+    {
+      "id": "X2",
+      "files": {
+        "/index.html": "<!doctype html><img id=a src=\"https://example.com/x2.png\"><img id=b srcset=\"https://example.com/x2b.png 1x, https://example.com/x2c.png 2x\">"
+      },
+      "expected": "naturalWidth == 0 for #a and #b; zero external requests (img-src blob: data:; DNR image)"
+    },
+    {
+      "id": "X3",
+      "files": {
+        "/index.html": "<!doctype html><link rel=\"stylesheet\" href=\"s.css\"><div id=d>x</div>",
+        "/s.css": "@import url(https://example.com/x3.css);#d{background:url(https://example.com/x3.png)}"
+      },
+      "expected": "zero external requests (style-src blob: 'unsafe-inline'; img-src; DNR stylesheet and image); the local s.css still applies"
+    },
+    {
+      "id": "X4",
+      "files": {
+        "/index.html": "<!doctype html><script src=\"x4.js\"></script>",
+        "/x4.js": "window.__x4=[typeof chrome,typeof (window.chrome&&chrome.runtime),typeof (window.chrome&&chrome.storage)].join(',');"
+      },
+      "expected": "chrome.runtime and chrome.storage are undefined in the sandboxed opaque-origin frame (the value of __x4 is recorded; any 'object' for runtime or storage fails)"
+    },
+    {
+      "id": "X5",
+      "files": {
+        "/index.html": "<!doctype html><script src=\"x5.js\"></script>",
+        "/x5.js": "try{window.__x5a=String(window.top.location.href)}catch(e){window.__x5a=e.name};try{window.parent.document.title='x'}catch(e){window.__x5b=e.name};try{window.top.location='https://example.com/x5'}catch(e){window.__x5c=e.name};"
+      },
+      "expected": "__x5a and __x5b are 'SecurityError'; the top navigation of x5c does not happen (__x5c is recorded: an error name, or undefined if Chrome blocks without throwing); the viewer page URL is unchanged; zero external requests (no allow-top-navigation)"
+    },
+    {
+      "id": "X6",
+      "files": {
+        "/index.html": "<!doctype html><script src=\"x6.js\"></script>",
+        "/x6.js": "window.__x6=String(window.open('https://example.com/x6'));"
+      },
+      "expected": "__x6 == 'null'; zero new windows or tabs (no allow-popups)"
+    },
+    {
+      "id": "X7",
+      "files": {
+        "/index.html": "<!doctype html><form id=f action=\"https://example.com/x7\" method=\"post\"><input name=q value=1></form><script src=\"x7.js\"></script>",
+        "/x7.js": "document.getElementById('f').submit();"
+      },
+      "expected": "zero external requests (form-action 'none'; DNR sub_frame); the frame is not navigated away"
+    }
+  ],
+  "supplementaryFromH15e": [
+    {
+      "behaviour": "forged postMessage to parent with kind=wallet_req (H15e X3)",
+      "currentCoverage": "B: the bridge is the MessageChannel port delivered once (FD:L1336); P supplementary check S-1: window.parent.postMessage({id:1,kind:'wallet_req',payload:{method:'eth_requestAccounts',params:[]}},'*') produces zero approval windows and zero RpcTap requests"
+    },
+    {
+      "behaviour": "external link stylesheet (H15e X2)",
+      "currentCoverage": "covered by X3 (stylesheet type) and by \u062f4"
+    },
+    {
+      "behaviour": "eth_sendTransaction on load without a click (H15e X5)",
+      "currentCoverage": "B: T12 'zero transactions without a click' (FD:L2644) and BR14 (FD:L2691)"
+    },
+    {
+      "behaviour": "1000 bridge messages per second (H15e X6)",
+      "currentCoverage": "B: BR19a/BR19c bucket (FD:L2737-2760) and BR16"
+    },
+    {
+      "behaviour": "storage_set with another netKey or above 1 MiB (H15e X8)",
+      "currentCoverage": "B: BR17e/BR17f; the bridge carries no netKey (context from the viewer, FD:L1357)"
+    },
+    {
+      "behaviour": "WebSocket and RTCPeerConnection (H31 X8)",
+      "currentCoverage": "superseded: current X8 is the CanarySink gate (FD:L2645)"
+    }
+  ],
+  "reconciliation": [
+    {
+      "id": "I1",
+      "kind": "gap",
+      "text": "Q9c and Q12 need detection of out-of-worker writes (H31: storage.onChanged with writeToken tracking). The current baseline (FD:L1321-1325) says only that every mutation runs under ProfileMutex and increments eligibilityEpoch; it neither requires nor forbids detection. Carried as proposal P from H31."
+    },
+    {
+      "id": "I2",
+      "kind": "superseded",
+      "text": "signEligible: H31 lists 6 conditions; the current baseline adds a seventh (LN or DEV, or RP with h >= 1 and a successful window). The restored tests use the current 7-condition form."
+    },
+    {
+      "id": "I3",
+      "kind": "superseded",
+      "text": "Acceptance sequence: H31 sends to the frozen endpoint with a 10 s timeout; the current baseline sends through WalletSubmit (FD:L1324, FD:L4933). The restored Q9b uses the current sequence; the 5 s identity timeout and endpoint freezing are carried as P from H31."
+    },
+    {
+      "id": "I4",
+      "kind": "partial",
+      "text": "Cancellation codes: 4100 for a conflict (B FD:L983) and 4901 for an identity or profile change (B FD:L982, FD:L1001) are current; 4100 for revocation, connection withdrawal and lock is H31 only, carried as P."
+    },
+    {
+      "id": "I5",
+      "kind": "superseded",
+      "text": "X8: H31's X8 (WebSocket/RTC and forged-netKey storage_set) is replaced by the current X8 CanarySink gate; only X1-X7 are restored."
+    },
+    {
+      "id": "I6",
+      "kind": "gap",
+      "text": "DNR: the current baseline gives ids, priorities, the allow urlFilter and fail-closed installation (FD:L1349-1352), but not the resource-type list, tabIds scoping, read-back verification or removal triggers. Carried from H31 (D37) as P; tools/dnr_ref.py models them."
+    },
+    {
+      "id": "I7",
+      "kind": "note",
+      "text": "The Q tests use chainId 777001 on anvil (H31). On pocold that chainId is the CI2 rejection vector (FD:L845); the Q tests never touch pocold."
+    },
+    {
+      "id": "I8",
+      "kind": "choice",
+      "text": "Epoch condition: a commit re-evaluates every pending request; a request that still satisfies conditions 1-5 and 7 is re-stamped with the new epoch (P, U42). Otherwise every commit would cancel every pending request, which no Q test expects (SE-benign-mutation)."
+    }
+  ],
+  "withdrawn": "ADD-M1-01 (m1-draft-0.4/annex/addendum-x3-proposal.json): its ordinal Q_i <-> T12-site mapping, its X1-X7 isolation substitutes and its \u062f1-\u062f5 unsupported-feature mapping are withdrawn. The Q9 PNG and other assets there are not used."
+}

@@ -1,0 +1,24 @@
+{
+  "source": "f3fbe13863030adfed6912450e255acd986238b5",
+  "sourceTree": "540fa389c5a9e3c2d0d81b6a8f3f71b4387479e5",
+  "scope": "P3 f3 plus R3 SYS boundary controls scratch; no PR25 change or acceptance",
+  "files": {
+    "src/native.rs": "2f4a0bc20fc37f84164eb424005ecae50718a146b19f75a5461b39ab02838468",
+    "src/system.rs": "1aaee6503645c7ebc343e648d0612a869cd0912b6e0240e899e4720036e7ff2a",
+    "src/system/tests.rs": "4620e2047b71843578ae2a64b705750476e3dcb9ff02358c79bb31aaa55336f9",
+    "tests/data/system-epoch-witness.json": "a14925d17bb458c10e5f336fbb99c90d9ca223c7e3d67bde95ae86099560d3df",
+    "tests/data/system-registry-pre.json": "b6e317bad9edbfa51e7333054ef968fbebfff873511a7b5a6d73adc8d73b8192",
+    "contracts/SystemEpochWitness.sol": "79c4bb99c5401a935a2e78bdf8a6d67f0784353f799bdfbec18956432c606561",
+    "tests/compile_system_epoch.cjs": "819d3e4e3ab8958ef343406db9c9edff217014d9ab1655c0ea0d3276ec8e76fc",
+    "tests/system_oracle.py": "0ab1240745f6343d186f74e0a4b7e1a9b9b98111ca863491060963dbb4cf2382",
+    "tests/data/code-caps-native-views.json": "0d24b324586d4fb85c7b267453d5fda364b43bf200423aafe4bc8a67dce158fc",
+    "contracts/SystemBoundaryWitness.sol": "71ba4f2041b1ef492ce1572bd01e793c169e967a60f0f0218361e1fc2d906e3f",
+    "tests/compile_system_boundary.cjs": "7062603192e5ce2dd656fc4f3a6da9700358e2027638a26689bbcc92db9cd027",
+    "tests/data/system-boundary-witness.json": "36b2064cde89f9c4116a975a88956cdefc5e371a4cc0ed750f6b43a008b99b2b",
+    "tests/data/system-boundary-independent.json": "7121347d56565f208f0f4df726ee5f7ec014b7eecc3a31173c18ac660b1e9eef",
+    "tests/system_boundary_oracle.py": "8656dccf5daf851a1688187d0d853e467de0b429b57213c746ea27568852e037",
+    "tests/system_mutations.py": "386bcf2fca497b49e560691d23a1c1763fe642dd315af77994fbb93e2cdaa2e7"
+  },
+  "libSHA256": "cf552ab19d14aa028f9354257bb26b17d1e6f730c3c10c0d38a079d8b1c9072d",
+  "bootable": false
+}

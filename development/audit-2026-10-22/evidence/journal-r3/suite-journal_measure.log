@@ -1,0 +1,19 @@
+=== suite: cargo test --release --locked --test journal_measure ; head 7f587bb ; start 2026-10-24T01:41:52Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.11s
+
+running 11 tests
+test jm_deep_fork_rebuild_vs_height ... ignored, measurement: run in release with --ignored --nocapture
+test jm_deep_reorg_latency ... ignored, measurement: run in release with --ignored --nocapture
+test jm_exec_cost_per_gas ... ignored, measurement: run in release with --ignored --nocapture
+test jm_open_memory ... ignored, measurement: run in release with --ignored --nocapture
+test jm_rebuild_by_kind ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_by_kind ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_component_split ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_empty_blocks ... ignored, measurement: run in release with --ignored --nocapture
+test jm_state_root_synthetic ... ignored, measurement: run in release with --ignored --nocapture
+test jm_state_size_term ... ignored, measurement: run in release with --ignored --nocapture
+test jm_journal_bytes_per_record ... ok
+
+test result: ok. 1 passed; 0 failed; 10 ignored; 0 measured; 0 filtered out; finished in 1.39s
+
+=== end 2026-10-24T01:41:53Z exit=0

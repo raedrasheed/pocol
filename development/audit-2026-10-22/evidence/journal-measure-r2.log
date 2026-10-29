@@ -1,0 +1,74 @@
+TRACK journal R2 — corrected/added journal measurements (audit-2026-10-22, round 2).
+Branch wf/journal-r2 from wf/journal 86b339e (base a03e089, tree == 3c3792e). Host Linux 6.18.44-fc-v153,
+4 CPUs. Release, under cpu.lock, CARGO_TARGET_DIR in the agent scratch dir; toolchain rust-toolchain.toml (1.99.1).
+Harness: prototypes/pocold/tests/journal_measure.rs (committed; heavy tests #[ignore]). The #[ignore] tests were
+run as the compiled test binary directly under flock (the sandbox refuses the string 'flock ... cargo test'); each
+reached 'test result: ok'. A TIMEOUT would be 'incomplete' — none occurred. This log is NEW; it does not edit the
+stage-A journal-measure.log (those runs stand); it re-runs the tests this round's edits affect and adds the new ones.
+Commands (each under flock <cpu.lock>; <bin> = release deps/journal_measure-*):
+  <bin> jm_journal_bytes_per_record --nocapture                 # JM-BYTES (re-run on the committed test; J-V7)
+  <bin> jm_replay_by_kind --ignored --nocapture                 # JM-KIND (adds full_gas_compute; J-V6)
+  <bin> jm_deep_reorg_latency --ignored --nocapture             # JM-REORG/-OPEN (double genesis rebuild; J-V1)
+  JM_MEM_DIR=<d> <bin> jm_open_memory --ignored ; JM_MEM_OPEN=<d> <bin> jm_open_memory --ignored  # JM-OPENMEM/-FRESH (J-V4,V5)
+  JM_REBUILD_HEIGHT=3000 <bin> jm_deep_fork_rebuild_vs_height --ignored   # JM-REBUILD (de-duplicated fps; J-V12)
+  <bin> jm_replay_component_split --ignored --nocapture         # JM-SPLIT (validate/insert/retain; J-V10)
+============================================================
+=== JM-BYTES (jm_journal_bytes_per_record; fresh — J-V7: record size varies with PoW share count) ===
+JM-BYTES {"empty":{"bodyBytes":3,"cumLogBytes":0,"gasUsed":0,"headerBytes":1559,"powShares":105,"receiptBytesNotStored":0,"recordBytes":4895,"resultBytes":3282,"txs":0},"full_body_max":{"bodyBytes":196587,"cumLogBytes":0,"gasUsed":827344,"headerBytes":1261,"powShares":62,"receiptBytesNotStored":538,"recordBytes":199852,"resultBytes":1949,"txs":2},"full_gas_compute":{"bodyBytes":103,"cumLogBytes":0,"gasUsed":7950000,"headerBytes":737,"powShares":4,"receiptBytesNotStored":269,"recordBytes":1040,"resultBytes":149,"txs":1},"full_gas_logs":{"bodyBytes":213,"cumLogBytes":19656,"gasUsed":7924379,"headerBytes":864,"powShares":18,"receiptBytesNotStored":13644,"recordBytes":1714,"resultBytes":585,"txs":2},"full_gas_transfers":{"bodyBytes":44838,"cumLogBytes":0,"gasUsed":7980000,"headerBytes":1234,"powShares":59,"receiptBytesNotStored":102217,"recordBytes":47981,"resultBytes":1856,"txs":380},"log_heavy_546":{"bodyBytes":115,"cumLogBytes":19656,"gasUsed":274379,"headerBytes":1378,"powShares":75,"receiptBytesNotStored":13375,"recordBytes":3897,"resultBytes":2352,"txs":1}}
+JM-CONST {"BODY_MAX":196608,"GAS_LIMIT":8000000,"MAX_RECORD":4194304,"OVERHEAD":41,"TX_MAX":131072}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 1.33s
+=== JM-KIND (jm_replay_by_kind, count=40; per-record replay by kind — J-V6) ===
+JM-KIND {"blocks":40,"buildSeconds":0.321395414,"bytesPerRecord":2315.8,"journalDiskBytes":92632,"kind":"empty","openSeconds":0.179102817,"perRecordMillis":4.477570425,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":10.803148269,"bytesPerRecord":47076.95,"journalDiskBytes":1883078,"kind":"full_gas_transfers","openSeconds":2.937352734,"perRecordMillis":73.43381835,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":0.55135698,"bytesPerRecord":1928.675,"journalDiskBytes":77147,"kind":"log_heavy_546","openSeconds":0.198801645,"perRecordMillis":4.970041125,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":0.777577083,"bytesPerRecord":199130.65,"journalDiskBytes":7965226,"kind":"full_body_max","openSeconds":0.281446083,"perRecordMillis":7.0361520749999995,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":1.036079983,"bytesPerRecord":2006.125,"journalDiskBytes":80245,"kind":"full_gas_compute","openSeconds":0.385470288,"perRecordMillis":9.6367572,"records":40}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 19.14s
+=== JM-REORG (jm_deep_reorg_latency, height=600 — J-V1: 2x genesis rebuild) ===
+JM-REORG {"actualRebuilds":600,"adoptingImport":{"index":284,"rebuilds":300,"restoredBlocks":284,"seconds":1.470229865},"allImports":{"rebuilds":600,"seconds":3.277712885},"canonicalHeight":600,"firstSideImport":{"rebuilds":300,"seconds":0.624110101},"forkPointHeight":300,"kHist":32,"reorgDepth":300,"stageAModelRebuilds":300,"theirBlocks":286}
+JM-REORG-OPEN {"openSeconds":5.262118241,"rebuildsDuringOpen":600,"records":886}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 15.99s
+=== JM-OPENMEM in-process (undercounts) ===
+JM-OPENMEM {"blocks":85,"inProcessUndercounts":true,"journalBytes":16901698,"openSeconds":0.646494935,"peakAboveBaselineBytes":14508032,"peakOverJournal":0.8583771879014759,"records":85,"rssAfterBytes":59695104,"rssBeforeBytes":45187072,"vmHwmAfterOpenBytes":59695104,"vmHwmAfterResetBytes":45187072}
+=== JM-OPENMEM-FRESH (fresh process; true ~2.3x journal — J-V4,J-V5) ===
+JM-OPENMEM-FRESH {"journalBytes":16901698,"openSeconds":0.636248038,"peakAboveBaselineBytes":39501824,"peakOverJournal":2.337151214037785,"records":85,"rssAfterBytes":43474944,"rssBeforeBytes":3977216,"vmHwmAfterBytes":43479040,"vmHwmBeforeBytes":20787200}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.65s
+=== JM-REBUILD (jm_deep_fork_rebuild_vs_height, height=3000; linear in fork-point height) ===
+JM-REBUILD {"forkPointHeight":100,"perBlockMillis":2.45011447,"reExecutions":100,"seconds":0.245011447}
+JM-REBUILD {"forkPointHeight":500,"perBlockMillis":2.498134566,"reExecutions":500,"seconds":1.249067283}
+JM-REBUILD {"forkPointHeight":1000,"perBlockMillis":2.401653853,"reExecutions":1000,"seconds":2.401653853}
+JM-REBUILD {"forkPointHeight":2048,"perBlockMillis":2.481281378417969,"reExecutions":2048,"seconds":5.081664263}
+JM-REBUILD {"forkPointHeight":3000,"perBlockMillis":2.4689830973333335,"reExecutions":3000,"seconds":7.406949292}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 41.94s
+=== JM-SPLIT (jm_replay_component_split, N=6000; super-linear = retain + insert/rebuild_canonical — J-V10) ===
+JM-SPLIT {"heights":"1..1000","insertMs":0.04215786399999997,"retainMs":0.10244435900000001,"validateMs":2.9025701770000025}
+JM-SPLIT {"heights":"1001..2000","insertMs":0.1362411769999998,"retainMs":0.3241775420000005,"validateMs":2.8689848009999968}
+JM-SPLIT {"heights":"2001..3000","insertMs":0.2359273530000002,"retainMs":0.596202357,"validateMs":2.8129113510000012}
+JM-SPLIT {"heights":"3001..4000","insertMs":0.3203128849999998,"retainMs":0.8771139419999998,"validateMs":2.767511366999998}
+JM-SPLIT {"heights":"4001..5000","insertMs":0.4921235990000001,"retainMs":1.0618254829999998,"validateMs":2.640711653}
+JM-SPLIT {"heights":"5001..6000","insertMs":0.6041797360000004,"retainMs":1.364605616999999,"validateMs":2.7685861660000017}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 60.94s
+============================================================
+=== Derived (python3 -I, stdlib; from the JM lines above and stage-A JM-REPLAY open times) ===
+fit a(ms)=2.2620  b(ms)=4.592e-04  (b/2=2.296e-04)
+  H=1000  pred=2.49  meas=2.63
+  H=5000  pred=17.05  meas=17.01
+  H=20000  pred=137.07  meas=137.07
+network H=129600 pred open empty = 4149 s = 69.2 min
+  a-term 293 s  b-term 3856 s
+parentResult: 31.01 B/share + 26 B ; at 256 shares = 7966 B
+header: 8.36 B/share + 722 B ; at 256 shares = 2863 B (header_max=3072)
+parentResult canonical @H_END = 0.961 GiB
+headers(header_max 3072) @H_END = 0.371 GiB
+tx bytes TXBYTES_CAP 2^33 = 8.000 GiB
+evidence 1/block EVID_BYTES_MAX 8192 = 0.989 GiB
+evidence E_max*EVID 4*8192/block = 3.955 GiB
+A13 evidence identities term = 1.985 GiB
+canonical worst (storage 1/blk) = 10.33 GiB
+canonical worst (E_max/blk) = 13.29 GiB
+devnet: headers 0.057 + parentResult 0.148 + tx 0.016 GiB = 0.221
+TX_CAP transfer blocks = 26315 ; *73ms = 32.0 min
+compute H_END*9.64ms = 20.8 min
+deep reorg 2*H*a (a=2.08 ms) = 539 s = 9.0 min
+deep reorg 2*H*a (a=2.40 ms) = 622 s = 10.4 min
+=== END ===

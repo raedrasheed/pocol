@@ -1,0 +1,18 @@
+=== f-kind: jm_replay_by_kind JM_KINDS=empty,full_gas_transfers,log_heavy_546,full_body_max,full_gas_compute,bn_pair_2,kzg_point_eval,modexp_b8_e256_m8_even,modexp_b8_e1024_m8_even ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:00:51Z
+
+running 1 test
+test jm_replay_by_kind ... JM-OPEN0 {"openSecondsMedian":0.061617436,"openSecondsMin":0.059936945,"records":0,"runs":5}
+JM-KIND {"blocks":40,"buildSeconds":0.284664946,"bytesPerRecord":2315.8,"journalDiskBytes":92632,"kind":"empty","openSeconds":0.138039799,"perRecordMillis":3.4509949749999995,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":9.227644304,"bytesPerRecord":46978.975,"journalDiskBytes":1879159,"kind":"full_gas_transfers","openSeconds":2.58291689,"perRecordMillis":64.57292225,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":0.508661389,"bytesPerRecord":1904.675,"journalDiskBytes":76187,"kind":"log_heavy_546","openSeconds":0.235868957,"perRecordMillis":5.896723925,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":0.747055777,"bytesPerRecord":198407.525,"journalDiskBytes":7936301,"kind":"full_body_max","openSeconds":0.306700315,"perRecordMillis":7.667507875,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":1.0278808210000001,"bytesPerRecord":2241.175,"journalDiskBytes":89647,"kind":"full_gas_compute","openSeconds":0.35499469,"perRecordMillis":8.87486725,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":28.302236974,"bytesPerRecord":2941.85,"journalDiskBytes":117674,"kind":"bn_pair_2","openSeconds":9.17409046,"perRecordMillis":229.35226150000003,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":24.999973976,"bytesPerRecord":2184.025,"journalDiskBytes":87361,"kind":"kzg_point_eval","openSeconds":8.584696593,"perRecordMillis":214.61741482500003,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":116.329110529,"bytesPerRecord":2748.275,"journalDiskBytes":109931,"kind":"modexp_b8_e256_m8_even","openSeconds":37.5486455,"perRecordMillis":938.7161375,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":125.278122138,"bytesPerRecord":3396.75,"journalDiskBytes":135870,"kind":"modexp_b8_e1024_m8_even","openSeconds":41.154121118,"perRecordMillis":1028.8530279499998,"records":40}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 409.32s
+
+=== end 2026-10-24T01:07:40Z exit=0

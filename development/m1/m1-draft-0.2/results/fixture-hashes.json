@@ -1,0 +1,15 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "abi-and-slots.json": "c309a4d4c991f43488543c40e7265dbeaabb48ae9636979987a8e777b6dd1ad3",
+    "code-table.json": "d420422140e39fdaf7f9a68558d38f1cc99896928dcc470eb17de794274a4b37",
+    "draft01-repro/chunks.json": "82c924c6a3da77770a05d1052ae18d7b20d7d097bb1e3ea05e6f9723c274ebc6",
+    "draft01-repro/index.html": "50f473830b9aee95ae194572d8bda4c15fd02e91b0991e5487b1756c17a64743",
+    "draft01-repro/manifest.json": "0f0b815bba3b46aa217eab8c44dc6bd6f931f29a9c0485096d8e168c186f0daf",
+    "draft01-repro/negative-manifests.json": "54c16ee8feef51e61a42d1a084543ea0f066e2d1a68793cdbd1f9108c499a427",
+    "manifest-negative.json": "0e25861a07d63569aba63d9928703bf22d1b31bab93d77e9a6fd81b7f0f197a3",
+    "manifest-positive.json": "1d2baf2a8305d832b7ef4bba99238af2ed7f7d61837403f308cc64981f617554",
+    "path-cases.json": "66ea07a80135ded999f80c7c081fab9d67838205342c183c5886c4697a399c18",
+    "version-records.json": "f3257bdb80bc52a9103c1d21963c056719637518e8db284fabdf31bbd0ee407f"
+  }
+}

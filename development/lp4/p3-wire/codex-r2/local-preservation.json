@@ -1,0 +1,7 @@
+{
+  "localOnly": true,
+  "archive": "/workspace/work/lp4/p3-wire/preserved/r2-evidence.tar.gz",
+  "bytes": 23589,
+  "sha256": "00793c7f9276e597989a21f535173724c17a9fa6eccad064eabc1a48104fadb9",
+  "content": "full prior failed oracle, failed mutation attempt and final compiled build/assertion logs; R1 full execution raw archive preserved separately"
+}

@@ -1,0 +1,11 @@
+{
+  "scope": "D27 component only",
+  "rustPassed": 95,
+  "independentPositiveCases": 3,
+  "actualGasRootComparisons": 6,
+  "independentRejections": 4,
+  "compiledAssertionControls": 8,
+  "completeFivePrograms": "NOT PASSED",
+  "all27FullGates": "NOT PASSED",
+  "bootable": false
+}

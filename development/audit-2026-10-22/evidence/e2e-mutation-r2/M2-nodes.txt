@@ -1,0 +1,183 @@
+== a.log (last 60 of 174 lines)
+[a 78432023] lock h=49 a=0 PROP tid=0xf1d2c47b15
+[a 78432031] head h=49 0xee21179b0064 signed=true txs=0
+[a 78432031] TrieRebuild for a fork below the K_hist window
+[a 78433025] lock h=50 a=0 PROP tid=0xae702e6f78
+[a 78433030] head h=50 0x8d46028544ee signed=true txs=0
+[a 78433032] TrieRebuild for a fork below the K_hist window
+[a 78434029] lock h=51 a=0 PROP tid=0x7209ff3494
+[a 78434033] TrieRebuild for a fork below the K_hist window
+[a 78434111] head h=51 0x7e6cb28b7782 signed=true txs=0
+[a 78435033] lock h=52 a=0 PROP tid=0xb534b80752
+[a 78435041] head h=52 0xef6ca63690da signed=true txs=0
+[a 78435041] TrieRebuild for a fork below the K_hist window
+[a 78436035] lock h=53 a=0 PROP tid=0x649922bfe7
+[a 78436043] head h=53 0x06222a2bdbe2 signed=true txs=0
+[a 78436043] TrieRebuild for a fork below the K_hist window
+[a 78437038] lock h=54 a=0 PROP tid=0xfd0c782113
+[a 78437049] head h=54 0x023e321356dd signed=true txs=0
+[a 78437049] TrieRebuild for a fork below the K_hist window
+[a 78438042] lock h=55 a=0 PROP tid=0xd5d7cbf2b6
+[a 78438048] head h=55 0x45cb7ef57b62 signed=true txs=0
+[a 78438049] TrieRebuild for a fork below the K_hist window
+[a 78439044] lock h=56 a=0 PROP tid=0xf6517fdc14
+[a 78439049] head h=56 0x3b5e2556486c signed=true txs=0
+[a 78439051] TrieRebuild for a fork below the K_hist window
+[a 78440051] lock h=57 a=0 PROP tid=0x56b5eacf0c
+[a 78440061] head h=57 0xdb66227eb18b signed=true txs=0
+[a 78441005] lock h=58 a=0 PROP tid=0x7f138ec4ec
+[a 78441013] head h=58 0x70fc55354e1e signed=true txs=0
+[a 78442006] lock h=59 a=0 PROP tid=0xf0e1f05ee0
+[a 78442013] head h=59 0xa004dec54479 signed=true txs=0
+[a 78443008] lock h=60 a=0 PROP tid=0xf0a7566f3e
+[a 78443023] head h=60 0xf844fcffbdf9 signed=true txs=0
+[a 78444011] lock h=61 a=0 PROP tid=0xcbf29ff08d
+[a 78444022] head h=61 0x28627cab11f3 signed=true txs=0
+[a 78445016] lock h=62 a=0 PROP tid=0x8d1e942565
+[a 78445023] head h=62 0x3b32b18dff18 signed=true txs=0
+[a 78446022] lock h=63 a=0 PROP tid=0xac2f7e0ab3
+[a 78446027] head h=63 0x7ad501215346 signed=true txs=0
+[a 78447025] lock h=64 a=0 PROP tid=0xe2e83cde4b
+[a 78447041] head h=64 0x4832aeedbd75 signed=true txs=0
+[a 78448028] lock h=65 a=0 PROP tid=0xbdbed5f833
+[a 78448036] head h=65 0x6a714866fa80 signed=true txs=0
+[a 78449031] lock h=66 a=0 PROP tid=0xc7131d624c
+[a 78449042] head h=66 0xb5ebde7017e9 signed=true txs=0
+[a 78450034] lock h=67 a=0 PROP tid=0x9a7479d2b8
+[a 78450041] head h=67 0x836f9febe4ea signed=true txs=0
+[a 78451037] lock h=68 a=0 PROP tid=0x4b9c71302f
+[a 78451057] head h=68 0x0b5c2a0fe97e signed=true txs=0
+[a 78452041] lock h=69 a=0 PROP tid=0x86ef55bdd3
+[a 78452061] head h=69 0x6de3aec8756c signed=true txs=0
+[a 78453045] lock h=70 a=0 PROP tid=0xb3cad5221e
+[a 78453051] head h=70 0xe5046714d9b4 signed=true txs=0
+[a 78454047] lock h=71 a=0 PROP tid=0x4b3b743ebf
+[a 78454062] head h=71 0x9288a4dc5052 signed=true txs=0
+[a 78455051] lock h=72 a=0 PROP tid=0x457154cbfb
+[a 78455073] head h=72 0x559ef938cf1e signed=true txs=0
+[a 78456005] lock h=73 a=0 PROP tid=0x6009bf9f66
+[a 78456010] head h=73 0x319bad3ba45c signed=true txs=0
+[a 78457008] lock h=74 a=0 PROP tid=0x9f6d09ae4f
+[a 78457019] head h=74 0xc0870610f209 signed=true txs=0
+== b.log (last 60 of 81 lines)
+[b 78339041] lock h=11 a=0 PROP tid=0x4ff310267b
+[b 78339047] head h=11 0xdfaebd95a4af signed=true txs=0
+[b 78340046] lock h=12 a=0 PROP tid=0x90321e4eca
+[b 78340082] head h=12 0x017e33e38bc9 signed=true txs=0
+[b 78341048] lock h=13 a=0 PROP tid=0x48e8d45387
+[b 78341053] head h=13 0x6de9a48fa0a9 signed=true txs=0
+[b 78342002] lock h=14 a=0 PROP tid=0xb737fed866
+[b 78342007] head h=14 0x5550169425ac signed=true txs=0
+[b 78343005] lock h=15 a=0 PROP tid=0xf3b5f332b3
+[b 78343012] head h=15 0x2d07f4bc6744 signed=true txs=0
+[b 78344009] lock h=16 a=0 PROP tid=0xb3ec20cfc8
+[b 78344013] head h=16 0x111546aa15a9 signed=true txs=0
+[b 78345012] lock h=17 a=0 PROP tid=0xff77ffbc89
+[b 78345017] head h=17 0x09a4149f6c44 signed=true txs=0
+[b 78346015] lock h=18 a=0 PROP tid=0xc7acf0700c
+[b 78346036] head h=18 0xe9fc308879d3 signed=true txs=0
+[b 78347019] lock h=19 a=0 PROP tid=0xf936693f8f
+[b 78347027] head h=19 0xf76e813d3afb signed=true txs=0
+[b 78348022] lock h=20 a=0 PROP tid=0xd89e3b1e98
+[b 78348031] head h=20 0x9e0fcc07073f signed=true txs=0
+[b 78349025] lock h=21 a=0 PROP tid=0x21330d3f86
+[b 78349044] range exhausted; idle until next template
+[b 78395024] attempt 0 expired; advancing
+[b 78395027] lock h=21 a=1 FB tid=0x21805fabbf
+[b 78395041] head h=21 0xbade5b433bc0 signed=false txs=0
+[b 78395045] lock h=22 a=0 PROP tid=0x6b1dec58e3
+[b 78395051] head h=22 0xc831423ed17a signed=true txs=0
+[b 78396030] lock h=23 a=0 PROP tid=0xcdfc1c9404
+[b 78396036] head h=23 0x0a45b1008b9f signed=true txs=0
+[b 78397034] lock h=24 a=0 PROP tid=0x2a1fdb6d73
+[b 78397039] head h=24 0x18de3bc0a991 signed=true txs=5
+[b 78398036] lock h=25 a=0 PROP tid=0x014096a084
+[b 78398041] range exhausted; idle until next template
+[b 78407088] TrieRebuild for a fork below the K_hist window
+[b 78407117] TrieRebuild for a fork below the K_hist window
+[b 78412112] TrieRebuild for a fork below the K_hist window
+[b 78417126] TrieRebuild for a fork below the K_hist window
+[b 78422142] TrieRebuild for a fork below the K_hist window
+[b 78422171] TrieRebuild for a fork below the K_hist window
+[b 78427159] TrieRebuild for a fork below the K_hist window
+[b 78427199] TrieRebuild for a fork below the K_hist window
+[b 78428012] TrieRebuild for a fork below the K_hist window
+[b 78429016] TrieRebuild for a fork below the K_hist window
+[b 78430018] TrieRebuild for a fork below the K_hist window
+[b 78431029] TrieRebuild for a fork below the K_hist window
+[b 78432030] TrieRebuild for a fork below the K_hist window
+[b 78433038] TrieRebuild for a fork below the K_hist window
+[b 78434033] TrieRebuild for a fork below the K_hist window
+[b 78435037] TrieRebuild for a fork below the K_hist window
+[b 78436042] TrieRebuild for a fork below the K_hist window
+[b 78437044] TrieRebuild for a fork below the K_hist window
+[b 78438045] TrieRebuild for a fork below the K_hist window
+[b 78439056] TrieRebuild for a fork below the K_hist window
+[b 78444026] attempt 0 expired; advancing
+[b 78444028] lock h=25 a=1 FB tid=0x6930442d70
+[b 78444032] head h=25 0x6de586e21d76 signed=false txs=0
+[b 78444034] lock h=26 a=0 PROP tid=0x9860b8ce92
+[b 78444038] head h=26 0x18bba80f55db signed=true txs=0
+[b 78445033] lock h=27 a=0 PROP tid=0xbf47fc1eef
+[b 78445035] range exhausted; idle until next template
+== c.log (last 60 of 95 lines)
+[c 78410056] TrieRebuild for a fork below the K_hist window
+[c 78411009] TrieRebuild for a fork below the K_hist window
+[c 78412012] TrieRebuild for a fork below the K_hist window
+[c 78412108] lock h=21 a=0 FB tid=0xfc10c03035
+[c 78412112] head h=21 0xfbc9a811d950 signed=false txs=0
+[c 78413014] TrieRebuild for a fork below the K_hist window
+[c 78414021] TrieRebuild for a fork below the K_hist window
+[c 78415023] TrieRebuild for a fork below the K_hist window
+[c 78416024] TrieRebuild for a fork below the K_hist window
+[c 78417028] TrieRebuild for a fork below the K_hist window
+[c 78417122] lock h=22 a=0 FB tid=0xfeded6f8e3
+[c 78417126] head h=22 0xe47d92c4a1bf signed=false txs=0
+[c 78418033] TrieRebuild for a fork below the K_hist window
+[c 78419035] TrieRebuild for a fork below the K_hist window
+[c 78420037] TrieRebuild for a fork below the K_hist window
+[c 78421040] TrieRebuild for a fork below the K_hist window
+[c 78422045] TrieRebuild for a fork below the K_hist window
+[c 78422138] lock h=23 a=0 FB tid=0xd09b421a77
+[c 78422142] head h=23 0x873d84c7cc05 signed=false txs=0
+[c 78422144] lock h=24 a=0 PROP tid=0x493a8a62a9
+[c 78422148] head h=24 0x55b39ab02ad0 signed=true txs=0
+[c 78423049] TrieRebuild for a fork below the K_hist window
+[c 78424052] TrieRebuild for a fork below the K_hist window
+[c 78425058] TrieRebuild for a fork below the K_hist window
+[c 78426057] TrieRebuild for a fork below the K_hist window
+[c 78427011] TrieRebuild for a fork below the K_hist window
+[c 78427155] lock h=25 a=0 FB tid=0x7ebd6c615e
+[c 78427159] head h=25 0x6b386b8a6ecf signed=false txs=0
+[c 78427165] lock h=26 a=0 PROP tid=0x42e46b1708
+[c 78427171] head h=26 0x52468f5478ff signed=true txs=0
+[c 78428007] lock h=27 a=0 PROP tid=0xd39d99c763
+[c 78428012] head h=27 0x4a8d98bee6f6 signed=true txs=0
+[c 78428013] TrieRebuild for a fork below the K_hist window
+[c 78429010] lock h=28 a=0 PROP tid=0xc911ff2838
+[c 78429016] head h=28 0x01d11ad22b8e signed=true txs=0
+[c 78429019] TrieRebuild for a fork below the K_hist window
+[c 78430013] lock h=29 a=0 PROP tid=0xd59c5ddcdf
+[c 78430018] head h=29 0x86ef0e392404 signed=true txs=0
+[c 78431020] lock h=30 a=0 PROP tid=0x42fecedf52
+[c 78431027] head h=30 0x2b1ade9adcb8 signed=true txs=0
+[c 78432022] lock h=31 a=0 PROP tid=0xd1b35184b0
+[c 78432030] head h=31 0xae8031632f89 signed=true txs=0
+[c 78433025] lock h=32 a=0 PROP tid=0x79181562dc
+[c 78433032] head h=32 0xa38938370fc6 signed=true txs=0
+[c 78434028] lock h=33 a=0 PROP tid=0x4320ee93f3
+[c 78434033] head h=33 0x1750bcfb331c signed=true txs=0
+[c 78435031] lock h=34 a=0 PROP tid=0x1f7af60dfe
+[c 78435037] head h=34 0x851aef1cd32d signed=true txs=0
+[c 78436036] lock h=35 a=0 PROP tid=0x4b3d11c210
+[c 78436042] head h=35 0xca334495e2a7 signed=true txs=0
+[c 78437039] lock h=36 a=0 PROP tid=0xdaa21b4b2c
+[c 78437044] head h=36 0x92598a983fda signed=true txs=0
+[c 78438041] lock h=37 a=0 PROP tid=0x9a16d5f2c5
+[c 78438045] head h=37 0x73d846d38a2d signed=true txs=0
+[c 78439045] lock h=38 a=0 PROP tid=0x59f630e4dc
+[c 78439051] head h=38 0x6d43a0a2f3a9 signed=true txs=0
+[c 78440049] lock h=39 a=0 PROP tid=0x8b6f304dbb
+[c 78440054] range exhausted; idle until next template
+[c 78444032] TrieRebuild for a fork below the K_hist window
+[c 78444070] TrieRebuild for a fork below the K_hist window

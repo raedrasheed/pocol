@@ -1,0 +1,1251 @@
+{
+  "package": "M1 draft 0.4",
+  "executedAtUtc": "2026-10-07T07:27:05+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "notExecuted": [
+    "EVM / anvil",
+    "Solidity compilation",
+    "gas",
+    "browser / extension (bridge model is a Python reading of the text)",
+    "dependency-cruiser and ESLint themselves (rule semantics are emulated)",
+    "pocold",
+    "MPT proofs",
+    "M0 K1-K3 triad"
+  ],
+  "summary": {
+    "checks": 218,
+    "passed": 216,
+    "recorded": 1,
+    "failed": 1,
+    "seconds": 119.4
+  },
+  "results": [
+    {
+      "check": "keccak.selftest",
+      "status": "pass"
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-01-steady",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-02-A-B",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-03-A-B-A",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-04-outside-keff",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-05-forged-exhausts-restarts",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-06-flapping-exhausts-restarts",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-07-proof-for-wrong-keys",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-08-invariant-violation",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-09-explicit-not-found",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-10-explicit-noncurrent",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-11-outside-keff-exhausts-restarts",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-12-no-published-site",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.inherited03 SNAP-13-explicit-draft",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-20-explicit-status-3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-21-default-status-3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-22-explicit-noncurrent-status-3",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-23-current-above-count",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-24-current-above-count-explicit-valid-id",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-25-count-above-limit-precedes-current",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-26-slot2-high-bits",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-27-current-record-absent",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-28-explicit-record-absent-not-draft",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-29-published-block-zero",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-30-draft-with-published-block",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-31-published-block-after-anchor",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-32-record-high-bits-precede-status",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-33-explicit-revoked-interstitial",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.invariant SNAP-34-invariant-after-restart",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "snapshot.property onlyStatus1Renders (status 0..7, default and explicit)",
+      "status": "pass",
+      "violations": []
+    },
+    {
+      "check": "bound.arithmetic",
+      "status": "pass"
+    },
+    {
+      "check": "bound.length rb-codex-1001",
+      "status": "pass",
+      "got": 23131
+    },
+    {
+      "check": "bound.validate rb-codex-1001",
+      "status": "pass",
+      "mismatches": {},
+      "got": [
+        1001,
+        null
+      ]
+    },
+    {
+      "check": "bound.length rb-max-2847",
+      "status": "pass",
+      "got": 65535
+    },
+    {
+      "check": "bound.head rb-max-2847",
+      "status": "pass",
+      "got": "0xf9fffc0180f9fff7f9fff4822f610182163e"
+    },
+    {
+      "check": "bound.validate rb-max-2847",
+      "status": "pass",
+      "mismatches": {},
+      "got": [
+        2847,
+        null
+      ]
+    },
+    {
+      "check": "bound.validateVersion rb-max-2847",
+      "status": "pass",
+      "got": [
+        "accept",
+        2850
+      ]
+    },
+    {
+      "check": "bound.length rb-2848-does-not-fit",
+      "status": "FAIL",
+      "got": 65561
+    },
+    {
+      "check": "bound.validate rb-2848-does-not-fit",
+      "status": "pass",
+      "mismatches": {},
+      "got": [
+        0,
+        "decode.oversize"
+      ]
+    },
+    {
+      "check": "bound.validate rb-noncanonical-split-valid",
+      "status": "pass",
+      "mismatches": {},
+      "got": [
+        2,
+        null
+      ]
+    },
+    {
+      "check": "bound.validate rb-noncanonical-split-one-byte-chunks",
+      "status": "pass",
+      "mismatches": {},
+      "got": [
+        30,
+        null
+      ]
+    },
+    {
+      "check": "bridge.case ok-eth_chainId",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_getBalance",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_getStorageAt-qty-tag",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_getBlockByNumber",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_getBlockByHash",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_call",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_estimateGas-1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_estimateGas-2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_feeHistory",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_getLogs-range",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_getLogs-blockHash",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-eth_sendTransaction",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-site_storageSet",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-site_storageSet-delete",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-site_storageClear",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-site_navigate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-site_openExternal",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case ok-id-max",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR2",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR3a",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR3b",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR4-upper",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR4-space",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR4-nul",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR4-cyrillic",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR4-65-bytes",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR4-site-case",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR4-astral-truncation",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR6-payload-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR6-outer-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR6-duplicate-method",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7a",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7b",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7c",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7d",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7e",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7f",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7g-storage",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7g-navigate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR7h",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR8",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR9-gas",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR9-no-to",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR9-data-and-input",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR10-17-addresses",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR11-proto",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR11-constructor-nav",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR11-hasOwnProperty-storage",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR11-toString-wallet",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR12-full-block",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR12-pending",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR12-earliest",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR12-eip1898",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR13-depth-9",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR13-depth-8-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.size BR13-size-65537",
+      "status": "pass"
+    },
+    {
+      "check": "bridge.case BR13-size-65537",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.size BR13-size-65536-control",
+      "status": "pass"
+    },
+    {
+      "check": "bridge.case BR13-size-65536-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR13-invalid-json",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR13-id-negative",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR13-id-2^32",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR13-id-string",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B0-id-1.0",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B0-id-minus-zero",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B0-id-true",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B0-NaN",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B0-top-array",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B0-method-number",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B0-kind-number-before-B1",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-short",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-empty-key",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-key-257",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-key-256-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-value-61441",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-value-61440-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-extra",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-number-key",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-lone-surrogate",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR17d-clear-arg",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18d-relative",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18d-space",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18d-2049",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18d-2048-control",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18c-passes-schema",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18g-http",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18g-javascript",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18g-extension",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18g-userinfo",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case BR18g-empty-host",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-feeHistory-129",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-percentiles-decreasing",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-percentiles-17",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-percentile-100.5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-qty-leading-zero",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-qty-over-u64",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-addr-trailing-newline",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-callObj-unknown-field",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-txObj-missing-from",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-filter-mixed-forms",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-topics-5",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-estimateGas-3-params",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.case B3-estimateGas-0-params",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_chainId",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/net_version",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/web3_clientVersion",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_blockNumber",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_gasPrice",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_maxPriorityFeePerGas",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getBalance",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getCode",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getTransactionCount",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getStorageAt",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getBlockByNumber",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getBlockByHash",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getTransactionByHash",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getTransactionReceipt",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_call",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_estimateGas",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_feeHistory",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample rpc_read/eth_getLogs",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample wallet_req/eth_accounts",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample wallet_req/eth_requestAccounts",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample wallet_req/eth_chainId",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample wallet_req/eth_sendTransaction",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample storage_set/site_storageSet",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample storage_set/site_storageClear",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample nav/site_navigate",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.matrixSample nav/site_openExternal",
+      "status": "pass",
+      "got": [
+        "ok",
+        null
+      ]
+    },
+    {
+      "check": "bridge.denyList 209 pairs",
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "check": "bucket.BK1-burst",
+      "status": "pass"
+    },
+    {
+      "check": "bucket.BK2-partial-refill @1019",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bucket.BK2-partial-refill @1020",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bucket.BK3-cap @2001020",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bucket.BK4-size-does-not-touch-bucket @1000",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bucket.BK4-size-does-not-touch-bucket @1500",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "bucket.BK5-B0-reject-consumes @1000",
+      "status": "pass",
+      "mismatches": {}
+    },
+    {
+      "check": "pending.PR1-four-then-pending",
+      "status": "pass",
+      "got": {
+        "session": 4,
+        "global": 4
+      }
+    },
+    {
+      "check": "pending.PR2-reply-frees",
+      "status": "pass",
+      "got": {
+        "session": 4,
+        "global": 4
+      }
+    },
+    {
+      "check": "pending.PR3-teardown-keeps-count",
+      "status": "pass",
+      "got": {
+        "session": 4,
+        "global": 4
+      }
+    },
+    {
+      "check": "pending.PR4-orphan-settle-frees",
+      "status": "pass",
+      "got": {
+        "session": 4,
+        "global": 4
+      }
+    },
+    {
+      "check": "pending.PR5-global-16",
+      "status": "pass",
+      "got": {
+        "session": 0,
+        "global": 16
+      }
+    },
+    {
+      "check": "dependency.G-baseline",
+      "status": "pass",
+      "got": []
+    },
+    {
+      "check": "dependency.G-bridge-transport",
+      "status": "pass",
+      "got": [
+        "bridge-no-walletsubmit-no-transport",
+        "httptransport-importers-closed"
+      ]
+    },
+    {
+      "check": "dependency.G-bridge-walletsubmit",
+      "status": "pass",
+      "got": [
+        "bridge-no-walletsubmit-no-transport"
+      ]
+    },
+    {
+      "check": "dependency.G-bridge-malicious",
+      "status": "pass",
+      "got": [
+        "bridge-no-malicioushttp",
+        "src-no-test-imports"
+      ]
+    },
+    {
+      "check": "dependency.G-new-importer",
+      "status": "pass",
+      "got": [
+        "httptransport-importers-closed"
+      ]
+    },
+    {
+      "check": "dependency.G-reader-in-chunkfetcher",
+      "status": "pass",
+      "got": []
+    },
+    {
+      "check": "dependency.G-helper-imports-transport",
+      "status": "pass",
+      "got": [
+        "httptransport-importers-closed"
+      ]
+    },
+    {
+      "check": "dependency.G-transitive-allowed",
+      "status": "pass",
+      "got": []
+    },
+    {
+      "check": "recv.worst eth_getCode",
+      "status": "pass",
+      "got": 66560
+    },
+    {
+      "check": "recv.worst pocol_getHeaders(count<=14)",
+      "status": "pass",
+      "got": 87124
+    },
+    {
+      "check": "recv.worst pocol_getParams",
+      "status": "pass",
+      "got": 98304
+    },
+    {
+      "check": "recv.worst eth_getBlockByHash",
+      "status": "pass",
+      "got": 163958
+    },
+    {
+      "check": "recv.worst eth_feeHistory(n<=128,p<=16)",
+      "status": "pass",
+      "got": 168015
+    },
+    {
+      "check": "recv.worst eth_getTransactionByHash",
+      "status": "pass",
+      "got": 264192
+    },
+    {
+      "check": "recv.worst eth_getTransactionReceipt",
+      "status": "pass",
+      "got": 347136
+    },
+    {
+      "check": "recv.4096 class",
+      "status": "pass"
+    },
+    {
+      "check": "recv.table network passes",
+      "status": "pass",
+      "errors": []
+    },
+    {
+      "check": "recv.D100-1 getCode 65536 fails",
+      "status": "pass"
+    },
+    {
+      "check": "recv.D100-2 getBlock 163840 fails",
+      "status": "pass"
+    },
+    {
+      "check": "recv.D100-3 feeHistory n=256 worst",
+      "status": "pass"
+    },
+    {
+      "check": "recv.D100-4 capped getCode fails",
+      "status": "pass"
+    },
+    {
+      "check": "recv.RF3 genesisPre 47105",
+      "status": "pass"
+    },
+    {
+      "check": "recv.RF4 BODY_MAX 262144",
+      "status": "pass"
+    },
+    {
+      "check": "recv.proof perPath",
+      "status": "pass"
+    },
+    {
+      "check": "recv.proof k1/k6",
+      "status": "pass"
+    },
+    {
+      "check": "recv.proof branchNodeMax",
+      "status": "pass",
+      "got": 564
+    },
+    {
+      "check": "recv.proof constructedWorstJson k=1",
+      "status": "pass",
+      "bytes": 147858,
+      "bound": 151386
+    },
+    {
+      "check": "recv.proof constructedWorstJson k=6",
+      "status": "pass",
+      "bytes": 516903,
+      "bound": 519611
+    },
+    {
+      "check": "addendum.count 17",
+      "status": "pass",
+      "got": [
+        "Q8",
+        "Q9",
+        "Q10",
+        "Q11",
+        "Q12",
+        "X1",
+        "X2",
+        "X3",
+        "X4",
+        "X5",
+        "X6",
+        "X7",
+        "\u062f1",
+        "\u062f2",
+        "\u062f3",
+        "\u062f4",
+        "\u062f5"
+      ]
+    },
+    {
+      "check": "addendum.status unsigned",
+      "status": "pass"
+    },
+    {
+      "check": "addendum.every item has inputs and pass criterion",
+      "status": "pass"
+    },
+    {
+      "check": "addendum.Q9 png structure",
+      "status": "pass"
+    },
+    {
+      "check": "addendum.Q9 png bytes",
+      "status": "recorded",
+      "hex": "0x89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c48900000010494441547801010500faff00ff0000ff050001fffa5c88d10000000049454e44ae426082",
+      "sha256": "18f4fa5bba0f3aee92c9c6c7b85367a2247e976a9ff46056a06338685487cfc1"
+    }
+  ]
+}

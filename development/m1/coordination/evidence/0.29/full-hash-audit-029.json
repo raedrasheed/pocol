@@ -1,0 +1,13 @@
+{
+  "checks": 668,
+  "passed": 668,
+  "failed": 0,
+  "expectedAssertionFailures": 0,
+  "method": "Fresh purePythonKeccak plus noble2.4.0 and js-sha3.013 for every668preimage; sourceexpected full digest or4byte selector asserted separately",
+  "initialHarnessFailure": {
+    "file": "full-hash-triad-029.json",
+    "failed": 611,
+    "cause": "611legacy export referenceDigest fields are null; two libraries agreed. Null reference was not a valid comparison oracle. Original failure preserved; freshPython execution supplies actual digest."
+  },
+  "correctedEvidence": "full-hash-triad-executed-029.json"
+}

@@ -1,0 +1,5 @@
+{
+  "independentManifestHeadHex": "0xfa0100150180fa01000ffa01000b822f6101821640a02fdc",
+  "contentHash": "0x2fdc37b7cb1bc0c7d76531ac9fe8a3209d061deb25645d3b0c82c117af54b88b",
+  "explanation": "After size 0x821640 comes contentHash encoded with 0xa0, before the chunk list. The 0.5 expected head omits contentHash."
+}

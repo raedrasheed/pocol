@@ -1,0 +1,8 @@
+ext-build exit=0
+e2e-browser-whole-state-1 exit=0
+e2e-browser-store-1 exit=1
+e2e-browser-whole-state-2 exit=0
+e2e-browser-store-2 exit=1
+e2e-browser-whole-state-3 exit=0
+e2e-browser-store-3 exit=0
+done

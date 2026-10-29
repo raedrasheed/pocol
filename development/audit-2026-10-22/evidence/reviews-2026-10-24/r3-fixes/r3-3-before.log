@@ -1,0 +1,5 @@
+thread 'replay_restores_each_adopted_branch_with_the_work_live_did' (7817) panicked at tests/consensus.rs:1011:9:
+assertion `left == right` failed: open does the rebuild and restore work live did, no more
+  left: (4, 76, 2)
+ right: (0, 2, 2)
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 48 filtered out; finished in 2.12s

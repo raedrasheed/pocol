@@ -1,0 +1,70 @@
+   Compiling pocold v0.1.0 (<repo>/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.45s
+     Running tests/checkpoint_source.rs (target/release/deps/checkpoint_source-b0ffd24a6e260fd9)
+
+running 1 test
+test verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/net.rs (target/release/deps/net-f33f554c27deb90e)
+
+running 53 tests
+test a10_origin_deny_applies_to_every_batch_member ... ok
+test a_batch_does_not_hold_p2p_events_for_its_whole_length ... ok
+test a_connection_whose_send_buffer_cannot_be_set_is_refused ... ok
+test a_full_heavy_pool_answers_busy_before_anything_runs ... ok
+test a_late_get_logs_answer_carries_resume_data ... ok
+test a_full_light_lane_answers_busy ... ok
+test a_late_revert_or_halt_past_its_deadline_is_32020 ... ok
+test a_light_flood_coalesces_wakes_and_main_events_progress ... ok
+test a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane ... ok
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test a_light_turn_runs_at_most_light_turn_requests_then_wakes_the_node ... ok
+test a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving ... ok
+test a_precompile_call_past_its_deadline_is_32020_not_a_late_success ... ok
+test a_request_reaching_its_handler_past_the_deadline_never_runs ... ok
+test a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled ... ok
+test abandoned_queued_bodies_are_capped_and_released ... ok
+test an_answer_is_reserved_until_its_connection_has_written_it ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test batch_members_each_get_their_own_compute_deadline ... ok
+test batch_wall_closes_the_batch ... ok
+test batch_wall_counts_the_time_queued ... ok
+test bytes_after_the_request_do_not_reset_the_answer ... ok
+test compute_deadline_runs_from_admission_and_queue_wait_bounds_admission ... ok
+test estimate_gas_stops_its_search_at_the_deadline ... ok
+test get_params_and_rpc_stats_report_the_limits ... ok
+test guard_and_dispatch_error_items_stay_within_err_item_max ... ok
+test heavy_compute_deadline_cancels_eth_call ... ok
+test heavy_queue_overflow_answers_busy_with_retry_after ... ok
+test idle_peers_without_hello_are_bounded_and_expire ... ok
+test inbound_floods_cannot_take_the_slots_for_configured_peers ... ok
+test legitimate_requests_progress_under_bounded_heavy_load ... ok
+test light_compute_deadline_fires ... ok
+test light_lane_wakes_coalesce_until_taken ... ok
+test light_requests_behind_long_heavy_work_are_answered_never_deadline ... ok
+test miner_replacement_keeps_at_most_one_miner_thread ... ok
+test only_a_hello_is_accepted_before_the_handshake ... ok
+test oversized_and_stalled_frames_close_the_peer ... ok
+test peer_threads_stay_within_the_inventory_while_consensus_is_stalled ... ok
+test queue_wait_bounds_the_wait_for_a_heavy_queue_place ... ok
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... ok
+test queued_requests_are_busy_at_queue_wait ... ok
+test reconnect_churn_keeps_threads_and_slots_bounded ... ok
+test rpc_batches_answer_every_member_in_order_and_cap_their_length ... ok
+test rpc_connection_cap_refuses_excess_unread_and_keeps_serving ... ok
+test rpc_request_buffer_covers_headers_and_body ... ok
+test rpc_work_deadline_skips_expired_work_and_releases_resources ... ok
+PACER {"acceptedBytes":211628,"clientWindowS":0.498173789,"closedMs":818,"firstByteMs":320,"honestFirstByteMs":397,"os":"linux","pacerLateMaxMs":0,"pacerWaits":10,"sendTimeS":0.50096,"violationS":0.5}
+test send_pacer_closes_a_slow_reader_after_grace ... ok
+test send_pacer_timer_follows_a_over_r_past_grace ... ok
+test the_compute_deadline_includes_encoding ... ok
+test the_conditional_light_entries_have_the_light_deadline ... ok
+test the_node_never_runs_a_request_its_connection_gave_up ... ok
+test the_per_connection_bucket_charges_k_tokens_per_request ... ok
+ABSORB {"answerBytes":14681122,"kernelTookWholeAnswer":false,"os":"linux","peakReserved":14680950,"reservedOneSecondLater":14680950}
+test unread_default_client_absorption ... ok
+
+test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 73.75s
+

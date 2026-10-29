@@ -1,0 +1,20 @@
+{
+  "base": "d17273af35880f0e1d8a438e529e69c22a18f731",
+  "testedCommit": "a9f0460335fa9594b943e125dd77d780042eefec",
+  "protectedPaths": [
+    "development/m1",
+    "development/lp1",
+    "development/lp2",
+    "development/lp3/s1-genesisspec",
+    "development/decisions",
+    ".github"
+  ],
+  "protectedChanges": [],
+  "sourceSha256": {
+    "src/lib.rs": "efe3d966941fed235c3d2ca04e100d44af35e6b777c99febea32bf1bec75802c",
+    "src/profile.rs": "afa1d82f6de983b705a6798286c04fab0fa09955b3d04c9933ba18b0dda7dbba",
+    "tests/profile.rs": "284f7e2d95e0839b9c145a609df49b62035d48c549236d785edd3ea4c8c21fc7",
+    "Cargo.toml": "9ed951416e93352d66d0c783c7fb09d5485fd79594efd6bef7aeb0466fd749b3",
+    "Cargo.lock": "8027f41eab992004a3ee31aede4e5103a88908e2c2a30250d4c89a01eef71a84"
+  }
+}

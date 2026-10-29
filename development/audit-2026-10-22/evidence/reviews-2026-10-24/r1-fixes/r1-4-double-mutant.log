@@ -1,0 +1,2 @@
+thread 'a_block_over_tx_cap_on_an_empty_parent_is_refused' (22864) panicked at tests/caps.rs:302:17:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.22s

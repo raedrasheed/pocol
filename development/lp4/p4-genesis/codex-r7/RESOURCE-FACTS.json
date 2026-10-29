@@ -1,0 +1,126 @@
+{
+  "modelVersion": "LP4-P4-R7-SYNTHETIC-MEASUREMENTS-1",
+  "inputSHA256": "fb7f08886676acac5b784aeb8dbe79d6f3d125d062bae37ffc8e0e1cc81edbd0",
+  "profiles": [
+    {
+      "classification": "SYNTHETIC_MEASUREMENT, not a proven general bound or admission authority",
+      "members": 4,
+      "genesisHash": "0x71bc20aa44bfaf7e316b9237a10bfebea92907a7b010de7f4a61c2a76d9b424b",
+      "genesisSpecSHA256": "41b7b5a0c50fc9810b93463b6ac4114831cea7af507b2000c8b1790ddc0b13db",
+      "sysCodeHash": "0x12a8b6e8bc34a2a0c5b31938b5e730f7e54844daa33a0e06ccf91c2d2d180598",
+      "programSHA256": [
+        "47afecdc1c1c1897b5c1e23fb648eddf277b71e0223f5bad315604078fa37d98",
+        "8bbf018399b9e371d6363b63bb301e12f30f944f499261ecf4244bba538ea40c",
+        "09fc657bb0002078ac1886d2ba5da2304fa1c4dbac486850df3fabd8e16ab5ee",
+        "44fe60bf06f6de8ec910ce5f36d111f62854c3ceb180a5818b564ff7b53d17b4",
+        "63795d4d48650424b6522ca794685256efa6b04d2e4c081d8cee6dde953214b4"
+      ],
+      "stateRoot": "0x84a7722fcac9d5e0dc68b9108af838ea73db7c110bde1b27d59449bd62b72708",
+      "completeCPWords": 52,
+      "nonzeroSlots": 75,
+      "logicalCodeBytes": 8939
+    },
+    {
+      "classification": "SYNTHETIC_MEASUREMENT, not a proven general bound or admission authority",
+      "members": 1024,
+      "genesisHash": "0x56fc8c739d1aa5aeb25493bb5cc4c200042d396a048d766d03177adebeafcd08",
+      "genesisSpecSHA256": "409aa91ba83890f1c81585582bf68799c5e1f86f579cb4ab9b72237ad6df5032",
+      "sysCodeHash": "0x12a8b6e8bc34a2a0c5b31938b5e730f7e54844daa33a0e06ccf91c2d2d180598",
+      "programSHA256": [
+        "47afecdc1c1c1897b5c1e23fb648eddf277b71e0223f5bad315604078fa37d98",
+        "8bbf018399b9e371d6363b63bb301e12f30f944f499261ecf4244bba538ea40c",
+        "09fc657bb0002078ac1886d2ba5da2304fa1c4dbac486850df3fabd8e16ab5ee",
+        "44fe60bf06f6de8ec910ce5f36d111f62854c3ceb180a5818b564ff7b53d17b4",
+        "63795d4d48650424b6522ca794685256efa6b04d2e4c081d8cee6dde953214b4"
+      ],
+      "stateRoot": "0x353b84ea951f24ea175e403ccf2b09805c52761a39337e031aafbfc2d3f6910e",
+      "completeCPWords": 52,
+      "nonzeroSlots": 5175,
+      "logicalCodeBytes": 8939
+    }
+  ],
+  "executions": [
+    {
+      "kind": 0,
+      "origin": "0x0000000000000000000000000000000000000000",
+      "userGas": 43452,
+      "authenticatedTips": 130356,
+      "sysRawGas": 224958,
+      "phase2RawGas": 52696,
+      "issued": 80000,
+      "stateRoot": "0xe85ee8351f30d9d2702046e6249add1c9660db85a47b6a74b20c3568982505d9"
+    },
+    {
+      "kind": 0,
+      "origin": "0x0000000000000000000000000000000000010000",
+      "userGas": 43452,
+      "authenticatedTips": 130356,
+      "sysRawGas": 224973,
+      "phase2RawGas": 52711,
+      "issued": 80000,
+      "stateRoot": "0x933e98259873363f89ab2ca6e0a9e9462ecfd6ddd3385d317d44fb373d0898eb"
+    },
+    {
+      "kind": 1,
+      "origin": "0x0000000000000000000000000000000000000000",
+      "userGas": 43452,
+      "authenticatedTips": 130356,
+      "sysRawGas": 224958,
+      "phase2RawGas": 52696,
+      "issued": 80000,
+      "stateRoot": "0xe85ee8351f30d9d2702046e6249add1c9660db85a47b6a74b20c3568982505d9"
+    },
+    {
+      "kind": 1,
+      "origin": "0x0000000000000000000000000000000000010000",
+      "userGas": 43452,
+      "authenticatedTips": 130356,
+      "sysRawGas": 224973,
+      "phase2RawGas": 52711,
+      "issued": 80000,
+      "stateRoot": "0x933e98259873363f89ab2ca6e0a9e9462ecfd6ddd3385d317d44fb373d0898eb"
+    },
+    {
+      "kind": 2,
+      "origin": "0x0000000000000000000000000000000000000000",
+      "userGas": 43452,
+      "authenticatedTips": 130356,
+      "sysRawGas": 224958,
+      "phase2RawGas": 52696,
+      "issued": 80000,
+      "stateRoot": "0xe85ee8351f30d9d2702046e6249add1c9660db85a47b6a74b20c3568982505d9"
+    },
+    {
+      "kind": 2,
+      "origin": "0x0000000000000000000000000000000000010000",
+      "userGas": 43452,
+      "authenticatedTips": 130356,
+      "sysRawGas": 224973,
+      "phase2RawGas": 52711,
+      "issued": 80000,
+      "stateRoot": "0x933e98259873363f89ab2ca6e0a9e9462ecfd6ddd3385d317d44fb373d0898eb"
+    },
+    {
+      "kind": 0,
+      "origin": "0x0000000000000000000000000000000000000000",
+      "userGas": 57941,
+      "authenticatedTips": 173823,
+      "sysRawGas": 224958,
+      "phase2RawGas": 52696,
+      "issued": 80000,
+      "stateRoot": "0x1d6fac7e16cbaf6aa067d3c2e249d1a1e011507773a5848036205cb0a7dd36c0"
+    },
+    {
+      "kind": 0,
+      "origin": "0x0000000000000000000000000000000000010000",
+      "userGas": 57941,
+      "authenticatedTips": 173823,
+      "sysRawGas": 224973,
+      "phase2RawGas": 52711,
+      "issued": 80000,
+      "stateRoot": "0x3a2066f10db9d96b764d212d378d33a18510b98da7afd62fa5abb0f1652ff26b"
+    }
+  ],
+  "generalR18R21caps64": "NOT PASSED",
+  "bootable": false
+}

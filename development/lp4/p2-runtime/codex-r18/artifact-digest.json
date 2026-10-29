@@ -1,0 +1,19 @@
+{
+  "artifactId": 12255093116,
+  "sha256": "2d7316a037445fdb91e2430202db8ca595c0cae3966584f348558a5ecc2bf849",
+  "bytes": 132087,
+  "members": [
+    "independent-results/summary.json",
+    "independent-results/sources.json",
+    "independent-results/incomplete.jsonl",
+    "independent-admission-mutations/blob-count.log",
+    "independent-admission-mutations/block-gas.log",
+    "independent-admission-mutations/initcode-size.log",
+    "independent-admission-mutations/initcode-word-gas.log",
+    "independent-admission-mutations/nonce.log",
+    "independent-admission-mutations/payment-value.log",
+    "independent-admission-mutations/priority-fee.log",
+    "independent-admission-mutations/results.json",
+    "independent-admission-mutations/sender-code.log"
+  ]
+}

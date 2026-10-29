@@ -1,0 +1,430 @@
+{
+ "head": "3342af3865719ad5c0d82c66518a5832183509dd",
+ "ran": "2026-10-23T08:23:03Z",
+ "caught": 30,
+ "total": 30,
+ "note": "CAUGHT = control passed and the mutant FAILED; a TIMEOUT (control or mutant) is recorded as incomplete, never as a pass or a catch",
+ "results": [
+  {
+   "id": "MR1-SOLICIT",
+   "test": "side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "a solicited (session) block that retention removed is refused like an unsolicited copy",
+   "control": "OK",
+   "controlSec": 18.0,
+   "mutant": "FAILED",
+   "mutantSec": 17.8,
+   "mutantPanic": "a session takes evicted blocks again (refetched 0)",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR2-PROTECT",
+   "test": "a_session_branch_is_adopted_through_a_flood_of_competing_side_branches",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "the side cap may evict session-protected blocks",
+   "control": "OK",
+   "controlSec": 18.1,
+   "mutant": "FAILED",
+   "mutantSec": 18.4,
+   "mutantPanic": "session block h=2: UnknownParent",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR3-REIMPORT",
+   "test": "replay_gives_a_reimported_block_a_new_import_seq",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "a re-imported block keeps its old importSeq on replay (contradicts consensus.md:205)",
+   "control": "OK",
+   "controlSec": 18.0,
+   "mutant": "FAILED",
+   "mutantSec": 18.1,
+   "mutantPanic": "assertion `left == right` failed: y re-imported after x: x now has the smaller importSeq",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR4-RESTORE",
+   "test": "r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "adopted blocks offloaded as side blocks are not restored",
+   "control": "OK",
+   "controlSec": 18.8,
+   "mutant": "FAILED",
+   "mutantSec": 18.2,
+   "mutantPanic": "positive control: its blocks were offloaded as side blocks and restored on adoption",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR5-REPLAYPROTECT",
+   "test": "a_session_branch_is_adopted_through_a_flood_of_competing_side_branches",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "replay does not protect blocks that later records build on",
+   "control": "OK",
+   "controlSec": 19.8,
+   "mutant": "FAILED",
+   "mutantSec": 18.8,
+   "mutantPanic": "assertion `left == right` failed: every journal record's parent was retained on replay",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR6-PROTECTCANON",
+   "test": "a_long_catch_up_is_not_bounded_by_the_protected_branch_size",
+   "files": [
+    "prototypes/pocold/src/chain.rs",
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "canonical session blocks count toward protect_max (both the import and the retain site)",
+   "control": "OK",
+   "controlSec": 20.0,
+   "mutant": "FAILED",
+   "mutantSec": 320.7,
+   "mutantPanic": "A catches up 60 blocks with protect_max 16: at \"0x462b69ad4400701c06e80a1bdb9bbe5c2ac3cfefc0004bcc9f6de95bb5a95e43\"",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR7-RKEEP",
+   "test": "the_r_keep_boundary_removes_a_side_block_exactly_r_keep_below_the_head",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "R_keep boundary off by one (depth R_keep+1 adopted)",
+   "control": "OK",
+   "controlSec": 19.3,
+   "mutant": "FAILED",
+   "mutantSec": 18.2,
+   "mutantPanic": "exactly R_keep below the head: removed by retention",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR8-OFFLOADCANON",
+   "test": "a_crash_around_an_adoption_reopens_on_one_whole_chain",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "canonical blocks are offloaded too (RPC history changes)",
+   "control": "OK",
+   "controlSec": 20.1,
+   "mutant": "FAILED",
+   "mutantSec": 19.7,
+   "mutantPanic": "assertion `left == right` failed",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR9-SERVE",
+   "test": "an_offloaded_block_is_served_viewed_and_re_executed_from_the_journal",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "an offloaded block is served from its emptied in-memory entry",
+   "control": "OK",
+   "controlSec": 19.2,
+   "mutant": "FAILED",
+   "mutantSec": 18.0,
+   "mutantPanic": "assertion `left == right` failed",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR10-SIMULATE",
+   "test": "a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "eth_call simulates on an empty (pruned) state",
+   "control": "OK",
+   "controlSec": 18.7,
+   "mutant": "FAILED",
+   "mutantSec": 18.0,
+   "mutantPanic": "assertion `left == right` failed: {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":\"0x\"}",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR11-KEY",
+   "test": "d133_tie_break_at_depth_holds_through_eviction_and_refetch",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "the D133 key ignores signed-before-fallback",
+   "control": "OK",
+   "controlSec": 20.4,
+   "mutant": "FAILED",
+   "mutantSec": 19.4,
+   "mutantPanic": "assertion `left == right` failed: signed before fallback at the fork point: a reorg 40 deep",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR12-SESSIONFLAG",
+   "test": "a_sync_session_refetches_an_evicted_branch_and_serves_it",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "session blocks arriving over the network are not treated as solicited",
+   "control": "OK",
+   "controlSec": 18.8,
+   "mutant": "FAILED",
+   "mutantSec": 318.9,
+   "mutantPanic": "A adopts P's head: \"0xd45356b565b1c4571ba42e6d3af5185552ee4e6addc7616b5aaa7717e184f6e4\" vs \"0x7dcb613fad8d57502c2358105edf61c1d93b7c89ab6541eb3da0c91923e7e9a8\"",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR13-RETAINLOOP",
+   "test": "side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "one-pass leaf trimming: a newly exposed parent leaf is not re-queued",
+   "control": "OK",
+   "controlSec": 20.1,
+   "mutant": "FAILED",
+   "mutantSec": 18.2,
+   "mutantPanic": "39 unprotected side blocks after h=13",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR14-EVICTGUARD",
+   "test": "side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "an evicted block received unsolicited is validated and journaled again",
+   "control": "OK",
+   "controlSec": 18.9,
+   "mutant": "FAILED",
+   "mutantSec": 18.9,
+   "mutantPanic": "an evicted block received unsolicited is refused",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR15-SIDEPRUNE",
+   "test": "a_side_branch_below_the_k_hist_window_imports_without_rebuilding_each_parent",
+   "files": [
+    "prototypes/pocold/src/chain.rs"
+   ],
+   "note": "the K_hist prune also drops side states (quadratic rebuilds for a deep competing branch)",
+   "control": "OK",
+   "controlSec": 19.5,
+   "mutant": "FAILED",
+   "mutantSec": 19.2,
+   "mutantPanic": "linear import: 120 re-executions for 16 side blocks",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR16-PROGRESS",
+   "test": "a_peer_with_a_false_status_cannot_hold_the_sync_session",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "any stored copy (duplicates included) counts as session progress",
+   "control": "OK",
+   "controlSec": 24.1,
+   "mutant": "FAILED",
+   "mutantSec": 138.3,
+   "mutantPanic": "A adopts the honest heavier peer's head despite the false peer: \"0xd45356b565b1c4571ba42e6d3af5185552ee4e6addc7616b5aaa7717e184f6e4\" vs \"0xdc228932f97cb4a5692fb46f800ab22c1e5a3eb5137736f9d825bcfd704222ed\"",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR18-RKEEPFILE",
+   "test": "replay_uses_the_largest_r_keep_the_data_directory_has_used",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "replay uses the configured R_keep even when live used a larger one",
+   "control": "OK",
+   "controlSec": 20.0,
+   "mutant": "FAILED",
+   "mutantSec": 18.8,
+   "mutantPanic": "assertion `left == right` failed: replay used R_keep 64, not the configured 24",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR19-BELOWWINDOW",
+   "test": "r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "a new block below the R_keep window is validated and journaled, then removed",
+   "control": "OK",
+   "controlSec": 18.0,
+   "mutant": "FAILED",
+   "mutantSec": 18.7,
+   "mutantPanic": "assertion `left == right` failed: before validation or journaling (retention would remove it at once)",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "MR20-ORPHANSOLICIT",
+   "test": "a_session_block_arriving_before_its_parent_stays_protected",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "an orphaned session block loses its solicited status",
+   "control": "OK",
+   "controlSec": 17.4,
+   "mutant": "FAILED",
+   "mutantSec": 18.1,
+   "mutantPanic": "h=2 is stored and protected",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M5-DEADLINE",
+   "test": "rpc_work_deadline_skips_expired_work_and_releases_resources",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "expired batch members are run, not skipped with -32020",
+   "control": "OK",
+   "controlSec": 17.4,
+   "mutant": "FAILED",
+   "mutantSec": 29.6,
+   "mutantPanic": "members after the deadline are not started: 0",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M4-BUSY",
+   "test": "a_full_heavy_pool_answers_busy_before_anything_runs",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "a response reservation never fails (the pool is unbounded)",
+   "control": "OK",
+   "controlSec": 17.0,
+   "mutant": "FAILED",
+   "mutantSec": 20.0,
+   "mutantPanic": "every member is busy: [{\"id\":1,\"jsonrpc\":\"2.0\",\"result\":\"0x541ee53862b36f4a8b118919010636cadb8fe0c915624da40776d18fc3f7d637\"},{\"id\":2,\"jsonrpc\":\"2.0\",\"result\":\"0x0\"}]",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M13-RESV",
+   "test": "an_answer_is_reserved_until_its_connection_has_written_it",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the reservation is released before the answer is written",
+   "control": "OK",
+   "controlSec": 19.1,
+   "mutant": "FAILED",
+   "mutantSec": 79.4,
+   "mutantPanic": "while the client does not read, the pool holds its answer: 8388608 B reserved",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M14-BUSYPARSE",
+   "test": "a_busy_answer_does_not_parse_an_over_limit_body",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the busy path parses the body unconditionally",
+   "control": "OK",
+   "controlSec": 18.7,
+   "mutant": "FAILED",
+   "mutantSec": 17.6,
+   "mutantPanic": "the busy path requested 16779298 B for an unparsed body",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M15-TXRAW",
+   "test": "a_max_size_transaction_is_answered_in_the_light_lane",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "tx_json carries raw beside input (~4x TX_MAX)",
+   "control": "OK",
+   "controlSec": 18.4,
+   "mutant": "FAILED",
+   "mutantSec": 18.0,
+   "mutantPanic": "assertion `left == right` failed: answered, not -32008: {\"error\":{\"code\":-32008,\"message\":\"response too large\"},\"id\":3,\"jsonrpc\":\"2.0\"}",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M3-QUEUECAP",
+   "test": "abandoned_queued_bodies_are_capped_and_released",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "no cap on queued heavy bodies",
+   "control": "OK",
+   "controlSec": 18.8,
+   "mutant": "FAILED",
+   "mutantSec": 18.8,
+   "mutantPanic": "queued_max was reached and a heavy request refused 503 (5 rounds, peak 15)",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M7-LIGHTTURN",
+   "test": "a_light_turn_runs_at_most_light_turn_requests_then_wakes_the_node",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "no LIGHT_TURN bound",
+   "control": "OK",
+   "controlSec": 17.5,
+   "mutant": "FAILED",
+   "mutantSec": 17.9,
+   "mutantPanic": "assertion `left == right` failed: one turn runs LIGHT_TURN light requests",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M1b-WAKE",
+   "test": "light_lane_wakes_coalesce_until_taken",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "a Wake for every light request (no coalescing)",
+   "control": "OK",
+   "controlSec": 17.9,
+   "mutant": "FAILED",
+   "mutantSec": 17.8,
+   "mutantPanic": "assertion `left == right` failed: five light requests, one pending Wake",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "F1-CLOSE",
+   "test": "a_close_between_the_writers_test_and_its_wait_wakes_it",
+   "files": [
+    "prototypes/pocold/src/net.rs"
+   ],
+   "note": "close without the queue lock (the old racy code)",
+   "control": "OK",
+   "controlSec": 18.5,
+   "mutant": "FAILED",
+   "mutantSec": 23.2,
+   "mutantPanic": "the writer was not woken by the close (close completed before the wait: true): Err(Timeout)",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "M2-MINER",
+   "test": "miner_replacement_keeps_at_most_one_miner_thread",
+   "files": [
+    "prototypes/pocold/src/node.rs"
+   ],
+   "note": "the old miner handle is never dropped/joined (two LIVE at once)",
+   "control": "OK",
+   "controlSec": 51.4,
+   "mutant": "FAILED",
+   "mutantSec": 100.2,
+   "mutantPanic": "assertion `left == right` failed: a miner was started before the previous one was joined",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "F8-DIRTY",
+   "test": "d_a03_dirty_vectors",
+   "files": [
+    "prototypes/lp4-execution/src/user_phase.rs"
+   ],
+   "note": "report DirtyKeys where the block meter halts on dirty accounts",
+   "control": "OK",
+   "controlSec": 56.0,
+   "mutant": "FAILED",
+   "mutantSec": 31.8,
+   "mutantPanic": "assertion `left == right` failed: \"D2 alice sprays 2047: halt, residue already dirty\" tx 0: halt",
+   "result": "CAUGHT"
+  }
+ ]
+}

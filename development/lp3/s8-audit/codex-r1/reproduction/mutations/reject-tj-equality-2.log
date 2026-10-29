@@ -1,0 +1,21 @@
+
+running 6 tests
+test future_equality_and_u64_overflow_edges ... ok
+test inclusive_windows_fallback_and_proposer_edges ... ok
+test network_and_p11_derived_bounds ... ok
+test seeded_adversarial_windows_never_wrap_or_panic ... ok
+test timestamp_limit_and_wire_attempt_limits ... ok
+test exact_millisecond_deadline_and_strict_attempt_transition ... FAILED
+
+failures:
+
+---- exact_millisecond_deadline_and_strict_attempt_transition stdout ----
+thread 'exact_millisecond_deadline_and_strict_attempt_transition' panicked at 'assertion failed: timing::arrives_by_deadline(tj, tj)', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/timing.rs:43:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    exact_millisecond_deadline_and_strict_attempt_transition
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

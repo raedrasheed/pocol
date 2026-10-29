@@ -1,0 +1,16 @@
+# e2e-integrated-whole-state-2: (cd prototypes/pocol-extension; node tests/e2e_integrated.mjs)
+# start 2026-10-28T15:15:36Z, load 2.47 3.10 2.62
+PASS every node runs in the requested state mode — stateStore=false,false,false
+PASS fresh-directory launch: 3 pocold processes produce and agree — t=25s
+PASS BR15 pocol_getTemplate with Origin -> -32601; without Origin -> served — {"code":-32601,"message":"method not available to sites"}
+PASS v1 published through node a; pocol-site fetch from every node gives identical verified bytes — c810903a49ed1e83,c810903a49ed1e83,c810903a49ed1e83
+PASS Chrome renders v1 identically through each node (HTML/CSS/JS/PNG from verified chunks) — {"h1":"LP10 site v1","v":"1","color":"rgb(17, 170, 85)","img":2,"ver":"version 0 · block 33","trust":"LN","errors":0}
+PASS Chrome RP profile accepts the live window and renders v1 — RP
+PASS partition: Chrome via isolated c shows v2 (minority branch) while a shows v1 — LP10 site v2 / LP10 site v1
+PASS partition: branches diverged — c=52 ab=160 base=37
+FAIL LP10 driver completed — Error: timeout: a and b on one tip
+    at wait (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/wt/prototypes/pocol-extension/tests/harness.mjs:24:9)
+    at async main (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b
+kept the failed run's logs and inputs in /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530
+{"result":"FAIL","checks":9,"failed":1,"work":"/tmp/pocol-lp10-gPOTT5","kept":"/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530"}
+# end 2026-10-28T15:20:16Z exit=1

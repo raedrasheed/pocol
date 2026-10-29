@@ -1,0 +1,1000 @@
+info: syncing channel updates for 1.99.1-x86_64-unknown-linux-gnu
+info: latest update on 2026-10-15 for version 1.99.1 (58cf8f9c3 2026-10-13)
+info: downloading 4 components
+warn: the missing active toolchain `1.99.1-x86_64-unknown-linux-gnu` has been auto-installed
+warn: this might cause rustup commands to take longer time to finish than expected
+info: you may opt out with `RUSTUP_AUTO_INSTALL=0` or `rustup set auto-install disable`
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded enum-ordinalize v4.4.2
+  Downloaded ark-ff-macros v0.4.2
+  Downloaded cc v1.9.0
+  Downloaded bitflags v1.3.2
+  Downloaded ark-ff-macros v0.6.0
+  Downloaded bit-set v0.11.1
+  Downloaded block-buffer v0.9.0
+  Downloaded ark-serialize v0.3.0
+  Downloaded ark-serialize-derive v0.6.0
+  Downloaded ark-std v0.6.0
+  Downloaded arrayvec v0.7.8
+  Downloaded block-padding v0.2.1
+  Downloaded bitflags v2.13.2
+  Downloaded ark-serialize v0.5.0
+  Downloaded bit-vec v0.10.1
+  Downloaded block-buffer v0.10.4
+  Downloaded ark-ff-macros v0.5.0
+  Downloaded ark-ff-macros v0.3.0
+  Downloaded cfg_aliases v0.2.2
+  Downloaded enum-ordinalize-derive v4.4.2
+  Downloaded ark-serialize v0.4.2
+  Downloaded digest v0.9.0
+  Downloaded alloy-rlp v0.3.16
+  Downloaded cfg-if v1.0.5
+  Downloaded defmt-parser v1.1.0
+  Downloaded equivalent v1.0.3
+  Downloaded ark-ff-asm v0.4.2
+  Downloaded dyn-clone v1.0.20
+  Downloaded enumn v0.1.14
+  Downloaded fixed-hash v0.8.0
+  Downloaded alloy-rlp-derive v0.3.16
+  Downloaded ark-std v0.5.0
+  Downloaded byte-slice-cast v1.2.3
+  Downloaded ark-std v0.3.0
+  Downloaded aurora-engine-modexp v1.3.0
+  Downloaded group v0.13.0
+  Downloaded digest v0.10.7
+  Downloaded ark-ff-asm v0.5.0
+  Downloaded cpufeatures v0.3.1
+  Downloaded errno v0.3.14
+  Downloaded fastrlp v0.4.0
+  Downloaded base16ct v0.2.0
+  Downloaded fnv v1.0.7
+  Downloaded ark-ff-asm v0.3.0
+  Downloaded crypto-common v0.1.6
+  Downloaded ark-ff-asm v0.6.0
+  Downloaded cpufeatures v0.2.17
+  Downloaded crunchy v0.2.4
+  Downloaded bs58 v0.5.1
+  Downloaded ff v0.13.1
+  Downloaded funty v2.0.0
+  Downloaded const_format_proc_macros v0.2.34
+  Downloaded defmt-macros v1.2.0
+  Downloaded deranged v0.5.9
+  Downloaded either v1.19.0
+  Downloaded fastrand v2.5.0
+  Downloaded alloy-eip2930 v0.1.0
+  Downloaded fastrlp v0.3.1
+  Downloaded ark-std v0.4.0
+  Downloaded convert_case v0.10.0
+  Downloaded core_detect v1.0.0
+  Downloaded alloy-eip7702 v0.5.1
+  Downloaded ecdsa v0.16.9
+  Downloaded getrandom v0.2.17
+  Downloaded threadpool v1.8.1
+  Downloaded const-oid v0.9.6
+  Downloaded chacha20 v0.10.2
+  Downloaded autocfg v1.5.1
+  Downloaded base64ct v1.8.3
+  Downloaded find-msvc-tools v0.1.15
+  Downloaded generic-array v0.14.9
+  Downloaded static_assertions v1.1.0
+  Downloaded auto_impl v1.4.0
+  Downloaded borsh-derive v1.8.1
+  Downloaded byteorder v1.5.0
+  Downloaded ark-ff v0.3.0
+  Downloaded derivative v2.2.0
+  Downloaded defmt v1.2.0
+  Downloaded educe v0.6.0
+  Downloaded foldhash v0.1.5
+  Downloaded borsh v1.8.1
+  Downloaded ark-serialize v0.6.0
+  Downloaded const-hex v1.19.3
+  Downloaded getrandom v0.3.4
+  Downloaded getrandom v0.4.3
+  Downloaded elliptic-curve v0.13.8
+  Downloaded ark-ff v0.4.2
+  Downloaded const_format v0.2.36
+  Downloaded derive_more v2.1.1
+  Downloaded ark-ff v0.5.0
+  Downloaded ark-ff v0.6.0
+  Downloaded crypto-bigint v0.5.5
+  Downloaded der v0.7.10
+  Downloaded bytes v1.12.1
+  Downloaded derive_more-impl v2.1.1
+  Downloaded base64 v0.22.1
+  Downloaded alloy-primitives v0.8.26
+  Downloaded hashbrown v0.12.3
+  Downloaded toml_datetime v1.1.2+spec-1.1.0
+  Downloaded bitvec v1.1.1
+  Downloaded toml_parser v1.1.5+spec-1.1.0
+  Downloaded toml_edit v0.25.17+spec-1.1.0
+  Downloaded chrono v0.4.45
+  Downloaded blst v0.3.17
+  Downloaded syn v2.0.119
+  Downloaded syn v3.0.9
+  Downloaded wait-timeout v0.2.1
+  Downloaded zeroize v1.9.1
+  Downloaded wyz v0.5.1
+  Downloaded zerocopy v0.8.63
+  Downloaded c-kzg v1.0.3
+  Downloaded winnow v1.0.4
+  Downloaded hashbrown v0.17.1
+  Downloaded lazy_static v1.5.1
+  Downloaded serde_json v1.0.145
+  Downloaded parity-scale-codec v3.7.5
+  Downloaded psm v0.1.24
+  Downloaded rand_chacha v0.9.0
+  Downloaded rlp v0.5.2
+  Downloaded ruint-macro v1.2.1
+  Downloaded rustc-hash v2.1.3
+  Downloaded num-rational v0.4.2
+  Downloaded opaque-debug v0.3.1
+  Downloaded rand_core v0.6.4
+  Downloaded sec1 v0.7.3
+  Downloaded serde_derive v1.0.229
+  Downloaded once_cell v1.21.4
+  Downloaded shlex v2.0.1
+  Downloaded quick-error v1.2.3
+  Downloaded tempfile v3.27.0
+  Downloaded ref-cast v1.0.27
+  Downloaded revm-precompile v16.2.0
+  Downloaded libm v0.2.16
+  Downloaded ruint v1.21.0
+  Downloaded sha3-asm v0.1.9
+  Downloaded num-conv v0.2.2
+  Downloaded ucd-trie v0.1.7
+  Downloaded tinyvec v1.13.3
+  Downloaded sha2 v0.10.9
+  Downloaded typenum v1.20.1
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded itoa v1.0.18
+  Downloaded libc v0.2.191
+  Downloaded sha3 v0.10.9
+  Downloaded hex v0.4.3
+  Downloaded keccak v0.1.6
+  Downloaded powerfmt v0.2.1
+  Downloaded rand_xorshift v0.5.0
+  Downloaded ref-cast-impl v1.0.27
+  Downloaded konst_macro_rules v0.2.19
+  Downloaded quote v1.0.47
+  Downloaded num v0.4.3
+  Downloaded proc-macro-crate v3.5.0
+  Downloaded unarray v0.1.4
+  Downloaded num-complex v0.4.6
+  Downloaded ryu v1.0.23
+  Downloaded uint v0.9.5
+  Downloaded serde v1.0.229
+  Downloaded jiff-core v0.1.1
+  Downloaded rustc-hex v2.1.0
+  Downloaded signature v2.2.0
+  Downloaded tap v1.0.1
+  Downloaded rand_core v0.10.1
+  Downloaded num-iter v0.1.46
+  Downloaded impl-codec v0.6.0
+  Downloaded primitive-types v0.12.2
+  Downloaded sha2 v0.9.9
+  Downloaded rand_chacha v0.3.1
+  Downloaded thiserror v2.0.21
+  Downloaded impl-trait-for-tuples v0.2.3
+  Downloaded keccak-asm v0.1.9
+  Downloaded rusty-fork v0.3.1
+  Downloaded tiny-keccak v2.0.2
+  Downloaded pkcs8 v0.10.2
+  Downloaded log v0.4.34
+  Downloaded ripemd v0.1.3
+  Downloaded stacker v0.1.25
+  Downloaded semver v0.11.0
+  Downloaded proc-macro2 v1.0.107
+  Downloaded unicode-ident v1.0.27
+  Downloaded serde_with v3.22.0
+  Downloaded num-traits v0.2.19
+  Downloaded hmac v0.12.1
+  Downloaded iana-time-zone v0.1.65
+  Downloaded indexmap v1.9.3
+  Downloaded serde_core v1.0.229
+  Downloaded num-bigint v0.4.8
+  Downloaded rand v0.8.8
+  Downloaded memchr v2.8.3
+  Downloaded schemars v0.9.0
+  Downloaded substrate-bn v0.6.0
+  Downloaded unicode-segmentation v1.13.3
+  Downloaded indexmap v2.14.2
+  Downloaded pest v2.9.4
+  Downloaded proptest v1.12.0
+  Downloaded rustc_version v0.3.3
+  Downloaded redb v2.6.4
+  Downloaded regex-syntax v0.8.11
+  Downloaded schemars v1.2.3
+  Downloaded revm v19.7.0
+  Downloaded sha3 v0.9.1
+  Downloaded unicode-xid v0.2.6
+  Downloaded paste v1.0.15
+  Downloaded thiserror-impl v2.0.21
+  Downloaded rustc_version v0.4.1
+  Downloaded itertools v0.10.5
+  Downloaded itertools v0.13.0
+  Downloaded time v0.3.55
+  Downloaded k256 v0.13.4
+  Downloaded rand_core v0.9.5
+  Downloaded semver v1.0.28
+  Downloaded spin v0.9.9
+  Downloaded secp256k1 v0.29.1
+  Downloaded spki v0.7.3
+  Downloaded subtle v2.6.1
+  Downloaded rustversion v1.0.23
+  Downloaded version_check v0.9.5
+  Downloaded rustix v1.1.5
+  Downloaded time-core v0.1.9
+  Downloaded syn v1.0.109
+  Downloaded revm-primitives v15.2.0
+  Downloaded zeroize_derive v1.5.0
+  Downloaded revm-interpreter v15.2.0
+  Downloaded rfc6979 v0.4.0
+  Downloaded parity-scale-codec-derive v3.7.5
+  Downloaded radium v0.7.0
+  Downloaded semver-parser v0.10.3
+  Downloaded rand v0.10.3
+  Downloaded jiff v0.2.38
+  Downloaded valuable v0.1.1
+  Downloaded secp256k1-sys v0.10.1
+  Downloaded linux-raw-sys v0.12.1
+  Downloaded num_cpus v1.17.0
+  Downloaded rand v0.9.5
+  Downloaded konst v0.2.20
+  Downloaded num-integer v0.1.47
+  Downloaded time-macros v0.2.32
+  Downloaded hashbrown v0.15.5
+    Blocking waiting for file lock on package cache
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling version_check v0.9.5
+   Compiling libc v0.2.191
+   Compiling typenum v1.20.1
+   Compiling cfg-if v1.0.5
+   Compiling subtle v2.6.1
+   Compiling const-oid v0.9.6
+   Compiling serde_core v1.0.229
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling generic-array v0.14.9
+   Compiling serde v1.0.229
+   Compiling cc v1.9.0
+   Compiling autocfg v1.5.1
+   Compiling base16ct v0.2.0
+   Compiling crunchy v0.2.4
+   Compiling cpufeatures v0.2.17
+   Compiling unicode-segmentation v1.13.3
+   Compiling num-traits v0.2.19
+   Compiling paste v1.0.15
+   Compiling tiny-keccak v2.0.2
+   Compiling unicode-xid v0.2.6
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling convert_case v0.10.0
+   Compiling once_cell v1.21.4
+   Compiling ruint-macro v1.2.1
+   Compiling itoa v1.0.18
+   Compiling getrandom v0.2.17
+   Compiling foldhash v0.1.5
+   Compiling num_cpus v1.17.0
+   Compiling rand_core v0.6.4
+   Compiling num-integer v0.1.47
+   Compiling ff v0.13.1
+   Compiling group v0.13.0
+   Compiling blst v0.3.17
+   Compiling radium v0.7.0
+   Compiling thiserror v2.0.21
+   Compiling c-kzg v1.0.3
+   Compiling threadpool v1.8.1
+   Compiling hex v0.4.3
+   Compiling tap v1.0.1
+   Compiling wyz v0.5.1
+   Compiling const-hex v1.19.3
+   Compiling secp256k1-sys v0.10.1
+   Compiling num-bigint v0.4.8
+   Compiling funty v2.0.0
+   Compiling bitflags v2.13.2
+   Compiling num-iter v0.1.46
+   Compiling rand v0.8.8
+   Compiling num-complex v0.4.6
+   Compiling dyn-clone v1.0.20
+   Compiling spin v0.9.9
+   Compiling byteorder v1.5.0
+   Compiling lazy_static v1.5.1
+   Compiling num-rational v0.4.2
+   Compiling rustc-hex v2.1.0
+   Compiling substrate-bn v0.6.0
+   Compiling block-padding v0.2.1
+   Compiling serde_json v1.0.145
+   Compiling num v0.4.3
+   Compiling aurora-engine-modexp v1.3.0
+   Compiling ryu v1.0.23
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling auto_impl v1.4.0
+   Compiling zeroize_derive v1.5.0
+   Compiling alloy-rlp-derive v0.3.16
+   Compiling zeroize v1.9.1
+   Compiling der v0.7.10
+   Compiling derive_more-impl v2.1.1
+   Compiling enumn v0.1.14
+   Compiling crypto-common v0.1.6
+   Compiling block-buffer v0.10.4
+   Compiling crypto-bigint v0.5.5
+   Compiling digest v0.10.7
+   Compiling hmac v0.12.1
+   Compiling rfc6979 v0.4.0
+   Compiling signature v2.2.0
+   Compiling sha2 v0.10.9
+   Compiling spki v0.7.3
+   Compiling pkcs8 v0.10.2
+   Compiling sec1 v0.7.3
+   Compiling elliptic-curve v0.13.8
+   Compiling ecdsa v0.16.9
+   Compiling bytes v1.12.1
+   Compiling hashbrown v0.15.5
+   Compiling bitvec v1.1.1
+   Compiling k256 v0.13.4
+   Compiling secp256k1 v0.29.1
+   Compiling alloy-rlp v0.3.16
+   Compiling derive_more v2.1.1
+   Compiling ripemd v0.1.3
+   Compiling ruint v1.21.0
+   Compiling block-buffer v0.9.0
+   Compiling digest v0.9.0
+   Compiling memchr v2.8.3
+   Compiling redb v2.6.4
+   Compiling opaque-debug v0.3.1
+   Compiling keccak v0.1.6
+   Compiling alloy-primitives v0.8.26
+   Compiling sha3 v0.9.1
+   Compiling sha2 v0.9.9
+   Compiling alloy-eip7702 v0.5.1
+   Compiling alloy-eip2930 v0.1.0
+   Compiling revm-primitives v15.2.0
+   Compiling revm-interpreter v15.2.0
+   Compiling revm-precompile v16.2.0
+   Compiling revm v19.7.0
+   Compiling pocol-lp4-execution v0.1.0 (<repo>/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (<repo>/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 55.33s
+     Running tests/consensus.rs (target/release/deps/consensus-f8db49eb41a742b7)
+
+running 1 test
+[e44 57783983] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 57783995] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 57784000] head h=3 0x9c23845a656d signed=true txs=2
+[e44 57784005] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 57784010] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 57784015] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 57784021] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 57784025] head h=8 0xa803e9515783 signed=false txs=0
+[e44 57784030] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 57784035] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 57784041] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 57784046] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 57784052] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 57784057] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 57784065] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 57784070] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 57784076] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 57784082] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 57784088] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 57784094] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 57784099] head h=21 0x3c809b835860 signed=false txs=0
+[e44 57784104] head h=22 0xd8bb44fe04f5 signed=false txs=0
+[e44 57784110] head h=23 0x26de71a890af signed=true txs=2
+[e44 57784116] head h=24 0xf264474baca2 signed=false txs=0
+[e44 57784122] head h=25 0xce6d75bfdeae signed=false txs=0
+[e44 57784131] head h=26 0x27a16aea8561 signed=false txs=0
+[e44 57784141] head h=27 0x06976c88ec44 signed=true txs=2
+[e44 57784149] head h=28 0x06f7cc24d0f6 signed=false txs=0
+[e44 57784155] head h=29 0x6b9c2a5181bf signed=false txs=0
+[e44 57784161] head h=30 0xfcb85509dc47 signed=false txs=0
+[e44 57784168] head h=31 0xc1a42987854b signed=true txs=2
+[e44 57784174] head h=32 0xb64be6560cab signed=false txs=0
+[e44 57784180] head h=33 0x77503668703d signed=false txs=0
+[e44 57784187] head h=34 0x032b50b55cac signed=false txs=0
+[e44 57784193] head h=35 0x3e56ec29d2ce signed=true txs=2
+[e44 57784199] head h=36 0xb3235d1b9a41 signed=false txs=0
+[e44 57784205] head h=37 0xa64a062654cc signed=false txs=0
+[e44 57784211] head h=38 0x69b1a66a51df signed=false txs=0
+[e44 57784217] head h=39 0x448a01b5f503 signed=true txs=2
+[e44 57784223] head h=40 0x2693a63d9f7a signed=false txs=0
+[e44 57784235] head h=41 0x5ebc162c10dd signed=false txs=0
+[e44 57784243] head h=42 0x4d39fd7aefc0 signed=false txs=0
+[e44 57784253] head h=43 0x6fdfded36eb7 signed=true txs=2
+[e44 57784262] head h=44 0x1bfafb97407d signed=false txs=0
+[e44 57784271] head h=45 0xba9ce184ff56 signed=false txs=0
+[e44 57784279] head h=46 0x5d2064b4eef5 signed=false txs=0
+[e44 57784289] head h=47 0x8ac76eeba129 signed=true txs=2
+[e44 57784299] head h=48 0xb2a0cf0392e4 signed=false txs=0
+[e44 57784306] head h=49 0xfc5dcdd8014f signed=false txs=0
+[e44 57784311] head h=50 0x0ad06a1a630b signed=false txs=0
+[e44 57784317] head h=51 0xa03b6938c920 signed=true txs=2
+[e44 57784323] head h=52 0xdf1b16e90036 signed=false txs=0
+[e44 57784328] head h=53 0xefe32398ee30 signed=false txs=0
+[e44 57784334] head h=54 0xb0dd34f98287 signed=false txs=0
+[e44 57784343] head h=55 0x7bda2ee139c8 signed=true txs=2
+[e44 57784349] head h=56 0xb56b9db45d91 signed=false txs=0
+[e44 57784355] head h=57 0x200e7dd052e4 signed=false txs=0
+[e44 57784361] head h=58 0x787aeb71b48f signed=false txs=0
+[e44 57784367] head h=59 0xc92e246ef096 signed=true txs=2
+[e44 57784373] head h=60 0x6b08d55b7dee signed=false txs=0
+[e44 57784379] head h=61 0x3d754e47b0aa signed=false txs=0
+[e44 57784389] head h=62 0x4fb04e4b3f11 signed=false txs=0
+[e44 57784395] head h=63 0xabb77bd73868 signed=true txs=2
+[e44 57784401] head h=64 0x160c52abd064 signed=false txs=0
+[e44 57784407] head h=65 0xfb96873cf75a signed=false txs=0
+[e44 57784413] head h=66 0x1c5c72bdfa19 signed=false txs=0
+[e44 57784419] head h=67 0x2690fef53b0f signed=true txs=2
+[e44 57784426] head h=68 0x51830160a027 signed=false txs=0
+[e44 57784437] head h=69 0xa30ecc72ebd1 signed=false txs=0
+[e44 57784443] head h=70 0x766d00c36a5a signed=false txs=0
+[e44 57784450] head h=71 0xad3d64372f1c signed=true txs=2
+[e44 57784457] head h=72 0x9df69c020584 signed=false txs=0
+[e44 57784463] head h=73 0x07261eb7cb3b signed=false txs=0
+[e44 57784470] head h=74 0x02daafbe04e7 signed=false txs=0
+[e44 57784477] head h=75 0x0054a1c2e056 signed=true txs=2
+[e44 57784489] head h=76 0x0f7731401058 signed=false txs=0
+[e44 57784495] head h=77 0x9278ee220f6d signed=false txs=0
+[e44 57784501] head h=78 0x456d23099425 signed=false txs=0
+[e44 57784508] head h=79 0x3c3cf8cae1ad signed=true txs=2
+[e44 57784514] head h=80 0x53245d0feb07 signed=false txs=0
+[e44 57784520] head h=81 0xe7c6b94cdec4 signed=false txs=0
+[e44 57784527] head h=82 0xddc927b4bf45 signed=false txs=0
+[e44 57784538] head h=83 0x9e79c9a9f4d4 signed=true txs=2
+[e44 57784544] head h=84 0x282c7c805edc signed=false txs=0
+[e44 57784550] head h=85 0xd380c450cac0 signed=false txs=0
+[e44 57784556] head h=86 0x9323bf82b361 signed=false txs=0
+[e44 57784563] head h=87 0x240184b03c99 signed=true txs=2
+[e44 57784570] head h=88 0xf91e4cdc19f2 signed=false txs=0
+[e44 57784576] head h=89 0xb391c51e7a1a signed=false txs=0
+[e44 57784588] head h=90 0xc63f168f7ad7 signed=false txs=0
+[e44 57784594] head h=91 0x3b53ace017c0 signed=true txs=2
+[e44 57784600] head h=92 0x3363dd70fd96 signed=false txs=0
+[e44 57784606] head h=93 0x527f7b65577d signed=false txs=0
+[e44 57784612] head h=94 0x5396466c567a signed=false txs=0
+[e44 57784619] head h=95 0x2dd98795cd7e signed=true txs=2
+[e44 57784625] head h=96 0x149d0aea4829 signed=false txs=0
+[e44 57784638] head h=97 0xd3c7859b36f2 signed=false txs=0
+[e44 57784645] head h=98 0x049cc6276e8b signed=false txs=0
+[e44 57784660] head h=98 0x342e7c3f1972 signed=false txs=0
+[e44 57784682] head h=99 0x28a66fa25cd5 signed=false txs=0
+[e44 57784691] head h=100 0xa31e16509667 signed=false txs=0
+[e44 57784739] head h=101 0xe4180adf273f signed=false txs=0
+[e44 57784748] head h=102 0x29575f1d7a1d signed=false txs=0
+[e44 57785906] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 57785919] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 57785924] head h=3 0x9c23845a656d signed=true txs=2
+[e44 57785930] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 57785934] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 57785940] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 57785945] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 57785949] head h=8 0xa803e9515783 signed=false txs=0
+[e44 57785954] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 57785958] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 57785964] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 57785968] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 57785974] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 57785978] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 57785984] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 57785989] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 57785994] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 57785999] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 57786005] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 57786011] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 57786016] head h=21 0x3c809b835860 signed=false txs=0
+[e44 57786022] head h=22 0xd8bb44fe04f5 signed=false txs=0
+[e44 57786028] head h=23 0x26de71a890af signed=true txs=2
+[e44 57786034] head h=24 0xf264474baca2 signed=false txs=0
+[e44 57786040] head h=25 0xce6d75bfdeae signed=false txs=0
+[e44 57786045] head h=26 0x27a16aea8561 signed=false txs=0
+[e44 57786053] head h=27 0x06976c88ec44 signed=true txs=2
+[e44 57786059] head h=28 0x06f7cc24d0f6 signed=false txs=0
+[e44 57786064] head h=29 0x6b9c2a5181bf signed=false txs=0
+[e44 57786070] head h=30 0xfcb85509dc47 signed=false txs=0
+[e44 57786076] head h=31 0xc1a42987854b signed=true txs=2
+[e44 57786082] head h=32 0xb64be6560cab signed=false txs=0
+[e44 57786088] head h=33 0x77503668703d signed=false txs=0
+[e44 57786095] head h=34 0x032b50b55cac signed=false txs=0
+[e44 57786101] head h=35 0x3e56ec29d2ce signed=true txs=2
+[e44 57786106] head h=36 0xb3235d1b9a41 signed=false txs=0
+[e44 57786112] head h=37 0xa64a062654cc signed=false txs=0
+[e44 57786117] head h=38 0x69b1a66a51df signed=false txs=0
+[e44 57786123] head h=39 0x448a01b5f503 signed=true txs=2
+[e44 57786129] head h=40 0x2693a63d9f7a signed=false txs=0
+[e44 57786136] head h=41 0x5ebc162c10dd signed=false txs=0
+[e44 57786143] head h=42 0x4d39fd7aefc0 signed=false txs=0
+[e44 57786148] head h=43 0x6fdfded36eb7 signed=true txs=2
+[e44 57786155] head h=44 0x1bfafb97407d signed=false txs=0
+[e44 57786160] head h=45 0xba9ce184ff56 signed=false txs=0
+[e44 57786166] head h=46 0x5d2064b4eef5 signed=false txs=0
+[e44 57786172] head h=47 0x8ac76eeba129 signed=true txs=2
+[e44 57786179] head h=48 0xb2a0cf0392e4 signed=false txs=0
+[e44 57786186] head h=49 0xfc5dcdd8014f signed=false txs=0
+[e44 57786192] head h=50 0x0ad06a1a630b signed=false txs=0
+[e44 57786199] head h=51 0xa03b6938c920 signed=true txs=2
+[e44 57786205] head h=52 0xdf1b16e90036 signed=false txs=0
+[e44 57786211] head h=53 0xefe32398ee30 signed=false txs=0
+[e44 57786221] head h=54 0xb0dd34f98287 signed=false txs=0
+[e44 57786232] head h=55 0x7bda2ee139c8 signed=true txs=2
+[e44 57786237] head h=56 0xb56b9db45d91 signed=false txs=0
+[e44 57786243] head h=57 0x200e7dd052e4 signed=false txs=0
+[e44 57786249] head h=58 0x787aeb71b48f signed=false txs=0
+[e44 57786255] head h=59 0xc92e246ef096 signed=true txs=2
+[e44 57786261] head h=60 0x6b08d55b7dee signed=false txs=0
+[e44 57786267] head h=61 0x3d754e47b0aa signed=false txs=0
+[e44 57786278] head h=62 0x4fb04e4b3f11 signed=false txs=0
+[e44 57786288] head h=63 0xabb77bd73868 signed=true txs=2
+[e44 57786294] head h=64 0x160c52abd064 signed=false txs=0
+[e44 57786301] head h=65 0xfb96873cf75a signed=false txs=0
+[e44 57786307] head h=66 0x1c5c72bdfa19 signed=false txs=0
+[e44 57786314] head h=67 0x2690fef53b0f signed=true txs=2
+[e44 57786320] head h=68 0x51830160a027 signed=false txs=0
+[e44 57786330] head h=69 0xa30ecc72ebd1 signed=false txs=0
+[e44 57786336] head h=70 0x766d00c36a5a signed=false txs=0
+[e44 57786343] head h=71 0xad3d64372f1c signed=true txs=2
+[e44 57786350] head h=72 0x9df69c020584 signed=false txs=0
+[e44 57786357] head h=73 0x07261eb7cb3b signed=false txs=0
+[e44 57786364] head h=74 0x02daafbe04e7 signed=false txs=0
+[e44 57786371] head h=75 0x0054a1c2e056 signed=true txs=2
+[e44 57786381] head h=76 0x0f7731401058 signed=false txs=0
+[e44 57786387] head h=77 0x9278ee220f6d signed=false txs=0
+[e44 57786393] head h=78 0x456d23099425 signed=false txs=0
+[e44 57786401] head h=79 0x3c3cf8cae1ad signed=true txs=2
+[e44 57786407] head h=80 0x53245d0feb07 signed=false txs=0
+[e44 57786414] head h=81 0xe7c6b94cdec4 signed=false txs=0
+[e44 57786420] head h=82 0xddc927b4bf45 signed=false txs=0
+[e44 57786434] head h=83 0x9e79c9a9f4d4 signed=true txs=2
+[e44 57786443] head h=84 0x282c7c805edc signed=false txs=0
+[e44 57786453] head h=85 0xd380c450cac0 signed=false txs=0
+[e44 57786461] head h=86 0x9323bf82b361 signed=false txs=0
+[e44 57786468] head h=87 0x240184b03c99 signed=true txs=2
+[e44 57786474] head h=88 0xf91e4cdc19f2 signed=false txs=0
+[e44 57786481] head h=89 0xb391c51e7a1a signed=false txs=0
+[e44 57786491] head h=90 0xc63f168f7ad7 signed=false txs=0
+[e44 57786498] head h=91 0x3b53ace017c0 signed=true txs=2
+[e44 57786507] head h=92 0x3363dd70fd96 signed=false txs=0
+[e44 57786515] head h=93 0x527f7b65577d signed=false txs=0
+[e44 57786523] head h=94 0x5396466c567a signed=false txs=0
+[e44 57786533] head h=95 0x2dd98795cd7e signed=true txs=2
+[e44 57786541] head h=96 0x149d0aea4829 signed=false txs=0
+[e44 57786554] head h=97 0xd3c7859b36f2 signed=false txs=0
+[e44 57786562] head h=98 0x049cc6276e8b signed=false txs=0
+[e44 57786584] head h=98 0x342e7c3f1972 signed=false txs=0
+[e44 57786594] head h=99 0x28a66fa25cd5 signed=false txs=0
+[e44 57786603] head h=100 0xa31e16509667 signed=false txs=0
+[e44 57786640] head h=101 0xe4180adf273f signed=false txs=0
+[e44 57786645] head h=102 0x29575f1d7a1d signed=false txs=0
+C-1 E4: releasing a state version failed: I/O failure: Previous I/O error occurred. Please close and re-open the database.
+[e44 57787777] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 57787790] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 57787797] head h=3 0x9c23845a656d signed=true txs=2
+[e44 57787804] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 57787811] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 57787819] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 57787827] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 57787833] head h=8 0xa803e9515783 signed=false txs=0
+[e44 57787838] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 57787843] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 57787848] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 57787853] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 57787859] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 57787864] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 57787870] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 57787875] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 57787880] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 57787886] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 57787893] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 57787898] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 57787904] head h=21 0x3c809b835860 signed=false txs=0
+[e44 57787910] head h=22 0xd8bb44fe04f5 signed=false txs=0
+[e44 57787917] head h=23 0x26de71a890af signed=true txs=2
+[e44 57787922] head h=24 0xf264474baca2 signed=false txs=0
+[e44 57787928] head h=25 0xce6d75bfdeae signed=false txs=0
+[e44 57787933] head h=26 0x27a16aea8561 signed=false txs=0
+[e44 57787941] head h=27 0x06976c88ec44 signed=true txs=2
+[e44 57787946] head h=28 0x06f7cc24d0f6 signed=false txs=0
+[e44 57787952] head h=29 0x6b9c2a5181bf signed=false txs=0
+[e44 57787957] head h=30 0xfcb85509dc47 signed=false txs=0
+[e44 57788138] head h=31 0xc1a42987854b signed=true txs=2
+[e44 57788145] head h=32 0xb64be6560cab signed=false txs=0
+[e44 57788152] head h=33 0x77503668703d signed=false txs=0
+[e44 57788160] head h=34 0x032b50b55cac signed=false txs=0
+[e44 57788166] head h=35 0x3e56ec29d2ce signed=true txs=2
+[e44 57788172] head h=36 0xb3235d1b9a41 signed=false txs=0
+[e44 57788178] head h=37 0xa64a062654cc signed=false txs=0
+[e44 57788184] head h=38 0x69b1a66a51df signed=false txs=0
+[e44 57788192] head h=39 0x448a01b5f503 signed=true txs=2
+[e44 57788198] head h=40 0x2693a63d9f7a signed=false txs=0
+[e44 57788206] head h=41 0x5ebc162c10dd signed=false txs=0
+[e44 57788211] head h=42 0x4d39fd7aefc0 signed=false txs=0
+[e44 57788217] head h=43 0x6fdfded36eb7 signed=true txs=2
+[e44 57788222] head h=44 0x1bfafb97407d signed=false txs=0
+[e44 57788228] head h=45 0xba9ce184ff56 signed=false txs=0
+[e44 57788234] head h=46 0x5d2064b4eef5 signed=false txs=0
+[e44 57788242] head h=47 0x8ac76eeba129 signed=true txs=2
+[e44 57788253] head h=48 0xb2a0cf0392e4 signed=false txs=0
+[e44 57788259] head h=49 0xfc5dcdd8014f signed=false txs=0
+[e44 57788265] head h=50 0x0ad06a1a630b signed=false txs=0
+[e44 57788272] head h=51 0xa03b6938c920 signed=true txs=2
+[e44 57788279] head h=52 0xdf1b16e90036 signed=false txs=0
+[e44 57788285] head h=53 0xefe32398ee30 signed=false txs=0
+[e44 57788291] head h=54 0xb0dd34f98287 signed=false txs=0
+[e44 57788301] head h=55 0x7bda2ee139c8 signed=true txs=2
+[e44 57788308] head h=56 0xb56b9db45d91 signed=false txs=0
+[e44 57788314] head h=57 0x200e7dd052e4 signed=false txs=0
+[e44 57788320] head h=58 0x787aeb71b48f signed=false txs=0
+[e44 57788327] head h=59 0xc92e246ef096 signed=true txs=2
+[e44 57788333] head h=60 0x6b08d55b7dee signed=false txs=0
+[e44 57788339] head h=61 0x3d754e47b0aa signed=false txs=0
+[e44 57788349] head h=62 0x4fb04e4b3f11 signed=false txs=0
+[e44 57788355] head h=63 0xabb77bd73868 signed=true txs=2
+[e44 57788362] head h=64 0x160c52abd064 signed=false txs=0
+[e44 57788368] head h=65 0xfb96873cf75a signed=false txs=0
+[e44 57788374] head h=66 0x1c5c72bdfa19 signed=false txs=0
+[e44 57788380] head h=67 0x2690fef53b0f signed=true txs=2
+[e44 57788386] head h=68 0x51830160a027 signed=false txs=0
+[e44 57788396] head h=69 0xa30ecc72ebd1 signed=false txs=0
+[e44 57788403] head h=70 0x766d00c36a5a signed=false txs=0
+[e44 57788409] head h=71 0xad3d64372f1c signed=true txs=2
+[e44 57788416] head h=72 0x9df69c020584 signed=false txs=0
+[e44 57788422] head h=73 0x07261eb7cb3b signed=false txs=0
+[e44 57788429] head h=74 0x02daafbe04e7 signed=false txs=0
+[e44 57788437] head h=75 0x0054a1c2e056 signed=true txs=2
+[e44 57788450] head h=76 0x0f7731401058 signed=false txs=0
+[e44 57788456] head h=77 0x9278ee220f6d signed=false txs=0
+[e44 57788462] head h=78 0x456d23099425 signed=false txs=0
+[e44 57788468] head h=79 0x3c3cf8cae1ad signed=true txs=2
+[e44 57788474] head h=80 0x53245d0feb07 signed=false txs=0
+[e44 57788480] head h=81 0xe7c6b94cdec4 signed=false txs=0
+[e44 57788486] head h=82 0xddc927b4bf45 signed=false txs=0
+[e44 57788498] head h=83 0x9e79c9a9f4d4 signed=true txs=2
+[e44 57788504] head h=84 0x282c7c805edc signed=false txs=0
+[e44 57788510] head h=85 0xd380c450cac0 signed=false txs=0
+[e44 57788516] head h=86 0x9323bf82b361 signed=false txs=0
+[e44 57788522] head h=87 0x240184b03c99 signed=true txs=2
+[e44 57788527] head h=88 0xf91e4cdc19f2 signed=false txs=0
+[e44 57788534] head h=89 0xb391c51e7a1a signed=false txs=0
+[e44 57788545] head h=90 0xc63f168f7ad7 signed=false txs=0
+[e44 57788551] head h=91 0x3b53ace017c0 signed=true txs=2
+[e44 57788557] head h=92 0x3363dd70fd96 signed=false txs=0
+[e44 57788563] head h=93 0x527f7b65577d signed=false txs=0
+[e44 57788569] head h=94 0x5396466c567a signed=false txs=0
+[e44 57788576] head h=95 0x2dd98795cd7e signed=true txs=2
+[e44 57788582] head h=96 0x149d0aea4829 signed=false txs=0
+[e44 57788592] head h=97 0xd3c7859b36f2 signed=false txs=0
+[e44 57788598] head h=98 0x049cc6276e8b signed=false txs=0
+[e44 57788612] head h=98 0x342e7c3f1972 signed=false txs=0
+[e44 57788618] head h=99 0x28a66fa25cd5 signed=false txs=0
+[e44 57788623] head h=100 0xa31e16509667 signed=false txs=0
+[e44 57788663] head h=101 0xe4180adf273f signed=false txs=0
+[e44 57788669] head h=102 0x29575f1d7a1d signed=false txs=0
+[e44] checkpoint 14 (record 105) refused: it is not bound to this journal's records
+C-1 E4: releasing a state version failed: I/O failure: Previous I/O error occurred. Please close and re-open the database.
+[e44] checkpoint 14 (record 105) refused: it is not bound to this journal's records
+[e44 57789805] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 57789815] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 57789820] head h=3 0x9c23845a656d signed=true txs=2
+[e44 57789825] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 57789830] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 57789835] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 57789841] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 57789846] head h=8 0xa803e9515783 signed=false txs=0
+[e44 57789850] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 57789855] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 57789860] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 57789865] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 57789871] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 57789878] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 57789884] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 57789889] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 57789894] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 57789899] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 57789904] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 57789911] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 57789916] head h=21 0x3c809b835860 signed=false txs=0
+[e44 57789921] head h=22 0xd8bb44fe04f5 signed=false txs=0
+[e44 57789928] head h=23 0x26de71a890af signed=true txs=2
+[e44 57789934] head h=24 0xf264474baca2 signed=false txs=0
+[e44 57789939] head h=25 0xce6d75bfdeae signed=false txs=0
+[e44 57789944] head h=26 0x27a16aea8561 signed=false txs=0
+[e44 57789951] head h=27 0x06976c88ec44 signed=true txs=2
+[e44 57789956] head h=28 0x06f7cc24d0f6 signed=false txs=0
+[e44 57789961] head h=29 0x6b9c2a5181bf signed=false txs=0
+[e44 57789971] head h=30 0xfcb85509dc47 signed=false txs=0
+[e44 57789978] head h=31 0xc1a42987854b signed=true txs=2
+[e44 57789984] head h=32 0xb64be6560cab signed=false txs=0
+[e44 57789989] head h=33 0x77503668703d signed=false txs=0
+[e44 57789997] head h=34 0x032b50b55cac signed=false txs=0
+[e44 57790003] head h=35 0x3e56ec29d2ce signed=true txs=2
+[e44 57790009] head h=36 0xb3235d1b9a41 signed=false txs=0
+[e44 57790014] head h=37 0xa64a062654cc signed=false txs=0
+[e44 57790020] head h=38 0x69b1a66a51df signed=false txs=0
+[e44 57790027] head h=39 0x448a01b5f503 signed=true txs=2
+[e44 57790032] head h=40 0x2693a63d9f7a signed=false txs=0
+[e44 57790039] head h=41 0x5ebc162c10dd signed=false txs=0
+[e44 57790044] head h=42 0x4d39fd7aefc0 signed=false txs=0
+[e44 57790051] head h=43 0x6fdfded36eb7 signed=true txs=2
+[e44 57790056] head h=44 0x1bfafb97407d signed=false txs=0
+[e44 57790062] head h=45 0xba9ce184ff56 signed=false txs=0
+[e44 57790067] head h=46 0x5d2064b4eef5 signed=false txs=0
+[e44 57790074] head h=47 0x8ac76eeba129 signed=true txs=2
+[e44 57790082] head h=48 0xb2a0cf0392e4 signed=false txs=0
+[e44 57790089] head h=49 0xfc5dcdd8014f signed=false txs=0
+[e44 57790095] head h=50 0x0ad06a1a630b signed=false txs=0
+[e44 57790102] head h=51 0xa03b6938c920 signed=true txs=2
+[e44 57790107] head h=52 0xdf1b16e90036 signed=false txs=0
+[e44 57790113] head h=53 0xefe32398ee30 signed=false txs=0
+[e44 57790120] head h=54 0xb0dd34f98287 signed=false txs=0
+[e44 57790133] head h=55 0x7bda2ee139c8 signed=true txs=2
+[e44 57790142] head h=56 0xb56b9db45d91 signed=false txs=0
+[e44 57790151] head h=57 0x200e7dd052e4 signed=false txs=0
+[e44 57790158] head h=58 0x787aeb71b48f signed=false txs=0
+[e44 57790165] head h=59 0xc92e246ef096 signed=true txs=2
+[e44 57790171] head h=60 0x6b08d55b7dee signed=false txs=0
+[e44 57790177] head h=61 0x3d754e47b0aa signed=false txs=0
+[e44 57790187] head h=62 0x4fb04e4b3f11 signed=false txs=0
+[e44 57790193] head h=63 0xabb77bd73868 signed=true txs=2
+[e44 57790200] head h=64 0x160c52abd064 signed=false txs=0
+[e44 57790205] head h=65 0xfb96873cf75a signed=false txs=0
+[e44 57790211] head h=66 0x1c5c72bdfa19 signed=false txs=0
+[e44 57790218] head h=67 0x2690fef53b0f signed=true txs=2
+[e44 57790224] head h=68 0x51830160a027 signed=false txs=0
+[e44 57790234] head h=69 0xa30ecc72ebd1 signed=false txs=0
+[e44 57790240] head h=70 0x766d00c36a5a signed=false txs=0
+[e44 57790247] head h=71 0xad3d64372f1c signed=true txs=2
+[e44 57790253] head h=72 0x9df69c020584 signed=false txs=0
+[e44 57790259] head h=73 0x07261eb7cb3b signed=false txs=0
+[e44 57790265] head h=74 0x02daafbe04e7 signed=false txs=0
+[e44 57790271] head h=75 0x0054a1c2e056 signed=true txs=2
+[e44 57790281] head h=76 0x0f7731401058 signed=false txs=0
+[e44 57790287] head h=77 0x9278ee220f6d signed=false txs=0
+[e44 57790294] head h=78 0x456d23099425 signed=false txs=0
+[e44 57790301] head h=79 0x3c3cf8cae1ad signed=true txs=2
+[e44 57790307] head h=80 0x53245d0feb07 signed=false txs=0
+[e44 57790314] head h=81 0xe7c6b94cdec4 signed=false txs=0
+[e44 57790320] head h=82 0xddc927b4bf45 signed=false txs=0
+[e44 57790332] head h=83 0x9e79c9a9f4d4 signed=true txs=2
+[e44 57790338] head h=84 0x282c7c805edc signed=false txs=0
+[e44 57790343] head h=85 0xd380c450cac0 signed=false txs=0
+[e44 57790350] head h=86 0x9323bf82b361 signed=false txs=0
+[e44 57790357] head h=87 0x240184b03c99 signed=true txs=2
+[e44 57790362] head h=88 0xf91e4cdc19f2 signed=false txs=0
+[e44 57790368] head h=89 0xb391c51e7a1a signed=false txs=0
+[e44 57790378] head h=90 0xc63f168f7ad7 signed=false txs=0
+[e44 57790384] head h=91 0x3b53ace017c0 signed=true txs=2
+[e44 57790390] head h=92 0x3363dd70fd96 signed=false txs=0
+[e44 57790395] head h=93 0x527f7b65577d signed=false txs=0
+[e44 57790401] head h=94 0x5396466c567a signed=false txs=0
+[e44 57790408] head h=95 0x2dd98795cd7e signed=true txs=2
+[e44 57790414] head h=96 0x149d0aea4829 signed=false txs=0
+[e44 57790425] head h=97 0xd3c7859b36f2 signed=false txs=0
+[e44 57790430] head h=98 0x049cc6276e8b signed=false txs=0
+[e44 57790446] head h=98 0x342e7c3f1972 signed=false txs=0
+[e44 57790452] head h=99 0x28a66fa25cd5 signed=false txs=0
+[e44 57790459] head h=100 0xa31e16509667 signed=false txs=0
+[e44 57790495] head h=101 0xe4180adf273f signed=false txs=0
+[e44 57790502] head h=102 0x29575f1d7a1d signed=false txs=0
+[e44 57791587] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 57791598] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 57791603] head h=3 0x9c23845a656d signed=true txs=2
+[e44 57791607] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 57791611] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 57791617] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 57791622] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 57791627] head h=8 0xa803e9515783 signed=false txs=0
+[e44 57791632] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 57791637] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 57791643] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 57791648] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 57791654] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 57791659] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 57791665] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 57791670] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 57791675] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 57791681] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 57791687] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 57791693] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 57791698] head h=21 0x3c809b835860 signed=false txs=0
+[e44 57791703] head h=22 0xd8bb44fe04f5 signed=false txs=0
+[e44 57791710] head h=23 0x26de71a890af signed=true txs=2
+[e44 57791716] head h=24 0xf264474baca2 signed=false txs=0
+[e44 57791721] head h=25 0xce6d75bfdeae signed=false txs=0
+[e44 57791726] head h=26 0x27a16aea8561 signed=false txs=0
+[e44 57791734] head h=27 0x06976c88ec44 signed=true txs=2
+[e44 57791739] head h=28 0x06f7cc24d0f6 signed=false txs=0
+[e44 57791745] head h=29 0x6b9c2a5181bf signed=false txs=0
+[e44 57791750] head h=30 0xfcb85509dc47 signed=false txs=0
+[e44 57791756] head h=31 0xc1a42987854b signed=true txs=2
+[e44 57791763] head h=32 0xb64be6560cab signed=false txs=0
+[e44 57791768] head h=33 0x77503668703d signed=false txs=0
+[e44 57791775] head h=34 0x032b50b55cac signed=false txs=0
+[e44 57791782] head h=35 0x3e56ec29d2ce signed=true txs=2
+[e44 57791788] head h=36 0xb3235d1b9a41 signed=false txs=0
+[e44 57791795] head h=37 0xa64a062654cc signed=false txs=0
+[e44 57791801] head h=38 0x69b1a66a51df signed=false txs=0
+[e44 57791809] head h=39 0x448a01b5f503 signed=true txs=2
+[e44 57791816] head h=40 0x2693a63d9f7a signed=false txs=0
+[e44 57791823] head h=41 0x5ebc162c10dd signed=false txs=0
+[e44 57791828] head h=42 0x4d39fd7aefc0 signed=false txs=0
+[e44 57791834] head h=43 0x6fdfded36eb7 signed=true txs=2
+[e44 57791840] head h=44 0x1bfafb97407d signed=false txs=0
+[e44 57791845] head h=45 0xba9ce184ff56 signed=false txs=0
+[e44 57791851] head h=46 0x5d2064b4eef5 signed=false txs=0
+[e44 57791857] head h=47 0x8ac76eeba129 signed=true txs=2
+[e44 57791864] head h=48 0xb2a0cf0392e4 signed=false txs=0
+[e44 57791869] head h=49 0xfc5dcdd8014f signed=false txs=0
+[e44 57791875] head h=50 0x0ad06a1a630b signed=false txs=0
+[e44 57791881] head h=51 0xa03b6938c920 signed=true txs=2
+[e44 57791886] head h=52 0xdf1b16e90036 signed=false txs=0
+[e44 57791891] head h=53 0xefe32398ee30 signed=false txs=0
+[e44 57791897] head h=54 0xb0dd34f98287 signed=false txs=0
+[e44 57791906] head h=55 0x7bda2ee139c8 signed=true txs=2
+[e44 57791915] head h=56 0xb56b9db45d91 signed=false txs=0
+[e44 57791920] head h=57 0x200e7dd052e4 signed=false txs=0
+[e44 57791926] head h=58 0x787aeb71b48f signed=false txs=0
+[e44 57791932] head h=59 0xc92e246ef096 signed=true txs=2
+[e44 57791938] head h=60 0x6b08d55b7dee signed=false txs=0
+[e44 57791945] head h=61 0x3d754e47b0aa signed=false txs=0
+[e44 57791959] head h=62 0x4fb04e4b3f11 signed=false txs=0
+[e44 57791967] head h=63 0xabb77bd73868 signed=true txs=2
+[e44 57791976] head h=64 0x160c52abd064 signed=false txs=0
+[e44 57791984] head h=65 0xfb96873cf75a signed=false txs=0
+[e44 57791992] head h=66 0x1c5c72bdfa19 signed=false txs=0
+[e44 57792000] head h=67 0x2690fef53b0f signed=true txs=2
+[e44 57792006] head h=68 0x51830160a027 signed=false txs=0
+[e44 57792017] head h=69 0xa30ecc72ebd1 signed=false txs=0
+[e44 57792023] head h=70 0x766d00c36a5a signed=false txs=0
+[e44 57792029] head h=71 0xad3d64372f1c signed=true txs=2
+[e44 57792035] head h=72 0x9df69c020584 signed=false txs=0
+[e44 57792041] head h=73 0x07261eb7cb3b signed=false txs=0
+[e44 57792047] head h=74 0x02daafbe04e7 signed=false txs=0
+[e44 57792054] head h=75 0x0054a1c2e056 signed=true txs=2
+[e44 57792063] head h=76 0x0f7731401058 signed=false txs=0
+[e44 57792069] head h=77 0x9278ee220f6d signed=false txs=0
+[e44 57792075] head h=78 0x456d23099425 signed=false txs=0
+[e44 57792082] head h=79 0x3c3cf8cae1ad signed=true txs=2
+[e44 57792087] head h=80 0x53245d0feb07 signed=false txs=0
+[e44 57792093] head h=81 0xe7c6b94cdec4 signed=false txs=0
+[e44 57792098] head h=82 0xddc927b4bf45 signed=false txs=0
+[e44 57792111] head h=83 0x9e79c9a9f4d4 signed=true txs=2
+[e44 57792117] head h=84 0x282c7c805edc signed=false txs=0
+[e44 57792124] head h=85 0xd380c450cac0 signed=false txs=0
+[e44 57792129] head h=86 0x9323bf82b361 signed=false txs=0
+[e44 57792136] head h=87 0x240184b03c99 signed=true txs=2
+[e44 57792143] head h=88 0xf91e4cdc19f2 signed=false txs=0
+[e44 57792149] head h=89 0xb391c51e7a1a signed=false txs=0
+[e44 57792160] head h=90 0xc63f168f7ad7 signed=false txs=0
+[e44 57792166] head h=91 0x3b53ace017c0 signed=true txs=2
+[e44 57792172] head h=92 0x3363dd70fd96 signed=false txs=0
+[e44 57792177] head h=93 0x527f7b65577d signed=false txs=0
+[e44 57792183] head h=94 0x5396466c567a signed=false txs=0
+[e44 57792190] head h=95 0x2dd98795cd7e signed=true txs=2
+[e44 57792196] head h=96 0x149d0aea4829 signed=false txs=0
+[e44 57792206] head h=97 0xd3c7859b36f2 signed=false txs=0
+[e44 57792212] head h=98 0x049cc6276e8b signed=false txs=0
+[e44 57792227] head h=98 0x342e7c3f1972 signed=false txs=0
+[e44 57792233] head h=99 0x28a66fa25cd5 signed=false txs=0
+[e44 57792239] head h=100 0xa31e16509667 signed=false txs=0
+[e44 57792275] head h=101 0xe4180adf273f signed=false txs=0
+[e44 57792282] head h=102 0x29575f1d7a1d signed=false txs=0
+[e44 57793420] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 57793432] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 57793437] head h=3 0x9c23845a656d signed=true txs=2
+[e44 57793444] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 57793448] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 57793454] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 57793459] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 57793463] head h=8 0xa803e9515783 signed=false txs=0
+[e44 57793468] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 57793473] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 57793478] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 57793484] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 57793489] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 57793494] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 57793500] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 57793505] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 57793510] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 57793515] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 57793522] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 57793527] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 57793532] head h=21 0x3c809b835860 signed=false txs=0
+[e44 57793538] head h=22 0xd8bb44fe04f5 signed=false txs=0
+[e44 57793545] head h=23 0x26de71a890af signed=true txs=2
+[e44 57793551] head h=24 0xf264474baca2 signed=false txs=0
+[e44 57793556] head h=25 0xce6d75bfdeae signed=false txs=0
+[e44 57793562] head h=26 0x27a16aea8561 signed=false txs=0
+[e44 57793570] head h=27 0x06976c88ec44 signed=true txs=2
+[e44 57793576] head h=28 0x06f7cc24d0f6 signed=false txs=0
+[e44 57793581] head h=29 0x6b9c2a5181bf signed=false txs=0
+[e44 57793587] head h=30 0xfcb85509dc47 signed=false txs=0
+[e44 57793593] head h=31 0xc1a42987854b signed=true txs=2
+[e44 57793599] head h=32 0xb64be6560cab signed=false txs=0
+[e44 57793604] head h=33 0x77503668703d signed=false txs=0
+[e44 57793611] head h=34 0x032b50b55cac signed=false txs=0
+[e44 57793618] head h=35 0x3e56ec29d2ce signed=true txs=2
+[e44 57793623] head h=36 0xb3235d1b9a41 signed=false txs=0
+[e44 57793629] head h=37 0xa64a062654cc signed=false txs=0
+[e44 57793635] head h=38 0x69b1a66a51df signed=false txs=0
+[e44 57793641] head h=39 0x448a01b5f503 signed=true txs=2
+[e44 57793646] head h=40 0x2693a63d9f7a signed=false txs=0
+[e44 57793653] head h=41 0x5ebc162c10dd signed=false txs=0
+[e44 57793658] head h=42 0x4d39fd7aefc0 signed=false txs=0
+[e44 57793664] head h=43 0x6fdfded36eb7 signed=true txs=2
+[e44 57793669] head h=44 0x1bfafb97407d signed=false txs=0
+[e44 57793675] head h=45 0xba9ce184ff56 signed=false txs=0
+[e44 57793680] head h=46 0x5d2064b4eef5 signed=false txs=0
+[e44 57793686] head h=47 0x8ac76eeba129 signed=true txs=2
+[e44 57793693] head h=48 0xb2a0cf0392e4 signed=false txs=0
+[e44 57793698] head h=49 0xfc5dcdd8014f signed=false txs=0
+[e44 57793703] head h=50 0x0ad06a1a630b signed=false txs=0
+[e44 57793709] head h=51 0xa03b6938c920 signed=true txs=2
+[e44 57793714] head h=52 0xdf1b16e90036 signed=false txs=0
+[e44 57793720] head h=53 0xefe32398ee30 signed=false txs=0
+[e44 57793725] head h=54 0xb0dd34f98287 signed=false txs=0
+[e44 57793734] head h=55 0x7bda2ee139c8 signed=true txs=2
+[e44 57793740] head h=56 0xb56b9db45d91 signed=false txs=0
+[e44 57793750] head h=57 0x200e7dd052e4 signed=false txs=0
+[e44 57793756] head h=58 0x787aeb71b48f signed=false txs=0
+[e44 57793763] head h=59 0xc92e246ef096 signed=true txs=2
+[e44 57793769] head h=60 0x6b08d55b7dee signed=false txs=0
+[e44 57793774] head h=61 0x3d754e47b0aa signed=false txs=0
+[e44 57793784] head h=62 0x4fb04e4b3f11 signed=false txs=0
+[e44 57793790] head h=63 0xabb77bd73868 signed=true txs=2
+[e44 57793795] head h=64 0x160c52abd064 signed=false txs=0
+[e44 57793801] head h=65 0xfb96873cf75a signed=false txs=0
+[e44 57793807] head h=66 0x1c5c72bdfa19 signed=false txs=0
+[e44 57793813] head h=67 0x2690fef53b0f signed=true txs=2
+[e44 57793819] head h=68 0x51830160a027 signed=false txs=0
+[e44 57793829] head h=69 0xa30ecc72ebd1 signed=false txs=0
+[e44 57793835] head h=70 0x766d00c36a5a signed=false txs=0
+[e44 57793842] head h=71 0xad3d64372f1c signed=true txs=2
+[e44 57793847] head h=72 0x9df69c020584 signed=false txs=0
+[e44 57793853] head h=73 0x07261eb7cb3b signed=false txs=0
+[e44 57793858] head h=74 0x02daafbe04e7 signed=false txs=0
+[e44 57793865] head h=75 0x0054a1c2e056 signed=true txs=2
+[e44 57793875] head h=76 0x0f7731401058 signed=false txs=0
+[e44 57793881] head h=77 0x9278ee220f6d signed=false txs=0
+[e44 57793886] head h=78 0x456d23099425 signed=false txs=0
+[e44 57793893] head h=79 0x3c3cf8cae1ad signed=true txs=2
+[e44 57793898] head h=80 0x53245d0feb07 signed=false txs=0
+[e44 57793904] head h=81 0xe7c6b94cdec4 signed=false txs=0
+[e44 57793912] head h=82 0xddc927b4bf45 signed=false txs=0
+[e44 57793924] head h=83 0x9e79c9a9f4d4 signed=true txs=2
+[e44 57793930] head h=84 0x282c7c805edc signed=false txs=0
+[e44 57793936] head h=85 0xd380c450cac0 signed=false txs=0
+[e44 57793941] head h=86 0x9323bf82b361 signed=false txs=0
+[e44 57793947] head h=87 0x240184b03c99 signed=true txs=2
+[e44 57793953] head h=88 0xf91e4cdc19f2 signed=false txs=0
+[e44 57793958] head h=89 0xb391c51e7a1a signed=false txs=0
+[e44 57793968] head h=90 0xc63f168f7ad7 signed=false txs=0
+[e44 57793974] head h=91 0x3b53ace017c0 signed=true txs=2
+[e44 57793981] head h=92 0x3363dd70fd96 signed=false txs=0
+[e44 57793986] head h=93 0x527f7b65577d signed=false txs=0
+[e44 57793995] head h=94 0x5396466c567a signed=false txs=0
+[e44 57794005] head h=95 0x2dd98795cd7e signed=true txs=2
+[e44 57794013] head h=96 0x149d0aea4829 signed=false txs=0
+[e44 57794026] head h=97 0xd3c7859b36f2 signed=false txs=0
+[e44 57794034] head h=98 0x049cc6276e8b signed=false txs=0
+[e44 57794052] head h=98 0x342e7c3f1972 signed=false txs=0
+[e44 57794057] head h=99 0x28a66fa25cd5 signed=false txs=0
+[e44 57794063] head h=100 0xa31e16509667 signed=false txs=0
+[e44 57794105] head h=101 0xe4180adf273f signed=false txs=0
+[e44 57794111] head h=102 0x29575f1d7a1d signed=false txs=0
+
+thread 'e4_an_open_that_cannot_read_its_storage_fails_and_keeps_the_store' (2135) panicked at tests/consensus.rs:2826:40:
+history.redb write at open: the open succeeded (resumed from None, 0 refused)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test e4_an_open_that_cannot_read_its_storage_fails_and_keeps_the_store ... FAILED
+
+failures:
+
+failures:
+    e4_an_open_that_cannot_read_its_storage_fails_and_keeps_the_store
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 103 filtered out; finished in 12.71s
+
+error: test failed, to rerun pass `--test consensus`

@@ -1,0 +1,56 @@
+{
+  "source": "reference/browser.md:303-304 and validation.md:783-784",
+  "checks": 7,
+  "passed": 7,
+  "results": [
+    {
+      "check": "network-block-hashes",
+      "bodyMax": 196608,
+      "actual": 163958,
+      "expected": 163958,
+      "pass": true
+    },
+    {
+      "check": "RF4-block-hashes",
+      "bodyMax": 262144,
+      "actual": 217928,
+      "expected": 217928,
+      "pass": true
+    },
+    {
+      "check": "largest-fitting-body",
+      "bodyMax": 201449,
+      "actual": 167878,
+      "expected": 167878,
+      "pass": true
+    },
+    {
+      "check": "next-body-over",
+      "bodyMax": 201450,
+      "actual": 167948,
+      "expected": 167948,
+      "pass": true
+    },
+    {
+      "check": "params-exact-limit",
+      "genesisBytes": 47104,
+      "actual": 98304,
+      "expected": 98304,
+      "pass": true
+    },
+    {
+      "check": "params-one-over",
+      "genesisBytes": 47105,
+      "actual": 98306,
+      "expected": 98306,
+      "pass": true
+    },
+    {
+      "check": "RF3-M0-list-alone",
+      "members": 1100,
+      "actual": 47303,
+      "expected": 47303,
+      "pass": true
+    }
+  ]
+}

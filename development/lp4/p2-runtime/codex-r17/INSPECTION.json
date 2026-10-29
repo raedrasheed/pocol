@@ -1,0 +1,9 @@
+{
+  "scope": "Plaintext source proofs, completed public CI metadata and public fixture result identities/hashes; no raw binary archives exported",
+  "filesInspected": 26,
+  "credentialMatches": 0,
+  "privateFixtureKeysEmitted": false,
+  "fullRawPreservation": "/workspace/work/lp4/p2-registry-full",
+  "implementationRefUnchanged": "c6e56b069ad3d5a7c1323cae81ea53004f542512",
+  "bootable": false
+}

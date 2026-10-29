@@ -1,0 +1,11 @@
+{
+  "source": "d741363e872936764eb27e918332d0f6878b6195",
+  "run": 39451150747,
+  "jobsComplete": 4,
+  "independentJob": "IN PROGRESS \u2014 NOT PASSED",
+  "archive": "/workspace/work/lp4/p4-system-hosted-39451150747-four.tar.gz",
+  "bytes": 4708725,
+  "sha256": "31f93e6bc04b1deed8c5bd50549e406c7014dc6a6acb09fcce1f4eaad24ff1e8",
+  "publication": "ZIPs/extractions/full decoded logs stay local; compact certificates/hashes public. Archive is a four-job snapshot, not a complete five-job record.",
+  "bootable": false
+}

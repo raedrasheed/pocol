@@ -1,0 +1,34 @@
+# commit 0b9b4d082b56605cc700a826b72497d81773c3ae (tracked changes under prototypes/ and proposals/: none)
+# host Linux 6.18.44-fc-v153 x86_64; rustc rustc 1.99.1 (58cf8f9c3 2026-10-13)
+# start 2026-10-23T15:30:07Z
+$ python3 -I development/audit-2026-10-22/proposals/model/caps_model.py <scratch>/rerun.json; cmp with vectors/caps-sustainability.json
+caps_model: 25 checks passed; H_GSV1 de518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277; devnet genesisHash 4db6aa5ce711e58c2d5bfaa9ffd04e0ad172824f8410ef28341fd77308d8e638; wrote ../../../../../../tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/caps-r2/final/rerun.json
+exit=0
+byte-identical to the committed vectors/caps-sustainability.json
+PASS K1-K3 present in validation.md
+PASS K1
+PASS K2
+PASS K3
+PASS Keccak-256 empty
+PASS Keccak-256 abc
+PASS Keccak-256 fox (43 B)
+PASS permutation = hashlib SHA3-256 for lengths 0..700 (up to 6 rate blocks with padding)
+PASS round constant 23
+PASS GSV1 literal is 341 bytes
+PASS GSV1 literal SHA-256 = E05 inputSha256
+PASS GSV1 from field values = literal bytes
+PASS GSV1 lengths CP 179, M_0List 88, payload 338
+PASS H_GSV1 = the recorded three-library value
+PASS GSV1 TX_CAP+1 changes genesisHash
+PASS GSV1 TXBYTES_CAP+1 changes genesisHash
+PASS Rust CP table names = specification CP names
+PASS LOG_CAP absent from GenesisSpec, CP (spec) and the Rust table
+PASS LOG_BLOCK_MAX absent from GenesisSpec, CP (spec) and the Rust table
+PASS devnet spec re-encodes byte for byte
+PASS devnet CP: TX_CAP 20000, TXBYTES_CAP 2^24, H_END 20000, T_blk 4
+PASS devnet sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of tests/data/system-v1.json
+PASS no system program has a LOG opcode
+PASS devnet TX_CAP+1 changes genesisHash
+PASS devnet TXBYTES_CAP+1 changes genesisHash
+emptyBlocksFromBaseFee0ToIdle {'caps-test': 145, 'caps/64': 145, 'devnet': 145, 'network': 145}
+# end 2026-10-23T15:34:44Z

@@ -1,0 +1,194 @@
+[
+  {
+    "name": "unknown-field-bypass",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s5-amended/mutations-extra/unknown-field-bypass-4y6bxven/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha2-b47be6867c72bc4d.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha3-566c0976f168a288.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/liblibsecp256k1-eb8461af35f8bacc.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+          "-o",
+          "/workspace/work/lp3-s5-amended/mutations-extra/unknown-field-bypass-4y6bxven/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 3.328
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s5-amended/mutations-extra/unknown-field-bypass-4y6bxven/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha2-b47be6867c72bc4d.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha3-566c0976f168a288.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/liblibsecp256k1-eb8461af35f8bacc.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+          "-o",
+          "/workspace/work/lp3-s5-amended/mutations-extra/unknown-field-bypass-4y6bxven/test"
+        ],
+        "exitCode": 0,
+        "seconds": 1.093
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s5-amended/mutations-extra/unknown-field-bypass-4y6bxven/test"
+        ],
+        "exitCode": 101,
+        "seconds": 0.224
+      }
+    ]
+  },
+  {
+    "name": "boot-bypass",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s5-amended/mutations-extra/boot-bypass-mjaui0wq/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha2-b47be6867c72bc4d.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha3-566c0976f168a288.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/liblibsecp256k1-eb8461af35f8bacc.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+          "-o",
+          "/workspace/work/lp3-s5-amended/mutations-extra/boot-bypass-mjaui0wq/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 4.588
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s5-amended/mutations-extra/boot-bypass-mjaui0wq/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha2-b47be6867c72bc4d.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha3-566c0976f168a288.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/liblibsecp256k1-eb8461af35f8bacc.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+          "-o",
+          "/workspace/work/lp3-s5-amended/mutations-extra/boot-bypass-mjaui0wq/test"
+        ],
+        "exitCode": 0,
+        "seconds": 1.233
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s5-amended/mutations-extra/boot-bypass-mjaui0wq/test"
+        ],
+        "exitCode": 101,
+        "seconds": 0.201
+      }
+    ]
+  },
+  {
+    "name": "accepted-bypass",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s5-amended/mutations-extra/accepted-bypass-lbqp2gug/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha2-b47be6867c72bc4d.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha3-566c0976f168a288.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/liblibsecp256k1-eb8461af35f8bacc.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+          "-o",
+          "/workspace/work/lp3-s5-amended/mutations-extra/accepted-bypass-lbqp2gug/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 3.785
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s5-amended/mutations-extra/accepted-bypass-lbqp2gug/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha2-b47be6867c72bc4d.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libsha3-566c0976f168a288.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/liblibsecp256k1-eb8461af35f8bacc.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+          "-o",
+          "/workspace/work/lp3-s5-amended/mutations-extra/accepted-bypass-lbqp2gug/test"
+        ],
+        "exitCode": 0,
+        "seconds": 1.072
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s5-amended/mutations-extra/accepted-bypass-lbqp2gug/test"
+        ],
+        "exitCode": 101,
+        "seconds": 0.23
+      }
+    ]
+  }
+]

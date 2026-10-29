@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/registry_payment.rs (prototypes/lp4-execution/target/debug/deps/registry_payment-70b86a1b7f99f66a)
+
+running 1 test
+
+thread 'reactivation_inactivity_and_closing_refunds_actual_record_amounts' (142384) panicked at tests/registry_payment.rs:44:35:
+assertion: successful EVM call required; Revert { gas_used: 39933, output: 0x8523b62a }; [133, 35, 182, 42]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test reactivation_inactivity_and_closing_refunds_actual_record_amounts ... FAILED
+
+failures:
+
+failures:
+    reactivation_inactivity_and_closing_refunds_actual_record_amounts
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test registry_payment`

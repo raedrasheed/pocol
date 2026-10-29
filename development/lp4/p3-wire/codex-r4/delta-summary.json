@@ -1,0 +1,16 @@
+{
+  "rule": "LP4-CODE-01",
+  "total": 20661,
+  "changed": 14,
+  "unchanged": 20647,
+  "excluded": 0,
+  "blocked": 0,
+  "runnerFailure": 0,
+  "sourceFiles": 2807,
+  "profileFileSHA256": "fc6c76f1089e99698c0625c89cd5520ead2099a6d44f35b973ebd59163c527c4",
+  "baselineSHA256": "1bd455f96ded27e7f7f65253a3a3912f8044089ec60394cc036e994cb3c5a28b",
+  "seconds": 289.004,
+  "scope": "Enumerate ALL CODE-01 deltas without dropping original Cancun controls.\n\nUnsigned delta runner isolates code limits using the supplied profile's exact CP.\nSynthetic fixture context/chain1 is preserved; this is not signed PoCol apply or\ncomplete ParamGate. Changed cases are individual observations, not blanket PASS.\nIndependent replacement execution remains mandatory beyond root reconstruction.\n",
+  "status": "NOT PASSED: observations only; independent replacement gate remains open",
+  "bootable": false
+}

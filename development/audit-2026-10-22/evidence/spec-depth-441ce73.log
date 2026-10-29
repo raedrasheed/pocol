@@ -1,0 +1,24 @@
+== adoption_at_the_spec_depth_2048_and_not_at_2049 441ce73 2026-10-23T07:34:42Z
+
+running 1 test
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... R_KEEP-BOUNDARY {"adoptedAtRKeep":true,"adoptedBeyond":false,"ourBlocks":2049,"rKeep":2048,"theirBlocks":611}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 51.82s
+
+
+real	0m51.820s
+user	0m47.595s
+sys	0m0.711s
+== d133_tie_break_at_depth_400_holds_through_eviction_and_refetch 441ce73 2026-10-23T07:35:34Z
+
+running 1 test
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... D133-DEPTH {"cap":16,"depth":400,"evicted":784,"rKeep":2048}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 18.96s
+
+
+real	0m18.963s
+user	0m17.563s
+sys	0m0.205s

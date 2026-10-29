@@ -1,0 +1,152 @@
+[
+  {
+    "name": "auth",
+    "file": "pay.rs",
+    "old": "|| ![registry_address(),escrow_address()].contains(&inputs.caller)",
+    "new": "",
+    "test": "auth_modes_value_and_direct_reject",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "code-identity",
+    "file": "pay.rs",
+    "old": "|| context.external.active_code!=Some(inputs.caller)",
+    "new": "",
+    "test": "delegated_foreign_code_cannot_spend_registry_balance",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "gas",
+    "file": "pay.rs",
+    "old": "PAY_GAS: u64 = 5_000",
+    "new": "PAY_GAS: u64 = 4_999",
+    "test": "funding_zero_self_and_exact_boundaries",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "padding",
+    "file": "pay.rs",
+    "old": "|| inputs.input[..12].iter().any(|b|*b!=0)",
+    "new": "",
+    "test": "recipients_overflow_and_encoding_reject_without_effects",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "length",
+    "file": "pay.rs",
+    "old": "inputs.input.len()!=64",
+    "new": "inputs.input.len()<64",
+    "test": "recipients_overflow_and_encoding_reject_without_effects",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "value",
+    "file": "pay.rs",
+    "old": "|| inputs.call_value()!=U256::ZERO",
+    "new": "",
+    "test": "auth_modes_value_and_direct_reject",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "static",
+    "file": "pay.rs",
+    "old": "|| inputs.is_static",
+    "new": "",
+    "test": "inherited_static_call_cannot_write_balances",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "no-transfer",
+    "file": "pay.rs",
+    "old": "amount!=U256::ZERO && recipient!=inputs.caller",
+    "new": "false && amount!=U256::ZERO && recipient!=inputs.caller",
+    "test": "both_roles_transfer_no_callback_and_no_snapshot_commit",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "durability-omitted",
+    "file": "pay.rs",
+    "old": "|| !context.external.durable(recipient)",
+    "new": "",
+    "test": "pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "durability-balance",
+    "file": "pay.rs",
+    "old": "account.info.nonce > 0",
+    "new": "account.info.balance > U256::ZERO || account.info.nonce > 0",
+    "test": "pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "durability-and",
+    "file": "pay.rs",
+    "old": "|| (account.info.code_hash",
+    "new": "&& (account.info.code_hash",
+    "test": "pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "zero-address",
+    "file": "pay.rs",
+    "old": "if recipient==Address::ZERO",
+    "new": "if false && recipient==Address::ZERO",
+    "test": "recipients_overflow_and_encoding_reject_without_effects",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "journal",
+    "file": "pay.rs",
+    "old": "let error=evm.journaled_state.transfer(&inputs.caller,&recipient,amount,&mut evm.db)?;",
+    "new": "evm.journaled_state.state.get_mut(&inputs.caller).unwrap().info.balance-=amount; evm.journaled_state.state.get_mut(&recipient).unwrap().info.balance+=amount; let error:Option<InstructionResult>=None;",
+    "test": "nested_revert_restores_both_balances",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "callback",
+    "file": "native.rs",
+    "old": "pay::call(context,&inputs)",
+    "new": "let _=pay::call(context,&inputs)?; let mut callback=(*inputs).clone(); callback.bytecode_address=revm::primitives::Address::from_slice(&inputs.input[12..32]); callback.target_address=callback.bytecode_address; previous(context,Box::new(callback))",
+    "test": "both_roles_transfer_no_callback_and_no_snapshot_commit",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "native-bypass",
+    "file": "native.rs",
+    "old": "if inputs.bytecode_address==pay_address() || inputs.target_address==pay_address()",
+    "new": "if false && (inputs.bytecode_address==pay_address() || inputs.target_address==pay_address())",
+    "test": "both_roles_transfer_no_callback_and_no_snapshot_commit",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

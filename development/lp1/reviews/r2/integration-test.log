@@ -1,0 +1,31 @@
+cargo.exe :     Finished test [unoptimized + debuginfo] target(s) in 0.27s
+At line:3 char:1
++ & <toolchain>/toolchains/stable-x86_64-pc-windows-msvc/bi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Finished te...get(s) in 0.27s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+     Running tests\adversarial.rs (coordination/lp1-build-r1/target\debug\deps\adversarial-3f5c5a9ec2ae19a0.exe)
+
+running 5 tests
+test asert_extreme_inputs_never_panic ... ok
+test genesis_corpus_never_panics ... FAILED
+test header_and_rlp_corpus ... ok
+test rpc_corpus_envelopes_and_state ... ok
+test window_corpus_never_panics ... ok
+
+failures:
+
+---- genesis_corpus_never_panics stdout ----
+thread 'main' panicked at 'assertion failed: `(left == right)`
+  left: `2`,
+ right: `0`: a different preimage produced the frozen genesis hash', tests\adversarial.rs:115:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    genesis_corpus_never_panics
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.25s
+
+error: test failed, to rerun pass '--test adversarial'

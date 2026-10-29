@@ -1,0 +1,21 @@
+{
+  "parentRemote": "b1f25e0613fbeb3832dfb20252f76b92ef72b90d",
+  "parentTree": "8d8644851fb92b13eb2b817d94e42ff636ef955c",
+  "semanticVersion": "LP4-SYS-01",
+  "resourceModel": "sys-frame-measurement-v1",
+  "sourceSHA256": {
+    "prototypes/lp4-execution/src/native.rs": "2f4a0bc20fc37f84164eb424005ecae50718a146b19f75a5461b39ab02838468",
+    "prototypes/lp4-execution/src/lib.rs": "746a54f39b28e5895096dfbeb425caf0bd365518817d7a4c200c596e51b4e5d6",
+    "prototypes/lp4-execution/src/system.rs": "1aaee6503645c7ebc343e648d0612a869cd0912b6e0240e899e4720036e7ff2a",
+    "prototypes/lp4-execution/src/system/tests.rs": "ddc33cc9642c1032dc4846f9b6d3a12417c546a9fafb3d97f7ad78e4d384ecb6",
+    "prototypes/lp4-execution/tests/system_oracle.py": "0ab1240745f6343d186f74e0a4b7e1a9b9b98111ca863491060963dbb4cf2382",
+    "prototypes/lp4-execution/tests/system_mutations.py": "4c5494e57942bd19669d5bd2cc4c162715d5742aec6b6abf4ca5303a97649624",
+    "prototypes/lp4-execution/contracts/SystemEpochWitness.sol": "79c4bb99c5401a935a2e78bdf8a6d67f0784353f799bdfbec18956432c606561",
+    "prototypes/lp4-execution/tests/compile_system_epoch.cjs": "819d3e4e3ab8958ef343406db9c9edff217014d9ab1655c0ea0d3276ec8e76fc",
+    "prototypes/lp4-execution/tests/data/system-epoch-witness.json": "a14925d17bb458c10e5f336fbb99c90d9ca223c7e3d67bde95ae86099560d3df",
+    "prototypes/lp4-execution/tests/data/system-registry-pre.json": "b6e317bad9edbfa51e7333054ef968fbebfff873511a7b5a6d73adc8d73b8192",
+    "prototypes/lp4-execution/Cargo.toml": "c262eff944d615cbd20885abb53e08214f29aca9adfd58af1741214e7b81db3d",
+    "prototypes/lp4-execution/Cargo.lock": "d6e757466555edd023347af5b3cc45021ff1bcd88328de8c9a390fd99ad13904"
+  },
+  "bootable": false
+}

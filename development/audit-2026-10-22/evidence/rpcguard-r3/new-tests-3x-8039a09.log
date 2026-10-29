@@ -1,0 +1,77 @@
+# round-3 new and changed tests, 3 consecutive runs; HEAD 8039a0910ffec3d32dbf9d39f21ea0c90e771f63
+# net (--exact): a_late_revert_or_halt_past_its_deadline_is_32020 queue_wait_bounds_the_wait_for_a_heavy_queue_place queue_wait_bounds_the_wait_on_a_full_main_queue the_node_never_runs_a_request_its_connection_gave_up batch_wall_counts_the_time_queued a_late_get_logs_answer_carries_resume_data batch_members_each_get_their_own_compute_deadline a_connection_whose_send_buffer_cannot_be_set_is_refused an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release a_light_method_over_light_body_max_has_the_light_deadline heavy_compute_deadline_cancels_eth_call send_pacer_closes_a_slow_reader_after_grace
+# lib (--exact): rpc::tests::responses_above_resp_max_become_an_error rpc::tests::sockwait_reports_readiness_within_its_timeout rpc::tests::a_busy_answer_allocates_no_parse_tree rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo net::tests::a_reader_sees_its_closed_flag_without_a_shutdown
+# admission: pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms; consensus: a13_bound_breakdown
+## run 1 2026-10-23T22:55:13Z
+test a_connection_whose_send_buffer_cannot_be_set_is_refused ... ok
+test a_late_get_logs_answer_carries_resume_data ... ok
+test a_late_revert_or_halt_past_its_deadline_is_32020 ... LATEERR [{"case":"revert","ms":420},{"case":"halt","ms":402}]
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test batch_members_each_get_their_own_compute_deadline ... MEMBERS {"batchMs":512,"computeHeavyMs":335,"memberMs":167}
+test batch_wall_counts_the_time_queued ... ok
+test heavy_compute_deadline_cancels_eth_call ... HEAVYDL {"answeredMs":4,"computeHeavyMs":3,"heavyMs":29}
+test queue_wait_bounds_the_wait_for_a_heavy_queue_place ... PLACE {"blakeMs":434,"placeWaiterMs":72,"queueWaitMs":72,"queuedMs":72}
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":419,"foundQueueFull":23,"queueWaitMs":104,"requests":150,"worstMs":123}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":869,"lastPacerClose":{"accepted":211628,"sendTime":0.501296},"pacerLateMaxMs":1,"pacerWaits":10}
+test the_node_never_runs_a_request_its_connection_gave_up ... CAS {"admitted, answered":433,"gone at the connection, skipped":472,"gone at the node, busy":95}
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 14.70s
+test net::tests::a_reader_sees_its_closed_flag_without_a_shutdown ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... BUSY-PEAK {"idParsePeak":124032,"shape":"objects63","smallReplyPeak":132768,"worstBytes":47627}
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test rpc::tests::sockwait_reports_readiness_within_its_timeout ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.19s
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.16s
+test a13_bound_breakdown ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.06s
+## run 2 2026-10-23T23:07:07Z
+test a_connection_whose_send_buffer_cannot_be_set_is_refused ... ok
+test a_late_get_logs_answer_carries_resume_data ... ok
+test a_late_revert_or_halt_past_its_deadline_is_32020 ... LATEERR [{"case":"revert","ms":423},{"case":"halt","ms":438}]
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test batch_members_each_get_their_own_compute_deadline ... MEMBERS {"batchMs":529,"computeHeavyMs":369,"memberMs":184}
+test batch_wall_counts_the_time_queued ... ok
+test heavy_compute_deadline_cancels_eth_call ... HEAVYDL {"answeredMs":4,"computeHeavyMs":3,"heavyMs":30}
+test queue_wait_bounds_the_wait_for_a_heavy_queue_place ... PLACE {"blakeMs":449,"placeWaiterMs":75,"queueWaitMs":74,"queuedMs":75}
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":469,"foundQueueFull":23,"queueWaitMs":117,"requests":150,"worstMs":136}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":910,"lastPacerClose":{"accepted":211628,"sendTime":0.501151},"pacerLateMaxMs":1,"pacerWaits":10}
+test the_node_never_runs_a_request_its_connection_gave_up ... CAS {"admitted, answered":432,"gone at the connection, skipped":470,"gone at the node, busy":98}
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 15.27s
+test net::tests::a_reader_sees_its_closed_flag_without_a_shutdown ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... BUSY-PEAK {"idParsePeak":124032,"shape":"objects63","smallReplyPeak":132768,"worstBytes":47627}
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test rpc::tests::sockwait_reports_readiness_within_its_timeout ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.20s
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.16s
+test a13_bound_breakdown ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.05s
+## run 3 2026-10-23T23:19:48Z
+test a_connection_whose_send_buffer_cannot_be_set_is_refused ... ok
+test a_late_get_logs_answer_carries_resume_data ... ok
+test a_late_revert_or_halt_past_its_deadline_is_32020 ... LATEERR [{"case":"revert","ms":492},{"case":"halt","ms":422}]
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test batch_members_each_get_their_own_compute_deadline ... MEMBERS {"batchMs":564,"computeHeavyMs":376,"memberMs":188}
+test batch_wall_counts_the_time_queued ... ok
+test heavy_compute_deadline_cancels_eth_call ... HEAVYDL {"answeredMs":4,"computeHeavyMs":4,"heavyMs":32}
+test queue_wait_bounds_the_wait_for_a_heavy_queue_place ... PLACE {"blakeMs":451,"placeWaiterMs":75,"queueWaitMs":75,"queuedMs":75}
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":434,"foundQueueFull":23,"queueWaitMs":108,"requests":150,"worstMs":117}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":950,"lastPacerClose":{"accepted":211628,"sendTime":0.501343},"pacerLateMaxMs":1,"pacerWaits":10}
+test the_node_never_runs_a_request_its_connection_gave_up ... CAS {"admitted, answered":425,"gone at the connection, skipped":472,"gone at the node, busy":103}
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 15.58s
+test net::tests::a_reader_sees_its_closed_flag_without_a_shutdown ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... BUSY-PEAK {"idParsePeak":124032,"shape":"objects63","smallReplyPeak":132768,"worstBytes":47627}
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test rpc::tests::sockwait_reports_readiness_within_its_timeout ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.19s
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.16s
+test a13_bound_breakdown ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.06s
+# done 2026-10-23T23:22:48Z

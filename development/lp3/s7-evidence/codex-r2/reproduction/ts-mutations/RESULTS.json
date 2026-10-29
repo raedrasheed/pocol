@@ -1,0 +1,38 @@
+[
+  {
+    "name": "cf1-time",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "cf2-sticky",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "cf3-rounding",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "cf4-equality",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "cf5-cursor",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "cf6-final-parent",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  }
+]

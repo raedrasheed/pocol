@@ -1,0 +1,422 @@
+{
+  "reference": "development/m1/reference/consensus.md:17-24",
+  "referenceSha256": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+  "fields": [
+    {
+      "index": 0,
+      "name": "g_ts",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 1,
+      "name": "target_g",
+      "bits": 256,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 2,
+      "name": "T_blk",
+      "bits": 32,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 3,
+      "name": "tau",
+      "bits": 32,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 4,
+      "name": "nonceMode",
+      "bits": 8,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 5,
+      "name": "c",
+      "bits": 8,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 6,
+      "name": "D_att",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 7,
+      "name": "dFbWait",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 8,
+      "name": "m",
+      "bits": 16,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 9,
+      "name": "kappa",
+      "bits": 8,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 10,
+      "name": "S_max",
+      "bits": 16,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 11,
+      "name": "D",
+      "bits": 16,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 12,
+      "name": "W_w",
+      "bits": 16,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 13,
+      "name": "alpha_bp",
+      "bits": 16,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 14,
+      "name": "gamma_bp",
+      "bits": 16,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 15,
+      "name": "subsidy",
+      "bits": 256,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 16,
+      "name": "B_reg",
+      "bits": 256,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 17,
+      "name": "R_max",
+      "bits": 8,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 18,
+      "name": "M_max",
+      "bits": 16,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 19,
+      "name": "M_min",
+      "bits": 16,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 20,
+      "name": "REG_RECORDS_MAX",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 21,
+      "name": "SWEEP_MAX",
+      "bits": 16,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 22,
+      "name": "SWEEP_SCAN",
+      "bits": 16,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 23,
+      "name": "REG_OPS",
+      "bits": 16,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 24,
+      "name": "W_act",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 25,
+      "name": "Theta_inact",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 26,
+      "name": "E_win",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 27,
+      "name": "U",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 28,
+      "name": "E_max",
+      "bits": 8,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 29,
+      "name": "EVID_BYTES_MAX",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 30,
+      "name": "GAS_LIMIT",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 31,
+      "name": "baseFee0",
+      "bits": 256,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 32,
+      "name": "TX_MAX",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 33,
+      "name": "BODY_MAX",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 34,
+      "name": "B_code_max",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 35,
+      "name": "CODE_CAP",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 36,
+      "name": "TXBYTES_CAP",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 37,
+      "name": "TX_CAP",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 38,
+      "name": "SLOT_CAP",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 39,
+      "name": "ACCT_CAP",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 40,
+      "name": "SYS_SLOT_MAX",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 41,
+      "name": "SYS_KEYS_BLOCK_MAX",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 42,
+      "name": "SYS_KEYS_USER_MAX",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 43,
+      "name": "SYS_ACCT_BLOCK_MAX",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 44,
+      "name": "G_SYS",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 45,
+      "name": "H_END",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 46,
+      "name": "T_END",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 47,
+      "name": "H_CLOSE",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 48,
+      "name": "T_CLOSE",
+      "bits": 64,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 49,
+      "name": "Z_close",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 50,
+      "name": "RET",
+      "bits": 32,
+      "minimum": 1,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    },
+    {
+      "index": 51,
+      "name": "P2",
+      "bits": 32,
+      "minimum": 0,
+      "declarationMatches": true,
+      "fromIndexMatches": true
+    }
+  ]
+}

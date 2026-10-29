@@ -1,0 +1,12 @@
+   Compiling pocol-lp4-execution-create-ignore-clears v0.1.0 (/workspace/work/lp4/p2-create/mutations-final/ignore-clears)
+warning: unused variable: `key`
+  --> src/collision.rs:19:73
+   |
+19 |     context.evm.db.accounts.get(&address).map(|a|a.storage.iter().any(|(key,value)|{
+   |                                                                         ^^^ help: if this is intentional, prefix it with an underscore: `_key`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pocol-lp4-execution-create-ignore-clears` (lib) generated 1 warning (run `cargo fix --lib -p pocol-lp4-execution-create-ignore-clears` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.27s
+  Executable tests/create_collision.rs (prototypes/lp4-execution/target/debug/deps/create_collision-7d1ffcd86c5260a1)

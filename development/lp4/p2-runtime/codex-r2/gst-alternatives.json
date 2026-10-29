@@ -1,0 +1,211 @@
+[
+  {
+    "file": "stCreate2/RevertInCreateInInitCreate2Paris.json",
+    "name": "RevertInCreateInInitCreate2Paris",
+    "variant": 0,
+    "expectedRoot": "0x3e518e0ca76504209a2a44b6c11af9537e7872c4005ce49b633ee0f1d845049f",
+    "expectedException": null,
+    "unamended": {
+      "root": "0x64dd3e2e4f1edddb8854d6a384e7dde2123857489de111704d8c6c63b5c9e14a",
+      "gasUsed": 132192,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0x3e518e0ca76504209a2a44b6c11af9537e7872c4005ce49b633ee0f1d845049f",
+      "gasUsed": 42949672960,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stCreate2/create2collisionStorageParis.json",
+    "name": "create2collisionStorageParis",
+    "variant": 0,
+    "expectedRoot": "0xd8ab138e6f7b8e2d34df887867c338fd6907c09ab390c31665c9c164fd93de0f",
+    "expectedException": null,
+    "unamended": {
+      "root": "0x9e0c81a717e7c51d5b58a1046e1e926ae30eeb3ee61b6831cbcc03e69d49a610",
+      "gasUsed": 85114,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0xd8ab138e6f7b8e2d34df887867c338fd6907c09ab390c31665c9c164fd93de0f",
+      "gasUsed": 395080,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stCreate2/create2collisionStorageParis.json",
+    "name": "create2collisionStorageParis",
+    "variant": 1,
+    "expectedRoot": "0xac1766cb9e07fa14fcd78bb5256a65b9753644d7cfbb47e610c761d7d1e1b28b",
+    "expectedException": null,
+    "unamended": {
+      "root": "0xf6e465e3ca6281f3f51dade6001a1bf0c15d26bd94b40b40852040ae9bebcb78",
+      "gasUsed": 107396,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0xac1766cb9e07fa14fcd78bb5256a65b9753644d7cfbb47e610c761d7d1e1b28b",
+      "gasUsed": 395083,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stCreate2/create2collisionStorageParis.json",
+    "name": "create2collisionStorageParis",
+    "variant": 2,
+    "expectedRoot": "0x2992083fd0c728bf380857c7fecd96445f184dbe92f0714c348b3ac95826c637",
+    "expectedException": null,
+    "unamended": {
+      "root": "0x9972367bfb833d7c2cb857e1737b9ec56555aff16630b209e860dfa4d974d2ba",
+      "gasUsed": 86440,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0x2992083fd0c728bf380857c7fecd96445f184dbe92f0714c348b3ac95826c637",
+      "gasUsed": 395085,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stCreateTest/CreateTransactionHighNonce.json",
+    "name": "CreateTransactionHighNonce",
+    "variant": 0,
+    "expectedRoot": "0x2fb5804c5079bae761a87f44bc870b2c8675b72980d98c99acd2e451cb84aa94",
+    "expectedException": "TR_NonceHasMaxValue",
+    "unamended": {
+      "error": "Transaction(NonceOverflowInTransaction)"
+    },
+    "probe": {
+      "error": "Transaction(NonceOverflowInTransaction)"
+    }
+  },
+  {
+    "file": "stCreateTest/CreateTransactionHighNonce.json",
+    "name": "CreateTransactionHighNonce",
+    "variant": 1,
+    "expectedRoot": "0x2fb5804c5079bae761a87f44bc870b2c8675b72980d98c99acd2e451cb84aa94",
+    "expectedException": "TR_NonceHasMaxValue",
+    "unamended": {
+      "error": "Transaction(NonceOverflowInTransaction)"
+    },
+    "probe": {
+      "error": "Transaction(NonceOverflowInTransaction)"
+    }
+  },
+  {
+    "file": "stExtCodeHash/dynamicAccountOverwriteEmpty_Paris.json",
+    "name": "dynamicAccountOverwriteEmpty_Paris",
+    "variant": 0,
+    "expectedRoot": "0x15fe0321941060822acb893c7a6c5cf64d471e0913a66e44e45cf8ca1a9d81cd",
+    "expectedException": null,
+    "unamended": {
+      "root": "0x71eb50ff331a9c0225e0892e92bd87809256acfb6303398c01e055f4daba3e2b",
+      "gasUsed": 241623,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0x15fe0321941060822acb893c7a6c5cf64d471e0913a66e44e45cf8ca1a9d81cd",
+      "gasUsed": 400000,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stRevertTest/RevertInCreateInInit_Paris.json",
+    "name": "RevertInCreateInInit_Paris",
+    "variant": 0,
+    "expectedRoot": "0x07656b1e86e41fc71ae1bb006fccc464482108b02fe5eb6500f6aac54bb72f41",
+    "expectedException": null,
+    "unamended": {
+      "root": "0xa8ede4cd235592c2753b7f2ba46f2685ac54977c35c1802619a4f7df45862886",
+      "gasUsed": 129926,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0x07656b1e86e41fc71ae1bb006fccc464482108b02fe5eb6500f6aac54bb72f41",
+      "gasUsed": 42907729921,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "name": "InitCollisionParis",
+    "variant": 0,
+    "expectedRoot": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+    "expectedException": null,
+    "unamended": {
+      "root": "0x20c17e61e8a137ee21b30449cb29b3baf34bb1988dc0c2664c7d1c4c24280490",
+      "gasUsed": 75366,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+      "gasUsed": 200000,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "name": "InitCollisionParis",
+    "variant": 1,
+    "expectedRoot": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+    "expectedException": null,
+    "unamended": {
+      "root": "0xcbd8c0384e0c37babae625d89dfa4e06a060de14d6bd3f4e5de8255698e25074",
+      "gasUsed": 107638,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+      "gasUsed": 200000,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "name": "InitCollisionParis",
+    "variant": 2,
+    "expectedRoot": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+    "expectedException": null,
+    "unamended": {
+      "root": "0xa1c136b85e8b64063779723d0c0088b39f7cdcec56ad7db731eb37b2fdfd48e3",
+      "gasUsed": 107702,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+      "gasUsed": 200000,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stSStoreTest/InitCollisionParis.json",
+    "name": "InitCollisionParis",
+    "variant": 3,
+    "expectedRoot": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+    "expectedException": null,
+    "unamended": {
+      "root": "0x5b8580a67baab0aedf2aa345870559563c4d67e8f7d7cbb097778b5c9cfd5535",
+      "gasUsed": 198605,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    },
+    "probe": {
+      "root": "0xbc120730375ce24e1b1171a8e3adc93d2eb42341717968673bfa262c1cfacb19",
+      "gasUsed": 200000,
+      "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    }
+  },
+  {
+    "file": "stTransactionTest/ValueOverflowParis.json",
+    "name": "ValueOverflowParis",
+    "variant": 0,
+    "expectedRoot": "0xecd1cea72bd1224b1d7a28a577170c00dd480b26b5b0f353e3d4ad2bb542cc09",
+    "expectedException": "TR_RLP_WRONGVALUE",
+    "unamended": {
+      "error": "ControlInputValueOverflow"
+    },
+    "probe": {
+      "error": "ControlInputValueOverflow"
+    }
+  }
+]

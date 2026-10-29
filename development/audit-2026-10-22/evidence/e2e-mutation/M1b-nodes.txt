@@ -1,0 +1,183 @@
+== a.log (last 60 of 146 lines)
+[a 59523031] head h=29 0x169cc676f0ca signed=true txs=0
+[a 59524030] lock h=30 a=0 PROP tid=0x082e733cec
+[a 59524036] head h=30 0x71fb0b37c632 signed=true txs=0
+[a 59525034] lock h=31 a=0 PROP tid=0x77bf7c7e8a
+[a 59525038] head h=31 0x8450dcd934bc signed=true txs=0
+[a 59525062] head h=27 0x3d2d3189ce46 signed=false txs=0
+[a 59525064] lock h=28 a=0 PROP tid=0x20af63e875
+[a 59525070] head h=28 0xfc5c581d69db signed=true txs=0
+[a 59526040] lock h=29 a=0 PROP tid=0x8bbbf0c97b
+[a 59526049] head h=29 0x1de541dda884 signed=true txs=0
+[a 59531067] lock h=30 a=0 FB tid=0xd0a01696ca
+[a 59531070] head h=30 0xb83601cda2cf signed=false txs=0
+[a 59531074] lock h=31 a=0 PROP tid=0x2c255294a8
+[a 59531081] head h=31 0x84abd4257a22 signed=true txs=0
+[a 59531096] TrieRebuild for a fork below the K_hist window
+[a 59531103] head h=30 0xe0a7f5a60d94 signed=false txs=0
+[a 59531107] lock h=31 a=0 PROP tid=0x0c442574df
+[a 59531112] head h=31 0x70ad7eafcdf2 signed=true txs=0
+[a 59532022] lock h=32 a=0 PROP tid=0x6cb03032da
+[a 59532026] head h=32 0xf9be3ff42b87 signed=true txs=0
+[a 59533026] lock h=33 a=0 PROP tid=0xfe0dc80a7a
+[a 59533031] head h=33 0x0d6c75580b70 signed=true txs=0
+[a 59534030] lock h=34 a=0 PROP tid=0xeaa3c2af74
+[a 59534036] head h=34 0x85f6c09396ea signed=true txs=0
+[a 59535032] lock h=35 a=0 PROP tid=0x3fb6b681ff
+[a 59535037] head h=35 0xf39058d8c631 signed=true txs=0
+[a 59536167] head h=32 0x1b510967d394 signed=false txs=0
+[a 59536172] lock h=33 a=0 PROP tid=0x03ff26fb4f
+[a 59536179] head h=33 0x0ed9b7c7ee6d signed=true txs=0
+[a 59537043] lock h=34 a=0 PROP tid=0x384c4f2500
+[a 59537051] head h=34 0x723618f07a3c signed=true txs=0
+[a 59539056] TrieRebuild for a fork below the K_hist window
+[a 59539086] head h=19 0x93150ee84636 signed=false txs=0
+[a 59539088] lock h=20 a=0 PROP tid=0xd0220cf9b0
+[a 59539093] head h=20 0xdf222f55a599 signed=true txs=0
+[a 59539337] peer evil: wrong network; closing
+[a 59540053] lock h=21 a=0 PROP tid=0x763221714e
+[a 59540058] head h=21 0xfadd8ea604ca signed=true txs=0
+[a 59540062] TrieRebuild for a fork below the K_hist window
+[a 59541029] lock h=22 a=0 PROP tid=0x1dcb05ee43
+[a 59541033] head h=22 0xfc8c4a1c9284 signed=true txs=0
+[a 59541343] reject 0x227bcfb25c32: 3 template signature
+[a 59545081] TrieRebuild for a fork below the K_hist window
+[a 59545088] TrieRebuild for a fork below the K_hist window
+[a 59545101] TrieRebuild for a fork below the K_hist window
+[a 59546081] lock h=23 a=0 FB tid=0x74777d2378
+[a 59546085] head h=23 0xeb827c534ed0 signed=false txs=0
+[a 59550151] TrieRebuild for a fork below the K_hist window
+[a 59550162] TrieRebuild for a fork below the K_hist window
+[a 59551055] TrieRebuild for a fork below the K_hist window
+[a 59551098] lock h=24 a=0 FB tid=0x4026e871e0
+[a 59551119] head h=24 0x425c778e5206 signed=false txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[a 59551811] opened: head h=24 records=95
+[a 59556864] lock h=25 a=0 FB tid=0xa7d2f92071
+[a 59557305] TrieRebuild for a fork below the K_hist window
+[a 59557335] head h=23 0xee1951bf1813 signed=false txs=0
+[a 59557340] head h=24 0x7f949107d752 signed=false txs=0
+[a 59557346] head h=25 0x10fe19e80599 signed=true txs=0
+[a 59557353] head h=26 0xddfff8035799 signed=true txs=0
+== b.log (last 60 of 104 lines)
+[b 59483016] head h=15 0xaac408eff1f8 signed=true txs=0
+[b 59484057] TrieRebuild for a fork below the K_hist window
+[b 59488070] lock h=16 a=0 FB tid=0xbf3e769ac1
+[b 59488076] head h=16 0xbcf88667898c signed=false txs=0
+[b 59488080] lock h=17 a=0 PROP tid=0x695951bd63
+[b 59488091] head h=17 0x0eb9ed73ab5f signed=true txs=5
+[b 59493106] lock h=18 a=0 FB tid=0x739366ab08
+[b 59493113] head h=18 0x15c1a5d7a816 signed=false txs=0
+[b 59493118] lock h=19 a=0 PROP tid=0x5440099d95
+[b 59493121] range exhausted; idle until next template
+[b 59499133] TrieRebuild for a fork below the K_hist window
+[b 59504183] TrieRebuild for a fork below the K_hist window
+[b 59504200] TrieRebuild for a fork below the K_hist window
+[b 59504226] TrieRebuild for a fork below the K_hist window
+[b 59509207] TrieRebuild for a fork below the K_hist window
+[b 59519278] TrieRebuild for a fork below the K_hist window
+[b 59520036] TrieRebuild for a fork below the K_hist window
+[b 59525055] TrieRebuild for a fork below the K_hist window
+[b 59525104] TrieRebuild for a fork below the K_hist window
+[b 59526049] TrieRebuild for a fork below the K_hist window
+[b 59526085] TrieRebuild for a fork below the K_hist window
+[b 59531071] TrieRebuild for a fork below the K_hist window
+[b 59531118] TrieRebuild for a fork below the K_hist window
+[b 59531157] TrieRebuild for a fork below the K_hist window
+[b 59531192] TrieRebuild for a fork below the K_hist window
+[b 59531231] TrieRebuild for a fork below the K_hist window
+[b 59536157] TrieRebuild for a fork below the K_hist window
+[b 59536208] TrieRebuild for a fork below the K_hist window
+[b 59537051] TrieRebuild for a fork below the K_hist window
+[b 59537097] TrieRebuild for a fork below the K_hist window
+[b 59539041] attempt 0 expired; advancing
+[b 59539046] lock h=19 a=1 FB tid=0x2ec8bda0b4
+[b 59539056] head h=19 0x93150ee84636 signed=false txs=0
+[b 59539093] lock h=20 a=0 PROP tid=0xd0220cf9b0
+[b 59539099] head h=20 0xdf222f55a599 signed=true txs=0
+[b 59540050] lock h=21 a=0 PROP tid=0x763221714e
+[b 59540057] head h=21 0xd1da880ec8d9 signed=true txs=0
+[b 59540057] TrieRebuild for a fork below the K_hist window
+[b 59541034] TrieRebuild for a fork below the K_hist window
+[b 59545077] lock h=22 a=0 FB tid=0x0581beb91c
+[b 59545081] head h=22 0xc40f5559bf3d signed=false txs=0
+[b 59545083] lock h=23 a=0 PROP tid=0xafa662407c
+[b 59545083] TrieRebuild for a fork below the K_hist window
+[b 59545096] head h=23 0x284d3f14800f signed=true txs=0
+[b 59546087] TrieRebuild for a fork below the K_hist window
+[b 59550146] lock h=24 a=0 FB tid=0x3fd7336a99
+[b 59550151] head h=24 0x6b89be1b0b4a signed=false txs=0
+[b 59550155] lock h=25 a=0 PROP tid=0x57d6b25611
+[b 59550161] head h=25 0xad532876c204 signed=true txs=0
+[b 59551048] lock h=26 a=0 PROP tid=0x491b7a2994
+[b 59551054] head h=26 0xbd5109f67d27 signed=true txs=0
+[b 59551119] TrieRebuild for a fork below the K_hist window
+[b 59551144] head h=24 0x425c778e5206 signed=false txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[b 59552294] opened: head h=24 records=95
+[b 59557305] TrieRebuild for a fork below the K_hist window
+[b 59557328] head h=23 0xee1951bf1813 signed=false txs=0
+[b 59557331] head h=24 0x7f949107d752 signed=false txs=0
+[b 59557335] head h=25 0x10fe19e80599 signed=true txs=0
+[b 59557339] head h=26 0xddfff8035799 signed=true txs=0
+== c.log (last 60 of 91 lines)
+[c 59504184] head h=20 0xbfb67045cdf0 signed=false txs=0
+[c 59509201] lock h=21 a=0 FB tid=0xd406c18b4c
+[c 59509207] head h=21 0xb9bcb477ea4e signed=false txs=0
+[c 59514242] head h=22 0xa623f32d830c signed=false txs=0
+[c 59514253] lock h=23 a=0 PROP tid=0x6d3146846b
+[c 59514261] head h=23 0xe3d62b31b551 signed=true txs=5
+[c 59515051] lock h=24 a=0 PROP tid=0x80c8d65b3c
+[c 59515056] head h=24 0x27ef31d1318e signed=true txs=0
+[c 59516004] lock h=25 a=0 PROP tid=0x763e564346
+[c 59516008] head h=25 0xff077baa13c3 signed=true txs=0
+[c 59519288] head h=24 0x987b1876d67f signed=false txs=0
+[c 59519292] lock h=25 a=0 PROP tid=0xbb096db5b7
+[c 59519298] head h=25 0x0a6ff99fab10 signed=true txs=0
+[c 59520030] lock h=26 a=0 PROP tid=0x64639c0b45
+[c 59520036] head h=26 0xf8c5d8562b11 signed=true txs=0
+[c 59525049] lock h=27 a=0 FB tid=0x2191304f4e
+[c 59525054] head h=27 0x3d2d3189ce46 signed=false txs=0
+[c 59525070] lock h=28 a=0 PROP tid=0x20af63e875
+[c 59525076] head h=28 0xfc5c581d69db signed=true txs=0
+[c 59526044] lock h=29 a=0 PROP tid=0x8bbbf0c97b
+[c 59526050] head h=29 0xfa1323b64043 signed=true txs=0
+[c 59531071] TrieRebuild for a fork below the K_hist window
+[c 59531084] lock h=30 a=0 FB tid=0xe5d3b8aa6f
+[c 59531084] TrieRebuild for a fork below the K_hist window
+[c 59531096] head h=30 0xe0a7f5a60d94 signed=false txs=0
+[c 59531110] lock h=31 a=0 PROP tid=0x0c442574df
+[c 59531114] head h=31 0x58db55767dbd signed=true txs=0
+[c 59536151] lock h=32 a=0 FB tid=0xa74f217055
+[c 59536157] head h=32 0x1b510967d394 signed=false txs=0
+[c 59536163] lock h=33 a=0 PROP tid=0x03ff26fb4f
+[c 59536167] head h=33 0x0ed9b7c7ee6d signed=true txs=0
+[c 59537046] lock h=34 a=0 PROP tid=0x384c4f2500
+[c 59537053] head h=34 0xce458c0a066a signed=true txs=0
+[c 59539056] TrieRebuild for a fork below the K_hist window
+[c 59539080] head h=19 0x93150ee84636 signed=false txs=0
+[c 59539091] lock h=20 a=0 PROP tid=0xd0220cf9b0
+[c 59539096] head h=20 0x39726f846555 signed=true txs=0
+[c 59540052] lock h=21 a=0 PROP tid=0x7921d61524
+[c 59540057] head h=21 0xfee50f4c865e signed=true txs=0
+[c 59540057] TrieRebuild for a fork below the K_hist window
+[c 59540063] TrieRebuild for a fork below the K_hist window
+[c 59541034] TrieRebuild for a fork below the K_hist window
+[c 59545078] lock h=22 a=0 FB tid=0x6701ec0a19
+[c 59545081] head h=22 0x48cf05318b0b signed=false txs=0
+[c 59545081] TrieRebuild for a fork below the K_hist window
+[c 59545096] TrieRebuild for a fork below the K_hist window
+[c 59546085] TrieRebuild for a fork below the K_hist window
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 59546676] opened: head h=22 records=74
+[c 59551696] lock h=23 a=0 FB tid=0x273c3a30fc
+[c 59551700] head h=23 0xee1951bf1813 signed=false txs=0
+[c 59556728] lock h=24 a=0 FB tid=0x295fb2563f
+[c 59556734] head h=24 0x7f949107d752 signed=false txs=0
+[c 59556739] lock h=25 a=0 PROP tid=0x009d4c4756
+[c 59556745] head h=25 0x10fe19e80599 signed=true txs=0
+[c 59557029] lock h=26 a=0 PROP tid=0x979255c763
+[c 59557032] head h=26 0xddfff8035799 signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 59557304] opened: head h=26 records=78
+[c 59557595] head h=24 0x425c778e5206 signed=false txs=0

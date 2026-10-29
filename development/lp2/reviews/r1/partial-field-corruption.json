@@ -1,0 +1,59 @@
+{
+  "cases": [
+    {
+      "case": "partialGuard",
+      "exitCode": 3,
+      "actual": {
+        "store": "lp2-candidate-journal",
+        "format": 1,
+        "experimental": true,
+        "status": "candidate",
+        "awaiting": "H-full",
+        "awaitingHFull": true,
+        "candidateHeight": 19,
+        "executedHeight": 0,
+        "consensus": false,
+        "canonical": false,
+        "live": false,
+        "tipHash": "6699fb3618e96220b6f2cf98a2fe3c17852d1a0cbac9145e3abab3cdb753b667",
+        "tail": "recoveryRequired",
+        "tornBytes": 19,
+        "verifiedBytes": 15670,
+        "fileBytes": 15689,
+        "journalSha256": "aba8ab23084fe616419ec565d349594d08cf13492bebb66ca840a8390389966d",
+        "profileSha256": "29b0ba3829062adf4c0a3edeff255a4a732244857b92ff256f9cf4200c092041",
+        "genesisHash": "c4fd041f93fef7c445345cb614ac7a1ffe2e56332cedfe652397afb98c529372",
+        "chainId": 777002,
+        "exclusion": "windows-share-mode-0"
+      }
+    },
+    {
+      "case": "partialChecksum",
+      "exitCode": 3,
+      "actual": {
+        "store": "lp2-candidate-journal",
+        "format": 1,
+        "experimental": true,
+        "status": "candidate",
+        "awaiting": "H-full",
+        "awaitingHFull": true,
+        "candidateHeight": 19,
+        "executedHeight": 0,
+        "consensus": false,
+        "canonical": false,
+        "live": false,
+        "tipHash": "6699fb3618e96220b6f2cf98a2fe3c17852d1a0cbac9145e3abab3cdb753b667",
+        "tail": "recoveryRequired",
+        "tornBytes": 785,
+        "verifiedBytes": 15670,
+        "fileBytes": 16455,
+        "journalSha256": "537dc5e55c5b1e20e7f2898890d54be29fa8a13aed63059a9520798abc9a2eec",
+        "profileSha256": "29b0ba3829062adf4c0a3edeff255a4a732244857b92ff256f9cf4200c092041",
+        "genesisHash": "c4fd041f93fef7c445345cb614ac7a1ffe2e56332cedfe652397afb98c529372",
+        "chainId": 777002,
+        "exclusion": "windows-share-mode-0"
+      }
+    }
+  ],
+  "expectation": "Known partial guard/checksum prefixes differ from recomputable digest; strict consistent-prefix promise requires corruption rejection, not recoveryRequired."
+}

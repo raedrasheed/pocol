@@ -1,0 +1,123 @@
+{
+  "scope": "All9 locked npm test/build-tool archives and installed file byte equivalence; compiler rebuild/distribution audit NOT PASSED",
+  "packages": [
+    {
+      "package": "command-exists",
+      "version": "1.2.9",
+      "archiveSHA256": "f1008fb499d172caed4f8f7fea0c2c489116a46aad8ec3d7eeb4e7944fb6e75d",
+      "lockedIntegrity": "sha512-LTQ/SGc+s0Xc0Fu5WaKnR0YiygZkm9eKFvyS+fRsU7/ZWFF8ykFM6Pc9aCVf1+xasOOZpO3BAVgVrKvsqKHV7w==",
+      "filesVerified": 12,
+      "notices": [
+        {
+          "path": "LICENSE",
+          "sha256": "f1354634fd0ced0354bd5b5fe17f4e613f069850bfedaab00c8fd78f6bc77d5e"
+        }
+      ]
+    },
+    {
+      "package": "commander",
+      "version": "8.3.0",
+      "archiveSHA256": "1b38e65f9229a84060ca5d041a58e3bc1ea374da6d933f9060ca86a67949c10b",
+      "lockedIntegrity": "sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==",
+      "filesVerified": 13,
+      "notices": [
+        {
+          "path": "LICENSE",
+          "sha256": "04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b"
+        }
+      ]
+    },
+    {
+      "package": "follow-redirects",
+      "version": "1.16.1",
+      "archiveSHA256": "6e075d999dc5ff568916954508397b11a537b18bde615986d7bd8b3d3fa1799f",
+      "lockedIntegrity": "sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg==",
+      "filesVerified": 7,
+      "notices": [
+        {
+          "path": "LICENSE",
+          "sha256": "bfa8a54bb952ccda79f0f1889721d108f5b605babbb2b8a3705ffb52f4132eb7"
+        }
+      ]
+    },
+    {
+      "package": "js-sha3",
+      "version": "0.8.0",
+      "archiveSHA256": "e7553c170ef6c9bdd5ae140bb6216867c671918e6c7bb8b2878ecfd45fd25fa4",
+      "lockedIntegrity": "sha512-gF1cRrHhIzNfToc802P800N8PpXS+evLLXfsVpowqmAFR9uwbi89WvXg2QspOmXL8QL86J4T1EpFu+yUkwJY3Q==",
+      "filesVerified": 7,
+      "notices": [
+        {
+          "path": "LICENSE.txt",
+          "sha256": "17b4068b7283f1e9a41b196e3662d4b37cf6f3265173622929d352f5ecdda231"
+        }
+      ]
+    },
+    {
+      "package": "memorystream",
+      "version": "0.3.1",
+      "archiveSHA256": "64f8daa9b9c215b22bb534fe9916e335e99b7cedab7bc9a05f4b2bc4dbf7f2ff",
+      "lockedIntegrity": "sha512-S3UwM3yj5mtUSEfP41UZmt/0SCoVYUcU1rkXv+BQ5Ig8ndL4sPoJNBUJERafdPb5jjHJGuMgytgKvKIf58XNBw==",
+      "filesVerified": 8,
+      "notices": [
+        {
+          "path": "LICENSE",
+          "sha256": "0077a46edebed7dbeb627dcf8643f5aa07af296fc3699c43a34d095311a856a9"
+        }
+      ]
+    },
+    {
+      "package": "os-tmpdir",
+      "version": "1.0.2",
+      "archiveSHA256": "13e722c2d777c084983e2e1e1150a496aa25685791a71244e61a605ec892ad89",
+      "lockedIntegrity": "sha512-D2FR03Vir7FIu45XBY20mTb+/ZSWB00sjU9jdQXt83gDrI4Ztz5Fs7/yy74g2N5SVQY4xY1qDr4rNddwYRVX0g==",
+      "filesVerified": 4,
+      "notices": [
+        {
+          "path": "license",
+          "sha256": "6fb9754611c20f6649f68805e8c990e83261f29316e29de9e6cedae607b8634c"
+        }
+      ]
+    },
+    {
+      "package": "semver",
+      "version": "5.7.2",
+      "archiveSHA256": "e548374dbc4898ddcf349bde966885ac87949be21fd04cd096f53fef0ce655f9",
+      "lockedIntegrity": "sha512-cBznnQ9KjJqU67B52RMC65CMarK2600WFnbkcaiwWq3xy/5haFJlshgnpjovMVJ+Hff49d8GEn0b87C5pDQ10g==",
+      "filesVerified": 6,
+      "notices": [
+        {
+          "path": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ]
+    },
+    {
+      "package": "solc",
+      "version": "0.8.28",
+      "archiveSHA256": "8fb2c6144f01797f352a8284914ee4436462db7a96108e49826f3311e2aef32d",
+      "lockedIntegrity": "sha512-AFCiJ+b4RosyyNhnfdVH4ZR1+TxiL91iluPjw0EJslIu4LXGM9NYqi2z5y8TqochC4tcH9QsHfwWhOIC9jPDKA==",
+      "filesVerified": 21,
+      "notices": [
+        {
+          "path": "LICENSE",
+          "sha256": "852bcc033a46c62f99fb5ffd43b3241ba2c0c440c6034aa2114505f2c4f03c4a"
+        }
+      ]
+    },
+    {
+      "package": "tmp",
+      "version": "0.0.33",
+      "archiveSHA256": "d23b215e6ce454f076e163a3feb7a1b548ddf44be3a41353f74837722b11d6c5",
+      "lockedIntegrity": "sha512-jRCJlojKnZ3addtTOjdIqoRuPEKBvNXcGYqzO6zWZX8KfKEpnGY5jfggJQ3EjKuu8D4bJRr0y+cYJFmYbImXGw==",
+      "filesVerified": 4,
+      "notices": [
+        {
+          "path": "LICENSE",
+          "sha256": "162413c61e0982abe89a06bf7a02ec760dc49a7364d838bd9f01daebb5b95954"
+        }
+      ]
+    }
+  ],
+  "bootable": false
+}

@@ -1,0 +1,5 @@
+{
+  "asertTsPrefixUnchangedFromAcceptedS6": true,
+  "asertTsPrefixSha256": "da04ebf5dae142d5f391801066bfefa781e187233a1d9a3f62fbfc74aeedb929",
+  "note": "The independent million run used the final ASERT algorithms. Unrelated pure SV functions were appended to the TS module during that run; ASERT input/math/trace code was unchanged, as verified against accepted S6. Final Rust ASERT trace code unchanged since the compiled review probe. This is not a second million run."
+}

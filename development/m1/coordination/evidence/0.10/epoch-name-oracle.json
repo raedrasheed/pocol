@@ -1,0 +1,45 @@
+{
+  "node": "v22.13.1",
+  "oracle": "Native BigInt hex generation, independent of Python reference",
+  "cases": [
+    {
+      "epoch": "1",
+      "expected": "pocol:epoch:0000000000000001"
+    },
+    {
+      "epoch": "6",
+      "expected": "pocol:epoch:0000000000000006"
+    },
+    {
+      "epoch": "13",
+      "expected": "pocol:epoch:000000000000000d"
+    },
+    {
+      "epoch": "255",
+      "expected": "pocol:epoch:00000000000000ff"
+    },
+    {
+      "epoch": "4294967296",
+      "expected": "pocol:epoch:0000000100000000"
+    },
+    {
+      "epoch": "18446744073709551615",
+      "expected": "pocol:epoch:ffffffffffffffff"
+    },
+    {
+      "epoch": "1",
+      "seq": "0",
+      "expected": "site:N:A:r:0000000000000001:00000000"
+    },
+    {
+      "epoch": "13",
+      "seq": "1",
+      "expected": "site:N:A:r:000000000000000d:00000001"
+    },
+    {
+      "epoch": "18446744073709551615",
+      "seq": "4294967295",
+      "expected": "site:N:A:r:ffffffffffffffff:ffffffff"
+    }
+  ]
+}

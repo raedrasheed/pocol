@@ -1,0 +1,50 @@
+{
+ "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+ "commit": "96ad4ecad065b37810f61f43e98b1597584da9f5",
+ "results": [
+  {
+   "artifact": "MinerRegistry",
+   "match": true,
+   "sha256_16": "1ed80fdadfe0d6cc"
+  },
+  {
+   "artifact": "RewardEscrow",
+   "match": true,
+   "sha256_16": "269bd8b2957117f7"
+  },
+  {
+   "artifact": "ShareLedger",
+   "match": true,
+   "sha256_16": "a50444c17cb40bcb"
+  },
+  {
+   "artifact": "ChainCaps",
+   "match": true,
+   "sha256_16": "44fe60bf06f6de8e"
+  },
+  {
+   "artifact": "ChunkFactory",
+   "match": true,
+   "sha256_16": "63795d4d48650424"
+  },
+  {
+   "artifact": "Website runtime",
+   "match": true,
+   "sha256_16": "44072bbe24b03216"
+  },
+  {
+   "artifact": "Website initcode",
+   "match": true,
+   "sha256_16": "6f8de4d50089d554"
+  }
+ ],
+ "scripts": [
+  "prototypes/lp4-execution/tests/compile_system_v1.cjs",
+  "prototypes/lp4-execution/tests/compile_website.cjs"
+ ],
+ "comparedWith": [
+  "prototypes/lp4-execution/tests/data/system-v1.json (bundled by apply.rs)",
+  "prototypes/lp4-execution/tests/data/website.json"
+ ],
+ "note": "No Solidity source or bundled bytecode changed between 090eae4 and this commit; all artifacts recompile byte-identically."
+}

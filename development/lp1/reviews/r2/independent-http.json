@@ -1,0 +1,184 @@
+{
+  "checks": 35,
+  "passed": 35,
+  "failed": 0,
+  "realBinary": true,
+  "existingCoordinatorUntouched": true,
+  "results": [
+    {
+      "check": "actualReadyLoopback",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "head",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.1",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.1.0",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.1e0",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.-0",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.-0.0",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.1e-400",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.4294967295",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.4294967295.0000000001",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.4294967295.9999999999",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.4294967296",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.-1",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.2.5",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.true",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.\"2\"",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.null",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "nativeC19.1e400",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "Fpriority.['0x00', '0x1']",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "Fpriority.['0x0', '0x0']",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "Fpriority.['0xff', '0x201']",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "Fpriority.['0xffffffffffffffff', '0x200']",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "Fpriority.['0x14', '0x2']",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "exactFrozenHeaderBytes",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "refused.eth_sendTransaction",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "refused.eth_sendRawTransaction",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "refused.eth_requestAccounts",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "refused.pocol_submitShare",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "refused.pocol_submitBlock",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "headUnchangedAfterForbidden",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "fragmentedRequest",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "duplicateId",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "invalidUTF8",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "deep",
+      "pass": true,
+      "actual": null
+    },
+    {
+      "check": "boundedProcessExit",
+      "pass": true,
+      "actual": null
+    }
+  ]
+}

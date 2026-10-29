@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-1c4c9325fbe073d3)
+
+running 1 test
+
+thread 'auth_modes_value_and_direct_reject' (79633) panicked at tests/pay_boundary.rs:83:5:
+assertion failed: !accepted(&run(&db, foreign, raw(&data, 5000, U256::ZERO, 0)))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test auth_modes_value_and_direct_reject ... FAILED
+
+failures:
+
+failures:
+    auth_modes_value_and_direct_reject
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test pay_boundary`

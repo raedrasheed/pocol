@@ -1,0 +1,3 @@
+WITNESS A06-conflict REPRODUCED :: conflict=true accounts=["0x2cd88a5b6e1c924a28d3fc2a66d40751bf979874"]
+WITNESS A06-sign-before-approval REPRODUCED :: confirmTx carries a signed raw transaction before the click: 0x02f86d830bdeca80843b… (fields: type,site,network,chainId,from,txHash,raw,to,value,data,gas,nonce,maxFeePerGas,maxPriorityFeePerGas,maxCost)
+WITNESS A06-lock-and-endpoint-change REPRODUCED :: after endpoint genesis change + wallet.lock during confirmation: reply="0x1111111111111111111111111111111111111111111111111111111111111111" sendRaw=1 pocol_status calls=1

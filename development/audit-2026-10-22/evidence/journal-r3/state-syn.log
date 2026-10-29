@@ -1,0 +1,11 @@
+=== f-syn: jm_state_root_synthetic  ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T00:56:52Z
+
+running 1 test
+test jm_state_root_synthetic ... JM-STATE-SYN {"buildSeconds":0.087642672,"contracts":697,"stateAccountsAll":62510,"stateCloneMs":23.47896,"stateRootMs":826.2822440000001,"stateRootMsMin":803.351859,"userAccounts":62500,"userSlots":250000}
+JM-STATE-SYN {"buildSeconds":0.347115796,"contracts":2786,"stateAccountsAll":250010,"stateCloneMs":100.23425,"stateRootMs":3378.9858449999997,"stateRootMsMin":3350.307197,"userAccounts":250000,"userSlots":1000000}
+JM-STATE-SYN {"buildSeconds":1.529224106,"contracts":11143,"stateAccountsAll":1000010,"stateCloneMs":867.479598,"stateRootMs":14406.342184,"stateRootMsMin":14256.70569,"userAccounts":1000000,"userSlots":4000000}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 61.36s
+
+=== end 2026-10-24T00:57:53Z exit=0

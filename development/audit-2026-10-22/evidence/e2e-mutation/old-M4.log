@@ -1,0 +1,186 @@
+== old-M4 2026-10-23T13:26:02Z
+== script /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/oldtest/tests/e2e_devnet.py sha256=83b4ca4d2ecc39719303dd5d2931633ece3b65e4fb1661d446a851dfcc9bd20d
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/bins/M4/pocold sha256=47cdc61e73b79ffbf59cd70a2f01576c0888ca330df21805fa24c0b1697d5464
+== pocol-sign sha256=e4e209e4ef1fe556fb004714906a140e594815d01569abbaf6b84e3c160d72da
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/bins/M4/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/oldtest/tests/e2e_devnet.py (cwd /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/oldtest)
+{
+  "accounts": [
+    {
+      "address": "0xb8c8decce178ff32caacf4e66d2007afb3466dbc",
+      "label": "alice",
+      "wei": "1000000000000000000000000"
+    },
+    {
+      "address": "0x0bf669635585e1af35742e6f20d71f1771d2827c",
+      "label": "bob",
+      "wei": "1000000000000000000000000"
+    }
+  ],
+  "admission": {
+    "binding": "0x269984a9212b8ab3fef716524ac923e3750043dab8ec02a9ef6f061fd5fe783c",
+    "conditions": [
+      {
+        "detail": "RpcGuard: mechanisms this node does not enforce: conn_buf, send_sock_buf, heavy_active, light_active, light_queue, heavy_resp_mem, light_resp_mem, light_resp_max, scratch_heavy, scratch_light, mem_total, err_item_max, rate, bucket_cap, queue_wait_ms, compute_heavy_ms, cancel_max_ms, grace_ms, min_send_rate, batch_wall_ms, enforce_slack_ms, timer_eps_ms",
+        "id": "rpc-absent",
+        "rules": [
+          "R26"
+        ]
+      },
+      {
+        "detail": "calibration: H_cal is a synthetic fixture (devnet --work-bits), not a measured hash rate",
+        "id": "calibration-synthetic",
+        "rules": [
+          "R25"
+        ]
+      },
+      {
+        "detail": "timing: 7 apply samples of the synthetic GAS_LIMIT compute workload on this host; not a p99 or worst-case bound (A13-DERIVATION §4)",
+        "id": "timing-not-a-bound",
+        "rules": [
+          "R14",
+          "R19"
+        ]
+      },
+      {
+        "detail": "SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",
+        "id": "gas-monotonicity-assumed",
+        "rules": [
+          "R18"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:general-R18",
+        "id": "gate-deferred-general-R18",
+        "rules": [
+          "R18"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:general-R21",
+        "id": "gate-deferred-general-R21",
+        "rules": [
+          "R21"
+        ]
+      },
+      {
+        "detail": "gate: deferred LP3 obligation LP4:caps64-minimum-SYS_SLOT_MAX",
+        "id": "gate-deferred-caps64",
+        "rules": [
+          "R18"
+        ]
+      }
+    ],
+    "deferred": [
+      "LP4:general-R18",
+      "LP4:general-R21",
+      "LP4:caps64-minimum-SYS_SLOT_MAX"
+    ],
+    "notes": [],
+    "scope": "experimental-devnet",
+    "specificationCompliant": false,
+    "waivers": [
+      {
+        "absent": [
+          "conn_buf",
+          "send_sock_buf",
+          "heavy_active",
+          "light_active",
+          "light_queue",
+          "heavy_resp_mem",
+          "light_resp_mem",
+          "light_resp_max",
+          "scratch_heavy",
+          "scratch_light",
+          "mem_total",
+          "err_item_max",
+          "rate",
+          "bucket_cap",
+          "queue_wait_ms",
+          "compute_heavy_ms",
+          "cancel_max_ms",
+          "grace_ms",
+          "min_send_rate",
+          "batch_wall_ms",
+          "enforce_slack_ms",
+          "timer_eps_ms"
+        ],
+        "checked": [
+          "batchRespMax>=respMax",
+          "respMax>=2*32768+546*512",
+          "logsCountMax>=546",
+          "logsScanBytes>=32768"
+        ],
+        "rule": "R26",
+        "waived": [
+          "derive",
+          "heavyRespMem>=respMax",
+          "lightRespMem>=connMax*lightRespMax",
+          "memoryRequired<=memTotal",
+          "lightQueue>=connMax",
+          "batchMax*errItemMax+64<=connBuf",
+          "lightRespMax>=385KiB",
+          "batchWallMin<=batchWallMs",
+          "rate>=1",
+          "bucketCap>=batchMax",
+          "timerEps>0",
+          "timerEps<enforceSlack",
+          "enforceSlack<=500",
+          "sendSockBuf<=64KiB"
+        ]
+      }
+    ]
+  },
+  "calibration": {
+    "class": "synthetic-fixture",
+    "hashesPerSecond": 16384,
+    "note": "devnet difficulty chosen with --work-bits, not a measured hash rate"
+  },
+  "chainId": 777900,
+  "forks": [
+    [
+      1,
+      0
+    ]
+  ],
+  "genesisHash": "0x9f14f257931cb44d5541c0c9970aa4f763d7d934081daaf70aa63bd826e43279",
+  "genesisTime": 1792761966,
+  "miners": [
+    {
+      "id": "0x86a412863a3eb23f4b7a9ffbc69a42fd25dea73f",
+      "label": "b",
+      "reward": "0xe590a831d626d1c20da9f3763c97a4cd7a3da9b1"
+    },
+    {
+      "id": "0xeb59c60584bb0fb67132cc4a3f9639c31cdb4935",
+      "label": "c",
+      "reward": "0x3e381e57ba2c894cd43b25bf592754bd3451c219"
+    },
+    {
+      "id": "0xfcd55660d527e67fabf17f27c4038a3799512ba0",
+      "label": "a",
+      "reward": "0xb9abf100add97b76683bf6e9ad4372875d897db1"
+    }
+  ],
+  "note": "Local devnet only. Keys are deterministic disposable devnet keys derived from labels (pocol_lp4_execution::txsign::Key::devnet).",
+  "profileKind": "simnet",
+  "timing": {
+    "genesisHash": "9f14f257931cb44d5541c0c9970aa4f763d7d934081daaf70aa63bd826e43279",
+    "method": "apply_block on a scratch copy of the genesis; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps",
+    "phaseMs": [
+      15,
+      14,
+      12
+    ],
+    "samples": 7
+  }
+}
+
+PASS two nodes produce blocks from fresh genesis — a=16 b=16
+PASS late-joining node c syncs to the head — c=17
+PASS user transactions included; receipts identical on all nodes — 0x12
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious frames/Hello/invalid block do not stop node a — rejects=0
+PASS partition: branches diverge — c=24 ab=28
+FAIL heal: the lighter side reorganizes and all nodes converge on a head at least as heavy as either branch — reorgs a/b/c=[0, 0, 0] c_tip=24 ab_tip=28
+{"result": "FAIL", "error": "heal: the lighter side reorganizes and all nodes converge on a head at least as heavy as either branch", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts identical on all nodes", "transfer value applied", "malicious frames/Hello/invalid block do not stop node a", "partition: branches diverge"], "work": "/tmp/pocol-e2e-fl_s0g2u"}
+== summary {"label": "old-M4", "exit": 1, "outcome": "FAIL", "first_fail": "heal: the lighter side reorganizes and all nodes converge on a head at least as heavy as either branch", "elapsed_s": 106.1, "leftover_killed": [], "ports_busy_after": []}

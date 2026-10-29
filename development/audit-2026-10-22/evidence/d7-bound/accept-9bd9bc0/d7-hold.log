@@ -1,0 +1,12 @@
+# d7-hold: (cd prototypes/pocold; cargo test --release --locked --offline --test consensus -- --ignored --nocapture d7_pool_revalidation_hold_under_a_heavy_pool)
+# start 2026-10-25T12:43:07Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.19s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7-target/release/deps/consensus-eb5303187dead8f9)
+
+running 1 test
+D7-MEASURE {"sliced":{"importMs":183.855708,"maxTxMs":193.259526,"poolGasMax":32000000,"poolTxs":4,"restMs":541.19496,"sliceMaxMs":193.402913,"sliceMs":50,"slicesAfterImport":3},"whole":{"importMs":626.762343,"maxTxMs":196.050507,"poolGasMax":32000000,"poolTxs":4,"restMs":0.000044,"sliceMaxMs":0.0,"sliceMs":3600000,"slicesAfterImport":0}}
+test d7_pool_revalidation_hold_under_a_heavy_pool ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 85 filtered out; finished in 3.09s
+
+# end 2026-10-25T12:43:10Z exit=0

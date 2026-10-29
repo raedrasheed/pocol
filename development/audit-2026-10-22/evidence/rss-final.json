@@ -1,0 +1,134 @@
+{
+ "commit": "d610492f9e4da579f9e88fbcaf3c05d54a59023a",
+ "uncommittedPrototypePaths": [],
+ "host": "6.18.44-fc-v140",
+ "nproc": 4,
+ "idleSeconds": 90,
+ "loadSeconds": 90,
+ "requestsAnswered200": {
+  "light": 48065,
+  "heavy": 2287,
+  "batch": 242,
+  "tx": 187
+ },
+ "nodes": {
+  "a": {
+   "peakRssBytes": 12324864,
+   "vmHwmBytes": 12324864,
+   "maxThreads": 29,
+   "peakRssIdleBytes": 10620928,
+   "peakRssLoadBytes": 12324864,
+   "modelBoundBytes": 5623469297,
+   "hwmOverModel": 0.0022,
+   "status": {
+    "height": 154,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "5623469297",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (10) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      }
+     ]
+    }
+   }
+  },
+  "b": {
+   "peakRssBytes": 12312576,
+   "vmHwmBytes": 12312576,
+   "maxThreads": 27,
+   "peakRssIdleBytes": 10514432,
+   "peakRssLoadBytes": 12312576,
+   "modelBoundBytes": 5623469297,
+   "hwmOverModel": 0.0022,
+   "status": {
+    "height": 154,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "5623469297",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (10) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      }
+     ]
+    }
+   }
+  },
+  "c": {
+   "peakRssBytes": 12255232,
+   "vmHwmBytes": 12255232,
+   "maxThreads": 26,
+   "peakRssIdleBytes": 10604544,
+   "peakRssLoadBytes": 12255232,
+   "modelBoundBytes": 5623469297,
+   "hwmOverModel": 0.0022,
+   "status": {
+    "height": 154,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "5623469297",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (10) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "note": "measured RSS of this run; not the model bound (all caps at once) and not a guaranteed ceiling"
+}

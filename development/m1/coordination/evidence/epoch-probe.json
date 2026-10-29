@@ -1,0 +1,9 @@
+{
+  "capturedEpoch": 0,
+  "worldEpoch": 1,
+  "requestEpochAfterCommit": 1,
+  "stateAfterCommit": "pending",
+  "signs": 1,
+  "sends": 1,
+  "finding": "sign_eligible mutates captured epoch rather than testing epoch equality"
+}

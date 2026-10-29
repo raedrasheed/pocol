@@ -1,0 +1,137 @@
+{
+  "specVersion": "M1 draft 0.3",
+  "revision": "R3-01 (C03)",
+  "semantics": "Each input is a complete manifest byte string given to the viewer-side validator. 'expected' is the 0.3 result (first rule and stage, actual eth_getCode requests). 'expected02' records the behaviour of the draft 0.2 tooling where it differs or where the fixture is a precedence control; it documents why the fixture discriminates and is checked against m1-draft-0.2/tools/rlp_strict.py. Hex inputs are literal. 'construction' inputs are built by tools/rlp_strict.nest(inner, depth), which wraps inner in depth canonical list headers; headHex/tailHex/length are literal checks on the constructed bytes.",
+  "depthFacts": {
+    "maxNestedEmptyListsWithin65536Bytes": 21916,
+    "derivation": "s(1)=1 (0xc0); s(d+1)=s(d)+header(s(d)) with header 1 byte below 56, 2 bytes below 256, 3 bytes below 65536, 4 bytes below 2^24. s(56)=56, s(156)=256, s(156+k)=256+3k, so s(21916)=65536 and s(21917)=65536+4=65540.",
+    "codexProbeInputBytes": 3391,
+    "codexProbeNote": "coordination/review-001/independent-probes.json used a 3391-byte input; 3391 = s(1201)."
+  },
+  "fixtures": [
+    {
+      "id": "rlp-child-string-crosses-parent",
+      "hex": "0xc18105",
+      "description": "List body is 1 byte (0x81); the child string header declares 1 more byte, which lies outside the parent but inside the input. The child header is rejected before its body is read.",
+      "expected": {"result": "reject", "firstRule": "decode.truncated", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.noncanonical", "why": "0.2 bounded children by the input end, read the body 0x05 and reported a wrapped single byte"}
+    },
+    {
+      "id": "rlp-child-long-header-crosses-parent",
+      "hex": "0xc1b801",
+      "description": "Child long-string header 0xb8 needs a length byte that lies outside the 1-byte parent body.",
+      "expected": {"result": "reject", "firstRule": "decode.truncated", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.noncanonical", "why": "0.2 read the length byte 0x01 past the parent end and reported long form below 56"}
+    },
+    {
+      "id": "rlp-child-list-crosses-parent-noncanonical-inside",
+      "hex": "0xc2c28100",
+      "description": "Parent body is 2 bytes (c2 81). The child list declares 2 body bytes (81 00), the second outside the parent; inside it is a non-canonical wrapped 0x00.",
+      "expected": {"result": "reject", "firstRule": "decode.truncated", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.noncanonical", "why": "0.2 decoded the child's children before checking the child against the parent end"}
+    },
+    {
+      "id": "rlp-child-list-crosses-parent-control",
+      "hex": "0xc2c28080",
+      "description": "Same crossing, canonical content. Both versions report truncation.",
+      "expected": {"result": "reject", "firstRule": "decode.truncated", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.truncated"}
+    },
+    {
+      "id": "rlp-parent-crosses-input-before-child",
+      "hex": "0xc58105",
+      "description": "Top-level list declares 5 body bytes, only 2 present; its non-canonical child is never inspected.",
+      "expected": {"result": "reject", "firstRule": "decode.truncated", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.truncated"}
+    },
+    {
+      "id": "rlp-noncanonical-before-trailing",
+      "hex": "0x8105ff",
+      "description": "The top-level item is decoded (and rejected) before trailing bytes are considered.",
+      "expected": {"result": "reject", "firstRule": "decode.noncanonical", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.noncanonical"}
+    },
+    {
+      "id": "rlp-trailing-after-empty-list",
+      "hex": "0xc000",
+      "expected": {"result": "reject", "firstRule": "decode.trailing", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.trailing"}
+    },
+    {
+      "id": "rlp-empty-input",
+      "hex": "0x",
+      "expected": {"result": "reject", "firstRule": "decode.truncated", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.truncated"}
+    },
+    {
+      "id": "rlp-length-of-length-crosses-input",
+      "hex": "0xb9",
+      "expected": {"result": "reject", "firstRule": "decode.truncated", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.truncated"}
+    },
+    {
+      "id": "rlp-deep-1201",
+      "construction": {"inner": "0xc0", "depth": 1200},
+      "length": 3391,
+      "maxDepth": 1201,
+      "headHex": "0xf90d3cf90d39",
+      "tailHex": "0xf838f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0",
+      "description": "Canonical RLP: 1201 nested empty lists. Decodes successfully; rejected by structure because the top level is a list of 1 item.",
+      "expected": {"result": "reject", "firstRule": "struct.shape", "stage": "structure", "requests": 0},
+      "expected02": {"exception": "RecursionError"}
+    },
+    {
+      "id": "rlp-deep-21916-max",
+      "construction": {"inner": "0xc0", "depth": 21915},
+      "length": 65536,
+      "maxDepth": 21916,
+      "headHex": "0xf9fffdf9fffa",
+      "tailHex": "0xf838f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0dfdedddcdbdad9d8d7d6d5d4d3d2d1d0cfcecdcccbcac9c8c7c6c5c4c3c2c1c0",
+      "description": "Deepest canonical nesting that fits the 65536-byte manifest limit. Must decode without depending on native stack depth.",
+      "expected": {"result": "reject", "firstRule": "struct.shape", "stage": "structure", "requests": 0},
+      "expected02": {"exception": "RecursionError"},
+      "alsoRunWithRecursionLimit": 120
+    },
+    {
+      "id": "rlp-deep-21917-oversize",
+      "construction": {"inner": "0xc0", "depth": 21916},
+      "length": 65540,
+      "headHex": "0xfa010000",
+      "description": "One level deeper exceeds the byte limit; rejected before decoding.",
+      "expected": {"result": "reject", "firstRule": "decode.oversize", "stage": "decode", "requests": 0},
+      "expected02": {"rule": "decode.oversize"}
+    },
+    {
+      "id": "rlp-deep-1201-trailing",
+      "construction": {"inner": "0xc0", "depth": 1200, "append": "0x00"},
+      "length": 3392,
+      "description": "The whole deep item decodes, then one trailing byte is reported.",
+      "expected": {"result": "reject", "firstRule": "decode.trailing", "stage": "decode", "requests": 0},
+      "expected02": {"exception": "RecursionError"}
+    },
+    {
+      "id": "rlp-deep-1201-truncated",
+      "construction": {"inner": "0xc0", "depth": 1200, "dropLast": 1},
+      "length": 3390,
+      "description": "Outer header declares an extent of 3391 bytes over 3390 bytes of input; rejected at offset 0 before descending.",
+      "expected": {"result": "reject", "firstRule": "decode.truncated", "stage": "decode", "requests": 0, "detailContains": "offset 0"},
+      "expected02": {"rule": "decode.truncated"}
+    },
+    {
+      "id": "rlp-deep-1200-noncanonical-innermost",
+      "construction": {"inner": "0x8100", "depth": 1200},
+      "length": 3394,
+      "description": "Wrapped single byte 0x00 at depth 1201. The error is found at the deepest point, without recursion.",
+      "expected": {"result": "reject", "firstRule": "decode.noncanonical", "stage": "decode", "requests": 0, "detailContains": "offset 3392"},
+      "expected02": {"exception": "RecursionError"}
+    },
+    {
+      "id": "rlp-deep-in-version-field",
+      "construction": {"listOf": [{"inner": "0xc0", "depth": 999}, {"hex": "0x80"}, {"hex": "0xf849f8478b2f696e6465782e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f"}]},
+      "length": 2867,
+      "description": "Draft 0.1 minimal manifest with the version field replaced by 1000 nested empty lists (2788 bytes).",
+      "expected": {"result": "reject", "firstRule": "struct.shape", "stage": "structure", "requests": 0},
+      "expected02": {"exception": "RecursionError"}
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+   Compiling lp1-node v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 6.86s
+     Running tests/asert_alloc.rs (target/debug/deps/asert_alloc-8e69c3ca3cbc826a)
+{"test":"asert_alloc","calls":1069,"allocations":0,"counterProbe":true,"maxShiftBits":512,"earlyHigh":286,"none":3,"probeLen":64}
+     Running tests/asert_named.rs (target/debug/deps/asert_named-a6c25a9220a955d7)
+
+running 1 test
+test as1_through_as19_actual_internal_traces_and_targets ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rewards.rs (target/debug/deps/rewards-666d7a43f470af84)
+
+running 4 tests
+test maximal_amounts_counts_and_shape_negatives ... ok
+test sv4_sv5_routes_and_invalid_pot_sv6_scope ... ok
+test sv7_and_sv7s_parts_and_conservation ... ok
+test sv1_sv2_sv3_integer_rounding ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

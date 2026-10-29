@@ -1,0 +1,270 @@
+{
+  "repository": "raedrasheed/Proof-of-Collaboration",
+  "repositoryId": 1388115529,
+  "authorizedDestination": "Existing user-authorized PR24 development branch, public repository with authenticated push permission verified in R11. No main merge or activation.",
+  "patterns": {
+    "PEM": "-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----",
+    "GitHubToken": "\\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\\b",
+    "AWSKey": "\\b(?:AKIA|ASIA)[A-Z0-9]{16}\\b",
+    "CredentialAssignment": "(?i)(?:secretKey|private_key|client_secret|access_token|refresh_token|authorization)\\s*[=:]\\s*[\"\\x27]?[A-Za-z0-9+/=_-]{12,}"
+  },
+  "filesInspected": [
+    {
+      "path": "CONTINUATION.md",
+      "bytes": 2843,
+      "rawBytes": 2843,
+      "rawSHA256": "073fdccedbd14986161e212c6dd83c6d69a4820552e34e3f120432c84573a976",
+      "sha256": "073fdccedbd14986161e212c6dd83c6d69a4820552e34e3f120432c84573a976",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "README.md",
+      "bytes": 3422,
+      "rawBytes": 3422,
+      "rawSHA256": "15a43ce22e9f02763b68a533d810959f688fcd29f52aedd2376c3caf435d4f48",
+      "sha256": "15a43ce22e9f02763b68a533d810959f688fcd29f52aedd2376c3caf435d4f48",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "REPRO.md",
+      "bytes": 1613,
+      "rawBytes": 1613,
+      "rawSHA256": "079d988efce0e16b1a836a453c7d7b38c23e86a24680f3221feb70b0ca15e960",
+      "sha256": "079d988efce0e16b1a836a453c7d7b38c23e86a24680f3221feb70b0ca15e960",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "RESULTS.json",
+      "bytes": 1115,
+      "rawBytes": 1115,
+      "rawSHA256": "b7e8fe160148a7c9c463dc312e7e3f19bba5d53e2faf64ec571ea10299a728b1",
+      "sha256": "b7e8fe160148a7c9c463dc312e7e3f19bba5d53e2faf64ec571ea10299a728b1",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "REVIEW.md",
+      "bytes": 2072,
+      "rawBytes": 2072,
+      "rawSHA256": "82b0a9cba8a29c06a6d92c4c96ec780679b55b19325126315034c98f317a1c5d",
+      "sha256": "82b0a9cba8a29c06a6d92c4c96ec780679b55b19325126315034c98f317a1c5d",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "attempt1-interrupted-cases.jsonl.gz",
+      "bytes": 22829,
+      "rawBytes": 368983,
+      "rawSHA256": "8007c6553990ea822ea7021764bc76230501cbc0f4cb085ef969920f37c1187f",
+      "sha256": "13b68164e803b50a790b6d1f9d675dce13ef7ed94ac8902c452b98c16077e6e0",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "attempt1-interrupted.log",
+      "bytes": 150,
+      "rawBytes": 150,
+      "rawSHA256": "23440082420d0004ff4cd61a09753b847221e2d0330f9fe34b1141aefe90e005",
+      "sha256": "23440082420d0004ff4cd61a09753b847221e2d0330f9fe34b1141aefe90e005",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "attempt1-runner.py",
+      "bytes": 5664,
+      "rawBytes": 5664,
+      "rawSHA256": "91e6264c3ca12445319362fd137986e565162fd33435d4cd9aeb421e49d3df2e",
+      "sha256": "91e6264c3ca12445319362fd137986e565162fd33435d4cd9aeb421e49d3df2e",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "comparator-boundaries.log",
+      "bytes": 117,
+      "rawBytes": 117,
+      "rawSHA256": "4be631647e04ddfcf3baad5086a99e24e4a7a856347572e6ce7ff5823a8fc048",
+      "sha256": "4be631647e04ddfcf3baad5086a99e24e4a7a856347572e6ce7ff5823a8fc048",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "disagreements.json",
+      "bytes": 2067,
+      "rawBytes": 2067,
+      "rawSHA256": "9fce5763bf515e4cc897f343f25fb81a6a41e0d1e08322cb5a784a36b3a83dc9",
+      "sha256": "9fce5763bf515e4cc897f343f25fb81a6a41e0d1e08322cb5a784a36b3a83dc9",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "exception-audit-initial-runner.py",
+      "bytes": 5778,
+      "rawBytes": 5778,
+      "rawSHA256": "d2c229f0cec9630fa425802c315cd1cea0ab0707e545e173b83875b22bc7607d",
+      "sha256": "d2c229f0cec9630fa425802c315cd1cea0ab0707e545e173b83875b22bc7607d",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "exception-audit.log",
+      "bytes": 64,
+      "rawBytes": 64,
+      "rawSHA256": "e38dddeec3179ae8d84cfd1d08767ddc45306066b52a3aa6c52f4a5b7d750033",
+      "sha256": "e38dddeec3179ae8d84cfd1d08767ddc45306066b52a3aa6c52f4a5b7d750033",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "exception-category-audit.json.gz",
+      "bytes": 10323,
+      "rawBytes": 461666,
+      "rawSHA256": "2f711a62cd2613d4169ab4def7f7dd15ae21908430486a6719f06f7fdc786408",
+      "sha256": "fe622286c6869f593141e428f87244522c94bcf6a9b1a15f5effd054fc78fd4a",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "exception-compiled-controls.json",
+      "bytes": 1946,
+      "rawBytes": 1946,
+      "rawSHA256": "39e7c8788f2d55d16effcc473eeaa917acc3bc71d478d515149caf1f4f6fc159",
+      "sha256": "39e7c8788f2d55d16effcc473eeaa917acc3bc71d478d515149caf1f4f6fc159",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "exception-controls.log",
+      "bytes": 82,
+      "rawBytes": 82,
+      "rawSHA256": "2f5b7aadd4f70722dc9319e4a7dc4e419ab5331f1cb70f623f81ac729ac5fae0",
+      "sha256": "2f5b7aadd4f70722dc9319e4a7dc4e419ab5331f1cb70f623f81ac729ac5fae0",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "exception-controls.py",
+      "bytes": 3241,
+      "rawBytes": 3241,
+      "rawSHA256": "24f1af3c652612cf9c30f968a61f3b33745f8fdfa84fdc73f1fad1796627ef6f",
+      "sha256": "24f1af3c652612cf9c30f968a61f3b33745f8fdfa84fdc73f1fad1796627ef6f",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "exception-nonce-guard-build.log",
+      "bytes": 1394,
+      "rawBytes": 1394,
+      "rawSHA256": "d8d1aeb7f1f04e9266cc04da08df1192f28b5bb46e674480ca9711531c881efe",
+      "sha256": "d8d1aeb7f1f04e9266cc04da08df1192f28b5bb46e674480ca9711531c881efe",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "exception-wrong-reason-build.log",
+      "bytes": 1102,
+      "rawBytes": 1102,
+      "rawSHA256": "3939624fe9a9f7177af3a2e0f222f0783e6bad92c915b444a98744ee05e14acc",
+      "sha256": "3939624fe9a9f7177af3a2e0f222f0783e6bad92c915b444a98744ee05e14acc",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "independent-unmodified-cases.jsonl.gz",
+      "bytes": 647728,
+      "rawBytes": 11576537,
+      "rawSHA256": "50ad9b4d566c9011f5d9a791e262d2c264eeda513610c04efc7967a16872fc60",
+      "sha256": "fa975eff51b0de1b81e2599419748e1a48db5045741ad7b46f1e82dcd124255e",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "independent-unmodified-runner.py",
+      "bytes": 6800,
+      "rawBytes": 6800,
+      "rawSHA256": "b8ad9d850eb1d37c2cc7ae1387e4cbdf5c10f5b398bd0da25b98a594accab80f",
+      "sha256": "b8ad9d850eb1d37c2cc7ae1387e4cbdf5c10f5b398bd0da25b98a594accab80f",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "independent-unmodified-summary.json",
+      "bytes": 404,
+      "rawBytes": 404,
+      "rawSHA256": "b991c56efa7a5fe7f89d0fccd38ea9a72040efd8efeb7702cd507f3b7ff1661c",
+      "sha256": "b991c56efa7a5fe7f89d0fccd38ea9a72040efd8efeb7702cd507f3b7ff1661c",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "independent-unmodified.log",
+      "bytes": 8704,
+      "rawBytes": 8704,
+      "rawSHA256": "67b899d3ad169846561b858019822c0de015f37f602f73868656c79974ade09f",
+      "sha256": "67b899d3ad169846561b858019822c0de015f37f602f73868656c79974ade09f",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "portable-exception-controls.json",
+      "bytes": 1946,
+      "rawBytes": 1946,
+      "rawSHA256": "39e7c8788f2d55d16effcc473eeaa917acc3bc71d478d515149caf1f4f6fc159",
+      "sha256": "39e7c8788f2d55d16effcc473eeaa917acc3bc71d478d515149caf1f4f6fc159",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "portable-exception-controls.log",
+      "bytes": 82,
+      "rawBytes": 82,
+      "rawSHA256": "2f5b7aadd4f70722dc9319e4a7dc4e419ab5331f1cb70f623f81ac729ac5fae0",
+      "sha256": "2f5b7aadd4f70722dc9319e4a7dc4e419ab5331f1cb70f623f81ac729ac5fae0",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "remaining-timeouts.jsonl",
+      "bytes": 1300,
+      "rawBytes": 1300,
+      "rawSHA256": "cacfa133b510b3fa39e36b8f7e86f3f98475379112645083a0b0a1adb176d3c5",
+      "sha256": "cacfa133b510b3fa39e36b8f7e86f3f98475379112645083a0b0a1adb176d3c5",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "root-recheck-summary.json",
+      "bytes": 355,
+      "rawBytes": 355,
+      "rawSHA256": "258ad74b19083694da282a60752132b24b3228a884c4c6c02c45ba9b0d7ff0fd",
+      "sha256": "258ad74b19083694da282a60752132b24b3228a884c4c6c02c45ba9b0d7ff0fd",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "root-recheck.jsonl",
+      "bytes": 7230,
+      "rawBytes": 7230,
+      "rawSHA256": "8b797c889be4da4b71fa454b8a9ba4e9d6887cd5fe3b63b85b5b13c322dd5430",
+      "sha256": "8b797c889be4da4b71fa454b8a9ba4e9d6887cd5fe3b63b85b5b13c322dd5430",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "root-recheck.log",
+      "bytes": 321,
+      "rawBytes": 321,
+      "rawSHA256": "5b2d25d412b4518b707a12a4b3f7e5cb6044f711a918d666ceb17587edd8d09b",
+      "sha256": "5b2d25d412b4518b707a12a4b3f7e5cb6044f711a918d666ceb17587edd8d09b",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "source-sha256.json",
+      "bytes": 1102,
+      "rawBytes": 1102,
+      "rawSHA256": "8c133730852a70c2d7948a89a7055cb09e59f501e2de598dc5ae297757556a67",
+      "sha256": "8c133730852a70c2d7948a89a7055cb09e59f501e2de598dc5ae297757556a67",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "timeout-recheck-summary.json",
+      "bytes": 383,
+      "rawBytes": 383,
+      "rawSHA256": "1d35c54085ecd791ba8a9d78d5367e95d1a4c7b27bf9361a3bb8be7be9fd7e7b",
+      "sha256": "1d35c54085ecd791ba8a9d78d5367e95d1a4c7b27bf9361a3bb8be7be9fd7e7b",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "timeout-recheck.jsonl",
+      "bytes": 16324,
+      "rawBytes": 16324,
+      "rawSHA256": "17b5892bc47735b72095ea8c9d33f01dc74c1d19bf392e0833decaca8457e6a6",
+      "sha256": "17b5892bc47735b72095ea8c9d33f01dc74c1d19bf392e0833decaca8457e6a6",
+      "credentialPatternHits": []
+    },
+    {
+      "path": "timeout-recheck.log",
+      "bytes": 345,
+      "rawBytes": 345,
+      "rawSHA256": "d4a776cffab8a8328a0765323f0ad3bb7935d0b43dd78fd354d6930f046c1839",
+      "sha256": "d4a776cffab8a8328a0765323f0ad3bb7935d0b43dd78fd354d6930f046c1839",
+      "credentialPatternHits": []
+    }
+  ],
+  "noCorpusOrSigningKeys": true
+}

@@ -1,0 +1,110 @@
+{
+  "run": 39431309483,
+  "sourceHead": "2c36d0fec08e69ee6005d0362216f4cd60b38c2c",
+  "tree": "31c9bb503449d0aebf0cb02883f7bb7c52f699c7",
+  "artifacts": [
+    {
+      "id": 12273075972,
+      "name": "lp4-independent-cancun",
+      "bytes": 132088,
+      "sha256": "47fd6ee7bfebf1e84e8738b4d71c87e9ade54c45b7cabe1dbc53e1480c471581"
+    },
+    {
+      "id": 12268547720,
+      "name": "lp4-p2-controls",
+      "bytes": 2293465,
+      "sha256": "e26e7b659ceaafcca81388ebf86ad86189ff911f8b889a4669bfe219dd5203f6"
+    },
+    {
+      "id": 12268531706,
+      "name": "lp4-native-cancun-reference",
+      "bytes": 135106,
+      "sha256": "df644bd97c193653990b0a1e349e6cf30ea749bfde79dd0b99e22c2f6652111e"
+    },
+    {
+      "id": 12267919687,
+      "name": "lp4-legacy-windows",
+      "bytes": 27077,
+      "sha256": "15c65a95215d625a1585f58ae0ed9b0c0b4847c2ff74fc050e8c1a34f032c819"
+    },
+    {
+      "id": 12267838728,
+      "name": "lp4-native-windows",
+      "bytes": 4566,
+      "sha256": "9b2a5c0ba8bd27bd2a3aa6e9627f8001169150d87e2bafd0452b523b2b5452f2"
+    }
+  ],
+  "allZipHashesVerified": true,
+  "jobs": [
+    {
+      "id": 118656772221,
+      "name": "cancun-pay-controls",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118656772562,
+      "name": "registry-windows-execution",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118656772642,
+      "name": "legacy-windows-regression",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118656772696,
+      "name": "native-cancun-reference",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118656772757,
+      "name": "independent-cancun-comparison",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "sourceFiles": 2807,
+  "allSourceHashesVerified": true,
+  "total": 20661,
+  "uniqueIdentities": 20661,
+  "exactPrimaryRootLogPairs": 19488,
+  "expectedRejectionPresence": 1173,
+  "excluded": 0,
+  "blocked": 0,
+  "incomplete": 0,
+  "mismatch": 0,
+  "engineError": 0,
+  "seconds": 2181.099,
+  "primaryBytesEqualPublishedR4": true,
+  "rustLinux": 71,
+  "rustWindows": 71,
+  "compiledControls": {
+    "lp4-context-mutations": 7,
+    "lp4-registry-mutations": 17,
+    "lp4-code-mutations": 11,
+    "lp4-mutations": 16,
+    "lp4-create-mutations": 7,
+    "lp4-budget-mutations": 3
+  },
+  "legacy": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "scope": "Upstream control comparison and R20 native CODE-01 controls (not wire authentication) only;1173 second-engine rejection presence is not signed-wire/error-precedence proof; no P2/P3/LP4 acceptance",
+  "bootable": false,
+  "codeCases": 76,
+  "codeFollowUps": 2,
+  "codeMutationsBuiltAndDetected": 11,
+  "codeDeltaReceiptsByteEqualVerifiedR4": true,
+  "individualAmendedExecutions": 8,
+  "individualInvalidInputSnapshotAdmissionOnly": 6,
+  "fullP2Acceptance": "NOT PASSED",
+  "actualGenesisBuilder": "NOT PASSED",
+  "wireAuthentication": "Not implemented/tested by these native views"
+}

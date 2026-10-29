@@ -1,0 +1,40 @@
+{
+  "schema": "pocol-m1-u14-timing/0.28",
+  "status": "conditional arithmetic only: hypothetical latencies and computation times, no measurement and no browser claim; no U14 branch and no P-C32-2 alternative is selected",
+  "sources": {
+    "fd905": {"file": "reference/FINAL_DESIGN.md", "lines": [905, 905], "literals": ["ومهلة 10s", "retryAfterMs"]},
+    "rp374": {"file": "reference/network.md", "lines": [374, 374], "literals": ["مهلة 10s"]},
+    "retry": {"file": "reference/browser.md", "lines": [41, 41], "literals": ["retryAfterMs حتى 3 مرات"]},
+    "busy": {"file": "reference/network.md", "lines": [234, 234], "literals": ["retryAfterMs ∈ [250, 2000]"]},
+    "bucket": {"file": "reference/network.md", "lines": [215, 218], "literals": ["20/s", "{rate, retryAfterMs}"]}
+  },
+  "model": {
+    "requests": "request 1 = eth_blockNumber; requests 2.. = pocol_getHeaders attempts; each request i takes latency[i-1] ms from its send to its reply",
+    "replies": "one entry per pocol_getHeaders attempt: 'ok', 'busy:<ms>' or 'rate:<ms>'",
+    "PR": "per-request: a request whose latency exceeds 10000 fails at send + 10000; retry sleep and computation are not counted",
+    "WL_a": "whole load: one deadline at t = 10000 from the first send; reply waits, retry sleeps and computation up to the verdict all count",
+    "WL_b": "whole load ending at the last reply: as WL_a, but computation after the last reply does not count",
+    "policyA": "P-C32-2 alternative A: rate delays retried only if within [0, 2000]",
+    "policyC": "P-C32-2 alternative C: any non-negative integral rate delay retried",
+    "retry": "a valid -32021 is retried after exactly its delay, at most 3 times; the 4th valid -32021 gives viewIncomplete at its reply time",
+    "deadlineTieRule": "no case places an event exactly at a deadline, so the inclusive/exclusive reading never decides an outcome"
+  },
+  "cases": [
+    {"id": "U14-T1", "latency": [100, 100, 100, 100, 100], "replies": ["busy:2000", "busy:2000", "busy:2000", "ok"], "computeMs": 50, "policy": "A",
+     "expect": {"sleepMs": 6000, "PR": {"outcome": "ok", "atMs": 6550}, "WL_a": {"outcome": "ok", "atMs": 6550}, "WL_b": {"outcome": "ok", "atMs": 6550}}},
+    {"id": "U14-T2", "latency": [1600, 1600, 1600, 1600, 1600], "replies": ["busy:2000", "busy:2000", "busy:2000", "ok"], "computeMs": 50, "policy": "A",
+     "expect": {"sleepMs": 6000, "PR": {"outcome": "ok", "atMs": 14050}, "WL_a": {"outcome": "viewIncomplete", "atMs": 10000}, "WL_b": {"outcome": "viewIncomplete", "atMs": 10000}},
+     "timeline": "1: 0->1600; 2: 1600->3200 busy, sleep to 5200; 3: 5200->6800 busy, sleep to 8800; 4: 8800->10400 (WL fails at 10000); PR: busy, sleep to 12400; 5: 12400->14000 ok; verdict 14050"},
+    {"id": "U14-T3", "latency": [4000, 7000], "replies": ["ok"], "computeMs": 50, "policy": "A",
+     "expect": {"sleepMs": 0, "PR": {"outcome": "ok", "atMs": 11050}, "WL_a": {"outcome": "viewIncomplete", "atMs": 10000}, "WL_b": {"outcome": "viewIncomplete", "atMs": 10000}}},
+    {"id": "U14-T4", "latency": [100, 10001], "replies": ["ok"], "computeMs": 50, "policy": "A",
+     "expect": {"sleepMs": 0, "PR": {"outcome": "viewIncomplete", "atMs": 10100}, "WL_a": {"outcome": "viewIncomplete", "atMs": 10000}, "WL_b": {"outcome": "viewIncomplete", "atMs": 10000}}},
+    {"id": "U14-T5", "latency": [100, 100], "replies": ["ok"], "computeMs": 9850, "policy": "A",
+     "expect": {"sleepMs": 0, "PR": {"outcome": "ok", "atMs": 10050}, "WL_a": {"outcome": "viewIncomplete", "atMs": 10000}, "WL_b": {"outcome": "ok", "atMs": 10050}}},
+    {"id": "U14-T6A", "latency": [100, 100, 100, 100, 100], "replies": ["rate:5000", "rate:5000", "rate:5000", "ok"], "computeMs": 50, "policy": "A",
+     "expect": {"sleepMs": 0, "PR": {"outcome": "viewIncomplete", "atMs": 200}, "WL_a": {"outcome": "viewIncomplete", "atMs": 200}, "WL_b": {"outcome": "viewIncomplete", "atMs": 200}}},
+    {"id": "U14-T6C", "latency": [100, 100, 100, 100, 100], "replies": ["rate:5000", "rate:5000", "rate:5000", "ok"], "computeMs": 50, "policy": "C",
+     "expect": {"sleepMs": 15000, "PR": {"outcome": "ok", "atMs": 15550}, "WL_a": {"outcome": "viewIncomplete", "atMs": 10000}, "WL_b": {"outcome": "viewIncomplete", "atMs": 10000}},
+     "note": "under WL the deadline falls during the second sleep (5300 -> 10300); sleepMs is the PR value"}
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "module": "profile",
+    "sha256": "afa1d82f6de983b705a6798286c04fab0fa09955b3d04c9933ba18b0dda7dbba"
+  },
+  {
+    "module": "genesis_spec",
+    "sha256": "62fdf19b682fc1a3d01fffd43c25b5a8bd16e602533e40f4b77d23cff778c592"
+  },
+  {
+    "module": "genesis",
+    "sha256": "5936a950c2224fad7a5dd1eb49dc92088396a1f7e51bf1c9f0c93198462e0389"
+  },
+  {
+    "module": "decimal",
+    "sha256": "3ce9f7f85e0b59fe3cbcac91d53ca8c5ac2ed263ce5d379940c5a4d87143f519"
+  },
+  {
+    "module": "json",
+    "sha256": "7ff965a553ef89cd061f4dd195ac9306404c2cdd16a3cc0343084cf102c34764"
+  },
+  {
+    "module": "fixed",
+    "sha256": "6164497f6a75fa0ea4cf4192d3ad377beea45f767e6e7b9db54b72b4daef9be3"
+  },
+  {
+    "module": "trie",
+    "sha256": "2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999"
+  },
+  {
+    "module": "hex",
+    "sha256": "e65feef9efe5b60ee1b79316b2f19dd670ef3b43f5d6f75f18378006d4ac3171"
+  },
+  {
+    "module": "rlp",
+    "sha256": "d800b3cb2e9d235b5db23556637947f9c140af919c7fed057881cd380d0826af"
+  }
+]

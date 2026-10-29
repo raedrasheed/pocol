@@ -1,0 +1,25 @@
+# jm_store_scale phase ckpt on a copy of the scale directory; instrumented build: bc38d41 + TIMING prints (write_checkpoint: encode, pin, drop, commit, forget; reset_pins); 2026-10-27T19:58:56Z, nothing else running
+
+running 1 test
+JM-SCALE-A13 {"acctCap":1000000,"boundBytes":"5255514985","budgetRequiredBytes":"6006302840","gasLimit":8000000,"hEnd":129600,"oneVersionAtCapsBytes":"1977381717","phase":"ckpt","slotCap":4000000,"stateFileBoundBytes":"2388797023392","sysSlotMax":65536}
+TIMING reset_pins 12.023s
+test jm_store_scale has been running for over 60 seconds
+JM-SCALE {"allocatedBytes":679870464,"extra":{"openSeconds":330.417854162,"resumedFrom":28672,"versionsRead":{"byDiff":31,"whole":2}},"fragmentedBytes":1749937672,"height":29519,"historyBytes":32559104,"journalBytes":41372174,"metadataBytes":14849898,"nodeCacheBytes":267554580,"nodes":1356933,"oneVersionModelBytes":"1855000692","phase":"opened for the checkpoint timing","rssBytes":461860864,"stateFileBytes":2156408832,"storedBytes":369846912,"storedOverModel":0.19937831484108148,"sysSlots":114,"userAccounts":949767,"userSlots":3799232,"vmHwmBytes":476823552}
+TIMING store.write_checkpoint pin 0.001s drop 11.034s nodes released 40251
+TIMING store.write_checkpoint commit 2.488s
+TIMING store.write_checkpoint forget 0.006s
+TIMING write_checkpoint record 29527 encode 0.065s (4304123 B, 29 roots) store 13.625s
+TIMING store.write_checkpoint pin 0.002s drop 7.964s nodes released 35829
+TIMING store.write_checkpoint commit 2.068s
+TIMING store.write_checkpoint forget 0.085s
+TIMING write_checkpoint record 29527 encode 0.050s (4304123 B, 29 roots) store 10.243s
+TIMING store.write_checkpoint pin 0.001s drop 0.035s nodes released 0
+TIMING store.write_checkpoint commit 0.111s
+TIMING store.write_checkpoint forget 0.000s
+TIMING write_checkpoint record 29527 encode 0.076s (4304123 B, 29 roots) store 0.251s
+JM-SCALE {"allocatedBytes":599392256,"extra":{"checkpointNow":[{"call":0,"ms":13690.176058000001,"nodesAfter":1316682,"nodesBefore":1356933,"nodesReleased":40251},{"call":1,"ms":10292.749251,"nodesAfter":1280853,"nodesBefore":1316682,"nodesReleased":35829},{"call":2,"ms":326.456918,"nodesAfter":1280853,"nodesBefore":1280853,"nodesReleased":0}],"encodeMs":77.45489599999999,"entries":29528,"roots":29,"snapshotBytes":4304123},"fragmentedBytes":1817208850,"height":29519,"historyBytes":32559104,"journalBytes":41372174,"metadataBytes":13440854,"nodeCacheBytes":233185863,"nodes":1280853,"oneVersionModelBytes":"1855000692","phase":"after three checkpoints","rssBytes":470241280,"stateFileBytes":2156408832,"storedBytes":316473482,"storedOverModel":0.17060558703015297,"sysSlots":114,"userAccounts":949767,"userSlots":3799232,"vmHwmBytes":476823552}
+test jm_store_scale ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 359.39s
+
+exit 0

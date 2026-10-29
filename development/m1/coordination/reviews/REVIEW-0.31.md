@@ -1,0 +1,13 @@
+# Codex independent review - revision0.31, author turn029
+
+Actualauthorreceipt successful, no reportedpermissiondenials. Preservedcopy:383entries,280passed,102recorded,1FAIL,123nativecodec calls,60.6seconds. Matrix38CompleteCandidate and3PendingRootReview; no fullM1acceptance yet.
+
+Independentrootreplay:24/24receiveboundary/originalC33/Unicodeintegratedcases pass. Oversized1100lone-surrogatedata correctlymeasures6647bytes, isdropped, causeszero wait andnoframe. Nativecodec prepared17oraclecases, six4096/4097boundaries, UTF16pair-splitclipping andguard-before-codec ordering allpass. Inputsare fedasoriginalvalidatedrawJSON, preservingIEEE754lexical/overflow rules; validunchangedrepliesbyteidentical. Nodecodecfixedfile,builtinonly,shellfalse,inputonstdin,noNODE_OPTIONS/NODE_PATH,no network or agentCLI. Runtime dependency explicitlydocumented asreferenceonly. Codecunavailabilityfails ratherthanfakessemanticapproval. C35verifiedclosed.
+
+C36initialreviewphrase/escapedJSONprovenanceissuesareverifiedrepaired. Actualreviewdecisionartifactandparsedliteralfieldsbound; all17technicalconventions, sharedRPbudget, C34negativeinvariants/mutations and668+4024hashfreezebindingspass. I independentlyreviewed the remainingC3/C4/V1effectiveprofile atspecscope: functionalguard/decision/deadline/evidencecriteria satisfied subject to the onehistorybindingbug below. This is not personalownerapproval orrealbrowser/nodeperformanceclaim.
+
+Singlefailure C37: history.HF-12 tries to bind the old0.30failedhistory.HF-8 to currenthistory.HF-8. The latter IS emittedandpasses, but history_final() takes its have-statussnapshot BEFORE recordingHF-8. HF-12 thereforeseesNonefromstalesnapshot. It is not an absentprotocolrepair, and no previousFAILshouldbeedited/deleted. Allsixactualold0.30failureshavepassingrepairchecks in thecompleted0.31results; thechecker needsfresh/complete statusbinding plusmutationtests ensuringa genuinelyfailed/missingprerequisitecannotclose.
+
+Nextuseful0.32 is narrowly atransitivehistoryclosure/effectivegate supplement; bindthecompleted0.31artifacts/sourcehashes and prove thehistoricalclosurewith freshactualstatuses. No need to repeat unchangedcrypto/codecbuilding. Preserve1FAILfrom0.31andallpriorfailures. Root mustverifyzeroFAILandcomplete41-rowcriteria afterthissupplement beforeactualM1acceptance. Coordinatorcontinuationimprovementfollows asaseparatejob understandingauthorization; no ask-to-continue.
+
+Verdict: revise C37metadata/checker closure only. AcceptC35/C36 functionalrepairs and remainingprofile atspecscope conditionaloncompletehistoryevidence. No production/deployment/transactions/permissionbypass.

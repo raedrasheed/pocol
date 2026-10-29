@@ -1,0 +1,8 @@
+2026-10-09T18:51:27.7050000Z Evaluating windows.if
+2026-10-09T18:51:27.7050000Z Evaluating: success()
+2026-10-09T18:51:27.7050000Z Result: true
+2026-10-09T18:51:27.7260000Z Job is about to start running on the hosted runner: GitHub Actions 1000001352
+2026-10-09T18:51:27.7260000Z Job is waiting for a hosted runner to come online.
+2026-10-09T18:51:27.7060000Z Requested labels: windows-2022
+2026-10-09T18:51:27.7060000Z Job defined at: raedrasheed/Proof-of-Collaboration/.github/workflows/lp3-s1-windows-verify.yml@refs/heads/main
+2026-10-09T18:51:27.7060000Z Waiting for a runner to pick up this job...

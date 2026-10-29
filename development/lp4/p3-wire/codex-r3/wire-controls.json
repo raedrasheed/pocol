@@ -1,0 +1,119 @@
+[
+  {
+    "name": "wire-budget",
+    "old": "if raw.len()>byte_budget",
+    "new": "if false && raw.len()>byte_budget",
+    "test": "byte_budget_equality_and_minus_one",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "high-s",
+    "old": "if s>n/U256::from(2)",
+    "new": "if false && s>n/U256::from(2)",
+    "test": "signed_envelopes_match_independent_oracle",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "typed-chain",
+    "old": "if uint(&f[0])?!=U256::from(chain_id)",
+    "new": "if false && uint(&f[0])?!=U256::from(chain_id)",
+    "test": "signed_envelopes_match_independent_oracle",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "signing-domain",
+    "old": "if kind!=0{preimage.push(kind)}",
+    "new": "if false && kind!=0{preimage.push(kind)}",
+    "test": "signed_envelopes_match_independent_oracle",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "canonical-integer",
+    "old": "b.len()>32 || b.first()==Some(&0)",
+    "new": "b.len()>32",
+    "test": "signed_envelopes_match_independent_oracle",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "priority-cap",
+    "old": "if priority.map(|p|p>max).unwrap_or(false)",
+    "new": "if false && priority.map(|p|p>max).unwrap_or(false)",
+    "test": "signed_envelopes_match_independent_oracle",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "fee-denominator",
+    "old": "/U512::from(8)",
+    "new": "/U512::from(7)",
+    "test": "london_fixed_boundaries_and_wide_intermediate",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "fee-minimum",
+    "old": "delta.max(U512::from(1))",
+    "new": "delta",
+    "test": "london_fixed_boundaries_and_wide_intermediate",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "fee-tip",
+    "old": "p.min(max_fee-base)",
+    "new": "p",
+    "test": "fee_cap_priority_and_equality",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "bloom-bit-order",
+    "old": "out[255-bit/8]",
+    "new": "out[bit/8]",
+    "test": "independent_bloom_and_indexed_root",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "ordered-index",
+    "old": "trie::ordered_root(values,entry_budget)",
+    "new": "trie::ordered_root(&values.iter().rev().cloned().collect::<Vec<_>>(),entry_budget)",
+    "test": "independent_bloom_and_indexed_root",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "receipt-type",
+    "old": "if kind!=0{out.push(kind)}",
+    "new": "if false && kind!=0{out.push(kind)}",
+    "test": "empty_root_and_budget_and_supported_types",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "receipt-status",
+    "old": "if success{&[1]}else{&[]}",
+    "new": "if success{&[1]}else{&[1]}",
+    "test": "empty_root_and_budget_and_supported_types",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

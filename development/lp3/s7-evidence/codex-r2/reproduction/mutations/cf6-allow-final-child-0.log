@@ -1,0 +1,10 @@
+warning: unused variable: `parent_final`
+  --> /workspace/work/lp3-s7-cf/reproduction/mutations/cf6-allow-final-child-mlk4ka4b/src/finality_core.rs:30:22
+   |
+30 | pub fn child_allowed(parent_final: bool, h: u64, h_end: u64) -> bool {
+   |                      ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_parent_final`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: 1 warning emitted
+

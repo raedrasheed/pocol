@@ -1,0 +1,18 @@
+{
+  "scope": "Independent py-evm fixture state/log comparison only; no PoCol wire/PAY acceptance",
+  "profile": "lp4-create01-modexp",
+  "selectedCases": null,
+  "counts": {
+    "MATCH": 19482,
+    "total": 20661,
+    "MISMATCH": 73,
+    "EXCEPTION_PRESENCE_ONLY": 1100,
+    "BLOCKED_TIMEOUT": 6
+  },
+  "limited": false,
+  "workers": 4,
+  "timeoutSeconds": 60,
+  "seconds": 847.757,
+  "status": "REQUIRES REVIEW; NOT PASSED",
+  "bootable": false
+}

@@ -1,0 +1,16 @@
+{
+  "approvedStorageCollisionRule": "LP4-CREATE-01",
+  "scope": "Upstream Cancun only; NOT PoCol T2 acceptance. Exception reason equivalence not proven.",
+  "counts": {
+    "total": 20661,
+    "passControl": 20661,
+    "failControl": 0,
+    "runnerFailure": 0,
+    "nonCancunVariants": 87932
+  },
+  "seconds": 165.586,
+  "runnerExit": 0,
+  "limited": false,
+  "fullIndependentEVM": "NOT RUN",
+  "bootable": false
+}

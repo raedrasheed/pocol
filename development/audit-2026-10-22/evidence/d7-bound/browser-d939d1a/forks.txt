@@ -1,0 +1,16 @@
+e2e_browser store-1 and store-2 on d939d1a: "timeout: receipts" at BR14. Heads at the inclusion height, read from each
+node's log before the work directories were removed (the logs themselves were not kept):
+
+store-1 (/tmp/pocol-browser-MddD9u), BR14's transaction 0x2bd96e1d...a1fb08:
+  h=70  a 0xd7fbc860056d (txs=1)   b 0x8b3f2bd037cd (txs=1)   c 0x8b3f2bd037cd (txs=1)
+  h=71  a, b, c 0x19a7b316ff82: a reorganized onto 0x8b3f at h=71
+  A copy of a's data directory, opened in store mode afterwards: eth_getTransactionReceipt -> block 0x46 (70)
+  0x8b3f2bd037cd status 0x1; canonical block 70 = 0x8b3f2bd037cd. (rpc find_tx takes the canonical location.)
+  BR14 read a's receipt once, inside the 0.8 s when a's own 0xd7fb was its head, and then waited for b and c
+  to report 0xd7fb.
+
+store-2 (/tmp/pocol-browser-Dv5r5c):
+  h=60  a 0x773fb02a5210   b 0xc7fc971e6401   c 0x773fb02a5210   (txs=1 each)
+  h=64  a 0x5aa065916af7   b 0x101950589642   c 0x1847b9b13036   (txs=1 each; three blocks for one template)
+
+0833b6c reads all three nodes at each poll.

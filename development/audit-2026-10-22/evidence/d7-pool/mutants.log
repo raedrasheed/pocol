@@ -1,0 +1,10 @@
+== M1 detached after the old pool
+thread 'sliced_pool_revalidation_equals_the_whole_rebuild' (2559) panicked at tests/consensus.rs:461:42:
+assertion `left == right` failed: a template during the backlog sees the same candidates
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.83s
+== M2 templates ignore the backlog
+thread 'sliced_pool_revalidation_equals_the_whole_rebuild' (2807) panicked at tests/consensus.rs:461:42:
+assertion `left == right` failed: a template during the backlog sees the same candidates
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.53s

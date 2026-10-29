@@ -1,0 +1,35 @@
+{
+  "specVersion": "M1 draft 0.7",
+  "revision": "R7-03 (C21; U42 withdrawn)",
+  "rule": "B (FD:L1323): signEligible requires eligibilityEpoch == req.epoch. The predicate is pure: it reads the captured req.epoch and never changes it. A stale request is cancelled and needs a fresh request and a fresh approval (P code 4901, U43). Every committed mutation therefore cancels every pending request; substantive conditions (1-5) are reported before staleness (6).",
+  "inherits": "All scenarios of m1-draft-0.6/vectors/profile-race-cases.json are re-run under tools/profile_race_ref_07.World. Their expectations hold unchanged except SE-benign-mutation, replaced below.",
+  "replaced": {
+    "SE-benign-mutation": {
+      "was": {"r1": {"state": "sent"}, "epoch": 1, "sends": 1},
+      "now": {"steps": [["submit", ["addProfile", "C"]], ["accept", "r1"], ["request", "r2", "A"], ["accept", "r2"]],
+              "expected": {"r1": {"state": "cancelled", "code": 4901, "epoch": 0}, "r2": {"state": "sent", "epoch": 1}, "signs": 1, "sends": 1, "epoch": 1,
+                           "logHas": [["cancelled", "r1", 4901, "atCommit"], ["acceptNoEffect", "r1"]]}}
+    }
+  },
+  "purity": [
+    {"id": "PURE-1-stale-not-rewritten", "do": "create r1 at epoch 0; set world epoch to 1 without re-evaluation; call sign_eligible(r1) twice",
+     "expected": {"code": 4901, "secondCode": 4901, "r1EpochAfter": 0, "r1Unchanged": true},
+     "note": "the Codex epoch probe (captured 0, world 1) now yields 4901 and leaves the request untouched"},
+    {"id": "PURE-2-eligible-not-rewritten", "do": "create r1 at epoch 0; call sign_eligible(r1) twice", "expected": {"code": null, "secondCode": null, "r1Unchanged": true}},
+    {"id": "PURE-3-storage-view-not-rewritten", "do": "create r1; call sign_eligible(r1, view=storage)", "expected": {"code": null, "r1Unchanged": true}}
+  ],
+  "stale": [
+    {"id": "STALE-1-accept-after-commit", "steps": [["submit", ["addProfile", "C"]], ["accept", "r1"]],
+     "expected": {"r1": {"state": "cancelled", "code": 4901}, "signs": 0, "sends": 0}},
+    {"id": "STALE-2-fresh-request-succeeds", "steps": [["submit", ["addProfile", "C"]], ["request", "r2", "A"], ["accept", "r2"]],
+     "expected": {"r2": {"state": "sent", "epoch": 1}, "sends": 1}},
+    {"id": "STALE-3-substantive-before-stale", "steps": [["submit", ["revoke", "@netKey:A"]]],
+     "expected": {"r1": {"state": "cancelled", "code": 4100}}, "note": "condition 3 (4100) is reported, not staleness"},
+    {"id": "STALE-4-mutation-queued-during-accept", "steps": [["acceptDuring", "r1", [["addProfile", "C"]]]],
+     "expected": {"r1": {"state": "sent", "epoch": 0}, "epoch": 1, "sends": 1},
+     "note": "a mutation that waits for the lock cannot commit between steps, so the acceptance completes with epoch 0; the commit happens after the release"},
+    {"id": "STALE-5-raw-write-detected-later", "steps": [["raw", {"pid": "C", "profile": "C"}]],
+     "expected": {"r1": {"state": "cancelled", "code": 4901}, "epoch": 1},
+     "note": "an out-of-worker write (I1) adopted after onChanged is a commit: r1 is stale"}
+  ]
+}

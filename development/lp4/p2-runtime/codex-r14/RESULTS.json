@@ -1,0 +1,56 @@
+{
+  "publicationPrerequisite": "Exact approved R12 archives published at ecc7eda6405b7437d24bf831c32d89f55e3fb106",
+  "nativeGeth": {
+    "scope": "External Geth upstream Cancun controls; not PoCol wire/apply/deviation acceptance",
+    "expected": 20661,
+    "counts": {
+      "STATE_AND_NATIVE_LOG_ASSERTIONS": 19488,
+      "total": 20661,
+      "EXPECTED_REJECTION_PRESENCE_ONLY": 1173
+    },
+    "exit": 0,
+    "limited": false,
+    "seconds": 161.939,
+    "binarySHA256": "287be576c5f4739ec5bd948f65accc1227bbc987c1ed9b61c78820f359f0f1d4",
+    "complete": true,
+    "status": "REQUIRES REVIEW; P2/LP4 NOT PASSED",
+    "bootable": false
+  },
+  "pythonEngine": {
+    "scope": "Independent py-evm fixture state/log comparison only; no PoCol wire/PAY acceptance",
+    "profile": "lp4-create01-modexp-admission",
+    "selectedCases": null,
+    "counts": {
+      "MATCH": 19486,
+      "total": 20661,
+      "EXCEPTION_PRESENCE_ONLY": 1173,
+      "BLOCKED_TIMEOUT": 2
+    },
+    "limited": false,
+    "workers": 4,
+    "timeoutSeconds": 300,
+    "seconds": 1129.705,
+    "status": "REQUIRES REVIEW; NOT PASSED",
+    "bootable": false
+  },
+  "admissionBoundaries": 20,
+  "nativePythonBlake2Comparisons": 160,
+  "interpretedPythonMutationControls": 8,
+  "compiledIndependentGethControls": {
+    "MUL": {
+      "baseline": 9,
+      "rootAssertionFailures": 7
+    },
+    "storageCollision": {
+      "baseline": 3,
+      "rootAssertionFailures": 3
+    }
+  },
+  "sourceModulesCanonicalHashesVerified": 86,
+  "usedMirrorTreesCanonicalContentVerified": 12,
+  "unusedMappingsNotCredited": 2,
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "all26Obligations": "NOT PASSED",
+  "bootable": false
+}

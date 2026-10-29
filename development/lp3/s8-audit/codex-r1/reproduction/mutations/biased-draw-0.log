@@ -1,0 +1,10 @@
+warning: field is never read: `last`
+   --> /workspace/work/lp3-s8/reproduction/mutations/biased-draw-lwa09gfv/src/assignment.rs:213:5
+    |
+213 |     last: U256,
+    |     ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: 1 warning emitted
+

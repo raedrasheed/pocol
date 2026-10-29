@@ -1,0 +1,30 @@
+{
+  "schema": "pocol-m1-hash-freeze-plan/0.26",
+  "status": "extension of m1-draft-0.25/hash/hash-freeze-plan.json; no value is frozen by the author",
+  "inherits": {"plan": "m1-draft-0.25/hash/hash-freeze-plan.json", "export": "coordination/review-001/m1-draft-0.25/results/hash-freeze-export-0.25.json",
+               "rootVerification": "coordination/review-001/e05-new-three-library-0.25.json (56/56 new preimages, three libraries)",
+               "statusAfterDecisions": "P-ABI/P13 (P-0.2, U06, U22), P-X1 and TK-1 are accepted (REVIEWER-DECISIONS-0.25); entries blocked only by them become freezable once three-library verified. U01-dependent entries stay blocked. ALT-E stays not adopted. E04 is a Phase A confirmation, not a freeze blocker."},
+  "export": {"file": "<out>/hash-freeze-v1-0.26.json", "writer": "tools/run_checks_026.py", "order": "sorted by id; deterministic; no timestamp"},
+  "newGroups": [
+    {"group": "v1.genesis", "algorithm": "keccak256", "preimage": "V1NET genesisPre (341 bytes)", "use": "cfg.genesisHash"},
+    {"group": "v1.templateId", "algorithm": "sha256", "preimage": "RLP(UT) of every generated header"},
+    {"group": "v1.powHash", "algorithm": "sha256", "preimage": "TemplateID || be64(nonce)"},
+    {"group": "v1.blockHash", "algorithm": "keccak256", "preimage": "TemplateID || be64(nonce) || shareRoot"},
+    {"group": "v1.sigMsg", "algorithm": "keccak256", "preimage": "0x19 || 'PoCol template' || 0x0a || TemplateID"},
+    {"group": "v1.winMsg", "algorithm": "keccak256", "preimage": "0x19 || 'PoCol winner' || 0x0a || TemplateID || be64(nonce) || shareRoot"},
+    {"group": "v1.shareRoot", "algorithm": "keccak256", "preimage": "RLP([]) = 0xc0 (= K2)"},
+    {"group": "v1.other", "algorithm": "keccak256", "preimage": "ASCII 'other' (NX-V2, validation.md:1070)"},
+    {"group": "v1.signer", "algorithm": "keccak256", "preimage": "64-byte public key of TK-1 key 1", "assertedForm": "last20", "expected": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"},
+    {"group": "keys.public", "algorithm": "keccak256", "assertedForm": "last20",
+     "items": ["kats index 1 and 2 (m1-draft-0.5/annex/br-messages.json)", "privKeyOneAddress (public key = G)", "txA signer (public key recovered from the saved raw txA; no private key used)"],
+     "resolves": "HF-BLK-KEYS of 0.25: only public keys are exported; root's saved Node evidence (m1-draft-0.5/results/txa-node-check.json: ecdsa verify, yParity recovery) already covered the signatures"}
+  ],
+  "synthetic": [
+    {"value": "0x55 x 32", "use": "stateRoot of every V1 header", "label": "opaque; items 15-17 not evaluable in RP"},
+    {"value": "0x77 x 32", "use": "parentHash of the G and F references", "label": "opaque; the reference is never linked"},
+    {"value": "0x88 x 32", "use": "V1-wrongParent9", "label": "deliberately wrong parent"},
+    {"value": "0x99 x 32", "use": "V1-refGenesis", "label": "deliberately wrong genesis hash"},
+    {"value": "22 x 32 and 33 x 32", "use": "allocRoot and sysCodeHash inside V1NET genesisPre", "label": "source-literal GSV1 placeholders"}
+  ],
+  "neverExported": ["private keys (read from the published fixture only to sign and to derive public keys)", "private-source message hashes"]
+}

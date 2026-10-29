@@ -1,0 +1,14 @@
+{"label": "base-run1", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 269.3, "leftover_killed": [], "ports_busy_after": []}
+{"label": "base-run2", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 203.6, "leftover_killed": [], "ports_busy_after": []}
+{"label": "base-run3", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 199.8, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M1b", "exit": 1, "outcome": "FAIL", "first_fail": "relay: c keeps its head and the relayed lighter tip is not canonical (head = maximum of \u227b, consensus.md:215)", "elapsed_s": 148.8, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M2", "exit": 1, "outcome": "FAIL", "first_fail": "heal: every node's head is c's tip (the strictly heavier branch)", "elapsed_s": 156.7, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M3b", "exit": 1, "outcome": "FAIL", "first_fail": "heal: every node's head is c's tip (the strictly heavier branch)", "elapsed_s": 165.8, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M4", "exit": 1, "outcome": "FAIL", "first_fail": "heal: a and b reorganized (their reorg counters moved)", "elapsed_s": 46.3, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M1a", "exit": 1, "outcome": "FAIL", "first_fail": "timeout waiting for a,b reach 15", "elapsed_s": 121.5, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M2a", "exit": 1, "outcome": "FAIL", "first_fail": "user transactions included; receipts identical on all nodes", "elapsed_s": 150.6, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M3", "exit": 1, "outcome": "FAIL", "first_fail": "timeout waiting for c syncs", "elapsed_s": 126.1, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M5", "exit": 1, "outcome": "FAIL", "first_fail": "every miner produced blocks", "elapsed_s": 187.3, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M6", "exit": 1, "outcome": "FAIL", "first_fail": "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "elapsed_s": 574.4, "leftover_killed": [], "ports_busy_after": []}
+{"label": "Mtie", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 206.3, "leftover_killed": [], "ports_busy_after": []}
+done

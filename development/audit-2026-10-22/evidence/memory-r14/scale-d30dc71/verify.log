@@ -1,0 +1,6 @@
+# jm_store_scale phase verify, POCOL_ROOT_CHECK=0, JM_SCALE_STEPS=20, defaults otherwise, d30dc71 2026-10-27T19:03:15Z
+JM-SCALE-A13 {"acctCap":1000000,"boundBytes":"5255359885","budgetRequiredBytes":"6006125583","gasLimit":8000000,"hEnd":129600,"oneVersionAtCapsBytes":"1977381717","phase":"verify","slotCap":4000000,"stateFileBoundBytes":"2388797023392","sysSlotMax":65536}
+JM-SCALE {"allocatedBytes":679870464,"extra":{"head":"[45, a3, 33, 41, 76, e4, 4a, 23]","openSeconds":801.013302452,"resumedFrom":28672},"fragmentedBytes":1749937672,"height":29519,"historyBytes":32559104,"journalBytes":41372174,"metadataBytes":14849898,"nodeCacheBytes":267554577,"nodes":1356933,"oneVersionModelBytes":"1855000692","phase":"reopened after the reorg","rssBytes":460615680,"stateFileBytes":2156408832,"storedBytes":369846912,"storedOverModel":0.19937831484108148,"sysSlots":114,"userAccounts":949767,"userSlots":3799232,"vmHwmBytes":538980352}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 803.62s
+exit 0
+/dev/vda       270553174016 33213968384 7920107520  81% /

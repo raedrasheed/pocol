@@ -1,0 +1,7298 @@
+{
+  "package": "M1 draft 0.25 (consolidated M1 specification audit, supplements, hash-freeze export, representation alternatives)",
+  "executedAtUtc": "2026-10-07T19:36:55+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "statusSchema": {
+    "coreStatus": [
+      "pass",
+      "recorded",
+      "FAIL"
+    ],
+    "diagnosticRenames": {
+      "name": "diagName",
+      "check": "diagCheck",
+      "status": "proposalStatus",
+      "ok": "diagOk",
+      "label": "diagLabel",
+      "condition": "diagCondition"
+    },
+    "partialGap": "recorded entries with partialGap=true"
+  },
+  "evidenceKind": "reference models and static audit over saved, reviewed evidence; no browser, network, EVM or chain",
+  "notExecuted": [
+    "E01-E04, E06, E07 (Phase A)",
+    "three-library verification of pendingRootTriad entries (root)",
+    "any owner decision"
+  ],
+  "summary": {
+    "checks": 702,
+    "passed": 617,
+    "recorded": 85,
+    "failed": 0,
+    "partialGaps": 4,
+    "rows": {
+      "Partial": 41
+    },
+    "seconds": 22.4
+  },
+  "results": [
+    {
+      "exists": true,
+      "sha256": "aca1668c676477e7448edad81ce9e2dbb0a953553dc5f8ec32d7cfa5819a89df",
+      "check": "input.sha256 coordination/task-023.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "e8c712073756544817204f4baee1a1cb15db78763d861dd6639c263364e9c37e",
+      "check": "input.sha256 coordination/review-001/REVIEW-0.24.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "ad2de573536cff64803a6a8693b0df4b412080cad7f1e11fc9cdc4fe6d8d781d",
+      "check": "input.sha256 coordination/issue-ledger.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "d5825262da006876ff45ab336b467252aeb9b1f3ddf22d4f6f58dffd0439be64",
+      "check": "input.sha256 M1-CLAUDE-REVIEW.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "89346450436b8ccb8381d8c836754f64424a050d08f169a00183306131f491d9",
+      "check": "input.sha256 M1-CODEX-RESPONSE.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "043755a5e737b57bf3ad894ecd3fde443a873692183af50e66148f04766985f0",
+      "check": "input.sha256 m1-draft-0.2/M1-DISPOSITIONS-0.2.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "e6cd5fe2a37bbe2a56eaba4d9a0f95244f4bf305a34b011c1e56546312f8b31c",
+      "check": "input.sha256 m1-draft-0.3/M1-ANNEX-INVENTORY-0.3.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "371dc284709da7a082b179a884770d7e1b5b568d8bf9ada66660c32965bac4dd",
+      "check": "input.sha256 coordination/hash-triad/inputs-expanded.tsv",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "3b082f928d5cd8e0849a06e566402cd939a7a45903bc880c8c3cb907de1a6ffe",
+      "check": "input.sha256 coordination/hash-triad/generate_inputs.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "5d2900e341f4d37911ca1a1a12cdb676e8e8fc72665bc9f40788f9b5767e5392",
+      "check": "input.sha256 coordination/review-001/e05-historical-evidence-inventory.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "7ad0f7773e95d887e6d43be4a5db38c4b7a59cc9fc4c4fd8ca09fd1a852655dc",
+      "check": "input.sha256 coordination/review-001/e05-keccak-three-library.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "dfe8f4c2631d5be33070de177a6d148a34dac195b4bdfc2868feaf1f90488049",
+      "check": "input.sha256 m1-draft-0.25/tools/run_checks_025.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "5b597d6151d48258324a0c4552a226c7c1dbae0a9a4bf3e2e1994dddc52329e0",
+      "check": "input.sha256 m1-draft-0.25/tools/supplements_ref.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "416ac24a14655900609320fc0c8749dbf1761bebb47728fbbc1c1fcbcd8cd6e8",
+      "check": "input.sha256 m1-draft-0.25/tools/js_number_probe.cjs",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "bdc72f7f8b6195a5dceb41cac67fb1ee14c7dfd40ca43915fc4025e93a901cb1",
+      "check": "input.sha256 m1-draft-0.25/audit/row-inventory.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "36aa16ec71b68bd8069bc4db20c342ca2f30f05c79d78dfa4f217ec3d1287c7d",
+      "check": "input.sha256 m1-draft-0.25/audit/findings-trace.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "7249ca2a155d1ea7fdeff0d1d732c0a5350c06ec5fed68047f27218ba7ff820b",
+      "check": "input.sha256 m1-draft-0.25/audit/decision-register.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "5c1c71066f67cbc3a867de2b741752f029fefaba344ddc9531941816d38f4ea2",
+      "check": "input.sha256 m1-draft-0.25/audit/gap-registry.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "2bae1031ce973c151123a7e81e71cec3fe9bd5bff766f7f686fa282c9c18dfbc",
+      "check": "input.sha256 m1-draft-0.25/hash/hash-freeze-plan.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "3a6a92883a729738ccc4450ee0f6a406c76f45817e63ccfa3bca037079106a2f",
+      "check": "input.sha256 m1-draft-0.25/supplements/s25-sweepmax.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "5bc37627d6a64d933715ea1bbf6393568e21fe11646ee3d8a4426151d22a9039",
+      "check": "input.sha256 m1-draft-0.25/supplements/s25-lc-literal.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "79f2bd0a68f2788f1c17fa2a05f07f7ec86a713fcd3f36b2b83bbb9b083d803d",
+      "check": "input.sha256 m1-draft-0.25/supplements/s25-rg3b.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "a27264b636a16f3591d7fc5949e45b12f4beceb320ec6c6d88e73b2af6153859",
+      "check": "input.sha256 m1-draft-0.25/supplements/s25-e07-viewer-table.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "09463e1ff5941b363f1b6295dc2488f05b3a4f996246b2bccb4adf4b7de621c2",
+      "check": "input.sha256 m1-draft-0.25/supplements/s25-experiment-specs.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "2b39b9973e4cecfc539f5fd8b0650d7252fe2789d408ba9733dc8886fe2c6112",
+      "check": "input.sha256 m1-draft-0.25/representation/cr-e4-01-u64-epoch.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "1714add2219babe3e688652153d9c8ba93b24ec3ffaef437add20d8bd7c78da4",
+      "check": "input.sha256 m1-draft-0.25/representation/cr-e4-02-surrogates.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "714df21cfea6eb5ece87727e45d6a5a8dadbdf4e47559debda9a2008d8ce96c1",
+      "check": "input.sha256 m1-draft-0.25/representation/cid-1-profile-chainid.json",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.positionalOnly",
+      "status": "pass"
+    },
+    {
+      "diagName": "n",
+      "proposalStatus": "s",
+      "obj": {
+        "x": [
+          1
+        ]
+      },
+      "check": "boundary.probe",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.renamedAndCopied",
+      "status": "pass"
+    },
+    {
+      "attributeMainCallsAtLines": [],
+      "check": "boundary.noOldMainCalled",
+      "status": "pass"
+    },
+    {
+      "imports": {},
+      "check": "boundary.noNetworkModules",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "boundary.noPrivatePathInPackage",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "boundary.noDependencyOrBinary",
+      "status": "pass"
+    },
+    {
+      "issue": "C14",
+      "closure": [
+        "R06",
+        "^c14\\."
+      ],
+      "closurePassed": 3,
+      "check": "evidence.supersededFailure.R04.bound.length rb-2848-does-not-fit",
+      "status": "pass"
+    },
+    {
+      "issue": "C14",
+      "closure": [
+        "R06",
+        "^c14\\."
+      ],
+      "closurePassed": 3,
+      "check": "evidence.supersededFailure.R05.c14.fixture rb-2848",
+      "status": "pass"
+    },
+    {
+      "issue": "0.6 checker collision (R7-01)",
+      "closure": [
+        "R08",
+        "^br19a\\."
+      ],
+      "closurePassed": 1,
+      "check": "evidence.supersededFailure.R06.br19a.a7 sizeLinesKeepTokensBefore",
+      "status": "pass"
+    },
+    {
+      "compared": 23,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.2",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.3",
+      "status": "pass"
+    },
+    {
+      "compared": 15,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.4",
+      "status": "pass"
+    },
+    {
+      "compared": 21,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.5",
+      "status": "pass"
+    },
+    {
+      "compared": 20,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.6",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.7",
+      "status": "pass"
+    },
+    {
+      "compared": 3,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.8",
+      "status": "pass"
+    },
+    {
+      "compared": 12,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.9",
+      "status": "pass"
+    },
+    {
+      "compared": 12,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.10",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.11",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.12",
+      "status": "pass"
+    },
+    {
+      "compared": 9,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.13",
+      "status": "pass"
+    },
+    {
+      "compared": 4,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.14",
+      "status": "pass"
+    },
+    {
+      "compared": 4,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.15",
+      "status": "pass"
+    },
+    {
+      "compared": 11,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.16",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.17",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.18",
+      "status": "pass"
+    },
+    {
+      "compared": 10,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.19",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.20",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.21",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.22",
+      "status": "pass"
+    },
+    {
+      "compared": 24,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.23",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.24",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U01 |",
+      "check": "decision.source.U01",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U02 |",
+      "check": "decision.source.U02",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U10 |",
+      "check": "decision.source.U10",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U14 |",
+      "check": "decision.source.U14",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/CR-M1-01-REV2.md",
+      "find": "PR-1",
+      "check": "decision.source.CR-M1-01",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.17/annex/C27-RFE61.md",
+      "find": "Option A",
+      "check": "decision.source.RF-E6-1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U03 |",
+      "check": "decision.source.U03",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U04 |",
+      "check": "decision.source.U04",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U06 |",
+      "check": "decision.source.U06",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U07 |",
+      "check": "decision.source.U07",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U08 |",
+      "check": "decision.source.U08",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U09 |",
+      "check": "decision.source.U09",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U11 |",
+      "check": "decision.source.U11",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U12 |",
+      "check": "decision.source.U12",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U13 |",
+      "check": "decision.source.U13",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U16 |",
+      "check": "decision.source.U16",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U17 |",
+      "check": "decision.source.U17",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U18 |",
+      "check": "decision.source.U18",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U20 |",
+      "check": "decision.source.U20",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U21 |",
+      "check": "decision.source.U21",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "find": "| U22 |",
+      "check": "decision.source.U22",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.3/M1-OPEN-0.3.md",
+      "find": "| U23 |",
+      "check": "decision.source.U23",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.3/M1-OPEN-0.3.md",
+      "find": "| U24 |",
+      "check": "decision.source.U24",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.3/M1-OPEN-0.3.md",
+      "find": "| U26 |",
+      "check": "decision.source.U26",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+      "find": "| U31 |",
+      "check": "decision.source.U31",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+      "find": "| U32 |",
+      "check": "decision.source.U32",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+      "find": "B7/U33",
+      "check": "decision.source.U33",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+      "find": "| U34 |",
+      "check": "decision.source.U34",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+      "find": "| U35 |",
+      "check": "decision.source.U35",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+      "find": "| U36 |",
+      "check": "decision.source.U36",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/M1-STATUS-0.4.md",
+      "find": "| U37 |",
+      "check": "decision.source.U37",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+      "find": "| U38 |",
+      "check": "decision.source.U38",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+      "find": "| U39 |",
+      "check": "decision.source.U39",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+      "find": "| U40 |",
+      "check": "decision.source.U40",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/M1-STATUS-0.5.md",
+      "find": "| U41 |",
+      "check": "decision.source.U41",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.7/M1-SPEC-0.7-AMENDMENTS.md",
+      "find": "U43",
+      "check": "decision.source.U43",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "find": "**P14**",
+      "check": "decision.source.P-0.2",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/annex/bridge-matrix.json",
+      "find": "(P)",
+      "check": "decision.source.P-0.4",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/annex/br-messages.json",
+      "find": "P for the window",
+      "check": "decision.source.P-0.5",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.6/M1-STATUS-0.6.md",
+      "find": "the P details of BR16, BR19 and BridgeTrace",
+      "check": "decision.source.P-0.6",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.7/M1-STATUS-0.7.md",
+      "find": "the P details of the scopes",
+      "check": "decision.source.P-0.7",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.3/M1-ANNEX-INVENTORY-0.3.md",
+      "find": "The chainId integer encoding is labelled P",
+      "check": "decision.source.P-X1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.5/annex/br-messages.json",
+      "find": "TK-1",
+      "check": "decision.source.TK-1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.6/annex/X3-RESTORED.md",
+      "find": "I1",
+      "check": "decision.source.I1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.6/annex/X3-RESTORED.md",
+      "find": "I6",
+      "check": "decision.source.I6",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.9/annex/Q4-REFERENCE-EXTENSION.md",
+      "find": "P-Q1-1",
+      "check": "decision.source.P-Q1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.9/annex/Q4-REFERENCE-EXTENSION.md",
+      "find": "P-Q2-1",
+      "check": "decision.source.P-Q2",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.9/annex/Q4-REFERENCE-EXTENSION.md",
+      "find": "P-Q3-1",
+      "check": "decision.source.P-Q3",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.9/annex/Q4-REFERENCE-EXTENSION.md",
+      "find": "P-Q4-1",
+      "check": "decision.source.P-Q4",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.10/annex/E-REFERENCE-AND-FINDINGS.md",
+      "find": "P-E1-1",
+      "check": "decision.source.P-E1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.10/annex/E-REFERENCE-AND-FINDINGS.md",
+      "find": "P-E2-1",
+      "check": "decision.source.P-E2",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.10/annex/E-REFERENCE-AND-FINDINGS.md",
+      "find": "P-E3-4",
+      "check": "decision.source.P-E3",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.11/M1-SPEC-0.11-AMENDMENT.md",
+      "find": "P-C24-2",
+      "check": "decision.source.P-C24",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.25/supplements/s25-sweepmax.json",
+      "find": "P-SM-1",
+      "check": "decision.source.P-SM-1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.13/annex/E4-E5-RECOVERY.md",
+      "find": "P-E4-3",
+      "check": "decision.source.P-E4",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.13/M1-SPEC-0.13-AMENDMENT.md",
+      "find": "P-E5-1",
+      "check": "decision.source.P-E5",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.13/M1-SPEC-0.13-AMENDMENT.md",
+      "find": "RF-E5-1",
+      "check": "decision.source.RF-E5",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.16/annex/E6-E7.md",
+      "find": "P-E6-1",
+      "check": "decision.source.P-E6",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.16/annex/E6-E7.md",
+      "find": "P-E7-1",
+      "check": "decision.source.P-E7",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.25/representation/cr-e4-01-u64-epoch.json",
+      "find": "\"recommended\": true",
+      "check": "decision.source.CR-E4-01",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.25/representation/cr-e4-02-surrogates.json",
+      "find": "\"recommended\": true",
+      "check": "decision.source.CR-E4-02",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.25/representation/cid-1-profile-chainid.json",
+      "find": "\"recommended\": true",
+      "check": "decision.source.CID-1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.19/annex/V2-LOGCLIENT.md",
+      "find": "P-V2-1",
+      "check": "decision.source.P-V2",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.25/supplements/s25-rg3b.json",
+      "find": "P-RG3B-1",
+      "check": "decision.source.P-RG3B-1",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.21/annex/V3-NETWORKPROFILES.md",
+      "find": "P-V3-1",
+      "check": "decision.source.P-V3",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.23/vectors/x8-config.json",
+      "find": "PB12",
+      "check": "decision.source.PB1-PB12",
+      "status": "pass"
+    },
+    {
+      "why": "the default (full gate, no carve-out) applies without an answer",
+      "check": "decision.notOwner.U15",
+      "status": "pass"
+    },
+    {
+      "why": "outside M1 (M2 extension annex)",
+      "check": "decision.notOwner.U19",
+      "status": "pass"
+    },
+    {
+      "why": "withdrawn by the 0.7 review (baseline preserved)",
+      "check": "decision.notOwner.U42",
+      "status": "pass"
+    },
+    {
+      "why": "resolved as a source question by the restored X3 (C13 closed-restoration)",
+      "check": "decision.notOwner.BLK-02",
+      "status": "pass"
+    },
+    {
+      "C07": {
+        "id": "C07",
+        "status": "open",
+        "evidence": "U01/U02/U10/U14/U16 owner choices",
+        "decision": "Remain proposed pending concrete owner decisions; U15 defaults to full gate."
+      },
+      "C06": "open",
+      "check": "decision.ledger.ownerItemsStillOpen",
+      "status": "pass"
+    },
+    {
+      "statuses": {
+        "CR-E4-01": "proposed-review-or-owner-decision",
+        "CR-E4-02": "proposed-review-or-owner-decision",
+        "RF-E6-1": "source-reconciliation-proposed-unapproved",
+        "F01-F26": "open"
+      },
+      "check": "decision.ledger.proposalsUnapproved",
+      "status": "pass"
+    },
+    {
+      "owner": [
+        "CR-M1-01",
+        "RF-E6-1",
+        "U01",
+        "U02",
+        "U10",
+        "U14"
+      ],
+      "check": "decision.ownerSetExact",
+      "status": "pass"
+    },
+    {
+      "check": "HF.referenceKeccak.selftest",
+      "status": "pass"
+    },
+    {
+      "now": "371dc284709da7a082b179a884770d7e1b5b568d8bf9ada66660c32965bac4dd",
+      "rootRecorded": "371dc284709da7a082b179a884770d7e1b5b568d8bf9ada66660c32965bac4dd",
+      "check": "HF.triad.inputsSha256",
+      "status": "pass"
+    },
+    {
+      "file": "coordination/hash-triad/rust-expanded-result.json",
+      "check": "HF.triad.resultSha256 Rust sha3 0.9.1",
+      "status": "pass"
+    },
+    {
+      "file": "coordination/hash-triad/python-expanded-result.json",
+      "check": "HF.triad.resultSha256 pycryptodome 3.24.0",
+      "status": "pass"
+    },
+    {
+      "file": "coordination/hash-triad/noble-expanded-result.json",
+      "check": "HF.triad.resultSha256 @noble/hashes 1.7.1 (TypeScript library, shipped JS build)",
+      "status": "pass"
+    },
+    {
+      "python": [
+        611,
+        0
+      ],
+      "noble": [
+        611,
+        0
+      ],
+      "rust": {
+        "library": "Rust sha3 0.9.1",
+        "checks": 611,
+        "failed": 0
+      },
+      "check": "HF.triad.threeLibrariesAgree",
+      "status": "pass"
+    },
+    {
+      "rows": 611,
+      "check": "HF.triad.rows",
+      "status": "pass"
+    },
+    {
+      "rebuilt": 611,
+      "orderEqual": true,
+      "mismatches": [],
+      "check": "HF.triad.bindingCurrentFixtures",
+      "status": "pass"
+    },
+    {
+      "declared": 486,
+      "check": "HF.triad.declaredFileChecks",
+      "status": "pass"
+    },
+    {
+      "addresses": 12,
+      "bad": [],
+      "check": "HF.triad.create2AddressesBound",
+      "status": "pass"
+    },
+    {
+      "compared": 581,
+      "bad": [],
+      "check": "HF.referenceKeccakMatchesTriad.small",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "HF.triad.manifestDigestsAsserted",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "zeroHash": [
+        "ver-manifest-hash"
+      ],
+      "chunkConcatMismatch": [],
+      "check": "HF.alias.versionRecords",
+      "status": "pass"
+    },
+    {
+      "bytes": 341,
+      "check": "HF.e05.GSV1",
+      "status": "pass"
+    },
+    {
+      "check": "HF.e05.K",
+      "status": "pass"
+    },
+    {
+      "check": "HF.fileSha256.keccakPy",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "HF.new.abi",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "derivedArithmeticBad": [],
+      "check": "HF.new.slots",
+      "status": "pass"
+    },
+    {
+      "check": "HF.alias.t1_02",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "HF.new.proofSlots",
+      "status": "pass"
+    },
+    {
+      "note": "emptyTrieRoot = K3, keccakEmpty = K1",
+      "check": "HF.alias.proofK",
+      "status": "pass"
+    },
+    {
+      "check": "HF.new.c14",
+      "status": "pass"
+    },
+    {
+      "check": "HF.new.txA",
+      "status": "pass"
+    },
+    {
+      "saved": {
+        "check": "snapshotE.selector",
+        "status": "recorded",
+        "signature": "websiteSnapshot(uint32)",
+        "selector": "0x22d1f9a5"
+      },
+      "check": "HF.new.snapshotE",
+      "status": "pass"
+    },
+    {
+      "check": "HF.alias.X1.netKey",
+      "status": "pass"
+    },
+    {
+      "check": "HF.alias.versionWidth.fileHash",
+      "status": "pass"
+    },
+    {
+      "check": "HF.alias.gsv1.vectors",
+      "status": "pass"
+    },
+    {
+      "check": "HF.export.noKeyMaterial",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.25/results/hash-freeze-export-0.25.json",
+      "sha256": "714327093ddc736ab1d7e15b54f83a61e6805e2a56e9723a0c085ed4b3c0d19c",
+      "bytes": 12173908,
+      "check": "HF.export.written",
+      "status": "pass"
+    },
+    {
+      "counts": {
+        "blocked": 130,
+        "pendingRootTriad": 4,
+        "freezable": 534
+      },
+      "byGroup": {
+        "abi.selector": {
+          "blocked": 35
+        },
+        "abi.topic0": {
+          "blocked": 7
+        },
+        "c14.contentHash": {
+          "pendingRootTriad": 1
+        },
+        "e05.GSV1": {
+          "freezable": 1
+        },
+        "proof.storageSlot": {
+          "pendingRootTriad": 3
+        },
+        "slot.chunks0": {
+          "blocked": 3
+        },
+        "slot.publisher": {
+          "blocked": 2
+        },
+        "slot.versionBase": {
+          "blocked": 3
+        },
+        "snapshotE.selector": {
+          "blocked": 1
+        },
+        "triad.K": {
+          "freezable": 3
+        },
+        "triad.codeTable": {
+          "blocked": 12,
+          "freezable": 36
+        },
+        "triad.files": {
+          "freezable": 486
+        },
+        "triad.manifests": {
+          "freezable": 8,
+          "blocked": 65
+        },
+        "triad.netKey": {
+          "blocked": 1
+        },
+        "txA.hash": {
+          "blocked": 1
+        }
+      },
+      "check": "HF.export.counts",
+      "status": "recorded"
+    },
+    {
+      "files": 78,
+      "byClass": {
+        "pendingRootTriad": 33,
+        "synthetic(uniform)": 28,
+        "smallInteger": 8,
+        "triad": 43,
+        "packedValue": 1,
+        "fixtureKey(notExported)": 2,
+        "privateProvenance": 3,
+        "synthetic(lc)": 14,
+        "fileSha256": 2,
+        "e05": 1
+      },
+      "unclassified": [],
+      "check": "HF.coverage.every64HexClassified",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        682,
+        682
+      ],
+      "missingLiterals": [],
+      "check": "S25.sweepMax.source.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        416,
+        416
+      ],
+      "missingLiterals": [],
+      "check": "S25.sweepMax.criterion.provenance",
+      "status": "pass"
+    },
+    {
+      "check": "S25.sweepMax.usesAcceptedWorld",
+      "status": "pass"
+    },
+    {
+      "combinations": 520,
+      "differing": [],
+      "check": "S25.sweepMax.equivalence",
+      "status": "pass"
+    },
+    {
+      "combos": [],
+      "check": "S25.sweepMax.noGen1RemoveWhenCorrect",
+      "status": "pass"
+    },
+    {
+      "failedCriteria": [
+        "c1",
+        "c7a"
+      ],
+      "violations": [
+        "removedWithoutGreater",
+        "greatestRecordLost"
+      ],
+      "trace": [
+        {
+          "t": 10,
+          "ev": "sweepAtIssue",
+          "gen": 1,
+          "name": "site:n1:0xa1:r:0000000000000001:00000001"
+        },
+        {
+          "t": 20,
+          "ev": "death",
+          "gen": 1
+        },
+        {
+          "t": 69,
+          "ev": "lateApply",
+          "gen": 1,
+          "name": "site:n1:0xa1:r:0000000000000001:00000001"
+        },
+        {
+          "t": 80,
+          "ev": "sweepAtIssue",
+          "gen": 2,
+          "name": "site:n1:0xa1:r:0000000000000002:00000000"
+        },
+        {
+          "t": 83,
+          "ev": "sweepAtIssue",
+          "gen": 2,
+          "name": "site:n1:0xa1:r:0000000000000002:00000001"
+        }
+      ],
+      "check": "S25.sweepMax.control",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": true,
+        "c2": true,
+        "c3": true,
+        "c4": true,
+        "c5": true,
+        "c6": true,
+        "c7a": true,
+        "c7b": true,
+        "epochInvariants": true
+      },
+      "check": "S25.sweepMax.baselineSameCellPasses",
+      "status": "pass"
+    },
+    {
+      "runs": 2808,
+      "failing": 536,
+      "distribution": [
+        [
+          "P1",
+          "L1",
+          [
+            "c1",
+            "c7a"
+          ],
+          88
+        ],
+        [
+          "P1",
+          "L1",
+          [
+            "c7a"
+          ],
+          32
+        ],
+        [
+          "P1",
+          "L2",
+          [
+            "c1",
+            "c7a"
+          ],
+          88
+        ],
+        [
+          "P1",
+          "L3",
+          [
+            "c7a"
+          ],
+          60
+        ],
+        [
+          "P3",
+          "L1",
+          [
+            "c1",
+            "c7a"
+          ],
+          88
+        ],
+        [
+          "P3",
+          "L1",
+          [
+            "c7a"
+          ],
+          32
+        ],
+        [
+          "P3",
+          "L2",
+          [
+            "c1",
+            "c7a"
+          ],
+          88
+        ],
+        [
+          "P3",
+          "L3",
+          [
+            "c7a"
+          ],
+          60
+        ]
+      ],
+      "check": "S25.sweepMax.grid",
+      "status": "recorded"
+    },
+    {
+      "file": "reference/implementation.md",
+      "lines": [
+        359,
+        359
+      ],
+      "missingLiterals": [],
+      "check": "S25.lclit.source.provenance",
+      "status": "pass"
+    },
+    {
+      "unfaithful": [],
+      "runs": 54,
+      "check": "S25.lclit.generatorFidelity",
+      "status": "pass"
+    },
+    {
+      "check": "S25.lclit.exportDeterministic",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 5,
+      "transcript": 5,
+      "check": "S25.lclit.replay.LC1",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 5,
+      "transcript": 5,
+      "check": "S25.lclit.replay.LC2",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 4,
+      "transcript": 4,
+      "check": "S25.lclit.replay.LC3",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 4,
+      "transcript": 4,
+      "check": "S25.lclit.replay.LC3-rate",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 7,
+      "transcript": 7,
+      "check": "S25.lclit.replay.LC3-singleton",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 4,
+      "transcript": 4,
+      "check": "S25.lclit.replay.LC4",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 3,
+      "transcript": 3,
+      "check": "S25.lclit.replay.LC4-edge-ok",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC4-edge-over",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 5,
+      "transcript": 5,
+      "check": "S25.lclit.replay.LC5",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 5,
+      "transcript": 5,
+      "check": "S25.lclit.replay.LC6",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC7a",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC7b",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC7c",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC7d",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 7,
+      "transcript": 7,
+      "check": "S25.lclit.replay.LC8",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 7,
+      "transcript": 7,
+      "check": "S25.lclit.replay.LC8-beyondAnchor",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC9a",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC9b",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC9c",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC9d",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC9e",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 4,
+      "transcript": 4,
+      "check": "S25.lclit.replay.LC9f",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 4,
+      "transcript": 4,
+      "check": "S25.lclit.replay.LC10",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 5,
+      "transcript": 5,
+      "check": "S25.lclit.replay.LC11",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 7,
+      "transcript": 7,
+      "check": "S25.lclit.replay.LC12",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 5,
+      "transcript": 5,
+      "check": "S25.lclit.replay.LC13",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 3,
+      "transcript": 3,
+      "check": "S25.lclit.replay.LC14",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 7,
+      "transcript": 7,
+      "check": "S25.lclit.replay.LC14-variant",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 6,
+      "transcript": 6,
+      "check": "S25.lclit.replay.LC14-inherit",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.LC15a",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 4,
+      "transcript": 4,
+      "check": "S25.lclit.replay.LC15b",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 11,
+      "transcript": 11,
+      "check": "S25.lclit.replay.LC16",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 12,
+      "transcript": 12,
+      "check": "S25.lclit.replay.LC17",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 8,
+      "transcript": 8,
+      "check": "S25.lclit.replay.LC17-variant",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 10,
+      "transcript": 10,
+      "check": "S25.lclit.replay.LC18",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 1,
+      "transcript": 1,
+      "check": "S25.lclit.replay.X-beyondHead",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.X-unsupported",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.X-otherError",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 6,
+      "transcript": 6,
+      "check": "S25.lclit.replay.X-maxBeforeBegin",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 4,
+      "transcript": 4,
+      "check": "S25.lclit.replay.X-fetchAll-timeout-ok",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.X-fetchAll-timeout-over",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 4,
+      "transcript": 4,
+      "check": "S25.lclit.replay.X-fetchEach-timeout-ok",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 2,
+      "transcript": 2,
+      "check": "S25.lclit.replay.X-fetchEach-timeout-over",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 0,
+      "transcript": 0,
+      "check": "S25.lclit.replay.X-bridge-range",
+      "status": "pass"
+    },
+    {
+      "badCells": [],
+      "mismatches": [],
+      "served": 3,
+      "transcript": 3,
+      "check": "S25.lclit.replay.X-bridge-ok",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC2@tailFirst",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC14@markNotSet",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC14-inherit@noMarkInherit",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC3-singleton@countBusyRetries",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC10@maxCheckAfterSend",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC18@noPrecommitCheck",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC8@resetTotalOnRestart",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC9a@acceptInvalidComplete",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "S25.lclit.replayControl.LC17-variant@maxRestarts4",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.25/results/lc-literal-replies-0.25.json",
+      "sha256": "12d6eced5fcb828af2ff1cefc0ff5c5027377ab5e4eb19dd96792619f0fc2c33",
+      "bytes": 12689462,
+      "check": "S25.lclit.export.written",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        1007,
+        1007
+      ],
+      "missingLiterals": [],
+      "check": "S25.rg3b.source.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        985,
+        989
+      ],
+      "missingLiterals": [],
+      "check": "S25.rg3b.fixtureSource.provenance",
+      "status": "pass"
+    },
+    {
+      "failingCells": {},
+      "check": "S25.rg3b.M-main",
+      "status": "pass"
+    },
+    {
+      "failingCells": {},
+      "check": "S25.rg3b.M-midAttempt",
+      "status": "pass"
+    },
+    {
+      "failingCells": {},
+      "check": "S25.rg3b.M-ABA",
+      "status": "pass"
+    },
+    {
+      "failingCells": {},
+      "check": "S25.rg3b.M-beforeAnchor",
+      "status": "pass"
+    },
+    {
+      "check": "S25.rg3b.scriptsComplete",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-SPEC-0.2.md",
+      "lines": [
+        209,
+        221
+      ],
+      "missingLiterals": [],
+      "check": "S25.e07.source.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "lines": [
+        914,
+        914
+      ],
+      "missingLiterals": [],
+      "check": "S25.e07.baseline.provenance",
+      "status": "pass"
+    },
+    {
+      "check": "S25.e07.rows",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "noPublishedSite",
+        "frame": false
+      },
+      "want": {
+        "result": "noPublishedSite",
+        "frame": false
+      },
+      "check": "S25.e07.T43-1.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "noPublishedSite",
+        "frame": false
+      },
+      "want": {
+        "result": "noPublishedSite",
+        "frame": false
+      },
+      "check": "S25.e07.T43-1.refuse",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "load",
+        "version": 1,
+        "frame": true,
+        "banner": null
+      },
+      "want": {
+        "result": "load",
+        "version": 1,
+        "frame": true,
+        "banner": null
+      },
+      "check": "S25.e07.T43-2.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "load",
+        "version": 1,
+        "frame": true,
+        "banner": null
+      },
+      "want": {
+        "result": "load",
+        "version": 1,
+        "frame": true,
+        "banner": null
+      },
+      "check": "S25.e07.T43-2.refuse",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "stateInvariant",
+        "frame": false
+      },
+      "want": {
+        "result": "stateInvariant",
+        "frame": false
+      },
+      "check": "S25.e07.T43-3.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "stateInvariant",
+        "frame": false
+      },
+      "want": {
+        "result": "stateInvariant",
+        "frame": false
+      },
+      "check": "S25.e07.T43-3.refuse",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "malformedSelector",
+        "frame": false,
+        "rpc": false
+      },
+      "want": {
+        "result": "malformedSelector",
+        "frame": false,
+        "rpc": false
+      },
+      "check": "S25.e07.T43-4.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "malformedSelector",
+        "frame": false,
+        "rpc": false
+      },
+      "want": {
+        "result": "malformedSelector",
+        "frame": false,
+        "rpc": false
+      },
+      "check": "S25.e07.T43-4.refuse",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "versionNotFound",
+        "frame": false
+      },
+      "want": {
+        "result": "versionNotFound",
+        "frame": false
+      },
+      "check": "S25.e07.T43-5.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "versionNotFound",
+        "frame": false
+      },
+      "want": {
+        "result": "versionNotFound",
+        "frame": false
+      },
+      "check": "S25.e07.T43-5.refuse",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "refuseDraft",
+        "frame": false
+      },
+      "want": {
+        "result": "refuseDraft",
+        "frame": false
+      },
+      "check": "S25.e07.T43-6.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "refuseDraft",
+        "frame": false
+      },
+      "want": {
+        "result": "refuseDraft",
+        "frame": false
+      },
+      "check": "S25.e07.T43-6.refuse",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "load",
+        "version": 1,
+        "frame": true,
+        "banner": null
+      },
+      "want": {
+        "result": "load",
+        "version": 1,
+        "frame": true,
+        "banner": null
+      },
+      "check": "S25.e07.T43-7.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "load",
+        "version": 1,
+        "frame": true,
+        "banner": null
+      },
+      "want": {
+        "result": "load",
+        "version": 1,
+        "frame": true,
+        "banner": null
+      },
+      "check": "S25.e07.T43-7.refuse",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "load",
+        "version": 2,
+        "frame": true,
+        "banner": "notCurrent"
+      },
+      "want": {
+        "result": "load",
+        "version": 2,
+        "frame": true,
+        "banner": "notCurrent"
+      },
+      "check": "S25.e07.T43-8.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "load",
+        "version": 2,
+        "frame": true,
+        "banner": "notCurrent"
+      },
+      "want": {
+        "result": "load",
+        "version": 2,
+        "frame": true,
+        "banner": "notCurrent"
+      },
+      "check": "S25.e07.T43-8.refuse",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "interstitialRevoked",
+        "frame": false,
+        "chunkFetches": 0,
+        "afterExplicitClick": {
+          "result": "load",
+          "version": 1,
+          "frame": true,
+          "banner": "revoked"
+        }
+      },
+      "want": {
+        "result": "interstitialRevoked",
+        "frame": false,
+        "chunkFetches": 0,
+        "afterExplicitClick": {
+          "result": "load",
+          "version": 1,
+          "frame": true,
+          "banner": "revoked"
+        }
+      },
+      "check": "S25.e07.T43-9.interstitial",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "result": "refuseRevoked",
+        "frame": false
+      },
+      "want": {
+        "result": "refuseRevoked",
+        "frame": false
+      },
+      "check": "S25.e07.T43-9.refuse",
+      "status": "pass"
+    },
+    {
+      "check": "S25.e07.malformedSelectorFromFixture",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.2/M1-UNRESOLVED-0.2.md",
+      "lines": [
+        34,
+        44
+      ],
+      "missingLiterals": [],
+      "check": "S25.expspec.list.provenance",
+      "status": "pass"
+    },
+    {
+      "check": "S25.expspec.ids",
+      "status": "pass"
+    },
+    {
+      "missing": [],
+      "check": "S25.expspec.inputsExist",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        200,
+        200
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-02.source.strType.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        225,
+        225
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-02.source.storageMatrix.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        396,
+        396
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-02.source.accounting.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/implementation.md",
+      "lines": [
+        206,
+        206
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-02.source.textEncoder.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.13/annex/E4-E5-RECOVERY.md",
+      "lines": [
+        80,
+        86
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-02.source.openItem.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/annex/bridge-matrix.json",
+      "lines": [
+        16,
+        16
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-02.source.b3Model.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.4/vectors/bridge-check-cases.json",
+      "lines": [
+        86,
+        86
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-02.source.existingCase.provenance",
+      "status": "pass"
+    },
+    {
+      "got": [
+        "B3",
+        {
+          "path": "params[0]"
+        }
+      ],
+      "check": "CR-E4-02.existingCaseBR17d",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "check": "CR-E4-02.bridge.SUR-key-lone-d800",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "check": "CR-E4-02.bridge.SUR-key-lone-d801",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "check": "CR-E4-02.bridge.SUR-value-lone-dc00",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "check": "CR-E4-02.bridge.SUR-key-reversed-pair",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "check": "CR-E4-02.bridge.SUR-key-valid-pair",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "check": "CR-E4-02.bridge.SUR-value-valid-pair-max",
+      "status": "pass"
+    },
+    {
+      "mismatches": {},
+      "check": "CR-E4-02.bridge.SUR-delete-null",
+      "status": "pass"
+    },
+    {
+      "check": "CR-E4-02.scalarCodec.pair-key",
+      "status": "pass"
+    },
+    {
+      "check": "CR-E4-02.scalarCodec.max-pair",
+      "status": "pass"
+    },
+    {
+      "check": "CR-E4-02.scalarCodec.bmp-edges",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "CR-E4-02.wtf8.encode",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "CR-E4-02.wtf8.decodeRejects",
+      "status": "pass"
+    },
+    {
+      "check": "CR-E4-02.wtf8.collisionResolved",
+      "status": "pass"
+    },
+    {
+      "check": "CR-E4-02.wtf8.byteOrder",
+      "status": "pass"
+    },
+    {
+      "samples": 10000,
+      "firstBad": [],
+      "check": "CR-E4-02.wtf8.property",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        9,
+        9
+      ],
+      "missingLiterals": [],
+      "check": "CID-1.source.profile.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        14,
+        14
+      ],
+      "missingLiterals": [],
+      "check": "CID-1.source.step3.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        18,
+        18
+      ],
+      "missingLiterals": [],
+      "check": "CID-1.source.netKey.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        20,
+        20
+      ],
+      "missingLiterals": [],
+      "check": "CID-1.source.conflict.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/consensus.md",
+      "lines": [
+        9,
+        9
+      ],
+      "missingLiterals": [],
+      "check": "CID-1.source.domain.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.21/tools/netprofile_ref.py",
+      "lines": [
+        238,
+        239
+      ],
+      "missingLiterals": [],
+      "check": "CID-1.source.model.provenance",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 777001
+      },
+      "want": {
+        "ok": true,
+        "value": "777001"
+      },
+      "check": "CID-1.CID-777001.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 777001
+      },
+      "want": {
+        "ok": true,
+        "value": "777001"
+      },
+      "check": "CID-1.CID-777001.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 9007199254740991
+      },
+      "want": {
+        "ok": true,
+        "value": "9007199254740991"
+      },
+      "check": "CID-1.CID-js-safe-max.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 9007199254740991
+      },
+      "want": {
+        "ok": true,
+        "value": "9007199254740991"
+      },
+      "check": "CID-1.CID-js-safe-max.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 9007199254740992
+      },
+      "want": {
+        "ok": true,
+        "value": "9007199254740992"
+      },
+      "check": "CID-1.CID-2p53.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 9007199254740992
+      },
+      "want": {
+        "ok": true,
+        "value": "9007199254740992"
+      },
+      "check": "CID-1.CID-2p53.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 9007199254740993
+      },
+      "want": {
+        "ok": true,
+        "value": "9007199254740993"
+      },
+      "check": "CID-1.CID-2p53-plus-1.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 9007199254740992
+      },
+      "want": {
+        "ok": true,
+        "value": "9007199254740992"
+      },
+      "check": "CID-1.CID-2p53-plus-1.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 18446744073709551615
+      },
+      "want": {
+        "ok": true,
+        "value": "18446744073709551615"
+      },
+      "check": "CID-1.CID-u64-max.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "range",
+        "value": 18446744073709551616
+      },
+      "want": {
+        "ok": false,
+        "reason": "range"
+      },
+      "check": "CID-1.CID-u64-max.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "range"
+      },
+      "want": {
+        "ok": false,
+        "reason": "range"
+      },
+      "check": "CID-1.CID-2p64.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "range",
+        "value": 18446744073709551616
+      },
+      "want": {
+        "ok": false,
+        "reason": "range"
+      },
+      "check": "CID-1.CID-2p64.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "notCanonicalInteger"
+      },
+      "want": {
+        "ok": false,
+        "reason": "notCanonicalInteger"
+      },
+      "check": "CID-1.CID-zero.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "range",
+        "value": 0
+      },
+      "want": {
+        "ok": false,
+        "reason": "range"
+      },
+      "check": "CID-1.CID-zero.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "notCanonicalInteger"
+      },
+      "want": {
+        "ok": false,
+        "reason": "notCanonicalInteger"
+      },
+      "check": "CID-1.CID-fraction.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 777001
+      },
+      "want": {
+        "ok": true,
+        "value": "777001"
+      },
+      "check": "CID-1.CID-fraction.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "notCanonicalInteger"
+      },
+      "want": {
+        "ok": false,
+        "reason": "notCanonicalInteger"
+      },
+      "check": "CID-1.CID-exponent.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": true,
+        "value": 777001
+      },
+      "want": {
+        "ok": true,
+        "value": "777001"
+      },
+      "check": "CID-1.CID-exponent.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "notCanonicalInteger"
+      },
+      "want": {
+        "ok": false,
+        "reason": "notCanonicalInteger"
+      },
+      "check": "CID-1.CID-negative.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "range",
+        "value": -1
+      },
+      "want": {
+        "ok": false,
+        "reason": "range"
+      },
+      "check": "CID-1.CID-negative.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "type"
+      },
+      "want": {
+        "ok": false,
+        "reason": "type"
+      },
+      "check": "CID-1.CID-string.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "type"
+      },
+      "want": {
+        "ok": false,
+        "reason": "type"
+      },
+      "check": "CID-1.CID-string.double",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "json"
+      },
+      "want": {
+        "ok": false,
+        "reason": "json"
+      },
+      "check": "CID-1.CID-leading-zero.exact",
+      "status": "pass"
+    },
+    {
+      "got": {
+        "ok": false,
+        "reason": "json"
+      },
+      "want": {
+        "ok": false,
+        "reason": "json"
+      },
+      "check": "CID-1.CID-leading-zero.double",
+      "status": "pass"
+    },
+    {
+      "netKeyExact": [
+        "fc9c2cadcd2e80c37c56d4a3860160f52cf394e204bc967a7af30829da854b86",
+        "a58016c1331f18b8d6de328cd73eb542202e5aec16de457ff028e49312b6a0d4"
+      ],
+      "doubleRead": [
+        9007199254740992,
+        9007199254740992
+      ],
+      "check": "CID-1.collision",
+      "status": "pass"
+    },
+    {
+      "chainIds": [
+        777001,
+        777902,
+        777905
+      ],
+      "check": "CID-1.existingFixturesJsSafe",
+      "status": "pass"
+    },
+    {
+      "check": "findings.all26",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F01.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^positive pos-empty-file$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "positive pos-empty-file"
+      ],
+      "check": "findings.F01.evidence.R02:^positive pos-empty-file$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative neg-empty-with-chunk$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "negative neg-empty-with-chunk"
+      ],
+      "check": "findings.F01.evidence.R02:^negative neg-empty-with-chunk$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative neg-nonempty-no-chunks$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "negative neg-nonempty-no-chunks"
+      ],
+      "check": "findings.F01.evidence.R02:^negative neg-nonempty-no-chunks$",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpec",
+      "derived": "proposeCloseSpec",
+      "unknownTokens": [],
+      "check": "findings.F01.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F02.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "abi.knownSelector owner()",
+        "abi.knownSelector transferOwnership(address)",
+        "abi.knownSelector acceptOwnership()",
+        "abi.knownSelector pendingOwner()"
+      ],
+      "check": "findings.F02.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F02.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F03.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative neg-path-",
+      "matched": 14,
+      "passed": 14,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "negative neg-path-no-slash",
+        "negative neg-path-root",
+        "negative neg-path-trailing-slash",
+        "negative neg-path-leading-double-slash"
+      ],
+      "check": "findings.F03.evidence.R02:^negative neg-path-",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^positive pos-path-256$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "positive pos-path-256"
+      ],
+      "check": "findings.F03.evidence.R02:^positive pos-path-256$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^c20\\.",
+      "matched": 168,
+      "passed": 168,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "c20.violations '/a//..'",
+        "c20.normal '/a//..'",
+        "c20.mutant '/a//..' -path.grammar",
+        "c20.v03demonstrated '/a//..'"
+      ],
+      "check": "findings.F03.evidence.R08:^c20\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpec",
+      "derived": "proposeCloseSpec",
+      "unknownTokens": [],
+      "check": "findings.F03.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F04.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^selector ",
+      "matched": 17,
+      "passed": 17,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "selector sel-u32-max",
+        "selector sel-u32-max-plus-1",
+        "selector sel-u32-wrap-to-1",
+        "selector sel-u64-wrap-to-1"
+      ],
+      "check": "findings.F04.evidence.R03:^selector ",
+      "status": "pass"
+    },
+    {
+      "proposed": "openOwner",
+      "derived": "openOwner",
+      "unknownTokens": [],
+      "check": "findings.F04.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F05.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^path",
+      "matched": 58,
+      "passed": 58,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "path.omnibox ''",
+        "path.omnibox '/'",
+        "path.omnibox '/index.html?x=1#part'",
+        "path.omnibox '/docs/'"
+      ],
+      "check": "findings.F05.evidence.R02:^path",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F05.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F06.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^codeTable\\.",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "codeTable.allEntriesFactoryDerived"
+      ],
+      "check": "findings.F06.evidence.R02:^codeTable\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "openOwner",
+      "derived": "openOwner",
+      "unknownTokens": [],
+      "check": "findings.F06.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F07.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^snapshot ",
+      "matched": 14,
+      "passed": 14,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "snapshot SNAP-01-steady",
+        "snapshot SNAP-02-A-B",
+        "snapshot SNAP-03-A-B-A",
+        "snapshot SNAP-03D-A-B-A-detector-only"
+      ],
+      "check": "findings.F07.evidence.R03:^snapshot ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^snapshot\\.",
+      "matched": 29,
+      "passed": 29,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "snapshot.inherited03 SNAP-01-steady",
+        "snapshot.inherited03 SNAP-02-A-B",
+        "snapshot.inherited03 SNAP-03-A-B-A",
+        "snapshot.inherited03 SNAP-04-outside-keff"
+      ],
+      "check": "findings.F07.evidence.R04:^snapshot\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^proof\\.",
+      "matched": 56,
+      "passed": 56,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "proof.storagePathKat slot0",
+        "proof.storagePathKat slot1",
+        "proof.storagePathKat slot2",
+        "proof.emptyTrieRoot"
+      ],
+      "check": "findings.F07.evidence.R05:^proof\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^snapshotE\\.",
+      "matched": 6,
+      "passed": 5,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "snapshotE.selector",
+        "snapshotE.E-1a-honest-A",
+        "snapshotE.E-1b-honest-B",
+        "snapshotE.E-1c-A-B-A-single-call"
+      ],
+      "check": "findings.F07.evidence.R08:^snapshotE\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "openOwner",
+      "derived": "openOwner",
+      "unknownTokens": [],
+      "check": "findings.F07.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F08.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "abi.knownSelector owner()",
+        "abi.knownSelector transferOwnership(address)",
+        "abi.knownSelector acceptOwnership()",
+        "abi.knownSelector pendingOwner()"
+      ],
+      "check": "findings.F08.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F08.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F09.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^version",
+      "matched": 6,
+      "passed": 6,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "version ver-minimal",
+        "version ver-manifest-65536",
+        "version ver-manifest-hash",
+        "version ver-manifest-chunk-missing"
+      ],
+      "check": "findings.F09.evidence.R02:^version",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F09.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F10.inBothReports",
+      "status": "pass"
+    },
+    {
+      "why": "T1-11 crash points are specified rows; no reference execution exists because T1 is a contract test (E01)",
+      "experiments": [
+        "E01"
+      ],
+      "check": "findings.F10.noReferenceEvidence",
+      "status": "recorded"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F10.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F11.inBothReports",
+      "status": "pass"
+    },
+    {
+      "why": "contract or procedure item; its outcome is an implementation experiment",
+      "experiments": [
+        "E01"
+      ],
+      "check": "findings.F11.noReferenceEvidence",
+      "status": "recorded"
+    },
+    {
+      "proposed": "openOwner",
+      "derived": "openOwner",
+      "unknownTokens": [],
+      "check": "findings.F11.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F12.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "abi.knownSelector owner()",
+        "abi.knownSelector transferOwnership(address)",
+        "abi.knownSelector acceptOwnership()",
+        "abi.knownSelector pendingOwner()"
+      ],
+      "check": "findings.F12.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F12.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F13.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^isolation\\.",
+      "matched": 59,
+      "passed": 59,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "isolation.full neg-trailing-byte",
+        "isolation.full neg-noncanonical-version",
+        "isolation.full neg-noncanonical-long-string",
+        "isolation.full neg-noncanonical-long-list"
+      ],
+      "check": "findings.F13.evidence.R02:^isolation\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^c20\\.",
+      "matched": 168,
+      "passed": 168,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "c20.violations '/a//..'",
+        "c20.normal '/a//..'",
+        "c20.mutant '/a//..' -path.grammar",
+        "c20.v03demonstrated '/a//..'"
+      ],
+      "check": "findings.F13.evidence.R08:^c20\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpec",
+      "derived": "proposeCloseSpec",
+      "unknownTokens": [],
+      "check": "findings.F13.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F14.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative neg-fetch-",
+      "matched": 5,
+      "passed": 5,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "negative neg-fetch-missing",
+        "negative neg-fetch-prefix",
+        "negative neg-fetch-length",
+        "negative neg-fetch-other-factory"
+      ],
+      "check": "findings.F14.evidence.R02:^negative neg-fetch-",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^requests\\.",
+      "matched": 29,
+      "passed": 29,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "requests.positive pos-minimal",
+        "requests.mutantNoCache pos-minimal",
+        "requests.positive pos-empty-file",
+        "requests.mutantNoCache pos-empty-file"
+      ],
+      "check": "findings.F14.evidence.R03:^requests\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpec",
+      "derived": "proposeCloseSpec",
+      "unknownTokens": [],
+      "check": "findings.F14.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F15.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^boundary\\.",
+      "matched": 3,
+      "passed": 3,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "boundary.split 1048576",
+        "boundary.split 1048577",
+        "boundary.T25 v2 content chunks = 44"
+      ],
+      "check": "findings.F15.evidence.R02:^boundary\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpec",
+      "derived": "proposeCloseSpec",
+      "unknownTokens": [],
+      "check": "findings.F15.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F16.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^positive pos-site-4194304$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "positive pos-site-4194304"
+      ],
+      "check": "findings.F16.evidence.R02:^positive pos-site-4194304$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative neg-site-4194305$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "negative neg-site-4194305"
+      ],
+      "check": "findings.F16.evidence.R02:^negative neg-site-4194305$",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F16.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F17.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^generator\\.",
+      "matched": 2,
+      "passed": 2,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "generator.deterministic (two runs)",
+        "generator.committedFixturesCurrent"
+      ],
+      "check": "findings.F17.evidence.R02:^generator\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "openOwner",
+      "derived": "openOwner",
+      "unknownTokens": [],
+      "check": "findings.F17.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F18.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^selector ",
+      "matched": 17,
+      "passed": 17,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "selector sel-u32-max",
+        "selector sel-u32-max-plus-1",
+        "selector sel-u32-wrap-to-1",
+        "selector sel-u64-wrap-to-1"
+      ],
+      "check": "findings.F18.evidence.R03:^selector ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^path",
+      "matched": 58,
+      "passed": 58,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "path.omnibox ''",
+        "path.omnibox '/'",
+        "path.omnibox '/index.html?x=1#part'",
+        "path.omnibox '/docs/'"
+      ],
+      "check": "findings.F18.evidence.R02:^path",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F18.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F19.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative neg-entry-index-range$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "negative neg-entry-index-range"
+      ],
+      "check": "findings.F19.evidence.R02:^negative neg-entry-index-range$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^versionWidth",
+      "matched": 16,
+      "passed": 16,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "versionWidth.length neg-version-256",
+        "versionWidth.layout neg-version-256",
+        "versionWidth neg-version-256",
+        "versionWidth.isolation.next neg-version-256"
+      ],
+      "check": "findings.F19.evidence.R03:^versionWidth",
+      "status": "pass"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F19.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F20.inBothReports",
+      "status": "pass"
+    },
+    {
+      "why": "a contract-only behaviour: the definition (declared mock) is complete; the outcome is E01",
+      "experiments": [
+        "E01"
+      ],
+      "check": "findings.F20.noReferenceEvidence",
+      "status": "recorded"
+    },
+    {
+      "proposed": "proposeCloseSpec",
+      "derived": "proposeCloseSpec",
+      "unknownTokens": [],
+      "check": "findings.F20.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F21.inBothReports",
+      "status": "pass"
+    },
+    {
+      "why": "Cancun is baseline (FD:L843); the tool versions are recorded when E01 runs",
+      "experiments": [
+        "E01"
+      ],
+      "check": "findings.F21.noReferenceEvidence",
+      "status": "recorded"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F21.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F22.inBothReports",
+      "status": "pass"
+    },
+    {
+      "why": "the required build-record fields are defined; the values come from E04",
+      "experiments": [
+        "E04"
+      ],
+      "check": "findings.F22.noReferenceEvidence",
+      "status": "recorded"
+    },
+    {
+      "proposed": "proposeCloseSpec",
+      "derived": "proposeCloseSpec",
+      "unknownTokens": [],
+      "check": "findings.F22.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F23.inBothReports",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^codeTable\\.",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "codeTable.allEntriesFactoryDerived"
+      ],
+      "check": "findings.F23.evidence.R02:^codeTable\\.",
+      "status": "pass"
+    },
+    {
+      "proposed": "openOwner",
+      "derived": "openOwner",
+      "unknownTokens": [],
+      "check": "findings.F23.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F24.inBothReports",
+      "status": "pass"
+    },
+    {
+      "why": "CONF_DEPTH stays a required runtime input with no default; accepting that parameterisation is a reviewer decision, and an owner default may be added later without changing the spec",
+      "experiments": [
+        "E01"
+      ],
+      "check": "findings.F24.noReferenceEvidence",
+      "status": "recorded"
+    },
+    {
+      "proposed": "proposeCloseSpecAfterReviewerDecision",
+      "derived": "proposeCloseSpecAfterReviewerDecision",
+      "unknownTokens": [],
+      "check": "findings.F24.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F25.inBothReports",
+      "status": "pass"
+    },
+    {
+      "why": "contract or procedure item; its outcome is an implementation experiment",
+      "experiments": [],
+      "check": "findings.F25.noReferenceEvidence",
+      "status": "recorded"
+    },
+    {
+      "proposed": "openOwner",
+      "derived": "openOwner",
+      "unknownTokens": [],
+      "check": "findings.F25.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "check": "findings.F26.inBothReports",
+      "status": "pass"
+    },
+    {
+      "why": "the gate text is complete and U15 defaults to the full gate; the gate itself stays unmet (C01 open) until every row is Complete",
+      "experiments": [],
+      "check": "findings.F26.noReferenceEvidence",
+      "status": "recorded"
+    },
+    {
+      "proposed": "proposeCloseSpec",
+      "derived": "proposeCloseSpec",
+      "unknownTokens": [],
+      "check": "findings.F26.dispositionConsistent",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^boundary\\.",
+      "matched": 3,
+      "passed": 3,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "boundary.split 1048576",
+        "boundary.split 1048577",
+        "boundary.T25 v2 content chunks = 44"
+      ],
+      "check": "findings.codexCorrection.F15.R02:^boundary\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^positive pos-site-4194304$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "positive pos-site-4194304"
+      ],
+      "check": "findings.codexCorrection.F16.R02:^positive pos-site-4194304$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative neg-site-4194305$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "negative neg-site-4194305"
+      ],
+      "check": "findings.codexCorrection.F16.R02:^negative neg-site-4194305$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^isolation\\.",
+      "matched": 59,
+      "passed": 59,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "isolation.full neg-trailing-byte",
+        "isolation.full neg-noncanonical-version",
+        "isolation.full neg-noncanonical-long-string",
+        "isolation.full neg-noncanonical-long-list"
+      ],
+      "check": "findings.codexCorrection.F13.R02:^isolation\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^c20\\.",
+      "matched": 168,
+      "passed": 168,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "c20.violations '/a//..'",
+        "c20.normal '/a//..'",
+        "c20.mutant '/a//..' -path.grammar",
+        "c20.v03demonstrated '/a//..'"
+      ],
+      "check": "findings.codexCorrection.F13.R08:^c20\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^selector ",
+      "matched": 17,
+      "passed": 17,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "selector sel-u32-max",
+        "selector sel-u32-max-plus-1",
+        "selector sel-u32-wrap-to-1",
+        "selector sel-u64-wrap-to-1"
+      ],
+      "check": "findings.codexCorrection.F18.R03:^selector ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^snapshot ",
+      "matched": 14,
+      "passed": 14,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "snapshot SNAP-01-steady",
+        "snapshot SNAP-02-A-B",
+        "snapshot SNAP-03-A-B-A",
+        "snapshot SNAP-03D-A-B-A-detector-only"
+      ],
+      "check": "findings.codexCorrection.F07.R03:^snapshot ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^snapshot\\.",
+      "matched": 29,
+      "passed": 29,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "snapshot.inherited03 SNAP-01-steady",
+        "snapshot.inherited03 SNAP-02-A-B",
+        "snapshot.inherited03 SNAP-03-A-B-A",
+        "snapshot.inherited03 SNAP-04-outside-keff"
+      ],
+      "check": "findings.codexCorrection.F07.R04:^snapshot\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^path",
+      "matched": 58,
+      "passed": 58,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "path.omnibox ''",
+        "path.omnibox '/'",
+        "path.omnibox '/index.html?x=1#part'",
+        "path.omnibox '/docs/'"
+      ],
+      "check": "findings.codexCorrection.F05.R02:^path",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^version",
+      "matched": 6,
+      "passed": 6,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "version ver-minimal",
+        "version ver-manifest-65536",
+        "version ver-manifest-hash",
+        "version ver-manifest-chunk-missing"
+      ],
+      "check": "findings.codexCorrection.F09.R02:^version",
+      "status": "pass"
+    },
+    {
+      "check": "findings.codexCorrections8",
+      "status": "pass"
+    },
+    {
+      "dispositions": {
+        "proposeCloseSpec": 8,
+        "proposeCloseSpecAfterReviewerDecision": 11,
+        "openOwner": 7
+      },
+      "check": "findings.summary",
+      "status": "recorded"
+    },
+    {
+      "gaps": 53,
+      "unclassified": [],
+      "byClass": {
+        "coveredBySavedEvidence": 3,
+        "sourceDefinedAsProperties": 2,
+        "resolvedBySupplement": 4,
+        "ownerDecision": 2,
+        "reviewerDecision": 33,
+        "phaseA": 5,
+        "sourceAbsentNonBlocking": 2,
+        "aggregate": 1,
+        "deferredBeyondM1": 1
+      },
+      "check": "gaps.allClassified",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "e5\\.case BR22d-V-[de]$",
+      "matched": 2,
+      "passed": 2,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite017.suite016.rerun015.rerun013.e5.case BR22d-V-d",
+        "suite017.suite016.rerun015.rerun013.e5.case BR22d-V-e"
+      ],
+      "check": "gaps.coveredBy.BR23-d15c\\.boundary@(10100|60300)$",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        539,
+        539
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-01.source.range.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        534,
+        535
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-01.source.value.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.13/annex/E4-E5-RECOVERY.md",
+      "lines": [
+        73,
+        78
+      ],
+      "missingLiterals": [],
+      "check": "CR-E4-01.source.openItem.provenance",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "CR-E4-01.roundTrip",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "CR-E4-01.decodeRejects",
+      "status": "pass"
+    },
+    {
+      "diagName": 142,
+      "json": 1441867,
+      "enc": 1442009,
+      "check": "CR-E4-01.maxRecord",
+      "status": "pass"
+    },
+    {
+      "got": "epochNotJsSafe",
+      "check": "CR-E4-01.oldCodecUnchanged",
+      "status": "pass"
+    },
+    {
+      "count": 41,
+      "check": "inventory.rows",
+      "status": "pass"
+    },
+    {
+      "file": "m1-draft-0.3/M1-ANNEX-INVENTORY-0.3.md",
+      "lines": [
+        16,
+        95
+      ],
+      "missingLiterals": [],
+      "check": "inventory.rowsSource.provenance",
+      "status": "pass"
+    },
+    {
+      "check": "inventory.acceptanceRule",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.C1.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^keccak\\.selftest$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "keccak.selftest"
+      ],
+      "check": "row.C1.evidence.R02:^keccak\\.selftest$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^codeTable\\.",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "codeTable.allEntriesFactoryDerived"
+      ],
+      "check": "row.C1.evidence.R02:^codeTable\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^draft01\\.",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "draft01.byteIdentical chunks.json",
+        "draft01.byteIdentical index.html",
+        "draft01.byteIdentical manifest.json",
+        "draft01.byteIdentical negative-manifests.json"
+      ],
+      "check": "row.C1.evidence.R02:^draft01\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "abi.knownSelector owner()",
+        "abi.knownSelector transferOwnership(address)",
+        "abi.knownSelector acceptOwnership()",
+        "abi.knownSelector pendingOwner()"
+      ],
+      "check": "row.C1.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.C1.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "owner",
+          "id": "U01"
+        },
+        {
+          "type": "reviewer",
+          "id": "U18"
+        },
+        {
+          "type": "reviewer",
+          "id": "U21"
+        },
+        {
+          "type": "reviewer",
+          "id": "U22"
+        },
+        {
+          "type": "reviewer",
+          "id": "U26"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.2"
+        },
+        {
+          "type": "hash:owner",
+          "group": "triad.codeTable",
+          "id": "U01"
+        },
+        {
+          "type": "hash:reviewer",
+          "group": "abi.selector",
+          "id": "P-ABI"
+        },
+        {
+          "type": "hash:phaseA",
+          "group": "abi.selector",
+          "id": "E04"
+        }
+      ],
+      "onlyReviewerBlocked": false,
+      "check": "row.C1.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.C1.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.C2.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^positive ",
+      "matched": 11,
+      "passed": 11,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "positive pos-minimal",
+        "positive pos-empty-file",
+        "positive pos-shared-chunk",
+        "positive pos-case-distinct"
+      ],
+      "check": "row.C2.evidence.R02:^positive ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative ",
+      "matched": 62,
+      "passed": 62,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "negative neg-trailing-byte",
+        "negative neg-noncanonical-version",
+        "negative neg-noncanonical-long-string",
+        "negative neg-noncanonical-long-list"
+      ],
+      "check": "row.C2.evidence.R02:^negative ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^isolation\\.",
+      "matched": 59,
+      "passed": 59,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "isolation.full neg-trailing-byte",
+        "isolation.full neg-noncanonical-version",
+        "isolation.full neg-noncanonical-long-string",
+        "isolation.full neg-noncanonical-long-list"
+      ],
+      "check": "row.C2.evidence.R02:^isolation\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^boundary\\.",
+      "matched": 3,
+      "passed": 3,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "boundary.split 1048576",
+        "boundary.split 1048577",
+        "boundary.T25 v2 content chunks = 44"
+      ],
+      "check": "row.C2.evidence.R02:^boundary\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^path",
+      "matched": 58,
+      "passed": 58,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "path.omnibox ''",
+        "path.omnibox '/'",
+        "path.omnibox '/index.html?x=1#part'",
+        "path.omnibox '/docs/'"
+      ],
+      "check": "row.C2.evidence.R02:^path",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^rlp\\.",
+      "matched": 47,
+      "passed": 47,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "rlp.expected rlp-child-string-crosses-parent",
+        "rlp.draft02Behaviour rlp-child-string-crosses-parent",
+        "rlp.expected rlp-child-long-header-crosses-parent",
+        "rlp.draft02Behaviour rlp-child-long-header-crosses-parent"
+      ],
+      "check": "row.C2.evidence.R03:^rlp\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^selector ",
+      "matched": 17,
+      "passed": 17,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "selector sel-u32-max",
+        "selector sel-u32-max-plus-1",
+        "selector sel-u32-wrap-to-1",
+        "selector sel-u64-wrap-to-1"
+      ],
+      "check": "row.C2.evidence.R03:^selector ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^versionWidth",
+      "matched": 16,
+      "passed": 16,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "versionWidth.length neg-version-256",
+        "versionWidth.layout neg-version-256",
+        "versionWidth neg-version-256",
+        "versionWidth.isolation.next neg-version-256"
+      ],
+      "check": "row.C2.evidence.R03:^versionWidth",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^regression02\\.",
+      "matched": 192,
+      "passed": 192,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "regression02.omnibox ''",
+        "regression02.omnibox '/'",
+        "regression02.omnibox '/index.html?x=1#part'",
+        "regression02.omnibox '/docs/'"
+      ],
+      "check": "row.C2.evidence.R03:^regression02\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bound\\.",
+      "matched": 11,
+      "passed": 10,
+      "recorded": 0,
+      "failedSuperseded": [
+        "bound.length rb-2848-does-not-fit"
+      ],
+      "unexplainedFailures": [],
+      "sample": [
+        "bound.arithmetic",
+        "bound.length rb-codex-1001",
+        "bound.validate rb-codex-1001",
+        "bound.length rb-max-2847"
+      ],
+      "check": "row.C2.evidence.R04:^bound\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^c14\\.",
+      "matched": 3,
+      "passed": 3,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "c14.head24",
+        "c14.contentHash",
+        "c14.chunksHeaderAtOffset54"
+      ],
+      "check": "row.C2.evidence.R06:^c14\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^c20\\.",
+      "matched": 168,
+      "passed": 168,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "c20.violations '/a//..'",
+        "c20.normal '/a//..'",
+        "c20.mutant '/a//..' -path.grammar",
+        "c20.v03demonstrated '/a//..'"
+      ],
+      "check": "row.C2.evidence.R08:^c20\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.C2.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "owner",
+          "id": "U01"
+        },
+        {
+          "type": "reviewer",
+          "id": "U04"
+        },
+        {
+          "type": "reviewer",
+          "id": "U12"
+        },
+        {
+          "type": "reviewer",
+          "id": "U13"
+        },
+        {
+          "type": "reviewer",
+          "id": "U17"
+        },
+        {
+          "type": "reviewer",
+          "id": "U20"
+        },
+        {
+          "type": "reviewer",
+          "id": "U23"
+        },
+        {
+          "type": "reviewer",
+          "id": "U24"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.2"
+        },
+        {
+          "type": "hash:owner",
+          "group": "triad.manifests",
+          "id": "U01"
+        }
+      ],
+      "onlyReviewerBlocked": false,
+      "check": "row.C2.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.C2.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.C3.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "abi.knownSelector owner()",
+        "abi.knownSelector transferOwnership(address)",
+        "abi.knownSelector acceptOwnership()",
+        "abi.knownSelector pendingOwner()"
+      ],
+      "check": "row.C3.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^version",
+      "matched": 6,
+      "passed": 6,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "version ver-minimal",
+        "version ver-manifest-65536",
+        "version ver-manifest-hash",
+        "version ver-manifest-chunk-missing"
+      ],
+      "check": "row.C3.evidence.R02:^version",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^snapshot ",
+      "matched": 14,
+      "passed": 14,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "snapshot SNAP-01-steady",
+        "snapshot SNAP-02-A-B",
+        "snapshot SNAP-03-A-B-A",
+        "snapshot SNAP-03D-A-B-A-detector-only"
+      ],
+      "check": "row.C3.evidence.R03:^snapshot ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^snapshot\\.",
+      "matched": 29,
+      "passed": 29,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "snapshot.inherited03 SNAP-01-steady",
+        "snapshot.inherited03 SNAP-02-A-B",
+        "snapshot.inherited03 SNAP-03-A-B-A",
+        "snapshot.inherited03 SNAP-04-outside-keff"
+      ],
+      "check": "row.C3.evidence.R04:^snapshot\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^proof\\.",
+      "matched": 56,
+      "passed": 56,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "proof.storagePathKat slot0",
+        "proof.storagePathKat slot1",
+        "proof.storagePathKat slot2",
+        "proof.emptyTrieRoot"
+      ],
+      "check": "row.C3.evidence.R05:^proof\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^snapshotE\\.",
+      "matched": 6,
+      "passed": 5,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "snapshotE.selector",
+        "snapshotE.E-1a-honest-A",
+        "snapshotE.E-1b-honest-B",
+        "snapshotE.E-1c-A-B-A-single-call"
+      ],
+      "check": "row.C3.evidence.R08:^snapshotE\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.C3.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "owner",
+          "id": "CR-M1-01"
+        },
+        {
+          "type": "owner",
+          "id": "U02"
+        },
+        {
+          "type": "owner",
+          "id": "U10"
+        },
+        {
+          "type": "owner",
+          "id": "U14"
+        },
+        {
+          "type": "reviewer",
+          "id": "U03"
+        },
+        {
+          "type": "reviewer",
+          "id": "U06"
+        },
+        {
+          "type": "reviewer",
+          "id": "U07"
+        },
+        {
+          "type": "reviewer",
+          "id": "U08"
+        },
+        {
+          "type": "reviewer",
+          "id": "U09"
+        },
+        {
+          "type": "reviewer",
+          "id": "U11"
+        },
+        {
+          "type": "reviewer",
+          "id": "U22"
+        },
+        {
+          "type": "reviewer",
+          "id": "U36"
+        },
+        {
+          "type": "reviewer",
+          "id": "U41"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.2"
+        },
+        {
+          "type": "hash:reviewer",
+          "group": "abi.topic0",
+          "id": "P-ABI"
+        },
+        {
+          "type": "hash:phaseA",
+          "group": "abi.topic0",
+          "id": "E04"
+        },
+        {
+          "type": "hash:reviewer",
+          "group": "slot.versionBase",
+          "id": "P13"
+        },
+        {
+          "type": "hash:phaseA",
+          "group": "slot.versionBase",
+          "id": "E04"
+        },
+        {
+          "type": "hash:reviewer",
+          "group": "slot.chunks0",
+          "id": "P13"
+        },
+        {
+          "type": "hash:phaseA",
+          "group": "slot.chunks0",
+          "id": "E04"
+        },
+        {
+          "type": "hash:reviewer",
+          "group": "slot.publisher",
+          "id": "P13"
+        },
+        {
+          "type": "hash:phaseA",
+          "group": "slot.publisher",
+          "id": "E04"
+        },
+        {
+          "type": "hash:owner",
+          "group": "alias.versionRecords",
+          "id": "U01"
+        }
+      ],
+      "onlyReviewerBlocked": false,
+      "check": "row.C3.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.C3.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.C4.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^generator\\.",
+      "matched": 2,
+      "passed": 2,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "generator.deterministic (two runs)",
+        "generator.committedFixturesCurrent"
+      ],
+      "check": "row.C4.evidence.R02:^generator\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^coverage",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "coverage.everyRuleHasRejectFixture"
+      ],
+      "check": "row.C4.evidence.R02:^coverage",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^requests\\.",
+      "matched": 29,
+      "passed": 29,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "requests.positive pos-minimal",
+        "requests.mutantNoCache pos-minimal",
+        "requests.positive pos-empty-file",
+        "requests.mutantNoCache pos-empty-file"
+      ],
+      "check": "row.C4.evidence.R03:^requests\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^fr-shared\\.",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "fr-shared.construction"
+      ],
+      "check": "row.C4.evidence.R03:^fr-shared\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.C4.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "owner",
+          "id": "U01"
+        },
+        {
+          "type": "owner",
+          "id": "U10"
+        },
+        {
+          "type": "reviewer",
+          "id": "U08"
+        },
+        {
+          "type": "reviewer",
+          "id": "U09"
+        },
+        {
+          "type": "reviewer",
+          "id": "U11"
+        },
+        {
+          "type": "reviewer",
+          "id": "U16"
+        },
+        {
+          "type": "reviewer",
+          "id": "U26"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.2"
+        },
+        {
+          "type": "hash:owner",
+          "group": "triad.manifests",
+          "id": "U01"
+        },
+        {
+          "type": "hash:owner",
+          "group": "alias.t1_02.manifestHash",
+          "id": "U01"
+        }
+      ],
+      "onlyReviewerBlocked": false,
+      "check": "row.C4.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.C4.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.X1.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^annex\\.X1\\.",
+      "matched": 2,
+      "passed": 1,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "annex.X1.preimage",
+        "annex.X1.netKey"
+      ],
+      "check": "row.X1.evidence.R03:^annex\\.X1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^sitestorage\\.",
+      "matched": 11,
+      "passed": 11,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "sitestorage.SS-1-BR17a",
+        "sitestorage.SS-2-BR17b",
+        "sitestorage.SS-3-BR17c",
+        "sitestorage.SS-4-delete-absent"
+      ],
+      "check": "row.X1.evidence.R05:^sitestorage\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.X1.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-X1"
+        },
+        {
+          "type": "hash:reviewer",
+          "group": "alias.X1.netKey",
+          "id": "P-X1"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.X1.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.X1.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.X2.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^profile\\.",
+      "matched": 16,
+      "passed": 16,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "profile.Q8",
+        "profile.Q9a",
+        "profile.Q9b",
+        "profile.Q9c-before-step3"
+      ],
+      "check": "row.X2.evidence.R06:^profile\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^epoch\\.",
+      "matched": 24,
+      "passed": 24,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "epoch.rerun06 Q8",
+        "epoch.rerun06 Q9a",
+        "epoch.rerun06 Q9b",
+        "epoch.rerun06 Q9c-before-step3"
+      ],
+      "check": "row.X2.evidence.R08:^epoch\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.X2.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "U43"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.6"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.X2.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.X2.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.X3.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^x3\\.",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "x3.allRequiredIdsRestored (17 incl. Q9 a/b/c)",
+        "x3.xSitesComplete",
+        "x3.qScenariosModelled",
+        "x3.dalScenariosModelled"
+      ],
+      "check": "row.X3.evidence.R06:^x3\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^dnr\\.",
+      "matched": 6,
+      "passed": 6,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "dnr.\u062f1",
+        "dnr.\u062f2",
+        "dnr.\u062f2-verify",
+        "dnr.\u062f3"
+      ],
+      "check": "row.X3.evidence.R06:^dnr\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.X3.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "I1"
+        },
+        {
+          "type": "reviewer",
+          "id": "I6"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.X3.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.X3.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B1.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.",
+      "matched": 132,
+      "passed": 132,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "bridge.case ok-eth_chainId",
+        "bridge.case ok-eth_getBalance",
+        "bridge.case ok-eth_getStorageAt-qty-tag",
+        "bridge.case ok-eth_getBlockByNumber"
+      ],
+      "check": "row.B1.evidence.R04:^bridge\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^bridge04\\.",
+      "matched": 103,
+      "passed": 103,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "bridge04.withOracle ok-eth_chainId",
+        "bridge04.withOracle ok-eth_getBalance",
+        "bridge04.withOracle ok-eth_getStorageAt-qty-tag",
+        "bridge04.withOracle ok-eth_getBlockByNumber"
+      ],
+      "check": "row.B1.evidence.R05:^bridge04\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^guard\\.",
+      "matched": 8,
+      "passed": 8,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "guard.bg1 lowerBound",
+        "guard.bg1 61823",
+        "guard.bg1 61824",
+        "guard.bg1 65536"
+      ],
+      "check": "row.B1.evidence.R05:^guard\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^id\\.",
+      "matched": 31,
+      "passed": 31,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "id.nodeOracleAvailable",
+        "id.1",
+        "id.1.0",
+        "id.1e0"
+      ],
+      "check": "row.B1.evidence.R06:^id\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B1.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "U34"
+        },
+        {
+          "type": "reviewer",
+          "id": "U35"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.4"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B1.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B1.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B2.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bucket\\.",
+      "matched": 7,
+      "passed": 7,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "bucket.BK1-burst",
+        "bucket.BK2-partial-refill @1019",
+        "bucket.BK2-partial-refill @1020",
+        "bucket.BK3-cap @2001020"
+      ],
+      "check": "row.B2.evidence.R04:^bucket\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^pending\\.",
+      "matched": 5,
+      "passed": 5,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "pending.PR1-four-then-pending",
+        "pending.PR2-reply-frees",
+        "pending.PR3-teardown-keeps-count",
+        "pending.PR4-orphan-settle-frees"
+      ],
+      "check": "row.B2.evidence.R04:^pending\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^pending\\.",
+      "matched": 6,
+      "passed": 6,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "pending.PH1-same-id-two-sessions",
+        "pending.PH2-repeated-id-one-frame",
+        "pending.PH3-same-id-old-and-new-frame",
+        "pending.PH4-completion-order"
+      ],
+      "check": "row.B2.evidence.R05:^pending\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B2.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.4"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B2.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B2.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B3.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.",
+      "matched": 132,
+      "passed": 132,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "bridge.case ok-eth_chainId",
+        "bridge.case ok-eth_getBalance",
+        "bridge.case ok-eth_getStorageAt-qty-tag",
+        "bridge.case ok-eth_getBlockByNumber"
+      ],
+      "check": "row.B3.evidence.R04:^bridge\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^url\\.",
+      "matched": 36,
+      "passed": 35,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "url.oracleAvailable (run tools/url_oracle.cjs first)",
+        "url.oracleNode",
+        "url.codex 'https://[not-ip]/'",
+        "url.codex 'https://[::1::2]/'"
+      ],
+      "check": "row.B3.evidence.R05:^url\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B3.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "U31"
+        },
+        {
+          "type": "reviewer",
+          "id": "U32"
+        },
+        {
+          "type": "reviewer",
+          "id": "U37"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.4"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B3.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B3.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B4.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^sitestorage\\.",
+      "matched": 11,
+      "passed": 11,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "sitestorage.SS-1-BR17a",
+        "sitestorage.SS-2-BR17b",
+        "sitestorage.SS-3-BR17c",
+        "sitestorage.SS-4-delete-absent"
+      ],
+      "check": "row.B4.evidence.R05:^sitestorage\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^navigator\\.",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "navigator.NAV-1-bucket",
+        "navigator.NAV-2-404-consumes-token",
+        "navigator.NAV-3-directory-and-entry",
+        "navigator.NAV-4-orphans"
+      ],
+      "check": "row.B4.evidence.R05:^navigator\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^openExternal\\.",
+      "matched": 3,
+      "passed": 3,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "openExternal.OE-1-BR18e",
+        "openExternal.OE-2-BR18f",
+        "openExternal.OE-3-BR18h"
+      ],
+      "check": "row.B4.evidence.R05:^openExternal\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B4.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "U38"
+        },
+        {
+          "type": "reviewer",
+          "id": "U39"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.5"
+        },
+        {
+          "type": "hash:reviewer",
+          "group": "alias.X1.netKey",
+          "id": "P-X1"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B4.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B4.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B5.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.denyList",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "bridge.denyList 209 pairs"
+      ],
+      "check": "row.B5.evidence.R04:^bridge\\.denyList",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B5.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.4"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B5.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B5.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B6.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^writePath\\.",
+      "matched": 6,
+      "passed": 6,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "writePath.base",
+        "writePath.mutant M1-bridge-to-submit",
+        "writePath.mutant M2-reader-sends-raw",
+        "writePath.mutant M3-skip-approval"
+      ],
+      "check": "row.B6.evidence.R05:^writePath\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B6.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "U40"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B6.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B6.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B7.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^dependency\\.",
+      "matched": 8,
+      "passed": 8,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "dependency.G-baseline",
+        "dependency.G-bridge-transport",
+        "dependency.G-bridge-walletsubmit",
+        "dependency.G-bridge-malicious"
+      ],
+      "check": "row.B7.evidence.R04:^dependency\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^fetchRule\\.",
+      "matched": 3,
+      "passed": 3,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "fetchRule.C1 names the global object and constructors",
+        "fetchRule.no case labelled as an accepted bypass",
+        "fetchRule.alias case flagged"
+      ],
+      "check": "row.B7.evidence.R08:^fetchRule\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B7.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "U33"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B7.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B7.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B8.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^br\\.",
+      "matched": 77,
+      "passed": 77,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br.BR1 #1",
+        "br.BR2 #1",
+        "br.BR3 #1",
+        "br.BR3 #2"
+      ],
+      "check": "row.B8.evidence.R05:^br\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^txA\\.",
+      "matched": 3,
+      "passed": 2,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "txA.recoverSigner",
+        "txA.lowS",
+        "txA.nodeCrossCheck"
+      ],
+      "check": "row.B8.evidence.R05:^txA\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^keys\\.",
+      "matched": 3,
+      "passed": 3,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "keys.privKey1Address",
+        "keys.anvilKat 1",
+        "keys.anvilKat 2"
+      ],
+      "check": "row.B8.evidence.R05:^keys\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B8.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "TK-1"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.5"
+        },
+        {
+          "type": "hash:reviewer",
+          "group": "txA.hash",
+          "id": "TK-1"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B8.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B8.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B9.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^br17e\\.",
+      "matched": 29,
+      "passed": 29,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br17e.msg01 (e1)",
+        "br17e.msg02 (e1)",
+        "br17e.msg03 (e1)",
+        "br17e.msg04 (e1)"
+      ],
+      "check": "row.B9.evidence.R05:^br17e\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B9.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.5"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B9.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B9.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B10.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^br19[abc]\\.",
+      "matched": 17,
+      "passed": 16,
+      "recorded": 0,
+      "failedSuperseded": [
+        "br19a.a7 sizeLinesKeepTokensBefore"
+      ],
+      "unexplainedFailures": [],
+      "sample": [
+        "br19a.a1",
+        "br19a.a2",
+        "br19a.a3",
+        "br19a.a4"
+      ],
+      "check": "row.B10.evidence.R06:^br19[abc]\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br19a\\.",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br19a.a7 sizeLinesKeepTokensBefore (checker fixed)"
+      ],
+      "check": "row.B10.evidence.R08:^br19a\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B10.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.6"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B10.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B10.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.B11.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^br16\\.",
+      "matched": 7,
+      "passed": 6,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br16.nodeStreamAvailable",
+        "br16.pythonEqualsNode",
+        "br16.everyMessageDecided",
+        "br16.traceFormat"
+      ],
+      "check": "row.B11.evidence.R06:^br16\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^bridgetrace\\.",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "bridgetrace.format synthetic"
+      ],
+      "check": "row.B11.evidence.R06:^bridgetrace\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.B11.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.6"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.B11.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.B11.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.R1.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^recv\\.",
+      "matched": 20,
+      "passed": 20,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "recv.worst eth_getCode",
+        "recv.worst pocol_getHeaders(count<=14)",
+        "recv.worst pocol_getParams",
+        "recv.worst eth_getBlockByHash"
+      ],
+      "check": "row.R1.evidence.R04:^recv\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bound\\.",
+      "matched": 11,
+      "passed": 10,
+      "recorded": 0,
+      "failedSuperseded": [
+        "bound.length rb-2848-does-not-fit"
+      ],
+      "unexplainedFailures": [],
+      "sample": [
+        "bound.arithmetic",
+        "bound.length rb-codex-1001",
+        "bound.validate rb-codex-1001",
+        "bound.length rb-max-2847"
+      ],
+      "check": "row.R1.evidence.R04:^bound\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^c14\\.",
+      "matched": 3,
+      "passed": 3,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "c14.head24",
+        "c14.contentHash",
+        "c14.chunksHeaderAtOffset54"
+      ],
+      "check": "row.R1.evidence.R06:^c14\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.R1.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "owner",
+          "id": "CR-M1-01"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-0.4"
+        }
+      ],
+      "onlyReviewerBlocked": false,
+      "check": "row.R1.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.R1.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.R2.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr10\\.",
+      "matched": 5,
+      "passed": 5,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "mr10.MR10a",
+        "mr10.MR10b",
+        "mr10.MR10c",
+        "mr10.MR10f"
+      ],
+      "check": "row.R2.evidence.R08:^mr10\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "mr.MR1",
+        "mr.MR2",
+        "mr.MR3",
+        "mr.MR4"
+      ],
+      "check": "row.R2.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.R2.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.R2.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.R2.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.R3.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^recv\\.",
+      "matched": 20,
+      "passed": 20,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "recv.worst eth_getCode",
+        "recv.worst pocol_getHeaders(count<=14)",
+        "recv.worst pocol_getParams",
+        "recv.worst eth_getBlockByHash"
+      ],
+      "check": "row.R3.evidence.R04:^recv\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "mr.MR1",
+        "mr.MR2",
+        "mr.MR3",
+        "mr.MR4"
+      ],
+      "check": "row.R3.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.R3.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.R3.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.R3.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.R4.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "mr.MR1",
+        "mr.MR2",
+        "mr.MR3",
+        "mr.MR4"
+      ],
+      "check": "row.R4.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.R4.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.R4.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.R4.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.S1.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br20a.1000 [1, 4]",
+        "br20a.1000 [5, 49]",
+        "br20a.1000 [50, 50]",
+        "br20a.1001 [51, 51]"
+      ],
+      "check": "row.S1.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.S1.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.S1.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.S1.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.S2.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20b",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br20b"
+      ],
+      "check": "row.S2.evidence.R08:^br20b",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.S2.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.S2.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.S2.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.S3.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br20a.1000 [1, 4]",
+        "br20a.1000 [5, 49]",
+        "br20a.1000 [50, 50]",
+        "br20a.1001 [51, 51]"
+      ],
+      "check": "row.S3.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20b",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br20b"
+      ],
+      "check": "row.S3.evidence.R08:^br20b",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20c\\.",
+      "matched": 6,
+      "passed": 5,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br20c.model overlap <= 4",
+        "br20c.model accepted <= 50+50t",
+        "br20c.model navigations <= 3+t/2",
+        "br20c.model getCode once per chunk"
+      ],
+      "check": "row.S3.evidence.R08:^br20c\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.S3.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.S3.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.S3.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.S4.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "br20a.1000 [1, 4]",
+        "br20a.1000 [5, 49]",
+        "br20a.1000 [50, 50]",
+        "br20a.1001 [51, 51]"
+      ],
+      "check": "row.S4.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.S4.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-0.7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.S4.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.S4.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.Q1.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^(utf8|qbytes|admission|quota|config)\\.",
+      "matched": 80,
+      "passed": 80,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "utf8.ascii",
+        "utf8.empty",
+        "utf8.null",
+        "utf8.latin1"
+      ],
+      "check": "row.Q1.evidence.R09:^(utf8|qbytes|admission|quota|config)\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.Q1.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-Q1"
+        },
+        {
+          "type": "reviewer",
+          "id": "CR-E4-02"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.Q1.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.Q1.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.Q2.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^case[ .]",
+      "matched": 96,
+      "passed": 72,
+      "recorded": 24,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "case BR21a-q1q5",
+        "case.replayConsistent BR21a-q1q5",
+        "case.noDoubleRelease BR21a-q1q5",
+        "case.recorded BR21a-q1q5"
+      ],
+      "check": "row.Q2.evidence.R09:^case[ .]",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.Q2.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-Q2"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.Q2.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.Q2.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.Q3.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^case[ .]",
+      "matched": 96,
+      "passed": 72,
+      "recorded": 24,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "case BR21a-q1q5",
+        "case.replayConsistent BR21a-q1q5",
+        "case.noDoubleRelease BR21a-q1q5",
+        "case.recorded BR21a-q1q5"
+      ],
+      "check": "row.Q3.evidence.R09:^case[ .]",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^transitions\\.",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "transitions.allMicroExercised"
+      ],
+      "check": "row.Q3.evidence.R09:^transitions\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.Q3.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-Q3"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.Q3.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.Q3.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.Q4.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^fault ",
+      "matched": 13,
+      "passed": 13,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "fault storeUnbounded detected by BR21a-q10",
+        "fault storeUnbounded detected by BR21e",
+        "fault storeUnbounded detected by BR21a-q1q5",
+        "fault storeEarlyRelease detected by BR21a-q8"
+      ],
+      "check": "row.Q4.evidence.R09:^fault ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^transitions\\.",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "transitions.allMicroExercised"
+      ],
+      "check": "row.Q4.evidence.R09:^transitions\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.Q4.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-Q4"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.Q4.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.Q4.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.E1.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)e1\\.",
+      "matched": 38,
+      "passed": 38,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "inherited011.inherited010.e1.epochName 1",
+        "inherited011.inherited010.e1.epochName 6",
+        "inherited011.inherited010.e1.epochName 255",
+        "inherited011.inherited010.e1.epochName 18446744073709551615"
+      ],
+      "check": "row.E1.evidence.R12:(^|\\.)e1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)c24\\.",
+      "matched": 123,
+      "passed": 122,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "inherited011.c24.nodeOracleCasesMatchReviewFile",
+        "inherited011.c24.preserved.pristineReproducesExactly7Failures",
+        "inherited011.c24.preserved.pristineProbeRows",
+        "inherited011.c24.repaired.all24ProbesPass"
+      ],
+      "check": "row.E1.evidence.R12:(^|\\.)c24\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.E1.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-E1"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-C24"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.E1.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.E1.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.E2.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)e2\\.",
+      "matched": 35,
+      "passed": 23,
+      "recorded": 12,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "inherited011.inherited010.e2.case h1",
+        "inherited011.inherited010.e2.recorded h1",
+        "inherited011.inherited010.e2.case h2",
+        "inherited011.inherited010.e2.recorded h2"
+      ],
+      "check": "row.E2.evidence.R12:(^|\\.)e2\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)c25\\.",
+      "matched": 20,
+      "passed": 20,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "c25.preserved.pristine011ReproducesC25",
+        "c25.repaired.reviewProbeBlocksBeforeSet",
+        "c25.case N1 seven raw names may issue one",
+        "c25.case.rawNeverAboveMaxUnlessInitial N1 seven raw names may issue one"
+      ],
+      "check": "row.E2.evidence.R12:(^|\\.)c25\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.E2.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-E2"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.E2.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.E2.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.E3.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "e3\\.br22a\\.allCombinations$",
+      "matched": 1,
+      "passed": 1,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "inherited011.inherited010.e3.br22a.allCombinations"
+      ],
+      "check": "row.E3.evidence.R12:e3\\.br22a\\.allCombinations$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "e3\\.control ",
+      "matched": 4,
+      "passed": 4,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "inherited011.inherited010.e3.control singleItem",
+        "inherited011.inherited010.e3.control noEpochConfirm",
+        "inherited011.inherited010.e3.control noCheckpoint",
+        "inherited011.inherited010.e3.control reuseSeq"
+      ],
+      "check": "row.E3.evidence.R12:e3\\.control ",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.E3.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "blocked",
+        "c5": "pendingRootReview"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-E3"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-SM-1"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.E3.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.E3.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.E4.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.15/results/run-results-0.15.json",
+      "pattern": "(^|\\.)e4\\.",
+      "matched": 55,
+      "passed": 54,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "rerun013.e4.constants",
+        "rerun013.e4.knownAnswer empty",
+        "rerun013.e4.knownAnswer k0-a",
+        "rerun013.e4.knownAnswer a-1"
+      ],
+      "check": "row.E4.evidence.R15:(^|\\.)e4\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.E4.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "blocked",
+        "c5": "pendingRootReview"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-E4"
+        },
+        {
+          "type": "reviewer",
+          "id": "CR-E4-01"
+        },
+        {
+          "type": "reviewer",
+          "id": "CR-E4-02"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.E4.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.E4.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.E5.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.15/results/run-results-0.15.json",
+      "pattern": "e5\\.case BR22d-",
+      "matched": 6,
+      "passed": 6,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "rerun013.e5.case BR22d-V-a",
+        "rerun013.e5.case BR22d-V-b",
+        "rerun013.e5.case BR22d-V-c",
+        "rerun013.e5.case BR22d-V-d"
+      ],
+      "check": "row.E5.evidence.R15:e5\\.case BR22d-",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.E5.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-E5"
+        },
+        {
+          "type": "reviewer",
+          "id": "RF-E5"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.E5.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.E5.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.E6.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR23-d\\d+[a-z]?\\.",
+      "matched": 211,
+      "passed": 207,
+      "recorded": 4,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite017.suite016.BR23-d1.provenance",
+        "suite017.suite016.BR23-d1.decision.X0",
+        "suite017.suite016.BR23-d1.decision.T",
+        "suite017.suite016.BR23-d1.decision.Rsweep"
+      ],
+      "check": "row.E6.evidence.R18:BR23-d\\d+[a-z]?\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR24-x\\d+",
+      "matched": 273,
+      "passed": 272,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite017.suite016.BR24-x6-sites.provenance",
+        "suite017.suite016.BR24-x6-sites.decision.CA",
+        "suite017.suite016.BR24-x6-sites.decision.reap-SB-1",
+        "suite017.suite016.BR24-x6-sites.decision.CB"
+      ],
+      "check": "row.E6.evidence.R18:BR24-x\\d+",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.E6.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "owner",
+          "id": "RF-E6-1"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-E6"
+        }
+      ],
+      "onlyReviewerBlocked": false,
+      "check": "row.E6.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.E6.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.E7.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR23-d15c\\.",
+      "matched": 33,
+      "passed": 31,
+      "recorded": 2,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite017.suite016.BR23-d15c.provenance",
+        "suite017.suite016.BR23-d15c.decision.R",
+        "suite017.suite016.BR23-d15c.decision.C0",
+        "suite017.suite016.BR23-d15c.decision.C1"
+      ],
+      "check": "row.E7.evidence.R18:BR23-d15c\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "coverage\\.BR23-d1[2-5]",
+      "matched": 9,
+      "passed": 9,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite017.suite016.coverage.BR23-d12",
+        "suite017.suite016.coverage.BR23-d13",
+        "suite017.suite016.coverage.BR23-d14",
+        "suite017.suite016.coverage.BR23-d15"
+      ],
+      "check": "row.E7.evidence.R18:coverage\\.BR23-d1[2-5]",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "e5\\.case BR22d-V-[de]$",
+      "matched": 2,
+      "passed": 2,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite017.suite016.rerun015.rerun013.e5.case BR22d-V-d",
+        "suite017.suite016.rerun015.rerun013.e5.case BR22d-V-e"
+      ],
+      "check": "row.E7.evidence.R18:e5\\.case BR22d-V-[de]$",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.E7.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-E7"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.E7.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.E7.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.V1.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^annex\\.V1\\.",
+      "matched": 16,
+      "passed": 15,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "annex.V1.RW1",
+        "annex.V1.RW2",
+        "annex.V1.RW3",
+        "annex.V1.RW4"
+      ],
+      "check": "row.V1.evidence.R03:^annex\\.V1\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.V1.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "blocked",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "blocked"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "definition",
+          "id": "V1-WINDOW"
+        },
+        {
+          "type": "definition",
+          "id": "V1-TEXTS"
+        },
+        {
+          "type": "definition",
+          "id": "V1-NX"
+        }
+      ],
+      "onlyReviewerBlocked": false,
+      "check": "row.V1.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.V1.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.V2.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^suite019\\.LC\\d",
+      "matched": 276,
+      "passed": 276,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite019.LC1.provenance",
+        "suite019.LC1.requests",
+        "suite019.LC1.events",
+        "suite019.LC1.result"
+      ],
+      "check": "row.V2.evidence.R20:^suite019\\.LC\\d",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^C29\\.",
+      "matched": 82,
+      "passed": 56,
+      "recorded": 26,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "C29.install.strictInModelGlobals",
+        "C29.install.oldFileUntouchedInMemoryOnly",
+        "C29.install.runnerResolvesAtCallTime",
+        "C29.provenance"
+      ],
+      "check": "row.V2.evidence.R20:^C29\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^suite019\\.sinkControl\\.",
+      "matched": 15,
+      "passed": 15,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite019.sinkControl.baseline.LC1",
+        "suite019.sinkControl.baseline.LC16",
+        "suite019.sinkControl.dupBegin",
+        "suite019.sinkControl.noBegin"
+      ],
+      "check": "row.V2.evidence.R20:^suite019\\.sinkControl\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.V2.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "blocked",
+        "c5": "pendingRootReview"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-V2"
+        },
+        {
+          "type": "reviewer",
+          "id": "P-RG3B-1"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.V2.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.V2.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.V3.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.22/results/run-results-0.22.json",
+      "pattern": "^suite021\\.",
+      "matched": 139,
+      "passed": 110,
+      "recorded": 29,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite021.input.sha256 coordination/task-019.md",
+        "suite021.input.sha256 coordination/review-001/REVIEW-0.20.md",
+        "suite021.input.sha256 coordination/issue-ledger.json",
+        "suite021.input.sha256 reference/validation.md"
+      ],
+      "check": "row.V3.evidence.R22:^suite021\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.22/results/run-results-0.22.json",
+      "pattern": "^C30\\.",
+      "matched": 75,
+      "passed": 74,
+      "recorded": 1,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "C30.provenance",
+        "C30.rootProbeRecord",
+        "C30.old.T-nest.deep",
+        "C30.equivalent.T-nest.shallow"
+      ],
+      "check": "row.V3.evidence.R22:^C30\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.V3.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "blocked",
+        "c5": "pendingRootReview"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "P-V3"
+        },
+        {
+          "type": "reviewer",
+          "id": "CID-1"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.V3.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.V3.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "missingFiles": [],
+      "missingAnchors": [],
+      "check": "row.V4.filesAndAnchors",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^C31\\.",
+      "matched": 73,
+      "passed": 73,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "C31.install.evaluatorInModuleGlobals",
+        "C31.assetsUnchangedVsReview",
+        "C31.rootProbeRecord",
+        "C31.new.D1-dupAfter"
+      ],
+      "check": "row.V4.evidence.R24:^C31\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^suite023\\.eval\\.R\\d+",
+      "matched": 14,
+      "passed": 14,
+      "recorded": 0,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "suite023.eval.R1-allGood",
+        "suite023.eval.R2-K0leak",
+        "suite023.eval.R3-K4c7silent",
+        "suite023.eval.R4-selftestMissing"
+      ],
+      "check": "row.V4.evidence.R24:^suite023\\.eval\\.R\\d+",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^C7plan\\.",
+      "matched": 16,
+      "passed": 11,
+      "recorded": 5,
+      "failedSuperseded": [],
+      "unexplainedFailures": [],
+      "sample": [
+        "C7plan.fivePaths",
+        "C7plan.page.P1",
+        "C7plan.asset.P1",
+        "C7plan.page.P2"
+      ],
+      "check": "row.V4.evidence.R24:^C7plan\\.",
+      "status": "pass"
+    },
+    {
+      "unknown": [],
+      "check": "row.V4.decisionTokensRegistered",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "satisfied"
+      },
+      "computedStatus": "Partial",
+      "blockers": [
+        {
+          "type": "reviewer",
+          "id": "PB1-PB12"
+        }
+      ],
+      "onlyReviewerBlocked": true,
+      "check": "row.V4.criteria",
+      "status": "recorded"
+    },
+    {
+      "computed": "Partial",
+      "proposed": "Partial",
+      "check": "row.V4.statusMatchesProposal",
+      "status": "pass"
+    },
+    {
+      "statuses": {
+        "Partial": 41
+      },
+      "criteria": {
+        "c1": {
+          "satisfied": 35,
+          "pendingRootReview": 5,
+          "blocked": 1
+        },
+        "c2": {
+          "satisfied": 36,
+          "pendingRootReview": 5
+        },
+        "c3": {
+          "satisfied": 36,
+          "pendingRootReview": 5
+        },
+        "c4": {
+          "blocked": 40,
+          "satisfied": 1
+        },
+        "c5": {
+          "blocked": 10,
+          "satisfied": 27,
+          "pendingRootReview": 4
+        }
+      },
+      "ownerBlockedRows": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "E6",
+        "R1"
+      ],
+      "definitionBlockedRows": [
+        "V1"
+      ],
+      "onlyReviewerBlockedRows": [
+        "B1",
+        "B10",
+        "B11",
+        "B2",
+        "B3",
+        "B4",
+        "B5",
+        "B6",
+        "B7",
+        "B8",
+        "B9",
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+        "E7",
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4",
+        "R2",
+        "R3",
+        "R4",
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "V2",
+        "V3",
+        "V4",
+        "X1",
+        "X2",
+        "X3"
+      ],
+      "check": "inventory.summary",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "V1 window vectors, HC message texts and NX-V3e/f/g are not authored (V1-WINDOW, V1-TEXTS, V1-NX); NX-V3* need the M3-TS/ASERT model",
+      "check": "gap.V1-authoring",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "U01, U02, U10, U14, CR-M1-01 and RF-E6-1 have no named owner answer in the ledger",
+      "check": "gap.ownerDecisions",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "U/P conventions in audit/decision-register.json await recorded root decisions",
+      "check": "gap.reviewerDecisions",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "new preimage groups of hash-freeze-export-0.25.json need three-library verification by root",
+      "check": "gap.pendingRootTriad",
+      "status": "recorded"
+    },
+    {
+      "missing": [],
+      "required": 95,
+      "check": "coverage025.required",
+      "status": "pass"
+    },
+    {
+      "check": "coverage025.noStepAborted",
+      "status": "pass"
+    },
+    {
+      "before": {
+        "coordination/issue-ledger.json": "ad2de573536cff64803a6a8693b0df4b412080cad7f1e11fc9cdc4fe6d8d781d",
+        "coordination/hash-triad/inputs-expanded.tsv": "371dc284709da7a082b179a884770d7e1b5b568d8bf9ada66660c32965bac4dd",
+        "coordination/hash-triad/python-expanded-result.json": "abd03d1b74cccc0fd0e0474f7aa2e11e854397a5b15e79a25be1e1da8e18046d",
+        "coordination/hash-triad/noble-expanded-result.json": "92e416051e422e631c1dd77a93afdad685f917df57bc51b185afbca94f51a4ec",
+        "coordination/hash-triad/rust-expanded-result.json": "9b7458f67aa5d7271058b4321dfc3e624a483a30368fea0cd3181222e7f0986e",
+        "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json": "90e5c2efb580e61e55eff39a7e3049067335edebae688ce776d3c36bae0f6720",
+        "m1-draft-0.24/results/run-results-0.24.json": null,
+        "m1-draft-0.2/vectors/code-table.json": "d420422140e39fdaf7f9a68558d38f1cc99896928dcc470eb17de794274a4b37",
+        "m1-draft-0.2/vectors/abi-and-slots.json": "c309a4d4c991f43488543c40e7265dbeaabb48ae9636979987a8e777b6dd1ad3",
+        "m1-draft-0.19/vectors/lc-cases.json": "7aeaadcc8d965d398e5dcd02b4b8cb919bec987c83b15fe98adf4012ee69bbe9",
+        "m1-draft-0.10/vectors/e3-br22a.json": "ab3c2549d6e7e1e1936ce95726cf5ee1e0995edd1eb5ef7931279daf549e0dda",
+        "m1-draft-0.13/vectors/e4-units.json": "2b1ea59db58abcddce967a4f44e39f22c61d4423fa1dd6bb2b1183251918304b"
+      },
+      "after": {
+        "coordination/issue-ledger.json": "ad2de573536cff64803a6a8693b0df4b412080cad7f1e11fc9cdc4fe6d8d781d",
+        "coordination/hash-triad/inputs-expanded.tsv": "371dc284709da7a082b179a884770d7e1b5b568d8bf9ada66660c32965bac4dd",
+        "coordination/hash-triad/python-expanded-result.json": "abd03d1b74cccc0fd0e0474f7aa2e11e854397a5b15e79a25be1e1da8e18046d",
+        "coordination/hash-triad/noble-expanded-result.json": "92e416051e422e631c1dd77a93afdad685f917df57bc51b185afbca94f51a4ec",
+        "coordination/hash-triad/rust-expanded-result.json": "9b7458f67aa5d7271058b4321dfc3e624a483a30368fea0cd3181222e7f0986e",
+        "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json": "90e5c2efb580e61e55eff39a7e3049067335edebae688ce776d3c36bae0f6720",
+        "m1-draft-0.24/results/run-results-0.24.json": null,
+        "m1-draft-0.2/vectors/code-table.json": "d420422140e39fdaf7f9a68558d38f1cc99896928dcc470eb17de794274a4b37",
+        "m1-draft-0.2/vectors/abi-and-slots.json": "c309a4d4c991f43488543c40e7265dbeaabb48ae9636979987a8e777b6dd1ad3",
+        "m1-draft-0.19/vectors/lc-cases.json": "7aeaadcc8d965d398e5dcd02b4b8cb919bec987c83b15fe98adf4012ee69bbe9",
+        "m1-draft-0.10/vectors/e3-br22a.json": "ab3c2549d6e7e1e1936ce95726cf5ee1e0995edd1eb5ef7931279daf549e0dda",
+        "m1-draft-0.13/vectors/e4-units.json": "2b1ea59db58abcddce967a4f44e39f22c61d4423fa1dd6bb2b1183251918304b"
+      },
+      "check": "preserved.olderFilesUnchanged",
+      "status": "pass"
+    }
+  ]
+}

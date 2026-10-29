@@ -1,0 +1,56 @@
+{
+  "schema": "pocol-m1-u02/0.29",
+  "status": "delegated U02 'interstitial': warning page, deliberate click, then a persistent revoked banner; the default display of a revoked version stays refused. Executed through the unchanged 0.25 select_version (m1-draft-0.25/tools/supplements_ref.py) plus the 0.29 action layer (overlay_ref_029.view). Expected traces hand-derived by the author.",
+  "sources": {
+    "baseline": {"file": "reference/FINAL_DESIGN.md", "lines": [914, 914], "literals": ["revoke يمنع العرض الافتراضي"]},
+    "table02": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [221, 221], "literals": ["**U02.**", "an interstitial that names the version as revoked and needs an explicit click, then a persistent banner"]},
+    "p30": {"file": "m1-draft-0.2/M1-SPEC-0.2.md", "lines": [223, 223], "literals": ["**P30.**", "A user-initiated reload re-runs §4.2 for the original request"]},
+    "e07": {"file": "m1-draft-0.25/supplements/s25-e07-viewer-table.json", "lines": [27, 31], "literals": ["interstitialRevoked", "afterExplicitClick", "refuseRevoked"]}
+  },
+  "states": {
+    "SA": {"versionCount": 3, "currentVersion": 2, "status": {"1": "revoked", "2": "published", "3": "draft"}},
+    "SB": {"versionCount": 1, "currentVersion": 1, "status": {"1": "revoked"}},
+    "SC": {"versionCount": 2, "currentVersion": 2, "status": {"1": "published", "2": "published"}}
+  },
+  "rows": [
+    {"id": "V-01", "tag": "default never shows the revoked version", "state": "SA", "request": {"kind": "default"}, "actions": [],
+     "expect": [{"shown": "load", "version": 2, "frame": true, "banner": null, "chunkFetches": "manifest+files"}]},
+    {"id": "V-02", "tag": "default whose current version is revoked (non-conforming state): refused", "state": "SB", "request": {"kind": "default"}, "actions": [],
+     "expect": [{"shown": "stateInvariant", "version": null, "frame": false, "banner": null, "chunkFetches": 0}]},
+    {"id": "V-03", "tag": "explicit @v1 revoked, no click", "state": "SA", "request": {"kind": "explicit", "n": 1}, "actions": [],
+     "expect": [{"shown": "interstitial", "frame": false, "chunkFetches": 0}]},
+    {"id": "V-04", "tag": "explicit @v1 revoked, deliberate click", "state": "SA", "request": {"kind": "explicit", "n": 1}, "actions": ["click"],
+     "expect": [{"shown": "interstitial", "frame": false, "chunkFetches": 0},
+                {"shown": "load", "version": 1, "frame": true, "banner": "revoked", "chunkFetches": "manifest+files", "newCoveredLoad": true}]},
+    {"id": "V-05", "tag": "explicit @v1 revoked, dismissed", "state": "SA", "request": {"kind": "explicit", "n": 1}, "actions": ["dismiss"],
+     "expect": [{"shown": "interstitial", "frame": false, "chunkFetches": 0}, {"shown": "declinedRevoked", "frame": false, "chunkFetches": 0}]},
+    {"id": "V-06", "tag": "banner persists on in-session navigation", "state": "SA", "request": {"kind": "explicit", "n": 1}, "actions": ["click", "navigate"],
+     "expect": [{"shown": "interstitial", "frame": false, "chunkFetches": 0},
+                {"shown": "load", "version": 1, "frame": true, "banner": "revoked", "chunkFetches": "manifest+files", "newCoveredLoad": true},
+                {"shown": "page", "frame": true, "banner": "revoked", "newAnchor": false}]},
+    {"id": "V-07", "tag": "consent is per load: a reload asks again (P-U02-1)", "state": "SA", "request": {"kind": "explicit", "n": 1}, "actions": ["click", "reload"],
+     "expect": [{"shown": "interstitial", "frame": false, "chunkFetches": 0},
+                {"shown": "load", "version": 1, "frame": true, "banner": "revoked", "chunkFetches": "manifest+files", "newCoveredLoad": true},
+                {"shown": "interstitial", "frame": false, "chunkFetches": 0}]},
+    {"id": "V-08", "tag": "no navigation inside an unconfirmed revoked version", "state": "SA", "request": {"kind": "explicit", "n": 1}, "actions": ["navigate"],
+     "expect": [{"shown": "interstitial", "frame": false, "chunkFetches": 0}, {"shown": "ignored", "action": "navigate"}]},
+    {"id": "V-09", "tag": "explicit current version", "state": "SA", "request": {"kind": "explicit", "n": 2}, "actions": [],
+     "expect": [{"shown": "load", "version": 2, "frame": true, "banner": null, "chunkFetches": "manifest+files"}]},
+    {"id": "V-10", "tag": "explicit draft (U03)", "state": "SA", "request": {"kind": "explicit", "n": 3}, "actions": [],
+     "expect": [{"shown": "refuseDraft", "version": null, "frame": false, "banner": null, "chunkFetches": 0}]},
+    {"id": "V-11", "tag": "explicit missing version", "state": "SA", "request": {"kind": "explicit", "n": 4}, "actions": [],
+     "expect": [{"shown": "versionNotFound", "version": null, "frame": false, "banner": null, "chunkFetches": 0}]},
+    {"id": "V-12", "tag": "explicit published non-current: no interstitial", "state": "SC", "request": {"kind": "explicit", "n": 1}, "actions": [],
+     "expect": [{"shown": "load", "version": 1, "frame": true, "banner": "notCurrent", "chunkFetches": "manifest+files"}]},
+    {"id": "V-13", "tag": "REJECTED alternative 'refuse' (comparison only)", "state": "SA", "request": {"kind": "explicit", "n": 1}, "actions": ["click"], "policy": "refuse", "alternative": true,
+     "expect": [{"shown": "refuseRevoked", "version": null, "frame": false, "banner": null, "chunkFetches": 0}, {"shown": "ignored", "action": "click"}]}
+  ],
+  "timing": {
+    "convention": "P-U02-2 (pending root decision): the interstitial is the verdict of the first covered load (state reads only, zero chunk fetches); user think time is outside every budget; the click starts a new covered load with a fresh anchor and a fresh 10 s budget (revocation is permanent, so re-anchoring cannot change the answer)",
+    "firstLoad": [{"r": "anchor", "replies": [[100, "ok"]]}, {"r": "proof1", "replies": [[100, "ok"]]}, {"r": "proof2", "replies": [[100, "ok"]]}],
+    "clickAtMs": 60000,
+    "postClickLoad": [{"r": "anchor", "replies": [[100, "ok"]]}, {"r": "proof1", "replies": [[100, "ok"]]}, {"r": "proof2", "replies": [[100, "ok"]]}, {"b": "fileChunks", "lat": [200]}],
+    "expect": {"firstVerdictAtMs": 300, "postClickOutcome": "render", "postClickElapsedMs": 500, "postClickAbsoluteMs": 60500,
+               "ifUserWaitCounted": "unavailable (the click at 60000 is past the first budget's deadline at 10000)"}
+  }
+}

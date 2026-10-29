@@ -1,0 +1,25 @@
+// Appended to tests/consensus.rs of a detached worktree at e6025ce (the tree before S1) and run with
+// S1_DUMP=<file> cargo test --release --test consensus s1_pre_dump. Not part of the build.
+/// Scratch (not committed): the C-1 S1 scenario on the tree before S1, its reference answers dumped.
+#[test] fn s1_pre_dump(){
+    use pocold::node::{Config,Limits,Node};
+    let alice=devnet::account_key("alice");
+    let dir=std::env::temp_dir().join(format!("pocold-s1pre-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut b=Node::open(Config{dir:dir.clone(),name:"pre".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()},admitted(&cfg(&["a","b","c"]))).unwrap();
+    let log_tx=|nonce:u64|Tx{chain_id:777910,nonce,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:vec![0x61,0x00,0x10,0x5f,0xa0,0x00].into()}.sign_1559(&alice);
+    let mut h1=net();let g=h1.chain.head;let a1=branch(&mut h1,g,1,&[Body{txs:vec![pay(&alice,0,5)],evidence:vec![]}]);
+    let mut h=net();let mut blocks=a1.clone();blocks.extend(branch(&mut h,g,2,&[]));
+    let (mut nonce,mut p)=(0u64,blocks[2].hash());
+    for i in 0..96{let body=if i%4==0{let t=vec![pay(&alice,nonce,1+i),log_tx(nonce+1)];nonce+=2;Body{txs:t,evidence:vec![]}}else{Body::default()};
+        let x=branch(&mut h,p,1,&[body]);p=x[0].hash();blocks.extend(x);}
+    let mut txs=vec![];for x in &blocks{for t in &x.body.txs{txs.push(format!("{}",revm::primitives::keccak256(t)));}}
+    for x in &blocks{b.import(x.clone(),None).unwrap();}assert_eq!(b.chain.head,p);
+    let n=&mut b;let top=n.chain.head().height;let mut v=chain_view(n);
+    for t in &txs{v.push(rpc_local(n,"eth_getTransactionByHash",json!([t])));v.push(rpc_local(n,"eth_getTransactionReceipt",json!([t])));}
+    v.push(rpc_local(n,"eth_getLogs",json!([{"fromBlock":"0x0","toBlock":format!("{top:#x}")}])));
+    v.push(rpc_local(n,"pocol_getHeaders",json!(["0x1",format!("{top:#x}")])));
+    for x in 0..=top{v.push(rpc_local(n,"pocol_getBlockRlp",json!([format!("{x:#x}")])));
+        let hash=n.chain.canonical_at(x).unwrap().hash;v.push(json!(n.block_msg(&hash).map(|m|format!("{m:?}"))));}
+    std::fs::write(std::env::var("S1_DUMP").unwrap(),serde_json::to_string_pretty(&v).unwrap()).unwrap();
+    let _=std::fs::remove_dir_all(&dir);
+}

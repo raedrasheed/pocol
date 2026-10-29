@@ -1,0 +1,78 @@
+# commit 5965b8d31809063008a562fd178b4864b6aa552d (tracked changes under prototypes/: none; development/ had uncommitted round-3 doc edits)
+# host Linux 6.18.44-fc-v153 x86_64; rustc 1.99.1 (58cf8f9c3 2026-10-13); release; own target dir; shared CPU lock
+# each part below is the raw cargo output of one command, between its "### cmd" and "### exit" lines
+### cmd: (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --test caps -- --nocapture)
+### start 2026-10-23T23:02:37Z
+   Compiling pocol-lp4-execution v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_2dc3e122-e1e-3/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_2dc3e122-e1e-3/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 15.94s
+     Running tests/caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-caps/release/deps/caps-4b936de26c2f7c8c)
+
+running 7 tests
+test a_received_template_past_the_caps_is_treated_as_absent ... ok
+CAPS {"cumTxBytesA":716,"cumTxBytesB":113,"profile":"reorg txbytes_cap=big+b0-1=828","roomA":112,"roomB":715}
+test counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary ... ok
+CAPS {"cumTxs":5,"head":25,"pool":5,"profile":"tx_cap=5","templateSizes":[5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
+test tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing ... ok
+CAPS {"cumTxBytes":226,"profile":"txbytes_cap=a0+b0-0=226","roomLeft":0,"templateSizes":[2,0,0]}
+[txbytes 96856057] lock h=1 a=0 PROP tid=0x2b9a8156ca
+[txcap 96856059] lock h=1 a=0 PROP tid=0x18c6a6bb0f
+[txcap 96856066] head h=1 0x0af18cae633f signed=true txs=3
+[txbytes 96856066] head h=1 0x068c53355124 signed=true txs=2
+CAPS {"cumTxBytes":113,"profile":"txbytes_cap=a0+b0-1=225","roomLeft":112,"templateSizes":[1,0,0]}
+CAPS {"cumTxBytes":339,"pool":3,"profile":"txbytes_cap=395","templateSizes":[3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
+test txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones ... ok
+CAPS {"cumTxBytes":226,"profile":"txbytes_cap=a0+b0=226, a0 then b0","roomLeft":0,"templateSizes":[1,1,0,0]}
+test txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16 ... ok
+[txcap 96857069] lock h=2 a=0 PROP tid=0x8bede3e39c
+[txbytes 96857070] lock h=2 a=0 PROP tid=0x755672b5f7
+[txbytes 96857073] head h=2 0x8ef3ff096d60 signed=true txs=0
+[txcap 96857074] head h=2 0xac25cb8ca80c signed=true txs=0
+[txbytes 96858077] lock h=3 a=0 PROP tid=0x7617799b28
+[txcap 96858077] lock h=3 a=0 PROP tid=0xac3481a697
+[txbytes 96858080] head h=3 0xcef0e4d5122a signed=true txs=0
+[txcap 96858080] head h=3 0xc791675258fa signed=true txs=0
+[txbytes 96859083] lock h=4 a=0 PROP tid=0x52dfe39224
+[txcap 96859083] lock h=4 a=0 PROP tid=0x2ac910c48b
+[txcap 96859087] head h=4 0xec46a928f424 signed=true txs=0
+[txbytes 96859087] head h=4 0xc3f776573349 signed=true txs=0
+[txcap 96860090] lock h=5 a=0 PROP tid=0x8495ddcf95
+[txbytes 96860101] lock h=5 a=0 PROP tid=0x018e62a6b1
+[txcap 96860190] head h=5 0x6f1bd312ff3a signed=true txs=0
+[txbytes 96860191] head h=5 0xa1eecdb5dfc6 signed=true txs=0
+[txcap 96861194] lock h=6 a=0 PROP tid=0xe2ff16f45e
+[txbytes 96861194] lock h=6 a=0 PROP tid=0x3436db7bec
+[txbytes 96861197] head h=6 0x0d6b4e28deb2 signed=true txs=0
+[txcap 96861198] head h=6 0x539c737ded09 signed=true txs=0
+[txbytes 96862201] lock h=7 a=0 PROP tid=0xfe094c22df
+[txcap 96862202] lock h=7 a=0 PROP tid=0x3b53aff93e
+[txbytes 96862204] head h=7 0x45ae7ffe45ac signed=true txs=0
+[txcap 96862206] head h=7 0xb630f99b1592 signed=true txs=0
+[txbytes 96863008] lock h=8 a=0 PROP tid=0x0469f481f2
+[txcap 96863009] lock h=8 a=0 PROP tid=0x8e3244d23b
+[txbytes 96863012] head h=8 0xda82427142ea signed=true txs=0
+[txcap 96863013] head h=8 0x9ac67deb3de4 signed=true txs=0
+CAPS {"cumTxBytes":226,"cumTxs":2,"head":8,"profile":"live txbytes","rejects":[],"seconds":7.6095982840000005,"signed":[true,true,true,true,true,true,true,true]}
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... ok
+CAPS {"cumTxBytes":339,"cumTxs":3,"head":8,"profile":"live txcap","rejects":[],"seconds":7.613202377,"signed":[true,true,true,true,true,true,true,true]}
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.67s
+
+### exit 0 elapsed 306s
+
+### cmd: (cd prototypes/lp4-execution && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --test caps_identity)
+### start 2026-10-23T23:07:43Z
+   Compiling pocol-lp4-execution v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_2dc3e122-e1e-3/prototypes/lp4-execution)
+    Finished `release` profile [optimized] target(s) in 13.71s
+     Running tests/caps_identity.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-caps/release/deps/caps_identity-513e5081e3be08da)
+
+running 3 tests
+test gsv1_and_the_cap_variants_match_the_model ... ok
+test log_cap_is_not_representable_in_the_genesis_spec ... ok
+test the_devnet_genesis_hash_does_not_depend_on_log_cap ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+### exit 0 elapsed 323s
+

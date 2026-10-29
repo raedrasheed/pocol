@@ -1,0 +1,1503 @@
+{
+  "package": "M1 draft 0.2",
+  "executedAtUtc": "2026-10-07T06:13:08+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "notExecuted": [
+    "EVM / anvil",
+    "Solidity compilation",
+    "gas measurement",
+    "browser / extension",
+    "pocold",
+    "M0 K1-K3 hash libraries",
+    "pycryptodome / pyrlp cross-check (not installed here)"
+  ],
+  "summary": {
+    "checks": 212,
+    "passed": 212,
+    "failed": 0,
+    "seconds": 228.5
+  },
+  "results": [
+    {
+      "check": "keccak.selftest",
+      "status": "pass"
+    },
+    {
+      "check": "abi.knownSelector owner()",
+      "status": "pass",
+      "got": "0x8da5cb5b"
+    },
+    {
+      "check": "abi.knownSelector transferOwnership(address)",
+      "status": "pass",
+      "got": "0xf2fde38b"
+    },
+    {
+      "check": "abi.knownSelector acceptOwnership()",
+      "status": "pass",
+      "got": "0x79ba5097"
+    },
+    {
+      "check": "abi.knownSelector pendingOwner()",
+      "status": "pass",
+      "got": "0xe30c3978"
+    },
+    {
+      "check": "draft01.byteIdentical chunks.json",
+      "status": "pass"
+    },
+    {
+      "check": "draft01.byteIdentical index.html",
+      "status": "pass"
+    },
+    {
+      "check": "draft01.byteIdentical manifest.json",
+      "status": "pass"
+    },
+    {
+      "check": "draft01.byteIdentical negative-manifests.json",
+      "status": "pass"
+    },
+    {
+      "check": "generator.deterministic (two runs)",
+      "status": "pass"
+    },
+    {
+      "check": "generator.committedFixturesCurrent",
+      "status": "pass",
+      "differing": []
+    },
+    {
+      "check": "codeTable.allEntriesFactoryDerived",
+      "status": "pass",
+      "bad": []
+    },
+    {
+      "check": "positive pos-minimal",
+      "status": "pass",
+      "got": null,
+      "boundary": null
+    },
+    {
+      "check": "positive pos-empty-file",
+      "status": "pass",
+      "got": null,
+      "boundary": null
+    },
+    {
+      "check": "positive pos-shared-chunk",
+      "status": "pass",
+      "got": null,
+      "boundary": null
+    },
+    {
+      "check": "positive pos-case-distinct",
+      "status": "pass",
+      "got": null,
+      "boundary": null
+    },
+    {
+      "check": "positive pos-path-256",
+      "status": "pass",
+      "got": null,
+      "boundary": "path 256 B (limit)"
+    },
+    {
+      "check": "positive pos-path-special-segments",
+      "status": "pass",
+      "got": null,
+      "boundary": null
+    },
+    {
+      "check": "positive pos-chunk-24575",
+      "status": "pass",
+      "got": null,
+      "boundary": "chunk 24575 B (limit)"
+    },
+    {
+      "check": "positive pos-file-1048576",
+      "status": "pass",
+      "got": null,
+      "boundary": "file 1048576 B = 42 x 24575 + 16426 (43 chunks)"
+    },
+    {
+      "check": "positive pos-files-256",
+      "status": "pass",
+      "got": null,
+      "boundary": "256 files (limit)"
+    },
+    {
+      "check": "positive pos-site-4194304",
+      "status": "pass",
+      "got": null,
+      "boundary": "site 4194304 B = 4 x 1048576 logical bytes; chunks shared, so unique bytes are ~1 MiB"
+    },
+    {
+      "check": "positive pos-manifest-65536",
+      "status": "pass",
+      "got": null,
+      "boundary": "manifest 65536 B (limit)"
+    },
+    {
+      "check": "negative neg-trailing-byte",
+      "status": "pass",
+      "expected": "decode.trailing",
+      "got": "decode.trailing",
+      "stage": "decode",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-trailing-byte",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-noncanonical-version",
+      "status": "pass",
+      "expected": "decode.noncanonical",
+      "got": "decode.noncanonical",
+      "stage": "decode",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-noncanonical-version",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-noncanonical-long-string",
+      "status": "pass",
+      "expected": "decode.noncanonical",
+      "got": "decode.noncanonical",
+      "stage": "decode",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-noncanonical-long-string",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-noncanonical-long-list",
+      "status": "pass",
+      "expected": "decode.noncanonical",
+      "got": "decode.noncanonical",
+      "stage": "decode",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-noncanonical-long-list",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-length-leading-zero",
+      "status": "pass",
+      "expected": "decode.noncanonical",
+      "got": "decode.noncanonical",
+      "stage": "decode",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-length-leading-zero",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-truncated",
+      "status": "pass",
+      "expected": "decode.truncated",
+      "got": "decode.truncated",
+      "stage": "decode",
+      "fetchCalls": 0
+    },
+    {
+      "check": "negative neg-manifest-65537",
+      "status": "pass",
+      "expected": "decode.oversize",
+      "got": "decode.oversize",
+      "stage": "decode",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-manifest-65537",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-draft01-noncanonical-rlp",
+      "status": "pass",
+      "expected": "decode.noncanonical",
+      "got": "decode.noncanonical",
+      "stage": "decode",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-draft01-noncanonical-rlp",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape"
+    },
+    {
+      "check": "negative neg-top-arity-2",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "negative neg-top-arity-4",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "negative neg-file-arity-4",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "negative neg-file-arity-6",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "negative neg-files-not-list",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "negative neg-int-is-list",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "negative neg-int-leading-zero",
+      "status": "pass",
+      "expected": "struct.int",
+      "got": "struct.int",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-int-leading-zero",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-zero-as-00",
+      "status": "pass",
+      "expected": "struct.int",
+      "got": "struct.int",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-zero-as-00",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-mime-u8-overflow",
+      "status": "pass",
+      "expected": "struct.int",
+      "got": "struct.int",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-mime-u8-overflow",
+      "status": "pass",
+      "expected": "file.mime",
+      "got": "file.mime"
+    },
+    {
+      "check": "negative neg-size-u32-overflow",
+      "status": "pass",
+      "expected": "struct.int",
+      "got": "struct.int",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-size-u32-overflow",
+      "status": "pass",
+      "expected": "file.size",
+      "got": "file.size"
+    },
+    {
+      "check": "negative neg-hash-31",
+      "status": "pass",
+      "expected": "struct.width",
+      "got": "struct.width",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-hash-31",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "negative neg-hash-33",
+      "status": "pass",
+      "expected": "struct.width",
+      "got": "struct.width",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-hash-33",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "negative neg-addr-19",
+      "status": "pass",
+      "expected": "struct.width",
+      "got": "struct.width",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-addr-19",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "negative neg-addr-21",
+      "status": "pass",
+      "expected": "struct.width",
+      "got": "struct.width",
+      "stage": "structure",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-addr-21",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "negative neg-version-0",
+      "status": "pass",
+      "expected": "manifest.version",
+      "got": "manifest.version",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-version-0",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-version-2",
+      "status": "pass",
+      "expected": "manifest.version",
+      "got": "manifest.version",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-version-2",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-files-empty",
+      "status": "pass",
+      "expected": "manifest.fileCount",
+      "got": "manifest.fileCount",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-files-empty",
+      "status": "pass",
+      "expected": "manifest.entryIndex",
+      "got": "manifest.entryIndex"
+    },
+    {
+      "check": "negative neg-files-257",
+      "status": "pass",
+      "expected": "manifest.fileCount",
+      "got": "manifest.fileCount",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-files-257",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-entry-index-range",
+      "status": "pass",
+      "expected": "manifest.entryIndex",
+      "got": "manifest.entryIndex",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-entry-index-range",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-no-slash",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-no-slash",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-root",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-root",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-trailing-slash",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-trailing-slash",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-leading-double-slash",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-leading-double-slash",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-empty-segment",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-empty-segment",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-space",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-space",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-percent",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-percent",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-backslash",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-backslash",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-non-ascii",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-non-ascii",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-dot",
+      "status": "pass",
+      "expected": "path.dotSegment",
+      "got": "path.dotSegment",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-dot",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-dotdot-tail",
+      "status": "pass",
+      "expected": "path.dotSegment",
+      "got": "path.dotSegment",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-dotdot-tail",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-dotdot-lead",
+      "status": "pass",
+      "expected": "path.dotSegment",
+      "got": "path.dotSegment",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-dotdot-lead",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-length-257",
+      "status": "pass",
+      "expected": "path.length",
+      "got": "path.length",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-length-257",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-path-empty",
+      "status": "pass",
+      "expected": "path.length",
+      "got": "path.length",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-path-empty",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-duplicate-path",
+      "status": "pass",
+      "expected": "path.order",
+      "got": "path.order",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-duplicate-path",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-unsorted-path",
+      "status": "pass",
+      "expected": "path.order",
+      "got": "path.order",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-unsorted-path",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-case-unsorted",
+      "status": "pass",
+      "expected": "path.order",
+      "got": "path.order",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-case-unsorted",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-unknown-mime",
+      "status": "pass",
+      "expected": "file.mime",
+      "got": "file.mime",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-unknown-mime",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-mime-zero",
+      "status": "pass",
+      "expected": "file.mime",
+      "got": "file.mime",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-mime-zero",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-entry-css",
+      "status": "pass",
+      "expected": "entry.mime",
+      "got": "entry.mime",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-entry-css",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-draft01-unknown-mime-entry",
+      "status": "pass",
+      "expected": "file.mime",
+      "got": "file.mime",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-draft01-unknown-mime-entry",
+      "status": "pass",
+      "expected": "entry.mime",
+      "got": "entry.mime"
+    },
+    {
+      "check": "negative neg-file-1048577",
+      "status": "pass",
+      "expected": "file.size",
+      "got": "file.size",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-file-1048577",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-chunk-len-0",
+      "status": "pass",
+      "expected": "chunk.len",
+      "got": "chunk.len",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-chunk-len-0",
+      "status": "pass",
+      "expected": "fetch.length",
+      "got": "fetch.length"
+    },
+    {
+      "check": "negative neg-chunk-len-24576",
+      "status": "pass",
+      "expected": "chunk.len",
+      "got": "chunk.len",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-chunk-len-24576",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "negative neg-draft01-zero-chunk-length",
+      "status": "pass",
+      "expected": "chunk.len",
+      "got": "chunk.len",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-draft01-zero-chunk-length",
+      "status": "pass",
+      "expected": "file.sum",
+      "got": "file.sum"
+    },
+    {
+      "check": "negative neg-wrong-size",
+      "status": "pass",
+      "expected": "file.sum",
+      "got": "file.sum",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-wrong-size",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-empty-with-chunk",
+      "status": "pass",
+      "expected": "file.sum",
+      "got": "file.sum",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-empty-with-chunk",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "negative neg-nonempty-no-chunks",
+      "status": "pass",
+      "expected": "file.sum",
+      "got": "file.sum",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.next neg-nonempty-no-chunks",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "negative neg-site-4194305",
+      "status": "pass",
+      "expected": "site.size",
+      "got": "site.size",
+      "stage": "semantic",
+      "fetchCalls": 0
+    },
+    {
+      "check": "isolation.full neg-site-4194305",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-fetch-missing",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing",
+      "stage": "fetch",
+      "fetchCalls": 1
+    },
+    {
+      "check": "isolation.next neg-fetch-missing",
+      "status": "pass",
+      "expected": "fetch.prefix",
+      "got": "fetch.prefix"
+    },
+    {
+      "check": "negative neg-fetch-prefix",
+      "status": "pass",
+      "expected": "fetch.prefix",
+      "got": "fetch.prefix",
+      "stage": "fetch",
+      "fetchCalls": 1
+    },
+    {
+      "check": "isolation.full neg-fetch-prefix",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-fetch-length",
+      "status": "pass",
+      "expected": "fetch.length",
+      "got": "fetch.length",
+      "stage": "fetch",
+      "fetchCalls": 1
+    },
+    {
+      "check": "isolation.next neg-fetch-length",
+      "status": "pass",
+      "expected": "fetch.origin",
+      "got": "fetch.origin"
+    },
+    {
+      "check": "negative neg-fetch-other-factory",
+      "status": "pass",
+      "expected": "fetch.origin",
+      "got": "fetch.origin",
+      "stage": "fetch",
+      "fetchCalls": 1
+    },
+    {
+      "check": "isolation.full neg-fetch-other-factory",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "negative neg-fetch-modified-byte",
+      "status": "pass",
+      "expected": "fetch.origin",
+      "got": "fetch.origin",
+      "stage": "fetch",
+      "fetchCalls": 1
+    },
+    {
+      "check": "isolation.next neg-fetch-modified-byte",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "negative neg-file-hash",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash",
+      "stage": "hash",
+      "fetchCalls": 1
+    },
+    {
+      "check": "isolation.full neg-file-hash",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "version ver-minimal",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "version ver-manifest-65536",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "version ver-manifest-hash",
+      "status": "pass",
+      "expected": "manifest.hash",
+      "got": "manifest.hash"
+    },
+    {
+      "check": "isolation.full ver-manifest-hash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "version ver-manifest-chunk-missing",
+      "status": "pass",
+      "expected": "mfetch.missing",
+      "got": "mfetch.missing"
+    },
+    {
+      "check": "isolation.next ver-manifest-chunk-missing",
+      "status": "pass",
+      "expected": "mfetch.prefix",
+      "got": "mfetch.prefix"
+    },
+    {
+      "check": "version ver-manifest-noncanonical-split",
+      "status": "pass",
+      "expected": "manifest.split",
+      "got": "manifest.split"
+    },
+    {
+      "check": "isolation.full ver-manifest-noncanonical-split",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "version ver-manifest-length-0",
+      "status": "pass",
+      "expected": "manifest.length",
+      "got": "manifest.length"
+    },
+    {
+      "check": "isolation.next ver-manifest-length-0",
+      "status": "pass",
+      "expected": "manifest.hash",
+      "got": "manifest.hash"
+    },
+    {
+      "check": "coverage.everyRuleHasRejectFixture",
+      "status": "pass",
+      "missing": [],
+      "byDesign": {
+        "mfetch.prefix": "same function as fetch.prefix (check_chunk); covered there",
+        "mfetch.length": "same function as fetch.length; covered there",
+        "mfetch.origin": "same function as fetch.origin; covered there"
+      }
+    },
+    {
+      "check": "boundary.split 1048576",
+      "status": "pass",
+      "got": [
+        43,
+        16426
+      ]
+    },
+    {
+      "check": "boundary.split 1048577",
+      "status": "pass",
+      "got": [
+        43,
+        16427
+      ]
+    },
+    {
+      "check": "boundary.T25 v2 content chunks = 44",
+      "status": "pass"
+    },
+    {
+      "check": "path.omnibox ''",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/index.html?x=1#part'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/index.html",
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/docs/'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs/index.html",
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/a//b'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "check": "path.omnibox '//x'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "check": "path.omnibox '/./a'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "check": "path.omnibox '/a/../b'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "check": "path.omnibox '/%61'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "check": "path.omnibox '/a%2fb'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "check": "path.omnibox '/INDEX.html'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/INDEX.html",
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/a#b?c'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a",
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/index.html?q=%20'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/index.html",
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/a\\\\b'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "path.omnibox '/a;b'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "path.omnibox '/docs'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs",
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.length"
+      }
+    },
+    {
+      "check": "path.omnibox '/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/index.html",
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '/a.html@v2'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 2
+      }
+    },
+    {
+      "check": "path.omnibox '/a.html@v2?x=1'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 2
+      }
+    },
+    {
+      "check": "path.omnibox '/a.html?x=@v2'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": null
+      }
+    },
+    {
+      "check": "path.omnibox '@v3'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": 3
+      }
+    },
+    {
+      "check": "path.omnibox '/@v3'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": 3
+      }
+    },
+    {
+      "check": "path.omnibox '/a.html@v0'",
+      "status": "pass",
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "path.omnibox '/a.html@v01'",
+      "status": "pass",
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "path.omnibox '/a.html@v4294967295'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 4294967295
+      }
+    },
+    {
+      "check": "path.omnibox '/a.html@v4294967296'",
+      "status": "pass",
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "path.omnibox '/a.html@v'",
+      "status": "pass",
+      "got": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "check": "path.omnibox '/a@vx'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "path.omnibox '/a@v1@v2'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "path.navigate '/'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.navigate '/x/'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/x/index.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.navigate '/about.html'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/about.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.navigate '/a/../b.html'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "check": "path.navigate '/a%2fb'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "check": "path.navigate '//x'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "check": "path.navigate 'about.html'",
+      "status": "pass",
+      "got": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "check": "path.navigate '/a b'",
+      "status": "pass",
+      "got": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "check": "path.navigate '/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+      "status": "pass",
+      "got": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "check": "path.navigate '/a.html@v2'",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "check": "path.navigate '/a.html?x#y'",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.reference '../style.css' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/style.css",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.reference 'img/a.png' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs/img/a.png",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.reference './' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs/index.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.reference '..' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": null,
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.reference '../../x.html' @ /a.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "ref.aboveRoot"
+      }
+    },
+    {
+      "check": "path.reference '/a/../b.html' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "check": "path.reference 'a//b.html' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "check": "path.reference 'x%20y.png' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "check": "path.reference 'style.css?v=2#k' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/style.css",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.reference '?q=1' @ /docs/page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/docs/page.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.reference '#top' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "fragmentOnly"
+      }
+    },
+    {
+      "check": "path.reference '' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "lookup",
+        "path": "/page.html",
+        "version": "session"
+      }
+    },
+    {
+      "check": "path.reference 'https://example.org/' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "scheme",
+        "scheme": "https"
+      }
+    },
+    {
+      "check": "path.reference 'data:image/png;base64,AA==' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "scheme",
+        "scheme": "data"
+      }
+    },
+    {
+      "check": "path.reference 'JavaScript:alert(1)' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "scheme",
+        "scheme": "javascript"
+      }
+    },
+    {
+      "check": "path.reference '//evil.example/x.js' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "networkPath"
+      }
+    },
+    {
+      "check": "path.reference 'a\\\\b.css' @ /page.html",
+      "status": "pass",
+      "got": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    }
+  ]
+}

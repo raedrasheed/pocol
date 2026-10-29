@@ -1,0 +1,3 @@
+PASS after restart node b serves the current version unchanged
+PASS after restart node c serves the current version unchanged
+{"result": "PASS", "checks": 20, "site": "0xe9e36fdcd0cbfa6c9668c89551bbb5ba905119ab", "work": "/tmp/pocol-site-_tsnm88l"}

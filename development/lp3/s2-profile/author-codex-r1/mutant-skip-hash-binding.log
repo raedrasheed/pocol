@@ -1,0 +1,25 @@
+   Compiling lp1-node v0.1.0 (/workspace/pocol-s2/pocol-s2-mutant-y8xn1u8c/crate)
+    Finished test [unoptimized + debuginfo] target(s) in 3.36s
+     Running tests/profile.rs (/workspace/pocol-tools/target/debug/deps/profile-163c84070b8044e2)
+
+running 6 tests
+test schedule_requires_origin_strict_heights_and_implemented_versions ... ok
+test testfork_v2_never_becomes_bootable_even_on_simnet ... ok
+test every_width_minimum_and_upper_bound_is_checked_before_narrowing ... ok
+test hash_and_chain_binding_cannot_be_replaced_by_matching_fork_schedule ... FAILED
+test typed_cp_preserves_all_values_and_exact_encoding ... ok
+test kind_matrix_and_network_chain_id_separation ... ok
+
+failures:
+
+---- hash_and_chain_binding_cannot_be_replaced_by_matching_fork_schedule stdout ----
+thread 'hash_and_chain_binding_cannot_be_replaced_by_matching_fork_schedule' panicked at 'assertion failed: matches!(call(& b, & wrong, s.chain_id), Err(ProfileError :: Genesis(e)) if\n         e.code == \"genesisHash\")', tests/profile.rs:127:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    hash_and_chain_binding_cannot_be_replaced_by_matching_fork_schedule
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass '--test profile'

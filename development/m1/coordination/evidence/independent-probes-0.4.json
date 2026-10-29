@@ -1,0 +1,81 @@
+{
+  "urls": [
+    {
+      "input": "https://[not-ip]/",
+      "expected": false,
+      "got": true,
+      "match": false
+    },
+    {
+      "input": "https://[::1::2]/",
+      "expected": false,
+      "got": true,
+      "match": false
+    },
+    {
+      "input": "https://999.999.999.999/",
+      "expected": false,
+      "got": true,
+      "match": false
+    },
+    {
+      "input": "https://%00.example/",
+      "expected": false,
+      "got": true,
+      "match": false
+    },
+    {
+      "input": "https://user%40example.org/",
+      "expected": false,
+      "got": true,
+      "match": false
+    },
+    {
+      "input": "https://[::1]:",
+      "expected": true,
+      "got": false,
+      "match": false
+    },
+    {
+      "input": "https://[::1]/",
+      "expected": true,
+      "got": true,
+      "match": true
+    },
+    {
+      "input": "https://example.org/",
+      "expected": true,
+      "got": true,
+      "match": true
+    },
+    {
+      "input": "https://user@example.org/",
+      "expected": false,
+      "got": false,
+      "match": true
+    }
+  ],
+  "pendingSameIdAcrossSessions": {
+    "before": {
+      "A": {
+        "session": 1,
+        "global": 2
+      },
+      "B": {
+        "session": 1,
+        "global": 2
+      }
+    },
+    "afterReplyA": {
+      "A": {
+        "session": 1,
+        "global": 1
+      },
+      "B": {
+        "session": 0,
+        "global": 1
+      }
+    },
+    "note": "req identity is undocumented; if it is opaque internal identity, say so and test colliding frame ids separately"
+  }
+}

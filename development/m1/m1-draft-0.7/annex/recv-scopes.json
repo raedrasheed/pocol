@@ -1,0 +1,17 @@
+{
+  "schema": "pocol-m1-recv-scopes/1",
+  "specVersion": "M1 draft 0.7",
+  "revision": "R7-04 (R1 connected to R3 pools)",
+  "baseline": "FD:L1234-1288 (HttpTransport, read steps, RECV_LIMIT table, pools), FD:L1140-1149 (pending and deadlines), FD:L905 (10 s), FD:L4935 (HttpTransport options).",
+  "rule": "Every request has exactly one recvLimit (from m1-draft-0.4/annex/recv-limits.json, by method), one pool, and a deadline. A reservation of recvLimit bytes is taken from the pool before sending (step 1) and released when the request settles. Equality with a limit is accepted.",
+  "scopes": [
+    {"caller": "RpcReadClient (site rpc_read)", "pool": "SITE_POOL (32 MiB)", "sessionCounted": true, "inflightCounted": true, "deadline": "10 s per request (FD:L1149)", "label": "B"},
+    {"caller": "LogClient.fetchAll (site eth_getLogs)", "pool": "SITE_POOL", "sessionCounted": true, "inflightCounted": true, "deadline": "30 s for the whole fetchAll (FD:L1149)", "label": "B (MR10f shows its 8 MiB pocol_getLogs reservation inside the session's 10 MiB)"},
+    {"caller": "ChunkFetcher (content and manifest chunks)", "pool": "CONTENT_POOL (8 x 68 KiB = 557056)", "sessionCounted": false, "inflightCounted": true, "deadline": "10 s per request (U14 preferred reading)", "label": "B for pool and in-flight count (FD:L1282-1283); P: not counted against SESSION_RECV_MAX, which MR10a/MR10f exercise only through the bridge"},
+    {"caller": "HeaderNetCheck, NetworkProfiles", "pool": "TRUST_POOL (2 MiB)", "sessionCounted": false, "inflightCounted": false, "deadline": "P: 10 s per request", "label": "B (FD:L1281, FD:L1283: outside the in-flight count, bounded by its bytes)"},
+    {"caller": "WalletSubmit (eth_sendRawTransaction, 4096)", "pool": "P: TRUST_POOL", "sessionCounted": false, "inflightCounted": false, "deadline": "P: 10 s", "label": "P: the baseline names WalletSubmit as an HttpTransport user (FD:L1234) but assigns no pool; TRUST_POOL keeps a user-approved send from being starved by sites"},
+    {"caller": "Website state reads (CR-M1-01)", "pool": "STATE_POOL (1 MiB) if CR-M1-01 is approved", "sessionCounted": false, "inflightCounted": false, "deadline": "10 s per request", "label": "pending owner decision"}
+  ],
+  "sessionBound": "SESSION_RECV_MAX = 10 MiB bounds the SITE_POOL reservations of one site session (FD:L1280), so one session holds at most 10 of the 32 MiB.",
+  "totals": "Reserved receive memory <= SITE_POOL + TRUST_POOL + CONTENT_POOL = 32 MiB + 2 MiB + 544 KiB ~= 34.5 MiB (FD:L1286 states about 34.6 MiB), plus one stream piece per request; +1 MiB with STATE_POOL if CR-M1-01 is approved."
+}

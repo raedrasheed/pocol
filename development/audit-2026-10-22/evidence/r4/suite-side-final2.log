@@ -1,0 +1,7 @@
+# after removing shed's side chain (S11) and adding the S10 test: release consensus + network_budget; then with debug assertions consensus + state_store; 2026-10-28T16:32:48Z, load 2.09 5.00 8.95; acceptance on 051dfaa and an H_END repro beside it
+test result: ok. 92 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 133.67s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+## debug assertions
+test result: ok. 92 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 225.88s
+test result: ok. 14 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.25s
+## end 2026-10-28T16:40:17Z

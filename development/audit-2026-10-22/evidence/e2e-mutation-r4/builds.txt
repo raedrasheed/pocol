@@ -1,0 +1,9 @@
+# Binaries built in round 4 (scratch build logs <scratch>/e2e-r4/logs/build-<name>.log; not committed).
+# Every build: CARGO_TARGET_DIR=<scratch>/wf-target-r3-e2e flock <scratch>/cpu.lock cargo build --release --locked --bins (cwd prototypes/pocold).
+# base-r4 is this worktree (wf_86607a23-c25-10) at ad84942, clean. VMorphHi and VMorphAll are <scratch>/e2e-r3/src (the fa97594 export of round 3;
+# diff -r against this branch: only tests/e2e_devnet.py and tests/consensus.rs differ) plus the review's edit lists, copied unchanged from its builder;
+# the export was restored and compared with its pristine copy after each build (no difference).
+# The other 21 mutants are the round-3 binaries (../e2e-mutation-r3/builds.txt); every run log here records its pocold sha256, and each matches that file.
+base-r4     pocold ddabdea01a4f2351dffd85260eb5805b0ede6504f70a4e4c7bd1c23fab284564  pocol-sign d6efd6bd7575090656e62bb342c976de29091a17706b0dc15f67e5854083caaf  built 2026-10-24T08:58:56Z  exit 0  warnings 0  39,558,872 B
+VMorphHi    pocold 2cf1151bb114a83b12a0b24ca106596217adf3bccf58fa99fffff4d06cd17445  pocol-sign a7f8e7496c6922c5666a6f1daa38da7a1b9fca56cab114c7e6ce9b5400776d57  built 2026-10-24T09:00:26Z  exit 0  warnings 0
+VMorphAll   pocold cf2edf9df0102cdbb3ffeb0f048d41153a86b1fa42965b97c2fb4d7f5f136673  pocol-sign 3902e9e7682bcbe3d08ca954c62bb516edb9242b03ecb75ecb95ab0bc6f0c545  built 2026-10-24T09:02:11Z  exit 0  warnings 0

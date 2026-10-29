@@ -1,0 +1,112 @@
+# commit ddf023a (wf/caps; the live tests trace production; builder unfixed), its tree exported with git archive
+# $ (cd prototypes/pocold && cargo test --release --locked --test caps -- --nocapture a_mining_devnet_node)
+# [txbytes ...]: each height's own block is rejected "16 caps", attempt 0 expires after 74-78 s, then a fallback at a=1
+# [txcap ...]: apply refuses the 6-transaction template (Budget TX_MAX), the builder empties it, nothing is included
+   Compiling pocol-lp4-execution v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/caps/src-ddf023a/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/caps/src-ddf023a/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 21.10s
+     Running tests/caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps-5598fe8b9d6ae8ac)
+
+running 2 tests
+[txbytes 55107133] lock h=1 a=0 PROP tid=0xfed28885c0
+[txbytes 55107134] reject 0xf2c5d9ae095e: 16 caps
+[txbytes 55107134] own block rejected: Block("16 caps")
+[txcap 55107140] signed template failed: apply Budget("TX_MAX")
+[txcap 55107142] lock h=1 a=0 PROP tid=0x65a0a1f027
+[txcap 55107146] head h=1 0x1fd9ee4d4088 signed=true txs=0
+[txcap 55108149] signed template failed: apply Budget("TX_MAX")
+[txcap 55108152] lock h=2 a=0 PROP tid=0x96fa506364
+[txcap 55108158] head h=2 0x3a2f978f58f1 signed=true txs=0
+[txcap 55109161] signed template failed: apply Budget("TX_MAX")
+[txcap 55109164] lock h=3 a=0 PROP tid=0x75f948fe45
+[txcap 55109170] head h=3 0x7e727121df0f signed=true txs=0
+[txcap 55110172] signed template failed: apply Budget("TX_MAX")
+[txcap 55110174] lock h=4 a=0 PROP tid=0xd48208e75d
+[txcap 55110178] head h=4 0x8ed5fa5a0f8b signed=true txs=0
+[txcap 55111181] signed template failed: apply Budget("TX_MAX")
+[txcap 55111183] lock h=5 a=0 PROP tid=0x1e5184ad21
+[txcap 55111194] head h=5 0xd240d235287b signed=true txs=0
+[txcap 55112197] signed template failed: apply Budget("TX_MAX")
+[txcap 55112202] lock h=6 a=0 PROP tid=0xfc3a9582c4
+[txcap 55112206] head h=6 0x990ae9725e4a signed=true txs=0
+[txcap 55113009] signed template failed: apply Budget("TX_MAX")
+[txcap 55113011] lock h=7 a=0 PROP tid=0xb3e89f8319
+[txcap 55113018] head h=7 0x0427801f04b2 signed=true txs=0
+[txcap 55114021] signed template failed: apply Budget("TX_MAX")
+[txcap 55114023] lock h=8 a=0 PROP tid=0x805abc151f
+[txcap 55114028] head h=8 0x6c19cbe0bafb signed=true txs=0
+CAPS {"cumTxBytes":0,"cumTxs":0,"head":8,"profile":"live txcap","rejects":[],"seconds":7.314026606,"signed":[true,true,true,true,true,true,true,true]}
+
+thread 'a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing' (11562) panicked at tests/caps.rs:153:37:
+assertion `left == right` failed: TX_CAP reached exactly
+  left: 0
+ right: 3
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<u64, u64>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: caps::a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+             at ./tests/caps.rs:153:37
+   5: caps::a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing::{closure#0}
+             at ./tests/caps.rs:149:76
+   6: <caps::a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... FAILED
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap has been running for over 60 seconds
+[txbytes 55185069] attempt 0 expired; advancing
+[txbytes 55185071] lock h=1 a=1 FB tid=0x8f817731c2
+[txbytes 55185076] head h=1 0xec13a6110ead signed=false txs=0
+[txbytes 55185082] lock h=2 a=0 PROP tid=0x69e8ffc621
+[txbytes 55185082] reject 0x42f0a5188422: 16 caps
+[txbytes 55185083] own block rejected: Block("16 caps")
+[txbytes 55259079] attempt 0 expired; advancing
+[txbytes 55259081] lock h=2 a=1 FB tid=0x27ec635497
+[txbytes 55259085] head h=2 0xff5a25ffdf4b signed=false txs=0
+[txbytes 55259088] lock h=3 a=0 PROP tid=0x866d03f684
+[txbytes 55259089] reject 0x55e04b717730: 16 caps
+[txbytes 55259089] own block rejected: Block("16 caps")
+[txbytes 55333194] attempt 0 expired; advancing
+[txbytes 55333196] lock h=3 a=1 FB tid=0xa32fc7fc76
+[txbytes 55333201] head h=3 0x02347248dca9 signed=false txs=0
+[txbytes 55333209] lock h=4 a=0 PROP tid=0x107b1dfb6d
+[txbytes 55333210] reject 0x8a9b8edbfc3a: 16 caps
+[txbytes 55333210] own block rejected: Block("16 caps")
+
+thread 'a_mining_devnet_node_keeps_producing_past_txbytes_cap' (11563) panicked at tests/caps.rs:142:5:
+txbytes: the node did not reach height 8 within 240 s (production stalled)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: caps::live
+             at ./tests/caps.rs:142:5
+   3: caps::a_mining_devnet_node_keeps_producing_past_txbytes_cap
+             at ./tests/caps.rs:160:11
+   4: caps::a_mining_devnet_node_keeps_producing_past_txbytes_cap::{closure#0}
+             at ./tests/caps.rs:155:67
+   5: <caps::a_mining_devnet_node_keeps_producing_past_txbytes_cap::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   6: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... FAILED
+
+failures:
+
+failures:
+    a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+    a_mining_devnet_node_keeps_producing_past_txbytes_cap
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 4 filtered out; finished in 240.11s
+
+error: test failed, to rerun pass `--test caps`
+exit=101

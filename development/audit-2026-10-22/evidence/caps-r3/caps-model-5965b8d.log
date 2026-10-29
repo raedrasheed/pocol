@@ -1,0 +1,9 @@
+# commit 5965b8d31809063008a562fd178b4864b6aa552d (proposals/model and proposals/vectors unchanged since round 2)
+# Python 3.11.15, standard library only, run isolated (-I); the scratch directory's path is written <scratch>
+$ (cd development/audit-2026-10-22/proposals && python3 -I model/caps_model.py <scratch>/caps-model-out.json)
+caps_model: 25 checks passed; H_GSV1 de518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277; devnet genesisHash 4db6aa5ce711e58c2d5bfaa9ffd04e0ad172824f8410ef28341fd77308d8e638; wrote <scratch>/caps-model-out.json
+exit 0
+$ cmp <scratch>/caps-model-out.json vectors/caps-sustainability.json && echo IDENTICAL
+IDENTICAL
+$ sha256sum vectors/caps-sustainability.json
+db23bd3fe2de93ff03f5cdde8215072539e29afc92d26dabab4def999c72c069  vectors/caps-sustainability.json

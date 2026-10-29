@@ -1,0 +1,213 @@
+== a.log (last 60 of 865 lines)
+[a 23742027] lock h=352 a=0 PROP tid=0x36ef5de11a
+[a 23742044] head h=352 0x7bd15083c361 signed=true txs=0
+[a 23743029] lock h=353 a=0 PROP tid=0x23da312a5e
+[a 23743236] head h=353 0xafa24d05ac0e signed=true txs=0
+[a 23744034] lock h=354 a=0 PROP tid=0xdfe5bf9b7f
+[a 23744671] head h=354 0x905d83f582c2 signed=true txs=0
+[a 23744782] sync session: peer silent; claim set aside
+[a 23745036] lock h=355 a=0 PROP tid=0xd68e3386fa
+[a 23746497] head h=355 0x27345f713230 signed=true txs=0
+[a 23746500] lock h=356 a=0 PROP tid=0xb7d385a23b
+[a 23748739] head h=356 0xec04697331e7 signed=true txs=0
+[a 23748742] lock h=357 a=0 PROP tid=0x09b06f7fa6
+[a 23749175] head h=357 0xa1c9279d13a4 signed=true txs=0
+[a 23749179] lock h=358 a=0 PROP tid=0xc30a30f647
+[a 23749865] head h=358 0xaabd14deed16 signed=true txs=0
+[a 23750005] lock h=359 a=0 PROP tid=0x0254aae82f
+[a 23751107] sync session: peer silent; claim set aside
+[a 23752181] head h=359 0x09869cb93d7e signed=true txs=0
+[a 23752184] lock h=360 a=0 PROP tid=0xb3457e109e
+[a 23753963] head h=360 0xf94c26f15fdf signed=true txs=0
+[a 23753966] lock h=361 a=0 PROP tid=0xaf46939dd2
+[a 23754425] sync session: peer silent; claim set aside
+[a 23756361] head h=361 0xdb503b5ec885 signed=true txs=0
+[a 23756363] lock h=362 a=0 PROP tid=0x500237ba01
+[a 23756628] head h=362 0xcc71a4f2052d signed=true txs=0
+[a 23757038] lock h=363 a=0 PROP tid=0xb3439731b8
+[a 23757524] head h=363 0x1b8fb2e1b2f0 signed=true txs=0
+[a 23757788] sync session: peer silent; claim set aside
+[a 23758042] lock h=364 a=0 PROP tid=0x623c98ba66
+[a 23758259] head h=364 0x4d15aa38364a signed=true txs=0
+[a 23759045] lock h=365 a=0 PROP tid=0xc50c5aa6f5
+[a 23759965] head h=365 0x0603fa7de805 signed=true txs=0
+[a 23760048] lock h=366 a=0 PROP tid=0xdbc19910b1
+[a 23760858] head h=366 0x2a97b24182e9 signed=true txs=0
+[a 23761051] lock h=367 a=0 PROP tid=0xa14c169c76
+[a 23761099] sync session: peer silent; claim set aside
+[a 23762680] head h=367 0xf9f00cc252b4 signed=true txs=0
+[a 23762684] lock h=368 a=0 PROP tid=0x8ecf940c00
+[a 23764460] sync session: peer silent; claim set aside
+[a 23764550] head h=368 0x0a61570b3d30 signed=true txs=0
+[a 23764552] lock h=369 a=0 PROP tid=0x87925ff234
+[a 23766555] head h=369 0x7ca4c0d0f5a7 signed=true txs=0
+[a 23766558] lock h=370 a=0 PROP tid=0x95814eb029
+[a 23767013] head h=370 0xd948c2cc5594 signed=true txs=0
+[a 23767017] lock h=371 a=0 PROP tid=0x11387fc483
+[a 23767520] sync session: peer silent; claim set aside
+[a 23768249] head h=371 0x5b53ba8d5642 signed=true txs=0
+[a 23768251] lock h=372 a=0 PROP tid=0xc97849db8e
+[a 23768525] head h=372 0x3ac4440286ab signed=true txs=0
+[a 23769037] lock h=373 a=0 PROP tid=0xd1d199b4fc
+[a 23770889] sync session: peer silent; claim set aside
+[a 23770958] head h=373 0xe531b5d2597a signed=true txs=0
+[a 23770962] lock h=374 a=0 PROP tid=0xacd6166d09
+[a 23771536] head h=374 0xcbd03cad289c signed=true txs=0
+[a 23771539] lock h=375 a=0 PROP tid=0x09805496ce
+[a 23771619] head h=375 0x650897a718cc signed=true txs=0
+[a 23772045] lock h=376 a=0 PROP tid=0x1897e2db9b
+[a 23772204] head h=376 0xac50ff843f72 signed=true txs=0
+[a 23773049] lock h=377 a=0 PROP tid=0x5bb705a8ef
+[a 23773285] head h=377 0x9b5e9f1ada55 signed=true txs=0
+== b.log (last 60 of 300 lines)
+[b 23614636] sync session: peer silent; claim set aside
+[b 23617695] sync session: peer silent; claim set aside
+[b 23620756] sync session: peer silent; claim set aside
+[b 23623813] sync session: peer silent; claim set aside
+[b 23626872] sync session: peer silent; claim set aside
+[b 23629932] sync session: peer silent; claim set aside
+[b 23632993] sync session: peer silent; claim set aside
+[b 23636055] sync session: peer silent; claim set aside
+[b 23639119] sync session: peer silent; claim set aside
+[b 23642196] sync session: peer silent; claim set aside
+[b 23645265] sync session: peer silent; claim set aside
+[b 23648329] sync session: peer silent; claim set aside
+[b 23649032] attempt 3 expired; advancing
+[b 23649036] lock h=105 a=4 FB tid=0xa49c0af41f
+[b 23651387] sync session: peer silent; claim set aside
+[b 23654446] sync session: peer silent; claim set aside
+[b 23657505] sync session: peer silent; claim set aside
+[b 23660564] sync session: peer silent; claim set aside
+[b 23663621] sync session: peer silent; claim set aside
+[b 23666686] sync session: peer silent; claim set aside
+[b 23669745] sync session: peer silent; claim set aside
+[b 23672803] sync session: peer silent; claim set aside
+[b 23675862] sync session: peer silent; claim set aside
+[b 23678920] sync session: peer silent; claim set aside
+[b 23681979] sync session: peer silent; claim set aside
+[b 23685039] sync session: peer silent; claim set aside
+[b 23688097] sync session: peer silent; claim set aside
+[b 23690004] attempt 4 expired; advancing
+[b 23690006] lock h=105 a=5 FB tid=0x11eb6f4fea
+[b 23691157] sync session: peer silent; claim set aside
+[b 23694215] sync session: peer silent; claim set aside
+[b 23697273] sync session: peer silent; claim set aside
+[b 23700332] sync session: peer silent; claim set aside
+[b 23703396] sync session: peer silent; claim set aside
+[b 23706455] sync session: peer silent; claim set aside
+[b 23709514] sync session: peer silent; claim set aside
+[b 23712576] sync session: peer silent; claim set aside
+[b 23715642] sync session: peer silent; claim set aside
+[b 23718699] sync session: peer silent; claim set aside
+[b 23721757] sync session: peer silent; claim set aside
+[b 23724817] sync session: peer silent; claim set aside
+[b 23727885] sync session: peer silent; claim set aside
+[b 23730943] sync session: peer silent; claim set aside
+[b 23731043] attempt 5 expired; advancing
+[b 23731046] lock h=105 a=6 FB tid=0xa154a40843
+[b 23734003] sync session: peer silent; claim set aside
+[b 23737061] sync session: peer silent; claim set aside
+[b 23740119] sync session: peer silent; claim set aside
+[b 23743177] sync session: peer silent; claim set aside
+[b 23746236] sync session: peer silent; claim set aside
+[b 23749296] sync session: peer silent; claim set aside
+[b 23752363] sync session: peer silent; claim set aside
+[b 23755432] sync session: peer silent; claim set aside
+[b 23758491] sync session: peer silent; claim set aside
+[b 23761550] sync session: peer silent; claim set aside
+[b 23764611] sync session: peer silent; claim set aside
+[b 23767670] sync session: peer silent; claim set aside
+[b 23770738] sync session: peer silent; claim set aside
+[b 23772041] attempt 6 expired; advancing
+[b 23772045] lock h=105 a=7 FB tid=0xd7c9f5c5bf
+== c.log (last 60 of 739 lines)
+[c 23721987] head h=343 0xaab28356f21f signed=true txs=0
+[c 23721989] lock h=344 a=0 PROP tid=0x1aadd37975
+[c 23722882] head h=344 0x45b17ca95dc1 signed=true txs=0
+[c 23722885] lock h=345 a=0 PROP tid=0x35b506af08
+[c 23723342] head h=345 0xa73706a50402 signed=true txs=0
+[c 23723344] lock h=346 a=0 PROP tid=0x8097389dc6
+[c 23724804] head h=346 0x933d766fd3ca signed=true txs=0
+[c 23724807] lock h=347 a=0 PROP tid=0xd41fe91c38
+[c 23726299] head h=347 0x184b13d09988 signed=true txs=0
+[c 23726302] lock h=348 a=0 PROP tid=0x846857737d
+[c 23726566] head h=348 0x1bd3ab0f6a7f signed=true txs=0
+[c 23727039] lock h=349 a=0 PROP tid=0xbf67849394
+[c 23728349] head h=349 0x278b66a73bcc signed=true txs=0
+[c 23728351] lock h=350 a=0 PROP tid=0x099c8082fd
+[c 23730351] head h=350 0x63df0e42f94c signed=true txs=0
+[c 23730353] lock h=351 a=0 PROP tid=0xa2c9aa938f
+[c 23731378] head h=351 0x43ce633ef8de signed=true txs=0
+[c 23731380] lock h=352 a=0 PROP tid=0x52d75546fd
+[c 23731449] head h=352 0x36b7fcb92352 signed=true txs=0
+[c 23732051] lock h=353 a=0 PROP tid=0x728bc8f1b5
+[c 23732454] head h=353 0x979c927fffaf signed=true txs=0
+[c 23733005] lock h=354 a=0 PROP tid=0xc755a2b06e
+[c 23734491] head h=354 0x13b4a9cbc3fb signed=true txs=0
+[c 23734494] lock h=355 a=0 PROP tid=0xebdefc8301
+[c 23734531] head h=355 0xc5613e03d4e2 signed=true txs=0
+[c 23735009] lock h=356 a=0 PROP tid=0x23059a9d35
+[c 23736934] head h=356 0x99542a956b62 signed=true txs=0
+[c 23736938] lock h=357 a=0 PROP tid=0xb55f826f01
+[c 23741201] head h=357 0x21546196ddbd signed=true txs=0
+[c 23741203] lock h=358 a=0 PROP tid=0x006736acb4
+[c 23747746] head h=358 0x13b1f56a3bb0 signed=true txs=0
+[c 23747748] lock h=359 a=0 PROP tid=0x8892aa289c
+[c 23751828] head h=359 0xfd7b0c956ba1 signed=true txs=0
+[c 23751832] lock h=360 a=0 PROP tid=0x6eded07810
+[c 23752957] head h=360 0x4720bdd24419 signed=true txs=0
+[c 23752961] lock h=361 a=0 PROP tid=0x57f867db3a
+[c 23753765] head h=361 0x00e0b5003d8a signed=true txs=0
+[c 23753767] lock h=362 a=0 PROP tid=0x4e057e4269
+[c 23756279] head h=362 0x10c3a5f01bda signed=true txs=0
+[c 23756284] lock h=363 a=0 PROP tid=0x19bcfd6bec
+[c 23760356] head h=363 0xb0a0886d070c signed=true txs=0
+[c 23760359] lock h=364 a=0 PROP tid=0xda7e520f77
+[c 23761273] head h=364 0x5ef7a315962a signed=true txs=0
+[c 23761278] lock h=365 a=0 PROP tid=0x694bf717ec
+[c 23762164] head h=365 0x7e6b602aaa91 signed=true txs=0
+[c 23762167] lock h=366 a=0 PROP tid=0x384edcb4b7
+[c 23762225] head h=366 0x7ab3ba825d4f signed=true txs=0
+[c 23763010] lock h=367 a=0 PROP tid=0x04b926bd78
+[c 23763816] head h=367 0x18c966a0eb5b signed=true txs=0
+[c 23764014] lock h=368 a=0 PROP tid=0x5364fd3676
+[c 23767016] head h=368 0x5ef35deae561 signed=true txs=0
+[c 23767020] lock h=369 a=0 PROP tid=0x2bfeac735d
+[c 23767148] head h=369 0xe7df4d16f9e1 signed=true txs=0
+[c 23768026] lock h=370 a=0 PROP tid=0xb73fb262cf
+[c 23769263] head h=370 0xfbe78fd7b970 signed=true txs=0
+[c 23769267] lock h=371 a=0 PROP tid=0xa0fef70e4e
+[c 23769371] head h=371 0xdaaa297e4481 signed=true txs=0
+[c 23770033] lock h=372 a=0 PROP tid=0xbd782b22f3
+[c 23772502] head h=372 0x93fda4d7e76b signed=true txs=0
+[c 23772505] lock h=373 a=0 PROP tid=0xc0bfe8758a
+== d.log (last 60 of 6 lines)
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[d 23375329] opened: head h=30 records=36
+[d 23375657] head h=25 0x4a2fc38b4680 signed=true txs=0
+[d 23375660] head h=26 0x6c69e0ef2555 signed=false txs=0
+[d 23375663] head h=27 0x22001f30c6a8 signed=true txs=0
+[d 23375666] head h=28 0xe2bff2a9462e signed=false txs=0
+== e.log (last 60 of 22 lines)
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[e 23382401] opened: head h=30 records=36
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[e 23382925] opened: head h=30 records=36
+[e 23382936] head h=25 0x4a2fc38b4680 signed=true txs=0
+[e 23382940] head h=26 0x6c69e0ef2555 signed=false txs=0
+[e 23382943] head h=27 0x22001f30c6a8 signed=true txs=0
+[e 23382945] head h=28 0xe2bff2a9462e signed=false txs=0
+[e 23382948] head h=29 0xcf02762660d1 signed=false txs=0
+[e 23382951] head h=30 0x90e83cdf7d11 signed=false txs=0
+[e 23382954] head h=31 0x0dc3e145d44d signed=true txs=0
+[e 23382957] head h=32 0x646451e9ebb1 signed=true txs=0
+[e 23383025] lock h=33 a=0 PROP tid=0x6b11f34453
+[e 23383034] head h=33 0xedd03607310a signed=true txs=0
+[e 23384031] lock h=34 a=0 PROP tid=0x7e9cf03c76
+[e 23384037] head h=34 0x16b788a0661d signed=true txs=0
+[e 23385017] lock h=35 a=0 PROP tid=0x498483e90b
+[e 23385026] head h=35 0xbadeb231fa61 signed=true txs=0
+[e 23386034] lock h=36 a=0 PROP tid=0x6953f783df
+[e 23386042] head h=36 0x664f94d624e8 signed=true txs=0
+[e 23387037] lock h=37 a=0 PROP tid=0x59e404cd8d
+[e 23387047] head h=37 0x9e6edc993d1e signed=true txs=0

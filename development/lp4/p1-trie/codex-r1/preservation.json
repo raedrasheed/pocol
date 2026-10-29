@@ -1,0 +1,13 @@
+{
+  "base": "041061aa62d5bf772c4e45d790ce5e5a85aad151",
+  "unchangedPaths": [
+    "development/m1",
+    "development/lp3",
+    "prototypes/lp1-node/fixtures",
+    "prototypes/lp1-node/Cargo.lock",
+    "prototypes/lp1-node/Cargo.toml",
+    "prototypes/lp3-model"
+  ],
+  "status": "PASS",
+  "newDependencies": false
+}

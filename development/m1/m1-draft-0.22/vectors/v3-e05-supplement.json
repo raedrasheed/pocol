@@ -1,0 +1,15 @@
+{
+  "schema": "pocol-m1-v3-e05-supplement/0.22",
+  "purpose": "Records the E05 three-library Keccak-256 agreement for K1-K3 and the literal 341-byte GSV1 (validation.md:75 iii). The GSV1 bytes and every other hash-bearing fixture of 0.21 are unchanged.",
+  "evidence": {"file": "coordination/review-001/e05-keccak-three-library.json", "inputs": "coordination/review-001/e05-hash-inputs.json",
+               "libraries": ["m1-draft-0.2/tools/keccak.py (pure Python, sha256 99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d)",
+                             "@noble/hashes 2.4.0", "js-sha3 0.13.0"],
+               "note": "Library sources and the oracle script stay with root; no dependency file is copied into this package."},
+  "source": {"file": "reference/validation.md", "lines": [75, 75], "literals": ["H_GSV1 يُسجل باتفاق ثلاث مكتبات بعد K1–K3"]},
+  "K": {"K1": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+        "K2": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        "K3": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"},
+  "GSV1": {"bytes": 341, "inputSha256": "2905b38d045661682f75beda865a447ed22e43e1e288b622a78a4e9833a4bf84",
+           "keccak256": "de518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277"},
+  "supersedes": "DG-V3-3 of 0.21 (single-library H_GSV1). The 0.21 gap entry is replayed unchanged as history; this supplement records its resolution."
+}

@@ -1,0 +1,202 @@
+# tree of commit 9094f98 (the fix) with prototypes/pocold/src/node.rs replaced by its ddf023a version (the unfixed
+# builder), exported with git archive: the final tests/caps.rs against the unfixed builder
+# $ (cd prototypes/pocold && cargo test --release --locked --test caps -- --nocapture)
+# observed: 6 of 6 FAIL
+   Compiling pocol-lp4-execution v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/caps/src-revert/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/caps/src-revert/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 19.25s
+     Running tests/caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps-ad9b048acfcb9773)
+
+running 6 tests
+[txbytes 55696050] lock h=1 a=0 PROP tid=0x0fb1732a99
+[txcap 55696052] signed template failed: apply Budget("TX_MAX")
+[txcap 55696053] lock h=1 a=0 PROP tid=0x4d0898489a
+[txbytes 55696054] reject 0x30321c77d361: 16 caps
+[txbytes 55696054] own block rejected: Block("16 caps")
+[txcap 55696057] head h=1 0x715a7900941c signed=true txs=0
+
+thread 'counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary' (15306) panicked at tests/caps.rs:102:79:
+A is exhausted
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: caps::counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+             at ./tests/caps.rs:102:79
+   3: caps::counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary::{closure#0}
+             at ./tests/caps.rs:96:79
+   4: <caps::counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+thread 'a_received_template_past_the_caps_is_treated_as_absent' (15305) panicked at tests/caps.rs:127:33:
+assertion `left == right` failed: tpl-over: {"fallback":false,"header":"0xf902b9f90269f902238c506f436f6c2d74706c2d7631830bdeb8a0c920de6aea6e76927620e15ca9d4f8fbad2a1c3179fbae0d13d0975228a6031ba08ec32a8505ddadc1e7db3ef1690d9d01565e999ee54e16b57caf299871a1cd68028001846553f1029f0f30d7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffa028294ebb7dd675a9108763f3c181d01b433c0904e108abfd753b805f1d576ee9a07a5d60df24809aa000ec99ae5f9843f7a61a042d49a7786ab96a5f5e29c717ffa0f78dfb743fbd92ade140711c8bbc542b5e307f0ab7984eff35d751969fe57efab9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000837a120082520884343b77b4a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b42194eb59c60584bb0fb67132cc4a3f9639c31cdb4935b841255bef2c9129ca7cf3707bdc01d4a6516e8ad35c87284f823f30b8a323c1690d24b6ed01ef5fc15f2781d92704932e39be99f00418140b06f114cf16639d791201880000000000000000c0b8410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","nonceMax":"34512","templateId":"0x8c28e26b33f1a702dd08a4bc6bc736d277fadc9952f96de34c58cc5d33712b7a"}
+  left: true
+ right: false
+stack backtrace:
+test counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary ... FAILED
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<bool, bool>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: caps::a_received_template_past_the_caps_is_treated_as_absent
+             at ./tests/caps.rs:127:33
+   5: caps::a_received_template_past_the_caps_is_treated_as_absent::{closure#0}
+             at ./tests/caps.rs:116:68
+   6: <caps::a_received_template_past_the_caps_is_treated_as_absent::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test a_received_template_past_the_caps_is_treated_as_absent ... FAILED
+
+thread 'tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing' (15315) panicked at tests/caps.rs:53:9:
+h=1: the builder offers 10 transactions past the room (5, 16777216)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: caps::mine_templates
+             at ./tests/caps.rs:53:9
+   3: caps::tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+             at ./tests/caps.rs:66:15
+   4: caps::tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing::{closure#0}
+             at ./tests/caps.rs:61:75
+   5: <caps::tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   6: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing ... FAILED
+
+thread 'txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones' (15316) panicked at tests/caps.rs:86:42:
+assertion `left == right` failed: skips a1 (too large), a2 (after a1), keeps bob's
+  left: [[2, 248, 110, 131, 11, 222, 184, 128, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 128, 192, 128, 160, 60, 170, 190, 43, 123, 222, 2, 35, 95, 237, 3, 239, 146, 196, 139, 55, 210, 148, 251, 170, 142, 71, 109, 168, 240, 236, 25, 79, 73, 201, 0, 108, 160, 9, 22, 212, 41, 59, 98, 26, 145, 39, 46, 185, 190, 141, 179, 66, 85, 61, 64, 191, 29, 142, 46, 254, 7, 108, 133, 219, 254, 33, 167, 211, 88], [2, 249, 2, 200, 131, 11, 222, 184, 1, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 119, 136, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 185, 2, 88, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 192, 128, 160, 224, 112, 117, 188, 136, 209, 229, 50, 143, 6, 107, 1, 219, 195, 202, 153, 157, 140, 180, 228, 67, 59, 201, 180, 91, 136, 251, 99, 249, 222, 92, 15, 160, 44, 45, 253, 4, 168, 178, 142, 254, 11, 104, 201, 22, 214, 0, 24, 67, 152, 130, 150, 192, 106, 72, 169, 86, 238, 38, 0, 70, 142, 237, 226, 40], [2, 248, 110, 131, 11, 222, 184, 2, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 128, 192, 128, 160, 65, 254, 125, 21, 223, 95, 134, 58, 89, 254, 31, 221, 179, 132, 95, 112, 105, 189, 134, 134, 62, 226, 66, 1, 18, 148, 32, 188, 206, 223, 95, 224, 160, 27, 146, 107, 50, 104, 235, 233, 123, 199, 157, 215, 104, 121, 5, 112, 98, 67, 224, 186, 71, 218, 141, 54, 186, 202, 114, 58, 19, 173, 108, 94, 130], [2, 248, 110, 131, 11, 222, 184, 128, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 128, 192, 128, 160, 65, 127, 232, 216, 244, 79, 96, 243, 183, 24, 26, 93, 31, 161, 144, 101, 37, 143, 204, 129, 78, 227, 155, 134, 61, 247, 178, 9, 108, 63, 32, 33, 160, 67, 213, 212, 146, 14, 185, 75, 127, 137, 216, 188, 25, 134, 53, 98, 40, 103, 144, 110, 137, 109, 160, 103, 174, 189, 127, 5, 124, 138, 90, 72, 240], [2, 248, 110, 131, 11, 222, 184, 1, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 128, 192, 128, 160, 194, 50, 73, 28, 234, 49, 197, 158, 0, 181, 51, 16, 241, 197, 63, 25, 50, 195, 147, 33, 235, 233, 86, 43, 85, 193, 102, 182, 83, 185, 161, 73, 160, 14, 166, 74, 226, 90, 134, 84, 50, 51, 220, 136, 63, 201, 165, 195, 73, 42, 156, 62, 44, 230, 135, 153, 4, 135, 196, 202, 30, 2, 13, 55, 94], [2, 248, 110, 131, 11, 222, 184, 2, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 128, 192, 1, 160, 151, 85, 249, 109, 56, 255, 217, 121, 213, 203, 124, 50, 65, 159, 137, 33, 95, 197, 47, 213, 50, 117, 34, 62, 24, 164, 116, 95, 79, 182, 1, 55, 160, 93, 230, 106, 183, 67, 185, 179, 248, 28, 195, 118, 208, 42, 201, 86, 53, 110, 52, 164, 225, 204, 170, 20, 2, 173, 118, 89, 5, 14, 223, 81, 13]]
+ right: [[2, 248, 110, 131, 11, 222, 184, 128, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 128, 192, 128, 160, 60, 170, 190, 43, 123, 222, 2, 35, 95, 237, 3, 239, 146, 196, 139, 55, 210, 148, 251, 170, 142, 71, 109, 168, 240, 236, 25, 79, 73, 201, 0, 108, 160, 9, 22, 212, 41, 59, 98, 26, 145, 39, 46, 185, 190, 141, 179, 66, 85, 61, 64, 191, 29, 142, 46, 254, 7, 108, 133, 219, 254, 33, 167, 211, 88], [2, 248, 110, 131, 11, 222, 184, 128, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 128, 192, 128, 160, 65, 127, 232, 216, 244, 79, 96, 243, 183, 24, 26, 93, 31, 161, 144, 101, 37, 143, 204, 129, 78, 227, 155, 134, 61, 247, 178, 9, 108, 63, 32, 33, 160, 67, 213, 212, 146, 14, 185, 75, 127, 137, 216, 188, 25, 134, 53, 98, 40, 103, 144, 110, 137, 109, 160, 103, 174, 189, 127, 5, 124, 138, 90, 72, 240], [2, 248, 110, 131, 11, 222, 184, 1, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 1, 128, 192, 128, 160, 194, 50, 73, 28, 234, 49, 197, 158, 0, 181, 51, 16, 241, 197, 63, 25, 50, 195, 147, 33, 235, 233, 86, 43, 85, 193, 102, 182, 83, 185, 161, 73, 160, 14, 166, 74, 226, 90, 134, 84, 50, 51, 220, 136, 63, 201, 165, 195, 73, 42, 156, 62, 44, 230, 135, 153, 4, 135, 196, 202, 30, 2, 13, 55, 94]]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<alloc::vec::Vec<alloc::vec::Vec<u8>>, alloc::vec::Vec<alloc::vec::Vec<u8>>>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: caps::txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+             at ./tests/caps.rs:86:42
+   5: caps::txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones::{closure#0}
+             at ./tests/caps.rs:78:101
+   6: <caps::txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones ... FAILED
+[txcap 55697059] signed template failed: apply Budget("TX_MAX")
+[txcap 55697061] lock h=2 a=0 PROP tid=0x7a65af0c03
+[txcap 55697065] head h=2 0xe01635249155 signed=true txs=0
+[txcap 55698067] signed template failed: apply Budget("TX_MAX")
+[txcap 55698071] lock h=3 a=0 PROP tid=0xf978e7bb67
+[txcap 55698075] head h=3 0xbba0cfee0618 signed=true txs=0
+[txcap 55699077] signed template failed: apply Budget("TX_MAX")
+[txcap 55699079] lock h=4 a=0 PROP tid=0xa89a1fdb7c
+[txcap 55699083] head h=4 0xcaa991c385ee signed=true txs=0
+[txcap 55700085] signed template failed: apply Budget("TX_MAX")
+[txcap 55700088] lock h=5 a=0 PROP tid=0xc2a02caaba
+[txcap 55700098] head h=5 0xf2cd1c3e2413 signed=true txs=0
+[txcap 55701101] signed template failed: apply Budget("TX_MAX")
+[txcap 55701104] lock h=6 a=0 PROP tid=0xadc1f6c896
+[txcap 55701111] head h=6 0x01e2c62eff6f signed=true txs=0
+[txcap 55702113] signed template failed: apply Budget("TX_MAX")
+[txcap 55702115] lock h=7 a=0 PROP tid=0x47c65cc4d7
+[txcap 55702121] head h=7 0x5d897f836bd2 signed=true txs=0
+[txcap 55703138] signed template failed: apply Budget("TX_MAX")
+[txcap 55703141] lock h=8 a=0 PROP tid=0x921460f0e3
+[txcap 55703148] head h=8 0x53fff3859521 signed=true txs=0
+CAPS {"cumTxBytes":0,"cumTxs":0,"head":8,"profile":"live txcap","rejects":[],"seconds":7.166570592,"signed":[true,true,true,true,true,true,true,true]}
+
+thread 'a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing' (15303) panicked at tests/caps.rs:153:37:
+assertion `left == right` failed: TX_CAP reached exactly
+  left: 0
+ right: 3
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<u64, u64>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: caps::a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+             at ./tests/caps.rs:153:37
+   5: caps::a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing::{closure#0}
+             at ./tests/caps.rs:149:76
+   6: <caps::a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... FAILED
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap has been running for over 60 seconds
+[txbytes 55774193] attempt 0 expired; advancing
+[txbytes 55774195] lock h=1 a=1 FB tid=0xb26033d56c
+[txbytes 55774198] head h=1 0x052b162976e1 signed=false txs=0
+[txbytes 55774202] lock h=2 a=0 PROP tid=0x3471492e49
+[txbytes 55774203] reject 0x8d38978e652c: 16 caps
+[txbytes 55774203] own block rejected: Block("16 caps")
+[txbytes 55848023] attempt 0 expired; advancing
+[txbytes 55848025] lock h=2 a=1 FB tid=0xae0c92d7e5
+[txbytes 55848029] head h=2 0x7f59f6bf8dd0 signed=false txs=0
+[txbytes 55848033] lock h=3 a=0 PROP tid=0x2691d058bb
+[txbytes 55848034] reject 0xb79f3b105f6e: 16 caps
+[txbytes 55848034] own block rejected: Block("16 caps")
+[txbytes 55922192] attempt 0 expired; advancing
+[txbytes 55922195] lock h=3 a=1 FB tid=0x68e0a8f70c
+[txbytes 55922199] head h=3 0xab2ece04210c signed=false txs=0
+[txbytes 55922206] lock h=4 a=0 PROP tid=0x51957e3832
+[txbytes 55922207] reject 0x564c38e1b129: 16 caps
+[txbytes 55922207] own block rejected: Block("16 caps")
+
+thread 'a_mining_devnet_node_keeps_producing_past_txbytes_cap' (15304) panicked at tests/caps.rs:142:5:
+txbytes: the node did not reach height 8 within 240 s (production stalled)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: caps::live
+             at ./tests/caps.rs:142:5
+   3: caps::a_mining_devnet_node_keeps_producing_past_txbytes_cap
+             at ./tests/caps.rs:160:11
+   4: caps::a_mining_devnet_node_keeps_producing_past_txbytes_cap::{closure#0}
+             at ./tests/caps.rs:155:67
+   5: <caps::a_mining_devnet_node_keeps_producing_past_txbytes_cap::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   6: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... FAILED
+
+failures:
+
+failures:
+    a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+    a_mining_devnet_node_keeps_producing_past_txbytes_cap
+    a_received_template_past_the_caps_is_treated_as_absent
+    counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+    tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+    txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+
+test result: FAILED. 0 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 240.11s
+
+error: test failed, to rerun pass `--test caps`
+exit=101

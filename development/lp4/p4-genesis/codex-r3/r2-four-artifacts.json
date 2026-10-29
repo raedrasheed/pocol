@@ -1,0 +1,36 @@
+{
+  "source": "d741363e872936764eb27e918332d0f6878b6195",
+  "run": 39451150747,
+  "scope": "Four complete ZIP hashes verified; independent job still pending, no complete-run acceptance",
+  "artifacts": [
+    {
+      "id": 12279680484,
+      "name": "lp4-p2-controls",
+      "bytes": 2323603,
+      "sha256": "e209e609adf2a5b6c079a935de5c2132e549e6eef5e6446d935fc978f354b1cb",
+      "members": 239
+    },
+    {
+      "id": 12279032681,
+      "name": "lp4-legacy-windows",
+      "bytes": 27092,
+      "sha256": "4f2b0ceb531781cffbade991ae0eec2fb075e838e120e94fa7be84e54c62f86f",
+      "members": 29
+    },
+    {
+      "id": 12278971365,
+      "name": "lp4-native-windows",
+      "bytes": 4773,
+      "sha256": "072c7b39fd84eb51ecbc288c9aa5b1c29ff3a604f71a3681344143d7079015bb",
+      "members": 1
+    },
+    {
+      "id": 12277708383,
+      "name": "lp4-native-cancun-reference",
+      "bytes": 135106,
+      "sha256": "7a1acd6c25fa0278c24c47fca01bf350bd9488ad9482dce824d475c4dfac65dd",
+      "members": 12
+    }
+  ],
+  "bootable": false
+}

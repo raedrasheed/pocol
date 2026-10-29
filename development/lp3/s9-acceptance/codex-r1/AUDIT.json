@@ -1,0 +1,84 @@
+{
+  "status": "PASS final amended LP3 evidence gate",
+  "scope": "LP3 with resource amendment 01 and separately approved CF core mapping",
+  "testedCoreHead": "56cda6f4d848526150607509c7273ba9f2f9f440",
+  "foundation": "c054dad4e4ae3af54f3246361153109da65a43fe",
+  "criteria": {
+    "S0": "PASS amended/core scope",
+    "S1": "PASS amended/core scope",
+    "S2": "PASS amended/core scope",
+    "S3": "PASS amended/core scope",
+    "S4": "PASS amended/core scope",
+    "S5": "PASS amended/core scope",
+    "S6": "PASS amended/core scope",
+    "S7": "PASS amended/core scope",
+    "S8": "PASS amended/core scope"
+  },
+  "manifestEntries": 903,
+  "manifests": [
+    {
+      "manifest": "development/lp3/s1-genesisspec/codex-review-2026-10-17/SHA256SUMS",
+      "files": 22
+    },
+    {
+      "manifest": "development/lp3/s1-genesisspec/windows-run-37976178670/SHA256SUMS",
+      "files": 35
+    },
+    {
+      "manifest": "development/lp3/s2-profile/author-codex-r1/SHA256SUMS",
+      "files": 18
+    },
+    {
+      "manifest": "development/lp3/s2-profile/review-codex-r1/SHA256SUMS",
+      "files": 23
+    },
+    {
+      "manifest": "development/lp3/s3-timing/codex-r1/SHA256SUMS",
+      "files": 26
+    },
+    {
+      "manifest": "development/lp3/s4-assignment/codex-r1/SHA256SUMS",
+      "files": 32
+    },
+    {
+      "manifest": "development/lp3/s7-evidence/codex-r2/SHA256SUMS",
+      "files": 77
+    },
+    {
+      "manifest": "development/lp3/s7-evidence/codex-r1/SHA256SUMS",
+      "files": 69
+    },
+    {
+      "manifest": "development/lp3/s6-model/codex-r1/SHA256SUMS",
+      "files": 88
+    },
+    {
+      "manifest": "development/lp3/s5-paramgate/codex-r2/SHA256SUMS",
+      "files": 201
+    },
+    {
+      "manifest": "development/lp3/s5-paramgate/codex-r1/SHA256SUMS",
+      "files": 155
+    },
+    {
+      "manifest": "development/lp3/s8-audit/codex-r1/SHA256SUMS",
+      "files": 157
+    }
+  ],
+  "acceptanceNegativeControls": 3,
+  "windows": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "blockedOrUnrunCountedPassing": 0,
+  "bootable": false,
+  "originalGeneralR18": "DEFERRED LP4 NOT PASSED",
+  "originalGeneralR21": "DEFERRED LP4 NOT PASSED",
+  "caps64Minimum": "DEFERRED LP4 NOT PASSED",
+  "realFinalizationCursorPendingAndFinalSubsidy": "LP4 NOT RUN",
+  "SV6": "LP4 NOT RUN",
+  "physicalScheduler": "LP6 NOT RUN",
+  "S9": "Final report/PR reviewed; foundation docs merge remains to record"
+}

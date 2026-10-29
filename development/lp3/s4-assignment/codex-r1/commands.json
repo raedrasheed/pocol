@@ -1,0 +1,322 @@
+[
+  {
+    "name": "author-tests",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/author-target",
+    "exitCode": 0,
+    "seconds": 0.728
+  },
+  {
+    "name": "cargo-version",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "-V"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 0.011
+  },
+  {
+    "name": "fmt",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "fmt",
+      "--",
+      "--check"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 0.17
+  },
+  {
+    "name": "mutant-allow-tombs",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/pocol-s4/mutant-allow-tombs-tieauxaa/crate",
+    "target": "/workspace/pocol-s4/mutant-allow-tombs-tieauxaa/target",
+    "exitCode": 101,
+    "seconds": 43.715
+  },
+  {
+    "name": "mutant-exclusive-membership-cutoff",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/pocol-s4/mutant-exclusive-membership-cutoff-e9t95dzc/crate",
+    "target": "/workspace/pocol-s4/mutant-exclusive-membership-cutoff-e9t95dzc/target",
+    "exitCode": 101,
+    "seconds": 44.457
+  },
+  {
+    "name": "mutant-include-parent-counts",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/pocol-s4/mutant-include-parent-counts-6vwol1ph/crate",
+    "target": "/workspace/pocol-s4/mutant-include-parent-counts-6vwol1ph/target",
+    "exitCode": 101,
+    "seconds": 41.267
+  },
+  {
+    "name": "mutant-modulo-without-rejection",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/pocol-s4/mutant-modulo-without-rejection-0hx1emmw/crate",
+    "target": "/workspace/pocol-s4/mutant-modulo-without-rejection-0hx1emmw/target",
+    "exitCode": 101,
+    "seconds": 43.302
+  },
+  {
+    "name": "mutant-partition-gap",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/pocol-s4/mutant-partition-gap-lcu01naa/crate",
+    "target": "/workspace/pocol-s4/mutant-partition-gap-lcu01naa/target",
+    "exitCode": 101,
+    "seconds": 44.108
+  },
+  {
+    "name": "mutant-wrong-64bit-cap",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/pocol-s4/mutant-wrong-64bit-cap-6rrp5gz6/crate",
+    "target": "/workspace/pocol-s4/mutant-wrong-64bit-cap-6rrp5gz6/target",
+    "exitCode": 101,
+    "seconds": 40.997
+  },
+  {
+    "name": "mutant-wrong-cumulative-boundary",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/pocol-s4/mutant-wrong-cumulative-boundary-hu5_gmm7/crate",
+    "target": "/workspace/pocol-s4/mutant-wrong-cumulative-boundary-hu5_gmm7/target",
+    "exitCode": 101,
+    "seconds": 42.188
+  },
+  {
+    "name": "mutant-wrong-seed-endianness",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment"
+    ],
+    "cwd": "/workspace/pocol-s4/mutant-wrong-seed-endianness-two1o8km/crate",
+    "target": "/workspace/pocol-s4/mutant-wrong-seed-endianness-two1o8km/target",
+    "exitCode": 101,
+    "seconds": 44.392
+  },
+  {
+    "name": "oracle-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "/workspace/pocol-s4/oracle_probe.rs",
+      "--extern",
+      "lp1_node=/workspace/pocol-s4/review-target/debug/liblp1_node.rlib",
+      "--extern",
+      "serde_json=/workspace/pocol-s4/review-target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+      "-L",
+      "dependency=/workspace/pocol-s4/review-target/debug/deps",
+      "-o",
+      "/workspace/pocol-s4/oracle-probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 0.544
+  },
+  {
+    "name": "oracle-compile-initial-FAIL",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "/workspace/pocol-s4/oracle_probe.rs",
+      "--extern",
+      "lp1_node=/workspace/pocol-s4/review-target/debug/liblp1_node.rlib",
+      "--extern",
+      "serde_json=/workspace/pocol-s4/review-target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+      "-L",
+      "dependency=/workspace/pocol-s4/review-target/debug/deps",
+      "-o",
+      "/workspace/pocol-s4/oracle-probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 1,
+    "seconds": 0.085
+  },
+  {
+    "name": "python-version",
+    "args": [
+      "python3",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 0.003
+  },
+  {
+    "name": "regression",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "assignment",
+      "--test",
+      "adversarial",
+      "--test",
+      "fixtures_integration",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "profile",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 11.993
+  },
+  {
+    "name": "review-build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--offline",
+      "--locked"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 37.487
+  },
+  {
+    "name": "review-oracle",
+    "args": [
+      "python3",
+      "/workspace/pocol-s4/oracle.py",
+      "/workspace/pocol-s4/oracle-probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 8.186
+  },
+  {
+    "name": "rust-version",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "-vV"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 0.024
+  },
+  {
+    "name": "rust-version",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "-vV"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 0.023
+  },
+  {
+    "name": "verify-fixtures",
+    "args": [
+      "/workspace/pocol-s4/review-target/debug/lp1-node",
+      "verify-fixtures"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s4/review-target",
+    "exitCode": 0,
+    "seconds": 1.0
+  }
+]

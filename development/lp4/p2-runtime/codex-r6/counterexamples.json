@@ -1,0 +1,47 @@
+{
+  "status": "UNAPPROVED INTERPRETATION WITNESSES; NOT execution PASS",
+  "cases": [
+    {
+      "id": "maturity-equality",
+      "dueHeight": 100,
+      "h": 100,
+      "inclusiveEligible": true,
+      "strictEligible": false
+    },
+    {
+      "id": "reactivate-equality",
+      "exitHeight": 20,
+      "W_act": 10,
+      "h": 30,
+      "inclusiveEligible": true,
+      "strictEligible": false
+    },
+    {
+      "id": "new-member-grace",
+      "registeredAt": 1000,
+      "nextHeight": 1001,
+      "W_act": 128,
+      "lastShare": 0,
+      "zeroGraceEligible": false,
+      "registrationGraceEligible": true
+    },
+    {
+      "id": "REG_OPS-consumption",
+      "REG_OPS": 3,
+      "R_max": 2,
+      "earlierRewardUpdates": 3,
+      "nextOperation": "claimBond",
+      "allSuccessfulCallsBudgetAllows": false,
+      "registerOnlyBudgetAllows": true
+    },
+    {
+      "id": "inactive-equality",
+      "lastShare": 20,
+      "graceStart": 25,
+      "Theta_inact": 10,
+      "h": 35,
+      "inclusiveEligible": true,
+      "strictEligible": false
+    }
+  ]
+}

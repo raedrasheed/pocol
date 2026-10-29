@@ -1,0 +1,9 @@
+{
+  "cases": 65536,
+  "precision": 60,
+  "maxRelativeError": "0.00011729562395226757019219105560017978303453583450443093433",
+  "atF": 7057,
+  "Fsha256": "8f59bc104409888cd07f99dc2fc0a144e23cbc0a547b1ab027b3a219ad8ddd36",
+  "monotonic": true,
+  "seconds": 12.372
+}

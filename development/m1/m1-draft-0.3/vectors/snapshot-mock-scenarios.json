@@ -1,0 +1,123 @@
+{
+  "specVersion": "M1 draft 0.3",
+  "revision": "R3-04 (C06)",
+  "status": "MOCK scenarios over an ABSTRACT proof model (tools/snapshot_model.py). They specify the required client behaviour and make it falsifiable. They are not evidence that pocold serves eth_getProof, that MPT proofs verify, or that the baseline permits the extension to send eth_getProof (see M1-OPEN-0.3.md BLK-01).",
+  "callMeaning": {
+    "anchor": "eth_getBlockByNumber('latest', false) in LN, or the head header verified by the RP window; returns {number, hash, stateRoot} of the named state",
+    "proof1": "eth_getProof(website, [slot 2], N): versionCount and currentVersion",
+    "proof2": "eth_getProof(website, [Version[n] base, base+1, base+2, element slots], N)",
+    "hashAt": "alternative B only: eth_getBlockByNumber(N).hash",
+    "read1": "alternative B only: eth_getStorageAt(website, slot 2, N), unverified",
+    "read2": "alternative B only: eth_getStorageAt of the Version[n] slots at N, unverified",
+    "stepFields": "from = state that serves the response; error = JSON-RPC error code instead of a result; forged = proof does not verify against any root; keys = the proof covers different keys than requested"
+  },
+  "states": {
+    "A": {"number": 100, "blockHash": "H_A", "root": "R_A",
+          "website": {"versionCount": 1, "currentVersion": 1,
+                      "versions": {"1": {"status": 1, "manifestHash": "M_A1"}}}},
+    "B": {"number": 100, "blockHash": "H_B", "root": "R_B", "note": "reorg sibling of A at the same height; v1 was re-created with different content",
+          "website": {"versionCount": 2, "currentVersion": 2,
+                      "versions": {"1": {"status": 1, "manifestHash": "M_B1"}, "2": {"status": 1, "manifestHash": "M_B2"}}}},
+    "C": {"number": 100, "blockHash": "H_C", "root": "R_C", "note": "violates the contract invariant (current version revoked); impossible for a conforming contract",
+          "website": {"versionCount": 1, "currentVersion": 1,
+                      "versions": {"1": {"status": 2, "manifestHash": "M_C1"}}}},
+    "D": {"number": 100, "blockHash": "H_D", "root": "R_D",
+          "website": {"versionCount": 1, "currentVersion": 0,
+                      "versions": {"1": {"status": 0, "manifestHash": "M_D1"}}}}
+  },
+  "budget": {
+    "perAttempt": "1 anchor (light) + at most 2 eth_getProof (heavy, RESP_MAX class FD:L1960)",
+    "perLoadMax": {"attempts": 4, "anchorCalls": 4, "proofCalls": 8},
+    "assumption": "Unmeasured. The per-connection token bucket (20/s, capacity 20, FD:L1967) and HEAVY_ACTIVE = 4 node-wide (FD:L1966) also serve chunk fetches; E03 must measure whether a 4 MiB site load plus proofs avoids -32021."
+  },
+  "scenarios": [
+    {"id": "SNAP-01-steady", "mechanism": "P20", "request": {"kind": "default"},
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "A"}],
+     "expected": {"result": "render", "restarts": 0, "frames": 1, "mixed": false, "anchorState": "A", "version": 1, "manifestHash": "M_A1",
+                  "calls": ["anchor", "proof1", "proof2"]}},
+
+    {"id": "SNAP-02-A-B", "mechanism": "P20", "request": {"kind": "default"},
+     "description": "Reorg between round 1 and round 2: the round-2 proof comes from B and does not verify against R_A.",
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "B"},
+                {"call": "anchor", "from": "B"}, {"call": "proof1", "from": "B"}, {"call": "proof2", "from": "B"}],
+     "expected": {"result": "render", "restarts": 1, "frames": 1, "mixed": false, "anchorState": "B", "version": 2, "manifestHash": "M_B2",
+                  "calls": ["anchor", "proof1", "proof2", "anchor", "proof1", "proof2"]}},
+
+    {"id": "SNAP-03-A-B-A", "mechanism": "P20", "request": {"kind": "default"},
+     "description": "Same height served from A, then B, then A again. The B response is rejected; the load re-anchors and renders A only.",
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "B"},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "A"}],
+     "expected": {"result": "render", "restarts": 1, "frames": 1, "mixed": false, "anchorState": "A", "version": 1, "manifestHash": "M_A1",
+                  "calls": ["anchor", "proof1", "proof2", "anchor", "proof1", "proof2"]}},
+
+    {"id": "SNAP-03D-A-B-A-detector-only", "mechanism": "detectorB", "request": {"kind": "default"},
+     "description": "Alternative (B) on the same A -> B -> A sequence. Both endpoint hashes are H_A, so the detector passes and the viewer renders v1 content from B as the current version of A. This scenario must produce a mixed render: it is the executable demonstration that (B) is a detector, not a guarantee.",
+     "script": [{"call": "hashAt", "from": "A"}, {"call": "read1", "from": "A"}, {"call": "read2", "from": "B"}, {"call": "hashAt", "from": "A"}],
+     "expected": {"result": "render", "restarts": 0, "frames": 1, "mixed": true, "version": 1, "manifestHash": "M_B1",
+                  "neverCurrentInAnyState": true,
+                  "calls": ["hashAt", "read1", "read2", "hashAt"]}},
+
+    {"id": "SNAP-04-outside-keff", "mechanism": "P20", "request": {"kind": "default"},
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "error": -32017},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "A"}],
+     "expected": {"result": "render", "restarts": 1, "frames": 1, "mixed": false, "anchorState": "A", "version": 1, "manifestHash": "M_A1",
+                  "calls": ["anchor", "proof1", "anchor", "proof1", "proof2"]}},
+
+    {"id": "SNAP-05-forged-exhausts-restarts", "mechanism": "P20", "request": {"kind": "default"},
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A", "forged": true},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A", "forged": true},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A", "forged": true},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A", "forged": true}],
+     "expected": {"result": "inconsistent", "restarts": 3, "frames": 0, "mixed": false,
+                  "calls": ["anchor", "proof1", "anchor", "proof1", "anchor", "proof1", "anchor", "proof1"]}},
+
+    {"id": "SNAP-06-flapping-exhausts-restarts", "mechanism": "P20", "request": {"kind": "default"},
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "B"},
+                {"call": "anchor", "from": "B"}, {"call": "proof1", "from": "B"}, {"call": "proof2", "from": "A"},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "B"},
+                {"call": "anchor", "from": "B"}, {"call": "proof1", "from": "B"}, {"call": "proof2", "from": "A"}],
+     "expected": {"result": "inconsistent", "restarts": 3, "frames": 0, "mixed": false,
+                  "calls": ["anchor", "proof1", "proof2", "anchor", "proof1", "proof2", "anchor", "proof1", "proof2", "anchor", "proof1", "proof2"]}},
+
+    {"id": "SNAP-07-proof-for-wrong-keys", "mechanism": "P20", "request": {"kind": "default"},
+     "description": "A proof that verifies against the root but covers other slots is a verification failure.",
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "A", "keys": "version:2"},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}, {"call": "proof2", "from": "A"}],
+     "expected": {"result": "render", "restarts": 1, "frames": 1, "mixed": false, "anchorState": "A", "version": 1, "manifestHash": "M_A1",
+                  "calls": ["anchor", "proof1", "proof2", "anchor", "proof1", "proof2"]}},
+
+    {"id": "SNAP-08-invariant-violation", "mechanism": "P20", "request": {"kind": "default"},
+     "description": "Consistent single-root state that violates the contract invariant: state.invariant error, no restart, no frame.",
+     "script": [{"call": "anchor", "from": "C"}, {"call": "proof1", "from": "C"}, {"call": "proof2", "from": "C"}],
+     "expected": {"result": "stateInvariant", "restarts": 0, "frames": 0, "mixed": false, "anchorState": "C",
+                  "calls": ["anchor", "proof1", "proof2"]}},
+
+    {"id": "SNAP-09-explicit-not-found", "mechanism": "P20", "request": {"kind": "explicit", "version": 2},
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "from": "A"}],
+     "expected": {"result": "versionNotFound", "restarts": 0, "frames": 0, "mixed": false, "anchorState": "A",
+                  "calls": ["anchor", "proof1"]}},
+
+    {"id": "SNAP-10-explicit-noncurrent", "mechanism": "P20", "request": {"kind": "explicit", "version": 1},
+     "script": [{"call": "anchor", "from": "B"}, {"call": "proof1", "from": "B"}, {"call": "proof2", "from": "B"}],
+     "expected": {"result": "render", "restarts": 0, "frames": 1, "mixed": false, "anchorState": "B", "version": 1, "manifestHash": "M_B1",
+                  "banner": "notCurrent", "calls": ["anchor", "proof1", "proof2"]}},
+
+    {"id": "SNAP-11-outside-keff-exhausts-restarts", "mechanism": "P20", "request": {"kind": "default"},
+     "script": [{"call": "anchor", "from": "A"}, {"call": "proof1", "error": -32017},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "error": -32017},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "error": -32017},
+                {"call": "anchor", "from": "A"}, {"call": "proof1", "error": -32017}],
+     "expected": {"result": "inconsistent", "restarts": 3, "frames": 0, "mixed": false,
+                  "calls": ["anchor", "proof1", "anchor", "proof1", "anchor", "proof1", "anchor", "proof1"]}},
+
+    {"id": "SNAP-12-no-published-site", "mechanism": "P20", "request": {"kind": "default"},
+     "script": [{"call": "anchor", "from": "D"}, {"call": "proof1", "from": "D"}],
+     "expected": {"result": "noSite", "restarts": 0, "frames": 0, "mixed": false, "anchorState": "D",
+                  "calls": ["anchor", "proof1"]}},
+
+    {"id": "SNAP-13-explicit-draft", "mechanism": "P20", "request": {"kind": "explicit", "version": 1},
+     "script": [{"call": "anchor", "from": "D"}, {"call": "proof1", "from": "D"}, {"call": "proof2", "from": "D"}],
+     "expected": {"result": "refuseDraft", "restarts": 0, "frames": 0, "mixed": false, "anchorState": "D",
+                  "calls": ["anchor", "proof1", "proof2"]}}
+  ]
+}

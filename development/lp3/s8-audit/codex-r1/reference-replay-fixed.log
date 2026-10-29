@@ -1,0 +1,17 @@
+node-version 0
+compiler-version 0
+python-version 0
+typecheck 0
+eight-tests 0
+assignment-oracle 0
+arithmetic-oracle 0
+genesis-oracle 0
+timing-oracle 0
+mutations 1
+Traceback (most recent call last):
+  File "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/verify.py", line 24, in <module>
+    run('mutations',['python3',str(HERE/'mutations.py'),str(OUT/'mutations')])
+  File "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/verify.py", line 16, in run
+    records.append(dict(name=name,args=list(map(str,args)),cwd=str(cwd),exitCode=p.returncode,seconds=round(time.monotonic()-t,3)));(OUT/'commands.json').write_text(json.dumps(records,indent=2)+'\n');print(name,p.returncode,flush=True);assert p.returncode==0,name
+                                                                                                                                                                                                                                                   ^^^^^^^^^^^^^^^
+AssertionError: mutations

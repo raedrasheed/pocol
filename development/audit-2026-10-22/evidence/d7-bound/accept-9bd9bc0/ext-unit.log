@@ -1,0 +1,8 @@
+# ext-unit: (cd prototypes/pocol-extension; node tests/unit.mjs)
+# start 2026-10-25T12:46:15Z
+{
+ "result": "PASS",
+ "passed": 234,
+ "failed": []
+}
+# end 2026-10-25T12:46:47Z exit=0

@@ -1,0 +1,16 @@
+{
+  "scope": "Unmodified independent py-evm Cancun; CREATE-01 differences retained, no PoCol wire/PAY acceptance",
+  "counts": {
+    "MATCH": 19443,
+    "total": 20661,
+    "MISMATCH": 85,
+    "EXCEPTION_PRESENCE_ONLY": 1100,
+    "BLOCKED_TIMEOUT": 33
+  },
+  "limited": false,
+  "workers": 4,
+  "timeoutSeconds": 10,
+  "seconds": 461.137,
+  "status": "REQUIRES REVIEW; NOT PASSED",
+  "bootable": false
+}

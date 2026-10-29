@@ -1,0 +1,26 @@
+{
+  "revision": "0.31",
+  "authority": "Independent coordinatorreview under userstandingtechnicaldelegation, not personalownerapproval",
+  "acceptedSpecScopeRows": [
+    "C3",
+    "C4",
+    "V1"
+  ],
+  "criteriaReviewed": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5"
+  ],
+  "evidence": [
+    "REVIEW-0.31.md",
+    "m1-draft-0.31/results/run-results-0.31.json",
+    "guard-independent-031.json",
+    "m1-draft-0.30/results/hash-freeze-0.30.json",
+    "REVIEW-DECISIONS-0.30.json"
+  ],
+  "qualification": "Allfunctional/specification/decision/fixture/encoding criteria of remainingthree rows verified. Globalhistoricalclosure C37 muststillpass innew0.32before41rowacceptance. PendingRootReview placeholders for thesecriteria maybesatisfiedonlywith theseactualreviewlinks andcomputedhistoryclosure. No changedprimitive/measurement claimed.",
+  "globalAcceptance": false,
+  "remainingBlocker": "C37stalehistory status snapshot"
+}

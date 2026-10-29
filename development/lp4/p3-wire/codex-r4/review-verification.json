@@ -1,0 +1,19 @@
+{
+  "sourceBindingsVerified": 18,
+  "rustTests": 90,
+  "rustExit": 0,
+  "compiledMutationsBuiltAndDetected": 12,
+  "signedCases": 76,
+  "followUpTransactions": 2,
+  "corpusIdentities": 20661,
+  "unchanged": 20647,
+  "changedExecution": 8,
+  "changedSnapshotAdmissionOnly": 6,
+  "excluded": 0,
+  "blocked": 0,
+  "sourceHashesEqualVerifiedHostedR3": 2807,
+  "allMandatoryGatesNotPassed": 27,
+  "review": "Separate sequential author review; not GitHub approval",
+  "newHosted": "NOT RUN locally; pending publication",
+  "bootable": false
+}

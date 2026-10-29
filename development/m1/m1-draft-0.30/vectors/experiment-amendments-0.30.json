@@ -1,0 +1,17 @@
+{
+  "schema": "pocol-m1-experiment-amendments/0.30",
+  "status": "experiment DEFINITIONS only; nothing has run. Phase A outcomes are not M1 gate conditions (m1-draft-0.4 R4-02); a missing definition is. Base: m1-draft-0.25/supplements/s25-experiment-specs.json and m1-draft-0.29/vectors/experiment-amendments-0.29.json.",
+  "amended": [
+    {"id": "X-U14", "phase": "A", "change": "P-D29-3 selected: one shared 10 s budget for the initial RP navigation, from the first HeaderNetCheck request through the content verdict; the separate-budget branch is a rejected comparison only",
+     "addPass": ["RP-COMB: HeaderNetCheck ok at 6900, content 'unavailable' at 10000 on the virtual clock; on the real clock the times are recorded, not asserted"],
+     "definitionComplete": true}
+  ],
+  "new": [
+    {"id": "X-C33", "phase": "A", "what": "HeaderNetCheck over the real HttpTransport/RecvGuard (stream reader, AbortController, fatal TextDecoder, iterative parseStrict)",
+     "inputs": ["m1-draft-0.30/vectors/c33-guard-cases.json"],
+     "harness": "the extension against a scripted RP endpoint that returns each case's literal bytes (and the declared Content-Length where given)",
+     "pass": ["every case gives its outcome, guard reason and request count", "no frame, no retry and no wait after any guard failure", "no partial body reaches the checker"],
+     "notInM1Gate": "the run's outcome is an implementation result; only this definition is an M1 condition",
+     "definitionComplete": true}
+  ]
+}

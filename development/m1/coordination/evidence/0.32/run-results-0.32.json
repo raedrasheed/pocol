@@ -1,0 +1,1491 @@
+{
+  "package": "M1 draft 0.32 (C37 transitive history closure; 41-row acceptance candidate)",
+  "executedAtUtc": "2026-10-08T09:49:02+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "node": "not used by this supplement"
+  },
+  "summary": {
+    "checks": 113,
+    "passed": 45,
+    "recorded": 68,
+    "failed": 0,
+    "rows": {
+      "CompleteCandidate": 41
+    },
+    "seconds": 1.9
+  },
+  "results": [
+    {
+      "exists": true,
+      "sha256": "4e78f830deac51c9329ba83fbd6d2dc135bc46da79f12a4089e98e1260506b22",
+      "check": "input.sha256 <package>/tools/run_checks_032.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "b5ccbc0c75061eea486ed6b7d0472b5336ad3cb8298c07d46e60fdfb7332ac6a",
+      "check": "input.sha256 <package>/audit/history-registry-0.32.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "4a3c57ba1b981ecbb57b640a7496413f4d63df78eed1b156b8f059593ca665cd",
+      "check": "input.sha256 <package>/audit/acceptance-inventory-0.32.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "e2fff494fd000f049f5140e6dc8ed119259befa482d02363dc24a1e3ee3cd63b",
+      "check": "input.sha256 <package>/M1-SPEC-0.32-SUPPLEMENT.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "71b07a1ada4af94e1cedad56f0ed843a42721da1989eac430a3eb84b4bb7999e",
+      "check": "input.sha256 <package>/M1-STATUS-0.32.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "9e69a850d736dff010bedb7fa255cdda0a6401fec8a8e76f65408094c3d03417",
+      "check": "input.sha256 <package>/M1-DASHBOARD-0.32-AR.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "a4bcd3a965b3a8cbf46d1829de0a2ed562c8dd379321fe2a172cdbc0c10d7d26",
+      "check": "input.sha256 <package>/README.md",
+      "status": "recorded"
+    },
+    {
+      "sha256": "a1ca0f043b1a3e9105972a3eea103b6c9b479952606fae7a4351d27401632298",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "895f2d0d056899baa5ba8202b81355bc08a25883590abb7706d4be995544f074",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "8e3343bcfaffe45a3e89ebfef5bbccadff56fdfb576481f5114ca6f5d7e3c0e6",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "6ae8639ca6d4b30601bc8e73180b9f602d519c6927840dbd443f61633553b368",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.7/results/run-results-0.7.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "16e9756b3abcac424a00bf1f0ce6f765f38376f71e4b6c3a7c3863bbdf90fe5e",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "79de6b7e7bd4d164478b3fe57308330507ca550a6c0de7e77128100c2adcceab",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.13/results/run-results-0.13.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "e5bda4046df09a3886e72bdcb52c1d416f708c28e245cb7dc89e52b89e2c90de",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.14/results/run-results-0.14.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "848053910626027d600c791568140aec4a779f3bcc189af470b15a04591efa1c",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.15/results/run-results-0.15.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "fca3e773324f9346d86aab4a0956fa07a70a70fa6b15417e8e7476e9483001bd",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.16/results/run-results-0.16.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "66cf34a194fef0ca5c0ecad4c0fb85e4088f3aae734bc525e2b2f74c2cd811d3",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.17/results/run-results-0.17.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "b315e3f885d0a1d65012b039cf892e93c2c71b8b7386b83b24ce28afaa3006f1",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "0b0cdafa082f5927f25969dd4276080ba4064c5867396158284bfd76f5fb9987",
+      "check": "input.sha256 coordination/review-001/run-results-0.21-copy-path-failure.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "38207274261e10399aca5a620fc494b12d6194e16ddd6a1efa3747704392bb2a",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.22/results/run-results-0.22.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "37b3e9f955c504c3813eae4aaa5e1522f5665dd2973359ef67919700564d970d",
+      "check": "input.sha256 coordination/review-001/run-results-0.25-copy-output-path-failure.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "28ca3bfb70f378e1380bff453452e1486c926ba424347dc58eb3f89bf93205b3",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "000738339963ea27e4419bff4b686b65f31f6be35bb7909f82e92f21c5c504cf",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.27/results/run-results-0.27.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "8cb0b96b412c28055bd486ec589823af66d01256c65a34a9066c79cc3906d49d",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.29/results/run-results-0.29.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "1deeb60ebe390cd69f0d233720e1027573ca7e16cbc28fb626de67e075e02618",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.30/results/run-results-0.30.json",
+      "status": "recorded"
+    },
+    {
+      "sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.31/results/run-results-0.31.json",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.positionalOnly",
+      "status": "pass"
+    },
+    {
+      "imports": [
+        "ast",
+        "collections",
+        "copy",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "platform",
+        "re",
+        "sys",
+        "time"
+      ],
+      "note": "no subprocess: Node is not started; no importlib: no earlier runner is executed",
+      "check": "boundary.readOnlyStdlib",
+      "status": "pass"
+    },
+    {
+      "summary": {
+        "checks": 383,
+        "passed": 280,
+        "recorded": 102,
+        "failed": 1,
+        "rows": {
+          "CompleteCandidate": 38,
+          "PendingRootReview": 3
+        },
+        "codecCalls": 123,
+        "seconds": 60.6
+      },
+      "check": "bind031.summary",
+      "status": "pass"
+    },
+    {
+      "python": "3.11.1",
+      "nodeVersion": "v22.13.1",
+      "codecSha256": "9b867a8e1e7f66b54ed52b8a6718e53eeb10e0c996c3d040abf6f7c872b91e02",
+      "check": "bind031.runtimeFromArtifacts",
+      "status": "pass"
+    },
+    {
+      "files": 10,
+      "mismatches": [],
+      "check": "bind031.unchangedPackage",
+      "status": "pass"
+    },
+    {
+      "sha256": "28d44981ec9ba79c24120704afd2a50f84d628ba273e49c72b9992a48c3be512",
+      "check": "bind031.evidence.guard-independent-031",
+      "status": "pass"
+    },
+    {
+      "sha256": "3bdac67cea7bd34b5d072ea8c02904de24199df151d34b64c5095dad31c26046",
+      "check": "bind031.evidence.full-hash-triad-executed-029",
+      "status": "pass"
+    },
+    {
+      "sha256": "3bceaffed18d385816201ce9c16314272f93666a8974fbae1c31fe68b54446b9",
+      "check": "bind031.evidence.v1-hash-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "477a417c188a8dca2cd1acb64b75eb16cc69921db2159a58012430814704693c",
+      "check": "bind031.evidence.v1-independent-hashes-0.26",
+      "status": "pass"
+    },
+    {
+      "sha256": "131c788ca37d939680f314f865dd0d792a2c660dae02e89ece91086aa36be120",
+      "check": "bind031.evidence.v1-signatures-independent-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "b183c80d27f93f4ef987a5c6636a2fb2cde43e945e13b4fec4f819e33d542b1e",
+      "check": "bind031.evidence.asert-native-comparison-0.27",
+      "status": "pass"
+    },
+    {
+      "sha256": "473f360106457a039c0521010c6436126a9e484279d942973b536c28019a0f10",
+      "check": "bind031.evidence.deadline-independent-029",
+      "status": "pass"
+    },
+    {
+      "legacy": 668,
+      "v1": 4024,
+      "sha256": "65ada59605beb7a9fb7e140b458787378ed09b164a02fd40e3a58c8674982092",
+      "check": "bind031.freeze",
+      "status": "pass"
+    },
+    {
+      "note": "definitions only; no Phase A measurement is claimed",
+      "check": "bind031.experimentDefinitions",
+      "status": "pass"
+    },
+    {
+      "sha256": {
+        "0.31": "a73aa70492294c3fcdeb704ec5b88ba4d76e8968137fa9bb9ae171b90f99b5c9",
+        "0.30": "e3ba338d4bac41e63daab9dec230e5a29f5a4ff910c675f6f3b975e0c0ff0295"
+      },
+      "check": "bind031.reviewDecisions",
+      "status": "pass"
+    },
+    {
+      "statuses": {
+        "C33": "closed-original-reference-defect",
+        "C34": "closed-original-reference-defect",
+        "C35": "closed-reference-repair",
+        "C36": "closed-reference-repair",
+        "C37": "open-checker-stale-status-snapshot"
+      },
+      "note": "C37 is closed only by root after executing this supplement",
+      "check": "bind031.ledger",
+      "status": "recorded"
+    },
+    {
+      "sets": {
+        "R29": [
+          "U08.noncanonical.N05",
+          "consolidation.findingsMatchProposal",
+          "coverage029.required",
+          "decision.U08.applied"
+        ],
+        "R30": [
+          "C33.source.scopeProbes.provenance",
+          "bind029.reviewAcceptsUnaffected",
+          "consolidation.rowsMatchProposal",
+          "convention.P-V1-11.decided",
+          "coverage030.required",
+          "history.HF-8"
+        ],
+        "R31": [
+          "history.HF-12"
+        ]
+      },
+      "check": "history.oldFailedSetsExact",
+      "status": "pass"
+    },
+    {
+      "statuses": {
+        "bind029.reviewAcceptsUnaffected": [
+          "pass"
+        ],
+        "C33.source.scopeProbes.provenance": [
+          "pass"
+        ],
+        "convention.P-V1-11.decided": [
+          "pass"
+        ],
+        "consolidation.rowsMatchProposal": [
+          "pass"
+        ],
+        "coverage030.required": [
+          "pass"
+        ],
+        "history.HF-8": [
+          "pass"
+        ]
+      },
+      "check": "history.r30RepairsPassExactlyOnceInR31",
+      "status": "pass"
+    },
+    {
+      "report": {
+        "R30::bind029.reviewAcceptsUnaffected": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "C36.reviewDecisions030.acceptedUnaffected",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        },
+        "R30::C33.source.scopeProbes.provenance": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "C36.scopeProbes.parsedLiterals",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        },
+        "R30::convention.P-V1-11.decided": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "convention.P-V1-11.decided",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        },
+        "R30::consolidation.rowsMatchProposal": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "consolidation.rowsMatchProposal",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        },
+        "R30::coverage030.required": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "coverage031.required",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        },
+        "R30::history.HF-8": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "history.HF-8",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        }
+      },
+      "method": "close() over the complete 0.31 result list",
+      "check": "history.HF-12.freshClosure",
+      "status": "pass"
+    },
+    {
+      "report": {
+        "closed": false,
+        "proof": [
+          {
+            "check": "history.HF-8",
+            "statuses": []
+          }
+        ],
+        "occurrences": 1
+      },
+      "note": "the 0.31 snapshot point: same close() method, status map taken before history.HF-8 was recorded",
+      "check": "history.liveOrder.staleBeforeHF8DoesNotClose",
+      "status": "pass"
+    },
+    {
+      "check": "history.liveOrder.freshAfterHF8Closes",
+      "status": "pass"
+    },
+    {
+      "report": {
+        "R29::U08.noncanonical.N05": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "U08.noncanonical.N05",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        },
+        "R29::decision.U08.applied": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "decision.U08.applied",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        },
+        "R29::consolidation.findingsMatchProposal": {
+          "closed": true,
+          "proof": [
+            {
+              "check": "consolidation.findingsMatchProposal",
+              "statuses": [
+                "pass"
+              ]
+            }
+          ],
+          "occurrences": 1
+        },
+        "R29::coverage029.required": {
+          "closed": true,
+          "proof": [
+            {
+              "via": "R30::coverage030.required",
+              "closed": true,
+              "why": [
+                {
+                  "check": "coverage031.required",
+                  "statuses": [
+                    "pass"
+                  ]
+                }
+              ]
+            }
+          ],
+          "occurrences": 1
+        }
+      },
+      "check": "history.HF-8.chainToFour029Failures",
+      "status": "pass"
+    },
+    {
+      "count": 25,
+      "failures": [
+        "R13::step.completed e4_checks",
+        "R14::schema.noStepAborted",
+        "R14::coverage.e4AllExpectedChecksPresent",
+        "R14::rerun013.step.completed e4_checks",
+        "R16::BR24-x9.faultyPath.adminEarlyRelease.final.adminStats",
+        "R16::BR24-x9.faultyPath.adminEarlyRelease.final.setLog",
+        "R17::suite016.BR24-x9.faultyPath.adminEarlyRelease.row@5000.violations",
+        "R29::U08.noncanonical.N05",
+        "R29::decision.U08.applied",
+        "R29::consolidation.findingsMatchProposal",
+        "R29::coverage029.required",
+        "R30::bind029.reviewAcceptsUnaffected",
+        "R30::C33.source.scopeProbes.provenance",
+        "R30::convention.P-V1-11.decided",
+        "R30::consolidation.rowsMatchProposal",
+        "R30::coverage030.required",
+        "R30::history.HF-8",
+        "R31::history.HF-12",
+        "R04::bound.length rb-2848-does-not-fit",
+        "R05::c14.fixture rb-2848",
+        "R06::br19a.a7 sizeLinesKeepTokensBefore",
+        "R07::step.completed e_checks",
+        "R21F::reuse.keccakFrom0.2",
+        "R25F::S25.expspec.inputsExist",
+        "R25F::coverage025.required"
+      ],
+      "check": "history.enumeratedRunFailures",
+      "status": "pass"
+    },
+    {
+      "found": [
+        {
+          "file": "coordination/review-001/epoch-independent-probes-0.10.json",
+          "failed": 7
+        },
+        {
+          "file": "coordination/review-001/error-data-native-comparison-030.json",
+          "failed": 2
+        },
+        {
+          "file": "coordination/review-001/error-data-native-comparison-utf8-030.json",
+          "failed": 1
+        },
+        {
+          "file": "coordination/review-001/full-hash-triad-029.json",
+          "failed": 611
+        },
+        {
+          "file": "coordination/review-001/genesis-iterative-independent-probes-initial-expectation.json",
+          "failed": 1
+        },
+        {
+          "file": "coordination/review-001/independent-hashes.json",
+          "failed": 1
+        },
+        {
+          "file": "coordination/review-001/v1-guard-integration-probes-029.json",
+          "failed": 3
+        },
+        {
+          "file": "coordination/review-001/v1-malformed-error-probes-0.26.json",
+          "failed": 3
+        },
+        {
+          "file": "coordination/review-001/x8-independent-probes-0.23.json",
+          "failed": 1
+        }
+      ],
+      "check": "history.enumeratedRootFailures",
+      "status": "pass"
+    },
+    {
+      "open": [],
+      "failures": 34,
+      "check": "history.globalClosure",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M1-removeHF8",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M2-HF8fail",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M3-C36repairFail",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M4-removeRepairLabel",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M5-unmappedOldFail",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M6-duplicateHF8withFail",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M7-duplicateHF8bothPass",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M8-removeRegistryEntry",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M9-transitiveBreak",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M10-ambiguousRegistry",
+      "status": "pass"
+    },
+    {
+      "closedUnderMutation": false,
+      "check": "mutation.M11-noFreshSelfCheck",
+      "status": "pass"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B1.criteria",
+        "c2": "R31 row.B1.criteria",
+        "c3": "R31 row.B1.criteria",
+        "c4": "R31 row.B1.criteria",
+        "c5": "R31 row.B1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B1.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B10.criteria",
+        "c2": "R31 row.B10.criteria",
+        "c3": "R31 row.B10.criteria",
+        "c4": "R31 row.B10.criteria",
+        "c5": "R31 row.B10.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B10.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B11.criteria",
+        "c2": "R31 row.B11.criteria",
+        "c3": "R31 row.B11.criteria",
+        "c4": "R31 row.B11.criteria",
+        "c5": "R31 row.B11.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B11.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B2.criteria",
+        "c2": "R31 row.B2.criteria",
+        "c3": "R31 row.B2.criteria",
+        "c4": "R31 row.B2.criteria",
+        "c5": "R31 row.B2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B2.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B3.criteria",
+        "c2": "R31 row.B3.criteria",
+        "c3": "R31 row.B3.criteria",
+        "c4": "R31 row.B3.criteria",
+        "c5": "R31 row.B3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B3.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B4.criteria",
+        "c2": "R31 row.B4.criteria",
+        "c3": "R31 row.B4.criteria",
+        "c4": "R31 row.B4.criteria",
+        "c5": "R31 row.B4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B4.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B5.criteria",
+        "c2": "R31 row.B5.criteria",
+        "c3": "R31 row.B5.criteria",
+        "c4": "R31 row.B5.criteria",
+        "c5": "R31 row.B5.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B5.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B6.criteria",
+        "c2": "R31 row.B6.criteria",
+        "c3": "R31 row.B6.criteria",
+        "c4": "R31 row.B6.criteria",
+        "c5": "R31 row.B6.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B6.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B7.criteria",
+        "c2": "R31 row.B7.criteria",
+        "c3": "R31 row.B7.criteria",
+        "c4": "R31 row.B7.criteria",
+        "c5": "R31 row.B7.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B7.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B8.criteria",
+        "c2": "R31 row.B8.criteria",
+        "c3": "R31 row.B8.criteria",
+        "c4": "R31 row.B8.criteria",
+        "c5": "R31 row.B8.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B8.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.B9.criteria",
+        "c2": "R31 row.B9.criteria",
+        "c3": "R31 row.B9.criteria",
+        "c4": "R31 row.B9.criteria",
+        "c5": "R31 row.B9.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.B9.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.C1.criteria",
+        "c2": "R31 row.C1.criteria",
+        "c3": "R31 row.C1.criteria",
+        "c4": "R31 row.C1.criteria",
+        "c5": "R31 row.C1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.C1.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.C2.criteria",
+        "c2": "R31 row.C2.criteria",
+        "c3": "R31 row.C2.criteria",
+        "c4": "R31 row.C2.criteria",
+        "c5": "R31 row.C2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.C2.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c2": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c3": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c4": "R31 row.C3.criteria",
+        "c5": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.C3.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c2": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c3": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c4": "R31 row.C4.criteria",
+        "c5": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.C4.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.E1.criteria",
+        "c2": "R31 row.E1.criteria",
+        "c3": "R31 row.E1.criteria",
+        "c4": "R31 row.E1.criteria",
+        "c5": "R31 row.E1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.E1.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.E2.criteria",
+        "c2": "R31 row.E2.criteria",
+        "c3": "R31 row.E2.criteria",
+        "c4": "R31 row.E2.criteria",
+        "c5": "R31 row.E2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.E2.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.E3.criteria",
+        "c2": "R31 row.E3.criteria",
+        "c3": "R31 row.E3.criteria",
+        "c4": "R31 row.E3.criteria",
+        "c5": "R31 row.E3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.E3.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.E4.criteria",
+        "c2": "R31 row.E4.criteria",
+        "c3": "R31 row.E4.criteria",
+        "c4": "R31 row.E4.criteria",
+        "c5": "R31 row.E4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.E4.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.E5.criteria",
+        "c2": "R31 row.E5.criteria",
+        "c3": "R31 row.E5.criteria",
+        "c4": "R31 row.E5.criteria",
+        "c5": "R31 row.E5.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.E5.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.E6.criteria",
+        "c2": "R31 row.E6.criteria",
+        "c3": "R31 row.E6.criteria",
+        "c4": "R31 row.E6.criteria",
+        "c5": "R31 row.E6.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.E6.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.E7.criteria",
+        "c2": "R31 row.E7.criteria",
+        "c3": "R31 row.E7.criteria",
+        "c4": "R31 row.E7.criteria",
+        "c5": "R31 row.E7.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.E7.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.Q1.criteria",
+        "c2": "R31 row.Q1.criteria",
+        "c3": "R31 row.Q1.criteria",
+        "c4": "R31 row.Q1.criteria",
+        "c5": "R31 row.Q1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.Q1.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.Q2.criteria",
+        "c2": "R31 row.Q2.criteria",
+        "c3": "R31 row.Q2.criteria",
+        "c4": "R31 row.Q2.criteria",
+        "c5": "R31 row.Q2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.Q2.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.Q3.criteria",
+        "c2": "R31 row.Q3.criteria",
+        "c3": "R31 row.Q3.criteria",
+        "c4": "R31 row.Q3.criteria",
+        "c5": "R31 row.Q3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.Q3.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.Q4.criteria",
+        "c2": "R31 row.Q4.criteria",
+        "c3": "R31 row.Q4.criteria",
+        "c4": "R31 row.Q4.criteria",
+        "c5": "R31 row.Q4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.Q4.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.R1.criteria",
+        "c2": "R31 row.R1.criteria",
+        "c3": "R31 row.R1.criteria",
+        "c4": "R31 row.R1.criteria",
+        "c5": "R31 row.R1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.R1.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.R2.criteria",
+        "c2": "R31 row.R2.criteria",
+        "c3": "R31 row.R2.criteria",
+        "c4": "R31 row.R2.criteria",
+        "c5": "R31 row.R2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.R2.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.R3.criteria",
+        "c2": "R31 row.R3.criteria",
+        "c3": "R31 row.R3.criteria",
+        "c4": "R31 row.R3.criteria",
+        "c5": "R31 row.R3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.R3.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.R4.criteria",
+        "c2": "R31 row.R4.criteria",
+        "c3": "R31 row.R4.criteria",
+        "c4": "R31 row.R4.criteria",
+        "c5": "R31 row.R4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.R4.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.S1.criteria",
+        "c2": "R31 row.S1.criteria",
+        "c3": "R31 row.S1.criteria",
+        "c4": "R31 row.S1.criteria",
+        "c5": "R31 row.S1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.S1.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.S2.criteria",
+        "c2": "R31 row.S2.criteria",
+        "c3": "R31 row.S2.criteria",
+        "c4": "R31 row.S2.criteria",
+        "c5": "R31 row.S2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.S2.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.S3.criteria",
+        "c2": "R31 row.S3.criteria",
+        "c3": "R31 row.S3.criteria",
+        "c4": "R31 row.S3.criteria",
+        "c5": "R31 row.S3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.S3.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.S4.criteria",
+        "c2": "R31 row.S4.criteria",
+        "c3": "R31 row.S4.criteria",
+        "c4": "R31 row.S4.criteria",
+        "c5": "R31 row.S4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.S4.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c2": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c3": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c4": "R31 row.V1.criteria",
+        "c5": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.V1.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.V2.criteria",
+        "c2": "R31 row.V2.criteria",
+        "c3": "R31 row.V2.criteria",
+        "c4": "R31 row.V2.criteria",
+        "c5": "R31 row.V2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.V2.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.V3.criteria",
+        "c2": "R31 row.V3.criteria",
+        "c3": "R31 row.V3.criteria",
+        "c4": "R31 row.V3.criteria",
+        "c5": "R31 row.V3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.V3.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.V4.criteria",
+        "c2": "R31 row.V4.criteria",
+        "c3": "R31 row.V4.criteria",
+        "c4": "R31 row.V4.criteria",
+        "c5": "R31 row.V4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.V4.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.X1.criteria",
+        "c2": "R31 row.X1.criteria",
+        "c3": "R31 row.X1.criteria",
+        "c4": "R31 row.X1.criteria",
+        "c5": "R31 row.X1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.X1.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.X2.criteria",
+        "c2": "R31 row.X2.criteria",
+        "c3": "R31 row.X2.criteria",
+        "c4": "R31 row.X2.criteria",
+        "c5": "R31 row.X2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.X2.candidate",
+      "status": "recorded"
+    },
+    {
+      "proposalStatus": "CompleteCandidate",
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "basis": {
+        "c1": "R31 row.X3.criteria",
+        "c2": "R31 row.X3.criteria",
+        "c3": "R31 row.X3.criteria",
+        "c4": "R31 row.X3.criteria",
+        "c5": "R31 row.X3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "genuineBlockers": [],
+      "check": "row.X3.candidate",
+      "status": "recorded"
+    },
+    {
+      "differing": [],
+      "check": "candidate.matrixMatchesR31Entries",
+      "status": "pass"
+    },
+    {
+      "notCandidate": {},
+      "check": "candidate.all41",
+      "status": "pass"
+    },
+    {
+      "differing": {},
+      "check": "candidate.findings",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "boundary.noPrivatePath",
+      "status": "pass"
+    },
+    {
+      "missing": [],
+      "required": 38,
+      "check": "coverage032.required",
+      "status": "pass"
+    },
+    {
+      "check": "coverage032.noStepAborted",
+      "status": "pass"
+    },
+    {
+      "file": "acceptance-candidate-0.32.json",
+      "sha256": "1365e6932771ec39a598ee55461ef101108e2f4937a2525bdc842981d4c821d2",
+      "check": "asset.acceptance-candidate-0.32.json.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "file": "dashboard-0.32-ar.json",
+      "sha256": "01dcd6447dfea1305df99ec2f6a9413c2b03cf73d88cd6f27a2ae4d6fd7df4e8",
+      "check": "asset.dashboard-0.32-ar.json.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "file": "history-closure-0.32.json",
+      "sha256": "9397a0e00d93e767926d2a2c67b8b5ea962a0c1810a00ecfeeb8ffc0c805b220",
+      "check": "asset.history-closure-0.32.json.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "file": "status-0.32.json",
+      "sha256": "d0dbd722ab059389b7494eadbf756ae2d53a6caca85d6eaee3a66e321d76763a",
+      "check": "asset.status-0.32.json.writtenAndReadBack",
+      "status": "pass"
+    }
+  ]
+}

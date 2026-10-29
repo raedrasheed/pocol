@@ -1,0 +1,16 @@
+# e2e-heal-whole-state: (cd prototypes/pocol-extension; node tests/e2e_heal.mjs)
+# start 2026-10-28T16:42:48Z, load 2.78 7.55 9.05
+PASS ab: positive control: a and b share one tip, c another, and nothing moved while measured — [{"hash":"0x08012585b79815ff4106d0f7e0f6d6fe377e7697b132ea5a3e40da1ffb5b407e","height":12,"work":"444796"},{"hash":"0x08012585b79815ff4106d0f7e0f6d6fe377e7697b132ea5a3e40da1ffb5b407e","height":12,"work":"444796"},{"hash":"0xa08cc80e314cf0a2c46b214054f57d3891c0f4c65e4cbe61abca6a6205facc77","height":1
+PASS ab: positive control: the ab branch has strictly more total work — win 444796 at 12, lose 424249 at 12
+PASS ab: the three nodes end on the heavier tip measured before the heal (D133) — [{"head":"0x08012585b79815ff4106d0f7e0f6d6fe377e7697b132ea5a3e40da1ffb5b407e","height":12,"reorgs":0,"syncSessions":0},{"head":"0x08012585b79815ff4106d0f7e0f6d6fe377e7697b132ea5a3e40da1ffb5b407e","height":12,"reorgs":0,"syncSessions":0},{"head":"0x08012585b79815ff4106d0f7e0f6d6fe377e7697b132ea5a3e40
+PASS ab: the losing side reorganized onto it, the winning side did not — [0,0,1]
+PASS ab: with no miner the heads stay on that tip — 0x08012585b79815ff4106d0f7e0f6d6fe377e7697b132ea5a3e40da1ffb5b407e,0x08012585b79815ff4106d0f7e0f6d6fe377e7697b132ea5a3e40da1ffb5b407e,0x08012585b79815ff4106d0f7e0f6d6fe377e7697b132ea5a3e40da1ffb5b407e
+PASS ab: every canonical block 1..12 is the same on the three nodes
+PASS c: positive control: a and b share one tip, c another, and nothing moved while measured — [{"hash":"0xe1c7d0a8cea31d6abeb639d3aab5c96070a97303a4a8eb6debed74e41bf7e0d8","height":16,"work":"525305"},{"hash":"0xe1c7d0a8cea31d6abeb639d3aab5c96070a97303a4a8eb6debed74e41bf7e0d8","height":16,"work":"525305"},{"hash":"0x19a1d9b56ed62e7f7159839fb3cb73980fc84e0bfa05383ec8529297577a116b","height":8
+PASS c: positive control: the c branch has strictly more total work — win 530362 at 89, lose 525305 at 16
+PASS c: the three nodes end on the heavier tip measured before the heal (D133) — [{"head":"0x19a1d9b56ed62e7f7159839fb3cb73980fc84e0bfa05383ec8529297577a116b","height":89,"reorgs":1,"syncSessions":1},{"head":"0x19a1d9b56ed62e7f7159839fb3cb73980fc84e0bfa05383ec8529297577a116b","height":89,"reorgs":1,"syncSessions":1},{"head":"0x19a1d9b56ed62e7f7159839fb3cb73980fc84e0bfa05383ec852
+PASS c: the losing side reorganized onto it, the winning side did not — [1,1,0]
+PASS c: with no miner the heads stay on that tip — 0x19a1d9b56ed62e7f7159839fb3cb73980fc84e0bfa05383ec8529297577a116b,0x19a1d9b56ed62e7f7159839fb3cb73980fc84e0bfa05383ec8529297577a116b,0x19a1d9b56ed62e7f7159839fb3cb73980fc84e0bfa05383ec8529297577a116b
+PASS c: every canonical block 1..89 is the same on the three nodes
+{"result":"PASS","checks":12,"failed":0,"runs":[{"winner":"ab","work":"/tmp/pocol-heal-ab-sw4wJT"},{"winner":"c","work":"/tmp/pocol-heal-c-gM18uY"}]}
+# end 2026-10-28T16:47:57Z exit=0

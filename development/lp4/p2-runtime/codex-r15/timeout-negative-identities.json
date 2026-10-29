@@ -1,0 +1,28 @@
+[
+  {
+    "file": "VMTests/vmPerformance/loopMul.json",
+    "name": "loopMul",
+    "variant": 0,
+    "indexes": {
+      "data": 0,
+      "gas": 0,
+      "value": 0
+    },
+    "expectedException": null,
+    "comparison": "BLOCKED_TIMEOUT",
+    "timeoutSeconds": 1
+  },
+  {
+    "file": "VMTests/vmPerformance/loopMul.json",
+    "name": "loopMul",
+    "variant": 1,
+    "indexes": {
+      "data": 1,
+      "gas": 0,
+      "value": 0
+    },
+    "expectedException": null,
+    "comparison": "BLOCKED_TIMEOUT",
+    "timeoutSeconds": 1
+  }
+]

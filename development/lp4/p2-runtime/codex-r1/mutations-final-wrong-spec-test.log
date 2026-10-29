@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running unittests src/lib.rs (prototypes/lp4-execution/target/debug/deps/pocol_lp4_execution-b4bb3c1aa332e474)
+
+running 1 test
+
+thread 'tests::chain_id_opcode_and_invalid_chain' (47083) panicked at src/lib.rs:81:9:
+assertion `left == right` failed
+  left: []
+ right: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 222, 174]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::chain_id_opcode_and_invalid_chain ... FAILED
+
+failures:
+
+failures:
+    tests::chain_id_opcode_and_invalid_chain
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

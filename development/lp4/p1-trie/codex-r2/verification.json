@@ -1,0 +1,21 @@
+{
+  "status": "PASS P1 supported Windows regression",
+  "source": "3423bbf6ba995ba1c5d77ca69084905272135211",
+  "run": 39045090526,
+  "job": 117432111509,
+  "artifact": 12106040373,
+  "artifactSha256": "8f25b4b839999b4666ab3c59807be41995335e1eda14787cc2b085584479fc94",
+  "rustTests": 150,
+  "counts": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "rawSourceMatches": 6,
+  "windowsCrlfMatches": 69,
+  "sourceMismatches": 0,
+  "blockedAndUnrunCountedPassing": 0,
+  "LP4": "NOT PASSED",
+  "bootable": false
+}

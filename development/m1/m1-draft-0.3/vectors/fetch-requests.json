@@ -1,0 +1,79 @@
+{
+  "specVersion": "M1 draft 0.3",
+  "revision": "R3-03 (C05)",
+  "factoryAssumption": "Chunk addresses assume factory 0x0000000000000000000000000000000000c0c005 (U01).",
+  "semantics": {
+    "requests": "number of actual eth_getCode invocations made by the load (mock endpoint counter, every call counted)",
+    "uniqueKeys": "number of distinct (address, length) cache keys referenced before the load ended",
+    "references": "number of chunk references visited, manifest chunks included",
+    "cacheModes": "session = one ChunkCache keyed by (address, length) shared by manifest and content fetches in the site session (specified, FD:L1300, FD:L1309, FD:L4942); separate = mutant with distinct manifest and content caches; none = mutant without cache",
+    "derivation": "All expected numbers are derived by hand from the fixture definitions, not from the model."
+  },
+  "draft02Positives": {
+    "source": "m1-draft-0.2/vectors/manifest-positive.json (validate_manifest only)",
+    "expected": {
+      "pos-minimal":               {"requests": 1, "uniqueKeys": 1, "references": 1},
+      "pos-empty-file":            {"requests": 1, "uniqueKeys": 1, "references": 1, "note": "the empty file makes no reference"},
+      "pos-shared-chunk":          {"requests": 1, "uniqueKeys": 1, "references": 2},
+      "pos-case-distinct":         {"requests": 1, "uniqueKeys": 1, "references": 2},
+      "pos-path-256":              {"requests": 1, "uniqueKeys": 1, "references": 1},
+      "pos-path-special-segments": {"requests": 2, "uniqueKeys": 2, "references": 2},
+      "pos-chunk-24575":           {"requests": 2, "uniqueKeys": 2, "references": 2},
+      "pos-file-1048576":          {"requests": 3, "uniqueKeys": 3, "references": 44, "note": "42 identical 24575-byte chunks share one key, plus the 16426-byte tail and the HTML entry"},
+      "pos-files-256":             {"requests": 1, "uniqueKeys": 1, "references": 256},
+      "pos-site-4194304":          {"requests": 2, "uniqueKeys": 2, "references": 172, "note": "4 files x 43 references; 2 distinct keys"},
+      "pos-manifest-65536":        {"requests": 1, "uniqueKeys": 1, "referencesEqualsFileCount": true}
+    },
+    "mutantNoCache": "with cacheMode none, requests must equal references for every row (e.g. pos-site-4194304: 172)"
+  },
+  "draft02VersionRecords": {
+    "source": "m1-draft-0.2/vectors/version-records.json (validate_version: manifest chunks then content)",
+    "expected": {
+      "ver-minimal":        {"result": "accept", "requests": 2, "uniqueKeys": 2, "references": 2},
+      "ver-manifest-65536": {"result": "accept", "requests": 4, "uniqueKeys": 4, "note": "3 manifest chunks + the shared 1-byte content chunk"}
+    }
+  },
+  "draft02Negatives": "every fixture in m1-draft-0.2/vectors/manifest-negative.json keeps its firstRule and stage, and requests equals its fetchCalls (0 or 1)",
+  "constructed": [
+    {
+      "id": "fr-shared-manifest-content",
+      "kind": "validate_version",
+      "construction": {
+        "entryIndex": 1,
+        "files": [
+          {"path": "/a-shared.txt", "mime": 10, "content": "equal to the bytes of manifest chunk 1 (fixed point, see note)"},
+          {"path": "/index.html", "mime": 1, "content": "draft 0.1 HTML (111 bytes)"},
+          {"pathPattern": "/p%03d-<240 x 'x'>", "count": 100, "mime": 10, "content": "a"}
+        ],
+        "note": "The manifest exceeds 24575 bytes, so it has 2 canonical chunks. /a-shared.txt sorts first, so its entry lies wholly in chunk 0; chunk 1 holds only filler entries. Its size field is a 2-byte integer for any length 256..65535, so the manifest length does not depend on the chosen content. Build once with placeholder content of the right length, take chunk 1, rebuild with that content; chunk 1 is unchanged, so the fixed point holds."
+      },
+      "assertions": ["manifest length in 24576..49150", "manifest has exactly 2 canonical chunks", "content of /a-shared.txt equals manifest chunk 1", "entry of /a-shared.txt ends before offset 24575"],
+      "expected": {
+        "result": "accept",
+        "session":  {"requests": 4, "uniqueKeys": 4, "references": 104},
+        "separate": {"requests": 5},
+        "none":     {"requests": 104}
+      },
+      "derivation": "references = 2 manifest chunks + 1 (/a-shared.txt) + 1 (/index.html) + 100 fillers. Keys: manifest chunk 0, manifest chunk 1 (= /a-shared.txt chunk), HTML, 'a'."
+    },
+    {
+      "id": "fr-same-address-different-length",
+      "kind": "validate_manifest",
+      "construction": {
+        "entryIndex": 0,
+        "files": [
+          {"path": "/a.html", "mime": 1, "size": 111, "contentHash": "keccak256(HTML)", "chunks": [["address of HTML chunk", 111]]},
+          {"path": "/b.html", "mime": 1, "size": 112, "contentHash": "keccak256(HTML)", "chunks": [["address of HTML chunk", 112]]}
+        ]
+      },
+      "expected": {"result": "reject", "firstRule": "fetch.length", "stage": "fetch", "requests": 2, "uniqueKeys": 2, "references": 2},
+      "derivation": "The cache key includes the length (FD:L1309), so (A,112) misses the entry (A,111) and is requested; the returned code has length 112, not 113, so fetch.length. An address-only cache would make 1 request and report the same rule; the request count discriminates."
+    },
+    {
+      "id": "fr-session-reload",
+      "kind": "validate_version twice with one session Fetcher (reload or navigation within a stored version, FD:L1311)",
+      "record": "ver-minimal",
+      "expected": {"firstLoad": {"requests": 2}, "secondLoad": {"additionalRequests": 0}}
+    }
+  ]
+}

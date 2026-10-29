@@ -1,0 +1,6 @@
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test init_devnet_refuses_gate_invalid_timing_and_writes_nothing ... ok
+test load_refuses_the_audited_profiles_and_admits_the_valid_one ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+test get_params_and_rpc_stats_report_the_limits ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.28s

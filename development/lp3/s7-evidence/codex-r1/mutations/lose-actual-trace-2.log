@@ -1,0 +1,18 @@
+
+running 1 test
+test as1_through_as19_actual_internal_traces_and_targets ... FAILED
+
+failures:
+
+---- as1_through_as19_actual_internal_traces_and_targets stdout ----
+thread 'as1_through_as19_actual_internal_traces_and_targets' panicked at 'assertion failed: `(left == right)`
+  left: `0`,
+ right: `600`: AS2 dt', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/asert_named.rs:40:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    as1_through_as19_actual_internal_traces_and_targets
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

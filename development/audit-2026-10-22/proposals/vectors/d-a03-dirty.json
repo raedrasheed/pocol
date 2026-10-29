@@ -1,0 +1,210 @@
+{
+ "alternatives": {
+  "A": "net changes counted; a halt whose nonce/fee residue does not fit makes the block invalid (recommended)",
+  "A-touched": "as A, but touched accounts without a net change also count",
+  "B": "net changes counted; the halt residue is exempt from the limit"
+ },
+ "constants": {
+  "ACCT_DIRTY_BLOCK_MAX": 2048
+ },
+ "recommended": "A",
+ "rule": "D-A03-DIRTY",
+ "scenarios": [
+  {
+   "expected": {
+    "A": {
+     "blockValid": true,
+     "dirtyAccounts": 2048,
+     "txs": [
+      {
+       "status": 1
+      }
+     ]
+    },
+    "A-touched": {
+     "blockValid": true,
+     "dirtyAccounts": 2,
+     "txs": [
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      }
+     ]
+    },
+    "B": {
+     "blockValid": true,
+     "dirtyAccounts": 2048,
+     "txs": [
+      {
+       "status": 1
+      }
+     ]
+    }
+   },
+   "id": "D1 alice sprays 2046 (2 + 2046 = 2048 accounts)",
+   "txs": [
+    {
+     "contract": "sprayerA",
+     "newAccounts": 2046,
+     "sender": "alice",
+     "tip": true
+    }
+   ]
+  },
+  {
+   "expected": {
+    "A": {
+     "blockValid": true,
+     "dirtyAccounts": 2,
+     "txs": [
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      }
+     ]
+    },
+    "A-touched": {
+     "blockValid": true,
+     "dirtyAccounts": 2,
+     "txs": [
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      }
+     ]
+    },
+    "B": {
+     "blockValid": true,
+     "dirtyAccounts": 2,
+     "txs": [
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      }
+     ]
+    }
+   },
+   "id": "D2 alice sprays 2047: halt, residue already dirty",
+   "txs": [
+    {
+     "contract": "sprayerA",
+     "newAccounts": 2047,
+     "sender": "alice",
+     "tip": true
+    }
+   ]
+  },
+  {
+   "expected": {
+    "A": {
+     "blockValid": false,
+     "invalidAt": 1,
+     "txs": [
+      {
+       "status": 1
+      }
+     ]
+    },
+    "A-touched": {
+     "blockValid": true,
+     "dirtyAccounts": 5,
+     "txs": [
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      },
+      {
+       "status": 1
+      }
+     ]
+    },
+    "B": {
+     "blockValid": true,
+     "dirtyAccounts": 2049,
+     "txs": [
+      {
+       "status": 1
+      },
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      }
+     ]
+    }
+   },
+   "id": "D3 alice sprays 2046, then bob sprays 1 fresh account: bob's residue does not fit",
+   "txs": [
+    {
+     "contract": "sprayerA",
+     "newAccounts": 2046,
+     "sender": "alice",
+     "tip": true
+    },
+    {
+     "contract": "sprayerB",
+     "newAccounts": 1,
+     "sender": "bob",
+     "tip": true
+    }
+   ]
+  },
+  {
+   "expected": {
+    "A": {
+     "blockValid": true,
+     "dirtyAccounts": 2048,
+     "txs": [
+      {
+       "status": 1
+      },
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      }
+     ]
+    },
+    "A-touched": {
+     "blockValid": true,
+     "dirtyAccounts": 4,
+     "txs": [
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      },
+      {
+       "status": 1
+      }
+     ]
+    },
+    "B": {
+     "blockValid": true,
+     "dirtyAccounts": 2048,
+     "txs": [
+      {
+       "status": 1
+      },
+      {
+       "halt": "DirtyAccounts",
+       "status": 0
+      }
+     ]
+    }
+   },
+   "id": "D4 alice sprays 2046, then alice sprays 1 fresh account: the residue is already dirty",
+   "txs": [
+    {
+     "contract": "sprayerA",
+     "newAccounts": 2046,
+     "sender": "alice",
+     "tip": true
+    },
+    {
+     "contract": "sprayerB",
+     "newAccounts": 1,
+     "sender": "alice",
+     "tip": true
+    }
+   ]
+  }
+ ]
+}

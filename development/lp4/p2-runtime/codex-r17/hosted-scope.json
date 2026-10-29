@@ -1,0 +1,40 @@
+{
+  "linuxRustTests": 43,
+  "windowsRustTests": 43,
+  "contextIndependentRoots": 9,
+  "registryCompleteComparisons": 63,
+  "primaryCancun": {
+    "total": 20661,
+    "rawSHA256": "1bd455f96ded27e7f7f65253a3a3912f8044089ec60394cc036e994cb3c5a28b",
+    "matchesPublishedR4": true
+  },
+  "lp4-native-cancun-reference/geth-mutations/results.json": 2,
+  "lp4-p2-controls/lp4-context-mutations/results.json": 7,
+  "lp4-p2-controls/lp4-registry-mutations/results.json": 17,
+  "lp4-p2-controls/lp4-mutations/results.json": 16,
+  "lp4-p2-controls/lp4-create-mutations/results.json": 7,
+  "lp4-p2-controls/lp4-budget-mutations/results.json": 3,
+  "nativeGeth": {
+    "scope": "External Geth upstream Cancun controls; not PoCol wire/apply/deviation acceptance",
+    "expected": 20661,
+    "counts": {
+      "STATE_AND_NATIVE_LOG_ASSERTIONS": 19488,
+      "total": 20661,
+      "EXPECTED_REJECTION_PRESENCE_ONLY": 1173
+    },
+    "exit": 0,
+    "limited": false,
+    "seconds": 111.231,
+    "binarySHA256": "b6ec55c838bca3f4761f9d5444df4c762abfa8d40f4950d4293adbcb5f1ec603",
+    "complete": true,
+    "status": "REQUIRES REVIEW; P2/LP4 NOT PASSED",
+    "bootable": false
+  },
+  "sourceHead": "c6e56b069ad3d5a7c1323cae81ea53004f542512",
+  "sourceTree": "d643038c4a6210587c14c364a041f161c14980b7",
+  "run": 39394783398,
+  "independentPython": "RUNNING; NOT PASSED",
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false
+}

@@ -1,0 +1,11 @@
+{
+  "trials": 5000,
+  "byteIdenticalMutations": 2,
+  "indices": [
+    2037,
+    3053
+  ],
+  "matchesRustObservedSameHashCount": true,
+  "initialProbePreserved": "genesis-noop-independent.json; firstPythontranslationevaluatedassignmentRHSbeforeindex, unlikeRustexplicitletindex; correctedordering",
+  "conclusion": "Samebytes=>samehash; notchangedpreimage/collision"
+}

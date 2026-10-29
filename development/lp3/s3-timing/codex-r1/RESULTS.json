@@ -1,0 +1,93 @@
+{
+  "scope": "LP3 S3 pure timing core",
+  "base": "30daceb7e8c632041fd44a40afec57553f85fff2",
+  "mergeParents": [
+    "d17273af35880f0e1d8a438e529e69c22a18f731",
+    "e79ada09b05a9b5fdabd8e6b03d4407c05d5c470"
+  ],
+  "mergedTreeEqualsS2Head": true,
+  "testedCommit": "c7008ae980d2c0a19a6d5c6ef26c61f7b73de346",
+  "sourceBranch": "codex-lp3-s3-timing",
+  "targetBranch": "work/lp3-consensus-foundation",
+  "python": "3.12.14",
+  "referenceSha256": {
+    "development/LP3-MILESTONE.md": "b1e7eba5e2472c0b45dadcb6c39860934a66ac73c73ed72056313ed539bcfe5e",
+    "development/m1/reference/consensus.md": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+    "development/m1/reference/threat.md": "47c42e8bbe2e3232beb18b4a03e79b41ae2dacd063c5a2333d72dbfd3bc2b547",
+    "development/m1/reference/governance.md": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b"
+  },
+  "review": "Separate sequential Codex review pass using a new Python integer oracle; not an external reviewer identity or GitHub approval.",
+  "technicalVerdict": "PASS within documented S3 pure-core scope; proposed increment, not full LP3 acceptance",
+  "results": [
+    {
+      "check": "author timing tests",
+      "status": "PASS",
+      "tests": 6
+    },
+    {
+      "check": "clean separate-target regression",
+      "status": "PASS",
+      "tests": 89,
+      "detail": "49 lib + 12 fixtures + 16 GenesisSpec + 6 S2 + 6 S3; author timing tests are not added again to this count."
+    },
+    {
+      "check": "seeded author window cases",
+      "status": "PASS",
+      "cases": 10000,
+      "detail": "cases inside one of the six S3 tests, not additional libtest tests."
+    },
+    {
+      "check": "Python unlimited-integer differential",
+      "status": "PASS",
+      "cases": 10524,
+      "validWindows": 5299,
+      "mismatches": 0
+    },
+    {
+      "check": "mutation detection",
+      "status": "PASS",
+      "caught": 6,
+      "total": 6,
+      "detail": "Each faulty variant exits 101 with assertion failures; compiler errors do not count as detection. Six distinct target directories and scratch checkouts."
+    },
+    {
+      "check": "fixture verification",
+      "status": "PASS",
+      "detail": "22 window cases, 1027 ASERT rows, 3677 hashes, K1-K3"
+    },
+    {
+      "check": "format and preservation",
+      "status": "PASS"
+    },
+    {
+      "check": "new Windows execution, Windows-only store/crash regressions",
+      "status": "BLOCKED BY PLATFORM",
+      "detail": "Linux only; no Windows pass claimed."
+    },
+    {
+      "check": "full S1 heavy differential/allocation reruns",
+      "status": "NOT RUN",
+      "detail": "Unchanged accepted implementation; prior evidence preserved."
+    },
+    {
+      "check": "actual scheduler/FSM/clock jitter/LP6 callbacks",
+      "status": "NOT RUN",
+      "detail": "Pure predicates and arithmetic only; no real-time guarantee or full FSM claimed."
+    },
+    {
+      "check": "S4 and complete ParamGate/builder/full LP3",
+      "status": "NOT RUN",
+      "detail": "Outside this increment."
+    }
+  ],
+  "reviewFindings": [],
+  "limitations": [
+    "Caller must combine advance_due with max_attempt and validated state; advance_due alone is only a time predicate.",
+    "T_j predicate does not verify signatures/Draw or implement sticky fallback state.",
+    "No future queue or timers/sleeps implemented; future predicate only.",
+    "Metrics depend on accepted timing assumptions; they are formulas, not measured liveness guarantees.",
+    "No S4, no boot permission, no main merge, no full LP3 acceptance."
+  ],
+  "unmodifiedFailureCount": 0,
+  "expectedFailingMutationCommands": 6
+}

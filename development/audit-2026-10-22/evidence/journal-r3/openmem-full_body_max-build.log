@@ -1,0 +1,9 @@
+=== f-mem-build-full_body_max: jm_open_memory JM_MEM_KIND=full_body_max JM_MEM_DIR=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/jr3w/memdirs/full_body_max ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:22:08Z
+
+running 1 test
+test jm_open_memory ... JM-OPENMEM {"blocks":85,"inProcessUndercounts":true,"journalBytes":16862277,"kind":"full_body_max","openSeconds":0.611803883,"peakAboveBaselineBytes":9252864,"peakOverJournal":0.5487315858943606,"records":85,"rssAfterBytes":53952512,"rssBeforeBytes":44699648,"vmHwmAfterOpenBytes":53952512,"vmHwmAfterResetBytes":44699648}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 2.33s
+
+=== end 2026-10-24T01:22:11Z exit=0

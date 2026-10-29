@@ -1,0 +1,41 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (1.968418ms)
+✔ 1027 previously frozen ASERT rows (9.823288ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.464672ms)
+✔ membership, partition completeness, owner and exact hashes (4.129661ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (2.689837ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (8.413666ms)
+✔ full schema width/order/reserved failures and deep malformed framing (12.38842ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (83.622869ms)
+✔ SV1-SV5/SV7/SV7s pure settlement arithmetic; execution and SV6 deferred LP4 (1.399909ms)
+✖ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (2.141009ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 138.382618
+
+✖ failing tests:
+
+test at prototypes/.cf-mut-kxqm1tjk/tests.ts:100:1
+✖ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (2.141009ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  40n !== 41n
+  
+      at TestContext.<anonymous> (file:///workspace/Proof-of-Collaboration/prototypes/.cf-mut-kxqm1tjk/tests.ts:105:113)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 40n,
+    expected: 41n,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

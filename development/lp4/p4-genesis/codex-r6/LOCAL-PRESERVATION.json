@@ -1,0 +1,8 @@
+{
+  "path": "/workspace/work/lp4/p4-system-r6-chunk-complete-evidence.tar.gz",
+  "bytes": 3877800,
+  "sha256": "2774a61a25bb5b931c4d30b480503f7009ac1a0c48a12b420318edb7638ae5e6",
+  "publication": "LOCAL complete attempts/mutant sources/build/test/Solidity logs/vectors; compact public packet only",
+  "scope": "Independent full-corpus producer is separate and ongoing, not included or passed here",
+  "bootable": false
+}

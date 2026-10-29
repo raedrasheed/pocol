@@ -1,0 +1,348 @@
+{
+  "revision": "0.19",
+  "checks": 29,
+  "passed": 29,
+  "failed": 0,
+  "results": [
+    {
+      "check": "resultBytes_prefix",
+      "actual": {
+        "act": "replace",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          false
+        ]
+      },
+      "expected": {
+        "act": "replace",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          false
+        ]
+      },
+      "pass": true
+    },
+    {
+      "check": "resultBytes_lc_b",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "resultBytes_lc_a_minus1",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "resultBytes_marked",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "resultCount_prefix",
+      "actual": {
+        "act": "replace",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          false
+        ]
+      },
+      "expected": {
+        "act": "replace",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          false
+        ]
+      },
+      "pass": true
+    },
+    {
+      "check": "resultCount_lc_b",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "resultCount_lc_a_minus1",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "resultCount_marked",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "scanBytes_prefix",
+      "actual": {
+        "act": "replace",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          false
+        ]
+      },
+      "expected": {
+        "act": "replace",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          false
+        ]
+      },
+      "pass": true
+    },
+    {
+      "check": "scanBytes_lc_b",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "scanBytes_lc_a_minus1",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "scanBytes_marked",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "deadline_split",
+      "actual": {
+        "act": "split",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          true
+        ]
+      },
+      "expected": {
+        "act": "split",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          true
+        ]
+      },
+      "pass": true
+    },
+    {
+      "check": "deadline_singleton_last_retry",
+      "actual": {
+        "act": "retry",
+        "delayMs": 500,
+        "retries": 3
+      },
+      "expected": {
+        "act": "retry",
+        "delayMs": 500,
+        "retries": 3
+      },
+      "pass": true
+    },
+    {
+      "check": "deadline_singleton_exhaustion",
+      "actual": {
+        "act": "error",
+        "reason": "deadline",
+        "block": 1
+      },
+      "expected": {
+        "act": "error",
+        "reason": "deadline",
+        "block": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "deadline_lc_b",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "deadline_lc_a_minus2",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "scratch_split",
+      "actual": {
+        "act": "split",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          true
+        ]
+      },
+      "expected": {
+        "act": "split",
+        "first": [
+          1,
+          5,
+          true
+        ],
+        "second": [
+          6,
+          10,
+          true
+        ]
+      },
+      "pass": true
+    },
+    {
+      "check": "scratch_singleton_last_retry",
+      "actual": {
+        "act": "retry",
+        "delayMs": 500,
+        "retries": 3
+      },
+      "expected": {
+        "act": "retry",
+        "delayMs": 500,
+        "retries": 3
+      },
+      "pass": true
+    },
+    {
+      "check": "scratch_singleton_exhaustion",
+      "actual": {
+        "act": "error",
+        "reason": "scratch",
+        "block": 1
+      },
+      "expected": {
+        "act": "error",
+        "reason": "scratch",
+        "block": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "scratch_lc_b",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "scratch_lc_a_minus2",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "lc_bool_rejected",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "busy_does_not_consume_singleton_retries",
+      "actual": {
+        "act": "retry",
+        "delayMs": 500,
+        "retries": 3
+      },
+      "expected": {
+        "act": "retry",
+        "delayMs": 500,
+        "retries": 3
+      },
+      "pass": true
+    },
+    {
+      "check": "unsupported",
+      "actual": {
+        "act": "error",
+        "reason": "unsupported"
+      },
+      "expected": {
+        "act": "error",
+        "reason": "unsupported"
+      },
+      "pass": true
+    },
+    {
+      "check": "complete_duplicate_tuple",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "complete_changed_hash",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "append_continuity_across_pieces",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    },
+    {
+      "check": "complete_past_range",
+      "actual": "violation",
+      "expected": "violation",
+      "pass": true
+    }
+  ]
+}

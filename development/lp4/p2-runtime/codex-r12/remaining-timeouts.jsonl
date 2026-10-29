@@ -1,0 +1,6 @@
+{"file": "VMTests/vmPerformance/loopMul.json", "name": "loopMul", "variant": 0, "indexes": {"data": 0, "gas": 0, "value": 0}, "expectedException": null, "comparison": "BLOCKED_TIMEOUT", "timeoutSeconds": 60}
+{"file": "VMTests/vmPerformance/loopMul.json", "name": "loopMul", "variant": 1, "indexes": {"data": 1, "gas": 0, "value": 0}, "expectedException": null, "comparison": "BLOCKED_TIMEOUT", "timeoutSeconds": 60}
+{"file": "VMTests/vmPerformance/loopMul.json", "name": "loopMul", "variant": 2, "indexes": {"data": 2, "gas": 0, "value": 0}, "expectedException": null, "comparison": "BLOCKED_TIMEOUT", "timeoutSeconds": 60}
+{"file": "stPreCompiledContracts2/CALLBlake2f.json", "name": "CALLBlake2f", "variant": 42, "indexes": {"data": 9, "gas": 0, "value": 0}, "expectedException": null, "comparison": "BLOCKED_TIMEOUT", "timeoutSeconds": 60}
+{"file": "stPreCompiledContracts2/CALLCODEBlake2f.json", "name": "CALLCODEBlake2f", "variant": 42, "indexes": {"data": 9, "gas": 0, "value": 0}, "expectedException": null, "comparison": "BLOCKED_TIMEOUT", "timeoutSeconds": 60}
+{"file": "stTimeConsuming/CALLBlake2f_MaxRounds.json", "name": "CALLBlake2f_MaxRounds", "variant": 0, "indexes": {"data": 0, "gas": 0, "value": 0}, "expectedException": null, "comparison": "BLOCKED_TIMEOUT", "timeoutSeconds": 60}

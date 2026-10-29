@@ -1,0 +1,43 @@
+{"corpus":"S8 TS Genesis","seed":"0x5338c0de","counts":{"L0":6458,"ok":4871,"gsCount":366,"gsStructure":129,"gsInt":86,"gsRange":65,"gsOrder":19,"gsVersion":6}}
+✔ AS1-AS19 targets, traces and bounded intermediates (1.641987ms)
+✔ 1027 previously frozen ASERT rows (10.533927ms)
+✔ timing metrics, TJ1-4 and overflow equality (2.817567ms)
+✔ membership, partition completeness, owner and exact hashes (3.312199ms)
+✖ weight interval, strict CDF, unbiased rejection and uniform fallback (2.407699ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (8.755223ms)
+✔ full schema width/order/reserved failures and deep malformed framing (11.517311ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (81.974459ms)
+✔ SV1-SV5/SV7/SV7s pure settlement arithmetic; execution and SV6 deferred LP4 (1.193034ms)
+✔ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (1.015912ms)
+✔ S8 seeded adversarial Genesis framing and canonical acceptance (556.584006ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 690.879429
+
+✖ failing tests:
+
+test at ../work/lp3-s8/reference-replay-fixed/mutations/ts-biased-sample-iz7a6gf2/prototypes/lp3-model/tests.ts:48:1
+✖ weight interval, strict CDF, unbiased rejection and uniform fallback (2.407699ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0n !== null
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s8/reference-replay-fixed/mutations/ts-biased-sample-iz7a6gf2/prototypes/lp3-model/tests.ts:51:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0n,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

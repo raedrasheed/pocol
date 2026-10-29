@@ -1,0 +1,99 @@
+cmd: env  flock cpu.lock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-journal/release/deps/journal_measure-38e7084ad7dc4091 jm_exec_cost_per_gas --exact --ignored --nocapture --test-threads=1
+=== start 2026-10-24T05:50:07Z ===
+
+running 1 test
+test jm_exec_cost_per_gas ... JM-PRECOMPILE {"address":1,"gasPerCall":3000,"inputBytes":128,"kind":"ecrecover","nsPerCall":69471.58055555556,"nsPerGas":23.15719351851852,"ok":true}
+JM-PRECOMPILE {"address":1,"gasPerCall":3000,"inputBytes":128,"kind":"ecrecover_invalid_v","nsPerCall":57.40295992018709,"nsPerGas":0.019134319973395694,"ok":true}
+JM-PRECOMPILE {"address":2,"gasPerCall":12348,"inputBytes":32768,"kind":"sha256_32KiB","nsPerCall":22992.732413793103,"nsPerGas":1.8620612580007372,"ok":true}
+JM-PRECOMPILE {"address":3,"gasPerCall":123480,"inputBytes":32768,"kind":"ripemd160_32KiB","nsPerCall":118202.96226415095,"nsPerGas":0.9572640287022267,"ok":true}
+JM-PRECOMPILE {"address":4,"gasPerCall":3087,"inputBytes":32768,"kind":"identity_32KiB","nsPerCall":62.01791446503436,"nsPerGas":0.020090027361527166,"ok":true}
+JM-PRECOMPILE {"address":4,"gasPerCall":15,"inputBytes":0,"kind":"identity_0B","nsPerCall":46.27179628604797,"nsPerGas":3.084786419069865,"ok":true}
+JM-PRECOMPILE {"address":6,"gasPerCall":150,"inputBytes":128,"kind":"bn_add","nsPerCall":4337.28452463567,"nsPerGas":28.9152301642378,"ok":true}
+JM-PRECOMPILE {"address":7,"gasPerCall":6000,"inputBytes":96,"kind":"bn_mul","nsPerCall":152823.56707317074,"nsPerGas":25.470594512195124,"ok":true}
+JM-PRECOMPILE {"address":8,"gasPerCall":79000,"inputBytes":192,"kind":"bn_pair_1","nsPerCall":2167569.625,"nsPerGas":27.43759018987342,"ok":true}
+JM-PRECOMPILE {"address":8,"gasPerCall":113000,"inputBytes":384,"kind":"bn_pair_2","nsPerCall":3237176.5,"nsPerGas":28.6475796460177,"ok":true}
+JM-PRECOMPILE {"address":8,"gasPerCall":385000,"inputBytes":1920,"kind":"bn_pair_10","nsPerCall":10330511.8,"nsPerGas":26.832498181818185,"ok":true}
+JM-PRECOMPILE {"address":9,"gasPerCall":100000,"inputBytes":213,"kind":"blake2f_100k","nsPerCall":1468830.2571428572,"nsPerGas":14.688302571428572,"ok":true}
+JM-PRECOMPILE {"address":9,"gasPerCall":12,"inputBytes":213,"kind":"blake2f_12","nsPerCall":241.49148744004984,"nsPerGas":20.124290620004153,"ok":true}
+JM-PRECOMPILE {"address":10,"gasPerCall":50000,"inputBytes":192,"kind":"kzg_point_eval","nsPerCall":1354742.054054054,"nsPerGas":27.09484108108108,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":200,"inputBytes":130,"kind":"modexp_b1_e32_m1_odd","nsPerCall":7118.847380410023,"nsPerGas":35.59423690205011,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":200,"inputBytes":144,"kind":"modexp_b8_e32_m8_odd","nsPerCall":8313.149792186201,"nsPerGas":41.565748960931,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":200,"inputBytes":144,"kind":"modexp_b8_e32_m8_even","nsPerCall":13594.079097580865,"nsPerGas":67.97039548790433,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":1360,"inputBytes":192,"kind":"modexp_b32_e32_m32_odd","nsPerCall":20572.057178116003,"nsPerGas":15.12651263096765,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":682,"inputBytes":368,"kind":"modexp_b8_e256_m8_even","nsPerCall":96970.80813953489,"nsPerGas":142.18593568846757,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":2730,"inputBytes":1122,"kind":"modexp_b1_e1024_m1_odd","nsPerCall":197087.45882352942,"nsPerGas":72.19320836026719,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":2730,"inputBytes":1122,"kind":"modexp_b1_e1024_m1_even","nsPerCall":409174.2520325203,"nsPerGas":149.8806784001906,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":2730,"inputBytes":1124,"kind":"modexp_b2_e1024_m2_even","nsPerCall":348451.21527777775,"nsPerGas":127.63780779405778,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":2730,"inputBytes":1128,"kind":"modexp_b4_e1024_m4_even","nsPerCall":345827.67586206895,"nsPerGas":126.6768043450802,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":2730,"inputBytes":1136,"kind":"modexp_b8_e1024_m8_odd","nsPerCall":244400.9804878049,"nsPerGas":89.5241686768516,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":2730,"inputBytes":1136,"kind":"modexp_b8_e1024_m8_even","nsPerCall":466410.25,"nsPerGas":170.8462454212454,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":2730,"inputBytes":1136,"kind":"modexp_b8_e1024_m8_pow2","nsPerCall":179874.41726618705,"nsPerGas":65.88806493266925,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":10922,"inputBytes":4208,"kind":"modexp_b8_e4096_m8_even","nsPerCall":1835090.9285714286,"nsPerGas":168.01784733303685,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":10921,"inputBytes":1152,"kind":"modexp_b16_e1024_m16_odd","nsPerCall":566112.7640449438,"nsPerGas":51.83708122378389,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":10921,"inputBytes":1152,"kind":"modexp_b16_e1024_m16_even","nsPerCall":664398.3947368421,"nsPerGas":60.836772707338355,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":24573,"inputBytes":1168,"kind":"modexp_b24_e1024_m24_even","nsPerCall":836968.95,"nsPerGas":34.06051153705286,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":43685,"inputBytes":1184,"kind":"modexp_b32_e1024_m32_odd","nsPerCall":735909.8260869565,"nsPerGas":16.84582410637419,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":43685,"inputBytes":1184,"kind":"modexp_b32_e1024_m32_even","nsPerCall":812966.2096774194,"nsPerGas":18.609733539599848,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":174741,"inputBytes":1248,"kind":"modexp_b64_e1024_m64_odd","nsPerCall":1736979.9655172413,"nsPerGas":9.940311463922269,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":10901,"inputBytes":288,"kind":"modexp_b64_e64_m64_odd","nsPerCall":115075.11724137931,"nsPerGas":10.556381730243034,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":87296,"inputBytes":480,"kind":"modexp_b128_e128_m128_odd","nsPerCall":733526.0724637681,"nsPerGas":8.402745514843383,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":698709,"inputBytes":864,"kind":"modexp_b256_e256_m256_odd","nsPerCall":4833725.181818182,"nsPerGas":6.918080605542768,"ok":true}
+JM-PRECOMPILE {"address":5,"gasPerCall":5591040,"inputBytes":1632,"kind":"modexp_b512_e512_m512_odd","nsPerCall":36038046.0,"nsPerGas":6.445678442651099,"ok":true}
+JM-EXEC {"bodyBytes":3,"gasUsed":0,"kind":"empty_fallback","nsPerGasGross":0.0,"nsPerGasNet":0.0,"projectedMsAt8M":1.830171,"reps":5,"txs":0,"validateMsMedian":1.830171,"validateMsMin":1.690713}
+JM-EXEC {"bodyBytes":44840,"gasUsed":7980000,"kind":"full_gas_transfers","nsPerGasGross":7.417272305764411,"nsPerGasNet":7.187927568922306,"projectedMsAt8M":59.33359155137845,"reps":5,"txs":380,"validateMsMedian":59.189833,"validateMsMin":57.545494000000005}
+JM-EXEC {"bodyBytes":103,"gasUsed":7950000,"kind":"jump_loop","nsPerGasGross":0.8673338364779873,"nsPerGasNet":0.637123647798742,"projectedMsAt8M":6.927160182389936,"reps":5,"txs":1,"validateMsMedian":6.895303999999999,"validateMsMin":6.752447}
+JM-EXEC {"bodyBytes":259,"gasUsed":7950000,"kind":"ecrecover","nsPerGasGross":12.294987672955974,"nsPerGasNet":12.064777484276732,"projectedMsAt8M":98.34839087421386,"reps":5,"txs":1,"validateMsMedian":97.745152,"validateMsMin":93.088174}
+JM-EXEC {"bodyBytes":259,"gasUsed":7950000,"kind":"ecrecover_invalid_v","nsPerGasGross":0.36449018867924526,"nsPerGasNet":0.13428,"projectedMsAt8M":2.904411,"reps":5,"txs":1,"validateMsMedian":2.897697,"validateMsMin":2.801817}
+JM-EXEC {"bodyBytes":129,"gasUsed":7950000,"kind":"sha256_32KiB","nsPerGasGross":2.112839119496855,"nsPerGasNet":1.8826289308176098,"projectedMsAt8M":16.89120244654088,"reps":5,"txs":1,"validateMsMedian":16.797071,"validateMsMin":16.089409}
+JM-EXEC {"bodyBytes":129,"gasUsed":7950000,"kind":"ripemd160_32KiB","nsPerGasGross":1.2255177358490565,"nsPerGasNet":0.9953075471698112,"projectedMsAt8M":9.79263137735849,"reps":5,"txs":1,"validateMsMedian":9.742866,"validateMsMin":9.492355}
+JM-EXEC {"bodyBytes":129,"gasUsed":7950000,"kind":"identity_32KiB","nsPerGasGross":0.8959554716981132,"nsPerGasNet":0.6657452830188679,"projectedMsAt8M":7.156133264150943,"reps":5,"txs":1,"validateMsMedian":7.122846,"validateMsMin":6.670558}
+JM-EXEC {"bodyBytes":129,"gasUsed":7950000,"kind":"identity_0B","nsPerGasGross":1.87828893081761,"nsPerGasNet":1.6480787421383647,"projectedMsAt8M":15.014800937106918,"reps":5,"txs":1,"validateMsMedian":14.932397,"validateMsMin":14.02667}
+JM-EXEC {"bodyBytes":259,"gasUsed":7950000,"kind":"bn_add","nsPerGasGross":16.283479496855346,"nsPerGasNet":16.0532693081761,"projectedMsAt8M":130.25632546540882,"reps":5,"txs":1,"validateMsMedian":129.453662,"validateMsMin":126.67002099999999}
+JM-EXEC {"bodyBytes":226,"gasUsed":7950000,"kind":"bn_mul","nsPerGasGross":26.575662893081763,"nsPerGasNet":26.345452704402515,"projectedMsAt8M":212.59379263522013,"reps":5,"txs":1,"validateMsMedian":211.27652,"validateMsMin":197.55663900000002}
+JM-EXEC {"bodyBytes":326,"gasUsed":7950000,"kind":"bn_pair_1","nsPerGasGross":30.80888427672956,"nsPerGasNet":30.578674088050313,"projectedMsAt8M":246.4595637044025,"reps":5,"txs":1,"validateMsMedian":244.93063,"validateMsMin":221.666006}
+JM-EXEC {"bodyBytes":519,"gasUsed":7950000,"kind":"bn_pair_2","nsPerGasGross":28.131187295597485,"nsPerGasNet":27.90097710691824,"projectedMsAt8M":225.03798785534593,"reps":5,"txs":1,"validateMsMedian":223.642939,"validateMsMin":218.893112}
+JM-EXEC {"bodyBytes":2055,"gasUsed":7950000,"kind":"bn_pair_10","nsPerGasGross":28.1503358490566,"nsPerGasNet":27.920125660377355,"projectedMsAt8M":225.19117628301885,"reps":5,"txs":1,"validateMsMedian":223.79516999999998,"validateMsMin":219.731578}
+JM-EXEC {"bodyBytes":347,"gasUsed":7950000,"kind":"blake2f_100k","nsPerGasGross":15.628970817610062,"nsPerGasNet":15.398760628930816,"projectedMsAt8M":125.02025603144654,"reps":5,"txs":1,"validateMsMedian":124.250318,"validateMsMin":121.563851}
+JM-EXEC {"bodyBytes":347,"gasUsed":7950000,"kind":"blake2f_12","nsPerGasGross":3.3682538364779875,"nsPerGasNet":3.1380436477987423,"projectedMsAt8M":26.93452018238994,"reps":5,"txs":1,"validateMsMedian":26.777618,"validateMsMin":26.476733}
+JM-EXEC {"bodyBytes":326,"gasUsed":7950000,"kind":"kzg_point_eval","nsPerGasGross":25.997059748427674,"nsPerGasNet":25.766849559748426,"projectedMsAt8M":207.96496747798741,"reps":5,"txs":1,"validateMsMedian":206.676625,"validateMsMin":200.460675}
+JM-EXEC {"bodyBytes":110,"gasUsed":7950000,"kind":"keccak_32B","nsPerGasGross":8.00279823899371,"nsPerGasNet":7.772588050314464,"projectedMsAt8M":64.01087540251572,"reps":5,"txs":1,"validateMsMedian":63.62224599999999,"validateMsMin":61.217928}
+JM-EXEC {"bodyBytes":110,"gasUsed":7950000,"kind":"keccak_1KiB","nsPerGasGross":12.745442138364778,"nsPerGasNet":12.515231949685534,"projectedMsAt8M":101.95202659748426,"reps":5,"txs":1,"validateMsMedian":101.32626499999999,"validateMsMin":96.567036}
+JM-EXEC {"bodyBytes":110,"gasUsed":7950000,"kind":"keccak_32KiB","nsPerGasGross":15.388884276729561,"nsPerGasNet":15.158674088050315,"projectedMsAt8M":123.09956370440253,"reps":5,"txs":1,"validateMsMedian":122.34163000000001,"validateMsMin":116.752316}
+JM-EXEC {"bodyBytes":111,"gasUsed":7950000,"kind":"mem_grow_mstore","nsPerGasGross":0.5176782389937107,"nsPerGasNet":0.2874680503144654,"projectedMsAt8M":4.1299154025157225,"reps":5,"txs":1,"validateMsMedian":4.115542,"validateMsMin":3.864869}
+JM-EXEC {"bodyBytes":112,"gasUsed":7950000,"kind":"mcopy_32KiB","nsPerGasGross":0.5799493081761006,"nsPerGasNet":0.3497391194968554,"projectedMsAt8M":4.628083955974843,"reps":5,"txs":1,"validateMsMedian":4.610597,"validateMsMin":4.333981}
+JM-EXEC {"bodyBytes":122,"gasUsed":7936992,"kind":"sstore_fresh","nsPerGasGross":0.4137656936028158,"nsPerGasNet":0.18317821159451841,"projectedMsAt8M":3.2955966927561473,"reps":5,"txs":1,"validateMsMedian":3.284055,"validateMsMin":3.080504}
+JM-EXEC {"bodyBytes":122,"gasUsed":7945063,"kind":"sstore_warm","nsPerGasGross":1.3908656230919756,"nsPerGasNet":1.1605123836022446,"projectedMsAt8M":11.114270068817957,"reps":5,"txs":1,"validateMsMedian":11.050515,"validateMsMin":10.821551000000001}
+JM-EXEC {"bodyBytes":140,"gasUsed":7949010,"kind":"cold_call","nsPerGasGross":0.9328596894456039,"nsPerGasNet":0.7026208295121028,"projectedMsAt8M":7.4511376360968224,"reps":5,"txs":1,"validateMsMedian":7.415311,"validateMsMin":6.538443}
+JM-EXEC {"bodyBytes":133,"gasUsed":7948120,"kind":"extcodecopy_cold","nsPerGasGross":0.5848415725982999,"nsPerGasNet":0.35457693140012986,"projectedMsAt8M":4.666786451201039,"reps":5,"txs":1,"validateMsMedian":4.648391,"validateMsMin":4.375914}
+JM-EXEC {"bodyBytes":108,"gasUsed":7950000,"kind":"log0_loop","nsPerGasGross":0.3773777358490566,"nsPerGasNet":0.1471675471698113,"projectedMsAt8M":3.0075113773584903,"reps":5,"txs":1,"validateMsMedian":3.000153,"validateMsMin":2.874994}
+JM-EXEC {"bodyBytes":135,"gasUsed":7942040,"kind":"create2_loop","nsPerGasGross":2.2659257571102644,"nsPerGasNet":2.0354848376487658,"projectedMsAt8M":18.114049701190126,"reps":5,"txs":1,"validateMsMedian":17.996073000000003,"validateMsMin":17.516592}
+JM-EXEC {"bodyBytes":260,"gasUsed":7950000,"kind":"modexp_b1_e32_m1_odd","nsPerGasGross":22.538914465408805,"nsPerGasNet":22.30870427672956,"projectedMsAt8M":180.2998052138365,"reps":5,"txs":1,"validateMsMedian":179.18437,"validateMsMin":177.762053}
+JM-EXEC {"bodyBytes":278,"gasUsed":7950000,"kind":"modexp_b8_e32_m8_odd","nsPerGasGross":24.580029056603774,"nsPerGasNet":24.349818867924526,"projectedMsAt8M":196.62872194339622,"reps":5,"txs":1,"validateMsMedian":195.411231,"validateMsMin":192.299645}
+JM-EXEC {"bodyBytes":278,"gasUsed":7950000,"kind":"modexp_b8_e32_m8_even","nsPerGasGross":40.79450465408805,"nsPerGasNet":40.56429446540881,"projectedMsAt8M":326.34452672327046,"reps":5,"txs":1,"validateMsMedian":324.316312,"validateMsMin":316.09451}
+JM-EXEC {"bodyBytes":326,"gasUsed":7950000,"kind":"modexp_b32_e32_m32_odd","nsPerGasGross":13.140199371069182,"nsPerGasNet":12.909989182389936,"projectedMsAt8M":105.11008445911949,"reps":5,"txs":1,"validateMsMedian":104.464585,"validateMsMin":98.53033599999999}
+JM-EXEC {"bodyBytes":503,"gasUsed":7950000,"kind":"modexp_b8_e256_m8_even","nsPerGasGross":124.02373132075472,"nsPerGasNet":123.79352113207547,"projectedMsAt8M":992.1783400566037,"reps":5,"txs":1,"validateMsMedian":985.988664,"validateMsMin":923.796684}
+JM-EXEC {"bodyBytes":1257,"gasUsed":7950000,"kind":"modexp_b1_e1024_m1_odd","nsPerGasGross":67.94048389937107,"nsPerGasNet":67.71027371069182,"projectedMsAt8M":543.5123606855345,"reps":5,"txs":1,"validateMsMedian":540.126847,"validateMsMin":524.258017}
+JM-EXEC {"bodyBytes":1257,"gasUsed":7950000,"kind":"modexp_b1_e1024_m1_even","nsPerGasGross":120.21847962264151,"nsPerGasNet":119.98826943396226,"projectedMsAt8M":961.736326471698,"reps":5,"txs":1,"validateMsMedian":955.736913,"validateMsMin":944.544924}
+JM-EXEC {"bodyBytes":1258,"gasUsed":7950000,"kind":"modexp_b2_e1024_m2_even","nsPerGasGross":120.53871710691824,"nsPerGasNet":120.30850691823899,"projectedMsAt8M":964.298226345912,"reps":5,"txs":1,"validateMsMedian":958.282801,"validateMsMin":952.1953749999999}
+JM-EXEC {"bodyBytes":1263,"gasUsed":7950000,"kind":"modexp_b4_e1024_m4_even","nsPerGasGross":123.62385849056605,"nsPerGasNet":123.39364830188681,"projectedMsAt8M":988.9793574150945,"reps":5,"txs":1,"validateMsMedian":982.8096750000001,"validateMsMin":953.2576240000001}
+JM-EXEC {"bodyBytes":1271,"gasUsed":7950000,"kind":"modexp_b8_e1024_m8_odd","nsPerGasGross":87.66798289308176,"nsPerGasNet":87.43777270440252,"projectedMsAt8M":701.3323526352201,"reps":5,"txs":1,"validateMsMedian":696.960464,"validateMsMin":692.100913}
+JM-EXEC {"bodyBytes":1271,"gasUsed":7950000,"kind":"modexp_b8_e1024_m8_even","nsPerGasGross":134.18034364779876,"nsPerGasNet":133.9501334591195,"projectedMsAt8M":1073.4312386729562,"reps":5,"txs":1,"validateMsMedian":1066.7337320000001,"validateMsMin":1014.906501}
+JM-EXEC {"bodyBytes":1271,"gasUsed":7950000,"kind":"modexp_b8_e1024_m8_pow2","nsPerGasGross":51.05564754716981,"nsPerGasNet":50.82543735849057,"projectedMsAt8M":408.43366986792455,"reps":5,"txs":1,"validateMsMedian":405.892398,"validateMsMin":400.48479999999995}
+JM-EXEC {"bodyBytes":4343,"gasUsed":7950000,"kind":"modexp_b8_e4096_m8_even","nsPerGasGross":135.1766865408805,"nsPerGasNet":134.94647635220124,"projectedMsAt8M":1081.40198181761,"reps":5,"txs":1,"validateMsMedian":1074.654658,"validateMsMin":1000.5331070000001}
+JM-EXEC {"bodyBytes":1287,"gasUsed":7950000,"kind":"modexp_b16_e1024_m16_odd","nsPerGasGross":35.76814465408805,"nsPerGasNet":35.537934465408796,"projectedMsAt8M":286.1336467232704,"reps":5,"txs":1,"validateMsMedian":284.35675,"validateMsMin":277.796809}
+JM-EXEC {"bodyBytes":1286,"gasUsed":7950000,"kind":"modexp_b16_e1024_m16_even","nsPerGasGross":47.366158867924526,"nsPerGasNet":47.13594867924528,"projectedMsAt8M":378.91776043396226,"reps":5,"txs":1,"validateMsMedian":376.560963,"validateMsMin":354.99591200000003}
+JM-EXEC {"bodyBytes":1303,"gasUsed":7950000,"kind":"modexp_b24_e1024_m24_even","nsPerGasGross":25.38088767295598,"nsPerGasNet":25.15067748427673,"projectedMsAt8M":203.03559087421385,"reps":5,"txs":1,"validateMsMedian":201.77805700000002,"validateMsMin":196.553951}
+JM-EXEC {"bodyBytes":1319,"gasUsed":7950000,"kind":"modexp_b32_e1024_m32_odd","nsPerGasGross":16.3047506918239,"nsPerGasNet":16.074540503144654,"projectedMsAt8M":130.42649502515724,"reps":5,"txs":1,"validateMsMedian":129.622768,"validateMsMin":125.99469999999998}
+JM-EXEC {"bodyBytes":1319,"gasUsed":7950000,"kind":"modexp_b32_e1024_m32_even","nsPerGasGross":18.151159496855346,"nsPerGasNet":17.9209493081761,"projectedMsAt8M":145.19776546540882,"reps":5,"txs":1,"validateMsMedian":144.301718,"validateMsMin":132.866998}
+JM-EXEC {"bodyBytes":1383,"gasUsed":7950000,"kind":"modexp_b64_e1024_m64_odd","nsPerGasGross":10.291457232704401,"nsPerGasNet":10.061247044025155,"projectedMsAt8M":82.32014735220125,"reps":5,"txs":1,"validateMsMedian":81.81708499999999,"validateMsMin":80.424743}
+JM-EXEC {"bodyBytes":423,"gasUsed":7950000,"kind":"modexp_b64_e64_m64_odd","nsPerGasGross":10.452910817610062,"nsPerGasNet":10.222700628930816,"projectedMsAt8M":83.61177603144654,"reps":5,"txs":1,"validateMsMedian":83.100641,"validateMsMin":79.995638}
+JM-EXEC {"bodyBytes":615,"gasUsed":7950000,"kind":"modexp_b128_e128_m128_odd","nsPerGasGross":8.3423093081761,"nsPerGasNet":8.112099119496854,"projectedMsAt8M":66.72696395597484,"reps":5,"txs":1,"validateMsMedian":66.321359,"validateMsMin":64.881927}
+JM-EXEC {"bodyBytes":999,"gasUsed":7950000,"kind":"modexp_b256_e256_m256_odd","nsPerGasGross":7.345318616352201,"nsPerGasNet":7.115108427672956,"projectedMsAt8M":58.75103842138365,"reps":5,"txs":1,"validateMsMedian":58.395283,"validateMsMin":55.628069}
+JM-EXEC {"bodyBytes":1767,"gasUsed":7950000,"kind":"modexp_b512_e512_m512_odd","nsPerGasGross":4.944636477987421,"nsPerGasNet":4.714426289308176,"projectedMsAt8M":39.54558131446541,"reps":5,"txs":1,"validateMsMedian":39.30986,"validateMsMin":38.542561000000006}
+JM-EXEC {"bodyBytes":142,"gasUsed":7950000,"kind":"mem_frame_32KiB","nsPerGasGross":0.4309524528301887,"nsPerGasNet":0.2007422641509434,"projectedMsAt8M":3.4361091132075474,"reps":5,"txs":1,"validateMsMedian":3.426072,"validateMsMin":3.327992}
+JM-EXEC {"bodyBytes":142,"gasUsed":7950000,"kind":"mem_frame_256KiB","nsPerGasGross":0.313268679245283,"nsPerGasNet":0.08305849056603777,"projectedMsAt8M":2.494638924528302,"reps":5,"txs":1,"validateMsMedian":2.490486,"validateMsMin":2.466685}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 74.87s
+
+=== end 2026-10-24T05:51:37Z exit=0 ===

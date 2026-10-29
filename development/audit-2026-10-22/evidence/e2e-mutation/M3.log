@@ -1,0 +1,8 @@
+== M3 2026-10-23T12:56:39Z
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-3/prototypes/pocold/tests/e2e_devnet.py sha256=31cace514f472f54b1f72ca21c0e9ec8ec75da3558f908eeea71b6dbd206fd76
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/bins/M3/pocold sha256=853b4dc779bd75a869e50c3ca6df1321c031ef973805772b7cef5bea8b219ba6
+== pocol-sign sha256=e4e209e4ef1fe556fb004714906a140e594815d01569abbaf6b84e3c160d72da
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/bins/M3/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-3/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-3/prototypes/pocold)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+{"result": "FAIL", "error": "timeout waiting for c syncs", "checks": ["two nodes produce blocks from fresh genesis"], "work": "/tmp/pocol-e2e-tt5toxqp"}
+== summary {"label": "M3", "exit": 1, "outcome": "FAIL", "first_fail": "timeout waiting for c syncs", "elapsed_s": 126.1, "leftover_killed": [], "ports_busy_after": []}

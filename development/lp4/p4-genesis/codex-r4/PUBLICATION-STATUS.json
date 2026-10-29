@@ -1,0 +1,12 @@
+{
+  "status": "PREPARED, not published yet",
+  "intendedBranch": "codex-lp4-p4-system-contract",
+  "pr": 26,
+  "public": "R4 compact packet, verifier, source, approval, CI configuration and R2 final scoped receipts",
+  "localOnly": [
+    "Complete archive in LOCAL-PRESERVATION.json",
+    "Full vectors in VECTORS-RECEIPT.json",
+    "All five raw R2 ZIPs/extractions/decoded job logs in hosted-r2-final/PRESERVATION.json"
+  ],
+  "autoReviewRejection": false
+}

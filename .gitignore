@@ -1,0 +1,21 @@
+**/node_modules/
+**/runtime/
+**/target/
+**/__pycache__/
+**/.venv/
+**/.env*
+**/.claude/
+**/.codex/
+*.jsonl
+*.exe
+*.dll
+*.pyd
+*.pyc
+*.whl
+**/keys-txa*.json
+**/txa-node-check.json
+prototypes/pocold/target/
+# Ephemeral exploit-shaped witness programs copied in by the witness runner; never committed.
+**/tests/zz_audit_witness*.rs
+# A failed e2e run's kept logs and inputs (keepOnFailure, keep_on_failure); copied into evidence/ by hand.
+**/tests/failures/

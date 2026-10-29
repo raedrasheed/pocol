@@ -1,0 +1,35 @@
+{
+  "status": "BLOCKED BY DESIGN; partial arithmetic PASS",
+  "foundation": "f933ef8a1e43a22ee6c7ca08c0b14236e086a95f",
+  "requestedS4Merge": "c662bff29fb748594224eb48d329d9b2aff1244e",
+  "implementationLocalCommit": "2a04902869247eba1b7101c6b4b14e8b97a953e8",
+  "reviewCorrectedLocalCommit": "d8053b407200369606d54621dee3c7043ff2d68b",
+  "regressionTests": 108,
+  "newIntegrationTests": 5,
+  "oracle": {
+    "cases": 5173,
+    "firstMismatches": [],
+    "inputSha256": "49a3419305ac9a334c15d73a0a78a73eeae2fface95ea51e9db6ecfdaa1ad2e5",
+    "mismatches": 0,
+    "outputSha256": "866a23644f26d9648d781a2bf9afb56fde775037fb8c1205935b2651f4a3bac4",
+    "rustExit": 0,
+    "seed": 91487637737495
+  },
+  "mutations": {
+    "caught": 21,
+    "total": 21,
+    "initialSurvivor": "wrong-ceil",
+    "fixedWith": "non-divisible retirement counts",
+    "initialFailurePreserved": true
+  },
+  "notRun": [
+    "Full R1-R26 ParamGate and PG-END profile verdicts",
+    "S6 TypeScript model/type-checking",
+    "S7 million new ASERT cases and required benchmark matrix",
+    "S8 final integrated adversarial acceptance",
+    "New Windows execution",
+    "Actual EVM/SYS/GenesisBuilder measurements and boot"
+  ],
+  "mergeAllowed": false,
+  "openDecision": "DESIGN-DECISION.md"
+}

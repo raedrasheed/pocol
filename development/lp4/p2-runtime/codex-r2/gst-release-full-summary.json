@@ -1,0 +1,15 @@
+{
+  "scope": "Upstream Cancun only; NOT PoCol T2 acceptance. Exception reason equivalence not proven.",
+  "counts": {
+    "total": 20661,
+    "passControl": 20648,
+    "failControl": 13,
+    "runnerFailure": 1,
+    "nonCancunVariants": 87932
+  },
+  "seconds": 205.498,
+  "runnerExit": 0,
+  "limited": false,
+  "fullIndependentEVM": "NOT RUN",
+  "bootable": false
+}

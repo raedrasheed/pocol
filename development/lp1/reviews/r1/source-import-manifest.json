@@ -1,0 +1,114 @@
+{
+  "prototypeRevision": 1,
+  "transportRevision": "0.34",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "44c92e3a70ad3307b7056871c2bdb096d8bfa9373f5bf06a79bb6324a20ff2fb"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "9699df301e4b759ea667e4cd317f1bfa181effcad8d4b3ca54beee853538d9b0"
+    },
+    {
+      "path": "LP1-PROGRESS-0.34-AR.md",
+      "sha256": "4356f06cdb8483b6ce81563999309be18bd6640a3da3b0598e28d201e28d3aed"
+    },
+    {
+      "path": "README.md",
+      "sha256": "c8e2db637766abc96793b45feabb95f350c0834d6274236613a73f751fad5987"
+    },
+    {
+      "path": "rustfmt.toml",
+      "sha256": "577cc206ea511874bdb98a34c3c525228b0e76d3afc04274864e1d502bf254ba"
+    },
+    {
+      "path": "src/asert.rs",
+      "sha256": "a309956234c88aad03ce82532700fe72014d0842faade7c8449b88e44d01b8ca"
+    },
+    {
+      "path": "src/chain.rs",
+      "sha256": "7007bb1f1f760b534fe2d149e9ff3b6e54483635299eb166fd641501a97ce4f3"
+    },
+    {
+      "path": "src/fixed.rs",
+      "sha256": "6164497f6a75fa0ea4cf4192d3ad377beea45f767e6e7b9db54b72b4daef9be3"
+    },
+    {
+      "path": "src/fixtures.rs",
+      "sha256": "4a4de9ffd7649bfe9c0353934ab8827909975b14a6068f4267724a7671fd5e6d"
+    },
+    {
+      "path": "src/genesis.rs",
+      "sha256": "acaaf64b9df494fe46d006e002c7e221c560c2dc77e51ce2e1e4581ec7a829ab"
+    },
+    {
+      "path": "src/hashes.rs",
+      "sha256": "77bf7c370988a240f74cd931929a33244886310cedc1f52262a06d1505ed69fe"
+    },
+    {
+      "path": "src/header.rs",
+      "sha256": "a09453b770796abbe4624c2d3c4d4739f55dad51b61872d4642ff477d39c2314"
+    },
+    {
+      "path": "src/hex.rs",
+      "sha256": "e65feef9efe5b60ee1b79316b2f19dd670ef3b43f5d6f75f18378006d4ac3171"
+    },
+    {
+      "path": "src/http.rs",
+      "sha256": "8069b26a5cd1fac4b5b41c88fb1e3fafa2f17c5122b41110561d291a427dcbd0"
+    },
+    {
+      "path": "src/json.rs",
+      "sha256": "0c102138692ae0e74e679fd242e811b422e7275222df09ec827b0b0ffa5d00af"
+    },
+    {
+      "path": "src/lib.rs",
+      "sha256": "efd69ccae2cc7e5e123b05d07ed98769db262352b06dea8d30d07e1ba4eb422b"
+    },
+    {
+      "path": "src/main.rs",
+      "sha256": "eb75ae481181c9318e287668d098634d9b9a07b87609370e0035774fc0e6790e"
+    },
+    {
+      "path": "src/rlp.rs",
+      "sha256": "2dd6afb8952aa32405ee6d15e19df4bc0e74887e635cf328a7a56e08c8b02730"
+    },
+    {
+      "path": "src/rpc.rs",
+      "sha256": "d96033e9c81bd1de7257ad8ae9d24502d5d95dc87e17e1531ba2278d20b08b8c"
+    },
+    {
+      "path": "src/verify.rs",
+      "sha256": "7aa9cebdb6b7328ce85e788814326e741bb4abd810531a4abc8d9d8b68fee4c8"
+    },
+    {
+      "path": "src/window.rs",
+      "sha256": "7d3ba8cc6c5eb8d1714221f1857abbe2640972231ad6c9e5c474fed558c2fa60"
+    },
+    {
+      "path": "tests/adversarial.rs",
+      "sha256": "a5cfa1081a2fa613d8c73abecb59aac3371849ec654a2fa52cd7f1ba960391af"
+    },
+    {
+      "path": "tests/asert_alloc.rs",
+      "sha256": "4b133b8293591936c623ce872561ef91786b94808306b8dd957d69ec46992dcb"
+    },
+    {
+      "path": "tests/common/mod.rs",
+      "sha256": "823e5577101bf45db8dac922bdd436145eeb536d902b6d23ec126e0224560860"
+    },
+    {
+      "path": "tests/e2e_http.py",
+      "sha256": "4dc3090de98b8ddf38d51d1a9e0d9a68521865522e3bf0a2334b53cec2228b37"
+    },
+    {
+      "path": "tests/fixtures_integration.rs",
+      "sha256": "1e36af28900f82d9ef8d1d7705366e42911cb845a310f489992278c6ac085061"
+    },
+    {
+      "path": "tests/http_loopback.rs",
+      "sha256": "c08ed2dc423334d1016fbe2f9f6204ff1383b1ffb29aa354b43dab4cc20904ab"
+    }
+  ]
+}

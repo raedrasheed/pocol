@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running tests/registry_payment.rs (prototypes/lp4-execution/target/debug/deps/registry_payment-35584701b76a9ff5)
+
+running 1 test
+
+thread 'full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow' (138825) panicked at tests/registry_payment.rs:44:35:
+assertion: successful EVM call required; Revert { gas_used: 34260, output: 0x8523b62a }; [133, 35, 182, 42]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow ... FAILED
+
+failures:
+
+failures:
+    full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test registry_payment`

@@ -1,0 +1,14 @@
+{
+ "complete": false,
+ "failed": [],
+ "missingRequired": [],
+ "remainingRoot": [
+  "execute run_checks_032.py in a preserved copy and require zero FAIL",
+  "review the closure report and mutations",
+  "close C37 in the ledger, then record the 41 rows and F26 if accepted"
+ ],
+ "rows": {
+  "CompleteCandidate": 41
+ },
+ "schema": "pocol-m1-status/0.32"
+}

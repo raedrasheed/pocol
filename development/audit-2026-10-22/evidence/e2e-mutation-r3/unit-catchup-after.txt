@@ -1,0 +1,23 @@
+== after: 20 runs from 2026-10-24T01:59:35Z; each run: unit.py (flock cpu.lock cargo test --release --locked --test consensus, cwd prototypes/pocold); wall includes the lock wait
+== build: == 2026-10-24T01:59:35Z HEAD 16bebfdd5b9aa5590b747b313063dd496ec17afe; tests/consensus.rs sha256 6cc0f16f97cb81249d564adefd88c7e0b335fc8ad99b5c783632c8eb1fe96f0f
+run 1 exit=0 wall=30s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.17s
+run 2 exit=0 wall=28s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 10.67s
+run 3 exit=0 wall=30s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.01s
+run 4 exit=0 wall=30s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.46s
+run 5 exit=0 wall=40s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.48s
+run 6 exit=0 wall=28s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 11.43s
+run 7 exit=0 wall=30s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.11s
+run 8 exit=0 wall=29s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.96s
+run 9 exit=0 wall=31s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.75s
+run 10 exit=0 wall=30s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.06s
+run 11 exit=0 wall=31s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.96s
+run 12 exit=0 wall=13s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.82s
+run 13 exit=0 wall=32s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 14.14s
+run 14 exit=0 wall=30s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.97s
+run 15 exit=0 wall=148s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.35s
+run 16 exit=0 wall=106s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 14.13s
+run 17 exit=0 wall=150s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.08s
+run 18 exit=0 wall=124s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.04s
+run 19 exit=0 wall=119s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 8.70s
+run 20 exit=0 wall=119s catch_up=ok | test result: ok. 43 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 9.37s
+== done 2026-10-24T02:19:47Z

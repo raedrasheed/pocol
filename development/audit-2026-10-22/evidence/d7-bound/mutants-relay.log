@@ -1,0 +1,9 @@
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "R1 returned transactions are not relayed (before the fix)", "status": "KILLED", "failed": ["transactions_returned_from_an_abandoned_block_are_offered_to_the_peers"]}
+{"mutant": "R2 an offer sends nothing", "status": "KILLED", "failed": ["transactions_returned_from_an_abandoned_block_are_offered_to_the_peers"]}
+{"mutant": "R3 the previous pool is relayed again", "status": "KILLED", "failed": ["transactions_returned_from_an_abandoned_block_are_offered_to_the_peers"]}
+{"mutant": "R4 returned transactions are gossiped (a full queue drops the peer)", "status": "KILLED", "failed": ["transactions_returned_from_an_abandoned_block_are_offered_to_the_peers"]}
+{"mutant": "R5 the offer arm uses send", "status": "PASS", "failed": []}
+{"mutant": "R6 offer uses the whole queue", "status": "KILLED", "failed": ["net::tests::an_offer_past_half_the_queue_is_refused_and_keeps_the_peer"]}
+{"mutant": "R7 a refused offer drops the peer", "status": "KILLED", "failed": ["net::tests::an_offer_past_half_the_queue_is_refused_and_keeps_the_peer"]}
+exit 0
