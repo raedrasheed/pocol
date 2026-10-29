@@ -1245,10 +1245,10 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // + r_keep) × 76 B, -> 3,234,220,320 B). Some terms are type
     // sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on; every
     // target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_237_735_992,"the A13 model total changed");}
-    // R6: FIFO/set high-water: (1024 + 2048 + 3*2048 + 1)*280 + 512 = 2,581,272.
-    // Protect coexistence adds (216-48)*6144 + 512 = 1,032,704. Total delta = 3,515,672.
-    assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,2_581_272);
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_241_940_480,"the A13 model total changed");}
+    // R6 churn correction: eviction=3982768, protect delta=1967104,
+    // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
+    assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);
     // C-1 S1: a window of the whole chain is the model before S1, plus history.redb's cache and allocator.
     let all=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),..Default::default()},2).unwrap();
     // (C-1 E5: and the one empty state entries share, which each entry counted before.)

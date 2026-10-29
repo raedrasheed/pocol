@@ -67,5 +67,36 @@ fn eviction_high_water_covers_growth_and_trim_without_raising_budget() {
         drop(set);
         drop(fifo);
     }
+    // Repeated removals leave tombstones; length alone does not bound capacity by 76 B/key.
+    // Measure a set alone (as side/protect membership) without a FIFO in its allocation window.
+    for n in [1025usize, 1793, 2049, 3585, 8193, 9217, 16385] {
+        let base = LIVE.load(Ordering::SeqCst);
+        PEAK.store(base, Ordering::SeqCst);
+        let mut set = HashSet::new();
+        let mut first = 0u64;
+        let mut next = 0u64;
+        for _ in 0..200 {
+            while set.len() < n {
+                let mut h = [0u8; 32];
+                h[..8].copy_from_slice(&next.to_le_bytes());
+                next += 1;
+                set.insert(h);
+            }
+            while set.len() > n / 2 {
+                let mut h = [0u8; 32];
+                h[..8].copy_from_slice(&first.to_le_bytes());
+                first += 1;
+                assert!(set.remove(&h));
+            }
+        }
+        let peak = PEAK.load(Ordering::SeqCst) - base;
+        let model = pocold::resources::hash32_churn_bytes(n as u128).unwrap();
+        assert!(
+            peak as u128 <= model,
+            "churn n={n} peak={peak} model={model}"
+        );
+        drop(set);
+    }
+    assert_eq!(pocold::resources::hash32_churn_bytes(u128::MAX), None);
     assert!(bound(2048, 2048).unwrap() > bound(2048, 0).unwrap());
 }

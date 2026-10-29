@@ -1,7 +1,11 @@
 {
-  "README.md": "700fed49c9cd54d5cae239a4f338a130c1eb9f1ae2f102d0a60771c35bfdc8c7",
+  "HASHBROWN-SOURCE.json": "591a21d10e73d02d7d7a29eb176b1495cf27439bd7d96728374580fbd80ebdf7",
+  "MAIN-VERIFICATION.json": "319022824b2d380158b7bb2437bcf0000a46591881b690376e744b368ad09582",
+  "README.md": "9999742062eadb8244239d4e1fd39ad21139536215a28e94868a90e034efa488",
   "breakdown.log": "09d037f47f4c60112b585d9ae730a9adc752e1ea167bfe79bdc2acda33f9cc6e",
+  "churn-fix-tests.log": "1283e9c9c5c54674b410c6de1c2edf7ce8b531375e88b0cc742bd2c981d3aeb9",
   "consensus-final.log": "0bfdeb432ddac86ca4a456d91846525fd3b451ef08c12394795c4e9baaebc7cf",
+  "deletion-churn.log": "e588c1c03368053cfa8d9ff0c814b922fdab045bc64fbb625536b04bd76811be",
   "io-fault.log": "d7bf43900822c138bf2032d0afd5f08748e7b491b766cf9f7cdd4205adaac809",
   "network-budget.log": "c81e6deebbaf3748c38430ff07c170e38a43c899a80ad582e47dfb771a6f4aa2",
   "release-initial.log": "4271177515b2806a4d4b5add6884440a1c143ca5a5bbe428a3459b0fb94dc03d"

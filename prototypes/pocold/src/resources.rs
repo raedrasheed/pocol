@@ -303,17 +303,20 @@ pub struct Bound{
 }
 fn add(v:&[u128])->Option<u128>{v.iter().try_fold(0u128,|a,b|a.checked_add(*b))}
 fn mul(a:u128,b:u128)->Option<u128>{a.checked_mul(b)}
-/// Eviction bookkeeping grows to the old FIFO plus an entire retention batch before trimming.
-/// A batch is bounded by side_cap + 2*r_keep protected + r_keep abandoned + one import.
-/// HashSet: <76 bytes/key (power-of-two growth, 7/8 load, control bytes); VecDeque: <64.
-/// Count two complete allocations for each to cover old/new coexistence during growth,
-/// plus control-group/alignment slack. Capacity survives removals. Rust 1.99.1 representation.
-/// This bounds these collections only; it is not proof of the whole A13 model or allocator RSS.
+/// HashSet<[u8;32]> at a high-water live-key count, including tombstone-driven growth.
+/// Rust 1.99.1 vendors hashbrown 0.17.1: reserve_rehash_inner rehashes in place only
+/// at <= half full capacity. Otherwise it may double despite deleted slots. Thus
+/// <32/7 buckets per high-water key, 33 bytes/bucket, rounded to 152 B/key;
+/// allow two whole allocations simultaneously plus control/alignment slack.
+/// Requested allocations, not a proof of allocator RSS or the complete A13 model.
+pub fn hash32_churn_bytes(high:u128)->Option<u128>{add(&[mul(high,304)?,512])}
+/// The old FIFO plus a retention batch coexist before trim. A batch is bounded by
+/// side_cap + 2*r_keep protected + r_keep abandoned + one import. Capacities persist.
+/// VecDeque: <64 B/key retained; allow two allocations during growth, plus slack.
 pub fn eviction_bookkeeping_bytes(side_cap:u128,r_keep:u128)->Option<u128>{
     let high=add(&[chain::EVICTED_MAX as u128,side_cap,mul(3,r_keep)?,1])?;
-    add(&[mul(high,2*(76+64))?,512])
+    add(&[hash32_churn_bytes(high)?,mul(high,128)?,512])
 }
-
 
 /// The bound, or None on arithmetic overflow.
 pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize)->Option<Bound>{
@@ -458,17 +461,15 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // transactions are bounded by its body and by its gas.
     let side_block=add(&[per_block,mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?,u128::from(cp.BODY_MAX),mul(side_txs,per_tx)?,u128::from(caps::LOG_BLOCK_MAX)/32*33])?;
     let side_entries=add(&[limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?])?;
-    let side_entry=per_block.checked_sub(hdr)?.checked_sub(mul(u128::from(cp.E_max),24)?)?.checked_add(2*76+2*32)?;
-    // Protect filtering holds the old/new sets and a Vec simultaneously (152 + 64 B/key).
-    let side_meta=add(&[mul(side_entries,side_entry)?,512])?;let side_full=side_block;
+    let side_entry=per_block.checked_sub(hdr)?.checked_sub(mul(u128::from(cp.E_max),24)?)?.checked_add(304+64)?;
+    // Protect filtering holds old/new sets (including deletion churn) and a Vec.
+    let side_meta=add(&[mul(side_entries,side_entry)?,1024])?;let side_full=side_block;
     let evicted=eviction_bookkeeping_bytes(limits.side_cap as u128,u128::from(limits.r_keep))?;
-    // The chain's side set (`Chain::side`, 2026-10-28; independent review F-C): a hash table of [u8;32] keys, one
-    // control byte each, sized to a power of two at 8/7 of its elements, so up to 2·33·8/7 < 76 B an element just
-    // after it grows; and it never shrinks. Its elements: the side entries, plus the old canonical suffix a reorg
-    // moves in before retain trims it (at most r_keep: a deeper fork is refused).
-    let side_set=mul(add(&[side_entries,u128::from(limits.r_keep)])?,76)?;
+    // Side membership also suffers deletion churn. A reorg inserts its abandoned suffix
+    // before retain trims; include one newly imported entry at that high-water boundary.
+    let side_set=hash32_churn_bytes(add(&[side_entries,u128::from(limits.r_keep),1])?)?;
     let side_blocks=add(&[side_meta,side_full,evicted,side_set])?;
-    items.extend([("side/offloaded side-block metadata (side_cap + 2·r_keep entries)",side_meta),("side/one full block before offload or during restore",side_full),("side/evicted hash set and FIFO (batch high-water and growth overlap)",evicted),("side/the chain's side set (side entries + r_keep, 76 B each)",side_set)]);
+    items.extend([("side/offloaded side-block metadata (side_cap + 2·r_keep entries)",side_meta),("side/one full block before offload or during restore",side_full),("side/evicted hash set and FIFO (batch high-water and growth overlap)",evicted),("side/the chain's side set (churn high-water and growth overlap)",side_set)]);
     // Queues and caches (node.rs, net.rs constants).
     let frame=net::MAX_FRAME as u128;let block=size_of::<Block>() as u128;let l=&limits.net;
     let pool=add(&[node::POOL_MAX_BYTES as u128,mul(node::POOL_MAX_BYTES as u128/MIN_TX_BYTES,32+24+24)?])?;
