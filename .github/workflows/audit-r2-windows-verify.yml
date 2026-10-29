@@ -41,10 +41,10 @@ on:
 permissions:
   contents: read
 
-# One run at a time per PR (or for dispatches); a newer pending run replaces an older pending one.
+# Verify the latest revision per PR/main; superseded runs are cancelled, never counted as PASS.
 concurrency:
   group: audit-r2-windows-verify-${{ github.event.pull_request.number || 'dispatch' }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   windows:
