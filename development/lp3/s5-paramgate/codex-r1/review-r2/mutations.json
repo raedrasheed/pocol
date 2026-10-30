@@ -1,0 +1,86 @@
+[
+  {
+    "name": "remove-first-r26-predicate",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-0",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-1",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-2",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-3",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-4",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-5",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-6",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-7",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-8",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-9",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-10",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-11",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-12",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-13",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-14",
+    "caught": true
+  },
+  {
+    "name": "remove-r26-predicate-15",
+    "caught": true
+  },
+  {
+    "name": "accept-derive-error",
+    "caught": true
+  },
+  {
+    "name": "wrong-lag",
+    "caught": true
+  },
+  {
+    "name": "wrong-ceil",
+    "caught": true
+  },
+  {
+    "name": "per-item-grace",
+    "caught": true
+  }
+]

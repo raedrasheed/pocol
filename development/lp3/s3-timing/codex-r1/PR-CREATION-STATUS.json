@@ -1,0 +1,14 @@
+{
+  "sourceBranch": "codex-lp3-s3-timing",
+  "targetBranch": "work/lp3-consensus-foundation",
+  "implementationCommit": "c7008ae980d2c0a19a6d5c6ef26c61f7b73de346",
+  "pushedEvidenceCommit": "47497e0f42ee3510c8a56cdac44da2c4383ee54d",
+  "attempt": "gh pr create --repo raedrasheed/Proof-of-Collaboration --base work/lp3-consensus-foundation --head codex-lp3-s3-timing --draft --title \"LP3 S3: bounded timing core and exact millisecond deadlines\" --body-file development/lp3/s3-timing/codex-r1/DRAFT-PR-BODY.md",
+  "exitCode": 1,
+  "error": "Post https://api.github.com/graphql: Forbidden",
+  "draftPrCreatedByAgent": false,
+  "comparisonUrl": "https://github.com/raedrasheed/Proof-of-Collaboration/compare/work/lp3-consensus-foundation...codex-lp3-s3-timing?expand=1",
+  "preparedDescription": "DRAFT-PR-BODY.md",
+  "merged": false,
+  "S4Started": false
+}

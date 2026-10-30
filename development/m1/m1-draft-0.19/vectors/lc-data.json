@@ -1,0 +1,74 @@
+{
+  "schema": "pocol-m1-v2-lc-data/0.19",
+  "source": {"file": "reference/validation.md", "lines": [820, 827], "literals": ["A:", "B:", "A':", "1..999", "(1,1024)/(1025,2048)/(2049,3000)", "RefX(a,b)", "H(·)"]},
+  "note": [
+    "Literal fixture values chosen by the author (the source fixes the structure, not the byte values): block hashes, address and data tags.",
+    "Hash format (P-V2-7, proposal): '0x' + code + 8-hex height + 54 zeros; code '5a' below 1000 on every branch (shared prefix 1..999), 'a1' for A, 'b2' for B, 'a3' for A' at 1000 and above.",
+    "Each listed block carries two logs, logIndex 0x0 and 0x1; data = '0x' + tag(2 hex) + logIndex(2 hex). Tag 1 = A, 2 = B, 3 = A'. B and A' keep A's logs at 10, 499 and 500 (tag 1)."
+  ],
+  "hashes": {
+    "ADDR": "0x00000000000000000000000000000000000000c0",
+    "S10": "0x5a0000000a000000000000000000000000000000000000000000000000000000",
+    "S499": "0x5a000001f3000000000000000000000000000000000000000000000000000000",
+    "S500": "0x5a000001f4000000000000000000000000000000000000000000000000000000",
+    "S600": "0x5a00000258000000000000000000000000000000000000000000000000000000",
+    "A1000": "0xa1000003e8000000000000000000000000000000000000000000000000000000",
+    "A1025": "0xa100000401000000000000000000000000000000000000000000000000000000",
+    "A2500": "0xa1000009c4000000000000000000000000000000000000000000000000000000",
+    "A3000": "0xa100000bb8000000000000000000000000000000000000000000000000000000",
+    "B1000": "0xb2000003e8000000000000000000000000000000000000000000000000000000",
+    "B2600": "0xb200000a28000000000000000000000000000000000000000000000000000000",
+    "B3000": "0xb200000bb8000000000000000000000000000000000000000000000000000000",
+    "Ap1000": "0xa3000003e8000000000000000000000000000000000000000000000000000000",
+    "Ap2500": "0xa3000009c4000000000000000000000000000000000000000000000000000000",
+    "Ap3000": "0xa300000bb8000000000000000000000000000000000000000000000000000000"
+  },
+  "hashRuleChecks": [["S10", "A", 10], ["S499", "A", 499], ["S500", "A", 500], ["S600", "A", 600], ["A1000", "A", 1000], ["A1025", "A", 1025],
+                     ["A2500", "A", 2500], ["A3000", "A", 3000], ["B1000", "B", 1000], ["B2600", "B", 2600], ["B3000", "B", 3000],
+                     ["Ap1000", "Ap", 1000], ["Ap2500", "Ap", 2500], ["Ap3000", "Ap", 3000], ["S10", "B", 10], ["S500", "Ap", 500]],
+  "branches": {
+    "A": {"code": "a1", "divergeAt": 1000, "logs": [[10, 1], [499, 1], [500, 1], [1000, 1], [2500, 1]]},
+    "B": {"code": "b2", "divergeAt": 1000, "logs": [[10, 1], [499, 1], [500, 1], [1000, 2], [2600, 2]]},
+    "Ap": {"code": "a3", "divergeAt": 1000, "logs": [[10, 1], [499, 1], [500, 1], [1000, 3], [2500, 3]]}
+  },
+  "head": 3000,
+  "windows": {"A": [8, 0, 2], "B": [8, 0, 2], "Ap": [8, 0, 2]},
+  "refs": {
+    "A": [
+      {"address": "@ADDR", "blockHash": "@S10", "blockNumber": "0xa", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S10", "blockNumber": "0xa", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S499", "blockNumber": "0x1f3", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S499", "blockNumber": "0x1f3", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S500", "blockNumber": "0x1f4", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S500", "blockNumber": "0x1f4", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@A1000", "blockNumber": "0x3e8", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@A1000", "blockNumber": "0x3e8", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@A2500", "blockNumber": "0x9c4", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@A2500", "blockNumber": "0x9c4", "data": "0x0101", "logIndex": "0x1", "topics": []}
+    ],
+    "B": [
+      {"address": "@ADDR", "blockHash": "@S10", "blockNumber": "0xa", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S10", "blockNumber": "0xa", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S499", "blockNumber": "0x1f3", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S499", "blockNumber": "0x1f3", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S500", "blockNumber": "0x1f4", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S500", "blockNumber": "0x1f4", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@B1000", "blockNumber": "0x3e8", "data": "0x0200", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@B1000", "blockNumber": "0x3e8", "data": "0x0201", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@B2600", "blockNumber": "0xa28", "data": "0x0200", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@B2600", "blockNumber": "0xa28", "data": "0x0201", "logIndex": "0x1", "topics": []}
+    ],
+    "Ap": [
+      {"address": "@ADDR", "blockHash": "@S10", "blockNumber": "0xa", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S10", "blockNumber": "0xa", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S499", "blockNumber": "0x1f3", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S499", "blockNumber": "0x1f3", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S500", "blockNumber": "0x1f4", "data": "0x0100", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@S500", "blockNumber": "0x1f4", "data": "0x0101", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@Ap1000", "blockNumber": "0x3e8", "data": "0x0300", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@Ap1000", "blockNumber": "0x3e8", "data": "0x0301", "logIndex": "0x1", "topics": []},
+      {"address": "@ADDR", "blockHash": "@Ap2500", "blockNumber": "0x9c4", "data": "0x0300", "logIndex": "0x0", "topics": []},
+      {"address": "@ADDR", "blockHash": "@Ap2500", "blockNumber": "0x9c4", "data": "0x0301", "logIndex": "0x1", "topics": []}
+    ]
+  }
+}

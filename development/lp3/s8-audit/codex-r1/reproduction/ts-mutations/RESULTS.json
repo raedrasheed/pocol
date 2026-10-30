@@ -1,0 +1,74 @@
+[
+  {
+    "name": "truncate-negative",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "wrong-polynomial",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "biased-sample",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "include-parent-weight",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "exclusive-membership",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "partition-gap",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "allow-reserved",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "late-deadline-equality",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "allow-timestamp-limit",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "skip-final-counter",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "schema-ignore-width",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  },
+  {
+    "name": "sha3-instead-of-keccak",
+    "typecheckExit": 0,
+    "testExit": 1,
+    "caught": true
+  }
+]

@@ -1,0 +1,24 @@
+{
+  "specVersion": "M1 draft 0.7",
+  "revision": "R7-04 (R2/R3: MR10, BR20d pools)",
+  "model": "tools/recvguard_ref.Pools on a fake clock. Reservations are recvLimit values (FD:L3302): eth_call 1 MiB, eth_blockNumber 4096, pocol_getLogs 8 MiB, eth_getBlockByNumber (H) 167936, pocol_getHeaders 98304, eth_getCode 69632. Steps: [t, 'reserve', req, pool, session, bytes] | [t, 'release', req] | [t, 'advance'].",
+  "cases": [
+    {"id": "MR10a",
+     "steps": [[0, "reserveMany", "a", "site", "S1", 1048576, 10], [0, "reserve", "a11", "site", "S1", 1048576], [2000, "advance"], [2100, "reserve", "a12", "site", "S1", 1048576], [2500, "release", "a1"]],
+     "expected": {"S1bytesAt0": 10485760, "a11": {"busyAt": 2000}, "a12": {"grantedAt": 2500}}},
+    {"id": "MR10b",
+     "steps": [[0, "reserveMany", "s1_", "site", "S1", 1048576, 10], [0, "reserveMany", "s2_", "site", "S2", 1048576, 10], [0, "reserveMany", "s3_", "site", "S3", 1048576, 10], [0, "reserveMany", "s4_", "site", "S4", 1048576, 2], [0, "reserve", "s4_3", "site", "S4", 1048576], [100, "reserve", "hdr", "trust", "-", 98304], [100, "reserve", "chunk", "content", "-", 69632], [2000, "advance"]],
+     "expected": {"siteUsed": 33554432, "s4_3": {"busyAt": 2000}, "hdr": {"grantedAt": 100}, "chunk": {"grantedAt": 100}}},
+    {"id": "MR10c",
+     "steps": [[0, "reserveSessions", "b", "site", 12, 4, 4096], [0, "reserve", "b49", "site", "S13", 4096], [0, "reserve", "trust1", "trust", "-", 98304], [2000, "advance"]],
+     "expected": {"inflightAt0": 48, "b49": {"busyAt": 2000}, "trust1": {"grantedAt": 0}}},
+    {"id": "MR10f",
+     "steps": [[0, "reserve", "H_latest", "site", "S", 167936], [0, "release", "H_latest"], [0, "reserve", "logs", "site", "S", 8388608], [10, "reserve", "m2", "site", "S", 1048576], [20, "reserve", "m3", "site", "S", 1048576], [30, "reserve", "m4", "site", "S", 1048576], [2030, "advance"], [2100, "release", "logs"], [2100, "reserve", "H16", "site", "S", 167936], [2100, "release", "H16"], [2200, "reserve", "m5", "site", "S", 1048576]],
+     "expected": {"sessionAt20": 10485760, "m4": {"busyAt": 2030}, "sessionAt2100": 2097152, "m5": {"grantedAt": 2200}, "sessionAt2200": 3145728},
+     "pendingTrace": "pending 1 (t=0), 2 (t=10), 3 (t=20), 4 then 3 after the busy reply (t=30, t=2030), 2 after the logs commit (t=2100); see the D99 session model for the pending counter"},
+    {"id": "BR20d",
+     "steps": [[0, "reserveForwarded", "e", "site", 5, 4, 1048576, 16], [0, "reserve", "trust6", "trust", "-", 98304]],
+     "expected": {"forwarded": 16, "pendingRejected": 4, "siteUsed": 16777216, "trust6": {"grantedAt": 0}},
+     "note": "5 tabs (5 sessions) x 4 held eth_call: the global pending cap 16 forwards 16; the 4 others get -32005 {pending} before any reservation"}
+  ]
+}

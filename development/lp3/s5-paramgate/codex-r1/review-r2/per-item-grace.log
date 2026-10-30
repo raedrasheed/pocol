@@ -1,0 +1,26 @@
+
+running 5 tests
+test checked_overflow_and_repeating_rationals_never_authorize ... ok
+test all_named_pg_rpc_rejections_and_405_acceptance ... FAILED
+test each_r26_predicate_has_an_isolated_negative_control ... ok
+test pg_l_and_end_registry_derivations ... ok
+test exact_default_rpc_derivations ... FAILED
+
+failures:
+
+---- all_named_pg_rpc_rejections_and_405_acceptance stdout ----
+thread 'all_named_pg_rpc_rejections_and_405_acceptance' panicked at 'assertion failed: r.satisfies_r26()', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs:63:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- exact_default_rpc_derivations stdout ----
+thread 'exact_default_rpc_derivations' panicked at 'assertion failed: `(left == right)`
+  left: `Some("296.0791015625")`,
+ right: `Some("258.0791015625")`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs:27:5
+
+
+failures:
+    all_named_pg_rpc_rejections_and_405_acceptance
+    exact_default_rpc_derivations
+
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,107 @@
+{
+ "head": "ad714843c58dbee7c24d9eff80ceac8c5b955cfd",
+ "ran": "2026-10-23T12:18:10Z",
+ "caught": 7,
+ "total": 7,
+ "note": "CAUGHT = control passed and the mutant FAILED; a TIMEOUT (control or mutant) is recorded as incomplete, never as a pass or a catch",
+ "results": [
+  {
+   "id": "RGM1-PACER",
+   "test": "send_pacer_closes_a_slow_reader_after_grace",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the SendPacer close rule is disabled (a slow reader is never closed)",
+   "control": "OK",
+   "controlSec": 1.8,
+   "mutant": "FAILED",
+   "mutantSec": 20.1,
+   "mutantPanic": "the pacer closed the non-reading client",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM2-RATE",
+   "test": "rate_bucket_limits_a_source_then_refills",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the per-source token bucket charges 0 tokens (never rate-limits)",
+   "control": "OK",
+   "controlSec": 17.2,
+   "mutant": "FAILED",
+   "mutantSec": 15.4,
+   "mutantPanic": "a burst over the bucket is rate-limited: ok 25, rate 0",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM3-HEAVYQUEUE",
+   "test": "heavy_queue_overflow_answers_busy_with_retry_after",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the HEAVY_QUEUE cap is removed (no busy on overflow)",
+   "control": "OK",
+   "controlSec": 16.5,
+   "mutant": "FAILED",
+   "mutantSec": 24.6,
+   "mutantPanic": "a full heavy queue answers -32021 busy: [Object {\"error\": Object {\"code\": Number(-32000), \"message\": String(\"halt OutOfGas(Basic)\")}, \"id\": Number(1), \"jsonrpc\": String(\"2.0\")}, Object {\"error\": Object {\"code\": Number(-32000), \"message\": String(\"halt OutOfGas(Basic)\")}, \"id\": Number(1), \"jsonrpc\": S",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM4-LIGHTDL",
+   "test": "light_compute_deadline_fires",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the COMPUTE_DEADLINE check at handler entry is disabled (light deadline never fires)",
+   "control": "OK",
+   "controlSec": 26.8,
+   "mutant": "FAILED",
+   "mutantSec": 15.5,
+   "mutantPanic": "assertion `left == right` failed: the light deadline fires: {\"id\":2,\"jsonrpc\":\"2.0\",\"result\":\"0x0\"}",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM5-HEAVYDL",
+   "test": "heavy_compute_deadline_cancels_eth_call",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the eth_call simulation stop hook never fires (heavy COMPUTE_DEADLINE not enforced)",
+   "control": "OK",
+   "controlSec": 16.4,
+   "mutant": "FAILED",
+   "mutantSec": 16.5,
+   "mutantPanic": "assertion `left == right` failed: eth_call past COMPUTE_HEAVY is -32020: {\"error\":{\"code\":-32000,\"message\":\"halt OutOfGas(Basic)\"},\"id\":1,\"jsonrpc\":\"2.0\"}",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM6-SCRATCH",
+   "test": "get_logs_scratch_limit_is_32020_scratch_with_resume_data",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "the eth_getLogs SCRATCH budget is not enforced (no -32020 scratch)",
+   "control": "OK",
+   "controlSec": 16.5,
+   "mutant": "FAILED",
+   "mutantSec": 16.7,
+   "mutantPanic": "assertion `left == right` failed: {\"id\":7,\"jsonrpc\":\"2.0\",\"result\":[{\"address\":\"0x9a1849067c9c0d25d5551c46adc41b1b3a1501f3\",\"blockHash\":\"0x5388a7ea5434b9f46d7c0f1f657e6b157eb18ef5c1665d4a89e7fb236e321640\",\"blockNumber\":\"0x1\",\"data\":\"0x\",\"logIndex\":\"0x0\",\"removed\":false,\"topics\":[],\"transactionHash\":",
+   "result": "CAUGHT"
+  },
+  {
+   "id": "RGM7-PARAMS",
+   "test": "get_params_and_rpc_stats_report_the_limits",
+   "files": [
+    "prototypes/pocold/src/rpc.rs"
+   ],
+   "note": "pocol_getParams.rpcLimits reports a wrong connMax (the stat is not the running value)",
+   "control": "OK",
+   "controlSec": 16.0,
+   "mutant": "FAILED",
+   "mutantSec": 16.1,
+   "mutantPanic": "assertion `left == right` failed",
+   "result": "CAUGHT"
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+# d7-run-loop: (cd prototypes/pocold; cargo test --release --locked --offline --test consensus -- --nocapture pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import pool_counters)
+# start 2026-10-25T12:43:10Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.17s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7-target/release/deps/consensus-eb5303187dead8f9)
+
+running 2 tests
+D7-AUDIT admitted 31 refusedForGas 41 relayedInBacklog 2 heads 12 reorgs 13
+test the_pool_counters_equal_the_contents_through_admission_revalidation_and_reorgs ... ok
+D7-RUN maxTxMs 189 secondBlockAndAnswerMs 736
+test pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 84 filtered out; finished in 2.58s
+
+# end 2026-10-25T12:43:13Z exit=0

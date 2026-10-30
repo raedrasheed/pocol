@@ -1,0 +1,976 @@
+{
+  "node": "v22.13.1",
+  "libraries": [
+    {
+      "name": "@noble/hashes",
+      "version": "2.4.0",
+      "loadedSourceSha256": "9a81e1edb24eae27b335533220167609cfb58008c5690e140ce478acdc669f32"
+    },
+    {
+      "name": "js-sha3",
+      "version": "0.13.0",
+      "loadedSourceSha256": "866682ecaf939bf0210c2100a2b7096d996c6c06c9cc7db5b84dc0531bf40368"
+    }
+  ],
+  "pythonLibrary": "m1-draft-0.2/tools/keccak.py via the executed reference export",
+  "checks": 56,
+  "passed": 56,
+  "failed": 0,
+  "results": [
+    {
+      "id": "abi.selector:AlreadyCurrent(uint32)",
+      "bytes": 22,
+      "inputSha256": "27ad7162a5d41ab2a107c02380fc1b4f6fdafc39b89212aab74f41b56956a6fb",
+      "pythonKeccak": "91d03d8de2b0ff25f7ad0ff4f4ab0e240732eb4e1c7fb6d4821c8f0d1ab85170",
+      "nobleKeccak": "91d03d8de2b0ff25f7ad0ff4f4ab0e240732eb4e1c7fb6d4821c8f0d1ab85170",
+      "jsSha3Keccak": "91d03d8de2b0ff25f7ad0ff4f4ab0e240732eb4e1c7fb6d4821c8f0d1ab85170",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ChunkArrays(uint256,uint256)",
+      "bytes": 28,
+      "inputSha256": "5af667f51b35588c55a1606ab5efcc6904dc17149d12023dcc708c53f3fcf26e",
+      "pythonKeccak": "9c489de5c082ddd943f6109e4865b61b49f8c7148451799aac7db1debf94cd8a",
+      "nobleKeccak": "9c489de5c082ddd943f6109e4865b61b49f8c7148451799aac7db1debf94cd8a",
+      "jsSha3Keccak": "9c489de5c082ddd943f6109e4865b61b49f8c7148451799aac7db1debf94cd8a",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ChunkCreateFailed()",
+      "bytes": 19,
+      "inputSha256": "15ba44e39fe910a44e5588b664ae4adee15e7e387fba8d479d60afe293cc490b",
+      "pythonKeccak": "48c2f2c1272864cc1d73ca0b101c28ead0198f43144b868c0bb1add8689e09f9",
+      "nobleKeccak": "48c2f2c1272864cc1d73ca0b101c28ead0198f43144b868c0bb1add8689e09f9",
+      "jsSha3Keccak": "48c2f2c1272864cc1d73ca0b101c28ead0198f43144b868c0bb1add8689e09f9",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ChunkLength(uint256)",
+      "bytes": 20,
+      "inputSha256": "7cd1bcd6a70c18c98315097bde91318e9aaf3b7352045e6bbbec5109cbe15562",
+      "pythonKeccak": "980b4b67ace0ad05b04e826ab877cee93ec2598fc3fb82ab245bf5b7e1612221",
+      "nobleKeccak": "980b4b67ace0ad05b04e826ab877cee93ec2598fc3fb82ab245bf5b7e1612221",
+      "jsSha3Keccak": "980b4b67ace0ad05b04e826ab877cee93ec2598fc3fb82ab245bf5b7e1612221",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ChunkMismatch(address)",
+      "bytes": 22,
+      "inputSha256": "5391a580a99e9b3f095e5489ff05509bfb7c37a3be152d3d8dc899aa4b125ee1",
+      "pythonKeccak": "8f3188686067763ccdae35b250ba10fef9b361e45f44d797e4ee6a4ec888af9c",
+      "nobleKeccak": "8f3188686067763ccdae35b250ba10fef9b361e45f44d797e4ee6a4ec888af9c",
+      "jsSha3Keccak": "8f3188686067763ccdae35b250ba10fef9b361e45f44d797e4ee6a4ec888af9c",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:CurrentVersion(uint32)",
+      "bytes": 22,
+      "inputSha256": "8a4a101ac7c95ffe524276265f212dba11226ee094350a95516a96232644d10e",
+      "pythonKeccak": "3561d917165b9c458cfb9f51891b44461971ac914ec765961464ca4e5dfe41e8",
+      "nobleKeccak": "3561d917165b9c458cfb9f51891b44461971ac914ec765961464ca4e5dfe41e8",
+      "jsSha3Keccak": "3561d917165b9c458cfb9f51891b44461971ac914ec765961464ca4e5dfe41e8",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:InvalidCandidate(address)",
+      "bytes": 25,
+      "inputSha256": "65a019521bc38b96ec01301fc140e253b8603a7aaf76067c5f91986092cdfdd8",
+      "pythonKeccak": "8b0cbd13be12481740a1f4765310e184a3d7bffe2c4d74a384d42823f4784a10",
+      "nobleKeccak": "8b0cbd13be12481740a1f4765310e184a3d7bffe2c4d74a384d42823f4784a10",
+      "jsSha3Keccak": "8b0cbd13be12481740a1f4765310e184a3d7bffe2c4d74a384d42823f4784a10",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ManifestChunkInvalid(uint256)",
+      "bytes": 29,
+      "inputSha256": "bccbf83d2a88f7aab473a232f185b775303df2c62a224f3fdf8806fdad977525",
+      "pythonKeccak": "f1f135b53c275020465129153b2124cb1f674b3971f6185c4639d3c3aa767d04",
+      "nobleKeccak": "f1f135b53c275020465129153b2124cb1f674b3971f6185c4639d3c3aa767d04",
+      "jsSha3Keccak": "f1f135b53c275020465129153b2124cb1f674b3971f6185c4639d3c3aa767d04",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ManifestHashMismatch()",
+      "bytes": 22,
+      "inputSha256": "df2a41520603b2fe5bf375dea66d731f4665f7984d97e605ca576b6b4860dffd",
+      "pythonKeccak": "868ff181eb29fa5d01ee62a3795e4871a0fece5ab504ad8fce4712b3bba8bf31",
+      "nobleKeccak": "868ff181eb29fa5d01ee62a3795e4871a0fece5ab504ad8fce4712b3bba8bf31",
+      "jsSha3Keccak": "868ff181eb29fa5d01ee62a3795e4871a0fece5ab504ad8fce4712b3bba8bf31",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ManifestLength(uint32)",
+      "bytes": 22,
+      "inputSha256": "d204f815190ca34f96c047abd970abece26390ae338fdba6760cb86f8ffc90e2",
+      "pythonKeccak": "42e182f2a7ec78e0fa8220a7af51dbebdc1ca056a225b188b5fab334410550ff",
+      "nobleKeccak": "42e182f2a7ec78e0fa8220a7af51dbebdc1ca056a225b188b5fab334410550ff",
+      "jsSha3Keccak": "42e182f2a7ec78e0fa8220a7af51dbebdc1ca056a225b188b5fab334410550ff",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ManifestSplit(uint256)",
+      "bytes": 22,
+      "inputSha256": "86ef3685b502d63887cc39776db01b45b79432726f7184c1b54fa43637f5d453",
+      "pythonKeccak": "00263015628b7a9f9afa47ed74a720121abec1abeca4d6be575bd328f47e6249",
+      "nobleKeccak": "00263015628b7a9f9afa47ed74a720121abec1abeca4d6be575bd328f47e6249",
+      "jsSha3Keccak": "00263015628b7a9f9afa47ed74a720121abec1abeca4d6be575bd328f47e6249",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:NotOwner(address)",
+      "bytes": 17,
+      "inputSha256": "021fa336a6af7434171aa72c9e858d82f319215caadf272bd501d82e2799aef9",
+      "pythonKeccak": "245aecd3fabbd17d6c3c92dc7f0ab916ea8cbf6fc1862c8b56893090ac3fff4c",
+      "nobleKeccak": "245aecd3fabbd17d6c3c92dc7f0ab916ea8cbf6fc1862c8b56893090ac3fff4c",
+      "jsSha3Keccak": "245aecd3fabbd17d6c3c92dc7f0ab916ea8cbf6fc1862c8b56893090ac3fff4c",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:NotPendingOwner(address)",
+      "bytes": 24,
+      "inputSha256": "603390d24117d2559a6e5751cdecfcd5537c4bc6f35d73c8225b0334b2aa7b3d",
+      "pythonKeccak": "a09b9a43f5079ab76282436418880308d29eac5d371578b36d8ee3ff8e88597d",
+      "nobleKeccak": "a09b9a43f5079ab76282436418880308d29eac5d371578b36d8ee3ff8e88597d",
+      "jsSha3Keccak": "a09b9a43f5079ab76282436418880308d29eac5d371578b36d8ee3ff8e88597d",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:NotPublisher(address)",
+      "bytes": 21,
+      "inputSha256": "f159ce6f77427ae8a03288b0b48195b507d6fab582eb293e900b0608e1ee30dd",
+      "pythonKeccak": "e35593b591a96c80d7334157deded924b1ef3d6ded54f820934a20912d1a9d8e",
+      "nobleKeccak": "e35593b591a96c80d7334157deded924b1ef3d6ded54f820934a20912d1a9d8e",
+      "jsSha3Keccak": "e35593b591a96c80d7334157deded924b1ef3d6ded54f820934a20912d1a9d8e",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:PublisherLimit()",
+      "bytes": 16,
+      "inputSha256": "02f617be594f3f13b4f65dfec17c6bdbdc19fd090dafd8758f08e566ead3899d",
+      "pythonKeccak": "9728c86b4e404627b50872b019aee04940b1a8727272e80b33040411c0c90986",
+      "nobleKeccak": "9728c86b4e404627b50872b019aee04940b1a8727272e80b33040411c0c90986",
+      "jsSha3Keccak": "9728c86b4e404627b50872b019aee04940b1a8727272e80b33040411c0c90986",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:UnknownVersion(uint32)",
+      "bytes": 22,
+      "inputSha256": "43409ed23a6f08634f61c4a17cc89a80422ccd4f66e4624baaa1caf9f05bfe00",
+      "pythonKeccak": "75f524a811d72e3a9b1eaf096c4f305d3783a72a77018eb9eff511cb5c6cb089",
+      "nobleKeccak": "75f524a811d72e3a9b1eaf096c4f305d3783a72a77018eb9eff511cb5c6cb089",
+      "jsSha3Keccak": "75f524a811d72e3a9b1eaf096c4f305d3783a72a77018eb9eff511cb5c6cb089",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:VersionLimit()",
+      "bytes": 14,
+      "inputSha256": "89ef7deffb5882ab24e61409f8119cb39f48287db3227fbf4245d742b6157acb",
+      "pythonKeccak": "b956a42f24d32a98683ff9786ed7521ee87e338a311a1013038f0cb7714b0f36",
+      "nobleKeccak": "b956a42f24d32a98683ff9786ed7521ee87e338a311a1013038f0cb7714b0f36",
+      "jsSha3Keccak": "b956a42f24d32a98683ff9786ed7521ee87e338a311a1013038f0cb7714b0f36",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:WrongStatus(uint32,uint8)",
+      "bytes": 25,
+      "inputSha256": "47fedcce29054eb39b4bdb2229d2568df1babd788866f8c1be97dbc5aaca6a5c",
+      "pythonKeccak": "c5b2d764bc1584b455613514e174b04532c294bad41c1e7c5f9fe5c36768a41a",
+      "nobleKeccak": "c5b2d764bc1584b455613514e174b04532c294bad41c1e7c5f9fe5c36768a41a",
+      "jsSha3Keccak": "c5b2d764bc1584b455613514e174b04532c294bad41c1e7c5f9fe5c36768a41a",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ZeroAddress()",
+      "bytes": 13,
+      "inputSha256": "849bce01be435c034eeb787a4b684886722a758ba234ed9eebd28b937417ffc5",
+      "pythonKeccak": "d92e233df2717d4a40030e20904abd27b68fcbeede117eaaccbbdac9618c8c73",
+      "nobleKeccak": "d92e233df2717d4a40030e20904abd27b68fcbeede117eaaccbbdac9618c8c73",
+      "jsSha3Keccak": "d92e233df2717d4a40030e20904abd27b68fcbeede117eaaccbbdac9618c8c73",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:acceptOwnership()",
+      "bytes": 17,
+      "inputSha256": "3509f08061fdf677859712af4ef66617da74fb394c0888fe7b40f3b622b57de6",
+      "pythonKeccak": "79ba5097e5519a381a52113cdcc59540d13f73fd9d26abc0453484a096cc96f2",
+      "nobleKeccak": "79ba5097e5519a381a52113cdcc59540d13f73fd9d26abc0453484a096cc96f2",
+      "jsSha3Keccak": "79ba5097e5519a381a52113cdcc59540d13f73fd9d26abc0453484a096cc96f2",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:createVersion(bytes32,uint32,address[],uint32[])",
+      "bytes": 48,
+      "inputSha256": "b2e89509339a65576882c77044157cddb927ae483dffac9816988013754828f7",
+      "pythonKeccak": "f6bd67335b344097a626ebd6c3f132fe0f2a97f265bd9abc63528678aea82b36",
+      "nobleKeccak": "f6bd67335b344097a626ebd6c3f132fe0f2a97f265bd9abc63528678aea82b36",
+      "jsSha3Keccak": "f6bd67335b344097a626ebd6c3f132fe0f2a97f265bd9abc63528678aea82b36",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:currentVersion()",
+      "bytes": 16,
+      "inputSha256": "bb1fe4d8470fcdb4ad4093072085da9eb0f35998df4c789a6b801a6eac4d9532",
+      "pythonKeccak": "9d888e869f13ec46ffaa757e4dc49aa9bd808e1554718c84bab9578a69491261",
+      "nobleKeccak": "9d888e869f13ec46ffaa757e4dc49aa9bd808e1554718c84bab9578a69491261",
+      "jsSha3Keccak": "9d888e869f13ec46ffaa757e4dc49aa9bd808e1554718c84bab9578a69491261",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:getVersion(uint32)",
+      "bytes": 18,
+      "inputSha256": "02d17f4d63c3be116c1877c0194d8a1eb9fa4685bffe75bbf0343b4e03ded4be",
+      "pythonKeccak": "fd34500307e2b4fa6c32678940d4b07c86c2103b353ec1646556807407069fba",
+      "nobleKeccak": "fd34500307e2b4fa6c32678940d4b07c86c2103b353ec1646556807407069fba",
+      "jsSha3Keccak": "fd34500307e2b4fa6c32678940d4b07c86c2103b353ec1646556807407069fba",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:isPublisher(address)",
+      "bytes": 20,
+      "inputSha256": "f77c146c11c2408030393ffd09e8b1ec6443cb6516453c27defd891f14bd9789",
+      "pythonKeccak": "41859ac8d27322d8daa6bdcf6e58342ad6c12a46fd1b0ef3ee2811fe59c2df83",
+      "nobleKeccak": "41859ac8d27322d8daa6bdcf6e58342ad6c12a46fd1b0ef3ee2811fe59c2df83",
+      "jsSha3Keccak": "41859ac8d27322d8daa6bdcf6e58342ad6c12a46fd1b0ef3ee2811fe59c2df83",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:owner()",
+      "bytes": 7,
+      "inputSha256": "3fc2bcdd34c497a64454ecb96a7a82e2a50db372f82f104d85cb3092407d99ca",
+      "pythonKeccak": "8da5cb5b36e7f68c1d2e56001220cdbdd3ba2616072f718acfda4a06441a807d",
+      "nobleKeccak": "8da5cb5b36e7f68c1d2e56001220cdbdd3ba2616072f718acfda4a06441a807d",
+      "jsSha3Keccak": "8da5cb5b36e7f68c1d2e56001220cdbdd3ba2616072f718acfda4a06441a807d",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:pendingOwner()",
+      "bytes": 14,
+      "inputSha256": "4f995f0807b59922ff9808b23360dd75745d1c2968560933c1bc90644c98ebaf",
+      "pythonKeccak": "e30c3978ddd82956a01b5cb08d17f1a2d73e636aeefb7b36f896e41d4c2aab90",
+      "nobleKeccak": "e30c3978ddd82956a01b5cb08d17f1a2d73e636aeefb7b36f896e41d4c2aab90",
+      "jsSha3Keccak": "e30c3978ddd82956a01b5cb08d17f1a2d73e636aeefb7b36f896e41d4c2aab90",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:predict(bytes)",
+      "bytes": 14,
+      "inputSha256": "276fa81dce96f9bcf5f06d9fdb07e619ab43626869a731e50b15b9cc3cdc8e77",
+      "pythonKeccak": "a64139fadad526efbeff624aa31821424fed91306a5303414c6774e26f0a001a",
+      "nobleKeccak": "a64139fadad526efbeff624aa31821424fed91306a5303414c6774e26f0a001a",
+      "jsSha3Keccak": "a64139fadad526efbeff624aa31821424fed91306a5303414c6774e26f0a001a",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:publish(uint32)",
+      "bytes": 15,
+      "inputSha256": "d1611879ccad42db72e2979d8da2c4d94f420cf0b188ad54f213ee6880124ed8",
+      "pythonKeccak": "23ab50ac8208cbb4ebd0fb6cb1834035997dfba114fafae1382cb8a713678bfc",
+      "nobleKeccak": "23ab50ac8208cbb4ebd0fb6cb1834035997dfba114fafae1382cb8a713678bfc",
+      "jsSha3Keccak": "23ab50ac8208cbb4ebd0fb6cb1834035997dfba114fafae1382cb8a713678bfc",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:publisherCount()",
+      "bytes": 16,
+      "inputSha256": "77897e9939259aa678e3ede020e9c17d6bfcdbcd53267b90e14a90e828797336",
+      "pythonKeccak": "f5eed98d1bafd07d9b6ae7ac12726c6d3269361f9b079180baf168024f2548c6",
+      "nobleKeccak": "f5eed98d1bafd07d9b6ae7ac12726c6d3269361f9b079180baf168024f2548c6",
+      "jsSha3Keccak": "f5eed98d1bafd07d9b6ae7ac12726c6d3269361f9b079180baf168024f2548c6",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:revoke(uint32)",
+      "bytes": 14,
+      "inputSha256": "e9f895d665341c6930ca68f3dd0a938d6568aeef361d80f8e1b0f9a918bf9e33",
+      "pythonKeccak": "5fce1927cc5d0d6b9133b03b6f535725c615479b889557fcbc27e343f7a8d8e4",
+      "nobleKeccak": "5fce1927cc5d0d6b9133b03b6f535725c615479b889557fcbc27e343f7a8d8e4",
+      "jsSha3Keccak": "5fce1927cc5d0d6b9133b03b6f535725c615479b889557fcbc27e343f7a8d8e4",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:setCurrent(uint32)",
+      "bytes": 18,
+      "inputSha256": "9beeb5669a145f552a4ace160584e184b54f2417999dd67b0e4c1b0fc9fa95ad",
+      "pythonKeccak": "0770237019041ba62dbdd60215e2ca3eddfbeb725c85e3f9ae85f975e037260c",
+      "nobleKeccak": "0770237019041ba62dbdd60215e2ca3eddfbeb725c85e3f9ae85f975e037260c",
+      "jsSha3Keccak": "0770237019041ba62dbdd60215e2ca3eddfbeb725c85e3f9ae85f975e037260c",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:setPublisher(address,bool)",
+      "bytes": 26,
+      "inputSha256": "cca6bd71f6488404965bd3653a5bc6be191712e12553a79e6e2751d2d48d43cf",
+      "pythonKeccak": "618bb0790aa7298aa6bf739ec10f9df05fcbe3977377f3b8183362180653c314",
+      "nobleKeccak": "618bb0790aa7298aa6bf739ec10f9df05fcbe3977377f3b8183362180653c314",
+      "jsSha3Keccak": "618bb0790aa7298aa6bf739ec10f9df05fcbe3977377f3b8183362180653c314",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:store(bytes)",
+      "bytes": 12,
+      "inputSha256": "75ebe5f6c4c30345a3fcec23faeaa76c5a45cc98a8c1376fb856b15773acea63",
+      "pythonKeccak": "b374012b076c461e5acaa20eaeac6a2b8544a7520f47510081ac122a14018b78",
+      "nobleKeccak": "b374012b076c461e5acaa20eaeac6a2b8544a7520f47510081ac122a14018b78",
+      "jsSha3Keccak": "b374012b076c461e5acaa20eaeac6a2b8544a7520f47510081ac122a14018b78",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:transferOwnership(address)",
+      "bytes": 26,
+      "inputSha256": "f1dcac998d1fe8befd9096bae111ce2008d05d92b426f0977e9d1b972a961dee",
+      "pythonKeccak": "f2fde38b092330466c661fc723d5289b90272a3e580e3187d1d7ef788506c557",
+      "nobleKeccak": "f2fde38b092330466c661fc723d5289b90272a3e580e3187d1d7ef788506c557",
+      "jsSha3Keccak": "f2fde38b092330466c661fc723d5289b90272a3e580e3187d1d7ef788506c557",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.selector:versionCount()",
+      "bytes": 14,
+      "inputSha256": "56231e4acfc6494db6896a9ab16f0796a90caeea78a538f005a8a253796ffb2c",
+      "pythonKeccak": "8aad29e1eb7c54d177f8efc06e2b907840fea335f843ad67ea88192c5bd4cac5",
+      "nobleKeccak": "8aad29e1eb7c54d177f8efc06e2b907840fea335f843ad67ea88192c5bd4cac5",
+      "jsSha3Keccak": "8aad29e1eb7c54d177f8efc06e2b907840fea335f843ad67ea88192c5bd4cac5",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:CurrentVersionChanged(uint32,uint32)",
+      "bytes": 36,
+      "inputSha256": "2d1654d6bc81671c211b24e93c40344174b4577cc9b588cb897cee118b529f75",
+      "pythonKeccak": "f4117cd6e20520aeec7322fff36c361a330c8691546ff426c68efab6b5e0b063",
+      "nobleKeccak": "f4117cd6e20520aeec7322fff36c361a330c8691546ff426c68efab6b5e0b063",
+      "jsSha3Keccak": "f4117cd6e20520aeec7322fff36c361a330c8691546ff426c68efab6b5e0b063",
+      "knownExpected": "f4117cd6e20520aeec7322fff36c361a330c8691546ff426c68efab6b5e0b063",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:OwnershipNominated(address,address)",
+      "bytes": 35,
+      "inputSha256": "1c7af6fa26c8f257b48dc21f4a5d39164958ff0b57a5f6bf6853d4ab9c5797af",
+      "pythonKeccak": "7cbe00258cd5670c808f2116fb86564f7f5717eef219817bc486add91c9ab7ca",
+      "nobleKeccak": "7cbe00258cd5670c808f2116fb86564f7f5717eef219817bc486add91c9ab7ca",
+      "jsSha3Keccak": "7cbe00258cd5670c808f2116fb86564f7f5717eef219817bc486add91c9ab7ca",
+      "knownExpected": "7cbe00258cd5670c808f2116fb86564f7f5717eef219817bc486add91c9ab7ca",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:OwnershipTransferred(address,address)",
+      "bytes": 37,
+      "inputSha256": "c89b26e80b1ac3d51e429823d294406d4275da0c3919ff11a68cae1d35ca00e2",
+      "pythonKeccak": "8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+      "nobleKeccak": "8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+      "jsSha3Keccak": "8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+      "knownExpected": "8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:PublisherChanged(address,bool)",
+      "bytes": 30,
+      "inputSha256": "499c8559106669646c5607a0b373b2d8eed1a7e25a9a84d3a9e6c8310aad0d03",
+      "pythonKeccak": "3e8beca81633826a4b42c86c076bd6c23bda8c202f3b46d0268b1dd497412c01",
+      "nobleKeccak": "3e8beca81633826a4b42c86c076bd6c23bda8c202f3b46d0268b1dd497412c01",
+      "jsSha3Keccak": "3e8beca81633826a4b42c86c076bd6c23bda8c202f3b46d0268b1dd497412c01",
+      "knownExpected": "3e8beca81633826a4b42c86c076bd6c23bda8c202f3b46d0268b1dd497412c01",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:VersionCreated(uint32,address,bytes32,uint32)",
+      "bytes": 45,
+      "inputSha256": "1d8b7cded054e51c904006cb35ef848a2e96573964524ffce8c170d7b446c6f6",
+      "pythonKeccak": "3ebab631a8d503a4aaa77b85e772f1dbba081398d7ffbbd416d95e72c090b949",
+      "nobleKeccak": "3ebab631a8d503a4aaa77b85e772f1dbba081398d7ffbbd416d95e72c090b949",
+      "jsSha3Keccak": "3ebab631a8d503a4aaa77b85e772f1dbba081398d7ffbbd416d95e72c090b949",
+      "knownExpected": "3ebab631a8d503a4aaa77b85e772f1dbba081398d7ffbbd416d95e72c090b949",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:VersionPublished(uint32,uint64)",
+      "bytes": 31,
+      "inputSha256": "9c28de5d2661a4df1048c90031f27b2c91c06362c0bfd0aafb20b5470d146ae3",
+      "pythonKeccak": "002a82bf962724a1bc8735fe5a9606b24497f92fc98713fec64280108d6e35c9",
+      "nobleKeccak": "002a82bf962724a1bc8735fe5a9606b24497f92fc98713fec64280108d6e35c9",
+      "jsSha3Keccak": "002a82bf962724a1bc8735fe5a9606b24497f92fc98713fec64280108d6e35c9",
+      "knownExpected": "002a82bf962724a1bc8735fe5a9606b24497f92fc98713fec64280108d6e35c9",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:VersionRevoked(uint32)",
+      "bytes": 22,
+      "inputSha256": "2d67a2c6321063d332ef2fd6e5525f306755caa4b9b2a5b4d8921724cf6a086a",
+      "pythonKeccak": "1575adace8922f010b33506fc4d0630b8cae56683a367a2f06a960561335ddd6",
+      "nobleKeccak": "1575adace8922f010b33506fc4d0630b8cae56683a367a2f06a960561335ddd6",
+      "jsSha3Keccak": "1575adace8922f010b33506fc4d0630b8cae56683a367a2f06a960561335ddd6",
+      "knownExpected": "1575adace8922f010b33506fc4d0630b8cae56683a367a2f06a960561335ddd6",
+      "pass": true
+    },
+    {
+      "id": "c14.contentHash",
+      "bytes": 5696,
+      "inputSha256": "3c21fe3da3395008bc06404b8770c14c5a0a46e9c2d5c963c9f8a03337db04e2",
+      "pythonKeccak": "2fdc37b7cb1bc0c7d76531ac9fe8a3209d061deb25645d3b0c82c117af54b88b",
+      "nobleKeccak": "2fdc37b7cb1bc0c7d76531ac9fe8a3209d061deb25645d3b0c82c117af54b88b",
+      "jsSha3Keccak": "2fdc37b7cb1bc0c7d76531ac9fe8a3209d061deb25645d3b0c82c117af54b88b",
+      "knownExpected": "2fdc37b7cb1bc0c7d76531ac9fe8a3209d061deb25645d3b0c82c117af54b88b",
+      "pass": true
+    },
+    {
+      "id": "proof.storageSlot:0",
+      "bytes": 32,
+      "inputSha256": "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
+      "pythonKeccak": "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "nobleKeccak": "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "jsSha3Keccak": "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "knownExpected": "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "pass": true
+    },
+    {
+      "id": "proof.storageSlot:1",
+      "bytes": 32,
+      "inputSha256": "ec4916dd28fc4c10d78e287ca5d9cc51ee1ae73cbfde08c6b37324cbfaac8bc5",
+      "pythonKeccak": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+      "nobleKeccak": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+      "jsSha3Keccak": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+      "knownExpected": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+      "pass": true
+    },
+    {
+      "id": "proof.storageSlot:2",
+      "bytes": 32,
+      "inputSha256": "9267d3dbed802941483f1afa2a6bc68de5f653128aca9bf1461c5d0a3ad36ed2",
+      "pythonKeccak": "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
+      "nobleKeccak": "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
+      "jsSha3Keccak": "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
+      "knownExpected": "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
+      "pass": true
+    },
+    {
+      "id": "slot.chunks0:1",
+      "bytes": 32,
+      "inputSha256": "25ab7819580b3edab114db0660d1972c0c22782e62a21f484b5513aba2b7887f",
+      "pythonKeccak": "126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc07",
+      "nobleKeccak": "126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc07",
+      "jsSha3Keccak": "126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc07",
+      "knownExpected": "126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc07",
+      "pass": true
+    },
+    {
+      "id": "slot.chunks0:1024",
+      "bytes": 32,
+      "inputSha256": "08e9ced6405698f6d8b18133ad279cb286af06c36536000b9939422d504c2c88",
+      "pythonKeccak": "c7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886d",
+      "nobleKeccak": "c7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886d",
+      "jsSha3Keccak": "c7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886d",
+      "knownExpected": "c7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886d",
+      "pass": true
+    },
+    {
+      "id": "slot.chunks0:2",
+      "bytes": 32,
+      "inputSha256": "a789f5e842d0470a99a7ede839d068547f0c24f08151136a8fea3f7b417919f0",
+      "pythonKeccak": "5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d054f",
+      "nobleKeccak": "5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d054f",
+      "jsSha3Keccak": "5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d054f",
+      "knownExpected": "5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d054f",
+      "pass": true
+    },
+    {
+      "id": "slot.publisher:0x00000000000000000000000000000000000000a1",
+      "bytes": 64,
+      "inputSha256": "64aeb94add0642ed8643e04cfe20ab1c8e6e161767d5d638b2da1d9edc182b06",
+      "pythonKeccak": "040df0cfdbe2439420993d589140042c9218e6e20c99578d1a137f827725261d",
+      "nobleKeccak": "040df0cfdbe2439420993d589140042c9218e6e20c99578d1a137f827725261d",
+      "jsSha3Keccak": "040df0cfdbe2439420993d589140042c9218e6e20c99578d1a137f827725261d",
+      "knownExpected": "040df0cfdbe2439420993d589140042c9218e6e20c99578d1a137f827725261d",
+      "pass": true
+    },
+    {
+      "id": "slot.publisher:0x00000000000000000000000000000000000000b2",
+      "bytes": 64,
+      "inputSha256": "642a85cc2d75c6c13a6b0e416cc755c7f7ec80186d7eaa5a683c126a5b88928b",
+      "pythonKeccak": "3b6bbf16da7d3d22adf7c29f0da3800d2b6284959b37106e92bf8f1319f54c85",
+      "nobleKeccak": "3b6bbf16da7d3d22adf7c29f0da3800d2b6284959b37106e92bf8f1319f54c85",
+      "jsSha3Keccak": "3b6bbf16da7d3d22adf7c29f0da3800d2b6284959b37106e92bf8f1319f54c85",
+      "knownExpected": "3b6bbf16da7d3d22adf7c29f0da3800d2b6284959b37106e92bf8f1319f54c85",
+      "pass": true
+    },
+    {
+      "id": "slot.versionBase:1",
+      "bytes": 64,
+      "inputSha256": "ce44a8ee02db1a76906b0e9fd753893971c4db9a2341b0049d61f7fcd2a60adf",
+      "pythonKeccak": "a15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c",
+      "nobleKeccak": "a15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c",
+      "jsSha3Keccak": "a15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c",
+      "knownExpected": "a15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c",
+      "pass": true
+    },
+    {
+      "id": "slot.versionBase:1024",
+      "bytes": 64,
+      "inputSha256": "13520d9068445bed3d14d0002e19520eaaab895b00fb53da6770e32914260d7c",
+      "pythonKeccak": "8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58577",
+      "nobleKeccak": "8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58577",
+      "jsSha3Keccak": "8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58577",
+      "knownExpected": "8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58577",
+      "pass": true
+    },
+    {
+      "id": "slot.versionBase:2",
+      "bytes": 64,
+      "inputSha256": "a774c351cf3882b36b2c541586b0b59c6dfd119ae831ef3c6b2e269f7a6be220",
+      "pythonKeccak": "c3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4d",
+      "nobleKeccak": "c3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4d",
+      "jsSha3Keccak": "c3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4d",
+      "knownExpected": "c3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4d",
+      "pass": true
+    },
+    {
+      "id": "snapshotE.selector",
+      "bytes": 23,
+      "inputSha256": "f37c1d346f547c9d55d4f1ee13c4a8920003e403f0ce2df1f033de73b8c7be14",
+      "pythonKeccak": "22d1f9a5c3c1d24fae7b3369d35f5a2c4d380da2317e71ccb9d9ad68f814fc6d",
+      "nobleKeccak": "22d1f9a5c3c1d24fae7b3369d35f5a2c4d380da2317e71ccb9d9ad68f814fc6d",
+      "jsSha3Keccak": "22d1f9a5c3c1d24fae7b3369d35f5a2c4d380da2317e71ccb9d9ad68f814fc6d",
+      "knownExpected": null,
+      "pass": true
+    },
+    {
+      "id": "txA.hash",
+      "bytes": 108,
+      "inputSha256": "5afbf413027bd8ec7a982f45d7d442b60cb9d48d85fd49b58a8619fb80fb32fc",
+      "pythonKeccak": "0224d25773e449e69e90c94c9d7319d9e273fc5f76193af36ad743a526f9f0b2",
+      "nobleKeccak": "0224d25773e449e69e90c94c9d7319d9e273fc5f76193af36ad743a526f9f0b2",
+      "jsSha3Keccak": "0224d25773e449e69e90c94c9d7319d9e273fc5f76193af36ad743a526f9f0b2",
+      "knownExpected": "0224d25773e449e69e90c94c9d7319d9e273fc5f76193af36ad743a526f9f0b2",
+      "pass": true
+    }
+  ],
+  "declaredDigestChecks": [
+    {
+      "id": "abi.selector:AlreadyCurrent(uint32)",
+      "form": "prefix4",
+      "expected": "91d03d8d",
+      "actual": "91d03d8d",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ChunkArrays(uint256,uint256)",
+      "form": "prefix4",
+      "expected": "9c489de5",
+      "actual": "9c489de5",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ChunkCreateFailed()",
+      "form": "prefix4",
+      "expected": "48c2f2c1",
+      "actual": "48c2f2c1",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ChunkLength(uint256)",
+      "form": "prefix4",
+      "expected": "980b4b67",
+      "actual": "980b4b67",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ChunkMismatch(address)",
+      "form": "prefix4",
+      "expected": "8f318868",
+      "actual": "8f318868",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:CurrentVersion(uint32)",
+      "form": "prefix4",
+      "expected": "3561d917",
+      "actual": "3561d917",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:InvalidCandidate(address)",
+      "form": "prefix4",
+      "expected": "8b0cbd13",
+      "actual": "8b0cbd13",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ManifestChunkInvalid(uint256)",
+      "form": "prefix4",
+      "expected": "f1f135b5",
+      "actual": "f1f135b5",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ManifestHashMismatch()",
+      "form": "prefix4",
+      "expected": "868ff181",
+      "actual": "868ff181",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ManifestLength(uint32)",
+      "form": "prefix4",
+      "expected": "42e182f2",
+      "actual": "42e182f2",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ManifestSplit(uint256)",
+      "form": "prefix4",
+      "expected": "00263015",
+      "actual": "00263015",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:NotOwner(address)",
+      "form": "prefix4",
+      "expected": "245aecd3",
+      "actual": "245aecd3",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:NotPendingOwner(address)",
+      "form": "prefix4",
+      "expected": "a09b9a43",
+      "actual": "a09b9a43",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:NotPublisher(address)",
+      "form": "prefix4",
+      "expected": "e35593b5",
+      "actual": "e35593b5",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:PublisherLimit()",
+      "form": "prefix4",
+      "expected": "9728c86b",
+      "actual": "9728c86b",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:UnknownVersion(uint32)",
+      "form": "prefix4",
+      "expected": "75f524a8",
+      "actual": "75f524a8",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:VersionLimit()",
+      "form": "prefix4",
+      "expected": "b956a42f",
+      "actual": "b956a42f",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:WrongStatus(uint32,uint8)",
+      "form": "prefix4",
+      "expected": "c5b2d764",
+      "actual": "c5b2d764",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:ZeroAddress()",
+      "form": "prefix4",
+      "expected": "d92e233d",
+      "actual": "d92e233d",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:acceptOwnership()",
+      "form": "prefix4",
+      "expected": "79ba5097",
+      "actual": "79ba5097",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:createVersion(bytes32,uint32,address[],uint32[])",
+      "form": "prefix4",
+      "expected": "f6bd6733",
+      "actual": "f6bd6733",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:currentVersion()",
+      "form": "prefix4",
+      "expected": "9d888e86",
+      "actual": "9d888e86",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:getVersion(uint32)",
+      "form": "prefix4",
+      "expected": "fd345003",
+      "actual": "fd345003",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:isPublisher(address)",
+      "form": "prefix4",
+      "expected": "41859ac8",
+      "actual": "41859ac8",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:owner()",
+      "form": "prefix4",
+      "expected": "8da5cb5b",
+      "actual": "8da5cb5b",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:pendingOwner()",
+      "form": "prefix4",
+      "expected": "e30c3978",
+      "actual": "e30c3978",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:predict(bytes)",
+      "form": "prefix4",
+      "expected": "a64139fa",
+      "actual": "a64139fa",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:publish(uint32)",
+      "form": "prefix4",
+      "expected": "23ab50ac",
+      "actual": "23ab50ac",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:publisherCount()",
+      "form": "prefix4",
+      "expected": "f5eed98d",
+      "actual": "f5eed98d",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:revoke(uint32)",
+      "form": "prefix4",
+      "expected": "5fce1927",
+      "actual": "5fce1927",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:setCurrent(uint32)",
+      "form": "prefix4",
+      "expected": "07702370",
+      "actual": "07702370",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:setPublisher(address,bool)",
+      "form": "prefix4",
+      "expected": "618bb079",
+      "actual": "618bb079",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:store(bytes)",
+      "form": "prefix4",
+      "expected": "b374012b",
+      "actual": "b374012b",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:transferOwnership(address)",
+      "form": "prefix4",
+      "expected": "f2fde38b",
+      "actual": "f2fde38b",
+      "pass": true
+    },
+    {
+      "id": "abi.selector:versionCount()",
+      "form": "prefix4",
+      "expected": "8aad29e1",
+      "actual": "8aad29e1",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:CurrentVersionChanged(uint32,uint32)",
+      "form": "full",
+      "expected": "f4117cd6e20520aeec7322fff36c361a330c8691546ff426c68efab6b5e0b063",
+      "actual": "f4117cd6e20520aeec7322fff36c361a330c8691546ff426c68efab6b5e0b063",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:OwnershipNominated(address,address)",
+      "form": "full",
+      "expected": "7cbe00258cd5670c808f2116fb86564f7f5717eef219817bc486add91c9ab7ca",
+      "actual": "7cbe00258cd5670c808f2116fb86564f7f5717eef219817bc486add91c9ab7ca",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:OwnershipTransferred(address,address)",
+      "form": "full",
+      "expected": "8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+      "actual": "8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:PublisherChanged(address,bool)",
+      "form": "full",
+      "expected": "3e8beca81633826a4b42c86c076bd6c23bda8c202f3b46d0268b1dd497412c01",
+      "actual": "3e8beca81633826a4b42c86c076bd6c23bda8c202f3b46d0268b1dd497412c01",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:VersionCreated(uint32,address,bytes32,uint32)",
+      "form": "full",
+      "expected": "3ebab631a8d503a4aaa77b85e772f1dbba081398d7ffbbd416d95e72c090b949",
+      "actual": "3ebab631a8d503a4aaa77b85e772f1dbba081398d7ffbbd416d95e72c090b949",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:VersionPublished(uint32,uint64)",
+      "form": "full",
+      "expected": "002a82bf962724a1bc8735fe5a9606b24497f92fc98713fec64280108d6e35c9",
+      "actual": "002a82bf962724a1bc8735fe5a9606b24497f92fc98713fec64280108d6e35c9",
+      "pass": true
+    },
+    {
+      "id": "abi.topic0:VersionRevoked(uint32)",
+      "form": "full",
+      "expected": "1575adace8922f010b33506fc4d0630b8cae56683a367a2f06a960561335ddd6",
+      "actual": "1575adace8922f010b33506fc4d0630b8cae56683a367a2f06a960561335ddd6",
+      "pass": true
+    },
+    {
+      "id": "c14.contentHash",
+      "form": "full",
+      "expected": "2fdc37b7cb1bc0c7d76531ac9fe8a3209d061deb25645d3b0c82c117af54b88b",
+      "actual": "2fdc37b7cb1bc0c7d76531ac9fe8a3209d061deb25645d3b0c82c117af54b88b",
+      "pass": true
+    },
+    {
+      "id": "proof.storageSlot:0",
+      "form": "full",
+      "expected": "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "actual": "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "pass": true
+    },
+    {
+      "id": "proof.storageSlot:1",
+      "form": "full",
+      "expected": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+      "actual": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+      "pass": true
+    },
+    {
+      "id": "proof.storageSlot:2",
+      "form": "full",
+      "expected": "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
+      "actual": "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
+      "pass": true
+    },
+    {
+      "id": "slot.chunks0:1",
+      "form": "full",
+      "expected": "126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc07",
+      "actual": "126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc07",
+      "pass": true
+    },
+    {
+      "id": "slot.chunks0:1024",
+      "form": "full",
+      "expected": "c7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886d",
+      "actual": "c7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886d",
+      "pass": true
+    },
+    {
+      "id": "slot.chunks0:2",
+      "form": "full",
+      "expected": "5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d054f",
+      "actual": "5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d054f",
+      "pass": true
+    },
+    {
+      "id": "slot.publisher:0x00000000000000000000000000000000000000a1",
+      "form": "full",
+      "expected": "040df0cfdbe2439420993d589140042c9218e6e20c99578d1a137f827725261d",
+      "actual": "040df0cfdbe2439420993d589140042c9218e6e20c99578d1a137f827725261d",
+      "pass": true
+    },
+    {
+      "id": "slot.publisher:0x00000000000000000000000000000000000000b2",
+      "form": "full",
+      "expected": "3b6bbf16da7d3d22adf7c29f0da3800d2b6284959b37106e92bf8f1319f54c85",
+      "actual": "3b6bbf16da7d3d22adf7c29f0da3800d2b6284959b37106e92bf8f1319f54c85",
+      "pass": true
+    },
+    {
+      "id": "slot.versionBase:1",
+      "form": "full",
+      "expected": "a15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c",
+      "actual": "a15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c",
+      "pass": true
+    },
+    {
+      "id": "slot.versionBase:1024",
+      "form": "full",
+      "expected": "8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58577",
+      "actual": "8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58577",
+      "pass": true
+    },
+    {
+      "id": "slot.versionBase:2",
+      "form": "full",
+      "expected": "c3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4d",
+      "actual": "c3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4d",
+      "pass": true
+    },
+    {
+      "id": "snapshotE.selector",
+      "form": "prefix4",
+      "expected": "22d1f9a5",
+      "actual": "22d1f9a5",
+      "pass": true
+    },
+    {
+      "id": "txA.hash",
+      "form": "full",
+      "expected": "0224d25773e449e69e90c94c9d7319d9e273fc5f76193af36ad743a526f9f0b2",
+      "actual": "0224d25773e449e69e90c94c9d7319d9e273fc5f76193af36ad743a526f9f0b2",
+      "pass": true
+    }
+  ],
+  "declaredFailed": 0
+}

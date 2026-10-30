@@ -1,0 +1,10 @@
+
+running 5 tests
+test all_named_fields_and_inverse_mapping ... ok
+test independent_schema_edges ... ok
+test exhaustive_version_support_and_schedule_shape ... ok
+test binding_and_kind_matrix_with_nonbootable_roots ... ok
+test fresh_seed_roundtrips_and_bootability ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+

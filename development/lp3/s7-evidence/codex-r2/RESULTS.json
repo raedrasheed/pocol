@@ -1,0 +1,16 @@
+{
+  "status": "PASS S7 amended numeric and newly approved core scope; foundation merge pending GitHub checks",
+  "rustRegressionTests": 127,
+  "tsGroups": 10,
+  "cfOracleCases": 16000,
+  "cfRustMismatches": 0,
+  "cfTsMismatches": 0,
+  "rustCoreMutationsCaught": 11,
+  "tsCfMutationsCaught": 6,
+  "strictTypecheck": "PASS",
+  "T0": "PASS semantic core mapping only; no literal V corpus/H-full claim",
+  "numericalEvidence": "codex-r1: million full comparisons, AS1-AS19, ASQ/ASB unchanged",
+  "execution": "NOT RUN: real finalization/cursor/pending[F]/zero subsidy/SV6; mandatory LP4",
+  "bootable": false,
+  "LP3": "NOT ACCEPTED; S8/S9 remain"
+}

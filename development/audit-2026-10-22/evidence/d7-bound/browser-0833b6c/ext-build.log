@@ -1,0 +1,8 @@
+# ext-build: (cd prototypes/pocol-extension; node build.mjs)
+# start 2026-10-25T15:21:50Z
+{
+ "dist": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7c/prototypes/pocol-extension/dist",
+ "loaderSha256": "+WxiCc3fMUmIYGyO+I+Kle60GrqtjrFxaAm0B1GXU+U=",
+ "csp": "sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-+WxiCc3fMUmIYGyO+I+Kle60GrqtjrFxaAm0B1GXU+U=' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+}
+# end 2026-10-25T15:21:50Z exit=0

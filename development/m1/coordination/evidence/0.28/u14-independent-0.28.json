@@ -1,0 +1,302 @@
+{
+  "method": "Independently written event-clock simulation; hypothetical inputs only, no owner branch adopted",
+  "checks": 21,
+  "passed": 21,
+  "failed": 0,
+  "results": [
+    {
+      "case": "U14-T1",
+      "mode": "PR",
+      "result": {
+        "outcome": "ok",
+        "atMs": 6550,
+        "sleep": 6000
+      },
+      "expected": {
+        "outcome": "ok",
+        "atMs": 6550
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T1",
+      "mode": "WL_a",
+      "result": {
+        "outcome": "ok",
+        "atMs": 6550,
+        "sleep": 6000
+      },
+      "expected": {
+        "outcome": "ok",
+        "atMs": 6550
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T1",
+      "mode": "WL_b",
+      "result": {
+        "outcome": "ok",
+        "atMs": 6550,
+        "sleep": 6000
+      },
+      "expected": {
+        "outcome": "ok",
+        "atMs": 6550
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T2",
+      "mode": "PR",
+      "result": {
+        "outcome": "ok",
+        "atMs": 14050,
+        "sleep": 6000
+      },
+      "expected": {
+        "outcome": "ok",
+        "atMs": 14050
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T2",
+      "mode": "WL_a",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 4000
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T2",
+      "mode": "WL_b",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 4000
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T3",
+      "mode": "PR",
+      "result": {
+        "outcome": "ok",
+        "atMs": 11050,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "ok",
+        "atMs": 11050
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T3",
+      "mode": "WL_a",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T3",
+      "mode": "WL_b",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T4",
+      "mode": "PR",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10100,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10100
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T4",
+      "mode": "WL_a",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T4",
+      "mode": "WL_b",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T5",
+      "mode": "PR",
+      "result": {
+        "outcome": "ok",
+        "atMs": 10050,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "ok",
+        "atMs": 10050
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T5",
+      "mode": "WL_a",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T5",
+      "mode": "WL_b",
+      "result": {
+        "outcome": "ok",
+        "atMs": 10050,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "ok",
+        "atMs": 10050
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T6A",
+      "mode": "PR",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 200
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T6A",
+      "mode": "WL_a",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 200
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T6A",
+      "mode": "WL_b",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 200,
+        "sleep": 0
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 200
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T6C",
+      "mode": "PR",
+      "result": {
+        "outcome": "ok",
+        "atMs": 15550,
+        "sleep": 15000
+      },
+      "expected": {
+        "outcome": "ok",
+        "atMs": 15550
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T6C",
+      "mode": "WL_a",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 9700
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    },
+    {
+      "case": "U14-T6C",
+      "mode": "WL_b",
+      "result": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000,
+        "sleep": 9700
+      },
+      "expected": {
+        "outcome": "viewIncomplete",
+        "atMs": 10000
+      },
+      "pass": true
+    }
+  ]
+}

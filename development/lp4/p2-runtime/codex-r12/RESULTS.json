@@ -1,0 +1,41 @@
+{
+  "primaryHostedRun": 39064768819,
+  "primaryHead": "b76729bfd91b253f96346cb5f6fe56b537ef24e0",
+  "unmodifiedIndependentFullRun": {
+    "scope": "Unmodified independent py-evm Cancun; CREATE-01 differences retained, no PoCol wire/PAY acceptance",
+    "counts": {
+      "MATCH": 19443,
+      "total": 20661,
+      "MISMATCH": 85,
+      "EXCEPTION_PRESENCE_ONLY": 1100,
+      "BLOCKED_TIMEOUT": 33
+    },
+    "limited": false,
+    "workers": 4,
+    "timeoutSeconds": 10,
+    "seconds": 461.137,
+    "status": "REQUIRES REVIEW; NOT PASSED",
+    "bootable": false
+  },
+  "explicitPatchedComparatorRootRecheck": {
+    "selected": 12,
+    "MATCH": 12,
+    "wholePatchedSuite": "NOT RUN"
+  },
+  "timeoutRecheck60s": {
+    "selected": 33,
+    "MATCH": 27,
+    "BLOCKED_TIMEOUT": 6
+  },
+  "primaryRejectionAudit": {
+    "categoryAndIndependentInputPredicate": 1172,
+    "adapterInputOnly": 1,
+    "signedWireValidation": "NOT PASSED"
+  },
+  "separatelyCompiledRejectionControls": 2,
+  "portableControlsVerified": true,
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "all26Obligations": "NOT PASSED",
+  "bootable": false
+}

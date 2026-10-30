@@ -1,0 +1,11 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.51s
+     Running tests/wire.rs (prototypes/lp4-execution/target/debug/deps/wire-6f1e4947b2b762f2)
+
+running 3 tests
+test specified_chain_type_pool_mapping_is_not_block_acceptance ... ok
+test byte_budget_equality_and_minus_one ... ok
+test signed_envelopes_match_independent_oracle ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

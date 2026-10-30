@@ -1,0 +1,21 @@
+# C-1 S4 mutation controls, tree 13aeba7 (each mutant on a fresh copy, own target dir; tests: consensus s4_* and canonical_history*)
+# S4M1 views do not restore a slimmed entry: pocold/src/node.rs: replace 'if e.slim{v.header=decode_header(&hb).ok()?;' with 'if false&&e.slim{v.header=decode_header(&hb).ok()?;'
+# S4M2 validate reads a slimmed parent as it is: pocold/src/chain.rs: replace 'if self.blocks[&x.parent_hash].pruned||self.blocks[&x.parent_hash].slim{' with 'if self.blocks[&x.parent_hash].pruned{'
+# S4M3 the ranges are not stored: pocold/src/history.rs: replace 'for (a,s0,e0) in ranges{rg.extend_from_slice' with 'for (a,s0,e0) in ranges.iter().take(0){rg.extend_from_slice'
+# S4M4 unslim does not restore the ParentResult: pocold/src/chain.rs: replace 'x.header=header;x.result=result;x.ranges=ranges;x.slim=false;self.unslimmed.push(*h);' with 'x.header=header;let _=result;x.ranges=ranges;x.slim=false;self.unslimmed.push(*h);'
+# S4M5 the evidence walk reads a slimmed ancestor as it is: pocold/src/chain.rs: replace 'if e.slim{return Err(Reject::NeedsRebuild(e.hash))}' with 'let _=e.slim;'
+# S4M6 slimming at half the depth: pocold/src/chain.rs: replace 'let floor=head_h.saturating_sub(d);' with 'let floor=head_h.saturating_sub(d/2);'
+# S4M7 restored entries are never slimmed again: pocold/src/chain.rs: replace 'Some(e) if e.height<floor&&!e.slim&&e.body_off.is_some()&&self.canonical.get(e.height as usize)==Some(&h)=>slim(e),' with 'Some(e) if false&&e.height<floor=>slim(e),'
+# S4M8 P2P serves a resident slimmed entry from memory: pocold/src/node.rs: replace 'if !e.offloaded&&!e.slim{return Some(Msg::Block{' with 'if !e.offloaded{return Some(Msg::Block{'
+# S4M9 a slimmed block re-executed from its slimmed copy: pocold/src/chain.rs: replace 'fn meta_restored(&self,h:&[u8;32],src:Option<&dyn BlockBytes>)->Result<Entry,Reject>{\n        let e=&self.blocks[h];if !e.slim{return Ok(e.meta_clone())}' with 'fn meta_restored(&self,h:&[u8;32],src:Option<&dyn BlockBytes>)->Result<Entry,Reject>{\n        let e=&self.blocks[h];if true{let _=src;return Ok(e.meta_clone())}'
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "S4M1 views do not restore a slimmed entry", "status": "KILLED", "failed": ["s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"]}
+{"mutant": "S4M2 validate reads a slimmed parent as it is", "status": "KILLED", "failed": ["s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"]}
+{"mutant": "S4M3 the ranges are not stored", "status": "KILLED", "failed": ["s4_evidence_against_a_slimmed_ancestor_restores_it_first", "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"]}
+{"mutant": "S4M4 unslim does not restore the ParentResult", "status": "KILLED", "failed": ["s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"]}
+{"mutant": "S4M5 the evidence walk reads a slimmed ancestor as it is", "status": "KILLED", "failed": ["s4_evidence_against_a_slimmed_ancestor_restores_it_first"]}
+{"mutant": "S4M6 slimming at half the depth", "status": "KILLED", "failed": ["s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"]}
+{"mutant": "S4M7 restored entries are never slimmed again", "status": "KILLED", "failed": ["s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"]}
+{"mutant": "S4M8 P2P serves a resident slimmed entry from memory", "status": "KILLED", "failed": ["s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"]}
+{"mutant": "S4M9 a slimmed block re-executed from its slimmed copy", "status": "KILLED", "failed": ["s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"]}
+DONE

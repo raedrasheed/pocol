@@ -1,0 +1,20 @@
+[
+  {
+    "name": "nested-gas-overallocation",
+    "old": "CallInputs::new_boxed(&evm.context.evm.env.tx,allocation)",
+    "new": "CallInputs::new_boxed(&evm.context.evm.env.tx,allocation+allocation/63)",
+    "test": "system::tests::compiled_nested_matches_independent_complete_roots_and_exact_gas",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "nested-revert-committed",
+    "old": "// No transact(), caller deduction, intrinsic gas or transaction post-handler.",
+    "new": "let previous=evm.handler.execution.call_return.clone(); evm.handler.execution.call_return=std::sync::Arc::new(move |context,frame,mut result|{if result.result==revm::interpreter::InstructionResult::Revert{result.result=revm::interpreter::InstructionResult::Return;}previous(context,frame,result)});",
+    "test": "system::tests::compiled_nested_matches_independent_complete_roots_and_exact_gas",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "testedCommit": "842a12d8796007e9ba3a7cc3c239292848979506",
+  "sourceSha256": {
+    "prototypes/lp1-node/src/gate.rs": "2c8991acb0c114325c97c72d68aee03f456088365f082f4aa8ead95a3382fa9e",
+    "prototypes/lp1-node/src/param_gate.rs": "727cbf3cd499d06b983ff551319bf16f9de4e6c5f1d0df8b08c95d1676f46f30",
+    "prototypes/lp1-node/tests/gate.rs": "e58137a7fc1ec1dabda6d2404f0a7d79b8ef5786f88c65340acdaa821580fd57",
+    "prototypes/lp1-node/tests/param_gate.rs": "237178d5fadb420c110eebaa77f72ab22d5cc2b5ec75f760f022efe3ff1c318f"
+  }
+}

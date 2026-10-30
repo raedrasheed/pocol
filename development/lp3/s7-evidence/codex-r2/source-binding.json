@@ -1,0 +1,13 @@
+{
+  "localImplementationCommit": "0f4bdd80542ba49dd0a79a50928a139e813abba8",
+  "sha256": {
+    "prototypes/lp1-node/src/asert.rs": "8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502",
+    "prototypes/lp1-node/src/envelope.rs": "3d3ed4e08a790e45afe2f753da09a3ee386279045842ae10c8b3b77da88fd253",
+    "prototypes/lp1-node/src/finality_core.rs": "8f98d5e61884c0f0e92c580b2e14cee92c0113a06973cc50f98be9e30d8bf27e",
+    "prototypes/lp1-node/src/rewards.rs": "ec98f0ef72ff5f9ba6e62c68cc41d966035254c36efabebca9958764582e4696",
+    "prototypes/lp3-model/model.ts": "1b63a8e3d7505b842d881a1c4d81011c31d583d42d1e46b8d6defa2f1207ba4b",
+    "prototypes/lp3-model/tests.ts": "da6ce75c83b793376efa9c5dbc82bc7e27fa26d2f8cfc414b1a570292ee19b7b"
+  },
+  "asertAndRewardsUnchangedSinceNumericalEvidence": true,
+  "typescriptPreviousModuleIsExactPrefix": true
+}

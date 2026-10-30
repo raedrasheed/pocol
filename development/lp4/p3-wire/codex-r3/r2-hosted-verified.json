@@ -1,0 +1,112 @@
+{
+  "run": 39407652538,
+  "sourceHead": "6ce5b5acab41c57da0ca1eb4ba62682185c6e359",
+  "tree": "e0c6989a6ad99c48a97935edd1891261289e3e07",
+  "artifacts": [
+    {
+      "id": 12259641359,
+      "name": "lp4-independent-cancun",
+      "bytes": 132088,
+      "sha256": "d268f4a1c285ef7a65cee9a18669f949f19c2015e8a781073ad256cfbf2a465b"
+    },
+    {
+      "id": 12258870356,
+      "name": "lp4-p2-controls",
+      "bytes": 1175359,
+      "sha256": "339859b51d83fe70746aef87ff84616cefb79e1697d5e93690d89e0600e806be"
+    },
+    {
+      "id": 12258670137,
+      "name": "lp4-legacy-windows",
+      "bytes": 27107,
+      "sha256": "527f1b0375658210f16bc357955a54bfa8753d22b69f012fb5c788656adac661"
+    },
+    {
+      "id": 12257593857,
+      "name": "lp4-native-windows",
+      "bytes": 4614,
+      "sha256": "f1d1b7a8f809912de9fa20501283ed0ab286cc891e971d7baeb1c165b44c92fc"
+    },
+    {
+      "id": 12256944809,
+      "name": "lp4-native-cancun-reference",
+      "bytes": 135107,
+      "sha256": "43722e7ee5889049dafea8121977b2d94e179a33a27a7cf6d046be2ec9fe092a"
+    }
+  ],
+  "allZipHashesVerified": true,
+  "jobs": [
+    {
+      "id": 118577389568,
+      "name": "legacy-windows-regression",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T10:23:59Z",
+      "completedAt": "2026-10-20T10:31:01Z"
+    },
+    {
+      "id": 118577389949,
+      "name": "independent-cancun-comparison",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T10:23:59Z",
+      "completedAt": "2026-10-20T10:53:28Z"
+    },
+    {
+      "id": 118577390144,
+      "name": "cancun-pay-controls",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T10:23:59Z",
+      "completedAt": "2026-10-20T10:33:18Z"
+    },
+    {
+      "id": 118577390163,
+      "name": "registry-windows-execution",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T10:23:59Z",
+      "completedAt": "2026-10-20T10:25:25Z"
+    },
+    {
+      "id": 118577390240,
+      "name": "native-cancun-reference",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T10:23:59Z",
+      "completedAt": "2026-10-20T10:27:54Z"
+    }
+  ],
+  "sourceFiles": 2807,
+  "allSourceHashesVerified": true,
+  "total": 20661,
+  "uniqueIdentities": 20661,
+  "exactPrimaryRootLogPairs": 19488,
+  "expectedRejectionPresence": 1173,
+  "excluded": 0,
+  "blocked": 0,
+  "incomplete": 0,
+  "mismatch": 0,
+  "engineError": 0,
+  "seconds": 1709.059,
+  "primaryBytesEqualPublishedR4": true,
+  "rustLinux": 64,
+  "rustWindows": 64,
+  "compiledControls": {
+    "lp4-wire-mutations": 13,
+    "lp4-context-mutations": 7,
+    "lp4-registry-mutations": 17,
+    "lp4-user-mutations": 6,
+    "lp4-mutations": 16,
+    "lp4-create-mutations": 7,
+    "lp4-budget-mutations": 3
+  },
+  "legacy": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "scope": "Upstream control comparison and R2 signed fixture primitives only;1173 second-engine rejection presence is not signed-wire/error-precedence proof; no P2/P3/LP4 acceptance",
+  "bootable": false
+}

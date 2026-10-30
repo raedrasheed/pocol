@@ -1,0 +1,21 @@
+# ext-build: (cd prototypes/pocol-extension; node build.mjs)
+# start 2026-10-25T07:45:40Z
+node:fs:440
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
+
+Error: ENOENT: no such file or directory, open '/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/pocol-extension/node_modules/@noble/hashes/esm/sha3.js'
+    at readFileSync (node:fs:440:20)
+    at build (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/pocol-extension/build.mjs:32:39)
+    at file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/pocol-extension/build.mjs:69:13
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/pocol-extension/node_modules/@noble/hashes/esm/sha3.js'
+}
+
+Node.js v22.22.0
+# end 2026-10-25T07:45:41Z exit=1

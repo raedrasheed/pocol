@@ -1,0 +1,2 @@
+## the P6 premise test against a block_bytes that can exceed a whole version (2026-10-27T15:20:22Z)
+Q1 KILLED (27s) lp4-execution/src/node_trie.rs: 'let branches=keys.checked_mul(PATH_BRANCHES)?.min(child);' -> 'let branches=keys.checked_mul(PATH_BRANCHES)?;'; failing: ['node_trie::tests::a_blocks_addition_is_at_most_a_whole_version']

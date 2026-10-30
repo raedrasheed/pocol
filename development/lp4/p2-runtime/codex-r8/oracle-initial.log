@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/Proof-of-Collaboration/prototypes/lp4-execution/tests/registry_execution_oracle.py", line 43, in <module>
+    assert expected_root==actual_root,(row['name'],'complete state root',expected_root,actual_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('phase-1-markClose()', 'complete state root', '0x3fa819acafa5027bb2ad04b4d91e4fab5fff4010e67304547b35a0b57e718003', '0x746a294235d82c7235cba06f5bebfc540835a5285f204732794b47232ff00072')

@@ -1,0 +1,338 @@
+{
+  "checks": 23,
+  "passed": 23,
+  "failed": 0,
+  "results": [
+    {
+      "check": "unknown_not_terminal",
+      "expectedMinimumRules": [
+        "S-a"
+      ],
+      "actual": [
+        {
+          "rule": "S-a",
+          "why": "malformedEvent:unknownKind:unknownTerminal",
+          "seq": 1
+        },
+        {
+          "rule": "S-a",
+          "why": "noTerminal",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "valid_abort",
+      "expectedMinimumRules": [],
+      "actual": [],
+      "pass": true
+    },
+    {
+      "check": "unknown_then_abort",
+      "expectedMinimumRules": [
+        "S-a"
+      ],
+      "actual": [
+        {
+          "rule": "S-a",
+          "why": "malformedEvent:unknownKind:unknownTerminal",
+          "seq": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "short_event",
+      "expectedMinimumRules": [
+        "S-a"
+      ],
+      "actual": [
+        {
+          "rule": "S-a",
+          "why": "malformedEvent:arity:piece/1",
+          "seq": 1
+        },
+        {
+          "rule": "S-a",
+          "why": "noTerminal",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "boolean_attempt_id",
+      "expectedMinimumRules": [
+        "S-a"
+      ],
+      "actual": [
+        {
+          "rule": "S-a",
+          "why": "malformedEvent:attemptIdNotInt:bool",
+          "seq": 0
+        },
+        {
+          "rule": "S-a",
+          "why": "malformedEvent:attemptIdNotInt:bool",
+          "seq": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "float_attempt_id",
+      "expectedMinimumRules": [
+        "S-a"
+      ],
+      "actual": [
+        {
+          "rule": "S-a",
+          "why": "malformedEvent:attemptIdNotInt:float",
+          "seq": 0
+        },
+        {
+          "rule": "S-a",
+          "why": "malformedEvent:attemptIdNotInt:float",
+          "seq": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_entry",
+      "expectedMinimumRules": [
+        "S-a",
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedEntry:seq"
+        },
+        {
+          "rule": "S-a",
+          "why": "noTerminal",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "valid_empty_piece_commit",
+      "expectedMinimumRules": [],
+      "actual": [],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_pieces_bool",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:pieces:bool",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_pieces_float",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:pieces:float",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_pieces_int",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:pieces:int",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_logs_bool",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:logs:bool",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_logs_float",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:logs:float",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_logs_int",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:logs:int",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_logRequests_bool",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:logRequests:bool",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_logRequests_float",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:logRequests:float",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_logRequests_int",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:logRequests:int",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_headRequests_bool",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:headRequests:bool",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_headRequests_float",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:headRequests:float",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_headRequests_int",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:headRequests:int",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_totalRequests_bool",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:totalRequests:bool",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_totalRequests_float",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:totalRequests:float",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "bad_counter_totalRequests_int",
+      "expectedMinimumRules": [
+        "S-e"
+      ],
+      "actual": [
+        {
+          "rule": "S-e",
+          "why": "malformedSummary:counter:totalRequests:int",
+          "attempt": 1
+        }
+      ],
+      "pass": true
+    }
+  ]
+}

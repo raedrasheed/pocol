@@ -1,0 +1,26 @@
+[
+  {
+    "name": "omit-register-counter",
+    "solidityBuildExit": 0,
+    "rustBuildExit": 0,
+    "runExit": 101,
+    "assertionKilled": true,
+    "meaning": "Removing an approved budget write changes the measured lower bound; not a valid resolution"
+  },
+  {
+    "name": "omit-reward-counter",
+    "solidityBuildExit": 0,
+    "rustBuildExit": 0,
+    "runExit": 101,
+    "assertionKilled": true,
+    "meaning": "Removing an approved budget write changes the measured lower bound; not a valid resolution"
+  },
+  {
+    "name": "omit-claim-counter",
+    "solidityBuildExit": 0,
+    "rustBuildExit": 0,
+    "runExit": 101,
+    "assertionKilled": true,
+    "meaning": "Removing an approved budget write changes the measured lower bound; not a valid resolution"
+  }
+]

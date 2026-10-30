@@ -1,0 +1,13 @@
+{
+  "base": "63f87fe28e6d947b66e15643a8f3ad914226cd04",
+  "files": {
+    ".github/workflows/lp4-execution-controls.yml": "02689278515e0f407d00834430cc4a32890fbccacd2e433ab0d49838a3a46986",
+    "prototypes/lp4-execution/contracts/ChunkFactory.sol": "46543a3628c5d30b27c1f0d237da028d61dc76b894495db4347d76bd38b6f641",
+    "prototypes/lp4-execution/src/system.rs": "170b3f369643e6cfdc7bebca670e9636c575acca2f023ee05e3889445513d68b",
+    "prototypes/lp4-execution/src/system/chunk_tests.rs": "b1f8288ee456ba6b3046022026bd16674848229bae1da11f82dec441206feeed",
+    "prototypes/lp4-execution/tests/chunk_mutations.py": "1a62ab8a83bb90395a3de01f2f13a0b10b0912f27f4a2d706a88210cad48718e",
+    "prototypes/lp4-execution/tests/chunk_oracle.py": "dd99faf5732e278f5f0c3eb921b5689c8a787932b5815f9f6a77dd448563d615",
+    "prototypes/lp4-execution/tests/compile_chunk.cjs": "5ce21b9dac468406624b0ac91a2edda31e0e617a42f8344a67d07e037e3d8b29",
+    "prototypes/lp4-execution/tests/data/chunk-factory.json": "7e65ce014bb902dd2fbf4d3c93970c317eed4b351a936b06aa60aeed633fa1b4"
+  }
+}

@@ -1,0 +1,15 @@
+truncate-negative True
+wrong-polynomial True
+biased-sample True
+include-parent-weight True
+exclusive-membership True
+partition-gap True
+allow-reserved True
+late-deadline-equality True
+allow-timestamp-limit True
+skip-final-counter True
+Traceback (most recent call last):
+  File "/workspace/Proof-of-Collaboration/development/lp3/s8-audit/codex-r1/ts_mutations.py", line 15, in <module>
+    p=subprocess.run(a,capture_output=True,text=True);(OUT/(name+'-compile.log')).write_text(p.stdout+p.stderr);assert p.returncode==0,(name,p.stdout,p.stderr)
+                                                                                                                       ^^^^^^^^^^^^^^^
+AssertionError: ('schema-ignore-width', 'prototypes/.cf-mut-nfhmt2nj/genesis.ts(55,118): error TS2872: This kind of expression is always truthy.\n', '')

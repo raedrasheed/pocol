@@ -1,0 +1,58 @@
+[
+  {
+    "name": "nonce-guard",
+    "buildExit": 0,
+    "baselineSHA256": {
+      "Cargo.lock": "d6e757466555edd023347af5b3cc45021ff1bcd88328de8c9a390fd99ad13904",
+      "src/native.rs": "187eb6324c31e44441dd55f8a8f8102dac9a36ff812f4539ae0eb1aa71498f9d",
+      "src/bin/cancun_control.rs": "2e2a73cc1d037d40769076a6b6159908e2244285d0727e108bbfae6af97ae404",
+      "tests/gst_exception_audit.py": "599a92a29119604c548e03c57b82e388fa4d7899b42a85242786ab60eae4a226"
+    },
+    "cases": [
+      {
+        "file": "stCreateTest/CreateTransactionHighNonce.json",
+        "name": "CreateTransactionHighNonce",
+        "variant": 0,
+        "assertionKilled": true,
+        "error": null,
+        "executed": true
+      },
+      {
+        "file": "stCreateTest/CreateTransactionHighNonce.json",
+        "name": "CreateTransactionHighNonce",
+        "variant": 1,
+        "assertionKilled": true,
+        "error": null,
+        "executed": true
+      }
+    ]
+  },
+  {
+    "name": "wrong-reason",
+    "buildExit": 0,
+    "baselineSHA256": {
+      "Cargo.lock": "d6e757466555edd023347af5b3cc45021ff1bcd88328de8c9a390fd99ad13904",
+      "src/native.rs": "187eb6324c31e44441dd55f8a8f8102dac9a36ff812f4539ae0eb1aa71498f9d",
+      "src/bin/cancun_control.rs": "2e2a73cc1d037d40769076a6b6159908e2244285d0727e108bbfae6af97ae404",
+      "tests/gst_exception_audit.py": "599a92a29119604c548e03c57b82e388fa4d7899b42a85242786ab60eae4a226"
+    },
+    "cases": [
+      {
+        "file": "stEIP1559/intrinsic.json",
+        "name": "intrinsic",
+        "variant": 0,
+        "assertionKilled": true,
+        "error": "Transaction(LackOfFundForMaxFee { fee: 1, balance: 0 })",
+        "executed": false
+      },
+      {
+        "file": "stEIP1559/intrinsic.json",
+        "name": "intrinsic",
+        "variant": 1,
+        "assertionKilled": true,
+        "error": "Transaction(LackOfFundForMaxFee { fee: 1, balance: 0 })",
+        "executed": false
+      }
+    ]
+  }
+]

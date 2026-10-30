@@ -1,0 +1,26 @@
+{
+  "schema": "pocol-m1-c36/0.31",
+  "status": "C36: the six 0.30 FAILs were evidence-binding failures (REVIEW-0.30). They stay in root's saved 0.30 results; each is mapped to the check of this run that repairs its binding. No older review text is edited and no test is changed to match an invented phrase.",
+  "results030": {"file": "coordination/review-001/m1-draft-0.30/results/run-results-0.30.json", "checks": 419, "passed": 308, "recorded": 105, "failed": 6},
+  "failures": [
+    {"old": "bind029.reviewAcceptsUnaffected", "cause": "searched REVIEW-0.29 prose for an assumed phrase",
+     "repair": ["C36.reviewDecisions030.acceptedUnaffected"], "how": "parse coordination/review-001/REVIEW-DECISIONS-0.30.json: acceptedUnaffectedRows == [C1, C2, R1, E6], personalOwnerAnswersRecorded == 0, authority not a personal owner approval"},
+    {"old": "C33.source.scopeProbes.provenance", "cause": "searched the raw JSON container text for literals whose quotes are escaped there",
+     "repair": ["C36.scopeProbes.parsedLiterals"], "how": "json-load the probe files and compare the parsed 'literal' fields with the exact C33 fixture texts (duplicate error.code; id 9999)"},
+    {"old": "convention.P-V1-11.decided", "cause": "its evidence pattern ^C33\\. included the failed provenance check",
+     "repair": ["convention.P-V1-11.decided"], "how": "re-evaluated on this run's C33, C35 and C36 checks"},
+    {"old": "consolidation.rowsMatchProposal", "cause": "V1 stayed Partial because P-V1-11 was not decided",
+     "repair": ["consolidation.rowsMatchProposal"], "how": "recomputed from actual evidence"},
+    {"old": "coverage030.required", "cause": "the two checks above were required",
+     "repair": ["coverage031.required"], "how": "full required set, no waiver"},
+    {"old": "history.HF-8", "cause": "its closure needed coverage030.required",
+     "repair": ["history.HF-8"], "how": "the 0.29 failures stay FAIL in R29; three are repaired by passing 0.30 checks, coverage029 by coverage031.required"}
+  ],
+  "scopeProbeWitnesses": [
+    {"file": "coordination/review-001/v1-envelope-scope-probes-029.json", "index": 0, "contains": "\"code\":-32603,\"code\":-32021", "c33Case": "G-DUP-errorCode"},
+    {"file": "coordination/review-001/v1-envelope-scope-probes-029.json", "index": 1, "contains": "\"id\":9999", "c33Case": "G-SCOPE-busyWrongId"},
+    {"file": "coordination/review-001/guard-corpus-independent-030.json", "caseId": "duplicateCode", "contains": "\"code\":-32603,\"code\":-32021", "c33Case": "G-DUP-errorCode"}
+  ],
+  "ledger": {"closedNotReopened": ["C33", "C34"], "openRepairedHere": ["C35", "C36"],
+             "note": "original C33/C34 defects are closed in the ledger and verified by REVIEW-0.30; C35 is a new defect; nothing is silently reopened"}
+}

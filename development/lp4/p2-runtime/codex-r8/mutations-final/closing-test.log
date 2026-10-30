@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running tests/registry_payment.rs (prototypes/lp4-execution/target/debug/deps/registry_payment-dc44ebef71099e39)
+
+running 1 test
+
+thread 'prefix_precedence_budgets_and_durable_probe_fail_without_state_commit' (141794) panicked at tests/registry_payment.rs:45:74:
+assertion `left == right` failed
+  left: [100, 44, 43, 125]
+ right: [181, 159, 222, 11]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test prefix_precedence_budgets_and_durable_probe_fail_without_state_commit ... FAILED
+
+failures:
+
+failures:
+    prefix_precedence_budgets_and_durable_probe_fail_without_state_commit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test registry_payment`

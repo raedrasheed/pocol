@@ -1,0 +1,65 @@
+[
+  {
+    "name": "number",
+    "old": "b.number=block.height",
+    "new": "b.number=U256::ZERO",
+    "test": "explicit_fields_execute_and_snapshot_is_immutable",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "timestamp",
+    "old": "b.timestamp=block.timestamp",
+    "new": "b.timestamp=U256::ZERO",
+    "test": "explicit_fields_execute_and_snapshot_is_immutable",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "coinbase",
+    "old": "b.coinbase=pay::escrow_address()",
+    "new": "b.coinbase=Address::ZERO",
+    "test": "explicit_fields_execute_and_snapshot_is_immutable",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "prevrandao",
+    "old": "b.prevrandao=Some(block.prevrandao)",
+    "new": "b.prevrandao=Some(B256::ZERO)",
+    "test": "explicit_fields_execute_and_snapshot_is_immutable",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "gas-limit",
+    "old": "b.gas_limit=block.gas_limit",
+    "new": "b.gas_limit=U256::from(30_000_000u64)",
+    "test": "explicit_fields_execute_and_snapshot_is_immutable",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "base-fee",
+    "old": "b.basefee=block.base_fee",
+    "new": "b.basefee=U256::ZERO",
+    "test": "explicit_fields_execute_and_snapshot_is_immutable",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "history",
+    "old": ".with_db(snapshot.clone())",
+    "new": ".with_db({let mut db=snapshot.clone();db.block_hashes.clear();db})",
+    "test": "blockhash_exact_256_window_genesis_and_current_boundaries",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

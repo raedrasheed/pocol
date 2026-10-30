@@ -1,0 +1,96 @@
+[
+ {
+  "mutant": "BASE",
+  "status": "PASS",
+  "failed": []
+ },
+ {
+  "mutant": "M1 receipts read from the parent block",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt",
+   "canonical_history_off_the_heap_answers_as_it_did_resident"
+  ]
+ },
+ {
+  "mutant": "M2 first transaction of each block not indexed",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt",
+   "canonical_history_off_the_heap_answers_as_it_did_resident"
+  ]
+ },
+ {
+  "mutant": "M3 offload inside the resident window",
+  "status": "KILLED",
+  "failed": [
+   "canonical_history_off_the_heap_answers_as_it_did_resident"
+  ]
+ },
+ {
+  "mutant": "M4 replay does not refill history",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt",
+   "canonical_history_off_the_heap_answers_as_it_did_resident"
+  ]
+ },
+ {
+  "mutant": "M5 import does not write history",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt",
+   "canonical_history_off_the_heap_answers_as_it_did_resident"
+  ]
+ },
+ {
+  "mutant": "M6 find_tx takes any stored block",
+  "status": "KILLED",
+  "failed": [
+   "canonical_history_off_the_heap_answers_as_it_did_resident"
+  ]
+ },
+ {
+  "mutant": "M7 receipts seal not checked",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt"
+  ]
+ },
+ {
+  "mutant": "M8 index entry not checked against its block",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt"
+  ]
+ },
+ {
+  "mutant": "M9 no integrity check at open",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt"
+  ]
+ },
+ {
+  "mutant": "M10 restore below the resident window",
+  "status": "KILLED",
+  "failed": [
+   "canonical_history_off_the_heap_answers_as_it_did_resident",
+   "a_damaged_history_store_is_never_served_and_is_rebuilt"
+  ]
+ },
+ {
+  "mutant": "M11 a damaged store answers with empty receipts",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt"
+  ]
+ },
+ {
+  "mutant": "M12 logs stop at an unreadable block",
+  "status": "KILLED",
+  "failed": [
+   "a_damaged_history_store_is_never_served_and_is_rebuilt"
+  ]
+ }
+]

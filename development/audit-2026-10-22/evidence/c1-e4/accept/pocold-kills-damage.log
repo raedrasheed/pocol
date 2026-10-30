@@ -1,0 +1,259 @@
+# pocold-kills-damage: (cd prototypes/pocold; cargo test --release --locked --offline --test consensus -- e4_checkpoint_survives_kills e4_checkpoint_damage_falls_back_to_a_verified_state --nocapture --test-threads=1)
+# start 2026-10-25T07:36:53Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.15s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/target/release/deps/consensus-8931e1cfd46c771d)
+
+running 2 tests
+test e4_checkpoint_damage_falls_back_to_a_verified_state ... [e44 13817113] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 13817133] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 13817152] head h=3 0x9c23845a656d signed=true txs=2
+[e44 13817173] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 13817197] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 13817226] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 13817247] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 13817270] head h=8 0xa803e9515783 signed=false txs=0
+[e44 13817292] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 13817312] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 13817336] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 13817355] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 13817374] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 13817393] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 13817414] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 13817434] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 13817452] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 13817477] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 13817498] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 13817522] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 13817541] head h=21 0x3c809b835860 signed=false txs=0
+[e44 13817564] head h=22 0xd8bb44fe04f5 signed=false txs=0
+[e44 13817588] head h=23 0x26de71a890af signed=true txs=2
+[e44 13817610] head h=24 0xf264474baca2 signed=false txs=0
+[e44 13817631] head h=25 0xce6d75bfdeae signed=false txs=0
+[e44 13817655] head h=26 0x27a16aea8561 signed=false txs=0
+[e44 13817699] head h=27 0x06976c88ec44 signed=true txs=2
+[e44 13817719] head h=28 0x06f7cc24d0f6 signed=false txs=0
+[e44 13817739] head h=29 0x6b9c2a5181bf signed=false txs=0
+[e44 13817759] head h=30 0xfcb85509dc47 signed=false txs=0
+[e44 13817780] head h=31 0xc1a42987854b signed=true txs=2
+[e44 13817802] head h=32 0xb64be6560cab signed=false txs=0
+[e44 13817823] head h=33 0x77503668703d signed=false txs=0
+[e44 13817845] head h=34 0x032b50b55cac signed=false txs=0
+[e44 13817869] head h=35 0x3e56ec29d2ce signed=true txs=2
+[e44 13817891] head h=36 0xb3235d1b9a41 signed=false txs=0
+[e44 13817912] head h=37 0xa64a062654cc signed=false txs=0
+[e44 13817936] head h=38 0x69b1a66a51df signed=false txs=0
+[e44 13817961] head h=39 0x448a01b5f503 signed=true txs=2
+[e44 13817991] head h=40 0x2693a63d9f7a signed=false txs=0
+[e44 13818030] head h=41 0x5ebc162c10dd signed=false txs=0
+[e44 13818052] head h=42 0x4d39fd7aefc0 signed=false txs=0
+[e44 13818072] head h=43 0x6fdfded36eb7 signed=true txs=2
+[e44 13818094] head h=44 0x1bfafb97407d signed=false txs=0
+[e44 13818115] head h=45 0xba9ce184ff56 signed=false txs=0
+[e44 13818135] head h=46 0x5d2064b4eef5 signed=false txs=0
+[e44 13818156] head h=47 0x8ac76eeba129 signed=true txs=2
+[e44 13818181] head h=48 0xb2a0cf0392e4 signed=false txs=0
+[e44 13818201] head h=49 0xfc5dcdd8014f signed=false txs=0
+[e44 13818224] head h=50 0x0ad06a1a630b signed=false txs=0
+[e44 13818246] head h=51 0xa03b6938c920 signed=true txs=2
+[e44 13818267] head h=52 0xdf1b16e90036 signed=false txs=0
+[e44 13818287] head h=53 0xefe32398ee30 signed=false txs=0
+[e44 13818307] head h=54 0xb0dd34f98287 signed=false txs=0
+[e44 13818348] head h=55 0x7bda2ee139c8 signed=true txs=2
+[e44 13818378] head h=56 0xb56b9db45d91 signed=false txs=0
+[e44 13818399] head h=57 0x200e7dd052e4 signed=false txs=0
+[e44 13818422] head h=58 0x787aeb71b48f signed=false txs=0
+[e44 13818449] head h=59 0xc92e246ef096 signed=true txs=2
+[e44 13818487] head h=60 0x6b08d55b7dee signed=false txs=0
+[e44 13818518] head h=61 0x3d754e47b0aa signed=false txs=0
+[e44 13818547] head h=62 0x4fb04e4b3f11 signed=false txs=0
+[e44 13818572] head h=63 0xabb77bd73868 signed=true txs=2
+[e44 13818595] head h=64 0x160c52abd064 signed=false txs=0
+[e44 13818623] head h=65 0xfb96873cf75a signed=false txs=0
+[e44 13818645] head h=66 0x1c5c72bdfa19 signed=false txs=0
+[e44 13818669] head h=67 0x2690fef53b0f signed=true txs=2
+[e44 13818692] head h=68 0x51830160a027 signed=false txs=0
+[e44 13818721] head h=69 0xa30ecc72ebd1 signed=false txs=0
+[e44 13818746] head h=70 0x766d00c36a5a signed=false txs=0
+[e44 13818769] head h=71 0xad3d64372f1c signed=true txs=2
+[e44 13818790] head h=72 0x9df69c020584 signed=false txs=0
+[e44 13818811] head h=73 0x07261eb7cb3b signed=false txs=0
+[e44 13818834] head h=74 0x02daafbe04e7 signed=false txs=0
+[e44 13818863] head h=75 0x0054a1c2e056 signed=true txs=2
+[e44 13818891] head h=76 0x0f7731401058 signed=false txs=0
+[e44 13818915] head h=77 0x9278ee220f6d signed=false txs=0
+[e44 13818944] head h=78 0x456d23099425 signed=false txs=0
+[e44 13818967] head h=79 0x3c3cf8cae1ad signed=true txs=2
+[e44 13818992] head h=80 0x53245d0feb07 signed=false txs=0
+[e44 13819013] head h=81 0xe7c6b94cdec4 signed=false txs=0
+[e44 13819034] head h=82 0xddc927b4bf45 signed=false txs=0
+[e44 13819065] head h=83 0x9e79c9a9f4d4 signed=true txs=2
+[e44 13819086] head h=84 0x282c7c805edc signed=false txs=0
+[e44 13819109] head h=85 0xd380c450cac0 signed=false txs=0
+[e44 13819130] head h=86 0x9323bf82b361 signed=false txs=0
+[e44 13819153] head h=87 0x240184b03c99 signed=true txs=2
+[e44 13819174] head h=88 0xf91e4cdc19f2 signed=false txs=0
+[e44 13819196] head h=89 0xb391c51e7a1a signed=false txs=0
+[e44 13819224] head h=90 0xc63f168f7ad7 signed=false txs=0
+[e44 13819247] head h=91 0x3b53ace017c0 signed=true txs=2
+[e44 13819269] head h=92 0x3363dd70fd96 signed=false txs=0
+[e44 13819291] head h=93 0x527f7b65577d signed=false txs=0
+[e44 13819314] head h=94 0x5396466c567a signed=false txs=0
+[e44 13819354] head h=95 0x2dd98795cd7e signed=true txs=2
+[e44 13819386] head h=96 0x149d0aea4829 signed=false txs=0
+[e44 13819427] head h=97 0xd3c7859b36f2 signed=false txs=0
+[e44 13819452] head h=98 0x049cc6276e8b signed=false txs=0
+[e44 13819489] head h=98 0x342e7c3f1972 signed=false txs=0
+[e44 13819515] head h=99 0x28a66fa25cd5 signed=false txs=0
+[e44 13819538] head h=100 0xa31e16509667 signed=false txs=0
+[e44 13819623] head h=101 0xe4180adf273f signed=false txs=0
+[e44 13819649] head h=102 0x29575f1d7a1d signed=false txs=0
+
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (14528) panicked at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/redb-2.6.4/src/tree_store/page_store/page_manager.rs:243:9:
+assertion failed: storage.raw_file_len()? >= header.layout().len()
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::panic
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:150:5
+   3: <redb::tree_store::page_store::page_manager::TransactionalMemory>::new
+   4: <redb::db::Database>::new
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/redb-2.6.4/src/db.rs:885:19
+   5: <redb::db::Builder>::create::<&std::path::Path>
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/redb-2.6.4/src/db.rs:1210:9
+   6: <pocold::state_store::StateStore>::open_with::{closure#0}::{closure#0}
+             at ./src/state_store.rs:82:124
+   7: <<pocold::state_store::StateStore>::open_with::{closure#0}::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   8: <core::panic::unwind_safe::AssertUnwindSafe<<pocold::state_store::StateStore>::open_with::{closure#0}::{closure#0}> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panic/unwind_safe.rs:275:9
+   9: std::panicking::catch_unwind::do_call::<core::panic::unwind_safe::AssertUnwindSafe<<pocold::state_store::StateStore>::open_with::{closure#0}::{closure#0}>, core::result::Result<redb::db::Database, redb::error::DatabaseError>>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:576:43
+  10: std::panicking::catch_unwind::<core::result::Result<redb::db::Database, redb::error::DatabaseError>, core::panic::unwind_safe::AssertUnwindSafe<<pocold::state_store::StateStore>::open_with::{closure#0}::{closure#0}>>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:544:19
+  11: std::panic::catch_unwind::<core::panic::unwind_safe::AssertUnwindSafe<<pocold::state_store::StateStore>::open_with::{closure#0}::{closure#0}>, core::result::Result<redb::db::Database, redb::error::DatabaseError>>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panic.rs:359:14
+  12: <pocold::state_store::StateStore>::open_with::{closure#0}
+             at ./src/state_store.rs:82:24
+  13: <pocold::state_store::StateStore>::open_with
+             at ./src/state_store.rs:92:89
+  14: <pocold::state_store::StateStore>::open
+             at ./src/state_store.rs:78:58
+  15: <pocold::node::Node>::open
+             at ./src/node.rs:312:29
+  16: consensus::reopen
+             at ./tests/consensus.rs:990:69
+  17: consensus::e4_checkpoint_damage_falls_back_to_a_verified_state
+             at ./tests/consensus.rs:2349:19
+  18: consensus::e4_checkpoint_damage_falls_back_to_a_verified_state::{closure#0}
+             at ./tests/consensus.rs:2277:65
+  19: <consensus::e4_checkpoint_damage_falls_back_to_a_verified_state::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+  20: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+[e44] checkpoints unusable, the state store is rebuilt: checkpoint 14: snapshot seal does not match
+[e44] checkpoint 14 (record 105) refused: entry 104 (0x345d4c02ea6cc08b592a8601aceb22961a4b3bf5da95928a5687790e4fad4507): the stored version's state root is not the block's committed stateRoot
+[e44] checkpoint 14 (record 105) refused: entry 104 (0x345d4c02ea6cc08b592a8601aceb22961a4b3bf5da95928a5687790e4fad4507): the stored version's state root is not the block's committed stateRoot
+[e44] checkpoint 14 (record 105) refused: entry 105 (0xa31e1650966711c3209707904ac93e65499e9554e49e50e692a5b2b214cccf47): the stored version's summary is not the sealed one
+[e44] checkpoints unusable, the state store is rebuilt: checkpoint 14: its roots record is not its snapshot's
+[e44] checkpoints unusable, the state store is rebuilt: checkpoint 14: its roots record is not its snapshot's
+[e44] checkpoint 14 (record 105) refused: it is not bound to this journal's records
+[e44] checkpoint 14 (record 108) refused: it is not bound to this journal's records
+[e44] checkpoint 14 (record 105) refused: an import sequence at or beyond next_seq
+[e44] checkpoint 14 (record 105) refused: entry 105 (0xa31e1650966711c3209707904ac93e65499e9554e49e50e692a5b2b214cccf47): total work does not follow from the parent
+
+thread 'e4_checkpoint_damage_falls_back_to_a_verified_state' (14528) panicked at src/state_store.rs:319:194:
+C-1 E4: state store damaged: a node's bytes do not hash to its id
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: <pocold::state_store::StateStore as pocol_lp4_execution::node_trie::NodeStore>::node
+             at ./src/state_store.rs:319:194
+   3: pocol_lp4_execution::node_trie::load::{closure#0}
+             at /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/lp4-execution/src/node_trie.rs:159:42
+   4: <core::option::Option<alloc::sync::Arc<pocol_lp4_execution::node_trie::Node>>>::or_else::<pocol_lp4_execution::node_trie::load::{closure#0}>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/option.rs:1652:21
+   5: pocol_lp4_execution::node_trie::load
+             at /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/lp4-execution/src/node_trie.rs:159:30
+   6: <pocol_lp4_execution::node_trie::NodeTrie>::root::{closure#0}
+             at /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/lp4-execution/src/node_trie.rs:308:83
+   7: <core::option::Option<[u8; 32]>>::map::<alloc::sync::Arc<pocol_lp4_execution::node_trie::Node>, <pocol_lp4_execution::node_trie::NodeTrie>::root::{closure#0}>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/option.rs:1163:29
+   8: <pocol_lp4_execution::node_trie::NodeTrie>::root
+             at /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/lp4-execution/src/node_trie.rs:308:75
+   9: pocold::checkpoint::restore::{closure#13}
+             at ./src/checkpoint.rs:222:138
+  10: <pocold::checkpoint::restore::{closure#13} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+  11: <core::panic::unwind_safe::AssertUnwindSafe<pocold::checkpoint::restore::{closure#13}> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panic/unwind_safe.rs:275:9
+  12: std::panicking::catch_unwind::do_call::<core::panic::unwind_safe::AssertUnwindSafe<pocold::checkpoint::restore::{closure#13}>, alloy_primitives::bits::fixed::FixedBytes<32>>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:576:43
+  13: std::panicking::catch_unwind::<alloy_primitives::bits::fixed::FixedBytes<32>, core::panic::unwind_safe::AssertUnwindSafe<pocold::checkpoint::restore::{closure#13}>>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:544:19
+  14: std::panic::catch_unwind::<core::panic::unwind_safe::AssertUnwindSafe<pocold::checkpoint::restore::{closure#13}>, alloy_primitives::bits::fixed::FixedBytes<32>>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panic.rs:359:14
+  15: pocold::checkpoint::restore
+             at ./src/checkpoint.rs:222:23
+  16: <pocold::node::Node>::open
+             at ./src/node.rs:333:38
+  17: consensus::reopen
+             at ./tests/consensus.rs:990:69
+  18: consensus::e4_checkpoint_damage_falls_back_to_a_verified_state
+             at ./tests/consensus.rs:2349:19
+  19: consensus::e4_checkpoint_damage_falls_back_to_a_verified_state::{closure#0}
+             at ./tests/consensus.rs:2277:65
+  20: <consensus::e4_checkpoint_damage_falls_back_to_a_verified_state::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+  21: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+C-1 E4: releasing a state version failed: state store damaged
+[e44] checkpoint 14 (record 105) refused: entry 105 (0xa31e1650966711c3209707904ac93e65499e9554e49e50e692a5b2b214cccf47): the stored root node cannot be read
+C-1 E4: releasing a state version failed: state store damaged
+[e44] checkpoints unusable, the state store is rebuilt: node 0xbd21b3e390f61a5e8a225f5698d8b591072bf60817f3905ec8de4aff937fc0b3 is named but not stored
+[e44] checkpoints unusable, the state store is rebuilt: node 0xbb004a62579d16a1f1399d6e3cf79ff5f68cd9642680bb84c3571ea8a66b7e7d is named but not stored
+E44-DAMAGE [("the store cut short", None, 0), ("a changed byte in the store", Some(105), 0), ("the store missing", None, 0), ("history.redb missing", None, 0), ("the newest checkpoint's seal", None, 0), ("two stored roots swapped", Some(98), 1), ("two stored roots swapped with their summaries", Some(98), 1), ("a stored version's summary", Some(98), 1), ("a roots record that is not its snapshot's", None, 0), ("a roots record naming one of its versions in place of another", None, 0), ("bound to other records", Some(98), 1), ("bound to more records than the journal holds", Some(98), 1), ("a next import sequence below an entry's", Some(98), 1), ("a total work", Some(98), 1), ("a node whose bytes are not its id", None, 1), ("a missing node only the newest checkpoint names", None, 0), ("a missing node", None, 0)]
+ok
+test e4_checkpoint_survives_kills ... E44-KILLS [("E44READY 0", 2, Some(3)), ("E44READY 2", 7, Some(7)), ("E44READY 7", 15, Some(15)), ("E44READY 15", 26, Some(26)), ("E44READY 26", 40, Some(41)), ("E44READY 40", 61, Some(61)), ("E44READY 61", 92, Some(92)), ("E44READY 92", 102, Some(107)), ("E44READY 102", 102, Some(107)), ("E44READY 102", 102, Some(107)), ("E44READY 102", 102, Some(107))]
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 80.81s
+
+# end 2026-10-25T07:38:14Z exit=0

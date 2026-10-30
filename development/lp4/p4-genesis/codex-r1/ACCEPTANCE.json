@@ -1,0 +1,24 @@
+{
+  "status": "NOT PASSED",
+  "proposedContractApproved": false,
+  "bootable": false,
+  "diagnostics": {
+    "scope": "Verified countermodels only; not a selected SystemCall rule",
+    "observations": 25,
+    "independentFrameComparisons": 21,
+    "independentUnsignedControls": 2,
+    "independentValidationRejections": 2,
+    "exactReproduction": true
+  },
+  "requiredAfterDecision": [
+    {"name": "Actual protocol SystemCall and metadata ABI", "status": "NOT PASSED", "execution": "NOT RUN"},
+    {"name": "Exact pending encoding and current-winner independence", "status": "NOT PASSED", "execution": "NOT RUN"},
+    {"name": "Epoch, original storage, transient, nonce and fee boundaries", "status": "NOT PASSED", "execution": "NOT RUN"},
+    {"name": "Gross gas and remaining budget/EIP150 boundaries", "status": "NOT PASSED", "execution": "NOT RUN"},
+    {"name": "Actual PAY, system authorization and full atomic rollback", "status": "NOT PASSED", "execution": "NOT RUN"},
+    {"name": "Five actual system programs and GenesisBuilder", "status": "NOT PASSED", "execution": "NOT RUN"},
+    {"name": "Full phases, SV6 and real finalization", "status": "NOT PASSED", "execution": "NOT RUN"},
+    {"name": "Compiled semantic fault controls", "status": "NOT PASSED", "execution": "NOT RUN"},
+    {"name": "General R18/R21/caps64, import/crash/reorg", "status": "NOT PASSED", "execution": "NOT RUN"}
+  ]
+}

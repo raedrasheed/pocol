@@ -1,0 +1,10 @@
+warning: unused variable: `entry_budget`
+  --> /workspace/work/lp4/p1/budget-mutation/ignore-entry-budget-45zsnsk_/src/trie.rs:81:45
+   |
+81 | pub fn root(entries: &[(Vec<u8>, Vec<u8>)], entry_budget: usize) -> Result<H256, TrieError> {
+   |                                             ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_entry_budget`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: 1 warning emitted
+

@@ -1,0 +1,228 @@
+{
+  "cargoMetadataExit": 0,
+  "platform": "x86_64-pc-windows-msvc",
+  "dependencies": [
+    {
+      "name": "arrayref",
+      "version": "0.3.6",
+      "license": "BSD-2-Clause",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "base64",
+      "version": "0.12.3",
+      "license": "MIT/Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "block-buffer",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "block-padding",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "cfg-if",
+      "version": "1.0.0",
+      "license": "MIT/Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "cpufeatures",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "crunchy",
+      "version": "0.2.2",
+      "license": "MIT",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "crypto-mac",
+      "version": "0.8.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "digest",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "generic-array",
+      "version": "0.14.5",
+      "license": "MIT",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "getrandom",
+      "version": "0.1.16",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "hmac",
+      "version": "0.8.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "hmac-drbg",
+      "version": "0.3.0",
+      "license": "Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "itoa",
+      "version": "1.0.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "keccak",
+      "version": "0.1.0",
+      "license": "CC0-1.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "libsecp256k1",
+      "version": "0.5.0",
+      "license": "Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "libsecp256k1-core",
+      "version": "0.2.2",
+      "license": "Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "libsecp256k1-gen-ecmult",
+      "version": "0.2.1",
+      "license": "Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "libsecp256k1-gen-genmult",
+      "version": "0.2.1",
+      "license": "Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "opaque-debug",
+      "version": "0.3.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "ppv-lite86",
+      "version": "0.2.16",
+      "license": "MIT/Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "proc-macro2",
+      "version": "1.0.36",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "quote",
+      "version": "1.0.15",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "rand",
+      "version": "0.7.3",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "rand_chacha",
+      "version": "0.2.2",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "rand_core",
+      "version": "0.5.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "ryu",
+      "version": "1.0.9",
+      "license": "Apache-2.0 OR BSL-1.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "serde",
+      "version": "1.0.136",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "serde_derive",
+      "version": "1.0.136",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "serde_json",
+      "version": "1.0.79",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "sha2",
+      "version": "0.9.9",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "sha3",
+      "version": "0.9.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "subtle",
+      "version": "2.4.1",
+      "license": "BSD-3-Clause",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "syn",
+      "version": "1.0.86",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "typenum",
+      "version": "1.15.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "unicode-xid",
+      "version": "0.2.2",
+      "license": "MIT OR Apache-2.0",
+      "source": "cached registry manifest"
+    },
+    {
+      "name": "version_check",
+      "version": "0.9.4",
+      "license": "MIT/Apache-2.0",
+      "source": "cached registry manifest"
+    }
+  ]
+}

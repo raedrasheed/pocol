@@ -1,0 +1,41 @@
+PASS fixture specs: s2 shares the chainId with another genesis, s3 has another chainId
+FAIL A06 conflict is recomputed over the set: both profiles flagged — [["p1",null],["p2",true]]
+FAIL scenario 1 completed — timeout waiting for port message
+FAIL scenario 2 completed — hex
+PASS A06 rejected confirmation -> 4001, nothing sent
+FAIL scenario 4 completed — timeout waiting for port message
+FAIL A06 audit sequence (endpoint change + lock during confirmation) -> refused, nothing sent — {"id":2,"result":"0xe69add7877d970afc033ee6a533e03122dc0ecc6a08c7531aa6a55f9773950bf"}
+FAIL A06 endpoint genesis changed before signing -> 4901, frame revoked, port closed, nothing sent — {"id":2,"result":"0xe69add7877d970afc033ee6a533e03122dc0ecc6a08c7531aa6a55f9773950bf"}
+FAIL A06 endpoint chainId changed before signing -> 4901, nothing sent — {"id":2,"result":"0xe69add7877d970afc033ee6a533e03122dc0ecc6a08c7531aa6a55f9773950bf"}
+FAIL scenario 8 completed — timeout waiting for port message
+FAIL scenario 9 completed — timeout waiting for port message
+FAIL scenario 10 completed — timeout waiting for port message
+FAIL A06 wallet.lock while the signing identity check is outstanding -> 4100, nothing sent — {"id":2,"result":"0xe69add7877d970afc033ee6a533e03122dc0ecc6a08c7531aa6a55f9773950bf"}
+FAIL A06 a profile change waits for ProfileMutex while signing is in progress (signing completes first) — {"id":2,"result":"0xe69add7877d970afc033ee6a533e03122dc0ecc6a08c7531aa6a55f9773950bf"}
+FAIL scenario 13 completed — timeout waiting for port message
+FAIL scenario 14 completed — Cannot read properties of undefined (reading 'f')
+FAIL scenario 15 completed — Cannot read properties of undefined (reading 'f')
+FAIL scenario 16 completed — Cannot read properties of undefined (reading 'live')
+FAIL A12 unsettled write keeps its admission slot after storeTimeout: of 8 further writes 7 are admitted and the 8th is refused {store} — {"reason":"storeTimeout"} pending,pending,pending,pending,pending,pending,pendin
+PASS A12 once the write settles the queued writes complete and the slots return
+FAIL A09 three concurrent 8 MiB requests: peak reservation <= SESSION_RECV_MAX, one served, two busy, all released — peak=25165824 fulfilled,fulfilled,fulfilled recv=0
+PASS A09 fetch error: fails closed and releases the session and pool shares
+PASS A09 deadline: fails closed and releases the session and pool shares
+PASS A09 HTTP 500: fails closed and releases the session and pool shares
+PASS A09 pool exhausted: fails closed and releases the session and pool shares
+FAIL A14 jsonrpc 1.0, foreign id (audit witness) -> recvParse — {"v":"0x99"}
+FAIL A14 foreign id -> recvParse — {"v":"0x1"}
+FAIL A14 id as string -> recvParse — {"v":"0x1"}
+FAIL A14 id null -> recvParse — {"v":"0x1"}
+FAIL A14 missing jsonrpc -> recvParse — {"v":"0x1"}
+FAIL A14 missing id -> recvParse — {"v":"0x1"}
+FAIL A14 result and error -> recvParse — {"rpc":{"code":1,"message":"m"}}
+PASS A14 neither result nor error -> recvParse
+FAIL A14 error code not an integer -> recvParse — {"rpc":{"code":-32603,"message":"m"}}
+FAIL A14 error message not a string -> recvParse — {"rpc":{"code":1,"message":""}}
+FAIL A14 error not an object -> recvParse — {"rpc":{"code":-32603,"message":""}}
+PASS A14 batch array -> recvParse
+PASS A14 HTTP 500 with a result -> transport
+PASS A14 exact response accepted
+PASS A14 exact error object passes through (message clipped, data kept)
+{"result":"FAIL","passed":12,"failed":28}

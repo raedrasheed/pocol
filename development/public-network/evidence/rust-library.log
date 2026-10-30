@@ -1,0 +1,59 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/scratch/780b46016e2a/pocol/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/workspace/scratch/780b46016e2a/pocol/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 18.10s
+     Running unittests src/lib.rs (prototypes/pocold/target/release/deps/pocold-bbfc1f8cdf5a9d0e)
+
+running 51 tests
+test asert::tests::mutation_sensitivity ... ok
+test asert::tests::rejection_cases ... ok
+test asert::tests::named_boundaries ... ok
+test assignment::tests::rejected_hash_retries_without_wrap_or_modulo_fallback ... ok
+test fixed::tests::byte_round_trip ... ok
+test decimal::tests::known_values ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test fixed::tests::shifts_and_bits ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test genesis::tests::cp_table_shape ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_spec::tests::schema_shape ... ok
+test hashes::tests::domain_preimages_layout ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test hashes::tests::keccak_known_answers_k1_k3 ... ok
+test hashes::tests::sha256_known_answer ... ok
+test hashes::tests::signature_shape_faults ... ok
+test header::tests::field_faults ... ok
+test header::tests::nonminimal_integer_rejected ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test header::tests::share_count_boundary ... ok
+test hex::tests::round_trip ... ok
+test net::tests::status_work_and_locator_requests_round_trip_within_bounds ... ok
+test net::tests::an_offer_past_half_the_queue_is_refused_and_keeps_the_peer ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test header::tests::typed_round_trip ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test rlp::tests::depth_bound_default ... ok
+test rpc::tests::batch_members_beyond_the_byte_limit_are_not_run ... ok
+test rpc::tests::error_items_fit_err_item_max_and_a_batch_of_them_small_reply_max ... ok
+test rpc::tests::net_key_matches_the_extension ... ok
+test rpc::tests::response_pools_reserve_shrink_and_release ... ok
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::a_busy_answer_does_not_parse_an_over_limit_body ... ok
+test rpc::tests::the_class_probe_agrees_with_the_parsed_class ... ok
+test rpc::tests::the_per_connection_bucket_refuses_only_more_tokens_than_its_capacity ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... ok
+test statediff::tests::diffs_compose_along_a_chain ... ok
+test statediff::tests::states_equal_sees_the_cached_code ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+test rpc::tests::sockwait_reports_readiness_within_its_timeout ... ok
+test node::relay_tests::a_returned_transaction_is_not_queued_to_a_peer_past_half_its_queue ... ok
+test net::tests::a_reader_sees_its_closed_flag_without_a_shutdown ... ok
+test statediff::tests::a_diff_turns_each_state_into_the_other_exactly ... ok
+test net::tests::a_close_between_the_writers_test_and_its_wait_wakes_it ... ok
+
+test result: ok. 51 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s

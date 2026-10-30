@@ -1,0 +1,147 @@
+B1 SSTORE lemma: sequences checked = 2178 ; min(paid - refund) per slot = 0 at original 1 warm-up access list values (0,)
+   => refund <= gas paid for that slot, so gasUsed(tx) >= intrinsic >= 21000 (cases above; slots are additive)
+B2 tx per block: floor(GAS_LIMIT/21000) = 380 ; without the SSTORE lemma (refund cap 1/5 only): 475
+B3 raw tx bytes per block: max = 196592 with 2 transactions (item headers [3, 4] ); trivial bound BODY_MAX = 196608
+B4 charged log bytes per block <= LOG_BLOCK_MAX = 32768 (user_phase.rs:196 halts above it); gas alone would allow up to 997328 ; one LOG0 filling it costs 288349 gas
+
+C  verdict: UNREACHABLE (proof) iff CAP >= H_END x per-block max; else REACHABLE (blocks to fill = ceil(CAP/max)).
+-- network | current (governance.md:13; execution.md:82) | H_END 129600
+   TX_CAP      cap        10000000  H_END*max        49248000  REACHABLE    filled after 26316 full blocks (1578960 s = 18.3 d); organic avg 77.160/block = 20.31% of max | robust (475/block): NOT PROVEN (needs 61560000)
+   TXBYTES_CAP cap      8589934592  H_END*max     25478323200  REACHABLE    filled after 43695 full blocks (2621700 s = 30.3 d); organic avg 66280.360/block = 33.71% of max | with BODY_MAX bound: NOT PROVEN (needs 25480396800)
+   LOG_CAP     cap      1073741824  H_END*max      4246732800  REACHABLE    filled after 32768 full blocks (1966080 s = 22.8 d); organic avg 8285.045/block = 25.28% of max
+-- network | N1 only (LOG_CAP 2^32, TX caps unchanged) | H_END 129600
+   TX_CAP      cap        10000000  H_END*max        49248000  REACHABLE    filled after 26316 full blocks (1578960 s = 18.3 d); organic avg 77.160/block = 20.31% of max | robust (475/block): NOT PROVEN (needs 61560000)
+   TXBYTES_CAP cap      8589934592  H_END*max     25478323200  REACHABLE    filled after 43695 full blocks (2621700 s = 30.3 d); organic avg 66280.360/block = 33.71% of max | with BODY_MAX bound: NOT PROVEN (needs 25480396800)
+   LOG_CAP     cap      4294967296  H_END*max      4246732800  UNREACHABLE  margin 48234496 (1.12% of cap)
+-- network | O2 = N1+N2+N3 (2^32, 5e7, 24 GiB) | H_END 129600
+   TX_CAP      cap        50000000  H_END*max        49248000  UNREACHABLE  margin 752000 (1.50% of cap) | robust (475/block): NOT PROVEN (needs 61560000)
+   TXBYTES_CAP cap     25769803776  H_END*max     25478323200  UNREACHABLE  margin 291480576 (1.13% of cap) | with BODY_MAX bound: UNREACHABLE
+   LOG_CAP     cap      4294967296  H_END*max      4246732800  UNREACHABLE  margin 48234496 (1.12% of cap)
+-- network | O2 exact minima (R27-R29 with equality) | H_END 129600
+   TX_CAP      cap        49248000  H_END*max        49248000  UNREACHABLE  margin 0 (0.00% of cap) | robust (475/block): NOT PROVEN (needs 61560000)
+   TXBYTES_CAP cap     25478323200  H_END*max     25478323200  UNREACHABLE  margin 0 (0.00% of cap) | with BODY_MAX bound: NOT PROVEN (needs 25480396800)
+   LOG_CAP     cap      4246732800  H_END*max      4246732800  UNREACHABLE  margin 0 (0.00% of cap)
+-- devnet | current (devnet.rs:39-40) | H_END 20000
+   TX_CAP      cap           20000  H_END*max         7600000  REACHABLE    filled after 53 full blocks (212 s = 0.0 d); organic avg 1.000/block = 0.26% of max | robust (475/block): NOT PROVEN (needs 9500000)
+   TXBYTES_CAP cap        16777216  H_END*max      3931840000  REACHABLE    filled after 86 full blocks (344 s = 0.0 d); organic avg 838.861/block = 0.43% of max | with BODY_MAX bound: NOT PROVEN (needs 3932160000)
+   LOG_CAP     cap      1073741824  H_END*max       655360000  UNREACHABLE  margin 418381824 (38.96% of cap)
+-- devnet | N1 (LOG_CAP 2^32) | H_END 20000
+   TX_CAP      cap           20000  H_END*max         7600000  REACHABLE    filled after 53 full blocks (212 s = 0.0 d); organic avg 1.000/block = 0.26% of max | robust (475/block): NOT PROVEN (needs 9500000)
+   TXBYTES_CAP cap        16777216  H_END*max      3931840000  REACHABLE    filled after 86 full blocks (344 s = 0.0 d); organic avg 838.861/block = 0.43% of max | with BODY_MAX bound: NOT PROVEN (needs 3932160000)
+   LOG_CAP     cap      4294967296  H_END*max       655360000  UNREACHABLE  margin 3639607296 (84.74% of cap)
+-- devnet | R28/R29 minima (O2 applied to devnet) | H_END 20000
+   TX_CAP      cap         7600000  H_END*max         7600000  UNREACHABLE  margin 0 (0.00% of cap) | robust (475/block): NOT PROVEN (needs 9500000)
+   TXBYTES_CAP cap      3931840000  H_END*max      3931840000  UNREACHABLE  margin 0 (0.00% of cap) | with BODY_MAX bound: NOT PROVEN (needs 3932160000)
+   LOG_CAP     cap      4294967296  H_END*max       655360000  UNREACHABLE  margin 3639607296 (84.74% of cap)
+-- caps/64 | current (validation.md:2062) | H_END 4000
+   TX_CAP      cap           20000  H_END*max         1520000  REACHABLE    filled after 53 full blocks (530 s = 0.0 d); organic avg 5.000/block = 1.32% of max | robust (475/block): NOT PROVEN (needs 1900000)
+   TXBYTES_CAP cap        16777216  H_END*max       786368000  REACHABLE    filled after 86 full blocks (860 s = 0.0 d); organic avg 4194.304/block = 2.13% of max | with BODY_MAX bound: NOT PROVEN (needs 786432000)
+   LOG_CAP     cap      1073741824  H_END*max       131072000  UNREACHABLE  margin 942669824 (87.79% of cap)
+-- caps-test | caps-test build (validation.md:2065) | H_END 4000
+   TX_CAP      cap           20000  H_END*max         1520000  REACHABLE    filled after 53 full blocks (530 s = 0.0 d); organic avg 5.000/block = 1.32% of max | robust (475/block): NOT PROVEN (needs 1900000)
+   TXBYTES_CAP cap        16777216  H_END*max       786368000  REACHABLE    filled after 86 full blocks (860 s = 0.0 d); organic avg 4194.304/block = 2.13% of max | with BODY_MAX bound: NOT PROVEN (needs 786432000)
+   LOG_CAP     cap        16777216  H_END*max       131072000  REACHABLE    filled after 512 full blocks (5120 s = 0.1 d); organic avg 4194.304/block = 12.80% of max
+
+D  empty blocks from baseFee0 1e9 to the idle fee: 145 ; fee never falls below 7 from >= 7 at u <= target: True
+   network   TX_CAP  min burn 7*21000*TX_CAP = 1470000000000 wei; 190-tx blocks from 7 wei: 1470011760000 wei; from 1 gwei: 12768360473453760000 wei (12.768 coins)
+   network   TXBYTES 2-tx blocks (827528 gas) from 7 wei: 253111851720 wei; cheaper 1-tx blocks of TX_MAX raw (544864 gas, 65536 blocks): 249957449728 wei
+   network   LOG_CAP one LOG0 per block (288349 gas), 32768 blocks from 7 wei: 66140340224 wei
+   devnet    TX_CAP  min burn 7*21000*TX_CAP = 2940000000 wei; 190-tx blocks from 7 wei: 2960580000 wei; from 1 gwei: 416075721122460000 wei (0.416 coins)
+   devnet    TXBYTES 2-tx blocks (827528 gas) from 7 wei: 498171856 wei; cheaper 1-tx blocks of TX_MAX raw (544864 gas, 128 blocks): 488198144 wei
+   devnet    LOG_CAP unreachable (needs 32768 blocks > H_END 20000): no attack cost
+   caps/64   TX_CAP  min burn 7*21000*TX_CAP = 2940000000 wei; 190-tx blocks from 7 wei: 2960580000 wei; from 1 gwei: 416075721122460000 wei (0.416 coins)
+   caps/64   TXBYTES 2-tx blocks (827528 gas) from 7 wei: 498171856 wei; cheaper 1-tx blocks of TX_MAX raw (544864 gas, 128 blocks): 488198144 wei
+   caps/64   LOG_CAP unreachable (needs 32768 blocks > H_END 4000): no attack cost
+   caps-test TX_CAP  min burn 7*21000*TX_CAP = 2940000000 wei; 190-tx blocks from 7 wei: 2960580000 wei; from 1 gwei: 416075721122460000 wei (0.416 coins)
+   caps-test TXBYTES 2-tx blocks (827528 gas) from 7 wei: 498171856 wei; cheaper 1-tx blocks of TX_MAX raw (544864 gas, 128 blocks): 488198144 wei
+   caps-test LOG_CAP one LOG0 per block (288349 gas), 512 blocks from 7 wei: 1033442816 wei
+
+E  network   H_END*T_blk = 7776000 s (90.0 d); T_END-g_ts = 10368000 s (120.0 d); time ends first only if the mean interval > 80.00 s (1.33x T_blk)
+E  devnet    H_END*T_blk = 80000 s (0.9 d); T_END-g_ts = 10000000 s (115.7 d); time ends first only if the mean interval > 500.00 s (125.00x T_blk)
+E  caps/64   H_END*T_blk = 40000 s (0.5 d); T_END-g_ts = 10000000 s (115.7 d); time ends first only if the mean interval > 2500.00 s (250.00x T_blk)
+E  caps-test H_END*T_blk = 40000 s (0.5 d); T_END-g_ts = 10000000 s (115.7 d); time ends first only if the mean interval > 2500.00 s (250.00x T_blk)
+
+F  LOG_CAP values A and B give identical execution on every branch iff H_END*LOG_BLOCK_MAX <= min(A, B)
+   largest H_END on which 2^30 never binds: 32768 ; 2^32: 131072 ; 2^24: 512
+   network   H_END 129600: 2^30 vs 2^32 neutral: False
+   devnet    H_END  20000: 2^30 vs 2^32 neutral: True
+   caps/64   H_END   4000: 2^30 vs 2^32 neutral: True
+   caps-test H_END   4000: 2^30 vs 2^32 neutral: True
+
+G  cross-check with vectors/caps-sustainability.json
+   network TX_CAP perBlockMax                                 mine 380                    model 380                    =
+   network TX_CAP value                                       mine 10000000               model 10000000               =
+   network TX_CAP sizeToCoverH_END                            mine 49248000               model 49248000               =
+   network TX_CAP reachableBeforeH_END                        mine True                   model True                   =
+   network TX_CAP minBlocks                                   mine 26316                  model 26316                  =
+   network TXBYTES_CAP perBlockMax                            mine 196592                 model 196592                 =
+   network TXBYTES_CAP value                                  mine 8589934592             model 8589934592             =
+   network TXBYTES_CAP sizeToCoverH_END                       mine 25478323200            model 25478323200            =
+   network TXBYTES_CAP reachableBeforeH_END                   mine True                   model True                   =
+   network TXBYTES_CAP minBlocks                              mine 43695                  model 43695                  =
+   network LOG_CAP perBlockMax                                mine 32768                  model 32768                  =
+   network LOG_CAP value                                      mine 1073741824             model 1073741824             =
+   network LOG_CAP sizeToCoverH_END                           mine 4246732800             model 4246732800             =
+   network LOG_CAP reachableBeforeH_END                       mine True                   model True                   =
+   network LOG_CAP minBlocks                                  mine 32768                  model 32768                  =
+   devnet TX_CAP perBlockMax                                  mine 380                    model 380                    =
+   devnet TX_CAP value                                        mine 20000                  model 20000                  =
+   devnet TX_CAP sizeToCoverH_END                             mine 7600000                model 7600000                =
+   devnet TX_CAP reachableBeforeH_END                         mine True                   model True                   =
+   devnet TX_CAP minBlocks                                    mine 53                     model 53                     =
+   devnet TXBYTES_CAP perBlockMax                             mine 196592                 model 196592                 =
+   devnet TXBYTES_CAP value                                   mine 16777216               model 16777216               =
+   devnet TXBYTES_CAP sizeToCoverH_END                        mine 3931840000             model 3931840000             =
+   devnet TXBYTES_CAP reachableBeforeH_END                    mine True                   model True                   =
+   devnet TXBYTES_CAP minBlocks                               mine 86                     model 86                     =
+   devnet LOG_CAP perBlockMax                                 mine 32768                  model 32768                  =
+   devnet LOG_CAP value                                       mine 1073741824             model 1073741824             =
+   devnet LOG_CAP sizeToCoverH_END                            mine 655360000              model 655360000              =
+   devnet LOG_CAP reachableBeforeH_END                        mine False                  model False                  =
+   caps/64 TX_CAP perBlockMax                                 mine 380                    model 380                    =
+   caps/64 TX_CAP value                                       mine 20000                  model 20000                  =
+   caps/64 TX_CAP sizeToCoverH_END                            mine 1520000                model 1520000                =
+   caps/64 TX_CAP reachableBeforeH_END                        mine True                   model True                   =
+   caps/64 TX_CAP minBlocks                                   mine 53                     model 53                     =
+   caps/64 TXBYTES_CAP perBlockMax                            mine 196592                 model 196592                 =
+   caps/64 TXBYTES_CAP value                                  mine 16777216               model 16777216               =
+   caps/64 TXBYTES_CAP sizeToCoverH_END                       mine 786368000              model 786368000              =
+   caps/64 TXBYTES_CAP reachableBeforeH_END                   mine True                   model True                   =
+   caps/64 TXBYTES_CAP minBlocks                              mine 86                     model 86                     =
+   caps/64 LOG_CAP perBlockMax                                mine 32768                  model 32768                  =
+   caps/64 LOG_CAP value                                      mine 1073741824             model 1073741824             =
+   caps/64 LOG_CAP sizeToCoverH_END                           mine 131072000              model 131072000              =
+   caps/64 LOG_CAP reachableBeforeH_END                       mine False                  model False                  =
+   caps-test TX_CAP perBlockMax                               mine 380                    model 380                    =
+   caps-test TX_CAP value                                     mine 20000                  model 20000                  =
+   caps-test TX_CAP sizeToCoverH_END                          mine 1520000                model 1520000                =
+   caps-test TX_CAP reachableBeforeH_END                      mine True                   model True                   =
+   caps-test TX_CAP minBlocks                                 mine 53                     model 53                     =
+   caps-test TXBYTES_CAP perBlockMax                          mine 196592                 model 196592                 =
+   caps-test TXBYTES_CAP value                                mine 16777216               model 16777216               =
+   caps-test TXBYTES_CAP sizeToCoverH_END                     mine 786368000              model 786368000              =
+   caps-test TXBYTES_CAP reachableBeforeH_END                 mine True                   model True                   =
+   caps-test TXBYTES_CAP minBlocks                            mine 86                     model 86                     =
+   caps-test LOG_CAP perBlockMax                              mine 32768                  model 32768                  =
+   caps-test LOG_CAP value                                    mine 16777216               model 16777216               =
+   caps-test LOG_CAP sizeToCoverH_END                         mine 131072000              model 131072000              =
+   caps-test LOG_CAP reachableBeforeH_END                     mine True                   model True                   =
+   caps-test LOG_CAP minBlocks                                mine 512                    model 512                    =
+   network emptyBlocksFromBaseFee0ToIdle                      mine 145                    model 145                    =
+   network logFill gas                                        mine 288349                 model 288349                 =
+   network txBytesBlock rawLengths sum                        mine 196592                 model 196592                 =
+   devnet emptyBlocksFromBaseFee0ToIdle                       mine 145                    model 145                    =
+   devnet logFill gas                                         mine 288349                 model 288349                 =
+   devnet txBytesBlock rawLengths sum                         mine 196592                 model 196592                 =
+   caps/64 emptyBlocksFromBaseFee0ToIdle                      mine 145                    model 145                    =
+   caps/64 logFill gas                                        mine 288349                 model 288349                 =
+   caps/64 txBytesBlock rawLengths sum                        mine 196592                 model 196592                 =
+   caps-test emptyBlocksFromBaseFee0ToIdle                    mine 145                    model 145                    =
+   caps-test logFill gas                                      mine 288349                 model 288349                 =
+   caps-test txBytesBlock rawLengths sum                      mine 196592                 model 196592                 =
+   network TX_CAP attack from 7 wei (190-tx blocks)           mine 1470011760000          model 1470011760000          =
+   network TX_CAP attack from 1 gwei                          mine 12768360473453760000   model 12768360473453760000   =
+   network TXBYTES attack from 7 wei (2-tx blocks)            mine 253111851720           model 253111851720           =
+   network LOG_CAP attack from 7 wei                          mine 66140340224            model 66140340224            =
+   network TX_CAP fullBlocksUntilOneBlockCostsASubsidy        mine 212                    model 212                    =
+G  mismatches: 0

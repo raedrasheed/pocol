@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/payment-value/gst_admission_checks.py", line 37, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/payment-value/gst_admission_checks.py", line 26, in main
+    check(True,balance=42007);check(False,balance=42006)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/payment-value/gst_admission_checks.py", line 24, in check
+    assert actual==expected,('admission boundary',count,actual,expected)
+           ^^^^^^^^^^^^^^^^
+AssertionError: ('admission boundary', 1, True, False)

@@ -1,0 +1,20 @@
+{
+  "base": "041061aa62d5bf772c4e45d790ce5e5a85aad151",
+  "sha256": {
+    "development/LOCAL-DEVNET-PLAN.md": "0f9947b5df0811ad57c0fada3117a43289e9f03ac6be6346acbde8f047811421",
+    "development/lp3/s9-acceptance/codex-r1/ACCEPTANCE.md": "2431f4c05680a125d069e84036bafcd9bba1bcaef24fe3fe72d012a325969f5b",
+    "development/lp3/s9-acceptance/codex-r1/LP4-OBLIGATIONS.md": "d8a9235a3931cf05cdbfba1718d8784f6bf7a1533440473fed9ce6333870c3c1",
+    "development/LP3-AMENDMENT-01.md": "50a2310b247df728e360968e1045b2cae6dd665dd2ac557434e9c3fb5cdf4235",
+    "development/LP3-CF-CORE-APPROVAL.md": "ca867433017d11e6d401df0c7e58bd53b6a7214d8fec714d9d2b56faaeafe4a4",
+    "development/m1/reference/implementation.md": "7701f1c9fdc16e18dc5434f7a6eaa197a933b0c11b1262b5c78adf2f289df7f3",
+    "development/m1/reference/execution.md": "67e90f4c6d351e877dd8cdb113d13f14c79745a2be0c89f2772c471ad92f4718",
+    "development/m1/reference/incentives.md": "ee77e12a5d8e624bc20f6f6704cb38016d60cc47d81e3fd25a32b0af366d1365",
+    "development/m1/reference/consensus.md": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+    "development/m1/reference/governance.md": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b",
+    "development/m1/reference/threat.md": "47c42e8bbe2e3232beb18b4a03e79b41ae2dacd063c5a2333d72dbfd3bc2b547",
+    "development/m1/reference/validation.md": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1",
+    "development/m1/m1-draft-0.29/decisions/adopted-decisions-0.29.json": "59ccc501fafe8418649acc3ed9468cc9ac0a868fcf2859817048ac3f9adeca50",
+    "development/m1/coordination/evidence/0.32/M1-ACCEPTANCE-0.32.json": "46db5dc2dc8079b0ac24eaf9ff7ec340511d285fe3f2291e2557cd42e8bd4a54"
+  },
+  "authority": "current owner instruction; recorded delegated M1 decisions are not personal owner answers"
+}

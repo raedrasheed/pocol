@@ -1,0 +1,71 @@
+name: PoCol browser and devnet verification
+on:
+  push:
+    branches: [main]
+    paths: ['prototypes/**', '.github/workflows/pocol-browser-verify.yml']
+  pull_request:
+    branches: [main]
+    paths: ['prototypes/**', '.github/workflows/pocol-browser-verify.yml']
+permissions:
+  contents: read
+jobs:
+  browser:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [memory, store]
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      POCOLD_RUN_ARGS: ${{ matrix.mode == 'store' && '--state-store' || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Record exact checkout
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/commit.txt
+          uname -a > evidence/platform.txt
+      - name: Install tools and browser
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps chromium
+          node --version > evidence/node-version.txt
+      - name: Build node and extension
+        id: build
+        run: |
+          set -o pipefail
+          cargo +1.99.1 build --release --locked --manifest-path prototypes/pocold/Cargo.toml --bins 2>&1 | tee evidence/build.log
+          sha256sum prototypes/pocold/target/release/pocold > evidence/binary.sha256
+          npm ci --ignore-scripts --prefix prototypes/pocol-extension
+          npm run build --prefix prototypes/pocol-extension
+          npm test --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-unit.log
+      - name: Browser with live devnet
+        run: |
+          set -o pipefail
+          node prototypes/pocol-extension/tests/e2e_browser.mjs 2>&1 | tee evidence/browser.log
+      - name: Integrated browser, partition and restart
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          node prototypes/pocol-extension/tests/e2e_integrated.mjs 2>&1 | tee evidence/integrated.log
+      - name: Upload evidence including failures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-${{ matrix.mode }}-${{ env.EXPECTED_COMMIT }}
+          path: |
+            evidence/
+            prototypes/pocol-extension/tests/*.last.json
+            prototypes/pocol-extension/tests/failures/
+          if-no-files-found: error
+          retention-days: 14

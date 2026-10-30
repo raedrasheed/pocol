@@ -1,0 +1,55 @@
+# reruns of the two suite failures, same tree, 2026-10-28T16:06:35Z, load 19.32 14.64 11.41 (seeded-fault builds nice 19 and the H_END run nice 10 beside them)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 97 filtered out; finished in 1.74s
+test reconnect_churn_keeps_threads_and_slots_bounded ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.29s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 97 filtered out; finished in 1.39s
+test reconnect_churn_keeps_threads_and_slots_bounded ... FAILED
+---- reconnect_churn_keeps_threads_and_slots_bounded stdout ----
+thread 'reconnect_churn_keeps_threads_and_slots_bounded' (15624) panicked at tests/net.rs:127:68:
+   2: net::reconnect_churn_keeps_threads_and_slots_bounded
+   3: net::reconnect_churn_keeps_threads_and_slots_bounded::{closure#0}
+   4: <net::reconnect_churn_keeps_threads_and_slots_bounded::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+    reconnect_churn_keeps_threads_and_slots_bounded
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; finished in 1.92s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 97 filtered out; finished in 1.41s
+test reconnect_churn_keeps_threads_and_slots_bounded ... FAILED
+---- reconnect_churn_keeps_threads_and_slots_bounded stdout ----
+thread 'reconnect_churn_keeps_threads_and_slots_bounded' (15675) panicked at tests/net.rs:127:68:
+   2: net::reconnect_churn_keeps_threads_and_slots_bounded
+   3: net::reconnect_churn_keeps_threads_and_slots_bounded::{closure#0}
+   4: <net::reconnect_churn_keeps_threads_and_slots_bounded::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+    reconnect_churn_keeps_threads_and_slots_bounded
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; finished in 1.88s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 97 filtered out; finished in 1.68s
+test reconnect_churn_keeps_threads_and_slots_bounded ... FAILED
+---- reconnect_churn_keeps_threads_and_slots_bounded stdout ----
+thread 'reconnect_churn_keeps_threads_and_slots_bounded' (15728) panicked at tests/net.rs:127:68:
+   2: net::reconnect_churn_keeps_threads_and_slots_bounded
+   3: net::reconnect_churn_keeps_threads_and_slots_bounded::{closure#0}
+   4: <net::reconnect_churn_keeps_threads_and_slots_bounded::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+    reconnect_churn_keeps_threads_and_slots_bounded
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; finished in 2.10s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 97 filtered out; finished in 1.42s
+test reconnect_churn_keeps_threads_and_slots_bounded ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 1.33s
+# reconnect_churn alternating, base 719da04 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/wt) vs this tree, 2026-10-28T16:07:13Z, load 21.08 15.69 11.90
+base 1: thread 'reconnect_churn_keeps_threads_and_slots_bounded' (16209) panicked at tests/net.rs:127:68: still accepts peers test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; f
+new 1:  
+base 2: thread 'reconnect_churn_keeps_threads_and_slots_bounded' (16292) panicked at tests/net.rs:127:68: still accepts peers test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; f
+new 2: thread 'reconnect_churn_keeps_threads_and_slots_bounded' (16410) panicked at tests/net.rs:127:68: still accepts peers test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; f
+base 3:  
+new 3:  
+base 4:  
+new 4:  
+base 5:  
+new 5:  
+base 6: thread 'reconnect_churn_keeps_threads_and_slots_bounded' (16906) panicked at tests/net.rs:127:68: still accepts peers test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; f
+new 6:  
+# after the wait is 3 s (this tree), 2026-10-28T16:07:59Z, load 22.22 16.79 12.46
+new-3s 1: thread 'reconnect_churn_keeps_threads_and_slots_bounded' (17315) panicked at tests/net.rs:128:68: still accepts peers test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; f
+new-3s 2: thread 'reconnect_churn_keeps_threads_and_slots_bounded' (17386) panicked at tests/net.rs:128:68: still accepts peers test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; f
+new-3s 3: thread 'reconnect_churn_keeps_threads_and_slots_bounded' (17441) panicked at tests/net.rs:128:68: still accepts peers test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; f
+new-3s 4:  
+new-3s 5: thread 'reconnect_churn_keeps_threads_and_slots_bounded' (17595) panicked at tests/net.rs:128:68: still accepts peers test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; f
+new-3s 6:  
+# the 3 s wait did not help: the test change is reverted (not a latency bound)

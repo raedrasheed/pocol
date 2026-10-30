@@ -1,0 +1,11 @@
+# 2026-10-28T11:00:02Z seeded faults for the review fixes; tests: --features io-fault consensus e4_an_open_that_cannot e4_a_state_store_io_fault (release)
+RF1 a restore that failed on local storage refuses the checkpoint again => test e4_an_open_that_cannot_read_its_storage_fails_and_keeps_the_store ... FAILED test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 100 filtered out; finished in 10.67s 
+RF2 a journal read error is 'not a record of the bound prefix' again => test e4_an_open_that_cannot_read_its_storage_fails_and_keeps_the_store ... FAILED test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 100 filtered out; finished in 10.61s 
+RF4a a live checkpoint write that failed on I/O is only logged => test e4_a_state_store_io_fault_stops_the_node_and_marks_no_block_invalid ... FAILED test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 100 filtered out; finished in 8.44s 
+RF4b a release step that failed on I/O is only logged => test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 100 filtered out; finished in 11.34s 
+RF2b a drop that failed on I/O breaks to a rebuild => test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 100 filtered out; finished in 11.21s 
+restored
+# 2026-10-28T11:05:42Z round 2, after the tests were strengthened (release step must stop in the step; a refused checkpoint whose drop fails)
+RF4b a release step that failed on I/O is only logged => test e4_a_state_store_io_fault_stops_the_node_and_marks_no_block_invalid ... FAILED test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 100 filtered out; finished in 9.90s 
+RF2b a drop that failed on I/O breaks to a rebuild => test e4_an_open_that_cannot_read_its_storage_fails_and_keeps_the_store ... FAILED test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 100 filtered out; finished in 11.48s 
+restored

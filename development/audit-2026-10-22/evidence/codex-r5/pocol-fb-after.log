@@ -1,0 +1,9 @@
+   Compiling pocold v0.1.0 (<repo>/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 7.60s
+     Running tests/checkpoint_source.rs (target/release/deps/checkpoint_source-b0ffd24a6e260fd9)
+
+running 1 test
+test verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

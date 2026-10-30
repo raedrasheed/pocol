@@ -1,0 +1,52 @@
+{
+  "schema": "pocol-m1-consolidation/0.26",
+  "status": "author consolidation for root review; row criteria are computed by tools/run_checks_026.py, never asserted here",
+  "base": {"inventory": "m1-draft-0.25/audit/row-inventory.json", "findings": "m1-draft-0.25/audit/findings-trace.json", "register": "m1-draft-0.25/audit/decision-register.json",
+           "note": "the 0.25 files are read unchanged; this overlay records only what changed"},
+  "decisions": {
+    "reviewer": "coordination/review-001/REVIEWER-DECISIONS-0.25.json",
+    "acceptedStatus": "accepted-technical-qualified",
+    "owner": [
+      {"id": "U01", "status": "open-owner", "source": "coordination/issue-ledger.json C07"},
+      {"id": "U02", "status": "open-owner", "source": "coordination/issue-ledger.json C07"},
+      {"id": "U10", "status": "open-owner", "source": "coordination/issue-ledger.json C07"},
+      {"id": "U14", "status": "open-owner", "source": "coordination/issue-ledger.json C07"},
+      {"id": "CR-M1-01", "status": "open-owner", "source": "coordination/issue-ledger.json C06"},
+      {"id": "RF-E6-1", "status": "open-owner-question-pending", "source": "coordination/issue-ledger.json RF-E6-1"},
+      {"id": "U08-CR", "status": "pending-owner-change-request", "source": "coordination/issue-ledger.json U08-CR", "routing": "m1-draft-0.26/owner/U08-CHANGE-REQUEST.md"}
+    ],
+    "newReviewer": [
+      {"id": "P-V1", "items": ["P-V1-1 wire form", "P-V1-2 undecodable element -> rule 1", "P-V1-3 SHA-256 count reading", "P-V1-4 Arabic count phrase and warning join",
+                               "P-V1-5 signature byte layout r||s||v", "P-V1-6 fixture clock C = ts(head) + 5", "P-V1-7 gasLimit/gasUsed u64, shares be64",
+                               "P-V1-8 V1NET genesis", "P-V1-9 other RPC errors -> viewIncomplete", "P-V1-10 retry waits exactly retryAfterMs"],
+       "status": "proposed; root decision pending", "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md"}
+    ],
+    "rule": "A row's c4 is satisfied only if every reviewer token it depends on has the accepted status in REVIEWER-DECISIONS-0.25.json and it depends on no open owner item. P-0.2 is accepted with root's qualification that excludes U01/P28, U02, U10/P09, U14, CR-M1-01/U05 and U08/P22."
+  },
+  "rowChanges": {
+    "C3": {"addOwner": ["U08-CR"], "removeReviewer": ["U08"], "why": "U08 is an owner change request (REVIEW-0.25)"},
+    "C4": {"addOwner": ["U08-CR"], "removeReviewer": ["U08"], "why": "T1-14 encodes U08 alternative A"},
+    "E3": {"addEvidence": [["R25", "^S25\\.sweepMax\\."]], "resolved": ["E3-SWEEPMAX"]},
+    "E4": {"addEvidence": [["R25", "^CR-E4-01\\."], ["R25", "^CR-E4-02\\."]], "addSpec": ["m1-draft-0.26/normative/N26-REPRESENTATION.md"]},
+    "Q1": {"addSpec": ["m1-draft-0.26/normative/N26-REPRESENTATION.md"]},
+    "V2": {"addEvidence": [["R25", "^S25\\.lclit\\."], ["R25", "^S25\\.rg3b\\."]], "resolved": ["DG-V2-1", "DG-V2-2"]},
+    "V3": {"addEvidence": [["R25", "^CID-1\\."]], "addSpec": ["m1-draft-0.26/normative/N26-REPRESENTATION.md"]},
+    "C3e07": {"row": "C3", "addEvidence": [["R25", "^S25\\.e07\\."]], "resolved": ["C3-E07"]},
+    "V1": {"replaceMissing": [], "addSpec": ["m1-draft-0.26/annex/V1-HEADERNETCHECK.md"],
+           "addFixtures": ["m1-draft-0.26/vectors/v1-network.json", "m1-draft-0.26/vectors/v1-chains.json", "m1-draft-0.26/vectors/v1-window-cases.json",
+                           "m1-draft-0.26/vectors/v1-units.json", "m1-draft-0.26/supplements/s26-v1-experiments.json"],
+           "currentRunEvidence": ["^V1\\."], "addReviewer": ["P-V1"], "pendingRootReview": true,
+           "resolved": ["V1-WINDOW", "V1-TEXTS", "V1-NX"]}
+  },
+  "results": {"R25": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json"},
+  "rootEvidence0_25": ["coordination/review-001/REVIEW-0.25.md", "coordination/review-001/e05-new-three-library-0.25.json", "coordination/review-001/REVIEWER-DECISIONS-0.25.json"],
+  "retainedFailure": {"file": "coordination/review-001/run-results-0.25-copy-output-path-failure.json", "failed": ["S25.expspec.inputsExist", "coverage025.required"],
+                      "cause": "the 0.25 experiment-input check looked for its generated export under the original package while outputs went to the review copy",
+                      "fix0_26": "every generated artifact of 0.26 is located and validated under the runner's output directory (--out / POCOL_M1_OUT, default <package>/results); no assertion is dropped"},
+  "proposedStatus": {
+    "CompleteCandidate": ["X1", "X2", "X3", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "R2", "R3", "R4", "S1", "S2", "S3", "S4",
+                          "Q1", "Q2", "Q3", "Q4", "E1", "E2", "E3", "E4", "E5", "E7", "V2", "V3", "V4"],
+    "Partial": ["C1", "C2", "C3", "C4", "R1", "E6", "V1"],
+    "meaning": "CompleteCandidate = all five R3-08 criteria computed as satisfied from reviewed evidence and recorded decisions; it becomes Complete only when root confirms this 0.26 consolidation run. Partial = at least one criterion blocked or pending."
+  }
+}

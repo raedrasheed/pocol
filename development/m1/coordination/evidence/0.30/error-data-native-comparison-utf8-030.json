@@ -1,0 +1,32 @@
+{
+  "checks": 3,
+  "passed": 2,
+  "failed": 1,
+  "initialLoaderFailurePreserved": "error-data-native-comparison-030.json; firstloader usedplatformdefaultencoding fornativeUTF8emoji, corrected byexplicitUTF8. Lone-surrogate undercount remains genuine.",
+  "results": [
+    {
+      "id": "loneSurrogateData",
+      "nativeBytes": 6647,
+      "pythonModelBytes": 3347,
+      "shouldDrop": true,
+      "modelWouldDrop": false,
+      "pass": false
+    },
+    {
+      "id": "emojiData",
+      "nativeBytes": 4447,
+      "pythonModelBytes": 4447,
+      "shouldDrop": true,
+      "modelWouldDrop": true,
+      "pass": true
+    },
+    {
+      "id": "exactData4096",
+      "nativeBytes": 4096,
+      "pythonModelBytes": 4096,
+      "shouldDrop": false,
+      "modelWouldDrop": false,
+      "pass": true
+    }
+  ]
+}

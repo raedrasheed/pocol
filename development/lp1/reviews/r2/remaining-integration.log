@@ -1,0 +1,35 @@
+cargo.exe :     Finished test [unoptimized + debuginfo] target(s) in 0.22s
+At line:3 char:1
++ & <toolchain>/toolchains/stable-x86_64-pc-windows-msvc/bi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Finished te...get(s) in 0.22s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+     Running tests/asert_alloc.rs (coordination/lp1-build-r1/target\debug\deps\asert_alloc-fa866688f0d7c99e.exe)
+{"test":"asert_alloc","calls":1069,"allocations":0,"counterProbe":true,"maxShiftBits":512,"earlyHigh":286,"none":3,"probeLen":64}
+     Running tests\fixtures_integration.rs (coordination/lp1-build-r1/target\debug\deps\fixtures_integration-cbe3d637733ebf63.exe)
+
+running 12 tests
+test a0_provenance_and_no_private_material ... ok
+test a2_chain_headers_reencode_exactly ... ok
+test a3_signatures_and_hash_oracle ... ok
+test a4_asert_oracle_rows ... ok
+test a5_mutations_are_rejected ... ok
+test a5_named_counts_and_order ... ok
+test a5_uncached_outcomes_equal_cached ... ok
+test a5_window_cases_match_saved_transcripts ... ok
+test a6_chain_loads_only_when_fully_valid ... ok
+test a6_rpc_over_validated_chain ... ok
+test a6_window_check_over_own_rpc_matches_transcript ... ok
+test profile_binds_literal_genesis_and_rejects_mutations ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.64s
+
+     Running tests\http_loopback.rs (coordination/lp1-build-r1/target\debug\deps\http_loopback-03fcf2acf3360684.exe)
+
+running 2 tests
+test empty_chain_transport ... ok
+test transport_positive_negative_and_shutdown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s
+

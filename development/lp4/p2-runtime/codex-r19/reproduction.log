@@ -1,0 +1,5 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/work/lp4/p2-surplus-reproduced/crate)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.92s
+     Running `prototypes/lp4-execution/target/debug/examples/forced_surplus_vectors`
+PASS22 independent full-state-root/output/gas/compiled surplus-path comparisons; full P2/T2b/LP4 NOT PASSED
+PASS22 independent steps and1compiled assertion control; full P2/LP4 NOT PASSED

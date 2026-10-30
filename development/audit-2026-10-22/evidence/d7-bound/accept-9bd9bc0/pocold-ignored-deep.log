@@ -1,0 +1,13 @@
+# pocold-ignored-deep: (cd prototypes/pocold; cargo test --release --locked --offline --test consensus -- --ignored adoption_at_the_spec_depth_2048_and_not_at_2049 d133_tie_break_at_depth_400_holds_through_eviction_and_refetch a11_deep_reorg_restores_the_oldest_detached_transaction --test-threads=1)
+# start 2026-10-25T12:36:36Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.18s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7-target/release/deps/consensus-eb5303187dead8f9)
+
+running 3 tests
+test a11_deep_reorg_restores_the_oldest_detached_transaction ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ok
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 83 filtered out; finished in 389.91s
+
+# end 2026-10-25T12:43:06Z exit=0

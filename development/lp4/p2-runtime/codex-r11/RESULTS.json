@@ -1,0 +1,44 @@
+{
+  "run": 39064768819,
+  "head": "b76729bfd91b253f96346cb5f6fe56b537ef24e0",
+  "tree": "474a5fd21cce4bcc83f6e8ea13581147a9d3ff7f",
+  "jobs": "3 SUCCESS",
+  "nativeTestsPerOS": 40,
+  "registryComparisons": 63,
+  "compiledControls": {
+    "Registry": 17,
+    "PAY": 16,
+    "CREATE": 7,
+    "historicalBudgetWitness": 3
+  },
+  "GST": {
+    "approvedStorageCollisionRule": "LP4-CREATE-01",
+    "scope": "Upstream Cancun only; NOT PoCol T2 acceptance. Exception reason equivalence not proven.",
+    "counts": {
+      "total": 20661,
+      "passControl": 20661,
+      "failControl": 0,
+      "runnerFailure": 0,
+      "nonCancunVariants": 87932
+    },
+    "seconds": 163.826,
+    "runnerExit": 0,
+    "limited": false,
+    "fullIndependentEVM": "NOT RUN",
+    "bootable": false
+  },
+  "notices": {
+    "lockedArchives": 266,
+    "activePackages": 107,
+    "identicalToR9": true
+  },
+  "legacyWindows": {
+    "PASS": 16,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "all26Obligations": "NOT PASSED",
+  "bootable": false
+}

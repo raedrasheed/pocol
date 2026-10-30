@@ -1,0 +1,8 @@
+{
+  "nativeRowsObserved": 20661,
+  "nativeReportedFailures": 0,
+  "nativeExit": "NOT RECORDED before initial parser failure",
+  "harnessExit": 1,
+  "status": "NOT PASSED",
+  "cause": "Native null output for100 input files with zero Cancun cases was not accepted by the initial list-only parser. Fixed ONLY with independent zero-variant assertion; fresh full rerun required and performed."
+}

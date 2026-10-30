@@ -1,0 +1,68 @@
+[
+  {
+    "id": "unknown-mime",
+    "manifest": "0xf84d0180f849f8478b2f696e6465782e68746d6c0b6fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f",
+    "expected": "reject",
+    "reason": "unknown MIME"
+  },
+  {
+    "id": "entry-css",
+    "manifest": "0xf84d0180f849f8478b2f696e6465782e68746d6c026fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f",
+    "expected": "reject",
+    "reason": "entry must be HTML"
+  },
+  {
+    "id": "wrong-size",
+    "manifest": "0xf84d0180f849f8478b2f696e6465782e68746d6c0170a027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f",
+    "expected": "reject",
+    "reason": "sum of chunk lengths differs from size"
+  },
+  {
+    "id": "wrong-content-hash",
+    "manifest": "0xf84d0180f849f8478b2f696e6465782e68746d6c016fa00000000000000000000000000000000000000000000000000000000000000000d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f",
+    "expected": "reject",
+    "reason": "reconstructed content hash mismatch"
+  },
+  {
+    "id": "dot-segment",
+    "manifest": "0xf84f0180f84bf8498d2f2e2f696e6465782e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f",
+    "expected": "reject",
+    "reason": "dot segment"
+  },
+  {
+    "id": "non-ascii",
+    "manifest": "0xf8500180f84cf84a8e2fd8b5d981d8add8a92e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f",
+    "expected": "reject",
+    "reason": "non ASCII path"
+  },
+  {
+    "id": "duplicate-path",
+    "manifest": "0xf8960180f892f8478b2f696e6465782e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6ff8478b2f696e6465782e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f",
+    "expected": "reject",
+    "reason": "strict path ordering violated"
+  },
+  {
+    "id": "unsorted-path",
+    "manifest": "0xf8920180f88ef8478b2f696e6465782e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6ff843872f612e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f",
+    "expected": "reject",
+    "reason": "strict path ordering violated"
+  },
+  {
+    "id": "zero-chunk-length",
+    "manifest": "0xf84d0180f849f8478b2f696e6465782e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b80",
+    "expected": "reject",
+    "reason": "chunk length lower bound"
+  },
+  {
+    "id": "trailing-byte",
+    "manifest": "0xf84d0180f849f8478b2f696e6465782e68746d6c016fa027c02dac108feef56130154f3c74951ba4e96b15ccbedb6e66bef4a6e825e451d7d694bffcaeb40682a2dfe0d39de9eee7d1f20891ad3b6f00",
+    "expected": "reject",
+    "reason": "trailing input"
+  },
+  {
+    "id": "noncanonical-rlp",
+    "manifest": "0x8101",
+    "expected": "reject",
+    "reason": "non-minimal scalar and not manifest shape"
+  }
+]

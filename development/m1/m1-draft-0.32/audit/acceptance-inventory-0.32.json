@@ -1,0 +1,37 @@
+{
+  "schema": "pocol-m1-acceptance-inventory/0.32",
+  "status": "C37 supplement: no model, fixture, codec or crypto is rebuilt or re-run. Every criterion is computed by tools/run_checks_032.py from the completed, root-executed 0.31 artifacts, root's review decisions and the history closure. A candidate is not Complete; global M1 acceptance stays root's act.",
+  "base": {"matrix0_31": "coordination/review-001/m1-draft-0.31/results/acceptance-matrix-0.31.json",
+           "results0_31": "coordination/review-001/m1-draft-0.31/results/run-results-0.31.json",
+           "bindings0_31": "coordination/review-001/m1-draft-0.31/results/bindings-0.31.json",
+           "manifest0_31": "coordination/review-001/m1-draft-0.31/review-copy-manifest.json",
+           "reviewDecisions0_31": "coordination/review-001/REVIEW-DECISIONS-0.31.json",
+           "reviewDecisions0_30": "coordination/review-001/REVIEW-DECISIONS-0.30.json",
+           "review0_31": "coordination/review-001/REVIEW-0.31.md"},
+  "r31Expected": {"checks": 383, "passed": 280, "recorded": 102, "failed": 1, "codecCalls": 123, "rows": {"CompleteCandidate": 38, "PendingRootReview": 3}},
+  "boundEvidence": [
+    {"file": "coordination/review-001/guard-independent-031.json", "checks": 24, "passed": 24, "failed": 0},
+    {"file": "coordination/review-001/full-hash-triad-executed-029.json", "checks": 668, "passed": 668, "failed": 0},
+    {"file": "coordination/review-001/v1-hash-independent-0.27.json", "checks": 3677, "passed": 3677, "failed": 0},
+    {"file": "coordination/review-001/v1-independent-hashes-0.26.json", "checks": 347, "passed": 347, "failed": 0},
+    {"file": "coordination/review-001/v1-signatures-independent-0.27.json", "checks": 31, "failed": 0},
+    {"file": "coordination/review-001/asert-native-comparison-0.27.json", "checks": 1027, "passed": 1027, "failed": 0},
+    {"file": "coordination/review-001/deadline-independent-029.json", "checks": 1120, "passed": 1120, "failed": 0}
+  ],
+  "freeze": {"file": "coordination/review-001/m1-draft-0.30/results/hash-freeze-0.30.json", "legacy": 668, "v1": 4024,
+             "labelled": ["syn.lc.branchHashes", "privateProvenance", "ph.v3.networkProfiles"], "r31Binding": "bind030.output.hash-freeze-0.30.json"},
+  "runtime": {"python": "3.11.1", "node": "v22.13.1", "codecFile": "tools/json_codec_031.mjs",
+              "source": "R31 'environment' and bindings-0.31.json 'runtime'; this supplement starts no Node process"},
+  "experiments": {"r30": "experiments.definitionsComplete", "amendments": "m1-draft-0.30/vectors/experiment-amendments-0.30.json", "phaseAMeasurementsClaimed": false},
+  "namedExternal": [
+    {"id": "CONF_DEPTH", "what": "required runtime input with no default (U16, accepted reviewer decision); not an M1 gate parameter"},
+    {"id": "U01-deployment", "what": "0x...c0c005 is the M1 reference factory address only; any real deployment address is outside M1 and would regenerate fixtures"},
+    {"id": "PhaseA", "what": "EVM, Chrome, node and real-clock outcomes (E01-E04, E06, E07, X-U14, X-C33) are later implementation results; only their definitions are gate conditions"},
+    {"id": "ownerAnswers", "what": "none recorded or inferred; every decision used is a delegated technical decision or a root review decision"}
+  ],
+  "acceptedRows": {"r0_31": ["C3", "C4", "V1"], "r0_30": ["C1", "C2", "R1", "E6"], "earlier": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"},
+  "proposedStatus": {"CompleteCandidate": "all 41 rows, only if history.globalClosure passes", "PendingRootReview": [], "Partial": []},
+  "proposedFindings": {"closableAtSpecScope": ["F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08", "F09", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F17", "F18",
+                                               "F19", "F20", "F21", "F22", "F23", "F24", "F25"],
+                       "pendingRootRecordAll41": ["F26"]}
+}

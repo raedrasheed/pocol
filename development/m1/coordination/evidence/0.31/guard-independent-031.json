@@ -1,0 +1,291 @@
+{
+  "checks": 24,
+  "passed": 24,
+  "failed": 0,
+  "receiveBoundary": [
+    {
+      "case": "missingId",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "envelope",
+        "stage": "idMissing"
+      },
+      "pass": true
+    },
+    {
+      "case": "wrongId",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "envelope",
+        "stage": "idMismatch"
+      },
+      "pass": true
+    },
+    {
+      "case": "duplicateResult",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvParse",
+        "stage": "parseStrict"
+      },
+      "pass": true
+    },
+    {
+      "case": "duplicateCode",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvParse",
+        "stage": "parseStrict"
+      },
+      "pass": true
+    },
+    {
+      "case": "duplicateNestedDelay",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvParse",
+        "stage": "parseStrict"
+      },
+      "pass": true
+    },
+    {
+      "case": "id-bool",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "envelope",
+        "stage": "idMismatch"
+      },
+      "pass": true
+    },
+    {
+      "case": "id-string",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "envelope",
+        "stage": "idMismatch"
+      },
+      "pass": true
+    },
+    {
+      "case": "id-negative",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "envelope",
+        "stage": "idMismatch"
+      },
+      "pass": true
+    },
+    {
+      "case": "id-tooLarge",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "envelope",
+        "stage": "idMismatch"
+      },
+      "pass": true
+    },
+    {
+      "case": "id-floatFraction",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "envelope",
+        "stage": "idMismatch"
+      },
+      "pass": true
+    },
+    {
+      "case": "id-floatIntegral",
+      "expected": "retry",
+      "actual": {
+        "accepted": true,
+        "semanticKind": "retry",
+        "info": {
+          "bytes": 111,
+          "codecCalled": true,
+          "messageUnits": 4,
+          "clippedMessageUnits": null,
+          "dataBytes": 36,
+          "dataDropped": false,
+          "passedOriginal": true,
+          "node": "v22.13.1"
+        }
+      },
+      "pass": true
+    },
+    {
+      "case": "depth-16",
+      "expected": "retry",
+      "actual": {
+        "accepted": true,
+        "semanticKind": "retry",
+        "info": {
+          "bytes": 145,
+          "codecCalled": true,
+          "messageUnits": 4,
+          "clippedMessageUnits": null,
+          "dataBytes": 72,
+          "dataDropped": false,
+          "passedOriginal": true,
+          "node": "v22.13.1"
+        }
+      },
+      "pass": true
+    },
+    {
+      "case": "depth-17",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvDepth",
+        "stage": "depth"
+      },
+      "pass": true
+    },
+    {
+      "case": "blockNumberBytes-4096",
+      "expected": "pass",
+      "actual": {
+        "accepted": true,
+        "semanticKind": "result",
+        "info": {
+          "bytes": 4096,
+          "codecCalled": false,
+          "messageUnits": null,
+          "clippedMessageUnits": null,
+          "dataBytes": null,
+          "dataDropped": false,
+          "passedOriginal": true
+        }
+      },
+      "pass": true
+    },
+    {
+      "case": "blockNumberBytes-4097",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvLimit",
+        "stage": "stream"
+      },
+      "pass": true
+    },
+    {
+      "case": "headersBytes-98304",
+      "expected": "pass",
+      "actual": {
+        "accepted": true,
+        "semanticKind": "result",
+        "info": {
+          "bytes": 98304,
+          "codecCalled": false,
+          "messageUnits": null,
+          "clippedMessageUnits": null,
+          "dataBytes": null,
+          "dataDropped": false,
+          "passedOriginal": true
+        }
+      },
+      "pass": true
+    },
+    {
+      "case": "headersBytes-98305",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvLimit",
+        "stage": "stream"
+      },
+      "pass": true
+    },
+    {
+      "case": "invalidUTF8",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvParse",
+        "stage": "utf8"
+      },
+      "pass": true
+    },
+    {
+      "case": "NaN",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvParse",
+        "stage": "parseStrict"
+      },
+      "pass": true
+    },
+    {
+      "case": "truncated",
+      "expected": "reject",
+      "actual": {
+        "accepted": false,
+        "reason": "recvParse",
+        "stage": "parseStrict"
+      },
+      "pass": true
+    }
+  ],
+  "originalC33": [
+    {
+      "case": "wrongId",
+      "frame": false,
+      "rule": "viewIncomplete",
+      "wait": 0,
+      "guard": {
+        "reason": "envelope",
+        "stage": "idMismatch",
+        "method": "pocol_getHeaders",
+        "requestId": 2
+      },
+      "pass": true
+    },
+    {
+      "case": "missingId",
+      "frame": false,
+      "rule": "viewIncomplete",
+      "wait": 0,
+      "guard": {
+        "reason": "envelope",
+        "stage": "idMissing",
+        "method": "pocol_getHeaders",
+        "requestId": 2
+      },
+      "pass": true
+    },
+    {
+      "case": "duplicateResult",
+      "frame": false,
+      "rule": "viewIncomplete",
+      "wait": 0,
+      "guard": {
+        "reason": "recvParse",
+        "stage": "parseStrict",
+        "method": "pocol_getHeaders",
+        "requestId": 2
+      },
+      "pass": true
+    }
+  ],
+  "unicodeDataProbe": {
+    "nativeDataBytes": 6647,
+    "modelBytes": 6647,
+    "frame": false,
+    "waitMs": 0,
+    "dataDropped": true,
+    "expected": "data dropped; busy becomes malformed; no wait/frame",
+    "pass": true
+  }
+}

@@ -1,0 +1,28 @@
+=== f-split: jm_replay_component_split JM_SPLIT_N=20000 ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:24:55Z
+
+running 1 test
+test jm_replay_component_split ... JM-SPLIT {"heights":"1..1000","insertMs":0.040612073,"retainMs":0.08222507400000001,"validateMs":2.445769103000002}
+JM-SPLIT {"heights":"1001..2000","insertMs":0.11212028999999991,"retainMs":0.23114073600000037,"validateMs":2.325197417999996}
+JM-SPLIT {"heights":"2001..3000","insertMs":0.20029295300000025,"retainMs":0.40937331000000005,"validateMs":2.429204649999996}
+JM-SPLIT {"heights":"3001..4000","insertMs":0.28856990500000007,"retainMs":0.6479252850000001,"validateMs":2.4110709159999995}
+JM-SPLIT {"heights":"4001..5000","insertMs":0.37853791899999994,"retainMs":0.9407079200000006,"validateMs":2.3224301419999986}
+JM-SPLIT {"heights":"5001..6000","insertMs":0.447825205,"retainMs":1.1908323280000006,"validateMs":2.3282670489999986}
+JM-SPLIT {"heights":"6001..7000","insertMs":0.5520869250000002,"retainMs":1.478542078000001,"validateMs":2.367356060999998}
+JM-SPLIT {"heights":"7001..8000","insertMs":0.7346500619999999,"retainMs":2.172172557,"validateMs":2.358979384999999}
+JM-SPLIT {"heights":"8001..9000","insertMs":0.8481018970000004,"retainMs":2.588243971000002,"validateMs":2.3672480190000003}
+JM-SPLIT {"heights":"9001..10000","insertMs":0.9151934010000011,"retainMs":2.750739339999997,"validateMs":2.2444476000000004}
+JM-SPLIT {"heights":"10001..11000","insertMs":1.0335997090000002,"retainMs":3.016572343000001,"validateMs":2.2913431879999986}
+JM-SPLIT {"heights":"11001..12000","insertMs":1.1573468519999992,"retainMs":3.4260192230000026,"validateMs":2.3846152189999956}
+JM-SPLIT {"heights":"12001..13000","insertMs":1.216347769999999,"retainMs":3.4882542000000054,"validateMs":2.2745939750000024}
+JM-SPLIT {"heights":"13001..14000","insertMs":1.3544880490000006,"retainMs":3.8658860669999946,"validateMs":2.4034465229999995}
+JM-SPLIT {"heights":"14001..15000","insertMs":1.6105747920000002,"retainMs":4.921429967999996,"validateMs":2.4652291490000007}
+JM-SPLIT {"heights":"15001..16000","insertMs":1.7464215899999995,"retainMs":5.503936870000008,"validateMs":2.456904859999999}
+JM-SPLIT {"heights":"16001..17000","insertMs":1.8064875169999994,"retainMs":5.615088532999997,"validateMs":2.3746603469999985}
+JM-SPLIT {"heights":"17001..18000","insertMs":1.8616825680000022,"retainMs":5.594608889,"validateMs":2.242435589000001}
+JM-SPLIT {"heights":"18001..19000","insertMs":1.9678166620000002,"retainMs":5.872494442999997,"validateMs":2.2256828380000035}
+JM-SPLIT {"heights":"19001..20000","insertMs":2.151506597,"retainMs":6.437050579000002,"validateMs":2.1986394430000007}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 298.20s
+
+=== end 2026-10-24T01:29:53Z exit=0

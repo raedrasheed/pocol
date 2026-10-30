@@ -1,0 +1,12 @@
+Height of the majority branch at the heal, from each node c log (the fork point is the first height c re-imported;
+the tip is the highest height c imported within 3 s of its reorganization). W_act = 32 (devnet profile).
+
+run                     fork point   majority tip at the heal   tip - fork   c drawn after the heal
+whole-state-1 (PASS)    43           55                          12           17 of 63 heights (proposers-whole-state-1.json)
+whole-state-2 (FAIL)    38           99                          61            0 of 223
+store-2 (FAIL)          42           101                         59            0 of 224
+whole-state-diag (FAIL) 39           70                          31            0 of 215
+
+A copy of c's data directory from whole-state-2, opened with --miner c and no peers, reported production
+"FB h=262 a=5..42 shares=0 mining=false" for 30 s: c has no assignment on the healed chain (it is not in A_h).
+store-1 (PASS): its c log ends before a height drop could be found by this script; not counted.

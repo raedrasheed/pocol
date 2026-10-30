@@ -1,0 +1,28 @@
+{
+  "status": "P2/LP4 NOT PASSED",
+  "bootable": false,
+  "approval": "LP4-REGISTRY-WRITE-APPROVAL.md; option1 in full; only10/2/10",
+  "implementedScope": "actual six Registry user functions, counters, ordinary sweep, closing bond cursor, restricted Escrow bond bridge and immutable-runtime CP reader",
+  "rustTests": 40,
+  "independentFullBytecodeStateRootAndDomainComparisons": 63,
+  "compiledRegistryAssertionControls": {
+    "solidityBuildsPassed": 17,
+    "rustBuildsPassed": 17,
+    "assertionKilled": 17
+  },
+  "sourceBoundUserWriteUpperBounds": {
+    "register": 10,
+    "reward": 2,
+    "claim-middle": 10,
+    "deregister-middle": 7,
+    "removeInactive-middle": 7,
+    "reactivate": 5
+  },
+  "original9_1_9": "NOT SATISFIED; explicitly superseded for LP4 only",
+  "numericResources": "synthetic measurements only; admitted complete CP/profile/model-bound R18/R21/caps64 NOT PASSED",
+  "allAcceptanceObligations": "26 NOT PASSED",
+  "fullGenesisBuilder": "NOT IMPLEMENTED/NOT PASSED; semantic reward admission pending",
+  "newHeadCI": "PENDING publication and head-specific inspection",
+  "existingPAYBoundaryComparisons": 44,
+  "existingLifetimeComparisons": 2
+}

@@ -1,0 +1,36 @@
+{
+  "schema": "pocol-m1-dependency-rules/1",
+  "specVersion": "M1 draft 0.4",
+  "revision": "R4-06 (annex row B7)",
+  "baseline": "FD:L1218 (Bridge does not import WalletSubmit or raw HttpTransport), FD:L3262-3264 (BR-dep: two dependency-cruiser rules; any violation fails CI), FD:L4934 (HttpTransport importers: only RpcReadClient, WalletSubmit, LogClient, HeaderNetCheck, NetworkProfiles, ChunkFetcher), FD:L4943 (Bridge does not import MaliciousHttp or WalletSubmit).",
+  "modulePaths": {
+    "label": "P: the baseline names modules, not files; these paths are the proposed convention the rules bind to",
+    "Bridge": "^src/bridge/", "HttpTransport": "src/net/HttpTransport.ts", "RpcReadClient": "src/net/RpcReadClient.ts",
+    "WalletSubmit": "src/wallet/WalletSubmit.ts", "LogClient": "src/logs/LogClient.ts",
+    "HeaderNetCheck": "src/trust/HeaderNetCheck.ts", "NetworkProfiles": "src/trust/NetworkProfiles.ts",
+    "ChunkFetcher": "src/content/ChunkFetcher.ts", "MaliciousHttp": "test/malicious/MaliciousHttp.ts"
+  },
+  "dependencyCruiserForbidden": [
+    {"name": "bridge-no-walletsubmit-no-transport", "severity": "error", "comment": "FD:L1218, FD:L3263, FD:L4943",
+     "from": {"path": "^src/bridge/"}, "to": {"path": "^src/(wallet/WalletSubmit|net/HttpTransport)\\.ts$"}},
+    {"name": "bridge-no-malicioushttp", "severity": "error", "comment": "FD:L4943",
+     "from": {"path": "^src/bridge/"}, "to": {"path": "^test/malicious/"}},
+    {"name": "httptransport-importers-closed", "severity": "error", "comment": "FD:L4934 (and the CR-M1-01 condition that the set is unchanged)",
+     "from": {"pathNot": "^(src/(net/RpcReadClient|wallet/WalletSubmit|logs/LogClient|trust/HeaderNetCheck|trust/NetworkProfiles|content/ChunkFetcher|net/HttpTransport)\\.ts|test/.*)$"},
+     "to": {"path": "^src/net/HttpTransport\\.ts$"}},
+    {"name": "src-no-test-imports", "severity": "error", "comment": "P: keeps test-only modules (MaliciousHttp, fakes) out of the shipped extension",
+     "from": {"path": "^src/"}, "to": {"path": "^test/"}}
+  ],
+  "directEdgesOnly": "dependency-cruiser 'forbidden' rules match direct edges. Bridge -> RpcReadClient -> HttpTransport is intended (FD:L1216: RpcReadClient is Bridge's only network transport) and must stay allowed; a transitive rule would forbid the baseline design.",
+  "fetchRule": {
+    "baseline": "FD:L3264: 'no module calls fetch except HttpTransport', listed as a dependency-cruiser rule",
+    "finding": "fetch is a global, not an import, so dependency-cruiser cannot express this rule. P (U33): enforce it with ESLint instead; the rule text is below. Aliasing through computed property access (e.g. globalThis['fe'+'tch']) is not caught by either tool; this residual is recorded, not hidden.",
+    "eslintFlatConfigFragment": {
+      "files": ["src/**/*.ts"], "ignores": ["src/net/HttpTransport.ts"],
+      "rules": {
+        "no-restricted-globals": ["error", {"name": "fetch", "message": "FD:L3264: only HttpTransport calls fetch"}, {"name": "XMLHttpRequest", "message": "FD:L1234: every request goes through HttpTransport"}, {"name": "WebSocket", "message": "FD:L1234"}, {"name": "EventSource", "message": "FD:L1234"}],
+        "no-restricted-properties": ["error", {"object": "globalThis", "property": "fetch"}, {"object": "self", "property": "fetch"}, {"object": "window", "property": "fetch"}]
+      }
+    }
+  }
+}

@@ -1,0 +1,231 @@
+[
+  {
+    "name": "author-timing",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/author-target",
+    "exitCode": 0,
+    "seconds": 0.04
+  },
+  {
+    "name": "cargo-version",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "-V"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/review-target",
+    "exitCode": 0,
+    "seconds": 0.022
+  },
+  {
+    "name": "fmt",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "fmt",
+      "--",
+      "--check"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/review-target",
+    "exitCode": 0,
+    "seconds": 0.17
+  },
+  {
+    "name": "mutant-accept-2pow63",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/pocol-s3/mutant-accept-2pow63-3gre3aol/crate",
+    "target": "/workspace/pocol-s3/mutant-target-accept-2pow63",
+    "exitCode": 101,
+    "seconds": 33.956
+  },
+  {
+    "name": "mutant-advance-at-equality",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/pocol-s3/mutant-advance-at-equality-wiicep5w/crate",
+    "target": "/workspace/pocol-s3/mutant-target-advance-at-equality",
+    "exitCode": 101,
+    "seconds": 33.991
+  },
+  {
+    "name": "mutant-future-at-equality",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/pocol-s3/mutant-future-at-equality-4qoiquwj/crate",
+    "target": "/workspace/pocol-s3/mutant-target-future-at-equality",
+    "exitCode": 101,
+    "seconds": 33.132
+  },
+  {
+    "name": "mutant-late-fallback-delay",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/pocol-s3/mutant-late-fallback-delay-0a6s92g8/crate",
+    "target": "/workspace/pocol-s3/mutant-target-late-fallback-delay",
+    "exitCode": 101,
+    "seconds": 31.313
+  },
+  {
+    "name": "mutant-reject-tj-equality",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/pocol-s3/mutant-reject-tj-equality-jkm5t4u5/crate",
+    "target": "/workspace/pocol-s3/mutant-target-reject-tj-equality",
+    "exitCode": 101,
+    "seconds": 34.296
+  },
+  {
+    "name": "mutant-wrong-xh",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/pocol-s3/mutant-wrong-xh-gczahwu1/crate",
+    "target": "/workspace/pocol-s3/mutant-target-wrong-xh",
+    "exitCode": 101,
+    "seconds": 32.4
+  },
+  {
+    "name": "oracle-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "/workspace/pocol-s3/oracle_probe.rs",
+      "--extern",
+      "lp1_node=/workspace/pocol-s3/review-target/debug/liblp1_node.rlib",
+      "-L",
+      "dependency=/workspace/pocol-s3/review-target/debug/deps",
+      "-o",
+      "/workspace/pocol-s3/oracle-probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/review-target",
+    "exitCode": 0,
+    "seconds": 0.458
+  },
+  {
+    "name": "regression",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "fixtures_integration",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "profile",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/review-target",
+    "exitCode": 0,
+    "seconds": 8.561
+  },
+  {
+    "name": "review-build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--offline",
+      "--locked"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/review-target",
+    "exitCode": 0,
+    "seconds": 33.778
+  },
+  {
+    "name": "review-oracle",
+    "args": [
+      "python3",
+      "/workspace/pocol-s3/oracle.py",
+      "/workspace/pocol-s3/oracle-probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/review-target",
+    "exitCode": 0,
+    "seconds": 0.517
+  },
+  {
+    "name": "rust-version",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "-vV"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/review-target",
+    "exitCode": 0,
+    "seconds": 0.032
+  },
+  {
+    "name": "verify-fixtures",
+    "args": [
+      "/workspace/pocol-s3/review-target/debug/lp1-node",
+      "verify-fixtures"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "target": "/workspace/pocol-s3/review-target",
+    "exitCode": 0,
+    "seconds": 0.978
+  }
+]

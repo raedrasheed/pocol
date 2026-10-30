@@ -1,0 +1,15 @@
+# Claude author turn009 — C24 repair only, new M1 draft0.11
+
+0.10 has been independently reviewed and published with failures preserved. Default runner:86pass27recorded0fail. INDEPENDENT oracle:24 checks,17pass7FAIL. See coordination/review-001/REVIEW-0.10.md and epoch-independent-probes-0.10.json. Dashboard review verdict is revise. Last acceptedrevision0.9. No owner decision needed for these mechanical schema corrections.
+
+Write ONLY new m1-draft-0.11 files. Preserve0.10 and all earlier sources/results, ledger/GUI/reviews/checkouts. File tools only; no execution/test claims, production implementation, install, deploy, memory, subagents or shell.
+
+C24 exact failures:
+- sr_ref.parse_epoch_name(epoch_name(6)+'\n') returns6, shouldNone. parse_record_name(record_name('N','A',6,0)+'\n','N','A') returns(6,0), shouldNone. Python regex$ matchesbeforeterminalLF. Use fullmatch/exactend without normalization/trimming; reject LF,CRLF,spaces,nonce/prefix/suffix/uppercase/short names. Apply strict parser throughout World.epochs and lookup. Preserve all canonicalbaseline namespaces, ranges and lowercase zero-padding.
+- epoch_name(True),record_name('N','A',1,True) accept bool duePython isinstance(int). epoch_value_ok({'bootMs':True}) accepts. valid_record((1,0),{'fmt':2,'epoch':True,'seq':0,'tomb':False,'dict':{'k':'v'}}) and analogousseqTrue accept. Fields declared numeric must reject bool (and invalid ranges) while tomb remainsactualboolean. Explicitly define treatment of integralfloat consistent with JSON/JS integer semantics rather than accidentalPython equality; do not silentlychangepolicy. ForgeneratorAPI prefer type(x)isint foru64/u32. Do not claim fullfmt2wirecodec validation (E4 pending).
+
+Deliver a reference-only extension/patch importing0.10 read-only (in-memory overrides allowed, no oldfile edits), amendment/README/status and NEW negativefixtures covering all7counterexamples plusboundaryvalidcases includingmaxu64/u32/nativeNodeoracle cases. Export usable repairedmodel module for rootindependent probes. Ensure World runtime uses repaired helpers, not merelywrapper functions unusedbyWorld.
+
+Runner must rerun ENTIRE0.10 suite (names, BR22h h1-h6/729assignments bothspacings, BR22aenumerations, alllegacynegativecontrols) in the newpackage context with repairedfunctions, then newregressions. Record inputhashes/provenance, exactinheritedevidence and outputresults/run-results-0.11.json. Preserve old failedproofs. Coverstateepochs malformednames and lookupcorruptnumericfields, notonlystandalonehelpercalls. No change toepoch/namegates, scheduler, retrycaps, checkpoints, disk-adapters, sequenceallocation orownerpolicy. No E4-E7 expansion on thisrepair turn.
+
+Proposed coverage aftersuccessfulrootreview34Partial7NotStarted0Complete (E1-E3); beforethat unchangedacceptedQscope. Owner U01/U02/U10/U14/CR-M1-01 remainopen,CONF_DEPTHrequired,fullgate,BR22c/TS/Chrome/storageassumptionsnotexecuted. Root independentlyruns and reviews and postsrealresults tosameGUI/PR2, then continuesE4-E7/V2-V4. Return changedfiles/commands/preciseissues with honest no-execution statement.

@@ -1,0 +1,171 @@
+== journal r3 derived figures: python3 -I tools/journal_projections.py evidence (from development/audit-2026-10-22) ==
+Inputs: journal-r3/*.log (code 7f587bb), journal-measure.log (stage-A JM-REPLAY), journal-measure-r2.log (round 2).
+Projections are arithmetic on measured per-block costs, not measurements of a chain of that height.
+
+[1] open(H) = a*H + (b/2)*H^2, empty blocks
+  stage A (3 pts) a=2.2620 ms b=4.5916e-04 ms  net H=129600: a-term 293 s + b-term 3856 s = 4149 s = 69.2 min = 1.15 h
+      H=  1000 meas     2.63 s  fit     2.49 s
+      H=  5000 meas    17.01 s  fit    17.05 s
+      H= 20000 meas   137.07 s  fit   137.07 s
+  r3 (6 pts)     a=2.0479 ms b=4.3789e-04 ms  net H=129600: a-term 265 s + b-term 3677 s = 3943 s = 65.7 min = 1.10 h
+      H=  1000 meas     2.54 s  fit     2.27 s
+      H=  2500 meas     6.85 s  fit     6.49 s
+      H=  5000 meas    15.90 s  fit    15.71 s
+      H= 10000 meas    42.42 s  fit    42.37 s
+      H= 15000 meas    79.45 s  fit    79.98 s
+      H= 20000 meas   128.80 s  fit   128.54 s
+  two-point  1000- 2500: a=2.4016 ms b=2.6953e-04 ms -> net 2575 s = 42.9 min = 0.72 h
+  two-point  2500- 5000: a=2.2972 ms b=3.5303e-04 ms -> net 3262 s = 54.4 min = 0.91 h
+  two-point  5000-10000: a=2.1171 ms b=4.2506e-04 ms -> net 3844 s = 64.1 min = 1.07 h
+  two-point 10000-15000: a=2.1339 ms b=4.2171e-04 ms -> net 3818 s = 63.6 min = 1.06 h
+  two-point 15000-20000: a=1.8662 ms b=4.5740e-04 ms -> net 4083 s = 68.1 min = 1.13 h
+  network empty-block open range (LS fits and the three highest two-point fits): 64-69 min
+  b-term (r3 LS): devnet 88 s, network 3677 s
+
+[2] JM-SPLIT (bare-chain replay, 20 buckets): insert+retain slope 4.6596e-04 ms/height; vs r3 fitted b 4.3789e-04 ms -> 106% attributed
+    first/last bucket: validate 2.446/2.199 insert 0.041/2.152 retain 0.082/6.437 ms
+    bare replay total over 20 buckets = 127.6 s vs Node::open at H=20000 128.8 s -> 99% of open explained
+
+[3] JM-EXEC: per-block validate (median) of one-tx full-gas blocks, sorted by net ns/gas
+  modexp_b8_e1024_m8_even        1023.0 ms  net 128.48 ns/gas  body  1271 B  x jump_loop 124.7
+  modexp_b8_e4096_m8_even        1013.8 ms  net 127.31 ns/gas  body  4343 B  x jump_loop 123.5
+  modexp_b1_e1024_m1_even        1001.5 ms  net 125.77 ns/gas  body  1257 B  x jump_loop 122.0
+  modexp_b4_e1024_m4_even         987.9 ms  net 124.06 ns/gas  body  1263 B  x jump_loop 120.4
+  modexp_b8_e256_m8_even          979.7 ms  net 123.02 ns/gas  body   503 B  x jump_loop 119.4
+  modexp_b2_e1024_m2_even         957.4 ms  net 120.22 ns/gas  body  1258 B  x jump_loop 116.7
+  modexp_b8_e1024_m8_odd          653.6 ms  net  82.00 ns/gas  body  1271 B  x jump_loop  79.6
+  modexp_b1_e1024_m1_odd          532.1 ms  net  66.72 ns/gas  body  1257 B  x jump_loop  64.8
+  modexp_b8_e1024_m8_pow2         423.6 ms  net  53.08 ns/gas  body  1271 B  x jump_loop  51.6
+  modexp_b16_e1024_m16_even       374.9 ms  net  46.95 ns/gas  body  1286 B  x jump_loop  45.7
+  modexp_b8_e32_m8_even           328.3 ms  net  41.09 ns/gas  body   278 B  x jump_loop  40.0
+  bn_pair_10                      264.9 ms  net  33.11 ns/gas  body  2055 B  x jump_loop  32.3
+  modexp_b16_e1024_m16_odd        262.6 ms  net  32.82 ns/gas  body  1287 B  x jump_loop  32.0
+  bn_pair_2                       238.4 ms  net  29.78 ns/gas  body   519 B  x jump_loop  29.0
+  bn_pair_1                       224.7 ms  net  28.05 ns/gas  body   326 B  x jump_loop  27.4
+  kzg_point_eval                  209.5 ms  net  26.14 ns/gas  body   326 B  x jump_loop  25.5
+  modexp_b24_e1024_m24_even       194.2 ms  net  24.22 ns/gas  body  1303 B  x jump_loop  23.7
+  modexp_b8_e32_m8_odd            187.1 ms  net  23.33 ns/gas  body   278 B  x jump_loop  22.8
+  bn_mul                          178.0 ms  net  22.18 ns/gas  body   226 B  x jump_loop  21.7
+  modexp_b1_e32_m1_odd            177.6 ms  net  22.13 ns/gas  body   260 B  x jump_loop  21.6
+  keccak_1KiB                     140.4 ms  net  17.45 ns/gas  body   110 B  x jump_loop  17.1
+  modexp_b32_e1024_m32_even       133.2 ms  net  16.55 ns/gas  body  1319 B  x jump_loop  16.2
+  bn_add                          128.9 ms  net  16.00 ns/gas  body   259 B  x jump_loop  15.7
+  modexp_b32_e1024_m32_odd        124.7 ms  net  15.48 ns/gas  body  1319 B  x jump_loop  15.2
+  blake2f_100k                    114.7 ms  net  14.22 ns/gas  body   347 B  x jump_loop  14.0
+  keccak_32KiB                    110.0 ms  net  13.63 ns/gas  body   110 B  x jump_loop  13.4
+  modexp_b32_e32_m32_odd          109.4 ms  net  13.55 ns/gas  body   326 B  x jump_loop  13.3
+  ecrecover                        94.6 ms  net  11.69 ns/gas  body   259 B  x jump_loop  11.5
+  modexp_b64_e1024_m64_odd         80.3 ms  net   9.89 ns/gas  body  1383 B  x jump_loop   9.8
+  modexp_b64_e64_m64_odd           76.3 ms  net   9.39 ns/gas  body   423 B  x jump_loop   9.3
+  modexp_b128_e128_m128_odd        64.8 ms  net   7.94 ns/gas  body   615 B  x jump_loop   7.9
+  keccak_32B                       62.2 ms  net   7.61 ns/gas  body   110 B  x jump_loop   7.6
+  full_gas_transfers               62.4 ms  net   7.60 ns/gas  body 44840 B  x jump_loop   7.6
+  modexp_b256_e256_m256_odd        54.3 ms  net   6.63 ns/gas  body   999 B  x jump_loop   6.6
+  modexp_b512_e512_m512_odd        39.6 ms  net   4.77 ns/gas  body  1767 B  x jump_loop   4.8
+  blake2f_12                       26.4 ms  net   3.11 ns/gas  body   347 B  x jump_loop   3.2
+  sha256_32KiB                     16.4 ms  net   1.85 ns/gas  body   129 B  x jump_loop   2.0
+  identity_0B                      14.5 ms  net   1.62 ns/gas  body   129 B  x jump_loop   1.8
+  ripemd160_32KiB                   9.1 ms  net   0.94 ns/gas  body   129 B  x jump_loop   1.1
+  jump_loop                         8.2 ms  net   0.82 ns/gas  body   103 B  x jump_loop   1.0
+  identity_32KiB                    6.6 ms  net   0.62 ns/gas  body   129 B  x jump_loop   0.8
+  mcopy_32KiB                       4.0 ms  net   0.29 ns/gas  body   112 B  x jump_loop   0.5
+  mem_grow_mstore                   3.4 ms  net   0.22 ns/gas  body   111 B  x jump_loop   0.4
+  mem_frame_32KiB                   3.0 ms  net   0.17 ns/gas  body   142 B  x jump_loop   0.4
+  ecrecover_invalid_v               2.9 ms  net   0.16 ns/gas  body   259 B  x jump_loop   0.4
+  mem_frame_256KiB                  2.3 ms  net   0.08 ns/gas  body   142 B  x jump_loop   0.3
+  empty_fallback                    1.7 ms  net   0.00 ns/gas  body     3 B  x jump_loop   0.2
+  worst measured: modexp_b8_e1024_m8_even 1023.0 ms/block (128.5 ns/gas net), 125x jump_loop (r2 compute)
+
+[4] JM-KIND per-record open replay (JM-OPEN0 intercept 61.6 ms)
+  empty                          3.45 ms/record (1.91 steady)    2315.8 B/record
+  full_gas_transfers            64.57 ms/record (63.03 steady)   46979.0 B/record
+  log_heavy_546                  5.90 ms/record (4.36 steady)    1904.7 B/record
+  full_body_max                  7.67 ms/record (6.13 steady)  198407.5 B/record
+  full_gas_compute               8.87 ms/record (7.33 steady)    2241.2 B/record
+  bn_pair_2                    229.35 ms/record (227.81 steady)    2941.8 B/record
+  kzg_point_eval               214.62 ms/record (213.08 steady)    2184.0 B/record
+  modexp_b8_e256_m8_even       938.72 ms/record (937.18 steady)    2748.3 B/record
+  modexp_b8_e1024_m8_even     1028.85 ms/record (1027.31 steady)    3396.8 B/record
+
+[5] JM-STATE: validate of an empty / bn_pair_2 / worst-kind child vs live user state
+  slots    h=   1 slots=     0 accts=     5 empty     1.8 pair   249.4 modexp_b8_e1  1106.1 root     0.2 clone  0.00 ms
+  slots    h=  47 slots=  8188 accts=    28 empty    23.7 pair   255.2 modexp_b8_e1  1063.2 root    19.4 clone  0.08 ms
+  slots    h=  91 slots= 16020 accts=    50 empty    43.4 pair   270.9 modexp_b8_e1  1036.7 root    41.1 clone  0.18 ms
+  slots    h= 137 slots= 24208 accts=    73 empty    66.8 pair   329.5 modexp_b8_e1  1115.0 root    60.8 clone  0.34 ms
+  slots    h= 181 slots= 32040 accts=    95 empty    81.1 pair   318.0 modexp_b8_e1  1087.6 root    77.7 clone  0.47 ms
+  slots    h= 227 slots= 40228 accts=   118 empty   112.2 pair   339.6 modexp_b8_e1  1180.8 root   100.7 clone  0.64 ms
+  slots    h= 269 slots= 47704 accts=   139 empty   134.3 pair   363.9 modexp_b8_e1  1212.5 root   117.5 clone  0.76 ms
+  accounts h=   1 slots=     0 accts=     5 empty     2.0 pair   244.0 modexp_b8_e1  1160.1 root     0.2 clone  0.00 ms
+  accounts h=  29 slots=     0 accts=  3225 empty    19.2 pair   259.3 modexp_b8_e1  1126.1 root    11.8 clone  0.21 ms
+  accounts h=  57 slots=     0 accts=  6445 empty    37.5 pair   294.4 modexp_b8_e1  1058.3 root    21.9 clone  0.45 ms
+  accounts h=  85 slots=     0 accts=  9665 empty    60.2 pair   281.0 modexp_b8_e1  1072.9 root    30.8 clone  0.84 ms
+  accounts h= 113 slots=     0 accts= 12885 empty    76.4 pair   304.6 modexp_b8_e1  1077.4 root    42.9 clone  0.97 ms
+  accounts h= 139 slots=     0 accts= 15875 empty    97.3 pair   368.1 modexp_b8_e1  1152.4 root    54.9 clone  2.47 ms
+  accounts h= 163 slots=     0 accts= 18635 empty   117.6 pair   347.1 modexp_b8_e1  1190.6 root    61.5 clone  2.30 ms
+  both     h=   1 slots=     0 accts=     5 empty     1.9 pair   233.3 modexp_b8_e1  1000.4 root     0.2 clone  0.00 ms
+  both     h=  65 slots= 11392 accts=    37 empty    29.7 pair   260.2 modexp_b8_e1  1015.9 root    25.5 clone  0.13 ms
+  both     h= 127 slots= 22428 accts=    68 empty    59.9 pair   287.1 modexp_b8_e1  1076.1 root    53.3 clone  0.32 ms
+  both     h= 189 slots= 33464 accts=    99 empty    81.7 pair   353.3 modexp_b8_e1  1104.8 root    78.6 clone  0.53 ms
+  both     h= 253 slots= 44856 accts=   131 empty   112.6 pair   337.4 modexp_b8_e1  1121.3 root   110.2 clone  0.78 ms
+  both     h= 339 slots= 47704 accts=  8189 empty   189.4 pair   415.8 modexp_b8_e1  1205.6 root   154.7 clone  1.90 ms
+  both     h= 431 slots= 47704 accts= 18769 empty   235.3 pair   518.5 modexp_b8_e1  1301.2 root   190.3 clone  3.18 ms
+  synthetic slots= 250000 accts=  62500: state_root    826.3 ms clone   23.5 ms
+  synthetic slots=1000000 accts= 250000: state_root   3379.0 ms clone  100.2 ms
+  synthetic slots=4000000 accts=1000000: state_root  14406.3 ms clone  867.5 ms
+  devnet near caps (47704 slots, 18769 accts): state term +233.4 ms per block (validate/root increment ratio 1.23); worst child 1301.2 ms; its compute part at full / at empty state = 1.07
+  network caps (synthetic 4000000 slots, 1000000 accts): root+clone 15.3 s; root x devnet ratio 17.7 s -> state term 15.3-17.7 s per block (T_blk 60 s, t_exec 3 s)
+  full-gas blocks to fill SLOT_CAP and ACCT_CAP (359 slots / 230 accounts per block): devnet 225, network 15489
+
+[6] open-time bounds (projections from measured per-record costs; caps-feasible)
+  devnet H_END=20000 (b-term 88 s, JM-OPEN0 0.06 s):
+    all empty (measured JM-REPLAY) -> 129 s = 2.1 min = 0.04 h
+    full_gas_compute            20000 blocks within the caps (+ empty) -> 234 s = 3.9 min = 0.07 h
+    full_gas_transfers             52 blocks within the caps (+ empty) -> 129 s = 2.2 min = 0.04 h
+    bn_pair_2                   20000 blocks within the caps (+ empty) -> 4644 s = 77.4 min = 1.29 h
+    kzg_point_eval              20000 blocks within the caps (+ empty) -> 4349 s = 72.5 min = 1.21 h
+    modexp_b8_e256_m8_even      20000 blocks within the caps (+ empty) -> 18831 s = 313.9 min = 5.23 h
+    modexp_b8_e1024_m8_even     13200 blocks within the caps (+ empty) -> 13661 s = 227.7 min = 3.79 h
+    modexp_b8_e256_m8_even on a state at the devnet caps (+233 ms each, after 225 fill blocks) -> 23235 s = 387.3 min = 6.45 h
+  network H_END=129600 (b-term 3677 s, JM-OPEN0 0.06 s):
+    all empty (fit range, [1]) -> 64-69 min
+    full_gas_compute           129600 blocks within the caps (+ empty) -> 4628 s = 77.1 min = 1.29 h
+    full_gas_transfers          26315 blocks within the caps (+ empty) -> 5534 s = 92.2 min = 1.54 h
+    bn_pair_2                  129600 blocks within the caps (+ empty) -> 33202 s = 553.4 min = 9.22 h
+    kzg_point_eval             129600 blocks within the caps (+ empty) -> 31292 s = 521.5 min = 8.69 h
+    modexp_b8_e256_m8_even     129600 blocks within the caps (+ empty) -> 125135 s = 2085.6 min = 34.76 h
+    modexp_b8_e1024_m8_even    129600 blocks within the caps (+ empty) -> 136817 s = 2280.3 min = 38.00 h
+    modexp_b8_e256_m8_even on a state at the network caps (+15.3 s each, after 15489 fill blocks) -> 1853531 s = 30892.2 min = 514.87 h = 21.5 days
+    modexp_b8_e256_m8_even on a state at the network caps (+17.7 s each, after 15489 fill blocks) -> 2129114 s = 35485.2 min = 591.42 h = 24.6 days
+
+[7] JM-REBUILD-KIND per-block genesis rebuild: empty 1.8 ms, full_gas_transfers 65.0 ms, full_gas_compute 7.2 ms, bn_pair_2 229.9 ms, kzg_point_eval 206.5 ms, modexp_b8_e256_m8_even 959.9 ms, modexp_b8_e1024_m8_even 1014.1 ms
+  loaded reorg (modexp_b8_e256_m8_even, f=50): first stall 48.2 s (0.963 s/rebuild); adopting 97.7 s = 50 rebuilds (48.2 s) + 49.6 s other (restore of 50 empty T blocks + pool re-execution of 50 detached txs)
+  devnet tip 20000, d=2048, f=17952:
+    a=empty (JM-REBUILD 2.4 ms)                    2(f+d)a = 96 s = 1.6 min = 0.03 h (stalls f*a 43 s, (f+d)*a 48 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 43 s = 0.7 min = 0.01 h
+    a=full_gas_transfers                           2(f+d)a = 2600 s = 43.3 min = 0.72 h (stalls f*a 1167 s, (f+d)*a 1300 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 1168 s = 19.5 min = 0.32 h
+    a=full_gas_compute                             2(f+d)a = 287 s = 4.8 min = 0.08 h (stalls f*a 129 s, (f+d)*a 144 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 129 s = 2.2 min = 0.04 h
+    a=bn_pair_2                                    2(f+d)a = 9196 s = 153.3 min = 2.55 h (stalls f*a 4127 s, (f+d)*a 4598 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 4131 s = 68.8 min = 1.15 h
+    a=kzg_point_eval                               2(f+d)a = 8259 s = 137.6 min = 2.29 h (stalls f*a 3706 s, (f+d)*a 4129 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 3710 s = 61.8 min = 1.03 h
+    a=modexp_b8_e256_m8_even                       2(f+d)a = 38396 s = 639.9 min = 10.67 h (stalls f*a 17232 s, (f+d)*a 19198 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 17248 s = 287.5 min = 4.79 h
+    a=modexp_b8_e1024_m8_even                      2(f+d)a = 40565 s = 676.1 min = 11.27 h (stalls f*a 18206 s, (f+d)*a 20283 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 18222 s = 303.7 min = 5.06 h
+    a=modexp_b8_e256_m8_even + devnet state term   2(f+d)a = 47731 s = 795.5 min = 13.26 h (stalls f*a 21422 s, (f+d)*a 23866 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 21441 s = 357.3 min = 5.96 h
+  network tip 129600, d=2048, f=127552:
+    a=empty (JM-REBUILD 2.4 ms)                    2(f+d)a = 622 s = 10.4 min = 0.17 h (stalls f*a 306 s, (f+d)*a 311 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 306 s = 5.1 min = 0.09 h
+    a=full_gas_transfers                           2(f+d)a = 16849 s = 280.8 min = 4.68 h (stalls f*a 8291 s, (f+d)*a 8424 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 8292 s = 138.2 min = 2.30 h
+    a=full_gas_compute                             2(f+d)a = 1861 s = 31.0 min = 0.52 h (stalls f*a 916 s, (f+d)*a 931 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 916 s = 15.3 min = 0.25 h
+    a=bn_pair_2                                    2(f+d)a = 59588 s = 993.1 min = 16.55 h (stalls f*a 29323 s, (f+d)*a 29794 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 29327 s = 488.8 min = 8.15 h
+    a=kzg_point_eval                               2(f+d)a = 53516 s = 891.9 min = 14.87 h (stalls f*a 26335 s, (f+d)*a 26758 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 26339 s = 439.0 min = 7.32 h
+    a=modexp_b8_e256_m8_even                       2(f+d)a = 248809 s = 4146.8 min = 69.11 h (stalls f*a 122439 s, (f+d)*a 124405 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 122454 s = 2040.9 min = 34.01 h
+    a=modexp_b8_e1024_m8_even                      2(f+d)a = 262863 s = 4381.1 min = 73.02 h (stalls f*a 129355 s, (f+d)*a 131432 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 129371 s = 2156.2 min = 35.94 h
+
+[8] JM-OPENMEM-FRESH (peak / steady / transient over journal)
+  full_body_max        journal   16862277 B records    85: peak 2.142 steady 1.119 transient 1.023
+  full_body_max        journal   16862277 B records    85: peak 2.139 steady 1.117 transient 1.022
+  empty                journal    5780087 B records  3000: peak 4.627 steady 3.564 transient 1.063
+  empty                journal    5780087 B records  3000: peak 4.593 steady 3.542 transient 1.050
+  full_gas_transfers   journal    1879159 B records    40: peak 5.672 steady 4.614 transient 1.057
+  full_gas_transfers   journal    1879159 B records    40: peak 5.674 steady 4.651 transient 1.022
+
+[9] canonical worst-case journal at network caps (GiB): headers 0.371 + tx 8.000 + parentResult 0.961 + framing 0.005
+  evidence 1 item/block (storage.md inventory)                        0.989 -> total 10.33 GiB
+  evidence one item per identity ever (resources.rs:98-101; binding)  1.979 -> total 11.32 GiB
+  evidence E_max per block (not binding)                              3.955 -> total 13.29 GiB

@@ -1,0 +1,8 @@
+hp-leaf-flag True
+inline-32-boundary True
+root-sha256 True
+retain-zero-storage True
+storage-raw-key True
+account-balance-as-nonce True
+ordered-one-based True
+ignore-entry-budget True

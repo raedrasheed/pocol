@@ -1,0 +1,113 @@
+{
+  "scope": "Inspected accepted references/recorded approvals; HTTP Origin matches are not EVM ORIGIN semantics",
+  "files": [
+    {
+      "path": "development/m1/reference/execution.md",
+      "sha256": "67e90f4c6d351e877dd8cdb113d13f14c79745a2be0c89f2772c471ad92f4718",
+      "matches": [
+        {
+          "line": 29,
+          "text": "- Only SYSTEM_ADDRESS can call closeBlock and finalize."
+        },
+        {
+          "line": 50,
+          "text": "- SYSTEM_ADDRESS = 0xff…fe."
+        },
+        {
+          "line": 71,
+          "text": "- (2) closeBlock(tips): writes pending[h] = {amount, kind, proposer} with winner = 0, reading nothing from block h's result. At F, use finalize(tips); no pending[F] is created (D141)."
+        }
+      ]
+    },
+    {
+      "path": "development/m1/reference/incentives.md",
+      "sha256": "ee77e12a5d8e624bc20f6f6704cb38016d60cc47d81e3fd25a32b0af366d1365",
+      "matches": [
+        {
+          "line": 15,
+          "text": "- pocol_submitShare is a local-only mining interface. A site cannot reach it through the bridge (D95), nor can any request carrying Origin."
+        }
+      ]
+    },
+    {
+      "path": "development/m1/reference/consensus.md",
+      "sha256": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+      "matches": [
+        {
+          "line": 34,
+          "text": "- id ∉ {0x00×20, SYSTEM_ADDRESS, 0x…C0C001–0x…C0C0FF}; otherwise gsSys."
+        }
+      ]
+    },
+    {
+      "path": "development/m1/reference/governance.md",
+      "sha256": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b",
+      "matches": []
+    },
+    {
+      "path": "development/m1/reference/implementation.md",
+      "sha256": "7701f1c9fdc16e18dc5434f7a6eaa197a933b0c11b1262b5c78adf2f289df7f3",
+      "matches": [
+        {
+          "line": 42,
+          "text": "  - M4 automated checks add two conditions: closeBlock does not write k=2 for pending[h]; recordResult is called only from SYSTEM_ADDRESS."
+        },
+        {
+          "line": 134,
+          "text": "GenesisBuilder.build, Executor.apply, TipsAccumulator, SystemCall, Pay.credit, CapsTracker, Rewards.payInt, Escrow.pending(j), SettlementIndex, BurnMonitor."
+        },
+        {
+          "line": 184,
+          "text": "- RpcTap.serve(upstream, port) → log {seq, tIn, tOut, origin, method, params, source ∈ {readClient, walletSubmit, logClient, headerNet, other}}; RpcTap.hold(method, ms) delays responses. Source comes from a test header added by modules only in test builds."
+        }
+      ]
+    },
+    {
+      "path": "development/LP4-CODE-APPROVAL.md",
+      "sha256": "3da001bb3e17407a25a770ec45f71123dc1643008e9b7a824451a25e876b7f42",
+      "matches": []
+    },
+    {
+      "path": "development/LP4-COLLISION-APPROVAL.md",
+      "sha256": "bebfc0facbdb504b9f580fd9f1fdba7d38b54610d4e77a44be66885a6a9bc705",
+      "matches": [
+        {
+          "line": 10,
+          "text": "collision gas, nonce, warmth, journaling and rollback behavior. Require actual"
+        }
+      ]
+    },
+    {
+      "path": "development/LP4-PAY-APPROVAL.md",
+      "sha256": "f2c5a5486ff7210c9302afb21b9cf517ad402d2affd3083b0d3b8e681ac4c795",
+      "matches": []
+    },
+    {
+      "path": "development/LP4-PAY-LIFECYCLE-APPROVAL.md",
+      "sha256": "f271b7ff8cb93398bb296c23d66e1bf54361f34f5f442b96e763e3c210511923",
+      "matches": [
+        {
+          "line": 9,
+          "text": "refund accounting, pre-transaction nonce/code eligibility for every PAY including"
+        }
+      ]
+    },
+    {
+      "path": "development/LP4-REGISTRY-APPROVAL.md",
+      "sha256": "a467cc529b1c38b2b62874ad0218f43bb011bb57954342d3ed0c09496ebda1db",
+      "matches": []
+    },
+    {
+      "path": "development/LP4-REGISTRY-WRITE-APPROVAL.md",
+      "sha256": "4fcfef9d6983b526c3f99193f3d384ef8274c4b5214f437e9116d35a53dd0f58",
+      "matches": []
+    },
+    {
+      "path": "development/LP4-TEST-GATES-APPROVAL.md",
+      "sha256": "d0a509e59702854ce3c728503a99cbd129a72e0393be8f84401fc961da1531ff",
+      "matches": []
+    }
+  ],
+  "conclusion": "No explicit SYS epoch/nonce/intrinsic/refund or EVM ORIGIN metadata contract found; interpretation documented in proposal, not a recovered rule",
+  "translationNote": "Quoted text translated to English. sha256 fields attest the original inspected sources, retained at Git revision 3b861aaafceecdea722a2a262cfe060d04b04f04; they are not hashes of the translated sources."
+}

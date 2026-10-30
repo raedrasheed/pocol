@@ -1,0 +1,62 @@
+{
+  "node": "v22.13.1",
+  "libraries": [
+    {
+      "name": "@noble/hashes",
+      "version": "2.4.0",
+      "loadedSourceSha256": "9a81e1edb24eae27b335533220167609cfb58008c5690e140ce478acdc669f32"
+    },
+    {
+      "name": "js-sha3",
+      "version": "0.13.0",
+      "loadedSourceSha256": "866682ecaf939bf0210c2100a2b7096d996c6c06c9cc7db5b84dc0531bf40368"
+    }
+  ],
+  "pythonLibrary": "m1-draft-0.2/tools/keccak.py",
+  "pythonLibrarySha256": "99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d",
+  "checks": 4,
+  "passed": 4,
+  "failed": 0,
+  "results": [
+    {
+      "id": "K1",
+      "bytes": 0,
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "pythonKeccak": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "nobleKeccak": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "jsSha3Keccak": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "knownExpected": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "pass": true
+    },
+    {
+      "id": "K2",
+      "bytes": 1,
+      "inputSha256": "e4ff5e7d7a7f08e9800a3e25cb774533cb20040df30b6ba10f956f9acd0eb3f7",
+      "pythonKeccak": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "nobleKeccak": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "jsSha3Keccak": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "knownExpected": "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "pass": true
+    },
+    {
+      "id": "K3",
+      "bytes": 1,
+      "inputSha256": "76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71",
+      "pythonKeccak": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "nobleKeccak": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "jsSha3Keccak": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "knownExpected": "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "pass": true
+    },
+    {
+      "id": "GSV1",
+      "bytes": 341,
+      "inputSha256": "2905b38d045661682f75beda865a447ed22e43e1e288b622a78a4e9833a4bf84",
+      "pythonKeccak": "de518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+      "nobleKeccak": "de518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+      "jsSha3Keccak": "de518e30a5e333ac3ddf127b6201f1a66f80dce2b56566524df4037bcdeb2277",
+      "knownExpected": null,
+      "pass": true
+    }
+  ]
+}

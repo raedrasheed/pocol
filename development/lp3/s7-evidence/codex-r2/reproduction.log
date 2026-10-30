@@ -1,0 +1,10 @@
+release-build 0
+regression 0
+format 0
+typecheck 0
+ts-tests 0
+probe-compile 0
+oracle 0
+rust-mutations 0
+ts-mutations 0
+PASS newly approved CF and T0 semantic core only; execution and boot NOT accepted

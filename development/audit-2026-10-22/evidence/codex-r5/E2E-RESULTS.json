@@ -1,0 +1,55 @@
+{
+  "code_commit": "1f3475d0b977b98b39320ba437a898ee3823e0f3",
+  "complete_non_browser_matrix": true,
+  "pocold_sha256": "7de0bd8bac5a663e91956c1e02abda8a241f6d031751a17624c87f9ecca9a5da",
+  "runs": [
+    {
+      "mode": "memory",
+      "suite": "heal",
+      "exit": 0,
+      "seconds": 110.7196721570017,
+      "log": "pocol-e2e-memory-heal.log"
+    },
+    {
+      "mode": "memory",
+      "suite": "site",
+      "exit": 0,
+      "seconds": 68.24932149300002,
+      "log": "pocol-e2e-memory-site.log"
+    },
+    {
+      "mode": "memory",
+      "suite": "devnet",
+      "exit": 0,
+      "seconds": 272.34620456500124,
+      "log": "pocol-e2e-memory-devnet.log"
+    },
+    {
+      "mode": "store",
+      "suite": "heal",
+      "exit": 0,
+      "seconds": 67.52169644499918,
+      "log": "pocol-e2e-store-heal.log"
+    },
+    {
+      "mode": "store",
+      "suite": "site",
+      "exit": 0,
+      "seconds": 37.2727636769996,
+      "log": "pocol-e2e-store-site.log"
+    },
+    {
+      "mode": "store",
+      "suite": "devnet",
+      "exit": 0,
+      "seconds": 304.5572351530009,
+      "log": "pocol-e2e-store-devnet.log"
+    }
+  ],
+  "not_run": [
+    "Windows",
+    "Chrome browser/integrated suites",
+    "private audit witnesses",
+    "worst-case resource measurements"
+  ]
+}

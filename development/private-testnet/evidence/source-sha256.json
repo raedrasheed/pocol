@@ -1,0 +1,8 @@
+{
+  "deploy/private-testnet/rehearse.py": "c4ffd9fa4e95f7ba60169dd17203e9a75cfebe9b7d2f99bb2b779078a9432cec",
+  "deploy/private-testnet/private_testnet.py": "d20eb2c0e5b377203275fe64ee62e9396856d784673c62a830e8e3325b5dda45",
+  "deploy/private-testnet/test_prepare.py": "aadfec6f77208e78b1c2d963206e8f45da53689f5757fa45b924269f41370995",
+  "deploy/private-testnet/runtime.py": "04f78f69b675ee79bafc59f4db5c0c19a27b9f27a6903bf61009a0c61f3bd4bc",
+  "deploy/private-testnet/install.sh": "fbf6aa7ea223bf480509667e1f3bd5338685c0ec7173107098c61f44b561724d",
+  ".github/workflows/private-testnet.yml": "c189ba14f5aba95c72469ebfe57c398f1465c47e7d5ebad09ac77e0f3aff1f81"
+}

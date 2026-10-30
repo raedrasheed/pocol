@@ -1,0 +1,451 @@
+{
+ "commit": "5965b8d31809063008a562fd178b4864b6aa552d",
+ "note": "outputs only; the mutant edits and the runner stay in the scratch directory",
+ "total": 55,
+ "killed": 55,
+ "survived": 0,
+ "incomplete": 0,
+ "mutants": [
+  {
+   "id": "B1",
+   "mutant": "builder: exact fit refused (>= room)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B2",
+   "mutant": "builder: one byte over accepted (> room+1)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B3",
+   "mutant": "builder: check counts the RLP item header (enc)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B4",
+   "mutant": "builder: check counts a 1-byte header",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B5",
+   "mutant": "builder: room decremented by the RLP item length (enc)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B6",
+   "mutant": "builder: room decremented one byte short",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B7",
+   "mutant": "builder: room decremented one byte long",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B8",
+   "mutant": "caps_room bytes +1 (lenient)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B9",
+   "mutant": "caps_room bytes -1 (strict)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B10",
+   "mutant": "builder: exact fit refused only on a non-empty parent (cross-block strict)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B11",
+   "mutant": "builder: body list header (3 B) counted for the block's first tx only",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "B12",
+   "mutant": "builder: exact fit refused for the block's first tx only",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W1",
+   "mutant": "item 16: < TXBYTES_CAP (exact fit refused)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W2",
+   "mutant": "item 16: <= TXBYTES_CAP+1 (one byte over accepted)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W3",
+   "mutant": "item 16: 1-byte header per tx",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W4",
+   "mutant": "item 16: RLP item length per tx (enc)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W5",
+   "mutant": "item 16: body list header (3 B) once per non-empty block",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W6",
+   "mutant": "item 16: this block's bytes only (branch counter ignored)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W7",
+   "mutant": "item 16: parent counter one byte low",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W8",
+   "mutant": "item 16: parent counter one byte high when non-zero",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W9",
+   "mutant": "item 16: the block's first tx not counted",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W10",
+   "mutant": "stored counter counts a 1-byte header per tx",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W11",
+   "mutant": "item 16 bytes from the grandparent's counter (one block stale)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "W12",
+   "mutant": "item 16 bytes from the head's counter (branch scope lost)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M1",
+   "mutant": "builder fix reverted (no cap skip)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M2a",
+   "mutant": "builder bytes off-by-one strict (>=)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M2b",
+   "mutant": "builder bytes off-by-one lenient (>room+1)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M2c",
+   "mutant": "builder count off-by-one lenient (room+1)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M2d",
+   "mutant": "builder count off-by-one strict (room<=1)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M2e",
+   "mutant": "item16 count off-by-one strict (<)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M2f",
+   "mutant": "item16 bytes off-by-one strict (<)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M2g",
+   "mutant": "item16 count lenient (<=cap+1)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M2h",
+   "mutant": "item16 bytes lenient (<=cap+1)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M3a",
+   "mutant": "builder bytes counted with the RLP item header (enc)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M3b",
+   "mutant": "item16 bytes counted with a 2-byte header",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M3c",
+   "mutant": "builder never decrements the byte room",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M4",
+   "mutant": "caps-test LOG_CAP back to 2^30",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED",
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M4b",
+   "mutant": "enforced LOG_CAP hard-coded 2^30 (exported constant unchanged)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M5",
+   "mutant": "halted receipt status 1 instead of 0",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M6",
+   "mutant": "template locking ignores the caps",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M7",
+   "mutant": "item 16 removed from validate",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M8",
+   "mutant": "stored cum_txs from the head, not the parent",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M9",
+   "mutant": "sender's later txs not skipped",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M10",
+   "mutant": "cum_log_bytes not carried from the parent",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "M11",
+   "mutant": "halt keeps no nonce increment",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X1",
+   "mutant": "item 16 count from the head's counter (branch scope lost)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X2",
+   "mutant": "item 16 count from the grandparent's counter",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X3",
+   "mutant": "item 16 bytes from the canonical block at the parent's height",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X4",
+   "mutant": "item 16 bytes: a non-canonical parent's counter read as 0",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X5",
+   "mutant": "builder byte room from the grandparent's counter",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X6",
+   "mutant": "stored byte counter not cumulative (this block only)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X7",
+   "mutant": "stored byte counter from the head, not the parent",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X8",
+   "mutant": "builder: a block's first tx not checked against the byte room",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X9",
+   "mutant": "item 16 bytes from min(head, parent) counter (branch scope lost, lenient direction only)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  },
+  {
+   "id": "X10",
+   "mutant": "item 16 bytes from max(head, parent) counter (branch scope lost, strict direction only)",
+   "verdict": "KILLED",
+   "runs": [
+    "KILLED"
+   ]
+  }
+ ]
+}

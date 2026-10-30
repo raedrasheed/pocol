@@ -1,0 +1,108 @@
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[b 396860] opened: head h=0 records=0
+[b 397015] lock h=1 a=0 PROP tid=0x9f53c554b3
+[b 397058] head h=1 0x803468483e6d signed=true txs=0
+[b 402087] lock h=2 a=0 FB tid=0xac78c712e1
+[b 402117] head h=2 0xfb7e1c0415a2 signed=false txs=0
+[b 402120] lock h=3 a=0 PROP tid=0x2f62e8bd70
+[b 402168] TrieRebuild for a fork below the K_hist window
+[b 402242] head h=3 0x03230ea8de1d signed=true txs=0
+[b 403037] lock h=4 a=0 PROP tid=0x849d0e6c55
+[b 403084] head h=4 0x60af5a210c2f signed=true txs=0
+[b 404044] lock h=5 a=0 PROP tid=0xf59b1d6a46
+[b 404076] head h=5 0xf3d61d364125 signed=true txs=0
+[b 405047] lock h=6 a=0 PROP tid=0x71e575a673
+[b 405090] head h=6 0x0f05b6469880 signed=true txs=0
+[b 406053] lock h=7 a=0 PROP tid=0xd3263fffb9
+[b 406066] range exhausted; idle until next template
+[b 410232] head h=7 0x065a506d0611 signed=false txs=0
+[b 410239] lock h=8 a=0 PROP tid=0xa72a94b80d
+[b 410255] head h=8 0x794d7342e1c1 signed=true txs=0
+[b 411030] lock h=9 a=0 PROP tid=0xc1d4cad0ab
+[b 411064] head h=9 0xedf6706e3381 signed=true txs=0
+[b 412047] lock h=10 a=0 PROP tid=0xc2d86804d4
+[b 412094] head h=10 0x22c91cfe29e8 signed=true txs=0
+[b 413085] head h=11 0x877ab162c947 signed=true txs=0
+[b 414038] lock h=12 a=0 PROP tid=0x3f2fb115b5
+[b 414051] range exhausted; idle until next template
+[b 414082] head h=12 0xf434fea3627e signed=true txs=0
+[b 415057] lock h=13 a=0 PROP tid=0x53f63fe972
+[b 415069] head h=13 0xb008ccb9d377 signed=true txs=0
+[b 416092] head h=14 0x7eede798f253 signed=true txs=0
+[b 421118] lock h=15 a=0 FB tid=0xf137ed51d0
+[b 421129] head h=15 0x7508a0d17ab2 signed=false txs=0
+[b 421184] head h=16 0xa90ba2fd6bf1 signed=true txs=0
+[b 422035] lock h=17 a=0 PROP tid=0x15c870682e
+[b 422058] head h=17 0xf1fb7d81b7f9 signed=true txs=1
+[b 423065] head h=18 0x05a8bcff704f signed=true txs=1
+[b 424064] lock h=19 a=0 PROP tid=0x159999e852
+[b 424108] head h=19 0x8ce42bd779c6 signed=true txs=1
+[b 429168] head h=20 0x1740045c5feb signed=false txs=0
+[b 429181] lock h=21 a=0 PROP tid=0x3cd833f4fc
+[b 429230] head h=21 0x1de0bec2566b signed=true txs=1
+[b 430054] head h=22 0x48fe5acb6d32 signed=true txs=1
+[b 431035] lock h=23 a=0 PROP tid=0x13b60dfbb2
+[b 431049] head h=23 0xf09d5f55d46a signed=true txs=1
+[b 432042] lock h=24 a=0 PROP tid=0x5d9067ac9b
+[b 432108] head h=24 0xb941cb4eca5b signed=true txs=1
+[b 433147] head h=25 0xab58ff217c52 signed=true txs=1
+[b 434073] lock h=26 a=0 PROP tid=0x22c72259a3
+[b 434104] head h=26 0x73d44f43207b signed=true txs=1
+[b 435096] head h=27 0xa6a05d97e699 signed=true txs=1
+[b 436041] lock h=28 a=0 PROP tid=0xbe43cccf01
+[b 436076] head h=28 0xfd068f5cbdbc signed=true txs=1
+[b 437056] lock h=29 a=0 PROP tid=0x7c40320b1d
+[b 437099] head h=29 0x920fb9c79b8a signed=true txs=0
+[b 438134] head h=30 0x4c668f821c1d signed=true txs=0
+
+=== 2026-10-28T15:14:00.133Z partition: b with a
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[b 440689] opened: head h=30 records=55
+[b 440726] head h=31 0x2332d649dd4d signed=true txs=0
+[b 441075] lock h=32 a=0 PROP tid=0xf35bcd3106
+[b 441087] head h=32 0x6791e6fe9c20 signed=true txs=0
+[b 442088] lock h=33 a=0 PROP tid=0x8dee7cb293
+[b 442107] head h=33 0x3440aaa0a8e5 signed=true txs=0
+[b 443072] lock h=34 a=0 PROP tid=0x34012cb360
+[b 443166] head h=34 0x75ea0b7742ec signed=true txs=0
+[b 444153] head h=35 0xeedbcb4f751d signed=true txs=0
+[b 445034] lock h=36 a=0 PROP tid=0x03189fb63d
+[b 445069] head h=36 0x380d1d8ba693 signed=true txs=0
+[b 450094] lock h=37 a=0 FB tid=0xa83c943f09
+[b 450178] head h=37 0x266a1338e72c signed=false txs=0
+[b 450250] lock h=38 a=0 PROP tid=0xeb3ad204fa
+[b 450305] head h=38 0xe1f61027b63b signed=true txs=0
+[b 455314] lock h=39 a=0 FB tid=0x3804be6738
+[b 455328] head h=39 0xe7a6fa641eba signed=false txs=0
+[b 455365] lock h=40 a=0 PROP tid=0x483faeaf77
+[b 455375] head h=40 0x332401603d70 signed=true txs=0
+[b 456020] lock h=41 a=0 PROP tid=0xd2c21ddb3f
+[b 456046] head h=41 0x10acb75f40dd signed=true txs=0
+[b 461098] lock h=42 a=0 FB tid=0xef9949b393
+[b 461111] head h=42 0x556ec8b731ae signed=false txs=0
+[b 461200] head h=43 0x15cce5204848 signed=true txs=0
+[b 462047] lock h=44 a=0 PROP tid=0x9661ad58ee
+[b 462084] head h=44 0x94a595e8c0e1 signed=true txs=0
+[b 463046] lock h=45 a=0 PROP tid=0x199be08bbe
+[b 463067] head h=45 0xa8eaee7d2d36 signed=true txs=0
+[b 464108] head h=46 0xd517db680e92 signed=true txs=0
+[b 465054] lock h=47 a=0 PROP tid=0xedf23505c5
+[b 465069] head h=47 0x19d6636e6b64 signed=true txs=0
+[b 466055] lock h=48 a=0 PROP tid=0x61afa2c0b9
+[b 466105] head h=48 0x666cb0bb61a9 signed=true txs=0
+[b 467070] lock h=49 a=0 PROP tid=0x2087f24244
+[b 467096] head h=49 0x9f33073bd5cc signed=true txs=0
+[b 472138] lock h=50 a=0 FB tid=0x21e09ba8fc
+[b 472152] head h=50 0x77645e7f6cfc signed=false txs=0
+[b 472167] lock h=51 a=0 PROP tid=0x86aadde22f
+[b 472236] head h=51 0x6d1a8bb9e151 signed=true txs=0
+[b 473060] lock h=52 a=0 PROP tid=0x1d275683e8
+[b 473142] head h=52 0x205b40ab2ed1 signed=true txs=0
+[b 474061] lock h=53 a=0 PROP tid=0xc5f2f62bef
+
+=== 2026-10-28T15:14:34.082Z catch up: a and b meshed, no miner
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[b 474971] opened: head h=52 records=88
+[b 479998] lock h=53 a=0 FB tid=0x9b6ee9d7f9
+[b 520026] attempt 0 expired; advancing
+[b 520038] lock h=53 a=1 FB tid=0xd1687a3e37

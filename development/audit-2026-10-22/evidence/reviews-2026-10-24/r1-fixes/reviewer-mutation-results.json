@@ -1,0 +1,314 @@
+[
+ {
+  "id": "L1",
+  "file": "lp4-execution/src/user_phase.rs",
+  "desc": "LOG_CAP check ignores this block's earlier charged bytes",
+  "old": "if self.cum_log.saturating_add(self.log_bytes+charge)>caps::LOG_CAP",
+  "new": "if self.cum_log.saturating_add(charge)>caps::LOG_CAP",
+  "suites": {
+   "logcap": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 102
+   },
+   "lp4apply": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 106
+   }
+  },
+  "overall": "SURVIVED"
+ },
+ {
+  "id": "L2",
+  "file": "pocold/src/chain.rs",
+  "desc": "LOG_CAP counter read from the head, not the parent (branch scope lost)",
+  "old": "ancestors:ctx.ancestors.clone(),cum_log_bytes:p.cum_log_bytes};",
+  "new": "ancestors:ctx.ancestors.clone(),cum_log_bytes:self.head().cum_log_bytes};",
+  "suites": {
+   "logcap": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 95
+   },
+   "caps": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 135
+   }
+  },
+  "overall": "SURVIVED"
+ },
+ {
+  "id": "L3",
+  "file": "lp4-execution/src/user_phase.rs",
+  "desc": "LOG_CAP exact fit refused (>=)",
+  "old": "if self.cum_log.saturating_add(self.log_bytes+charge)>caps::LOG_CAP",
+  "new": "if self.cum_log.saturating_add(self.log_bytes+charge)>=caps::LOG_CAP",
+  "suites": {
+   "logcap": {
+    "verdict": "KILLED",
+    "failed": [
+     "log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing"
+    ],
+    "secs": 145
+   },
+   "lp4apply": {
+    "verdict": "KILLED",
+    "failed": [
+     "apply::tests::a03::log_cap_is_aggregate_over_the_chain",
+     "apply::tests::a03::proposals::log_cap_aggregate_vectors"
+    ],
+    "secs": 127
+   }
+  },
+  "overall": "KILLED"
+ },
+ {
+  "id": "L4",
+  "file": "pocold/src/chain.rs",
+  "desc": "meta_clone drops cum_log_bytes (re-execution of pruned/restored blocks)",
+  "old": "cum_log_bytes:self.cum_log_bytes,pruned:true",
+  "new": "cum_log_bytes:0,pruned:true",
+  "suites": {
+   "logcap": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 83
+   },
+   "caps": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 169
+   }
+  },
+  "overall": "SURVIVED"
+ },
+ {
+  "id": "L5",
+  "file": "lp4-execution/src/user_phase.rs",
+  "desc": "a halted transaction's logs are charged",
+  "old": "apply_halt(&mut state,&mut meter,&tx,price,tip,i)?;halts.push((i,why));",
+  "new": "apply_halt(&mut state,&mut meter,&tx,price,tip,i)?;meter.log_bytes+=log_charge(result.result.logs());halts.push((i,why));",
+  "suites": {
+   "logcap": {
+    "verdict": "KILLED",
+    "failed": [
+     "log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing"
+    ],
+    "secs": 132
+   },
+   "lp4apply": {
+    "verdict": "KILLED",
+    "failed": [
+     "apply::tests::a03::cumulative_logs_across_transactions_and_a_halt_consumes_no_budget",
+     "apply::tests::a03::log_block_max_below_at_and_above",
+     "apply::tests::a03::proposals::log_acct_01_vectors"
+    ],
+    "secs": 101
+   }
+  },
+  "overall": "KILLED"
+ },
+ {
+  "id": "C1",
+  "file": "pocold/src/node.rs",
+  "desc": "builder stops at the first transaction past the room (break, not skip)",
+  "old": "if room_txs==0||raw.len() as u64>room_bytes{skipped.insert(tx.caller);continue}",
+  "new": "if room_txs==0||raw.len() as u64>room_bytes{break}",
+  "suites": {
+   "caps": {
+    "verdict": "INCOMPLETE",
+    "failed": [],
+    "secs": 86
+   }
+  },
+  "overall": "INCOMPLETE"
+ },
+ {
+  "id": "C2",
+  "file": "pocold/src/chain.rs",
+  "desc": "offload (D-REORG-REDB) drops the tx counters with the body",
+  "old": "fn offload(e:&mut Entry){e.body=Body::default();",
+  "new": "fn offload(e:&mut Entry){e.cum_txs=0;e.cum_tx_bytes=0;e.body=Body::default();",
+  "suites": {
+   "caps": {
+    "verdict": "KILLED",
+    "failed": [
+     "counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary"
+    ],
+    "secs": 99
+   }
+  },
+  "overall": "KILLED"
+ },
+ {
+  "id": "C3",
+  "file": "pocold/src/chain.rs",
+  "desc": "item 16 count: this block only (branch counter ignored)",
+  "old": "p.cum_txs.checked_add(txs.len() as u64).map_or(false,|n|n<=cp.TX_CAP)",
+  "new": "0u64.checked_add(txs.len() as u64).map_or(false,|n|n<=cp.TX_CAP)",
+  "suites": {
+   "caps": {
+    "verdict": "KILLED",
+    "failed": [
+     "a_received_template_past_the_caps_is_treated_as_absent",
+     "counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary",
+     "tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing",
+     "tx_cap_boundary_is_exact_at_every_position_and_block_shape"
+    ],
+    "secs": 132
+   }
+  },
+  "overall": "KILLED"
+ },
+ {
+  "id": "C4",
+  "file": "lp4-execution/src/apply.rs",
+  "desc": "apply.rs:250 refuses a block of exactly TX_CAP transactions",
+  "old": "if input.transactions.len() as u64>cp.TX_CAP||",
+  "new": "if input.transactions.len() as u64>=cp.TX_CAP||",
+  "suites": {
+   "caps": {
+    "verdict": "KILLED",
+    "failed": [
+     "a_received_template_past_the_caps_is_treated_as_absent",
+     "counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary",
+     "tx_cap_boundary_is_exact_at_every_position_and_block_shape",
+     "tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing",
+     "a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing"
+    ],
+    "secs": 155
+   }
+  },
+  "overall": "KILLED"
+ },
+ {
+  "id": "C5",
+  "file": "lp4-execution/src/apply.rs",
+  "desc": "apply.rs:250 TX_CAP part removed",
+  "old": "if input.transactions.len() as u64>cp.TX_CAP||",
+  "new": "if ",
+  "suites": {
+   "caps": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 129
+   }
+  },
+  "overall": "SURVIVED"
+ },
+ {
+  "id": "C6",
+  "file": "pocold/src/node.rs",
+  "desc": "template locking checks TX_CAP only (TXBYTES_CAP ignored)",
+  "old": "if !self.chain.within_caps(&p,&body.txs){return false}",
+  "new": "if p.cum_txs+body.txs.len() as u64>self.chain.spec.cp().TX_CAP{return false}",
+  "suites": {
+   "caps": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 203
+   }
+  },
+  "overall": "SURVIVED"
+ },
+ {
+  "id": "C7",
+  "file": "pocold/src/chain.rs",
+  "desc": "item 16 counts evidence items as transactions/bytes",
+  "old": "if !self.within_caps(p,&b.body.txs){return blk(\"16 caps\")}",
+  "new": "if !self.within_caps(p,&[b.body.txs.clone(),b.body.evidence.clone()].concat()){return blk(\"16 caps\")}",
+  "suites": {
+   "caps": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 88
+   }
+  },
+  "overall": "SURVIVED"
+ },
+ {
+  "id": "C8",
+  "file": "pocold/src/node.rs",
+  "desc": "builder room from the head, not the template parent",
+  "old": "let (mut room_txs,mut room_bytes)=self.chain.caps_room(p);",
+  "new": "let (mut room_txs,mut room_bytes)=self.chain.caps_room(self.chain.head());",
+  "suites": {
+   "caps": {
+    "verdict": "SURVIVED",
+    "failed": [],
+    "secs": 117
+   }
+  },
+  "overall": "SURVIVED"
+ },
+ {
+  "id": "C1b",
+  "file": "pocold/src/node.rs",
+  "desc": "builder stops at the first transaction past the room (break, not skip); C1 corrected to compile",
+  "old": "if room_txs==0||raw.len() as u64>room_bytes{skipped.insert(tx.caller);continue}",
+  "new": "if room_txs==0||raw.len() as u64>room_bytes{skipped.insert(tx.caller);break}",
+  "suites": {
+   "caps": {
+    "verdict": "KILLED",
+    "failed": [
+     "txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones"
+    ],
+    "secs": 113
+   }
+  },
+  "overall": "KILLED"
+ },
+ {
+  "id": "L1w",
+  "file": "lp4-execution/src/user_phase.rs",
+  "desc": "L1 against the R1 scratch witness",
+  "old": "if self.cum_log.saturating_add(self.log_bytes+charge)>caps::LOG_CAP",
+  "new": "if self.cum_log.saturating_add(charge)>caps::LOG_CAP",
+  "suites": {
+   "witness": {
+    "verdict": "KILLED",
+    "failed": [
+     "r1_log_cap_in_block_branch_scope_and_rebuild"
+    ],
+    "secs": 163
+   }
+  },
+  "overall": "KILLED"
+ },
+ {
+  "id": "L2w",
+  "file": "pocold/src/chain.rs",
+  "desc": "L2 against the R1 scratch witness",
+  "old": "ancestors:ctx.ancestors.clone(),cum_log_bytes:p.cum_log_bytes};",
+  "new": "ancestors:ctx.ancestors.clone(),cum_log_bytes:self.head().cum_log_bytes};",
+  "suites": {
+   "witness": {
+    "verdict": "KILLED",
+    "failed": [
+     "r1_log_cap_in_block_branch_scope_and_rebuild"
+    ],
+    "secs": 215
+   }
+  },
+  "overall": "KILLED"
+ },
+ {
+  "id": "L4w",
+  "file": "pocold/src/chain.rs",
+  "desc": "L4 against the R1 scratch witness",
+  "old": "cum_log_bytes:self.cum_log_bytes,pruned:true",
+  "new": "cum_log_bytes:0,pruned:true",
+  "suites": {
+   "witness": {
+    "verdict": "KILLED",
+    "failed": [
+     "r1_log_cap_in_block_branch_scope_and_rebuild"
+    ],
+    "secs": 100
+   }
+  },
+  "overall": "KILLED"
+ }
+]

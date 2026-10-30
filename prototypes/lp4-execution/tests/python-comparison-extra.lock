@@ -1,0 +1,3 @@
+# Optional independent-engine acceleration only; Linux x86_64 CPython3.12 wheel.
+# Runtime Cargo dependencies and the historical Python requirement lock unchanged.
+blake2b-py==0.3.2 --hash=sha256:cf4ad9a69345091fb578acae2ba4e15cbe8de5dd56a50e46aa4c014c7a41401b

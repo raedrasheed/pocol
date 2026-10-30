@@ -1,0 +1,15 @@
+{
+  "total": 20661,
+  "upstreamStateAndLogAssertions": 19488,
+  "expectedRejectionPresenceOnly": 1173,
+  "sourceFiles": 2807,
+  "sourceHashesEqualVerifiedCorpus": true,
+  "compiler": "go1.23.2",
+  "module": "go-ethereum/v1.14.12",
+  "upstreamCommit": "293a300d64be3d9a1c2cc92c26fcff4089deadcd",
+  "binaryDigestReceipt": "b6ec55c838bca3f4761f9d5444df4c762abfa8d40f4950d4293adbcb5f1ec603",
+  "compiledRootFaultControls": 2,
+  "scope": "External Geth upstream Cancun controls; not PoCol wire/apply/deviation acceptance",
+  "status": "Scoped external upstream controls only; no wire/apply/P2/LP4 acceptance",
+  "bootable": false
+}

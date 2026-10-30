@@ -1,0 +1,90 @@
+[
+  {
+    "name": "salt-zero",
+    "test": "system::chunk_tests::compiled_d27_boundaries_exact_initcode_idempotence_and_no_storage",
+    "source": "contracts/ChunkFactory.sol",
+    "old": "bytes32 salt=keccak256(data);",
+    "new": "bytes32 salt=bytes32(0);",
+    "solcExit": 0,
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "init-offset",
+    "test": "system::chunk_tests::compiled_d27_boundaries_exact_initcode_idempotence_and_no_storage",
+    "source": "contracts/ChunkFactory.sol",
+    "old": "80600a5f395ff300",
+    "new": "8060095f395ff300",
+    "solcExit": 0,
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "runtime-prefix",
+    "test": "system::chunk_tests::compiled_d27_boundaries_exact_initcode_idempotence_and_no_storage",
+    "source": "contracts/ChunkFactory.sol",
+    "old": "80600a5f395ff300",
+    "new": "80600a5f395ff301",
+    "solcExit": 0,
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "larger-data-cap",
+    "test": "system::chunk_tests::d27_length_limit_is_independent_of_approved_larger_runtime_cap",
+    "source": "contracts/ChunkFactory.sol",
+    "old": "data.length>24575",
+    "new": "data.length>24576",
+    "solcExit": 0,
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "repeat-create",
+    "test": "system::chunk_tests::compiled_d27_boundaries_exact_initcode_idempotence_and_no_storage",
+    "source": "contracts/ChunkFactory.sol",
+    "old": "if(chunk.code.length!=0)",
+    "new": "if(false)",
+    "solcExit": 0,
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "factory-storage",
+    "test": "system::chunk_tests::compiled_d27_boundaries_exact_initcode_idempotence_and_no_storage",
+    "source": "contracts/ChunkFactory.sol",
+    "old": "bytes32 salt=keccak256(data);",
+    "new": "assembly{sstore(0,1)} bytes32 salt=keccak256(data);",
+    "solcExit": 0,
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "accept-value",
+    "test": "system::chunk_tests::compiled_d27_invalid_lengths_value_and_storage_collision_reject",
+    "source": "contracts/ChunkFactory.sol",
+    "old": "external returns(address chunk)",
+    "new": "external payable returns(address chunk)",
+    "solcExit": 0,
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "ignore-create-failure",
+    "test": "system::chunk_tests::compiled_d27_invalid_lengths_value_and_storage_collision_reject",
+    "source": "contracts/ChunkFactory.sol",
+    "old": "if(deployed==address(0)||deployed!=chunk)",
+    "new": "if(false)",
+    "solcExit": 0,
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

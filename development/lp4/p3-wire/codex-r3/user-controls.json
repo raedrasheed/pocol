@@ -1,0 +1,56 @@
+[
+  {
+    "name": "eip161-cleanup",
+    "old": "for address in removed{",
+    "new": "for address in removed.into_iter().filter(|_|false){",
+    "test": "sequential_signed_execution_refund_revert_and_commitments",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "user-commitments",
+    "old": "if candidate.commitments()!=expected",
+    "new": "if false && candidate.commitments()!=expected",
+    "test": "wrong_commitments_and_late_invalid_transaction_leave_snapshot_unchanged",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "gas-reservation",
+    "old": "if tx.gas_limit>limit.checked_sub(used)",
+    "new": "if false && tx.gas_limit>limit.checked_sub(used)",
+    "test": "wrong_commitments_and_late_invalid_transaction_leave_snapshot_unchanged",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "block-tips",
+    "old": "tip.checked_mul(U256::from(gas))",
+    "new": "U256::ZERO.checked_mul(U256::from(gas))",
+    "test": "sequential_signed_execution_refund_revert_and_commitments",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "cumulative-receipt",
+    "old": "result.result.is_success(),used,",
+    "new": "result.result.is_success(),gas,",
+    "test": "sequential_signed_execution_refund_revert_and_commitments",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "state-commit",
+    "old": "state.commit(result.state);",
+    "new": "let _ignored=result.state;",
+    "test": "sequential_signed_execution_refund_revert_and_commitments",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

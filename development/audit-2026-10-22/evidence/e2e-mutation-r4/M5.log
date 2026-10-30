@@ -1,0 +1,93 @@
+== M5 2026-10-24T10:27:28Z
+== worktree HEAD ad849421710168e12aa10846951783c09807833c
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold/tests/e2e_devnet.py sha256=9c6d7c0d32334f25a676945f2ea9e72a9496de3a0a0ff41ff3fb1846d198814c
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M5/pocold sha256=8a31c1bd1119af2217b7515d0f9b96b9ee3d3b794d698451ff97c9be2ae4ce45
+== pocol-sign sha256=b6802d20d7097e871092bb399194e32550558c59050e24955d37dfa320402ec4
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M5/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a,b reach 15: met after 20.1s (bound 120s)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT c syncs: met after 4.6s (bound 90s)
+PASS late-joining node c syncs to the head — c=17
+WAIT tx receipts on all nodes: met after 1.0s (bound 90s)
+WAIT identical receipts on all nodes: met after 0.0s (bound 60s)
+PASS user transactions included; receipts identical on all nodes — 0x12
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=True valid kept=True
+WAIT a new reject entry: met after 0.0s (bound 15s)
+WAIT a produces after the corrupted block: met after 5.0s (bound 60s)
+PASS malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing — new rejects=[{'hash': '0x9fb7f375d543df1953984e0b1b0c42c7d665bec7a9f17bbb03d2d025aad1ed0f', 'reason': '3 template signature'}] a 20->22
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT a/b lead isolated c: met after 3.6s (bound 180s)
+PASS partition: a and b lead isolated c by more than 4 c tip blocks of work — a/b=['26:0x857a4ca3dc:w=0x104e05', '26:0x857a4ca3dc:w=0x104e05'] c=22:0x7190e51670:w=0xd52af in 4s
+WAIT a stopped: met after 0.0s (bound 30s)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT a follows b's next block: met after 0.5s (bound 180s)
+WAIT b stopped: met after 0.0s (bound 30s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a and b settle on one tip: met after 0.0s (bound 60s)
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT c climbs to a/b's height + 2 (7 late blocks): met after 10.6s (bound 240s)
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+PASS partition: a/b's tip is strictly heavier than c's tip and at least 2 blocks lower, both >= 2 blocks past the fork — a/b=27:0x871cfe3ee0:w=0x111df6 c=30:0x22442b63c7:w=0xe511a fork=22; work above c0 in c tip blocks: a/b 5.55, late c 1.45; 8 late blocks, attempts [1, 1, 0, 0, 0, 0, 0, 0] in 11s
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT every head is a/b's tip: met after 0.0s (bound 120s)
+PASS heal: every node's head is a/b's tip (heavier, and lower than c's tip) — heads a/b/c=['27:0x871cfe3ee0:w=0x111df6', '27:0x871cfe3ee0:w=0x111df6', '27:0x871cfe3ee0:w=0x111df6'] a/b tip=27:0x871cfe3ee0:w=0x111df6 in 0s
+PASS heal: on every node the canonical block at a/b's tip height is a/b's tip
+PASS heal: c's tip is not canonical on any node — c tip=30:0x22442b63c7:w=0xe511a
+PASS heal: c reorganized exactly once (one head switch, nothing mined) — c reorgs 0 -> 1
+PASS heal: a and b neither reorganized nor started a sync session — a/b counters [{'reorgs': 0, 'syncSessions': 0}, {'reorgs': 0, 'syncSessions': 0}] -> [{'reorgs': 0, 'syncSessions': 0}, {'reorgs': 0, 'syncSessions': 0}]
+WAIT d answers RPC: met after 0.5s (bound 60s)
+WAIT d adopts a/b's tip: met after 0.0s (bound 60s)
+PASS heal without a session: d (c's pre-heal store), sent a/b's branch tip first by a peer claiming genesis, adopts a/b's tip through the orphan pool, reorganizing once — 5 blocks h=23..27 sent tip first; d head 30->27 reorgs 0->1 sessions 0
+PASS heal without a session: every Status d sent the test peer names c's tip or a head with at least its work, the first c's tip, the last a/b's tip — 5 Status (head, work above c's tip in c tip blocks) [('0x22442b63c7', 0.0), ('0x63be96f360', 0.65), ('0xf9632e3c3f', 1.76), ('0x857a4ca3dc', 2.91), ('0x871cfe3ee0', 4.1)]
+WAIT d stopped: met after 0.0s (bound 30s)
+WAIT b stopped: met after 0.0s (bound 30s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT f answers RPC: met after 0.5s (bound 60s)
+WAIT f stores c's tip: met after 0.0s (bound 60s)
+PASS heal without a session, lighter branch: f (b's store: head a/b's tip, none of c's late blocks), sent c's branch tip first by a peer claiming genesis, stores c's tip through the orphan pool and keeps a/b's tip, c's tip not canonical, no reorganization, no session — 8 blocks h=23..30 sent tip first; f held 0/8 late blocks; stored=True f head 27:0x871cfe3ee0:w=0x111df6 reorgs 0->0 sessions 0->0
+PASS heal without a session, lighter branch: every Status f sent the test peer names a/b's tip — 1 Status heads ['0x871cfe3ee0']
+WAIT f stopped: met after 0.0s (bound 30s)
+PASS relay: a holds none of c's late blocks — 8 blocks h=23..30
+WAIT a stores c's branch below c's tip: met after 0.5s (bound 60s)
+PASS relay: a stores c's lighter branch below c's tip (higher than a's head), keeps its head, the branch is not canonical (head = maximum of ≻, consensus.md:215), no reorganization and no session — stored=True up to h=29 a head=27:0x871cfe3ee0:w=0x111df6 a counters {'reorgs': 0, 'syncSessions': 0} -> {'reorgs': 0, 'syncSessions': 0}
+PASS relay: every Status a sent the relay peer names a/b's tip (no head change, not even one reverted later) — 1 Status heads ['0x871cfe3ee0'] a/b tip=0x871cfe3ee0
+WAIT a stores c's tip from the session: met after 0.5s (bound 60s)
+PASS relay: a syncs c's tip in one session from a peer claiming more work, keeps its head, c's tip is not canonical, no reorganization — GetFrom=True stored=True a counters {'reorgs': 0, 'syncSessions': 0} -> {'reorgs': 0, 'syncSessions': 1} a head=27:0x871cfe3ee0:w=0x111df6
+PASS relay: every Status a sent the session peer names a/b's tip — 1 Status heads ['0x871cfe3ee0']
+WAIT a stopped: met after 0.0s (bound 30s)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+PASS replay after the relay: a's head is a/b's tip; c's tip is stored and not canonical — a head=27:0x871cfe3ee0:w=0x111df6
+WAIT a stopped: met after 0.0s (bound 30s)
+WAIT b stopped: met after 0.0s (bound 30s)
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT production resumes on the healed chain: met after 0.0s (bound 120s)
+WAIT e answers RPC: met after 0.5s (bound 60s)
+WAIT e stopped: met after 0.0s (bound 30s)
+WAIT e answers RPC: met after 0.5s (bound 60s)
+WAIT e follows the mining nodes: met after 3.5s (bound 120s)
+PASS heal while mining: e (c's pre-heal store) joins the mining nodes and follows their chain: its block CONFIRM below its head is a's, c's tip is not canonical, e reorganized — e head 30:0x22442b63c7:w=0xe511a -> 37:0xed4fbaaf51:w=0x124b6e in 4s, reorgs 2 sessions 1 imported 51; a/b/c at [37, 37, 37]
+WAIT e stopped: met after 0.0s (bound 30s)
+WAIT b stopped: met after 0.0s (bound 30s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+PASS SIGKILL crash: b replays its journal alone to at least its pre-kill height less one, holds the pre-kill head's parent, and keeps its canonical block CONFIRM below the pre-kill head — pre-kill head 37:0x0138666ec9:w=0x124b6e, replayed head 37:0x0138666ec9:w=0x124b6e; pre-kill parent canonical after replay: True
+WAIT b stopped: met after 0.0s (bound 30s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT b recovers: met after 0.0s (bound 90s)
+PASS SIGKILL crash: b rejoins — b=38
+WAIT 100 blocks on all nodes: met after 62.0s (bound 400s)
+WAIT confirmed common prefix >= 100: met after 6.1s (bound 300s)
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+FAIL every miner produced blocks — {"a": 0, "b": 0, "c": 0}
+{"result": "FAIL", "error": "every miner produced blocks", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts identical on all nodes", "transfer value applied", "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing", "partition: a and b lead isolated c by more than 4 c tip blocks of work", "partition: a/b's tip is strictly heavier than c's tip and at least 2 blocks lower, both >= 2 blocks past the fork", "heal: every node's head is a/b's tip (heavier, and lower than c's tip)", "heal: on every node the canonical block at a/b's tip height is a/b's tip", "heal: c's tip is not canonical on any node", "heal: c reorganized exactly once (one head switch, nothing mined)", "heal: a and b neither reorganized nor started a sync session", "heal without a session: d (c's pre-heal store), sent a/b's branch tip first by a peer claiming genesis, adopts a/b's tip through the orphan pool, reorganizing once", "heal without a session: every Status d sent the test peer names c's tip or a head with at least its work, the first c's tip, the last a/b's tip", "heal without a session, lighter branch: f (b's store: head a/b's tip, none of c's late blocks), sent c's branch tip first by a peer claiming genesis, stores c's tip through the orphan pool and keeps a/b's tip, c's tip not canonical, no reorganization, no session", "heal without a session, lighter branch: every Status f sent the test peer names a/b's tip", "relay: a holds none of c's late blocks", "relay: a stores c's lighter branch below c's tip (higher than a's head), keeps its head, the branch is not canonical (head = maximum of \u227b, consensus.md:215), no reorganization and no session", "relay: every Status a sent the relay peer names a/b's tip (no head change, not even one reverted later)", "relay: a syncs c's tip in one session from a peer claiming more work, keeps its head, c's tip is not canonical, no reorganization", "relay: every Status a sent the session peer names a/b's tip", "replay after the relay: a's head is a/b's tip; c's tip is stored and not canonical", "heal while mining: e (c's pre-heal store) joins the mining nodes and follows their chain: its block CONFIRM below its head is a's, c's tip is not canonical, e reorganized", "SIGKILL crash: b replays its journal alone to at least its pre-kill height less one, holds the pre-kill head's parent, and keeps its canonical block CONFIRM below the pre-kill head", "SIGKILL crash: b rejoins", "identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes"], "elapsed_s": 253, "work": "/tmp/pocol-e2e-v5axdztb"}
+== summary {"label": "M5", "exit": 1, "outcome": "FAIL", "checks_passed": 27, "first_fail": "every miner produced blocks", "elapsed_s": 252.9, "test_s": 253, "leftover_killed": [], "ports_busy_after": []}

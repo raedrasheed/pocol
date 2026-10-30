@@ -1,0 +1,9 @@
+# Codex independent review ? M1 revision 0.16 / author turn 014
+
+Preserved-copy Python 3.11.1 execution: 1086 entries, 944 pass, 140 recorded, 2 FAIL, 38.7 seconds, exit 1. Accepted 0.15 replay completed. Original packages and results were not overwritten.
+
+C27: BR24-x9 adminEarlyRelease faulty-path final goldens are truncated. Source validation.md:744-745 identifies the first witness: three unsettled tombs at 6000. It does not say that three is the final maximum at 14000. With K2's first tomb issued at 6000 and unsettled, its deadline at 11000 issues the second attempt, giving four unsettled tombs and a sixth set (including the two initial checkpoints). The actual model result follows the required retry rule. The fixture incorrectly asserts final maximum 3 and only five sets. Repair the complete hand-derived final timeline while retaining a separate exact first-witness assertion at 6000. Do not suppress the failures or weaken the control to an arbitrary inequality.
+
+RF-E6-1: source x12b omits K2's second attempt at 5001 while its first tomb remains pending until 7000. Disabling withdrawal for every operation leaves both stale retries queued; the guard must drop both. Op1's count 1 is compatible with the literal witness, total 2 is a source-fixture discrepancy requiring explicit technical reconciliation. This is not permission to approve an owner policy. A precise supplemental timeline and per-operation/total assertions must be reviewed before acceptance.
+
+The package honestly records six partial gaps, including unimplemented sweepMax, inherited rather than re-executed d15c cells, and real Chrome/CDP A15c/A15d measurement. No gate completion is inferred. Verdict: revise; latest accepted 0.15, 36 Partial / 5 Not started / 0 Complete. Existing owner decisions and representation proposals remain unapproved; no merge/deploy/production implementation.

@@ -1,0 +1,15 @@
+{
+  "sourceBranch": "codex-lp3-s4-assignment",
+  "targetBranch": "work/lp3-consensus-foundation",
+  "implementationCommit": "71cbbcc5cfed12eda204e29579f31cf672e7d972",
+  "pushedEvidenceCommit": "38fd389c61da62d24604aabbd7fe705237655e34",
+  "attempt": "gh pr create --repo raedrasheed/Proof-of-Collaboration --base work/lp3-consensus-foundation --head codex-lp3-s4-assignment --draft --title \"LP3 S4: parent membership, nonce partitions and unbiased proposer Draw\" --body-file development/lp3/s4-assignment/codex-r1/DRAFT-PR-BODY.md",
+  "exitCode": 1,
+  "error": "Post https://api.github.com/graphql: Forbidden",
+  "draftPrCreatedByAgent": false,
+  "comparisonUrl": "https://github.com/raedrasheed/Proof-of-Collaboration/compare/work/lp3-consensus-foundation...codex-lp3-s4-assignment?expand=1",
+  "preparedDescription": "DRAFT-PR-BODY.md",
+  "merged": false,
+  "S5Started": false,
+  "fullLP3Accepted": false
+}

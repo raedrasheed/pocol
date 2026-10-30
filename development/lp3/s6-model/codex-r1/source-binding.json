@@ -1,0 +1,15 @@
+{
+  "testedLocalCommit": "f0f414eea54367a90f5a4cc3ef3745691eddc7bc",
+  "sha256": {
+    "prototypes/lp3-model/README.md": "8ee5d9f8a2f5e36e73eb08c54ec178346cf65dff76126403a64b01c9bd43808f",
+    "prototypes/lp3-model/genesis.ts": "e80db116a208740f3595e9efc24ccf6b295dee73d42da179c9b644a09653dd35",
+    "prototypes/lp3-model/tests.ts": "aa5d278619b500cc0ba2c3a5b73729562afe25d78dc89b3ef2179b1891af5071",
+    "prototypes/lp3-model/schema.ts": "02f6b44d5768d0d2af5b67f4e4ab4dc59b9f0db1d7a410295f51dc8ed66240b7",
+    "prototypes/lp3-model/tsconfig.json": "3c3228f81c4e90ce60faab7290e67d9a666ea828b4dbee7f873f210394fb6afb",
+    "prototypes/lp3-model/package.json": "b1e8de734304bae7c3ae86ce0953ae3df899262843c54e5002006e567177c17b",
+    "prototypes/lp3-model/package-lock.json": "2ac68971820acfe978b0610638ec8bf34c127be3c0086b53ed2995ac8d6f0887",
+    "prototypes/lp3-model/model.ts": "2da192619fec4a5b41cf62e63f328ca2fb8da97e1bbd6d681901713ae154d29d",
+    "prototypes/lp3-model/probe.ts": "1649638f5580fc81c5fc854111d12a0ccf8977d5cf7d268ca2572a56b9da5b79",
+    "prototypes/lp3-model/.gitignore": "4d56952b0fb13bf8f9b6c13a6d4c34a075bac3af447636a1df4335d7576e2f97"
+  }
+}

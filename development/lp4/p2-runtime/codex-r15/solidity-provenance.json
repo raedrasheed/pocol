@@ -1,0 +1,13 @@
+{
+  "sourceRepository": "argotorg/solidity (formerly ethereum/solidity)",
+  "sourceCommit": "7893614a31fbeacd1966994e310ed4f760772658",
+  "tag": "v0.8.28",
+  "actualCompilerVersion": "0.8.28+commit.7893614a.Emscripten.clang",
+  "embeddedSoljsonSHA256": "9ef37cc1d2597ed6d2f706a960f449e33eb9eee920936cea77b11e6f43861970",
+  "compilerSourceLicense": "GPL-3.0",
+  "licenseFileSHA256": "0ae0485a5bd37a63e63603596417e4eb0e653334fa6c7f932ca3a0e85d4af227",
+  "npmWrapperLicense": "MIT",
+  "scope": "Test/build-only, no compiler/runtime binary distributed or linked into PoCol; source-to-binary compiler rebuild not proven",
+  "P2": "NOT PASSED",
+  "bootable": false
+}

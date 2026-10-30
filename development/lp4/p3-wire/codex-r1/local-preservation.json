@@ -1,0 +1,7 @@
+{
+  "localOnly": true,
+  "archive": "/workspace/work/lp4/p3-wire/r1-local-evidence.tar.gz",
+  "bytes": 20784,
+  "sha256": "0c9f08c1f5b170fcf6ac61fa5b2b5bf9db0bc845c3544452f8577dcfe0e990c1",
+  "contains": "full actual signed vectors, root outputs, initial failures, test logs and final compiled control logs; public scoped results above"
+}

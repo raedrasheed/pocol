@@ -1,0 +1,5 @@
+test evidence_type1_and_type2_punish_through_a_signed_block ... ok
+test e1_a_trie_that_is_not_the_parents_is_never_used ... ok
+E1-PATHS {"back":3,"blocks":665,"deep":559,"phases":{"back":[3,12,0],"deep":[3,571,0],"main":[0,0,0],"side":[3,9,0]},"rebuilds":15,"restoreReexecs":17,"side":12}
+test e1_incremental_roots_are_the_full_roots_on_every_path ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 60 filtered out; finished in 13.21s

@@ -1,0 +1,8 @@
+{
+  "archive": "/workspace/work/lp4/p4-system-r2-complete-evidence.tar.gz",
+  "bytes": 9200886,
+  "sha256": "8e1c4a6d4edadd512de0df37d4fdf4a28884a3d80e298bda749231de4972c7ed",
+  "publication": "Archive and full mutant build/test logs stay local; public compact reports, source, reproducible scripts and digests only. GitHub hosted outputs not yet produced for this source.",
+  "contains": "Entire p4-system-evidence directory including R1 archive, all R2 failed compiler/oracle/fixture attempts, first surviving mutant, corrected attempts, final vectors/comparisons/logs and all copied mutant source trees",
+  "bootable": false
+}

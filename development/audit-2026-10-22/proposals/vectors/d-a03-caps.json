@@ -1,0 +1,92 @@
+{
+ "alternatives": {
+  "1": "SLOT_CAP/ACCT_CAP count every account and slot",
+  "2": "SLOT_CAP/ACCT_CAP count the user state; SYS_SLOT_MAX the five programs, after the block (recommended)"
+ },
+ "profile": {
+  "slot_cap": 100,
+  "sys_slot_max": 65536,
+  "sys_slots": 60,
+  "user_slots": 30
+ },
+ "recommended": "2",
+ "rule": "D-A03-CAPS",
+ "scenarios": [
+  {
+   "expected": {
+    "1": {
+     "blockValid": false,
+     "genesisValid": true,
+     "userTx": "ok"
+    },
+    "2": {
+     "blockValid": true,
+     "genesisValid": true,
+     "userTx": "ok"
+    }
+   },
+   "id": "C1 user writes 10 (alt 1: exactly SLOT_CAP), system phase adds 3",
+   "input": {
+    "sys_writes": 3,
+    "user_writes": 10
+   }
+  },
+  {
+   "expected": {
+    "1": {
+     "blockValid": true,
+     "genesisValid": true,
+     "userTx": "halt SlotCap"
+    },
+    "2": {
+     "blockValid": true,
+     "genesisValid": true,
+     "userTx": "ok"
+    }
+   },
+   "id": "C2 user writes 70 (alt 2: exactly SLOT_CAP), system phase adds 3",
+   "input": {
+    "sys_writes": 3,
+    "user_writes": 70
+   }
+  },
+  {
+   "expected": {
+    "1": {
+     "blockValid": true,
+     "genesisValid": true,
+     "userTx": "halt SlotCap"
+    },
+    "2": {
+     "blockValid": true,
+     "genesisValid": true,
+     "userTx": "halt SlotCap"
+    }
+   },
+   "id": "C3 user writes 71",
+   "input": {
+    "sys_writes": 3,
+    "user_writes": 71
+   }
+  },
+  {
+   "expected": {
+    "1": {
+     "blockValid": false,
+     "genesisValid": true,
+     "userTx": "ok"
+    },
+    "2": {
+     "blockValid": false,
+     "genesisValid": true,
+     "userTx": "ok"
+    }
+   },
+   "id": "C4 system storage would pass SYS_SLOT_MAX",
+   "input": {
+    "sys_writes": 65477,
+    "user_writes": 0
+   }
+  }
+ ]
+}

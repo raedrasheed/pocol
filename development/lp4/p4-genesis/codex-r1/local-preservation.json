@@ -1,0 +1,8 @@
+{
+  "path": "/workspace/work/lp4/p4-system-evidence/full-system-decision-evidence.tar.gz",
+  "bytes": 238593,
+  "sha256": "a944c81b386452e071f52d80e1a806eee1c5f746210cf612071548bfa1e43bb7",
+  "publication": "Full archive LOCAL ONLY; diagnostic overlay/results/reproducer/proposal certificates public",
+  "contains": "All prior diagnostic/API/reporting failures, raw inputs/results/logs and full scratch reproduction source; no selected runtime rule",
+  "bootable": false
+}

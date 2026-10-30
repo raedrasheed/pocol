@@ -1,0 +1,67 @@
+TRACK journal — journal growth and re-execution measurements (audit-2026-10-22).
+Code tree: base a03e089 on branch wf/journal (tree identical to 3c3792e, the final D-REORG-REDB code).
+Host: Linux 6.18.44-fc-v153, 4 CPUs. Release, under cpu.lock. Toolchain: rust-toolchain.toml (1.99.1).
+Harness: prototypes/pocold/tests/journal_measure.rs (committed; the heavy tests are #[ignore]).
+Commands (each under `flock <cpu.lock>`, CARGO_TARGET_DIR in the agent scratch dir):
+  cargo test --release --locked --test journal_measure jm_journal_bytes_per_record -- --nocapture
+  JM_HEIGHT=20000     cargo test --release --locked --test journal_measure jm_replay_empty_blocks     -- --ignored --nocapture
+  JM_KIND_COUNT=40    cargo test --release --locked --test journal_measure jm_replay_by_kind          -- --ignored --nocapture
+  JM_REBUILD_HEIGHT=3000 cargo test --release --locked --test journal_measure jm_deep_fork_rebuild_vs_height -- --ignored --nocapture
+  JM_RESTORE_DEPTH=400   cargo test --release --locked --test journal_measure jm_restore_cost              -- --ignored --nocapture
+Note: the first by_kind run (count=120) panicked once a long run of full blocks drove the EIP-1559 base
+  fee above max_fee (expected). The harness max_fee was raised to 1e15 and the default count to 40; the
+  by_kind figures here are from that corrected run. The empty/replay/deep-fork/restore/witness runs are
+  unaffected. A TIMEOUT would be "incomplete"; every run below reached "test result: ok".
+JSON lines are machine-readable (JM-*). Analysis: development/audit-2026-10-22/JOURNAL-GROWTH-AND-REPLAY.md.
+================================================================
+--- bytes_per_record, replay_empty_20000, deep_fork_rebuild_3000, restore_cost_400, witness, (first by_kind panic at count=120) ---
+=== START 2026-10-23T12:57:57Z ===
+=== bytes_per_record ===
+JM-BYTES {"empty":{"bodyBytes":3,"cumLogBytes":0,"gasUsed":0,"headerBytes":1559,"powShares":105,"receiptBytesNotStored":0,"recordBytes":4895,"resultBytes":3282,"txs":0},"full_body_max":{"bodyBytes":196583,"cumLogBytes":0,"gasUsed":827344,"headerBytes":973,"powShares":30,"receiptBytesNotStored":538,"recordBytes":198568,"resultBytes":957,"txs":2},"full_gas_transfers":{"bodyBytes":44077,"cumLogBytes":0,"gasUsed":7980000,"headerBytes":719,"powShares":2,"receiptBytesNotStored":102217,"recordBytes":44935,"resultBytes":87,"txs":380},"log_heavy_546":{"bodyBytes":113,"cumLogBytes":19656,"gasUsed":274379,"headerBytes":991,"powShares":32,"receiptBytesNotStored":13375,"recordBytes":2175,"resultBytes":1019,"txs":1}}
+JM-CONST {"BODY_MAX":196608,"GAS_LIMIT":8000000,"MAX_RECORD":4194304,"OVERHEAD":41,"TX_MAX":131072}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 1.39s
+=== replay_empty_20000 ===
+JM-REPLAY {"height":1000,"journalDiskBytes":1911072,"openSeconds":2.634708801,"perRecordMicros":2634.7088009999998,"records":1000,"rssAfterBytes":138190848,"rssBeforeBytes":138190848,"vmHwmAfterBytes":237432832,"vmHwmBeforeBytes":237432832}
+JM-REPLAY {"height":5000,"journalDiskBytes":9588809,"openSeconds":17.013255402,"perRecordMicros":3402.6510804,"records":5000,"rssAfterBytes":138190848,"rssBeforeBytes":138190848,"vmHwmAfterBytes":237432832,"vmHwmBeforeBytes":237432832}
+JM-REPLAY {"height":20000,"journalDiskBytes":22887077,"openSeconds":137.073619092,"perRecordMicros":6853.6809546,"records":20000,"rssAfterBytes":196624384,"rssBeforeBytes":138190848,"vmHwmAfterBytes":237432832,"vmHwmBeforeBytes":237432832}
+JM-BUILD {"buildSeconds":389.401326153,"bytesPerRecordAvg":1144.35385,"finalJournalDiskBytes":22887077,"finalRecords":20000,"hMax":20000}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 546.55s
+=== replay_by_kind_120 ===
+JM-KIND {"blocks":120,"buildSeconds":1.156462002,"bytesPerRecord":1954.9,"journalDiskBytes":234588,"kind":"empty","openSeconds":0.435836486,"perRecordMillis":3.631970716666667,"records":120}
+thread 'jm_replay_by_kind' (9253) panicked at tests/journal_measure.rs:39:175:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 14.67s
+=== deep_fork_rebuild_3000 ===
+JM-REBUILD {"forkPointHeight":100,"perBlockMillis":2.0630543200000004,"reExecutions":100,"seconds":0.206305432}
+JM-REBUILD {"forkPointHeight":500,"perBlockMillis":2.138697492,"reExecutions":500,"seconds":1.069348746}
+JM-REBUILD {"forkPointHeight":1000,"perBlockMillis":2.489260836,"reExecutions":1000,"seconds":2.489260836}
+JM-REBUILD {"forkPointHeight":2048,"perBlockMillis":2.61997610546875,"reExecutions":2048,"seconds":5.365711064}
+JM-REBUILD {"forkPointHeight":3000,"perBlockMillis":2.3341801273333336,"reExecutions":3000,"seconds":7.002540382}
+JM-REBUILD {"forkPointHeight":3000,"perBlockMillis":2.44096693,"reExecutions":3000,"seconds":7.32290079}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 49.27s
+=== restore_cost_400 ===
+JM-RESTORE {"adoptSeconds":0.010218303,"adoptionDepth":400,"restoredBlocks":1,"theirBlocks":3}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 3.47s
+=== witness_refetch ===
+WITNESS-REFETCH {"depth":40,"evictedTotal":24,"headHeight":2,"journalDiskBytes":36934,"journalRecords":42,"phase":"setup","rKeep":64,"residentSideBlocks":16,"sideCap":16}
+WITNESS-REFETCH {"cumulativeJournalDiskBytes":53437,"cumulativeJournalRecords":66,"journalBytesAppended":16503,"journalRecordsAppended":24,"phase":"round","refetchedTotal":24,"residentSideAfterRetain":16,"round":1}
+WITNESS-REFETCH {"cumulativeJournalDiskBytes":69940,"cumulativeJournalRecords":90,"journalBytesAppended":16503,"journalRecordsAppended":24,"phase":"round","refetchedTotal":48,"residentSideAfterRetain":16,"round":2}
+WITNESS-REFETCH {"cumulativeJournalDiskBytes":86443,"cumulativeJournalRecords":114,"journalBytesAppended":16503,"journalRecordsAppended":24,"phase":"round","refetchedTotal":72,"residentSideAfterRetain":16,"round":3}
+WITNESS-REFETCH {"cumulativeJournalDiskBytes":366994,"cumulativeJournalRecords":522,"journalBytesAppended":16503,"journalRecordsAppended":24,"phase":"round","refetchedTotal":480,"residentSideAfterRetain":16,"round":20}
+WITNESS-REFETCH {"avgBytesPerRound":16503.0,"boundsChecked":{"banScoreApplies":false,"evictedMaxStopsSolicited":false,"onlyLimiter":"the R_keep window moving as the honest head advances; with a stationary head growth is linear in rounds (peer-bandwidth bounded)","protectMaxStopsCrossSessionRefetch":false,"sideCapBoundsResidentMetadata":true,"sideCapStopsDiskGrowth":false},"diskAppendedTotal":330060,"journalDiskEnd":366994,"journalDiskStart":36934,"journalRecordsEnd":522,"journalRecordsStart":42,"phase":"summary","recordsAppendedTotal":480,"refetchedEnd":480,"refetchedStart":0,"rounds":20}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.92s
+=== END 2026-10-23T13:26:06Z ===
+
+================================================================
+--- jm_replay_by_kind (corrected, JM_KIND_COUNT=40, max_fee 1e15) ---
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.12s
+     Running tests/journal_measure.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-journal/release/deps/journal_measure-c13ab9c547bdb0f2)
+
+running 1 test
+JM-KIND {"blocks":40,"buildSeconds":0.403059338,"bytesPerRecord":2315.8,"journalDiskBytes":92632,"kind":"empty","openSeconds":0.156713674,"perRecordMillis":3.91784185,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":10.850251325,"bytesPerRecord":47076.95,"journalDiskBytes":1883078,"kind":"full_gas_transfers","openSeconds":2.768457369,"perRecordMillis":69.211434225,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":0.597376296,"bytesPerRecord":1928.675,"journalDiskBytes":77147,"kind":"log_heavy_546","openSeconds":0.31277534,"perRecordMillis":7.819383500000001,"records":40}
+JM-KIND {"blocks":40,"buildSeconds":0.878143777,"bytesPerRecord":199130.65,"journalDiskBytes":7965226,"kind":"full_body_max","openSeconds":0.286268962,"perRecordMillis":7.156724049999999,"records":40}
+test jm_replay_by_kind ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 17.93s
+

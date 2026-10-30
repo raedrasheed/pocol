@@ -1,0 +1,20 @@
+== M6 2026-10-24T10:31:44Z
+== worktree HEAD ad849421710168e12aa10846951783c09807833c
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold/tests/e2e_devnet.py sha256=9c6d7c0d32334f25a676945f2ea9e72a9496de3a0a0ff41ff3fb1846d198814c
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M6/pocold sha256=76cca1b2c42b4c40ef892fde7996c79eb6c305a30b35e6441b3288431cc18f38
+== pocol-sign sha256=d03f0464461c30351efd6d2b23a799b44244631a4cd95173e42bd1889a22ba00
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M6/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a,b reach 15: met after 17.1s (bound 120s)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT c syncs: met after 0.5s (bound 90s)
+PASS late-joining node c syncs to the head — c=16
+WAIT tx receipts on all nodes: met after 1.0s (bound 90s)
+WAIT identical receipts on all nodes: met after 1.0s (bound 60s)
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+FAIL malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=False valid kept=True
+{"result": "FAIL", "error": "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts identical on all nodes", "transfer value applied"], "elapsed_s": 28, "work": "/tmp/pocol-e2e-rdu4tvbs"}
+== summary {"label": "M6", "exit": 1, "outcome": "FAIL", "checks_passed": 4, "first_fail": "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "elapsed_s": 28.5, "test_s": 28, "leftover_killed": [], "ports_busy_after": []}

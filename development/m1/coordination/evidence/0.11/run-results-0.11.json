@@ -1,0 +1,3905 @@
+{
+  "package": "M1 draft 0.11 (C24 repair of 0.10: strict names and integer fields)",
+  "executedAtUtc": "2026-10-07T14:16:27+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "evidenceKind": "reference model of the specification text; the full 0.10 suite re-run with the repaired helpers, plus C24 regressions",
+  "notExecuted": [
+    "BR22c (Chrome + CDP; A15c/A15d)",
+    "TypeScript implementation",
+    "chrome.storage.local",
+    "fmt 2 wire codec (E4)",
+    "D104 disk bounds (E4/E6)",
+    "browser / MV3 extension"
+  ],
+  "summary": {
+    "checks": 259,
+    "passed": 211,
+    "recorded": 48,
+    "failed": 0,
+    "seconds": 15.9
+  },
+  "results": [
+    {
+      "check": "input.sha256 reference/browser.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7"
+    },
+    {
+      "check": "input.sha256 reference/validation.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1"
+    },
+    {
+      "check": "input.sha256 reference/threat.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "47c42e8bbe2e3232beb18b4a03e79b41ae2dacd063c5a2333d72dbfd3bc2b547"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.10/tools/sr_ref.py",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "62597fd2bb4b3a80c8d49fd31eec3ee831104a9a1da2671c3047129d59efd369"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.10/tools/run_checks_010.py",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "51e332813a6fb6e232a713a5cb7f52b1de03771b306108657608b2fd0cc3be28"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.10/vectors/e1-units.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "a0ac96413759e3eda184d5fc6202cd7db0cfc77578d5405447da5422e4b4ed46"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.10/vectors/e2-fence-cases.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "d3daeec21bfd4db2cb1d4d7de054cb114a6996ea874143d56efe2e5b5fa9ede2"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.10/vectors/e3-br22a.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "ab3c2549d6e7e1e1936ce95726cf5ee1e0995edd1eb5ef7931279daf549e0dda"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.10/M1-SPEC-0.10-AMENDMENT.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "099910d786f485457a7171c200e8053fab894e0125f55d3460ff9e7bd553ee6b"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.10/M1-STATUS-0.10.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "94f81da642315412886a4d6173fec507ed247ca01a5c8f5a63b43d09a962883c"
+    },
+    {
+      "check": "input.sha256 coordination/review-001/REVIEW-0.10.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "6a98c4656538eea80e38225de1f3f9eb7397b987392a5652259270b7fcbc300d"
+    },
+    {
+      "check": "input.sha256 coordination/review-001/epoch-independent-probes-0.10.py",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "cb62a8364752cefc15bdc7ee23a145e6c19d8c2ef84a3460cef15b0ed821fcfc"
+    },
+    {
+      "check": "input.sha256 coordination/review-001/epoch-independent-probes-0.10.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "ab6accce00fb3041fecf3b80f595df5f7b77ca44d47f61522e06acb12520e0a9"
+    },
+    {
+      "check": "input.sha256 coordination/review-001/epoch-name-oracle.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "efcc376227a43a15e6b99aaa61854f925639fd136913eac9565164742ea28af6"
+    },
+    {
+      "check": "input.sha256 coordination/review-001/epoch-name-oracle.mjs",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "c8deb1318587d1b170e2cbeea65cea29b5b9a5821f7ed16793b297ca3f0c6824"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.11/tools/sr_ref.py",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "78f163b077e1e1175d192ae668ba373c561e8cedc8bd6f1b22af23b5b42e3d48"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.11/tools/run_checks_011.py",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "6ae5585b59662cacca5f101039263ab8046753591832f0850fbd99218597f422"
+    },
+    {
+      "check": "input.sha256 m1-draft-0.11/vectors/c24-regressions.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "ac44e52cd31195b79868e9f266eb53a571b92089e41f3a6a8aba5443ecdebec7"
+    },
+    {
+      "check": "preserved.independentProbes0.10",
+      "status": "recorded",
+      "summary": {
+        "checks": 24,
+        "passed": 17,
+        "failed": 7
+      },
+      "failed": [
+        "Strict epoch tail '\\n'",
+        "Strict record tail '\\n'",
+        "bool epoch",
+        "bool sequence",
+        "bool bootMs invalid",
+        "bool epoch value invalid",
+        "bool seq value invalid"
+      ]
+    },
+    {
+      "check": "wiring.repairedHelpersInstalled",
+      "status": "pass",
+      "selfCheck": {
+        "worldEpochsIsStrict": true,
+        "baseParseEpochIsStrict": true,
+        "baseParseRecordIsStrict": true,
+        "baseValidRecordIsStrict": true,
+        "baseRecordNameIsStrict": true,
+        "baseEpochNameIsStrict": true,
+        "lookupGlobalsPatched": true,
+        "sourceFile": "D:\\PoCol-Development\\coordination\\review-001\\m1-draft-0.10\\tools\\sr_ref.py"
+      }
+    },
+    {
+      "check": "wiring.importedAsSrRef",
+      "status": "pass"
+    },
+    {
+      "check": "c24.nodeOracleCasesMatchReviewFile",
+      "status": "pass",
+      "file": "coordination/review-001/epoch-name-oracle.json"
+    },
+    {
+      "check": "c24.preserved.pristineReproducesExactly7Failures",
+      "status": "pass",
+      "failed": [
+        "Strict epoch tail '\\n'",
+        "Strict record tail '\\n'",
+        "bool epoch",
+        "bool sequence",
+        "bool bootMs invalid",
+        "bool epoch value invalid",
+        "bool seq value invalid"
+      ],
+      "total": 24
+    },
+    {
+      "check": "c24.preserved.pristineProbeRows",
+      "status": "recorded",
+      "rows": [
+        {
+          "check": "Native Node BigInt pocol:epoch:0000000000000001",
+          "passed": true,
+          "actual": "pocol:epoch:0000000000000001",
+          "expected": "pocol:epoch:0000000000000001"
+        },
+        {
+          "check": "Native Node BigInt pocol:epoch:0000000000000006",
+          "passed": true,
+          "actual": "pocol:epoch:0000000000000006",
+          "expected": "pocol:epoch:0000000000000006"
+        },
+        {
+          "check": "Native Node BigInt pocol:epoch:000000000000000d",
+          "passed": true,
+          "actual": "pocol:epoch:000000000000000d",
+          "expected": "pocol:epoch:000000000000000d"
+        },
+        {
+          "check": "Native Node BigInt pocol:epoch:00000000000000ff",
+          "passed": true,
+          "actual": "pocol:epoch:00000000000000ff",
+          "expected": "pocol:epoch:00000000000000ff"
+        },
+        {
+          "check": "Native Node BigInt pocol:epoch:0000000100000000",
+          "passed": true,
+          "actual": "pocol:epoch:0000000100000000",
+          "expected": "pocol:epoch:0000000100000000"
+        },
+        {
+          "check": "Native Node BigInt pocol:epoch:ffffffffffffffff",
+          "passed": true,
+          "actual": "pocol:epoch:ffffffffffffffff",
+          "expected": "pocol:epoch:ffffffffffffffff"
+        },
+        {
+          "check": "Native Node BigInt site:N:A:r:0000000000000001:00000000",
+          "passed": true,
+          "actual": "site:N:A:r:0000000000000001:00000000",
+          "expected": "site:N:A:r:0000000000000001:00000000"
+        },
+        {
+          "check": "Native Node BigInt site:N:A:r:000000000000000d:00000001",
+          "passed": true,
+          "actual": "site:N:A:r:000000000000000d:00000001",
+          "expected": "site:N:A:r:000000000000000d:00000001"
+        },
+        {
+          "check": "Native Node BigInt site:N:A:r:ffffffffffffffff:ffffffff",
+          "passed": true,
+          "actual": "site:N:A:r:ffffffffffffffff:ffffffff",
+          "expected": "site:N:A:r:ffffffffffffffff:ffffffff"
+        },
+        {
+          "check": "Strict epoch tail '\\n'",
+          "passed": false,
+          "actual": 6,
+          "expected": null
+        },
+        {
+          "check": "Strict record tail '\\n'",
+          "passed": false,
+          "actual": [
+            6,
+            0
+          ],
+          "expected": null
+        },
+        {
+          "check": "Strict epoch tail '\\r\\n'",
+          "passed": true,
+          "actual": null,
+          "expected": null
+        },
+        {
+          "check": "Strict record tail '\\r\\n'",
+          "passed": true,
+          "actual": null,
+          "expected": null
+        },
+        {
+          "check": "Strict epoch tail 'x'",
+          "passed": true,
+          "actual": null,
+          "expected": null
+        },
+        {
+          "check": "Strict record tail 'x'",
+          "passed": true,
+          "actual": null,
+          "expected": null
+        },
+        {
+          "check": "Strict epoch tail ' '",
+          "passed": true,
+          "actual": null,
+          "expected": null
+        },
+        {
+          "check": "Strict record tail ' '",
+          "passed": true,
+          "actual": null,
+          "expected": null
+        },
+        {
+          "check": "Strict epoch tail ':nonce'",
+          "passed": true,
+          "actual": null,
+          "expected": null
+        },
+        {
+          "check": "Strict record tail ':nonce'",
+          "passed": true,
+          "actual": null,
+          "expected": null
+        },
+        {
+          "check": "bool epoch",
+          "passed": false,
+          "actual": "accepted",
+          "expected": "refused"
+        },
+        {
+          "check": "bool sequence",
+          "passed": false,
+          "actual": "accepted",
+          "expected": "refused"
+        },
+        {
+          "check": "bool bootMs invalid",
+          "passed": false,
+          "actual": true,
+          "expected": false
+        },
+        {
+          "check": "bool epoch value invalid",
+          "passed": false,
+          "actual": true,
+          "expected": false
+        },
+        {
+          "check": "bool seq value invalid",
+          "passed": false,
+          "actual": true,
+          "expected": false
+        }
+      ]
+    },
+    {
+      "check": "c24.repaired.all24ProbesPass",
+      "status": "pass",
+      "failed": []
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt pocol:epoch:0000000000000001",
+      "status": "pass",
+      "actual": "pocol:epoch:0000000000000001",
+      "expected": "pocol:epoch:0000000000000001"
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt pocol:epoch:0000000000000006",
+      "status": "pass",
+      "actual": "pocol:epoch:0000000000000006",
+      "expected": "pocol:epoch:0000000000000006"
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt pocol:epoch:000000000000000d",
+      "status": "pass",
+      "actual": "pocol:epoch:000000000000000d",
+      "expected": "pocol:epoch:000000000000000d"
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt pocol:epoch:00000000000000ff",
+      "status": "pass",
+      "actual": "pocol:epoch:00000000000000ff",
+      "expected": "pocol:epoch:00000000000000ff"
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt pocol:epoch:0000000100000000",
+      "status": "pass",
+      "actual": "pocol:epoch:0000000100000000",
+      "expected": "pocol:epoch:0000000100000000"
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt pocol:epoch:ffffffffffffffff",
+      "status": "pass",
+      "actual": "pocol:epoch:ffffffffffffffff",
+      "expected": "pocol:epoch:ffffffffffffffff"
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt site:N:A:r:0000000000000001:00000000",
+      "status": "pass",
+      "actual": "site:N:A:r:0000000000000001:00000000",
+      "expected": "site:N:A:r:0000000000000001:00000000"
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt site:N:A:r:000000000000000d:00000001",
+      "status": "pass",
+      "actual": "site:N:A:r:000000000000000d:00000001",
+      "expected": "site:N:A:r:000000000000000d:00000001"
+    },
+    {
+      "check": "c24.repaired.probe Native Node BigInt site:N:A:r:ffffffffffffffff:ffffffff",
+      "status": "pass",
+      "actual": "site:N:A:r:ffffffffffffffff:ffffffff",
+      "expected": "site:N:A:r:ffffffffffffffff:ffffffff"
+    },
+    {
+      "check": "c24.repaired.probe Strict epoch tail '\\n'",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict record tail '\\n'",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict epoch tail '\\r\\n'",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict record tail '\\r\\n'",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict epoch tail 'x'",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict record tail 'x'",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict epoch tail ' '",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict record tail ' '",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict epoch tail ':nonce'",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe Strict record tail ':nonce'",
+      "status": "pass",
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "c24.repaired.probe bool epoch",
+      "status": "pass",
+      "actual": "refused",
+      "expected": "refused"
+    },
+    {
+      "check": "c24.repaired.probe bool sequence",
+      "status": "pass",
+      "actual": "refused",
+      "expected": "refused"
+    },
+    {
+      "check": "c24.repaired.probe bool bootMs invalid",
+      "status": "pass",
+      "actual": false,
+      "expected": false
+    },
+    {
+      "check": "c24.repaired.probe bool epoch value invalid",
+      "status": "pass",
+      "actual": false,
+      "expected": false
+    },
+    {
+      "check": "c24.repaired.probe bool seq value invalid",
+      "status": "pass",
+      "actual": false,
+      "expected": false
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000006\\n'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000006\\r\\n'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000006\\r'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000006 '",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000006\\t'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000006\\x00'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000006x'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000006:1a2b'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject ' pocol:epoch:0000000000000006'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject '\\npocol:epoch:0000000000000006'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'xpocol:epoch:0000000000000006'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'POCOL:epoch:0000000000000006'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:000000000000000A'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:000000000000006'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:00000000000000006'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0x00000000000006'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:000000000000000\u0660'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:0000000000000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochReject 'pocol:epoch:'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.epochAccept pocol:epoch:0000000000000001",
+      "status": "pass"
+    },
+    {
+      "check": "c24.names.epochAccept pocol:epoch:0000000100000000",
+      "status": "pass"
+    },
+    {
+      "check": "c24.names.epochAccept pocol:epoch:ffffffffffffffff",
+      "status": "pass"
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006:00000000\\n'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006:00000000\\r\\n'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006:00000000 '",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006:00000000\\t'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006:00000000:nonce'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006:0000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006:000000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:000000000000000D:00000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006:0000000A'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000000:00000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject ' site:N:A:r:0000000000000006:00000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:B:r:0000000000000006:00000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:000000000000000\u0660:00000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordReject 'site:N:A:r:0000000000000006\\n:00000000'",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "c24.names.recordAccept site:N:A:r:0000000000000001:00000000",
+      "status": "pass"
+    },
+    {
+      "check": "c24.names.recordAccept site:N:A:r:ffffffffffffffff:ffffffff",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameReject True",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameReject False",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameReject 6.0",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameReject '6'",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameReject 0",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameReject 2**64",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameReject -1",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameAccept 1",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.epochNameAccept 2**64-1",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameReject 1/True",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameReject 1/False",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameReject True/0",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameReject 1/1.0",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameReject 1.0/0",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameReject 1/2**32",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameReject 1/-1",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameReject 2**64/0",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameAccept 1/0",
+      "status": "pass"
+    },
+    {
+      "check": "c24.gen.recordNameAccept 2**64-1/2**32-1",
+      "status": "pass"
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": 70000}",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": -200000}",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": 9007199254740991}",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": -9007199254740991}",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": 9007199254740992}",
+      "status": "pass",
+      "got": false
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": true}",
+      "status": "pass",
+      "got": false
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": false}",
+      "status": "pass",
+      "got": false
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": 70000.0}",
+      "status": "pass",
+      "got": false
+    },
+    {
+      "check": "c24.values.epochValue {\"bootMs\": \"70000\"}",
+      "status": "pass",
+      "got": false
+    },
+    {
+      "check": "c24.values.record valid-min",
+      "status": "pass"
+    },
+    {
+      "check": "c24.values.record valid-max",
+      "status": "pass"
+    },
+    {
+      "check": "c24.values.record valid-tomb",
+      "status": "pass"
+    },
+    {
+      "check": "c24.values.record epoch-true",
+      "status": "pass"
+    },
+    {
+      "check": "c24.preserved.pristineRecord epoch-true",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.record seq-true",
+      "status": "pass"
+    },
+    {
+      "check": "c24.preserved.pristineRecord seq-true",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.record seq-false",
+      "status": "pass"
+    },
+    {
+      "check": "c24.preserved.pristineRecord seq-false",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.record epoch-float",
+      "status": "pass"
+    },
+    {
+      "check": "c24.preserved.pristineRecord epoch-float",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.record seq-float",
+      "status": "pass"
+    },
+    {
+      "check": "c24.preserved.pristineRecord seq-float",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.record fmt-float",
+      "status": "pass"
+    },
+    {
+      "check": "c24.preserved.pristineRecord fmt-float",
+      "status": "pass",
+      "got": true
+    },
+    {
+      "check": "c24.values.record tomb-int",
+      "status": "pass"
+    },
+    {
+      "check": "c24.preserved.pristineRecord tomb-int",
+      "status": "pass",
+      "got": false
+    },
+    {
+      "check": "c24.values.record tomb-with-dict",
+      "status": "pass"
+    },
+    {
+      "check": "c24.preserved.pristineRecord tomb-with-dict",
+      "status": "pass",
+      "got": false
+    },
+    {
+      "check": "c24.world.repaired W-A1 malformed LF epoch name ignored by the fence",
+      "status": "pass",
+      "got": {
+        "gen1": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed",
+          "confirmedAt": 1
+        }
+      },
+      "want": {
+        "gen1": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed",
+          "confirmedAt": 1
+        }
+      }
+    },
+    {
+      "check": "c24.preserved.world.pristine W-A1 malformed LF epoch name ignored by the fence",
+      "status": "pass",
+      "got": {
+        "gen1": {
+          "E": 10,
+          "EN": 2,
+          "state": "confirmed",
+          "confirmedAt": 1
+        }
+      },
+      "want": {
+        "gen1": {
+          "E": 10,
+          "EN": 2,
+          "state": "confirmed",
+          "confirmedAt": 1
+        }
+      }
+    },
+    {
+      "check": "c24.world.repaired W-A2 malformed names do not fill the name gate",
+      "status": "pass",
+      "got": {
+        "gen1": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed"
+        },
+        "epochGateBlocks": 0
+      },
+      "want": {
+        "gen1": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed"
+        },
+        "epochGateBlocks": 0
+      }
+    },
+    {
+      "check": "c24.preserved.world.pristine W-A2 malformed names do not fill the name gate",
+      "status": "pass",
+      "got": {
+        "gen1": {
+          "E": null,
+          "state": "gateBlocked"
+        },
+        "epochGateBlocks": 1
+      },
+      "want": {
+        "gen1": {
+          "E": null,
+          "state": "gateBlocked"
+        },
+        "epochGateBlocks": 1
+      }
+    },
+    {
+      "check": "c24.world.repaired W-B bool bootMs gives no window time",
+      "status": "pass",
+      "got": {
+        "gen1": {
+          "E": 10,
+          "EN": 5,
+          "state": "confirmed",
+          "confirmedAt": 1001
+        }
+      },
+      "want": {
+        "gen1": {
+          "E": 10,
+          "EN": 5,
+          "state": "confirmed",
+          "confirmedAt": 1001
+        }
+      }
+    },
+    {
+      "check": "c24.preserved.world.pristine W-B bool bootMs gives no window time",
+      "status": "pass",
+      "got": {
+        "gen1": {
+          "E": 10,
+          "state": "confirmed",
+          "confirmedAt": 60003
+        }
+      },
+      "want": {
+        "gen1": {
+          "E": 10,
+          "state": "confirmed",
+          "confirmedAt": 60003
+        }
+      }
+    },
+    {
+      "check": "c24.world.lookup.repaired W-C recovery skips corrupt numeric fields and malformed record names",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": [
+          1,
+          0
+        ],
+        "dict": {
+          "k0": "a"
+        },
+        "gets": 4,
+        "corrupt": 3
+      },
+      "want": {
+        "failed": false,
+        "version": [
+          1,
+          0
+        ],
+        "dict": {
+          "k0": "a"
+        },
+        "gets": 4,
+        "corrupt": 3
+      }
+    },
+    {
+      "check": "c24.world.lookup.pristine W-C recovery skips corrupt numeric fields and malformed record names",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": [
+          9,
+          0
+        ],
+        "dict": {
+          "k0": "lfName"
+        },
+        "gets": 1,
+        "corrupt": 0
+      },
+      "want": {
+        "failed": false,
+        "version": [
+          9,
+          0
+        ],
+        "dict": {
+          "k0": "lfName"
+        },
+        "gets": 1,
+        "corrupt": 0
+      }
+    },
+    {
+      "check": "c24.world.repaired W-C recovery skips corrupt numeric fields and malformed record names",
+      "status": "pass",
+      "got": {
+        "gen1": {
+          "E": 6,
+          "state": "confirmed"
+        },
+        "snapshots": [
+          {
+            "t": 14,
+            "dict": {
+              "k0": "a"
+            }
+          }
+        ],
+        "readVersion": [
+          1,
+          0
+        ],
+        "violations": []
+      },
+      "want": {
+        "gen1": {
+          "E": 6,
+          "state": "confirmed"
+        },
+        "snapshots": [
+          {
+            "t": 14,
+            "dict": {
+              "k0": "a"
+            }
+          }
+        ],
+        "readVersion": [
+          1,
+          0
+        ],
+        "violations": []
+      }
+    },
+    {
+      "check": "c24.preserved.world.pristine W-C recovery skips corrupt numeric fields and malformed record names",
+      "status": "pass",
+      "got": {
+        "snapshots": [
+          {
+            "t": 14,
+            "dict": {
+              "k0": "lfName"
+            }
+          }
+        ],
+        "readVersion": [
+          9,
+          0
+        ]
+      },
+      "want": {
+        "snapshots": [
+          {
+            "t": 14,
+            "dict": {
+              "k0": "lfName"
+            }
+          }
+        ],
+        "readVersion": [
+          9,
+          0
+        ]
+      }
+    },
+    {
+      "check": "inherited.usesRepairedModule",
+      "status": "pass"
+    },
+    {
+      "check": "inherited010.input.sha256 reference/browser.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7"
+    },
+    {
+      "check": "inherited010.input.sha256 reference/validation.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1"
+    },
+    {
+      "check": "inherited010.input.sha256 reference/implementation.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "7701f1c9fdc16e18dc5434f7a6eaa197a933b0c11b1262b5c78adf2f289df7f3"
+    },
+    {
+      "check": "inherited010.input.sha256 reference/governance.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b"
+    },
+    {
+      "check": "inherited010.input.sha256 reference/threat.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "47c42e8bbe2e3232beb18b4a03e79b41ae2dacd063c5a2333d72dbfd3bc2b547"
+    },
+    {
+      "check": "inherited010.input.sha256 reference/FINAL_DESIGN.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "d54b5aee37a052a053198c43a0278ae8561331f58e3f1148faa6ed4a194a480e"
+    },
+    {
+      "check": "inherited010.input.sha256 m1-draft-0.2/M1-ANNEX-CHECKLIST-0.2.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "067afa4e7b8389fe135e9e357585e5f8d46bf2a2b05572341e5ea4fac1ba4580"
+    },
+    {
+      "check": "inherited010.input.sha256 m1-draft-0.9/M1-STATUS-0.9.md",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "7b9c7f979d3d41adbfc9ffa7b336e8f9f1e162967159267cedd29536a8c7030f"
+    },
+    {
+      "check": "inherited010.input.sha256 m1-draft-0.9/tools/storequeue_ref.py",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "d634e93e6c1564473a2fdcda74781d24c2eecf56e0b23ca12d33a43a47c91ad7"
+    },
+    {
+      "check": "inherited010.input.sha256 m1-draft-0.10/tools/sr_ref.py",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "62597fd2bb4b3a80c8d49fd31eec3ee831104a9a1da2671c3047129d59efd369"
+    },
+    {
+      "check": "inherited010.input.sha256 m1-draft-0.10/tools/run_checks_010.py",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "51e332813a6fb6e232a713a5cb7f52b1de03771b306108657608b2fd0cc3be28"
+    },
+    {
+      "check": "inherited010.input.sha256 m1-draft-0.10/vectors/e1-units.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "a0ac96413759e3eda184d5fc6202cd7db0cfc77578d5405447da5422e4b4ed46"
+    },
+    {
+      "check": "inherited010.input.sha256 m1-draft-0.10/vectors/e2-fence-cases.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "d3daeec21bfd4db2cb1d4d7de054cb114a6996ea874143d56efe2e5b5fa9ede2"
+    },
+    {
+      "check": "inherited010.input.sha256 m1-draft-0.10/vectors/e3-br22a.json",
+      "status": "recorded",
+      "exists": true,
+      "sha256": "ab3c2549d6e7e1e1936ce95726cf5ee1e0995edd1eb5ef7931279daf549e0dda"
+    },
+    {
+      "check": "inherited010.provenance e1.epochName",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        508,
+        508
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.provenance e1.recordName",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        534,
+        541
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.provenance e1.lookup",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        541,
+        553
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.provenance e1.epochValue",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        508,
+        508
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e1.epochName 1",
+      "status": "pass",
+      "got": "pocol:epoch:0000000000000001"
+    },
+    {
+      "check": "inherited010.e1.epochName 6",
+      "status": "pass",
+      "got": "pocol:epoch:0000000000000006"
+    },
+    {
+      "check": "inherited010.e1.epochName 255",
+      "status": "pass",
+      "got": "pocol:epoch:00000000000000ff"
+    },
+    {
+      "check": "inherited010.e1.epochName 18446744073709551615",
+      "status": "pass",
+      "got": "pocol:epoch:ffffffffffffffff"
+    },
+    {
+      "check": "inherited010.e1.epochName 0",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.epochName 18446744073709551616",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseEpoch pocol:epoch:0000000000000006",
+      "status": "pass",
+      "got": 6
+    },
+    {
+      "check": "inherited010.e1.parseEpoch pocol:epoch:000000000000000A",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseEpoch pocol:epoch:6",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseEpoch pocol:epoch:0000000000000006:1a2b",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseEpoch pocol:epoch:0000000000000000",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseEpoch pocol:epoch:000000000000000g",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseEpoch pocol:epoch: 0000000000000006",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.recordName 5/3",
+      "status": "pass",
+      "got": "site:n1:0xa1:r:0000000000000005:00000003"
+    },
+    {
+      "check": "inherited010.e1.recordName 13/4294967295",
+      "status": "pass",
+      "got": "site:n1:0xa1:r:000000000000000d:ffffffff"
+    },
+    {
+      "check": "inherited010.e1.recordName 1/4294967296",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.recordName 0/0",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.recordName 1/-1",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseRecord site:n1:0xa1:r:0000000000000005:00000003",
+      "status": "pass",
+      "got": [
+        5,
+        3
+      ]
+    },
+    {
+      "check": "inherited010.e1.parseRecord site:n1:0xa2:r:0000000000000005:00000003",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseRecord site:n1:0xa1:r:000000000000000D:00000003",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseRecord site:n1:0xa1:r:5:3",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseRecord site:n1:0xa1:r:0000000000000000:00000003",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.parseRecord site:n1:0xa1:r:0000000000000005:0000003",
+      "status": "pass",
+      "got": null
+    },
+    {
+      "check": "inherited010.e1.lookup seq-larger-wins",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": [
+          5,
+          4
+        ],
+        "dict": {
+          "k0": "b"
+        },
+        "gets": 1
+      },
+      "want": {
+        "failed": false,
+        "version": [
+          5,
+          4
+        ],
+        "dict": {
+          "k0": "b"
+        },
+        "gets": 1
+      }
+    },
+    {
+      "check": "inherited010.e1.lookup epoch-dominates-seq",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": [
+          6,
+          0
+        ],
+        "dict": {
+          "k0": "new"
+        },
+        "gets": 1
+      },
+      "want": {
+        "failed": false,
+        "version": [
+          6,
+          0
+        ],
+        "dict": {
+          "k0": "new"
+        },
+        "gets": 1
+      }
+    },
+    {
+      "check": "inherited010.e1.lookup largest-corrupt-next-valid",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": [
+          6,
+          0
+        ],
+        "dict": {
+          "k0": "a"
+        },
+        "gets": 2,
+        "corrupt": 1
+      },
+      "want": {
+        "failed": false,
+        "version": [
+          6,
+          0
+        ],
+        "dict": {
+          "k0": "a"
+        },
+        "gets": 2,
+        "corrupt": 1
+      }
+    },
+    {
+      "check": "inherited010.e1.lookup value-epoch-mismatch-is-corrupt",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": [
+          5,
+          3
+        ],
+        "dict": {
+          "k0": "a"
+        },
+        "gets": 2,
+        "corrupt": 1
+      },
+      "want": {
+        "failed": false,
+        "version": [
+          5,
+          3
+        ],
+        "dict": {
+          "k0": "a"
+        },
+        "gets": 2,
+        "corrupt": 1
+      }
+    },
+    {
+      "check": "inherited010.e1.lookup four-corrupt-of-five-fails-after-4-gets",
+      "status": "pass",
+      "got": {
+        "failed": true,
+        "gets": 4,
+        "corrupt": 4
+      },
+      "want": {
+        "failed": true,
+        "gets": 4,
+        "corrupt": 4
+      }
+    },
+    {
+      "check": "inherited010.e1.lookup three-all-corrupt",
+      "status": "pass",
+      "got": {
+        "failed": true,
+        "gets": 3,
+        "corrupt": 3
+      },
+      "want": {
+        "failed": true,
+        "gets": 3,
+        "corrupt": 3
+      }
+    },
+    {
+      "check": "inherited010.e1.lookup no-records-empty-dict",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": null,
+        "dict": {},
+        "gets": 0
+      },
+      "want": {
+        "failed": false,
+        "version": null,
+        "dict": {},
+        "gets": 0
+      }
+    },
+    {
+      "check": "inherited010.e1.lookup tomb-is-largest-record",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": [
+          6,
+          0
+        ],
+        "dict": {},
+        "tomb": true,
+        "gets": 1
+      },
+      "want": {
+        "failed": false,
+        "version": [
+          6,
+          0
+        ],
+        "dict": {},
+        "tomb": true,
+        "gets": 1
+      }
+    },
+    {
+      "check": "inherited010.e1.lookup malformed-name-not-a-record",
+      "status": "pass",
+      "got": {
+        "failed": false,
+        "version": [
+          5,
+          3
+        ],
+        "dict": {
+          "k0": "a"
+        },
+        "gets": 1
+      },
+      "want": {
+        "failed": false,
+        "version": [
+          5,
+          3
+        ],
+        "dict": {
+          "k0": "a"
+        },
+        "gets": 1
+      }
+    },
+    {
+      "check": "inherited010.e1.epochValue {\"bootMs\": 70000}",
+      "status": "pass"
+    },
+    {
+      "check": "inherited010.e1.epochValue {\"bootMs\": -200000}",
+      "status": "pass"
+    },
+    {
+      "check": "inherited010.e1.epochValue {\"bootMs\": 0, \"nonce\": \"x\"}",
+      "status": "pass"
+    },
+    {
+      "check": "inherited010.e1.epochValue {\"bootMs\": \"70000\"}",
+      "status": "pass"
+    },
+    {
+      "check": "inherited010.e1.epochValue {}",
+      "status": "pass"
+    },
+    {
+      "check": "inherited010.provenance e2.h1",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        515,
+        516
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case h1",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded h1",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "2": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "3": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "4": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "5": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "6": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "7": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "8": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "9": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "10": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "11": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "12": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "13": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "14": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "15": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "16": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "17": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "18": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "19": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "20": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "21": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "22": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "23": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "24": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "25": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "26": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "27": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "28": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "29": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "30": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "31": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "32": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "33": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "34": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "35": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "36": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "37": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "38": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "39": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "40": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 0,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 2,
+      "finalEpochs": [
+        5,
+        6
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 3,
+        "bytes": 188
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.h2",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        517,
+        520
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case h2",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded h2",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "2": {
+          "E": 7,
+          "EN": 2,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "3": {
+          "E": 8,
+          "EN": 3,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "4": {
+          "E": 9,
+          "EN": 4,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "5": {
+          "E": 10,
+          "EN": 5,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "6": {
+          "E": 11,
+          "EN": 6,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "7": {
+          "E": 12,
+          "EN": 7,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "8": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "9": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "10": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "11": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "12": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "13": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "14": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "15": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "16": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "17": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "18": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "19": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "20": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "21": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "22": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "23": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "24": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "25": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "26": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "27": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "28": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "29": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "30": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "31": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "32": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "33": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "34": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "35": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "36": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "37": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "38": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "39": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "40": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 33,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 8,
+      "finalEpochs": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 9,
+        "bytes": 458
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.h3",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        521,
+        525
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case h3",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded h3",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "2": {
+          "E": 7,
+          "EN": 2,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "3": {
+          "E": 8,
+          "EN": 3,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "4": {
+          "E": 9,
+          "EN": 4,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "5": {
+          "E": 10,
+          "EN": 5,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "6": {
+          "E": 11,
+          "EN": 6,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "7": {
+          "E": 12,
+          "EN": 7,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "8": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "9": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "10": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "11": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "12": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "13": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "14": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "15": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "16": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "17": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "18": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "19": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "20": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "21": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "22": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "23": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "24": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "25": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "26": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "27": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "28": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "29": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "30": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "31": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "32": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "33": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "34": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "35": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "36": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "37": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "38": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "39": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "40": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "41": {
+          "E": 13,
+          "EN": 1,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 2930002,
+          "fenceIssues": 1
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 34,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 8,
+      "finalEpochs": [
+        12,
+        13
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 9,
+        "bytes": 458
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.h4",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        526,
+        528
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case h4",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded h4",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "2": {
+          "E": 7,
+          "EN": 2,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "3": {
+          "E": 8,
+          "EN": 3,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "4": {
+          "E": 9,
+          "EN": 4,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "5": {
+          "E": 10,
+          "EN": 5,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "6": {
+          "E": 11,
+          "EN": 6,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "7": {
+          "E": 12,
+          "EN": 7,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "8": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "9": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "10": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "11": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "12": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "13": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "14": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "15": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "16": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "17": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "18": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "19": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "20": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "21": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "22": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "23": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "24": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "25": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "26": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "27": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "28": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "29": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "30": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "31": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "32": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "33": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "34": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "35": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "36": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "37": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "38": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "39": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "40": {
+          "E": null,
+          "EN": null,
+          "state": "gateBlocked",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 0
+        },
+        "41": {
+          "E": null,
+          "EN": null,
+          "state": "disabled",
+          "reason": "epochNames",
+          "confirmedAt": null,
+          "fenceIssues": 0
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 34,
+        "action25": 1,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 8,
+      "finalEpochs": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 9,
+        "bytes": 458
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.h5",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        529,
+        533
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.h5.row 1000 BBBBBB",
+      "status": "pass",
+      "got": {
+        "E": [
+          6,
+          7,
+          8,
+          9,
+          null,
+          null
+        ],
+        "E7": 10,
+        "finalEpochs": [
+          10
+        ],
+        "confirmed7": 61002
+      },
+      "want": {
+        "E": [
+          6,
+          7,
+          8,
+          9,
+          null,
+          null
+        ],
+        "E7": 10,
+        "finalEpochs": [
+          10
+        ],
+        "confirmed7": 61002
+      }
+    },
+    {
+      "check": "inherited010.e2.h5.row 1000 DDDDAB",
+      "status": "pass",
+      "got": {
+        "E": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "E7": 7,
+        "finalEpochs": [
+          7
+        ],
+        "confirmed7": 7001
+      },
+      "want": {
+        "E": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "E7": 7,
+        "finalEpochs": [
+          7
+        ],
+        "confirmed7": 7001
+      }
+    },
+    {
+      "check": "inherited010.e2.h5.row 1000 DDDDDD",
+      "status": "pass",
+      "got": {
+        "E": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "E7": 6,
+        "finalEpochs": [
+          6
+        ],
+        "confirmed7": 7001
+      },
+      "want": {
+        "E": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "E7": 6,
+        "finalEpochs": [
+          6
+        ],
+        "confirmed7": 7001
+      }
+    },
+    {
+      "check": "inherited010.e2.h5.allAssignments spacing=1000",
+      "status": "pass",
+      "assignments": 729,
+      "failing": 0,
+      "examples": []
+    },
+    {
+      "check": "inherited010.e2.h5.distinctSchedules spacing=1000",
+      "status": "recorded",
+      "distinct": 705,
+      "assignments": 729
+    },
+    {
+      "check": "inherited010.e2.h5.row 70000 BBBBBB",
+      "status": "pass",
+      "got": {
+        "E": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "E7": 12,
+        "finalEpochs": [
+          12
+        ]
+      },
+      "want": {
+        "E": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "E7": 12,
+        "finalEpochs": [
+          12
+        ]
+      }
+    },
+    {
+      "check": "inherited010.e2.h5.row 70000 DDDDDD",
+      "status": "pass",
+      "got": {
+        "E": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "E7": 6,
+        "finalEpochs": [
+          6
+        ]
+      },
+      "want": {
+        "E": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "E7": 6,
+        "finalEpochs": [
+          6
+        ]
+      }
+    },
+    {
+      "check": "inherited010.e2.h5.allAssignments spacing=70000",
+      "status": "pass",
+      "assignments": 729,
+      "failing": 0,
+      "examples": []
+    },
+    {
+      "check": "inherited010.e2.h5.distinctSchedules spacing=70000",
+      "status": "recorded",
+      "distinct": 729,
+      "assignments": 729
+    },
+    {
+      "check": "inherited010.provenance e2.h5-baseline-example",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        551,
+        551
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case h5-baseline-example",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded h5-baseline-example",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "2": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 1001,
+          "fenceIssues": 1
+        },
+        "3": {
+          "E": 7,
+          "EN": 2,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 2001,
+          "fenceIssues": 1
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 0,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 3,
+      "finalEpochs": [
+        7
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 4,
+        "bytes": 230
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.h6",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        534,
+        541
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case h6",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded h6",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "2": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 70001,
+          "fenceIssues": 1
+        },
+        "3": {
+          "E": 7,
+          "EN": 2,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 71001,
+          "fenceIssues": 1
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 0,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 3,
+      "finalEpochs": [
+        7
+      ],
+      "probes": [
+        {
+          "t": 70700,
+          "label": "afterOldApply",
+          "epochs": [
+            [
+              5,
+              -200000
+            ],
+            [
+              6,
+              0
+            ]
+          ],
+          "items": [
+            "pocol:epoch:0000000000000005",
+            "pocol:epoch:0000000000000006",
+            "site:n1:0xa1:r:0000000000000005:00000003"
+          ]
+        },
+        {
+          "t": 71100,
+          "label": "B",
+          "lateGens": 1,
+          "LATE_SITES": 4,
+          "decision": {
+            "decision": 4300,
+            "reason": "sites",
+            "limit": 64,
+            "need": 65,
+            "retryPossible": true
+          },
+          "diskKeys": 60,
+          "epochs": [
+            [
+              5,
+              -200000
+            ],
+            [
+              6,
+              0
+            ],
+            [
+              7,
+              71000
+            ]
+          ]
+        },
+        {
+          "t": 100001,
+          "label": "afterLateA",
+          "lateGens": 1,
+          "LATE_SITES": 4,
+          "decision": {
+            "decision": 4300,
+            "reason": "sites",
+            "limit": 64,
+            "need": 65,
+            "retryPossible": true
+          },
+          "diskKeys": 61,
+          "epochs": [
+            [
+              5,
+              -200000
+            ],
+            [
+              6,
+              0
+            ],
+            [
+              7,
+              71000
+            ]
+          ]
+        }
+      ],
+      "fakeBackendMax": {
+        "items": 5,
+        "bytes": 318
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.BR22b",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        422,
+        427
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case BR22b",
+      "status": "pass",
+      "row": "E3",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded BR22b",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "2": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 1001,
+          "fenceIssues": 1
+        },
+        "3": {
+          "E": 7,
+          "EN": 2,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 4001,
+          "fenceIssues": 1
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 0,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 3,
+      "finalEpochs": [
+        7
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 5,
+        "bytes": 341
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.E2-retry-success-on-4th",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        514,
+        516
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case E2-retry-success-on-4th",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded E2-retry-success-on-4th",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 4,
+          "fenceIssues": 4
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 0,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 2,
+      "finalEpochs": [
+        5,
+        6
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 4,
+        "bytes": 290
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.E2-retry-exhausted",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        514,
+        516
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case E2-retry-exhausted",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded E2-retry-exhausted",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "disabled",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 4
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 0,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 1,
+      "finalEpochs": [
+        5
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 2,
+        "bytes": 144
+      }
+    },
+    {
+      "check": "inherited010.provenance e2.E2-sweep-ignores-bootMs",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        517,
+        518
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e2.case E2-sweep-ignores-bootMs",
+      "status": "pass",
+      "row": "E2",
+      "mismatches": [],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e2.recorded E2-sweep-ignores-bootMs",
+      "status": "recorded",
+      "gens": {
+        "1": {
+          "E": 6,
+          "EN": 1,
+          "state": "fencing",
+          "reason": null,
+          "confirmedAt": null,
+          "fenceIssues": 1
+        },
+        "2": {
+          "E": 6,
+          "EN": 1,
+          "state": "confirmed",
+          "reason": null,
+          "confirmedAt": 70001,
+          "fenceIssues": 1
+        }
+      },
+      "stats": {
+        "epochGateBlocks": 0,
+        "action25": 0,
+        "lateRecordsSeen": 0
+      },
+      "maxEpochNames": 2,
+      "finalEpochs": [
+        6
+      ],
+      "probes": [],
+      "fakeBackendMax": {
+        "items": 3,
+        "bytes": 188
+      }
+    },
+    {
+      "check": "inherited010.e2.control epochNonceNames on h1",
+      "status": "pass",
+      "violations": [
+        "epochNamesOverMax"
+      ],
+      "maxEpochNames": 41
+    },
+    {
+      "check": "inherited010.e2.control epochNoGate on h2",
+      "status": "pass",
+      "violations": [
+        "epochNamesOverMax"
+      ],
+      "maxEpochNames": 41
+    },
+    {
+      "check": "inherited010.e2.control epochSweepEarly on h5-baseline-example",
+      "status": "pass",
+      "violations": [
+        "epochResurrected"
+      ],
+      "maxEpochNames": 2
+    },
+    {
+      "check": "inherited010.e2.control epochSweepEarly on h5 spacing=1000",
+      "status": "pass",
+      "detectedCount": 463,
+      "mustDetect": [
+        "DDDDAB"
+      ],
+      "examples": [
+        "BBBABB",
+        "BBBABA",
+        "BBBABD",
+        "BBBAAB",
+        "BBBADB"
+      ]
+    },
+    {
+      "check": "inherited010.e2.control epochSweepEarly on h5 spacing=70000",
+      "status": "pass",
+      "detectedCount": 61,
+      "mustDetect": [],
+      "examples": [
+        "BBBBAA",
+        "BBBDAA",
+        "BBABAA",
+        "BBAAAA",
+        "BBADAA"
+      ]
+    },
+    {
+      "check": "inherited010.e2.control epochSweepByBootMs on E2-sweep-ignores-bootMs",
+      "status": "pass",
+      "violations": [
+        "maxVisibleDecreased"
+      ],
+      "maxEpochNames": 2
+    },
+    {
+      "check": "inherited010.provenance e3.br22a",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        391,
+        421
+      ],
+      "missing": []
+    },
+    {
+      "check": "inherited010.e3.br22a.allCombinations",
+      "status": "pass",
+      "combinations": 520,
+      "failing": 0,
+      "examples": []
+    },
+    {
+      "check": "inherited010.e3.br22a.coverage",
+      "status": "recorded",
+      "combinations": 520,
+      "distinctSchedules": 520,
+      "perProfile": {
+        "P0/none/no": 1,
+        "P0/none/yes": 1,
+        "P0/P4/no": 6,
+        "P0/P4/yes": 6,
+        "P0/P5/no": 6,
+        "P0/P5/yes": 6,
+        "P1/none/no": 6,
+        "P1/none/yes": 6,
+        "P1/P4/no": 36,
+        "P1/P4/yes": 36,
+        "P1/P5/no": 36,
+        "P1/P5/yes": 36,
+        "P2/none/no": 1,
+        "P2/none/yes": 1,
+        "P2/P4/no": 6,
+        "P2/P4/yes": 6,
+        "P2/P5/no": 6,
+        "P2/P5/yes": 6,
+        "P3/none/no": 6,
+        "P3/none/yes": 6,
+        "P3/P4/no": 36,
+        "P3/P4/yes": 36,
+        "P3/P5/no": 36,
+        "P3/P5/yes": 36,
+        "fail/none/no": 6,
+        "fail/none/yes": 6,
+        "fail/P4/no": 36,
+        "fail/P4/yes": 36,
+        "fail/P5/no": 36,
+        "fail/P5/yes": 36
+      }
+    },
+    {
+      "check": "inherited010.e3.control singleItem",
+      "status": "pass",
+      "failedCriteria": [
+        "c2",
+        "c5"
+      ],
+      "mustFail": [
+        "c2"
+      ],
+      "violations": [
+        "recordNameReused"
+      ]
+    },
+    {
+      "check": "inherited010.e3.control.baselinePasses singleItem",
+      "status": "pass",
+      "criteria": {
+        "c1": true,
+        "c2": true,
+        "c3": true,
+        "c4": true,
+        "c5": true,
+        "c6": true,
+        "c7a": true,
+        "c7b": true,
+        "epochInvariants": true
+      }
+    },
+    {
+      "check": "inherited010.e3.control noEpochConfirm",
+      "status": "pass",
+      "failedCriteria": [
+        "c5"
+      ],
+      "mustFail": [
+        "c5"
+      ],
+      "violations": [
+        "recordNameReused"
+      ]
+    },
+    {
+      "check": "inherited010.e3.control.baselinePasses noEpochConfirm",
+      "status": "pass",
+      "criteria": {
+        "c1": true,
+        "c2": true,
+        "c3": true,
+        "c4": true,
+        "c5": true,
+        "c6": true,
+        "c7a": true,
+        "c7b": true,
+        "epochInvariants": true
+      }
+    },
+    {
+      "check": "inherited010.e3.control noCheckpoint",
+      "status": "pass",
+      "failedCriteria": [
+        "c3",
+        "c6"
+      ],
+      "mustFail": [
+        "c3"
+      ],
+      "violations": []
+    },
+    {
+      "check": "inherited010.e3.control.baselinePasses noCheckpoint",
+      "status": "pass",
+      "criteria": {
+        "c1": true,
+        "c2": true,
+        "c3": true,
+        "c4": true,
+        "c5": true,
+        "c6": true,
+        "c7a": true,
+        "c7b": true,
+        "epochInvariants": true
+      }
+    },
+    {
+      "check": "inherited010.e3.control reuseSeq",
+      "status": "pass",
+      "failedCriteria": [
+        "c3",
+        "c5"
+      ],
+      "mustFail": [
+        "c5"
+      ],
+      "violations": [
+        "recordNameReused"
+      ]
+    },
+    {
+      "check": "inherited010.e3.control.baselinePasses reuseSeq",
+      "status": "pass",
+      "criteria": {
+        "c1": true,
+        "c2": true,
+        "c3": true,
+        "c4": true,
+        "c5": true,
+        "c6": true,
+        "c7a": true,
+        "c7b": true,
+        "epochInvariants": true
+      }
+    },
+    {
+      "check": "inherited010.summary",
+      "status": "recorded",
+      "checks": 113,
+      "passed": 86,
+      "recorded": 27,
+      "failed": 0,
+      "seconds": 15.7,
+      "note": "0.10 author-run reference: 113 entries, 86 pass, 27 recorded, 0 fail (REVIEW-0.10.md)"
+    }
+  ]
+}

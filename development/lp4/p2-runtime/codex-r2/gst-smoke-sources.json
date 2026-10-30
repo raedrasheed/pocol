@@ -1,0 +1,142 @@
+[
+  {
+    "path": "Cancun/stEIP1153-transientStorage/01_tloadBeginningTxn.json",
+    "sha256": "a4c46215953dcf909ae201f9dc57bbc9db76a9ae14140d45c77a07dbe9eac7af"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/02_tloadAfterTstore.json",
+    "sha256": "98337f1621096cae3c8b2f19ac7702cab01a8084962db4db29073d6afaaae491"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/03_tloadAfterStoreIs0.json",
+    "sha256": "a9f56c88aaf411c7d3385fcff4f5a11bb96a3517fbbb40143ee6f99d85a3c05c"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/04_tloadAfterCall.json",
+    "sha256": "6dc26299ae62f52ff0a90c5c70d7ec6671fb90395b4a95b0cea58610c15f4960"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/05_tloadReentrancy.json",
+    "sha256": "4c7de1da597777448079345cc7159f9954d58d400577ed6163a3fc409e12e45e"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/06_tstoreInReentrancyCall.json",
+    "sha256": "84d90db0a2270c29a0ec0266561dc47ab013910c0c7004951011fac0d471e0ad"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/07_tloadAfterReentrancyStore.json",
+    "sha256": "54afa26bbbbd4af9b817e4d5440c3f008713bcc4910688bdc0ff649d4c592a9b"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/08_revertUndoesTransientStore.json",
+    "sha256": "584254439403b33c32ef2afa450ff17c8582096fc89fb77ab01f93eecd0703eb"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/09_revertUndoesAll.json",
+    "sha256": "2f33e8ac4512fec9c1a189e5c2212c9500556aef51aff1da6c463729ebfe7a6a"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/10_revertUndoesStoreAfterReturn.json",
+    "sha256": "298f596b08203b3cd6cf466ee32363d080591565432003af6e2766bc544517bf"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/11_tstoreDelegateCall.json",
+    "sha256": "4a9e7e2144e39f13e4552624bf03502d5081306f6961485f9d747143a8846f66"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/12_tloadDelegateCall.json",
+    "sha256": "d6e56510aa6826b783d4e1913c682fea8ab70806db3af6061a7f8d7b94167790"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/13_tloadStaticCall.json",
+    "sha256": "55fe92d6d6e3a3f94a2f307a45a4393d0ed87ea0fdbcbebd70bcf13be9c672c2"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/14_revertAfterNestedStaticcall.json",
+    "sha256": "7c0d5e55c06f8b909e18ebc3c780ee9ea0ccc3f7f212d46388a37d0ccc92ca45"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/15_tstoreCannotBeDosd.json",
+    "sha256": "8738b1ec030c6dc5158ee66bd9c61f8df67bc13cb1e1e0117b2d2d671a76db64"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/16_tloadGas.json",
+    "sha256": "1bc00d1fa99b0a4e7925675613416cbbc9352faa50aa7f7f5d41957436588e30"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/17_tstoreGas.json",
+    "sha256": "519548d56327555bf103c82209bfcc0eecdb2dfe28303634145c3abe7c57c0d1"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/18_tloadAfterStore.json",
+    "sha256": "d59d33f72f29e433889c406e9c130ff7a673c65ff2d880a32d941d448acc7987"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/19_oogUndoesTransientStore.json",
+    "sha256": "1041ba2c35d49998cb46e86a44071fa7fd0b62008cd089b0a1444ab2c92cf13e"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/20_oogUndoesTransientStoreInCall.json",
+    "sha256": "2bafaffa70dcbd7a92b1f95ece23ade46273b60eb40478885608c6e5aaf6ad14"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/21_tstoreCannotBeDosdOOO.json",
+    "sha256": "1e3b93f78cab96b6305b864f0e046105d7a1eeacaff045b4b7fed5fe2d661b4f"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/transStorageOK.json",
+    "sha256": "3641fd13acfa5367d28dfb030f0bc7e65d0280b70d8f3208cd5f4bf42f734814"
+  },
+  {
+    "path": "Cancun/stEIP1153-transientStorage/transStorageReset.json",
+    "sha256": "4f9bef0d67f2ee00cc6aeafe10e61d21eec08041040c8e44aa20f50b5c46fffc"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/blobhashListBounds3.json",
+    "sha256": "e0524872aa3d1181ca3d21532e222b2060102f42f04575a966d8f6184ce2efdf"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/blobhashListBounds4.json",
+    "sha256": "eadd6456f7145f2bc64b37b57b223aff71a154891926f4bfc778c964aea42764"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/blobhashListBounds5.json",
+    "sha256": "2e20c7ff263cc3c6867898edc68293d800846c1e1fc68c0a0491857f1ca3d633"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/blobhashListBounds6.json",
+    "sha256": "80370213f06b92091b4ced6781cd913b0e3282af540980aaf115576108ecb4d0"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/blobhashListBounds7.json",
+    "sha256": "5b8eeebb2b331b67c144612473065cc76eebfc547ed4af109ca751c6e7c1d89e"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/createBlobhashTx.json",
+    "sha256": "48bff965bd4e3278b0c181220ebe1f59c617093e4a38f851686b72e90c8bd33c"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/emptyBlobhashList.json",
+    "sha256": "01eacab70f305238b01dfb6c288b569c138013b212137821e451753041bec8e7"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/opcodeBlobhBounds.json",
+    "sha256": "ad665d1bba720f7ded6f8ef3a49a7886ebde44997106c329bb72fdae44c44ec8"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/opcodeBlobhashOutOfRange.json",
+    "sha256": "56c8119290e5e4c0380f4c9098b1c3dc2f26c3c9fbb6dcd49ca113ecb4e46682"
+  },
+  {
+    "path": "Cancun/stEIP4844-blobtransactions/wrongBlobhashVersion.json",
+    "sha256": "59e54c9796f254547c833d5020c52d7c20e42c59245d0ab4e7fed0a237b5a80b"
+  },
+  {
+    "path": "Cancun/stEIP5656-MCOPY/MCOPY.json",
+    "sha256": "2d09ea117da7084115a6389ff87e2085d1f355ed5f5f9780244536d81eb24c71"
+  },
+  {
+    "path": "Cancun/stEIP5656-MCOPY/MCOPY_copy_cost.json",
+    "sha256": "eb7273aa1606e1f03de545071de6cef7e049db49263282cce7488c6d251df04f"
+  }
+]

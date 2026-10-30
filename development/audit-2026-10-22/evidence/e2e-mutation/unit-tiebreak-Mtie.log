@@ -1,0 +1,37 @@
+== Mtie: (cwd mut-e2e-src/prototypes/pocold, a03e089 sources + Mtie) cargo test --release --locked --test consensus -- --exact fork_choice_heavier_tied_signed_first_and_rollback
+== exit 101
+
+running 1 test
+test fork_choice_heavier_tied_signed_first_and_rollback ... FAILED
+
+failures:
+
+---- fork_choice_heavier_tied_signed_first_and_rollback stdout ----
+
+thread 'fork_choice_heavier_tied_signed_first_and_rollback' (21670) panicked at tests/consensus.rs:96:5:
+signed sibling wins the tie
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: consensus::fork_choice_heavier_tied_signed_first_and_rollback
+             at ./tests/consensus.rs:96:5
+   3: consensus::fork_choice_heavier_tied_signed_first_and_rollback::{closure#0}
+             at ./tests/consensus.rs:89:64
+   4: <consensus::fork_choice_heavier_tied_signed_first_and_rollback::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+
+failures:
+    fork_choice_heavier_tied_signed_first_and_rollback
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.21s
+
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-track/mut-e2e-src/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 15.48s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-e2e/release/deps/consensus-1954e0a0b3a300c7)
+error: test failed, to rerun pass `--test consensus`

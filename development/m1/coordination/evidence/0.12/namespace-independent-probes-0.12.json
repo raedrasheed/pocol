@@ -1,0 +1,112 @@
+{
+  "oracle": "Independent hand-derived physical namespace counts and exact baseline gate",
+  "summary": {
+    "checks": 17,
+    "passed": 17,
+    "failed": 0
+  },
+  "results": [
+    {
+      "check": "raw 7 no overshoot",
+      "passed": true,
+      "actual": 8,
+      "expected": 8
+    },
+    {
+      "check": "raw 7 before-set gate",
+      "passed": true,
+      "actual": "confirmed",
+      "expected": "confirmed"
+    },
+    {
+      "check": "raw 7 malformed names not max",
+      "passed": true,
+      "actual": 6,
+      "expected": 6
+    },
+    {
+      "check": "raw 8 no overshoot",
+      "passed": true,
+      "actual": 8,
+      "expected": 8
+    },
+    {
+      "check": "raw 8 before-set gate",
+      "passed": true,
+      "actual": "gateBlocked",
+      "expected": "gateBlocked"
+    },
+    {
+      "check": "raw 8 malformed names not max",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "raw 8 persistent failure",
+      "passed": true,
+      "actual": "epochNames",
+      "expected": "epochNames"
+    },
+    {
+      "check": "raw 8 preserve unknown items",
+      "passed": true,
+      "actual": 8,
+      "expected": 8
+    },
+    {
+      "check": "raw 8 no data/snapshot",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "check": "raw 9 no overshoot",
+      "passed": true,
+      "actual": 9,
+      "expected": 9
+    },
+    {
+      "check": "raw 9 before-set gate",
+      "passed": true,
+      "actual": "gateBlocked",
+      "expected": "gateBlocked"
+    },
+    {
+      "check": "raw 9 malformed names not max",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "raw 9 persistent failure",
+      "passed": true,
+      "actual": "epochNames",
+      "expected": "epochNames"
+    },
+    {
+      "check": "raw 9 preserve unknown items",
+      "passed": true,
+      "actual": 9,
+      "expected": 9
+    },
+    {
+      "check": "raw 9 no data/snapshot",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "check": "outside prefix not budgeted",
+      "passed": true,
+      "actual": "confirmed",
+      "expected": "confirmed"
+    },
+    {
+      "check": "outside prefix retained",
+      "passed": true,
+      "actual": 10,
+      "expected": 10
+    }
+  ]
+}

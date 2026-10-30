@@ -1,0 +1,22 @@
+import sys
+"""Separate sequential review: isolated complete Rust library and assertion controls."""
+import json,os,shutil,subprocess,tempfile,time
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[4];CRATE=ROOT/'prototypes/lp1-node';OUT=Path(sys.argv[1]).resolve();OUT.mkdir(exist_ok=True)
+env=dict(os.environ,CARGO_HOME='/workspace/pocol-tools/cargo',RUSTUP_HOME='/workspace/pocol-tools/rustup',CARGO_MANIFEST_DIR=str(CRATE));env['PATH']='/workspace/pocol-tools/cargo/bin:'+env['PATH'];deps=Path(os.environ.get('POCOL_REVIEW_TARGET',str(CRATE/'target')))/'release/deps';extern=[]
+for name in ['sha2','sha3','libsecp256k1','serde_json']:
+ fs=list(deps.glob('lib'+name+'-*.rlib'));assert len(fs)==1;extern+=['--extern',name+'='+str(fs[0])]
+mutants=[('hp-leaf-flag', 'trie.rs', 'let flag = if leaf { 2 } else { 0 };', 'let flag = if leaf { 0 } else { 2 };', 'trie.rs'), ('inline-32-boundary', 'trie.rs', 'encoded.len() < 32', 'encoded.len() <= 32', 'trie.rs'), ('root-sha256', 'trie.rs', 'Ok(keccak256(&if rows.is_empty()', 'Ok(crate::hashes::sha256(&if rows.is_empty()', 'trie.rs'), ('retain-zero-storage', 'trie.rs', 'if !value.is_zero() {', 'if true {', 'trie.rs'), ('storage-raw-key', 'trie.rs', 'keccak256(&slot.to_be_bytes()).to_vec()', 'slot.to_be_bytes().to_vec()', 'trie.rs'), ('account-balance-as-nonce', 'trie.rs', 'uint(&a.balance)', 'uint(&U256::from_u64(a.nonce))', 'trie.rs'), ('ordered-one-based', 'trie.rs', 'U256::from_u64(i as u64)', 'U256::from_u64(i as u64 + 1)', 'trie.rs'), ('accept-duplicate-key', 'trie.rs', 'rows.windows(2).any(|w| w[0].key == w[1].key)', 'false', 'trie.rs')]
+results=[]
+for name,file,old,new,test in mutants:
+ source=(CRATE/'src'/file).read_text();assert source.count(old)==1,(name,source.count(old))
+ with tempfile.TemporaryDirectory(prefix=name+'-',dir=OUT) as td:
+  td=Path(td);shutil.copytree(CRATE/'src',td/'src');(td/'src'/file).write_text(source.replace(old,new));steps=[]
+  argslist=[['rustc','+1.58.1','--edition=2021','--crate-name','lp1_node','--crate-type','rlib',str(td/'src/lib.rs'),'-L','dependency='+str(deps),*extern,'-o',str(td/'liblp1_node.rlib')],['rustc','+1.58.1','--edition=2021','--test',str(CRATE/'tests'/test),'--extern','lp1_node='+str(td/'liblp1_node.rlib'),'-L','dependency='+str(deps),*extern,'-o',str(td/'tests')],[str(td/'tests')]]
+  for stage,args in enumerate(argslist):
+   t=time.monotonic()
+   with (OUT/(name+'-'+str(stage)+'.log')).open('w') as f:p=subprocess.run(args,env=env,stdout=f,stderr=subprocess.STDOUT)
+   steps.append(dict(args=args,exitCode=p.returncode,seconds=round(time.monotonic()-t,3)))
+   if stage<2:assert p.returncode==0,(name,stage)
+  detected=steps[-1]['exitCode']==101 and 'test result: FAILED' in (OUT/(name+'-2.log')).read_text();results.append(dict(name=name,caught=detected,commands=steps));(OUT/'RESULTS.json').write_text(json.dumps(results,indent=2)+'\n');print(name,detected,flush=True)
+assert all(r['caught'] for r in results),[r['name'] for r in results if not r['caught']]

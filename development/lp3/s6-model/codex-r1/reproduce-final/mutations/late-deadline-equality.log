@@ -1,0 +1,39 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (1.735197ms)
+✔ 1027 previously frozen ASERT rows (7.837868ms)
+✖ timing metrics, TJ1-4 and overflow equality (7.000554ms)
+✔ membership, partition completeness, owner and exact hashes (2.78846ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (1.507036ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (9.234959ms)
+✔ full schema width/order/reserved failures and deep malformed framing (10.807705ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (85.650509ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 136.139008
+
+✖ failing tests:
+
+test at ../work/lp3-s6/reproduce-final/mutations/ts-late-deadline-equality-9823csay/prototypes/lp3-model/tests.ts:29:1
+✖ timing metrics, TJ1-4 and overflow equality (7.000554ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(m.arrivesByDeadline(1009000n,1009000n))
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/reproduce-final/mutations/ts-late-deadline-equality-9823csay/prototypes/lp3-model/tests.ts:33:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

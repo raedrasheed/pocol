@@ -1,0 +1,1173 @@
+{
+  "schema": "pocol-m1-br-messages/1",
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-08 (annex row B8)",
+  "baseline": "FD:L2649-2735 (BR setup, common criterion, BR1-BR14, BR17, BR18), FD:L4843 (RpcTap), FD:L2654 (txA).",
+  "format": "Each case lists its messages in send order. A message is a compact-JSON object (serialized by the runner with separators ',' ':' and ensure_ascii false) or 'raw' text. '@txA' is replaced by txA.raw (generated, see txA below). ids increase from 1 within each case (FD:L2656); each case runs in a fresh session with a full bucket. 'reply' is the expected frame reply: {id, code, data} for errors (message text not normative) or {id, result}. Cases whose B0-B3 outcome can be computed are also executed against tools/bridge_ref.py; routed cases state their downstream criterion. The runner writes every message's exact text, UTF-8 length and sha256 to results/br-messages-expanded.json.",
+  "txA": {
+    "label": "Fields beyond the baseline's (type 2, key 7 = s1 -> s2, value 1, nonce 0, chainId 777910) are P: gas 21000, maxPriorityFeePerGas 4, maxFeePerGas 2000000000 (copied from tx1, FD:L2634), data empty, accessList empty. Keys: TK-1 (tools/eth_keys_ref.py).",
+    "chainId": 777910,
+    "nonce": 0,
+    "maxPriorityFeePerGas": 4,
+    "maxFeePerGas": 2000000000,
+    "gas": 21000,
+    "value": 1,
+    "fromKey": 7,
+    "toKey": 8,
+    "kats": [
+      {
+        "index": 1,
+        "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "source": "anvil default account 0 (widely published)"
+      },
+      {
+        "index": 2,
+        "address": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+        "source": "anvil default account 1 (widely published)"
+      }
+    ],
+    "privKeyOneAddress": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"
+  },
+  "rpcTap": {
+    "label": "B for serve/hold/log (FD:L4843, FD:L2652); P for the window and attribution rule",
+    "commands": [
+      "RpcTap.serve(upstream='http://127.0.0.1:<anvil>', port)",
+      "RpcTap.hold(method, ms)",
+      "RpcTap.log() -> [{seq, tIn, tOut, origin, method, params, source in {readClient, walletSubmit, logClient, headerNet, other}}]"
+    ],
+    "zeroRequestCriterion": "For a rejected message sent at t_send whose reply arrives at t_reply: no log entry with tIn in [t_send, t_reply + 1000 ms] and source in {readClient, logClient, walletSubmit, other}; and over the whole BR run, zero entries with method eth_sendRawTransaction and source != walletSubmit (FD:L2663). headerNet entries (periodic checks every 30 s) are not attributed to messages (P)."
+  },
+  "cases": [
+    {
+      "id": "BR1",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_sendRawTransaction",
+            "params": [
+              "@txA"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": 4200,
+          "data": {
+            "method": "eth_sendRawTransaction"
+          }
+        }
+      ],
+      "rpcTap": "zero"
+    },
+    {
+      "id": "BR2",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_sendTransaction",
+            "params": [
+              {
+                "from": "@s1",
+                "to": "@s2",
+                "value": "0x1"
+              }
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": 4200,
+          "data": {
+            "method": "eth_sendTransaction"
+          }
+        }
+      ],
+      "rpcTap": "zero",
+      "approvals": 0
+    },
+    {
+      "id": "BR3",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "pocol_submitShare",
+            "params": []
+          }
+        },
+        {
+          "id": 2,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "pocol_getTemplate",
+            "params": []
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": 4200,
+          "data": {
+            "method": "pocol_submitShare"
+          }
+        },
+        {
+          "id": 2,
+          "code": 4200,
+          "data": {
+            "method": "pocol_getTemplate"
+          }
+        }
+      ],
+      "rpcTap": "zero"
+    },
+    {
+      "id": "BR4",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "ETH_SENDRAWTRANSACTION",
+            "params": []
+          }
+        },
+        {
+          "id": 2,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_call ",
+            "params": []
+          }
+        },
+        {
+          "id": 3,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_call\u0000",
+            "params": []
+          }
+        },
+        {
+          "id": 4,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_getBal\u0430nce",
+            "params": []
+          }
+        },
+        {
+          "id": 5,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "@name65",
+            "params": []
+          }
+        },
+        {
+          "id": 6,
+          "kind": "storage_set",
+          "payload": {
+            "method": "Site_storageSet",
+            "params": []
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": 4200
+        },
+        {
+          "id": 2,
+          "code": 4200
+        },
+        {
+          "id": 3,
+          "code": 4200
+        },
+        {
+          "id": 4,
+          "code": 4200
+        },
+        {
+          "id": 5,
+          "code": 4200
+        },
+        {
+          "id": 6,
+          "code": 4200
+        }
+      ],
+      "rpcTap": "zero",
+      "note": "@name65 = 'eth_' + 61 x 'x' (65 bytes)"
+    },
+    {
+      "id": "BR5",
+      "raw": [
+        "{\"id\":1,\"kind\":\"rpc_read\",\"payload\":[{\"method\":\"eth_blockNumber\",\"params\":[]},{\"method\":\"eth_sendRawTransaction\",\"params\":[]}]}"
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32600
+        }
+      ],
+      "rpcTap": "zero"
+    },
+    {
+      "id": "BR6",
+      "raw": [
+        "{\"id\":1,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_call\",\"params\":[],\"jsonrpc\":\"2.0\",\"id\":7}}",
+        "{\"id\":2,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_blockNumber\",\"params\":[]},\"x\":0}",
+        "{\"id\":3,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_blockNumber\",\"method\":\"eth_sendRawTransaction\",\"params\":[]}}"
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32600
+        },
+        {
+          "id": 2,
+          "code": -32600
+        },
+        {
+          "id": null,
+          "code": -32600
+        }
+      ],
+      "rpcTap": "zero"
+    },
+    {
+      "id": "BR7",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "wallet_req",
+          "payload": {
+            "method": "eth_getBalance",
+            "params": [
+              "@s1",
+              "latest"
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "kind": "wallet_req",
+          "payload": {
+            "method": "eth_sendRawTransaction",
+            "params": [
+              "@txA"
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "kind": "storage_set",
+          "payload": {
+            "method": "eth_call"
+          }
+        },
+        {
+          "id": 4,
+          "kind": "storage_set",
+          "payload": {
+            "method": "eth_call",
+            "params": []
+          }
+        },
+        {
+          "id": 5,
+          "kind": "storage_set",
+          "payload": {
+            "method": "site_storageSet",
+            "params": [
+              "k",
+              5
+            ]
+          }
+        },
+        {
+          "id": 6,
+          "kind": "rpc",
+          "payload": {
+            "method": "eth_blockNumber",
+            "params": []
+          }
+        },
+        {
+          "id": 7,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "site_storageSet",
+            "params": [
+              "k",
+              "v"
+            ]
+          }
+        },
+        {
+          "id": 8,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "site_navigate",
+            "params": [
+              "/"
+            ]
+          }
+        },
+        {
+          "id": 9,
+          "kind": "nav",
+          "payload": {
+            "method": "eth_call",
+            "params": [
+              {
+                "to": "@s2"
+              },
+              "latest"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": 4200,
+          "stage": "B2"
+        },
+        {
+          "id": 2,
+          "code": 4200,
+          "stage": "B2"
+        },
+        {
+          "id": 3,
+          "code": -32600,
+          "stage": "B0"
+        },
+        {
+          "id": 4,
+          "code": 4200,
+          "data": {
+            "method": "eth_call"
+          },
+          "stage": "B2"
+        },
+        {
+          "id": 5,
+          "code": -32602,
+          "data": {
+            "path": "params[1]"
+          },
+          "stage": "B3"
+        },
+        {
+          "id": 6,
+          "code": -32600,
+          "data": {
+            "reason": "kind"
+          },
+          "stage": "B1"
+        },
+        {
+          "id": 7,
+          "code": 4200,
+          "stage": "B2"
+        },
+        {
+          "id": 8,
+          "code": 4200,
+          "stage": "B2"
+        },
+        {
+          "id": 9,
+          "code": 4200,
+          "stage": "B2"
+        }
+      ],
+      "rpcTap": "zero",
+      "note": "BR7a-BR7h; BR7g has two messages"
+    },
+    {
+      "id": "BR8",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_call",
+            "params": [
+              {
+                "to": "@s2"
+              },
+              "latest",
+              {
+                "@s2": {
+                  "balance": "0x1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32602,
+          "data": {
+            "path": "params[2]"
+          }
+        }
+      ],
+      "rpcTap": "zero"
+    },
+    {
+      "id": "BR9",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_call",
+            "params": [
+              {
+                "to": "@s2",
+                "gas": "0x1c9c381"
+              },
+              "latest"
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_call",
+            "params": [
+              {
+                "data": "0x"
+              },
+              "latest"
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_call",
+            "params": [
+              {
+                "to": "@s2",
+                "data": "0x",
+                "input": "0x"
+              },
+              "latest"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32602,
+          "data": {
+            "path": "params[0].gas"
+          }
+        },
+        {
+          "id": 2,
+          "code": -32602,
+          "data": {
+            "path": "params[0].to"
+          }
+        },
+        {
+          "id": 3,
+          "code": -32602,
+          "data": {
+            "path": "params[0].input"
+          }
+        }
+      ],
+      "rpcTap": "zero"
+    },
+    {
+      "id": "BR10",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_getLogs",
+            "params": [
+              {
+                "fromBlock": "0x1",
+                "toBlock": "0x64"
+              }
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_getLogs",
+            "params": [
+              {
+                "fromBlock": "0x1",
+                "toBlock": "0x401"
+              }
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "routed": "logClient",
+          "criterion": "RpcTap sees only pocol_getLogs and eth_getBlockByNumber (source logClient) and zero eth_getLogs; on anvil pocol_getLogs gives -32601 -> Error{unsupported}, recorded. Frame reply mapping of LogClient errors: pending annex row V2 (batch 11)"
+        },
+        {
+          "id": 2,
+          "code": -32020,
+          "criterion": "range 1..1025: -32020 {range} with zero requests (FD:L2687); P: data {reason:'range'} pending V2"
+        }
+      ],
+      "schemaOnly": [
+        {
+          "id": 3,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_getLogs",
+            "params": [
+              {
+                "fromBlock": "0x1",
+                "toBlock": "0x64",
+                "address": "@17addresses"
+              }
+            ]
+          },
+          "reply": {
+            "id": 3,
+            "code": -32602,
+            "data": {
+              "path": "params[0].address"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "BR11",
+      "kinds": [
+        "rpc_read",
+        "wallet_req",
+        "storage_set",
+        "nav"
+      ],
+      "names": [
+        "__proto__",
+        "constructor",
+        "hasOwnProperty",
+        "toString"
+      ],
+      "reply": "4200 {method} for each of the 16 (kind, name) messages, ids 1..16 in kind-major order; zero worker exceptions",
+      "rpcTap": "zero"
+    },
+    {
+      "id": "BR12",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_getBlockByNumber",
+            "params": [
+              "latest",
+              true
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_getBlockByNumber",
+            "params": [
+              "pending",
+              false
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_getBlockByNumber",
+            "params": [
+              "earliest",
+              false
+            ]
+          }
+        },
+        {
+          "id": 4,
+          "kind": "rpc_read",
+          "payload": {
+            "method": "eth_getBalance",
+            "params": [
+              "@s1",
+              {
+                "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+              }
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32602,
+          "data": {
+            "path": "params[1]"
+          }
+        },
+        {
+          "id": 2,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        },
+        {
+          "id": 3,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        },
+        {
+          "id": 4,
+          "code": -32602,
+          "data": {
+            "path": "params[1]"
+          }
+        }
+      ],
+      "rpcTap": "zero"
+    },
+    {
+      "id": "BR13",
+      "raw": [
+        "@depth9",
+        "@size65537",
+        "{\"id\":1,\"kind\":\"rpc_read\",",
+        "{\"id\":-1,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_blockNumber\",\"params\":[]}}",
+        "{\"id\":4294967296,\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_blockNumber\",\"params\":[]}}",
+        "{\"id\":\"1\",\"kind\":\"rpc_read\",\"payload\":{\"method\":\"eth_blockNumber\",\"params\":[]}}"
+      ],
+      "reply": [
+        {
+          "id": null,
+          "code": -32600
+        },
+        {
+          "id": null,
+          "code": -32600,
+          "data": {
+            "reason": "size"
+          }
+        },
+        {
+          "id": null,
+          "code": -32600
+        },
+        {
+          "id": null,
+          "code": -32600
+        },
+        {
+          "id": null,
+          "code": -32600
+        },
+        {
+          "id": null,
+          "code": -32600
+        }
+      ],
+      "rpcTap": "zero",
+      "note": "@depth9 and @size65537 are the 0.4 fixtures BR13-depth-9 and BR13-size-65537; the size message consumes no token (BridgeTrace tokensBefore of the next line equals its own)"
+    },
+    {
+      "id": "BR14",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "wallet_req",
+          "payload": {
+            "method": "eth_requestAccounts",
+            "params": []
+          }
+        },
+        {
+          "id": 2,
+          "kind": "wallet_req",
+          "payload": {
+            "method": "eth_sendTransaction",
+            "params": [
+              {
+                "from": "@granted",
+                "to": "@s2",
+                "value": "0x1"
+              }
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "result": "[@granted] after the approval click"
+        },
+        {
+          "id": 2,
+          "result": "txHash shown in the approval window"
+        }
+      ],
+      "criterion": "exactly one eth_sendRawTransaction in RpcTap, source walletSubmit, keccak256(raw) = the displayed txHash, the transaction is included after mining. Variants: reject click -> 4001 and zero eth_sendRawTransaction; 'from' not granted -> 4100.",
+      "label": "@granted is the wallet account derived per netKey (FD:L1325); P: the test tool funds it on anvil-br before BR14, because the seed is not a fixture key"
+    },
+    {
+      "id": "BR17a",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "storage_set",
+          "payload": {
+            "method": "site_storageSet",
+            "params": [
+              "k",
+              "v"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "result": null
+        }
+      ],
+      "criterion": "within 500 ms the highest record of 'site:'+netKey+':'+S_A holds k='v'; after reload localStorage.getItem('k') == 'v'; zero RpcTap requests"
+    },
+    {
+      "id": "BR17b",
+      "after": "BR17a",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "storage_set",
+          "payload": {
+            "method": "site_storageSet",
+            "params": [
+              "k",
+              null
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "result": null
+        }
+      ],
+      "criterion": "k absent"
+    },
+    {
+      "id": "BR17c",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "storage_set",
+          "payload": {
+            "method": "site_storageSet",
+            "params": [
+              "a",
+              "1"
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "kind": "storage_set",
+          "payload": {
+            "method": "site_storageSet",
+            "params": [
+              "b",
+              "2"
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "kind": "storage_set",
+          "payload": {
+            "method": "site_storageClear",
+            "params": []
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "result": null
+        },
+        {
+          "id": 2,
+          "result": null
+        },
+        {
+          "id": 3,
+          "result": null
+        }
+      ],
+      "criterion": "storage empty"
+    },
+    {
+      "id": "BR17d",
+      "ref": "m1-draft-0.4/vectors/bridge-check-cases.json BR17d-*"
+    },
+    {
+      "id": "BR17e",
+      "ref": "vectors/br17e-table.json (24 messages, generated)"
+    },
+    {
+      "id": "BR17f",
+      "criterion": "GoodSite S_B on the same network does not see k of S_A; S_A on another network profile (other netKey) does not see it; after S_A is full at BR17e(e4), ['k','v'] succeeds in S_B (independent quota)"
+    },
+    {
+      "id": "BR17g",
+      "raw": [
+        "{\"id\":1,\"kind\":\"storage_set\",\"payload\":{\"key\":\"k\",\"value\":\"v\"}}"
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32600
+        }
+      ],
+      "criterion": "no change"
+    },
+    {
+      "id": "BR18a",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_navigate",
+            "params": [
+              "/about.html"
+            ]
+          }
+        }
+      ],
+      "reply": "none (the frame is torn down)",
+      "criterion": "a new frame shows about.html (D26), zero tabs, zero RPC except chunk fetches by the worker"
+    },
+    {
+      "id": "BR18b",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_navigate",
+            "params": [
+              "/x/"
+            ]
+          }
+        },
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_navigate",
+            "params": [
+              "/"
+            ]
+          }
+        }
+      ],
+      "reply": "none",
+      "criterion": "/x/index.html, then the entry; each message is the first of a new frame, so ids restart at 1 (P)"
+    },
+    {
+      "id": "BR18c",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_navigate",
+            "params": [
+              "/a/../b.html"
+            ]
+          }
+        }
+      ],
+      "reply": "none",
+      "criterion": "passes the schema; the viewer shows the 404 page; repeated for '/a%2fb' and '//x' in fresh frames"
+    },
+    {
+      "id": "BR18d",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_navigate",
+            "params": [
+              "about.html"
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "kind": "nav",
+          "payload": {
+            "method": "site_navigate",
+            "params": [
+              "/a b"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        },
+        {
+          "id": 2,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        }
+      ],
+      "note": "the 2049-byte case is 0.4 BR18d-2049"
+    },
+    {
+      "id": "BR18e",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "https://example.org/"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "result": null
+        }
+      ],
+      "criterion": "one confirmation showing the full URL; TestHooks clicks 'open'; one new tab without opener (TestHooks intercepts chrome.tabs.create, FD:L4675); no network from the site context"
+    },
+    {
+      "id": "BR18f",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "https://example.org/"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": 4001
+        }
+      ],
+      "criterion": "TestHooks clicks 'cancel'; zero tabs"
+    },
+    {
+      "id": "BR18g",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "http://example.org/"
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "javascript:alert(1)"
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "chrome-extension://abcdefghijklmnop/x"
+            ]
+          }
+        },
+        {
+          "id": 4,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "https://user:pw@example.org/"
+            ]
+          }
+        },
+        {
+          "id": 5,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "https://"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        },
+        {
+          "id": 2,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        },
+        {
+          "id": 3,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        },
+        {
+          "id": 4,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        },
+        {
+          "id": 5,
+          "code": -32602,
+          "data": {
+            "path": "params[0]"
+          }
+        }
+      ],
+      "criterion": "no confirmation"
+    },
+    {
+      "id": "BR18h",
+      "messages": [
+        {
+          "id": 1,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "https://example.org/"
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "kind": "nav",
+          "payload": {
+            "method": "site_openExternal",
+            "params": [
+              "https://example.org/"
+            ]
+          }
+        }
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "result": "pending until the user acts"
+        },
+        {
+          "id": 2,
+          "code": -32005,
+          "data": {
+            "reason": "pending"
+          }
+        }
+      ],
+      "criterion": "one confirmation remains; BadSite does not wait for reply 1 before sending 2 (exception to FD:L2657)"
+    },
+    {
+      "id": "BR18-L",
+      "raw": [
+        "{\"id\":1,\"kind\":\"nav\",\"payload\":{\"path\":\"/a\"}}",
+        "{\"id\":2,\"kind\":\"nav\",\"payload\":{\"external\":\"https://example.org/\"}}"
+      ],
+      "reply": [
+        {
+          "id": 1,
+          "code": -32600
+        },
+        {
+          "id": 2,
+          "code": -32600
+        }
+      ],
+      "criterion": "zero confirmations"
+    }
+  ]
+}

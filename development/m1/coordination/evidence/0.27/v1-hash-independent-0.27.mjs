@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+const base=path.resolve('coordination/hash-check-runtime/node_modules');
+const noble=await import(pathToFileURL(base+'/@noble/hashes/sha3.js'));
+const sha3=await import(pathToFileURL(base+'/js-sha3/build/sha3.mjs'));
+const a=JSON.parse(fs.readFileSync('coordination/review-001/m1-draft-0.27/results/hash-freeze-v1-0.27.json'));
+const rows=a.list.map(x=>{const b=Buffer.from(x.preimageHex,'hex');const hashes=x.algorithm==='sha256'?[crypto.createHash('sha256').update(b).digest('hex')]:[Buffer.from(noble.keccak_256(b)).toString('hex'),sha3.keccak_256(b)];return {id:x.id,algorithm:x.algorithm,bytes:b.length,digests:hashes,pass:hashes.every(h=>h===x.digest)}});
+const out={checks:rows.length,passed:rows.filter(x=>x.pass).length,failed:rows.filter(x=>!x.pass).length,results:rows};
+const p='coordination/review-001/v1-hash-independent-0.27.json';if(fs.existsSync(p))throw Error('Preserve');fs.writeFileSync(p,JSON.stringify(out,null,2));console.log(JSON.stringify({checks:out.checks,passed:out.passed,failed:out.failed}));

@@ -1,0 +1,14 @@
+== M3 2026-10-24T06:19:05Z
+== worktree HEAD d19f5158584d7458676a9abfad6ac44a3d509288
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-4/prototypes/pocold/tests/e2e_devnet.py sha256=6667e11a3e80989b2bdcfc7d5a3b665a6a1e17f1c4bb85868f0d3dea16a621bf
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M3/pocold sha256=87e404c0e638af944d0dfa2a19af31c6fedba3416ed0dfc7ad7092e17f0dd8ee
+== pocol-sign sha256=636469777dd433e1a9935d324253e158f6973bc074c2519479eb5109a44eb77f
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M3/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-4/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-4/prototypes/pocold)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a,b reach 15: met after 25.7s (bound 120s)
+PASS two nodes produce blocks from fresh genesis — a=16 b=16
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT c syncs: NOT met after 90.4s (bound 90s)
+{"result": "FAIL", "error": "timeout waiting for c syncs", "checks": ["two nodes produce blocks from fresh genesis"], "elapsed_s": 118, "work": "/tmp/pocol-e2e-dcndg5sl"}
+== summary {"label": "M3", "exit": 1, "outcome": "FAIL", "checks_passed": 1, "first_fail": "timeout waiting for c syncs", "elapsed_s": 117.7, "test_s": 118, "leftover_killed": [], "ports_busy_after": []}

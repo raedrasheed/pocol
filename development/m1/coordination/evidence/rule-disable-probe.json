@@ -1,0 +1,62 @@
+[
+  {
+    "path": "/a//..",
+    "disabled": "path.grammar",
+    "expectedRemainingRule": "path.dotSegment",
+    "normal": {
+      "result": "reject",
+      "rule": "path.grammar",
+      "stage": "semantic",
+      "detail": "b'/a//..'",
+      "requests": 0,
+      "uniqueKeys": 0,
+      "references": 0,
+      "fetchCalls": 0
+    },
+    "mutantResult": {
+      "result": "accept",
+      "entryIndex": 0,
+      "files": [
+        {
+          "path": "/a//..",
+          "size": 1,
+          "keccak256": "0x7521d1cadbcfa91eec65aa16715b94ffc1c9654ba57ea2ef1a2127bca1127a83"
+        }
+      ],
+      "requests": 1,
+      "uniqueKeys": 1,
+      "references": 1,
+      "fetchCalls": 1
+    }
+  },
+  {
+    "path": "/./%",
+    "disabled": "path.dotSegment",
+    "expectedRemainingRule": "path.grammar",
+    "normal": {
+      "result": "reject",
+      "rule": "path.dotSegment",
+      "stage": "semantic",
+      "detail": "b'/./%'",
+      "requests": 0,
+      "uniqueKeys": 0,
+      "references": 0,
+      "fetchCalls": 0
+    },
+    "mutantResult": {
+      "result": "accept",
+      "entryIndex": 0,
+      "files": [
+        {
+          "path": "/./%",
+          "size": 1,
+          "keccak256": "0x7521d1cadbcfa91eec65aa16715b94ffc1c9654ba57ea2ef1a2127bca1127a83"
+        }
+      ],
+      "requests": 1,
+      "uniqueKeys": 1,
+      "references": 1,
+      "fetchCalls": 1
+    }
+  }
+]

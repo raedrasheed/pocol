@@ -1,0 +1,36 @@
+{
+  "result": "PASS",
+  "checks": [
+    "three packaged nodes connect on distinct loopback addresses",
+    "duplicate process refused by data lock",
+    "test currency transfer included on every node with identical receipt block and balance",
+    "health check verifies identity, progress and common block/state/receipt roots",
+    "wrong data-network binding refused",
+    "restarted node retains common block and rejoins"
+  ],
+  "scope": "single-host-loopback-rehearsal",
+  "distributedDeployment": false,
+  "health": {
+    "result": "PASS",
+    "scope": "operational-smoke-only",
+    "observedSeconds": 30,
+    "chainId": 777911,
+    "genesisHash": "0x7509e23ecc2ea7495a87679bd0e8da98854e0531ab2d278a491161bc72674b16",
+    "commonHeight": 9,
+    "commonHash": "0x3d14de061ad2596ef2869c9f83ca01a4ffc16f9dac92d8dcd398c5a632ad38eb",
+    "heightsBefore": {
+      "node1": 10,
+      "node2": 10,
+      "node3": 10
+    },
+    "heightsAfter": {
+      "node1": 15,
+      "node2": 15,
+      "node3": 15
+    },
+    "realMultiHostProven": false,
+    "note": "RPC observations alone cannot prove host separation, isolation or timing bounds."
+  },
+  "binarySha256": "ea1e78f58f0084cb687eb57a77d5659991941256e154fe41aefc2fa90da1f90c",
+  "testTransactionHash": "0x561c26b5eb832b2027d1132b4b5f5caeb38027c009003c0474030ab0503be2c4"
+}

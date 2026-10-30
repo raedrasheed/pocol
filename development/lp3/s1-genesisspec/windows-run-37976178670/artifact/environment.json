@@ -1,0 +1,23 @@
+{
+  "commit": "4e26e4d3049731645ab1d85ccfb9972d29d63390",
+  "trackedFilesModified": false,
+  "started": "2026-10-09T18:51:42Z",
+  "githubRun": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/37976178670 attempt 1",
+  "workflowRef": "raedrasheed/Proof-of-Collaboration/.github/workflows/lp3-s1-windows-verify.yml@refs/heads/main",
+  "workflowSha": "15a38774d9b47f4282366d7b294a1d8b8e919b0d",
+  "eventName": "workflow_dispatch",
+  "runnerImage": "win22 20261004.326.1",
+  "runnerArch": "X64",
+  "os": "Microsoft Windows 10.0.20348",
+  "powershell": "7.6.6",
+  "scriptSha256": "c2eb204deff90d4577575e473f49f3f483998364ecbd2faa2949839405e3d43f",
+  "includeSlow": true,
+  "git": "git version 2.56.0.windows.1",
+  "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+  "rustup": "rustup 1.29.1 (d95a37b6a 2026-08-13)\ninfo: This is the version for the rustup toolchain manager, not the rustc compiler.\ninfo: the currently active `rustc` version is `rustc 1.99.0 (b940084d7 2026-09-28)`",
+  "rustToolchain": "1.58.1-x86_64-pc-windows-msvc",
+  "rustc": "rustc 1.58.1 (db9d1b20b 2022-01-20)\nbinary: rustc\ncommit-hash: db9d1b20bba1968c1ec1fc49616d4742c1725b4b\ncommit-date: 2022-01-20\nhost: x86_64-pc-windows-msvc\nrelease: 1.58.1\nLLVM version: 13.0.0",
+  "cargo": "cargo 1.58.0 (f01b232bc 2022-01-19)",
+  "rustfmt": "rustfmt 1.4.38-stable (db9d1b20 2022-01-20)",
+  "finished": "2026-10-09T19:45:18Z"
+}

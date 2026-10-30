@@ -1,0 +1,37 @@
+[
+  {
+    "path": "development/lp4/p2-runtime/codex-r2/gst-release-full-sources.json.gz",
+    "storedSHA256": "fe3007657465a5799a40d143b9eca94ef01c9b354e9b18d7fbe3adff1be1e004",
+    "rawSHA256": "0b4d005162cea8b47e95651a98822da6b1cb1c3b118b2ef094e33cc6796bdba9",
+    "rawBytes": 422602,
+    "format": "gzip mtime=0"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r2/gst-release-full-cases.jsonl.gz",
+    "storedSHA256": "76d1778f772c05f4937c955a1acf7801643fe6eff77fd879c0e230da3b19efaa",
+    "rawSHA256": "e880c5eead69a3a683b21764723a97e2e5be2880d34c17dfa77d7454d5d88ff8",
+    "rawBytes": 11422105,
+    "format": "gzip mtime=0"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r2/gst-probe-full-sources.json.gz",
+    "storedSHA256": "fe3007657465a5799a40d143b9eca94ef01c9b354e9b18d7fbe3adff1be1e004",
+    "rawSHA256": "0b4d005162cea8b47e95651a98822da6b1cb1c3b118b2ef094e33cc6796bdba9",
+    "rawBytes": 422602,
+    "format": "gzip mtime=0"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r2/gst-probe-full-cases.jsonl.gz",
+    "storedSHA256": "544657fdd8c8d89c234825616866a0a110ef617b5ddaaa03f500ff3438f206dc",
+    "rawSHA256": "1bd455f96ded27e7f7f65253a3a3912f8044089ec60394cc036e994cb3c5a28b",
+    "rawBytes": 11422100,
+    "format": "gzip mtime=0"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r2/gst-full-cases.jsonl.gz",
+    "storedSHA256": "0fff137bc8f9a80a21ba087b743ece1891f789b63aebdeb08c2697746dc28157",
+    "rawSHA256": "ebd58a6f608cfa52b49971c876164966a742ee8fce731ac41bc40b0d31338f96",
+    "rawBytes": 1078741,
+    "format": "gzip mtime=0"
+  }
+]

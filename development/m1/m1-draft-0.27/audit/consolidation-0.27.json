@@ -1,0 +1,28 @@
+{
+  "schema": "pocol-m1-consolidation/0.27",
+  "status": "author consolidation for root review; criteria computed by tools/run_checks_027.py",
+  "base": {"inventory": "m1-draft-0.25/audit/row-inventory.json", "overlay0_26": "m1-draft-0.26/audit/consolidation-0.26.json", "findings0_26": "m1-draft-0.26/audit/findings-trace-0.26.json"},
+  "results": {"R26": "coordination/review-001/m1-draft-0.26/results/run-results-0.26.json"},
+  "rootEvidence0_26": ["coordination/review-001/REVIEW-0.26.md", "coordination/review-001/v1-malformed-error-probes-0.26.json", "coordination/review-001/v1-share-work-probe-0.26.json",
+                       "coordination/review-001/asert-native-comparison-0.26.json", "coordination/review-001/v1-independent-hashes-0.26.json",
+                       "coordination/review-001/v1-independent-signatures-0.26.json"],
+  "ownerAdded": [{"id": "V1-SHA-COST", "status": "open-owner-change-request", "source": "coordination/issue-ledger.json V1-SHA-COST", "routing": "m1-draft-0.27/owner/V1-SHA-COST-CHANGE-REQUEST.md"}],
+  "reviewerAdded": [{"id": "P-C32", "items": ["P-C32-1 envelope", "P-C32-2 rate delay range [0, 2000]", "P-C32-3 C19 integral values", "P-C32-4 strict JSON constants"],
+                     "status": "proposed; root decision pending", "source": "m1-draft-0.27/annex/C32-RPC-ERROR-ENVELOPE.md"}],
+  "withdrawn": [{"id": "P-V1-3", "why": "the 'SHA-256 = PoW only' reading omitted item 9 and reinterpreted the source without authority (REVIEW-0.26)"}],
+  "rowChanges": {
+    "V1": {"addOwner": ["V1-SHA-COST"], "addReviewer": ["P-C32"],
+           "addSpec": ["m1-draft-0.27/annex/C32-RPC-ERROR-ENVELOPE.md", "m1-draft-0.27/annex/V1-SHA-COST.md"],
+           "addFixtures": ["m1-draft-0.27/vectors/c32-error-cases.json", "m1-draft-0.27/vectors/v1-sha-accounting.json"],
+           "currentRunEvidence": ["^V1\\.", "^C32\\.", "^SHA\\."], "pendingRootReview": true}
+  },
+  "carriedForward": {
+    "34rows": "REVIEW-0.26 confirmed their consolidated computation/review evidence at specification scope; the 0.26 run (R26) and the earlier saved results are re-bound, not re-run",
+    "V1": "the 0.26 V1 vectors and expectations are re-run with the 0.27 checker and must give identical outcomes and counts; the rebuilt header bytes must equal the 0.26 transcripts"
+  },
+  "proposedStatus": {
+    "CompleteCandidate": ["X1", "X2", "X3", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "R2", "R3", "R4", "S1", "S2", "S3", "S4",
+                          "Q1", "Q2", "Q3", "Q4", "E1", "E2", "E3", "E4", "E5", "E7", "V2", "V3", "V4"],
+    "Partial": ["C1", "C2", "C3", "C4", "R1", "E6", "V1"]
+  }
+}

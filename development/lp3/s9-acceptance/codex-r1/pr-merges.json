@@ -1,0 +1,90 @@
+[
+  {
+    "number": 10,
+    "title": "LP3 S1 increment 1: GenesisSpec v1 decoder (author draft; Windows-verified at 4e26e4d; independent review pending)",
+    "state": "closed",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "bd2ae28ac29c11ea65258481e34444d05d61e4dd",
+    "mergeCommit": "d17273af35880f0e1d8a438e529e69c22a18f731",
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/10",
+    "mergedAt": "2026-10-17T10:53:02Z"
+  },
+  {
+    "number": 12,
+    "title": "Codex lp3 s2 profile",
+    "state": "closed",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "e79ada09b05a9b5fdabd8e6b03d4407c05d5c470",
+    "mergeCommit": "30daceb7e8c632041fd44a40afec57553f85fff2",
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/12",
+    "mergedAt": "2026-10-17T11:15:06Z"
+  },
+  {
+    "number": 13,
+    "title": "LP3 S3: deterministic timing rules",
+    "state": "closed",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "be134089f940dd81e0312d9dee28a70b8c111667",
+    "mergeCommit": "866666e2f129c26575409d07d8b7b4fa11899f78",
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/13",
+    "mergedAt": "2026-10-17T12:23:23Z"
+  },
+  {
+    "number": 14,
+    "title": "LP3 S4: membership, nonce assignment and proposer draw",
+    "state": "closed",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "a59fbc569c6c63bb4c92bc5d9745f37547579f52",
+    "mergeCommit": "c662bff29fb748594224eb48d329d9b2aff1244e",
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/14",
+    "mergedAt": "2026-10-17T13:15:12Z"
+  },
+  {
+    "number": 15,
+    "title": "LP3 S5: amended profile-bound numeric ParamGate and exact R1–R26 checks",
+    "state": "closed",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "130dedbc0cf34fb7bcb675cbf8be9bf3f6309d0c",
+    "mergeCommit": "18cf7ab3f0140715db4365c8f893d46d2084a3f4",
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/15",
+    "mergedAt": "2026-10-17T13:46:19Z"
+  },
+  {
+    "number": 16,
+    "title": "LP3 S6: TypeScript reference arithmetic, timing, assignment and Genesis identity",
+    "state": "closed",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "a0447daabff487d55ed25e29c562a6f4f7b05ab6",
+    "mergeCommit": "772cb1f843c9214b9a8575856d4b34e38b7976ae",
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/16",
+    "mergedAt": "2026-10-17T14:08:12Z"
+  },
+  {
+    "number": 17,
+    "title": "LP3 S7: ASERT evidence and approved CF/T0/SV core gates",
+    "state": "closed",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "d1847e72533f8c3026e98a1f8ce392fd4462a8f4",
+    "mergeCommit": "5a04bdf858ed7651c01f31f3dac8fc2fba4426cd",
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/17",
+    "mergedAt": "2026-10-17T14:38:19Z"
+  },
+  {
+    "number": 18,
+    "title": "LP3 S8: integrated adversarial audit and Windows regression",
+    "state": "closed",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "56cda6f4d848526150607509c7273ba9f2f9f440",
+    "mergeCommit": "c054dad4e4ae3af54f3246361153109da65a43fe",
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/18",
+    "mergedAt": "2026-10-17T14:55:20Z"
+  }
+]

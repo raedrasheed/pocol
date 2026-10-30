@@ -1,0 +1,3 @@
+   Compiling pocol-lp4-execution-context-history v0.1.0 (/workspace/work/lp4/p2-registry-full/r15-context-mutations/history)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.57s
+  Executable tests/native_context.rs (prototypes/lp4-execution/target/debug/deps/native_context-14da80e64fbd4ccc)

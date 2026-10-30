@@ -1,0 +1,1350 @@
+{
+ "counts": {
+  "CompleteCandidate": 38,
+  "Partial": 1,
+  "PendingRootReview": 2
+ },
+ "findings": {
+  "F01": {
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F02": {
+   "dependsOn": [
+    "U22"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F03": {
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F04": {
+   "dependsOn": [
+    "U02",
+    "U03",
+    "P-U02-1",
+    "P-U02-2"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E07"
+   ],
+   "undecided": []
+  },
+  "F05": {
+   "dependsOn": [
+    "U04"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E06"
+   ],
+   "undecided": []
+  },
+  "F06": {
+   "dependsOn": [
+    "U01"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F07": {
+   "dependsOn": [
+    "CR-M1-01",
+    "U36",
+    "P-D29-1",
+    "P-D29-2"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E03"
+   ],
+   "undecided": []
+  },
+  "F08": {
+   "dependsOn": [
+    "U06",
+    "U22"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E04"
+   ],
+   "undecided": []
+  },
+  "F09": {
+   "dependsOn": [
+    "U07",
+    "U08"
+   ],
+   "disposition": "closableAfterRootReviewOf030",
+   "phaseA": [
+    "E02"
+   ],
+   "undecided": []
+  },
+  "F10": {
+   "dependsOn": [
+    "U09"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F11": {
+   "dependsOn": [
+    "U10",
+    "P-U10-1"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F12": {
+   "dependsOn": [
+    "U11",
+    "U22"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F13": {
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F14": {
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F15": {
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F16": {
+   "dependsOn": [
+    "U12",
+    "U17"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F17": {
+   "dependsOn": [
+    "U10",
+    "U08",
+    "U11",
+    "P-U08-1",
+    "P-U10-1"
+   ],
+   "disposition": "closableAfterRootReviewOf030",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F18": {
+   "dependsOn": [
+    "U13"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F19": {
+   "dependsOn": [
+    "U20"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F20": {
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F21": {
+   "dependsOn": [
+    "U21"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F22": {
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E04"
+   ],
+   "undecided": []
+  },
+  "F23": {
+   "dependsOn": [
+    "U01"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F24": {
+   "dependsOn": [
+    "U16"
+   ],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [
+    "E01"
+   ],
+   "undecided": []
+  },
+  "F25": {
+   "dependsOn": [
+    "U14",
+    "P-D29-1",
+    "P-D29-2",
+    "P-D29-3"
+   ],
+   "disposition": "closableAfterRootReviewOf030",
+   "phaseA": [],
+   "undecided": []
+  },
+  "F26": {
+   "dependsOn": [],
+   "disposition": "closableAtSpecScope",
+   "phaseA": [],
+   "undecided": []
+  }
+ },
+ "note": "CompleteCandidate is not Complete; PendingRootReview awaits root review of the 0.30 repairs",
+ "rows": {
+  "B1": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 4,
+   "source": "FD:L1106-1146",
+   "status": "CompleteCandidate",
+   "title": "Envelope, Bpre, B0-B4, errors, returned id"
+  },
+  "B10": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR19c in Chrome"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L2737-2759",
+   "status": "CompleteCandidate",
+   "title": "BR19a/b/c, BridgeRef decision rule"
+  },
+  "B11": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L2697, FD:L4848, FD:L1220-1223",
+   "status": "CompleteCandidate",
+   "title": "BR16 generator and seed; refs; BridgeTrace"
+  },
+  "B2": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L1127-1146, FD:L1196-1197",
+   "status": "CompleteCandidate",
+   "title": "Integer bucket; arrivalMs; pendingReads"
+  },
+  "B3": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "httpsUrl in the browser"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L1106-1205",
+   "status": "CompleteCandidate",
+   "title": "(kind, method) matrix; str, pathStr, httpsUrl"
+  },
+  "B4": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {
+    "alias.X1.netKey": "frozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L1356-1369, FD:L4925-4929",
+   "status": "CompleteCandidate",
+   "title": "SiteStorage and Navigator semantics"
+  },
+  "B5": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L1202-1205",
+   "status": "CompleteCandidate",
+   "title": "Explicitly tested deny list"
+  },
+  "B6": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L1207-1213",
+   "status": "CompleteCandidate",
+   "title": "Single write path to WalletSubmit"
+  },
+  "B7": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "dependency-cruiser and ESLint verdicts in CI"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L1218, FD:L3262",
+   "status": "CompleteCandidate",
+   "title": "dependency-cruiser rule text"
+  },
+  "B8": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {
+    "txA.hash": "frozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR runs in Chrome on anvil-br with RpcTap",
+    "BR10 (row V2)"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L2649-2735, FD:L4843",
+   "status": "CompleteCandidate",
+   "title": "BR1-BR14, BR17-BR18 byte-exact; txA; RpcTap; zero request"
+  },
+  "B9": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L2711-2721",
+   "status": "CompleteCandidate",
+   "title": "Full BR17e table (24 messages)"
+  },
+  "C1": {
+   "basis": {
+    "c3": "REVIEW-0.29",
+    "c4": "delegated: U01",
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [
+    "E01",
+    "E04",
+    "E05"
+   ],
+   "hashGroups": {
+    "abi.selector": "frozen",
+    "triad.codeTable": "frozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 4,
+   "source": "FD:L884-889",
+   "status": "CompleteCandidate",
+   "title": "Initcode, address formula, 3 vectors"
+  },
+  "C2": {
+   "basis": {
+    "c3": "REVIEW-0.29",
+    "c4": "delegated: U01",
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [
+    "E05",
+    "E06"
+   ],
+   "hashGroups": {
+    "c14.contentHash": "frozen",
+    "triad.files": "frozen",
+    "triad.manifests": "frozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 12,
+   "source": "FD:L891-898, FD:L907",
+   "status": "CompleteCandidate",
+   "title": "Manifest encoding and normalization"
+  },
+  "C3": {
+   "basis": {
+    "c3": "pending root review of 0.30: U08 repair (C34) and the shared RP budget (P-D29-3)",
+    "c4": "delegated: U08, CR-M1-01, U02, U10, U14, U01",
+    "conventions": [
+     "P-D29-1",
+     "P-D29-2",
+     "P-D29-3",
+     "P-U02-1",
+     "P-U02-2",
+     "P-U10-1"
+    ]
+   },
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "pendingRootReview",
+    "c3": "pendingRootReview",
+    "c4": "satisfied",
+    "c5": "pendingRootReview"
+   },
+   "experiments": [
+    "E02",
+    "E03",
+    "E04",
+    "E07"
+   ],
+   "hashGroups": {
+    "abi.topic0": "frozen",
+    "alias.versionRecords": "frozen",
+    "proof.storageSlot": "frozen",
+    "slot.chunks0": "frozen",
+    "slot.publisher": "frozen",
+    "slot.versionBase": "frozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 8,
+   "source": "FD:L899-905, FD:L913-915",
+   "status": "PendingRootReview",
+   "title": "Website slots and permissions"
+  },
+  "C4": {
+   "basis": {
+    "c3": "pending root review of 0.30: U08 repair (C34)",
+    "c4": "delegated: U08, U01, U10",
+    "conventions": [
+     "P-U08-1",
+     "P-U10-1"
+    ]
+   },
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "pendingRootReview",
+    "c3": "pendingRootReview",
+    "c4": "satisfied",
+    "c5": "pendingRootReview"
+   },
+   "experiments": [
+    "E01",
+    "E05"
+   ],
+   "hashGroups": {
+    "alias.t1_02.manifestHash": "frozen",
+    "triad.files": "frozen",
+    "triad.manifests": "frozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 4,
+   "source": "FD:L907, FD:L4958",
+   "status": "PendingRootReview",
+   "title": "T1 and T16 with literal inputs"
+  },
+  "E1": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L1460-1506",
+   "status": "CompleteCandidate",
+   "title": "Epoch item and record names, values, largest-wins"
+  },
+  "E2": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L3024-3065",
+   "status": "CompleteCandidate",
+   "title": "D134: shared name per E, name gate, sweep, lemmas, BR22h, SR-model"
+  },
+  "E3": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR22c in Chrome with CDP"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 4,
+   "source": "FD:L1470-1506, FD:L2905, FD:L2936",
+   "status": "CompleteCandidate",
+   "title": "Fence and recovery; lemmas; viewer on loss; BR22a; BR22b/c"
+  },
+  "E4": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L1507-1740",
+   "status": "CompleteCandidate",
+   "title": "D104: RecoveryGate, SeqAlloc, fmt 2, RECORD_BYTES_MAX, disk, window, sweep, tombstone"
+  },
+  "E5": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L2951-3023",
+   "status": "CompleteCandidate",
+   "title": "BR22d (V-a..V-e), BR22e, BR22f, BR22g, 25 s derivation"
+  },
+  "E6": {
+   "basis": {
+    "c3": "REVIEW-0.29",
+    "c4": "delegated: RF-E6-1",
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L3066-3261",
+   "status": "CompleteCandidate",
+   "title": "BR23 (d1-d11, d11b), BR24, AdminDelete/DiskLedger/AdminSlots; constants; BR22f-f5"
+  },
+  "E7": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L5005-5016",
+   "status": "CompleteCandidate",
+   "title": "DeleteOp; sitesLive; tomb rules; BR23 (d15c)"
+  },
+  "Q1": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L1370-1459",
+   "status": "CompleteCandidate",
+   "title": "qbytes, counters, FIFO, global limit, timeouts"
+  },
+  "Q2": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L1370-1459, FD:L4928",
+   "status": "CompleteCandidate",
+   "title": "Teardown and wait-before-snapshot"
+  },
+  "Q3": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR21c in Chrome",
+    "BR21d real loader"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L2800-2904",
+   "status": "CompleteCandidate",
+   "title": "BR21a, BR21b, BR21e, BR21f; TQ; BR21c/d"
+  },
+  "Q4": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L4987",
+   "status": "CompleteCandidate",
+   "title": "BridgeRef/SiteStorageRef StoreQueue extension"
+  },
+  "R1": {
+   "basis": {
+    "c3": "REVIEW-0.29",
+    "c4": "delegated: CR-M1-01",
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {
+    "c14.contentHash": "frozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L1253-1276, FD:L979",
+   "status": "CompleteCandidate",
+   "title": "RECV_LIMIT table; WorstLegit; RecvFit"
+  },
+  "R2": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "MaliciousHttp over sockets",
+    "CAP1",
+    "MR7 timing",
+    "MR10d memory"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L3266-3331",
+   "status": "CompleteCandidate",
+   "title": "MR6b-MR6d, CAP1, RF1-RF4, MR10a-MR10f"
+  },
+  "R3": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L1236-1288",
+   "status": "CompleteCandidate",
+   "title": "Read steps 1-6 and the pools"
+  },
+  "R4": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "MaliciousHttp over sockets"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L3266-3331, FD:L4943",
+   "status": "CompleteCandidate",
+   "title": "MaliciousHttp scripts MR1-MR12"
+  },
+  "S1": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L1290-1306",
+   "status": "CompleteCandidate",
+   "title": "SiteSession lifecycle; orphan request states"
+  },
+  "S2": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L1196-1197, FD:L1316",
+   "status": "CompleteCandidate",
+   "title": "Navigation bucket formula"
+  },
+  "S3": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "BR20c/BR20d in Chrome"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L2763-2799",
+   "status": "CompleteCandidate",
+   "title": "Corrected BR20a table; BR20b; BR20c script"
+  },
+  "S4": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 1,
+   "source": "FD:L2659, FD:L4980",
+   "status": "CompleteCandidate",
+   "title": "BridgeRef session extension"
+  },
+  "V1": {
+   "basis": {
+    "c3": "pending root review of 0.30: guarded receive boundary (C33, P-V1-11) and the shared RP budget (P-D29-3)",
+    "c4": "delegated: V1-SHA-COST, P-C32-2",
+    "conventions": [
+     "P-V1-1",
+     "P-V1-2",
+     "P-V1-4",
+     "P-V1-5",
+     "P-V1-6",
+     "P-V1-7",
+     "P-V1-8",
+     "P-V1-9",
+     "P-V1-10",
+     "P-D29-1",
+     "P-D29-3"
+    ]
+   },
+   "criteria": {
+    "c1": "pendingRootReview",
+    "c2": "blocked",
+    "c3": "pendingRootReview",
+    "c4": "satisfied",
+    "c5": "pendingRootReview"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 5,
+   "source": "FD:L5017; implementation.md:358",
+   "status": "Partial",
+   "title": "HeaderNetCheck vectors"
+  },
+  "V2": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {
+    "syn.lc.branchHashes": "labelledNotFrozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "TS-LC",
+    "BR10",
+    "RG3",
+    "RG3-bridge",
+    "RG3b",
+    "RG9"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 7,
+   "source": "FD:L5018; implementation.md:359",
+   "status": "CompleteCandidate",
+   "title": "LogClient vectors"
+  },
+  "V3": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [
+    "E05"
+   ],
+   "hashGroups": {
+    "e05.GSV1": "frozen",
+    "ph.v3.networkProfiles": "labelledNotFrozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L5019; implementation.md:360",
+   "status": "CompleteCandidate",
+   "title": "NetworkProfiles.validate: GSV1, N1, N6, N11"
+  },
+  "V4": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {
+    "privateProvenance": "labelledNotFrozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "X8 matrix in Chrome/CDP",
+    "C7 per-path windows"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 3,
+   "source": "FD:L5020",
+   "status": "CompleteCandidate",
+   "title": "X8: pages C1-C8, flags K0-K5"
+  },
+  "X1": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [
+    "E05"
+   ],
+   "hashGroups": {
+    "alias.X1.netKey": "frozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L981",
+   "status": "CompleteCandidate",
+   "title": "netKey with vector (777001, 0x11 x 32)"
+  },
+  "X2": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {},
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "browser run of the race scenarios"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L1321-1325",
+   "status": "CompleteCandidate",
+   "title": "signEligible"
+  },
+  "X3": {
+   "basis": {
+    "c3": "earlier root reviews (bound in 0.29)",
+    "c4": null,
+    "conventions": []
+   },
+   "criteria": {
+    "c1": "satisfied",
+    "c2": "satisfied",
+    "c3": "satisfied",
+    "c4": "satisfied",
+    "c5": "satisfied"
+   },
+   "experiments": [],
+   "hashGroups": {
+    "privateProvenance": "labelledNotFrozen"
+   },
+   "missing": [],
+   "ownerOpen": [],
+   "phaseA": [
+    "X1-X7, d1-d5 and Q8-Q12 in Chrome with anvil"
+   ],
+   "reviewerOpen": [],
+   "rowEvidence029": 2,
+   "source": "FD:L4959 (definitions restored from the historical source)",
+   "status": "CompleteCandidate",
+   "title": "Q8-Q12, X1-X7, d1-d5"
+  }
+ },
+ "schema": "pocol-m1-acceptance-matrix/0.30"
+}

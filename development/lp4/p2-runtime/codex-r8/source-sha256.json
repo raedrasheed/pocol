@@ -1,0 +1,19 @@
+{
+  ".github/workflows/lp4-execution-controls.yml": "9d8c002a774a9382bdc0053cd12b1aa094e4b1e93e1f9dd278231a55b28ea383",
+  "development/LP4-ACCEPTANCE.json": "0aa14d1c054991d47411db80fd4f000c3a6da3f1119f2a0efac0f6b7e1dec440",
+  "development/LP4-MILESTONE.md": "ae1fdfb5b37ac4d4923b7388b1abe1a554e4405b638b431bc6ff89a6e4ab8d07",
+  "development/LP4-REGISTRY-WRITE-APPROVAL.md": "4fcfef9d6983b526c3f99193f3d384ef8274c4b5214f437e9116d35a53dd0f58",
+  "prototypes/lp4-execution/Cargo.lock": "d6e757466555edd023347af5b3cc45021ff1bcd88328de8c9a390fd99ad13904",
+  "prototypes/lp4-execution/README.md": "6289c7ae82a15f4c80bffda525c509742cc0e60d3e2afe100f298811e47cee03",
+  "prototypes/lp4-execution/contracts/REGISTRY-LAYOUT.md": "13a71faf2cf3e502995aceaca2b5e778369731448de2c0f5cbd39bfa3197c563",
+  "prototypes/lp4-execution/contracts/RegistryPayment.sol": "469ab9352cfbb3d2bf7704951abb490564e4e563d1af468d88af4a1491fbee92",
+  "prototypes/lp4-execution/examples/registry_vectors.rs": "7caac15325bc89046cec76bd12583d6b8d6405494b0de08f90ec8a3c0f788d0c",
+  "prototypes/lp4-execution/src/native.rs": "187eb6324c31e44441dd55f8a8f8102dac9a36ff812f4539ae0eb1aa71498f9d",
+  "prototypes/lp4-execution/src/pay.rs": "dfbe2315507515f27c4ac86858acf3d6c58c27b379e9c5e6d2a2572169e6da88",
+  "prototypes/lp4-execution/tests/compile_registry.cjs": "a157ac74c51d6c335c603d2671f0fec5cd983eecd378facb739ebe86dfbea5f9",
+  "prototypes/lp4-execution/tests/data/registry-payment.json": "0186c9b0c722e272081163e6e0782cd1e95d19cbcd6e96634770bab94cfc58df",
+  "prototypes/lp4-execution/tests/registry_execution_oracle.py": "92e1dca41909e207824335efce4585cbfead2df445508f6629835f3d7a7cbbcc",
+  "prototypes/lp4-execution/tests/registry_mutations.py": "a051e278d1f5749ff3a416bc729688cc8807d7c0f60451cf6416f081925eec7c",
+  "prototypes/lp4-execution/tests/registry_payment.rs": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325",
+  "prototypes/lp4-execution/tests/registry_transition_model.py": "c8f1f475e299043b099b9cff1743f85bfa7abd4f8331b77a45f212ca4443afce"
+}

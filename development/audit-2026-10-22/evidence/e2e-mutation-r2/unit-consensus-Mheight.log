@@ -1,0 +1,165 @@
+== Mheight: (cwd e2e-r2/src/prototypes/pocold, c195a89 sources (code = a03e089) + Mheight) cargo test --release --locked --test consensus
+== exit 101
+
+running 44 tests
+test a03_over_limit_log_halts_the_transaction_and_the_block_is_valid ... ok
+test a01_committed_invalid_body_is_still_a_block_rejection_and_cached ... ok
+test a01_malformed_or_unbound_bodies_reject_only_the_copy ... ok
+test a13_bound_breakdown ... ok
+test a11_reorg_restores_detached_transactions_without_resubmission ... ok
+test a13_pool_pending_state_is_capped_and_normalized ... ok
+test a13_boot_refuses_a_bound_above_the_memory_budget ... ok
+test a13_rebuild_of_a_deep_fork_keeps_only_the_target_state ... ok
+test a13_side_branch_states_are_capped_and_rebuilt_on_demand ... ok
+test a11_excludes_included_and_conflicting_transactions_and_keeps_order ... ok
+test a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation ... ok
+test a_max_size_transaction_is_answered_in_the_light_lane ... ok
+test a_crash_around_an_adoption_reopens_on_one_whole_chain ... ok
+test a_session_block_arriving_before_its_parent_stays_protected ... ok
+test a_session_branch_is_adopted_through_a_flood_of_competing_side_branches ... FAILED
+test a_side_branch_below_the_k_hist_window_imports_without_rebuilding_each_parent ... ok
+test a_long_catch_up_is_not_bounded_by_the_protected_branch_size ... ok
+test a_valid_header_with_a_foreign_body_rejects_only_that_copy ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ignored, spec-depth test: run in release with --ignored
+test an_offloaded_block_is_served_viewed_and_re_executed_from_the_journal ... ok
+test body_max_bounds_the_encoded_body_not_the_item_sum ... ok
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ignored, spec-depth test: run in release with --ignored
+test a_competing_branch_within_side_blocks_max_is_adopted ... ok
+test d_body_max_vectors ... ok
+test every_validity_item_rejects_its_mutation ... ok
+test evidence_type1_and_type2_punish_through_a_signed_block ... ok
+test a_sync_session_refetches_an_evicted_branch_and_serves_it ... ok
+test final_block_has_no_child_and_h_end_is_enforced ... ok
+test fork_choice_heavier_tied_signed_first_and_rollback ... ok
+test get_logs_limits_answer_32020_with_resume_data ... ok
+test k_hist_retention_and_trie_rebuild_for_deep_fork ... ok
+test node_detects_template_equivocation_and_produces_valid_evidence ... ok
+test ordinary_blocks_then_closing_then_final_at_h_end ... ok
+test d133_tie_break_at_depth_holds_through_eviction_and_refetch ... ok
+test journal_replay_rebuilds_pruned_state_for_a_journaled_fork ... ok
+test r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond ... FAILED
+test replay_gives_a_reimported_block_a_new_import_seq ... ok
+test replay_uses_the_largest_r_keep_the_data_directory_has_used ... FAILED
+test template_form_classes_follow_d129 ... ok
+test a_peer_with_a_false_status_cannot_hold_the_sync_session ... ok
+test side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again ... FAILED
+test the_r_keep_boundary_removes_a_side_block_exactly_r_keep_below_the_head ... ok
+test thirty_five_blocks_from_fresh_genesis_replay_identically ... ok
+test range_sync_reaches_the_peer_head_through_truncated_responses ... ok
+
+failures:
+
+---- a_session_branch_is_adopted_through_a_flood_of_competing_side_branches stdout ----
+
+thread 'a_session_branch_is_adopted_through_a_flood_of_competing_side_branches' (31015) panicked at tests/consensus.rs:791:43:
+assertion `left == right` failed: the heavier session branch is adopted
+  left: [149, 173, 166, 75, 53, 74, 76, 205, 149, 102, 182, 185, 107, 40, 227, 158, 139, 229, 228, 120, 111, 49, 124, 2, 107, 139, 53, 228, 20, 182, 212, 100]
+ right: [148, 112, 245, 212, 221, 248, 235, 209, 30, 88, 139, 172, 12, 232, 108, 131, 225, 241, 222, 74, 214, 32, 247, 26, 153, 85, 18, 205, 109, 214, 132, 128]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<[u8; 32], [u8; 32]>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: consensus::a_session_branch_is_adopted_through_a_flood_of_competing_side_branches
+             at ./tests/consensus.rs:791:0
+   5: consensus::a_session_branch_is_adopted_through_a_flood_of_competing_side_branches::{closure#0}
+             at ./tests/consensus.rs:773:84
+   6: <consensus::a_session_branch_is_adopted_through_a_flood_of_competing_side_branches::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+---- r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond stdout ----
+
+thread 'r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond' (31201) panicked at tests/consensus.rs:719:5:
+assertion `left == right` failed: a heavier branch forked at depth R_keep (24) is adopted
+  left: [123, 51, 11, 223, 42, 171, 181, 1, 161, 3, 81, 75, 165, 93, 172, 138, 255, 83, 84, 23, 226, 125, 231, 135, 218, 133, 94, 105, 207, 251, 46, 198]
+ right: [197, 181, 182, 22, 7, 28, 246, 178, 122, 147, 47, 49, 66, 87, 184, 65, 152, 106, 18, 34, 177, 10, 201, 250, 208, 175, 23, 185, 98, 117, 230, 191]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<[u8; 32], [u8; 32]>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: consensus::r_keep_boundary
+             at ./tests/consensus.rs:719:5
+   5: consensus::r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond
+             at ./tests/consensus.rs:736:86
+   6: consensus::r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond::{closure#0}
+             at ./tests/consensus.rs:736:85
+   7: <consensus::r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   8: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+---- replay_uses_the_largest_r_keep_the_data_directory_has_used stdout ----
+
+thread 'replay_uses_the_largest_r_keep_the_data_directory_has_used' (31209) panicked at tests/consensus.rs:1078:43:
+assertion `left == right` failed: adopted at depth 40 with R_keep 64
+  left: [48, 196, 175, 145, 205, 111, 100, 124, 193, 229, 199, 105, 227, 18, 149, 101, 187, 127, 152, 180, 95, 228, 182, 51, 20, 10, 175, 139, 44, 103, 20, 250]
+ right: [231, 178, 155, 5, 241, 171, 131, 142, 68, 22, 227, 233, 138, 26, 78, 236, 128, 11, 19, 134, 90, 237, 48, 131, 40, 199, 71, 162, 85, 121, 156, 31]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<[u8; 32], [u8; 32]>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: consensus::replay_uses_the_largest_r_keep_the_data_directory_has_used
+             at ./tests/consensus.rs:1078:43
+   5: consensus::replay_uses_the_largest_r_keep_the_data_directory_has_used::{closure#0}
+             at ./tests/consensus.rs:1070:72
+   6: <consensus::replay_uses_the_largest_r_keep_the_data_directory_has_used::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+---- side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again stdout ----
+
+thread 'side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again' (31214) panicked at tests/consensus.rs:755:44:
+assertion `left == right` failed
+  left: [48, 196, 175, 145, 205, 111, 100, 124, 193, 229, 199, 105, 227, 18, 149, 101, 187, 127, 152, 180, 95, 228, 182, 51, 20, 10, 175, 139, 44, 103, 20, 250]
+ right: [17, 2, 134, 220, 168, 225, 189, 244, 213, 245, 157, 213, 250, 64, 243, 154, 1, 21, 10, 96, 146, 13, 190, 165, 50, 186, 180, 44, 76, 173, 62, 194]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:452:17
+   3: core::panicking::assert_failed::<[u8; 32], [u8; 32]>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: consensus::side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again
+   5: consensus::side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again::{closure#0}
+             at ./tests/consensus.rs:747:90
+   6: <consensus::side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+
+failures:
+    a_session_branch_is_adopted_through_a_flood_of_competing_side_branches
+    r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond
+    replay_uses_the_largest_r_keep_the_data_directory_has_used
+    side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again
+
+test result: FAILED. 38 passed; 4 failed; 2 ignored; 0 measured; 0 filtered out; finished in 8.40s
+
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/src/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.64s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-e2e/release/deps/consensus-69c67b29f5fc4c9b)
+error: test failed, to rerun pass `--test consensus`

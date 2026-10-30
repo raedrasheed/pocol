@@ -1,0 +1,113 @@
+{
+  "sourceState": "D:\\PoCol\\PoCol_Dialogue_Windows_0.3.0 - _Update_0.3.1_Update_0.3.2_Update_0.3.3\\pocol-dialogue-windows-0.3.0\\runs\\2026-10-05T19-56-33-310Z-c99e58\\state.json",
+  "sourceStateSha256": "a211213a17f6e0224937fb939c1c111fbc4453415ba185fe5369696a4d651884",
+  "computedDesignVersion": "e8a19ecb306c7b955cddc75b050fdda95f9829c0e2b5cc06563cb27dba851aa0",
+  "recordedDesignVersion": "e8a19ecb306c7b955cddc75b050fdda95f9829c0e2b5cc06563cb27dba851aa0",
+  "normalApproval": "e8a19ecb306c7b955cddc75b050fdda95f9829c0e2b5cc06563cb27dba851aa0",
+  "finalApproval": {
+    "version": "e8a19ecb306c7b955cddc75b050fdda95f9829c0e2b5cc06563cb27dba851aa0",
+    "at": "2026-10-06T19:46:35.106Z"
+  },
+  "designHashMatches": true,
+  "sections": [
+    {
+      "id": "scope",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 6884
+    },
+    {
+      "id": "threat",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 19107
+    },
+    {
+      "id": "consensus",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 19500
+    },
+    {
+      "id": "incentives",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 10791
+    },
+    {
+      "id": "execution",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 9240
+    },
+    {
+      "id": "storage",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 7088
+    },
+    {
+      "id": "browser",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 82266
+    },
+    {
+      "id": "network",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 40254
+    },
+    {
+      "id": "economics",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 7921
+    },
+    {
+      "id": "governance",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 28491
+    },
+    {
+      "id": "validation",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 249733
+    },
+    {
+      "id": "implementation",
+      "matchingForms": [
+        "heading"
+      ],
+      "trimmedBodyMatches": false,
+      "sourceBytes": 51632
+    }
+  ],
+  "decisionsMatch": true,
+  "messageCount": 195,
+  "matchingIssues": []
+}

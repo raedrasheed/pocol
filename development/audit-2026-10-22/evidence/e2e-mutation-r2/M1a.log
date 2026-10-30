@@ -1,0 +1,7 @@
+== M1a 2026-10-23T17:47:37Z
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold/tests/e2e_devnet.py sha256=9d73605edf1898816da59c5417183be41fd718860836695585d5858fa82c1c15
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/bins/M1a/pocold sha256=c1b6d4c450a86d8e79eb6ede4a92b455f187d1db7d0c57879ee2fc67dacb59d3
+== pocol-sign sha256=1aa79f9db56db49a23bd72abbfb05e37eba6e48bcb11b37968fe16290e418f29
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/bins/M1a/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold)
+{"result": "FAIL", "error": "timeout waiting for a,b reach 15", "checks": [], "work": "/tmp/pocol-e2e-m7fillt3"}
+== summary {"label": "M1a", "exit": 1, "outcome": "FAIL", "first_fail": "timeout waiting for a,b reach 15", "elapsed_s": 121.4, "leftover_killed": [], "ports_busy_after": []}

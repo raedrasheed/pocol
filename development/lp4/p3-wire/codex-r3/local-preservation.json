@@ -1,0 +1,20 @@
+{
+  "archives": [
+    {
+      "path": "/workspace/work/lp4/p3-wire/preserved/r2-hosted-full.tar.gz",
+      "bytes": 2826627,
+      "sha256": "359a131580c29fc40dd3c26cfdee2f014ea8b2cf749618cedeb1ed3b4eeeac35",
+      "localOnly": true
+    },
+    {
+      "path": "/workspace/work/lp4/p3-wire/preserved/r3-full-inputs-receipts-logs.tar.gz",
+      "bytes": 5444086,
+      "sha256": "bfcccab3875f87e6018aeb0fcf00198714114500d5f52a4f25d655e40fd7136c",
+      "localOnly": true
+    }
+  ],
+  "completeInputsAndReceiptsPreserved": true,
+  "rawFixtureKeysExported": false,
+  "publicCertificate": "signed-negative-cases.jsonl contains all1173 identities, wire hashes and actual outcomes; no raw signing keys",
+  "toolBinaries": "retained in work folders with source/binary digests and reproducible build recipes; compiler incremental cache alone was removed after disk exhaustion"
+}

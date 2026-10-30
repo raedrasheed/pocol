@@ -1,0 +1,9 @@
+{
+  "path": "/workspace/work/lp4/p2-registry-full/preserved-evidence/r15-completed-evidence.tar.gz",
+  "bytes": 2724717,
+  "sha256": "aab5f02b6bf8ab1f0051fe5f66c2e0807ed48055f60f2a4d9b0e0671c75fe6fe",
+  "fileMembers": 237,
+  "scope": "Completed hosted artifacts/raw log and local scoped results only;7200sec full run remains RUNNING NOT PASSED",
+  "originalWorkPreserved": "/workspace/work/lp4/p2-registry-full",
+  "bootable": false
+}

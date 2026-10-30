@@ -1,0 +1,11 @@
+    Updating crates.io index
+     Locking 266 packages to highest compatible versions
+      Adding crypto-common v0.1.6 (available: v0.1.7)
+      Adding psm v0.1.24 (available: v0.1.32)
+      Adding revm v19.7.0 (available: v43.0.3)
+      Adding serde_json v1.0.145 (available: v1.0.154)
+      Adding serde_with v3.22.0 (available: v3.24.0)
+error: could not execute process `rustc -vV` (never executed)
+
+Caused by:
+  No such file or directory (os error 2)

@@ -1,0 +1,8 @@
+{
+  "name": "pocol-public-testnet-01",
+  "nodes": [
+    {"name": "seed-1", "ip": "REPLACE_WITH_SERVER_1_PUBLIC_IPV4", "p2pPort": 30300, "rpcPort": 8540, "rpcHost": "rpc1.your-domain.example", "minerAddress": "REPLACE_WITH_OPERATOR_1_PUBLIC_ADDRESS", "seeds": []},
+    {"name": "seed-2", "ip": "REPLACE_WITH_SERVER_2_PUBLIC_IPV4", "p2pPort": 30300, "rpcPort": 8540, "rpcHost": "rpc2.your-domain.example", "minerAddress": "REPLACE_WITH_OPERATOR_2_PUBLIC_ADDRESS", "seeds": []},
+    {"name": "seed-3", "ip": "REPLACE_WITH_SERVER_3_PUBLIC_IPV4", "p2pPort": 30300, "rpcPort": 8540, "rpcHost": "rpc3.your-domain.example", "minerAddress": "REPLACE_WITH_OPERATOR_3_PUBLIC_ADDRESS", "seeds": []}
+  ]
+}

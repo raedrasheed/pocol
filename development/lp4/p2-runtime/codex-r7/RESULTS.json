@@ -1,0 +1,35 @@
+{
+  "scope": "lower-bound write-set execution witnesses, NOT full Registry",
+  "approval": "LP4-REGISTRY-01 option1 in full",
+  "status": "NOT PASSED: acceptance contradiction under part8",
+  "bootable": false,
+  "originalCeilings": {
+    "register": 9,
+    "setRewardAddress": 1,
+    "claimBond": 9
+  },
+  "independentlyReproducedLowerBounds": {
+    "register": 10,
+    "setRewardAddress": 2,
+    "claimBond-middle": 10
+  },
+  "newCeilingsApproval": "NOT APPROVED",
+  "rustRegressionTests": 29,
+  "payComparisons": 44,
+  "lifetimeComparisons": 2,
+  "compiledBudgetOmissionControls": {
+    "buildsPassed": 3,
+    "assertionKilled": 3
+  },
+  "allObligations": "25 NOT PASSED",
+  "priorHeadHostedRun": 39055037623,
+  "priorHead": "f0fea8e42554f843e5987f3f739f66922fbe762e",
+  "priorHeadUpstreamGSTMatches": 20661,
+  "priorHeadWindows": {
+    "PASS": 16,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "newHeadCI": "PENDING publication and inspection",
+  "resourceFacts": "No full CP/profile/model-bound R18/R21 fact or upper bound is accepted"
+}

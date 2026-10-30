@@ -1,0 +1,14 @@
+# Claude author turn 026 - new 0.28, correct remaining retry policy claims
+
+Read REVIEW-0.27.md and its independent evidence. Write ONLY NEW m1-draft-0.28; preserve all older drafts, results, reviews, GUI, ledger and source. Normal file-tool permissions. No execution, shell, production implementation, deployment, transactions or owner decision. This is a narrow policy/status repair, not a duplicate 0.27 author job.
+
+Root verified prepared248pass72record0fail; malformed26pass; directSHA/retry18pass; hashes3677; Rust signatures31; nativeASERT1027. C32 crashes are closed at reference scope. P-C32-1/-3/-4 accepted qualified technical conventions. P-C32-2 rate cap remains UNAPPROVED OWNER CLIENT POLICY. V1-SHA-COST routed owner, recommendationA <=3355 with categories. Owner question pending; do not adopt anything or change source. All previous owner items stay unanswered.
+
+Correct the 0.27 claims in successor text:
+- [0,2000] rate cap is proposed, not an approved source interval. Do not claim all conforming honest servers satisfy it without proving the exact delay semantics. network.md gives20/s bucket but does not supply a literal rate-delay range/formula. Explain any derivation as conditional assumptions, not source facts.
+-6000ms bounds RETRY SLEEP only under that proposed cap; it does not bound response latency, worker computation, or total load. Do not claim it proves network.md:37410s. U14 per-request versus whole-load remains unresolved; do not select either implicitly.
+- Keep literal source <=13 SHA untouched/unresolved. P-V1-3 withdrawn; actual fullwindow3355 distinct cached/6721uncached verified. Owner routingA remains pending.
+
+Provide explicit owner change request P-C32-2 with alternatives and recommendation (e.g bounded defensive client cap vs source-derived/categorized delay vs defer), exact observable consequences and relationship to U14. Specify both U14 branches and literal timing counterexamples showing sleep-only vs elapsed time, with precise expected results, no fabricated browser tests. Any model of branch outcomes is explicitly conditional pending choices.
+
+No need to rerun the expensive unchanged cryptographic fixture builder. Bind saved0.27 results plus root independent evidence with actual hashes and preserve guards; demonstrate that reused v1_ref_027.py and vectors are byte-identical. A new small run_checks_028.py may validate new policy status, explicit routing, conditional timing arithmetic and carried-forward evidence. Do not execute it. A fresh reference module is unnecessary unless a substantive permitted defect remains. Do not claim M1 complete: seven rows remain ownerblocked;34 unaffected candidate rows have root reviewed evidence. Return concise changed files and precise remaining owner decisions. Update English normative text/status and plain Arabic owner packet.

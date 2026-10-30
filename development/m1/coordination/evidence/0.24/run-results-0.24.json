@@ -1,0 +1,1909 @@
+{
+  "package": "M1 draft 0.24 (C31 X8 evaluator integrity; supplemental per-path C7 plan; full 0.23 replay)",
+  "executedAtUtc": "2026-10-07T18:21:01+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "statusSchema": {
+    "coreStatus": [
+      "pass",
+      "recorded",
+      "FAIL"
+    ],
+    "diagnosticRenames": {
+      "name": "diagName",
+      "check": "diagCheck",
+      "status": "proposalStatus",
+      "ok": "diagOk",
+      "label": "diagLabel",
+      "condition": "diagCondition"
+    },
+    "partialGap": "recorded entries with partialGap=true"
+  },
+  "evidenceKind": "offline evaluator and static fixture analysis on synthetic data; no browser, no network",
+  "notExecuted": [
+    "Chrome/CDP X8 matrix",
+    "C7 per-path windows",
+    "CanarySink"
+  ],
+  "summary": {
+    "checks": 245,
+    "passed": 196,
+    "recorded": 49,
+    "failed": 0,
+    "partialGaps": 18,
+    "suite023Entries": 133,
+    "seconds": 1.6
+  },
+  "results": [
+    {
+      "exists": true,
+      "sha256": "251f2112482d50668743e30b5c632cd8b5eedae14a38f08933c8bf23b94b25a1",
+      "check": "input.sha256 coordination/task-022.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "47167d1afac9b20f8928b8bd6a9e1927f6afbba5ce62d86bcdd7bcd60e325efc",
+      "check": "input.sha256 coordination/review-001/REVIEW-0.23.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "9918b43650f77fab62651d6ea5897bd131861d7cbeeb610a33e4776b38beb2d6",
+      "check": "input.sha256 coordination/review-001/x8-independent-probes-0.23.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "b241e0cf459c160f79ae9ead9b341693022ab384609cea5adcacd3df7018e7ee",
+      "check": "input.sha256 coordination/review-001/x8-independent-probes-prepared.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "fccd5334ac5f03818212fdac9718e6c84b393081e16dd6fc3335be24bd39c048",
+      "check": "input.sha256 m1-draft-0.23/tools/x8_eval.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "5a4ec8c436ca1703994b575f1c336f4714e4d1526c66159d9937112978bd43a0",
+      "check": "input.sha256 m1-draft-0.23/tools/run_checks_023.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "d67261c4ae1fc990cf8468d73d7c12a0a40e8be5682df43350f6d379c69efc8a",
+      "check": "input.sha256 m1-draft-0.23/vectors/x8-config.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "af230e3fc8d2bdd5edbced8910ad8aadc19ae98462375a30b16c036abf28987e",
+      "check": "input.sha256 m1-draft-0.23/vectors/x8-synthetic-runs.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "8e8fc36e59d4cf0eb19cf82f24d86e17f7e49c5f6fccd8a8ae5182424227fb76",
+      "check": "input.sha256 m1-draft-0.24/tools/x8_eval_v2.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "db4eeb62c16bc912648ff828365aa32ce0d2fe6fbbaa30a98578f9a5f2000075",
+      "check": "input.sha256 m1-draft-0.24/tools/run_checks_024.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "ca6a78666b30f23e17722a57a75e40ff3013ae10dcf489d9081e1ea319ed4c0f",
+      "check": "input.sha256 m1-draft-0.24/vectors/c31-controls.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "73ae66665941c8b57a6629b1584786ba7deeb6cd9235d09c3450e744f26bfc64",
+      "check": "input.sha256 m1-draft-0.24/vectors/c7-path-plan.json",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.positionalOnly",
+      "status": "pass"
+    },
+    {
+      "attributeMainCallsAtLines": [],
+      "check": "boundary.noOldMainCalled",
+      "status": "pass"
+    },
+    {
+      "check": "C31.install.evaluatorInModuleGlobals",
+      "status": "pass"
+    },
+    {
+      "exists": true,
+      "sha256": "10f6a317f5860203fb53983a36b5a90f4ddad4e720976e8c3e34bb587e95b580",
+      "check": "suite023.input.sha256 coordination/task-021.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "27a440cd77c1b19819b2b87d34a710d8daa6c770bad3a30eb322382350bf1604",
+      "check": "suite023.input.sha256 coordination/review-001/REVIEW-0.22.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "c30c0fd430607651c3523155d8cd7a75aff553cea9e163691024be79708c5be4",
+      "check": "suite023.input.sha256 coordination/issue-ledger.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1",
+      "check": "suite023.input.sha256 reference/validation.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7",
+      "check": "suite023.input.sha256 reference/browser.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "7701f1c9fdc16e18dc5434f7a6eaa197a933b0c11b1262b5c78adf2f289df7f3",
+      "check": "suite023.input.sha256 reference/implementation.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b",
+      "check": "suite023.input.sha256 reference/governance.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "01d91aa42f61a0c71cd9f50572533d1945e552cb0da1e7959aeffceb06e1e959",
+      "check": "suite023.input.sha256 reference/decisions.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "d54b5aee37a052a053198c43a0278ae8561331f58e3f1148faa6ed4a194a480e",
+      "check": "suite023.input.sha256 reference/FINAL_DESIGN.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "d67261c4ae1fc990cf8468d73d7c12a0a40e8be5682df43350f6d379c69efc8a",
+      "check": "suite023.input.sha256 m1-draft-0.23/vectors/x8-config.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "af230e3fc8d2bdd5edbced8910ad8aadc19ae98462375a30b16c036abf28987e",
+      "check": "suite023.input.sha256 m1-draft-0.23/vectors/x8-synthetic-runs.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "fccd5334ac5f03818212fdac9718e6c84b393081e16dd6fc3335be24bd39c048",
+      "check": "suite023.input.sha256 m1-draft-0.23/tools/x8_eval.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "5a4ec8c436ca1703994b575f1c336f4714e4d1526c66159d9937112978bd43a0",
+      "check": "suite023.input.sha256 m1-draft-0.23/tools/run_checks_023.py",
+      "status": "recorded"
+    },
+    {
+      "check": "suite023.boundary.positionalOnly",
+      "status": "pass"
+    },
+    {
+      "attributeMainCallsAtLines": [],
+      "check": "suite023.boundary.noOldMainCalled",
+      "status": "pass"
+    },
+    {
+      "files": [
+        "pages/C1/index.html",
+        "pages/C1/main.js"
+      ],
+      "check": "suite023.asset.C1.present",
+      "status": "pass"
+    },
+    {
+      "refs": [
+        "main.js"
+      ],
+      "check": "suite023.asset.C1.htmlOnlyMainJs",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C1.tokens",
+      "status": "pass"
+    },
+    {
+      "extraSchemeSeparators": 0,
+      "check": "suite023.asset.C1.noOtherUrlLiteral",
+      "status": "pass"
+    },
+    {
+      "targets": [
+        "tcp/18080"
+      ],
+      "expected": "tcp/18080",
+      "check": "suite023.asset.C1.onlyOwnPort",
+      "status": "pass"
+    },
+    {
+      "declared": [
+        "C1.fetch",
+        "C1.xhr"
+      ],
+      "check": "suite023.asset.C1.attemptsDeclared",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C1.substitutionOnlyTokens",
+      "status": "pass"
+    },
+    {
+      "files": [
+        "pages/C2/index.html",
+        "pages/C2/main.js"
+      ],
+      "check": "suite023.asset.C2.present",
+      "status": "pass"
+    },
+    {
+      "refs": [
+        "main.js"
+      ],
+      "check": "suite023.asset.C2.htmlOnlyMainJs",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C2.tokens",
+      "status": "pass"
+    },
+    {
+      "extraSchemeSeparators": 0,
+      "check": "suite023.asset.C2.noOtherUrlLiteral",
+      "status": "pass"
+    },
+    {
+      "targets": [
+        "tcp/18080"
+      ],
+      "expected": "tcp/18080",
+      "check": "suite023.asset.C2.onlyOwnPort",
+      "status": "pass"
+    },
+    {
+      "declared": [
+        "C2.img",
+        "C2.link",
+        "C2.font",
+        "C2.import"
+      ],
+      "check": "suite023.asset.C2.attemptsDeclared",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C2.substitutionOnlyTokens",
+      "status": "pass"
+    },
+    {
+      "files": [
+        "pages/C3/index.html",
+        "pages/C3/main.js"
+      ],
+      "check": "suite023.asset.C3.present",
+      "status": "pass"
+    },
+    {
+      "refs": [
+        "main.js"
+      ],
+      "check": "suite023.asset.C3.htmlOnlyMainJs",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C3.tokens",
+      "status": "pass"
+    },
+    {
+      "extraSchemeSeparators": 0,
+      "check": "suite023.asset.C3.noOtherUrlLiteral",
+      "status": "pass"
+    },
+    {
+      "targets": [
+        "tcp/18080"
+      ],
+      "expected": "tcp/18080",
+      "check": "suite023.asset.C3.onlyOwnPort",
+      "status": "pass"
+    },
+    {
+      "declared": [
+        "C3.prefetch",
+        "C3.preconnect"
+      ],
+      "check": "suite023.asset.C3.attemptsDeclared",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C3.substitutionOnlyTokens",
+      "status": "pass"
+    },
+    {
+      "files": [
+        "pages/C4/index.html",
+        "pages/C4/main.js"
+      ],
+      "check": "suite023.asset.C4.present",
+      "status": "pass"
+    },
+    {
+      "refs": [
+        "main.js"
+      ],
+      "check": "suite023.asset.C4.htmlOnlyMainJs",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C4.tokens",
+      "status": "pass"
+    },
+    {
+      "extraSchemeSeparators": 0,
+      "check": "suite023.asset.C4.noOtherUrlLiteral",
+      "status": "pass"
+    },
+    {
+      "targets": [
+        "tcp/18443"
+      ],
+      "expected": "tcp/18443",
+      "check": "suite023.asset.C4.onlyOwnPort",
+      "status": "pass"
+    },
+    {
+      "declared": [
+        "C4.websocket"
+      ],
+      "check": "suite023.asset.C4.attemptsDeclared",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C4.substitutionOnlyTokens",
+      "status": "pass"
+    },
+    {
+      "files": [
+        "pages/C5/index.html",
+        "pages/C5/main.js"
+      ],
+      "check": "suite023.asset.C5.present",
+      "status": "pass"
+    },
+    {
+      "refs": [
+        "main.js"
+      ],
+      "check": "suite023.asset.C5.htmlOnlyMainJs",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C5.tokens",
+      "status": "pass"
+    },
+    {
+      "extraSchemeSeparators": 0,
+      "check": "suite023.asset.C5.noOtherUrlLiteral",
+      "status": "pass"
+    },
+    {
+      "targets": [
+        "udp/13478"
+      ],
+      "expected": "udp/13478",
+      "check": "suite023.asset.C5.onlyOwnPort",
+      "status": "pass"
+    },
+    {
+      "declared": [
+        "C5.stun"
+      ],
+      "check": "suite023.asset.C5.attemptsDeclared",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C5.substitutionOnlyTokens",
+      "status": "pass"
+    },
+    {
+      "files": [
+        "pages/C6/index.html",
+        "pages/C6/main.js"
+      ],
+      "check": "suite023.asset.C6.present",
+      "status": "pass"
+    },
+    {
+      "refs": [
+        "main.js"
+      ],
+      "check": "suite023.asset.C6.htmlOnlyMainJs",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C6.tokens",
+      "status": "pass"
+    },
+    {
+      "extraSchemeSeparators": 0,
+      "check": "suite023.asset.C6.noOtherUrlLiteral",
+      "status": "pass"
+    },
+    {
+      "targets": [
+        "tcp/13478"
+      ],
+      "expected": "tcp/13478",
+      "check": "suite023.asset.C6.onlyOwnPort",
+      "status": "pass"
+    },
+    {
+      "declared": [
+        "C6.turnTcp"
+      ],
+      "check": "suite023.asset.C6.attemptsDeclared",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C6.substitutionOnlyTokens",
+      "status": "pass"
+    },
+    {
+      "files": [
+        "pages/C7/index.html",
+        "pages/C7/main.js"
+      ],
+      "check": "suite023.asset.C7.present",
+      "status": "pass"
+    },
+    {
+      "refs": [
+        "main.js"
+      ],
+      "check": "suite023.asset.C7.htmlOnlyMainJs",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C7.tokens",
+      "status": "pass"
+    },
+    {
+      "extraSchemeSeparators": 0,
+      "check": "suite023.asset.C7.noOtherUrlLiteral",
+      "status": "pass"
+    },
+    {
+      "targets": [
+        "udp/13478"
+      ],
+      "expected": "udp/13478",
+      "check": "suite023.asset.C7.onlyOwnPort",
+      "status": "pass"
+    },
+    {
+      "declared": [
+        "C7.createElement",
+        "C7.innerHTML",
+        "C7.createElementNS",
+        "C7.templateImportNode",
+        "C7.documentWrite"
+      ],
+      "check": "suite023.asset.C7.attemptsDeclared",
+      "status": "pass"
+    },
+    {
+      "missing": [],
+      "check": "suite023.asset.C7.fivePaths",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C7.substitutionOnlyTokens",
+      "status": "pass"
+    },
+    {
+      "files": [
+        "pages/C8/index.html",
+        "pages/C8/main.js"
+      ],
+      "check": "suite023.asset.C8.present",
+      "status": "pass"
+    },
+    {
+      "refs": [
+        "main.js"
+      ],
+      "check": "suite023.asset.C8.htmlOnlyMainJs",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C8.tokens",
+      "status": "pass"
+    },
+    {
+      "extraSchemeSeparators": 0,
+      "check": "suite023.asset.C8.noOtherUrlLiteral",
+      "status": "pass"
+    },
+    {
+      "targets": [
+        "tcp/18080"
+      ],
+      "expected": "tcp/18080",
+      "check": "suite023.asset.C8.onlyOwnPort",
+      "status": "pass"
+    },
+    {
+      "declared": [
+        "C8.beacon",
+        "C8.form"
+      ],
+      "check": "suite023.asset.C8.attemptsDeclared",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.asset.C8.substitutionOnlyTokens",
+      "status": "pass"
+    },
+    {
+      "files": [
+        [
+          "pages/C1/index.html",
+          "12ac1f8f4632bb1b9bd691c1d1681b4ea0b9977db2b1832c93866c5efeb63beb"
+        ],
+        [
+          "pages/C1/main.js",
+          "c7f58189cec894d1bbc545d304afb7b1e5f5d9417e7f519ced40d48cf392b181"
+        ],
+        [
+          "pages/C2/index.html",
+          "227f7e53d982876a6ccaa9dab7796e48204ff92d92df30fd0fda42d5d547d970"
+        ],
+        [
+          "pages/C2/main.js",
+          "49e4a91fe31688437e0e5a967e2a15f69658a33f27da6c6f242dd4ae4bcd5501"
+        ],
+        [
+          "pages/C3/index.html",
+          "1a274ed6acb4d4c574304dbd8f8b81e289a691f52c6f1d6660497333b0b30ef2"
+        ],
+        [
+          "pages/C3/main.js",
+          "b0b84d5648f8e675c2ebec7bc8591c4e0321f83df2d35b1058ba4110208b292e"
+        ],
+        [
+          "pages/C4/index.html",
+          "0a251d8819c01e460b64cbf52ef717b9605f41c6f52442781793c2602e9a2372"
+        ],
+        [
+          "pages/C4/main.js",
+          "caa7d0311aeee3949532e54f65486ccd2ca3fa443192ef2311d348762107232d"
+        ],
+        [
+          "pages/C5/index.html",
+          "96ef6fbb7c4e5368d46ee77ce2af0df03933aa5d4fc4a6a220507baf0b02ba84"
+        ],
+        [
+          "pages/C5/main.js",
+          "9841eebc8f373176ad86d79ddd76945e83a15d68691e543d5fef59c958ba27bd"
+        ],
+        [
+          "pages/C6/index.html",
+          "0bef1f9242a25e0537fc898864b021c55555cd16a516d474ef966c1b1317e297"
+        ],
+        [
+          "pages/C6/main.js",
+          "f20fb29a6a60d126304bb9e72f1e23b4f4611662d7f3110c3c7436e7dd9cbbc0"
+        ],
+        [
+          "pages/C7/index.html",
+          "ce7dc9b4508c8aed89b06b9de8836ed52fb57f3f3a45e8e1f5e70af4bedc9d9c"
+        ],
+        [
+          "pages/C7/main.js",
+          "ea51e824d1f06934fd8408d6ad0918ad5b0b51bafff01ce469af48a0bc75e0a7"
+        ],
+        [
+          "pages/C8/index.html",
+          "9f4ba4adaa0955e15d70896e538eed6cf26bed44d60068866a5e304de5915a6a"
+        ],
+        [
+          "pages/C8/main.js",
+          "d6db934b6d718c4397f317f2916082d1af0f8cfb03c4801b4407e42ccd3fc88b"
+        ]
+      ],
+      "aggregateSha256": "4dc3a896cecbb2f64d7c172b340f40823f2050951eff9a222ea8955ac49d783a",
+      "note": "literal asset hashes for root to freeze",
+      "check": "suite023.asset.manifest",
+      "status": "recorded"
+    },
+    {
+      "count": 16,
+      "check": "suite023.asset.count",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        131,
+        131
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-X8.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/implementation.md",
+      "lines": [
+        361,
+        361
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-V4.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/implementation.md",
+      "lines": [
+        9,
+        9
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-canaryLocal.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        366,
+        366
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-csp.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        369,
+        382
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-loader.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        384,
+        390
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-layers.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/decisions.json",
+      "lines": [
+        313,
+        314
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-D63.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/governance.md",
+      "lines": [
+        204,
+        204
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-withdraw.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/FINAL_DESIGN.md",
+      "lines": [
+        6261,
+        6261
+      ],
+      "missingLiterals": [],
+      "check": "suite023.canonical.B-release.provenance",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.ports",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.channels",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.configurations",
+      "status": "pass"
+    },
+    {
+      "note": "K0-K2 zero reach, K3 informational, K4 control (required reach), K5 zero for C5-C7",
+      "check": "suite023.config.flagsMatchCanonical",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.layerSets",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.cspOnIsBaselineText",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.cspRelaxedOnlyAddsCanary",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.dnrBaselineFields",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.experimentIds",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.eventSchema",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.config.precisionBlocks",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.historical.privateRecordAvailable",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.historical.H44.indexRoundHash",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.historical.H34.indexRoundHash",
+      "status": "pass"
+    },
+    {
+      "missingFragments": [],
+      "check": "suite023.historical.H44.mappingTraceable",
+      "status": "pass"
+    },
+    {
+      "missingFragments": [],
+      "check": "suite023.historical.H34.mappingTraceable",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "suite023.historical.noPrivatePathOrTranscriptInPackage",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R1-allGood",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R2-K0leak",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R3-K4c7silent",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R4-selftestMissing",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R5-K0secondary",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R6-K3unexplained",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R7-K5c6reach",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R8-K4wrongPort",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R9-missingWindow",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R10-K0udp19000",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R11-K2leak",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R12-K5httpOnlyPass",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R13-K0dns",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "check": "suite023.eval.R14-invalidBeatsFail",
+      "status": "pass"
+    },
+    {
+      "imports": {},
+      "check": "suite023.boundary.noNetworkModules",
+      "status": "pass"
+    },
+    {
+      "partialGap": true,
+      "text": "Chrome/CDP experiments X8-SELFTEST, X8-<K>-<C> (48), X8-SEC-K0, X8-F1 are specified, not executed; no browser result is claimed.",
+      "check": "suite023.gap.V4-notExecuted",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "X8-full packet capture is historical (H34), deferred beyond M1, required before any public release.",
+      "check": "suite023.gap.V4-X8FULL",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "RtcLockdown argument unproven (B); X8 covers counted channels only; WebRTC exposure limits are declared, not proved.",
+      "check": "suite023.gap.V4-RtcLimits",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB1",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB2",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB3",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB4",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB5",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB6",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB7",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB8",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB9",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB10",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB11",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "precision block, see vectors/x8-config.json",
+      "check": "suite023.gap.PB12",
+      "status": "recorded"
+    },
+    {
+      "missing": [],
+      "required": 97,
+      "check": "suite023.coverage023.required",
+      "status": "pass"
+    },
+    {
+      "check": "suite023.coverage023.noStepAborted",
+      "status": "pass"
+    },
+    {
+      "before": {
+        "m1-draft-0.22/results/run-results-0.22.json": null,
+        "coordination/review-001/m1-draft-0.22/results/run-results-0.22.json": "38207274261e10399aca5a620fc494b12d6194e16ddd6a1efa3747704392bb2a",
+        "coordination/issue-ledger.json": "c30c0fd430607651c3523155d8cd7a75aff553cea9e163691024be79708c5be4",
+        "coordination/review-001/historical-x8-full-source-private.json": "bd672167a20d040f74061843818f9489c03017b5a780f75c3c7808655a85a01d"
+      },
+      "after": {
+        "m1-draft-0.22/results/run-results-0.22.json": null,
+        "coordination/review-001/m1-draft-0.22/results/run-results-0.22.json": "38207274261e10399aca5a620fc494b12d6194e16ddd6a1efa3747704392bb2a",
+        "coordination/issue-ledger.json": "c30c0fd430607651c3523155d8cd7a75aff553cea9e163691024be79708c5be4",
+        "coordination/review-001/historical-x8-full-source-private.json": "bd672167a20d040f74061843818f9489c03017b5a780f75c3c7808655a85a01d"
+      },
+      "check": "suite023.preserved.olderFilesUnchanged",
+      "status": "pass"
+    },
+    {
+      "now": "4dc3a896cecbb2f64d7c172b340f40823f2050951eff9a222ea8955ac49d783a",
+      "review": "4dc3a896cecbb2f64d7c172b340f40823f2050951eff9a222ea8955ac49d783a",
+      "check": "C31.assetsUnchangedVsReview",
+      "status": "pass"
+    },
+    {
+      "check": "C31.rootProbeRecord",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "duplicateWindow",
+          "where": "windows",
+          "K": "K0",
+          "C": "C1",
+          "indices": [
+            0,
+            48
+          ]
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.D1-dupAfter",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.D1-dupAfter",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "duplicateWindow",
+          "where": "windows",
+          "K": "K0",
+          "C": "C1",
+          "indices": [
+            0,
+            1
+          ]
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.D2-dupBefore",
+      "status": "pass"
+    },
+    {
+      "old": "FAIL",
+      "expectedOld": "FAIL",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.D2-dupBefore",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "duplicateWindow",
+          "where": "windows",
+          "K": "K2",
+          "C": "C3",
+          "indices": [
+            18,
+            48
+          ]
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.D3-dupBothClean",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.D3-dupBothClean",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "duplicateWindow",
+          "where": "windows",
+          "K": "K4",
+          "C": "C5",
+          "indices": [
+            36,
+            48
+          ]
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.D4-dupK4Control",
+      "status": "pass"
+    },
+    {
+      "old": "PENDING",
+      "expectedOld": "PENDING",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.D4-dupK4Control",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "duplicateWindow",
+          "where": "windows",
+          "K": "K5",
+          "C": "C6",
+          "indices": [
+            45,
+            46
+          ]
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.D5-dupK5Reversed",
+      "status": "pass"
+    },
+    {
+      "old": "FAIL",
+      "expectedOld": "FAIL",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.D5-dupK5Reversed",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "unknownK",
+          "where": "windows[48]",
+          "K": "K9"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.U1-unknownK",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.U1-unknownK",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "unknownC",
+          "where": "windows[48]",
+          "C": "C9"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.U2-unknownC",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.U2-unknownC",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "unknownK",
+          "where": "windows[48]",
+          "K": "k0"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.U3-lowercaseK",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.U3-lowercaseK",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "selftestUnknownK",
+          "where": "selftests",
+          "K": "K6"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.U4-selftestUnknownK",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.U4-selftestUnknownK",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "runNotObject",
+          "where": "run"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M1-runNotObject",
+      "status": "pass"
+    },
+    {
+      "old": "crash:AttributeError",
+      "expectedOld": "crash",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M1-runNotObject",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "runKeys",
+          "where": "run",
+          "missing": [],
+          "unknown": [
+            "extra"
+          ]
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M2-runUnknownKey",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M2-runUnknownKey",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "runKeys",
+          "where": "run",
+          "missing": [
+            "selftests"
+          ],
+          "unknown": []
+        },
+        {
+          "code": "selftestsNotObject",
+          "where": "selftests"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M3-noSelftests",
+      "status": "pass"
+    },
+    {
+      "old": "INVALID",
+      "expectedOld": "INVALID",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M3-noSelftests",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "windowsNotList",
+          "where": "windows"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M4-windowsNotList",
+      "status": "pass"
+    },
+    {
+      "old": "PENDING",
+      "expectedOld": "PENDING",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M4-windowsNotList",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "windowNotObject",
+          "where": "windows[48]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M5-windowNotObject",
+      "status": "pass"
+    },
+    {
+      "old": "crash:TypeError",
+      "expectedOld": "crash",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M5-windowNotObject",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "windowKeys",
+          "where": "windows[8]",
+          "missing": [
+            "events"
+          ],
+          "unknown": []
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M6-windowMissingEvents",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M6-windowMissingEvents",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "windowKeys",
+          "where": "windows[0]",
+          "missing": [
+            "secondary"
+          ],
+          "unknown": []
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M7-windowMissingSecondary",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M7-windowMissingSecondary",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventsNotList",
+          "where": "windows[9]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M8-eventsNotList",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M8-eventsNotList",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventNotObject",
+          "where": "windows[9].events[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M9-eventNotObjectGating",
+      "status": "pass"
+    },
+    {
+      "old": "FAIL",
+      "expectedOld": "FAIL",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M9-eventNotObjectGating",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventProto",
+          "where": "windows[24].events[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M10-protoUppercase",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M10-protoUppercase",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventPortType",
+          "where": "windows[0].events[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M11-portBool",
+      "status": "pass"
+    },
+    {
+      "old": "FAIL",
+      "expectedOld": "FAIL",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M11-portBool",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventPortType",
+          "where": "windows[0].events[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M12-portFloat",
+      "status": "pass"
+    },
+    {
+      "old": "FAIL",
+      "expectedOld": "FAIL",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M12-portFloat",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventPortType",
+          "where": "windows[32].events[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M13-portStringControl",
+      "status": "pass"
+    },
+    {
+      "old": "PENDING",
+      "expectedOld": "PENDING",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M13-portStringControl",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventPortUnknown",
+          "where": "windows[24].events[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M14-portUnknown",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M14-portUnknown",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "secondaryEntryNotObject",
+          "where": "windows[0].secondary[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M15-secondaryEntryNotObject",
+      "status": "pass"
+    },
+    {
+      "old": "FAIL",
+      "expectedOld": "FAIL",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M15-secondaryEntryNotObject",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "dnsNotList",
+          "where": "windows[8]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.M16-dnsNotList",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.M16-dnsNotList",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [],
+      "deterministic": true,
+      "check": "C31.new.S1-missingSensitivityBlock",
+      "status": "pass"
+    },
+    {
+      "old": "INVALID",
+      "expectedOld": "INVALID",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.S1-missingSensitivityBlock",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventPortType",
+          "where": "selftests.K0[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.S2-selftestPortBool",
+      "status": "pass"
+    },
+    {
+      "old": "INVALID",
+      "expectedOld": "INVALID",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.S2-selftestPortBool",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "eventPortType",
+          "where": "selftests.K1[0]"
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.S3-selftestPortFloat",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.S3-selftestPortFloat",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [],
+      "deterministic": true,
+      "check": "C31.new.V1-validBase",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.V1-validBase",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [],
+      "deterministic": true,
+      "check": "C31.new.V2-validExtraEventFields",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.V2-validExtraEventFields",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [],
+      "deterministic": true,
+      "check": "C31.new.V3-validFail",
+      "status": "pass"
+    },
+    {
+      "old": "FAIL",
+      "expectedOld": "FAIL",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.V3-validFail",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [],
+      "deterministic": true,
+      "check": "C31.new.V4-validPending",
+      "status": "pass"
+    },
+    {
+      "old": "PENDING",
+      "expectedOld": "PENDING",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.V4-validPending",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [],
+      "deterministic": true,
+      "check": "C31.new.V5-rootBase",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.V5-rootBase",
+      "status": "pass"
+    },
+    {
+      "mismatches": [],
+      "integrity": [
+        {
+          "code": "duplicateWindow",
+          "where": "windows",
+          "K": "K0",
+          "C": "C1",
+          "indices": [
+            0,
+            48
+          ]
+        }
+      ],
+      "deterministic": true,
+      "check": "C31.new.V6-rootDuplicate",
+      "status": "pass"
+    },
+    {
+      "old": "PASS",
+      "expectedOld": "PASS",
+      "note": "published 0.23 evaluator, recorded to show the defect",
+      "check": "C31.old.V6-rootDuplicate",
+      "status": "pass"
+    },
+    {
+      "failing": [],
+      "cases": 37,
+      "check": "C31.rootProbeReplica",
+      "status": "pass"
+    },
+    {
+      "failures": [],
+      "combinations": 54,
+      "check": "C31.duplicateSweepBothOrders",
+      "status": "pass"
+    },
+    {
+      "check": "C7plan.fivePaths",
+      "status": "pass"
+    },
+    {
+      "recs": [
+        [
+          "C7.createElement",
+          "udp/13478"
+        ]
+      ],
+      "ports": [
+        [
+          "stun",
+          "13478"
+        ]
+      ],
+      "check": "C7plan.page.P1",
+      "status": "pass"
+    },
+    {
+      "sha256": {
+        "pages-supplemental/C7-P1/index.html": "063d065263b17f5266fe1eed5fc96bae9965bcd8fc80960b9681e36c5501dbcf",
+        "pages-supplemental/C7-P1/main.js": "c3aae4507d3ee9131c725ebea297ff56ef06f0132d80be51f9d78b23a9d04341"
+      },
+      "check": "C7plan.asset.P1",
+      "status": "recorded"
+    },
+    {
+      "recs": [
+        [
+          "C7.innerHTML",
+          "udp/13478"
+        ]
+      ],
+      "ports": [
+        [
+          "stun",
+          "13478"
+        ]
+      ],
+      "check": "C7plan.page.P2",
+      "status": "pass"
+    },
+    {
+      "sha256": {
+        "pages-supplemental/C7-P2/index.html": "7ea0f15ee1baf2f1f91ff232b6b18e2ef194c770d02f3b53e4cf71b26da168b6",
+        "pages-supplemental/C7-P2/main.js": "751eb575893968e6071b418e8c5faa3476d7c3a60d3a298da882f74ec986ec32"
+      },
+      "check": "C7plan.asset.P2",
+      "status": "recorded"
+    },
+    {
+      "recs": [
+        [
+          "C7.createElementNS",
+          "udp/13478"
+        ]
+      ],
+      "ports": [
+        [
+          "stun",
+          "13478"
+        ]
+      ],
+      "check": "C7plan.page.P3",
+      "status": "pass"
+    },
+    {
+      "sha256": {
+        "pages-supplemental/C7-P3/index.html": "11308995a5f39288a74143b6e05f845270b4abb7074289ca0de5e5287a2c32d9",
+        "pages-supplemental/C7-P3/main.js": "e8c8dd063f7310c53a279df43779a073a99a029055a77893d73b6531c0683d66"
+      },
+      "check": "C7plan.asset.P3",
+      "status": "recorded"
+    },
+    {
+      "recs": [
+        [
+          "C7.templateImportNode",
+          "udp/13478"
+        ]
+      ],
+      "ports": [
+        [
+          "stun",
+          "13478"
+        ]
+      ],
+      "check": "C7plan.page.P4",
+      "status": "pass"
+    },
+    {
+      "sha256": {
+        "pages-supplemental/C7-P4/index.html": "bc4e86a207477f683e81f475f76302181241b354445b253af938d972b4daf1ae",
+        "pages-supplemental/C7-P4/main.js": "22564818245647dae727014d4ad60d0e70f24c44337e732dc23ff8b957b6ada4"
+      },
+      "check": "C7plan.asset.P4",
+      "status": "recorded"
+    },
+    {
+      "recs": [
+        [
+          "C7.documentWrite",
+          "udp/13478"
+        ]
+      ],
+      "ports": [
+        [
+          "stun",
+          "13478"
+        ]
+      ],
+      "check": "C7plan.page.P5",
+      "status": "pass"
+    },
+    {
+      "sha256": {
+        "pages-supplemental/C7-P5/index.html": "2aee076feb8e728aa08989efe1391325855501f17e617edae75fca33f108ca8d",
+        "pages-supplemental/C7-P5/main.js": "c426eb5cf82cf1219143735c649077d7789822c540866655a9be55f778139d29"
+      },
+      "check": "C7plan.asset.P5",
+      "status": "recorded"
+    },
+    {
+      "check": "C7plan.windows",
+      "status": "pass"
+    },
+    {
+      "check": "C7plan.positiveControlPerPath",
+      "status": "pass"
+    },
+    {
+      "check": "C7plan.zeroCriteria",
+      "status": "pass"
+    },
+    {
+      "check": "C7plan.attributionAndCleanup",
+      "status": "pass"
+    },
+    {
+      "check": "C7plan.pb6pb8StillOpen",
+      "status": "pass"
+    },
+    {
+      "imports": {},
+      "check": "boundary.noNetworkModules",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "boundary.noPrivatePathInPackage",
+      "status": "pass"
+    },
+    {
+      "partialGap": true,
+      "text": "document.write testability: per-path plan proposed; the source decision is still open",
+      "check": "gap.PB6",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "attribution schedule for path-less traffic: proposed; the source fixes none",
+      "check": "gap.PB8",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "the X8 matrix and the C7 per-path windows are specified, not executed; no browser result is claimed",
+      "check": "gap.V4-notExecuted",
+      "status": "recorded"
+    },
+    {
+      "missing": [],
+      "required": 99,
+      "check": "coverage024.required",
+      "status": "pass"
+    },
+    {
+      "entries": 133,
+      "check": "coverage024.suite023NoFail",
+      "status": "pass"
+    },
+    {
+      "check": "coverage024.noStepAborted",
+      "status": "pass"
+    },
+    {
+      "before": {
+        "m1-draft-0.23/results/run-results-0.23.json": null,
+        "coordination/review-001/m1-draft-0.23/results/run-results-0.23.json": "8e962dae8786b60c8c16accb82d08f1c775d94eada53562c8bb16afda4610e96",
+        "coordination/review-001/x8-independent-probes-0.23.json": "9918b43650f77fab62651d6ea5897bd131861d7cbeeb610a33e4776b38beb2d6",
+        "coordination/issue-ledger.json": "c30c0fd430607651c3523155d8cd7a75aff553cea9e163691024be79708c5be4",
+        "m1-draft-0.23/tools/x8_eval.py": "fccd5334ac5f03818212fdac9718e6c84b393081e16dd6fc3335be24bd39c048",
+        "m1-draft-0.23/vectors/x8-config.json": "d67261c4ae1fc990cf8468d73d7c12a0a40e8be5682df43350f6d379c69efc8a"
+      },
+      "after": {
+        "m1-draft-0.23/results/run-results-0.23.json": null,
+        "coordination/review-001/m1-draft-0.23/results/run-results-0.23.json": "8e962dae8786b60c8c16accb82d08f1c775d94eada53562c8bb16afda4610e96",
+        "coordination/review-001/x8-independent-probes-0.23.json": "9918b43650f77fab62651d6ea5897bd131861d7cbeeb610a33e4776b38beb2d6",
+        "coordination/issue-ledger.json": "c30c0fd430607651c3523155d8cd7a75aff553cea9e163691024be79708c5be4",
+        "m1-draft-0.23/tools/x8_eval.py": "fccd5334ac5f03818212fdac9718e6c84b393081e16dd6fc3335be24bd39c048",
+        "m1-draft-0.23/vectors/x8-config.json": "d67261c4ae1fc990cf8468d73d7c12a0a40e8be5682df43350f6d379c69efc8a"
+      },
+      "check": "preserved.olderFilesUnchanged",
+      "status": "pass"
+    }
+  ]
+}

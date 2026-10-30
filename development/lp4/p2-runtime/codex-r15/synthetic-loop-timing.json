@@ -1,0 +1,54 @@
+{
+  "scope": "SYNTHETIC scaled workload timing; original20661 acceptance NOT established",
+  "cases": [
+    {
+      "variant": 0,
+      "syntheticLoopCount": 1000,
+      "originalLoopCount": 10000000,
+      "wallSeconds": 0.19470751099993322,
+      "cpuSeconds": 0.07587538599999999,
+      "executionSuccess": true
+    },
+    {
+      "variant": 0,
+      "syntheticLoopCount": 10000,
+      "originalLoopCount": 10000000,
+      "wallSeconds": 1.695087613999931,
+      "cpuSeconds": 0.6892361429999999,
+      "executionSuccess": true
+    },
+    {
+      "variant": 1,
+      "syntheticLoopCount": 1000,
+      "originalLoopCount": 10000000,
+      "wallSeconds": 0.45369461499990393,
+      "cpuSeconds": 0.17585866000000006,
+      "executionSuccess": true
+    },
+    {
+      "variant": 1,
+      "syntheticLoopCount": 10000,
+      "originalLoopCount": 10000000,
+      "wallSeconds": 7.033059244000015,
+      "cpuSeconds": 4.451621873,
+      "executionSuccess": true
+    },
+    {
+      "variant": 2,
+      "syntheticLoopCount": 1000,
+      "originalLoopCount": 2000000,
+      "wallSeconds": 0.6462518639998507,
+      "cpuSeconds": 0.44403585199999984,
+      "executionSuccess": true
+    },
+    {
+      "variant": 2,
+      "syntheticLoopCount": 10000,
+      "originalLoopCount": 2000000,
+      "wallSeconds": 5.052449886999966,
+      "cpuSeconds": 3.8201776819999997,
+      "executionSuccess": true
+    }
+  ],
+  "bootable": false
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "pocol-m1-fetch-rule/2",
+  "specVersion": "M1 draft 0.7",
+  "revision": "R7-07 (B7: global-fetch alias gap closed by an enforceable criterion)",
+  "policy": "B (FD:L3264): no module calls fetch except HttpTransport. B (FD:L1218, FD:L3263, FD:L4943) import rules stay in dependency-cruiser, unchanged from m1-draft-0.4/annex/dependency-rules.json and m1-draft-0.5/annex/import-and-fetch-rules.json.",
+  "previousGap": "0.5 listed `const g = globalThis; g['fe'+'tch'](...)` as NOT flagged and called it a residual. A known bypass cannot pass the policy test; 0.7 replaces the rule with a criterion that has no such bypass.",
+  "criterion": {
+    "C1-static": "In every module except src/net/HttpTransport.ts (and a single declared bootstrap file, if any), no free reference to any of these global names: fetch, XMLHttpRequest, WebSocket, EventSource, Request, importScripts, navigator, globalThis, self, window, frames, parent, top, opener, Reflect, Function, eval. Because the global object can only be named through these identifiers, aliasing it requires a flagged reference: `const g = globalThis` is itself a violation.",
+    "C2-runtime-no-eval": "The remaining way to reach the global object without naming it is to construct code at runtime (for example ({}).constructor.constructor('return this')()). MV3 extension pages and the service worker run without 'unsafe-eval' (the default extension CSP), so Function and eval construction throws. Test: in the built extension, evaluate that expression from a non-HttpTransport module under TestHooks; it must throw EvalError.",
+    "C3-runtime-capture": "P (optional defence in depth): HttpTransport captures fetch at module evaluation and replaces globalThis.fetch with a throwing, non-configurable stub. Test: after startup, globalThis.fetch() from any other module throws, and HttpTransport still works.",
+    "sufficiency": "C1 removes every static path to a network global or to the global object; C2 removes every dynamic path to the global object; together they enforce the policy. C3 is not required for sufficiency."
+  },
+  "eslintText": "no-restricted-globals: ['error', 'fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'Request', 'importScripts', 'navigator', 'globalThis', 'self', 'window', 'frames', 'parent', 'top', 'opener', 'Reflect', 'Function', 'eval'] for files src/**/*.ts, ignoring src/net/HttpTransport.ts. no-restricted-globals reports every reference to a global variable that is not shadowed by a local binding (the free-reference test of C1).",
+  "fixtures": {
+    "status": "Expected verdicts for future CI (Phase D/A); not executed (no ESLint or dependency-cruiser install is permitted).",
+    "cases": [
+      {"source": "fetch('http://x/')", "expected": "violation (fetch)"},
+      {"source": "globalThis.fetch('http://x/')", "expected": "violation (globalThis)"},
+      {"source": "self['fetch']('http://x/')", "expected": "violation (self)"},
+      {"source": "const g = globalThis; g['fe' + 'tch']('http://x/')", "expected": "violation (globalThis): the 0.5 residual is now flagged"},
+      {"source": "Reflect.get(globalThis, 'fetch')('http://x/')", "expected": "violation (Reflect, globalThis)"},
+      {"source": "navigator.sendBeacon('http://x/', '')", "expected": "violation (navigator)"},
+      {"source": "({}).constructor.constructor('return this')().fetch('http://x/')", "expected": "no static violation; C2 runtime test: throws EvalError under the MV3 CSP"},
+      {"source": "function f(fetch) { return fetch('x') }", "expected": "no violation: fetch is a local parameter, not the global"},
+      {"source": "import { request } from '../net/HttpTransport'", "file": "src/content/ChunkFetcher.ts", "expected": "allowed (listed importer)"},
+      {"source": "fetch(url, init)", "file": "src/net/HttpTransport.ts", "expected": "allowed (ignored file)"}
+    ]
+  }
+}

@@ -1,0 +1,104 @@
+{
+ "alternatives": {
+  "a": "the encoded body RLP([txs, evidence]) <= BODY_MAX (recommended; the decode path already does this)",
+  "b": "the sum of transaction and evidence item bytes <= BODY_MAX",
+  "c": "item sum plus a fixed 1024 B margin"
+ },
+ "constants": {
+  "BODY_MAX": 196608
+ },
+ "recommended": "a",
+ "rule": "D-BODY-MAX",
+ "scenarios": [
+  {
+   "encodedLen": 196623,
+   "evidenceSizes": [],
+   "expected": {
+    "a": {
+     "valid": false
+    },
+    "b": {
+     "valid": true
+    },
+    "c": {
+     "valid": false
+    }
+   },
+   "id": "B1 three transactions of 65535 B",
+   "itemSum": 196605,
+   "txSizes": [
+    65535,
+    65535,
+    65535
+   ]
+  },
+  {
+   "encodedLen": 196017,
+   "evidenceSizes": [],
+   "expected": {
+    "a": {
+     "valid": true
+    },
+    "b": {
+     "valid": true
+    },
+    "c": {
+     "valid": false
+    }
+   },
+   "id": "B2 two transactions of 98000 B",
+   "itemSum": 196000,
+   "txSizes": [
+    98000,
+    98000
+   ]
+  },
+  {
+   "encodedLen": 139291,
+   "evidenceSizes": [
+    2048,
+    2048,
+    2048,
+    2048
+   ],
+   "expected": {
+    "a": {
+     "valid": true
+    },
+    "b": {
+     "valid": true
+    },
+    "c": {
+     "valid": true
+    }
+   },
+   "id": "B3 one transaction of 131072 B (TX_MAX) and evidence 4 x 2048 B",
+   "itemSum": 139264,
+   "txSizes": [
+    131072
+   ]
+  },
+  {
+   "encodedLen": 196614,
+   "evidenceSizes": [],
+   "expected": {
+    "a": {
+     "valid": false
+    },
+    "b": {
+     "valid": true
+    },
+    "c": {
+     "valid": false
+    }
+   },
+   "id": "B4 items summing to BODY_MAX - 12",
+   "itemSum": 196596,
+   "txSizes": [
+    65532,
+    65532,
+    65532
+   ]
+  }
+ ]
+}

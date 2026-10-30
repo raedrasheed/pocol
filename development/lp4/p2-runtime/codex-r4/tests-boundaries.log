@@ -1,0 +1,11 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)
+error[E0308]: mismatched types
+  --> tests/create_collision.rs:99:41
+   |
+99 |   evm.context.evm.journaled_state.depth=depth;
+   |   ------------------------------------- ^^^^^ expected `usize`, found `u64`
+   |   |
+   |   expected due to the type of this binding
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `pocol-lp4-execution` (test "create_collision") due to 1 previous error

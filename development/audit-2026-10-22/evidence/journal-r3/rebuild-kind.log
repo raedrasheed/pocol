@@ -1,0 +1,15 @@
+=== f-rebuild: jm_rebuild_by_kind JM_REBUILD_KINDS=empty,full_gas_transfers,full_gas_compute,bn_pair_2,kzg_point_eval,modexp_b8_e256_m8_even,modexp_b8_e1024_m8_even ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T00:58:05Z
+
+running 1 test
+test jm_rebuild_by_kind ... JM-REBUILD-KIND {"blocks":20,"kind":"empty","perBlockMillis":1.78732745,"reExecutions":20,"seconds":0.035746549}
+JM-REBUILD-KIND {"blocks":20,"kind":"full_gas_transfers","perBlockMillis":65.0034218,"reExecutions":20,"seconds":1.300068436}
+JM-REBUILD-KIND {"blocks":20,"kind":"full_gas_compute","perBlockMillis":7.18072305,"reExecutions":20,"seconds":0.143614461}
+JM-REBUILD-KIND {"blocks":20,"kind":"bn_pair_2","perBlockMillis":229.89279219999997,"reExecutions":20,"seconds":4.597855844}
+JM-REBUILD-KIND {"blocks":20,"kind":"kzg_point_eval","perBlockMillis":206.46679154999998,"reExecutions":20,"seconds":4.129335831}
+JM-REBUILD-KIND {"blocks":20,"kind":"modexp_b8_e256_m8_even","perBlockMillis":959.9115293000001,"reExecutions":20,"seconds":19.198230586}
+JM-REBUILD-KIND {"blocks":20,"kind":"modexp_b8_e1024_m8_even","perBlockMillis":1014.1323699999999,"reExecutions":20,"seconds":20.2826474}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 152.20s
+
+=== end 2026-10-24T01:00:37Z exit=0

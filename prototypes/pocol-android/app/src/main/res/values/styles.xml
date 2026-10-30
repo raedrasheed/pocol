@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="PoColTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#1AA9E4</item>
+        <item name="android:colorControlNormal">#A1B1C3</item>
+        <item name="android:colorControlActivated">#1AA9E4</item>
+        <item name="android:colorButtonNormal">#0C2233</item>
+        <item name="android:colorBackground">#060E18</item>
+        <item name="android:windowBackground">#060E18</item>
+        <item name="android:textColorPrimary">#F4F8FB</item>
+        <item name="android:textColorSecondary">#A1B1C3</item>
+        <item name="android:textColorHint">#A1B1C3</item>
+        <item name="android:statusBarColor">#060E18</item>
+        <item name="android:navigationBarColor">#060E18</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:alertDialogTheme">@style/PoColDialog</item>
+    </style>
+    <style name="PoColDialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#1AA9E4</item>
+        <item name="android:colorBackground">#0B1623</item>
+        <item name="android:windowBackground">#0B1623</item>
+        <item name="android:textColorPrimary">#F4F8FB</item>
+        <item name="android:textColorSecondary">#A1B1C3</item>
+        <item name="android:textColorHint">#A1B1C3</item>
+        <item name="android:colorControlActivated">#1AA9E4</item>
+        <item name="android:windowMinWidthMajor">90%</item>
+        <item name="android:windowMinWidthMinor">94%</item>
+    </style>
+</resources>

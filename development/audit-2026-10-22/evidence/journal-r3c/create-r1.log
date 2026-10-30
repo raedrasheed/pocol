@@ -1,0 +1,19 @@
+cmd: flock cpu.lock cargo test --release --locked --test journal_measure -- jm_create_state_term --exact --ignored --nocapture --test-threads=1  (HEAD 1d094de02045c1b232b3545f66a78d5a49c18cbe; dirty: )
+env: 
+start 2026-10-24T08:46:34Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.11s
+     Running tests/journal_measure.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-journal/release/deps/journal_measure-982c9e7c578ccd56)
+
+running 1 test
+test jm_create_state_term ... JM-CREATE {"buildSeconds":0.634240533,"coldCallChildMs":7.448742,"create2ChildMs":18.824954,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":67.72387044534413,"emptyChildMs":2.097158,"liveUserAccounts":5,"liveUserSlots":0,"manySmallCreateMs":39.881302,"manySmallCreateTxs":149,"manySmallPerCreateMicros":253.5848590604027,"stateAccountsAll":10}
+JM-CREATE {"buildSeconds":4.061335674,"coldCallChildMs":24.84909,"create2ChildMs":85.263305,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":268.1985222672065,"emptyChildMs":19.01827,"liveUserAccounts":2765,"liveUserSlots":0,"manySmallCreateMs":171.435796,"manySmallCreateTxs":149,"manySmallPerCreateMicros":1022.9364161073827,"stateAccountsAll":2770}
+JM-CREATE {"buildSeconds":11.03167254,"coldCallChildMs":43.060359,"create2ChildMs":171.58718100000002,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":551.5071336032388,"emptyChildMs":35.364919,"liveUserAccounts":5525,"liveUserSlots":0,"manySmallCreateMs":334.61409,"manySmallCreateTxs":149,"manySmallPerCreateMicros":2008.383697986577,"stateAccountsAll":5530}
+JM-CREATE {"buildSeconds":21.024747598,"coldCallChildMs":65.38282600000001,"create2ChildMs":260.311107,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":831.2542753036438,"emptyChildMs":54.991301,"liveUserAccounts":8055,"liveUserSlots":0,"manySmallCreateMs":483.04088299999995,"manySmallCreateTxs":149,"manySmallPerCreateMicros":2872.815986577181,"stateAccountsAll":8060}
+JM-CREATE {"buildSeconds":33.433626765,"coldCallChildMs":78.913708,"create2ChildMs":301.080148,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":957.8291214574899,"emptyChildMs":64.49635500000001,"liveUserAccounts":10815,"liveUserSlots":0,"manySmallCreateMs":619.271795,"manySmallCreateTxs":149,"manySmallPerCreateMicros":3723.325100671141,"stateAccountsAll":10820}
+JM-CREATE {"buildSeconds":49.255029488,"coldCallChildMs":98.43843700000001,"create2ChildMs":411.245253,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":1290.9432267206478,"emptyChildMs":92.382276,"liveUserAccounts":13345,"liveUserSlots":0,"manySmallCreateMs":729.0991489999999,"manySmallCreateTxs":149,"manySmallPerCreateMicros":4273.267604026845,"stateAccountsAll":13350}
+JM-CREATE {"buildSeconds":69.781843027,"coldCallChildMs":127.07054600000001,"create2ChildMs":527.0153349999999,"create2Creates":247,"create2GasUsed":7942040,"create2PerCreateMicros":1690.6354534412953,"emptyChildMs":109.42837800000001,"liveUserAccounts":15645,"liveUserSlots":0,"manySmallCreateMs":1033.021487,"manySmallCreateTxs":149,"manySmallPerCreateMicros":6198.611469798658,"stateAccountsAll":15650}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 69.89s
+
+end 2026-10-24T08:50:01Z exit=0

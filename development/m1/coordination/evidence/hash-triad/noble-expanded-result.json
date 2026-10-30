@@ -1,0 +1,6 @@
+{
+  "library": "@noble/hashes 1.7.1 (TypeScript library, shipped JS build)",
+  "node": "v22.13.1",
+  "checks": 611,
+  "failed": 0
+}

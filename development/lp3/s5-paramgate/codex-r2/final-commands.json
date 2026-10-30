@@ -1,0 +1,43 @@
+[
+  {
+    "name": "final-build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--offline",
+      "--locked"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0
+  },
+  {
+    "name": "final-probe-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "/workspace/Proof-of-Collaboration/development/lp3/s5-paramgate/codex-r2/probe.rs",
+      "--extern",
+      "lp1_node=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/liblp1_node.rlib",
+      "--extern",
+      "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+      "-L",
+      "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/debug/deps",
+      "-o",
+      "/workspace/work/lp3-s5-amended/final-probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0
+  },
+  {
+    "name": "final-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s5-paramgate/codex-r2/oracle.py",
+      "/workspace/work/lp3-s5-amended/final-probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0
+  }
+]

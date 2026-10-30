@@ -1,0 +1,19 @@
+# witnesses on ed25c7ef26f7b5cf8baafc939437c1b5c9e7bd0d (1 uncommitted paths)  2026-10-22T11:06:27Z
+# witness variant v2 (repaired API)
+WITNESS A01 NOT_REPRODUCED :: malformed copy -> Err(Envelope("15 body does not match the header roots")); legitimate body -> Ok(true)
+WITNESS A03 NOT_REPRODUCED :: block accepted; receipt status=[] logs=0 (LOG0 data 32769 B)
+WITNESS A04 NOT_REPRODUCED :: open failed closed: Corrupt(0)
+WITNESS A11 NOT_REPRODUCED :: submit={"id":1,"jsonrpc":"2.0","result":"0x8fbb8f3e7b520b14923ef141d11acc1fb19f25a92e9801918c9679 ; after reorg head h=2, pending nonce={"id":2,"jsonrpc":"2.0","result":"0x1"}
+WITNESS A02-R9 NOT_REPRODUCED :: S_max=1 admission -> -32018 ParamGate rejected [R9]
+WITNESS A02-R13 NOT_REPRODUCED :: H_CLOSE=H_END admission -> -32018 ParamGate rejected [R13]
+WITNESS A02-SYS_SLOT_MAX NOT_REPRODUCED :: SYS_SLOT_MAX=1 admission -> -32018 ParamGate rejected [R14, R18, R19]; timing: no measurement recorded (R14/R19); calibration h=1: Genesis("parent Capacity")
+WITNESS A06-conflict NOT_REPRODUCED :: conflict=true accounts={"code":4100,"message":"conflicting network profile is read-only"}
+WITNESS A06-sign-before-approval NOT_REPRODUCED :: confirmTx carries a signed raw transaction before the click: undefined… (fields: type,site,network,chainId,from,payload,signingHash,to,value,data,gas,nonce,maxFeePerGas,maxPriorityFeePerGas,maxCost)
+WITNESS A06-lock-and-endpoint-change NOT_REPRODUCED :: after endpoint genesis change + wallet.lock during confirmation: reply={"code":4100,"message":"wallet locked"} sendRaw=0 pocol_status calls=1
+WITNESS A07 NOT_REPRODUCED :: positive control accepted=true; invalid specs accepted: none
+WITNESS A08 NOT_REPRODUCED :: valid window ok=true; malformed stateRoot(31B)/logsBloom(empty)/gasLimit(list) window ok=false 1
+WITNESS A09 NOT_REPRODUCED :: three concurrent 8 MiB reservations: peak session reservation=8388608 (cap 10485760); results=fulfilled,rejected,rejected
+WITNESS A14 NOT_REPRODUCED :: request id=123 got jsonrpc=1.0 id=999 -> {"e":"recvParse"}
+WITNESS A12 NOT_REPRODUCED :: first write replied {"reason":"storeTimeout"} while unsettled (held=1); of 8 further writes 1 were refused by admission (limit 8 incl. the unsettled one)
+WITNESS A10 NOT_REPRODUCED :: singleton -> {'code': -32601, 'message': 'method not available to sites'}; batch member -> [{"error": {"code": -32601, "message": "method not available to sites"}, "id": 2, "jsonrpc": "2.0"}]
+WITNESS A05 NOT_REPRODUCED :: 48 P2P sockets without Hello still open after 12 s: 8; node threads 6 -> 38 after 64 idle RPC connections

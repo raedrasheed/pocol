@@ -1,0 +1,86 @@
+{
+  "node": "v22.13.1",
+  "basis": "AcceptedC19JSON.parse binary64value semantics; no specchange",
+  "rows": [
+    {
+      "lexeme": "1",
+      "valid": true,
+      "normalizedId": 1
+    },
+    {
+      "lexeme": "1.0",
+      "valid": true,
+      "normalizedId": 1
+    },
+    {
+      "lexeme": "1e0",
+      "valid": true,
+      "normalizedId": 1
+    },
+    {
+      "lexeme": "-0",
+      "valid": true,
+      "normalizedId": 0
+    },
+    {
+      "lexeme": "-0.0",
+      "valid": true,
+      "normalizedId": 0
+    },
+    {
+      "lexeme": "1e-400",
+      "valid": true,
+      "normalizedId": 0
+    },
+    {
+      "lexeme": "4294967295",
+      "valid": true,
+      "normalizedId": 4294967295
+    },
+    {
+      "lexeme": "4294967295.0000000001",
+      "valid": true,
+      "normalizedId": 4294967295
+    },
+    {
+      "lexeme": "4294967295.9999999999",
+      "valid": false,
+      "normalizedId": null
+    },
+    {
+      "lexeme": "4294967296",
+      "valid": false,
+      "normalizedId": null
+    },
+    {
+      "lexeme": "-1",
+      "valid": false,
+      "normalizedId": null
+    },
+    {
+      "lexeme": "2.5",
+      "valid": false,
+      "normalizedId": null
+    },
+    {
+      "lexeme": "true",
+      "valid": false,
+      "normalizedId": null
+    },
+    {
+      "lexeme": "\"2\"",
+      "valid": false,
+      "normalizedId": null
+    },
+    {
+      "lexeme": "null",
+      "valid": false,
+      "normalizedId": null
+    },
+    {
+      "lexeme": "1e400",
+      "valid": false,
+      "normalizedId": null
+    }
+  ]
+}

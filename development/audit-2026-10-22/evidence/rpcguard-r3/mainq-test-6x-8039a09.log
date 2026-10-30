@@ -1,0 +1,39 @@
+# queue_wait_bounds_the_wait_on_a_full_main_queue with its fix (clients 1 ms apart), run on the worktree just before the fix was committed unchanged as 8039a09 (tests/net.rs identical); src/ identical to 1530d7f.
+# 6 runs: cargo test --release --locked --offline --test net -- queue_wait_bounds_the_wait_on_a_full_main_queue (--exact --test-threads=1 --nocapture)
+## run 1 2026-10-23T22:29:33Z
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":452,"foundQueueFull":23,"queueWaitMs":113,"requests":150,"worstMs":128}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 2.60s
+
+## run 2 2026-10-23T22:30:59Z
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":473,"foundQueueFull":23,"queueWaitMs":118,"requests":150,"worstMs":134}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 2.66s
+
+## run 3 2026-10-23T22:31:41Z
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":424,"foundQueueFull":23,"queueWaitMs":106,"requests":150,"worstMs":121}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 2.59s
+
+## run 4 2026-10-23T22:32:24Z
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":488,"foundQueueFull":23,"queueWaitMs":122,"requests":150,"worstMs":134}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 2.81s
+
+## run 5 2026-10-23T22:33:07Z
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":513,"foundQueueFull":23,"queueWaitMs":128,"requests":150,"worstMs":144}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 2.67s
+
+## run 6 2026-10-23T22:33:54Z
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... MAINQ {"blakeMs":441,"foundQueueFull":23,"queueWaitMs":110,"requests":150,"worstMs":123}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 2.50s
+
+# done 2026-10-23T22:35:58Z

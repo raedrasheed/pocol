@@ -1,0 +1,2 @@
+go: downloading github.com/ethereum/go-ethereum v1.14.12
+go: github.com/ethereum/go-ethereum/cmd/evm@v1.14.12: github.com/ethereum/go-ethereum@v1.14.12: Get "https://storage.googleapis.com/proxy-golang-org-prod/1565e6edde9eadc8-github.com:ethereum:go-ethereum-v1.14.12.zip?[redacted-public-transport-query]": Forbidden

@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/Proof-of-Collaboration/development/lp4/p1-trie/codex-r1/oracle.py", line 14, in <module>
+    for x,y in json.loads((ROOT/'development/m1/m1-draft-0.21/vectors/v3-gsv1.json').read_text())['keccakVectors'].values():assert keccak(bytes.fromhex(x)).hex()==y
+        ^^^
+ValueError: too many values to unpack (expected 2)

@@ -1,0 +1,9 @@
+{
+  "cases": 16000,
+  "seed": "0x43463136",
+  "rustMismatches": 0,
+  "tsMismatches": 0,
+  "inputSha256": "765bd22189df581c8c17d20e5f2b316fe8d74f1bd1826557c094637de2fab3ac",
+  "oracleSha256": "54eb08a95dafb14d5a0ac1fa20b08c8ed663ba9ed078dc1197e4afc7256f0cae",
+  "scope": "newly approved pure core definitions; no execution certificate"
+}

@@ -1,0 +1,832 @@
+{
+ "run": 37976178670,
+ "commit": "4e26e4d3049731645ab1d85ccfb9972d29d63390",
+ "blockedRows": 16,
+ "distinctCases": [
+  "gsVersion262144Bytes",
+  "gsVersion2818466Bytes",
+  "gsv1Times100000",
+  "largeOneLine192MiB.limit256MiB",
+  "largeOneLine192MiB.limit64MiB",
+  "limitPlusOneThenMaxValid",
+  "maxDeepAndFlat",
+  "reservationFailure.limit8MiB"
+ ],
+ "note": "BLOCKED BY PLATFORM rows are not passes. Windows coverage below is heap-level or without a memory limit; OS memory-limit behaviour is evidenced on Linux only.",
+ "rows": [
+  {
+   "row": "lp3-genesis-cli: largeOneLine192MiB.limit256MiB",
+   "build": "debug",
+   "case": "largeOneLine192MiB.limit256MiB",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli-release-max: largeOneLine192MiB.limit256MiB",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-debug: oversizedLine256MiB",
+     "status": "PASS",
+     "peakHeapBytes": 8455441,
+     "boundBytes": 8520962
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 256,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 9504,
+     "seconds": 3.79
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 256,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 9156,
+     "seconds": 3.71
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), native Linux, EncodingWarning as error",
+     "status": "PASS",
+     "limitMiB": 256,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 9316,
+     "seconds": 4.1
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 1, 3.65 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli: largeOneLine192MiB.limit64MiB",
+   "build": "debug",
+   "case": "largeOneLine192MiB.limit64MiB",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli-release-max: largeOneLine192MiB.limit64MiB",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-debug: oversizedLine256MiB",
+     "status": "PASS",
+     "peakHeapBytes": 8455441,
+     "boundBytes": 8520962
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 9620,
+     "seconds": 3.81
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 9316,
+     "seconds": 3.74
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), native Linux, EncodingWarning as error",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 9284,
+     "seconds": 4.02
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 1, 3.74 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli: limitPlusOneThenMaxValid",
+   "build": "debug",
+   "case": "limitPlusOneThenMaxValid",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli-release-max: limitPlusOneThenMaxValid",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-debug: limitPlusOneThenMaxValid",
+     "status": "PASS",
+     "peakHeapBytes": 13895089,
+     "boundBytes": 14092374
+    },
+    {
+     "check": "lp3-genesis-cli: limitPlusOneThenMaxValid.noLimit",
+     "status": "PASS",
+     "exit": 1
+    },
+    {
+     "check": "lp3-genesis-diff ladder inputs ladder.maxValid, ladder.maxValidUnordered",
+     "status": "PASS",
+     "ladderCodes": {
+      "gsOrder": 1,
+      "gsStructure": 2,
+      "gsVersion": 12,
+      "ok": 1
+     }
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 17828,
+     "seconds": 0.58
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 17416,
+     "seconds": 0.79
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), native Linux, EncodingWarning as error",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 17420,
+     "seconds": 0.57
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 1, 0.53 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli: maxDeepAndFlat",
+   "build": "debug",
+   "case": "maxDeepAndFlat",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli-release-max: maxDeepAndFlat",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-debug: maxDeepNest",
+     "status": "PASS",
+     "peakHeapBytes": 16844034,
+     "boundBytes": 16910848
+    },
+    {
+     "check": "genesis-batch-alloc-debug: maxFlatList",
+     "status": "PASS",
+     "peakHeapBytes": 8455458,
+     "boundBytes": 8520962
+    },
+    {
+     "check": "lp3-genesis-diff ladder inputs ladder.maxDeep, ladder.maxFlat",
+     "status": "PASS",
+     "ladderCodes": {
+      "gsOrder": 1,
+      "gsStructure": 2,
+      "gsVersion": 12,
+      "ok": 1
+     }
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 17764,
+     "seconds": 0.65
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 17604,
+     "seconds": 0.59
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), native Linux, EncodingWarning as error",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 17664,
+     "seconds": 0.55
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 0, 0.72 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli: gsv1Times100000",
+   "build": "debug",
+   "case": "gsv1Times100000",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli-release-max: gsv1Times100000",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-debug: gsv1Times30000",
+     "status": "PASS",
+     "peakHeapBytes": 8455847,
+     "boundBytes": 8520962
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6824,
+     "seconds": 25.7
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6768,
+     "seconds": 24.86
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), native Linux, EncodingWarning as error",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6728,
+     "seconds": 25.61
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 0, 24.8 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli: gsVersion262144Bytes",
+   "build": "debug",
+   "case": "gsVersion262144Bytes",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli-release-max: gsVersion262144Bytes",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-debug: gsVersion256KiB",
+     "status": "PASS",
+     "peakHeapBytes": 10400962,
+     "boundBytes": 11142402
+    },
+    {
+     "check": "lp3-genesis-diff ladder inputs ladder.version262144.*",
+     "status": "PASS",
+     "ladderCodes": {
+      "gsOrder": 1,
+      "gsStructure": 2,
+      "gsVersion": 12,
+      "ok": 1
+     }
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 7328,
+     "seconds": 12.68
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6844,
+     "seconds": 11.22
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), native Linux, EncodingWarning as error",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6908,
+     "seconds": 11.94
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 0, 10.94 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli: reservationFailure.limit8MiB",
+   "build": "debug",
+   "case": "reservationFailure.limit8MiB",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli-release-max: reservationFailure.limit8MiB",
+   "windowsRanForSameInput": "nothing: no Windows check exercises a failed memory reservation",
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 8,
+     "exit": 2,
+     "signal": null,
+     "maxRssKiB": 6792,
+     "seconds": 0.03
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 8,
+     "exit": 2,
+     "signal": null,
+     "maxRssKiB": 6656,
+     "seconds": 0.02
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-strict-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), native Linux, EncodingWarning as error",
+     "status": "PASS",
+     "limitMiB": 8,
+     "exit": 2,
+     "signal": null,
+     "maxRssKiB": 6860,
+     "seconds": 0.03
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 2, 0.02 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli-release-max: largeOneLine192MiB.limit256MiB",
+   "build": "release-max",
+   "case": "largeOneLine192MiB.limit256MiB",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli: largeOneLine192MiB.limit256MiB",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-release-max: oversizedLine256MiB",
+     "status": "PASS",
+     "peakHeapBytes": 8455441,
+     "boundBytes": 8520962
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli-release-max.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 256,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 8172,
+     "seconds": 0.24
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 256,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 8060,
+     "seconds": 0.21
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 1, 0.21 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli-release-max: largeOneLine192MiB.limit64MiB",
+   "build": "release-max",
+   "case": "largeOneLine192MiB.limit64MiB",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli: largeOneLine192MiB.limit64MiB",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-release-max: oversizedLine256MiB",
+     "status": "PASS",
+     "peakHeapBytes": 8455441,
+     "boundBytes": 8520962
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli-release-max.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 8284,
+     "seconds": 0.23
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 8000,
+     "seconds": 0.21
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 1, 0.2 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli-release-max: limitPlusOneThenMaxValid",
+   "build": "release-max",
+   "case": "limitPlusOneThenMaxValid",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli: limitPlusOneThenMaxValid",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-release-max: limitPlusOneThenMaxValid",
+     "status": "PASS",
+     "peakHeapBytes": 13895089,
+     "boundBytes": 14092374
+    },
+    {
+     "check": "lp3-genesis-cli-release-max: limitPlusOneThenMaxValid.noLimit",
+     "status": "PASS",
+     "exit": 1
+    },
+    {
+     "check": "lp3-genesis-diff-release-max ladder inputs ladder.maxValid, ladder.maxValidUnordered",
+     "status": "PASS",
+     "ladderCodes": {
+      "gsOrder": 1,
+      "gsStructure": 2,
+      "gsVersion": 14,
+      "ok": 1
+     }
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli-release-max.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 16420,
+     "seconds": 0.06
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 1,
+     "signal": null,
+     "maxRssKiB": 16344,
+     "seconds": 0.05
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 1, 0.06 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli-release-max: maxDeepAndFlat",
+   "build": "release-max",
+   "case": "maxDeepAndFlat",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli: maxDeepAndFlat",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-release-max: maxDeepNest",
+     "status": "PASS",
+     "peakHeapBytes": 16844034,
+     "boundBytes": 16910848
+    },
+    {
+     "check": "genesis-batch-alloc-release-max: maxFlatList",
+     "status": "PASS",
+     "peakHeapBytes": 8455458,
+     "boundBytes": 8520962
+    },
+    {
+     "check": "lp3-genesis-diff-release-max ladder inputs ladder.maxDeep, ladder.maxFlat",
+     "status": "PASS",
+     "ladderCodes": {
+      "gsOrder": 1,
+      "gsStructure": 2,
+      "gsVersion": 14,
+      "ok": 1
+     }
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli-release-max.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 16488,
+     "seconds": 0.06
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 16320,
+     "seconds": 0.06
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 0, 0.07 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli-release-max: gsv1Times100000",
+   "build": "release-max",
+   "case": "gsv1Times100000",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli: gsv1Times100000",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-release-max: gsv1Times30000",
+     "status": "PASS",
+     "peakHeapBytes": 8455847,
+     "boundBytes": 8520962
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli-release-max.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6780,
+     "seconds": 0.67
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6852,
+     "seconds": 0.62
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 0, 0.5 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli-release-max: gsVersion262144Bytes",
+   "build": "release-max",
+   "case": "gsVersion262144Bytes",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli: gsVersion262144Bytes",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-release-max: gsVersion256KiB",
+     "status": "PASS",
+     "peakHeapBytes": 10400962,
+     "boundBytes": 11142402
+    },
+    {
+     "check": "lp3-genesis-diff-release-max ladder inputs ladder.version262144.*",
+     "status": "PASS",
+     "ladderCodes": {
+      "gsOrder": 1,
+      "gsStructure": 2,
+      "gsVersion": 14,
+      "ok": 1
+     }
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli-release-max.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6824,
+     "seconds": 0.49
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 6852,
+     "seconds": 0.42
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 0, 0.43 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli-release-max: gsVersion2818466Bytes",
+   "build": "release-max",
+   "case": "gsVersion2818466Bytes",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "only in the release-max run",
+   "windowsRanForSameInput": [
+    {
+     "check": "genesis-batch-alloc-release-max: gsVersionMax",
+     "status": "PASS",
+     "peakHeapBytes": 27562054,
+     "boundBytes": 36640166
+    },
+    {
+     "check": "lp3-genesis-diff-release-max ladder inputs ladder.version2818466.*",
+     "status": "PASS",
+     "ladderCodes": {
+      "gsOrder": 1,
+      "gsStructure": 2,
+      "gsVersion": 14,
+      "ok": 1
+     }
+    }
+   ],
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli-release-max.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 35536,
+     "seconds": 23.05
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 64,
+     "exit": 0,
+     "signal": null,
+     "maxRssKiB": 35716,
+     "seconds": 19.88
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 0, 20.46 s"
+    }
+   ]
+  },
+  {
+   "row": "lp3-genesis-cli-release-max: reservationFailure.limit8MiB",
+   "build": "release-max",
+   "case": "reservationFailure.limit8MiB",
+   "reason": "RLIMIT_AS / wait4 not available on Windows",
+   "kind": "per-case row",
+   "overlap": "same case also blocked as lp3-genesis-cli: reservationFailure.limit8MiB",
+   "windowsRanForSameInput": "nothing: no Windows check exercises a failed memory reservation",
+   "linuxEvidence": [
+    {
+     "file": "development/lp3/s1-genesisspec/author-r2/lp3-genesis-cli-release-max.json",
+     "ran": "round 2 (26ee0a4), native Linux",
+     "status": "PASS",
+     "limitMiB": 8,
+     "exit": 2,
+     "signal": null,
+     "maxRssKiB": 6740,
+     "seconds": 0.03
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/fixed/fixed-sim-max-lp3_genesis_cli.json",
+     "ran": "round 4 harness (086a3ea), Linux with simulated Windows text defaults",
+     "status": "PASS",
+     "limitMiB": 8,
+     "exit": 2,
+     "signal": null,
+     "maxRssKiB": 6876,
+     "seconds": 0.03
+    },
+    {
+     "file": "development/lp3/s1-genesisspec/author-r4-encoding-fix/linux-smoke-not-windows-evidence/results.json",
+     "ran": "CI script on Linux at 086a3ea",
+     "status": "PASS",
+     "detail": "exit 2, 0.03 s"
+    }
+   ]
+  },
+  {
+   "row": "RLIMIT_AS address-space limit checks",
+   "reason": "Windows has no RLIMIT_AS; bounded memory is covered here by genesis-batch-alloc (counting allocator)",
+   "kind": "summary row",
+   "overlap": "restates the other 15 per-case rows; no separate test"
+  }
+ ]
+}

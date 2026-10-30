@@ -1,0 +1,18 @@
+{
+  "specVersion": "M1 draft 0.7",
+  "revision": "R7-06",
+  "states": "@m1-draft-0.3/vectors/snapshot-mock-scenarios.json states, upgraded by snapshot_model_04.upgrade_03_states; plus U3 from m1-draft-0.6/vectors/snapshot-invariants.json",
+  "cases": [
+    {"id": "E-1a-honest-A", "response": {"from": "A"}, "request": {"kind": "default"}, "expected": {"result": "render", "manifestHash": "M_A1", "mixed": false}},
+    {"id": "E-1b-honest-B", "response": {"from": "B"}, "request": {"kind": "default"}, "expected": {"result": "render", "manifestHash": "M_B2", "mixed": false}},
+    {"id": "E-1c-A-B-A-single-call", "sequence": ["A", "B", "A"], "request": {"kind": "default"},
+     "expected": {"eachCallSingleState": true, "renderedHashes": ["M_A1", "M_B2", "M_A1"]},
+     "note": "whichever state the node is in when the single call executes, the tuple is that state's; there is no second read to mix with"},
+    {"id": "E-2-dishonest-rp-fabrication", "response": {"fabricated": {"slot2": {"versionCount": 1, "currentVersion": 1, "slot2HighBits": 0}, "selected": 1,
+                                                                        "record": {"status": 1, "manifestHash": "M_EVIL", "manifestLen": 79, "publishedBlock": 1, "chunkCount": 1, "word1HighBits": 0}}},
+     "request": {"kind": "default"}, "expected": {"result": "render", "manifestHash": "M_EVIL"},
+     "comparison": "under P20 a dishonest endpoint can only answer with forged proofs: m1-draft-0.3 SNAP-05 -> inconsistent, zero frames",
+     "meaning": "E accepts what it cannot verify: not equivalent in RP"},
+    {"id": "E-3-undefined-status", "response": {"from": "U3"}, "request": {"kind": "explicit", "version": 1}, "expected": {"result": "stateInvariant", "invariant": "state.statusDomain", "frames": 0}}
+  ]
+}

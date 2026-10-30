@@ -1,0 +1,16 @@
+{
+  "artifact_id": 12882523236,
+  "archive_sha256": "26bbc03f7abe36d2b89cd26e46bec5f8fb8efc9faec91a79a635ecf3bb8f1220",
+  "members": {
+    "evidence/browser.log": "518c235a5dc0f8ef5e09ffaff3cd167940a9488e53e48007fa390be61e350b82",
+    "evidence/build.log": "cf950cfe9df9fcde8955ab43bd2de0d357ddab9420b242da98c76b15c1ffc124",
+    "evidence/binary.sha256": "defb26211a25886b014764d027c2b8075368c7f40b0d7e490008391843cb28cf",
+    "evidence/commit.txt": "bdbcf40043646d7e9eeded5a1e42eabb09e708d1c14178015a0632ab8466c713",
+    "evidence/extension-unit.log": "aff5c9a2f34a8748c52b555f8b69be1fa14d1fffbc9a5ce3255b1f9a7644584e",
+    "evidence/integrated.log": "bcf62dd0c0ffb1da11851dc56a7e3591a87649572742aa61a9553661a43904e2",
+    "evidence/node-version.txt": "2266957ed9a639bd7264d714bfa798a961510bf2e50695c668ab8fc0c3f4e906",
+    "evidence/platform.txt": "a64b6d81308dc728b286592ae78f6594e185e6db8c474be3c8886f7694f38bb7",
+    "prototypes/pocol-extension/tests/e2e_browser.last.json": "62ad08719ff3521715c5da051796726c22e94de17a8aec3b596679ad16c16772",
+    "prototypes/pocol-extension/tests/e2e_integrated.last.json": "6279e41e42b72b5f67a90a0c9a48717e694530219934fe49fc8f71027a4f4bfe"
+  }
+}

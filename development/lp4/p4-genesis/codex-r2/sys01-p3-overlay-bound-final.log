@@ -1,0 +1,210 @@
+    Blocking waiting for file lock on build directory
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/work/lp4/p4-p3-regression-r2)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.88s
+     Running unittests src/lib.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/pocol_lp4_execution-165bb4871c28f076)
+
+running 43 tests
+test fixed::tests::byte_round_trip ... ok
+test decimal::tests::known_values ... ok
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test genesis::tests::cp_table_shape ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::schema_shape ... ok
+test hex::tests::round_trip ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test json::tests::accepts_and_rejects ... ok
+test json::tests::c19_native_oracle_rows ... ok
+test json::tests::integral_binary64_semantics ... ok
+test json::tests::depth_boundary ... ok
+test json::tests::quote_escapes_controls ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rpc_http::tests::bind_policy ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test system::tests::fresh_epochs_match_independent_compiled_witness_gas_and_root ... ok
+test system::tests::actual_registry_system_calls_pay_and_caller_authorization ... ok
+test system::tests::independent_pending_encoder_and_invalid_context ... ok
+test system::tests::allocation_is_minimum_of_30m_and_remaining_not_block_gaslimit ... ok
+test system::tests::later_revert_or_log_invalidates_all_candidate_effects ... ok
+test system::tests::system_origin_and_caller_do_not_create_origin_or_system_accounts ... ok
+test system::tests::independent_execution_report ... ok
+test tests::chain_id_opcode_and_invalid_chain ... ok
+test tests::delegated_and_static_pay_calls_are_guarded ... ok
+test tests::direct_pay_is_not_accepted_as_empty_account_success ... ok
+test tests::exact_store_gas_boundary ... ok
+test tests::nested_pay_is_guarded_even_when_call_result_is_ignored ... ok
+test tests::out_of_gas_discards_storage_diff ... ok
+test tests::revert_discards_storage_diff ... ok
+test tests::sstore_is_a_diff_and_snapshot_is_immutable ... ok
+test system::tests::user_origin_nonce_and_fees_remain_normal ... ok
+test system::tests::raw_budget_exact_minus_one_remaining_zero_and_refund_no_credit ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running unittests src/bin/cancun_control.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/cancun_control-b7b6f3dd7813aeaa)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/code_caps_control.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/code_caps_control-952b222623474986)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/signed_rejection_control.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/signed_rejection_control-350d62e1ec632470)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/code_caps.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/code_caps-87c172773a40ec6b)
+
+running 4 tests
+test inventory_charges_shared_code_per_address_and_system_accounts_without_physical_dedup ... ok
+test missing_or_mismatched_code_and_below_r9_profile_never_execute ... ok
+test profile_code_rule_keeps_compiled_registry_escrow_pay_results_and_rollback_identical ... ok
+test independent_signed_top_and_compiled_nested_code_limits_roots_gas_receipts_and_rollback ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.86s
+
+     Running tests/create_collision.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/create_collision-b1ba8c38746ab272)
+
+running 10 tests
+test depth_and_internal_nonce_limit_precede_storage_collision ... ok
+test complete_storage_overlay_and_rollback_facts ... ok
+test collision_preserves_target_warmth ... ok
+test funding_failure_precedes_collision_nonce_and_warmth ... ok
+test existing_nonce_and_code_collision_remain_enforced ... ok
+test storage_collision_precedes_destination_balance_overflow ... ok
+test top_level_creation_collides_and_preserves_snapshot ... ok
+test create_and_create2_block_unloaded_nonzero_and_allow_zero ... ok
+test reverted_init_code_restores_destination_but_consumes_factory_nonce ... ok
+test outer_revert_restores_factory_nonce_and_destination ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/fees.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/fees-37a8d30a2e7a945a)
+
+running 3 tests
+test fee_cap_priority_and_equality ... ok
+test london_fixed_boundaries_and_wide_intermediate ... ok
+test independent_bigint_london_vectors ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/native_context.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/native_context-05cac5b3ab5564eb)
+
+running 3 tests
+test explicit_base_fee_gas_limit_and_chain_rejections_do_not_mutate ... ok
+test explicit_fields_execute_and_snapshot_is_immutable ... ok
+test blockhash_exact_256_window_genesis_and_current_boundaries ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/pay_boundary.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/pay_boundary-dcd815bea4c6a450)
+
+running 10 tests
+test both_roles_transfer_no_callback_and_no_snapshot_commit ... ok
+test delegated_foreign_code_cannot_spend_registry_balance ... ok
+test inherited_static_call_cannot_write_balances ... ok
+test maximum_nonce_rejected_before_execution ... ok
+test nested_revert_restores_both_balances ... ok
+test pay02_existing_code_survives_selfdestruct_and_stays_payable_next_transaction ... ok
+test recipients_overflow_and_encoding_reject_without_effects ... ok
+test pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero ... ok
+test funding_zero_self_and_exact_boundaries ... ok
+test auth_modes_value_and_direct_reject ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/pool.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/pool-4a8e7afe7b7fe06f)
+
+running 3 tests
+test network_identity_drives_both_signature_domain_and_actual_chainid_opcode ... ok
+test source_identity_hash_and_changed_profile_cannot_reuse_admission ... ok
+test actual_admission_identity_size_capacity_and_reorg_recheck ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/profile_execution.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/profile_execution-c2c69b65148e5483)
+
+running 1 test
+test nine_profile_signed_executions_match_independent_full_roots_receipts_and_gas ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/receipts.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/receipts-d344c28c46835289)
+
+running 2 tests
+test empty_root_and_budget_and_supported_types ... ok
+test independent_bloom_and_indexed_root ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/registry_payment.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/registry_payment-7cd49e0ee2c5129d)
+
+running 11 tests
+test bridge_authorization_and_missing_refund_destination_roll_back_all_effects ... ok
+test budgets_exact_limits_failed_calls_and_phase_replay_cannot_reset ... ok
+test prefix_precedence_budgets_and_durable_probe_fail_without_state_commit ... ok
+test closing_ret_counts_all_records_and_never_pays_twice ... ok
+test full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow ... ok
+test strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic ... ok
+test reactivation_inactivity_and_closing_refunds_actual_record_amounts ... ok
+test actual_sweep_scan_and_deletion_caps_preserve_swapped_cursor ... ok
+test zero_bond_durable_code_only_and_balance_only_admission ... ok
+test timestamp_closing_height_overflow_and_capacity_boundaries ... ok
+test zero_delay_and_tomb_cleanup_equality_preserve_unchanged_limits ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/reward_durability.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/reward_durability-2e3ec5839f999f6f)
+
+running 1 test
+test pay02_rejects_both_ephemeral_reward_attacks ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rpc_pool.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/rpc_pool-a8a2136d8857a3bc)
+
+running 2 tests
+test actual_rpc_handler_rejects_chain_type_unprotected_and_keeps_pool_and_snapshot ... ok
+test real_loopback_http_submission_delivers_ci2_error_without_state_or_pool_write ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/user_phase.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/user_phase-d9c712c6a7299b13)
+
+running 3 tests
+test sequential_signed_execution_refund_revert_and_commitments ... ok
+test wrong_commitments_and_late_invalid_transaction_leave_snapshot_unchanged ... ok
+test late_wrong_chain_type_and_unprotected_are_not_included ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/wire.rs (/workspace/Proof-of-Collaboration/prototypes/lp4-execution/target/debug/deps/wire-dfab430a7fec8166)
+
+running 3 tests
+test specified_chain_type_pool_mapping_is_not_block_acceptance ... ok
+test signed_envelopes_match_independent_oracle ... ok
+test byte_budget_equality_and_minus_one ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests pocol_lp4_execution
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

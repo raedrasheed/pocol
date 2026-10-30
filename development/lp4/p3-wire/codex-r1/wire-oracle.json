@@ -1,0 +1,168 @@
+{
+  "scope": "Actual signed synthetic transactions; full P3 NOT PASSED",
+  "cases": [
+    {
+      "name": "type0-variant0",
+      "comparison": "MATCH",
+      "stateRoot": "0xfc245d3feb08732face100bd80484755f59664a649e116d959e814744236dadb",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 8835800
+    },
+    {
+      "name": "type0-variant1",
+      "comparison": "MATCH",
+      "stateRoot": "0x6316c45d95c362b0367e8953ac7891df37a7461abab09b4c2e9f6f9f499d3704",
+      "logHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 88401,
+      "baseFeeBurn": 8840100,
+      "escrowTip": 8840100
+    },
+    {
+      "name": "type0-variant2",
+      "comparison": "MATCH",
+      "stateRoot": "0xd7bb6b099b827f50332ce6cc3cb3c4befb36eb032c88c696e0079cc03ba29b9c",
+      "logHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 53054,
+      "baseFeeBurn": 5305400,
+      "escrowTip": 5305400
+    },
+    {
+      "name": "type0-variant3",
+      "comparison": "MATCH",
+      "stateRoot": "0xfc245d3feb08732face100bd80484755f59664a649e116d959e814744236dadb",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 8835800
+    },
+    {
+      "name": "low-s-equal-0",
+      "comparison": "MATCH",
+      "stateRoot": "0x7e89daec5bd2b3dc21dc409590dfbb3778c9aa5c6f5224c186446681153e859a",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 8835800
+    },
+    {
+      "name": "low-s-minus1-0",
+      "comparison": "MATCH",
+      "stateRoot": "0x930013b552b8e1df89e70279de5f3b8792923b2d54b15e727b84f8254bbaf293",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 8835800
+    },
+    {
+      "name": "type1-variant0",
+      "comparison": "MATCH",
+      "stateRoot": "0xfc245d3feb08732face100bd80484755f59664a649e116d959e814744236dadb",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 8835800
+    },
+    {
+      "name": "type1-variant1",
+      "comparison": "MATCH",
+      "stateRoot": "0x6316c45d95c362b0367e8953ac7891df37a7461abab09b4c2e9f6f9f499d3704",
+      "logHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 88401,
+      "baseFeeBurn": 8840100,
+      "escrowTip": 8840100
+    },
+    {
+      "name": "type1-variant2",
+      "comparison": "MATCH",
+      "stateRoot": "0xd7bb6b099b827f50332ce6cc3cb3c4befb36eb032c88c696e0079cc03ba29b9c",
+      "logHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 53054,
+      "baseFeeBurn": 5305400,
+      "escrowTip": 5305400
+    },
+    {
+      "name": "type1-variant3",
+      "comparison": "MATCH",
+      "stateRoot": "0xd5ac4e1f04b99b72d8f414af92254668e9f2cf63dfabb98f143c907d9d9e0349",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 96758,
+      "baseFeeBurn": 9675800,
+      "escrowTip": 9675800
+    },
+    {
+      "name": "low-s-equal-1",
+      "comparison": "MATCH",
+      "stateRoot": "0xd2bd1c89b5e0b7b0599ca9e203c76517461798433e92f5b501c0c53444fa8fde",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 8835800
+    },
+    {
+      "name": "low-s-minus1-1",
+      "comparison": "MATCH",
+      "stateRoot": "0xae45d4171c0610dfea0cacc528496045d60cc1a8a9a81dbab2f296aa2362fa87",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 8835800
+    },
+    {
+      "name": "type2-variant0",
+      "comparison": "MATCH",
+      "stateRoot": "0xef5f874337233719918ff34dc3a711210ed4dbbd0ab9dcfa2d220cd9c192814a",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 883580
+    },
+    {
+      "name": "type2-variant1",
+      "comparison": "MATCH",
+      "stateRoot": "0x0dee9559c7d58201e2bfecec24b2f7f4b77c229877e1337cdc2ebb2ad084eb35",
+      "logHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 88401,
+      "baseFeeBurn": 8840100,
+      "escrowTip": 884010
+    },
+    {
+      "name": "type2-variant2",
+      "comparison": "MATCH",
+      "stateRoot": "0x320e61b5db0b661c9986772ec25316e2e06f5aebbe79ef4d678ae1dd4d82bea3",
+      "logHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "gasUsed": 53054,
+      "baseFeeBurn": 5305400,
+      "escrowTip": 530540
+    },
+    {
+      "name": "type2-variant3",
+      "comparison": "MATCH",
+      "stateRoot": "0xe10b0b821ea448c291c366466691791db9040f3edf5815500800e78bdd79c43c",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 96758,
+      "baseFeeBurn": 9675800,
+      "escrowTip": 967580
+    },
+    {
+      "name": "low-s-equal-2",
+      "comparison": "MATCH",
+      "stateRoot": "0xae8e42ee0fadb5f7a9961624413b9a62e890dea3c53859af731b67b86295fb21",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 883580
+    },
+    {
+      "name": "low-s-minus1-2",
+      "comparison": "MATCH",
+      "stateRoot": "0xffbd7f492225d15a7c32390301b4933c474f1922d08b71fb1ccfb9b830917fda",
+      "logHash": "0x5710e506078bff5be5ac8efd4a993a5210d011c591365fce2993bb09791b02f5",
+      "gasUsed": 88358,
+      "baseFeeBurn": 8835800,
+      "escrowTip": 883580
+    }
+  ],
+  "bootable": false
+}

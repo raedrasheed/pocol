@@ -1,0 +1,50 @@
+# C-1 E3 mutation controls (each mutant on a fresh copy of the E3 tree with new file times, own target dir).
+# Tests, in order; a mutant stops at its first failing stage, the base runs every stage: lp4 --lib (with
+# lp4's reference comparison of every block); pocold --lib; pocold consensus e1_ s3a_every pool e2_ (also
+# matches e3_pending_answers_are_the_pool_layer and other names containing these); pocold caps; pocold net.
+# Runners are kept out of the repository; only this log is committed.
+# E3M1 a cleared account's unwritten slot reads the parent's value: lp4-execution/src/view.rs: replace 'if let Some(v)=x.storage.get(k){return *v}if self.cleared.contains(a){return U256::ZERO}}' with 'if let Some(v)=x.storage.get(k){return *v}}'
+# E3M2 a deleted account reads as present: lp4-execution/src/view.rs: replace 'Some(x)=>(!self.deleted.contains(a)).then_some(' with 'Some(x)=>Some('
+# E3M3 a cleared account lists the parent's slots: lp4-execution/src/view.rs: replace 'if !self.cleared.contains(a){if let Some(b)=base.accounts.get(a)' with 'if true{if let Some(b)=base.accounts.get(a)'
+# E3M4 a write after a deletion keeps the deleted entry: lp4-execution/src/view.rs: replace '*e=DbAccount::default();l.retain.remove(&a);return e}' with 'l.retain.remove(&a);return e}'
+# E3M5 a cleared account is not touched whole: lp4-execution/src/view.rs: replace 'if self.l.cleared.contains(a)||was!=is{t.whole_account(*a);continue}' with 'if was!=is{t.whole_account(*a);continue}'
+# E3M6 merge keeps zero slots: lp4-execution/src/view.rs: replace 'if l.retain.contains(a){e.storage.retain(' with 'if false&&l.retain.contains(a){e.storage.retain('
+# E3M7 a self-destruct does not clear the parent's storage: lp4-execution/src/view.rs: replace 'e.info=AccountInfo::default();self.l.cleared.insert(address);continue;' with 'e.info=AccountInfo::default();continue;'
+# E3M8 a created account's unchanged slots are dropped: lp4-execution/src/view.rs: replace 'filter(|(_,v)|created||v.is_changed())' with 'filter(|(_,v)|v.is_changed())'
+# E3M9 new code is not recorded in the layer: lp4-execution/src/view.rs: replace 'if !self.base.contracts.contains_key(&info.code_hash){self.l.top.contracts' with 'if false{self.l.top.contracts'
+# E3M10 a set BLOCKHASH window is ignored: lp4-execution/src/view.rs: replace 'if self.hashes_set{self.top.block_hashes' with 'if false{self.top.block_hashes'
+# E3M11 normalization does not delete a removed account: lp4-execution/src/view.rs: replace 'if self.l.top.accounts.contains_key(a){self.l.deleted.insert(*a);self.l.cleared.insert(*a);}' with 'if self.l.top.accounts.contains_key(a){self.l.cleared.insert(*a);}'
+# E3M12 a block's write set is empty: lp4-execution/src/apply.rs: replace 'let t=r.state.touched();let m=r.state.merge();' with 'let t=crate::state_trie::Touched::default();let m=r.state.merge();'
+# E3M13 the diff from the write set misses removed slots: pocold/src/statediff.rs: replace '                    slots.extend(p.storage.iter().filter(|(k,_)|!c.storage.contains_key(*k)).map(|(k,v)|(*k,Some(*v),None)));\n                    if !same_meta(p,c)' with '                    if !same_meta(p,c)'
+# E3M14 the pool's layer is not reset on a new head: pocold/src/node.rs: replace 'self.pool.gas=0;self.pool.pending=Default::default();self.pool.pending_base=' with 'self.pool.gas=0;self.pool.pending_base='
+# E3M15 the pool's base stays the previous head: pocold/src/node.rs: replace 'self.pool.pending=Default::default();self.pool.pending_base=self.chain.head().state.clone();' with 'self.pool.pending=Default::default();'
+# E3M16 an admitted transaction's writes are not kept in the pool's layer: pocold/src/node.rs: replace 'self.pool.pending=ov.into_layer();' with 'let _=ov.into_layer();'
+# E3M17 RPC pending reads the head: pocold/src/rpc.rs: replace 'if tag.as_str()==Some("pending"){return Ok(TagState::Pending(n.pool_view()))}' with ''
+# E3M18 eth_call does not fund the caller's value: pocold/src/rpc.rs: replace 'if let Some(a)=st.info_mut(&tx.caller){a.balance=a.balance.max(tx.value);}' with 'let _=&mut st;'
+# E3M19 template selection runs on a copy of nothing (no overlay sim): pocold/src/node.rs: replace 'let mut sim=if p.pruned||!p.full{None}else{' with 'let mut sim=if true{None}else{'
+## pass 1 (tree: E3 code with the new pocold test e3_pending_answers_are_the_pool_layer)
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "E3M1 a cleared account's unwritten slot reads the parent's value", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M2 a deleted account reads as present", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M3 a cleared account lists the parent's slots", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M4 a write after a deletion keeps the deleted entry", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M5 a cleared account is not touched whole", "status": "PASS", "failed": []}
+{"mutant": "E3M6 merge keeps zero slots", "status": "KILLED", "failed": ["apply::tests::e2_blocks_with_trie_and_summary_equal_the_reference", "apply::tests::e2_code_cap_reached_exactly_with_the_summary", "view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M7 a self-destruct does not clear the parent's storage", "status": "PASS", "failed": []}
+{"mutant": "E3M8 a created account's unchanged slots are dropped", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M9 new code is not recorded in the layer", "status": "KILLED", "failed": ["apply::tests::e2_code_cap_reached_exactly_with_the_summary", "view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M10 a set BLOCKHASH window is ignored", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M11 normalization does not delete a removed account", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M12 a block's write set is empty", "status": "KILLED", "failed": ["apply::tests::e2_blocks_with_trie_and_summary_equal_the_reference", "apply::tests::e2_code_cap_reached_exactly_with_the_summary"]}
+{"mutant": "E3M13 the diff from the write set misses removed slots", "status": "KILLED", "failed": ["e1_a_rolling_rebuild_carries_the_trie", "e1_a_trie_that_is_not_the_parents_is_never_used", "e1_incremental_roots_are_the_full_roots_on_every_path", "a_submission_during_a_long_backlog_is_busy_at_its_deadline_and_not_pooled", "evidence_type1_and_type2_punish_through_a_signed_block", "s3a_every_retained_state_equals_the_full_state_it_replaces", "the_pool_gas_bound_refuses_past_it_and_is_recounted_on_a_new_head", "sliced_pool_revalidation_equals_the_whole_rebuild"]}
+{"mutant": "E3M14 the pool's layer is not reset on a new head", "status": "KILLED", "failed": ["a_submission_during_a_long_backlog_is_busy_at_its_deadline_and_not_pooled", "sliced_pool_revalidation_equals_the_whole_rebuild", "the_pool_gas_bound_refuses_past_it_and_is_recounted_on_a_new_head"]}
+{"mutant": "E3M15 the pool's base stays the previous head", "status": "KILLED", "failed": ["sliced_pool_revalidation_equals_the_whole_rebuild", "the_pool_gas_bound_refuses_past_it_and_is_recounted_on_a_new_head"]}
+{"mutant": "E3M16 an admitted transaction's writes are not kept in the pool's layer", "status": "KILLED", "failed": ["a13_pool_pending_state_is_capped_and_normalized", "a_submission_during_a_long_backlog_is_busy_at_its_deadline_and_not_pooled", "e3_pending_answers_are_the_pool_layer", "sliced_pool_revalidation_equals_the_whole_rebuild", "the_pool_gas_bound_refuses_past_it_and_is_recounted_on_a_new_head"]}
+{"mutant": "E3M17 RPC pending reads the head", "status": "KILLED", "failed": ["e3_pending_answers_are_the_pool_layer"]}
+{"mutant": "E3M18 eth_call does not fund the caller's value", "status": "KILLED", "failed": ["e3_pending_answers_are_the_pool_layer"]}
+{"mutant": "E3M19 template selection runs on a copy of nothing (no overlay sim)", "status": "KILLED", "failed": ["the_builder_skips_the_dependents_of_a_skipped_transaction"]}
+## pass 2: the overlay unit test also checks that every changed slot is in the write set (final prototypes tree 3b2e0baaa42f26b57ef5686b937c7f7c5241fc46)
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "E3M5 a cleared account is not touched whole", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+{"mutant": "E3M7 a self-destruct does not clear the parent's storage", "status": "PASS", "failed": []}
+## result: 18 of 19 killed; E3M7 is equivalent on normalized commit sequences (see README)

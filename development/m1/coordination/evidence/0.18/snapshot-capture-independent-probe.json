@@ -1,0 +1,11 @@
+{
+  "checks": 4,
+  "passed": 4,
+  "failed": 0,
+  "results": {
+    "pastEmpty": true,
+    "laterContainsOnly6000": true,
+    "noSharedActual": true,
+    "futureEngineAndExpectedMutationCannotChangeCapture": true
+  }
+}

@@ -1,0 +1,10 @@
+warning: unused variable: `valid`
+  --> /workspace/work/lp3-s7-cf/reproduction/mutations/t0-ignore-template-auth-_zhrnk3j/src/envelope.rs:46:13
+   |
+46 |         let valid = h.a == 0
+   |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_valid`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: 1 warning emitted
+

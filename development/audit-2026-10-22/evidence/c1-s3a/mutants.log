@@ -1,0 +1,88 @@
+C-1 S3a mutation controls (each mutant applied to a fresh copy of the tree, built in its own target dir;
+tests: cargo test --release --lib statediff, then --test consensus s3a_). The runner itself is scratch, not committed.
+
+== first pass, on bef6c4f
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "SM1 a diff misses the slots the child removed", "status": "KILLED", "failed": ["statediff::tests::a_diff_turns_each_state_into_the_other_exactly", "statediff::tests::diffs_compose_along_a_chain", "s3a_state_queries_answer_as_with_full_states", "s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM2 slots applied in the wrong direction", "status": "KILLED", "failed": ["statediff::tests::a_diff_turns_each_state_into_the_other_exactly", "statediff::tests::diffs_compose_along_a_chain", "s3a_state_queries_answer_as_with_full_states", "s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM3 the head side of a path applied forward", "status": "KILLED", "failed": ["s3a_state_queries_answer_as_with_full_states", "s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM4 the diff taken against the child", "status": "KILLED", "failed": ["s3a_state_queries_answer_as_with_full_states", "s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM5 restore does not give adopted blocks their diffs", "status": "KILLED", "failed": ["s3a_state_queries_answer_as_with_full_states", "s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM6 the node settles before the restore", "status": "KILLED", "failed": ["s3a_state_queries_answer_as_with_full_states"]}
+{"mutant": "SM7 restore of missing diffs never needed", "status": "KILLED", "failed": ["s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM8 an absent side keeps stale storage", "status": "PASS", "failed": []}
+{"mutant": "SM9 shed drops the head's full state", "status": "KILLED", "failed": ["s3a_every_retained_state_equals_the_full_state_it_replaces", "s3a_state_queries_answer_as_with_full_states"]}
+{"mutant": "SM10 unreachable states are not marked pruned", "status": "PASS", "failed": []}
+
+== final pass, on 4b49d03
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "SM1 a diff misses the slots the child removed", "status": "KILLED", "failed": ["statediff::tests::a_diff_turns_each_state_into_the_other_exactly", "statediff::tests::diffs_compose_along_a_chain", "s3a_state_queries_answer_as_with_full_states", "s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM2 slots applied in the wrong direction", "status": "KILLED", "failed": ["statediff::tests::a_diff_turns_each_state_into_the_other_exactly", "statediff::tests::diffs_compose_along_a_chain", "s3a_state_queries_answer_as_with_full_states", "s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM3 the head side of a path applied forward", "status": "KILLED", "failed": ["s3a_every_retained_state_equals_the_full_state_it_replaces", "s3a_state_queries_answer_as_with_full_states"]}
+{"mutant": "SM4 the diff taken against the child", "status": "KILLED", "failed": ["s3a_every_retained_state_equals_the_full_state_it_replaces", "s3a_state_queries_answer_as_with_full_states"]}
+{"mutant": "SM5 restore does not give adopted blocks their diffs", "status": "KILLED", "failed": ["s3a_state_queries_answer_as_with_full_states", "s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM6 the node settles before the restore", "status": "KILLED", "failed": ["s3a_state_queries_answer_as_with_full_states"]}
+{"mutant": "SM7 restore of missing diffs never needed", "status": "KILLED", "failed": ["s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+{"mutant": "SM8 an absent side keeps stale storage", "status": "PASS", "failed": []}
+{"mutant": "SM9 shed drops the head's full state", "status": "KILLED", "failed": ["s3a_every_retained_state_equals_the_full_state_it_replaces", "s3a_state_queries_answer_as_with_full_states"]}
+{"mutant": "SM10 unreachable states are not marked pruned", "status": "PASS", "failed": []}
+{"mutant": "SM11 kept side states are not made full", "status": "KILLED", "failed": ["s3a_every_retained_state_equals_the_full_state_it_replaces"]}
+
+Mutants (file: original -> mutated):
+SM1 a diff misses the slots the child removed
+  pocold/src/statediff.rs
+  - slots.extend(p.storage.iter().filter(|(k,_)|!c.storage.contains_key(*k)).map(|(k,v)|(*k,Some(*v),None)));
+  + let _=&slots;
+SM2 slots applied in the wrong direction
+  pocold/src/statediff.rs
+  - for (k,b,af) in &d.slots{match if back{b}else{af}{
+  + for (k,b,af) in &d.slots{match if back{af}else{b}{
+SM3 the head side of a path applied forward
+  pocold/src/chain.rs
+  - for h in &down{self.blocks[h].diff.as_ref()?.apply_before(&mut s);}
+  + for h in &down{self.blocks[h].diff.as_ref()?.apply_after(&mut s);}
+SM4 the diff taken against the child
+  pocold/src/chain.rs
+  - crate::statediff::StateDiff::between(&p.state,&out.state)));
+        let entry=
+  + crate::statediff::StateDiff::between(&out.state,&p.state)));
+        let entry=
+SM5 restore does not give adopted blocks their diffs
+  pocold/src/chain.rs
+  -             if x.diff.is_none(){x.diff=Some(std::sync::Arc::new(crate::statediff::StateDiff::between(&p.state,&out.state)));}
+            if x.offloaded{
+  +             if x.offloaded{
+SM6 the node settles before the restore
+  pocold/src/node.rs
+  -         self.chain.retain_unsettled();
+        // D-REORG-REDB
+  +         self.chain.retain();
+        // D-REORG-REDB
+SM7 restore of missing diffs never needed
+  pocold/src/chain.rs
+  - lowest_kept.map_or(false,|k|k<h)
+  + lowest_kept.map_or(false,|k|k>h)
+SM8 an absent side keeps stale storage
+  pocold/src/statediff.rs
+  - if other.is_none(){a.storage.clear();}
+  + let _=other;
+SM9 shed drops the head's full state
+  pocold/src/chain.rs
+  - let canon:Vec<[u8;32]>=self.canonical.iter().skip(1).copied().filter(|h|*h!=head).collect();
+  + let canon:Vec<[u8;32]>=self.canonical.iter().skip(1).copied().collect();
+SM10 unreachable states are not marked pruned
+  pocold/src/chain.rs
+  - for h in open{if self.state_path(&h).is_none(){
+  + for h in open{if false&&self.state_path(&h).is_none(){
+SM11 kept side states are not made full
+  pocold/src/chain.rs
+  - if !self.keep_full_states{for h in &keep{
+  + if false&&!self.keep_full_states{for h in &keep{
+
+Survivors:
+- SM8 (equivalent): the cleared storage of an account absent on the other side. A diff is only ever applied
+  to the state it was computed from, where that account is absent, so its entry starts empty anyway.
+- SM10 (a guard, not reachable): marking unreachable states pruned. In the first pass it survived and showed a
+  real gap: a kept side state held only as a diff could become unreachable. Fixed in 4b49d03 (kept side states
+  are made full), which SM11 checks. Since then no state can become unreachable, so SM10 is a guard.
+Result on 4b49d03: BASE PASS; 9 of 11 killed; SM8 equivalent; SM10 a guard on a case that no longer occurs.

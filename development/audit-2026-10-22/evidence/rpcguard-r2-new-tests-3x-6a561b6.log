@@ -1,0 +1,118 @@
+# RpcGuard fix round: the new and changed tests, three consecutive runs (scratch rerun3.sh).
+# Code under test: 6a561b674cdd2c178582c40638d47236cbf43f6a (wf/rpcguard-r2, first commit).
+# Commands per run: cargo test --release --locked --test net -- --test-threads=1 --nocapture --exact <15 tests>;
+#   --test consensus --test admission -- --exact get_logs_scratch_limit_is_32020_scratch_with_resume_data pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms;
+#   --lib rpc::tests; lp4-execution: --test simulate_stop.
+# Result: 3/3 runs, every test ok (15 net + 1 consensus + 1 admission + 9 rpc unit + 3 lp4).
+# Rust 1.99.1 (rust-toolchain.toml), release, --locked, CARGO_TARGET_DIR=scratch wf-target-rpcguard, every cargo run under the shared CPU lock; loopback 127.0.0.1 only
+# ---- captured output ----
+start 2026-10-23T16:14:05Z
+=== run 1
+test a_full_light_lane_answers_busy ... LANE {"busy":4,"ok":2}
+test a_precompile_call_past_its_deadline_is_32020_not_a_late_success ... BLAKEDL {"answeredMs":590,"cancelLateMs":569,"computeHeavyMs":20}
+test abandoned_queued_bodies_are_capped_and_released ... QUEUED {"peakQueued":4,"queuedMax":4,"refusedBusy":11,"rounds":1}
+test batch_wall_closes_the_batch ... WALL {"bytesBeforeClose":4227244,"computeWallMs":14,"sendWallClosedMs":2012}
+test compute_deadline_runs_from_admission_and_queue_wait_bounds_admission ... ok
+test estimate_gas_stops_its_search_at_the_deadline ... ESTIMATE {"callMs":10,"computeHeavyMs":29,"estimateMs":89}
+test get_params_and_rpc_stats_report_the_limits ... ok
+test heavy_compute_deadline_cancels_eth_call ... HEAVYDL {"computeHeavyMs":6,"heavyMs":48}
+test heavy_queue_overflow_answers_busy_with_retry_after ... BUSYQ {"busy":5,"of":6}
+test light_compute_deadline_fires ... ok
+test light_requests_behind_long_heavy_work_are_answered_never_deadline ... BEHIND {"answer":{"id":2,"jsonrpc":"2.0","result":"0x0"},"holderMs":1247,"lightWaitedMs":1206}
+test queued_requests_are_busy_at_queue_wait ... QWAIT {"answeredMs":[81,81],"holderMs":486,"queueWaitMs":81}
+test rpc_work_deadline_skips_expired_work_and_releases_resources ... DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":30,"light503":0,"light504":32,"lightRequests":105,"skipped":32,"workDeadlineMs":7}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":942,"lastPacerClose":{"accepted":4227244,"sendTime":0.500856},"pacerLateMaxMs":0}
+test the_per_connection_bucket_charges_k_tokens_per_request ... ok
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 15.18s
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.18s
+test get_logs_scratch_limit_is_32020_scratch_with_resume_data ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.33s
+test rpc::tests::batch_members_beyond_the_byte_limit_are_not_run ... ok
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::net_key_matches_the_extension ... ok
+test rpc::tests::response_pools_reserve_shrink_and_release ... ok
+test rpc::tests::error_items_fit_err_item_max_and_a_batch_of_them_small_reply_max ... ok
+test rpc::tests::the_per_connection_bucket_refuses_only_more_tokens_than_its_capacity ... ok
+test rpc::tests::a_busy_answer_does_not_parse_an_over_limit_body ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.03s
+test a_stop_ends_the_simulation ... ok
+test a_precompile_call_is_never_polled ... ok
+STOP-POLLS {"gasUsed":30000000,"polls":29,"stopGas":1000000}
+test the_stop_hook_is_polled_at_least_every_stop_gas ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
+=== run 2
+test a_full_light_lane_answers_busy ... LANE {"busy":4,"ok":2}
+test a_precompile_call_past_its_deadline_is_32020_not_a_late_success ... BLAKEDL {"answeredMs":501,"cancelLateMs":480,"computeHeavyMs":20}
+test abandoned_queued_bodies_are_capped_and_released ... QUEUED {"peakQueued":4,"queuedMax":4,"refusedBusy":8,"rounds":1}
+test batch_wall_closes_the_batch ... WALL {"bytesBeforeClose":4227244,"computeWallMs":18,"sendWallClosedMs":2015}
+test compute_deadline_runs_from_admission_and_queue_wait_bounds_admission ... ok
+test estimate_gas_stops_its_search_at_the_deadline ... ESTIMATE {"callMs":7,"computeHeavyMs":22,"estimateMs":82}
+test get_params_and_rpc_stats_report_the_limits ... ok
+test heavy_compute_deadline_cancels_eth_call ... HEAVYDL {"computeHeavyMs":4,"heavyMs":34}
+test heavy_queue_overflow_answers_busy_with_retry_after ... BUSYQ {"busy":5,"of":6}
+test light_compute_deadline_fires ... ok
+test light_requests_behind_long_heavy_work_are_answered_never_deadline ... BEHIND {"answer":{"id":2,"jsonrpc":"2.0","result":"0x0"},"holderMs":1306,"lightWaitedMs":1183}
+test queued_requests_are_busy_at_queue_wait ... QWAIT {"answeredMs":[91,91],"holderMs":544,"queueWaitMs":90}
+test rpc_work_deadline_skips_expired_work_and_releases_resources ... DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":30,"light503":0,"light504":32,"lightRequests":83,"skipped":32,"workDeadlineMs":7}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":1018,"lastPacerClose":{"accepted":4227244,"sendTime":0.500261},"pacerLateMaxMs":0}
+test the_per_connection_bucket_charges_k_tokens_per_request ... ok
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 15.68s
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.18s
+test get_logs_scratch_limit_is_32020_scratch_with_resume_data ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.33s
+test rpc::tests::batch_members_beyond_the_byte_limit_are_not_run ... ok
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::error_items_fit_err_item_max_and_a_batch_of_them_small_reply_max ... ok
+test rpc::tests::net_key_matches_the_extension ... ok
+test rpc::tests::response_pools_reserve_shrink_and_release ... ok
+test rpc::tests::the_per_connection_bucket_refuses_only_more_tokens_than_its_capacity ... ok
+test rpc::tests::a_busy_answer_does_not_parse_an_over_limit_body ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.03s
+test a_stop_ends_the_simulation ... ok
+test a_precompile_call_is_never_polled ... ok
+STOP-POLLS {"gasUsed":30000000,"polls":29,"stopGas":1000000}
+test the_stop_hook_is_polled_at_least_every_stop_gas ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+=== run 3
+test a_full_light_lane_answers_busy ... LANE {"busy":4,"ok":2}
+test a_precompile_call_past_its_deadline_is_32020_not_a_late_success ... BLAKEDL {"answeredMs":545,"cancelLateMs":524,"computeHeavyMs":20}
+test abandoned_queued_bodies_are_capped_and_released ... QUEUED {"peakQueued":4,"queuedMax":4,"refusedBusy":9,"rounds":1}
+test batch_wall_closes_the_batch ... WALL {"bytesBeforeClose":4227244,"computeWallMs":15,"sendWallClosedMs":2013}
+test compute_deadline_runs_from_admission_and_queue_wait_bounds_admission ... ok
+test estimate_gas_stops_its_search_at_the_deadline ... ESTIMATE {"callMs":10,"computeHeavyMs":32,"estimateMs":96}
+test get_params_and_rpc_stats_report_the_limits ... ok
+test heavy_compute_deadline_cancels_eth_call ... HEAVYDL {"computeHeavyMs":3,"heavyMs":30}
+test heavy_queue_overflow_answers_busy_with_retry_after ... BUSYQ {"busy":5,"of":6}
+test light_compute_deadline_fires ... ok
+test light_requests_behind_long_heavy_work_are_answered_never_deadline ... BEHIND {"answer":{"id":2,"jsonrpc":"2.0","result":"0x0"},"holderMs":1143,"lightWaitedMs":1124}
+test queued_requests_are_busy_at_queue_wait ... QWAIT {"answeredMs":[79,80],"holderMs":476,"queueWaitMs":79}
+test rpc_work_deadline_skips_expired_work_and_releases_resources ... DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":29,"light503":0,"light504":24,"lightRequests":127,"skipped":24,"workDeadlineMs":7}
+test send_pacer_closes_a_slow_reader_after_grace ... PACER {"closedMs":922,"lastPacerClose":{"accepted":4227244,"sendTime":0.500544},"pacerLateMaxMs":0}
+test the_per_connection_bucket_charges_k_tokens_per_request ... ok
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 14.96s
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.19s
+test get_logs_scratch_limit_is_32020_scratch_with_resume_data ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.25s
+test rpc::tests::batch_members_beyond_the_byte_limit_are_not_run ... ok
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::net_key_matches_the_extension ... ok
+test rpc::tests::error_items_fit_err_item_max_and_a_batch_of_them_small_reply_max ... ok
+test rpc::tests::response_pools_reserve_shrink_and_release ... ok
+test rpc::tests::the_per_connection_bucket_refuses_only_more_tokens_than_its_capacity ... ok
+test rpc::tests::a_busy_answer_does_not_parse_an_over_limit_body ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.03s
+test a_stop_ends_the_simulation ... ok
+test a_precompile_call_is_never_polled ... ok
+STOP-POLLS {"gasUsed":30000000,"polls":29,"stopGas":1000000}
+test the_stop_hook_is_polled_at_least_every_stop_gas ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
+done 2026-10-23T16:15:07Z

@@ -1,0 +1,87 @@
+{
+ "inputs": {
+  "H_END": 20000,
+  "TX_CAP_R28": 7600000,
+  "TXBYTES_CAP_R29": 3931840000,
+  "todayHistoryItems": 1131673472,
+  "budget": 6442450944
+ },
+ "bases": {
+  "c3a78e7 (= 9ce5a7c's model, D-REORG-REDB final)": {
+   "model": 5627687516,
+   "budgetRequired": 6431642876,
+   "reserve": 803955360,
+   "unused": 10808068,
+   "O2": {
+    "tightened (A1a: min(LOG_CAP, H_END*LOG_BLOCK_MAX))": {
+     "L": 655360000,
+     "historyTerm": 7495680000,
+     "historyGiB": 6.981,
+     "model": 11991694044,
+     "modelGiB": 11.168,
+     "budgetRequired": 13704793194,
+     "budgetGiB": 12.764,
+     "bootAdmitted": false
+    },
+    "as coded, LOG_CAP 2^30": {
+     "L": 1073741824,
+     "historyTerm": 7927136256,
+     "historyGiB": 7.383,
+     "model": 12423150300,
+     "modelGiB": 11.57,
+     "budgetRequired": 14197886058,
+     "budgetGiB": 13.223,
+     "bootAdmitted": false
+    },
+    "as coded, N1 LOG_CAP 2^32": {
+     "L": 4294967296,
+     "historyTerm": 11249025024,
+     "historyGiB": 10.476,
+     "model": 15745039068,
+     "modelGiB": 14.664,
+     "budgetRequired": 17994330364,
+     "budgetGiB": 16.759,
+     "bootAdmitted": false
+    }
+   }
+  },
+  "fa97594 (integrated head; RpcGuard r2 model)": {
+   "model": 5577343580,
+   "budgetRequired": 6374106949,
+   "reserve": 796763369,
+   "unused": 68343995,
+   "O2": {
+    "tightened (A1a: min(LOG_CAP, H_END*LOG_BLOCK_MAX))": {
+     "L": 655360000,
+     "historyTerm": 7495680000,
+     "historyGiB": 6.981,
+     "model": 11941350108,
+     "modelGiB": 11.121,
+     "budgetRequired": 13647257267,
+     "budgetGiB": 12.71,
+     "bootAdmitted": false
+    },
+    "as coded, LOG_CAP 2^30": {
+     "L": 1073741824,
+     "historyTerm": 7927136256,
+     "historyGiB": 7.383,
+     "model": 12372806364,
+     "modelGiB": 11.523,
+     "budgetRequired": 14140350131,
+     "budgetGiB": 13.169,
+     "bootAdmitted": false
+    },
+    "as coded, N1 LOG_CAP 2^32": {
+     "L": 4294967296,
+     "historyTerm": 11249025024,
+     "historyGiB": 10.476,
+     "model": 15694695132,
+     "modelGiB": 14.617,
+     "budgetRequired": 17936794437,
+     "budgetGiB": 16.705,
+     "bootAdmitted": false
+    }
+   }
+  }
+ }
+}

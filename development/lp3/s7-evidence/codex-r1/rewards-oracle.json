@@ -1,0 +1,24 @@
+{
+  "cases": 4000,
+  "seed": 1396134742,
+  "mismatches": 0,
+  "inputSha256": "bf7010a0991970478c8a2326e850ee89d74f740e2ad505379a70f9072d74aa3e",
+  "implementations": [
+    {
+      "command": [
+        "/workspace/work/lp3-s7/rewards-probe"
+      ],
+      "matched": 4000,
+      "outputSha256": "191b01c9903b08bae96b50d3557fc9b03a376c101c721014c164b2b9dad8385d"
+    },
+    {
+      "command": [
+        "node",
+        "--experimental-strip-types",
+        "/workspace/work/lp3-s7/rewards_probe.mjs"
+      ],
+      "matched": 4000,
+      "outputSha256": "004c7ddf5233edd2dec4ea86095620c99146cf78f71d340964d06f9be1c3d18a"
+    }
+  ]
+}

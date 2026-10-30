@@ -1,0 +1,23 @@
+{
+  "revision": "0.2",
+  "python": "3.11.1 (tags/v3.11.1:a7a450f, Dec  6 2022, 19:58:39) [MSC v.1934 64 bit (AMD64)]",
+  "nestedInputBytes": 3391,
+  "probes": [
+    {
+      "id": "C03-deep-canonical-rlp",
+      "exception": "RecursionError",
+      "message": "maximum recursion depth exceeded in comparison"
+    },
+    {
+      "id": "C04-selector-5000-digits",
+      "exception": "ValueError",
+      "message": "Exceeds the limit (4300) for integer string conversion: value has 5000 digits; use sys.set_int_max_str_digits() to increase the limit"
+    },
+    {
+      "id": "C05-shared-chunk",
+      "reported": 1,
+      "actual_get_invocations": 2,
+      "result": "accept"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "checks": 11,
+  "passed": 11,
+  "maxRecordBytes": 1442009,
+  "expected": 1442009,
+  "budgetPassed": true,
+  "results": [
+    {
+      "epoch": "0000000000000001",
+      "epochExact": "1",
+      "seq": 0,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "0000000000000001",
+      "epochExact": "1",
+      "seq": 4294967295,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "001fffffffffffff",
+      "epochExact": "9007199254740991",
+      "seq": 0,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "001fffffffffffff",
+      "epochExact": "9007199254740991",
+      "seq": 4294967295,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "0020000000000000",
+      "epochExact": "9007199254740992",
+      "seq": 0,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "0020000000000000",
+      "epochExact": "9007199254740992",
+      "seq": 4294967295,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "0020000000000001",
+      "epochExact": "9007199254740993",
+      "seq": 0,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "0020000000000001",
+      "epochExact": "9007199254740993",
+      "seq": 4294967295,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "ffffffffffffffff",
+      "epochExact": "18446744073709551615",
+      "seq": 0,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "ffffffffffffffff",
+      "epochExact": "18446744073709551615",
+      "seq": 4294967295,
+      "hexStringPreserved": true
+    },
+    {
+      "epoch": "ffffffffffffffff",
+      "epochExact": "18446744073709551615",
+      "seq": 4294967295,
+      "hexStringPreserved": true
+    }
+  ]
+}

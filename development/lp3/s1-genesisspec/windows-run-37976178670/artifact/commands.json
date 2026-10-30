@@ -1,0 +1,210 @@
+[
+  {
+    "name": "git-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.04,
+    "command": "git --version",
+    "cwd": "D:/a/Proof-of-Collaboration/Proof-of-Collaboration",
+    "log": "logs/git-version.log"
+  },
+  {
+    "name": "python-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.7,
+    "command": "python -c \"import sys; print(sys.version)\"",
+    "cwd": "D:/a/Proof-of-Collaboration/Proof-of-Collaboration",
+    "log": "logs/python-version.log"
+  },
+  {
+    "name": "rustup-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 4.49,
+    "command": "rustup --version",
+    "cwd": "D:/a/Proof-of-Collaboration/Proof-of-Collaboration",
+    "log": "logs/rustup-version.log"
+  },
+  {
+    "name": "rustup-toolchain-install",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 8.96,
+    "command": "rustup toolchain install 1.58.1-x86_64-pc-windows-msvc --profile minimal -c rustfmt --no-self-update",
+    "cwd": "D:/a/Proof-of-Collaboration/Proof-of-Collaboration",
+    "log": "logs/rustup-toolchain-install.log"
+  },
+  {
+    "name": "rustc-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.66,
+    "command": "rustc -vV",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/rustc-version.log"
+  },
+  {
+    "name": "cargo-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.79,
+    "command": "cargo -V",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/cargo-version.log"
+  },
+  {
+    "name": "rustfmt-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.66,
+    "command": "rustfmt --version",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/rustfmt-version.log"
+  },
+  {
+    "name": "cargo-fetch",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 74.16,
+    "command": "cargo fetch --locked",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/cargo-fetch.log"
+  },
+  {
+    "name": "cargo-build",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 46.84,
+    "command": "cargo build --offline --locked --target-dir D:\\a\\_temp\\lp3-target",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/cargo-build.log"
+  },
+  {
+    "name": "cargo-build-release",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 59.95,
+    "command": "cargo build --release --offline --locked --target-dir D:\\a\\_temp\\lp3-target",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/cargo-build-release.log"
+  },
+  {
+    "name": "rustfmt-check",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.92,
+    "command": "cargo fmt -- --check",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/rustfmt-check.log"
+  },
+  {
+    "name": "store-journal",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 22.66,
+    "command": "cargo test --offline --locked --target-dir D:\\a\\_temp\\lp3-target --test store_journal -- --test-threads=1 --nocapture",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/store-journal.log"
+  },
+  {
+    "name": "store-process-crash-recovery",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.46,
+    "command": "cargo test --offline --locked --target-dir D:\\a\\_temp\\lp3-target --test store_process -- --test-threads=1 --nocapture",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/store-process-crash-recovery.log"
+  },
+  {
+    "name": "cargo-test-full",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 81.52,
+    "command": "cargo test --offline --locked --target-dir D:\\a\\_temp\\lp3-target --no-fail-fast -- --test-threads=1 --nocapture",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/cargo-test-full.log"
+  },
+  {
+    "name": "genesis-batch-alloc-debug",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 35.73,
+    "command": "cargo test --offline --locked --target-dir D:\\a\\_temp\\lp3-target --test genesis_batch_alloc",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/genesis-batch-alloc-debug.log"
+  },
+  {
+    "name": "genesis-batch-alloc-release-max",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 23.54,
+    "command": "cargo test --release --offline --locked --target-dir D:\\a\\_temp\\lp3-target --test genesis_batch_alloc",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/genesis-batch-alloc-release-max.log",
+    "env": "LP3_ALLOC_MAX_VERSION=1"
+  },
+  {
+    "name": "verify-fixtures",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 1.27,
+    "command": "D:\\a\\_temp\\lp3-target\\debug\\lp1-node.exe verify-fixtures --fixtures fixtures",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/verify-fixtures.log"
+  },
+  {
+    "name": "e2e-http",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.31,
+    "command": "python tests/e2e_http.py --bin D:\\a\\_temp\\lp3-target\\debug\\lp1-node.exe --fixtures fixtures",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/e2e-http.log"
+  },
+  {
+    "name": "e2e-store",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.43,
+    "command": "python tests/e2e_store.py --bin D:\\a\\_temp\\lp3-target\\debug\\lp1-node.exe --fixtures fixtures",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/e2e-store.log"
+  },
+  {
+    "name": "lp3-genesis-diff",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 68.99,
+    "command": "python tests/lp3_genesis_diff.py --bin D:\\a\\_temp\\lp3-target\\debug\\lp1-node.exe --m1 ../../development/m1 --out D:\\a\\_temp\\lp3-evidence\\lp3-genesis-diff.json",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/lp3-genesis-diff.log"
+  },
+  {
+    "name": "lp3-genesis-cli",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 10.83,
+    "command": "python tests/lp3_genesis_cli.py --bin D:\\a\\_temp\\lp3-target\\debug\\lp1-node.exe --m1 ../../development/m1 --out D:\\a\\_temp\\lp3-evidence\\lp3-genesis-cli.json",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/lp3-genesis-cli.log"
+  },
+  {
+    "name": "lp3-genesis-diff-release-max",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 1862.31,
+    "command": "python tests/lp3_genesis_diff.py --bin D:\\a\\_temp\\lp3-target\\release\\lp1-node.exe --m1 ../../development/m1 --max-version --out D:\\a\\_temp\\lp3-evidence\\lp3-genesis-diff-release-max.json",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/lp3-genesis-diff-release-max.log"
+  },
+  {
+    "name": "lp3-genesis-cli-release-max",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 903.2,
+    "command": "python tests/lp3_genesis_cli.py --bin D:\\a\\_temp\\lp3-target\\release\\lp1-node.exe --m1 ../../development/m1 --out D:\\a\\_temp\\lp3-evidence\\lp3-genesis-cli-release-max.json --max-version",
+    "cwd": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\lp1-node",
+    "log": "logs/lp3-genesis-cli-release-max.log"
+  }
+]

@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/initcode-word-gas/gst_admission_checks.py", line 37, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/initcode-word-gas/gst_admission_checks.py", line 28, in main
+    check(True,to=b'',data=b'\0',gas=53006);check(False,to=b'',data=b'\0',gas=53005)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/initcode-word-gas/gst_admission_checks.py", line 24, in check
+    assert actual==expected,('admission boundary',count,actual,expected)
+           ^^^^^^^^^^^^^^^^
+AssertionError: ('admission boundary', 5, True, False)

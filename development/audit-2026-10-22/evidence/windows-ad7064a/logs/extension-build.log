@@ -1,0 +1,6 @@
+{
+ "dist": "D:\\a\\Proof-of-Collaboration\\Proof-of-Collaboration\\prototypes\\pocol-extension\\dist",
+ "loaderSha256": "DCX1MNerx+uktssoSc1GkmDuYROORbcoJyzr4lcubQg=",
+ "csp": "sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-DCX1MNerx+uktssoSc1GkmDuYROORbcoJyzr4lcubQg=' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+}
+

@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running tests/create_collision.rs (prototypes/lp4-execution/target/debug/deps/create_collision-11a5af2d339ff39d)
+
+running 1 test
+
+thread 'top_level_creation_collides_and_preserves_snapshot' (101531) panicked at tests/create_collision.rs:36:41:
+assertion failed: matches!(r.result,ExecutionResult::Halt{..})
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test top_level_creation_collides_and_preserves_snapshot ... FAILED
+
+failures:
+
+failures:
+    top_level_creation_collides_and_preserves_snapshot
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test create_collision`

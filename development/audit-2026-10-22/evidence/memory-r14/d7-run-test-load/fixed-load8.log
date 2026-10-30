@@ -1,0 +1,7 @@
+# consensus-864896f11b814bf3 pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import x6, 8 busy loops beside it (plus the instrumented open), 2026-10-27T19:27:09Z
+run 1: test result: ok D7-RUN maxTxMs 591 secondBlockAndAnswerMs 2208 
+run 2: test result: ok D7-RUN maxTxMs 552 secondBlockAndAnswerMs 1970 
+run 3: test result: ok D7-RUN maxTxMs 222 secondBlockAndAnswerMs 2516 
+run 4: test result: ok D7-RUN maxTxMs 575 secondBlockAndAnswerMs 2684 
+run 5: test result: ok D7-RUN maxTxMs 788 secondBlockAndAnswerMs 2391 
+run 6: test result: ok D7-RUN maxTxMs 669 secondBlockAndAnswerMs 2421 

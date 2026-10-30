@@ -1,0 +1,20 @@
+{
+  "base": "772cb1f843c9214b9a8575856d4b34e38b7976ae",
+  "paths": [
+    "development/m1",
+    "development/lp1",
+    "development/lp2",
+    "development/lp3/s1-genesisspec",
+    "development/lp3/s2-profile",
+    "development/lp3/s3-timing",
+    "development/lp3/s4-assignment",
+    "development/lp3/s5-paramgate",
+    "development/lp3/s6-model",
+    ".github",
+    "prototypes/lp1-node/Cargo.toml",
+    "prototypes/lp1-node/Cargo.lock",
+    "prototypes/lp3-model/package.json",
+    "prototypes/lp3-model/package-lock.json"
+  ],
+  "changes": []
+}

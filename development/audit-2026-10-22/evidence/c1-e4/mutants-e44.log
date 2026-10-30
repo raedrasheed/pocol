@@ -1,0 +1,61 @@
+# C-1 E4.4 (D-6) mutation controls, pass 1: local state checkpoints (seal, journal binding, pins, restore, replay
+# checkpoints). Each mutant on a fresh copy of the committed tree with new file times and its own target dir. Stages:
+# pocold --test state_store; pocold --test consensus e4_; pocold --features crash-test --test consensus
+# e4_checkpoint_crash. KILLED if a test fails. Runners are kept out of the repository; this log is copied from its output.
+# K1 the snapshot seal is not checked: pocold/src/checkpoint.rs: replace "if keccak256(body).0[..]!=seal[..]{return Err(" with "if false&&keccak256(body).0[..]!=seal[..]{return Err("
+# K2 the journal binding is not checked: pocold/src/node.rs: replace "let r=if k>n_rec||offs[k]!=b.end||rolls[k]!=b.hash{" with "let r=if k>n_rec{"
+# K3 total work is not checked against the parent: pocold/src/checkpoint.rs: replace "if r.total_work!=p.total_work.saturating_add(crate::chain::work(&header.target)){" with "if false{"
+# K4 the journal header is not checked against the entry: pocold/src/checkpoint.rs: replace "if block_hash(&header)!=r.hash{" with "if false{"
+# K5 a stored version's state root is not checked: pocold/src/checkpoint.rs: replace "if r.0!=e.header.state_root{" with "if false&&r.0!=e.header.state_root{"
+# K6 a stored version's summary is not checked: pocold/src/checkpoint.rs: replace "if got!=want{return Err(why(\"the stored version's summary is not the sealed one\"))}" with "let _=(got,want);"
+# K7 open does not release pins no checkpoint holds: pocold/src/state_store.rs: replace "for (r,n) in held{for _ in 0..n-want.get(&r).copied().unwrap_or(0){release(&mut p,&mut t,&r,&mut gone)?;released+=1;}}" with "let _=held;"
+# K8 a checkpoint does not pin its roots: pocold/src/state_store.rs: replace "for r in roots{pin_stored(&mut p,&mut t,r)?;}" with "let _=roots;"
+# K9 old checkpoints are never released: pocold/src/state_store.rs: replace "for old in seqs.iter().take(seqs.len().saturating_sub(keep.max(1))){drop_one(" with "for old in seqs.iter().take(0){drop_one("
+# K10 replay's protect set is not recomputed on resume: pocold/src/node.rs: replace "for (b,q) in &events{if chain.blocks.contains_key(b)&&q.front().map_or(false,|x|x.1){chain.protect.insert(*b);}}" with "let _=&events;"
+# K11 a replay checkpoint does not make history durable first: pocold/src/node.rs: replace "                history.sync().map_err(|e|format!(\"replay {i}: history {}\",e.0))?;\n" with "\n"
+# K12 the roots record is not checked against its snapshot: pocold/src/node.rs: replace "if *roots!=crate::checkpoint::roots(&s){return Err(" with "if false&&*roots!=crate::checkpoint::roots(&s){return Err("
+# K13 restored entries lose their pruned flag: pocold/src/checkpoint.rs: replace "let mut e=e;e.pruned=r.flags&F_PRUNED!=0;" with "let mut e=e;e.pruned=false;"
+# K14 restored entries are not offloaded: pocold/src/checkpoint.rs: replace "if r.flags&F_OFFLOADED!=0{crate::chain::offload(&mut e);}" with ""
+# K15 restored entries are not slimmed: pocold/src/checkpoint.rs: replace "if r.flags&F_SLIM!=0{crate::chain::slim(&mut e);}" with "if r.flags&F_SLIM!=0{e.slim=true;}"
+# K16 next_seq is not restored: pocold/src/checkpoint.rs: replace "c.next_seq=s.next_seq;" with ""
+# K17 the eviction set is not restored: pocold/src/checkpoint.rs: replace "c.evicted=evicted;" with "let _=evicted;"
+# K18 a missing node does not mark the store damaged: pocold/src/state_store.rs: replace "Ok(None)=>{self.mark_damaged(&format!(\"node {} is named but not stored\",B256::from(*id)));None}" with "Ok(None)=>None,"
+# K19 genesis's version is not checked: pocold/src/checkpoint.rs: replace "if let Some(p)=&g.stored{if p.trie.root(&**store,&Default::default())!=c.spec.genesis().root(){" with "if let Some(p)=&g.stored{if false&&p.trie.root(&**store,&Default::default())!=c.spec.genesis().root(){"
+# K20 an import sequence beyond next_seq is not refused: pocold/src/checkpoint.rs: replace "if blocks.values().any(|e|e.import_seq>=s.next_seq&&e.height>0){" with "if false{"
+## pass 1 (tree 1a5b7929ac329ec6fa98b83a475d118e10b1aee4): 10 of 20 killed; survived: K4, K5, K10, K11, K12, K15, K17, K18, K19, K20
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "K1 the snapshot seal is not checked", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K2 the journal binding is not checked", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K3 total work is not checked against the parent", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K4 the journal header is not checked against the entry", "status": "PASS", "failed": []}
+{"mutant": "K5 a stored version's state root is not checked", "status": "PASS", "failed": []}
+{"mutant": "K6 a stored version's summary is not checked", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K7 open does not release pins no checkpoint holds", "status": "KILLED", "failed": ["e4_checkpoint_open_releases_what_a_crash_left_in_the_store", "e4_checkpoint_survives_kills"]}
+{"mutant": "K8 a checkpoint does not pin its roots", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e4_checkpoint_open_releases_what_a_crash_left_in_the_store", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis", "e4_checkpoint_survives_kills"]}
+{"mutant": "K9 old checkpoints are never released", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K10 replay's protect set is not recomputed on resume", "status": "PASS", "failed": []}
+{"mutant": "K11 a replay checkpoint does not make history durable first", "status": "PASS", "failed": []}
+{"mutant": "K12 the roots record is not checked against its snapshot", "status": "PASS", "failed": []}
+{"mutant": "K13 restored entries lose their pruned flag", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis", "e4_checkpoint_survives_kills"]}
+{"mutant": "K14 restored entries are not offloaded", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e4_checkpoint_open_releases_what_a_crash_left_in_the_store", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis", "e4_checkpoint_survives_kills"]}
+{"mutant": "K15 restored entries are not slimmed", "status": "PASS", "failed": []}
+{"mutant": "K16 next_seq is not restored", "status": "KILLED", "failed": ["e4_checkpoint_open_releases_what_a_crash_left_in_the_store", "e4_checkpoint_damage_falls_back_to_a_verified_state", "e4_checkpoint_survives_kills", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis"]}
+{"mutant": "K17 the eviction set is not restored", "status": "PASS", "failed": []}
+{"mutant": "K18 a missing node does not mark the store damaged", "status": "PASS", "failed": []}
+{"mutant": "K19 genesis's version is not checked", "status": "PASS", "failed": []}
+{"mutant": "K20 an import sequence beyond next_seq is not refused", "status": "PASS", "failed": []}
+## what answered each survivor (commit 22942c7, then the retest in mutants-e44-retest.log)
+# K4 entry bound to its sibling's record: test e4_checkpoint_refuses_an_entry_bound_to_its_siblings_record.
+# K5 a stored root swapped with its summary: damage case 'two stored roots swapped with their summaries'.
+# K10 the protect set: a replay-written snapshot now seals replay's protect set, which open recomputes from the journal
+#     and compares; retested as K10a (compared) and K10b (restored on resume).
+# K11 history durable before a replay checkpoint: a crash just after a replay checkpoint must resume from it; and every
+#     restored entry must have its records in history.redb (retested as K11b).
+# K12 roots record against its snapshot: (see the retest).
+# K15 restored entries slimmed: test e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains; it also found a real bug,
+#     restore refused a slimmed entry still holding a version (fixed in 22942c7).
+# K17 eviction set restored: the same test (side cap 1 evicts).
+# K18 a missing node marks the store damaged: damage case 'a missing node only the newest checkpoint names' (see the retest).
+# K19 genesis's version check: removed in 22942c7. That version is the one enable_store builds from the admitted
+#     genesis state at open, so the check could not fail; no mutant remains.
+# K20 import sequence beyond next_seq: damage case 'a next import sequence below an entry's'.

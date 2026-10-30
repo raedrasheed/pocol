@@ -1,0 +1,33 @@
+name: LP3 TypeScript reference checks
+on:
+  pull_request:
+    branches: [work/lp3-consensus-foundation]
+    paths: ['prototypes/lp3-model/**', '.github/workflows/lp3-typescript.yml']
+permissions:
+  contents: read
+jobs:
+  typecheck-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Install exact compiler and type declarations
+        working-directory: prototypes/lp3-model
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Type check and run the reference tests
+        working-directory: prototypes/lp3-model
+        run: |
+          node --version
+          npm exec tsc -- --version
+          npm run typecheck
+          npm test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lp3-typescript-tools
+          path: |
+            prototypes/lp3-model/package-lock.json
+            prototypes/lp3-model/node_modules

@@ -1,0 +1,2 @@
+{"cases": 76, "scope": "LP4-CODE-01 independent synthetic signed execution; complete GenesisBuilder/resources/import/crash/reorg still NOT PASSED; modified local computation subclass, upstream source unchanged; small logical-cap profiles are schema-bound synthetic controls, not ParamGate-valid boot profiles"}
+{"cases": 76, "followUps": 2, "wireAcceptance": false, "bootable": false}

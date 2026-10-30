@@ -1,0 +1,37 @@
+# repro on 051dfaa (2 changed paths): grow to 40000, kill -9 after 200 s, then reopen; 2026-10-28T16:39:58Z
+# killed at 2026-10-28T16:43:19Z
+JM-HEND {"blocksKnown":1,"bytesPerRecord":40.0,"extra":{"openSeconds":0.235806533,"openTiming":{"checkpointsMs":0,"historyOpenMs":30,"journalMs":27,"releaseMs":1,"replayCheckpointMs":0,"replayHistoryMs":0,"replayMs":0,"replayRecords":0,"replayRetainMs":0,"replayValidateMs":0,"resetPinsMs":0,"restoreMs":0,"storeOpenMs":30,"totalMs":146},"resumedFrom":null},"hEnd":129600,"height":0,"historyBytes":1589248,"journalBytes":40,"phase":"grow start","records":0,"rssBytes":13078528,"stateFileBytes":1589248,"vmHwmBytes":14483456}
+JM-HEND {"blocksKnown":2001,"bytesPerRecord":1993.568,"extra":{"build":{"maxMs":45.257106,"medianMs":4.434144,"n":2000},"checkpointsWritten":1,"import":{"maxMs":78.948169,"medianMs":10.514327,"n":2000},"seconds":35.167503296},"hEnd":129600,"height":2000,"historyBytes":1589248,"journalBytes":3987136,"phase":"grow 1/20","records":2000,"rssBytes":31965184,"stateFileBytes":4747264,"vmHwmBytes":31965184}
+JM-HEND {"blocksKnown":4001,"bytesPerRecord":2006.74175,"extra":{"build":{"maxMs":13.628328999999999,"medianMs":4.523167,"n":2000},"checkpointsWritten":3,"import":{"maxMs":38.333304,"medianMs":10.468478999999999,"n":2000},"seconds":66.997152452},"hEnd":129600,"height":4000,"historyBytes":2908160,"journalBytes":8026967,"phase":"grow 2/20","records":4000,"rssBytes":50331648,"stateFileBytes":8957952,"vmHwmBytes":50331648}
+JM-HEND {"blocksKnown":6001,"bytesPerRecord":2002.9676666666667,"extra":{"build":{"maxMs":10.788789999999999,"medianMs":4.379674,"n":2000},"checkpointsWritten":5,"import":{"maxMs":45.407154999999996,"medianMs":9.971442,"n":2000},"seconds":97.390398797},"hEnd":129600,"height":6000,"historyBytes":4096000,"journalBytes":12017806,"phase":"grow 3/20","records":6000,"rssBytes":61509632,"stateFileBytes":17379328,"vmHwmBytes":61509632}
+JM-HEND {"blocksKnown":8001,"bytesPerRecord":2002.585,"extra":{"build":{"maxMs":15.009606999999999,"medianMs":4.471255,"n":2000},"checkpointsWritten":7,"import":{"maxMs":65.59540299999999,"medianMs":10.042463999999999,"n":2000},"seconds":127.972723275},"hEnd":129600,"height":8000,"historyBytes":4096000,"journalBytes":16020680,"phase":"grow 4/20","records":8000,"rssBytes":68911104,"stateFileBytes":17379328,"vmHwmBytes":68911104}
+JM-HEND {"blocksKnown":10001,"bytesPerRecord":2008.7709,"extra":{"build":{"maxMs":11.987416000000001,"medianMs":4.365666,"n":2000},"checkpointsWritten":9,"import":{"maxMs":57.289062,"medianMs":9.838973000000001,"n":2000},"seconds":158.319859416},"hEnd":129600,"height":10000,"historyBytes":5877760,"journalBytes":20087709,"phase":"grow 5/20","records":10000,"rssBytes":76267520,"stateFileBytes":17379328,"vmHwmBytes":76267520}
+JM-HEND {"blocksKnown":12001,"bytesPerRecord":2013.04825,"extra":{"build":{"maxMs":20.299942,"medianMs":4.497908,"n":2000},"checkpointsWritten":11,"import":{"maxMs":33.214318999999996,"medianMs":10.245565,"n":2000},"seconds":189.485680128},"hEnd":129600,"height":12000,"historyBytes":5877760,"journalBytes":24156579,"phase":"grow 6/20","records":12000,"rssBytes":80986112,"stateFileBytes":17379328,"vmHwmBytes":80986112}
+# store before reopen:
+total 47172
+drwxr-xr-x   2 root root     4096 Oct 28 16:39 .
+drwx------ 149 root root    20480 Oct 28 16:39 ..
+-rw-r--r--   1 root root        0 Oct 28 16:39 LOCK
+-rw-r--r--   1 root root     4160 Oct 28 16:43 blocks.commit
+-rw-r--r--   1 root root 25455043 Oct 28 16:43 blocks.journal
+-rw-r--r--   1 root root  8548352 Oct 28 16:43 history.redb
+-rw-r--r--   1 root root        4 Oct 28 16:39 retention.rkeep
+-rw-r--r--   1 root root 17379328 Oct 28 16:43 state.redb
+
+running 1 test
+JM-HEND {"blocksKnown":12652,"bytesPerRecord":2012.0973045609044,"extra":{"openSeconds":3.334035707,"openTiming":{"checkpointsMs":34,"historyOpenMs":22,"journalMs":181,"releaseMs":0,"replayCheckpointMs":0,"replayHistoryMs":0,"replayMs":2665,"replayRecords":363,"replayRetainMs":1,"replayValidateMs":2422,"resetPinsMs":10,"restoreMs":333,"storeOpenMs":29,"totalMs":3272},"resumedFrom":12288,"rssAfterOpenTrimmed":58966016,"rssBeforeOpen":8712192,"transientBytes":7458816,"vmHwmAfterOpen":66424832},"hEnd":129600,"height":12651,"historyBytes":8548352,"journalBytes":25455043,"phase":"reopened","records
+test jm_journal_to_hend ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 3.42s
+
+# store after reopen:
+total 48196
+drwxr-xr-x   2 root root     4096 Oct 28 16:39 .
+drwx------ 149 root root    20480 Oct 28 16:39 ..
+-rw-r--r--   1 root root        0 Oct 28 16:39 LOCK
+-rw-r--r--   1 root root     4160 Oct 28 16:43 blocks.commit
+-rw-r--r--   1 root root 25455043 Oct 28 16:43 blocks.journal
+-rw-r--r--   1 root root  8548352 Oct 28 16:43 history.redb
+-rw-r--r--   1 root root        4 Oct 28 16:39 retention.rkeep
+-rw-r--r--   1 root root 17379328 Oct 28 16:43 state.redb
+# done 2026-10-28T16:43:23Z

@@ -1,0 +1,179 @@
+== a.log (last 60 of 56 lines)
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[a 39272296] opened: head h=0 records=0
+[a 39273005] lock h=1 a=0 PROP tid=0xea64245b4b
+[a 39273009] head h=1 0x25adc2575c37 signed=true txs=0
+[a 39278024] lock h=2 a=0 FB tid=0x168a56caa4
+[a 39278030] head h=2 0x338aa747316b signed=false txs=0
+[a 39278044] head h=3 0x70c427b38418 signed=true txs=0
+[a 39279030] lock h=4 a=0 PROP tid=0xe7d3585bb0
+[a 39279038] head h=4 0xb0b6f3362bea signed=true txs=0
+[a 39280031] lock h=5 a=0 PROP tid=0xb7147a1d5c
+[a 39280040] head h=5 0x40348a469111 signed=true txs=0
+[a 39281037] lock h=6 a=0 PROP tid=0xa88eb926a1
+[a 39281043] head h=6 0x3e3f50748c5d signed=true txs=0
+[a 39282056] head h=7 0x610699d3d244 signed=true txs=0
+[a 39283045] lock h=8 a=0 PROP tid=0x190b447dde
+[a 39283055] head h=8 0x65f0c4699ba3 signed=true txs=0
+[a 39284048] lock h=9 a=0 PROP tid=0x29eae9d00a
+[a 39284054] head h=9 0xb9069d059d57 signed=true txs=0
+[a 39285070] head h=10 0xe4727d803479 signed=true txs=0
+[a 39286008] lock h=11 a=0 PROP tid=0x7c8b7c27fb
+[a 39286017] head h=11 0xb47f4a2ca6de signed=true txs=0
+[a 39291034] head h=12 0xbf0a74d59159 signed=false txs=0
+[a 39291038] lock h=13 a=0 PROP tid=0x23bb8de118
+[a 39291045] head h=13 0xaf8a191f63c8 signed=true txs=0
+[a 39292034] lock h=14 a=0 PROP tid=0x5cc1a3972a
+[a 39292040] head h=14 0x730109c00b31 signed=true txs=0
+[a 39293033] lock h=15 a=0 PROP tid=0x72e4b6db29
+[a 39293044] head h=15 0xf068bde469a8 signed=true txs=0
+[a 39294041] lock h=16 a=0 PROP tid=0xa37d8aa441
+[a 39294052] head h=16 0x7fca3386d6c7 signed=true txs=0
+[a 39295045] lock h=17 a=0 PROP tid=0xcb6d2c6d22
+[a 39295055] head h=17 0x37be73c8da1e signed=true txs=5
+[a 39295430] peer evil: wrong network; closing
+[a 39296045] lock h=18 a=0 PROP tid=0xd221216bf1
+[a 39296064] head h=18 0xecf4ed30b8cf signed=true txs=0
+[a 39297065] head h=19 0x49b6ba037eaf signed=true txs=0
+[a 39297436] reject 0x845fd16a3434: 3 template signature
+[a 39298050] lock h=20 a=0 PROP tid=0xa58503a585
+[a 39298063] head h=20 0x99c8cf540c3f signed=true txs=0
+[a 39299071] head h=21 0xc04c2343f72a signed=true txs=0
+[a 39300006] lock h=22 a=0 PROP tid=0x33dd5a70b0
+[a 39300012] head h=22 0x60eef10c90e1 signed=true txs=0
+[a 39301011] lock h=23 a=0 PROP tid=0x1bd8452b8e
+[a 39301016] head h=23 0x3a1ccc450a15 signed=true txs=0
+[a 39302025] head h=24 0x7fde2f32a9c7 signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[a 39302304] opened: head h=24 records=34
+[a 39303020] lock h=25 a=0 PROP tid=0xaa50de162d
+[a 39303032] head h=25 0x833a7e69eba0 signed=true txs=0
+[a 39308074] lock h=26 a=0 FB tid=0x748452f5c4
+[a 39350033] attempt 0 expired; advancing
+[a 39350036] lock h=26 a=1 FB tid=0x492b39bc1d
+[a 39391009] attempt 1 expired; advancing
+[a 39391011] lock h=26 a=2 FB tid=0x9ea178e7fd
+[a 39432042] attempt 2 expired; advancing
+[a 39432044] lock h=26 a=3 FB tid=0x841b9df5e3
+== b.log (last 60 of 61 lines)
+[b 39272800] opened: head h=0 records=0
+[b 39273003] lock h=1 a=0 PROP tid=0xea64245b4b
+[b 39273011] head h=1 0x25adc2575c37 signed=true txs=0
+[b 39278024] lock h=2 a=0 FB tid=0x168a56caa4
+[b 39278030] head h=2 0x239f7aac6bd7 signed=false txs=0
+[b 39278032] lock h=3 a=0 PROP tid=0x6446bb13ca
+[b 39278039] head h=3 0x70c427b38418 signed=true txs=0
+[b 39279028] lock h=4 a=0 PROP tid=0xe7d3585bb0
+[b 39279039] head h=4 0x2a89e10bac7f signed=true txs=0
+[b 39280049] head h=5 0x40348a469111 signed=true txs=0
+[b 39281034] lock h=6 a=0 PROP tid=0xa88eb926a1
+[b 39281041] head h=6 0x4b6828bfdd7c signed=true txs=0
+[b 39282040] lock h=7 a=0 PROP tid=0x61d19a6baa
+[b 39282048] head h=7 0x610699d3d244 signed=true txs=0
+[b 39283042] lock h=8 a=0 PROP tid=0x190b447dde
+[b 39283051] head h=8 0x65f0c4699ba3 signed=true txs=0
+[b 39284045] lock h=9 a=0 PROP tid=0x29eae9d00a
+[b 39284057] head h=9 0x350fd15cd6ea signed=true txs=0
+[b 39285049] lock h=10 a=0 PROP tid=0xf6422dad1c
+[b 39285064] head h=10 0xe4727d803479 signed=true txs=0
+[b 39286011] lock h=11 a=0 PROP tid=0x7c8b7c27fb
+[b 39286015] head h=11 0x5f46e6d19efe signed=true txs=0
+[b 39291020] lock h=12 a=0 FB tid=0x95f121c8e7
+[b 39291025] head h=12 0xbf0a74d59159 signed=false txs=0
+[b 39291027] lock h=13 a=0 PROP tid=0x23bb8de118
+[b 39291040] range exhausted; idle until next template
+[b 39291048] head h=13 0xaf8a191f63c8 signed=true txs=0
+[b 39292039] lock h=14 a=0 PROP tid=0x5cc1a3972a
+[b 39292046] head h=14 0x730109c00b31 signed=true txs=0
+[b 39293030] lock h=15 a=0 PROP tid=0x72e4b6db29
+[b 39293042] head h=15 0xd4761075b860 signed=true txs=0
+[b 39294034] lock h=16 a=0 PROP tid=0x930b30cf92
+[b 39294044] head h=16 0x7fca3386d6c7 signed=true txs=0
+[b 39295038] lock h=17 a=0 PROP tid=0xcb6d2c6d22
+[b 39295048] head h=17 0x37be73c8da1e signed=true txs=5
+[b 39296049] lock h=18 a=0 PROP tid=0xd221216bf1
+[b 39296061] head h=18 0x1e0ff71aae65 signed=true txs=0
+[b 39297044] lock h=19 a=0 PROP tid=0x8d81a8afa9
+[b 39297058] head h=19 0x49b6ba037eaf signed=true txs=0
+[b 39298047] lock h=20 a=0 PROP tid=0xa58503a585
+[b 39298062] head h=20 0xa26e7919aa8a signed=true txs=0
+[b 39299050] lock h=21 a=0 PROP tid=0xf18e28bf39
+[b 39299065] head h=21 0xc04c2343f72a signed=true txs=0
+[b 39300003] lock h=22 a=0 PROP tid=0x33dd5a70b0
+[b 39300016] head h=22 0x60eef10c90e1 signed=true txs=0
+[b 39301008] lock h=23 a=0 PROP tid=0x1bd8452b8e
+[b 39301019] head h=23 0x323ee975c6ff signed=true txs=0
+[b 39302012] lock h=24 a=0 PROP tid=0x8f900e94e8
+[b 39302018] head h=24 0x7fde2f32a9c7 signed=true txs=0
+[b 39303014] lock h=25 a=0 PROP tid=0xaa50de162d
+[b 39303028] head h=25 0x833a7e69eba0 signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[b 39303225] opened: head h=25 records=35
+[b 39308244] lock h=26 a=0 FB tid=0x748452f5c4
+[b 39350026] attempt 0 expired; advancing
+[b 39350029] lock h=26 a=1 FB tid=0x492b39bc1d
+[b 39391045] attempt 1 expired; advancing
+[b 39391048] lock h=26 a=2 FB tid=0x9ea178e7fd
+[b 39432042] attempt 2 expired; advancing
+[b 39432044] lock h=26 a=3 FB tid=0x841b9df5e3
+== c.log (last 60 of 71 lines)
+[c 39293484] head h=9 0x350fd15cd6ea signed=true txs=0
+[c 39293488] head h=10 0xe4727d803479 signed=true txs=0
+[c 39293495] head h=11 0x5f46e6d19efe signed=true txs=0
+[c 39293498] head h=12 0xbf0a74d59159 signed=false txs=0
+[c 39293503] head h=13 0xaf8a191f63c8 signed=true txs=0
+[c 39293507] head h=14 0x730109c00b31 signed=true txs=0
+[c 39293511] head h=15 0xd4761075b860 signed=true txs=0
+[c 39294049] lock h=16 a=0 PROP tid=0x930b30cf92
+[c 39294056] head h=16 0x7fca3386d6c7 signed=true txs=0
+[c 39295041] lock h=17 a=0 PROP tid=0xcb6d2c6d22
+[c 39295055] head h=17 0x37be73c8da1e signed=true txs=5
+[c 39296048] lock h=18 a=0 PROP tid=0xd221216bf1
+[c 39296064] head h=18 0x1e0ff71aae65 signed=true txs=0
+[c 39297049] lock h=19 a=0 PROP tid=0x8d81a8afa9
+[c 39297063] head h=19 0xdd7b18d0f624 signed=true txs=0
+[c 39298069] head h=20 0xa26e7919aa8a signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 39298604] opened: head h=20 records=24
+[c 39303625] lock h=21 a=0 FB tid=0xf2d6743bff
+[c 39345030] attempt 0 expired; advancing
+[c 39345033] lock h=21 a=1 FB tid=0x558240a631
+[c 39386027] attempt 1 expired; advancing
+[c 39386030] lock h=21 a=2 FB tid=0x73a8791209
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 39418138] opened: head h=20 records=24
+[c 39418188] attempt 0 expired; advancing
+[c 39418191] lock h=21 a=1 FB tid=0x558240a631
+[c 39418198] head h=21 0x77cc7d06ea85 signed=false txs=0
+[c 39418238] attempt 0 expired; advancing
+[c 39418241] lock h=22 a=1 FB tid=0x3f9781e2e3
+[c 39418246] range exhausted; idle until next template
+[c 39428029] attempt 1 expired; advancing
+[c 39428031] lock h=22 a=2 FB tid=0xaacdf53691
+[c 39428035] head h=22 0x0f60378b95ab signed=false txs=0
+[c 39433047] lock h=23 a=0 FB tid=0x6e83c07266
+[c 39433051] head h=23 0x94f530f2a9c8 signed=false txs=0
+[c 39438063] lock h=24 a=0 FB tid=0xe3d99d317d
+[c 39438067] head h=24 0x47373e30a801 signed=false txs=0
+[c 39443081] lock h=25 a=0 FB tid=0x99281ca9d7
+[c 39443085] head h=25 0xa497c1131cc5 signed=false txs=0
+[c 39448098] lock h=26 a=0 FB tid=0x17b7b6e173
+[c 39448103] head h=26 0x2fafe090cfde signed=false txs=0
+[c 39453117] lock h=27 a=0 FB tid=0x2fd94516a5
+[c 39453122] head h=27 0xc5679d32d483 signed=false txs=0
+[c 39453126] lock h=28 a=0 PROP tid=0xcb4bdb9143
+[c 39453132] head h=28 0x9200af56cedb signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 39453371] opened: head h=28 records=32
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 39453907] opened: head h=28 records=32
+[c 39453923] head h=22 0x60eef10c90e1 signed=true txs=0
+[c 39453930] head h=23 0x323ee975c6ff signed=true txs=0
+[c 39453935] head h=24 0x7fde2f32a9c7 signed=true txs=0
+[c 39453942] head h=25 0x833a7e69eba0 signed=true txs=0
+[c 39453958] attempt 0 expired; advancing
+[c 39453962] lock h=26 a=1 FB tid=0x492b39bc1d
+[c 39454008] attempt 1 expired; advancing
+[c 39454012] lock h=26 a=2 FB tid=0x9ea178e7fd
+[c 39454059] attempt 2 expired; advancing
+[c 39454063] lock h=26 a=3 FB tid=0x841b9df5e3

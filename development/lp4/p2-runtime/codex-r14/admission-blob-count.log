@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/blob-count/gst_admission_checks.py", line 37, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/blob-count/gst_admission_checks.py", line 34, in main
+    check(True,blob_count=6);check(False,blob_count=7)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/blob-count/gst_admission_checks.py", line 24, in check
+    assert actual==expected,('admission boundary',count,actual,expected)
+           ^^^^^^^^^^^^^^^^
+AssertionError: ('admission boundary', 17, True, False)

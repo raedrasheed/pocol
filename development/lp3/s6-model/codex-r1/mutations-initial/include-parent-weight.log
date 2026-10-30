@@ -1,0 +1,50 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (2.001102ms)
+✔ 1027 previously frozen ASERT rows (8.576063ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.241967ms)
+✔ membership, partition completeness, owner and exact hashes (2.432257ms)
+✖ weight interval, strict CDF, unbiased rejection and uniform fallback (2.125613ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (8.141239ms)
+✔ full schema width/order/reserved failures and deep malformed framing (8.996549ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (85.848266ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 128.074331
+
+✖ failing tests:
+
+test at ../work/lp3-s6/mutations/ts-include-parent-weight-ojpdclp7/prototypes/lp3-model/tests.ts:48:1
+✖ weight interval, strict CDF, unbiased rejection and uniform fallback (2.125613ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+        id: '0000000000000000000000000000000000000001',
+        weight: 3n
+      },
+      {
+        id: '0000000000000000000000000000000000000002',
+  +     weight: 99n
+  -     weight: 0n
+      }
+    ]
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/mutations/ts-include-parent-weight-ojpdclp7/prototypes/lp3-model/tests.ts:50:57)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Array],
+    expected: [Array],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

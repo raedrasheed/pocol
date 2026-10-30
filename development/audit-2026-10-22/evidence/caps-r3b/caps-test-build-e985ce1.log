@@ -1,0 +1,43 @@
+# commit e985ce182c41c7ed83ba3b4f92ce81500c011f7f (tracked changes under prototypes/: none; development/ had uncommitted round-3b doc edits)
+# host Linux 6.18.44-fc-v153 x86_64; rustc 1.99.1 (58cf8f9c3 2026-10-13); release; own target dir; shared CPU lock
+# each part below is the raw cargo output of one command, between its "### cmd" and "### exit" lines
+### cmd: (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --features caps-test --test log_cap -- --nocapture)
+### head e985ce182c41c7ed83ba3b4f92ce81500c011f7f; uncommitted changes under prototypes/: 0
+### start 2026-10-24T06:08:46Z
+   Compiling pocol-lp4-execution v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-2/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-2/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 19.30s
+     Running tests/log_cap.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-caps/release/deps/log_cap-098cfc4305fdc725)
+
+running 2 tests
+test the_caps_test_build_sets_log_cap_to_2_pow_24 ... ok
+LOGCAP {"cumLogBytes":16777216,"exhaustedAt":513,"logCap":16777216,"receipts":[{"cumGas":300000,"logs":0,"status":false},{"cumGas":321000,"logs":0,"status":true},{"cumGas":374351,"logs":0,"status":true},{"cumGas":574351,"logs":0,"status":false},{"cumGas":595351,"logs":0,"status":true}]}
+LOGCAP {"blocksAfterExhaustion":22,"exhaustedAt":513,"head":535,"rewardsAfter":"539532357950753124968","rewardsBefore":"522639441202032031218"}
+test log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.53s
+
+### exit 0 elapsed 24s
+
+### cmd: (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --features caps-test --test caps)
+### head e985ce182c41c7ed83ba3b4f92ce81500c011f7f; uncommitted changes under prototypes/: 0
+### start 2026-10-24T06:09:10Z
+   Compiling pocold v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-2/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 2.17s
+     Running tests/caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-caps/release/deps/caps-deb4b147eee0cb1f)
+
+running 9 tests
+test a_received_template_past_the_caps_is_treated_as_absent ... ok
+test counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary ... ok
+test tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing ... ok
+test txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16 ... ok
+test tx_cap_boundary_is_exact_at_every_position_and_block_shape ... ok
+test txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones ... ok
+test txbytes_cap_boundary_is_exact_at_every_position_and_block_shape ... ok
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... ok
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.84s
+
+### exit 0 elapsed 39s
+

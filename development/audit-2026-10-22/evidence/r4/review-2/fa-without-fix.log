@@ -1,0 +1,7 @@
+thread 'e4_an_open_that_cannot_read_its_storage_fails_and_keeps_the_store' (17865) panicked at tests/consensus.rs:2823:40:
+state.redb read at open: the open succeeded (resumed from None, 0 refused)
+stack backtrace:
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 103 filtered out; finished in 11.83s
+
+error: test failed, to rerun pass `--test consensus`

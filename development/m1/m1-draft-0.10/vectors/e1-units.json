@@ -1,0 +1,95 @@
+{
+  "schema": "pocol-m1-e1-units/0.10",
+  "note": "Hand-written from the cited lines. Record values are written out in full (abstract fmt-2 shape; the b64 byte codec is row E4).",
+  "epochName": {
+    "source": {"file": "reference/browser.md", "lines": [508, 508], "literals": ["pocol:epoch:", "hex16(E)", "nonce", "bootMs"]},
+    "cases": [
+      {"E": 1, "name": "pocol:epoch:0000000000000001"},
+      {"E": 6, "name": "pocol:epoch:0000000000000006"},
+      {"E": 255, "name": "pocol:epoch:00000000000000ff"},
+      {"E": 18446744073709551615, "name": "pocol:epoch:ffffffffffffffff"},
+      {"E": 0, "error": true},
+      {"E": 18446744073709551616, "error": true}
+    ],
+    "parse": [
+      {"name": "pocol:epoch:0000000000000006", "E": 6},
+      {"name": "pocol:epoch:000000000000000A", "E": null, "why": "uppercase is not normalized"},
+      {"name": "pocol:epoch:6", "E": null, "why": "not zero-padded"},
+      {"name": "pocol:epoch:0000000000000006:1a2b", "E": null, "why": "nonce form of old D103"},
+      {"name": "pocol:epoch:0000000000000000", "E": null, "why": "epoch 0 is out of range"},
+      {"name": "pocol:epoch:000000000000000g", "E": null},
+      {"name": "pocol:epoch: 0000000000000006", "E": null}
+    ]
+  },
+  "recordName": {
+    "source": {"file": "reference/browser.md", "lines": [534, 541], "literals": [":r:", "hex16(E)", "hex8(seq)", "2^32", "2^64", "seq"]},
+    "cases": [
+      {"net": "n1", "addr": "0xa1", "E": 5, "seq": 3, "name": "site:n1:0xa1:r:0000000000000005:00000003"},
+      {"net": "n1", "addr": "0xa1", "E": 13, "seq": 4294967295, "name": "site:n1:0xa1:r:000000000000000d:ffffffff"},
+      {"net": "n1", "addr": "0xa1", "E": 1, "seq": 4294967296, "error": true},
+      {"net": "n1", "addr": "0xa1", "E": 0, "seq": 0, "error": true},
+      {"net": "n1", "addr": "0xa1", "E": 1, "seq": -1, "error": true}
+    ],
+    "parse": [
+      {"name": "site:n1:0xa1:r:0000000000000005:00000003", "version": [5, 3]},
+      {"name": "site:n1:0xa2:r:0000000000000005:00000003", "version": null, "why": "another site"},
+      {"name": "site:n1:0xa1:r:000000000000000D:00000003", "version": null, "why": "uppercase"},
+      {"name": "site:n1:0xa1:r:5:3", "version": null},
+      {"name": "site:n1:0xa1:r:0000000000000000:00000003", "version": null},
+      {"name": "site:n1:0xa1:r:0000000000000005:0000003", "version": null}
+    ]
+  },
+  "lookup": {
+    "source": {"file": "reference/browser.md", "lines": [541, 553], "literals": ["(epoch, seq)", "RECOVERY_GETS_MAX = 4", "corrupt", "{}"]},
+    "note": "items: name -> value. Expected: the largest present VALID record wins; corrupt ones are skipped and counted; at most 4 reads; corrupt with no valid one within 4 reads = failed.",
+    "cases": [
+      {"id": "seq-larger-wins",
+       "items": {"site:n1:0xa1:r:0000000000000005:00000003": {"fmt": 2, "epoch": 5, "seq": 3, "tomb": false, "dict": {"k0": "a"}},
+                 "site:n1:0xa1:r:0000000000000005:00000004": {"fmt": 2, "epoch": 5, "seq": 4, "tomb": false, "dict": {"k0": "b"}}},
+       "expect": {"failed": false, "version": [5, 4], "dict": {"k0": "b"}, "gets": 1}},
+      {"id": "epoch-dominates-seq",
+       "items": {"site:n1:0xa1:r:0000000000000005:00000009": {"fmt": 2, "epoch": 5, "seq": 9, "tomb": false, "dict": {"k0": "old"}},
+                 "site:n1:0xa1:r:0000000000000006:00000000": {"fmt": 2, "epoch": 6, "seq": 0, "tomb": false, "dict": {"k0": "new"}}},
+       "expect": {"failed": false, "version": [6, 0], "dict": {"k0": "new"}, "gets": 1}},
+      {"id": "largest-corrupt-next-valid",
+       "items": {"site:n1:0xa1:r:0000000000000006:00000001": {"fmt": 1, "epoch": 6, "seq": 1, "tomb": false, "dict": {}},
+                 "site:n1:0xa1:r:0000000000000006:00000000": {"fmt": 2, "epoch": 6, "seq": 0, "tomb": false, "dict": {"k0": "a"}}},
+       "expect": {"failed": false, "version": [6, 0], "dict": {"k0": "a"}, "gets": 2, "corrupt": 1}},
+      {"id": "value-epoch-mismatch-is-corrupt",
+       "items": {"site:n1:0xa1:r:0000000000000007:00000000": {"fmt": 2, "epoch": 6, "seq": 0, "tomb": false, "dict": {"k0": "x"}},
+                 "site:n1:0xa1:r:0000000000000005:00000003": {"fmt": 2, "epoch": 5, "seq": 3, "tomb": false, "dict": {"k0": "a"}}},
+       "expect": {"failed": false, "version": [5, 3], "dict": {"k0": "a"}, "gets": 2, "corrupt": 1}},
+      {"id": "four-corrupt-of-five-fails-after-4-gets",
+       "items": {"site:n1:0xa1:r:0000000000000001:00000005": {"fmt": 9},
+                 "site:n1:0xa1:r:0000000000000001:00000004": {"fmt": 9},
+                 "site:n1:0xa1:r:0000000000000001:00000003": {"fmt": 9},
+                 "site:n1:0xa1:r:0000000000000001:00000002": {"fmt": 9},
+                 "site:n1:0xa1:r:0000000000000001:00000001": {"fmt": 2, "epoch": 1, "seq": 1, "tomb": false, "dict": {"k0": "a"}}},
+       "expect": {"failed": true, "gets": 4, "corrupt": 4}, "source": "validation.md:494"},
+      {"id": "three-all-corrupt",
+       "items": {"site:n1:0xa1:r:0000000000000001:00000003": {"fmt": 9},
+                 "site:n1:0xa1:r:0000000000000001:00000002": {"fmt": 9},
+                 "site:n1:0xa1:r:0000000000000001:00000001": {"fmt": 9}},
+       "expect": {"failed": true, "gets": 3, "corrupt": 3}, "source": "validation.md:495"},
+      {"id": "no-records-empty-dict", "items": {}, "expect": {"failed": false, "version": null, "dict": {}, "gets": 0}, "source": "validation.md:496"},
+      {"id": "tomb-is-largest-record",
+       "items": {"site:n1:0xa1:r:0000000000000005:00000003": {"fmt": 2, "epoch": 5, "seq": 3, "tomb": false, "dict": {"k0": "a"}},
+                 "site:n1:0xa1:r:0000000000000006:00000000": {"fmt": 2, "epoch": 6, "seq": 0, "tomb": true, "dict": {}}},
+       "expect": {"failed": false, "version": [6, 0], "dict": {}, "tomb": true, "gets": 1}},
+      {"id": "malformed-name-not-a-record",
+       "items": {"site:n1:0xa1:r:000000000000000F:00000000": {"fmt": 2, "epoch": 15, "seq": 0, "tomb": false, "dict": {"k0": "z"}},
+                 "site:n1:0xa1:r:0000000000000005:00000003": {"fmt": 2, "epoch": 5, "seq": 3, "tomb": false, "dict": {"k0": "a"}}},
+       "expect": {"failed": false, "version": [5, 3], "dict": {"k0": "a"}, "gets": 1}}
+    ]
+  },
+  "epochValue": {
+    "source": {"file": "reference/browser.md", "lines": [508, 508], "literals": ["EPOCH_BYTES_MAX"]},
+    "cases": [
+      {"v": {"bootMs": 70000}, "ok": true},
+      {"v": {"bootMs": -200000}, "ok": true},
+      {"v": {"bootMs": 0, "nonce": "x"}, "ok": false},
+      {"v": {"bootMs": "70000"}, "ok": false},
+      {"v": {}, "ok": false}
+    ]
+  }
+}

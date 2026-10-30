@@ -1,0 +1,18 @@
+# pocold --features crash-test e4_checkpoint_crash_at_each_step and e4_checkpoint_survives_kills, tree = 206eaa4 + the deferred checkpoint release (uncommitted), 2026-10-27T21:10:26Z
+   Compiling pocold v0.1.0 (/home/user/Proof-of-Collaboration/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 45.08s
+     Running tests/consensus.rs (target/release/deps/consensus-f015b9515af3ad93)
+
+running 2 tests
+E44-KILLS [("E44READY 0", 2, Some(3)), ("E44READY 2", 9, Some(10)), ("E44READY 9", 19, Some(20)), ("E44READY 19", 37, Some(38)), ("E44READY 37", 60, Some(61)), ("E44READY 60", 89, Some(89)), ("E44READY 89", 102, Some(107)), ("E44READY 102", 102, Some(107)), ("E44READY 102", 102, Some(107)), ("E44READY 102", 102, Some(107)), ("E44READY 102", 102, Some(107))]
+test e4_checkpoint_survives_kills ... ok
+test e4_checkpoint_crash_at_each_step has been running for over 60 seconds
+E44-STEPS [("state-txn", 2, 0, None, 0), ("state-txn", 30, 25, Some(26), 27), ("state-txn", 90, 85, Some(86), 34), ("state-commit", 1, 0, None, 0), ("state-commit", 25, 23, Some(24), 26), ("state-commit", 80, 78, Some(79), 35), ("history", 3, 1, Some(2), 4), ("history", 40, 38, Some(39), 35), ("history", 100, 98, Some(99), 35), ("journal", 5, 4, Some(4), 6), ("journal", 50, 49, Some(49), 35), ("journal", 104, 100, Some(103), 36), ("checkpoint-before", 1, 1, None, 0), ("checkpoint-before", 33, 32, Some(32), 34), ("checkpoint-before", 99, 98, Some(98), 35), ("checkpoint-txn", 2, 1, Some(1), 3), ("checkpoint-txn", 47, 46, Some(46), 35), ("checkpoint-txn", 103, 100, Some(102), 36), ("checkpoint-after", 4, 3, Some(4), 5), ("checkpoint-after", 60, 59, Some(60), 34), ("checkpoint-after", 101, 98, Some(101), 35), ("release-step", 1, 1, Some(1), 2), ("release-step", 20, 19, Some(20), 21), ("release-step", 60, 59, Some(60), 34)]
+test e4_checkpoint_crash_at_each_step ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 88 filtered out; finished in 128.84s
+
+
+real	2m54.036s
+user	3m18.427s
+sys	0m14.851s

@@ -1,0 +1,9 @@
+{
+  "verification": "Actual captured terminal execution of existing read-only Rust signature verifier",
+  "library": "Rust libsecp256k1 0.5.0 + sha3 0.9.1",
+  "checks": 135,
+  "failed": 0,
+  "inputSha256": "865514a449e0e76b1c96e1d98b6c7851d8e0b226ca435639177db925af087e30",
+  "verifierSourceSha256": "e842b9fbda0375ba3f83b6c7eee65cc63b8b6d1d36edaf0e947c4836b76f52fa",
+  "noSigningOrSubmission": true
+}

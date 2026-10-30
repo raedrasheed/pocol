@@ -1,0 +1,4 @@
+# after + unpin/commit/prune timers: tree 16838eb + 6 changed paths; 2026-10-28T09:48:44Z; load 1.38 1.19 1.42
+PROF unpinMs=38658 unpins=867 commitMs=125707 commits=896 pruneMs=38513
+JM-SCALE {"allocatedBytes":679870464,"extra":{"head":"[45, a3, 33, 41, 76, e4, 4a, 23]","openSeconds":228.737547884,"resumedFrom":28672,"versionsRead":{"byDiff":31,"openTiming":{"checkpointsMs":10374,"historyOpenMs":51,"journalMs":314,"releaseMs":0,"replayCheckpointMs":0,"replayHistoryMs":1,"replayMs":197708,"replayRecords":855,"replayRetainMs":54783,"replayValidateMs":133010,"resetPinsMs":10332,"restoreMs":18379,"storeOpenMs":1790,"totalMs":228683},"whole":2}},
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 230.88s

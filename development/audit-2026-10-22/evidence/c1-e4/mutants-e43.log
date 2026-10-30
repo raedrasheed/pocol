@@ -1,0 +1,39 @@
+# C-1 E4.3 mutation controls (store mode in pocold: pins, retention, reads in place, handles, rebuild and restore; the lp4
+# overlay-path checks A1-A3 again). Each mutant on a fresh copy of the tree with new file times and its own target dir. Stages:
+# lp4 --lib; pocold consensus e4_ e1_ s3a_every pool e3_; pocold --test state_store. Runners are kept out of the repository.
+# A1 the candidate's summary check is skipped on the overlay path: lp4-execution/src/apply.rs: replace '    r.map_err(|e|ApplyError::Genesis(format!(\"candidate {e:?}\")))?;\n    check_escrow_invariant(child,profile,h,is_final)?;' with '    let _=r;\n    check_escrow_invariant(child,profile,h,is_final)?;'
+# A2 the overlay path's escrow invariant is skipped: lp4-execution/src/apply.rs: replace '    check_escrow_invariant(child,profile,h,is_final)?;\n    let c=users.commitments().clone();' with '    let _=is_final;\n    let c=users.commitments().clone();'
+# A3 the overlay path does not check the parent: lp4-execution/src/apply.rs: replace '    r.map_err(|e|ApplyError::Genesis(format!(\"parent {e:?}\")))?;\n    let job=job(pv,' with '    let _=r;\n    let job=job(pv,'
+# C1 a dropped version keeps its pin: pocold/src/chain.rs: replace 'impl Drop for Pinned{fn drop(&mut self){if let Some(r)=self.trie.world{' with 'impl Drop for Pinned{fn drop(&mut self){if let Some(r)=self.trie.world.filter(|_|false){'
+# C2 a canonical state below the window keeps its version: pocold/src/chain.rs: replace 'if !e.pruned{e.state=Default::default();e.pruned=true;}e.stored=None;e.full=false;e.diff=None;' with 'if !e.pruned{e.state=Default::default();e.pruned=true;}e.full=false;e.diff=None;'
+# C3 a side state beyond side_max keeps its version: pocold/src/chain.rs: replace 'for h in &drop{if let Some(e)=self.blocks.get_mut(h){e.state=Default::default();e.stored=None;e.pruned=true;e.full=false;}}' with 'for h in &drop{if let Some(e)=self.blocks.get_mut(h){e.state=Default::default();e.pruned=true;e.full=false;}}'
+# C4 a stored child's trie is updated from no writes: pocold/src/chain.rs: replace 'let trie=pin.trie.update(&**store,&mut batch,&child_view,&run.writes);' with 'let trie=pin.trie.update(&**store,&mut batch,&child_view,&Default::default());'
+# C5 a stored state is not read in place: pocold/src/chain.rs: replace '        if let Some(p)=&e.stored{return Some(StateView::Stored(p.view()))}\n        if e.pruned||self.trie_store.is_some(){return None}' with '        if e.pruned||self.trie_store.is_some(){return None}'
+# C6 a handle ignores the stored version: pocold/src/chain.rs: replace '    pub fn of(e:&Entry)->Self{match &e.stored{Some(p)=>StateHandle::Stored(p.clone()),None=>StateHandle::Mem(e.state.clone())}}' with '    pub fn of(e:&Entry)->Self{StateHandle::Mem(e.state.clone())}'
+# C7 a rebuilt state is not kept on its entry: pocold/src/chain.rs: replace 'x.state=p.state;x.stored=p.stored;x.pruned=false;x.full=true;' with 'x.state=p.state;x.pruned=false;x.full=true;'
+# C8 genesis keeps its whole state when the store is enabled: pocold/src/chain.rs: replace 'e.stored=Some(std::sync::Arc::new(pin));e.state=Default::default();e.trie=None;e.diff=None;' with 'e.stored=Some(std::sync::Arc::new(pin));e.trie=None;e.diff=None;'
+# C9 a restore starts from the parent without its version: pocold/src/chain.rs: replace 'p.state=self.blocks[&ph].state.clone();p.stored=self.blocks[&ph].stored.clone();' with 'p.state=self.blocks[&ph].state.clone();'
+# C10 a rolling rebuild's root ignores a stored ancestor: pocold/src/chain.rs: replace '            if let Some(pin)=&e.stored{break (Default::default(),Some(pin.clone()))}\n' with '            if let Some(pin)=&e.stored{let _=pin;}\n'
+## pass 1 (frozen tree b91c490754cb42a5fd8acc223de24fd13522b729): 11 of 13 killed; C7 and C10 survived
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "A1 the candidate's summary check is skipped on the overlay path", "status": "KILLED", "failed": ["apply::tests::e4_failing_children_fail_alike_on_the_overlay_path"]}
+{"mutant": "A2 the overlay path's escrow invariant is skipped", "status": "KILLED", "failed": ["apply::tests::e4_failing_children_fail_alike_on_the_overlay_path"]}
+{"mutant": "A3 the overlay path does not check the parent", "status": "KILLED", "failed": ["apply::tests::e4_failing_children_fail_alike_on_the_overlay_path"]}
+{"mutant": "C1 a dropped version keeps its pin", "status": "KILLED", "failed": ["e4_a_store_node_answers_as_a_whole_state_node", "e4_store_node_at_the_r_keep_boundary_answers_as_a_whole_state_node"]}
+{"mutant": "C2 a canonical state below the window keeps its version", "status": "KILLED", "failed": ["e4_a_store_node_answers_as_a_whole_state_node"]}
+{"mutant": "C3 a side state beyond side_max keeps its version", "status": "KILLED", "failed": ["e4_a_store_node_answers_as_a_whole_state_node", "e4_store_node_at_the_r_keep_boundary_answers_as_a_whole_state_node"]}
+{"mutant": "C4 a stored child's trie is updated from no writes", "status": "KILLED", "failed": ["e4_a_store_node_answers_as_a_whole_state_node", "e4_store_node_at_the_r_keep_boundary_answers_as_a_whole_state_node"]}
+{"mutant": "C5 a stored state is not read in place", "status": "KILLED", "failed": ["e4_a_store_node_answers_as_a_whole_state_node", "e4_store_node_at_the_r_keep_boundary_answers_as_a_whole_state_node"]}
+{"mutant": "C6 a handle ignores the stored version", "status": "KILLED", "failed": ["e4_a_store_node_answers_as_a_whole_state_node", "e4_store_node_at_the_r_keep_boundary_answers_as_a_whole_state_node"]}
+{"mutant": "C7 a rebuilt state is not kept on its entry", "status": "PASS", "failed": []}
+{"mutant": "C8 genesis keeps its whole state when the store is enabled", "status": "KILLED", "failed": ["e4_a_store_node_answers_as_a_whole_state_node", "e4_store_node_at_the_r_keep_boundary_answers_as_a_whole_state_node"]}
+{"mutant": "C9 a restore starts from the parent without its version", "status": "KILLED", "failed": []}
+{"mutant": "C10 a rolling rebuild's root ignores a stored ancestor", "status": "PASS", "failed": []}
+## C9 (killed, no test listed): the consensus stage's test process exited with status 70, the node's exit on a failed restore of
+## an adopted branch (node.rs: "FATAL restore of the adopted branch"): with the parent's version dropped, the restore re-executes
+## the branch on an empty state, the state root differs from the committed one, and the node stops instead of serving it.
+## Rerun alone on the same tree with its output kept: the same result (status 70).
+## C7 and C10 survived because no store-mode test rebuilt a released state (every store-mode fork was within K_hist). Added in
+## 1a5b792: tests/consensus.rs e4_store_node_rebuilds_a_fork_below_k_hist_as_a_whole_state_node (a fork 45 blocks deep; the fork
+## point's state is released and rebuilt from genesis's stored version). Their retest on the final E4 tree is in mutants-e43-retest.log.
+{"mutant": "C9 a restore starts from the parent without its version", "status": "KILLED", "failed": []}

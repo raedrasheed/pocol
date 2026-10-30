@@ -1,0 +1,30 @@
+# Review B5: rpc_work_deadline_skips_expired_work_and_releases_resources (fixed) under load: three
+# processes of the release net test binary at once, each running the test 7 times (21 runs), all inside
+# one hold of the CPU lock (scratch b5stress.sh). Code under test: dc4e3d1 (binary built from it; hash below).
+# Command per run: <net test binary> --exact rpc_work_deadline_skips_expired_work_and_releases_resources --test-threads=1 --nocapture
+# Result: 21/21 ok; skipped == light504 in every run (the stage A failure was skipped = 0).
+# Rust 1.99.1 (rust-toolchain.toml), release, --locked, CARGO_TARGET_DIR=scratch wf-target-rpcguard, every cargo run under the shared CPU lock; loopback 127.0.0.1 only
+# ---- captured output ----
+binary /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-rpcguard/release/deps/net-abb87e9172926c6b e6c1abd051251932 start 2026-10-23T16:29:13Z
+proc 2 run 1: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":29,"light503":0,"light504":25,"lightRequests":90,"skipped":25,"workDeadlineMs":7}
+proc 3 run 1: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":30,"light503":0,"light504":32,"lightRequests":62,"skipped":32,"workDeadlineMs":7}
+proc 1 run 1: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":10,"heavyMs":29,"light503":0,"light504":32,"lightRequests":112,"skipped":32,"workDeadlineMs":7}
+proc 2 run 2: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":30,"light503":0,"light504":25,"lightRequests":34,"skipped":25,"workDeadlineMs":7}
+proc 3 run 2: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":11,"heavyMs":31,"light503":0,"light504":24,"lightRequests":97,"skipped":24,"workDeadlineMs":7}
+proc 1 run 2: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":11,"heavyMs":30,"light503":0,"light504":28,"lightRequests":102,"skipped":28,"workDeadlineMs":7}
+proc 1 run 3: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":10,"heavyMs":37,"light503":0,"light504":19,"lightRequests":112,"skipped":19,"workDeadlineMs":9}
+proc 3 run 3: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":12,"heavyMs":35,"light503":0,"light504":23,"lightRequests":170,"skipped":23,"workDeadlineMs":8}
+proc 2 run 3: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":13,"heavyMs":47,"light503":0,"light504":16,"lightRequests":314,"skipped":16,"workDeadlineMs":11}
+proc 1 run 4: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":30,"light503":0,"light504":22,"lightRequests":84,"skipped":22,"workDeadlineMs":7}
+proc 2 run 4: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":11,"heavyMs":29,"light503":0,"light504":26,"lightRequests":131,"skipped":26,"workDeadlineMs":7}
+proc 3 run 4: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":10,"heavyMs":32,"light503":0,"light504":24,"lightRequests":119,"skipped":24,"workDeadlineMs":8}
+proc 3 run 5: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":7,"heavyMs":28,"light503":0,"light504":26,"lightRequests":48,"skipped":26,"workDeadlineMs":7}
+proc 1 run 5: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":29,"light503":0,"light504":32,"lightRequests":61,"skipped":32,"workDeadlineMs":7}
+proc 2 run 5: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":12,"heavyMs":43,"light503":0,"light504":24,"lightRequests":202,"skipped":24,"workDeadlineMs":10}
+proc 3 run 6: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":29,"light503":0,"light504":25,"lightRequests":106,"skipped":25,"workDeadlineMs":7}
+proc 2 run 6: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":30,"light503":0,"light504":26,"lightRequests":116,"skipped":26,"workDeadlineMs":7}
+proc 1 run 6: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":11,"heavyMs":30,"light503":0,"light504":32,"lightRequests":71,"skipped":32,"workDeadlineMs":7}
+proc 3 run 7: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":31,"light503":0,"light504":24,"lightRequests":133,"skipped":24,"workDeadlineMs":7}
+proc 2 run 7: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":9,"heavyMs":31,"light503":0,"light504":28,"lightRequests":59,"skipped":28,"workDeadlineMs":7}
+proc 1 run 7: test result: ok DEADLINE {"batchMembersNotRun":19,"heavyAnsweredMs":8,"heavyMs":31,"light503":0,"light504":24,"lightRequests":135,"skipped":24,"workDeadlineMs":7}
+done 2026-10-23T16:29:17Z

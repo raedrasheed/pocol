@@ -1,0 +1,26 @@
+[
+  [
+    "m1-draft-0.9/vectors/storequeue-units.json",
+    true
+  ],
+  [
+    "m1-draft-0.13/vectors/e4-units.json",
+    true
+  ],
+  [
+    "m1-draft-0.11/vectors/c24-regressions.json",
+    true
+  ],
+  [
+    "m1-draft-0.3/vectors/selector-cases.json",
+    true
+  ],
+  [
+    "coordination/evidence/0.13/store-codec-oracle.json",
+    true
+  ],
+  [
+    "coordination/evidence/0.9/node-utf8-oracle.json",
+    true
+  ]
+]

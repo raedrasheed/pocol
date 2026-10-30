@@ -1,0 +1,9 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/work/lp4/p2-surplus-review/prototypes/lp4-execution)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.96s
+     Running tests/forced_surplus.rs (prototypes/lp4-execution/target/debug/deps/forced_surplus-ae5fbf60cb303168)
+
+running 1 test
+test actual_forced_surplus_stays_locked_outside_held_and_refunds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

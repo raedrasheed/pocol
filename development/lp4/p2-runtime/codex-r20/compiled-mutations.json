@@ -1,0 +1,101 @@
+[
+  {
+    "name": "runtime-off",
+    "old": "Some(limits.runtime as usize)",
+    "new": "Some(usize::MAX/2)",
+    "test": "code_caps_engine_tests::independent_engine_limits_against_complete_state_roots",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "runtime-old-cancun",
+    "old": "Some(limits.runtime as usize)",
+    "new": "Some(24576)",
+    "test": "code_caps_engine_tests::independent_engine_limits_against_complete_state_roots",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "initcode-coupled",
+    "old": ".modify_cfg_env(|cfg|cfg.chain_id=chain_id)",
+    "new": ".modify_cfg_env(|cfg|{cfg.chain_id=chain_id;if let Some(l)=limits{cfg.limit_contract_code_size=Some(l.runtime as usize);}})",
+    "test": "code_caps_engine_tests::independent_engine_limits_against_complete_state_roots",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "logical-off",
+    "old": "if proposed>limits.logical",
+    "new": "if false && proposed>limits.logical",
+    "test": "code_caps_engine_tests::independent_engine_limits_against_complete_state_roots",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "logical-equality",
+    "old": "if proposed>limits.logical",
+    "new": "if proposed>=limits.logical",
+    "test": "code_caps_engine_tests::independent_engine_limits_against_complete_state_roots",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "journal-overlay-ignored",
+    "old": "let total=current_total(context)",
+    "new": "let total=inventory(&context.evm.db)",
+    "test": "code_caps_engine_tests::independent_engine_limits_against_complete_state_roots",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "physical-dedup",
+    "old": "db.accounts.values().filter_map(|a|a.info()).try_fold",
+    "new": "{let mut hashes=std::collections::HashSet::new(); db.accounts.values().filter_map(|a|a.info()).filter(|info|hashes.insert(info.code_hash)).collect::<Vec<_>>()}.into_iter().try_fold",
+    "test": "code_caps_engine_tests::shared_code_charged_per_address",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "early-selfdestruct-credit",
+    "old": "base.chain(state.values().map(|a|a.info.clone()))",
+    "new": "base.chain(state.values().filter(|a|!a.is_selfdestructed()).map(|a|a.info.clone()))",
+    "test": "code_caps_engine_tests::independent_engine_limits_against_complete_state_roots",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "enclosing-rollback-disabled",
+    "old": "let previous=handler.execution.create_return.clone();",
+    "new": "let call=handler.execution.call_return.clone(); handler.execution.call_return=Arc::new(move |context,frame,mut result|{if result.result==InstructionResult::Revert{result.result=InstructionResult::Return;}call(context,frame,result)}); let previous=handler.execution.create_return.clone();",
+    "test": "code_caps_engine_tests::independent_engine_limits_against_complete_state_roots",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "code-hash-unchecked",
+    "old": "Some(code) if code.hash_slow()==info.code_hash",
+    "new": "Some(code) if true",
+    "test": "code_caps_engine_tests::missing_hash_or_r9_reject",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "r9-disabled",
+    "old": "if limits.runtime<24577",
+    "new": "if false && limits.runtime<24577",
+    "test": "code_caps_engine_tests::missing_hash_or_r9_reject",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

@@ -1,0 +1,14 @@
+# jm_store_scale phase ckpt (live variant) on a copy of the scale directory, 93a40d0 + the live variant + release steps fsynced (uncommitted experiment), 2026-10-27T21:30:54Z, nothing else running
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.16s
+     Running tests/journal_measure.rs (target/release/deps/journal_measure-bae419db3ca5aa62)
+
+running 1 test
+JM-SCALE-A13 {"acctCap":1000000,"boundBytes":"5374647145","budgetRequiredBytes":"6142453880","gasLimit":8000000,"hEnd":129600,"oneVersionAtCapsBytes":"1977381717","phase":"ckpt","slotCap":4000000,"stateFileBoundBytes":"3350848730760","sysSlotMax":65536}
+test jm_store_scale has been running for over 60 seconds
+JM-SCALE {"allocatedBytes":679870464,"extra":{"openSeconds":319.29584557,"resumedFrom":28672,"versionsRead":{"byDiff":31,"whole":2}},"fragmentedBytes":1749937581,"height":29519,"historyBytes":32559104,"journalBytes":41372174,"metadataBytes":14849989,"nodeCacheBytes":267554580,"nodes":1356933,"oneVersionModelBytes":"1855000692","phase":"opened for the checkpoint timing","rssBytes":462036992,"stateFileBytes":2156408832,"storedBytes":369846912,"storedOverModel":0.19937831484108148,"sysSlots":114,"userAccounts":949767,"userSlots":3799232,"vmHwmBytes":476848128}
+JM-SCALE {"allocatedBytes":590499840,"extra":{"checkpointNow":[{"call":0,"importsDuringRelease":{"maxMs":209.296651,"medianMs":137.082479,"n":70,"stepsBetween":20},"ms":358.417823,"nodesAfter":1318215,"nodesBefore":1356933,"nodesReleased":38718,"refsReleased":357948,"releaseMs":62344.103709,"releaseStepMaxMs":153,"releaseSteps":1399},{"call":1,"importsDuringRelease":null,"ms":261.32774800000004,"nodesAfter":1282386,"nodesBefore":1318215,"nodesReleased":35829,"refsReleased":326484,"releaseMs":48773.573528999994,"releaseStepMaxMs":70,"releaseSteps":1276},{"call":2,"importsDuringRelease":null,"ms":157.583117,"nodesAfter":1279027,"nodesBefore":1282386,"nodesReleased":3359,"refsReleased":33178,"releaseMs":4841.337357,"releaseStepMaxMs":60,"releaseSteps":130}],"encodeMs":45.282221,"entries":29598,"roots":29,"snapshotBytes":4304123},"fragmentedBytes":1826452455,"height":29589,"historyBytes":32559104,"journalBytes":41420194,"metadataBytes":13414567,"nodeCacheBytes":230527563,"nodes":1279027,"oneVersionModelBytes":"1855000320","phase":"after three checkpoints","rssBytes":470454272,"stateFileBytes":2156408832,"storedBytes":314678116,"storedOverModel":0.16963776911909104,"sysSlots":113,"userAccounts":949767,"userSlots":3799232,"vmHwmBytes":476848128}
+test jm_store_scale ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 439.99s
+
+exit 0

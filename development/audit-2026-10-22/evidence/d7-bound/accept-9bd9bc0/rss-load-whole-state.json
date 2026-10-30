@@ -1,0 +1,209 @@
+{
+ "commit": "9bd9bc0ae4d6533c4e26bff95cffc58d9c2518e7",
+ "uncommittedPrototypePaths": [
+  "?? prototypes/pocol-extension/node_modules",
+  "?? prototypes/pocold/target"
+ ],
+ "host": "6.18.44-fc-v153",
+ "nproc": 4,
+ "idleSeconds": 60,
+ "loadSeconds": 60,
+ "requestsAnswered200": {
+  "light": 19954,
+  "heavy": 1083,
+  "batch": 96,
+  "tx": 180
+ },
+ "nodes": {
+  "a": {
+   "peakRssBytes": 12972032,
+   "vmHwmBytes": 12972032,
+   "maxThreads": 29,
+   "peakRssIdleBytes": 11472896,
+   "peakRssLoadBytes": 12972032,
+   "modelBoundBytes": 3287955262,
+   "hwmOverModel": 0.0039,
+   "status": {
+    "height": 98,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "3287955262",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (2, C-1 E3) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      },
+      {
+       "detail": "a diff keeps no storage for a removed account: under Cancun (revm 19.7, EIP-6780) only an account created in the same transaction is destroyed, and an account without code, nonce and balance holds no storage; by inspection, not enforced by a counter",
+       "id": "s3a-removal"
+      },
+      {
+       "detail": "the history.redb terms rely on redb 2.6.4 behaviour checked by source inspection (cache split and write-buffer flush, allocator bitmaps) and on a measured file-size factor (HISTORY_FILE_FACTOR)",
+       "id": "redb-representation"
+      },
+      {
+       "detail": "Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound. C-1 E4.4 adds to it, at open only: every record's offset and rolling hash, a decoded checkpoint snapshot and the stored versions read whole for their summaries (streamed: a node at a time, the DFS stack of node ids)",
+       "id": "open-replay-transient"
+      },
+      {
+       "detail": "store mode (C-1 E4): BATCHES (1) and stored_versions are inventories by code inspection, not enforced by a counter; the node cache is bounded by its resident-byte count (state_store::CACHE_ENTRY, Node::resident_bytes), checked by a test",
+       "id": "store-inventory"
+      },
+      {
+       "detail": "the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION \u00a72d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested",
+       "id": "revm-loading"
+      },
+      {
+       "detail": "the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)",
+       "id": "store-file-factor"
+      }
+     ]
+    }
+   }
+  },
+  "b": {
+   "peakRssBytes": 12881920,
+   "vmHwmBytes": 12881920,
+   "maxThreads": 27,
+   "peakRssIdleBytes": 11374592,
+   "peakRssLoadBytes": 12881920,
+   "modelBoundBytes": 3287955262,
+   "hwmOverModel": 0.0039,
+   "status": {
+    "height": 98,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "3287955262",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (2, C-1 E3) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      },
+      {
+       "detail": "a diff keeps no storage for a removed account: under Cancun (revm 19.7, EIP-6780) only an account created in the same transaction is destroyed, and an account without code, nonce and balance holds no storage; by inspection, not enforced by a counter",
+       "id": "s3a-removal"
+      },
+      {
+       "detail": "the history.redb terms rely on redb 2.6.4 behaviour checked by source inspection (cache split and write-buffer flush, allocator bitmaps) and on a measured file-size factor (HISTORY_FILE_FACTOR)",
+       "id": "redb-representation"
+      },
+      {
+       "detail": "Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound. C-1 E4.4 adds to it, at open only: every record's offset and rolling hash, a decoded checkpoint snapshot and the stored versions read whole for their summaries (streamed: a node at a time, the DFS stack of node ids)",
+       "id": "open-replay-transient"
+      },
+      {
+       "detail": "store mode (C-1 E4): BATCHES (1) and stored_versions are inventories by code inspection, not enforced by a counter; the node cache is bounded by its resident-byte count (state_store::CACHE_ENTRY, Node::resident_bytes), checked by a test",
+       "id": "store-inventory"
+      },
+      {
+       "detail": "the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION \u00a72d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested",
+       "id": "revm-loading"
+      },
+      {
+       "detail": "the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)",
+       "id": "store-file-factor"
+      }
+     ]
+    }
+   }
+  },
+  "c": {
+   "peakRssBytes": 12775424,
+   "vmHwmBytes": 12775424,
+   "maxThreads": 25,
+   "peakRssIdleBytes": 11337728,
+   "peakRssLoadBytes": 12775424,
+   "modelBoundBytes": 3287955262,
+   "hwmOverModel": 0.0039,
+   "status": {
+    "height": 98,
+    "peers": 4,
+    "a13": {
+     "boundBytes": "3287955262",
+     "budgetBytes": 6442450944,
+     "conditions": [
+      {
+       "detail": "allocator per-allocation overhead and fragmentation are not modelled",
+       "id": "allocator-overhead"
+      },
+      {
+       "detail": "TRANSIENT_SNAPSHOTS (2, C-1 E3) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter",
+       "id": "transient-snapshot-inventory"
+      },
+      {
+       "detail": "the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins",
+       "id": "main-thread"
+      },
+      {
+       "detail": "the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks",
+       "id": "revm-representation"
+      },
+      {
+       "detail": "CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded",
+       "id": "cpu-and-timing"
+      },
+      {
+       "detail": "a diff keeps no storage for a removed account: under Cancun (revm 19.7, EIP-6780) only an account created in the same transaction is destroyed, and an account without code, nonce and balance holds no storage; by inspection, not enforced by a counter",
+       "id": "s3a-removal"
+      },
+      {
+       "detail": "the history.redb terms rely on redb 2.6.4 behaviour checked by source inspection (cache split and write-buffer flush, allocator bitmaps) and on a measured file-size factor (HISTORY_FILE_FACTOR)",
+       "id": "redb-representation"
+      },
+      {
+       "detail": "Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound. C-1 E4.4 adds to it, at open only: every record's offset and rolling hash, a decoded checkpoint snapshot and the stored versions read whole for their summaries (streamed: a node at a time, the DFS stack of node ids)",
+       "id": "open-replay-transient"
+      },
+      {
+       "detail": "store mode (C-1 E4): BATCHES (1) and stored_versions are inventories by code inspection, not enforced by a counter; the node cache is bounded by its resident-byte count (state_store::CACHE_ENTRY, Node::resident_bytes), checked by a test",
+       "id": "store-inventory"
+      },
+      {
+       "detail": "the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION \u00a72d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested",
+       "id": "revm-loading"
+      },
+      {
+       "detail": "the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)",
+       "id": "store-file-factor"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "note": "measured RSS of this run; not the model bound (all caps at once) and not a guaranteed ceiling"
+}

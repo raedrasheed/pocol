@@ -1,0 +1,273 @@
+{
+ "evidenceFiles": {
+  "coordination/DELEGATED-M1-DECISIONS-029.json": "4514d11610fffc3073cbc665db157324c83865f88d7da992eebc3fb8b3a37574",
+  "coordination/issue-ledger.json": "9e9da5eddc07750b9b8911da1626b368aba4613531134c066487c35d58d0e2ec",
+  "coordination/review-001/REVIEW-0.28.md": "b1c16a2d6dc993807b54046a5ee37882794079e9a23c8fb5c6411171604cae1f",
+  "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json": "b315e3f885d0a1d65012b039cf892e93c2c71b8b7386b83b24ce28afaa3006f1",
+  "coordination/review-001/m1-draft-0.26/results/hash-freeze-v1-0.26.json": "93ba8a3a9c2cfc42393ae1c27137d39b46c6c439384935c8d6480e9facf9d460",
+  "coordination/review-001/m1-draft-0.27/results/hash-freeze-v1-0.27.json": "e77b22ab5a01ab078eef843f59df40f523153b6554a911b00e32ae9c4391d8dd",
+  "coordination/review-001/m1-draft-0.27/results/run-results-0.27.json": "000738339963ea27e4419bff4b686b65f31f6be35bb7909f82e92f21c5c504cf",
+  "coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753",
+  "coordination/review-001/m1-draft-0.28/results/run-results-0.28.json": "3d603d9edf1b62117134cfd2f3d3dce1af1ffd126f7b7513d12b7434ff0b9e19",
+  "coordination/review-001/u14-independent-0.28.json": "3533d230e5b986aa4270aa9367c58ea0687e9b6767087eb7380d838e7b364434",
+  "coordination/task-027.md": "c837fcb41a612aee52b8a7f0535ef0e625e8fac8f132fed18d71abaa587937bc",
+  "m1-draft-0.17/vectors/rf-e6-1-x12-timelines.json": "c09d80318e32a68bb371e56bac95506acef4cd550f4f6a37e8384425621b13b8",
+  "m1-draft-0.2/tools/m1model.py": "9e5ee65115d77a1471ff92e8dd17f8979362f4b72ff2c2e38d4958dde711fd43",
+  "m1-draft-0.25/audit/row-inventory.json": "bdc72f7f8b6195a5dceb41cac67fb1ee14c7dfd40ca43915fc4025e93a901cb1",
+  "m1-draft-0.25/tools/supplements_ref.py": "5b597d6151d48258324a0c4552a226c7c1dbae0a9a4bf3e2e1994dddc52329e0",
+  "m1-draft-0.27/tools/v1_ref_027.py": "56eac33b4a3dd8782a8e8f37ee92a2ad47a938266cfe402876a2bf52c6d34d49",
+  "m1-draft-0.28/vectors/u14-timing-cases.json": "614c242c2a5fc3916b77fce739ade7465da49afea94640bb193b949fef67b9c1",
+  "m1-draft-0.5/vectors/proof-response-cases.json": "6ddd2133129e3f7797b93d64cb437cad505b47bcf0255bcadd996c6a8eefb52e",
+  "reference/FINAL_DESIGN.md": "d54b5aee37a052a053198c43a0278ae8561331f58e3f1148faa6ed4a194a480e",
+  "reference/browser.md": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7",
+  "reference/network.md": "3571e2aa5b3901b046fe7444d1950b32c30699a627c91c090298c69d2108bf1c",
+  "reference/validation.md": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1"
+ },
+ "groups025": {
+  "abi.selector": {
+   "blockedBy": [],
+   "entries": 35,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "abi.topic0": {
+   "blockedBy": [],
+   "entries": 7,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "alias.X1.netKey": {
+   "aliasOf": "triad.netKey",
+   "blockedBy": [],
+   "entries": 1,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "alias.t1_02.manifestHash": {
+   "aliasOf": "triad.manifests",
+   "blockedBy": [],
+   "entries": 73,
+   "pending": false,
+   "resolvedByDelegation": [
+    "U01"
+   ]
+  },
+  "alias.versionRecords": {
+   "aliasOf": "triad.manifests",
+   "blockedBy": [],
+   "entries": 73,
+   "pending": false,
+   "resolvedByDelegation": [
+    "U01"
+   ]
+  },
+  "c14.contentHash": {
+   "blockedBy": [],
+   "entries": 1,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "e05.GSV1": {
+   "blockedBy": [],
+   "entries": 1,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "ph.v3.networkProfiles": {
+   "blockedBy": [],
+   "class": "synthetic/private/placeholder",
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "privateProvenance": {
+   "blockedBy": [],
+   "class": "synthetic/private/placeholder",
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "proof.storageSlot": {
+   "blockedBy": [],
+   "entries": 3,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "slot.chunks0": {
+   "blockedBy": [],
+   "entries": 3,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "slot.publisher": {
+   "blockedBy": [],
+   "entries": 2,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "slot.versionBase": {
+   "blockedBy": [],
+   "entries": 3,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "snapshotE.selector": {
+   "blockedBy": [
+    {
+     "id": "ALT-E",
+     "type": "notAdopted"
+    }
+   ],
+   "entries": 1,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "syn.lc.branchHashes": {
+   "blockedBy": [],
+   "class": "synthetic/private/placeholder",
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "triad.K": {
+   "blockedBy": [],
+   "entries": 3,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "triad.codeTable": {
+   "blockedBy": [],
+   "entries": 48,
+   "pending": false,
+   "resolvedByDelegation": [
+    "U01"
+   ]
+  },
+  "triad.files": {
+   "blockedBy": [],
+   "entries": 486,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "triad.manifests": {
+   "blockedBy": [],
+   "entries": 73,
+   "pending": false,
+   "resolvedByDelegation": [
+    "U01"
+   ]
+  },
+  "triad.netKey": {
+   "blockedBy": [],
+   "entries": 1,
+   "pending": false,
+   "resolvedByDelegation": []
+  },
+  "txA.hash": {
+   "blockedBy": [],
+   "entries": 1,
+   "pending": false,
+   "resolvedByDelegation": []
+  }
+ },
+ "schema": "pocol-m1-hash-bindings/0.29",
+ "v1Groups": {
+  "keys.public": {
+   "entries": 4,
+   "freezes": [
+    "0.26"
+   ],
+   "rootVerified": 4
+  },
+  "v1.blockHash": {
+   "entries": 83,
+   "freezes": [
+    "0.26",
+    "0.27"
+   ],
+   "rootVerified": 83
+  },
+  "v1.genesis": {
+   "entries": 1,
+   "freezes": [
+    "0.26"
+   ],
+   "rootVerified": 1
+  },
+  "v1.other": {
+   "entries": 1,
+   "freezes": [
+    "0.26"
+   ],
+   "rootVerified": 1
+  },
+  "v1.powHash": {
+   "entries": 83,
+   "freezes": [
+    "0.26",
+    "0.27"
+   ],
+   "rootVerified": 83
+  },
+  "v1.shareHash": {
+   "entries": 3587,
+   "freezes": [
+    "0.27"
+   ],
+   "rootVerified": 3587
+  },
+  "v1.shareRoot": {
+   "entries": 16,
+   "freezes": [
+    "0.26",
+    "0.27"
+   ],
+   "rootVerified": 16
+  },
+  "v1.sigMsg": {
+   "entries": 83,
+   "freezes": [
+    "0.26",
+    "0.27"
+   ],
+   "rootVerified": 83
+  },
+  "v1.templateId": {
+   "entries": 83,
+   "freezes": [
+    "0.26",
+    "0.27"
+   ],
+   "rootVerified": 83
+  },
+  "v1.winMsg": {
+   "entries": 83,
+   "freezes": [
+    "0.26",
+    "0.27"
+   ],
+   "rootVerified": 83
+  }
+ },
+ "worstCase": {
+  "SHA29.preimageBinding": {
+   "bound": {
+    "powHash@0.27": 13,
+    "shareHash@0.27": 3328,
+    "templateId@0.26": 1,
+    "templateId@0.27": 13
+   },
+   "check": "SHA29.preimageBinding",
+   "note": "every distinct SHA-256 preimage of the worst case equals an exported freeze entry whose id root verified independently",
+   "status": "pass",
+   "unbound": []
+  },
+  "SHA29.worstCaseFixtureHash": {
+   "check": "SHA29.worstCaseFixtureHash",
+   "file": "coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json",
+   "replySha256": [
+    "8b46eebe6c694b74967dc4263d9f18f51afd4a4a444690b2ba36b1c37a2f76de",
+    "38d8b6b99d1526473fc4b40f62e31e519c0daa2ec42bdc0fd52adf65c2526aa5"
+   ],
+   "sha256": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753",
+   "status": "recorded"
+  }
+ }
+}

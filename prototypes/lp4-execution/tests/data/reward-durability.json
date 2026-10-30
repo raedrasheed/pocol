@@ -1,0 +1,106 @@
+{
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "input": {
+    "language": "Solidity",
+    "sources": {
+      "RewardDurabilityWitness.sol": {
+        "content": "// SPDX-License-Identifier: Apache-2.0\npragma solidity 0.8.28;\n// Test-only witness, not a PoCol Registry implementation or a new payment rule.\ncontract EphemeralReward {\n    function erase() external { selfdestruct(payable(msg.sender)); }\n}\ncontract RewardDurabilityWitness {\n    function probeThenErase() external returns(bool accepted,address reward) {\n        EphemeralReward child = new EphemeralReward();\n        reward = address(child);\n        (accepted,) = address(0xC0C0ff).call{gas:5000}(abi.encode(reward,uint256(0)));\n        child.erase();\n    }\n}\n"
+      }
+    },
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "evmVersion": "cancun",
+      "metadata": {
+        "bytecodeHash": "none",
+        "appendCBOR": false
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "abi",
+            "evm.deployedBytecode.object",
+            "evm.bytecode.object"
+          ]
+        }
+      }
+    }
+  },
+  "output": {
+    "contracts": {
+      "RewardDurabilityWitness.sol": {
+        "EphemeralReward": {
+          "abi": [
+            {
+              "inputs": [],
+              "name": "erase",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "bytecode": {
+              "object": "6080604052348015600e575f5ffd5b50603080601a5f395ff3fe6080604052348015600e575f5ffd5b50600436106025575f3560e01c8062f6b2b2146029575b5f5ffd5b602e33ff5b00"
+            },
+            "deployedBytecode": {
+              "object": "6080604052348015600e575f5ffd5b50600436106025575f3560e01c8062f6b2b2146029575b5f5ffd5b602e33ff5b00"
+            }
+          }
+        },
+        "RewardDurabilityWitness": {
+          "abi": [
+            {
+              "inputs": [],
+              "name": "probeThenErase",
+              "outputs": [
+                {
+                  "internalType": "bool",
+                  "name": "accepted",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "address",
+                  "name": "reward",
+                  "type": "address"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "bytecode": {
+              "object": "6080604052348015600e575f5ffd5b506101c88061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610029575f3560e01c8063c675bc5a1461002d575b5f5ffd5b610035610058565b6040805192151583526001600160a01b0390911660208301520160405180910390f35b5f5f5f6040516100679061015b565b604051809103905ff080158015610080573d5f5f3e3d5ffd5b50604080516001600160a01b03831660208201525f8183015281518082038301815260609091019182905291935083925062c0c0ff91611388916100c49190610167565b5f604051808303815f8787f1925050503d805f81146100fe576040519150601f19603f3d011682016040523d82523d5f602084013e610103565b606091505b505080935050806001600160a01b031662f6b2b26040518163ffffffff1660e01b81526004015f604051808303815f87803b158015610140575f5ffd5b505af1158015610152573d5f5f3e3d5ffd5b50505050509091565b604a8061017e83390190565b5f82518060208501845e5f92019182525091905056fe6080604052348015600e575f5ffd5b50603080601a5f395ff3fe6080604052348015600e575f5ffd5b50600436106025575f3560e01c8062f6b2b2146029575b5f5ffd5b602e33ff5b00"
+            },
+            "deployedBytecode": {
+              "object": "608060405234801561000f575f5ffd5b5060043610610029575f3560e01c8063c675bc5a1461002d575b5f5ffd5b610035610058565b6040805192151583526001600160a01b0390911660208301520160405180910390f35b5f5f5f6040516100679061015b565b604051809103905ff080158015610080573d5f5f3e3d5ffd5b50604080516001600160a01b03831660208201525f8183015281518082038301815260609091019182905291935083925062c0c0ff91611388916100c49190610167565b5f604051808303815f8787f1925050503d805f81146100fe576040519150601f19603f3d011682016040523d82523d5f602084013e610103565b606091505b505080935050806001600160a01b031662f6b2b26040518163ffffffff1660e01b81526004015f604051808303815f87803b158015610140575f5ffd5b505af1158015610152573d5f5f3e3d5ffd5b50505050509091565b604a8061017e83390190565b5f82518060208501845e5f92019182525091905056fe6080604052348015600e575f5ffd5b50603080601a5f395ff3fe6080604052348015600e575f5ffd5b50600436106025575f3560e01c8062f6b2b2146029575b5f5ffd5b602e33ff5b00"
+            }
+          }
+        }
+      }
+    },
+    "errors": [
+      {
+        "component": "general",
+        "errorCode": "5159",
+        "formattedMessage": "Warning: \"selfdestruct\" has been deprecated. Note that, starting from the Cancun hard fork, the underlying opcode no longer deletes the code and data associated with an account and only transfers its Ether to the beneficiary, unless executed in the same transaction in which the contract was created (see EIP-6780). Any use in newly deployed contracts is strongly discouraged even if the new behavior is taken into account. Future changes to the EVM might further reduce the functionality of the opcode.\n --> RewardDurabilityWitness.sol:5:33:\n  |\n5 |     function erase() external { selfdestruct(payable(msg.sender)); }\n  |                                 ^^^^^^^^^^^^\n\n",
+        "message": "\"selfdestruct\" has been deprecated. Note that, starting from the Cancun hard fork, the underlying opcode no longer deletes the code and data associated with an account and only transfers its Ether to the beneficiary, unless executed in the same transaction in which the contract was created (see EIP-6780). Any use in newly deployed contracts is strongly discouraged even if the new behavior is taken into account. Future changes to the EVM might further reduce the functionality of the opcode.",
+        "severity": "warning",
+        "sourceLocation": {
+          "end": 215,
+          "file": "RewardDurabilityWitness.sol",
+          "start": 203
+        },
+        "type": "Warning"
+      }
+    ],
+    "sources": {
+      "RewardDurabilityWitness.sol": {
+        "id": 0
+      }
+    }
+  }
+}

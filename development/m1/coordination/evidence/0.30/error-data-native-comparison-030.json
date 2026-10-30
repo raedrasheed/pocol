@@ -1,0 +1,31 @@
+{
+  "checks": 3,
+  "passed": 1,
+  "failed": 2,
+  "results": [
+    {
+      "id": "loneSurrogateData",
+      "nativeBytes": 6647,
+      "pythonModelBytes": 3347,
+      "shouldDrop": true,
+      "modelWouldDrop": false,
+      "pass": false
+    },
+    {
+      "id": "emojiData",
+      "nativeBytes": 4447,
+      "pythonModelBytes": 9947,
+      "shouldDrop": true,
+      "modelWouldDrop": true,
+      "pass": false
+    },
+    {
+      "id": "exactData4096",
+      "nativeBytes": 4096,
+      "pythonModelBytes": 4096,
+      "shouldDrop": false,
+      "modelWouldDrop": false,
+      "pass": true
+    }
+  ]
+}

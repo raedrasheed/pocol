@@ -1,0 +1,3 @@
+   Compiling pocol-lp4-execution-pay-zero-address v0.1.0 (/workspace/work/lp4/p2-pay02/mutations/zero-address)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.07s
+  Executable tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-4d463cf5ce800ad7)

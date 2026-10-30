@@ -1,0 +1,323 @@
+# caps round 3: mutation check of tests/caps.rs (outputs only; the runner and the mutant edits stay in scratch)
+# base commit 5965b8d31809063008a562fd178b4864b6aa552d (clean prototypes/ tree); Linux; release; own target dir; shared CPU lock
+# each mutant: one source edit (two for M3a) in pocold src/node.rs or src/chain.rs, or lp4-execution src/user_phase.rs, then
+#   (cd prototypes/<crate> && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --no-fail-fast <args in brackets>)
+# KILLED = exit 101 with a failing test and no compile error; SURVIVED = exit 0; INCOMPLETE = compile error, timeout (2400 s) or other
+# sets: B1-B12, W1-W12 = the second review's (its runner's edits, unchanged); M1-M11 = the first review's (its runner's edits,
+#   unchanged; M1 as its corrected `if false` variant; M5ta/M5tb, which also edit the test, are not rerun); X1-X10 = new in round 3
+# the log_cap/caps_identity mutants (M4, M4b, M5, M10, M11) run the tests they target, as in the first review
+# X9 and X10 ran in a second invocation of the same runner, after the first had ended
+
+## run 1
+B1   builder: exact fit refused (>= room)                                           KILLED                       exit 101 21s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.17s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+B2   builder: one byte over accepted (> room+1)                                     KILLED                       exit 101 37s  [pocold: --test caps]
+     test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.80s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:173:42: / assertion failed: n.template_txs(&head).is_empty()
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-1
+B3   builder: check counts the RLP item header (enc)                                KILLED                       exit 101 70s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.59s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+B4   builder: check counts a 1-byte header                                          KILLED                       exit 101 38s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.61s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+B5   builder: room decremented by the RLP item length (enc)                         KILLED                       exit 101 26s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.63s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+B6   builder: room decremented one byte short                                       KILLED                       exit 101 40s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-1
+B7   builder: room decremented one byte long                                        KILLED                       exit 101 39s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.57s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+B8   caps_room bytes +1 (lenient)                                                   KILLED                       exit 101 84s  [pocold: --test caps]
+     test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:162:42: / assertion `left == right` failed
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-1
+B9   caps_room bytes -1 (strict)                                                    KILLED                       exit 101 57s  [pocold: --test caps]
+     test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:162:42: / assertion `left == right` failed
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+B10  builder: exact fit refused only on a non-empty parent (cross-block strict)     KILLED                       exit 101 54s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.42s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:125:97: / assertion `left == right` failed: b0 fits the room left by block 1 exactly
+B11  builder: body list header (3 B) counted for the block's first tx only          KILLED                       exit 101 54s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.03s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:125:97: / assertion `left == right` failed: b0 fits the room left by block 1 exactly
+B12  builder: exact fit refused for the block's first tx only                       KILLED                       exit 101 38s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:125:97: / assertion `left == right` failed: b0 fits the room left by block 1 exactly
+W1   item 16: < TXBYTES_CAP (exact fit refused)                                     KILLED                       exit 101 39s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:104:9: / item 16 at TXBYTES_CAP+0: Err(Block("16 caps"))
+W2   item 16: <= TXBYTES_CAP+1 (one byte over accepted)                             KILLED                       exit 101 28s  [pocold: --test caps]
+     test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.59s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:169:55: / assertion failed: matches!(ha.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:104:9: / item 16 at TXBYTES_CAP+1: Ok(())
+W3   item 16: 1-byte header per tx                                                  KILLED                       exit 101 25s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.19s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:104:9: / item 16 at TXBYTES_CAP+0: Err(Block("16 caps"))
+W4   item 16: RLP item length per tx (enc)                                          KILLED                       exit 101 38s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.81s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:104:9: / item 16 at TXBYTES_CAP+0: Err(Block("16 caps"))
+W5   item 16: body list header (3 B) once per non-empty block                       KILLED                       exit 101 39s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.81s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:104:9: / item 16 at TXBYTES_CAP+0: Err(Block("16 caps"))
+W6   item 16: this block's bytes only (branch counter ignored)                      KILLED                       exit 101 28s  [pocold: --test caps]
+     test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.18s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     panicked at tests/caps.rs:169:55: / assertion failed: matches!(ha.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:113:9: / assertion failed: matches!(h.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:92:5: / b2 passes TXBYTES_CAP by itself
+W7   item 16: parent counter one byte low                                           KILLED                       exit 101 41s  [pocold: --test caps]
+     test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.58s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:169:55: / assertion failed: matches!(ha.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:113:9: / assertion failed: matches!(h.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+W8   item 16: parent counter one byte high when non-zero                            KILLED                       exit 101 42s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:53:9: / h=2: the builder offers 0 transactions past the room (998, 0)
+W9   item 16: the block's first tx not counted                                      KILLED                       exit 101 41s  [pocold: --test caps]
+     test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.80s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     panicked at tests/caps.rs:169:55: / assertion failed: matches!(ha.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:113:9: / assertion failed: matches!(h.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:92:5: / b2 passes TXBYTES_CAP by itself
+W10  stored counter counts a 1-byte header per tx                                   KILLED                       exit 101 41s  [pocold: --test caps]
+     test result: FAILED. 1 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.78s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     FAILED a_mining_devnet_node_keeps_producing_past_txbytes_cap
+     FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+     panicked at tests/caps.rs:45:111: / assertion `left == right` failed: stored counters at 4
+     panicked at tests/caps.rs:109:63: / assertion `left == right` failed
+     panicked at tests/caps.rs:45:111: / assertion `left == right` failed: stored counters at 1
+     panicked at tests/caps.rs:45:111: / assertion `left == right` failed: stored counters at 1
+W11  item 16 bytes from the grandparent's counter (one block stale)                 KILLED                       exit 101 30s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.42s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:113:9: / assertion failed: matches!(h.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+W12  item 16 bytes from the head's counter (branch scope lost)                      KILLED                       exit 101 40s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     panicked at tests/caps.rs:166:37: / b2 is checked against B's counter (0), not the head's (716): Err(Block("16 caps"))
+M1   builder fix reverted (no cap skip)                                             KILLED                       exit 101 272s  [pocold: --test caps]
+     test result: FAILED. 1 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 240.07s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+     FAILED a_mining_devnet_node_keeps_producing_past_txbytes_cap
+     panicked at tests/caps.rs:141:79: / A is exhausted
+     panicked at tests/caps.rs:53:9: / h=1: the builder offers 10 transactions past the room (5, 16777216)
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+     panicked at tests/caps.rs:86:42: / assertion `left == right` failed: skips a1 (too large), a2 (after a1), keeps bob's
+M2a  builder bytes off-by-one strict (>=)                                           KILLED                       exit 101 56s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.81s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+M2b  builder bytes off-by-one lenient (>room+1)                                     KILLED                       exit 101 41s  [pocold: --test caps]
+     test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:173:42: / assertion failed: n.template_txs(&head).is_empty()
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-1
+M2c  builder count off-by-one lenient (room+1)                                      KILLED                       exit 101 39s  [pocold: --test caps]
+     test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.79s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+     FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+     panicked at tests/caps.rs:141:79: / A is exhausted
+     panicked at tests/caps.rs:53:9: / h=1: the builder offers 6 transactions past the room (6, 16777216)
+     panicked at tests/caps.rs:215:37: / assertion `left == right` failed: TX_CAP reached exactly
+M2d  builder count off-by-one strict (room<=1)                                      KILLED                       exit 101 40s  [pocold: --test caps]
+     test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.40s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+     FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+     panicked at tests/caps.rs:151:42: / assertion `left == right` failed
+     panicked at tests/caps.rs:68:5: / assertion `left == right` failed: the first template fills the remaining TX_CAP exactly
+     panicked at tests/caps.rs:215:37: / assertion `left == right` failed: TX_CAP reached exactly
+M2e  item16 count off-by-one strict (<)                                             KILLED                       exit 101 272s  [pocold: --test caps]
+     test result: FAILED. 3 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 240.09s
+     FAILED a_received_template_past_the_caps_is_treated_as_absent
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+     FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+     panicked at tests/caps.rs:36:87: / h=1 Block("16 caps")
+     panicked at tests/caps.rs:36:87: / h=1 Block("16 caps")
+     panicked at tests/caps.rs:53:9: / h=1: the builder offers 5 transactions past the room (5, 16777216)
+     panicked at tests/caps.rs:204:5: / txcap: the node did not reach height 8 within 240 s (production stalled)
+M2f  item16 bytes off-by-one strict (<)                                             KILLED                       exit 101 195s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.57s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:104:9: / item 16 at TXBYTES_CAP+0: Err(Block("16 caps"))
+M2g  item16 count lenient (<=cap+1)                                                 KILLED                       exit 101 130s  [pocold: --test caps]
+     test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.24s
+     FAILED a_received_template_past_the_caps_is_treated_as_absent
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+     panicked at tests/caps.rs:189:33: / assertion `left == right` failed: tpl-over: {"fallback":false,"header":"0xf902b9f90269f902238c506f436f6c2d74706c2d7631830bdeb8a0c920de6aea6e76927620e15ca9d4f8fbad2a1c3179fbae0d13d0975228a6031ba08ec32a8505ddadc1e7db3ef1690d9d01565e999ee54e16b57caf299871a1cd68028001
+     panicked at tests/caps.rs:142:55: / assertion failed: matches!(ha.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:73:5: / assertion failed: matches!(h.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+M2h  item16 bytes lenient (<=cap+1)                                                 KILLED                       exit 101 40s  [pocold: --test caps]
+     test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.79s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:169:55: / assertion failed: matches!(ha.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:104:9: / item 16 at TXBYTES_CAP+1: Ok(())
+M3a  builder bytes counted with the RLP item header (enc)                           KILLED                       exit 101 39s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.58s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+M3b  item16 bytes counted with a 2-byte header                                      KILLED                       exit 101 37s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     panicked at tests/caps.rs:104:9: / item 16 at TXBYTES_CAP+0: Err(Block("16 caps"))
+M3c  builder never decrements the byte room                                         KILLED                       exit 101 287s  [pocold: --test caps]
+     test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 240.20s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     FAILED a_mining_devnet_node_keeps_producing_past_txbytes_cap
+     panicked at tests/caps.rs:107:46: / assertion `left == right` failed: TXBYTES_CAP = a0+b0-0
+     panicked at tests/caps.rs:86:42: / assertion `left == right` failed: skips a1 (too large), a2 (after a1), keeps bob's
+     panicked at tests/caps.rs:204:5: / txbytes: the node did not reach height 8 within 240 s (production stalled)
+M4   caps-test LOG_CAP back to 2^30                                                 KILLED                       exit 101 44s  [pocold: --features caps-test --test log_cap -- --exact the_caps_test_build_sets_log_cap_to_2_pow_24]
+     test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.10s
+     FAILED the_caps_test_build_sets_log_cap_to_2_pow_24
+     panicked at tests/log_cap.rs:43:59: / assertion `left == right` failed
+M4   caps-test LOG_CAP back to 2^30                                                 KILLED                       exit 101 66s  [lp4-execution: --features caps-test --test caps_identity]
+     test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+     FAILED log_cap_is_not_representable_in_the_genesis_spec
+     panicked at tests/caps_identity.rs:67:5: / assertion `left == right` failed: absent from the release (validation.md:2065)
+M4b  enforced LOG_CAP hard-coded 2^30 (exported constant unchanged)                 KILLED                       exit 101 73s  [pocold: --features caps-test --test log_cap]
+     test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.44s
+     FAILED log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing
+     panicked at tests/log_cap.rs:67:5: / assertion `left == right` failed
+M5   halted receipt status 1 instead of 0                                           KILLED                       exit 101 41s  [pocold: --features caps-test --test log_cap]
+     test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.29s
+     FAILED log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing
+     panicked at tests/log_cap.rs:67:5: / assertion `left == right` failed
+M6   template locking ignores the caps                                              KILLED                       exit 101 46s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.97s
+     FAILED a_received_template_past_the_caps_is_treated_as_absent
+     panicked at tests/caps.rs:189:33: / assertion `left == right` failed: tpl-over: {"fallback":false,"header":"0xf902b9f90269f902238c506f436f6c2d74706c2d7631830bdeb8a0c920de6aea6e76927620e15ca9d4f8fbad2a1c3179fbae0d13d0975228a6031ba08ec32a8505ddadc1e7db3ef1690d9d01565e999ee54e16b57caf299871a1cd68028001
+M7   item 16 removed from validate                                                  KILLED                       exit 101 82s  [pocold: --test caps]
+     test result: FAILED. 3 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.27s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     panicked at tests/caps.rs:142:55: / assertion failed: matches!(ha.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:113:9: / assertion failed: matches!(h.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:73:5: / assertion failed: matches!(h.chain.validate(&over,None,0),Err(Reject::Block(ref w)) if
+     panicked at tests/caps.rs:92:5: / b2 passes TXBYTES_CAP by itself
+M8   stored cum_txs from the head, not the parent                                   KILLED                       exit 101 31s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.61s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     panicked at tests/caps.rs:146:53: / assertion `left == right` failed
+M9   sender's later txs not skipped                                                 KILLED                       exit 101 33s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     panicked at tests/caps.rs:86:42: / assertion `left == right` failed: skips a1 (too large), a2 (after a1), keeps bob's
+M10  cum_log_bytes not carried from the parent                                      KILLED                       exit 101 36s  [pocold: --features caps-test --test log_cap]
+     test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.51s
+     FAILED log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing
+     panicked at tests/log_cap.rs:67:5: / assertion `left == right` failed
+M11  halt keeps no nonce increment                                                  KILLED                       exit 101 81s  [pocold: --features caps-test --test log_cap]
+     test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.30s
+     FAILED log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing
+     panicked at tests/log_cap.rs:26:157: / called `Result::unwrap()` on an `Err` value: Block("apply User(\"Execution(4, \\\"Transaction(NonceTooHigh { tx: 514, state: 513 })\\\")\")")
+X1   item 16 count from the head's counter (branch scope lost)                      KILLED                       exit 101 48s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.74s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     panicked at tests/caps.rs:148:5: / item 16 on A after the reorg
+X2   item 16 count from the grandparent's counter                                   KILLED                       exit 101 43s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+     FAILED a_received_template_past_the_caps_is_treated_as_absent
+     panicked at tests/caps.rs:189:33: / assertion `left == right` failed: tpl-over: {"fallback":false,"header":"0xf902b9f90269f902238c506f436f6c2d74706c2d7631830bdeb8a0c920de6aea6e76927620e15ca9d4f8fbad2a1c3179fbae0d13d0975228a6031ba08ec32a8505ddadc1e7db3ef1690d9d01565e999ee54e16b57caf299871a1cd68028001
+X3   item 16 bytes from the canonical block at the parent's height                  KILLED                       exit 101 42s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.39s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     panicked at tests/caps.rs:166:37: / b2 is checked against B's counter (0), not the head's (716): Err(Block("16 caps"))
+X4   item 16 bytes: a non-canonical parent's counter read as 0                      KILLED                       exit 101 47s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.59s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     panicked at tests/caps.rs:170:5: / item 16 on A reads A's counter (716), not the head's (113)
+X5   builder byte room from the grandparent's counter                               KILLED                       exit 101 125s  [pocold: --test caps]
+     test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 84.30s
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     FAILED a_mining_devnet_node_keeps_producing_past_txbytes_cap
+     panicked at tests/caps.rs:53:9: / h=2: the builder offers 1 transactions past the room (998, 226)
+     panicked at tests/caps.rs:53:9: / h=2: the builder offers 1 transactions past the room (997, 395)
+     panicked at tests/caps.rs:209:28: / txbytes: an own block was rejected for the caps: [("0x11ce39dbfb9342b6a6a9a8329038a9dad6d10be22c0013219b483e39d793aecc", "16 caps")]
+X6   stored byte counter not cumulative (this block only)                           KILLED                       exit 101 51s  [pocold: --test caps]
+     test result: FAILED. 1 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.97s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     FAILED a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing
+     FAILED a_mining_devnet_node_keeps_producing_past_txbytes_cap
+     panicked at tests/caps.rs:45:111: / assertion `left == right` failed: stored counters at 5
+     panicked at tests/caps.rs:115:55: / assertion `left == right` failed
+     panicked at tests/caps.rs:45:111: / assertion `left == right` failed: stored counters at 2
+     panicked at tests/caps.rs:89:28: / [3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+X7   stored byte counter from the head, not the parent                              KILLED                       exit 101 44s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     panicked at tests/caps.rs:45:111: / assertion `left == right` failed: stored counters at 1
+X8   builder: a block's first tx not checked against the byte room                  KILLED                       exit 101 538s  [pocold: --test caps]
+     test result: FAILED. 3 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 240.10s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     FAILED txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16
+     FAILED txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones
+     FAILED a_mining_devnet_node_keeps_producing_past_txbytes_cap
+     panicked at tests/caps.rs:173:42: / assertion failed: n.template_txs(&head).is_empty()
+     panicked at tests/caps.rs:53:9: / h=2: the builder offers 1 transactions past the room (998, 0)
+     panicked at tests/caps.rs:53:9: / h=2: the builder offers 3 transactions past the room (997, 56)
+     panicked at tests/caps.rs:204:5: / txbytes: the node did not reach height 8 within 240 s (production stalled)
+# sources restored and checked
+
+## run 2 (X9, X10)
+X9   item 16 bytes from min(head, parent) counter (branch scope lost, lenient direction only) KILLED                       exit 101 533s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     panicked at tests/caps.rs:170:5: / item 16 on A reads A's counter (716), not the head's (113)
+X10  item 16 bytes from max(head, parent) counter (branch scope lost, strict direction only) KILLED                       exit 101 362s  [pocold: --test caps]
+     test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.98s
+     FAILED counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary
+     panicked at tests/caps.rs:166:37: / b2 is checked against B's counter (0), not the head's (716): Err(Block("16 caps"))
+# sources restored and checked

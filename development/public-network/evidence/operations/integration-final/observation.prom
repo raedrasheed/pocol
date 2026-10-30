@@ -1,0 +1,13 @@
+# HELP pocol_observation_success Last bounded multi-node observation succeeded.
+# TYPE pocol_observation_success gauge
+pocol_observation_success 1
+pocol_observation_timestamp_seconds 1793281617
+pocol_common_height 41
+pocol_node_height{node="node1"} 47
+pocol_compatible_peers{node="node1"} 6
+pocol_node_height{node="node2"} 47
+pocol_compatible_peers{node="node2"} 6
+pocol_node_height{node="node3"} 47
+pocol_compatible_peers{node="node3"} 6
+pocol_node_height{node="node4"} 47
+pocol_compatible_peers{node="node4"} 6

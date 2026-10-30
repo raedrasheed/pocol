@@ -1,0 +1,110 @@
+{
+  "authority": "User standing delegation for reversible technical M1 decisions; coordinator selection, not personalownerapproval",
+  "at": "2026-10-08T08:42:49.876Z",
+  "basis": "DELEGATED-M1-DECISIONS-029.json; REVIEW-0.28; actual0.29prepared suite and independent1120deadline/668hash probes; three failing receive-boundary probes identify a repair requirement",
+  "decisions": [
+    {
+      "id": "P-V1-1",
+      "selection": "Adopt the documented RLP reply fixture wire form; no claim of measured node support.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-2",
+      "selection": "Undecodable header element fails rule1 at its position.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-4",
+      "selection": "Adopt exactArabiccountphrases and warning join as fixture conventions.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-5",
+      "selection": "Fixture signatures use r||s||v with v0/1, independently verified by Rust.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-6",
+      "selection": "Synthetic fixture clock is head.ts+5; not realbrowsermeasurement.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-7",
+      "selection": "Fixture gasLimit/gasUsed u64 and share nonces be64 follow declared serialization.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-8",
+      "selection": "V1NET chainId777002 is a labelled placeholdernetwork with literalgenesis, not a deployedtrustednetwork.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-9",
+      "selection": "OtherRPCerrors give controlled viewIncomplete; malformed receive/envelope also cannot render.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-10",
+      "selection": "Wait exactly valid retryAfterMs only when wholebudget permits; max3retries.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-D29-1",
+      "selection": "Do not sleep a retry that reaches/passesdeadline. HNCimmediateviewIncomplete; contentattemptfails and canrestart onlywithinremainingbudget.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-D29-2",
+      "selection": "Content expiry unavailable/zeroframes; attempts exhausted inconsistent.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-D29-3",
+      "selection": "SHARED budget for initialRPnavigation: firstHeaderNetCheck request through content finalverdict. Separatebudget branch retained only as rejectedcomparison.",
+      "status": "delegated-technical-decision",
+      "rationale": "A single navigation must not escape the selectedend-to-end10s by splittinginto twooperations; existing RP-COMB makes the consequencecomputable."
+    },
+    {
+      "id": "P-U08-1",
+      "selection": "ManifestSplit(i) uses first differingposition includingmissingelement, afterexisting argumentprecedence.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-U02-1",
+      "selection": "Revoked-version consent is perload; reloadasksagain.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-U02-2",
+      "selection": "Interstitial is firstloadverdict; userthinktimeoutsidebudget; deliberateclickstartsfreshcoverednavigationbudget.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-U10-1",
+      "selection": "Retainedpublisherwarning atnominationandacceptance, persistsuntilremoval; cancelclearsnominationwarning.",
+      "status": "delegated-technical-decision",
+      "rationale": "Precisely scopes existing reviewed fixture behavior or boundedcontrol convention; preservesallchecks, historicalevidence and usercontrol."
+    },
+    {
+      "id": "P-V1-11",
+      "selection": "HeaderNetCheck reference transport boundary must reject duplicateJSONkeys/depth>16 before semantic checker, enforce methodreceive limits, and bind responseid to current request by existing finiteintegraluint32 value semantics. Scriptedrequest ids1(blockNumber)/2(headers) are reference fixture conventions; retriesecho2.",
+      "status": "delegated-technical-decision",
+      "rationale": "Baseline HttpTransport/RecvGuard applies toHeaderNetCheck; wrong/missingIDandduplicatefield probes currentlyrender. Existing C19/receiveguard precedent supports integration."
+    }
+  ],
+  "consequences": "New0.30explicitoverlay+tests required. Sourcebaselines/previousdrafts preserved. No realproduction/runtimefinancialactions."
+}

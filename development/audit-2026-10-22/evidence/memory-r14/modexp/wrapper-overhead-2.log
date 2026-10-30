@@ -1,0 +1,8 @@
+# modexp::tests::wrapper_overhead_interleaved with the review's inputs, tree a9fc509 + revm_is_quick (uncommitted; committed next, unchanged), nice 10 beside jm_store_scale and the d45dfe2 acceptance 2026-10-27T17:22:01Z
+MODEXP-WRAPPER m12 n151 odd: ours median 15.5 us, revm median 15.4 us, the fast-path checks alone 0.19 us
+MODEXP-WRAPPER m9 n151 even: ours median 17.1 us, revm median 16.8 us, the fast-path checks alone 0.08 us
+MODEXP-WRAPPER m9 n32768 odd: ours median 1467.2 us, revm median 1430.3 us, the fast-path checks alone 0.14 us
+MODEXP-WRAPPER m256 n2 odd: ours median 25.8 us, revm median 25.7 us, the fast-path checks alone 0.38 us
+MODEXP-WRAPPER m1024 n2 odd: ours median 209.2 us, revm median 209.8 us, the fast-path checks alone 0.60 us
+MODEXP-WRAPPER 3*2^606656 base 0x exp 0x: ours median 48.7 us, revm median 10.2 us
+MODEXP-WRAPPER 3*2^606656 base 0x05 exp 0x03: ours median 48.7 us, revm median 10.3 us

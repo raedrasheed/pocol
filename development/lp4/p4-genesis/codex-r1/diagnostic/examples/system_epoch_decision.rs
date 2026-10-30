@@ -1,0 +1,39 @@
+//! Diagnostic alternatives only: no production SystemCall, acceptance or boot.
+//! A bare Cancun frame suffices for these no-PAY/no-CREATE probes. Do not infer
+//! full PAY/CREATE/Registry/system or resource acceptance from these measurements.
+use revm::{Evm,InMemoryDB,FrameOrResult,DatabaseCommit,primitives::{Address,AccountInfo,Bytecode,Bytes,TxEnv,TxKind,U256,SpecId,B256},interpreter::CallInputs};
+use serde_json::{Value,json};
+#[path="../tests/registry_payment.rs"] #[allow(dead_code)] mod registry_fixture;
+fn code()->Bytecode{let v:Value=serde_json::from_str(include_str!("../tests/data/system-epoch-witness.json")).unwrap();let s=v["output"]["contracts"]["SystemEpochWitness.sol"]["SystemEpochWitness"]["evm"]["deployedBytecode"]["object"].as_str().unwrap();Bytecode::new_raw(Bytes::from((0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect::<Vec<_>>()))}
+fn system()->Address{registry_fixture::system()}
+fn selector(name:&str)->Bytes{Bytes::from(revm::primitives::keccak256(name.as_bytes())[..4].to_vec())}
+fn engine(db:&InMemoryDB,to:Address,gas:u64)->Evm<'static,(),InMemoryDB>{Evm::builder().with_db(db.clone()).with_spec_id(SpecId::CANCUN).modify_cfg_env(|c|c.chain_id=777902).modify_block_env(|b|{b.number=U256::from(1);b.timestamp=U256::ZERO;b.gas_limit=U256::from(8_000_000);b.basefee=U256::ZERO;b.prevrandao=Some(B256::ZERO);b.coinbase=pocol_lp4_execution::pay::escrow_address();b.set_blob_excess_gas_and_price(0,false);}).modify_tx_env(|t|*t=TxEnv{caller:system(),transact_to:TxKind::Call(to),gas_limit:gas,gas_price:U256::ZERO,nonce:Some(1),chain_id:Some(777902),..Default::default()}).build()}
+fn prepare(evm:&mut Evm<'_,(),InMemoryDB>){
+ evm.handler.pre_execution.load_accounts(&mut evm.context).unwrap();let pre=evm.handler.pre_execution.load_precompiles();evm.context.evm.set_precompiles(pre);evm.context.evm.load_account(system()).unwrap();
+}
+fn state(db:&InMemoryDB)->Value{
+ let mut entries=serde_json::Map::new();for (address,a) in &db.accounts{if a.account_state==revm::db::AccountState::NotExisting{continue}let code=db.contracts.get(&a.info.code_hash).map(|b|b.original_bytes()).unwrap_or_default();let storage:serde_json::Map<String,Value>=a.storage.iter().filter(|(_,v)|**v!=U256::ZERO).map(|(k,v)|(format!("{k:#x}"),json!(format!("{v:#x}")))).collect();entries.insert(format!("{address:#x}"),json!({"nonce":a.info.nonce,"balance":format!("{:#x}",a.info.balance),"code":format!("0x{}",code.iter().map(|b|format!("{b:02x}")).collect::<String>()),"storage":storage}));}Value::Object(entries)
+}
+fn current(evm:&Evm<'_,(),InMemoryDB>)->Value{let mut db=evm.context.evm.db.clone();db.commit(evm.context.evm.journaled_state.state.clone());state(&db)}
+fn frame(evm:&mut Evm<'_,(),InMemoryDB>,name:&str,gas:u64)->Value{
+ evm.context.evm.env.tx.data=selector(name);let mut input=CallInputs::new_boxed(&evm.context.evm.env.tx,gas).unwrap();input.caller=system();let first=evm.handler.execution.call(&mut evm.context,input).unwrap();let result=match first{FrameOrResult::Frame(frame)=>evm.run_the_loop(frame).unwrap(),FrameOrResult::Result(r)=>r};let result=result.into_interpreter_result();
+ let target=if let TxKind::Call(a)=evm.context.evm.env.tx.transact_to{a}else{unreachable!()};let account=evm.context.evm.journaled_state.state.get(&target);let slot=|key|account.and_then(|a|a.storage.get(&U256::from(key))).map(|s|s.present_value()).unwrap_or_else(||evm.context.evm.db.accounts.get(&target).and_then(|a|a.storage.get(&U256::from(key))).copied().unwrap_or_default()).to_string();
+ json!({"method":name,"gasSpentBeforeRefund":result.gas.spent(),"refundCounter":result.gas.refunded(),"output":format!("0x{}",result.output.iter().map(|b|format!("{b:02x}")).collect::<String>()),"success":result.result.is_ok(),"systemNonce":evm.context.evm.journaled_state.state.get(&system()).map(|a|a.info.nonce),"slot0":slot(0),"slot1":slot(1),"acceptedRule":false})
+}
+fn main(){
+ let target=Address::from([0x22;20]);let mut db=InMemoryDB::default();let b=code();db.insert_account_info(target,AccountInfo::new(U256::ZERO,1,b.hash_slow(),b));let empty=Bytecode::default();db.insert_account_info(system(),AccountInfo::new(U256::from(1_000_000),1,empty.hash_slow(),empty));db.insert_account_storage(target,U256::ZERO,U256::from(11)).unwrap();let mut rows=Vec::new();
+ let methods=["readSlot()","readSlot()","setTransient()","readTransient()","persistTransient()","clearSlot()","restoreSlot()"];
+ let mut shared=engine(&db,target,100000);prepare(&mut shared);for name in methods{rows.push(json!({"model":"shared-frame-epoch","result":frame(&mut shared,name,100000)}));}let shared_state=current(&shared);
+ let mut candidate=db.clone();for name in methods{let mut fresh=engine(&candidate,target,100000);prepare(&mut fresh);rows.push(json!({"model":"fresh-frame-epoch","result":frame(&mut fresh,name,100000)}));let (state,_)=fresh.context.evm.journaled_state.finalize();candidate.commit(state);}let fresh_state=state(&candidate);
+ for origin in [system(),Address::from([0x11;20]),Address::ZERO]{let mut direct=engine(&db,target,100000);direct.context.evm.env.tx.caller=origin;prepare(&mut direct);rows.push(json!({"model":"explicit-origin-fixed-SYSTEM-caller","origin":format!("{origin:#x}"),"result":frame(&mut direct,"originAndCaller()",100000)}));}
+ let mut ordinary=engine(&db,target,100000);ordinary.context.evm.env.tx.data=selector("readSlot()");let result=ordinary.transact().unwrap();rows.push(json!({"model":"ordinary-tx","gasUsed":result.result.gas_used(),"systemNonce":result.state[&system()].info.nonce,"success":result.result.is_success(),"acceptedRule":false}));
+ let mut ordinary=engine(&db,target,30000000);ordinary.context.evm.env.tx.data=selector("readSlot()");rows.push(json!({"model":"ordinary-tx30M-under-8M-GASLIMIT","error":format!("{:?}",ordinary.transact().unwrap_err()),"acceptedRule":false}));
+ let mut direct=engine(&db,target,30000000);prepare(&mut direct);rows.push(json!({"model":"direct-frame30M-under-8M-GASLIMIT","result":frame(&mut direct,"readSlot()",30000000)}));
+ let mut ordinary=engine(&db,target,100000);ordinary.context.evm.env.block.basefee=U256::from(100);ordinary.context.evm.env.tx.data=selector("readSlot()");rows.push(json!({"model":"ordinary-tx-zero-price-basefee100","error":format!("{:?}",ordinary.transact().unwrap_err()),"acceptedRule":false}));
+ let mut direct=engine(&db,target,100000);direct.context.evm.env.block.basefee=U256::from(100);prepare(&mut direct);rows.push(json!({"model":"direct-frame-zero-price-basefee100","result":frame(&mut direct,"readSlot()",100000)}));
+ // Real source-built Registry, using a declared synthetic CP fixture. markClose
+ // here cannot close/refund, hence no native PAY handler is needed for the probe.
+ let mut reg=registry_fixture::fixture();let registry_pre=state(&reg);let target=pocol_lp4_execution::pay::registry_address();let old=registry_fixture::call(&reg,system(),target,selector("markClose()").to_vec(),U256::ZERO,1);let mut old_state=reg.clone();old_state.commit(old.state.clone());rows.push(json!({"model":"real-compiled-Registry-old-unsigned-tx-control","gasUsed":old.result.gas_used(),"systemNonce":old.state[&system()].info.nonce,"state":state(&old_state),"acceptedRule":false}));
+ for name in ["markClose()","beginBlock()"]{let mut direct=engine(&reg,target,30000000);prepare(&mut direct);let r=frame(&mut direct,name,30000000);let (diff,_)=direct.context.evm.journaled_state.finalize();reg.commit(diff);rows.push(json!({"model":"real-compiled-Registry-direct-frame","result":r,"state":state(&reg),"acceptedRule":false}));}
+ println!("{}",json!({"scope":"Diagnostic alternative epoch/intrinsic/nonce behaviors only; no M1 recovered definition, no installed rule, no acceptance or boot","rows":rows,"sharedState":shared_state,"freshState":fresh_state,"registryPreState":registry_pre,"bootable":false}));
+}

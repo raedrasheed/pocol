@@ -1,0 +1,1724 @@
+{
+  "package": "M1 draft 0.7",
+  "executedAtUtc": "2026-10-07T09:54:59+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "evidenceKind": "reference models of the specification text only",
+  "notExecuted": [
+    "MaliciousHttp server, real sockets, Chrome stream reader, TestHooks (MR1-MR12 future parts)",
+    "Chrome BR20c/BR20d runs and C measurements",
+    "browser/MV3 extension, DNR",
+    "anvil/pocold, eth_call getter, MPT",
+    "ESLint/dependency-cruiser and the C2/C3 runtime tests",
+    "real transactions"
+  ],
+  "summary": {
+    "checks": 252,
+    "passed": 249,
+    "recorded": 2,
+    "failed": 1,
+    "seconds": 35.5
+  },
+  "results": [
+    {
+      "check": "keccak.selftest",
+      "status": "pass"
+    },
+    {
+      "check": "c20.violations '/a//..'",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "path.dotSegment"
+      ]
+    },
+    {
+      "check": "c20.normal '/a//..'",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.mutant '/a//..' -path.grammar",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.v03demonstrated '/a//..'",
+      "status": "pass",
+      "got": "accept"
+    },
+    {
+      "check": "c20.violations '/./%'",
+      "status": "pass",
+      "got": [
+        "path.dotSegment",
+        "path.grammar"
+      ]
+    },
+    {
+      "check": "c20.normal '/./%'",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.mutant '/./%' -path.dotSegment",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.v03demonstrated '/./%'",
+      "status": "pass",
+      "got": "accept"
+    },
+    {
+      "check": "c20.violations ''",
+      "status": "pass",
+      "got": [
+        "path.length",
+        "path.grammar",
+        "path.grammar"
+      ]
+    },
+    {
+      "check": "c20.normal ''",
+      "status": "pass",
+      "got": "path.length"
+    },
+    {
+      "check": "c20.mutant '' -path.length",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.v03demonstrated ''",
+      "status": "pass",
+      "got": "accept"
+    },
+    {
+      "check": "c20.violations 'a/..'",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "path.dotSegment"
+      ]
+    },
+    {
+      "check": "c20.normal 'a/..'",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.mutant 'a/..' -path.grammar",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.violations '/..//x'",
+      "status": "pass",
+      "got": [
+        "path.dotSegment",
+        "path.grammar"
+      ]
+    },
+    {
+      "check": "c20.normal '/..//x'",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.mutant '/..//x' -path.dotSegment",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.violations '/a b/../c'",
+      "status": "pass",
+      "got": [
+        "path.grammar",
+        "path.dotSegment"
+      ]
+    },
+    {
+      "check": "c20.normal '/a b/../c'",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.mutant '/a b/../c' -path.grammar",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.violations '/..'",
+      "status": "pass",
+      "got": [
+        "path.dotSegment"
+      ]
+    },
+    {
+      "check": "c20.normal '/..'",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.mutant '/..' -path.dotSegment",
+      "status": "pass",
+      "got": "accept"
+    },
+    {
+      "check": "c20.violations '/a b'",
+      "status": "pass",
+      "got": [
+        "path.grammar"
+      ]
+    },
+    {
+      "check": "c20.normal '/a b'",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.mutant '/a b' -path.grammar",
+      "status": "pass",
+      "got": "accept"
+    },
+    {
+      "check": "c20.violations \"@'/'+256*'a'+'/..'\"",
+      "status": "pass",
+      "got": [
+        "path.length",
+        "path.dotSegment"
+      ]
+    },
+    {
+      "check": "c20.normal \"@'/'+256*'a'+'/..'\"",
+      "status": "pass",
+      "got": "path.length"
+    },
+    {
+      "check": "c20.mutant \"@'/'+256*'a'+'/..'\" -path.length",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.regression.positive pos-minimal",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-empty-file",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-shared-chunk",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-case-distinct",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-path-256",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-path-special-segments",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-chunk-24575",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-file-1048576",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-files-256",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-site-4194304",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.positive pos-manifest-65536",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.negative neg-trailing-byte",
+      "status": "pass",
+      "got": "decode.trailing"
+    },
+    {
+      "check": "c20.regression.isolation neg-trailing-byte",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-noncanonical-version",
+      "status": "pass",
+      "got": "decode.noncanonical"
+    },
+    {
+      "check": "c20.regression.isolation neg-noncanonical-version",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-noncanonical-long-string",
+      "status": "pass",
+      "got": "decode.noncanonical"
+    },
+    {
+      "check": "c20.regression.isolation neg-noncanonical-long-string",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-noncanonical-long-list",
+      "status": "pass",
+      "got": "decode.noncanonical"
+    },
+    {
+      "check": "c20.regression.isolation neg-noncanonical-long-list",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-length-leading-zero",
+      "status": "pass",
+      "got": "decode.noncanonical"
+    },
+    {
+      "check": "c20.regression.isolation neg-length-leading-zero",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-truncated",
+      "status": "pass",
+      "got": "decode.truncated"
+    },
+    {
+      "check": "c20.regression.negative neg-manifest-65537",
+      "status": "pass",
+      "got": "decode.oversize"
+    },
+    {
+      "check": "c20.regression.isolation neg-manifest-65537",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-draft01-noncanonical-rlp",
+      "status": "pass",
+      "got": "decode.noncanonical"
+    },
+    {
+      "check": "c20.regression.isolation neg-draft01-noncanonical-rlp",
+      "status": "pass",
+      "expected": "struct.shape",
+      "got": "struct.shape"
+    },
+    {
+      "check": "c20.regression.negative neg-top-arity-2",
+      "status": "pass",
+      "got": "struct.shape"
+    },
+    {
+      "check": "c20.regression.negative neg-top-arity-4",
+      "status": "pass",
+      "got": "struct.shape"
+    },
+    {
+      "check": "c20.regression.negative neg-file-arity-4",
+      "status": "pass",
+      "got": "struct.shape"
+    },
+    {
+      "check": "c20.regression.negative neg-file-arity-6",
+      "status": "pass",
+      "got": "struct.shape"
+    },
+    {
+      "check": "c20.regression.negative neg-files-not-list",
+      "status": "pass",
+      "got": "struct.shape"
+    },
+    {
+      "check": "c20.regression.negative neg-int-is-list",
+      "status": "pass",
+      "got": "struct.shape"
+    },
+    {
+      "check": "c20.regression.negative neg-int-leading-zero",
+      "status": "pass",
+      "got": "struct.int"
+    },
+    {
+      "check": "c20.regression.isolation neg-int-leading-zero",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-zero-as-00",
+      "status": "pass",
+      "got": "struct.int"
+    },
+    {
+      "check": "c20.regression.isolation neg-zero-as-00",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-mime-u8-overflow",
+      "status": "pass",
+      "got": "struct.int"
+    },
+    {
+      "check": "c20.regression.isolation neg-mime-u8-overflow",
+      "status": "pass",
+      "expected": "file.mime",
+      "got": "file.mime"
+    },
+    {
+      "check": "c20.regression.negative neg-size-u32-overflow",
+      "status": "pass",
+      "got": "struct.int"
+    },
+    {
+      "check": "c20.regression.isolation neg-size-u32-overflow",
+      "status": "pass",
+      "expected": "file.size",
+      "got": "file.size"
+    },
+    {
+      "check": "c20.regression.negative neg-hash-31",
+      "status": "pass",
+      "got": "struct.width"
+    },
+    {
+      "check": "c20.regression.isolation neg-hash-31",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "c20.regression.negative neg-hash-33",
+      "status": "pass",
+      "got": "struct.width"
+    },
+    {
+      "check": "c20.regression.isolation neg-hash-33",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "c20.regression.negative neg-addr-19",
+      "status": "pass",
+      "got": "struct.width"
+    },
+    {
+      "check": "c20.regression.isolation neg-addr-19",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "c20.regression.negative neg-addr-21",
+      "status": "pass",
+      "got": "struct.width"
+    },
+    {
+      "check": "c20.regression.isolation neg-addr-21",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "c20.regression.negative neg-version-0",
+      "status": "pass",
+      "got": "manifest.version"
+    },
+    {
+      "check": "c20.regression.isolation neg-version-0",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-version-2",
+      "status": "pass",
+      "got": "manifest.version"
+    },
+    {
+      "check": "c20.regression.isolation neg-version-2",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-files-empty",
+      "status": "pass",
+      "got": "manifest.fileCount"
+    },
+    {
+      "check": "c20.regression.isolation neg-files-empty",
+      "status": "pass",
+      "expected": "manifest.entryIndex",
+      "got": "manifest.entryIndex"
+    },
+    {
+      "check": "c20.regression.negative neg-files-257",
+      "status": "pass",
+      "got": "manifest.fileCount"
+    },
+    {
+      "check": "c20.regression.isolation neg-files-257",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-entry-index-range",
+      "status": "pass",
+      "got": "manifest.entryIndex"
+    },
+    {
+      "check": "c20.regression.isolation neg-entry-index-range",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-no-slash",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-no-slash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-root",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-root",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-trailing-slash",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-trailing-slash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-leading-double-slash",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-leading-double-slash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-empty-segment",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-empty-segment",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-space",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-space",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-percent",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-percent",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-backslash",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-backslash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-non-ascii",
+      "status": "pass",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-non-ascii",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-dot",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-dot",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-dotdot-tail",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-dotdot-tail",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-dotdot-lead",
+      "status": "pass",
+      "got": "path.dotSegment"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-dotdot-lead",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-length-257",
+      "status": "pass",
+      "got": "path.length"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-length-257",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-path-empty",
+      "status": "pass",
+      "got": "path.length"
+    },
+    {
+      "check": "c20.regression.isolation neg-path-empty",
+      "status": "pass",
+      "expected": "path.grammar",
+      "got": "path.grammar"
+    },
+    {
+      "check": "c20.regression.negative neg-duplicate-path",
+      "status": "pass",
+      "got": "path.order"
+    },
+    {
+      "check": "c20.regression.isolation neg-duplicate-path",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-unsorted-path",
+      "status": "pass",
+      "got": "path.order"
+    },
+    {
+      "check": "c20.regression.isolation neg-unsorted-path",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-case-unsorted",
+      "status": "pass",
+      "got": "path.order"
+    },
+    {
+      "check": "c20.regression.isolation neg-case-unsorted",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-unknown-mime",
+      "status": "pass",
+      "got": "file.mime"
+    },
+    {
+      "check": "c20.regression.isolation neg-unknown-mime",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-mime-zero",
+      "status": "pass",
+      "got": "file.mime"
+    },
+    {
+      "check": "c20.regression.isolation neg-mime-zero",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-entry-css",
+      "status": "pass",
+      "got": "entry.mime"
+    },
+    {
+      "check": "c20.regression.isolation neg-entry-css",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-draft01-unknown-mime-entry",
+      "status": "pass",
+      "got": "file.mime"
+    },
+    {
+      "check": "c20.regression.isolation neg-draft01-unknown-mime-entry",
+      "status": "pass",
+      "expected": "entry.mime",
+      "got": "entry.mime"
+    },
+    {
+      "check": "c20.regression.negative neg-file-1048577",
+      "status": "pass",
+      "got": "file.size"
+    },
+    {
+      "check": "c20.regression.isolation neg-file-1048577",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-chunk-len-0",
+      "status": "pass",
+      "got": "chunk.len"
+    },
+    {
+      "check": "c20.regression.isolation neg-chunk-len-0",
+      "status": "pass",
+      "expected": "fetch.length",
+      "got": "fetch.length"
+    },
+    {
+      "check": "c20.regression.negative neg-chunk-len-24576",
+      "status": "pass",
+      "got": "chunk.len"
+    },
+    {
+      "check": "c20.regression.isolation neg-chunk-len-24576",
+      "status": "pass",
+      "expected": "fetch.missing",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "c20.regression.negative neg-draft01-zero-chunk-length",
+      "status": "pass",
+      "got": "chunk.len"
+    },
+    {
+      "check": "c20.regression.isolation neg-draft01-zero-chunk-length",
+      "status": "pass",
+      "expected": "file.sum",
+      "got": "file.sum"
+    },
+    {
+      "check": "c20.regression.negative neg-wrong-size",
+      "status": "pass",
+      "got": "file.sum"
+    },
+    {
+      "check": "c20.regression.isolation neg-wrong-size",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-empty-with-chunk",
+      "status": "pass",
+      "got": "file.sum"
+    },
+    {
+      "check": "c20.regression.isolation neg-empty-with-chunk",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "c20.regression.negative neg-nonempty-no-chunks",
+      "status": "pass",
+      "got": "file.sum"
+    },
+    {
+      "check": "c20.regression.isolation neg-nonempty-no-chunks",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "c20.regression.negative neg-site-4194305",
+      "status": "pass",
+      "got": "site.size"
+    },
+    {
+      "check": "c20.regression.isolation neg-site-4194305",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-fetch-missing",
+      "status": "pass",
+      "got": "fetch.missing"
+    },
+    {
+      "check": "c20.regression.isolation neg-fetch-missing",
+      "status": "pass",
+      "expected": "fetch.prefix",
+      "got": "fetch.prefix"
+    },
+    {
+      "check": "c20.regression.negative neg-fetch-prefix",
+      "status": "pass",
+      "got": "fetch.prefix"
+    },
+    {
+      "check": "c20.regression.isolation neg-fetch-prefix",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-fetch-length",
+      "status": "pass",
+      "got": "fetch.length"
+    },
+    {
+      "check": "c20.regression.isolation neg-fetch-length",
+      "status": "pass",
+      "expected": "fetch.origin",
+      "got": "fetch.origin"
+    },
+    {
+      "check": "c20.regression.negative neg-fetch-other-factory",
+      "status": "pass",
+      "got": "fetch.origin"
+    },
+    {
+      "check": "c20.regression.isolation neg-fetch-other-factory",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.negative neg-fetch-modified-byte",
+      "status": "pass",
+      "got": "fetch.origin"
+    },
+    {
+      "check": "c20.regression.isolation neg-fetch-modified-byte",
+      "status": "pass",
+      "expected": "file.hash",
+      "got": "file.hash"
+    },
+    {
+      "check": "c20.regression.negative neg-file-hash",
+      "status": "pass",
+      "got": "file.hash"
+    },
+    {
+      "check": "c20.regression.isolation neg-file-hash",
+      "status": "pass",
+      "expected": "accept",
+      "got": "accept"
+    },
+    {
+      "check": "c20.regression.version ver-minimal",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.version ver-manifest-65536",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.version ver-manifest-hash",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.version ver-manifest-chunk-missing",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.version ver-manifest-noncanonical-split",
+      "status": "pass"
+    },
+    {
+      "check": "c20.regression.version ver-manifest-length-0",
+      "status": "pass"
+    },
+    {
+      "check": "c20.cache CACHE-1-cross-stage-mutant",
+      "status": "pass",
+      "outs": [
+        [
+          "ok",
+          "666f7267656421"
+        ],
+        [
+          "reject",
+          "fetch.origin"
+        ]
+      ]
+    },
+    {
+      "check": "c20.cache.v03demonstrated CACHE-1-cross-stage-mutant",
+      "status": "pass"
+    },
+    {
+      "check": "c20.cache CACHE-2-normal-sharing-unchanged",
+      "status": "pass",
+      "outs": [
+        [
+          "ok",
+          "686f6e657374"
+        ],
+        [
+          "ok",
+          "686f6e657374"
+        ]
+      ]
+    },
+    {
+      "check": "c20.cache CACHE-3-content-mutant-not-cached",
+      "status": "pass",
+      "outs": [
+        [
+          "ok",
+          "686f6e657374"
+        ],
+        [
+          "reject",
+          "fetch.prefix"
+        ]
+      ]
+    },
+    {
+      "check": "epoch.rerun06 Q8",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4100,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 Q9a",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4100,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 Q9b",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "sent",
+          null,
+          0
+        ],
+        "r2": [
+          "rejected",
+          4100,
+          1
+        ]
+      },
+      "sends": 1,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 Q9c-before-step3",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4100,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 Q9c-after-step3",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "sent",
+          null,
+          0
+        ]
+      },
+      "sends": 1,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 Q10",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4100,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 Q11-disconnect",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4100,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 Q11-lock",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4100,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 Q12",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4901,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 SE-eligible",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "sent",
+          null,
+          0
+        ]
+      },
+      "sends": 1,
+      "epoch": 0
+    },
+    {
+      "check": "epoch.rerun06 SE-benign-mutation",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4901,
+          0
+        ],
+        "r2": [
+          "sent",
+          null,
+          1
+        ]
+      },
+      "sends": 1,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 SE-identity-mismatch",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4901,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 0
+    },
+    {
+      "check": "epoch.rerun06 SE-endpoint-changed",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4901,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 SE-trust-changed",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4901,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 1
+    },
+    {
+      "check": "epoch.rerun06 SE-rp-no-window",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "rejected",
+          4901,
+          0
+        ]
+      },
+      "sends": 0,
+      "epoch": 0
+    },
+    {
+      "check": "epoch.rerun06 SE-rp-window-ok",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "sent",
+          null,
+          0
+        ]
+      },
+      "sends": 1,
+      "epoch": 0
+    },
+    {
+      "check": "epoch.PURE-1-stale-not-rewritten",
+      "status": "pass"
+    },
+    {
+      "check": "epoch.PURE-2-eligible-not-rewritten",
+      "status": "pass"
+    },
+    {
+      "check": "epoch.PURE-3-storage-view-not-rewritten",
+      "status": "pass"
+    },
+    {
+      "check": "epoch.STALE-1-accept-after-commit",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4901,
+          0
+        ]
+      }
+    },
+    {
+      "check": "epoch.STALE-2-fresh-request-succeeds",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4901,
+          0
+        ],
+        "r2": [
+          "sent",
+          null,
+          1
+        ]
+      }
+    },
+    {
+      "check": "epoch.STALE-3-substantive-before-stale",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4100,
+          0
+        ]
+      }
+    },
+    {
+      "check": "epoch.STALE-4-mutation-queued-during-accept",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "sent",
+          null,
+          0
+        ]
+      }
+    },
+    {
+      "check": "epoch.STALE-5-raw-write-detected-later",
+      "status": "pass",
+      "state": {
+        "r1": [
+          "cancelled",
+          4901,
+          0
+        ]
+      }
+    },
+    {
+      "check": "br19a.a7 sizeLinesKeepTokensBefore (checker fixed)",
+      "status": "pass"
+    },
+    {
+      "check": "mr.MR1",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 34,
+        "step": 3
+      }
+    },
+    {
+      "check": "mr.MR2",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 69,
+        "step": 3
+      }
+    },
+    {
+      "check": "mr.MR3",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 0,
+        "step": 2
+      }
+    },
+    {
+      "check": "mr.MR4",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 0,
+        "step": 3
+      }
+    },
+    {
+      "check": "mr.MR5",
+      "status": "pass",
+      "got": {
+        "outcome": "recvDepth",
+        "bytesCounted": 4034,
+        "step": 4
+      }
+    },
+    {
+      "check": "mr.MR6-accept length",
+      "status": "pass",
+      "got": 69632
+    },
+    {
+      "check": "mr.MR6-accept",
+      "status": "pass",
+      "got": {
+        "outcome": "ok",
+        "bytesCounted": 69632
+      }
+    },
+    {
+      "check": "mr.MR6-reject length",
+      "status": "pass",
+      "got": 69633
+    },
+    {
+      "check": "mr.MR6-reject",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 0,
+        "step": 3
+      }
+    },
+    {
+      "check": "mr.MR6b-accept length",
+      "status": "pass",
+      "got": 1048576
+    },
+    {
+      "check": "mr.MR6b-accept",
+      "status": "pass",
+      "got": {
+        "outcome": "ok",
+        "bytesCounted": 1048576
+      }
+    },
+    {
+      "check": "mr.MR6b-reject length",
+      "status": "pass",
+      "got": 1048577
+    },
+    {
+      "check": "mr.MR6b-reject",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 0,
+        "step": 3
+      }
+    },
+    {
+      "check": "mr.MR6c-accept length",
+      "status": "pass",
+      "got": 163958
+    },
+    {
+      "check": "mr.MR6c-accept",
+      "status": "pass",
+      "got": {
+        "outcome": "ok",
+        "bytesCounted": 163958
+      }
+    },
+    {
+      "check": "mr.MR6c-reject length",
+      "status": "pass",
+      "got": 167937
+    },
+    {
+      "check": "mr.MR6c-reject",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 0,
+        "step": 3
+      }
+    },
+    {
+      "check": "mr.MR6d-accept length",
+      "status": "pass",
+      "got": 168015
+    },
+    {
+      "check": "mr.MR6d-accept shape",
+      "status": "pass"
+    },
+    {
+      "check": "mr.MR6d-accept",
+      "status": "pass",
+      "got": {
+        "outcome": "ok",
+        "bytesCounted": 168015
+      }
+    },
+    {
+      "check": "mr.MR7 deadline",
+      "status": "pass"
+    },
+    {
+      "check": "mr.MR8",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 65572,
+        "step": 3
+      }
+    },
+    {
+      "check": "mr.MR9",
+      "status": "pass",
+      "got": {
+        "outcome": "recvLimit",
+        "bytesCounted": 65574,
+        "step": 3
+      }
+    },
+    {
+      "check": "mr.MR11-utf8",
+      "status": "pass",
+      "got": {
+        "outcome": "recvParse",
+        "bytesCounted": 40,
+        "step": 4
+      }
+    },
+    {
+      "check": "mr.MR11-dupkey",
+      "status": "pass",
+      "got": {
+        "outcome": "recvParse",
+        "bytesCounted": 54,
+        "step": 4
+      }
+    },
+    {
+      "check": "mr.MR12",
+      "status": "pass",
+      "got": {
+        "outcome": "ok",
+        "messageLen": 256
+      }
+    },
+    {
+      "check": "mr.neg recvNoLimit fails MR1",
+      "status": "pass",
+      "note": "a reader without the limit counts more than 4096 bytes, so MR1/MR4 would not end in recvLimit"
+    },
+    {
+      "check": "mr.neg recvNoLimit fails MR4",
+      "status": "pass",
+      "note": "a reader without the limit counts more than 4096 bytes, so MR1/MR4 would not end in recvLimit"
+    },
+    {
+      "check": "mr.MR4 gzip stream",
+      "status": "recorded",
+      "compressedBytes": 1043656,
+      "sha256": "5129052870aebb4ec830daa57bea46e056e90d57bae7fa6d9d5ef042f65ce768",
+      "zlib": "1.2.13"
+    },
+    {
+      "check": "mr.MR4 about 1 MiB compressed",
+      "status": "pass",
+      "compressedBytes": 1043656
+    },
+    {
+      "check": "mr10.MR10a",
+      "status": "pass",
+      "busy": {
+        "a11": 2000
+      },
+      "granted": {
+        "a12": 2500
+      }
+    },
+    {
+      "check": "mr10.MR10b",
+      "status": "pass",
+      "busy": {
+        "s4_3": 2000
+      },
+      "granted": {
+        "hdr": 100,
+        "chunk": 100
+      }
+    },
+    {
+      "check": "mr10.MR10c",
+      "status": "pass",
+      "busy": {
+        "b49": 2000
+      },
+      "granted": {
+        "trust1": 0
+      }
+    },
+    {
+      "check": "mr10.MR10f",
+      "status": "pass",
+      "busy": {
+        "m4": 2030
+      },
+      "granted": {
+        "m5": 2200
+      }
+    },
+    {
+      "check": "mr10.BR20d",
+      "status": "pass",
+      "busy": {},
+      "granted": {
+        "trust6": 0
+      }
+    },
+    {
+      "check": "br20a.1000 [1, 4]",
+      "status": "pass",
+      "got": [
+        [
+          "pass",
+          "forwarded"
+        ],
+        {
+          "tokens_mt": 46000,
+          "pending": 4,
+          "nav": 6000
+        }
+      ]
+    },
+    {
+      "check": "br20a.1000 [5, 49]",
+      "status": "pass",
+      "got": [
+        [
+          "pass",
+          "pending"
+        ],
+        {
+          "tokens_mt": 1000,
+          "pending": 4,
+          "nav": 6000
+        }
+      ]
+    },
+    {
+      "check": "br20a.1000 [50, 50]",
+      "status": "pass",
+      "got": [
+        [
+          "pass",
+          "nav"
+        ],
+        {
+          "tokens_mt": 0,
+          "pending": 4,
+          "nav": 4000
+        }
+      ]
+    },
+    {
+      "check": "br20a.1001 [51, 51]",
+      "status": "pass",
+      "got": [
+        [
+          "rate",
+          "-"
+        ],
+        {
+          "tokens_mt": 50,
+          "pending": 4,
+          "nav": 4000
+        }
+      ]
+    },
+    {
+      "check": "br20a.lateOldFrameDropped",
+      "status": "pass"
+    },
+    {
+      "check": "br20a.1020 [52, 52]",
+      "status": "pass",
+      "got": [
+        [
+          "pass",
+          "pending"
+        ],
+        {
+          "tokens_mt": 0,
+          "pending": 4,
+          "nav": 4000
+        }
+      ]
+    },
+    {
+      "check": "br20a.1040 [53, 53]",
+      "status": "pass",
+      "got": [
+        [
+          "pass",
+          "pending"
+        ],
+        {
+          "tokens_mt": 0,
+          "pending": 4,
+          "nav": 4000
+        }
+      ]
+    },
+    {
+      "check": "br20a.1041 1",
+      "status": "pass",
+      "got": [
+        null,
+        {
+          "tokens_mt": 0,
+          "pending": 3,
+          "nav": 4000
+        }
+      ]
+    },
+    {
+      "check": "br20a.1060 [54, 54]",
+      "status": "pass",
+      "got": [
+        [
+          "pass",
+          "forwarded"
+        ],
+        {
+          "tokens_mt": 0,
+          "pending": 4,
+          "nav": 4000
+        }
+      ]
+    },
+    {
+      "check": "br20a.1061 [55, 55]",
+      "status": "pass",
+      "got": [
+        [
+          "rate",
+          "-"
+        ],
+        {
+          "tokens_mt": 50,
+          "pending": 4,
+          "nav": 4000
+        }
+      ]
+    },
+    {
+      "check": "br20a.m51 rate id null",
+      "status": "pass"
+    },
+    {
+      "check": "br20a.frameBudget negative control differs at m51",
+      "status": "pass",
+      "got": [
+        "pass",
+        "forwarded"
+      ]
+    },
+    {
+      "check": "br20b",
+      "status": "pass",
+      "got": [
+        "nav",
+        "nav",
+        "nav",
+        "navRejected",
+        "nav",
+        "navRejected"
+      ]
+    },
+    {
+      "check": "br20c.model overlap <= 4",
+      "status": "pass",
+      "got": 4
+    },
+    {
+      "check": "br20c.model accepted <= 50+50t",
+      "status": "pass"
+    },
+    {
+      "check": "br20c.model navigations <= 3+t/2",
+      "status": "pass",
+      "navs": 33
+    },
+    {
+      "check": "br20c.model getCode once per chunk",
+      "status": "pass"
+    },
+    {
+      "check": "br20c.model session reservation <= 10 MiB",
+      "status": "pass"
+    },
+    {
+      "check": "br20c.model summary",
+      "status": "recorded",
+      "navigations": 33,
+      "accepted": 770,
+      "overlapMax": 4
+    },
+    {
+      "check": "step.completed e_checks",
+      "status": "FAIL",
+      "exception": "FileNotFoundError: [Errno 2] No such file or directory: 'D:\\\\PoCol-Development\\\\coordination\\\\review-001\\\\m1-draft-0.6\\\\vectors\\\\snapshot-invariants.json'"
+    },
+    {
+      "check": "fetchRule.C1 names the global object and constructors",
+      "status": "pass"
+    },
+    {
+      "check": "fetchRule.no case labelled as an accepted bypass",
+      "status": "pass"
+    },
+    {
+      "check": "fetchRule.alias case flagged",
+      "status": "pass"
+    }
+  ]
+}

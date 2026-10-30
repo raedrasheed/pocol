@@ -1,0 +1,23 @@
+{
+  "foundation": "c0ef36c68fb83f9474de7e70fe61973b466647a8",
+  "originalPR24Head": "40a1f819b3af5cd53c8b2c6d730bd0b9c6dd67aa",
+  "originalPR24Tree": "9a4dbd41d30b5e506aad33df7e3d6e432ff600bb",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+  "compiler": "solc 0.8.28+commit.7893614a.Emscripten.clang",
+  "oracle": "py-evm 0.12.1b1 with separately written PAY hook",
+  "ethereumTestsCommit": "c67e485ff8b5be9abc8ad15345ec21aa22e290d9",
+  "legacyTestsGitlink": "1f581b8ccdc4c63acf5f2c5c1b155c690c32a8eb",
+  "archives": [
+    {
+      "name": "tests.tar.gz",
+      "bytes": 105688266,
+      "sha256": "c87bdba75ef00e0de9d7206200d36552d0a88d74f4a7bd441d5ced854e3e02bf"
+    },
+    {
+      "name": "legacy.tar.gz",
+      "bytes": 126768895,
+      "sha256": "ed16742e585db5ac4196bdf552ee126a68b777128e3e811bab179b36206dee35"
+    }
+  ],
+  "initialFailedGSTSourceCapture": "Raw failed receipts retained; run preceded finalized source receipt. Final source includes documented nonce/input fixes and optional diagnostic probe. No initial run acceptance claimed."
+}

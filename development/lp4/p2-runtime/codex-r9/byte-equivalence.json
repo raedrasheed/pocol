@@ -1,0 +1,14 @@
+{
+  "testedHead": "c70961187c23d3fd4bab6a99a43fd12001f7518e",
+  "hostedGSTCases": {
+    "rawSHA256": "1bd455f96ded27e7f7f65253a3a3912f8044089ec60394cc036e994cb3c5a28b",
+    "exactExistingEvidence": "development/lp4/p2-runtime/codex-r4/gst-source-final-cases.jsonl.gz",
+    "cases": 20661
+  },
+  "hostedRegistryOracle": {
+    "rawSHA256": "7e003e642537c433240e1d67a8b24e7f31c8bae2a6c92e705aaf195b6eb4fd41",
+    "exactLocalRaw": "codex-r8/oracle-expanded.json.gz",
+    "comparisons": 63
+  },
+  "scope": "Exact byte equality verified after ZIP digest verification; prior evidence was not rewritten or reclassified"
+}

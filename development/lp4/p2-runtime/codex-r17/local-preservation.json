@@ -1,0 +1,9 @@
+{
+  "archive": "/workspace/work/lp4/p2-registry-full/preserved-evidence/r17-completed-evidence.tar.gz",
+  "sha256": "ff1cf747c06078d68eb1593a5c96ccb3b6fc79d00281385047e5fd2c211b559a",
+  "bytes": 3385852,
+  "fileMembers": 235,
+  "scope": "Completed hosted4 artifacts and full1200/selected1200 raw attempts plus source proof metadata; active7200 run excluded and remains NOT PASSED",
+  "sourceArchivesRemainInOriginalCaches": true,
+  "bootable": false
+}

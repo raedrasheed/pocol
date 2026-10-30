@@ -1,0 +1,9 @@
+{'total': 1000, 'passControl': 1000, 'failControl': 0, 'runnerFailure': 0, 'nonCancunVariants': 225}
+Traceback (most recent call last):
+  File "/workspace/Proof-of-Collaboration/prototypes/lp4-execution/tests/gst_control.py", line 57, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/Proof-of-Collaboration/prototypes/lp4-execution/tests/gst_control.py", line 38, in main
+    if not line: raise RuntimeError('runner exited')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: runner exited

@@ -1,0 +1,86 @@
+[
+  {
+    "id": "C03-retest",
+    "result": {
+      "result": "reject",
+      "rule": "struct.shape",
+      "stage": "structure",
+      "detail": "expected list of 3",
+      "requests": 0,
+      "uniqueKeys": 0,
+      "references": 0,
+      "fetchCalls": 0
+    }
+  },
+  {
+    "id": "C04-retest",
+    "result": {
+      "kind": "malformedSelector"
+    }
+  },
+  {
+    "id": "C05-retest",
+    "result": {
+      "result": "accept",
+      "entryIndex": 0,
+      "files": [
+        {
+          "path": "/a.html",
+          "size": 1,
+          "keccak256": "0x7521d1cadbcfa91eec65aa16715b94ffc1c9654ba57ea2ef1a2127bca1127a83"
+        },
+        {
+          "path": "/b.css",
+          "size": 1,
+          "keccak256": "0x7521d1cadbcfa91eec65aa16715b94ffc1c9654ba57ea2ef1a2127bca1127a83"
+        }
+      ],
+      "requests": 1,
+      "uniqueKeys": 1,
+      "references": 2,
+      "fetchCalls": 1
+    }
+  },
+  {
+    "id": "C10-undefined-status-explicit",
+    "result": {
+      "result": "render",
+      "restarts": 0,
+      "calls": [
+        "anchor",
+        "proof1",
+        "proof2"
+      ],
+      "frames": 1,
+      "mixed": false,
+      "anchorState": "A",
+      "version": 1,
+      "manifestHash": "M_INVALID"
+    }
+  },
+  {
+    "id": "C12-valid-1001-content-requests",
+    "manifestBytes": 23131,
+    "logicalBytes": 2013,
+    "result": {
+      "result": "accept",
+      "entryIndex": 1,
+      "files": [
+        {
+          "path": "/a.bin",
+          "size": 2000,
+          "keccak256": "0x88d3cdea8f273f660bbcd1b446d45ad1aa4dc665cf16111e3cd510874d4a2520"
+        },
+        {
+          "path": "/index.html",
+          "size": 13,
+          "keccak256": "0x2e8a1a6a6660596f73c3ea56ab529edfe335fd396047d628c12866054da40466"
+        }
+      ],
+      "requests": 1001,
+      "uniqueKeys": 1001,
+      "references": 1001,
+      "fetchCalls": 1001
+    }
+  }
+]

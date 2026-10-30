@@ -1,0 +1,184 @@
+{
+  "revision": "0.16",
+  "checks": 21,
+  "passed": 21,
+  "failed": 0,
+  "results": [
+    {
+      "check": "existing64key_no_site_seat",
+      "actual": null,
+      "expected": null,
+      "pass": true
+    },
+    {
+      "check": "full64_no_retry_hint",
+      "actual": {
+        "code": 4300,
+        "reason": "sites",
+        "limit": 64
+      },
+      "expected": {
+        "code": 4300,
+        "reason": "sites",
+        "limit": 64
+      },
+      "pass": true
+    },
+    {
+      "check": "late_only_retry59900",
+      "actual": {
+        "code": 4300,
+        "reason": "sites",
+        "limit": 64,
+        "retryAfterMs": 59900
+      },
+      "expected": {
+        "code": 4300,
+        "reason": "sites",
+        "limit": 64,
+        "retryAfterMs": 59900
+      },
+      "pass": true
+    },
+    {
+      "check": "pre_expiry_refresh_keeps_late",
+      "actual": 4,
+      "expected": 4,
+      "pass": true
+    },
+    {
+      "check": "post_expiry_completed_refresh_drops_late",
+      "actual": 0,
+      "expected": 0,
+      "pass": true
+    },
+    {
+      "check": "late_expiry_admits_new",
+      "actual": null,
+      "expected": null,
+      "pass": true
+    },
+    {
+      "check": "names_tomb_991",
+      "actual": null,
+      "expected": null,
+      "pass": true
+    },
+    {
+      "check": "names_tomb_992",
+      "actual": {
+        "code": 4300,
+        "reason": "disk",
+        "limit": 1024
+      },
+      "expected": {
+        "code": 4300,
+        "reason": "disk",
+        "limit": 1024
+      },
+      "pass": true
+    },
+    {
+      "check": "bytes_inclusive_0",
+      "actual": null,
+      "expected": null,
+      "pass": true
+    },
+    {
+      "check": "bytes_inclusive_1",
+      "actual": {
+        "code": 4300,
+        "reason": "disk",
+        "limit": 268435456
+      },
+      "expected": {
+        "code": 4300,
+        "reason": "disk",
+        "limit": 268435456
+      },
+      "pass": true
+    },
+    {
+      "check": "tomb_byte_exemption",
+      "actual": null,
+      "expected": null,
+      "pass": true
+    },
+    {
+      "check": "existing_write_pin",
+      "actual": [
+        "k"
+      ],
+      "expected": [
+        "k"
+      ],
+      "pass": true
+    },
+    {
+      "check": "refresh_issued_before_settle_keeps_pin",
+      "actual": [
+        "k"
+      ],
+      "expected": [
+        "k"
+      ],
+      "pass": true
+    },
+    {
+      "check": "absent_pinned_key_counted",
+      "actual": [
+        "k"
+      ],
+      "expected": [
+        "k"
+      ],
+      "pass": true
+    },
+    {
+      "check": "serialized_followup_exists",
+      "actual": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "check": "followup_retires_pin",
+      "actual": [],
+      "expected": [],
+      "pass": true
+    },
+    {
+      "check": "absent_key_capacity_released",
+      "actual": [],
+      "expected": [],
+      "pass": true
+    },
+    {
+      "check": "live_session_blocks_reaper",
+      "actual": 0,
+      "expected": 0,
+      "pass": true
+    },
+    {
+      "check": "eligible_tomb_reaper_issues_remove",
+      "actual": 1,
+      "expected": 1,
+      "pass": true
+    },
+    {
+      "check": "remove_zero_live_tickets",
+      "actual": 0,
+      "expected": 0,
+      "pass": true
+    },
+    {
+      "check": "issued_remove_does_not_release_measured_capacity",
+      "actual": [
+        "k"
+      ],
+      "expected": [
+        "k"
+      ],
+      "pass": true
+    }
+  ]
+}

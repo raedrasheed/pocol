@@ -1,0 +1,7 @@
+{
+  "decision": "LP4-LEDGER-01 NOT APPROVED",
+  "proposedOption": "1 complete additive contract; no rule implemented into node",
+  "diagnostic": "Actual compiled EVM countermodel reproduced byte-for-byte; not an acceptance gate",
+  "all27FullGates": "NOT PASSED",
+  "bootable": false
+}

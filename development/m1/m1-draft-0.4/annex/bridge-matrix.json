@@ -1,0 +1,93 @@
+{
+  "schema": "pocol-m1-bridge-matrix/1",
+  "specVersion": "M1 draft 0.4",
+  "revision": "R4-06 (annex batch 2: B3, B5)",
+  "baseline": "FD:L1108-1205 (D95, D96, D97). Every item is labelled B (transcribed) or P (proposed where the baseline leaves a choice open). The executable interpreter is tools/bridge_ref.py.",
+  "pathRule": "B3 error data {path}: 'params' for a wrong element count or a params-level failure; 'params[i]' for element i; 'params[i].field' for a field of an object element. Failures nested deeper report the deepest of these three forms (P).",
+  "countPathReconciliation": "Baseline tests disagree on the path for an extra element: BR17d (FD:L2710) gives 'params' for ['k','v','x'], BR8 (FD:L2685) gives 'params[2]' for a third eth_call element (state override, FD:L1173). P: the general rule is 'params'; methods that carry thirdParamPath (eth_call, eth_estimateGas) report a count of 3 or more as 'params[2]'. Recorded as U32.",
+  "evaluationOrder": "P: element count; then elements left to right. For an object element: (1) not an object -> params[i]; (2) unknown field, first in input order -> params[i].<field>; (3) missing required field, in schema field order -> params[i].<field>; (4) present fields in schema field order -> params[i].<field>; (5) cross-field rules in listed order -> the path named by the rule.",
+  "primitives": {
+    "addr":     {"label": "B", "regex": "^0x[0-9a-fA-F]{40}$", "note": "P: either case; no EIP-55 checksum requirement (FD:L1158 says only '0x'+40 hex)"},
+    "hash32":   {"label": "B", "regex": "^0x[0-9a-fA-F]{64}$"},
+    "slot32":   {"label": "B", "regex": "^0x[0-9a-fA-F]{64}$"},
+    "qty":      {"label": "B", "regex": "^0x(0|[1-9a-fA-F][0-9a-fA-F]{0,15})$", "note": "hex without leading zeros within u64 (FD:L1160); P: either case"},
+    "tag":      {"label": "B", "oneOf": [{"enum": ["latest", "safe", "finalized"]}, "qty"], "note": "pending, earliest and an EIP-1898 object are rejected (FD:L1161)"},
+    "data":     {"label": "B", "regex": "^0x([0-9a-fA-F]{2})*$", "maxBytes": 65536, "note": "P: maxBytes counts decoded bytes"},
+    "str":      {"label": "B", "parameterized": "n", "rule": "JSON string without lone surrogates whose UTF-8 encoding is 1..n bytes (FD:L1163)"},
+    "pathStr":  {"label": "B", "rule": "printable ASCII 0x21-0x7e, length 1..2048, first character '/' (FD:L1164)"},
+    "httpsUrl": {"label": "B", "rule": "printable ASCII, length <= 2048, starts literally with 'https://', parses (WHATWG URL) to protocol 'https:', non-empty hostname, empty username and password (FD:L1165)", "modelNote": "tools/bridge_ref.py approximates the WHATWG parser for these properties only; browser confirmation is E06"},
+    "falseLiteral": {"label": "B", "const": false}
+  },
+  "composites": {
+    "callObj": {"label": "B", "object": {
+      "fields": {"from": "addr", "to": "addr", "gas": {"type": "qty", "max": 30000000}, "gasPrice": "qty",
+                 "maxFeePerGas": "qty", "maxPriorityFeePerGas": "qty", "value": "qty", "data": "data", "input": "data"},
+      "required": ["to"],
+      "exclusive": [{"fields": ["data", "input"], "path": "input"}]},
+      "source": "FD:L1173-1177", "note": "value is typed qty, so it is limited to u64 by FD:L1160 (observation; see M1-OPEN-0.4.md U31)"},
+    "txObj": {"label": "B+P", "object": {
+      "fields": {"from": "addr", "to": "addr", "gas": "qty", "value": "qty", "data": "data",
+                 "maxFeePerGas": "qty", "maxPriorityFeePerGas": "qty", "nonce": "qty"},
+      "required": ["from"]},
+      "source": "FD:L1185", "note": "P: 'from' required (the baseline checks it against the granted account, else 4100, in Wallet, not in B3)"},
+    "addrOrList": {"label": "B+P", "oneOf": ["addr", {"array": {"items": "addr", "min": 1, "max": 16}}], "note": "P: an empty list is rejected"},
+    "topics": {"label": "B+P", "array": {"max": 4, "items": {"oneOf": [{"const": null}, "hash32", {"array": {"items": "hash32", "min": 1, "max": 16}}]}}},
+    "filterRange": {"label": "B", "object": {"fields": {"fromBlock": "tag", "toBlock": "tag", "address": "addrOrList", "topics": "topics"}, "required": ["fromBlock", "toBlock"]}},
+    "filterHash": {"label": "B", "object": {"fields": {"blockHash": "hash32", "address": "addrOrList", "topics": "topics"}, "required": ["blockHash"]}},
+    "filter": {"label": "B+P", "select": {"ifHasKey": "blockHash", "then": "filterHash", "else": "filterRange"}, "source": "FD:L1179-1181", "note": "P: the form is selected by the presence of blockHash; the other form's keys are then unknown fields"},
+    "percentiles": {"label": "B+P", "array": {"max": 16, "items": {"number": {"min": 0, "max": 100}}, "nonDecreasing": true}, "note": "P: 'ascending' read as non-decreasing"},
+    "feeBlocks": {"label": "B", "type": "qty", "max": 128},
+    "strOrNull": {"label": "B", "oneOf": [{"str": 61440}, {"const": null}]}
+  },
+  "matrix": {
+    "rpc_read": {
+      "eth_chainId": {"params": []}, "net_version": {"params": []}, "web3_clientVersion": {"params": []},
+      "eth_blockNumber": {"params": []}, "eth_gasPrice": {"params": []}, "eth_maxPriorityFeePerGas": {"params": []},
+      "eth_getBalance": {"params": ["addr", "tag"]}, "eth_getCode": {"params": ["addr", "tag"]},
+      "eth_getTransactionCount": {"params": ["addr", "tag"]},
+      "eth_getStorageAt": {"params": ["addr", "slot32", "tag"]},
+      "eth_getBlockByNumber": {"params": ["tag", "falseLiteral"]},
+      "eth_getBlockByHash": {"params": ["hash32", "falseLiteral"]},
+      "eth_getTransactionByHash": {"params": ["hash32"]}, "eth_getTransactionReceipt": {"params": ["hash32"]},
+      "eth_call": {"params": ["callObj", "tag"], "thirdParamPath": "params[2]"},
+      "eth_estimateGas": {"paramsOneOf": [["callObj"], ["callObj", "tag"]], "thirdParamPath": "params[2]"},
+      "eth_feeHistory": {"params": ["feeBlocks", "tag", "percentiles"]},
+      "eth_getLogs": {"params": ["filter"], "route": "logClient"}
+    },
+    "wallet_req": {
+      "eth_accounts": {"params": []}, "eth_requestAccounts": {"params": []}, "eth_chainId": {"params": []},
+      "eth_sendTransaction": {"params": ["txObj"]}
+    },
+    "storage_set": {
+      "site_storageSet": {"params": [{"str": 256}, "strOrNull"]},
+      "site_storageClear": {"params": []}
+    },
+    "nav": {
+      "site_navigate": {"params": ["pathStr"]},
+      "site_openExternal": {"params": ["httpsUrl"]}
+    }
+  },
+  "routes": {"rpc_read": "readClient (eth_getLogs: logClient)", "wallet_req": "wallet", "storage_set": "siteStorage", "nav": "navigator", "source": "FD:L1138-1144"},
+  "denyList": {
+    "label": "B (FD:L1202-1205): default deny; these are the explicitly tested examples, expanded to concrete names for wildcard families (P: member choice)",
+    "everyKind": ["eth_sendRawTransaction", "eth_sign",
+                  "personal_sign", "personal_ecRecover", "personal_unlockAccount", "personal_sendTransaction",
+                  "eth_signTypedData", "eth_signTypedData_v3", "eth_signTypedData_v4",
+                  "wallet_addEthereumChain", "wallet_switchEthereumChain", "wallet_requestPermissions", "wallet_watchAsset",
+                  "eth_subscribe", "eth_unsubscribe",
+                  "eth_newFilter", "eth_newBlockFilter", "eth_newPendingTransactionFilter", "eth_getFilterChanges", "eth_getFilterLogs", "eth_uninstallFilter",
+                  "debug_traceTransaction", "debug_traceCall", "txpool_content", "txpool_status", "admin_peers", "admin_nodeInfo",
+                  "anvil_setCode", "anvil_setBalance", "anvil_impersonateAccount", "evm_mine", "evm_snapshot", "evm_revert",
+                  "eth_getProof",
+                  "pocol_submitShare", "pocol_getTemplate", "pocol_getHeaders", "pocol_getParams", "pocol_getLogs"],
+    "kindCrossing": {
+      "eth_sendTransaction outside wallet_req": [["rpc_read", "eth_sendTransaction"], ["storage_set", "eth_sendTransaction"], ["nav", "eth_sendTransaction"]],
+      "read methods inside wallet_req": [["wallet_req", "eth_getBalance"], ["wallet_req", "eth_call"], ["wallet_req", "eth_blockNumber"], ["wallet_req", "eth_getLogs"]],
+      "site_* outside their kind": [["rpc_read", "site_storageSet"], ["rpc_read", "site_navigate"], ["wallet_req", "site_storageClear"], ["nav", "site_storageSet"], ["storage_set", "site_navigate"], ["storage_set", "site_openExternal"]],
+      "RPC methods inside storage_set and nav": [["storage_set", "eth_call"], ["storage_set", "eth_blockNumber"], ["nav", "eth_call"], ["nav", "eth_chainId"]]
+    },
+    "malformedNames": ["ETH_SENDRAWTRANSACTION", "eth_call ", "eth_call\u0000", "eth_getBalаnce", "Site_storageSet",
+                       "__proto__", "constructor", "hasOwnProperty", "toString"],
+    "expected": "Every (kind, name) above, with params [], gives 4200 {method: name truncated to 64 UTF-16 units} at B2, zero routing (FD:L1136; BR1-BR4, BR7, BR11)"
+  }
+}

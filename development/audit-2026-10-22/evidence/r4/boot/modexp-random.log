@@ -1,0 +1,24 @@
+# modexp-random on 1074b47 (2 changed tracked paths), 2026-10-28T11:33:25Z, load 2.64 8.68 11.01; the H_END grow (nice 10) runs beside it
+
+running 1 test
+JM-MODEXP-RANDOM-SEED 0x5eed20261028 samples 3000
+test jm_modexp_random has been running for over 60 seconds
+JM-MODEXP-RANDOM-SUMMARY {"drawn":3000,"maxNsPerBlockGas":43.86377976405797,"measured":3000,"medianNsPerBlockGas":6.265727141339527,"seed":"0x5eed20261028","skippedOverBlockGasOrError":0}
+JM-MODEXP-RANDOM-TOP {"baseBytes":9,"expBytes":54,"expLeadingZeroBytes":16,"gasPerCall":400,"modBytes":9,"modKind":5,"nsPerBlockGas":43.86377976405797,"nsPerCall":23291.667054714784,"projectedBlockMs":346.2306307683353,"sample":359}
+JM-MODEXP-RANDOM-TOP {"baseBytes":7,"expBytes":87,"expLeadingZeroBytes":0,"gasPerCall":926,"modBytes":15,"modKind":0,"nsPerBlockGas":42.06384105960265,"nsPerCall":44461.48,"projectedBlockMs":331.99387116,"sample":248}
+JM-MODEXP-RANDOM-TOP {"baseBytes":5,"expBytes":26,"expLeadingZeroBytes":0,"gasPerCall":276,"modBytes":10,"modKind":1,"nsPerBlockGas":41.02151825524112,"nsPerCall":16695.757929883137,"projectedBlockMs":323.83092080801333,"sample":2384}
+JM-MODEXP-RANDOM-TOP {"baseBytes":14,"expBytes":86,"expLeadingZeroBytes":13,"gasPerCall":776,"modBytes":14,"modKind":4,"nsPerBlockGas":38.76223785708888,"nsPerCall":35157.34973637961,"projectedBlockMs":305.9392574059754,"sample":2070}
+JM-MODEXP-RANDOM-TOP {"baseBytes":0,"expBytes":35,"expLeadingZeroBytes":5,"gasPerCall":318,"modBytes":9,"modKind":1,"nsPerBlockGas":38.321811917952765,"nsPerCall":17206.49355116079,"projectedBlockMs":302.5073631229579,"sample":2347}
+JM-MODEXP-RANDOM-TOP {"baseBytes":5,"expBytes":56,"expLeadingZeroBytes":0,"gasPerCall":596,"modBytes":11,"modKind":5,"nsPerBlockGas":34.94907449430592,"nsPerCall":25407.977157360405,"projectedBlockMs":275.87981597461925,"sample":1646}
+JM-MODEXP-RANDOM-TOP {"baseBytes":7,"expBytes":86,"expLeadingZeroBytes":1,"gasPerCall":905,"modBytes":15,"modKind":1,"nsPerBlockGas":34.406413594580854,"nsPerCall":35645.04448398577,"projectedBlockMs":271.5439488790036,"sample":2845}
+JM-MODEXP-RANDOM-TOP {"baseBytes":0,"expBytes":70,"expLeadingZeroBytes":0,"gasPerCall":745,"modBytes":9,"modKind":5,"nsPerBlockGas":33.61615800429761,"nsPerCall":29447.754411764705,"projectedBlockMs":265.35371500441175,"sample":2236}
+JM-MODEXP-RANDOM-TOP {"baseBytes":10,"expBytes":87,"expLeadingZeroBytes":0,"gasPerCall":922,"modBytes":10,"modKind":5,"nsPerBlockGas":33.513818752501884,"nsPerCall":35290.05114638448,"projectedBlockMs":264.4989333421517,"sample":1960}
+JM-MODEXP-RANDOM-TOP {"baseBytes":14,"expBytes":64,"expLeadingZeroBytes":0,"gasPerCall":677,"modBytes":14,"modKind":5,"nsPerBlockGas":33.34429926841944,"nsPerCall":26942.19380888291,"projectedBlockMs":263.1982913189771,"sample":454}
+JM-MODEXP-RANDOM-BLOCK {"gasUsed":7950000,"nsPerGas":34.836654842767295,"projectedBlockMs":346.2306307683353,"sample":359,"validateMsMedian":276.951406,"validateMsMin":275.90540899999996}
+JM-MODEXP-RANDOM-BLOCK {"gasUsed":7950000,"nsPerGas":23.98498704402516,"projectedBlockMs":331.99387116,"sample":248,"validateMsMedian":190.68064700000002,"validateMsMin":190.407036}
+JM-MODEXP-RANDOM-BLOCK {"gasUsed":7950000,"nsPerGas":31.607655471698116,"projectedBlockMs":323.83092080801333,"sample":2384,"validateMsMedian":251.28086100000002,"validateMsMin":228.325289}
+JM-MODEXP-RANDOM-BLOCK {"gasUsed":7950000,"nsPerGas":20.15490314465409,"projectedBlockMs":305.9392574059754,"sample":2070,"validateMsMedian":160.23148,"validateMsMin":158.695121}
+test jm_modexp_random ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 72.63s
+

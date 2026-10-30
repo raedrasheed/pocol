@@ -1,0 +1,72 @@
+[
+  {
+    "original": "golang.org/x/crypto",
+    "version": "v0.22.0",
+    "officialGitHubMirror": "github.com/golang/crypto"
+  },
+  {
+    "original": "golang.org/x/exp",
+    "version": "v0.0.0-20231110203233-9a3e6036ecaa",
+    "officialGitHubMirror": "github.com/golang/exp"
+  },
+  {
+    "original": "golang.org/x/sync",
+    "version": "v0.7.0",
+    "officialGitHubMirror": "github.com/golang/sync"
+  },
+  {
+    "original": "golang.org/x/sys",
+    "version": "v0.22.0",
+    "officialGitHubMirror": "github.com/golang/sys"
+  },
+  {
+    "original": "golang.org/x/text",
+    "version": "v0.14.0",
+    "officialGitHubMirror": "github.com/golang/text"
+  },
+  {
+    "original": "golang.org/x/time",
+    "version": "v0.5.0",
+    "officialGitHubMirror": "github.com/golang/time"
+  },
+  {
+    "original": "golang.org/x/tools",
+    "version": "v0.20.0",
+    "officialGitHubMirror": "github.com/golang/tools"
+  },
+  {
+    "original": "google.golang.org/protobuf",
+    "version": "v1.34.2",
+    "officialGitHubMirror": "github.com/protocolbuffers/protobuf-go"
+  },
+  {
+    "original": "golang.org/x/mod",
+    "version": "v0.17.0",
+    "officialGitHubMirror": "github.com/golang/mod"
+  },
+  {
+    "original": "golang.org/x/net",
+    "version": "v0.24.0",
+    "officialGitHubMirror": "github.com/golang/net"
+  },
+  {
+    "original": "rsc.io/tmplfunc",
+    "version": "v0.0.3",
+    "officialGitHubMirror": "github.com/rsc/tmplfunc"
+  },
+  {
+    "original": "gopkg.in/yaml.v3",
+    "version": "v3.0.1",
+    "officialGitHubMirror": "github.com/go-yaml/yaml/v3"
+  },
+  {
+    "original": "gopkg.in/yaml.v2",
+    "version": "v2.4.0",
+    "officialGitHubMirror": "github.com/go-yaml/yaml/v2"
+  },
+  {
+    "original": "gopkg.in/natefinch/lumberjack.v2",
+    "version": "v2.2.1",
+    "officialGitHubMirror": "github.com/natefinch/lumberjack/v2"
+  }
+]

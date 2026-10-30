@@ -1,0 +1,14 @@
+# pocold-crash-steps: (cd prototypes/pocold; cargo test --release --locked --offline --features crash-test --test consensus -- e4_checkpoint_crash --nocapture)
+# start 2026-10-25T12:25:51Z
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 46.76s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7-target/release/deps/consensus-3d99b39650fe580d)
+
+running 1 test
+test e4_checkpoint_crash_at_each_step has been running for over 60 seconds
+E44-STEPS [("state-txn", 2, 0, None, 0), ("state-txn", 30, 10, Some(10), 12), ("state-txn", 90, 30, Some(30), 32), ("state-commit", 1, 0, None, 0), ("state-commit", 25, 23, Some(24), 26), ("state-commit", 80, 78, Some(79), 35), ("history", 3, 1, Some(2), 4), ("history", 40, 38, Some(39), 35), ("history", 100, 98, Some(99), 35), ("journal", 5, 4, Some(4), 6), ("journal", 50, 49, Some(49), 35), ("journal", 104, 100, Some(103), 36), ("checkpoint-before", 1, 1, None, 0), ("checkpoint-before", 33, 32, Some(32), 36), ("checkpoint-before", 99, 98, Some(98), 36), ("checkpoint-txn", 2, 1, Some(1), 3), ("checkpoint-txn", 47, 46, Some(46), 36), ("checkpoint-txn", 103, 100, Some(102), 37), ("checkpoint-after", 4, 3, Some(4), 5), ("checkpoint-after", 60, 59, Some(60), 34), ("checkpoint-after", 101, 98, Some(101), 35)]
+test e4_checkpoint_crash_at_each_step ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 86 filtered out; finished in 207.85s
+
+# end 2026-10-25T12:30:06Z exit=0

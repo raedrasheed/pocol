@@ -1,0 +1,45 @@
+# C-1 E4.4 mutation controls, retest of pass 1's survivors (and the E4.3 survivors C7, C10) on the tree with the tests
+# that answer them. Same method and stages as pass 1 (mutants-e44.log). Runners are kept out of the repository.
+# Tree 22942c7 is not on the branch: it is 3c0fe15 before the rebase onto 45d540f, and differs from it only in
+# 45d540f's test change in tests/consensus.rs (README.md).
+# K4 the journal header is not checked against the entry: pocold/src/checkpoint.rs: replace "if block_hash(&header)!=r.hash{" with "if false{"
+# K5 a stored version's state root is not checked: pocold/src/checkpoint.rs: replace "if r.0!=e.header.state_root{" with "if false&&r.0!=e.header.state_root{"
+# K10a replay's protect set is not compared with the snapshot's: pocold/src/node.rs: replace "else if s.protect.as_ref().map_or(false,|p|p.len()!=protect.len()||p.iter().any(|h|!protect.contains(h))){" with "else if false{"
+# K10b replay's protect set is not restored on resume: pocold/src/node.rs: replace "match r{Ok(())=>{resumed=Some(k);chain.protect=protect;break}" with "match r{Ok(())=>{resumed=Some(k);let _=protect;break}"
+# K11 a replay checkpoint does not make history durable first: pocold/src/node.rs: replace "                history.sync().map_err(|e|format!(\"replay {i}: history {}\",e.0))?;\n" with "\n"
+# K11b restore does not require an entry's history records: pocold/src/checkpoint.rs: replace "if !src.has(&r.hash)?{return Err(why(\"not in history.redb\"))}" with ""
+# K12 the roots record is not checked against its snapshot: pocold/src/node.rs: replace "if *roots!=crate::checkpoint::roots(&s){return Err(" with "if false&&*roots!=crate::checkpoint::roots(&s){return Err("
+# K15 restored entries are not slimmed: pocold/src/checkpoint.rs: replace "if r.flags&F_SLIM!=0{crate::chain::slim(&mut e);}" with "if r.flags&F_SLIM!=0{e.slim=true;}"
+# K17 the eviction set is not restored: pocold/src/checkpoint.rs: replace "c.evicted=evicted;" with "let _=evicted;"
+# K18 a missing node does not mark the store damaged: pocold/src/state_store.rs: replace "Ok(None)=>{self.mark_damaged(&format!(\"node {} is named but not stored\",B256::from(*id)));None}" with "Ok(None)=>None,"
+# K20 an import sequence beyond next_seq is not refused: pocold/src/checkpoint.rs: replace "if blocks.values().any(|e|e.import_seq>=s.next_seq&&e.height>0){" with "if false{"
+# C7 a rebuilt state is not kept on its entry: pocold/src/chain.rs: replace "x.state=p.state;x.stored=p.stored;x.pruned=false;x.full=true;" with "x.state=p.state;x.pruned=false;x.full=true;"
+# C10 a rolling rebuild's root ignores a stored ancestor: pocold/src/chain.rs: replace "            if let Some(pin)=&e.stored{break (Default::default(),Some(pin.clone()))}\n" with "            if let Some(pin)=&e.stored{let _=pin;}\n"
+## retest (tree 22942c71ab9f29779b81aec289bf9cd41e5f4447): 8 of 13 killed; survived: K10a, K10b, K11b, K12, K18
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "K4 the journal header is not checked against the entry", "status": "KILLED", "failed": ["e4_checkpoint_refuses_an_entry_bound_to_its_siblings_record"]}
+{"mutant": "K5 a stored version's state root is not checked", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K10a replay's protect set is not compared with the snapshot's", "status": "PASS", "failed": []}
+{"mutant": "K10b replay's protect set is not restored on resume", "status": "PASS", "failed": []}
+{"mutant": "K11 a replay checkpoint does not make history durable first", "status": "KILLED", "failed": ["e4_checkpoint_crash_at_each_step"]}
+{"mutant": "K11b restore does not require an entry's history records", "status": "PASS", "failed": []}
+{"mutant": "K12 the roots record is not checked against its snapshot", "status": "PASS", "failed": []}
+{"mutant": "K15 restored entries are not slimmed", "status": "KILLED", "failed": ["e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains"]}
+{"mutant": "K17 the eviction set is not restored", "status": "KILLED", "failed": ["e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains"]}
+{"mutant": "K18 a missing node does not mark the store damaged", "status": "PASS", "failed": []}
+{"mutant": "K20 an import sequence beyond next_seq is not refused", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "C7 a rebuilt state is not kept on its entry", "status": "KILLED", "failed": ["e4_store_node_rebuilds_a_fork_below_k_hist_as_a_whole_state_node"]}
+{"mutant": "C10 a rolling rebuild's root ignores a stored ancestor", "status": "KILLED", "failed": ["e4_store_node_rebuilds_a_fork_below_k_hist_as_a_whole_state_node"]}
+## what answers each survivor (C-1 E5 part 3; the final pass on the final tree is mutants-final.log)
+# K10a the sealed protect set compared: e4_checkpoint_resumes_with_replays_protect_set, a checkpoint re-sealed with
+#      another protect set is refused (the pass-1 tests resumed only from live checkpoints, which seal none).
+# K10b the protect set restored on resume: the same test; its replay checkpoint lands just after the last session block
+#      not yet adopted, where the flood records before its child evict past cap + protect_max (the earlier replay
+#      checkpoints landed before any eviction pressure, so the set did not matter there).
+# K11b history records required for every entry: e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains, a
+#      history.redb that lost an offloaded, slimmed block's records (restore reads neither its receipts nor its ranges).
+# K12 roots record against its snapshot: damage case 'a roots record naming one of its versions in place of another'
+#      (the truncated record of pass 1 ends in a rebuild either way: the dropped pin deletes nodes and restore fails).
+# K18 a missing node marks the store damaged: tests/state_store.rs a_missing_node_marks_the_store_damaged (at open the
+#      pin release finds the missing node too, so only the store's own contract tells; the test also found that a
+#      damaged store still served the nodes its cache held, fixed in C-1 E5 part 3).

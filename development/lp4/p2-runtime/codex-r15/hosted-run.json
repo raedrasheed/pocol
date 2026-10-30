@@ -1,0 +1,80 @@
+{
+  "run": 39148982844,
+  "head": "96ab766bf93aeb93e35d21d6e1cd9f8d2af8f9ed",
+  "tree": "a6bc105c0f584b0069e754647e8c94e864214e57",
+  "jobs": [
+    {
+      "id": 117738553603,
+      "name": "legacy-windows-regression",
+      "conclusion": "success",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39148982844/job/117738553603",
+      "failedSteps": []
+    },
+    {
+      "id": 117738553778,
+      "name": "registry-windows-execution",
+      "conclusion": "success",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39148982844/job/117738553778",
+      "failedSteps": []
+    },
+    {
+      "id": 117738553806,
+      "name": "cancun-pay-controls",
+      "conclusion": "success",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39148982844/job/117738553806",
+      "failedSteps": []
+    },
+    {
+      "id": 117738553821,
+      "name": "native-cancun-reference",
+      "conclusion": "success",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39148982844/job/117738553821",
+      "failedSteps": []
+    },
+    {
+      "id": 117738553846,
+      "name": "independent-cancun-comparison",
+      "conclusion": "failure",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39148982844/job/117738553846",
+      "failedSteps": [
+        "Complete independent comparison (disagreement or timeout fails)"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "lp4-independent-cancun",
+      "sha256": "0356585cac5740f331d673caf2ab01c976994cbb72dc2978309496ca942ee6a5",
+      "bytes": 131937,
+      "members": 11
+    },
+    {
+      "name": "lp4-legacy-windows",
+      "sha256": "caef4a839a6b3d2164192cf029032e96e6b5be2197433dd57e368443c382cc87",
+      "bytes": 27083,
+      "members": 28
+    },
+    {
+      "name": "lp4-native-windows",
+      "sha256": "b2880b0166203814a2fee0014872ec524e259b295dd809f6f8626161e130a20b",
+      "bytes": 3995,
+      "members": 1
+    },
+    {
+      "name": "lp4-p2-controls",
+      "sha256": "601b169dc435bf743a2b606586a3d75be1eeebe8bf2a10e29223f9dab1c2a04a",
+      "bytes": 1112023,
+      "members": 136
+    },
+    {
+      "name": "lp4-native-cancun-reference",
+      "sha256": "6291671b874376edfb4732f3383bffdca8a59373e5f571c0ee04e5a56c5add49",
+      "bytes": 135107,
+      "members": 10
+    }
+  ],
+  "rawPreservation": "/workspace/work/lp4/p2-registry-full/hosted-39148982844",
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false
+}

@@ -1,0 +1,344 @@
+{
+ "authority": {
+  "ledger": {
+   "delegatedDecisions": "coordination/DELEGATED-M1-DECISIONS-029.json",
+   "file": "coordination/issue-ledger.json",
+   "standingAuthorization": {
+    "autonomousSequentialCycles": true,
+    "delegatedTechnicalDecisions": true,
+    "noProduction": true,
+    "personalApproval": false
+   }
+  },
+  "namedDeciderBasis": "c4 is satisfied for a delegated item only by the documented user standing authorization plus the specific coordinator decision in the register above, and only after this package's checks for that item pass and root reviews them",
+  "ownerAnswers": "unanswered. The coordinator's saved owner-answer record is neither read nor written by this package; nothing here is presented as the owner's answer.",
+  "register": "coordination/DELEGATED-M1-DECISIONS-029.json",
+  "reversibility": "a different selection needs a new revision and re-running the affected fixtures; every earlier baseline, draft, result and review stays unchanged"
+ },
+ "delegated": [
+  {
+   "applied": true,
+   "conventions": [],
+   "effective": "The M1 reference factory address is 0x0000000000000000000000000000000000c0c005 (the 0.2 P28 expansion of the elided FD:L777 value). It binds every M1 fixture. It is NOT a deployment address and confirms no deployment; choosing another address later regenerates every address-dependent fixture.",
+   "id": "U01",
+   "option": "reference-address",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "C1",
+    "C2",
+    "C3",
+    "C4"
+   ]
+  },
+  {
+   "applied": true,
+   "conventions": [
+    "P-U02-1",
+    "P-U02-2"
+   ],
+   "effective": "Default display of a revoked version stays refused. An explicit @v<n> of a revoked version shows a warning page that names the version as revoked, fetches no chunk, and loads only after a deliberate click; the loaded version then carries a persistent 'revoked' banner on every page of the session.",
+   "id": "U02",
+   "option": "interstitial",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "C3"
+   ]
+  },
+  {
+   "applied": true,
+   "conventions": [
+    "P-U10-1"
+   ],
+   "effective": "acceptOwnership leaves the publisher set unchanged. The publisher tool warns that the previous owner keeps createVersion, publish and setCurrent until the new owner calls setPublisher(previous, false). No real transfer is made or implied.",
+   "id": "U10",
+   "option": "keep-with-warning",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "C3",
+    "C4"
+   ]
+  },
+  {
+   "applied": true,
+   "conventions": [
+    "P-D29-1",
+    "P-D29-2",
+    "P-D29-3"
+   ],
+   "effective": "Each covered operation has one 10000 ms budget from the send of its first request through its final verdict, including reply waits, retry sleeps and computation. An event at elapsed >= 10000 is expiry; nothing succeeds at or after it. Request timeout = min(10000, remaining budget).",
+   "id": "U14",
+   "option": "whole-load-through-verdict",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "C3",
+    "V1"
+   ]
+  },
+  {
+   "applied": true,
+   "conventions": [
+    "P-D29-1",
+    "P-D29-2"
+   ],
+   "effective": "Proof-bound website-state reads of CR-M1-01 rev 2 are adopted for M1 with: internal-only eth_getProof, reply limit 524288 bytes, STATE_POOL 1 MiB, sites still forbidden, 6-key proof 2 under the U08 canonical split. Amendment: per-request deadline = min(10000, remaining whole-load budget); -32021 delays follow busy [250, 2000] / rate [0, 2000] with at most 3 retries; the 0..10000 single wait and the 20000 ms cumulative wait are superseded; no wait or success beyond the whole-load deadline. Support of eth_getProof by pocold is NOT claimed: E03 stays a later experiment.",
+   "id": "CR-M1-01",
+   "option": "adopt-rev2-with-explicit-deadline-amendment",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "C3",
+    "R1"
+   ]
+  },
+  {
+   "applied": false,
+   "conventions": [
+    "P-U08-1"
+   ],
+   "effective": "The contract (createVersion: ManifestSplit) AND the viewer (rule manifest.split) require the canonical split: exactly ceil(len/24575) chunks, all 24575 bytes except the last. The baseline's any-split input domain is preserved as history only.",
+   "id": "U08",
+   "option": "A-canonical-contract-and-viewer",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "C3",
+    "C4"
+   ]
+  },
+  {
+   "applied": true,
+   "conventions": [],
+   "effective": "x12b gains the derived cell 5001 (T2a deadline, T2b queued); the effective criterion is adminStaleDropped = 2 (op1 1, op2 1) with zero alloc, ticket and set for both stale requests. The source literal 1 stays preserved history.",
+   "id": "RF-E6-1",
+   "option": "A-total-two",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "E6"
+   ]
+  },
+  {
+   "applied": true,
+   "conventions": [],
+   "effective": "Client cost: at most 14 header decodes, at most 13 ASERT with operands of at most 512 bits, and at most 3355 SHA-256 evaluations: at most 14 TemplateID + 13 PoW + 3328 share hashes, with each header's TemplateID computed once and cached. Every check of items 1-9 is retained. No device performance is claimed.",
+   "id": "V1-SHA-COST",
+   "option": "A-explicit-total3355",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "V1"
+   ]
+  },
+  {
+   "applied": true,
+   "conventions": [
+    "P-D29-1"
+   ],
+   "effective": "A rate delay is retried only if it is an integer in [0, 2000] ms; busy keeps [250, 2000]; at most 3 retries; a delay out of range, or a malformed error, ends in a controlled outcome without sleeping; a valid delay must also end before the whole-load deadline. The source defines no rate range: this is an adopted client policy, not a source range, and no claim is made that every honest server stays inside it.",
+   "id": "P-C32-2",
+   "option": "A-rate-delay-cap",
+   "ownerAnswer": "unanswered",
+   "rows": [
+    "V1",
+    "C3"
+   ]
+  }
+ ],
+ "reviewerAccepted": [
+  "CID-1",
+  "CR-E4-01",
+  "CR-E4-02",
+  "I1",
+  "I6",
+  "P-0.2",
+  "P-0.4",
+  "P-0.5",
+  "P-0.6",
+  "P-0.7",
+  "P-C24",
+  "P-C32-1",
+  "P-C32-3",
+  "P-C32-4",
+  "P-E1",
+  "P-E2",
+  "P-E3",
+  "P-E4",
+  "P-E5",
+  "P-E6",
+  "P-E7",
+  "P-Q1",
+  "P-Q2",
+  "P-Q3",
+  "P-Q4",
+  "P-RG3B-1",
+  "P-SM-1",
+  "P-V2",
+  "P-V3",
+  "P-X1",
+  "PB1-PB12",
+  "RF-E5",
+  "TK-1",
+  "U03",
+  "U04",
+  "U06",
+  "U07",
+  "U09",
+  "U11",
+  "U12",
+  "U13",
+  "U16",
+  "U17",
+  "U18",
+  "U20",
+  "U21",
+  "U22",
+  "U23",
+  "U24",
+  "U26",
+  "U31",
+  "U32",
+  "U33",
+  "U34",
+  "U35",
+  "U36",
+  "U37",
+  "U38",
+  "U39",
+  "U40",
+  "U41",
+  "U43"
+ ],
+ "reviewerPendingRootDecision": [
+  {
+   "id": "P-V1-1",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "wire form"
+  },
+  {
+   "id": "P-V1-2",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "undecodable element -> rule 1"
+  },
+  {
+   "id": "P-V1-4",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "Arabic count phrase and warning join"
+  },
+  {
+   "id": "P-V1-5",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "signature byte layout r||s||v"
+  },
+  {
+   "id": "P-V1-6",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "fixture clock C = ts(head) + 5"
+  },
+  {
+   "id": "P-V1-7",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "gasLimit/gasUsed u64, shares be64"
+  },
+  {
+   "id": "P-V1-8",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "V1NET genesis (chainId 777002 placeholder network)"
+  },
+  {
+   "id": "P-V1-9",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "other RPC errors -> viewIncomplete"
+  },
+  {
+   "id": "P-V1-10",
+   "rows": [
+    "V1"
+   ],
+   "source": "m1-draft-0.26/annex/V1-HEADERNETCHECK.md",
+   "text": "retry waits exactly retryAfterMs"
+  },
+  {
+   "id": "P-D29-1",
+   "rows": [
+    "V1",
+    "C3"
+   ],
+   "source": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+   "text": "a valid -32021 delay with t + delay >= deadline is never slept: HeaderNetCheck ends viewIncomplete at once; a content state read fails the attempt (rev 2 section 3.3) and may restart within the remaining budget"
+  },
+  {
+   "id": "P-D29-2",
+   "rows": [
+    "C3"
+   ],
+   "source": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+   "text": "content-load expiry is reported as 'unavailable' with zero frames (the rev 2 section 6 class); attempts exhausted stays 'inconsistent'"
+  },
+  {
+   "id": "P-D29-3",
+   "rows": [
+    "V1",
+    "C3"
+   ],
+   "source": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+   "text": "in RP, whether HeaderNetCheck and the content load have separate 10 s budgets or share one; both readings are fixtures, neither is adopted"
+  },
+  {
+   "id": "P-U08-1",
+   "rows": [
+    "C4"
+   ],
+   "source": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+   "text": "ManifestSplit(i): i is the first position where the lengths differ from the canonical split, a missing element counting as a difference"
+  },
+  {
+   "id": "P-U02-1",
+   "rows": [
+    "C3"
+   ],
+   "source": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+   "text": "consent to view a revoked version covers one load; a user reload shows the interstitial again"
+  },
+  {
+   "id": "P-U02-2",
+   "rows": [
+    "C3"
+   ],
+   "source": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+   "text": "the interstitial is the verdict of the first covered load; user think time is outside every budget; the click starts a new covered load with a fresh anchor and budget"
+  },
+  {
+   "id": "P-U10-1",
+   "rows": [
+    "C3",
+    "C4"
+   ],
+   "source": "m1-draft-0.29/M1-SPEC-0.29-OVERLAY.md",
+   "text": "warning points: at nomination and after acceptance; names the previous owner, its retained calls and the removal call; active until removal; cleared by a cancelled nomination"
+  }
+ ],
+ "schema": "pocol-m1-decision-register/0.29",
+ "withdrawn": [
+  "P-V1-3"
+ ]
+}

@@ -1,0 +1,11 @@
+cf1-ignore-time True
+cf2-lose-first-close True
+cf3-floor-cursor True
+cf4-exclusive-gate True
+cf5-ignore-cursor True
+cf6-allow-final-child True
+t0-ignore-low-s True
+t0-ignore-winner-shape True
+t0-ignore-share-order True
+t0-ignore-chain True
+t0-ignore-template-auth True

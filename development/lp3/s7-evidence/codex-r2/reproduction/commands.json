@@ -1,0 +1,139 @@
+[
+  {
+    "name": "release-build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--release",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "regression",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--release",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml",
+      "--lib",
+      "--test",
+      "gate",
+      "--test",
+      "param_gate",
+      "--test",
+      "assignment",
+      "--test",
+      "adversarial",
+      "--test",
+      "fixtures_integration",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "profile",
+      "--test",
+      "timing",
+      "--test",
+      "asert_named",
+      "--test",
+      "rewards",
+      "--test",
+      "asert_alloc",
+      "--test",
+      "finality_core",
+      "--test",
+      "envelope"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "format",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "fmt",
+      "--manifest-path",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/Cargo.toml",
+      "--",
+      "--check"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "typecheck",
+    "args": [
+      "node",
+      "/workspace/work/lp3-tscompiler/node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model/tsconfig.json",
+      "--typeRoots",
+      "/workspace/work/lp3-tscompiler/node_modules/@types"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "ts-tests",
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model/tests.ts"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "probe-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "-O",
+      "/workspace/Proof-of-Collaboration/development/lp3/s7-evidence/codex-r2/cf_probe.rs",
+      "--extern",
+      "lp1_node=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/liblp1_node.rlib",
+      "-L",
+      "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+      "--extern",
+      "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+      "-o",
+      "/workspace/work/lp3-s7-cf/reproduction/cf-probe"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s7-evidence/codex-r2/cf_oracle.py",
+      "/workspace/work/lp3-s7-cf/reproduction"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "rust-mutations",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s7-evidence/codex-r2/mutations.py",
+      "/workspace/work/lp3-s7-cf/reproduction/mutations"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "ts-mutations",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s7-evidence/codex-r2/ts_mutations.py",
+      "/workspace/work/lp3-s7-cf/reproduction/ts-mutations",
+      "/workspace/work/lp3-tscompiler/node_modules/typescript/bin/tsc"
+    ],
+    "exitCode": 0
+  }
+]

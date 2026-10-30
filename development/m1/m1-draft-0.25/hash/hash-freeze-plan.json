@@ -1,0 +1,96 @@
+{
+  "schema": "pocol-m1-hash-freeze-plan/0.25",
+  "status": "inventory and export rules for root verification; no value here is frozen by the author",
+  "rule": "E05 (m1-draft-0.2/M1-UNRESOLVED-0.2.md): every hash-bearing fixture is re-checked with three Keccak libraries before it is frozen. A placeholder, an unapproved parameter, an unavailable compiler output or an absent preimage is an explicit blocker, never a frozen value.",
+  "export": {
+    "file": "m1-draft-0.25/results/hash-freeze-export-0.25.json",
+    "writer": "m1-draft-0.25/tools/run_checks_025.py",
+    "entryFields": ["id", "class", "preimageHex", "expectedDigest", "assertedForm (full | prefix4 | last20)", "referenceDigest (m1-draft-0.2/tools/keccak.py)",
+                    "source (fixture file and JSON path, or saved check)", "verification (triad | e05 | pendingRootTriad)",
+                    "ownerParameters", "reviewerParameters", "status (freezable | blocked)", "blockers"],
+    "order": "sorted by id; no timestamp; compact one entry per line, so the file is byte-reproducible",
+    "excluded": "keys, private-source messages, dependencies and binaries are never exported"
+  },
+  "existingEvidence": {
+    "triad": {"inputs": "coordination/hash-triad/inputs-expanded.tsv", "generator": "coordination/hash-triad/generate_inputs.py",
+              "results": ["coordination/hash-triad/python-expanded-result.json", "coordination/hash-triad/noble-expanded-result.json", "coordination/hash-triad/rust-expanded-result.json (UTF-16LE with BOM)"],
+              "rootInventory": "coordination/review-001/e05-historical-evidence-inventory.json (recorded SHA-256 of the inputs and of the three result files)",
+              "binding": "run_checks_025 rebuilds every one of the 611 preimages from the CURRENT fixtures by the generator's rules and requires byte equality with the TSV, the TSV and result SHA-256 values to equal root's inventory, and every fixture-asserted digest to equal the TSV digest."},
+    "e05": {"file": "coordination/review-001/e05-keccak-three-library.json", "inputs": "coordination/review-001/e05-hash-inputs.json",
+            "covers": ["K1", "K2", "K3", "GSV1"], "binding": "GSV1 is rebuilt from m1-draft-0.21/vectors/v3-gsv1.json flatSegments and must hash (SHA-256) to the recorded inputSha256"}
+  },
+  "classes": {
+    "triad": "preimage in the 611-row triad; verified by three libraries; binding re-checked now",
+    "e05": "K1-K3 and GSV1, verified by three libraries in the 0.22 E05 evidence",
+    "pendingRootTriad": "preimage literal or derivable from current fixtures, never checked by three libraries; exported for root",
+    "synthetic": "author- or source-chosen opaque value, not a computed hash; no preimage exists or is required",
+    "privateProvenance": "SHA-256 of a private source message; the preimage stays with root and is not exported",
+    "fileSha256": "SHA-256 of a public package file; recomputed by the runner",
+    "keyDerived": "an address derived from a fixture private key; excluded (no key material is exported)",
+    "placeholder": "a digest of a preimage that contains source-absent placeholders; computed at run time only and never frozen",
+    "derivedArithmetic": "a value obtained from a hashed value by integer arithmetic (base + 1, base + 2, base + i)"
+  },
+  "parameters": {
+    "U01": "owner: full factory address (0x0000000000000000000000000000000000c0c005 is the 0.2 proposal); enters every CREATE2 preimage, every chunk address and every manifest that lists chunk addresses",
+    "P-ABI": "reviewer: proposed function, error and event signatures (m1-draft-0.2 section 5.3; U22); not compiler output",
+    "P13": "reviewer: proposed storage layout (section 5.5; U06)",
+    "E04": "experiment: compiler ABI and storageLayout, unavailable until implementation",
+    "P-X1": "reviewer: integer encoding of chainId in the netKey RLP (R3-07 label P)",
+    "TK-1": "reviewer: fixture-key derivation and the txA fee and gas fields (m1-draft-0.5 annex/br-messages.json label)",
+    "ALT-E": "snapshot alternative E (m1-draft-0.7) was evaluated, not adopted",
+    "U08": "reviewer: canonical manifest split"
+  },
+  "newPreimageGroups": [
+    {"group": "abi.selector", "source": "m1-draft-0.2/vectors/abi-and-slots.json factory.functions, factory.errors, website.functions, website.errors",
+     "preimage": "ASCII of the signature", "assertedForm": "prefix4", "parameters": ["P-ABI", "E04"]},
+    {"group": "abi.topic0", "source": "m1-draft-0.2/vectors/abi-and-slots.json website.eventTopic0", "preimage": "ASCII of the signature", "assertedForm": "full", "parameters": ["P-ABI", "E04"]},
+    {"group": "slot.versionBase", "source": "abi-and-slots.json slots.version.<id>.manifestHash (the JSON key holds Version[id].base)", "preimage": "be256(id) || be256(3)", "ids": [1, 2, 1024], "parameters": ["P13", "E04"]},
+    {"group": "slot.chunks0", "source": "abi-and-slots.json slots.version.<id>['chunks[i]'][0]", "preimage": "be256(base + 2)", "parameters": ["P13", "E04"]},
+    {"group": "slot.publisher", "source": "abi-and-slots.json slots['examplePublisherSlots(placeholder addresses, not test accounts)']", "preimage": "pad32(address) || be256(4)", "parameters": ["P13", "E04"]},
+    {"group": "proof.storageSlot", "source": "m1-draft-0.5/vectors/proof-response-cases.json storageSlot0..2", "preimage": "be256(i)", "parameters": []},
+    {"group": "c14.contentHash", "source": "m1-draft-0.6/vectors/c14-head.json rb2848.contentHash", "preimage": "be16(0) || be16(1) || ... || be16(2847) (5696 bytes; m1-draft-0.6/tools/run_checks_06.py c14_checks)", "parameters": []},
+    {"group": "txA.hash", "source": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json check 'txA' (raw, txHash)", "preimage": "the signed raw transaction", "parameters": ["TK-1"]},
+    {"group": "snapshotE.selector", "source": "m1-draft-0.7/tools/snapshot_e_ref.py GETTER_SIGNATURE", "preimage": "ASCII 'websiteSnapshot(uint32)'", "assertedForm": "prefix4", "expected": "recorded at run time only (0.7 'snapshotE.selector')", "parameters": ["ALT-E"]}
+  ],
+  "aliases": [
+    {"id": "alias.t1_02.manifestHash", "source": "abi-and-slots.json t1_02_expectedState['value@Version[1].base']", "equals": "triad pos-minimal.manifest"},
+    {"id": "alias.t1_02.chunk0Slot", "source": "abi-and-slots.json t1_02_expectedState['slot of chunks[0]']", "equals": "slot.chunks0 of version 1"},
+    {"id": "alias.versionRecords", "source": "m1-draft-0.2/vectors/version-records.json manifestHash of ver-minimal, ver-manifest-chunk-missing, ver-manifest-noncanonical-split, ver-manifest-length-0, ver-manifest-65536", "equals": "triad pos-minimal.manifest / pos-manifest-65536.manifest"},
+    {"id": "alias.proof.emptyTrieRoot", "source": "proof-response-cases.json emptyTrieRoot and the RES patches", "equals": "K3"},
+    {"id": "alias.proof.keccakEmpty", "source": "proof-response-cases.json keccakEmpty and RES-no-code", "equals": "K1"},
+    {"id": "alias.X1.netKey", "source": "m1-draft-0.3/vectors/annex-batch1.json X1_netKey.vector.rlpPreimage and m1-draft-0.5/vectors/sitestorage-nav-cases.json storageKey.netKey", "equals": "triad netKey"},
+    {"id": "alias.versionWidth.fileHash", "source": "m1-draft-0.3/vectors/version-width.json (manifests embed the /index.html content hash 27c02d...)", "equals": "triad pos-minimal.file.2f696e6465782e68746d6c"},
+    {"id": "alias.gsv1.vectors", "source": "m1-draft-0.21/vectors/v3-gsv1.json keccakVectors K1-K3", "equals": "K1-K3"}
+  ],
+  "synthetic": [
+    {"id": "syn.lc.branchHashes", "file": "m1-draft-0.19/vectors/lc-data.json", "path": "hashes (all except ADDR)", "label": "P-V2-7: author-chosen block hashes '0x' + code + 8-hex height + 54 zeros"},
+    {"id": "syn.gsv1.allocRoot", "file": "m1-draft-0.21/vectors/v3-gsv1.json", "path": "expected.allocRoot", "pattern": "22 x 32", "label": "source-literal placeholder of the non-bootable GSV1 (validation.md:64-77); part of the GSV1 preimage, not a computed alloc root"},
+    {"id": "syn.gsv1.sysCodeHash", "file": "m1-draft-0.21/vectors/v3-gsv1.json", "path": "expected.sysCodeHash", "pattern": "33 x 32", "label": "as allocRoot"},
+    {"id": "syn.bridge.hash", "file": "m1-draft-0.4/vectors/bridge-check-cases.json", "path": "constants.hash", "pattern": "22 x 32", "label": "opaque request parameter"},
+    {"id": "syn.c29.anchor", "file": "m1-draft-0.20/vectors/c29-controls.json", "path": "anchor.hash", "pattern": "11 x 32", "label": "opaque anchor"},
+    {"id": "syn.profileRace.genesis", "file": "m1-draft-0.6/vectors/profile-race-cases.json", "path": "profiles A/B/C/R genesisHash and nodeGenesis", "pattern": "a1/b2/c3/d4/ee x 32", "label": "opaque identities"},
+    {"id": "syn.proof.roots", "file": "m1-draft-0.5/vectors/proof-response-cases.json", "path": "stateRoot ee, codeHash ab, storageHash cd", "label": "opaque proof fields (MPT verification is Phase A)"},
+    {"id": "syn.v3.otherHashes", "file": "m1-draft-0.21/vectors/v3-profiles.json", "path": "GSV1-confirmedOtherHash 55 x 32, N11 genesisHash 44 x 32", "label": "deliberately wrong hashes"},
+    {"id": "syn.X1.genesisHash", "file": "m1-draft-0.3/vectors/annex-batch1.json", "path": "X1_netKey.vector.genesisHash", "pattern": "11 x 32", "label": "the source vector's (777001, 0x11 x 32) input (FD:L981); the netKey over it is computed (triad)"},
+    {"id": "syn.br16.hash", "file": "m1-draft-0.6/annex/br16-generator.json", "path": "eth_getBlockByHash etc.", "pattern": "22 x 32", "label": "opaque request parameter"},
+    {"id": "syn.versionRecords.zero", "file": "m1-draft-0.2/vectors/version-records.json", "path": "ver-manifest-hash record.manifestHash", "pattern": "00 x 32", "label": "deliberately wrong manifestHash (negative fixture)"}
+  ],
+  "privateProvenance": [
+    {"id": "priv.x3.messageSha256", "file": "m1-draft-0.6/annex/x3-restored.json", "value": "b7a3fa385acdc73be6ff4665f6b3be71e15f7455177ef03c4c0b1efcf64f99b1", "evidence": "coordination/review-001/REVIEW-0.6.md (restored X3 accepted)"},
+    {"id": "priv.x8.H44", "file": "m1-draft-0.23/vectors/x8-config.json", "value": "68413dacbc24720dc168b92cc20310a93c4ea7500c23509a7be37db674c4e76e", "evidence": "coordination/review-001/REVIEW-0.23.md"},
+    {"id": "priv.x8.H34", "file": "m1-draft-0.23/vectors/x8-config.json", "value": "704307aad7b6ee5d028a640cc96acbcaf0366a3d40e8afd4c9f1c9fca439bff2", "evidence": "coordination/review-001/REVIEW-0.23.md"}
+  ],
+  "fileSha256": [
+    {"id": "file.keccakPy", "file": "m1-draft-0.2/tools/keccak.py", "value": "99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d", "source": "m1-draft-0.22/vectors/v3-e05-supplement.json"},
+    {"id": "file.gsv1Input", "value": "2905b38d045661682f75beda865a447ed22e43e1e288b622a78a4e9833a4bf84", "source": "m1-draft-0.22/vectors/v3-e05-supplement.json GSV1.inputSha256", "of": "the GSV1 bytes rebuilt from flatSegments"}
+  ],
+  "keyDerived": [
+    {"id": "key.anvilKats", "file": "m1-draft-0.5/annex/br-messages.json", "path": "txA.kats[*].address, txA.privKeyOneAddress",
+     "blocker": "HF-BLK-KEYS: the preimage is a public key derived from a fixture private key. Exporting it needs key-derivation code over key material, which this package does not export. Evidence already saved: 0.5 checks 'keys.anvilKat 1', 'keys.anvilKat 2', 'txA.recoverSigner'. Root may export the public keys from its own environment if it wants them in the triad."},
+    {"id": "key.txA.from", "source": "saved 0.5 check 'txA' fromAddress", "blocker": "HF-BLK-KEYS"}
+  ],
+  "placeholder": [
+    {"id": "ph.v3.networkProfiles", "file": "m1-draft-0.21/vectors/v3-profiles.json", "path": "RF1-RF4 / end / full genesisPre and their genesisHash",
+     "blocker": "HF-BLK-DGV3: g_ts, target_g, the HELD M_0 identities, allocRoot and sysCodeHash are absent from the source (DG-V3-1, DG-V3-2); the digests are run-time values over placeholders and are not frozen"}
+  ]
+}

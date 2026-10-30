@@ -1,0 +1,50 @@
+[
+  {
+    "name": "exclusive-membership-cutoff",
+    "caught": true,
+    "target": "/workspace/pocol-s4/mutant-exclusive-membership-cutoff-e9t95dzc/target",
+    "exitCode": 101
+  },
+  {
+    "name": "allow-tombs",
+    "caught": true,
+    "target": "/workspace/pocol-s4/mutant-allow-tombs-tieauxaa/target",
+    "exitCode": 101
+  },
+  {
+    "name": "wrong-seed-endianness",
+    "caught": true,
+    "target": "/workspace/pocol-s4/mutant-wrong-seed-endianness-two1o8km/target",
+    "exitCode": 101
+  },
+  {
+    "name": "partition-gap",
+    "caught": true,
+    "target": "/workspace/pocol-s4/mutant-partition-gap-lcu01naa/target",
+    "exitCode": 101
+  },
+  {
+    "name": "include-parent-counts",
+    "caught": true,
+    "target": "/workspace/pocol-s4/mutant-include-parent-counts-6vwol1ph/target",
+    "exitCode": 101
+  },
+  {
+    "name": "wrong-cumulative-boundary",
+    "caught": true,
+    "target": "/workspace/pocol-s4/mutant-wrong-cumulative-boundary-hu5_gmm7/target",
+    "exitCode": 101
+  },
+  {
+    "name": "modulo-without-rejection",
+    "caught": true,
+    "target": "/workspace/pocol-s4/mutant-modulo-without-rejection-0hx1emmw/target",
+    "exitCode": 101
+  },
+  {
+    "name": "wrong-64bit-cap",
+    "caught": true,
+    "target": "/workspace/pocol-s4/mutant-wrong-64bit-cap-6rrp5gz6/target",
+    "exitCode": 101
+  }
+]

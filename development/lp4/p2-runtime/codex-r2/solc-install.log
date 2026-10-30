@@ -1,0 +1,9 @@
+npm error code ENOENT
+npm error syscall mkdir
+npm error path /home/agent/.npm/_cacache
+npm error errno ENOENT
+npm error enoent Invalid response body while trying to fetch https://registry.npmjs.org/solc: ENOENT: no such file or directory, mkdir '/home/agent/.npm/_cacache'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error Log files were not written due to an error writing to the directory: /home/agent/.npm/_logs
+npm error You can rerun the command with `--loglevel=verbose` to see the logs in your terminal

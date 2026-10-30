@@ -1,0 +1,138 @@
+{
+  "scope": "22actual compiled forced-transfer/ordinary/closing bond path comparisons only; synthetic complete snapshots, no Genesis/settlement/caps/resource acceptance",
+  "cases": [
+    {
+      "name": "markClose()",
+      "comparison": "MATCH",
+      "stateRoot": "0x746a294235d82c7235cba06f5bebfc540835a5285f204732794b47232ff00072",
+      "gasUsed": 51895
+    },
+    {
+      "name": "beginBlock()",
+      "comparison": "MATCH",
+      "stateRoot": "0xd18df9755b3ea0ac064ea2007a3ab74f6b359f8a68a6a5ca29cb1213cf08f3a7",
+      "gasUsed": 39498
+    },
+    {
+      "name": "register-second-active",
+      "comparison": "MATCH",
+      "stateRoot": "0xa4507e1fc867ae44f97b3c50c942a97c4dd8b33dbde40671698164330d86f551",
+      "gasUsed": 206839
+    },
+    {
+      "name": "forced-transfer",
+      "comparison": "MATCH",
+      "stateRoot": "0xd582ae3e587a97785bc56e2522a1b7da602f2580ff1377e0042afe893e211e2e",
+      "gasUsed": 26483
+    },
+    {
+      "name": "forced-transfer",
+      "comparison": "MATCH",
+      "stateRoot": "0x4dd430806067622d9853fa7b34720dd6a3f3ca7a6b14b18094a27871979ae909",
+      "gasUsed": 29083
+    },
+    {
+      "name": "unauthorized-release",
+      "comparison": "MATCH",
+      "stateRoot": "0x3d08c1407ed7d6c4dfc9428d47ff8980f4464f70b9c0af69f9bb563007e5e8d2",
+      "gasUsed": 21767
+    },
+    {
+      "name": "unauthorized-value-release",
+      "comparison": "MATCH",
+      "stateRoot": "0x13240e59b13cbc8a272f610e613075aa07e440bf633bea8f7b380ff050b470f5",
+      "gasUsed": 21475
+    },
+    {
+      "name": "ordinary-value-reverts",
+      "comparison": "MATCH",
+      "stateRoot": "0x586f0b198c50817d40b2ad005bf4d78fc00ca3faed2b7bf36f915d490b45554c",
+      "gasUsed": 21043
+    },
+    {
+      "name": "exit",
+      "comparison": "MATCH",
+      "stateRoot": "0x5d3172c3c87746c1257d1be5efdf983125d2100daf11f4e0bcc11deb91e8d244",
+      "gasUsed": 82718
+    },
+    {
+      "name": "markClose()",
+      "comparison": "MATCH",
+      "stateRoot": "0x41d51810bd8e74eecda4d18d3c642bed2e6fe0ad5702c15a5519affd83378e45",
+      "gasUsed": 34795
+    },
+    {
+      "name": "beginBlock()",
+      "comparison": "MATCH",
+      "stateRoot": "0xdb8d4b94cab7085fb05e96c00bd0bcb5fe970a1fd48f72418133fee045ada693",
+      "gasUsed": 39527
+    },
+    {
+      "name": "claim-exact-held",
+      "comparison": "MATCH",
+      "stateRoot": "0x6a97ec130132876de57ce7d27b5498d11b39620ab59745b5e7f2b971bc441911",
+      "gasUsed": 72196
+    },
+    {
+      "name": "markClose()",
+      "comparison": "MATCH",
+      "stateRoot": "0x746a294235d82c7235cba06f5bebfc540835a5285f204732794b47232ff00072",
+      "gasUsed": 51895
+    },
+    {
+      "name": "beginBlock()",
+      "comparison": "MATCH",
+      "stateRoot": "0xd18df9755b3ea0ac064ea2007a3ab74f6b359f8a68a6a5ca29cb1213cf08f3a7",
+      "gasUsed": 39498
+    },
+    {
+      "name": "register-second-active",
+      "comparison": "MATCH",
+      "stateRoot": "0xa4507e1fc867ae44f97b3c50c942a97c4dd8b33dbde40671698164330d86f551",
+      "gasUsed": 206839
+    },
+    {
+      "name": "forced-transfer",
+      "comparison": "MATCH",
+      "stateRoot": "0xd582ae3e587a97785bc56e2522a1b7da602f2580ff1377e0042afe893e211e2e",
+      "gasUsed": 26483
+    },
+    {
+      "name": "forced-transfer",
+      "comparison": "MATCH",
+      "stateRoot": "0x4dd430806067622d9853fa7b34720dd6a3f3ca7a6b14b18094a27871979ae909",
+      "gasUsed": 29083
+    },
+    {
+      "name": "unauthorized-release",
+      "comparison": "MATCH",
+      "stateRoot": "0x3d08c1407ed7d6c4dfc9428d47ff8980f4464f70b9c0af69f9bb563007e5e8d2",
+      "gasUsed": 21767
+    },
+    {
+      "name": "unauthorized-value-release",
+      "comparison": "MATCH",
+      "stateRoot": "0x13240e59b13cbc8a272f610e613075aa07e440bf633bea8f7b380ff050b470f5",
+      "gasUsed": 21475
+    },
+    {
+      "name": "ordinary-value-reverts",
+      "comparison": "MATCH",
+      "stateRoot": "0x586f0b198c50817d40b2ad005bf4d78fc00ca3faed2b7bf36f915d490b45554c",
+      "gasUsed": 21043
+    },
+    {
+      "name": "markClose()",
+      "comparison": "MATCH",
+      "stateRoot": "0xc13b0f72ca7079fe8a1f2c8fc9fa28eb4320ea7968597a403676428c2a334a09",
+      "gasUsed": 80440
+    },
+    {
+      "name": "beginBlock()",
+      "comparison": "MATCH",
+      "stateRoot": "0xd15590664e229eb3369acf5d9a5a5c929c95d4009c9538685ff39e31535bbfdf",
+      "gasUsed": 26906
+    }
+  ],
+  "bootable": false
+}

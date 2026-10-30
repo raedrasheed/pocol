@@ -1,0 +1,8 @@
+F6 compile-time field-inventory check (final code 687ac38, lp4-execution).
+Mechanism: prototypes/lp4-execution/src/admission/scope.rs rpc_fields! macro generates an exhaustive
+  `let RpcLimits{ <all fields> }=l;` (no `..`), so RpcLimits and RPC_FIELDS cannot drift.
+Control: clean tree compiles (cargo test --no-run: Finished).
+Mutant: remove `timer_eps_ms` from the rpc_fields!(...) list -> `cargo test --no-run` fails:
+  "error: could not compile `pocol-lp4-execution` (lib) due to 1 previous error" (E0027, missing field
+  in the RpcLimits pattern), cargo exit 101. Restored afterwards.
+Result: CAUGHT at compile time. The field inventory is tied to RpcLimits.

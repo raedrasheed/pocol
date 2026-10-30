@@ -1,0 +1,17 @@
+{
+  "run": 39394143675,
+  "head": "8f0c42221fc32e2f1e8e0c01cc18c704fa770a83",
+  "tree": "0d551160ae7e74e88d94b31068cc1984127c7a6c",
+  "job": 118532569731,
+  "conclusion": "FAILURE",
+  "step": "Reproduce compiler output and run actual Rust execution tests",
+  "cause": "tool_inventory requires base+comparison locks; main job installed only base requirements, unlike verified local venv",
+  "error": "AssertionError: Python lock/install mismatch",
+  "fix": "Install same already-pinned hash-checked comparison extra wheel in main controls job; do not relax inventory/version predicates",
+  "rawDecodedLog": "/workspace/work/lp4/p2-registry-full/hosted-39394143675/cancun-pay-controls.log",
+  "rawLogSHA256": "0f7d49da039b51790b2359a86aa8d11c44fcab20bb13d18786554effdecd702e",
+  "otherJobs": "Inspect individually; old-head result never grants new-head success",
+  "P2": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false
+}

@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-7259c775fe5d71e3)
+
+running 1 test
+
+thread 'nested_revert_restores_both_balances' (68881) panicked at tests/pay_boundary.rs:91:5:
+assertion `left == right` failed
+  left: 60
+ right: 100
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test nested_revert_restores_both_balances ... FAILED
+
+failures:
+
+failures:
+    nested_revert_restores_both_balances
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test pay_boundary`

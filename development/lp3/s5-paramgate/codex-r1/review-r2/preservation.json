@@ -1,0 +1,16 @@
+{
+  "base": "f933ef8a1e43a22ee6c7ca08c0b14236e086a95f",
+  "protectedPaths": [
+    "development/m1",
+    "development/lp1",
+    "development/lp2",
+    "development/lp3/s1-genesisspec",
+    "development/lp3/s2-profile",
+    "development/lp3/s3-timing",
+    "development/lp3/s4-assignment",
+    ".github",
+    "prototypes/lp1-node/Cargo.toml",
+    "prototypes/lp1-node/Cargo.lock"
+  ],
+  "changes": []
+}

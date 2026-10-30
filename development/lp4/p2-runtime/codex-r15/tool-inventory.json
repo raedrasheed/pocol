@@ -1,0 +1,498 @@
+{
+  "scope": "Installed test/compiler inventory; full source/license/distribution audit NOT PASSED",
+  "python": {
+    "version": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "packages": [
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "recordFilesVerified": 7,
+        "metadataSHA256": "614985b278f601b8ef863f82783b991cc3ada4b89f592eb71c7c48c5f2ef2298",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "annotated_types-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+          }
+        ]
+      },
+      {
+        "name": "blake2b-py",
+        "version": "0.3.2",
+        "recordFilesVerified": 7,
+        "metadataSHA256": "e34e6611f026a77ba6ad51ef3580ffe6cd53fef44f961e8e2611a5c18729c206",
+        "declaredLicense": "MIT",
+        "notices": []
+      },
+      {
+        "name": "cached-property",
+        "version": "2.0.1",
+        "recordFilesVerified": 7,
+        "metadataSHA256": "c6737747795563d6580ae14e1f1e6d68ced54dccfb4e70dbd07060c5afd864fb",
+        "declaredLicense": "BSD",
+        "notices": [
+          {
+            "path": "cached_property-2.0.1.dist-info/AUTHORS.md",
+            "sha256": "775a784279e2a8e83e1e9f396e3f4518990a470b6f265e699f58617d1f57e714"
+          },
+          {
+            "path": "cached_property-2.0.1.dist-info/LICENSE",
+            "sha256": "ba4756c8039b25b66e3c456cc5bf635aa528cf459b97ee1499d06684ccd89b9a"
+          }
+        ]
+      },
+      {
+        "name": "ckzg",
+        "version": "2.1.8",
+        "recordFilesVerified": 6,
+        "metadataSHA256": "e19db61e0319cb4b3c2f0e03862c68bfc4a18ef3cde65d8ee4653b797b86b631",
+        "declaredLicense": "Apache-2.0",
+        "notices": [
+          {
+            "path": "ckzg-2.1.8.dist-info/licenses/LICENSE",
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+          }
+        ]
+      },
+      {
+        "name": "cytoolz",
+        "version": "1.2.0",
+        "recordFilesVerified": 53,
+        "metadataSHA256": "e4ca3e857e0e3adcb2faa7b5227f400bb699bb918d70c6474141092b28972946",
+        "declaredLicense": "BSD-3-Clause",
+        "notices": [
+          {
+            "path": "cytoolz-1.2.0.dist-info/licenses/LICENSE.txt",
+            "sha256": "e8447f3095a6bcc4d9f8c814c5a78977bf435c9103769dfecb66dfc8ebfcbc25"
+          }
+        ]
+      },
+      {
+        "name": "eth-bloom",
+        "version": "4.0.0",
+        "recordFilesVerified": 8,
+        "metadataSHA256": "0a27f203a2d58e00830d98a6afe74b52125502d6de0441742512f9f8d34f8611",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "eth_bloom-4.0.0.dist-info/licenses/LICENSE",
+            "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+          }
+        ]
+      },
+      {
+        "name": "eth-hash",
+        "version": "0.8.0",
+        "recordFilesVerified": 15,
+        "metadataSHA256": "b6e8caf81e873a864d7024d406acad86d5722d6efae6a5bbf034871ab4bf68bf",
+        "declaredLicense": null,
+        "notices": [
+          {
+            "path": "eth_hash-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "7b19be588a3307e22e58d7cc2b8b786a3c3f0db4157653af4c84647478f48551"
+          }
+        ]
+      },
+      {
+        "name": "eth-keys",
+        "version": "0.8.0",
+        "recordFilesVerified": 25,
+        "metadataSHA256": "8e229ab158ff968889eb8cfb329d04e6f47acfd64cfec9d547b7a9416331f9eb",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "eth_keys-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+          }
+        ]
+      },
+      {
+        "name": "eth-typing",
+        "version": "6.0.0",
+        "recordFilesVerified": 15,
+        "metadataSHA256": "69f0dd322943800bc1dbc8edb4769de94e5e6ae477202bb35f6a197833fdaf34",
+        "declaredLicense": null,
+        "notices": [
+          {
+            "path": "eth_typing-6.0.0.dist-info/licenses/LICENSE",
+            "sha256": "7b19be588a3307e22e58d7cc2b8b786a3c3f0db4157653af4c84647478f48551"
+          }
+        ]
+      },
+      {
+        "name": "eth-utils",
+        "version": "6.0.0",
+        "recordFilesVerified": 33,
+        "metadataSHA256": "6761b51e6def925bb16ca323d2a16163bb6c9b16a166c0fdd3ccff0edf821a48",
+        "declaredLicense": null,
+        "notices": [
+          {
+            "path": "eth_utils-6.0.0.dist-info/licenses/LICENSE",
+            "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+          }
+        ]
+      },
+      {
+        "name": "hexbytes",
+        "version": "2.0.0",
+        "recordFilesVerified": 18,
+        "metadataSHA256": "7f62ccfe7fb338ac24e6b51114ffcbc7ca0ae5d98874bebe79092214a21623b5",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "hexbytes-2.0.0.dist-info/licenses/LICENSE",
+            "sha256": "13d2884c02755253a17800472a7d6062a9b84a41a46babf1c6d40a1fde1f0537"
+          }
+        ]
+      },
+      {
+        "name": "lru-dict",
+        "version": "1.4.1",
+        "recordFilesVerified": 9,
+        "metadataSHA256": "20fc058c77066ed3ef9e15e297285bd11aa18e81ac430442352de2799bb2885b",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "lru_dict-1.4.1.dist-info/licenses/LICENSE",
+            "sha256": "196a34fbb4dd3cd33542107ce97bd1c903bbdb3cf307f7c94e71aa7acbb2b988"
+          }
+        ]
+      },
+      {
+        "name": "pip",
+        "version": "25.0.1",
+        "recordFilesVerified": 442,
+        "metadataSHA256": "4fa7318cf30f979db7cec45c12cbbc2b4f88a15f12eefbf59a6291d0a03af926",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "pip-25.0.1.dist-info/AUTHORS.txt",
+            "sha256": "1eace90552df4f5941b61a907e20e555e16483ae6127b650bef5a1a2af8102c0"
+          },
+          {
+            "path": "pip-25.0.1.dist-info/LICENSE.txt",
+            "sha256": "634300a669d49aeae65b12c6c48c924c51a4cdf3d1ff086dc3456dc8bcaa2104"
+          }
+        ]
+      },
+      {
+        "name": "py-ecc",
+        "version": "8.0.0",
+        "recordFilesVerified": 38,
+        "metadataSHA256": "de07e3c1ad68a1d9de804bcfd47fa496798c19ac5f605c76f4c47b6478a0b396",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "py_ecc-8.0.0.dist-info/licenses/LICENSE",
+            "sha256": "29e1254f1df58829e3474ab81752b18097d2086f890843f0235331ac953af9ba"
+          }
+        ]
+      },
+      {
+        "name": "py-evm",
+        "version": "0.12.1b1",
+        "recordFilesVerified": 317,
+        "metadataSHA256": "483592822c82c0d335cccf57cef235a9f27d6f054c106b6f3d8876b60c7b670b",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "py_evm-0.12.1b1.dist-info/licenses/LICENSE",
+            "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+          }
+        ]
+      },
+      {
+        "name": "pycryptodome",
+        "version": "3.24.1",
+        "recordFilesVerified": 352,
+        "metadataSHA256": "3243b5ecd58448ffb42db1f762b0cfb34375b99adba0679fc609dac20247c792",
+        "declaredLicense": "BSD, Public Domain",
+        "notices": [
+          {
+            "path": "pycryptodome-3.24.1.dist-info/AUTHORS.rst",
+            "sha256": "1cb670b6cc5bc3a1c38d7e12cdf944442ca790425cf2a628ffbe3012445fe1e4"
+          },
+          {
+            "path": "pycryptodome-3.24.1.dist-info/LICENSE.rst",
+            "sha256": "4e04660d77c1c64e89d79537919fb8240fa21484a7e3db29f358b2c7f84ea073"
+          }
+        ]
+      },
+      {
+        "name": "pydantic",
+        "version": "2.14.1",
+        "recordFilesVerified": 111,
+        "metadataSHA256": "4d4c8e8d5e6a27d5208f0d7949f25628e6747133034969d4d1399b1ad5394036",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "pydantic-2.14.1.dist-info/licenses/LICENSE",
+            "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+          }
+        ]
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.50.1",
+        "recordFilesVerified": 11,
+        "metadataSHA256": "ae6817764b603fa2300cd31b9566ecc33476df46163c4150fffc353121a166f2",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "pydantic_core-2.50.1.dist-info/licenses/LICENSE",
+            "sha256": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
+          }
+        ]
+      },
+      {
+        "name": "rlp",
+        "version": "5.0.0",
+        "recordFilesVerified": 19,
+        "metadataSHA256": "958441438029f3f0efe504613c840a3df31e4cdd9db768de792625e053756b69",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "rlp-5.0.0.dist-info/licenses/LICENSE",
+            "sha256": "79f663f43dae27c6f1633676aebdaf44a7459b27f985a75f38d0b06c0f715d5f"
+          }
+        ]
+      },
+      {
+        "name": "sortedcontainers",
+        "version": "2.4.0",
+        "recordFilesVerified": 9,
+        "metadataSHA256": "eedf115109e215001e904da0882851beae50b03c0b0161a8b9e74b7cfd679473",
+        "declaredLicense": "Apache 2.0",
+        "notices": [
+          {
+            "path": "sortedcontainers-2.4.0.dist-info/LICENSE",
+            "sha256": "1db7cae7fce6452e2e608e401a0f953e0133e4c2d75db69fb8ae851d2086f5b6"
+          }
+        ]
+      },
+      {
+        "name": "toolz",
+        "version": "1.2.0",
+        "recordFilesVerified": 38,
+        "metadataSHA256": "d4f718dcebfaec34c8073aec7ab43c6de48112a65149899c29963a7e94302f7b",
+        "declaredLicense": "BSD-3-Clause",
+        "notices": [
+          {
+            "path": "toolz-1.2.0.dist-info/licenses/LICENSE.txt",
+            "sha256": "053664057b295b2f0c1332291a77102f01a099d87926e449e08a117eea9660bf"
+          }
+        ]
+      },
+      {
+        "name": "trie",
+        "version": "4.0.0",
+        "recordFilesVerified": 24,
+        "metadataSHA256": "55f6bb3212f3089db35bb68a33d8f4cd0f50c64bff8c6310a3576a486be21812",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "trie-4.0.0.dist-info/licenses/LICENSE",
+            "sha256": "493ab39d0e80f0e789ca53eb4c0edd96c32d1f48ac410c9b4659c364e28656b3"
+          }
+        ]
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.4",
+        "recordFilesVerified": 9,
+        "metadataSHA256": "bad3d9e6342ef6750cf5128ec942327b8bebdce0b6e4d6f67cb15b27ae5118da",
+        "declaredLicense": "MIT",
+        "notices": [
+          {
+            "path": "typing_inspection-0.4.4.dist-info/licenses/LICENSE",
+            "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+          }
+        ]
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "recordFilesVerified": 5,
+        "metadataSHA256": "b05084ca1d50879865178d9fff9fabeab61bdfb1f361bfbde95421ffc8f9be46",
+        "declaredLicense": "PSF-2.0",
+        "notices": [
+          {
+            "path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+            "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+          }
+        ]
+      }
+    ],
+    "unlockedBootstrapPackages": [
+      "pip"
+    ],
+    "missingPackagedNotices": [
+      "blake2b-py"
+    ],
+    "blake2MissingGrant": "Resolved separately by source-bound R14/blake2b-py-0.3.2-LICENSE.txt"
+  },
+  "npm": {
+    "packages": [
+      {
+        "name": "command-exists",
+        "version": "1.2.9",
+        "declaredLicense": "MIT",
+        "lockedArchiveIntegrity": "sha512-LTQ/SGc+s0Xc0Fu5WaKnR0YiygZkm9eKFvyS+fRsU7/ZWFF8ykFM6Pc9aCVf1+xasOOZpO3BAVgVrKvsqKHV7w==",
+        "packageJSONSHA256": "c0acc936f656bc164946c40c8283b18d53f33cf316569adaf8b6eee195d512cf",
+        "notices": [
+          {
+            "path": "LICENSE",
+            "sha256": "f1354634fd0ced0354bd5b5fe17f4e613f069850bfedaab00c8fd78f6bc77d5e"
+          }
+        ]
+      },
+      {
+        "name": "commander",
+        "version": "8.3.0",
+        "declaredLicense": "MIT",
+        "lockedArchiveIntegrity": "sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==",
+        "packageJSONSHA256": "5f5944b2fa479bf68003ca239940f8ad9cae893ddfc3662272a1855dfb9ce4db",
+        "notices": [
+          {
+            "path": "LICENSE",
+            "sha256": "04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b"
+          }
+        ]
+      },
+      {
+        "name": "follow-redirects",
+        "version": "1.16.1",
+        "declaredLicense": "MIT",
+        "lockedArchiveIntegrity": "sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg==",
+        "packageJSONSHA256": "3b63e57223c63eff7b1c9ecdcd6615af8c6fcbaa9d436e949f02acf2b6dbe588",
+        "notices": [
+          {
+            "path": "LICENSE",
+            "sha256": "bfa8a54bb952ccda79f0f1889721d108f5b605babbb2b8a3705ffb52f4132eb7"
+          }
+        ]
+      },
+      {
+        "name": "js-sha3",
+        "version": "0.8.0",
+        "declaredLicense": "MIT",
+        "lockedArchiveIntegrity": "sha512-gF1cRrHhIzNfToc802P800N8PpXS+evLLXfsVpowqmAFR9uwbi89WvXg2QspOmXL8QL86J4T1EpFu+yUkwJY3Q==",
+        "packageJSONSHA256": "ba89a2a2189db98b8b9a4134ec744737f2ed3e26ee59357279a170faf93709dd",
+        "notices": [
+          {
+            "path": "LICENSE.txt",
+            "sha256": "17b4068b7283f1e9a41b196e3662d4b37cf6f3265173622929d352f5ecdda231"
+          }
+        ]
+      },
+      {
+        "name": "memorystream",
+        "version": "0.3.1",
+        "declaredLicense": null,
+        "lockedArchiveIntegrity": "sha512-S3UwM3yj5mtUSEfP41UZmt/0SCoVYUcU1rkXv+BQ5Ig8ndL4sPoJNBUJERafdPb5jjHJGuMgytgKvKIf58XNBw==",
+        "packageJSONSHA256": "dfff650f4c6c600aaaeeab58f50429325a94ebcbe28a0689c3c4b545b270b76a",
+        "notices": [
+          {
+            "path": "LICENSE",
+            "sha256": "0077a46edebed7dbeb627dcf8643f5aa07af296fc3699c43a34d095311a856a9"
+          }
+        ]
+      },
+      {
+        "name": "os-tmpdir",
+        "version": "1.0.2",
+        "declaredLicense": "MIT",
+        "lockedArchiveIntegrity": "sha512-D2FR03Vir7FIu45XBY20mTb+/ZSWB00sjU9jdQXt83gDrI4Ztz5Fs7/yy74g2N5SVQY4xY1qDr4rNddwYRVX0g==",
+        "packageJSONSHA256": "708404ce657fbad57a4804f3ccfcda877e038b981fb9675aebcc57de91e95694",
+        "notices": [
+          {
+            "path": "license",
+            "sha256": "6fb9754611c20f6649f68805e8c990e83261f29316e29de9e6cedae607b8634c"
+          }
+        ]
+      },
+      {
+        "name": "semver",
+        "version": "5.7.2",
+        "declaredLicense": "ISC",
+        "lockedArchiveIntegrity": "sha512-cBznnQ9KjJqU67B52RMC65CMarK2600WFnbkcaiwWq3xy/5haFJlshgnpjovMVJ+Hff49d8GEn0b87C5pDQ10g==",
+        "packageJSONSHA256": "5040deda6072a93c40e36c5188f24159498f6f84fe586bc47dea4a2de7a8fcdb",
+        "notices": [
+          {
+            "path": "LICENSE",
+            "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+          }
+        ]
+      },
+      {
+        "name": "solc",
+        "version": "0.8.28",
+        "declaredLicense": "MIT",
+        "lockedArchiveIntegrity": "sha512-AFCiJ+b4RosyyNhnfdVH4ZR1+TxiL91iluPjw0EJslIu4LXGM9NYqi2z5y8TqochC4tcH9QsHfwWhOIC9jPDKA==",
+        "packageJSONSHA256": "d9062b42d4e7861ba23849de567de0365e88fbc2c60994d2420096d602fb7693",
+        "notices": [
+          {
+            "path": "LICENSE",
+            "sha256": "852bcc033a46c62f99fb5ffd43b3241ba2c0c440c6034aa2114505f2c4f03c4a"
+          }
+        ]
+      },
+      {
+        "name": "tmp",
+        "version": "0.0.33",
+        "declaredLicense": "MIT",
+        "lockedArchiveIntegrity": "sha512-jRCJlojKnZ3addtTOjdIqoRuPEKBvNXcGYqzO6zWZX8KfKEpnGY5jfggJQ3EjKuu8D4bJRr0y+cYJFmYbImXGw==",
+        "packageJSONSHA256": "0d16aba4ccec87190ee9759b70afcb3e57f068f311d440b5093bde3a4c7a8175",
+        "notices": [
+          {
+            "path": "LICENSE",
+            "sha256": "162413c61e0982abe89a06bf7a02ec760dc49a7364d838bd9f01daebb5b95954"
+          }
+        ]
+      }
+    ],
+    "archiveIntegrityReverifiedHere": false,
+    "compilerVersion": "0.8.28+commit.7893614a.Emscripten.clang",
+    "embeddedCompilerSHA256": "9ef37cc1d2597ed6d2f706a960f449e33eb9eee920936cea77b11e6f43861970"
+  },
+  "rust": {
+    "version": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+    "rustcSHA256": "b53b780f77f952062f8ca8a3b70aef2390b1e45ad91939be94afdc9543026853",
+    "cargoSHA256": "a670e02cfa39ac2e53f77a2d911ca1fc9e2c479b0603ec956625be1daf24e3af",
+    "channelManifestSHA256": "48419307eb32e389a25ac360b6bccd4d196f3c4f35ce9d67a223319eff017c6c",
+    "components": [
+      {
+        "name": "cargo",
+        "version": "0.100.0 (5f94df478 2026-08-27)",
+        "upstreamArchive": "https://static.rust-lang.org/dist/2026-10-15/cargo-1.99.1-x86_64-unknown-linux-gnu.tar.xz",
+        "declaredArchiveSHA256": "53f3521949404d595efb06a55c12c5658d4ed1c75566f33d3d514eaebe70bd8a",
+        "archiveReverifiedHere": false
+      },
+      {
+        "name": "rustc",
+        "version": "1.99.1 (58cf8f9c3 2026-10-13)",
+        "upstreamArchive": "https://static.rust-lang.org/dist/2026-10-15/rustc-1.99.1-x86_64-unknown-linux-gnu.tar.xz",
+        "declaredArchiveSHA256": "2ff05ff9c08a90861e7f6e4065b40a8b87463b4576186fd613871c3e37f2091f",
+        "archiveReverifiedHere": false
+      },
+      {
+        "name": "rust-std",
+        "version": "1.99.1 (58cf8f9c3 2026-10-13)",
+        "upstreamArchive": "https://static.rust-lang.org/dist/2026-10-15/rust-std-1.99.1-x86_64-unknown-linux-gnu.tar.xz",
+        "declaredArchiveSHA256": "109b074225bf5b9ea3820890876bfdf4ed161adbfaf94b2b4b5984c85ee5d958",
+        "archiveReverifiedHere": false
+      }
+    ],
+    "notices": [
+      {
+        "path": "COPYRIGHT-library.html",
+        "sha256": "5647be074c8edf7339fd863055923a8fc80bc5610a8d4661ec3b767b9d392c27"
+      },
+      {
+        "path": "COPYRIGHT.html",
+        "sha256": "d518ae2d76bc7a1f0cbf0069b8deafb56efc39c2614cab74a859ef0b467f8373"
+      }
+    ]
+  },
+  "bootable": false
+}

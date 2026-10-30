@@ -1,0 +1,17 @@
+# e2e-integrated-whole-state-2: (cd prototypes/pocol-extension; node tests/e2e_integrated.mjs)
+# start 2026-10-25T13:31:14Z
+PASS every node runs in the requested state mode — stateStore=false,false,false
+PASS fresh-directory launch: 3 pocold processes produce and agree — t=25s
+PASS BR15 pocol_getTemplate with Origin -> -32601; without Origin -> served — {"code":-32601,"message":"method not available to sites"}
+PASS v1 published through node a; pocol-site fetch from every node gives identical verified bytes — c810903a49ed1e83,c810903a49ed1e83,c810903a49ed1e83
+PASS Chrome renders v1 identically through each node (HTML/CSS/JS/PNG from verified chunks) — {"h1":"LP10 site v1","v":"1","color":"rgb(17, 170, 85)","img":2,"ver":"version 0 · block 29","trust":"LN","errors":0}
+PASS Chrome RP profile accepts the live window and renders v1 — RP
+PASS partition: Chrome via isolated c shows v2 (minority branch) while a shows v1 — LP10 site v2 / LP10 site v1
+PASS partition: branches diverged — c=45 ab=95 base=32
+PASS heal: c reorganized onto the heavier branch (D133) — {"fallbackTemplates":0,"hashesInExhaustedRanges":0,"historyDamaged":false,"historyRebuilt":false,"historyRefilled":0,"imported":133,"mined":2,"poolBacklog":0,"poolSliceMaxMs":4,"poolSlices":61,"refetched":0,"reorgs":1,"replaySkipped":0,"restored":19,"sharesSeen":45,"signedTemplates":2,"syncRounds":1
+PASS reorg recovery: Chrome via c now shows the canonical version, identical on all nodes — LP10 site v1 | LP10 site v1 | LP10 site v1 (canonical index 0)
+FAIL LP10 driver completed — Error: timeout: pools settled after the heal
+    at wait (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7b/prototypes/pocol-extension/tests/harness.mjs:22:9)
+    at async main (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c05
+{"result":"FAIL","checks":11,"failed":1,"work":"/tmp/pocol-lp10-MQVGap"}
+# end 2026-10-25T13:37:29Z exit=1

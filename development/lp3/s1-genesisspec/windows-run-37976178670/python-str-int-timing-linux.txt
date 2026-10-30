@@ -1,0 +1,4 @@
+3.13.16 bytes 262144 digits 631306 seconds 0.47
+3.13.16 bytes 2818466 digits 6787543 seconds 6.04
+3.11.17 bytes 262144 digits 631306 seconds 5.97
+3.11.17 bytes 2818466 digits 6787543 seconds 707.78

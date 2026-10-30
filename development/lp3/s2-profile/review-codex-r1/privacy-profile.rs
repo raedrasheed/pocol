@@ -1,0 +1,1 @@
+extern crate lp1_node; fn attack(p: &mut lp1_node::profile::ProfileIdentity){p.kind=lp1_node::profile::ProfileKind::Network;} fn main(){}
