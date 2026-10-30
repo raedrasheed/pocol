@@ -75,7 +75,7 @@ export async function workerChecks(dist) {
   await scenario(async () => {
     const w = await world({ grant: false, extra: [prof('p2', s2)] });
     const list = (await w.mock.send({ type: 'profiles.list' })).profiles;
-    ok('A06 conflict is recomputed over the set: both profiles flagged', list.every((p) => p.conflict === true), JSON.stringify(list.map((p) => [p.name, p.conflict])));
+    ok('A06 conflict is recomputed over the set: both profiles flagged', list.filter((p) => ['p1','p2'].includes(p.name)).every((p) => p.conflict === true) && list.filter((p) => ['p1','p2'].includes(p.name)).length === 2, JSON.stringify(list.map((p) => [p.name, p.conflict])));
     const r1 = await w.reply(w.req('eth_requestAccounts')); const r2 = await w.reply(w.req('eth_accounts')); const r3 = await w.reply(w.tx());
     ok('A06 conflicting profile: eth_requestAccounts 4100 without a dialog, eth_accounts [], eth_sendTransaction 4100, nothing sent',
       code(r1) === 4100 && noAsk(w, 'confirmAccounts') && Array.isArray(r2.result) && r2.result.length === 0 && code(r3) === 4100 && w.count('eth_sendRawTransaction') === 0, JSON.stringify([r1, r2, r3]));
@@ -169,11 +169,11 @@ export async function workerChecks(dist) {
   });
   // ---- A06 a stored profile that no longer validates (e.g. edited storage) is unusable ----
   await scenario(async () => {
-    const w = await world(); const st = structuredClone(w.mock.storage.data.get('profiles')); st[0].genesisHash = '0x' + '00'.repeat(32); w.mock.storage.data.set('profiles', st);
+    const w = await world(); const st = structuredClone(w.mock.storage.data.get('profiles')); st.find((p) => p.name === 'p1').genesisHash = '0x' + '00'.repeat(32); w.mock.storage.data.set('profiles', st);
     const list = (await w.mock.send({ type: 'profiles.list' })).profiles; const r = await w.reply(w.tx());
     const op = await w.mock.send({ type: 'open', name: 'p1', site: w.site, path: '/' });
     ok('A06 a stored profile that no longer validates is listed invalid, cannot sign (4901) and cannot open a site',
-      list.length === 1 && typeof list[0].invalid === 'string' && code(r) === 4901 && noAsk(w, 'confirmTx') && op.ok === false && op.error.code === 4901 && w.count('eth_sendRawTransaction') === 0, JSON.stringify([list, r, op]));
+      typeof list.find((p) => p.name === 'p1').invalid === 'string' && code(r) === 4901 && noAsk(w, 'confirmTx') && op.ok === false && op.error.code === 4901 && w.count('eth_sendRawTransaction') === 0, JSON.stringify([list, r, op]));
   });
   // ---- A06 periodic identity check (every 30 s) and the lock timeout ----
   await scenario(async () => {

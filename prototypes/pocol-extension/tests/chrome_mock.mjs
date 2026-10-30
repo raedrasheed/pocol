@@ -4,6 +4,10 @@ import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 
 export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaaaaa' } = {}) {
+  const heldLocks = new Set();
+  const locks = { request: async (name, opts, fn) => { if(heldLocks.has(name)) return fn(null); heldLocks.add(name);try{return await fn({name});}finally{heldLocks.delete(name);} } };
+  if (!globalThis.navigator) Object.defineProperty(globalThis,'navigator',{value:{locks},configurable:true});
+  else Object.defineProperty(globalThis.navigator,'locks',{value:locks,configurable:true});
   const data = new Map();
   const storage = {
     holdSets: 0, held: [], setCalls: 0, failSets: 0,

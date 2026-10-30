@@ -1,10 +1,18 @@
 {
   "name": "pocol-extension",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "description": "PoCol MV3 browser extension (local devnet): verified on-chain site viewer with sandbox, DNR isolation and BridgeAuth.",
-  "scripts": {"build": "node build.mjs", "test": "node tests/unit.mjs"},
-  "dependencies": {"@noble/hashes": "1.8.0", "@noble/secp256k1": "2.3.0"}
+  "description": "PoCol Studio browser publisher and verified on-chain viewer",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node tests/unit.mjs",
+    "test:studio": "node tests/studio_test.mjs",
+    "test:publisher": "node --test tests/publisher_test.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "1.8.0",
+    "@noble/secp256k1": "2.3.0"
+  }
 }

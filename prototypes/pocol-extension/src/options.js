@@ -2,6 +2,9 @@
 const $ = (id) => document.getElementById(id);
 const send = (m) => chrome.runtime.sendMessage(m);
 async function refresh() {
+  const jobs = Object.entries(await chrome.storage.local.get(null)).filter(([k]) => k.startsWith('studio:job:')).map(([, v]) => v).sort((a,b) => b.createdAt-a.createdAt);
+  $('studioJobs').replaceChildren(...jobs.map((job) => { const li=document.createElement('li'), link=document.createElement('a'); link.href=chrome.runtime.getURL('publisher.html')+'#'+job.id; link.textContent=(job.request?.title || 'PoCol site')+' · '+job.status; li.append(link); return li; }));
+  if (!jobs.length) $('studioJobs').textContent = 'No publications yet · لا توجد عمليات نشر بعد';
   const r = await send({ type: 'profiles.list' });
   $('profiles').replaceChildren(...(r.profiles || []).map((p) => {
     const li = document.createElement('li');
@@ -9,7 +12,7 @@ async function refresh() {
     li.textContent = p.invalid ? `${p.name} · Invalid: ${p.invalid} ` : `${p.name} · chainId ${p.chainId} · ${p.trustLevel} · ${p.endpoint} · netKey ${p.netKey.slice(0, 18)}…${p.conflict ? ' · chainId conflict (read-only)' : ''} `;
     const rm = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Delete' });
     rm.onclick = async () => { await send({ type: 'profiles.remove', name: p.name }); refresh(); };
-    li.append(rm); return li;
+    if(p.name !== 'pocol-public')li.append(rm); return li;
   }));
   const w = await send({ type: 'wallet.status' });
   $('wallet').textContent = !w.exists ? 'No wallet' : w.unlocked ? 'Unlocked' : 'Locked';
