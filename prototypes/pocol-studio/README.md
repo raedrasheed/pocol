@@ -2,6 +2,8 @@
 
 PoCol Studio is a static, Arabic/English visual editor for websites published to the PoCol experimental testnet. The intended production origin is `https://studio.pocol.net`.
 
+English is the default interface language and the default content language for new projects. Arabic remains selectable. The first upgrade from the initial Arabic-default release converts only an untouched, unpublished personal starter; edited, imported, linked and published projects remain intact.
+
 The editor creates and previews lightweight pages, imports an existing website folder, stores local project drafts, exports a site ZIP, and submits an explicit publication request to the PoCol Chrome extension. The website never receives a wallet private key. Review and signing happen in an extension-owned page.
 
 ## Local checks
