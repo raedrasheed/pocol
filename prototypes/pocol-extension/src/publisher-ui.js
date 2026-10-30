@@ -19,7 +19,7 @@ function setJob(patch) {
   Object.assign(job, patch); const snapshot = structuredClone(job);
   writes = writes.then(() => chrome.storage.local.set({ [storageKey]: snapshot })); return writes;
 }
-const formatFee = (s) => { const n = BigInt(s), whole = n / 1000000000000000000n, frac = (n % 1000000000000000000n).toString().padStart(18,'0').slice(0,8).replace(/0+$/,''); return `${whole}${frac ? '.'+frac : ''} PoCol`; };
+const formatFee = (s) => { const n = BigInt(s), whole = n / 1000000000000000000n, frac = (n % 1000000000000000000n).toString().padStart(18,'0').slice(0,8).replace(/0+$/,''); return `${whole}${frac ? '.'+frac : ''} PCOL`; };
 const size = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KiB' : (n / 1048576).toFixed(2) + ' MiB';
 function applyLanguage() {
   document.documentElement.lang = language; document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';

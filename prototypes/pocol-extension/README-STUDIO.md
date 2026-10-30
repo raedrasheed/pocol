@@ -1,6 +1,8 @@
-# PoCol Studio extension — 0.2.0
+# PoCol Studio extension — 0.2.1
 
 Built from the existing PoCol extension at `50c2f27ee67961dec7aaf0eb735c0b641810e0ea`, with a trusted browser publishing workflow and the original isolated viewer.
+
+Version 0.2.1 displays publishing fees in **PCOL**, the currency symbol. The PoCol network and product names are unchanged.
 
 ## Build and checks
 
