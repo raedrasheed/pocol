@@ -3,7 +3,9 @@
 set -eu
 package_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 printf '\nPoCol Node · your local network tools\n\n'
-"$package_dir/pocol" build-info
+"$package_dir/pocol" build-info >/dev/null
+printf 'Engine source: '
+sed -n '1p' "$package_dir/source-commit.txt"
 printf '\nThis Linux release is a command-line node, not a graphical wallet.\nPackage folder: %s\n' "$package_dir"
 printf '\nTo manage an existing service, use its established service commands.\nThis shortcut does not start a node, generate keys, or change wallet data.\n\nPress Enter to close. '
 IFS= read -r answer || :
