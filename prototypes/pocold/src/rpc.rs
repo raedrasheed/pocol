@@ -1215,8 +1215,23 @@ mod tests{
         c.write_all(b"x").unwrap();let t=Instant::now();assert!(readable(&s,Duration::from_secs(5)).unwrap());assert!(t.elapsed()<Duration::from_secs(2));
         let mut b=[0u8;1];s.read_exact(&mut b).unwrap();assert!(writable(&s,Duration::from_secs(5)).unwrap());
         super::sockbuf::set(&s,super::SEND_SOCK_BUF).unwrap();s.set_nonblocking(true).unwrap();let chunk=vec![0u8;super::SEND_SOCK_BUF];
-        let mut sent=0usize;while let Ok(n)=s.write(&chunk){sent+=n;assert!(sent<64<<20,"the send buffer never filled");}
-        assert!(!writable(&s,Duration::from_millis(30)).unwrap(),"full after {sent} B");
+        // A first WouldBlock is transient: the peer's kernel may acknowledge bytes
+        // into its receive buffer even though its application has not read. Keep
+        // filling until poll actually observes backpressure, instead of assuming
+        // that one write failure makes the socket remain unwritable for 30 ms.
+        let mut sent=0usize;let fill_started=Instant::now();
+        loop {
+            assert!(fill_started.elapsed()<Duration::from_secs(5),"the peer receive window never filled");
+            match s.write(&chunk) {
+                Ok(0)=>panic!("socket closed while filling"),
+                Ok(n)=>{sent+=n;assert!(sent<64<<20,"the send buffer never filled");}
+                Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>{
+                    if !writable(&s,Duration::from_millis(30)).unwrap(){break}
+                }
+                Err(e) if e.kind()==std::io::ErrorKind::Interrupted=>continue,
+                Err(e)=>panic!("fill socket: {e}"),
+            }
+        }
         let r=std::thread::spawn(move||{let mut b=vec![0u8;1<<16];let mut n=0;c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();while n<sent{match c.read(&mut b){Ok(0)|Err(_)=>break,Ok(k)=>n+=k}}n});
         assert!(writable(&s,Duration::from_secs(5)).unwrap(),"writable once the peer reads");drop(s);r.join().unwrap();
     }
