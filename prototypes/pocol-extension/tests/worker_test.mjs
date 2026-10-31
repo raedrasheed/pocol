@@ -128,6 +128,32 @@ export async function workerChecks(dist) {
   });
   // ---- A06 profile switch during confirmation ----
   await scenario(async () => {
+    const w = await world();
+    const before = await w.mock.send({ type: 'wallet.address', name: 'p1' });
+    const s = w.tx(); await w.ask('confirmTx');
+    const update = await w.mock.send({ type: 'profiles.add', profile: { ...prof('p1', s1), forkSchedule: [[1, 0], [2, '30000']] } });
+    const r = await w.reply(s), after = await w.mock.send({ type: 'wallet.address', name: 'p1' });
+    const revoked = await w.port.next((m) => m.revoked); await sleep(20);
+    ok('maximum nonce: local schedule change cancels pending signing and revokes the old session', update.ok && code(r) === 4901 && revoked.revoked.code === 4901 && w.port.port.disconnected && w.count('eth_sendRawTransaction') === 0, JSON.stringify(r));
+    ok('maximum nonce: profile stores the trusted schedule without changing the derived wallet', JSON.stringify(update.profile.forkSchedule) === '[[1,"0"],[2,"30000"]]' && before.address === after.address && update.profile.netKey === netKeyOf(s1));
+  });
+  await scenario(async () => {
+    const w = await world({ grant: false, extra: [{ ...prof('p2', s1), forkSchedule: [[1, 0], [2, 30000]] }] });
+    const list = (await w.mock.send({ type: 'profiles.list' })).profiles;
+    const r = await w.reply(w.req('eth_requestAccounts'));
+    ok('maximum nonce: conflicting activation schedules are read-only even with the same genesis', list.every((p) => p.conflict === true) && code(r) === 4100 && noAsk(w, 'confirmAccounts') && w.count('eth_sendRawTransaction') === 0);
+  });
+  await scenario(async () => {
+    const w = await world({ grant: false });
+    const r = await w.mock.send({ type: 'profiles.add', profile: { ...prof('p1', s1), forkSchedule: [[1, 0], [3, 30000]] } });
+    const list = (await w.mock.send({ type: 'profiles.list' })).profiles;
+    ok('maximum nonce: unsupported local upgrade rejected without replacing the old profile', !r.ok && list.length === 1 && JSON.stringify(list[0].forkSchedule) === '[[1,"0"]]' && !w.port.port.disconnected);
+    const stored = structuredClone(w.mock.storage.data.get('profiles')); stored[0].forkSchedule = [[1, 0], [2, 0]]; w.mock.storage.data.set('profiles', stored);
+    const corrupt = (await w.mock.send({ type: 'profiles.list' })).profiles;
+    const open = await w.mock.send({ type: 'open', name: 'p1', site: w.site, path: '/' }, 8);
+    ok('maximum nonce: malformed schedule in saved storage makes the profile unusable', !!corrupt[0].invalid && !open.ok && open.error.code === 4901);
+  });
+  await scenario(async () => {
     const w = await world(); const s = w.tx(); const a = await w.ask('confirmTx');
     await w.mock.send({ type: 'profiles.add', profile: prof('p1', s1, 'http://127.0.0.1:8600') }); const r = await w.reply(s);
     const rv = await w.port.next((m) => m.revoked, 2000).catch(() => null); await sleep(20); w.answer(a, true); await sleep(50);

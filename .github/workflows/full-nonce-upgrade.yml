@@ -1,0 +1,50 @@
+name: Full nonce consensus upgrade
+on:
+  pull_request:
+    branches: [main, work/branding-20261031]
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', '.github/workflows/full-nonce-upgrade.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  consensus:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - name: Test profiles, activation, persistence and native binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 test --locked --manifest-path prototypes/lp1-node/Cargo.toml --test profile --test gate --test assignment
+          cargo +1.99.1 test --locked --manifest-path prototypes/lp4-execution/Cargo.toml --test profile_execution
+          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test full_nonce --test fork_configuration
+          cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml
+          python deploy/standalone/test_launcher.py -v
+          python deploy/standalone/test_upgrade.py -v
+          python -m unittest discover -s deploy/standalone -p test_prepare_nonce_upgrade.py -v
+          python -m unittest discover -s deploy/rewards -v
+      - name: Test stopped seed release migration
+        if: runner.os == 'Linux'
+        run: python3 -B -m unittest discover -s deploy/public-testnet -p test_nonce_upgrade.py -v
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: npm ci && npm test
+        working-directory: prototypes/pocol-extension

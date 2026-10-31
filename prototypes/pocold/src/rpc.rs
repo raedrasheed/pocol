@@ -984,6 +984,9 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             Ok(json!({"profileKind":format!("{:?}",sp.profile().kind()),"nodeKind":format!("{:?}",sp.profile().node_kind()),"nonceMode":sp.cp().nonceMode,
                 "chainId":sp.chain_id(),"genesisHash":hex(&sp.genesis_hash()),"genesisPre":hex(sp.spec_bytes()),"netKey":hex(&net_key(sp.chain_id(),&sp.genesis_hash())),
                 "protocolVersion":crate::identity::PROTOCOL_VERSION,"compatibilitySha256":crate::identity::COMPATIBILITY_HEX,
+                "consensusCompatibilitySha256":hex(&crate::identity::compatibility_for(sp.profile().forks().entries())),
+                "effectiveNonceMode":if sp.effective_nonce_mode(n.chain.head().height)==crate::assignment::NonceMode::Unbounded{1}else{0},
+                "nextBlockNonceMode":if sp.effective_nonce_mode(n.chain.head().height.saturating_add(1))==crate::assignment::NonceMode::Unbounded{1}else{0},
                 "forkSchedule":sp.profile().forks().entries().iter().map(|(v,h)|json!([v,h])).collect::<Vec<_>>(),
                 "activeVersion":sp.active_version(n.chain.head().height),"rpcLimits":rpc_limits_json(l)}))}
         "pocol_getRejects"=>Ok(json!(n.rejects.iter().map(|(h,w)|json!({"hash":h,"reason":w})).collect::<Vec<_>>())),

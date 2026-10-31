@@ -3,6 +3,7 @@
 import { keccak, sha256, recover } from './crypto.js';
 import { decodeGenesisSpec, decodeHeaderRef, MAX_SPEC_BYTES } from './refdec.js';
 import { concat, eq, be, toBig, fromHex, utf8 } from './hex.js';
+import { normalizeForkSchedule, activeVersion } from './forks.js';
 export const VIEW_SLACK_S = 4n, PHI_VIEW = 10;
 const MAX = (1n << 256n) - 1n;
 /** GenesisSpec (A07): the full accepted schema and evaluation order (refdec.js, a port of the
@@ -27,8 +28,10 @@ export const work = (t) => (1n << 256n) / (t + 1n);
 export const decodeHeader = decodeHeaderRef;
 const sigMsg = (tid) => keccak(concat(Uint8Array.of(0x19), utf8('PoCol template'), Uint8Array.of(0x0a), tid));
 const winMsg = (x) => keccak(concat(Uint8Array.of(0x19), utf8('PoCol winner'), Uint8Array.of(0x0a), x.tid, x.nonceB, x.shareRoot));
-/** Verifies the window; returns {ok, n, toGenesis, message} or throws {flag}. */
-export async function verifyWindow(rpc, spec, clockS = Math.floor(Date.now() / 1000)) {
+/** Verifies the window; returns {ok, n, toGenesis, message} or throws {flag}.
+ * forkSchedule comes only from the saved local profile; omitted means v1 only. */
+export async function verifyWindow(rpc, spec, clockS = Math.floor(Date.now() / 1000), forkSchedule = undefined) {
+  const forks = normalizeForkSchedule(forkSchedule);
   const h = BigInt(await rpc('eth_blockNumber', []));
   if (h === 0n) return { ok: false, flag: 'viewNoBlocks', message: 'The network has not produced block 1 yet; no header is available for RP verification' };
   const b = h - 12n > 1n ? h - 12n : 1n; const from = b - 1n > 1n ? b - 1n : 1n; const count = h - from + 1n;
@@ -37,7 +40,7 @@ export async function verifyWindow(rpc, spec, clockS = Math.floor(Date.now() / 1
   const hs = raw.map((x) => decodeHeader(fromHex(x)));
   const tG = cpv(spec, 'target_g'), ceil = (tG << VIEW_SLACK_S) > MAX ? MAX : tG << VIEW_SLACK_S;
   const fail = (flag) => { throw Object.assign(new Error(flag), { flag }); };
-  const netid = (x) => { if (x.chainId !== spec.chainId) fail('netChain'); if (!eq(x.genesisHash, spec.genesisHash)) fail('netGenesis'); if (x.version !== 1n) fail('netVersion'); if (x.ts > BigInt(clockS + PHI_VIEW)) fail('viewFuture'); };
+  const netid = (x) => { if (x.chainId !== spec.chainId) fail('netChain'); if (!eq(x.genesisHash, spec.genesisHash)) fail('netGenesis'); if (x.version !== activeVersion(forks, x.h)) fail('netVersion'); if (x.ts > BigInt(clockS + PHI_VIEW)) fail('viewFuture'); };
   hs.forEach((x, i) => { if (x.h !== from + BigInt(i)) fail('viewIncomplete'); netid(x); });
   let parent = b > 1n ? hs[0] : { hash: spec.genesisHash, ts: cpv(spec, 'g_ts'), h: 0n };
   for (const x of hs.slice(b > 1n ? 1 : 0)) {
@@ -50,7 +53,7 @@ export async function verifyWindow(rpc, spec, clockS = Math.floor(Date.now() / 1
     const tgt = asert(tG, cpv(spec, 'g_ts'), cpv(spec, 'T_blk'), cpv(spec, 'tau'), parent.ts, parent.h);
     if (x.target !== tgt) fail('5');
     if (x.target > ceil) fail('viewTargetCeil');
-    const cw = cpv(spec, 'c') * work(x.target); const nMax = cpv(spec, 'nonceMode') === 0n ? (cw < (1n << 64n) ? cw : 1n << 64n) : 1n << 64n;
+    const cw = cpv(spec, 'c') * work(x.target); const nMax = x.version === 2n || cpv(spec, 'nonceMode') === 1n ? 1n << 64n : (cw < (1n << 64n) ? cw : 1n << 64n);
     if (x.nonce >= nMax) fail('6');
     if (toBig(sha256(concat(x.tid, x.nonceB))) > x.target) fail('7');
     try { recover(winMsg(x), x.winnerSig); } catch { fail('8'); }

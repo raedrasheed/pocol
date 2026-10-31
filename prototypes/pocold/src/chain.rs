@@ -47,6 +47,11 @@ impl Spec{
     pub fn chain_id(&self)->u64{self.profile().spec().chain_id}
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}
     pub fn active_version(&self,h:u64)->u16{self.profile().forks().active_version(h)}
+    /// The genesis CP remains immutable. Consensus v2 activates the complete u64
+    /// nonce domain only for the block being built or validated, including replay.
+    pub fn effective_nonce_mode(&self,h:u64)->NonceMode{
+        if self.active_version(h)==2||self.cp().nonceMode==1{NonceMode::Unbounded}else{NonceMode::Bounded}
+    }
 }
 
 #[derive(Clone,Debug)]
@@ -425,7 +430,7 @@ impl Chain{
         let window=AttemptWindow::new(p.ts,attempt,cp.D_att).map_err(|e|Reject::Block(format!("window {e:?}")))?;
         let membership=self.membership(p,h)?;
         let target=self.target_for_child(p)?;
-        let mode=if cp.nonceMode==0{NonceMode::Bounded}else{NonceMode::Unbounded};
+        let mode=self.spec.effective_nonce_mode(h);
         let assignment=Assignment::new(&membership,attempt,&target,mode,cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
         let ts_share=from_fixed(&target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX);
         let proposer=self.draw(p,&membership,h)?;

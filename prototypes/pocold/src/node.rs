@@ -340,7 +340,10 @@ impl Node{
         let t=Instant::now();
         let rec=store::open_with(&cfg.dir,&binding,&mut |i,_,payload|{
             if bad.is_none(){match store::decode_record(payload).map_err(|e|e.to_string()).and_then(|(hb,_,_)|decode_header(&hb).map_err(|e|format!("{e}"))){
-                Ok(header)=>{events.entry(block_hash(&header)).or_default().push_back((i,false));events.entry(header.parent_hash).or_default().push_back((i,true));}
+                Ok(header)=>{
+                    if header.protocol_version!=spec.active_version(header.h){bad=Some(format!("record {i}: stored block {} conflicts with the configured consensus fork schedule",header.h));}
+                    else{events.entry(block_hash(&header)).or_default().push_back((i,false));events.entry(header.parent_hash).or_default().push_back((i,true));}
+                }
                 Err(e)=>bad=Some(format!("record {i}: {e}"))}}
             let h=crate::checkpoint::roll(rolls.last().unwrap(),payload);offs.push(offs.last().unwrap()+(payload.len()+store::OVERHEAD) as u64);rolls.push(h);
         }).map_err(|e|format!("store: {e:?}"))?;timing.journal_ms=ms(t);
@@ -643,7 +646,7 @@ impl Node{
     }
     /// Φ = 2φ from the admitted local parameters (future-timestamp slack).
     fn capital_phi(&self)->u64{u64::from(self.chain.spec.local().capital_phi())}
-    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility()}}
+    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries())}}
     fn broadcast(&self,m:&Msg,except:Option<PeerId>){for (id,p) in &self.peers{if Some(*id)!=except&&self.peer_status.contains_key(id){p.send(m);}}}
 
     // ---------------- import ----------------
@@ -1146,7 +1149,7 @@ impl Node{
         let Mode::Locked(l)=&pr.mode else{return};
         match m{
             MinerEvent::Share{tid,nonce} if tid==l.tid=>{pr.shares.insert(nonce);self.stats.shares_seen+=1;self.broadcast(&Msg::Share{tid,nonce},None);}
-            MinerEvent::Exhausted{tid,hashes} if tid==l.tid=>{self.stats.hashes+=hashes;pr.miner=None;self.log("range exhausted; idle until next template");}
+            MinerEvent::Exhausted{tid,hashes} if tid==l.tid=>{self.stats.hashes=self.stats.hashes.saturating_add(hashes);pr.miner=None;self.log("range exhausted; idle until next template");}
             MinerEvent::Solution{tid,nonce} if tid==l.tid&&!pr.solved=>{
                 pr.solved=true;
                 let s_max=usize::from(self.chain.spec.cp().S_max);
@@ -1170,7 +1173,7 @@ impl Node{
         if !matches!(&m,Msg::Hello{..})&&!self.peer_status.contains_key(&from){return}
         match m{
             Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility}=>{
-                if chain_id!=self.chain.spec.chain_id()||genesis!=self.chain.spec.genesis_hash()||!crate::identity::matches(protocol,&compatibility){
+                if chain_id!=self.chain.spec.chain_id()||genesis!=self.chain.spec.genesis_hash()||!crate::identity::matches_for(protocol,&compatibility,self.chain.spec.profile().forks().entries()){
                     self.log(&format!("peer {node}: incompatible network or implementation; closing"));
                     self.peer_status.remove(&from);
                     if self.session.as_ref().is_some_and(|s|s.peer==from){self.end_session(false);}

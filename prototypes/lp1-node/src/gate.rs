@@ -3,7 +3,7 @@ use crate::fixed::{U256, U512};
 use crate::genesis_spec as gs;
 use crate::hashes::{sha256, H256};
 use crate::param_gate::{registry_metrics, RpcLimits};
-use crate::profile::{ConsensusParams, NodeKind, ProfileKind};
+use crate::profile::{ConsensusParams, ForkSchedule, NodeKind, ProfileKind};
 
 pub const RESOURCE_MODEL: &str = "pocol-lp3-numeric-facts-v1";
 #[derive(Clone, Debug)]
@@ -325,9 +325,7 @@ pub fn check(
         total.bits() > 127
     });
     bad[23] = spec.as_ref().map_or(true,|s|s.chain_id!=p.chain_id || s.cp!=c.to_values() || id.map_or(true,|i|s.alloc_root!=i.alloc_root || s.sys_code_hash!=i.sys_code_hash))
-        || p.forks.first()!=Some(&(1,0)) || p.forks.windows(2).any(|w|w[0].1>=w[1].1)
-        // Only v1 is implemented: TestFork-v2 is rejected even in simnet until implemented.
-        || p.forks.iter().any(|(v,_)|*v!=1) || p.chain_id==0;
+        || ForkSchedule::new(&p.forks).is_err() || p.chain_id==0;
     let cal = calibration.filter(|r| r.profile_binding == binding && r.model == RESOURCE_MODEL && r.artifact != [0; 32]);
     if cal.is_none() {
         missing.push("calibrationFacts:missing-or-binding-model-artifact-mismatch");

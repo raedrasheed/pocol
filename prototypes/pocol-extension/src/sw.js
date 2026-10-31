@@ -1,6 +1,7 @@
 // PoCol extension service worker: network profiles, verified site loading
 // (RP window or LN trust), BridgeAuth for site messages, DNR isolation, wallet.
 import { decodeSpec, verifyWindow } from './lib/rp.js';
+import { normalizeForkSchedule } from './lib/forks.js';
 import { fetchSite, normalize } from './lib/site.js';
 import * as bridge from './lib/bridge.js';
 import { StoreAdmission, qbytes } from './lib/sitestore.js';
@@ -32,11 +33,11 @@ export function netKeyOf(chainId, genesisHash) {
 const storedProfiles = async () => (await store.get('profiles')).profiles || [];
 /** Stored profiles re-validated on every read (A06/A07): a profile that no longer passes
  *  validation is listed with `invalid` and is unusable; `conflict` is recomputed over the whole
- *  set, so both profiles of a chainId with two genesis hashes are read-only (D-A06-CONFLICT). */
+ *  set, so conflicting genesis identities or activation schedules are read-only. */
 async function profiles() {
   const out = [];
   for (const p of await storedProfiles()) { try { out.push(validateProfile(p)); } catch (e) { out.push({ name: String(p && p.name), invalid: String(e.message || e) }); } }
-  for (const p of out) if (!p.invalid) p.conflict = out.some((x) => x !== p && !x.invalid && x.chainId === p.chainId && x.genesisHash !== p.genesisHash);
+  for (const p of out) if (!p.invalid) p.conflict = out.some((x) => x !== p && !x.invalid && x.chainId === p.chainId && (x.genesisHash !== p.genesisHash || JSON.stringify(x.forkSchedule) !== JSON.stringify(p.forkSchedule)));
   return out;
 }
 /** Profile acceptance (browser.md D58/D77/D79): decode genesisPre, hash, chainId. */
@@ -47,7 +48,7 @@ function validateProfile(p) {
   const pre = fromHex(p.genesisPre); const spec = decodeSpec(pre);
   if (!eq(spec.genesisHash, fromHex(p.genesisHash))) throw new Error('genesisHash mismatch');
   if (spec.chainId !== BigInt(p.chainId)) throw new Error('chainId mismatch');
-  return { name: p.name, chainId: Number(p.chainId), genesisPre: p.genesisPre, genesisHash: p.genesisHash.toLowerCase(), endpoint: p.endpoint, trustLevel: p.trustLevel, netKey: netKeyOf(p.chainId, spec.genesisHash) };
+  return { name: p.name, chainId: Number(p.chainId), genesisPre: p.genesisPre, genesisHash: p.genesisHash.toLowerCase(), endpoint: p.endpoint, trustLevel: p.trustLevel, forkSchedule: normalizeForkSchedule(p.forkSchedule), netKey: netKeyOf(p.chainId, spec.genesisHash) };
 }
 // HttpTransport pools (D98): trust checks never starve behind sites; chunk fetches have their own pool.
 const pools = { site: new http.Pool(http.SITE_POOL), trust: new http.Pool(http.TRUST_POOL), content: new http.Pool(http.CONTENT_POOL) };
@@ -80,8 +81,8 @@ function cancelApprovals(pred, code, message) { for (const a of [...approvals]) 
 function walletChanged(message) { walletEpoch++; cancelApprovals(() => true, 4100, message); }
 const lockWallet = (message) => { unlocked = null; walletChanged(message); };
 const isUnlocked = () => { if (unlocked && Date.now() > unlocked.until) lockWallet('wallet locked (timeout)'); return !!unlocked; };
-const PROFILE_FIELDS = ['name', 'chainId', 'genesisPre', 'genesisHash', 'endpoint', 'trustLevel', 'netKey'];
-const sameProfile = (a, b) => PROFILE_FIELDS.every((k) => a[k] === b[k]);
+const PROFILE_FIELDS = ['name', 'chainId', 'genesisPre', 'genesisHash', 'endpoint', 'trustLevel', 'netKey', 'forkSchedule'];
+const sameProfile = (a, b) => PROFILE_FIELDS.every((k) => k === 'forkSchedule' ? JSON.stringify(a[k]) === JSON.stringify(b[k]) : a[k] === b[k]);
 /** A transition since the request captured `ep` (checked after every await). */
 function changed(sess, ep) {
   if (sess.closed) return E(4900, 'disconnected');
@@ -181,7 +182,7 @@ async function openVerified(profile, site, path, tabId, ep0) {
   let trust = { level: profile.trustLevel, message: profile.trustLevel === 'LN' ? 'LN: a local node verifies full execution' : 'DEV: development network without verification' };
   if (profile.trustLevel === 'RP') {
     const spec = decodeSpec(fromHex(profile.genesisPre));
-    try { trust = { level: 'RP', ...(await verifyWindow(rpc, spec)) }; }
+    try { trust = { level: 'RP', ...(await verifyWindow(rpc, spec, undefined, profile.forkSchedule)) }; }
     catch (e) { return { ok: false, error: { code: 4901, message: 'RP window rejected: ' + (e.flag || e.message) } }; }
     if (!trust.ok) return { ok: false, error: { code: 4901, message: trust.message } };
   }

@@ -1,6 +1,6 @@
 //! Narrow C ABI used by the Android JNI bridge. Java never receives a private key.
 use crate::{
-    launcher::{self, Home},
+    launcher::{self, Home, Invitation},
     threads,
 };
 use std::{
@@ -50,6 +50,24 @@ pub unsafe extern "C" fn pocol_mobile_import(
         })
         .unwrap_or_else(|_| Err("network import failed".into())),
     )
+}
+/// Public configuration preview. It cannot import, upgrade or start a wallet.
+#[no_mangle]
+pub unsafe extern "C" fn pocol_mobile_inspect_network(path: *const c_char) -> *mut c_char {
+    reply(std::panic::catch_unwind(|| {
+        let bytes = launcher::read_bounded(Path::new(unsafe { text(path)? }))?;
+        Ok(Invitation::parse(&bytes)?.describe())
+    }).unwrap_or_else(|_| Err("network inspection failed".into())))
+}
+/// Explicit user-confirmed upgrade; Home's lock refuses a running wallet.
+#[no_mangle]
+pub unsafe extern "C" fn pocol_mobile_upgrade(home: *const c_char, path: *const c_char) -> *mut c_char {
+    reply(std::panic::catch_unwind(|| {
+        let home = Path::new(unsafe { text(home)? });
+        if !home.is_dir() { return Err("upgrade requires an existing PoCol home".into()); }
+        let bytes = launcher::read_bounded(Path::new(unsafe { text(path)? }))?;
+        Ok(Home::open(home)?.upgrade(&bytes)?.describe())
+    }).unwrap_or_else(|_| Err("network upgrade failed".into())))
 }
 #[no_mangle]
 pub unsafe extern "C" fn pocol_mobile_run(home: *const c_char) -> *mut c_char {
@@ -110,5 +128,33 @@ pub extern "C" fn pocol_mobile_status() -> *mut c_char {
 pub unsafe extern "C" fn pocol_mobile_free(s: *mut c_char) {
     if !s.is_null() {
         drop(unsafe { CString::from_raw(s) });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn explicit_upgrade_does_not_create_a_missing_wallet() {
+        let path = std::env::temp_dir().join(format!("pocol-mobile-upgrade-missing-{}", std::process::id()));
+        assert!(!path.exists());
+        let home = CString::new(path.to_str().unwrap()).unwrap();
+        let input = CString::new("not-a-network-file").unwrap();
+        unsafe {
+            let result = pocol_mobile_upgrade(home.as_ptr(), input.as_ptr());
+            let value: serde_json::Value = serde_json::from_str(CStr::from_ptr(result).to_str().unwrap()).unwrap();
+            pocol_mobile_free(result);
+            assert!(value["error"].as_str().unwrap().contains("existing PoCol home"));
+        }
+        assert!(!path.exists());
+    }
+    #[test]
+    fn network_preview_rejects_missing_input_without_side_effects() {
+        unsafe {
+            let result = pocol_mobile_inspect_network(std::ptr::null());
+            let value: serde_json::Value = serde_json::from_str(CStr::from_ptr(result).to_str().unwrap()).unwrap();
+            pocol_mobile_free(result);
+            assert_eq!(value["error"], "missing native argument");
+        }
     }
 }
