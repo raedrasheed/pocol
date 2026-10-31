@@ -567,7 +567,7 @@
     },
     {
       "path": "development/english-translation/README.md",
-      "sha256": "2a27d61aa0aa45fd57e178f66eef9712146c00f0fe8d9059ee04e8a283b757fc"
+      "sha256": "99192f9cb520e518b85fa0118ac353bf1a3e55c418195607944212a2097dd170"
     },
     {
       "path": "development/english-translation/evidence/extension-build.log",
@@ -615,7 +615,7 @@
     },
     {
       "path": "development/english-translation/verify.py",
-      "sha256": "bee09ab8716b02f78d78835ab08fc143b736ee2dab098109d160688894af71ea"
+      "sha256": "170c69ce883c90b7ec07257eeda6c8bceafe8f3f816c198ec9067d2089fd1794"
     },
     {
       "path": "development/lp3/s1-genesisspec/windows-run-37972422364/README.md",
@@ -939,7 +939,7 @@
     },
     {
       "path": "development/m1/m1-draft-0.21/vectors/v3-gsv1.json",
-      "sha256": "bacac1296cbf3019e1f05945f7de8fb7a056d0410b280d6dc72c5ddea4aaab13",
+      "sha256": "88097ee293aeab70c2089c2b61da8ce624503a59dfafd34657e9c1a465056f32",
       "originalPath": "development/m1/m1-draft-0.21/vectors/v3-gsv1.json",
       "originalSha256": "88097ee293aeab70c2089c2b61da8ce624503a59dfafd34657e9c1a465056f32"
     },
@@ -957,13 +957,13 @@
     },
     {
       "path": "development/m1/m1-draft-0.22/vectors/c30-depth.json",
-      "sha256": "faf45b4adc5f3b99650ec011c1d9b6663c9cfa813c42520dd4a2fcd1f57504be",
+      "sha256": "728d8b4ac88c0212d8b1cb6224c5f834f923619e1c32320dcf1eae120fb72464",
       "originalPath": "development/m1/m1-draft-0.22/vectors/c30-depth.json",
       "originalSha256": "728d8b4ac88c0212d8b1cb6224c5f834f923619e1c32320dcf1eae120fb72464"
     },
     {
       "path": "development/m1/m1-draft-0.22/vectors/v3-e05-supplement.json",
-      "sha256": "f7786c6b5c5369fca8257647077433ca6f9308c5ef48b82fa5188e7e4b672ae3",
+      "sha256": "cd8ead8d8d0293bf5a48ef6113fafe09c8babd5e4516d5176905325ac8ce0cdb",
       "originalPath": "development/m1/m1-draft-0.22/vectors/v3-e05-supplement.json",
       "originalSha256": "cd8ead8d8d0293bf5a48ef6113fafe09c8babd5e4516d5176905325ac8ce0cdb"
     },
@@ -1729,5 +1729,10 @@
       "originalPath": "prototypes/pocold/tests/net.rs",
       "originalSha256": "c4ad3118b9d18d4d5012105c15b3110915d88771650e62efa28aa440ffeb9b90"
     }
+  ],
+  "immutableVectorPaths": [
+    "development/m1/m1-draft-0.21/vectors/v3-gsv1.json",
+    "development/m1/m1-draft-0.22/vectors/c30-depth.json",
+    "development/m1/m1-draft-0.22/vectors/v3-e05-supplement.json"
   ]
 }

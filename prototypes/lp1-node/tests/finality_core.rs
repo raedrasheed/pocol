@@ -19,7 +19,16 @@ fn cf4_gate2_boundaries() {
     assert_eq!(gate2(697, 9979, 700, 10000, 2, 10), Ok(false));
     assert_eq!(gate2(698, 9979, 700, 10000, 2, 10), Ok(true));
     assert_eq!(gate2(697, 9980, 700, 10000, 2, 10), Ok(true));
-    assert_eq!(gate2(0, 0, 0, 0, 1, 1), Err("threshold"));
+    // Zero end height AND time explicitly select continuous operation: Gate 2
+    // never closes, including at the largest representable height/timestamp.
+    assert_eq!(gate2(0, 0, 0, 0, 1, 1), Ok(false));
+    assert_eq!(gate2(u64::MAX, u64::MAX, 0, 0, 1, 1), Ok(false));
+    // The continuous sentinel must not mask malformed finite thresholds. Both
+    // height and time subtraction still reject underflow independently.
+    for (h_end, t_end) in [(0, 1), (1, 0), (1, 100), (100, 1)] {
+        assert_eq!(gate2(0, 0, h_end, t_end, 2, 10), Err("threshold"));
+    }
+    assert_eq!(gate2(0, 0, 2, 20, 2, 10), Ok(true));
 }
 #[test]
 fn cf5_cf6_each_conjunct_and_u64() {
