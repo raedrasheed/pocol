@@ -21,14 +21,20 @@ pub static LIVE:AtomicUsize=AtomicUsize::new(0);pub static PEAK:AtomicUsize=Atom
 /// Miners started in the process (each new template starts one).
 pub static STARTS:AtomicUsize=AtomicUsize::new(0);
 
+fn advance_progress(hashes:&mut u64,stop_check:&mut u16){
+    *hashes=hashes.saturating_add(1);
+    *stop_check=(*stop_check+1)&4095;
+}
+
 pub fn start(tid:[u8;32],start:u64,end:u64,target:Fixed,t_share:Fixed,max_shares:usize,events:Sender<MinerEvent>)->MinerHandle{
     let stop=Arc::new(AtomicBool::new(false));let flag=stop.clone();
     PEAK.fetch_max(LIVE.fetch_add(1,Ordering::SeqCst)+1,Ordering::SeqCst);STARTS.fetch_add(1,Ordering::SeqCst);
     let thread=crate::threads::spawn("miner",crate::threads::IO_STACK,move||{
-        let mut n=start;let mut hashes=0u64;let mut shares=0usize;
+        let mut n=start;let mut hashes=0u64;let mut shares=0usize;let mut stop_check=0u16;
         loop{
-            if hashes%4096==0&&flag.load(Ordering::Relaxed){return}
-            let h=pow_hash(&tid,n);hashes+=1;
+            // Cancellation must keep running after the diagnostic count saturates.
+            if stop_check==0&&flag.load(Ordering::Relaxed){return}
+            let h=pow_hash(&tid,n);advance_progress(&mut hashes,&mut stop_check);
             if le_target(&h,&t_share){
                 if le_target(&h,&target){let _=events.send(MinerEvent::Solution{tid,nonce:n});return}
                 if shares<max_shares{shares+=1;let _=events.send(MinerEvent::Share{tid,nonce:n});}
@@ -38,4 +44,19 @@ pub fn start(tid:[u8;32],start:u64,end:u64,target:Fixed,t_share:Fixed,max_shares
         }
     }).expect("spawn miner");
     MinerHandle{stop,tid,thread:Some(thread)}
+}
+
+#[cfg(test)]
+mod tests{
+    #[test]
+    fn saturated_hash_count_does_not_disable_cancellation_checkpoints(){
+        let mut hashes=u64::MAX-1;let mut stop_check=4095u16;
+        super::advance_progress(&mut hashes,&mut stop_check);
+        assert_eq!(hashes,u64::MAX);assert_eq!(stop_check,0);
+        // A complete second cancellation interval after the count saturated.
+        for _ in 0..4096{super::advance_progress(&mut hashes,&mut stop_check);}
+        assert_eq!(hashes,u64::MAX);assert_eq!(stop_check,0);
+        super::advance_progress(&mut hashes,&mut stop_check);
+        assert_eq!(hashes,u64::MAX);assert_eq!(stop_check,1);
+    }
 }

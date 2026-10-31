@@ -1,0 +1,12 @@
+--- a/pocol_studio_gateway.py
++++ b/pocol_studio_gateway.py
+@@ -131,7 +131,8 @@
+ def sanitize(method, value):
+     if method not in ('pocol_status', 'pocol_getParams') or not isinstance(value, dict): return value
+     keys = ('chainId', 'genesisHash', 'head', 'pool', 'protocolVersion', 'compatibilitySha256',
+-            'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'activeVersion')
++            'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'activeVersion',
++            'forkSchedule', 'effectiveNonceMode', 'nextBlockNonceMode', 'consensusCompatibilitySha256')
+     return {k: value[k] for k in keys if k in value}
+ 
+ 

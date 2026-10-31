@@ -17,3 +17,36 @@ pub fn compatibility() -> [u8; 32] {
 pub fn matches(version: u64, digest: &[u8; 32]) -> bool {
     version == PROTOCOL_VERSION && *digest == compatibility()
 }
+
+/// Bind peers to the same locally approved activation heights as well as the same
+/// sources. Legacy v1-only networks retain the existing handshake digest.
+pub fn compatibility_for(forks: &[(u16, u64)]) -> [u8; 32] {
+    if forks == [(1, 0)] { return compatibility(); }
+    use sha2::{Digest, Sha256};
+    let mut hash = Sha256::new();
+    hash.update(b"pocol-consensus-schedule-v1\0");
+    hash.update(compatibility());
+    for (version, height) in forks {
+        hash.update(version.to_be_bytes());
+        hash.update(height.to_be_bytes());
+    }
+    hash.finalize().into()
+}
+
+pub fn matches_for(version: u64, digest: &[u8; 32], forks: &[(u16, u64)]) -> bool {
+    version == PROTOCOL_VERSION && *digest == compatibility_for(forks)
+}
+
+#[cfg(test)]
+mod schedule_tests {
+    use super::*;
+    #[test]
+    fn different_activation_heights_cannot_connect() {
+        let a = [(1, 0), (2, 100)];
+        let b = [(1, 0), (2, 101)];
+        assert_eq!(compatibility_for(&[(1, 0)]), compatibility());
+        assert!(matches_for(PROTOCOL_VERSION, &compatibility_for(&a), &a));
+        assert!(!matches_for(PROTOCOL_VERSION, &compatibility_for(&a), &b));
+        assert!(!matches_for(PROTOCOL_VERSION, &compatibility(), &a));
+    }
+}

@@ -17,10 +17,11 @@ import org.json.*;
 
 /** Native wallet. Only public data crosses the service bridge; signing remains in Rust. */
 public final class MainActivity extends Activity {
+    private static final int IMPORT_NETWORK=1, UPGRADE_NETWORK=3;
     private static final int BLUE=Color.rgb(26,169,228), INK=Color.rgb(244,248,251), MUTED=Color.rgb(161,177,195), BG=Color.rgb(6,14,24), PANEL=Color.rgb(11,22,35), SOFT=Color.rgb(12,34,51), LINE=Color.rgb(33,49,64);
     private final Handler main=new Handler(Looper.getMainLooper());
     private Messenger service;
-    private boolean bound, updating, requestPending;
+    private boolean bound, updating, requestPending, networkActionPending;
     private String home,address="",tab="Wallet";
     private long responseId;
     private JSONObject snapshot=new JSONObject();
@@ -105,7 +106,10 @@ public final class MainActivity extends Activity {
         for(int i=0;i<items.length();i++){JSONObject a=items.optJSONObject(i);if(a==null)continue;LinearLayout c=card(content);c.addView(text(a.optString("kind").equals("registration")?"Mining registration":"Sent PCOL",16,INK,true));TextView amount=text(a.optString("amount")+" PCOL",23,INK,true);amount.setTextIsSelectable(true);c.addView(amount);c.addView(chip(a.optString("state"),BLUE),new LinearLayout.LayoutParams(-2,-2));if(a.has("confirmations"))c.addView(text(a.optLong("confirmations")+" confirmations",12,MUTED,false));divider(c);eyebrow(c,"TRANSACTION HASH");TextView hash=text(a.optString("hash"),11,MUTED,false);hash.setTypeface(Typeface.MONOSPACE);hash.setTextIsSelectable(true);c.addView(hash);}
     }
     private void settings(){
-        heading("Settings","Your network. Your account. Your device.");LinearLayout c=card(content);eyebrow(c,"CONNECTION");c.addView(text("PoCol network",20,INK,true));c.addView(text("Import the shared network file once. Your private key stays on this device.",14,MUTED,false));button(c,"Import network file",true,()->{if(service!=null){notice("Disconnect the wallet before importing a network.");return;}startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE),1);});button(c,"Connect wallet",false,this::startNode);button(c,"Disconnect wallet",false,()->{if(service!=null)try{service.send(Message.obtain(null,2));headerStatus.setText("Disconnecting…");}catch(RemoteException ignored){}});
+        heading("Settings","Your network. Your account. Your device.");LinearLayout c=card(content);eyebrow(c,"CONNECTION");c.addView(text("PoCol network",20,INK,true));c.addView(text("Import the shared network file once. Your private key stays on this device.",14,MUTED,false));
+        button(c,"Import network file",true,()->pickNetwork(IMPORT_NETWORK));
+        button(c,"Upgrade existing network",false,()->pickNetwork(UPGRADE_NETWORK));
+        button(c,"Connect wallet",false,this::startNode);button(c,"Disconnect wallet",false,()->{if(service!=null)try{service.send(Message.obtain(null,2));headerStatus.setText("Disconnecting…");}catch(RemoteException ignored){}});
         LinearLayout identity=card(content);eyebrow(identity,"PUBLIC ADDRESS");identity.addView(text("Your account",20,INK,true));TextView a=text(address,12,INK,false);a.setTypeface(Typeface.MONOSPACE);a.setTextIsSelectable(true);identity.addView(a);button(identity,"Copy public address",false,this::copy);divider(identity);identity.addView(text("Stored on this device",15,INK,true));identity.addView(text("This test build stores its key on this phone. Uninstalling erases the account and local state. Portable recovery export is not available in this build.",13,MUTED,false));
         TextView version=text("PoCol Wallet · 0.3.0 testnet",12,MUTED,false);version.setGravity(Gravity.CENTER);content.addView(version);
     }
@@ -135,5 +139,59 @@ public final class MainActivity extends Activity {
     @Override protected void onStart(){super.onStart();attach();main.post(refresh);}
     @Override protected void onStop(){main.removeCallbacks(refresh);if(bound){unbindService(connection);bound=false;service=null;}super.onStop();}
     private static byte[] readLimited(InputStream in)throws IOException{ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>1048576)throw new IOException("File exceeds 1 MiB");out.write(b,0,n);}return out.toByteArray();}
-    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request!=1||result!=RESULT_OK||data==null||data.getData()==null)return;new Thread(()->{File incoming=new File(getCacheDir(),"network-import.json");try(InputStream in=getContentResolver().openInputStream(data.getData())){if(in==null)throw new IOException("Cannot read file");try(FileOutputStream out=new FileOutputStream(incoming)){out.write(readLimited(in));}JSONObject r=new JSONObject(Native.importNetwork(home,incoming.getAbsolutePath()));main.post(()->{if(r.has("error"))notice(r.optString("error"));else{notice("Network imported");startNode();}});}catch(Exception e){main.post(()->notice("Import failed: "+e.getMessage()));}finally{incoming.delete();}},"network-import").start();}
+    private void pickNetwork(int request){
+        if(networkActionPending){notice("Finish the current network action first.");return;}
+        if(service!=null){notice("Disconnect the wallet, reopen the app, then select the network file.");return;}
+        if(request==UPGRADE_NETWORK&&!new File(home,"network.pocol.json").isFile()){notice("Import a network before upgrading it.");return;}
+        try{
+            networkActionPending=true;
+            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE),request);
+        }catch(RuntimeException e){networkActionPending=false;notice("Cannot open file picker: "+e.getMessage());}
+    }
+    private void reviewNetworkUpgrade(File incoming,JSONObject preview){
+        if(isFinishing()||isDestroyed()){incoming.delete();networkActionPending=false;return;}
+        LinearLayout body=dialogBody();body.addView(chip("REVIEW NETWORK UPGRADE",BLUE),new LinearLayout.LayoutParams(-2,-2));gap(body,12);
+        reviewRow(body,"Chain ID",preview.optString("chainId"),false);
+        reviewRow(body,"Activation block",preview.optString("fullNonceActivationHeight"),false);
+        reviewRow(body,"Genesis hash",preview.optString("genesisHash"),true);
+        body.addView(text("Use the shared upgrade file supplied for this PoCol network. The full mining range starts at the activation block. Your account, private key and stored chain stay on this device.",14,MUTED,false));
+        body.addView(text("The wallet must be disconnected. The native node checks the file against your existing network before applying it.",13,MUTED,false));
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Upgrade existing network?").setView(scrollBody(body))
+            .setNegativeButton("Cancel",(d,w)->{incoming.delete();networkActionPending=false;})
+            .setOnCancelListener(d->{incoming.delete();networkActionPending=false;})
+            .setPositiveButton("Confirm upgrade",(d,w)->{
+                if(service!=null){incoming.delete();networkActionPending=false;notice("Disconnect the wallet before upgrading.");return;}
+                new Thread(()->{
+                    try{
+                        JSONObject result=new JSONObject(Native.upgradeNetwork(home,incoming.getAbsolutePath()));
+                        main.post(()->{networkActionPending=false;if(result.has("error"))notice(result.optString("error"));else{snapshot=new JSONObject();notice("Network upgrade saved. Connect your wallet when the coordinated release is ready.");tab="Settings";render();}});
+                    }catch(Exception e){main.post(()->{networkActionPending=false;notice("Upgrade failed: "+e.getMessage());});}
+                    finally{incoming.delete();}
+                },"network-upgrade").start();
+            }).create();
+        dialog.show();styleDialog(dialog);
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request!=IMPORT_NETWORK&&request!=UPGRADE_NETWORK)return;
+        if(result!=RESULT_OK||data==null||data.getData()==null){networkActionPending=false;return;}
+        new Thread(()->{
+            File incoming=null;boolean reviewing=false;
+            try(InputStream in=getContentResolver().openInputStream(data.getData())){
+                if(in==null)throw new IOException("Cannot read file");
+                incoming=File.createTempFile("pocol-network-",".json",getCacheDir());
+                try(FileOutputStream out=new FileOutputStream(incoming)){out.write(readLimited(in));out.getFD().sync();}
+                if(request==UPGRADE_NETWORK){
+                    JSONObject preview=new JSONObject(Native.inspectNetwork(incoming.getAbsolutePath()));
+                    if(preview.has("error"))throw new IOException(preview.optString("error"));
+                    if(preview.isNull("fullNonceActivationHeight")||preview.optString("fullNonceActivationHeight").isEmpty())throw new IOException("Select a network file with a full-range activation block.");
+                    final File selected=incoming;reviewing=true;main.post(()->reviewNetworkUpgrade(selected,preview));
+                }else{
+                    JSONObject imported=new JSONObject(Native.importNetwork(home,incoming.getAbsolutePath()));
+                    main.post(()->{networkActionPending=false;if(imported.has("error"))notice(imported.optString("error"));else{notice("Network imported");startNode();}});
+                }
+            }catch(Exception e){main.post(()->{networkActionPending=false;notice("Network file failed: "+e.getMessage());});}
+            finally{if(!reviewing&&incoming!=null)incoming.delete();}
+        },"network-file").start();
+    }
 }

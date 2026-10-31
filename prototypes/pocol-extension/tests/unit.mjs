@@ -10,13 +10,16 @@ import { recvGuardChecks } from './recv_guard.mjs';
 import { recordChecks } from './records_test.mjs';
 import { workerChecks } from './worker_test.mjs';
 import { decoderDiffChecks } from './decoder_diff.mjs';
+import { forkChecks } from './forks_test.mjs';
 
 const load = async (dist, m) => import(pathToFileURL(join(dist, 'lib', m)).href + '?' + dist);
 const rel = build().dist;
+const forkResults = await forkChecks(rel);
 const B = await load(rel, 'bridge.js'), S = await load(rel, 'sitestore.js'), SITE = await load(rel, 'site.js');
 const RLP = await load(rel, 'rlp.js'), HEX = await load(rel, 'hex.js'), C = await load(rel, 'crypto.js'), WAL = await load(rel, 'wallet.js');
 let passed = 0; const failed = [];
 const ok = (name, cond, detail = '') => { if (cond) passed++; else failed.push(name + (detail ? ' — ' + detail : '')); };
+for (const c of forkResults) ok('Maximum nonce ' + c.name, c.pass, c.detail);
 const msg = (id, kind, method, params) => JSON.stringify({ id, kind, payload: { method, params } });
 const code = (r) => (r.ok ? 'ok' : r.reply.error.code);
 

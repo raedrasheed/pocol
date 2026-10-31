@@ -984,6 +984,9 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             Ok(json!({"profileKind":format!("{:?}",sp.profile().kind()),"nodeKind":format!("{:?}",sp.profile().node_kind()),"nonceMode":sp.cp().nonceMode,
                 "chainId":sp.chain_id(),"genesisHash":hex(&sp.genesis_hash()),"genesisPre":hex(sp.spec_bytes()),"netKey":hex(&net_key(sp.chain_id(),&sp.genesis_hash())),
                 "protocolVersion":crate::identity::PROTOCOL_VERSION,"compatibilitySha256":crate::identity::COMPATIBILITY_HEX,
+                "consensusCompatibilitySha256":hex(&crate::identity::compatibility_for(sp.profile().forks().entries())),
+                "effectiveNonceMode":if sp.effective_nonce_mode(n.chain.head().height)==crate::assignment::NonceMode::Unbounded{1}else{0},
+                "nextBlockNonceMode":if sp.effective_nonce_mode(n.chain.head().height.saturating_add(1))==crate::assignment::NonceMode::Unbounded{1}else{0},
                 "forkSchedule":sp.profile().forks().entries().iter().map(|(v,h)|json!([v,h])).collect::<Vec<_>>(),
                 "activeVersion":sp.active_version(n.chain.head().height),"rpcLimits":rpc_limits_json(l)}))}
         "pocol_getRejects"=>Ok(json!(n.rejects.iter().map(|(h,w)|json!({"hash":h,"reason":w})).collect::<Vec<_>>())),
@@ -1212,8 +1215,23 @@ mod tests{
         c.write_all(b"x").unwrap();let t=Instant::now();assert!(readable(&s,Duration::from_secs(5)).unwrap());assert!(t.elapsed()<Duration::from_secs(2));
         let mut b=[0u8;1];s.read_exact(&mut b).unwrap();assert!(writable(&s,Duration::from_secs(5)).unwrap());
         super::sockbuf::set(&s,super::SEND_SOCK_BUF).unwrap();s.set_nonblocking(true).unwrap();let chunk=vec![0u8;super::SEND_SOCK_BUF];
-        let mut sent=0usize;while let Ok(n)=s.write(&chunk){sent+=n;assert!(sent<64<<20,"the send buffer never filled");}
-        assert!(!writable(&s,Duration::from_millis(30)).unwrap(),"full after {sent} B");
+        // A first WouldBlock is transient: the peer's kernel may acknowledge bytes
+        // into its receive buffer even though its application has not read. Keep
+        // filling until poll actually observes backpressure, instead of assuming
+        // that one write failure makes the socket remain unwritable for 30 ms.
+        let mut sent=0usize;let fill_started=Instant::now();
+        loop {
+            assert!(fill_started.elapsed()<Duration::from_secs(5),"the peer receive window never filled");
+            match s.write(&chunk) {
+                Ok(0)=>panic!("socket closed while filling"),
+                Ok(n)=>{sent+=n;assert!(sent<64<<20,"the send buffer never filled");}
+                Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>{
+                    if !writable(&s,Duration::from_millis(30)).unwrap(){break}
+                }
+                Err(e) if e.kind()==std::io::ErrorKind::Interrupted=>continue,
+                Err(e)=>panic!("fill socket: {e}"),
+            }
+        }
         let r=std::thread::spawn(move||{let mut b=vec![0u8;1<<16];let mut n=0;c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();while n<sent{match c.read(&mut b){Ok(0)|Err(_)=>break,Ok(k)=>n+=k}}n});
         assert!(writable(&s,Duration::from_secs(5)).unwrap(),"writable once the peer reads");drop(s);r.join().unwrap();
     }
