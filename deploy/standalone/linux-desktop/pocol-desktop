@@ -3,7 +3,7 @@
 set -eu
 package_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 printf '\nPoCol Node · your local network tools\n\n'
-"$package_dir/pocol" build-info >/dev/null
+[ -x "$package_dir/pocol" ] || { printf 'PoCol binary is missing from this folder.\n' >&2; exit 1; }
 printf 'Engine source: '
 sed -n '1p' "$package_dir/source-commit.txt"
 printf '\nThis Linux release is a command-line node, not a graphical wallet.\nPackage folder: %s\n' "$package_dir"
