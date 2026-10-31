@@ -8,6 +8,7 @@ New-Item -ItemType Directory -Path (Split-Path $out -Parent) -Force | Out-Null
 $References=@('/nologo','/platform:x64','/reference:System.dll','/reference:System.Core.dll','/reference:System.Web.Extensions.dll','/reference:System.Xaml.dll',"/reference:$wpf\WindowsBase.dll","/reference:$wpf\PresentationCore.dll","/reference:$wpf\PresentationFramework.dll","/resource:$root\prototypes\pocol-windows\Wallet.xaml,Wallet.xaml")
 $References+=@("/resource:$root\prototypes\pocol-windows\Assets\pocol-logo.png,pocol-logo.png","/resource:$root\prototypes\pocol-windows\Assets\pocol-icon.png,pocol-icon.png")
 $source=Join-Path $root 'prototypes\pocol-windows\Wallet.cs'
+$References+=@("/win32icon:$root\prototypes\pocol-windows\Assets\pocol-icon.ico")
 $tests=Join-Path $root 'prototypes\pocol-windows\WalletUiTests.cs'
 & "$fx\csc.exe" @References /target:winexe "/out:$out" $source
 if($LASTEXITCODE -ne 0){throw 'Wallet compilation failed'}

@@ -37,7 +37,7 @@ public final class NodeService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, NodeService.class).setAction("STOP"), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this, "pocol")
             .setContentTitle("PoCol node running").setContentText("Validating testnet blocks on this phone. Tap to view status.")
-            .setSmallIcon(android.R.drawable.stat_notify_sync).setContentIntent(open).setOngoing(true)
+            .setSmallIcon(R.mipmap.ic_launcher_monochrome).setContentIntent(open).setOngoing(true)
             .addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();
         startForeground(1, notification);
         wake = getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PoCol:Node");

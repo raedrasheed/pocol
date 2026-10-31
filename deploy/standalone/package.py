@@ -19,6 +19,9 @@ else:
     for name in (['Start-PoCol.cmd','Initialize-PoColNetwork.ps1'] if suffix else ['install-linux.sh']): files[name]=root/'deploy/standalone'/name
     info=subprocess.check_output([str(files['pocol'+suffix]),'build-info'])
     (args.out/'build-info.json').write_bytes(info)
+if args.platform=='Linux':
+    for asset in (root/'deploy/standalone/linux-desktop').iterdir():
+        if asset.is_file(): files[asset.name]=asset
 for name,source in files.items(): shutil.copy2(source,args.out/name)
 shutil.copy2(root/'deploy/standalone/README.md',args.out/'README.md')
 (args.out/'source-commit.txt').write_text(subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()+'\n')

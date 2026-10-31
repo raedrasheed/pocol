@@ -1,4 +1,4 @@
-# Windows Activity update
+# Windows icon and interface update — 2026-10-31
 
 This update replaces only `PoCol-Wallet.exe`. It is compatible with the existing
 five-device release built from `50c2f27ee67961dec7aaf0eb735c0b641810e0ea`.
@@ -16,6 +16,10 @@ Keep the existing `%LOCALAPPDATA%\PoCol` folder. This update does not migrate,
 replace or reset wallet keys, balances, registration or network data.
 
 ## Changes
+
+- The supplied PoCol icon appears in the executable, taskbar, window and dialogs, and PCOL asset cards.
+- The Windows executable embeds 16, 24, 32, 48, 64, 128 and 256 pixel icon sizes.
+- The application data directory, engine binaries and network configuration are unchanged.
 
 - Activity now renders nested JSON lists returned by .NET Framework's
   `JavaScriptSerializer`, including `ArrayList`.
