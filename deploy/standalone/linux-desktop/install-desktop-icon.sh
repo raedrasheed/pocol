@@ -13,12 +13,12 @@ done
 install -d "$data_dir/applications"
 escaped=$(printf '%s' "$package_dir/pocol-desktop" | sed 's/\\/\\\\/g; s/"/\\"/g; s/`/\\`/g; s/\$/\\$/g; s/%/%%/g')
 {
-  printf '[Desktop Entry]\nType=Application\nVersion=1.0\nName=PoCol Node\n'
-  printf 'Comment=Local PoCol node and command-line tools\n'
+  printf '[Desktop Entry]\nType=Application\nVersion=1.0\nName=PoCol Mainnet Node\n'
+  printf 'Comment=PoCol 0.4.0 local node and command-line tools\n'
   printf 'Exec="%s"\n' "$escaped"
   printf 'Icon=pocol\nTerminal=true\nCategories=Development;Network;\nStartupNotify=false\n'
 } > "$data_dir/applications/pocol-node.desktop"
 chmod 644 "$data_dir/applications/pocol-node.desktop"
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then gtk-update-icon-cache -f -t "$data_dir/icons/hicolor" >/dev/null 2>&1 || :; fi
 if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database "$data_dir/applications" >/dev/null 2>&1 || :; fi
-printf 'Installed PoCol Node menu icon for this user. Keep the package at: %s\n' "$package_dir"
+printf 'Installed PoCol Mainnet Node menu icon for this user. Keep the package at: %s\n' "$package_dir"

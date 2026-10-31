@@ -170,7 +170,7 @@ ok('T16 size mismatch rejected', throws(() => { const f = file('/index.html', 1,
 
 // ---------------- M1 manifest vectors (draft 0.2): positives accepted, decode/structure/semantic negatives rejected ----------------
 {
-  const { readFileSync } = await import('node:fs'); const V = (n) => JSON.parse(readFileSync(new URL('../../../development/m1/m1-draft-0.2/vectors/' + n, import.meta.url), 'utf8')).fixtures;
+  const { readFileSync } = await import('node:fs'); const V = (n) => JSON.parse(readFileSync(new URL('./data/vectors/' + n, import.meta.url), 'utf8')).fixtures;
   const pos = V('manifest-positive.json'); const bad = pos.filter((f) => throws(() => SITE.decodeManifest(HEX.fromHex(f.manifest)))).map((f) => f.id);
   ok('manifest vectors: all 11 positives accepted (incl. pos-empty-file)', pos.length === 11 && bad.length === 0, bad.join(','));
   const neg = V('manifest-negative.json').filter((f) => ['decode', 'structure', 'semantic'].includes(f.stage)); const miss = neg.filter((f) => !throws(() => SITE.decodeManifest(HEX.fromHex(f.manifest)))).map((f) => f.id);

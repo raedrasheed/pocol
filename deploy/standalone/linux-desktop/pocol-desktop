@@ -2,7 +2,7 @@
 # Read-only desktop entry for the existing PoCol command-line package.
 set -eu
 package_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-printf '\nPoCol Node · your local network tools\n\n'
+printf '\nPoCol Mainnet · 0.4.0 local network tools\n\n'
 [ -x "$package_dir/pocol" ] || { printf 'PoCol binary is missing from this folder.\n' >&2; exit 1; }
 printf 'Engine source: '
 sed -n '1p' "$package_dir/source-commit.txt"

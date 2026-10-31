@@ -11,6 +11,9 @@ import { encryptSeed, decryptSeed, networkKey, addressOf, unsignedTx, signUnsign
 import { keccak } from './lib/crypto.js';
 import * as rlp from './lib/rlp.js';
 import { toHex, fromHex, eq } from './lib/hex.js';
+import { NETWORK, isStudioOrigin, validateEndpoint, trustMessage } from './lib/studio-network.js';
+import { JOB_PREFIX, JOB_TTL_MS, validatePublishRequest, validateSiteTarget, publicJob } from './lib/studio-bridge.js';
+import { IDE_JOB_PREFIX, isIdeOrigin, validateContractRequest, publicContractJob } from './lib/contracts.js';
 
 const store = chrome.storage.local;
 // Site storage records with a worker-generation fence (D103); no data write before the fence confirms.
@@ -30,7 +33,16 @@ const REVOKE_DNR_GRACE_MS = 2000;
 export function netKeyOf(chainId, genesisHash) {
   return toHex(keccak(rlp.encode([new TextEncoder().encode('PoCol-net-v1'), rlp.encUint(BigInt(chainId)), genesisHash])));
 }
-const storedProfiles = async () => (await store.get('profiles')).profiles || [];
+// An operator supplies the schedule through this extension's settings page. It is
+// separate from the immutable public network identity and never populated by RPC.
+const PUBLIC_FORKS_KEY = 'pocol:publicForkSchedule';
+const storedPublicProfile = async () => ({ ...NETWORK, forkSchedule: (await store.get(PUBLIC_FORKS_KEY))[PUBLIC_FORKS_KEY] });
+const publicNetwork = async () => { const p = await storedPublicProfile(); return { ...NETWORK, forkSchedule: normalizeForkSchedule(p.forkSchedule) }; };
+const storedProfiles = async () => {
+  const existing = (await store.get('profiles')).profiles || [];
+  // Reserved preset cannot be shadowed by an imported profile; old `pocol` profiles remain intact.
+  return [...existing.filter((p) => p.name !== NETWORK.name), await storedPublicProfile()];
+};
 /** Stored profiles re-validated on every read (A06/A07): a profile that no longer passes
  *  validation is listed with `invalid` and is unusable; `conflict` is recomputed over the whole
  *  set, so conflicting genesis identities or activation schedules are read-only. */
@@ -43,8 +55,8 @@ async function profiles() {
 /** Profile acceptance (browser.md D58/D77/D79): decode genesisPre, hash, chainId. */
 function validateProfile(p) {
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(p.name)) throw new Error('name');
-  if (!['DEV', 'LN', 'RP'].includes(p.trustLevel)) throw new Error('trustLevel');
-  if (!/^http:\/\/127\.0\.0\.1:\d{1,5}\/?$/.test(p.endpoint)) throw new Error('endpoint must be http://127.0.0.1:<port> (optional remote hosts are not enabled)');
+  if (!['DEV', 'LN', 'RP', 'RN'].includes(p.trustLevel)) throw new Error('trustLevel');
+  validateEndpoint(p.endpoint, p.trustLevel);
   const pre = fromHex(p.genesisPre); const spec = decodeSpec(pre);
   if (!eq(spec.genesisHash, fromHex(p.genesisHash))) throw new Error('genesisHash mismatch');
   if (spec.chainId !== BigInt(p.chainId)) throw new Error('chainId mismatch');
@@ -179,7 +191,7 @@ async function openSite({ name, site, path, tabId }) {
 async function openVerified(profile, site, path, tabId, ep0) {
   /*@fault noDnr*/await installDnr(tabId);/*@else*//* TEST FAULT: DNR not installed *//*@end*/
   const rpc = rpcFor(profile, pools.trust); await checkNetwork(profile, rpc);
-  let trust = { level: profile.trustLevel, message: profile.trustLevel === 'LN' ? 'LN: a local node verifies full execution' : 'DEV: development network without verification' };
+  let trust = { level: profile.trustLevel, message: trustMessage(profile.trustLevel) };
   if (profile.trustLevel === 'RP') {
     const spec = decodeSpec(fromHex(profile.genesisPre));
     try { trust = { level: 'RP', ...(await verifyWindow(rpc, spec, undefined, profile.forkSchedule)) }; }
@@ -300,6 +312,11 @@ async function wallet(sess, m, ask) {
   const step = async (p) => { const v = await p; const c = changed(sess, ep); if (c) throw { reply: c }; return v; };
   // Endpoint quantities: hex strings of at most 256 bits (a negative or malformed value never reaches RLP).
   const qty = (v) => { if (typeof v !== 'string' || !/^0x[0-9a-fA-F]{1,64}$/.test(v)) throw { reply: E(-32603, 'endpoint returned a malformed quantity') }; return BigInt(v); };
+  if (!globalThis.navigator?.locks) return E(4200, 'Browser does not support safe wallet transaction coordination');
+  return navigator.locks.request(`pocol:publish:${sess.profile.chainId}:${address}`, {mode:'exclusive',ifAvailable:true}, async (lease) => {
+  if (!lease) return E(-32005, 'Another tab is publishing from this wallet');
+  const allJobs = await store.get(null);
+  if (Object.entries(allJobs).some(([k,j]) => (k.startsWith(JOB_PREFIX)||k.startsWith(IDE_JOB_PREFIX)) && j?.walletAddress === address && !['complete','cancelled'].includes(j.status) && Object.keys(j.checkpoint?.transactions || {}).length)) return E(-32005, 'Resume the unfinished PoCol operation before sending another transaction');
   try {
     const nonce = o.nonce ? BigInt(o.nonce) : qty(await step(sess.rpc('eth_getTransactionCount', [address, 'pending'])));
     const blk = await step(sess.rpc('eth_getBlockByNumber', ['latest', false])); const base = qty(blk && blk.baseFeePerGas);
@@ -326,6 +343,7 @@ async function wallet(sess, m, ask) {
     // cancels the submission if it has not been initiated yet.
     return s.signed ? await submit(sess, ep, address, s.signed.raw) : s;
   } catch (e) { return e && e.reply ? e.reply : transportError(e); }
+  });
 }
 /** WalletSubmit (A06 round 2): signed -> queued for transport -> request initiated -> broadcast.
  *  - Until the request is initiated, a wallet lock or change (4100), a profile change or
@@ -399,16 +417,132 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 // ---------------- messages from extension pages ----------------
+const studioLimits = new Map();
+let studioQueue = Promise.resolve();
+const studioLocked = (fn) => { const p = studioQueue.then(fn); studioQueue = p.catch(() => {}); return p; };
+async function collectStudioJob(key, previous, eligible) {
+  // A publisher can persist its first signed transaction after a cleanup snapshot.
+  // Use its job lock and re-read before deleting, so durable recovery state survives.
+  if (!globalThis.navigator?.locks) return previous;
+  return navigator.locks.request(`pocol:job:${key.slice(JOB_PREFIX.length)}`, {mode:'exclusive',ifAvailable:true}, async (lease) => {
+    if (!lease) return previous;
+    const current = (await store.get(key))[key];
+    if (!current || eligible(current)) { await store.remove(key); return null; }
+    return current;
+  });
+}
+async function studioRequest(msg, sender) {
+  if (!sender.tab || !Number.isInteger(sender.tab.id) || sender.frameId !== 0 || !isStudioOrigin(sender.url)) throw new Error('Studio origin not allowed');
+  const origin = new URL(sender.url).origin;
+  const payload = msg.payload || {};
+  if (msg.type === 'studio.status') {
+    const all = await store.get(null);
+    const jobs = Object.entries(all).filter(([k,j]) => k.startsWith(JOB_PREFIX) && j?.origin === origin && j.sourceTabId === sender.tab.id).map(([,j]) => ({...publicJob(j),title:j.request?.title,createdAt:j.createdAt,site:j.result?.site || j.request?.site || null})).sort((a,b)=>b.createdAt-a.createdAt).slice(0,20);
+    return { version: '0.4.0', capabilities: ['publish', 'openSite', 'jobStatus'], network: await publicNetwork(), jobs };
+  }
+  if (msg.type === 'studio.jobStatus') {
+    if (typeof payload.jobId !== 'string' || !/^[a-f0-9-]{36}$/.test(payload.jobId)) throw new Error('Invalid job');
+    const job = (await store.get(JOB_PREFIX + payload.jobId))[JOB_PREFIX + payload.jobId];
+    if (!job || job.origin !== origin || job.sourceTabId !== sender.tab.id) throw new Error('This publish job belongs to another tab');
+    return publicJob(job);
+  }
+  if (!['studio.openPublisher', 'studio.openSite'].includes(msg.type)) throw new Error('Unsupported Studio action');
+  const times = (studioLimits.get(sender.tab.id) || []).filter((t) => t > Date.now() - 60000);
+  if (times.length >= 6) throw new Error('Please wait before opening another PoCol tab');
+  times.push(Date.now()); studioLimits.set(sender.tab.id, times);
+  if (msg.type === 'studio.openSite') {
+    const target = validateSiteTarget(payload);
+    await chrome.tabs.create({ url: chrome.runtime.getURL('viewer.html') + '#' + NETWORK.name + '/' + target.site + target.path });
+    return { opened: true };
+  }
+  return studioLocked(async () => {
+    const request = validatePublishRequest(payload);
+    const all = await store.get(null); const active = [];
+    for (const [k, v] of Object.entries(all)) if (k.startsWith(JOB_PREFIX)) {
+      const current = await collectStudioJob(k, v, (job) => {
+        const hasSigned = Object.keys(job.checkpoint?.transactions || {}).length > 0;
+        return Date.now() - job.createdAt > JOB_TTL_MS && (!hasSigned || job.status === 'complete');
+      });
+      if (current) active.push([k, current]);
+    }
+    // Retain resumable operations. Never silently overwrite a pending publish.
+    if (active.filter(([, j]) => !['complete', 'cancelled'].includes(j.status)).length >= 5) throw new Error('Close or finish existing publish requests before creating another');
+    const completed = active.filter(([, j]) => ['complete', 'cancelled'].includes(j.status)).sort((a, b) => a[1].createdAt - b[1].createdAt);
+    while (completed.length > 15) {
+      const [key, previous] = completed.shift();
+      await collectStudioJob(key, previous, (job) => ['complete', 'cancelled'].includes(job.status));
+    }
+    const id = crypto.randomUUID();
+    const job = { id, origin, sourceTabId: sender.tab.id, createdAt: Date.now(), status: 'awaitingApproval', request };
+    await store.set({ [JOB_PREFIX + id]: job });
+    try { await chrome.tabs.create({ url: chrome.runtime.getURL('publisher.html') + '#' + id }); }
+    catch (e) { await store.remove(JOB_PREFIX + id); throw e; }
+    return { jobId: id };
+  });
+}
+async function ideRequest(msg,sender) {
+  if(!sender.tab || !Number.isInteger(sender.tab.id) || sender.frameId!==0 || !isIdeOrigin(sender.url))throw new Error('IDE origin not allowed');
+  const origin=new URL(sender.url).origin,payload=msg.payload||{};
+  if(msg.type==='ide.status') {
+    const all=await store.get(null);
+    const jobs=Object.entries(all).filter(([k,j])=>k.startsWith(IDE_JOB_PREFIX)&&j?.origin===origin&&j.sourceTabId===sender.tab.id).map(([,j])=>({...publicContractJob(j),title:j.request?.title,createdAt:j.createdAt})).sort((a,b)=>b.createdAt-a.createdAt).slice(0,20);
+    return {version:'0.4.0',capabilities:['contractTransactions','jobStatus'],network:await publicNetwork(),jobs};
+  }
+  if(msg.type==='ide.jobStatus') {
+    if(typeof payload.jobId!=='string'||!/^[a-f0-9-]{36}$/.test(payload.jobId))throw new Error('Invalid contract job');
+    const job=(await store.get(IDE_JOB_PREFIX+payload.jobId))[IDE_JOB_PREFIX+payload.jobId];
+    if(!job||job.origin!==origin||job.sourceTabId!==sender.tab.id)throw new Error('This contract job belongs to another tab');
+    return publicContractJob(job);
+  }
+  if(msg.type!=='ide.openContract')throw new Error('Unsupported IDE action');
+  const times=(studioLimits.get(sender.tab.id)||[]).filter(t=>t>Date.now()-60000);
+  if(times.length>=6)throw new Error('Please wait before opening another PoCol confirmation');
+  times.push(Date.now());studioLimits.set(sender.tab.id,times);
+  return studioLocked(async()=>{
+    const request=validateContractRequest(payload),all=await store.get(null),active=[];
+    for(const [key,previous]of Object.entries(all))if(key.startsWith(IDE_JOB_PREFIX)) {
+      const current=await navigator.locks.request(`pocol:job:${key.slice(IDE_JOB_PREFIX.length)}`,{mode:'exclusive',ifAvailable:true},async lease=>{
+        if(!lease)return previous;
+        const job=(await store.get(key))[key];if(!job)return null;
+        const signed=Object.keys(job.checkpoint?.transactions||{}).length>0;
+        if(Date.now()-job.createdAt>JOB_TTL_MS&&(!signed||['complete','cancelled'].includes(job.status))){await store.remove(key);return null;}
+        return job;
+      });if(current)active.push(current);
+    }
+    if(active.filter(job=>!['complete','cancelled'].includes(job.status)).length>=5)throw new Error('Finish or cancel existing contract requests before opening another');
+    const id=crypto.randomUUID(),job={id,kind:'contract',origin,sourceTabId:sender.tab.id,createdAt:Date.now(),status:'awaitingApproval',request};
+    await store.set({[IDE_JOB_PREFIX+id]:job});
+    try{await chrome.tabs.create({url:chrome.runtime.getURL('contract.html')+'#'+id});}
+    catch(error){await store.remove(IDE_JOB_PREFIX+id);throw error;}
+    return {jobId:id};
+  });
+}
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (sender.id !== chrome.runtime.id) return false;
+  // Content scripts have our extension ID too. They must never reach wallet/profile APIs.
+  if (sender.url && !sender.url.startsWith(chrome.runtime.getURL(''))) {
+    const handler=typeof msg?.type==='string'&&msg.type.startsWith('ide.')?ideRequest:studioRequest;
+    handler(msg || {}, sender).then((result) => reply({ ok: true, result }), (e) => reply({ ok: false, error: String(e.message || e).slice(0, 256) }));
+    return true;
+  }
   (async () => {
     switch (msg.type) {
       case 'profiles.list': return { ok: true, profiles: await profiles() };
+      case 'profiles.publicSchedule': return profileLocked(async () => {
+        if (sender.url !== chrome.runtime.getURL('options.html') || sender.frameId !== 0) throw new Error('Change the public schedule only in extension settings');
+        if (!Array.isArray(msg.forkSchedule)) throw new Error('An explicit forkSchedule is required');
+        const forkSchedule = normalizeForkSchedule(msg.forkSchedule);
+        profilesChanging();
+        try { await store.set({ [PUBLIC_FORKS_KEY]: forkSchedule }); } finally { await profilesChanged(); }
+        return { ok: true, profile: (await profiles()).find((p) => p.name === NETWORK.name) };
+      });
       case 'profiles.add': return profileLocked(async () => {
+        if (msg.profile?.name === NETWORK.name) throw new Error('pocol-public is a built-in profile; choose a different name for custom networks');
         const p = validateProfile(msg.profile); profilesChanging(); const list = (await storedProfiles()).filter((x) => x.name !== p.name);
         list.push(p); try { await store.set({ profiles: list }); } finally { await profilesChanged(); }
         return { ok: true, profile: (await profiles()).find((x) => x.name === p.name) }; });
       case 'profiles.remove': return profileLocked(async () => {
+        if (msg.name === NETWORK.name) throw new Error('The built-in PoCol public profile cannot be removed');
         profilesChanging();
         try { await store.set({ profiles: (await storedProfiles()).filter((x) => x.name !== msg.name) }); } finally { await profilesChanged(); }
         return { ok: true }; });

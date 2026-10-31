@@ -18,7 +18,7 @@ runuser -u pocol-standalone -- /opt/pocol-standalone/pocol identity --home /var/
 install -m 0644 /var/lib/pocol-standalone/identity.address /opt/pocol-standalone/identity.address
 cat > /etc/systemd/system/pocol-standalone.service <<'UNIT'
 [Unit]
-Description=PoCol experimental standalone node
+Description=PoCol standalone node
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=/opt/pocol-standalone/network.pocol.json

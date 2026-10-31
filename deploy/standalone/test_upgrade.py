@@ -4,10 +4,15 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import queue
+import shutil
+import subprocess
 import tempfile
+import threading
+import time
 import unittest
 
-from test_launcher import call, network
+from test_launcher import BIN, EXE, call, network
 
 
 def read_json(path):
@@ -62,6 +67,70 @@ class FullNonceUpgrade(unittest.TestCase):
     def assert_identity_preserved(self):
         self.assertEqual((self.home / 'identity.pocol-key').read_bytes(), self.key_before)
         self.assertEqual((self.home / 'identity.address').read_bytes(), self.address_before)
+
+    def wallet_status(self, executable):
+        """Connect through the real GUI CLI path, then stop without enabling mining."""
+        messages = queue.Queue()
+        with tempfile.TemporaryFile(mode='w+t', encoding='utf-8') as errors:
+            process = subprocess.Popen([str(executable), 'wallet', '--home', str(self.home)],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors,
+                text=True, encoding='utf-8', bufsize=1)
+            def read():
+                for line in process.stdout:
+                    try: messages.put(json.loads(line))
+                    except ValueError: pass
+            reader = threading.Thread(target=read, daemon=True); reader.start()
+            try:
+                deadline = time.monotonic() + 90
+                while time.monotonic() < deadline:
+                    if process.poll() is not None:
+                        errors.seek(0)
+                        self.fail('wallet exited before status: ' + errors.read())
+                    try: message = messages.get(timeout=1)
+                    except queue.Empty: continue
+                    if message.get('type') == 'status': return message
+                self.fail('wallet status timeout')
+            finally:
+                if process.poll() is None:
+                    try:
+                        process.stdin.write('{"method":"stop"}\n'); process.stdin.flush()
+                    except (BrokenPipeError, OSError): pass
+                    try: process.wait(timeout=15)
+                    except subprocess.TimeoutExpired: process.kill(); process.wait()
+                reader.join(timeout=2)
+                process.stdin.close(); process.stdout.close()
+
+    def test_reconnect_uses_upgraded_home_despite_stale_adjacent_invitation(self):
+        app = self.root / 'app'; app.mkdir()
+        executable = app / ('pocol' + EXE)
+        shutil.copy2(BIN / executable.name, executable)
+        adjacent = app / 'network.pocol.json'
+        write_json(adjacent, self.before)
+        before = self.wallet_status(executable)
+        state = self.home / 'state'
+        journal = (state / 'blocks.journal').read_bytes()
+        self.assertTrue((state / 'state.redb').is_file())
+        self.upgrade()
+        bound = (self.home / 'network.pocol.json').read_bytes()
+        after = self.wallet_status(executable)
+        self.assertEqual(read_json(adjacent), self.before, 'the packaged invitation remains stale')
+        self.assertEqual((self.home / 'network.pocol.json').read_bytes(), bound)
+        self.assertEqual(read_json(self.home / 'network.pocol.json'), self.after)
+        self.assertEqual((state / 'blocks.journal').read_bytes(), journal)
+        self.assertTrue((state / 'state.redb').is_file())
+        for field in ('address', 'chainId', 'genesisHash', 'height', 'balanceWei', 'registered', 'bond'):
+            self.assertEqual(after[field], before[field], field)
+        self.assertFalse(after['miningEnabled'])
+        self.assert_identity_preserved()
+        # Explicit selection remains authoritative and cannot silently rebind a home.
+        refused = subprocess.run([str(executable), 'wallet', '--home', str(self.home),
+                                  '--network', str(adjacent)], capture_output=True,
+                                 text=True, encoding='utf-8', timeout=30)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn('bound to another invitation', refused.stderr)
+        self.assertEqual((self.home / 'network.pocol.json').read_bytes(), bound)
+        self.assertEqual((state / 'blocks.journal').read_bytes(), journal)
+        self.assert_identity_preserved()
 
     def test_accepts_previous_build_and_keeps_identity_and_chain_files(self):
         self.before['compatibilitySha256'] = 'f' * 64

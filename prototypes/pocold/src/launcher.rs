@@ -80,7 +80,7 @@ impl Invitation {
             serde_json::from_str(&self.files["devnet.json"]).unwrap_or_default();
         let forks = crate::configured_forks(&info).unwrap_or_default();
         let activation = forks.iter().find(|(version, _)| *version == 2).map(|(_, height)| height.to_string());
-        serde_json::json!({"networkFingerprint":self.fingerprint(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],"forkSchedule":forks,"fullNonceActivationHeight":activation,"seeds":self.seeds,"scope":"experimental-testnet","publicLaunchReady":false})
+        crate::network_display::annotate_genesis(serde_json::json!({"networkFingerprint":self.fingerprint(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],"forkSchedule":forks,"fullNonceActivationHeight":activation,"seeds":self.seeds,"scope":"experimental-testnet","publicLaunchReady":false}), &self.files["genesis.spec.hex"])
     }
 }
 
@@ -557,6 +557,19 @@ mod upgrade_tests {
                 ("alloc.json".into(), "{}".into()), ("genesis.spec.hex".into(), "00".into()),
                 ("devnet.json".into(), info.to_string()),
             ]) }
+    }
+    #[test]
+    fn description_does_not_relabel_fixture_networks_or_change_invitation_identity() {
+        let invitation = invitation();
+        let bytes = serde_json::to_vec(&invitation).unwrap();
+        let fingerprint = invitation.fingerprint();
+        let description = invitation.describe();
+        assert!(description.get("networkName").is_none());
+        assert!(description.get("networkEnvironment").is_none());
+        assert_eq!(description["publicLaunchReady"], false);
+        assert_eq!(description["networkFingerprint"], fingerprint);
+        assert_eq!(serde_json::to_vec(&invitation).unwrap(), bytes);
+        assert_eq!(invitation.fingerprint(), fingerprint);
     }
     fn journal(path: &Path, heights: &[u64]) -> Vec<u8> {
         let state = path.join("state"); fs::create_dir(&state).unwrap();

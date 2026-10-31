@@ -111,8 +111,13 @@ fn command() -> Result<(), String> {
     let adjacent = std::env::current_exe()
         .map_err(|e| e.to_string())?
         .with_file_name("network.pocol.json");
+    let saved = home.path.join("network.pocol.json");
     let network = get("--network")
         .map(PathBuf::from)
+        // An explicit upgrade replaces the home's binding, not the invitation
+        // shipped beside the executable. Revalidate that saved binding first.
+        // Even a damaged existing binding must fail, rather than bootstrap anew.
+        .or_else(|| std::fs::symlink_metadata(&saved).is_ok().then_some(saved))
         .or_else(|| adjacent.is_file().then_some(adjacent));
     if let Some(network) = network {
         println!(

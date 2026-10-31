@@ -9,7 +9,7 @@
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity>
         <service android:name=".NodeService" android:exported="false" android:process=":node" android:foregroundServiceType="specialUse">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started independent peer-to-peer blockchain node: local block validation, durable chain storage and testnet consensus participation, with a persistent notification and Stop control."/>
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started independent peer-to-peer blockchain node: local block validation, durable chain storage and network consensus participation, with a persistent notification and Stop control."/>
         </service>
     </application>
 </manifest>

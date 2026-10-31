@@ -1,4 +1,9 @@
-# PoCol Wallet and continuous five-device network
+# PoCol Mainnet · Wallet 0.4.0 and native node tools
+
+For an existing wallet or server, start with **[RELEASE-UPGRADE.md](RELEASE-UPGRADE.md)**.
+It covers preserving the current account, the explicit network upgrade, the
+matching future activation block, and the Android signing requirement. The
+Android artifact is an **unsigned release APK**, not an installable update.
 
 Run three Linux server miners, one native Windows wallet, and one native Android
 wallet. Both wallets contain the same full validating Rust/P2P engine and sign
@@ -6,9 +11,11 @@ locally. Their mining switch starts/stops actual block production while validati
 and synchronization continue. No assistant or central signing/control service is
 needed after the one-time network setup.
 
-This is an experimental network with valueless test currency, not a qualified
-financial mainnet. The wallet is functional, not a balance simulation or an RPC-only
-mockup. Its primary color is #1aa9e4; it has Wallet, Activity, Mining and Settings
+The existing chain is displayed as **PoCol Mainnet** only after its chain ID and
+genesis are verified. The designation does not change its experimental admission
+conditions or `publicLaunchReady: false`; financial qualification and independent
+audit are not claimed. The wallet validates locally and signs on the device.
+Its primary color is #1aa9e4; it has Wallet, Activity, Mining and Settings
 screens, account transfers, receive/copy/share (Android), transaction review, and
 explicit bonded miner registration. No invented fiat price, reward yield or
 external assets are displayed. Activity lists transactions submitted by this
@@ -40,13 +47,17 @@ small pilot, not a worst-case capacity proof. Disk sizing, compaction and long-t
 load qualification remain operational work. Numeric heights retain the format's
 u64 representation; zero disables scheduled expiry, not hardware arithmetic.
 
-## One-time setup from Windows
+## Fresh network setup from Windows
+
+This section creates a separate new network. It is not the procedure for upgrading
+the existing PoCol Mainnet chain. Existing installations must follow the update
+guide above and retain their genesis, keys and data directories.
 
 Extract the five-device ZIP. Review `Initialize-PoColNetwork.ps1`, open PowerShell
 inside that directory, and run:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Initialize-PoColNetwork.ps1 -LinuxArchive .\PoCol-linux-x86_64.tar.gz
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Initialize-PoColNetwork.ps1 -LinuxArchive .\PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz
 ```
 
 The process-scoped policy exception is for this script only. It uses the existing
@@ -65,7 +76,8 @@ remains loopback-only. Existing state/identities are never overwritten. On a par
 failure, retain the setup folder and the SAME genesis; do not blindly rerun or reset.
 The remote deployment path has not been exercised by CI.
 
-Transfer the generated **network.pocol.json** to the phone. Install the ARM64 APK,
+Transfer the generated **network.pocol.json** to the phone. After the signing and
+update checks in the release guide, install the correctly signed ARM64 APK,
 open **PoCol Wallet → Settings → Import network file**, select that file, and
 connect. Windows imports the adjacent shared file automatically; Settings also
 supports explicit import while disconnected. All devices use the same invitation.
@@ -98,8 +110,8 @@ server keys are genesis miners. The PC/phone must hold an eligible registered
 identity to enable mining. A new identity can use **Review mining registration**,
 review the current bond and maximum fee, and explicitly confirm its transaction.
 Registration does not automatically enable mining. It needs funds, available
-registry capacity and network inclusion. The bootstrap funds the Windows identity
-with test coins; send test coins to the phone's public address to fund its bond and
+registry capacity and network inclusion. The fresh-network bootstrap funds the Windows identity
+with PCOL; send PCOL to the phone's public address to fund its bond and
 fees. Turning mining off does not deregister, release the bond or stop the wallet.
 Inactive/ejected identities follow existing registry rules; registration is never
 silently repeated and a toggle does not bypass eligibility.
@@ -112,13 +124,14 @@ reparse points, hard links and altered ciphertext. Linux/Android retain strict
 HTTP RPC or P2P. A home lock prevents concurrent engines. Missing, corrupt or
 substituted keys fail instead of silently rotating identity.
 
-This test build has **no portable encrypted recovery export**. Keep suitable
+This build has **no portable encrypted recovery export**. Keep suitable
 private device/profile backups. Android backup is disabled; uninstalling erases
-identity and state. CI APKs are debug-signed for testing and a clean CI run may use
-a different debug certificate. Do not uninstall an existing key-bearing app to
-install a new certificate. Durable updates require an operator-retained private
-release signing key; the unsigned release APK is also built. No keystore/private
-key belongs in the release bundle or repository.
+identity and state. CI builds only an unsigned release APK. Do not uninstall an
+existing key-bearing app to install a different certificate. Updating the existing
+app requires its matching retained signer; a new release key alone cannot update
+an old debug-signed installation. See the release guide for the known 0.3.1 signer
+and current signing blocker. No keystore/private key belongs in the release bundle
+or repository.
 
 ## Validation and remaining qualification
 

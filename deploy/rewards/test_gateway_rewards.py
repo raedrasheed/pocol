@@ -104,6 +104,18 @@ class GatewayRewardTests(unittest.TestCase):
         self.assertNotIn('internalRpc', result)
         self.assertNotIn('forkScheduleFile', result)
 
+    def test_public_network_designation_does_not_expose_private_metadata(self):
+        labels = {'networkName': 'PoCol Mainnet', 'networkEnvironment': 'mainnet',
+                  'forkSchedule': [[1, 0], [2, 100]], 'effectiveNonceMode': 0,
+                  'nextBlockNonceMode': 1, 'consensusCompatibilitySha256': '0x' + 'a' * 64}
+        for method in ('pocol_getParams', 'pocol_status'):
+            result = gateway.sanitize(method, {**labels, 'genesisPre': 'private',
+                                               'localPaths': ['/private'], 'environment': {'secret': 'private'}})
+            self.assertEqual({name: result[name] for name in labels}, labels)
+            self.assertNotIn('genesisPre', result)
+            self.assertNotIn('localPaths', result)
+            self.assertNotIn('environment', result)
+
     def test_snapshot_is_cached_with_request_ids_preserved(self):
         service = gateway.Gateway()
         reads = []

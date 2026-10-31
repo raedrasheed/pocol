@@ -36,7 +36,7 @@ public final class NodeService extends Service {
         PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, NodeService.class).setAction("STOP"), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this, "pocol")
-            .setContentTitle("PoCol node running").setContentText("Validating testnet blocks on this phone. Tap to view status.")
+            .setContentTitle("PoCol node running").setContentText("Validating PoCol blocks on this phone. Tap to view status.")
             .setSmallIcon(R.mipmap.ic_launcher_monochrome).setContentIntent(open).setOngoing(true)
             .addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();
         startForeground(1, notification);

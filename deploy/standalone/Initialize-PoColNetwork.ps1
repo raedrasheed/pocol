@@ -34,7 +34,7 @@ $Tag = 'pocol-setup-' + [Guid]::NewGuid().ToString('N')
 $Work = Join-Path $Here $Tag
 New-Item -ItemType Directory -Path $Work | Out-Null
 $Public = @()
-Write-Host 'Experimental test coins only. The new network has no scheduled shutdown height or expiry date.'
+Write-Host 'Fresh experimental network setup only; this does not upgrade PoCol Mainnet. The new network has no scheduled shutdown height or expiry date.'
 Write-Host 'SSH may ask for your local key passphrase and each server sudo password. Enter them only in the terminal.'
 Write-Host 'Verify any new SSH host fingerprint through the provider console. No host-key checks are disabled.'
 foreach ($Server in $Servers) {

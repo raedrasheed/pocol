@@ -14,4 +14,6 @@ mkdir -p "$out"
 cp "$root/prototypes/pocold/target/aarch64-linux-android/release/libpocold.so" "$out/"
 "$ndk/aarch64-linux-android26-clang" -shared -fPIC -Wall -Wextra -Werror -Wl,-z,max-page-size=16384 -Wl,-soname,libpocol_bridge.so \
   "$root/prototypes/pocol-android/app/src/main/cpp/bridge.c" -L"$out" -lpocold -o "$out/libpocol_bridge.so"
-gradle --no-daemon -p "$root/prototypes/pocol-android" assembleDebug assembleRelease
+# Release builds stay unsigned until the operator supplies the existing app signer.
+# Never generate a fresh debug key and present that APK as an update.
+gradle --no-daemon -p "$root/prototypes/pocol-android" assembleRelease

@@ -49,6 +49,17 @@ jobs:
           npm ci --ignore-scripts --prefix prototypes/pocol-extension
           npm run build --prefix prototypes/pocol-extension
           npm test --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-unit.log
+      - name: Verify Studio and IDE publishing and wallet exports
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y python3-cryptography
+          npm run test:studio --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-studio.log
+          npm run test:publisher --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-publisher.log
+          npm run test:contracts --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-contracts.log
+          npm run test:contract-ui --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-contract-ui.log
+          (cd prototypes/pocol-extension && /usr/bin/python3 -m unittest tests/test_linux_export.py -v) 2>&1 | tee evidence/extension-linux-export.log
+          npm run package --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-package.log
       - name: Browser with live devnet
         run: |
           set -o pipefail

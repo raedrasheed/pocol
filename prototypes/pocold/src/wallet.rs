@@ -65,12 +65,12 @@ impl<'a> Wallet<'a>{
                 }
             }
         }
-        json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
-            "chainId":n.chain.spec.chain_id(),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
+        crate::network_display::annotate(json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
+            "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
             "miningEnabled":n.cfg.miner.is_some(),"miningEligible":eligible,"registered":record.is_some(),
             "miningState":if n.cfg.miner.is_some(){if eligible{"Enabled — waiting for assigned work"}else{"Enabled — awaiting eligible membership"}}else{"Off — wallet keeps validating"},
             "blocksMined":n.stats.mined,"bond":coins(crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg)),
-            "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true})
+            "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true}))
     }
     pub fn handle(&mut self,n:&mut Node,raw:&str)->Value{
         let result=(||{

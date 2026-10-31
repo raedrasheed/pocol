@@ -38,6 +38,12 @@ internal static class WalletUiTests {
    Console.WriteLine("Actual nested activity type: "+parsed["activity"].GetType().FullName);
    Response(state);
    Check(Control<StackPanel>("ActivityList").Children.Count==2,"Expected two history rows.");
+   Check(Control<TextBlock>("NetworkName").Text=="●  PoCol network","Unknown networks must not be presented as Mainnet.");
+   state["networkName"]="PoCol Mainnet";state["networkEnvironment"]="mainnet";Response(state);
+   Check(Control<TextBlock>("NetworkName").Text=="●  PoCol Mainnet","Validated network designation was not displayed.");
+   state.Remove("networkName");state.Remove("networkEnvironment");Response(state);
+   Check(Control<TextBlock>("NetworkName").Text=="●  PoCol network","The previous network designation was retained for another network.");
+   Check(Control<Button>("Upgrade")!=null,"Explicit network upgrade action is missing.");
    Check(CardText(0,0)=="Sent PCOL","Transfer row missing.");
    Check(CardText(0,1)=="200.000000000000000001 PCOL","Amount precision changed.");
    Check(CardText(1,0)=="Mining registration"&&CardText(1,2)=="Included · 4 confirmations","Registration/receipt status missing.");
