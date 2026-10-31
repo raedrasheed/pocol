@@ -12,7 +12,7 @@ permissions:
 jobs:
   keys-and-enrollment:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       CARGO_BUILD_JOBS: '2'
       EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}

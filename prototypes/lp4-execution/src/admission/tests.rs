@@ -177,7 +177,16 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     // The caps-test build refuses every non-simnet request first (validation.md:2065).
     let r22=if cfg!(feature="caps-test"){"caps-test"}else{"R22"};
     assert_eq!(rules(admit(&Request{node:NodeKind::Node,..n.request(&sh(),Some(&tt))})),v(&[r22]),"simnet profile on a node: [R22] (governance.md)");
-    assert_eq!(rules(admit(&Request{forks:&[(1,0),(2,50)],..n.request(&sh(),Some(&tt))})),v(&["R24"]),"TestFork-v2 is not implemented");
+    // R24 accepts the implemented full-range v2 while preserving the original
+    // genesis identity and applying the new version only at its scheduled height.
+    let upgraded=admit(&Request{forks:&[(1,0),(2,50)],..n.request(&sh(),Some(&tt))}).expect("scheduled full-range v2 is implemented");
+    assert_eq!(upgraded.genesis_hash(),n.profile.genesis_hash());
+    assert_eq!(upgraded.genesis().root(),n.genesis.root());
+    assert_eq!(upgraded.profile().forks().entries(),&[(1,0),(2,50)]);
+    for (height,version) in [(49,1),(50,2),(51,2)]{assert_eq!(upgraded.profile().forks().active_version(height),version);}
+    for unknown in [3,u16::MAX]{
+        assert_eq!(rules(admit(&Request{forks:&[(1,0),(unknown,50)],..n.request(&sh(),Some(&tt))})),v(&["R24"]),"unknown version {unknown} remains rejected");
+    }
     let mut alloc=n.alloc.clone();let a=devnet::account_key("alice").address();alloc.accounts.get_mut(&a).unwrap().info.balance+=revm::primitives::U256::from(1);
     assert_eq!(rules(admit(&Request{alloc:&alloc,..n.request(&sh(),Some(&tt))})),v(&["R24"]),"alloc does not match allocRoot");
     let mut big=n.alloc.clone();big.accounts.get_mut(&a).unwrap().info.balance=revm::primitives::U256::from(1)<<127;

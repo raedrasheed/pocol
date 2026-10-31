@@ -20,6 +20,13 @@ from runtime import digest
 
 BIN = Path(os.environ.get('POCOLD_BIN_DIR', str(ROOT / 'prototypes/pocold/target/release')))
 LOCAL = ['--delta', '1', '--phi', '1', '--t-exec', '1', '--delta-rel', '8', '--gamma', '5']
+CONFIRMATIONS = 6
+# init-testnet keeps the v1 bounded nonce range and D_att=60 (testnet.rs).
+# Exhausting a range is legitimate: the next attempt starts strictly after
+# U(a)+gamma, so it can cost 66 seconds. Budget inclusion, six confirmations,
+# one extra exhausted attempt, and 60 seconds of RPC/scheduling slack. This is
+# a finite test budget, not a guarantee of probabilistic mining progress.
+CONFIRMATION_TIMEOUT = (CONFIRMATIONS + 2) * (60 + 5 + 1) + 60
 
 
 def main():
@@ -103,14 +110,34 @@ def main():
         return rpc(urls[0], 'eth_sendRawTransaction', [raw])
 
     def confirmed(tx, expected='0x1'):
+        observed = {}
         def same():
             receipts = [rpc(url, 'eth_getTransactionReceipt', [tx]) for url in urls]
+            observed['receipts'] = [None if r is None else
+                {key: r.get(key) for key in ('blockNumber', 'blockHash', 'status')} for r in receipts]
+            statuses = [rpc(url, 'pocol_status') for url in urls]
+            observed['nodes'] = [{
+                'head': {key: s['head'].get(key) for key in ('height', 'hash')},
+                'production': s['production'], 'pool': s['pool'],
+                'stats': {key: s['stats'].get(key) for key in ('mined', 'imported', 'reorgs')}
+            } for s in statuses]
+            observed.pop('canonicalHashes', None)
             if not all(receipts) or len({r['blockHash'] for r in receipts}) != 1: return False
             height = int(receipts[0]['blockNumber'], 16)
-            return all(r['status'] == expected and rpc(url, 'pocol_status')['head']['height'] >= height + 6 and
-                       rpc(url, 'eth_getBlockByNumber', [hex(height), False])['hash'] == r['blockHash']
-                       for url, r in zip(urls, receipts))
-        wait(same, 'common confirmed receipt ' + tx)
+            hashes = [rpc(url, 'eth_getBlockByNumber', [hex(height), False])['hash'] for url in urls]
+            observed['canonicalHashes'] = hashes
+            return all(r['status'] == expected and s['head']['height'] >= height + CONFIRMATIONS and
+                       block_hash == r['blockHash'] for r, s, block_hash in zip(receipts, statuses, hashes))
+        try:
+            wait(same, 'common confirmed receipt ' + tx, CONFIRMATION_TIMEOUT)
+        except RuntimeError:
+            # Public, allowlisted observations only; no keys, raw transactions,
+            # node configuration, or extra RPC waits while reporting a failure.
+            (evidence / 'confirmation-failure.json').write_text(json.dumps({
+                'transaction': tx, 'expectedStatus': expected, 'confirmations': CONFIRMATIONS,
+                'timeoutSeconds': CONFIRMATION_TIMEOUT, 'lastObservation': observed
+            }, indent=2) + '\n')
+            raise
 
     try:
         for i in range(4): start(i)
