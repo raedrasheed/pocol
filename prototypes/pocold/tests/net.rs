@@ -35,7 +35,7 @@ fn start_with(tag:&str,limits:Limits,peers:Vec<std::net::SocketAddr>)->Running{
     Running{p2p,rpc,net,chain_id,genesis}
 }
 fn frame(m:&Msg)->Vec<u8>{let b=m.encode();let mut f=(b.len() as u32).to_be_bytes().to_vec();f.extend(b);f}
-fn hello(r:&Running,name:&str)->Vec<u8>{frame(&Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:name.into()})}
+fn hello(r:&Running,name:&str)->Vec<u8>{frame(&Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:name.into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility()})}
 fn connect(r:&Running)->TcpStream{let s=TcpStream::connect(("127.0.0.1",r.p2p)).unwrap();s.set_read_timeout(Some(Duration::from_millis(3000))).unwrap();s}
 /// True if the node closed the connection (EOF or reset) within the read timeout.
 fn closed(s:&mut TcpStream)->bool{let mut b=[0u8;4096];loop{match s.read(&mut b){Ok(0)=>return true,Ok(_)=>continue,Err(e)=>return e.kind()!=std::io::ErrorKind::WouldBlock&&e.kind()!=std::io::ErrorKind::TimedOut}}}
@@ -89,6 +89,39 @@ fn small()->Limits{
     let r=start("prehello",small());
     let mut s=connect(&r);s.write_all(&frame(&Msg::GetRange{start:1,count:512})).unwrap();
     assert!(closed(&mut s),"a non-Hello first frame closes the connection");assert!(wait_until(500,||live(&r)==0));
+}
+
+/// Identity refusal must fence *queued* traffic, including a second Hello that
+/// would otherwise revive the socket after its first Hello was rejected.
+#[test] fn incompatible_identity_fences_queued_transactions_and_status_refresh(){let _g=serial();
+    let r=start("identity",small());
+    let alice=devnet::account_key("alice");
+    let tx=Tx{chain_id:r.chain_id,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(10_000_000_000u64),gas:21_000,to:Some(alice.address()),value:U256::ZERO,data:vec![].into()}.sign_1559(&alice);
+    let status=||{let (c,b)=rpc(r.rpc,r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#,false);assert_eq!(c,200);serde_json::from_str::<serde_json::Value>(&b).unwrap()["result"].clone()};
+    for (version,digest,refresh) in [(0,pocold::identity::compatibility(),false),(2,[0;32],false),(2,[0;32],true)]{
+        let mut s=connect(&r);
+        if refresh{s.write_all(&hello(&r,"accepted")).unwrap();assert!(wait_until(1000,||status()["compatiblePeers"]==1));}
+        let bad=Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:"mismatch".into(),protocol:version,compatibility:digest};
+        let mut pipelined=frame(&bad);pipelined.extend(hello(&r,"revive"));pipelined.extend(frame(&Msg::Tx{raw:tx.clone()}));
+        s.write_all(&pipelined).unwrap();assert!(closed(&mut s));assert!(wait_until(1000,||live(&r)==0));
+        assert_eq!(status()["pool"],0,"rejected peers cannot submit queued transactions");
+        assert_eq!(status()["compatiblePeers"],0);
+    }
+    let mut s=connect(&r);s.write_all(&hello(&r,"control")).unwrap();s.write_all(&frame(&Msg::Tx{raw:tx})).unwrap();
+    assert!(wait_until(1500,||status()["pool"]==1),"the same transaction is accepted after a compatible Hello");
+    assert_eq!(status()["compatibilitySha256"],pocold::identity::COMPATIBILITY_HEX);
+}
+
+#[test] fn oversized_handshake_and_unsafe_peer_names_are_refused(){let _g=serial();
+    let r=start("hello-bounds",small());
+    let mut s=connect(&r);s.write_all(&((net::HELLO_MAX+1) as u32).to_be_bytes()).unwrap();assert!(closed(&mut s));
+    for name in ["a".repeat(net::NODE_NAME_MAX+1),"line\ncontrol".into(),"".into()]{
+        let mut s=connect(&r);s.write_all(&hello(&r,&name)).unwrap();assert!(closed(&mut s));
+    }
+    // Seven-field legacy Hello: no silent downgrade, even with the correct genesis.
+    let mut p=Vec::new();for b in [&[][..],&r.chain_id.to_be_bytes()[..],&r.genesis[..],&r.genesis[..],&[][..],&[0u8;32][..],b"legacy"]{pocold::rlp::encode_bytes(b,&mut p);}
+    let mut payload=Vec::new();pocold::rlp::encode_list_payload(&p,&mut payload);
+    assert!(Msg::decode(&payload).is_err());
 }
 #[test] fn oversized_and_stalled_frames_close_the_peer(){let _g=serial();
     let r=start("frames",small());

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Read-only desktop entry for the existing PoCol command-line package.
+set -eu
+package_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+printf '\nPoCol Mainnet · 0.4.0 local network tools\n\n'
+[ -x "$package_dir/pocol" ] || { printf 'PoCol binary is missing from this folder.\n' >&2; exit 1; }
+printf 'Engine source: '
+sed -n '1p' "$package_dir/source-commit.txt"
+printf '\nThis Linux release is a command-line node, not a graphical wallet.\nPackage folder: %s\n' "$package_dir"
+printf '\nTo manage an existing service, use its established service commands.\nThis shortcut does not start a node, generate keys, or change wallet data.\n\nPress Enter to close. '
+IFS= read -r answer || :

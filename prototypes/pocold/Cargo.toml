@@ -6,6 +6,9 @@ publish = false
 license = "Apache-2.0"
 description = "PoCol local development node: consensus, mining, persistence, P2P and RPC over the LP4 execution layer. Local simnet devnets only."
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 pocol-lp4-execution = { path = "../lp4-execution" }
 revm = { version = "=19.7.0", features = ["serde"] }
@@ -19,6 +22,8 @@ k256 = { version = "=0.13.4", features = ["ecdsa"] }
 # C-1 storage program (D-1, owner approved): the spec's store (storage.md:63-73). Its only runtime
 # dependency, libc, is already in the lock; every other dependency it lists is dev-only.
 redb = "=2.6.4"
+getrandom = "=0.2.17"
+zeroize = "=1.9.1"
 
 # SO_SNDBUF on RPC connections (RpcGuard SEND_SOCK_BUF, network.md): std exposes no setsockopt. Both
 # crates and versions are already in the lock (libc through getrandom and others, windows-sys through
@@ -26,11 +31,15 @@ redb = "=2.6.4"
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "=0.61.2", features = ["Win32_Networking_WinSock"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_Networking_WinSock", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Console"] }
 
 [dev-dependencies]
 # C-1 E1: the tests compare every incremental state root with the full computation.
 pocol-lp4-execution = { path = "../lp4-execution", features = ["root-check"] }
+
+[build-dependencies]
+sha2 = "=0.9.9"
+serde_json = "=1.0.145"
 
 [features]
 # validation.md:2065 caps-test build constants (simnet only, absent from the release); see lp4-execution.

@@ -91,8 +91,10 @@ def rlp_list(items):
     if len(p) < 56: return bytes([0xc0 + len(p)]) + p
     l = len(p).to_bytes((len(p).bit_length() + 7) // 8, "big"); return bytes([0xf7 + len(l)]) + l + p
 def uint(v): return rlp_bytes(v.to_bytes((v.bit_length() + 7) // 8, "big") if v else b"")
-# VA-SPEC wire: Hello = [0, chainId, genesisHash, headHash, height, totalWork (32 B), name]; Block = [1, header, body].
-def hello(chain_id, genesis, head, height, work, name): return frame(rlp_list([uint(0), uint(chain_id), rlp_bytes(genesis), rlp_bytes(head), uint(height), rlp_bytes(work.to_bytes(32, "big")), rlp_bytes(name)]))
+# Experimental wire v2 appends protocolVersion and the strict source compatibility digest.
+def hello(chain_id, genesis, head, height, work, name):
+    identity = json.loads(subprocess.check_output([dn.BIN, 'build-info'], text=True))
+    return frame(rlp_list([uint(0), uint(chain_id), rlp_bytes(genesis), rlp_bytes(head), uint(height), rlp_bytes(work.to_bytes(32, "big")), rlp_bytes(name), uint(identity['protocolVersion']), rlp_bytes(bytes.fromhex(identity['compatibilitySha256']))]))
 def block_frame(blk): return frame(rlp_list([uint(1), rlp_bytes(bytes.fromhex(blk["header"][2:])), rlp_bytes(bytes.fromhex(blk["body"][2:]))]))
 def closed_by_peer(s, t):
     """Drops what the node sends until it closes the connection: True if it does within t s."""

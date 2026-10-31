@@ -82,7 +82,7 @@ fn schedule_requires_origin_strict_heights_and_implemented_versions() {
     for entries in [&[(1, 0), (1, 0)][..], &[(1, 0), (1, 10), (1, 9)][..]] {
         assert_eq!(ForkSchedule::new(entries), Err(ProfileError::ForkHeight));
     }
-    for v in [0, 2, 3, u16::MAX] {
+    for v in [0, 3, u16::MAX] {
         assert_eq!(ForkSchedule::new(&[(1, 0), (v, 50)]), Err(ProfileError::UnsupportedVersion(v)));
     }
     let f = ForkSchedule::new(&[(1, 0), (1, 50), (1, u64::MAX)]).unwrap();
@@ -90,6 +90,25 @@ fn schedule_requires_origin_strict_heights_and_implemented_versions() {
     for h in [0, 1, 49, 50, 51, u64::MAX - 1, u64::MAX] {
         assert_eq!(f.active_version(h), 1);
     }
+}
+
+#[test]
+fn full_nonce_activation_has_exact_boundaries_and_cannot_repeat_or_downgrade() {
+    for activation in [1, 50, u64::MAX] {
+        let f = ForkSchedule::new(&[(1, 0), (2, activation)]).unwrap();
+        assert_eq!(f.active_version(activation - 1), 1);
+        assert_eq!(f.active_version(activation), 2);
+        assert_eq!(f.active_version(u64::MAX), 2);
+    }
+    let f = ForkSchedule::new(&[(1, 0), (1, 25), (2, 50)]).unwrap();
+    assert_eq!(f.active_version(49), 1);
+    assert_eq!(f.active_version(50), 2);
+    assert_eq!(f.active_version(51), 2);
+    for entries in [&[(1, 0), (2, 50), (2, 51)][..], &[(1, 0), (2, 50), (1, 51)][..]] {
+        assert_eq!(ForkSchedule::new(entries), Err(ProfileError::ForkVersionOrder));
+    }
+    assert_eq!(ForkSchedule::new(&[(1, 0), (2, 0)]), Err(ProfileError::ForkHeight));
+    assert_eq!(ForkSchedule::new(&[(1, 0), (2, 50), (2, 49)]), Err(ProfileError::ForkHeight));
 }
 
 #[test]
@@ -138,8 +157,16 @@ fn hash_and_chain_binding_cannot_be_replaced_by_matching_fork_schedule() {
 }
 
 #[test]
-fn testfork_v2_never_becomes_bootable_even_on_simnet() {
+fn full_nonce_schedule_preserves_genesis_and_does_not_bypass_admission() {
     let s = spec();
-    assert_eq!(validate(&s, ProfileKind::Simnet, NodeKind::Simnet, &[(1, 0), (2, 50)]), Err(ProfileError::UnsupportedVersion(2)));
+    let original = validate(&s, ProfileKind::Simnet, NodeKind::Simnet, &[(1, 0)]).unwrap();
+    let upgraded = validate(&s, ProfileKind::Simnet, NodeKind::Simnet, &[(1, 0), (2, 50)]).unwrap();
+    assert_eq!(upgraded.genesis_hash(), original.genesis_hash());
+    assert_eq!(upgraded.spec(), original.spec());
+    assert_eq!(upgraded.cp(), original.cp());
+    assert_eq!(original.forks().active_version(u64::MAX), 1);
+    assert_eq!(upgraded.forks().active_version(49), 1);
+    assert_eq!(upgraded.forks().active_version(50), 2);
+    assert!(!upgraded.bootable());
     assert_eq!(validate(&s, ProfileKind::Simnet, NodeKind::Node, &[(1, 0), (2, 50)]), Err(ProfileError::R22));
 }

@@ -261,8 +261,8 @@ fn production_profile_and_version_restrictions_and_boot_disabled() {
     let mut e = profile(true);
     e.forks.push((2, 50));
     let v = verdict(&e, NodeKind::Node);
-    assert_eq!(v.violations, ["R22", "R24"]);
-    assert!(verdict(&e, NodeKind::Simnet).violations.contains(&"R24".to_string()));
+    assert_eq!(v.violations, ["R22"]);
+    assert!(verdict(&e, NodeKind::Simnet).accepted());
     e = profile(true);
     e.kind = ProfileKind::Synthetic;
     assert_eq!(verdict(&e, NodeKind::Node).violations, ["R22"]);
@@ -425,7 +425,8 @@ fn exact_supply_calibration_and_timing_boundaries() {
     assert_eq!(check(&p, Some(&r), Some(&i), Some(&c), NodeKind::Node).violations, ["R23"]);
     i.alloc_balances = vec![U256::MAX; 4];
     assert_eq!(check(&p, Some(&r), Some(&i), Some(&c), NodeKind::Node).violations, ["R23"]);
-    for forks in [vec![], vec![(1, 1)], vec![(1, 0), (1, 0)], vec![(1, 0), (1, 10), (1, 9)], vec![(1, 0), (65535, 20)]] {
+    for forks in [vec![], vec![(1, 1)], vec![(1, 0), (1, 0)], vec![(1, 0), (1, 10), (1, 9)], vec![(1, 0), (65535, 20)],
+        vec![(1, 0), (3, 20)], vec![(1, 0), (2, 20), (2, 30)], vec![(1, 0), (2, 20), (1, 30)]] {
         let mut q = profile(false);
         q.forks = forks;
         assert!(verdict(&q, NodeKind::Node).violations.contains(&"R24".into()));

@@ -75,7 +75,7 @@ export async function workerChecks(dist) {
   await scenario(async () => {
     const w = await world({ grant: false, extra: [prof('p2', s2)] });
     const list = (await w.mock.send({ type: 'profiles.list' })).profiles;
-    ok('A06 conflict is recomputed over the set: both profiles flagged', list.every((p) => p.conflict === true), JSON.stringify(list.map((p) => [p.name, p.conflict])));
+    ok('A06 conflict is recomputed over the set: both profiles flagged', list.filter((p) => ['p1','p2'].includes(p.name)).every((p) => p.conflict === true) && list.filter((p) => ['p1','p2'].includes(p.name)).length === 2, JSON.stringify(list.map((p) => [p.name, p.conflict])));
     const r1 = await w.reply(w.req('eth_requestAccounts')); const r2 = await w.reply(w.req('eth_accounts')); const r3 = await w.reply(w.tx());
     ok('A06 conflicting profile: eth_requestAccounts 4100 without a dialog, eth_accounts [], eth_sendTransaction 4100, nothing sent',
       code(r1) === 4100 && noAsk(w, 'confirmAccounts') && Array.isArray(r2.result) && r2.result.length === 0 && code(r3) === 4100 && w.count('eth_sendRawTransaction') === 0, JSON.stringify([r1, r2, r3]));
@@ -128,6 +128,33 @@ export async function workerChecks(dist) {
   });
   // ---- A06 profile switch during confirmation ----
   await scenario(async () => {
+    const w = await world();
+    const before = await w.mock.send({ type: 'wallet.address', name: 'p1' });
+    const s = w.tx(); await w.ask('confirmTx');
+    const update = await w.mock.send({ type: 'profiles.add', profile: { ...prof('p1', s1), forkSchedule: [[1, 0], [2, '30000']] } });
+    const r = await w.reply(s), after = await w.mock.send({ type: 'wallet.address', name: 'p1' });
+    const revoked = await w.port.next((m) => m.revoked); await sleep(20);
+    ok('maximum nonce: local schedule change cancels pending signing and revokes the old session', update.ok && code(r) === 4901 && revoked.revoked.code === 4901 && w.port.port.disconnected && w.count('eth_sendRawTransaction') === 0, JSON.stringify(r));
+    ok('maximum nonce: profile stores the trusted schedule without changing the derived wallet', JSON.stringify(update.profile.forkSchedule) === '[[1,"0"],[2,"30000"]]' && before.address === after.address && update.profile.netKey === netKeyOf(s1));
+  });
+  await scenario(async () => {
+    const w = await world({ grant: false, extra: [{ ...prof('p2', s1), forkSchedule: [[1, 0], [2, 30000]] }] });
+    const list = (await w.mock.send({ type: 'profiles.list' })).profiles;
+    const r = await w.reply(w.req('eth_requestAccounts'));
+    const local = list.filter((p) => ['p1', 'p2'].includes(p.name));
+    ok('maximum nonce: conflicting activation schedules are read-only even with the same genesis', local.length === 2 && local.every((p) => p.conflict === true) && code(r) === 4100 && noAsk(w, 'confirmAccounts') && w.count('eth_sendRawTransaction') === 0);
+  });
+  await scenario(async () => {
+    const w = await world({ grant: false });
+    const r = await w.mock.send({ type: 'profiles.add', profile: { ...prof('p1', s1), forkSchedule: [[1, 0], [3, 30000]] } });
+    const list = (await w.mock.send({ type: 'profiles.list' })).profiles;
+    ok('maximum nonce: unsupported local upgrade rejected without replacing the old profile', !r.ok && list.filter((p) => p.name === 'p1').length === 1 && JSON.stringify(list.find((p) => p.name === 'p1').forkSchedule) === '[[1,"0"]]' && !w.port.port.disconnected);
+    const stored = structuredClone(w.mock.storage.data.get('profiles')); stored.find((p) => p.name === 'p1').forkSchedule = [[1, 0], [2, 0]]; w.mock.storage.data.set('profiles', stored);
+    const corrupt = (await w.mock.send({ type: 'profiles.list' })).profiles;
+    const open = await w.mock.send({ type: 'open', name: 'p1', site: w.site, path: '/' }, 8);
+    ok('maximum nonce: malformed schedule in saved storage makes the profile unusable', !!corrupt.find((p) => p.name === 'p1').invalid && !open.ok && open.error.code === 4901);
+  });
+  await scenario(async () => {
     const w = await world(); const s = w.tx(); const a = await w.ask('confirmTx');
     await w.mock.send({ type: 'profiles.add', profile: prof('p1', s1, 'http://127.0.0.1:8600') }); const r = await w.reply(s);
     const rv = await w.port.next((m) => m.revoked, 2000).catch(() => null); await sleep(20); w.answer(a, true); await sleep(50);
@@ -169,11 +196,11 @@ export async function workerChecks(dist) {
   });
   // ---- A06 a stored profile that no longer validates (e.g. edited storage) is unusable ----
   await scenario(async () => {
-    const w = await world(); const st = structuredClone(w.mock.storage.data.get('profiles')); st[0].genesisHash = '0x' + '00'.repeat(32); w.mock.storage.data.set('profiles', st);
+    const w = await world(); const st = structuredClone(w.mock.storage.data.get('profiles')); st.find((p) => p.name === 'p1').genesisHash = '0x' + '00'.repeat(32); w.mock.storage.data.set('profiles', st);
     const list = (await w.mock.send({ type: 'profiles.list' })).profiles; const r = await w.reply(w.tx());
     const op = await w.mock.send({ type: 'open', name: 'p1', site: w.site, path: '/' });
     ok('A06 a stored profile that no longer validates is listed invalid, cannot sign (4901) and cannot open a site',
-      list.length === 1 && typeof list[0].invalid === 'string' && code(r) === 4901 && noAsk(w, 'confirmTx') && op.ok === false && op.error.code === 4901 && w.count('eth_sendRawTransaction') === 0, JSON.stringify([list, r, op]));
+      typeof list.find((p) => p.name === 'p1').invalid === 'string' && code(r) === 4901 && noAsk(w, 'confirmTx') && op.ok === false && op.error.code === 4901 && w.count('eth_sendRawTransaction') === 0, JSON.stringify([list, r, op]));
   });
   // ---- A06 periodic identity check (every 30 s) and the lock timeout ----
   await scenario(async () => {

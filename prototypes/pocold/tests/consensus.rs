@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use pocold::{chain::{Chain,Reject,Spec},types::*,hashes,rlp};
 use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},txsign::{Key,Tx}};
 use revm::primitives::{Address,B256,U256};
+#[path="support/auth_peer.rs"] mod auth_peer;
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 /// Gate-valid test profile (A02): about 2^12 hashes per block (target 2^244-1 at T_blk=4),
@@ -282,7 +283,8 @@ fn remine_signed(n:&Net,mut h:lp1hdr::Header,signer:Address)->Block{
     let mk=|off:u64|{let (h,_,_)=net2.chain.build_signed(&p,&net2.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();h};
     let (t1,t2)=(mk(0),mk(1));
     // Simulate the node's production loop at h=1 (it starts producing on run(); use the handler directly).
-    for t in [&t1,&t2]{node.handle(Event::Net(NetEvent::Message(1,Msg::Template{shell:t.encoded.clone(),body:Body::default().encode()})));}
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    for t in [&t1,&t2]{node.handle(Event::Net(NetEvent::Message(peer,Msg::Template{shell:t.encoded.clone(),body:Body::default().encode()})));}
     assert_eq!(node.evidence_pool.len(),1,"one type-1 evidence");
     // The evidence is valid in a block at h=2 on a branch whose h=1 drew the same proposer.
     let mut n2=net2;let b1=fallback(&n2,g,0);import(&mut n2,&b1);
@@ -306,7 +308,7 @@ fn remine_signed(n:&Net,mut h:lp1hdr::Header,signer:Address)->Block{
     // The drawn proposer signs a template whose stateRoot is not the parent's result: its rebuild differs.
     let mut bad=good.clone();bad.state_root[0]^=1;reseal(&mut bad);
     bad.sig=net2.keys[&ctx.proposer].sign_hash(&B256::from(hashes::sig_msg(&template_id(&bad.ut_raw)))).to_vec();reseal(&mut bad);
-    let send=|n:&mut Node,h:&lp1hdr::Header|n.handle(Event::Net(NetEvent::Message(1,Msg::Template{shell:h.encoded.clone(),body:Body::default().encode()})));
+    let send=|n:&mut Node,h:&lp1hdr::Header|{let (peer,_socket)=auth_peer::connect(n);n.handle(Event::Net(NetEvent::Message(peer,Msg::Template{shell:h.encoded.clone(),body:Body::default().encode()})))};
     let mut a=node("bad");send(&mut a,&bad);assert_eq!(a.stats.template_penalties,1,"the invalid signed template punishes its peer");
     let mut b=node("good");send(&mut b,&good);assert_eq!(b.stats.template_penalties,0,"positive control: a valid template is not punished");
     let mut other=bad.clone();other.parent_hash[0]^=1;reseal(&mut other);
@@ -613,7 +615,7 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     let mut n=Node::open(Config{dir:dir.clone(),name:"offer".into(),miner:None,listen:Some(format!("127.0.0.1:{port}").parse().unwrap()),peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},spec).unwrap();
     n.start_network().unwrap();
     let mut s=std::net::TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(std::time::Duration::from_millis(50))).unwrap();
-    let hello=Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"peer".into()}.encode();
+    let hello=Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"peer".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility()}.encode();
     let mut f=(hello.len() as u32).to_be_bytes().to_vec();f.extend(hello);s.write_all(&f).unwrap();
     let mut buf=Vec::new();let mut sent=frames_from(&mut n,&mut s,&mut buf,1500);
     assert_eq!(n.status_json()["peers"].as_array().unwrap().len(),1,"the peer is connected");
@@ -641,6 +643,7 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
 #[test] fn the_pool_counters_equal_the_contents_through_admission_revalidation_and_reorgs(){
     use pocold::{net::{Msg,NetEvent},node::{Event,Limits}};
     let (n,dir)=gas_node("audit",Limits{pool_slice:std::time::Duration::ZERO,..Default::default()});let mut n=n.unwrap();
+    let (peer,_socket)=auth_peer::connect(&mut n);
     let keys=[devnet::account_key("alice"),devnet::account_key("bob")];let mut h=net();
     let mut seed=0x9e37_79b9_7f4a_7c15u64;let mut rnd=|k:u64|{seed^=seed<<13;seed^=seed>>7;seed^=seed<<17;seed%k};
     let (mut admitted_n,mut gas_refused,mut relayed_in_backlog,mut heads,mut reorgs)=(0,0,0,0,0);
@@ -654,7 +657,7 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
                 match n.submit_tx(raw,false){Ok(_)=>admitted_n+=1,Err(e) if e==pocold::node::POOL_FULL_GAS=>gas_refused+=1,Err(_)=>{}}}
             4=>if let Some((_,raw))=n.pool.txs.first().cloned(){n.submit_tx(raw,false).unwrap();},
             5=>{let k=&keys[rnd(2) as usize];let raw=pay_gas(k,rnd(12),1,gases[rnd(4) as usize]);if n.pool_pending(){relayed_in_backlog+=1;}
-                n.handle(Event::Net(NetEvent::Message(1,Msg::Tx{raw})));}
+                n.handle(Event::Net(NetEvent::Message(peer,Msg::Tx{raw})));}
             6|7=>n.pool_step(),
             8=>{let head=n.chain.head().meta_clone();let txs=n.template_txs(&head);let p=n.chain.head;h.chain.ensure_state(&p).unwrap();
                 let b=if txs.is_empty(){fallback(&h,p,0)}else{signed(&h,p,Body{txs,evidence:vec![]},0)};import(&mut h,&b);n.import(b,None).unwrap();heads+=1;}
@@ -710,11 +713,12 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
         for nonce in 0..4{let raw=Tx{chain_id:777910,nonce,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas:7_900_000,to:Some(Address::with_last_byte(9)),value:U256::ZERO,data:input.clone().into()}.sign_1559(&alice);
             let t=Instant::now();n.submit_tx(raw,false).unwrap();max_tx=max_tx.max(t.elapsed());}
         assert_eq!((n.pool.txs.len(),n.pool.gas),(4,31_600_000),"the pool is at its gas bound");
-        ready_tx.send((n.tx.clone(),max_tx)).unwrap();n.run();
+        let (peer,_socket)=auth_peer::connect(&mut n);
+        ready_tx.send((n.tx.clone(),max_tx,peer)).unwrap();n.run();
         n.pool_settle();(n.pool.txs.len(),n.chain.head().height,n.pool_audit())
     }).unwrap();
-    let (tx,max_tx)=ready_rx.recv().unwrap();
-    let send_block=|b:&Block|tx.send(Event::Net(NetEvent::Message(1,Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()}))).unwrap();
+    let (tx,max_tx,peer)=ready_rx.recv().unwrap();
+    let send_block=|b:&Block|tx.send(Event::Net(NetEvent::Message(peer,Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()}))).unwrap();
     let status=||{let (t,r)=std::sync::mpsc::channel();
         tx.send(Event::Rpc(Request::local(br#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#.to_vec(),t,Instant::now()+Duration::from_secs(120),false))).unwrap();
         let body=r.recv().unwrap().body;let v:serde_json::Value=serde_json::from_str(&body).unwrap();
@@ -2393,7 +2397,7 @@ fn wait_for(secs:u64,f:&dyn Fn()->bool)->bool{let t=std::time::Instant::now();wh
     std::thread::spawn(move||{let mut buf=[0u8;65536];while xr.read(&mut buf).map_or(false,|n|n>0){}});
     let copies:Vec<Vec<u8>>=ours.iter().map(|y|frame(&Msg::Block{header:y.header.encoded.clone(),body:y.body.encode()})).collect();
     std::thread::spawn(move||{let mut k=0u64;loop{
-        if k%20==0{let head=[(k/20) as u8;32];if x.write_all(&frame(&Msg::Hello{chain_id,genesis,head,height:1_000_000,work:[0xff;32],node:"x".into()})).is_err(){break}}
+        if k%20==0{let head=[(k/20) as u8;32];if x.write_all(&frame(&Msg::Hello{chain_id,genesis,head,height:1_000_000,work:[0xff;32],node:"x".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility()})).is_err(){break}}
         if x.write_all(&copies[(k as usize)%copies.len()]).is_err(){break}k+=1;std::thread::sleep(std::time::Duration::from_millis(50));}});
     let head=|p:u16|rpc_tcp(p,"eth_getBlockByNumber",json!(["latest",false]))["hash"].clone();
     assert!(wait_for(20,&||rpc_tcp(ra,"pocol_status",json!([]))["stats"]["syncSessions"].as_u64().unwrap_or(0)>=1),"the false peer's first Hello starts a session");
@@ -2674,11 +2678,12 @@ fn e44_reference(dir:&std::path::Path,tag:&str)->(pocold::node::Node,std::path::
     n.checkpoint_now().unwrap();assert!(n.release_pending(),"positive control: the checkpoint dropped the oldest, whose nodes are owed");
     // The last block is at the head's height (it reorgs back), so it stops the loop.
     n.cfg.stop_at=Some(n.chain.head().height);let (tx,steps)=(n.tx.clone(),n.stats.release_steps);
+    let (peer,_socket)=auth_peer::connect(&mut n);
     let run=std::thread::Builder::new().stack_size(64<<20).spawn(move||{n.run();n}).unwrap();
     let t=Instant::now();
     while st.release_pending(){assert!(t.elapsed()<Duration::from_secs(120),"the running node works off what is owed");std::thread::sleep(Duration::from_millis(20));}
     st.recount().unwrap();
-    tx.send(Event::Net(NetEvent::Message(1,Msg::Block{header:last.header.encoded.clone(),body:last.body.encode()}))).unwrap();
+    tx.send(Event::Net(NetEvent::Message(peer,Msg::Block{header:last.header.encoded.clone(),body:last.body.encode()}))).unwrap();
     let n=run.join().unwrap();
     println!("E44-RELEASE rows owed at reopen {owed}, rows worked off at open {opened}, steps in the event loop {}",n.stats.release_steps-steps);
     assert!(n.stats.release_steps>steps,"the release steps ran in the event loop");assert_eq!(n.chain.head,last.hash(),"the last block was imported after the release");
@@ -3264,4 +3269,24 @@ fn e4_checkpoint_kill_child(){
     match huge{Err(e)=>assert!(e.starts_with("A13 memory bound"),"{e}"),Ok(_)=>panic!("a pool gas bound past the budget opened")}
     let (fits,d1)=gas_node("fits",Limits{pool_gas_max:Some(16*8_000_000),..Default::default()});assert!(fits.is_ok(),"16 × GAS_LIMIT fits the devnet budget");
     drop(fits);for d in [d0,d1]{let _=std::fs::remove_dir_all(&d);}
+}
+
+
+#[test]
+fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
+    let mut c=cfg(&["a","b","c"]);c.h_end=0;c.h_close=0;c.tx_cap=1;c.txbytes_cap=1024;
+    let mut n=net_with(&c);
+    assert_eq!(n.chain.spec.cp().H_END,0);assert_eq!(n.chain.spec.cp().T_END,0);
+    let a=devnet::account_key("alice");let to=devnet::account_key("bob").address();
+    for nonce in 0..4{
+        let raw=Tx{chain_id:c.chain_id,nonce,max_priority:U256::ZERO,max_fee:U256::from(100_000_000_000u64),gas:21000,to:Some(to),value:U256::from(1),data:Default::default()}.sign_1559(&a);
+        assert!(n.chain.within_caps(n.chain.head(),&[raw.clone()]));
+        assert!(!n.chain.within_caps(n.chain.head(),&[raw.clone(),raw.clone()]),"per-block cap retained");
+        let b=signed(&n,n.chain.head,Body{txs:vec![raw],evidence:vec![]},0);import(&mut n,&b);
+    }
+    assert_eq!(n.chain.head().state.accounts[&to].info.balance,U256::from(10u128.pow(24))+U256::from(4));
+    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits::default();limits.state_store=true;
+    assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unknown continuous history must not be treated as zero");
+    limits.continuous_history=Some(0);let small=pocold::resources::derive(cp,32,2,&limits,3).unwrap();
+    limits.continuous_history=Some(50_000);let larger=pocold::resources::derive(cp,32,2,&limits,3).unwrap();assert!(larger.total>small.total);
 }

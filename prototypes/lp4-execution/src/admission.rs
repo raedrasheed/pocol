@@ -225,7 +225,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     let spec=gs::verify_hash(r.spec_bytes,&hash).map_err(|e|terminal("R24",format!("GenesisSpec decode: {e:?}")))?;
     let cp=ConsensusParams::from_values(&spec.cp).map_err(|e|terminal("R24",format!("CP schema: {e:?}")))?;
     let mut notes=Vec::new();
-    let programs=SystemPrograms::v1();
+    let programs=SystemPrograms::for_params(&cp);
 
     // Builder facts: allocRoot and system slots of the constructed genesis (before the
     // allocRoot comparison, which the gate makes as R24).
@@ -317,6 +317,7 @@ fn conditions(cp:&ConsensusParams,r:&Request<'_>,l:&NodeLocal,timing:Option<&Tim
     if l.rpc.is_fixture(){add("rpc-fixture",&["R26"],"RpcGuard: the values are a fixture, not limits this node enforces".into())}
     if !l.rpc.absent().is_empty(){add("rpc-absent",&["R26"],format!("RpcGuard: mechanisms this node does not enforce: {}",l.rpc.absent().join(", ")))}
     if matches!(r.calibration,Some((_,FactClass::SyntheticFixture))){add("calibration-synthetic",&["R25"],"calibration: H_cal is a synthetic fixture (devnet --work-bits), not a measured hash rate".into())}
+    if cp.H_END==0{add("continuous-protocol",&["R13","R19","R23"],"No scheduled height/time shutdown; only ordinary execution is reachable; its measured timing fills all legacy phase slots. Supply is bounded over the representable u64 height domain, not a network expiration.".into())}
     if let Some(t)=timing{add("timing-not-a-bound",&["R14","R19"],format!("timing: {} apply samples of the synthetic GAS_LIMIT compute workload on this host{}; not a p99 or worst-case bound (A13-DERIVATION §4)",t.samples,
         if t.stored{", in memory and through a scratch node store committed durably per block (store mode), the larger per phase"}else{""}))}
     if in_gas_domain(cp){add("gas-monotonicity-assumed",&["R18"],"SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)".into())}
@@ -351,7 +352,7 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
     let mut gas_log=Vec::new();let mut roots=Vec::new();
     let hash=gs::genesis_hash(spec_bytes);let spec=gs::verify_hash(spec_bytes,&hash).map_err(|e|format!("{e:?}"))?;
     let profile=fact_identity(spec_bytes,&hash,spec.chain_id)?;let cp=profile.cp().clone();
-    let genesis=Genesis::build(alloc,&profile,&SystemPrograms::v1()).map_err(|e|format!("{e:?}"))?;
+    let genesis=Genesis::build(alloc,&profile,&SystemPrograms::for_params(&cp)).map_err(|e|format!("{e:?}"))?;
     let mut state=genesis.state().clone();
     // Fund the calibration sender by moving balance (total supply unchanged).
     let key=crate::txsign::Key::devnet("admission-calibration");let sender=key.address();let spin=scratch_address("pocol-admission-spin");
@@ -377,8 +378,8 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
         Some(s)=>{let mut b=crate::node_trie::Batch::default();let t=crate::node_trie::NodeTrie::build(&state,s,&mut b);s.commit(&b,t.world)?;
             Some((s,t,crate::state_summary::Summary::scan(&state,cp.B_code_max)))}
         None=>None};
-    for h in 1..=blocks.min(cp.H_END){
-        let ts=if h<=2{spec_ts(&cp,h)}else{cp.T_END.max(cp.T_CLOSE).saturating_add(h)};
+    for h in 1..=blocks.min(if cp.H_END==0{u64::MAX}else{cp.H_END}){
+        let ts=if h<=2||cp.H_END==0{spec_ts(&cp,h)}else{cp.T_END.max(cp.T_CLOSE).saturating_add(h)};
         let tx=crate::txsign::Tx{chain_id:spec.chain_id,nonce,max_priority:U256::ZERO,max_fee,gas:cp.GAS_LIMIT,to:Some(spin),value:U256::ZERO,data:Bytes::new()};nonce+=1;
         let txs=vec![tx.sign_1559(&key)];
         let input=BlockInput{height:h,timestamp:ts,base_fee:base,gas_limit:cp.GAS_LIMIT,prevrandao:B256::ZERO,proposer:Proposer::Fallback,parent_result:prev.clone(),
@@ -418,6 +419,9 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
     // H_CLOSE <= 1: no ordinary block can exist in this profile; its fact takes the larger
     // measured phase (conservative), so R14/R19 still cover every reachable block.
     if !seen[0]&&cp.H_CLOSE<=1{phase_ms[0]=phase_ms[1].max(phase_ms[2]);seen[0]=true;}
+    // Continuous profiles have no reachable closing/final phase. Keep conservative ordinary timing
+    // in those legacy slots without claiming those phases were observed.
+    if cp.H_END==0 && seen[0]{phase_ms[1]=phase_ms[0];phase_ms[2]=phase_ms[0];seen=[true;3];}
     if !seen.iter().all(|s|*s){return Err(format!("calibration: phase classes reached {seen:?}"))}
     Ok((Timing{genesis_hash:hash,phase_ms,samples,stored:store.is_some()},gas_log,roots))
 }

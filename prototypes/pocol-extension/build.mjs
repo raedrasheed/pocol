@@ -25,7 +25,14 @@ export function build({ fault = null, out } = {}) {
   const src = join(HERE, 'src');
   const emit = (rel, text) => { const p = join(dist, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
   for (const f of readdirSync(join(src, 'lib'))) emit(join('lib', f), applyFaults(readFileSync(join(src, 'lib', f), 'utf8'), fault));
-  for (const f of ['sw.js', 'viewer.html', 'viewer.js', 'viewer.css', 'options.html', 'options.js']) emit(f, applyFaults(readFileSync(join(src, f), 'utf8'), fault));
+  for (const f of ['sw.js', 'viewer.html', 'viewer.js', 'viewer.css', 'options.html', 'options.js', 'studio-content.js', 'publisher.html', 'publisher-ui.js', 'publisher.css', 'ide-content.js', 'contract.html', 'contract-ui.js', 'contract.css']) emit(f, applyFaults(readFileSync(join(src, f), 'utf8'), fault));
+  // Ship the supplied PoCol artwork at Chrome's native icon sizes.
+  const icons = Object.fromEntries([16, 32, 48, 128].map(size => [size, `icons/pocol-${size}.png`]));
+  for (const path of Object.values(icons)) emit(path, readFileSync(join(src, path)));
+  emit('tools/Export-Studio-Wallet.ps1', readFileSync(join(HERE, 'tools/Export-Studio-Wallet.ps1'), 'utf8'));
+  emit('tools/export-studio-wallet.py', readFileSync(join(HERE, 'tools/export-studio-wallet.py'), 'utf8'));
+  for (const name of ['LICENSE', 'NOTICE', 'README-AR.md', 'README-STUDIO.md']) emit(name, readFileSync(join(HERE, name), 'utf8'));
+  emit('README-EN.md', readFileSync(join(HERE, 'README-IDE.md'), 'utf8'));
   // Vendored @noble (MIT): only the modules reached from lib/crypto.js; the one bare specifier is made relative.
   const nh = join(HERE, 'node_modules', '@noble', 'hashes'), ns = join(HERE, 'node_modules', '@noble', 'secp256k1');
   for (const f of ['sha3.js', 'sha2.js', 'hmac.js', 'utils.js', '_md.js', '_u64.js', 'crypto.js'])
@@ -33,23 +40,26 @@ export function build({ fault = null, out } = {}) {
   emit(join('vendor', 'hashes', 'LICENSE'), readFileSync(join(nh, 'LICENSE'), 'utf8'));
   emit(join('vendor', 'secp256k1', 'index.js'), readFileSync(join(ns, 'index.js'), 'utf8').replace(/\n\/\/# sourceMappingURL=.*$/m, ''));
   emit(join('vendor', 'secp256k1', 'LICENSE'), readFileSync(join(ns, 'LICENSE'), 'utf8'));
+  emit(join('vendor', 'ethers.js'), readFileSync(join(HERE, 'node_modules/ethers/dist/ethers.min.js'), 'utf8'));
+  emit(join('vendor', 'ethers-LICENSE.md'), readFileSync(join(HERE, 'node_modules/ethers/LICENSE.md'), 'utf8'));
   // Sandbox page: the loader is the only inline script; its hash is the only script hash in the CSP.
   const loader = applyFaults(readFileSync(join(src, 'sandbox-loader.js'), 'utf8'), fault);
   const hash = createHash('sha256').update(loader, 'utf8').digest('base64');
   emit('sandbox.html', `<!doctype html>\n<html><head><meta charset="utf-8"><script>${loader}</script></head><body></body></html>\n`);
   const manifest = {
     manifest_version: 3,
-    name: 'PoCol Local Viewer' + (fault ? ` [TEST FAULT ${fault}]` : ''),
+    name: 'PoCol Studio, IDE & Viewer' + (fault ? ` [TEST FAULT ${fault}]` : ''),
     version: JSON.parse(readFileSync(join(HERE, 'package.json'), 'utf8')).version,
-    description: 'Verified PoCol on-chain websites from a local devnet node: sandboxed rendering, DNR isolation, BridgeAuth, local wallet.',
+    description: 'Publish websites and smart contracts with your PoCol wallet. Local approval, verified files and isolated viewing.',
     minimum_chrome_version: '130', // chrome.storage.local.getKeys (D103 recovery)
     background: { service_worker: 'sw.js', type: 'module' },
     permissions: ['storage', 'unlimitedStorage', 'declarativeNetRequest'],
-    host_permissions: ['http://127.0.0.1/*'],
-    optional_host_permissions: ['https://*/*'],
+    host_permissions: ['http://127.0.0.1/*', 'https://gateway.pocol.net/*'],
+    content_scripts: [{matches:['https://studio.pocol.net/*', 'https://pocol-studio.mystic-gecko-9511.chatgpt.site/*'],js:['studio-content.js'],run_at:'document_start',all_frames:false},{matches:['https://ide.pocol.net/*','https://pocol-ide.mystic-gecko-9511.chatgpt.site/*'],js:['ide-content.js'],run_at:'document_start',all_frames:false}],
     omnibox: { keyword: 'pocol' },
     options_page: 'options.html',
-    action: { default_title: 'PoCol' },
+    icons,
+    action: { default_title: 'PoCol', default_icon: icons },
     sandbox: { pages: ['sandbox.html'] },
     content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'", sandbox: SANDBOX_CSP(hash, fault === 'cspOpen' || fault === 'cspOpenNoDnr') },
   };

@@ -69,7 +69,7 @@ impl<'a> Candidate<'a> {
         image.verify_candidate(snapshot,profile).map_err(|_|SystemError::Genesis)?;
         let height:u64=block.height.try_into().map_err(|_|SystemError::Context)?;
         let time:u64=block.timestamp.try_into().map_err(|_|SystemError::Context)?;
-        if height==0||height>profile.cp().H_END{return Err(SystemError::Context)}
+        if height==0||(profile.cp().H_END!=0&&height>profile.cp().H_END){return Err(SystemError::Context)}
         if height==1&&crate::genesis_builder::world_root(snapshot).map_err(|_|SystemError::Genesis)?!=image.root(){return Err(SystemError::Genesis)}
         let reg=&snapshot.accounts[&crate::pay::registry_address()];let counters=reg.storage.get(&U256::from(3)).copied().unwrap_or_default();
         let close_h:u64=((counters>>187u32)&U256::from(u64::MAX)).try_into().map_err(|_|SystemError::Context)?;

@@ -1,0 +1,66 @@
+name: Public testnet compatibility and operations
+on:
+  pull_request:
+    branches: [main, codex/english-only, codex/private-testnet, codex/public-testnet-keys]
+    paths: ['prototypes/pocold/**', 'prototypes/lp1-node/**', 'prototypes/lp4-execution/**', 'deploy/public-testnet/**', '.github/workflows/public-testnet-operations.yml']
+  push:
+    branches: [main]
+    paths: ['prototypes/pocold/**', 'deploy/public-testnet/**', '.github/workflows/public-testnet-operations.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  operations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      CARGO_BUILD_JOBS: '2'
+      PYTHONDONTWRITEBYTECODE: '1'
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Build exact source and test compatibility and operations controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          git rev-parse HEAD > evidence/commit.txt
+          rustup toolchain install 1.99.1 --profile minimal
+          cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml 2>&1 | tee evidence/build.log
+          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test net 2>&1 | tee evidence/rust.log
+          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --test consensus --test caps -- --test-threads=1 2>&1 | tee evidence/consensus.log
+          python3 -B deploy/public-testnet/test_operations.py -v 2>&1 | tee evidence/operations.log
+          python3 -B prototypes/pocold/tests/independent_keys.py -v 2>&1 | tee evidence/keys.log
+      - name: Four packaged nodes, enrollment, site, backup and recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B prototypes/pocold/tests/e2e_independent_keys.py --packaged --work "$RUNNER_TEMP/operations-test" 2>&1 | tee evidence/integration.log
+          python3 -B deploy/public-testnet/test_remote_listener.py --binary "$PWD/prototypes/pocold/target/release/pocold" --network "$RUNNER_TEMP/operations-test/net" 2>&1 | tee evidence/remote-listener.log
+      - name: Validate systemd and Nginx configuration syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y nginx
+          nginx -V 2>&1 | tee evidence/nginx-version.log
+          systemd-analyze verify "$RUNNER_TEMP/operations-test/release/node1/pocol-testnet.service" 2>&1 | tee evidence/systemd.log
+          sudo python3 -B deploy/public-testnet/test_gateway.py 2>&1 | tee evidence/gateway.log
+      - name: Separate service UID, credential permissions and root recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo python3 -B deploy/public-testnet/test_service.py --bundle "$RUNNER_TEMP/operations-test/release/node1" --key-file "$RUNNER_TEMP/operations-test/secrets/m1.pocol-key" --out "$PWD/evidence/service.json" 2>&1 | tee evidence/service.log
+      - name: Preserve only public evidence, never keys or state backups
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: public-testnet-operations-${{ env.EXPECTED_COMMIT }}
+          path: |
+            evidence/
+            ${{ runner.temp }}/operations-test/public-evidence/
+          retention-days: 14

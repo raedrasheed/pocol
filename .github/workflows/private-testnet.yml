@@ -1,0 +1,52 @@
+name: Private testnet packaging rehearsal
+on:
+  pull_request:
+    branches: [main, codex/english-only]
+    paths: ['deploy/private-testnet/**', 'prototypes/pocold/**', 'prototypes/lp4-execution/**', 'prototypes/lp1-node/**', '.github/workflows/private-testnet.yml']
+  push:
+    branches: [main]
+    paths: ['deploy/private-testnet/**', '.github/workflows/private-testnet.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rehearsal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_BUILD_JOBS: '2'
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Check preparation and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          git rev-parse HEAD > evidence/commit.txt
+          python3 -m unittest discover -s deploy/private-testnet -p 'test_*.py' -v 2>&1 | tee evidence/unit.log
+          bash -n deploy/private-testnet/install.sh
+          rustup toolchain install 1.99.1 --profile minimal
+          cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml 2>&1 | tee evidence/build.log
+      - name: Three-process packaging, transfer and restart rehearsal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 deploy/private-testnet/rehearse.py --work "$RUNNER_TEMP/pocol-private-rehearsal" 2>&1 | tee evidence/rehearsal.log
+      - name: Preserve results and failures (no bundled executables)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: private-testnet-${{ env.EXPECTED_COMMIT }}
+          path: |
+            evidence/
+            ${{ runner.temp }}/pocol-private-rehearsal/*.json
+            ${{ runner.temp }}/pocol-private-rehearsal/*.log
+            ${{ runner.temp }}/pocol-private-rehearsal/release/prepare.log
+            ${{ runner.temp }}/pocol-private-rehearsal/release/release.json
+            ${{ runner.temp }}/pocol-private-rehearsal/release/network/
+          retention-days: 14

@@ -7,6 +7,7 @@ use std::time::{Duration,Instant};
 use pocold::{chain::{Chain,Reject},node::{Config,Event,Node},net::{Msg,NetEvent},types::*,hashes};
 use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::{Key,Tx}};
 use revm::primitives::{Address,B256,U256};
+#[path="support/auth_peer.rs"] mod auth_peer;
 
 const CHAIN:u64=777912;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
@@ -227,7 +228,8 @@ fn boundary_matrix(bytes:bool){
         assert!(n.template_json().is_null(),"waiting for a template at h=2");
         let p=h.chain.get(&b1.hash()).unwrap().clone();let ctx=h.chain.child_ctx(&p,0).unwrap();let body=Body{txs,evidence:vec![]};
         let (shell,_,_)=h.chain.build_signed(&p,&h.keys[&ctx.proposer],ctx.window.lower(),body.clone(),vec![]).unwrap();
-        n.handle(Event::Net(NetEvent::Message(1,Msg::Template{shell:shell.encoded.clone(),body:body.encode()})));
+        let (peer,_socket)=auth_peer::connect(&mut n);
+        n.handle(Event::Net(NetEvent::Message(peer,Msg::Template{shell:shell.encoded.clone(),body:body.encode()})));
         let v=n.template_json();assert_eq!(!v.is_null(),locks,"{tag}: {v}");
         if locks{assert_eq!(v["fallback"],false)}
         let _=std::fs::remove_dir_all(&dir);

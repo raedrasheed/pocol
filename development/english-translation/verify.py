@@ -12,6 +12,13 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 ARABIC = re.compile(r'[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufefc]')
 NUM = re.compile(r'\d+(?:\.\d+)?')
+# Byte-pinned accepted vectors are historical evidence, not UI/default content.
+# Their raw source quotations are part of the accepted file digests.
+IMMUTABLE_VECTORS = {
+    'development/m1/m1-draft-0.21/vectors/v3-gsv1.json': '88097ee293aeab70c2089c2b61da8ce624503a59dfafd34657e9c1a465056f32',
+    'development/m1/m1-draft-0.22/vectors/c30-depth.json': '728d8b4ac88c0212d8b1cb6224c5f834f923619e1c32320dcf1eae120fb72464',
+    'development/m1/m1-draft-0.22/vectors/v3-e05-supplement.json': 'cd8ead8d8d0293bf5a48ef6113fafe09c8babd5e4516d5176905325ac8ce0cdb',
+}
 
 
 def digest(data):
@@ -26,6 +33,11 @@ def main():
     manifest = json.loads((HERE / 'MANIFEST.json').read_text())
     revision = manifest['sourceRevision']
     errors = []
+    if sorted(manifest.get('immutableVectorPaths', [])) != sorted(IMMUTABLE_VECTORS):
+        errors.append('Immutable vector allowlist differs')
+    for name, expected in IMMUTABLE_VECTORS.items():
+        if digest((ROOT / name).read_bytes()) != expected:
+            errors.append('Immutable accepted vector changed: ' + name)
     for entry in manifest['files']:
         p = ROOT / entry['path']
         if not p.is_file() or digest(p.read_bytes()) != entry['sha256']:
@@ -44,7 +56,7 @@ def main():
             text = p.read_text(encoding='utf-8')
         except UnicodeError:
             continue
-        if ARABIC.search(text):
+        if ARABIC.search(text) and name not in IMMUTABLE_VECTORS:
             raw_hits.append(name)
     errors.extend('Raw Arabic text: ' + name for name in raw_hits)
     thesis = manifest['excludedThesis']

@@ -5,7 +5,6 @@
 use std::collections::BTreeMap;
 use std::path::{Path,PathBuf};
 use pocold::site::{self,Rpc,Publisher};
-use pocol_lp4_execution::devnet;
 fn arg(a:&[String],k:&str)->Option<String>{a.iter().position(|x|x==k).and_then(|i|a.get(i+1)).cloned()}
 /// Writes a verified site into an empty directory. Paths valid on-chain can still collide on disk:
 /// case-distinct names on case-insensitive filesystems, or a file that is also a directory prefix.
@@ -32,7 +31,7 @@ fn main(){
         match a.get(1).map(|s|s.as_str()){
             Some("publish")=>{
                 let chain_id:u64=arg(&a,"--chain-id").ok_or("--chain-id")?.parse().map_err(|_|"chain id")?;
-                let key=devnet::account_key(&arg(&a,"--account").ok_or("--account")?);
+                let key=pocold::keyfile::account(&a)?;
                 let dir=PathBuf::from(arg(&a,"--dir").ok_or("--dir")?);let mut files=BTreeMap::new();walk(&dir,&dir,&mut files)?;
                 let site=arg(&a,"--site").map(|s|s.parse().map_err(|_|"--site address")).transpose()?;
                 let p=Publisher{rpc:&rpc,key:&key,chain_id,log:true};

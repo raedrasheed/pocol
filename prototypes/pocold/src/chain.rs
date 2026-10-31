@@ -47,6 +47,11 @@ impl Spec{
     pub fn chain_id(&self)->u64{self.profile().spec().chain_id}
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}
     pub fn active_version(&self,h:u64)->u16{self.profile().forks().active_version(h)}
+    /// The genesis CP remains immutable. Consensus v2 activates the complete u64
+    /// nonce domain only for the block being built or validated, including replay.
+    pub fn effective_nonce_mode(&self,h:u64)->NonceMode{
+        if self.active_version(h)==2||self.cp().nonceMode==1{NonceMode::Unbounded}else{NonceMode::Bounded}
+    }
 }
 
 #[derive(Clone,Debug)]
@@ -425,7 +430,7 @@ impl Chain{
         let window=AttemptWindow::new(p.ts,attempt,cp.D_att).map_err(|e|Reject::Block(format!("window {e:?}")))?;
         let membership=self.membership(p,h)?;
         let target=self.target_for_child(p)?;
-        let mode=if cp.nonceMode==0{NonceMode::Bounded}else{NonceMode::Unbounded};
+        let mode=self.spec.effective_nonce_mode(h);
         let assignment=Assignment::new(&membership,attempt,&target,mode,cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
         let ts_share=from_fixed(&target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX);
         let proposer=self.draw(p,&membership,h)?;
@@ -522,7 +527,7 @@ impl Chain{
             self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);&materialized};
         // 2. linkage and H_END.
         if x.h!=p.height+1{return blk("2 height")}
-        if x.h>cp.H_END{return blk("10a H_END")}
+        if cp.H_END!=0&&x.h>cp.H_END{return blk("10a H_END")}
         if let Some(c)=clock{ if crate::timing::is_future(x.ts,c,phi){return Err(Reject::Future)} }
         // 3. template form. proposer and a are committed (blockReject); sig is not (envReject).
         let tid=template_id(&x.ut_raw);
@@ -594,7 +599,7 @@ impl Chain{
         let entry=Entry{hash,header:x.clone(),body:b.body.clone(),height:x.h,parent:Some(p.hash),total_work:p.total_work.saturating_add(work(&x.target)),
             import_seq:0,signed,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:seal(&tid,x.nonce),state:c.state,is_final,full:true,diff:c.diff,slim:false,
             result:Some(ParentResult{block_hash:B256::from(hash),winner:addr(&owner),shares}),receipts:c.receipts,tx_hashes,
-            cum_txs:p.cum_txs+b.body.txs.len() as u64,cum_tx_bytes:p.cum_tx_bytes+tx_bytes,cum_log_bytes:p.cum_log_bytes+log_bytes,pruned:false,drawn:ctx.proposer,
+            cum_txs:if self.spec.cp().H_END==0{b.body.txs.len() as u64}else{p.cum_txs+b.body.txs.len() as u64},cum_tx_bytes:if self.spec.cp().H_END==0{tx_bytes}else{p.cum_tx_bytes+tx_bytes},cum_log_bytes:if self.spec.cp().H_END==0{log_bytes}else{p.cum_log_bytes+log_bytes},pruned:false,drawn:ctx.proposer,
             ranges:ctx.assignment.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect(),body_off:None,offloaded:false,trie:c.trie,summary:Some(Box::new(c.summary)),stored:c.stored};
         Ok((entry,ctx))
     }
@@ -618,11 +623,11 @@ impl Chain{
     /// Item 16 (consensus.md:170): the transaction count and raw bytes (D49: len(rawTx)) of p's branch plus
     /// `txs` within TX_CAP and TXBYTES_CAP. The one definition validation, the builder and template locking use.
     pub fn within_caps(&self,p:&Entry,txs:&[Vec<u8>])->bool{
-        let cp=self.spec.cp();let bytes=txs.iter().try_fold(p.cum_tx_bytes,|n,t|n.checked_add(t.len() as u64));
-        p.cum_txs.checked_add(txs.len() as u64).map_or(false,|n|n<=cp.TX_CAP)&&bytes.map_or(false,|n|n<=cp.TXBYTES_CAP)
+        let cp=self.spec.cp();let past_count=if cp.H_END==0{0}else{p.cum_txs};let past_bytes=if cp.H_END==0{0}else{p.cum_tx_bytes};let bytes=txs.iter().try_fold(past_bytes,|n,t|n.checked_add(t.len() as u64));
+        past_count.checked_add(txs.len() as u64).map_or(false,|n|n<=cp.TX_CAP)&&bytes.map_or(false,|n|n<=cp.TXBYTES_CAP)
     }
     /// What item 16 leaves for a child of p: (transactions, raw bytes).
-    pub fn caps_room(&self,p:&Entry)->(u64,u64){let cp=self.spec.cp();(cp.TX_CAP.saturating_sub(p.cum_txs),cp.TXBYTES_CAP.saturating_sub(p.cum_tx_bytes))}
+    pub fn caps_room(&self,p:&Entry)->(u64,u64){let cp=self.spec.cp();if cp.H_END==0{(cp.TX_CAP,cp.TXBYTES_CAP)}else{(cp.TX_CAP.saturating_sub(p.cum_txs),cp.TXBYTES_CAP.saturating_sub(p.cum_tx_bytes))}}
 
     /// Evidence (incentives.md "Evidence"). Type 1: RLP([1, ST1, ST2]); type 2:
     /// RLP([2, TemplateID, nonce, shareRoot1, sig1, shareRoot2, sig2]). Invalid

@@ -21,11 +21,14 @@
   not PASS. Evidence: -Evidence directory (logs\, results.json, environment.json, summary.md).
   Only child processes get toolchain variables (RUSTUP_TOOLCHAIN, PATH for Node); nothing global changes
   beyond installing the two Rust toolchains into the runner's own rustup.
+  -Group selects one independent CI group; its default 'all' preserves the complete local/manual run.
+  Each group keeps the same commands and assertions, with separate commit-bound evidence.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$Evidence,
-    [Parameter(Mandatory = $true)][string]$ExpectedCommit
+    [Parameter(Mandatory = $true)][string]$ExpectedCommit,
+    [ValidateSet('all', 'lp1', 'lp4', 'pocold', 'pocold-io-fault', 'extension')][string]$Group = 'all'
 )
 
 Set-StrictMode -Version 2.0
@@ -37,6 +40,9 @@ $RustMain = '1.99.1'
 $NodeVersion = '22.22.0'
 # https://nodejs.org/dist/v22.22.0/SHASUMS256.txt, node-v22.22.0-win-x64.zip
 $NodeSha256 = 'c97fa376d2becdc8863fcd3ca2dd9a83a9f3468ee7ccf7a6d076ec66a645c77a'
+$NeedsLp1 = @('all', 'lp1') -contains $Group
+$NeedsMain = @('all', 'lp4', 'pocold', 'pocold-io-fault') -contains $Group
+$NeedsExtension = @('all', 'extension') -contains $Group
 
 if ($ExpectedCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'ExpectedCommit must be a full 40-character lowercase hex SHA' }
 $Repo = (& git rev-parse --show-toplevel).Trim()
@@ -125,15 +131,20 @@ function Test-Program([string]$Check, [string]$Crate, [string]$Program, [string[
 # ---- toolchains ----
 $Tools = Join-Path (Split-Path -Parent $Evidence) 'audit-r2-tools'
 New-Item -ItemType Directory -Force -Path $Tools | Out-Null
-$env0 = [ordered]@{ commit = $Commit; expectedCommit = $ExpectedCommit; dirty = $Dirty; os = [System.Environment]::OSVersion.VersionString; ps = $PSVersionTable.PSVersion.ToString()
+$env0 = [ordered]@{ commit = $Commit; expectedCommit = $ExpectedCommit; group = $Group; dirty = $Dirty; os = [System.Environment]::OSVersion.VersionString; ps = $PSVersionTable.PSVersion.ToString()
     runner = $env:RUNNER_NAME; runnerImage = $env:ImageOS + ' ' + $env:ImageVersion; started = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') }
-foreach ($tc in @($RustLp1, $RustMain)) {
+$RustToolchains = @()
+if ($NeedsLp1) { $RustToolchains += $RustLp1 }
+if ($NeedsMain) { $RustToolchains += $RustMain }
+foreach ($tc in $RustToolchains) {
     $r = Invoke-Step ('rustup-install-' + $tc) 'rustup' @('toolchain', 'install', $tc, '--profile', 'minimal') $Repo
     if ($r.ExitCode -ne 0) { $setupFailed = "rustup toolchain install $tc" }
 }
 $env0.rustc = @{}
-foreach ($tc in @($RustLp1, $RustMain)) { $env0.rustc[$tc] = (& rustc "+$tc" --version 2>&1 | Out-String).Trim() }
+foreach ($tc in $RustToolchains) { $env0.rustc[$tc] = (& rustc "+$tc" --version 2>&1 | Out-String).Trim() }
 $NodeDir = $null
+$env0.node = 'not selected'
+if ($NeedsExtension) {
 try {
     $zip = Join-Path $Tools "node-v$NodeVersion-win-x64.zip"
     Invoke-WebRequest -Uri "https://nodejs.org/dist/v$NodeVersion/node-v$NodeVersion-win-x64.zip" -OutFile $zip
@@ -144,31 +155,50 @@ try {
     $env0.node = (& (Join-Path $NodeDir 'node.exe') --version).Trim(); $env0.nodeSha256 = $h
 }
 catch { $setupFailed = 'node: ' + $_.Exception.Message; $env0.node = 'unavailable: ' + $_.Exception.Message }
+}
 $NodeEnv = $(if ($NodeDir) { @{ PATH = ($NodeDir + ';' + $env:PATH) } } else { @{} })
 
 # ---- checks ----
+$SelectedCrates = @()
+if ($NeedsLp1) { $SelectedCrates += 'lp1-node' }
+if (@('all', 'lp4') -contains $Group) { $SelectedCrates += 'lp4-execution' }
+if (@('all', 'pocold', 'pocold-io-fault') -contains $Group) { $SelectedCrates += 'pocold' }
 foreach ($c in @(@('lp1-node', $RustLp1), @('lp4-execution', $RustMain), @('pocold', $RustMain))) {
+    if ($SelectedCrates -notcontains $c[0]) { continue }
     $r = Invoke-Step ('fetch-' + $c[0]) 'cargo' @('fetch', '--locked') (& $P $c[0]) @{ RUSTUP_TOOLCHAIN = $c[1] }
     if ($r.ExitCode -ne 0 -and -not $setupFailed) { $setupFailed = 'cargo fetch ' + $c[0] }
 }
+if ($NeedsLp1) {
 [void](Test-Cargo 'lp1-store-journal' 'lp1-node' $RustLp1 @('test', '--locked', '--test', 'store_journal'))
 [void](Test-Cargo 'lp1-node-all' 'lp1-node' $RustLp1 @('test', '--locked', '--no-fail-fast') 90)
+}
+if (@('all', 'lp4') -contains $Group) {
 [void](Test-Cargo 'lp4-execution' 'lp4-execution' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 90)
+}
+if (@('all', 'pocold') -contains $Group) {
 [void](Test-Cargo 'pocold' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 90)
+}
 # Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store and consensus.
+if (@('all', 'pocold-io-fault') -contains $Group) {
 [void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'consensus', '--test', 'checkpoint_source', '--test', 'eviction_memory') 90)
+}
+if ($NeedsExtension) {
 $npm = $(if ($NodeDir) { Join-Path $NodeDir 'npm.cmd' } else { 'npm' }); $node = $(if ($NodeDir) { Join-Path $NodeDir 'node.exe' } else { 'node' })
 [void](Test-Program 'extension-npm-ci' 'pocol-extension' $npm @('ci', '--ignore-scripts', '--no-audit', '--no-fund') $NodeEnv)
 [void](Test-Program 'extension-build' 'pocol-extension' $node @('build.mjs') $NodeEnv)
 [void](Test-Program 'extension-unit' 'pocol-extension' $node @('tests/unit.mjs') $NodeEnv)
+}
+if ($Results.Count -eq 0) { Add-Check 'selected-checks' $null 'FAIL' ('No checks selected for group ' + $Group) }
 
 # ---- evidence ----
 $env0.finished = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 $env0 | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Evidence 'environment.json') -Encoding utf8
-$Results | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Evidence 'results.json') -Encoding utf8
+ConvertTo-Json -InputObject ($Results.ToArray()) -Depth 5 | Set-Content -LiteralPath (Join-Path $Evidence 'results.json') -Encoding utf8
 $bad = @($Results | Where-Object { $_.status -ne 'PASS' })
-$md = @("# Audit repair r2 Windows verification", "", "- commit: ``$Commit`` (requested ``$ExpectedCommit``), dirty: $Dirty", "- OS: $($env0.os); PowerShell $($env0.ps)",
-    "- Rust: $($env0.rustc[$RustLp1]) / $($env0.rustc[$RustMain]); Node: $($env0.node)", "", "| check | status | detail |", "|---|---|---|")
+$RustDescription = 'not selected'
+if ($RustToolchains.Count -gt 0) { $RustDescription = ($RustToolchains | ForEach-Object { $env0.rustc[$_] }) -join ' / ' }
+$md = @("# Audit repair r2 Windows verification", "", "- commit: ``$Commit`` (requested ``$ExpectedCommit``), dirty: $Dirty", "- group: $Group", "- OS: $($env0.os); PowerShell $($env0.ps)",
+    "- Rust: $RustDescription; Node: $($env0.node)", "", "| check | status | detail |", "|---|---|---|")
 foreach ($x in $Results) { $md += "| $($x.check) | $($x.status) | $(($x.detail -replace '\|', '/') -replace "`r?`n", ' ') |" }
 $md += ''; $md += $(if ($bad.Count -eq 0) { 'Result: PASS' } else { "Result: FAIL ($($bad.Count) checks not PASS)" })
 $md -join "`n" | Set-Content -LiteralPath (Join-Path $Evidence 'summary.md') -Encoding utf8

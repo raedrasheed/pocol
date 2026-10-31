@@ -1,0 +1,10 @@
+{
+  "prototypes/pocold/src/keyfile.rs": "1b1f15ccc6ce94726e4d95726e1abb4f96228517c5d80939428049edbc9ab914",
+  "prototypes/pocold/src/testnet.rs": "47ee4c4670e3f0232707a0721ac08e885d2111acaf7719b7a32111b591c06e84",
+  "prototypes/pocold/src/main.rs": "8449a6eeb7b9067ba39550aabfc0488f61d594323cb389c0da366b8743ab3183",
+  "prototypes/pocold/src/bin/pocol-key.rs": "eb8ca175ffaed47ce12067c4cf695b8d361508822069df443fdb8e74ba86534c",
+  "prototypes/pocold/src/bin/pocol-sign.rs": "62c67731e905af8a2ab951d8ca00fd51a407c285d0ab727e2f5aa1e846238d55",
+  "prototypes/pocold/src/bin/pocol-site.rs": "ec6536398ea3de682453ed6142ee3814560cf828908a51793ae765a08b2bdbd5",
+  "prototypes/pocold/tests/independent_keys.py": "bf6cc7ad48c44ac65a0ec632fcd7c7d8e43120aa8577766c90302d000734f543",
+  "prototypes/pocold/tests/e2e_independent_keys.py": "c076790a8becc6467dc9b61f109199fea06de0789abc956060704a3bede8805c"
+}

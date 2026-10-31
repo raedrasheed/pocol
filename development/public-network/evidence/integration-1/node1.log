@@ -1,0 +1,68 @@
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[node1 74242427] opened: head h=0 records=0
+[node1 74246022] lock h=1 a=0 PROP tid=0x2f74a5406e
+[node1 74246033] head h=1 0xdafdd66898f9 signed=true txs=2
+[node1 74247027] lock h=2 a=0 PROP tid=0x171e133669
+[node1 74247041] head h=2 0xdaa70ec0d398 signed=true txs=0
+[node1 74248028] lock h=3 a=0 PROP tid=0x7689d64d53
+[node1 74248042] head h=3 0xd709d83a41bb signed=true txs=0
+[node1 74257017] lock h=4 a=0 FB tid=0xa18663e0db
+[node1 74257035] range exhausted; idle until next template
+[node1 74316049] attempt 0 expired; advancing
+[node1 74316051] lock h=4 a=1 FB tid=0xa7c7cab96e
+[node1 74316072] range exhausted; idle until next template
+[node1 74376047] head h=4 0xe2d29726b34b signed=false txs=0
+[node1 74376052] lock h=5 a=0 PROP tid=0x467b158f66
+[node1 74376071] head h=5 0xfef8b222bff6 signed=true txs=0
+[node1 74376077] lock h=6 a=0 PROP tid=0x9500867024
+[node1 74376087] head h=6 0xf670f1d94e18 signed=true txs=0
+[node1 74384122] lock h=7 a=0 FB tid=0x79eabfaa7f
+[node1 74384138] range exhausted; idle until next template
+[node1 74443016] attempt 0 expired; advancing
+[node1 74443020] lock h=7 a=1 FB tid=0xcd533ce9b1
+[node1 74443035] range exhausted; idle until next template
+[node1 74443079] head h=7 0xe4d1b2e7aa83 signed=false txs=0
+[node1 74443085] lock h=8 a=0 PROP tid=0x05df9a5dd8
+[node1 74443098] head h=8 0x2a194905c197 signed=true txs=0
+[node1 74443100] lock h=9 a=0 PROP tid=0x5658a6956e
+[node1 74443130] head h=9 0xa51e7914f202 signed=true txs=0
+[node1 74443164] head h=10 0xc2979f846aae signed=true txs=0
+[node1 74444056] lock h=11 a=0 PROP tid=0x7e2c60a4bf
+[node1 74444072] head h=11 0x6378a45ccbe1 signed=true txs=0
+[node1 74445030] lock h=12 a=0 PROP tid=0x48ca5b554f
+[node1 74445042] head h=12 0xf4623ae3f616 signed=true txs=1
+[node1 74446054] lock h=13 a=0 PROP tid=0x2b438b173a
+[node1 74446073] head h=13 0xd4f1beb86aad signed=true txs=0
+[node1 74447033] lock h=14 a=0 PROP tid=0x25f4a76958
+[node1 74447043] head h=14 0xe0b3b3b7fe3d signed=true txs=0
+[node1 74448034] lock h=15 a=0 PROP tid=0x8cdf72e681
+[node1 74448047] range exhausted; idle until next template
+[node1 74448064] head h=15 0x3cff67a7399c signed=true txs=0
+[node1 74449018] lock h=16 a=0 PROP tid=0x351ec18d40
+[node1 74449032] head h=16 0x157716482259 signed=true txs=0
+[node1 74450020] lock h=17 a=0 PROP tid=0xe9b0e2aefe
+[node1 74450032] head h=17 0x1626bcf42ef0 signed=true txs=0
+[node1 74451019] lock h=18 a=0 PROP tid=0xf7bd69d002
+[node1 74451035] head h=18 0x4c91c59e7661 signed=true txs=0
+[node1 74452061] head h=19 0x224322724054 signed=true txs=0
+[node1 74453029] lock h=20 a=0 PROP tid=0x0dc9249c0e
+[node1 74453043] head h=20 0xc40f4987d1a3 signed=true txs=0
+[node1 74454036] lock h=21 a=0 PROP tid=0x7ed80dbab9
+[node1 74454052] head h=21 0x2b0341ea96b8 signed=true txs=0
+[node1 74455037] lock h=22 a=0 PROP tid=0x7ab34c8324
+[node1 74455053] head h=22 0xa4463bebe944 signed=true txs=1
+[node1 74455065] head h=22 0xe4b5482035bf signed=true txs=1
+[node1 74456025] lock h=23 a=0 PROP tid=0x39df0e6b87
+[node1 74456043] head h=23 0xcd991759a09a signed=true txs=0
+[node1 74457063] head h=24 0x78415d3c1ec5 signed=true txs=0
+[node1 74458043] lock h=25 a=0 PROP tid=0x851530c966
+[node1 74458051] head h=25 0x6047cf40357e signed=true txs=0
+[node1 74459039] lock h=26 a=0 PROP tid=0x994c26a70b
+[node1 74459058] head h=26 0x31075d96a81e signed=true txs=0
+[node1 74460052] lock h=27 a=0 PROP tid=0xe6a9f4a9f4
+[node1 74460074] head h=27 0x47403d699ef1 signed=true txs=0
+[node1 74461039] lock h=28 a=0 PROP tid=0x34b9c6a1a8
+[node1 74461053] range exhausted; idle until next template
+[node1 74461095] head h=28 0x95347a1fdb90 signed=true txs=0
+[node1 74462056] lock h=29 a=0 PROP tid=0xf4f17d0193
+[node1 74462069] head h=29 0xc168c8bed60e signed=true txs=0

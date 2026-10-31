@@ -3,7 +3,7 @@ use crate::fixed::{U256, U512};
 use crate::genesis_spec as gs;
 use crate::hashes::{sha256, H256};
 use crate::param_gate::{registry_metrics, RpcLimits};
-use crate::profile::{ConsensusParams, NodeKind, ProfileKind};
+use crate::profile::{ConsensusParams, ForkSchedule, NodeKind, ProfileKind};
 
 pub const RESOURCE_MODEL: &str = "pocol-lp3-numeric-facts-v1";
 #[derive(Clone, Debug)]
@@ -268,7 +268,10 @@ pub fn check(
     let spec = gs::verify_hash(&p.genesis_pre, &p.genesis_hash).ok();
     let members = spec.as_ref().map_or(0, |s| s.m0_list.len());
     bad[11] = c.M_min < 1 || members < c.M_min as usize || members > c.M_max as usize;
-    bad[12] = c.H_END <= c.Z_close as u64 || c.H_CLOSE as u128 + c.Z_close as u128 > c.H_END as u128 || c.T_CLOSE > c.T_END;
+    // All four zero values explicitly select the continuous protocol; partial zero profiles are invalid.
+    let continuous=c.H_END==0 && c.H_CLOSE==0 && c.T_END==0 && c.T_CLOSE==0;
+    bad[12] = if continuous {p.kind!=ProfileKind::Simnet || node!=NodeKind::Simnet} else {
+        c.H_END==0 || c.T_END==0 || c.H_END <= c.Z_close as u64 || c.H_CLOSE as u128 + c.Z_close as u128 > c.H_END as u128 || c.T_CLOSE > c.T_END};
     let binding = p.binding();
     let rf = resource.filter(|r| r.profile_binding == binding && r.model == RESOURCE_MODEL && r.artifact != [0; 32]);
     if rf.is_none() {
@@ -304,7 +307,7 @@ pub fn check(
     bad[18] = phases.map_or(true, |r| r.phases.iter().any(|f| f.duration_ms as u128 > t * 1000));
     bad[19] = reg.as_ref().map_or(true, |r| (c.Z_close as u128) < r.close_blocks_required);
     bad[20] = rf.map_or(true, |r| {
-        r.retained_blocks < (l.k_hist as u64).min(c.H_END)
+        r.retained_blocks < (l.k_hist as u64).min(if continuous{u64::MAX}else{c.H_END})
             || (r.historical_trie_bytes > l.hist_trie_budget && !(p.kind == ProfileKind::Simnet && node == NodeKind::Simnet && l.retention_stress))
     });
     bad[21] = (node == NodeKind::Node && p.kind != ProfileKind::Network) || ((p.kind == ProfileKind::Network) != (p.chain_id == 777001));
@@ -318,13 +321,11 @@ pub fn check(
             add512(&mut total, &U512::from_u256(balance));
         }
         add512(&mut total, &U512::mul_u256_u64(&c.B_reg, members as u64));
-        add512(&mut total, &U512::mul_u256_u64(&c.subsidy, c.H_END));
+        add512(&mut total, &U512::mul_u256_u64(&c.subsidy, if continuous{u64::MAX}else{c.H_END}));
         total.bits() > 127
     });
     bad[23] = spec.as_ref().map_or(true,|s|s.chain_id!=p.chain_id || s.cp!=c.to_values() || id.map_or(true,|i|s.alloc_root!=i.alloc_root || s.sys_code_hash!=i.sys_code_hash))
-        || p.forks.first()!=Some(&(1,0)) || p.forks.windows(2).any(|w|w[0].1>=w[1].1)
-        // Only v1 is implemented: TestFork-v2 is rejected even in simnet until implemented.
-        || p.forks.iter().any(|(v,_)|*v!=1) || p.chain_id==0;
+        || ForkSchedule::new(&p.forks).is_err() || p.chain_id==0;
     let cal = calibration.filter(|r| r.profile_binding == binding && r.model == RESOURCE_MODEL && r.artifact != [0; 32]);
     if cal.is_none() {
         missing.push("calibrationFacts:missing-or-binding-model-artifact-mismatch");

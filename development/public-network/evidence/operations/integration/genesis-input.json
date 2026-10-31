@@ -1,0 +1,37 @@
+{
+  "chainId": 777914,
+  "genesisTime": 1793278578,
+  "registrationPerBlock": 1,
+  "miners": [
+    {
+      "id": "0xaea4b6b4f963c49c4a04fbeb6bad86481ba5e511",
+      "reward": "0x0e72aba3eda2f333c533bbf6b923ca8acb80af0e"
+    },
+    {
+      "id": "0x0bfcabc499314304c6289cb1d46ab77455534265",
+      "reward": "0x57192898a4b2fd30ebfb1ed440320502b84731cc"
+    },
+    {
+      "id": "0x6c0e3beb69fb3e0b4baaaa5fbf7d7eb9ac4bff41",
+      "reward": "0xa2b81b08905592631e30ddfd8d0903b5b3a19a57"
+    }
+  ],
+  "accounts": [
+    {
+      "address": "0xf39f4f4acd9608a93d41d6e3573ac413101eb910",
+      "wei": "1000000000000000000000000"
+    },
+    {
+      "address": "0x015c231f9221bbc77bdd21c368dcd3f9442a65ca",
+      "wei": "1000000000000000000000000"
+    },
+    {
+      "address": "0x231d0b3291590a728284746f573df0a92300930d",
+      "wei": "1000000000000000000000000"
+    },
+    {
+      "address": "0x02dcf275d699f2b1e8fdeda9b558ea327dc699a7",
+      "wei": "1000000000000000000000000"
+    }
+  ]
+}

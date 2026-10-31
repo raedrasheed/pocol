@@ -67,7 +67,7 @@ fn construct(alloc:&InMemoryDB,p:&ProfileIdentity,programs:&[Bytes;5])->Result<G
  check_caps(alloc,p)?;
  if let Some(a)=alloc.accounts.get(&crate::pay_address()).and_then(|a|a.info()){if a.code_hash!=revm::primitives::KECCAK_EMPTY{return Err(GenesisError::Code)}}
  let alloc_sum=sum_balances(alloc)?;let bond=number(p.spec().cp[16]);let bonds=bond.checked_mul(U256::from(n)).ok_or(GenesisError::Supply)?;
- let future=number(p.spec().cp[15]).checked_mul(U256::from(p.cp().H_END)).ok_or(GenesisError::Supply)?;
+ let future=number(p.spec().cp[15]).checked_mul(U256::from(if p.cp().H_END==0{u64::MAX}else{p.cp().H_END})).ok_or(GenesisError::Supply)?;
  let supply_bound=add(add(alloc_sum,bonds)?,future)?;
  if supply_bound>=(U256::from(1)<<127){return Err(GenesisError::Supply)}
  let mut db=alloc.clone();let mut hashes=[B256::ZERO;5];

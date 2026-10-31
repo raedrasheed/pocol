@@ -12,6 +12,14 @@
 #[path="../../lp1-node/src/assignment.rs"] #[allow(dead_code)] pub mod assignment;
 #[path="../../lp1-node/src/timing.rs"] #[allow(dead_code)] pub mod timing;
 pub mod site;
+pub mod keyfile;
+pub mod launcher;
+pub mod wallet;
+#[cfg(any(target_os = "android", test))]
+mod mobile;
+pub mod testnet;
+pub mod identity;
+pub mod network_display;
 pub mod secp_backend;
 /// A13 obligation 3 (enforced): every pocold thread is created here with an explicit stack
 /// reservation, and its resident stack cannot exceed that reservation (an overflow hits the
@@ -176,6 +184,23 @@ pub fn admission_json(a:&admission::Admitted)->serde_json::Value{
 /// The timing recorded by init-devnet is informational only (review finding: a recorded value
 /// could come from another machine or be edited).
 pub fn load_spec(dir:&std::path::Path,local:&NodeLocal)->Result<chain::Spec,String>{load_spec_for(dir,local,None)}
+/// Operator-approved consensus schedule, separate from the immutable genesis.
+/// Missing schedules retain the historical v1 behavior; malformed schedules fail closed.
+pub fn configured_forks(info:&serde_json::Value)->Result<Vec<(u16,u64)>,String>{
+    if !info.is_object(){return Err("network metadata must be a JSON object".into())}
+    let forks = match info.get("forks") {
+        None => vec![(1,0)],
+        Some(value) => {
+            if value.as_array().map_or(true,|a|a.is_empty()||a.len()>16){return Err("invalid consensus fork schedule".into())}
+            serde_json::from_value::<Vec<(u16,u64)>>(value.clone()).map_err(|_|"invalid consensus fork schedule".to_string())?
+        }
+    };
+    pocol_lp4_execution::profile::ForkSchedule::new(&forks).map_err(|e|format!("consensus fork schedule: {e:?}"))?;
+    if forks!=[(1,0)] && !(forks.len()==2 && forks[0]==(1,0) && forks[1].0==2){
+        return Err("runtime schedule must be [(1,0)] or [(1,0),(2,H)]".into());
+    }
+    Ok(forks)
+}
 /// The scratch state store of a store-mode boot's R14/R19 measurement, in the node's data directory.
 pub const CALIBRATION_STORE:&str="calibration.store";
 /// `load_spec` for a node about to open `store_data` in store mode (C-1 E4; `None`: whole-state mode). R14/R19 are
@@ -187,11 +212,16 @@ pub fn load_spec_for(dir:&std::path::Path,local:&NodeLocal,store_data:Option<&st
     let spec_bytes=types::unhex(hexs.trim())?;
     let alloc:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(dir.join("alloc.json")).map_err(|e|format!("alloc.json: {e}"))?).map_err(|e|e.to_string())?;
     let alloc=devnet::alloc_from_json(&alloc)?;
-    let info:serde_json::Value=std::fs::read_to_string(dir.join("devnet.json")).ok().and_then(|t|serde_json::from_str(&t).ok()).unwrap_or_default();
+    let info:serde_json::Value=match std::fs::read_to_string(dir.join("devnet.json")){
+        Ok(text)=>serde_json::from_str(&text).map_err(|e|format!("devnet.json: {e}"))?,
+        Err(e) if e.kind()==std::io::ErrorKind::NotFound=>serde_json::json!({}),
+        Err(e)=>return Err(format!("devnet.json: {e}")),
+    };
+    let forks=configured_forks(&info)?;
     let calibration=info["calibration"]["hashesPerSecond"].as_u64().map(|r|(r,FactClass::SyntheticFixture));
     let mut measured=admission::measure(&spec_bytes,&alloc,1);
     if let (Some(data),Ok(mem))=(store_data,&measured){measured=store_timing(data,&spec_bytes,&alloc).and_then(|s|mem.with_store(&s));}
-    let req=Request{spec_bytes:&spec_bytes,alloc:&alloc,forks:&[(1,0)],kind:ProfileKind::Simnet,node:NodeKind::Simnet,local,calibration,timing:measured.as_ref().ok(),scope:admission::Scope::ExperimentalDevnet};
+    let req=Request{spec_bytes:&spec_bytes,alloc:&alloc,forks:&forks,kind:ProfileKind::Simnet,node:NodeKind::Simnet,local,calibration,timing:measured.as_ref().ok(),scope:admission::Scope::ExperimentalDevnet};
     admission::admit(&req).map(chain::Spec::new).map_err(|e|match &measured{Err(why)=>format!("{e}; timing: {why}"),Ok(_)=>e.to_string()})
 }
 /// The calibration through a scratch state store at `data/CALIBRATION_STORE`, removed afterwards (also when the

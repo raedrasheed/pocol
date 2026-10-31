@@ -276,7 +276,7 @@ pub(crate) fn execute_user_phase_on<S:WorkState>(mut state:S,live:(u64,u64),know
  let limit:u64=block.gas_limit.try_into().map_err(|_|UserError::Gas)?;
  let mut used=0u64;let mut tips=U256::ZERO;let mut encoded=Vec::new();let mut bloom=[0u8;256];
  let (live_slots,live_accts)=live;
- let mut meter=BlockMeter{log_bytes:0,log_count:0,cum_log:ctx.cum_log_bytes,dirty_keys:HashSet::new(),dirty_accts:HashSet::new(),sys_keys:HashSet::new(),sys_accts:HashSet::new(),
+ let mut meter=BlockMeter{log_bytes:0,log_count:0,cum_log:if profile.is_some_and(|p|p.cp().H_END==0){0}else{ctx.cum_log_bytes},dirty_keys:HashSet::new(),dirty_accts:HashSet::new(),sys_keys:HashSet::new(),sys_accts:HashSet::new(),
   live_slots,live_accts,closing:ctx.closing,caps:profile.map(|p|(p.cp().SLOT_CAP,p.cp().ACCT_CAP,u64::from(p.cp().SYS_KEYS_USER_MAX)))};
  let mut halts=Vec::new();
  // C-2 item 2: the state's logical code total, set at the first transaction and kept by each commit.

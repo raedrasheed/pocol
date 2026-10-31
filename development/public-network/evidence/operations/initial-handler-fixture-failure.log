@@ -1,0 +1,26 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.22s
+     Running tests/consensus.rs (prototypes/pocold/target/release/deps/consensus-7adfc95d9dbe6c49)
+
+running 4 tests
+test a_peer_with_a_false_status_cannot_hold_the_sync_session ... ok
+test an_invalid_template_from_the_drawn_proposer_punishes_its_peer ... FAILED
+test range_sync_reaches_the_peer_head_through_truncated_responses ... ok
+test transactions_returned_from_an_abandoned_block_are_offered_to_the_peers ... ok
+
+failures:
+
+---- an_invalid_template_from_the_drawn_proposer_punishes_its_peer stdout ----
+
+thread 'an_invalid_template_from_the_drawn_proposer_punishes_its_peer' (63) panicked at tests/consensus.rs:310:45:
+assertion `left == right` failed: the invalid signed template punishes its peer
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    an_invalid_template_from_the_drawn_proposer_punishes_its_peer
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 96 filtered out; finished in 12.50s
+
+error: test failed, to rerun pass `--test consensus`

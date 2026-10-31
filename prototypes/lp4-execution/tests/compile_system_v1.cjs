@@ -3,8 +3,13 @@
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
 const read=f=>fs.readFileSync(path.join(__dirname,'../contracts',f),'utf8');
+const continuous=process.argv.includes('--continuous');
+const source=read('system/PoColSystemV1.sol');
+const old='if(c&CLOSING==0 && height<cfg(47) && block.timestamp<cfg(48))';
+if(continuous && !source.includes(old))throw Error('continuous source patch no longer matches');
+const registry=continuous?source.replace(old,'if(c&CLOSING==0 && ((cfg(47)==0 && cfg(48)==0) || (height<cfg(47) && block.timestamp<cfg(48))))'):source;
 const input={language:'Solidity',sources:{
-  'system/PoColSystemV1.sol':{content:read('system/PoColSystemV1.sol')},
+  'system/PoColSystemV1.sol':{content:registry},
   'ChunkFactory.sol':{content:read('ChunkFactory.sol')}},
   settings:{optimizer:{enabled:true,runs:200},evmVersion:'cancun',metadata:{bytecodeHash:'none',appendCBOR:false},
   outputSelection:{'*':{'*':['abi','evm.deployedBytecode.object','storageLayout']}}}};

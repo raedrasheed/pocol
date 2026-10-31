@@ -50,7 +50,7 @@ impl DevnetConfig{
          n(self.w_act.into()),n(self.theta_inact.into()),n(self.e_win.into()),n(self.u.into()),n(4),n(8192),
          n(self.gas_limit),n(1_000_000_000),n(131072),n(196608),n(32768),n(self.code_cap),n(self.txbytes_cap),n(self.tx_cap),n(self.slot_cap),n(self.acct_cap),
          n(self.sys_slot_max.into()),n(2048),n(256),n(512),n(96_000_000),
-         n(self.h_end),n(self.g_ts+self.t_end_offset),n(self.h_close),n(self.g_ts+self.t_close_offset),n(self.z_close.into()),n(self.ret.into()),n(self.p2.into())]
+         n(self.h_end),n(if self.h_end==0{0}else{self.g_ts+self.t_end_offset}),n(if self.h_end==0{0}else{self.h_close}),n(if self.h_end==0{0}else{self.g_ts+self.t_close_offset}),n(self.z_close.into()),n(self.ret.into()),n(self.p2.into())]
     }
 }
 impl DevnetConfig{
@@ -100,7 +100,7 @@ pub fn account_key(label:&str)->Key{Key::devnet(&format!("account:{label}"))}
 /// is a candidate, not an admitted profile (see `Devnet::admit`).
 pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     if cfg.chain_id==777001{return Err("network chainId is not a devnet".into())}
-    let programs=SystemPrograms::v1();
+    let programs=if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()};
     let mut miners:Vec<MinerIdentity>=cfg.miners.iter().map(|l|miner_identity(l)).collect();
     miners.sort_by_key(|m|m.id);
     let mut alloc=InMemoryDB::default();

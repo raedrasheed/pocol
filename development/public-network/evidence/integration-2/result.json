@@ -1,0 +1,23 @@
+{
+  "result": "PASS",
+  "scope": "local independent-key/registration integration",
+  "checks": [
+    "four nodes load independent keys; fourth key is not in genesis membership",
+    "independently signed transfer converges; future reward account becomes durable",
+    "non-genesis miner registers through a transaction and produces real blocks",
+    "duplicate registration reverts without adding a fifth member",
+    "site published with independent account key and verified byte-for-byte on all four nodes",
+    "four nodes agree on roots; newly registered miner restarts with its original identity"
+  ],
+  "publicLaunchReady": false,
+  "realMultiHostProven": false,
+  "binarySha256": "4977788bdcb37b4a063e268830fd3907fff64520391f71276f831777b86af592",
+  "commonHeight": 22,
+  "commonHash": "0xa2a6fa3ab3165939d2f3334be8a10fd6705ea053462167c04956158d617decf7",
+  "site": "0xe20aaa66e4c2e9abd7d20028ad5d5a6fdc217396",
+  "transactions": {
+    "transfer": "0x05d9ee82558b9716633c8ea2e19aca1c6e2c6d01afe08bf3fac0abd8e00912dd",
+    "registration": "0xf648ecca34509139f180e27c40623f6d3d85e59528835e7db78b8a0b2c6133f7",
+    "duplicate": "0x4346c96cc6a9506ca9e9927dbab1bc1b8f4babc2c9fcac38c074f701425250c9"
+  }
+}

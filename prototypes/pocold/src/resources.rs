@@ -320,6 +320,19 @@ pub fn eviction_bookkeeping_bytes(side_cap:u128,r_keep:u128)->Option<u128>{
 
 /// The bound, or None on arithmetic overflow.
 pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize)->Option<Bound>{
+    // A continuous chain has no finite lifetime bound. Project from observed journal records
+    // plus 2048 records of headroom, and recheck locally as the journal grows. Never substitute
+    // zero as the history size or claim that this projection bounds an infinite history.
+    let mut projected=cp.clone();
+    let continuous=cp.H_END==0;
+    if continuous{
+        let records=limits.continuous_history?.checked_add(2048)?;
+        projected.H_END=records;
+        projected.TX_CAP=cp.TX_CAP.min(cp.GAS_LIMIT/21_000).checked_mul(records.checked_add(1)?)?;
+        projected.TXBYTES_CAP=cp.TXBYTES_CAP.min(u64::from(cp.BODY_MAX)).checked_mul(records.checked_add(1)?)?;
+    }
+    let cp=&projected;
+    let log_cap=if continuous{u128::from(caps::LOG_BLOCK_MAX).checked_mul(u128::from(cp.H_END)+1)?}else{u128::from(caps::LOG_CAP)};
     let s=u128::from(cp.S_max);let m=u128::from(cp.M_max);let hdr=header_max(cp.S_max);
     // Snapshot: accounts <= ACCT_CAP user accounts (genesis check_caps, USER halts AcctCap)
     // + 5 programs; slots <= SLOT_CAP (USER halts SlotCap) + SYS_SLOT_MAX (post-block check);
@@ -429,7 +442,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let w_bodies=mul(window,u128::from(cp.BODY_MAX))?.min(u128::from(cp.TXBYTES_CAP));
     let w_evidence=mul(window,mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?)?.min(mul(identities,u128::from(cp.EVID_BYTES_MAX)+24)?);
     let w_receipts=mul(mul(window,side_txs)?.min(u128::from(cp.TX_CAP)),per_tx)?;
-    let w_logs=mul(window,u128::from(caps::LOG_BLOCK_MAX))?.min(u128::from(caps::LOG_CAP))/32*33;
+    let w_logs=mul(window,u128::from(caps::LOG_BLOCK_MAX))?.min(log_cap)/32*33;
     // history.redb (crate::history): its page cache is HISTORY_CACHE (redb splits it 9:1 between reads
     // and the write buffer, and flushes the write buffer to the file past its share). Its allocator keeps
     // per page two buddy bitmaps over the page orders (about 4 bits a page, redb 2.6.4 buddy_allocator.rs),
@@ -437,7 +450,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // transaction an index entry, at most HISTORY_FILE_FACTOR times their bytes (measured below 4.2,
     // evidence/c1-s1/).
     // C-1 S4: each block's nonce ranges too (owner 20 + start 16 + end 16 bytes per member, a seal).
-    let payload=add(&[mul(blocks,32+32+64)?,mul(blocks,32+32+52*m)?,mul(u128::from(cp.TX_CAP),RECEIPT_BASE+4+64+4)?,u128::from(caps::LOG_CAP)/32*33])?;
+    let payload=add(&[mul(blocks,32+32+64)?,mul(blocks,32+32+52*m)?,mul(u128::from(cp.TX_CAP),RECEIPT_BASE+4+64+4)?,log_cap/32*33])?;
     // C-1 S4: canonical journaled entries deeper than slim_depth (default 2·R_keep + E_win + 257) keep only
     // the entry, its map slot and canonical index, and an empty state; the header's heap fields, the
     // ParentResult and the nonce ranges are restored from the journal and history.redb on demand.

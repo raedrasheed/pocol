@@ -235,7 +235,7 @@ impl<'c> Window<'c> {
                 }
             }
         }
-        if x.h > cp.h_end {
+        if cp.h_end!=0 && x.h > cp.h_end {
             return rf("2", "H_END (10a)");
         }
         self.ev("item3", x.h);

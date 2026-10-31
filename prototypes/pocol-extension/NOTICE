@@ -1,0 +1,11 @@
+PoCol Studio, IDE & Viewer
+
+PoCol extension source declares Apache-2.0 in package.json.
+Baseline: palcertcom/pocol, work/pocol-studio,
+93d7f39fbe1f34890bbe1685a0f95309fc1cb7a5, extension 0.2.1.
+This 0.3.0 update adds the origin-scoped IDE contract approval workflow.
+
+Bundled third-party software retains its own notices:
+- @noble/hashes 1.8.0: vendor/hashes/LICENSE
+- @noble/secp256k1 2.3.0: vendor/secp256k1/LICENSE
+- ethers 6.17.0: vendor/ethers-LICENSE.md

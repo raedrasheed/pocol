@@ -1,0 +1,9 @@
+{
+  "name": "pocol-private-01",
+  "chainId": 777910,
+  "nodes": [
+    {"name": "node1", "ip": "10.77.0.11", "p2pPort": 30300, "rpcPort": 8540},
+    {"name": "node2", "ip": "10.77.0.12", "p2pPort": 30300, "rpcPort": 8540},
+    {"name": "node3", "ip": "10.77.0.13", "p2pPort": 30300, "rpcPort": 8540}
+  ]
+}

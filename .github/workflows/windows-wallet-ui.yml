@@ -1,0 +1,47 @@
+name: Windows wallet UI regression
+on:
+  pull_request:
+    branches: [main, codex/public-network-operations]
+    paths: ['prototypes/pocol-windows/**', 'deploy/standalone/build-windows-wallet.ps1', 'deploy/standalone/README-WINDOWS-UPDATE.md', '.github/workflows/windows-wallet-ui.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wallet-ui-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-ui:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    env:
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build GUI and verify actual WPF history before and after the fix
+        shell: powershell
+        run: |
+          if ((git rev-parse HEAD) -ne $env:EXPECTED_COMMIT) { throw 'Unexpected source commit' }
+          ./deploy/standalone/build-windows-wallet.ps1 -VerifyRegression
+      - name: Stage the GUI update and test evidence
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item prototypes/pocold/target/release/PoCol-Wallet.exe dist/
+          Copy-Item deploy/standalone/README-WINDOWS-UPDATE.md dist/
+          Copy-Item wallet-ui-tests/*.log dist/
+          Copy-Item wallet-ui-tests/activity-fixture.png dist/
+          Copy-Item wallet-preview.png dist/PoCol-Wallet-preview.png
+          $env:EXPECTED_COMMIT | Set-Content dist/UI-SOURCE-COMMIT.txt
+          $hash=(Get-FileHash dist/PoCol-Wallet.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  PoCol-Wallet.exe" | Set-Content dist/WALLET-UPDATE-SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: wallet-ui-${{ env.EXPECTED_COMMIT }}
+          path: dist/
+          retention-days: 30

@@ -597,3 +597,29 @@ mod a03{
     let o2=apply_block_with(&o.state,Some(&o.trie),Some(&o.summary),&net.genesis,&net.profile,&input2).unwrap();
     assert_eq!((o2.state_root,o2.summary),(r2.state_root,r2.summary));
 }
+
+
+/// Actual compiled continuous contracts: execute beyond BOTH old height boundaries and old
+/// time expiry, with a real signed transfer in every block. Keep only the current state.
+#[test]
+fn continuous_executes_past_twenty_thousand_with_transfers_and_rewards(){
+    let mut cfg=DevnetConfig::new(777934,1_800_000_000,&["a","b","c"]);cfg.h_end=0;cfg.h_close=0;cfg.tx_cap=1;
+    let net=devnet::build(&cfg).unwrap();
+    let mut state=net.genesis.state().clone();let mut prev=None;
+    let alice=devnet::account_key("alice");let bob=devnet::account_key("bob").address();
+    let before=state.accounts[&bob].info.balance;
+    for h in 1..=20_002u64{
+        let tx=crate::txsign::Tx{chain_id:cfg.chain_id,nonce:h-1,max_priority:U256::ZERO,max_fee:U256::from(1_000_000_000u64),gas:21_000,to:Some(bob),value:U256::from(1),data:Bytes::new()};
+        let raw=vec![tx.sign_1559(&alice)];
+        let input=BlockInput{height:h,timestamp:cfg.g_ts+11_000_000+4*h,base_fee:U256::from(1_000_000_000u64),gas_limit:cfg.gas_limit,prevrandao:B256::ZERO,
+            proposer:Proposer::Fallback,parent_result:prev,evidence:vec![],evidence_raw:&[],transactions:&raw,ancestors:(h.saturating_sub(256)..h).map(|j|(j,if j==0{net.genesis_hash}else{B256::from(U256::from(j))})).collect(),cum_log_bytes:u64::MAX};
+        let out=apply_block(&state,&net.genesis,&net.profile,&input).unwrap_or_else(|e|panic!("continuous h={h}: {e:?}"));
+        assert!(!out.is_final&&!out.facts.closing,"no scheduled closing or finalization at {h}");
+        let winner=net.miners[(h as usize)%3].id;
+        prev=Some(ParentResult{block_hash:B256::from(U256::from(h)),winner,shares:vec![]});state=out.state;
+    }
+    assert_eq!(state.accounts[&bob].info.balance,before+U256::from(20_002));
+    assert_eq!(state.accounts[&alice.address()].info.nonce,20_002);
+    check_escrow_invariant(&state,&net.profile,20_002,false).unwrap();
+    for m in &net.miners{assert!(state.accounts[&m.reward].info.balance>U256::ZERO)}
+}

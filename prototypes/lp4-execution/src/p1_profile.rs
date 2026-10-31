@@ -209,10 +209,11 @@ pub enum ProfileError {
     R22,
     ForkStart,
     ForkHeight,
+    ForkVersionOrder,
     UnsupportedVersion(u16),
 }
 
-/// Only v1 is implemented. TestFork-v2 remains unsupported, even in simnet.
+/// Optional v2 activation enables the full nonce domain; v1 remains the default.
 /// Private entries ensure active_version is called only on a validated schedule.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ForkSchedule(Vec<(u16, u64)>);
@@ -222,13 +223,18 @@ impl ForkSchedule {
             return Err(ProfileError::ForkStart);
         }
         let mut previous = None;
+        let mut activated_v2 = false;
         for &(version, height) in entries {
             if previous.map_or(false, |h| height <= h) {
                 return Err(ProfileError::ForkHeight);
             }
-            if version != 1 {
+            if version != 1 && version != 2 {
                 return Err(ProfileError::UnsupportedVersion(version));
             }
+            if activated_v2 {
+                return Err(ProfileError::ForkVersionOrder);
+            }
+            activated_v2 = version == 2;
             previous = Some(height);
         }
         Ok(Self(entries.to_vec()))

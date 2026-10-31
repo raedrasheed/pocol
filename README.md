@@ -7,16 +7,27 @@ template**, and a deterministic seed gives each registered miner a **disjoint sl
 do not hash the same candidate-header input in that round, and the reward is shared among the winner and the
 miners whose work is evidenced by _shares_.
 
-This repository holds the specification and an experimental implementation:
+This repository holds the specification and the implementation used by PoCol:
 
 - `pocold`, a Rust node with an EVM (revm, Cancun rules), P2P networking, mining, persistence and JSON-RPC;
 - an execution layer with system contracts;
 - on-chain website storage;
-- a Chrome MV3 extension that verifies and displays on-chain sites.
+- native Windows, Linux and Android wallets;
+- a Chrome MV3 extension for Studio publishing, IDE contract transactions and verified on-chain sites.
 
-> **Status: experimental.** The code runs local development networks (simnet) only. It is not production-ready, has not
-> had an independent external security audit, and must not be used with real funds. See
-> [Current status and limits](#current-status-and-limits).
+The existing public chain is operator-designated **PoCol Mainnet**, with currency
+symbol **PCOL**, chain ID `1599846715`, and genesis hash
+`0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`.
+The 0.4.0 upgrade preserves that identity, wallets, balances and history. Consensus
+version 2 enables the complete nonce range `0` through `18446744073709551615` at
+one explicitly configured future height; merging the code does not activate it.
+See the [coordinated rollout guide](deploy/mainnet/README.md).
+
+The Mainnet name is a deployment designation. The engine still reports its actual
+experimental admission scope, `specificationCompliant: false` and
+`publicLaunchReady: false`; these are not overridden by branding. Independent
+external security review and the technical conditions in
+[Current status and limits](#current-status-and-limits) remain outstanding.
 
 ---
 
@@ -91,14 +102,14 @@ This is an outline. The normative rules are in [development/m1/reference/](devel
 - `R_tot = subsidy + fees`. The winner and the shares of a block are recorded in its child block (`ParentResult`).
 - Settlement is deferred and runs through system contracts (Registry, Escrow, PAY), with exact rounding and
   classified burns.
-- The design specifies a registration bond (`B_reg`) and activity eligibility. The current devnet builder sets `R_max=0`, so new registration/reactivation is disabled in that profile; the initial miners come from genesis.
+- The design specifies a registration bond (`B_reg`) and activity eligibility. The public chain supports transaction-driven miner registration; local fixture profiles may disable new registration with `R_max=0`.
 
 ### Execution (EVM)
 
 - User transactions run on revm 19.7 with Cancun rules. Consensus and execution are kept apart:
   `apply(S_parent, ctx, body, parentHeader) → (S, receipts, roots, …)`.
-- The network has cumulative caps on accounts, storage slots, code and transaction bytes, and a final closing
-  height `H_END`.
+- The network has cumulative caps on accounts, storage slots, code and transaction bytes.
+  The current public chain is continuous (`H_END=0`); finite local profiles retain a closing height.
 
 ### Site storage and the browser
 
@@ -108,7 +119,7 @@ This is an outline. The normative rules are in [development/m1/reference/](devel
   file hash. It then renders the site in a sandboxed frame with no network access (CSP, per-tab DNR rules,
   RtcLockdown), and every request from the site goes through BridgeAuth.
 - **Light client (RP).** Checks network identity and a window of at most 13 headers. It does not reexecute the full chain or prove the complete EVM state. **LN** relies on a trusted local node. Read the trust banner outside the site frame and the [extension coverage table](development/lp9/LP9-EXTENSION.md).
-- **Wallet.** Devnet only. Every signature needs a confirmation that shows the exact bytes.
+- **Wallet.** Native clients keep their existing local identity. Studio and IDE signing uses an explicit extension confirmation with the transaction details and fee limit.
 
 ## How the project was developed
 
@@ -502,8 +513,8 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 
 **Not established, or still open:**
 
-- **The production network profile does not boot on `pocold`.**
-  - There is no approved network genesis.
+- **Specification-profile admission is not implemented for the current public chain.**
+  - The current chain has an existing operator-selected genesis; the separately defined `Network` profile expects a different chain ID. Renaming a deployment does not change either identity.
   - Whole-state mode does not meet the A13 memory condition.
   - Rule R21 refuses the profile.
   - Only simnet admission exists (R22).
@@ -515,7 +526,8 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 - **Design objectives.** PoW-equivalent security, fairness and Sybil resistance are not proven.
 - **No external audit.** No independent external human security audit has been done.
 
-**Do not use this code for a real network or with real funds.**
+The deployment designation does not close these engineering or security conditions.
+Read the admission report and rollout prerequisites before operating this release.
 
 ## Troubleshooting
 

@@ -46,6 +46,8 @@ pub struct Config{
 pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// Node memory budget for the A13 resident bound (resources::check at open).
     pub mem_budget:u64,
+    /// Observed journal records for the continuous resource projection, never a consensus limit.
+    pub continuous_history:Option<u64>,
     /// Local retention (consensus.md:29, governance.md:15; never validity): R_keep and the cap on
     /// unprotected non-canonical metadata (chain::R_KEEP, chain::SIDE_BLOCKS_MAX). Live import and
     /// replay must use the same values; tests lower them to reach the boundaries quickly.
@@ -68,7 +70,7 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     pub state_store:bool,
     /// C-1 E4.4 (D-6): journal records between two local checkpoints of a store-mode node (0: none).
     pub checkpoint_every:u64}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY}}}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY}}}
 /// C-1 S1: replay refills history.redb with non-durable commits and makes them durable every this many blocks.
 const HISTORY_SYNC:u64=256;
 /// D-7: one slice of pool revalidation. The consensus thread is held for at most this, plus the
@@ -321,11 +323,13 @@ fn retention_rkeep(dir:&std::path::Path,configured:u64)->std::io::Result<u64>{
 impl Drop for Node{fn drop(&mut self){if let Some(s)=&self.state_store{s.close();}}}
 impl Node{
     /// Opens the journal, replays and re-executes every committed block.
-    pub fn open(cfg:Config,spec:Spec)->Result<Self,String>{
+    pub fn open(mut cfg:Config,spec:Spec)->Result<Self,String>{
+        if cfg.name.is_empty()||cfg.name.len()>net::NODE_NAME_MAX||!cfg.name.bytes().all(|b|b.is_ascii_graphic()){return Err("node name must be 1..64 printable ASCII bytes without spaces".into())}
         // A13: the resident bound of this profile with these limits must fit the budget (the pool counted at
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
         let pool_gas_max=pool_gas_bound(spec.cp(),&cfg.limits)?;
+        if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
         // One pass over the journal (2026-10-28: its payloads are not held, condition `open-replay-transient`):
@@ -336,11 +340,15 @@ impl Node{
         let t=Instant::now();
         let rec=store::open_with(&cfg.dir,&binding,&mut |i,_,payload|{
             if bad.is_none(){match store::decode_record(payload).map_err(|e|e.to_string()).and_then(|(hb,_,_)|decode_header(&hb).map_err(|e|format!("{e}"))){
-                Ok(header)=>{events.entry(block_hash(&header)).or_default().push_back((i,false));events.entry(header.parent_hash).or_default().push_back((i,true));}
+                Ok(header)=>{
+                    if header.protocol_version!=spec.active_version(header.h){bad=Some(format!("record {i}: stored block {} conflicts with the configured consensus fork schedule",header.h));}
+                    else{events.entry(block_hash(&header)).or_default().push_back((i,false));events.entry(header.parent_hash).or_default().push_back((i,true));}
+                }
                 Err(e)=>bad=Some(format!("record {i}: {e}"))}}
             let h=crate::checkpoint::roll(rolls.last().unwrap(),payload);offs.push(offs.last().unwrap()+(payload.len()+store::OVERHEAD) as u64);rolls.push(h);
         }).map_err(|e|format!("store: {e:?}"))?;timing.journal_ms=ms(t);
         if let Some(e)=bad{return Err(e)}
+        if spec.cp().H_END==0{cfg.limits.continuous_history=Some(rec.journal.records);crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;}
         // Replay must not use a smaller R_keep than live used for any record (it would drop a parent live
         // kept); a larger one only keeps blocks that were below the head when imported. The largest value
         // this data directory has used is kept durably beside the journal and replay uses it.
@@ -566,9 +574,12 @@ impl Node{
         Ok(())
     }
     /// Runs until stop_at or channel closure.
-    pub fn run(&mut self){
+    pub fn run(&mut self){self.run_controlled(|_| false)}
+    /// The host can stop at event boundaries and publish local status. The process must exit
+    /// after return: existing transport workers are process-scoped. No consensus rules change.
+    pub fn run_controlled(&mut self, mut stop:impl FnMut(&mut Self)->bool){
         self.restart_production();
-        while !self.stopped{
+        while !self.stopped && !stop(self){
             // D-7: while the pool has a backlog, one event (if any is waiting) and one slice alternate. D-6: so do
             // one event and one release step while a dropped checkpoint's nodes are owed (the pool first).
             let ev=match self.deferred.pop_front(){Some(e)=>e,None=>if self.background_pending(){match self.rx.try_recv(){Ok(e)=>e,Err(mpsc::TryRecvError::Empty)=>{self.drain_light();self.background_step();continue}Err(_)=>break}}
@@ -578,6 +589,14 @@ impl Node{
             if self.background_pending(){self.background_step();}
         }
         if let Some(p)=&self.prod{if let Some(m)=&p.miner{m.stop();}}
+    }
+    /// Local UI control, never exposed through public RPC. Validation and P2P continue.
+    pub fn set_mining_key(&mut self,key:Option<Key>){
+        if self.cfg.miner.as_ref().map(Key::address)==key.as_ref().map(Key::address){return}
+        // Join the old worker before dropping its key; queued results no longer match production.
+        if let Some(p)=self.prod.take(){if let Some(m)=p.miner{m.stop();drop(m);}}
+        self.cfg.miner=key;
+        self.restart_production();
     }
     /// Runs up to LIGHT_TURN waiting light requests, never nested inside a light request. A
     /// full turn may leave requests behind: the node wakes itself for them.
@@ -627,8 +646,8 @@ impl Node{
     }
     /// Φ = 2φ from the admitted local parameters (future-timestamp slack).
     fn capital_phi(&self)->u64{u64::from(self.chain.spec.local().capital_phi())}
-    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone()}}
-    fn broadcast(&self,m:&Msg,except:Option<PeerId>){for (id,p) in &self.peers{if Some(*id)!=except{p.send(m);}}}
+    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries())}}
+    fn broadcast(&self,m:&Msg,except:Option<PeerId>){for (id,p) in &self.peers{if Some(*id)!=except&&self.peer_status.contains_key(id){p.send(m);}}}
 
     // ---------------- import ----------------
     /// Validates, journals (fsync) and inserts a block. Returns Ok(true) if new head.
@@ -641,6 +660,12 @@ impl Node{
     /// blocks' bytes). For tests and measurements that build blocks on an arbitrary parent.
     pub fn ensure_state(&mut self,h:&[u8;32])->Result<(),Reject>{let src=Src{journal:&self.journal,history:&self.history};self.chain.ensure_state_with(h,Some(&src))}
     pub fn import_with(&mut self,b:Block,from:Option<PeerId>,solicited:bool)->Result<bool,Reject>{
+        if self.chain.spec.cp().H_END==0 && self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{
+            self.cfg.limits.continuous_history=Some(self.journal.records);
+            if let Err(e)=crate::resources::check(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&self.cfg.limits,self.cfg.peers.len()){
+                self.log(&format!("LOCAL CAPACITY: {e}; increase local resources and memory budget to resume"));self.stopped=true;return Err(Reject::Local(e));
+            }
+        }
         let hash=b.hash();
         let was_evicted=self.chain.was_evicted(&hash);
         if was_evicted&&!solicited{return Err(Reject::Evicted)}
@@ -1119,11 +1144,12 @@ impl Node{
         }
     }
     fn on_miner(&mut self,m:MinerEvent){
+        if self.cfg.miner.is_none(){return}
         let Some(pr)=&mut self.prod else{return};
         let Mode::Locked(l)=&pr.mode else{return};
         match m{
             MinerEvent::Share{tid,nonce} if tid==l.tid=>{pr.shares.insert(nonce);self.stats.shares_seen+=1;self.broadcast(&Msg::Share{tid,nonce},None);}
-            MinerEvent::Exhausted{tid,hashes} if tid==l.tid=>{self.stats.hashes+=hashes;pr.miner=None;self.log("range exhausted; idle until next template");}
+            MinerEvent::Exhausted{tid,hashes} if tid==l.tid=>{self.stats.hashes=self.stats.hashes.saturating_add(hashes);pr.miner=None;self.log("range exhausted; idle until next template");}
             MinerEvent::Solution{tid,nonce} if tid==l.tid&&!pr.solved=>{
                 pr.solved=true;
                 let s_max=usize::from(self.chain.spec.cp().S_max);
@@ -1141,10 +1167,18 @@ impl Node{
         }
     }
     fn on_msg(&mut self,from:PeerId,m:Msg){
+        // Reader events may already be queued when an incompatible Hello closes a socket.
+        // Neither those frames nor a later Hello may revive the removed connection.
+        if !self.peers.contains_key(&from){return}
+        if !matches!(&m,Msg::Hello{..})&&!self.peer_status.contains_key(&from){return}
         match m{
-            Msg::Hello{chain_id,genesis,head,height,work,node}=>{
-                if chain_id!=self.chain.spec.chain_id()||genesis!=self.chain.spec.genesis_hash(){
-                    self.log(&format!("peer {node}: wrong network; closing"));if let Some(p)=self.peers.get(&from){p.close();}return;
+            Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility}=>{
+                if chain_id!=self.chain.spec.chain_id()||genesis!=self.chain.spec.genesis_hash()||!crate::identity::matches_for(protocol,&compatibility,self.chain.spec.profile().forks().entries()){
+                    self.log(&format!("peer {node}: incompatible network or implementation; closing"));
+                    self.peer_status.remove(&from);
+                    if self.session.as_ref().is_some_and(|s|s.peer==from){self.end_session(false);}
+                    if let Some(p)=self.peers.remove(&from){p.close();if p.outbound{if let Ok(mut s)=self.outbound.lock(){s.remove(&p.addr);}}}
+                    return;
                 }
                 // Only a peer's first Hello may start a session at once; later Status updates wait for
                 // sync_tick's round-robin, so a peer re-announcing a false claim cannot hold the session
@@ -1292,7 +1326,7 @@ impl Node{
         let h=self.chain.head();
         let mode=match &self.prod{None=>"none".to_string(),Some(p)=>match &p.mode{Mode::Idle=>"idle".into(),Mode::Wait{..}=>format!("wait a={}",p.attempt),Mode::Propose{at_s}=>format!("propose at {at_s}"),
             Mode::Locked(l)=>format!("{} h={} a={} shares={} mining={}",if l.fallback{"FB"}else{"PROP"},p.height,p.attempt,p.shares.len(),p.miner.is_some())}};
-        serde_json::json!({"name":self.cfg.name,"chainId":self.chain.spec.chain_id(),"genesisHash":hex(&self.chain.spec.genesis_hash()),"head":{"height":h.height,"hash":hex(&h.hash),"ts":h.ts,"signed":h.signed,"final":h.is_final,"totalWork":format!("{:#x}",h.total_work)},
+        let mut status=serde_json::json!({"name":self.cfg.name,"chainId":self.chain.spec.chain_id(),"genesisHash":hex(&self.chain.spec.genesis_hash()),"head":{"height":h.height,"hash":hex(&h.hash),"ts":h.ts,"signed":h.signed,"final":h.is_final,"totalWork":format!("{:#x}",h.total_work)},
             "peers":self.peers.values().map(|p|p.addr.clone()).collect::<Vec<_>>(),"production":mode,"miner":self.cfg.miner.as_ref().map(|k|format!("{:#x}",k.address())),
             "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
             "admission":crate::admission_json(self.chain.spec.admission()),
@@ -1300,7 +1334,14 @@ impl Node{
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
             "stats":{"imported":self.stats.imported,"mined":self.stats.mined,"signedTemplates":self.stats.signed_templates,"fallbackTemplates":self.stats.fallback_templates,"sharesSeen":self.stats.shares_seen,"hashesInExhaustedRanges":self.stats.hashes,"reorgs":self.stats.reorgs,
                 "syncSessions":self.stats.sync_sessions,"syncRounds":self.stats.sync_rounds,"refetched":self.stats.refetched,"restored":self.stats.restored,"replaySkipped":self.stats.replay_skipped,"templatePenalties":self.stats.template_penalties,"poolSlices":self.stats.pool_slices,"poolSliceMaxMs":self.stats.pool_slice_max_ms,"reinsertedOffered":self.stats.reinserted_offered,"reinsertedUnoffered":self.stats.reinserted_unoffered,"poolBacklog":self.pool.backlog.len(),"historyRefilled":self.stats.history_refilled,"historyRebuilt":self.history.rebuilt,"historyDamaged":self.history.is_damaged()},
-            "open":serde_json::to_value(&self.stats.open).unwrap_or_default(),"retention":{"rKeep":self.chain.r_keep,"sideCap":self.chain.side_cap,"side":self.chain.side_counts().0,"protected":self.chain.protect.len(),"evicted":self.chain.evicted_total}})
+            "open":serde_json::to_value(&self.stats.open).unwrap_or_default(),"retention":{"rKeep":self.chain.r_keep,"sideCap":self.chain.side_cap,"side":self.chain.side_counts().0,"protected":self.chain.protect.len(),"evicted":self.chain.evicted_total}});
+        status["protocolVersion"]=serde_json::json!(crate::identity::PROTOCOL_VERSION);
+        status["compatibilitySha256"]=serde_json::json!(crate::identity::COMPATIBILITY_HEX);
+        status["compatiblePeers"]=serde_json::json!(self.peer_status.len());
+        status["lifetime"]=if self.chain.spec.cp().H_END==0{serde_json::json!({"continuous":true,"closingHeight":null,"finalHeight":null,"closingTime":null,"finalTime":null})}else{serde_json::json!({"continuous":false,"closingHeight":self.chain.spec.cp().H_CLOSE,"finalHeight":self.chain.spec.cp().H_END})};
+        status["resourceProjectionRecords"]=serde_json::json!(self.cfg.limits.continuous_history);
+        status["unlimitedResourceProof"]=serde_json::json!(false);
+        crate::network_display::annotate(status)
     }
     pub fn template_json(&self)->serde_json::Value{
         match &self.prod{Some(Production{mode:Mode::Locked(l),..})=>serde_json::json!({"templateId":hex(&l.tid),"header":hex(&l.header.encoded),"fallback":l.fallback,"nonceMax":l.ctx.assignment.nonce_max().to_string()}),_=>serde_json::Value::Null}

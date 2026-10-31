@@ -39,6 +39,8 @@ impl SystemPrograms{
         Ok(Self{codes})
     }
     pub fn v1()->Self{Self::from_compiled_json(include_str!("../tests/data/system-v1.json")).expect("bundled system-v1.json")}
+    pub fn continuous()->Self{Self::from_compiled_json(include_str!("../tests/data/system-continuous.json")).expect("bundled continuous system programs")}
+    pub fn for_params(cp:&crate::profile::ConsensusParams)->Self{if cp.H_END==0{Self::continuous()}else{Self::v1()}}
     /// sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 for PAY])).
     pub fn sys_code_hash(&self)->B256{crate::genesis_builder::code_hash(&self.codes)}
 }
@@ -312,7 +314,7 @@ pub struct BlockRun{
 /// The context checks every block passes before it runs.
 fn context_checks(cp:&crate::profile::ConsensusParams,input:&BlockInput<'_>)->Result<(),ApplyError>{
     let h=input.height;
-    if h==0||h>cp.H_END{return Err(ApplyError::Context("height"))}
+    if h==0||(cp.H_END!=0&&h>cp.H_END){return Err(ApplyError::Context("height"))}
     if input.gas_limit!=cp.GAS_LIMIT{return Err(ApplyError::Context("gasLimit"))}
     if (h==1)!=input.parent_result.is_none(){return Err(ApplyError::Context("parentResult presence"))}
     if input.transactions.len() as u64>cp.TX_CAP||input.transactions.iter().any(|t|t.len()>cp.TX_MAX as usize){return Err(ApplyError::Budget("TX_MAX"))}

@@ -14,8 +14,17 @@
 *.whl
 **/keys-txa*.json
 **/txa-node-check.json
+*.pocol-key
 prototypes/pocold/target/
 # Ephemeral exploit-shaped witness programs copied in by the witness runner; never committed.
 **/tests/zz_audit_witness*.rs
 # A failed e2e run's kept logs and inputs (keepOnFailure, keep_on_failure); copied into evidence/ by hand.
 **/tests/failures/
+
+# Native Android outputs and local signing material.
+prototypes/pocol-android/.gradle/
+prototypes/pocol-android/**/build/
+prototypes/pocol-android/app/src/main/jniLibs/
+prototypes/pocol-android/local.properties
+*.jks
+*.keystore

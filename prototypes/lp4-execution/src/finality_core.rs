@@ -8,6 +8,7 @@ pub struct ParentFacts {
     pub is_final: bool,
 }
 pub fn closing(first_close: Option<u64>, h: u64, ts: u64, h_close: u64, t_close: u64) -> Option<u64> {
+    if h_close==0 && t_close==0{return None}
     first_close.or_else(|| if h >= h_close || ts >= t_close { Some(h) } else { None })
 }
 /// Empty cursor is done immediately; a nonempty cursor consumes RET from closeH.
@@ -19,14 +20,27 @@ pub fn cursor_bound(close_h: u64, records: u64, ret: u32) -> Result<u64, &'stati
     u64::try_from(close_h as u128 + rounds.saturating_sub(1)).map_err(|_| "overflow")
 }
 pub fn gate2(h: u64, ts: u64, h_end: u64, t_end: u64, p2: u32, t_blk: u32) -> Result<bool, &'static str> {
+    if h_end==0 && t_end==0{return Ok(false)}
     let height = h_end.checked_sub(p2 as u64).ok_or("threshold")?;
     let time = t_end.checked_sub(p2 as u64 * t_blk as u64).ok_or("threshold")?;
     Ok(h >= height || ts >= time)
 }
 pub fn final_predicate(p: ParentFacts, h: u64, ts: u64, d: u32, h_end: u64, t_end: u64) -> bool {
-    p.closing && p.cursor_done && h as u128 >= p.close_h as u128 + d as u128 && (h >= h_end || ts >= t_end)
+    (h_end!=0 || t_end!=0) && p.closing && p.cursor_done && h as u128 >= p.close_h as u128 + d as u128 && (h >= h_end || ts >= t_end)
 }
 /// Only the two CF6 ceilings, not all conditions for a valid child.
 pub fn child_allowed(parent_final: bool, h: u64, h_end: u64) -> bool {
-    !parent_final && h <= h_end
+    !parent_final && (h_end==0 || h <= h_end)
+}
+
+#[cfg(test)] mod continuous_tests{
+    use super::*;
+    #[test] fn continuous_predicates_have_no_scheduled_end(){
+        let f=ParentFacts{closing:false,close_h:0,cursor_done:true,is_final:false};
+        for h in [19_000,20_000,20_001,1_000_000,u64::MAX]{
+            assert!(child_allowed(false,h,0));assert_eq!(closing(None,h,u64::MAX,0,0),None);
+            assert!(!final_predicate(f,h,u64::MAX,4,0,0));assert_eq!(gate2(h,u64::MAX,0,0,2,10),Ok(false));
+        }
+        assert!(!child_allowed(true,1,0));assert!(!child_allowed(false,20_001,20_000));
+    }
 }

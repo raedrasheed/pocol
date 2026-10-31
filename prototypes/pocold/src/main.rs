@@ -19,10 +19,12 @@ fn main(){
 fn command(args:&[String])->i32{
     let cmd=args.get(1).map(|s|s.as_str()).unwrap_or("help");
     let r=match cmd{
+        "build-info"=>{println!("{}",pocold::identity::BUILD_INFO);Ok(())},
         "init-devnet"=>init(args),
+        "init-testnet"=>pocold::testnet::init(args),
         "run"=>run(args),
         "status"=>status(args),
-        _=>{eprintln!("usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [LOCAL]\n  pocold run --network DIR --data DIR --name N [--miner LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [NODE]\n  pocold status --network DIR --data DIR [NODE]\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] (--state-store is experimental; open a data directory in the mode it was made in)\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).");Ok(())}
+        _=>{eprintln!("usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [NODE]\n  pocold status --network DIR --data DIR [NODE]\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] (--state-store is experimental; open a data directory in the mode it was made in)\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).");Ok(())}
     };
     if let Err(e)=r{eprintln!("error: {e}");return 1}
     0
@@ -76,11 +78,11 @@ fn init(args:&[String])->Result<(),String>{
     println!("{}",serde_json::to_string_pretty(&info).unwrap());Ok(())
 }
 fn run(args:&[String])->Result<(),String>{
+    let miner=pocold::keyfile::miner(args)?;
     let limits=limits(args)?;let net=PathBuf::from(arg(args,"--network").ok_or("--network")?);
     let data=PathBuf::from(arg(args,"--data").ok_or("--data")?);
     let spec=load_spec_for(&net,&local(args),limits.state_store.then_some(data.as_path()))?;
     let name=arg(args,"--name").unwrap_or_else(||"node".into());
-    let miner=arg(args,"--miner").map(|l|devnet::miner_identity(&l).key);
     let parse=|s:&str|s.parse::<std::net::SocketAddr>().map_err(|e|format!("{s}: {e}"));
     let cfg=node::Config{dir:data,name,miner,
         listen:arg(args,"--listen").map(|s|parse(&s)).transpose()?,peers:args_all(args,"--peer").iter().map(|s|parse(s)).collect::<Result<_,_>>()?,

@@ -1,4 +1,4 @@
-//! Peer transport (VA-spec v1, development/VA-SPEC.md): TCP on loopback, frames
+//! Experimental wire v2 peer transport: TCP on the explicitly configured listener, frames
 //! [u32 BE length][RLP([type, ...fields])], length <= MAX_FRAME. Malformed frames
 //! or a wrong network identity close the connection; they never touch block state.
 //!
@@ -29,6 +29,9 @@ pub const MAX_FRAME:usize=256*1024;
 /// Inbound messages waiting for the consensus thread, per listener or dialer.
 /// D-A13-BUDGET: 64 -> 32 per forwarder; a full queue blocks the peer readers behind it.
 pub const NET_EVENT_QUEUE:usize=32;
+/// A pre-handshake peer cannot allocate a full block frame or inject control characters in logs.
+pub const HELLO_MAX:usize=512;
+pub const NODE_NAME_MAX:usize=64;
 
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct Limits{
@@ -62,7 +65,7 @@ impl Net{
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub enum Msg{
     /// Status (network.md:7): chainId, genesisHash, headHash, height, totalWork (32 B big-endian), name.
-    Hello{chain_id:u64,genesis:[u8;32],head:[u8;32],height:u64,work:[u8;32],node:String},
+    Hello{chain_id:u64,genesis:[u8;32],head:[u8;32],height:u64,work:[u8;32],node:String,protocol:u64,compatibility:[u8;32]},
     Block{header:Vec<u8>,body:Vec<u8>},
     Template{shell:Vec<u8>,body:Vec<u8>},
     Share{tid:[u8;32],nonce:u64},
@@ -80,7 +83,7 @@ impl Msg{
     pub fn encode(&self)->Vec<u8>{
         let mut p=Vec::new();
         match self{
-            Msg::Hello{chain_id,genesis,head,height,work,node}=>{u64b(0,&mut p);u64b(*chain_id,&mut p);rlp::encode_bytes(genesis,&mut p);rlp::encode_bytes(head,&mut p);u64b(*height,&mut p);rlp::encode_bytes(work,&mut p);rlp::encode_bytes(node.as_bytes(),&mut p);}
+            Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility}=>{u64b(0,&mut p);u64b(*chain_id,&mut p);rlp::encode_bytes(genesis,&mut p);rlp::encode_bytes(head,&mut p);u64b(*height,&mut p);rlp::encode_bytes(work,&mut p);rlp::encode_bytes(node.as_bytes(),&mut p);u64b(*protocol,&mut p);rlp::encode_bytes(compatibility,&mut p);}
             Msg::Block{header,body}=>{u64b(1,&mut p);rlp::encode_bytes(header,&mut p);rlp::encode_bytes(body,&mut p);}
             Msg::Template{shell,body}=>{u64b(2,&mut p);rlp::encode_bytes(shell,&mut p);rlp::encode_bytes(body,&mut p);}
             Msg::Share{tid,nonce}=>{u64b(3,&mut p);rlp::encode_bytes(tid,&mut p);rlp::encode_bytes(&nonce.to_be_bytes(),&mut p);}
@@ -98,7 +101,8 @@ impl Msg{
         let h32=|i:usize|->Result<[u8;32],String>{bytes(i)?.try_into().map_err(|_|"hash".to_string())};
         let n=|k:usize|->Result<(),String>{if f.len()==k{Ok(())}else{Err("arity".into())}};
         let m=match num(0)?{
-            0=>{n(7)?;Msg::Hello{chain_id:num(1)?,genesis:h32(2)?,head:h32(3)?,height:num(4)?,work:h32(5)?,node:String::from_utf8(bytes(6)?).map_err(|_|"utf8")?}}
+            0=>{n(9)?;let name=bytes(6)?;if name.is_empty()||name.len()>NODE_NAME_MAX||!name.iter().all(|b|b.is_ascii_graphic()){return Err("node name".into())}
+                Msg::Hello{chain_id:num(1)?,genesis:h32(2)?,head:h32(3)?,height:num(4)?,work:h32(5)?,node:String::from_utf8(name).map_err(|_|"utf8")?,protocol:num(7)?,compatibility:h32(8)?}}
             1=>{n(3)?;Msg::Block{header:bytes(1)?,body:bytes(2)?}}
             2=>{n(3)?;Msg::Template{shell:bytes(1)?,body:bytes(2)?}}
             3=>{n(3)?;let nb=bytes(2)?;if nb.len()!=8{return Err("nonce".into())}Msg::Share{tid:h32(1)?,nonce:u64::from_be_bytes(nb.try_into().unwrap())}}
@@ -219,6 +223,7 @@ fn spawn_peer(stream:TcpStream,outbound:bool,events:SyncSender<NetEvent>,net:Net
             let wait=if hello{last+l.idle_deadline}else{started+l.hello_deadline};
             let mut len=[0u8;4];if !read_by(&mut r,&mut len,wait,&rpeer.out.closed){break}
             let n=u32::from_be_bytes(len) as usize;if n==0||n>MAX_FRAME{break}
+            if !hello&&n>HELLO_MAX{break}
             // Before the Hello the whole handshake frame must also meet the Hello deadline.
             let frame_by=Instant::now()+l.frame_deadline;let frame_by=if hello{frame_by}else{frame_by.min(wait)};
             let mut buf=vec![0u8;n];if !read_by(&mut r,&mut buf,frame_by,&rpeer.out.closed){break}
@@ -236,13 +241,14 @@ fn spawn_peer(stream:TcpStream,outbound:bool,events:SyncSender<NetEvent>,net:Net
     // The node already knows this peer: it must also learn that it is gone.
     match spawned{Ok(h)=>(true,Some(h)),Err(_)=>{peer.close();join(&writer);let _=events.send(NetEvent::Closed(id));release(&net,true);(true,None)}}
 }
-/// Accepts inbound peers on `listener` (loopback only), within the connection limits.
+/// Accepts inbound peers on the operator-selected listener, within the connection limits.
+/// A loopback bind remains local; a private/public bind accepts remote peers. RPC separately
+/// remains loopback-only. Every peer must pass the node's network/compatibility handshake.
 pub fn listen(listener:TcpListener,events:SyncSender<NetEvent>,net:Net){
     crate::threads::spawn("p2p-listen",crate::threads::IO_STACK,move||{
         let mut readers=Vec::new();
         for s in listener.incoming(){
             let Ok(s)=s else{continue};
-            if !s.peer_addr().map(|a|a.ip().is_loopback()).unwrap_or(false){continue}
             // A reader that released its slot but is not yet joined still counts.
             crate::threads::reap(&mut readers);
             let room=readers.len()<net.limits.peers_max;if !room{net.counters.refused.fetch_add(1,Ordering::SeqCst);}
@@ -287,7 +293,7 @@ mod tests{
     /// D-REORG-REDB wire: Status carries the 32-byte totalWork, GetFrom a locator of 1..=32 hashes;
     /// both round-trip, and a locator that is empty, ragged or longer than 32 hashes is refused.
     #[test] fn status_work_and_locator_requests_round_trip_within_bounds(){
-        let h=Msg::Hello{chain_id:7,genesis:[1;32],head:[2;32],height:9,work:[3;32],node:"n".into()};assert_eq!(Msg::decode(&h.encode()).unwrap(),h);
+        let h=Msg::Hello{chain_id:7,genesis:[1;32],head:[2;32],height:9,work:[3;32],node:"n".into(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility()};assert_eq!(Msg::decode(&h.encode()).unwrap(),h);
         let g=Msg::GetFrom{locator:vec![[4;32],[5;32]],count:512};assert_eq!(Msg::decode(&g.encode()).unwrap(),g);
         let full=Msg::GetFrom{locator:vec![[6;32];LOCATOR_MAX],count:1};assert_eq!(Msg::decode(&full.encode()).unwrap(),full);
         let raw=|loc:Vec<u8>|{let mut p=Vec::new();u64b(7,&mut p);rlp::encode_bytes(&loc,&mut p);u64b(1,&mut p);let mut o=Vec::new();rlp::encode_list_payload(&p,&mut o);o};

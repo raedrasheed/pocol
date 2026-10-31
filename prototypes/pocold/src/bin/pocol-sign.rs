@@ -1,12 +1,12 @@
 //! pocol-sign: signs EIP-1559 transactions with a deterministic disposable
 //! devnet account key (never a funded key). Prints one 0x-hex envelope per line.
-use pocol_lp4_execution::{devnet,txsign::Tx};
+use pocol_lp4_execution::txsign::Tx;
 use revm::primitives::{Address,Bytes,U256};
 fn arg(a:&[String],k:&str)->Option<String>{a.iter().position(|x|x==k).and_then(|i|a.get(i+1)).cloned()}
 fn main(){
     let a:Vec<String>=std::env::args().collect();
     let chain_id:u64=arg(&a,"--chain-id").and_then(|v|v.parse().ok()).expect("--chain-id");
-    let key=devnet::account_key(&arg(&a,"--account").expect("--account"));
+    let key=match pocold::keyfile::account(&a){Ok(key)=>key,Err(e)=>{eprintln!("error: {e}");std::process::exit(1)}};
     let to:Option<Address>=arg(&a,"--to").map(|s|s.parse().expect("--to address"));
     let value:U256=arg(&a,"--value").map(|s|s.parse().expect("--value")).unwrap_or_default();
     let count:u64=arg(&a,"--count").and_then(|v|v.parse().ok()).unwrap_or(1);
