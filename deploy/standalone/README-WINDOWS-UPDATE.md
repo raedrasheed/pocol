@@ -1,9 +1,12 @@
 # Windows icon and interface update — 2026-10-31
 
-This update replaces only `PoCol-Wallet.exe`. It is compatible with the existing
-five-device release built from `50c2f27ee67961dec7aaf0eb735c0b641810e0ea`.
-The `pocol.exe` engine, network file, Linux nodes and Android installation remain
-the existing release. No new mining registration is required.
+For an existing installation, this update replaces only `PoCol-Wallet.exe`.
+The full Windows distribution retains the original engine binaries from
+`5e4ac8ac83b4417eb33f33cd405db686f501d5c5`, identified by `source-commit.txt`
+and `build-info.json`. The icon GUI was built and tested from
+`103f5c43f574e469916e90f53a9cc1905bf8de4a`, identified by `UI-SOURCE-COMMIT.txt`.
+Keep the existing engine, network file and Windows account data when applying
+the small GUI update. No new mining registration is required.
 
 1. Close the Windows wallet and let its engine stop.
 2. Copy `PoCol-Wallet.exe` from this update into your existing PoCol folder,
@@ -34,9 +37,10 @@ history of incoming transfers or a list of mining rewards.
 
 ## Verification
 
-`WALLET-UPDATE-SHA256SUMS` supplies the hash of the updated GUI. Its GUI entry
-supersedes the old GUI hash in the original package manifests. Keep this update's
-checksum file with the installation; other original binaries are unchanged.
+`SHA256SUMS` supplies the hashes of this package, including the updated GUI.
+Its GUI entry supersedes the old GUI hash in the original package manifests.
+Keep this update's checksum file with the installation; original engine binaries
+are unchanged.
 The UI regression test runs the actual .NET Framework serializer and WPF window
 on Windows. It first reproduces the history failure with the released source,
 then checks the fix, exact amount text, receipt transitions and mining controls.
