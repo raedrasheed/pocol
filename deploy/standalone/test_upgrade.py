@@ -10,6 +10,15 @@ import unittest
 from test_launcher import call, network
 
 
+def read_json(path):
+    return json.loads(path.read_bytes().decode('utf-8'))
+
+
+def write_json(path, value):
+    # Fixtures must use the native UTF-8 bytes even on Windows locales/newlines.
+    path.write_bytes(json.dumps(value, ensure_ascii=False).encode('utf-8'))
+
+
 def rlp(value):
     if isinstance(value, int):
         value = value.to_bytes((value.bit_length() + 7) // 8, 'big')
@@ -32,14 +41,18 @@ class FullNonceUpgrade(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.home = self.root / 'home'
         self.invitation = network(self.root, [self.home], ['127.0.0.1:30300'])
+        self.before = read_json(self.invitation)
+        metadata = json.loads(self.before['files']['devnet.json'])
+        metadata['upgradeTestNote'] = 'Unicode fixture: Δφ / شبكة PoCol / 日本語'
+        self.before['files']['devnet.json'] = json.dumps(metadata, ensure_ascii=False, indent=2) + '\n'
+        write_json(self.invitation, self.before)
         call('pocol', 'import', '--home', self.home, '--network', self.invitation)
-        self.before = json.loads(self.invitation.read_text())
         self.after = copy.deepcopy(self.before)
         metadata = json.loads(self.after['files']['devnet.json'])
         metadata['forks'] = [[1, 0], [2, 100000]]
-        self.after['files']['devnet.json'] = json.dumps(metadata)
+        self.after['files']['devnet.json'] = json.dumps(metadata, ensure_ascii=False, indent=2) + '\n'
         self.target = self.root / 'upgraded-network.pocol.json'
-        self.target.write_text(json.dumps(self.after))
+        write_json(self.target, self.after)
         self.key_before = (self.home / 'identity.pocol-key').read_bytes()
         self.address_before = (self.home / 'identity.address').read_bytes()
 
@@ -52,7 +65,7 @@ class FullNonceUpgrade(unittest.TestCase):
 
     def test_accepts_previous_build_and_keeps_identity_and_chain_files(self):
         self.before['compatibilitySha256'] = 'f' * 64
-        (self.home / 'network.pocol.json').write_text(json.dumps(self.before))
+        write_json(self.home / 'network.pocol.json', self.before)
         state = self.home / 'state'
         state.mkdir()
         (state / 'LOCK').write_bytes(b'')
@@ -63,12 +76,12 @@ class FullNonceUpgrade(unittest.TestCase):
         self.upgrade()
         self.assertEqual({p.name: p.read_bytes() for p in state.iterdir()}, original)
         self.assert_identity_preserved()
-        self.assertEqual(json.loads((self.home / 'network.pocol.json').read_text()), self.after)
-        self.assertEqual(json.loads((self.home / 'network.pocol.json.before-full-nonce').read_text()), self.before)
+        self.assertEqual(read_json(self.home / 'network.pocol.json'), self.after)
+        self.assertEqual(read_json(self.home / 'network.pocol.json.before-full-nonce'), self.before)
         self.assertFalse((self.home / 'network-upgrade.pending.json').exists())
         self.upgrade()  # Safe idempotent retry.
         for name in ('alloc.json', 'genesis.spec.hex'):
-            self.assertEqual((self.home / 'network' / name).read_text(), self.before['files'][name])
+            self.assertEqual((self.home / 'network' / name).read_bytes(), self.before['files'][name].encode('utf-8'))
 
     def test_rejects_changed_network_metadata_seeds_and_schedule(self):
         candidates = []
@@ -92,7 +105,7 @@ class FullNonceUpgrade(unittest.TestCase):
         candidates.append(changed)
         binding = (self.home / 'network.pocol.json').read_bytes()
         for candidate in candidates:
-            self.target.write_text(json.dumps(candidate))
+            write_json(self.target, candidate)
             self.assertNotEqual(self.upgrade(ok=False).returncode, 0)
             self.assertEqual((self.home / 'network.pocol.json').read_bytes(), binding)
             self.assert_identity_preserved()
@@ -106,45 +119,45 @@ class FullNonceUpgrade(unittest.TestCase):
             metadata = json.loads(changed['files']['devnet.json'])
             metadata['forks'] = forks
             changed['files']['devnet.json'] = json.dumps(metadata)
-            self.target.write_text(json.dumps(changed))
+            write_json(self.target, changed)
             self.assertNotEqual(self.upgrade(ok=False).returncode, 0)
             self.assertEqual((self.home / 'network.pocol.json').read_bytes(), current)
 
     def test_resume_after_each_public_configuration_write(self):
         # Materialize each durable crash boundary without killing a real wallet.
         for stage in ('intent', 'metadata', 'binding'):
-            (self.home / 'network.pocol.json').write_text(json.dumps(self.before))
-            (self.home / 'network' / 'devnet.json').write_text(self.before['files']['devnet.json'])
+            write_json(self.home / 'network.pocol.json', self.before)
+            (self.home / 'network' / 'devnet.json').write_bytes(self.before['files']['devnet.json'].encode('utf-8'))
             marker = self.home / 'network-upgrade.pending.json'
-            marker.write_text(json.dumps({'before': self.before, 'after': self.after}))
+            write_json(marker, {'before': self.before, 'after': self.after})
             if stage in ('metadata', 'binding'):
-                (self.home / 'network' / 'devnet.json').write_text(self.after['files']['devnet.json'])
+                (self.home / 'network' / 'devnet.json').write_bytes(self.after['files']['devnet.json'].encode('utf-8'))
             if stage == 'binding':
-                (self.home / 'network.pocol.json').write_text(json.dumps(self.after))
+                write_json(self.home / 'network.pocol.json', self.after)
             result = call('pocol', 'import', '--home', self.home, '--network', self.target, ok=False)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('incomplete', result.stderr)
             self.upgrade()
             self.assertFalse(marker.exists())
             self.assert_identity_preserved()
-            self.assertEqual(json.loads((self.home / 'network.pocol.json').read_text()), self.after)
+            self.assertEqual(read_json(self.home / 'network.pocol.json'), self.after)
 
     def test_rejects_unknown_resume_target_and_changed_local_file(self):
         marker = self.home / 'network-upgrade.pending.json'
-        marker.write_text(json.dumps({'before': self.before, 'after': self.after}))
+        write_json(marker, {'before': self.before, 'after': self.after})
         changed = copy.deepcopy(self.after)
         metadata = json.loads(changed['files']['devnet.json'])
         metadata['forks'][-1][1] += 1
         changed['files']['devnet.json'] = json.dumps(metadata)
-        self.target.write_text(json.dumps(changed))
+        write_json(self.target, changed)
         self.assertNotEqual(self.upgrade(ok=False).returncode, 0)
         self.assertTrue(marker.exists())
         marker.unlink()
-        self.target.write_text(json.dumps(self.after))
+        write_json(self.target, self.after)
         alloc = self.home / 'network' / 'alloc.json'
-        alloc.write_text('unexpected')
+        alloc.write_bytes(b'unexpected')
         self.assertNotEqual(self.upgrade(ok=False).returncode, 0)
-        self.assertEqual(alloc.read_text(), 'unexpected')
+        self.assertEqual(alloc.read_bytes(), b'unexpected')
         self.assert_identity_preserved()
 
     def test_upgrade_never_creates_a_missing_home_or_key(self):
