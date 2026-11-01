@@ -1,0 +1,658 @@
+[
+  {
+    "name": "@adraffy/ens-normalize",
+    "version": "1.11.1",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git+https://github.com/adraffy/ens-normalize.js.git",
+    "packageArchive": "https://registry.npmjs.org/@adraffy/ens-normalize/-/ens-normalize-1.11.1.tgz",
+    "licenseFiles": [
+      "licenses/adraffy--ens-normalize-1.11.1/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/binarytree",
+    "version": "10.1.3",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/binarytree/-/binarytree-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--binarytree-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/block",
+    "version": "10.1.3",
+    "license": "MPL-2.0",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/block/-/block-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--block-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/common",
+    "version": "10.1.3",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/common/-/common-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--common-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/evm",
+    "version": "10.1.3",
+    "license": "MPL-2.0",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/evm/-/evm-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--evm-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/mpt",
+    "version": "10.1.3",
+    "license": "MPL-2.0",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/mpt/-/mpt-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--mpt-10.1.3/MPL-2.0.txt"
+    ],
+    "note": "The npm package declares MPL-2.0 but contains no root license file. The unchanged MPL-2.0 text is copied from @ethereumjs/vm 10.1.3."
+  },
+  {
+    "name": "@ethereumjs/rlp",
+    "version": "10.1.3",
+    "license": "MPL-2.0",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/rlp/-/rlp-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--rlp-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/statemanager",
+    "version": "10.1.3",
+    "license": "MPL-2.0",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/statemanager/-/statemanager-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--statemanager-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/tx",
+    "version": "10.1.3",
+    "license": "MPL-2.0",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/tx/-/tx-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--tx-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/util",
+    "version": "10.1.3",
+    "license": "MPL-2.0",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/util/-/util-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--util-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@ethereumjs/vm",
+    "version": "10.1.3",
+    "license": "MPL-2.0",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/ethereumjs/ethereumjs-monorepo.git",
+    "packageArchive": "https://registry.npmjs.org/@ethereumjs/vm/-/vm-10.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ethereumjs--vm-10.1.3/LICENSE"
+    ]
+  },
+  {
+    "name": "@js-sdsl/ordered-map",
+    "version": "4.4.2",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/js-sdsl/js-sdsl.git",
+    "packageArchive": "https://registry.npmjs.org/@js-sdsl/ordered-map/-/ordered-map-4.4.2.tgz",
+    "licenseFiles": [
+      "licenses/js-sdsl--ordered-map-4.4.2/LICENSE"
+    ]
+  },
+  {
+    "name": "@noble/curves",
+    "version": "2.4.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git+https://github.com/paulmillr/noble-curves.git",
+    "packageArchive": "https://registry.npmjs.org/@noble/curves/-/curves-2.4.0.tgz",
+    "licenseFiles": [
+      "licenses/noble--curves-2.4.0/LICENSE"
+    ]
+  },
+  {
+    "name": "@noble/hashes",
+    "version": "2.4.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git+https://github.com/paulmillr/noble-hashes.git",
+    "packageArchive": "https://registry.npmjs.org/@noble/hashes/-/hashes-2.4.0.tgz",
+    "licenseFiles": [
+      "licenses/noble--hashes-2.4.0/LICENSE"
+    ]
+  },
+  {
+    "name": "@oxc-project/types",
+    "version": "0.156.0",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "git+https://github.com/oxc-project/oxc.git",
+    "packageArchive": "https://registry.npmjs.org/@oxc-project/types/-/types-0.156.0.tgz",
+    "licenseFiles": [
+      "licenses/oxc-project--types-0.156.0/LICENSE"
+    ]
+  },
+  {
+    "name": "@rolldown/binding-linux-x64-gnu",
+    "version": "1.2.16",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "git+https://github.com/rolldown/rolldown.git",
+    "packageArchive": "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.16.tgz",
+    "licenseFiles": [
+      "licenses/rolldown--binding-linux-x64-gnu-1.2.16/LICENSE",
+      "licenses/rolldown--binding-linux-x64-gnu-1.2.16/THIRD-PARTY-LICENSE"
+    ],
+    "note": "Build-only native binding; license and dependency notices are copied from rolldown 1.2.16."
+  },
+  {
+    "name": "@rolldown/pluginutils",
+    "version": "1.0.1",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "git+https://github.com/rolldown/plugins.git",
+    "packageArchive": "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz",
+    "licenseFiles": [
+      "licenses/rolldown--pluginutils-1.0.1/LICENSE"
+    ]
+  },
+  {
+    "name": "@types/node",
+    "version": "26.6.6",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+    "packageArchive": "https://registry.npmjs.org/@types/node/-/node-26.6.6.tgz",
+    "licenseFiles": [
+      "licenses/types--node-26.6.6/LICENSE"
+    ]
+  },
+  {
+    "name": "@types/trusted-types",
+    "version": "2.0.7",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+    "packageArchive": "https://registry.npmjs.org/@types/trusted-types/-/trusted-types-2.0.7.tgz",
+    "licenseFiles": [
+      "licenses/types--trusted-types-2.0.7/LICENSE"
+    ]
+  },
+  {
+    "name": "aes-js",
+    "version": "4.0.0-beta.5",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git://github.com/ricmoo/aes-js.git",
+    "packageArchive": "https://registry.npmjs.org/aes-js/-/aes-js-4.0.0-beta.5.tgz",
+    "licenseFiles": [
+      "licenses/aes-js-4.0.0-beta.5/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "command-exists",
+    "version": "1.2.9",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "http://github.com/mathisonian/command-exists",
+    "packageArchive": "https://registry.npmjs.org/command-exists/-/command-exists-1.2.9.tgz",
+    "licenseFiles": [
+      "licenses/command-exists-1.2.9/LICENSE"
+    ]
+  },
+  {
+    "name": "commander",
+    "version": "8.3.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/tj/commander.js.git",
+    "packageArchive": "https://registry.npmjs.org/commander/-/commander-8.3.0.tgz",
+    "licenseFiles": [
+      "licenses/commander-8.3.0/LICENSE"
+    ]
+  },
+  {
+    "name": "debug",
+    "version": "4.4.3",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git://github.com/debug-js/debug.git",
+    "packageArchive": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+    "licenseFiles": [
+      "licenses/debug-4.4.3/LICENSE"
+    ]
+  },
+  {
+    "name": "detect-libc",
+    "version": "2.1.2",
+    "license": "Apache-2.0",
+    "scope": "Build dependency",
+    "repository": "git://github.com/lovell/detect-libc.git",
+    "packageArchive": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
+    "licenseFiles": [
+      "licenses/detect-libc-2.1.2/LICENSE"
+    ]
+  },
+  {
+    "name": "dompurify",
+    "version": "3.4.15",
+    "license": "(MPL-2.0 OR Apache-2.0)",
+    "scope": "Production dependency tree",
+    "repository": "git://github.com/cure53/DOMPurify.git",
+    "packageArchive": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.15.tgz",
+    "licenseFiles": [
+      "licenses/dompurify-3.4.15/LICENSE",
+      "licenses/dompurify-3.4.15/LICENSE-MPL"
+    ]
+  },
+  {
+    "name": "ethers",
+    "version": "6.17.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git://github.com/ethers-io/ethers.js.git",
+    "packageArchive": "https://registry.npmjs.org/ethers/-/ethers-6.17.0.tgz",
+    "licenseFiles": [
+      "licenses/ethers-6.17.0/LICENSE.md"
+    ]
+  },
+  {
+    "name": "@noble/curves",
+    "version": "1.2.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/paulmillr/noble-curves.git",
+    "packageArchive": "https://registry.npmjs.org/@noble/curves/-/curves-1.2.0.tgz",
+    "licenseFiles": [
+      "licenses/noble--curves-1.2.0/LICENSE"
+    ]
+  },
+  {
+    "name": "@noble/hashes",
+    "version": "1.3.2",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/paulmillr/noble-hashes.git",
+    "packageArchive": "https://registry.npmjs.org/@noble/hashes/-/hashes-1.3.2.tgz",
+    "licenseFiles": [
+      "licenses/noble--hashes-1.3.2/LICENSE"
+    ]
+  },
+  {
+    "name": "@types/node",
+    "version": "22.7.5",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+    "packageArchive": "https://registry.npmjs.org/@types/node/-/node-22.7.5.tgz",
+    "licenseFiles": [
+      "licenses/types--node-22.7.5/LICENSE"
+    ]
+  },
+  {
+    "name": "undici-types",
+    "version": "6.19.8",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git+https://github.com/nodejs/undici.git",
+    "packageArchive": "https://registry.npmjs.org/undici-types/-/undici-types-6.19.8.tgz",
+    "licenseFiles": [
+      "licenses/undici-types-6.19.8/LICENSE"
+    ]
+  },
+  {
+    "name": "eventemitter3",
+    "version": "5.0.4",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git://github.com/primus/eventemitter3.git",
+    "packageArchive": "https://registry.npmjs.org/eventemitter3/-/eventemitter3-5.0.4.tgz",
+    "licenseFiles": [
+      "licenses/eventemitter3-5.0.4/LICENSE"
+    ]
+  },
+  {
+    "name": "fdir",
+    "version": "6.5.0",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "git+https://github.com/thecodrr/fdir.git",
+    "packageArchive": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+    "licenseFiles": [
+      "licenses/fdir-6.5.0/LICENSE"
+    ]
+  },
+  {
+    "name": "fflate",
+    "version": "0.8.2",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/101arrowz/fflate",
+    "packageArchive": "https://registry.npmjs.org/fflate/-/fflate-0.8.2.tgz",
+    "licenseFiles": [
+      "licenses/fflate-0.8.2/LICENSE"
+    ]
+  },
+  {
+    "name": "follow-redirects",
+    "version": "1.16.2",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git+ssh://git@github.com/follow-redirects/follow-redirects.git",
+    "packageArchive": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.2.tgz",
+    "licenseFiles": [
+      "licenses/follow-redirects-1.16.2/LICENSE"
+    ]
+  },
+  {
+    "name": "js-sha3",
+    "version": "0.8.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/emn178/js-sha3.git",
+    "packageArchive": "https://registry.npmjs.org/js-sha3/-/js-sha3-0.8.0.tgz",
+    "licenseFiles": [
+      "licenses/js-sha3-0.8.0/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "lightningcss",
+    "version": "1.33.0",
+    "license": "MPL-2.0",
+    "scope": "Build dependency",
+    "repository": "https://github.com/parcel-bundler/lightningcss.git",
+    "packageArchive": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz",
+    "licenseFiles": [
+      "licenses/lightningcss-1.33.0/LICENSE"
+    ]
+  },
+  {
+    "name": "lightningcss-linux-x64-gnu",
+    "version": "1.33.0",
+    "license": "MPL-2.0",
+    "scope": "Build dependency",
+    "repository": "https://github.com/parcel-bundler/lightningcss.git",
+    "packageArchive": "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.33.0.tgz",
+    "licenseFiles": [
+      "licenses/lightningcss-linux-x64-gnu-1.33.0/LICENSE"
+    ]
+  },
+  {
+    "name": "lru-cache",
+    "version": "11.0.2",
+    "license": "ISC",
+    "scope": "Production dependency tree",
+    "repository": "git://github.com/isaacs/node-lru-cache.git",
+    "packageArchive": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.0.2.tgz",
+    "licenseFiles": [
+      "licenses/lru-cache-11.0.2/LICENSE"
+    ]
+  },
+  {
+    "name": "marked",
+    "version": "14.0.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git://github.com/markedjs/marked.git",
+    "packageArchive": "https://registry.npmjs.org/marked/-/marked-14.0.0.tgz",
+    "licenseFiles": [
+      "licenses/marked-14.0.0/LICENSE.md"
+    ]
+  },
+  {
+    "name": "memorystream",
+    "version": "0.3.1",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/JSBizon/node-memorystream.git",
+    "packageArchive": "https://registry.npmjs.org/memorystream/-/memorystream-0.3.1.tgz",
+    "licenseFiles": [
+      "licenses/memorystream-0.3.1/LICENSE"
+    ]
+  },
+  {
+    "name": "monaco-editor",
+    "version": "0.57.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/microsoft/monaco-editor",
+    "packageArchive": "https://registry.npmjs.org/monaco-editor/-/monaco-editor-0.57.0.tgz",
+    "licenseFiles": [
+      "licenses/monaco-editor-0.57.0/LICENSE",
+      "licenses/monaco-editor-0.57.0/ThirdPartyNotices.txt"
+    ]
+  },
+  {
+    "name": "ms",
+    "version": "2.1.3",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "vercel/ms",
+    "packageArchive": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+    "licenseFiles": [
+      "licenses/ms-2.1.3/license.md"
+    ]
+  },
+  {
+    "name": "nanoid",
+    "version": "3.3.20",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "ai/nanoid",
+    "packageArchive": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.20.tgz",
+    "licenseFiles": [
+      "licenses/nanoid-3.3.20/LICENSE"
+    ]
+  },
+  {
+    "name": "picocolors",
+    "version": "1.1.1",
+    "license": "ISC",
+    "scope": "Build dependency",
+    "repository": "alexeyraspopov/picocolors",
+    "packageArchive": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+    "licenseFiles": [
+      "licenses/picocolors-1.1.1/LICENSE"
+    ]
+  },
+  {
+    "name": "picomatch",
+    "version": "4.0.7",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "micromatch/picomatch",
+    "packageArchive": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz",
+    "licenseFiles": [
+      "licenses/picomatch-4.0.7/LICENSE"
+    ]
+  },
+  {
+    "name": "postcss",
+    "version": "8.5.32",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "postcss/postcss",
+    "packageArchive": "https://registry.npmjs.org/postcss/-/postcss-8.5.32.tgz",
+    "licenseFiles": [
+      "licenses/postcss-8.5.32/LICENSE"
+    ]
+  },
+  {
+    "name": "react",
+    "version": "19.3.1",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/react/react.git",
+    "packageArchive": "https://registry.npmjs.org/react/-/react-19.3.1.tgz",
+    "licenseFiles": [
+      "licenses/react-19.3.1/LICENSE"
+    ]
+  },
+  {
+    "name": "react-dom",
+    "version": "19.3.1",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/react/react.git",
+    "packageArchive": "https://registry.npmjs.org/react-dom/-/react-dom-19.3.1.tgz",
+    "licenseFiles": [
+      "licenses/react-dom-19.3.1/LICENSE"
+    ]
+  },
+  {
+    "name": "rolldown",
+    "version": "1.2.16",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "git+https://github.com/rolldown/rolldown.git",
+    "packageArchive": "https://registry.npmjs.org/rolldown/-/rolldown-1.2.16.tgz",
+    "licenseFiles": [
+      "licenses/rolldown-1.2.16/LICENSE",
+      "licenses/rolldown-1.2.16/THIRD-PARTY-LICENSE"
+    ]
+  },
+  {
+    "name": "scheduler",
+    "version": "0.28.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/react/react.git",
+    "packageArchive": "https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz",
+    "licenseFiles": [
+      "licenses/scheduler-0.28.0/LICENSE"
+    ]
+  },
+  {
+    "name": "semver",
+    "version": "5.7.2",
+    "license": "ISC",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/npm/node-semver.git",
+    "packageArchive": "https://registry.npmjs.org/semver/-/semver-5.7.2.tgz",
+    "licenseFiles": [
+      "licenses/semver-5.7.2/LICENSE"
+    ]
+  },
+  {
+    "name": "solc",
+    "version": "0.8.38",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git+https://github.com/ethereum/solc-js.git",
+    "packageArchive": "https://registry.npmjs.org/solc/-/solc-0.8.38.tgz",
+    "licenseFiles": [
+      "licenses/solc-0.8.38/LICENSE"
+    ]
+  },
+  {
+    "name": "source-map-js",
+    "version": "1.2.2",
+    "license": "BSD-3-Clause",
+    "scope": "Build dependency",
+    "repository": "7rulnik/source-map-js",
+    "packageArchive": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+    "licenseFiles": [
+      "licenses/source-map-js-1.2.2/LICENSE"
+    ]
+  },
+  {
+    "name": "tinyglobby",
+    "version": "0.2.17",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "git+https://github.com/SuperchupuDev/tinyglobby.git",
+    "packageArchive": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
+    "licenseFiles": [
+      "licenses/tinyglobby-0.2.17/LICENSE"
+    ]
+  },
+  {
+    "name": "tmp",
+    "version": "0.2.6",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/raszi/node-tmp.git",
+    "packageArchive": "https://registry.npmjs.org/tmp/-/tmp-0.2.6.tgz",
+    "licenseFiles": [
+      "licenses/tmp-0.2.6/LICENSE"
+    ]
+  },
+  {
+    "name": "tslib",
+    "version": "2.7.0",
+    "license": "0BSD",
+    "scope": "Production dependency tree",
+    "repository": "https://github.com/Microsoft/tslib.git",
+    "packageArchive": "https://registry.npmjs.org/tslib/-/tslib-2.7.0.tgz",
+    "licenseFiles": [
+      "licenses/tslib-2.7.0/CopyrightNotice.txt",
+      "licenses/tslib-2.7.0/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "undici-types",
+    "version": "8.9.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git+https://github.com/nodejs/undici.git",
+    "packageArchive": "https://registry.npmjs.org/undici-types/-/undici-types-8.9.0.tgz",
+    "licenseFiles": [
+      "licenses/undici-types-8.9.0/LICENSE"
+    ]
+  },
+  {
+    "name": "vite",
+    "version": "8.3.5",
+    "license": "MIT",
+    "scope": "Build dependency",
+    "repository": "git+https://github.com/vitejs/vite.git",
+    "packageArchive": "https://registry.npmjs.org/vite/-/vite-8.3.5.tgz",
+    "licenseFiles": [
+      "licenses/vite-8.3.5/LICENSE.md"
+    ]
+  },
+  {
+    "name": "ws",
+    "version": "8.21.0",
+    "license": "MIT",
+    "scope": "Production dependency tree",
+    "repository": "git+https://github.com/websockets/ws.git",
+    "packageArchive": "https://registry.npmjs.org/ws/-/ws-8.21.0.tgz",
+    "licenseFiles": [
+      "licenses/ws-8.21.0/LICENSE"
+    ]
+  }
+]
