@@ -1,0 +1,17 @@
+lp4-release exit=0
+pocold-release exit=0
+pocold-crash-steps exit=0
+pocold-kills-damage exit=0
+pocold-spec-depth-store exit=0
+lp1-node-1.58.1 exit=101
+ext-build exit=1
+ext-unit exit=1
+pocold-bins exit=0
+e2e-devnet exit=0
+e2e-site exit=0
+e2e-browser exit=0
+e2e-integrated exit=0
+done
+pocold-ignored-adoption_at_the_spec_depth_2048_and_not_at_2049 exit=0
+pocold-ignored-d133_tie_break_at_depth_400_holds_through_eviction_and_refetch exit=0
+pocold-ignored-a11_deep_reorg_restores_the_oldest_detached_transaction exit=0

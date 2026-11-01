@@ -1,0 +1,98 @@
+{
+ "result": "PASS",
+ "checks": 18,
+ "failed": 0,
+ "work": "/tmp/pocol-lp10-YaH71d",
+ "results": [
+  {
+   "name": "fresh-directory launch: 3 pocold processes produce and agree",
+   "pass": true,
+   "detail": "t=14s"
+  },
+  {
+   "name": "BR15 pocol_getTemplate with Origin -> -32601; without Origin -> served",
+   "pass": true,
+   "detail": "{\"code\":-32601,\"message\":\"method not available to sites\"}"
+  },
+  {
+   "name": "v1 published through node a; pocol-site fetch from every node gives identical verified bytes",
+   "pass": true,
+   "detail": "c810903a49ed1e83,c810903a49ed1e83,c810903a49ed1e83"
+  },
+  {
+   "name": "Chrome renders v1 identically through each node (HTML/CSS/JS/PNG from verified chunks)",
+   "pass": true,
+   "detail": "{\"h1\":\"LP10 site v1\",\"v\":\"1\",\"color\":\"rgb(17, 170, 85)\",\"img\":2,\"ver\":\"version 0 · block 60\",\"trust\":\"LN\",\"errors\":0}"
+  },
+  {
+   "name": "Chrome RP profile accepts the live window and renders v1",
+   "pass": true,
+   "detail": "RP"
+  },
+  {
+   "name": "partition: Chrome via isolated c shows v2 (minority branch) while a shows v1",
+   "pass": true,
+   "detail": "LP10 site v2 / LP10 site v1"
+  },
+  {
+   "name": "partition: branches diverged",
+   "pass": true,
+   "detail": "c=106 ab=126 base=66"
+  },
+  {
+   "name": "heal: c reorganized onto the heavier branch (D133)",
+   "pass": true,
+   "detail": "{\"fallbackTemplates\":2,\"hashesInExhaustedRanges\":29528,\"imported\":191,\"mined\":0,\"reorgs\":1,\"sharesSeen\":141,\"signedTemplates\":1}"
+  },
+  {
+   "name": "reorg recovery: Chrome via c now shows the canonical version, identical on all nodes",
+   "pass": true,
+   "detail": "LP10 site v1 | LP10 site v1 | LP10 site v1 (canonical index 0)"
+  },
+  {
+   "name": "update: v3 published through b is read identically through every node in Chrome",
+   "pass": true,
+   "detail": "version 1 · block 150 | version 1 · block 150 | version 1 · block 150"
+  },
+  {
+   "name": "SIGKILL: b restarts from its journal and rejoins",
+   "pass": true,
+   "detail": "163,163,163"
+  },
+  {
+   "name": "full restart: site served unchanged through every node in Chrome (journal replay)",
+   "pass": true,
+   "detail": "LP10 site v3 | LP10 site v3 | LP10 site v3"
+  },
+  {
+   "name": "identical canonical hash/stateRoot/receiptsRoot at heights 1..157 on 3 nodes",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "resources: node RSS < 512 MiB and journal < 64 MiB after >= 100 blocks",
+   "pass": true,
+   "detail": "{\"a\":{\"rssMiB\":24.1,\"journalMiB\":0.44},\"b\":{\"rssMiB\":23.7,\"journalMiB\":0.44},\"c\":{\"rssMiB\":23.3,\"journalMiB\":0.43}}"
+  },
+  {
+   "name": "resources: extension page JS heap measured",
+   "pass": true,
+   "detail": "7.5 MiB"
+  },
+  {
+   "name": "replay of a: re-executed canonical roots 1..157 identical, site bytes identical",
+   "pass": true,
+   "detail": "b9ef3c44f9e52be7"
+  },
+  {
+   "name": "replay of b: re-executed canonical roots 1..157 identical, site bytes identical",
+   "pass": true,
+   "detail": "b9ef3c44f9e52be7"
+  },
+  {
+   "name": "replay of c: re-executed canonical roots 1..157 identical, site bytes identical",
+   "pass": true,
+   "detail": "b9ef3c44f9e52be7"
+  }
+ ]
+}

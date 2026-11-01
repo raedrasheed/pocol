@@ -1,0 +1,13 @@
+# Codex independent review — revision 0.23, author turn 021, V4 X8
+
+Preserved-copy Python execution: 133 entries, 104 passed, 29 recorded, zero failures, 0.4 seconds, exit 0. All eight JavaScript page files pass Node's syntax check, without executing their network attempts. Current-source clauses, historical source hashes/indices, all sixteen assets and the synthetic evaluator cases were checked. No Chrome/CDP/CanarySink traffic was generated or claimed.
+
+The restored channel definitions and layer matrix agree with the current abbreviated baseline. Historical messages 44/34 are evidence, not replacement authority; the package publishes their hashes and curated definitions, not private paths or raw transcripts. K4 is correctly a mandatory positive reachability control, irrespective of the task's loose use of “negative control”. Missing sensitivity must never count as a successful zero.
+
+C31: the independent evaluator probes produce 36 pass and one failure. A recorded K0/C1 reach followed by a second empty K0/C1 window produces PASS. x8_eval builds a dictionary keyed by (K,C), so the later window silently overwrites the evidence of failure. The original result must be FAIL or INVALID, never PASS. Evidence: x8-independent-probes-prepared.py and x8-independent-probes-0.23.json. This is a genuine false acceptance in the evidence evaluator, despite every prepared author case passing.
+
+Repair input integrity: duplicate windows must be rejected as ambiguous or evaluated without losing any evidence; malformed/unknown window identifiers, collections and event fields must return explicit INVALID diagnostics rather than being silently ignored or crashing. Preserve all existing fixture assets, synthetic expectations and source rules. Add reversed-order duplicate controls to show that dictionary ordering cannot change a failure to a pass.
+
+Definition gap for the final audit: C7 has five paths, while its positive control is currently aggregate per channel. PB6 says K4 decides document.write testability, but a reach from another C7 path cannot establish that fact. Specify per-path positive-control observation windows/correlation, or retain a precise unresolved coverage gap. Do not claim browser proof from synthetic data.
+
+Verdict: revise C31; accepted revision remains 0.22 (40 Partial, 1 Not started, 0 Complete). Actual production execution is not required for M1 specs, but complete experiment definitions and a sound reference evidence evaluator are. Owner policies, representation proposals, RF-E6-1, CONF_DEPTH and the full gate remain unchanged. No merge or deployment.

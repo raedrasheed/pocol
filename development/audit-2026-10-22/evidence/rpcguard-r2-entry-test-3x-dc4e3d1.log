@@ -1,0 +1,17 @@
+# The test added in the second commit, three consecutive runs.
+# Code under test: dc4e3d1c6668381b47cf21f7ac0142a149d4c734 (= 6a561b6 code + this test).
+# Command: cargo test --release --locked --test net -- --exact a_request_reaching_its_handler_past_the_deadline_never_runs
+# Result: 3/3 ok.
+# Rust 1.99.1 (rust-toolchain.toml), release, --locked, CARGO_TARGET_DIR=scratch wf-target-rpcguard, every cargo run under the shared CPU lock; loopback 127.0.0.1 only
+# ---- captured output ----
+start 2026-10-23T16:29:41Z rustc: rustc 1.99.1 (58cf8f9c3 2026-10-13)
+=== run 1
+test a_request_reaching_its_handler_past_the_deadline_never_runs ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.08s
+=== run 2
+test a_request_reaching_its_handler_past_the_deadline_never_runs ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.07s
+=== run 3
+test a_request_reaching_its_handler_past_the_deadline_never_runs ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.07s
+done 2026-10-23T16:29:41Z

@@ -1,0 +1,24 @@
+
+running 5 tests
+test frozen_empty_root_and_secure_empty_storage ... ok
+test state_storage_and_ordered_semantics ... FAILED
+test prefix_inline_branch_and_budget_boundaries ... FAILED
+test maximum_prefix_depth_remains_bounded ... ok
+test frozen_independent_insertion_oracle_roots ... ok
+
+failures:
+
+---- state_storage_and_ordered_semantics stdout ----
+thread 'state_storage_and_ordered_semantics' panicked at 'index out of bounds: the len is 64 but the index is 64', /workspace/work/lp4/p1/mutations/accept-duplicate-key-zfacpthk/src/trie.rs:71:33
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- prefix_inline_branch_and_budget_boundaries stdout ----
+thread 'prefix_inline_branch_and_budget_boundaries' panicked at 'index out of bounds: the len is 128 but the index is 128', /workspace/work/lp4/p1/mutations/accept-duplicate-key-zfacpthk/src/trie.rs:71:33
+
+
+failures:
+    prefix_inline_branch_and_budget_boundaries
+    state_storage_and_ordered_semantics
+
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+

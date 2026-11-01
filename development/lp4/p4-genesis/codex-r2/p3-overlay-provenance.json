@@ -1,0 +1,18 @@
+{
+  "source": "f3fbe13863030adfed6912450e255acd986238b5",
+  "sourceTree": "540fa389c5a9e3c2d0d81b6a8f3f71b4387479e5",
+  "scope": "P3 plus uncommitted SYS-01 primitive regression scratch; not a published source or acceptance",
+  "files": {
+    "src/native.rs": "2f4a0bc20fc37f84164eb424005ecae50718a146b19f75a5461b39ab02838468",
+    "src/system.rs": "1aaee6503645c7ebc343e648d0612a869cd0912b6e0240e899e4720036e7ff2a",
+    "src/system/tests.rs": "ddc33cc9642c1032dc4846f9b6d3a12417c546a9fafb3d97f7ad78e4d384ecb6",
+    "tests/data/system-epoch-witness.json": "a14925d17bb458c10e5f336fbb99c90d9ca223c7e3d67bde95ae86099560d3df",
+    "tests/data/system-registry-pre.json": "b6e317bad9edbfa51e7333054ef968fbebfff873511a7b5a6d73adc8d73b8192",
+    "contracts/SystemEpochWitness.sol": "79c4bb99c5401a935a2e78bdf8a6d67f0784353f799bdfbec18956432c606561",
+    "tests/compile_system_epoch.cjs": "819d3e4e3ab8958ef343406db9c9edff217014d9ab1655c0ea0d3276ec8e76fc",
+    "tests/system_oracle.py": "0ab1240745f6343d186f74e0a4b7e1a9b9b98111ca863491060963dbb4cf2382",
+    "tests/data/code-caps-native-views.json": "0d24b324586d4fb85c7b267453d5fda364b43bf200423aafe4bc8a67dce158fc"
+  },
+  "libSHA256": "cf552ab19d14aa028f9354257bb26b17d1e6f730c3c10c0d38a079d8b1c9072d",
+  "bootable": false
+}

@@ -1,0 +1,9 @@
+=== f-mem-open-full_gas_transfers-1: jm_open_memory JM_MEM_KIND=full_gas_transfers JM_MEM_OPEN=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/jr3w/memdirs/full_gas_transfers ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:24:30Z
+
+running 1 test
+test jm_open_memory ... JM-OPENMEM-FRESH {"baseline":"RSS after admitted() and malloc_trim, before Node::open; journal size from metadata","journalBytes":1879159,"kind":"full_gas_transfers","openSeconds":2.685516443,"peakAboveBaselineBytes":10657792,"peakOverJournal":5.671575422835428,"records":40,"rssAfterBytes":17960960,"rssAfterTrimmedBytes":15974400,"rssBeforeBytes":7303168,"steadyAboveBaselineBytes":8671232,"steadyOverJournal":4.614421664159339,"transientBytes":1986560,"transientOverJournal":1.0571537586760886,"vmHwmAfterBytes":17960960,"vmHwmBeforeBytes":7340032}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 2.76s
+
+=== end 2026-10-24T01:24:32Z exit=0

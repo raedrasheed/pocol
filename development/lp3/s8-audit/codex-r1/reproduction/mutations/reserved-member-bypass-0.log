@@ -1,0 +1,10 @@
+warning: function is never used: `reserved`
+  --> /workspace/work/lp3-s8/reproduction/mutations/reserved-member-bypass-3_ck42oi/src/assignment.rs:43:4
+   |
+43 | fn reserved(id: &Address) -> bool {
+   |    ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: 1 warning emitted
+

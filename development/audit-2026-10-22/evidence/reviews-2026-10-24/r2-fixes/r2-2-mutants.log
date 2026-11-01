@@ -1,0 +1,18 @@
+== M1 no deadline (before the fix)
+thread 'a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled' (8862) panicked at tests/net.rs:696:88:
+called `Result::unwrap_err()` on an `Ok` value: 0x7438d73251b9514d9f85bd3b99a4585af2b212d696766a823011b0dd2350a9b2
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 50 filtered out; finished in 0.21s
+
+== M2 stop hook never fires (post-check kept)
+thread 'a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled' (9042) panicked at tests/net.rs:699:5:
+the stop hook ended the execution early (17.347225ms against a whole run of 5.486327ms)
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 50 filtered out; finished in 0.25s
+
+== M3 no check before the commit
+thread 'a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled' (9225) panicked at tests/net.rs:703:68:
+called `Result::unwrap_err()` on an `Ok` value: 0x06d4949bd524e618e8eca4631c3b711ce664251bb3735a453638fefaedb4d239
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 50 filtered out; finished in 0.39s
+

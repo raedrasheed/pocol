@@ -1,0 +1,13 @@
+{
+  "seed": 1396066131,
+  "cases": 1200,
+  "tsMismatches": 0,
+  "firstMismatches": [],
+  "rustMatched": 1200,
+  "valid": 866,
+  "invalid": 334,
+  "inputSha256": "6d9796c67845d3d26cc15fdd1ef776141a4975b06000bf1bf082bc57207af640",
+  "tsOutputSha256": "b19d32c67b5545aa0c3a419e122f636282dcebf2b67faef8a32b14957829c6d9",
+  "rustOutputSha256": "4086679026f47f5908ec04cf8c8f9a069a9ddf58542aaa311e0747ef1cb7c4dc",
+  "rustExit": 0
+}

@@ -1,0 +1,30 @@
+
+running 7 tests
+test exact_supply_calibration_and_timing_boundaries ... FAILED
+test numeric_sys_timing_trie_and_identity_negatives ... FAILED
+test complete_local_rpc_and_identity_binding_controls ... ok
+test each_rule_has_a_negative_vector_and_numeric_order ... ok
+test resource_binding_complete_version_and_missing_fail_closed ... ok
+test pg_end_1_to_5_and_l ... ok
+test production_profile_and_version_restrictions_and_boot_disabled ... ok
+
+failures:
+
+---- exact_supply_calibration_and_timing_boundaries stdout ----
+thread 'exact_supply_calibration_and_timing_boundaries' panicked at 'assertion failed: `(left == right)`
+  left: `[]`,
+ right: `["R23"]`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:425:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- numeric_sys_timing_trie_and_identity_negatives stdout ----
+thread 'numeric_sys_timing_trie_and_identity_negatives' panicked at 'assertion failed: `(left == right)`
+  left: `[]`,
+ right: `["R23"]`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:251:5
+
+
+failures:
+    exact_supply_calibration_and_timing_boundaries
+    numeric_sys_timing_trie_and_identity_negatives
+
+test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+

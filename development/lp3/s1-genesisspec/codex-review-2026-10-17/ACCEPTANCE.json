@@ -1,0 +1,38 @@
+{
+  "reviewer": "Codex",
+  "date": "2026-10-17",
+  "reviewedHead": "bf2000fbca6ac090779de8955088e77504c7e298",
+  "windowsTestedCommit": "4e26e4d3049731645ab1d85ccfb9972d29d63390",
+  "sourceEquivalent": true,
+  "criteria": {
+    "S0": "PASS",
+    "S1": "PASS"
+  },
+  "scope": "GenesisSpec S0/S1 increment only; not contribution 1 or LP3 acceptance",
+  "blockingImplementationFindings": [],
+  "windowsMemoryDecision": "Accept Linux RLIMIT_AS plus Windows heap allocation evidence for this criterion; Windows OS-limit behavior and reservation failure remain untested. No universal OOM recovery claim.",
+  "freshChecks": {
+    "library": 49,
+    "genesisSpec": 16,
+    "allocationCases": 6,
+    "differentialCases": 30075,
+    "independentRejections": 216,
+    "independentGsv1": 1,
+    "cliHarnessChecks": 9,
+    "cliOsLimitChecks": 7,
+    "preservedWindowsEvidenceChecks": 102
+  },
+  "round1Findings": {
+    "gsVersionDetails": "CLOSED",
+    "wholeFileReadAbort": "CLOSED for tested limits"
+  },
+  "remainingLimitations": [
+    "Live PR metadata/comments/reviews/latest checks blocked by network proxy for api.github.com",
+    "PR workflow permits empty SHA and lacks main workflow explicit HEAD/script verification; use strict main workflow for later acceptance runs",
+    "Windows OS-limit behavior remains untested; not required by this scoped reviewer decision"
+  ],
+  "githubApprovalSubmitted": false,
+  "merged": false,
+  "specificationChanged": false,
+  "laterMilestoneStarted": false
+}

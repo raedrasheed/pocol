@@ -1,0 +1,33 @@
+# tests/e2e_devnet.py on the round-3 code. HEAD 8039a0910ffec3d32dbf9d39f21ea0c90e771f63 (tracked changes under prototypes/: 0)
+# POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-rpcguard/release/pocold POCOL_SIGN=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-rpcguard/release/pocol-sign; under flock e2e.lock and cpu.lock
+# binary sha256: 8cebb86a603b3a8e pocold, 291262b4562569a1 pocol-sign
+# started 2026-10-23T22:37:07Z
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=True valid kept=True
+PASS malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing — new rejects=[{'hash': '0xde12fb7d25dfeba6e974a8be5ef5a5067cd5e98de2d1b7a5f5b9b30ebd8a3294', 'reason': '3 template signature'}] a 19->20
+PASS partition: a and b lead isolated c by more than 4 c tip blocks of work — a/b=['24:0x3bb2ba3347:w=0xe8773', '24:0x60e18f8a5a:w=0xe8773'] c=20:0x63cd5f85b4:w=0xb4e85 in 6s
+PASS partition: a/b's tip is strictly heavier and strictly lower than c's tip, both >= 2 blocks past the fork — a/b=26:0x13395c7d69:w=0x10196a c=27:0x1de500c16c:w=0xc732b fork=19; work above c0 in c tip blocks: a/b 6.32, late c 1.51; late attempts [1, 1, 0, 0, 0, 0, 0] in 12s
+PASS heal: every node's head is a/b's tip (heavier, and lower than c's tip) — heads a/b/c=['26:0x13395c7d69:w=0x10196a', '26:0x13395c7d69:w=0x10196a', '26:0x13395c7d69:w=0x10196a'] a/b tip=26:0x13395c7d69:w=0x10196a in 0s
+PASS heal: on every node the canonical block at a/b's tip height is a/b's tip
+PASS heal: c's tip is not canonical on any node — c tip=27:0x1de500c16c:w=0xc732b
+PASS heal: c reorganized exactly once (one head switch, nothing mined) — c reorgs 0 -> 1
+PASS relay: a holds none of c's late blocks — 7 blocks h=21..27
+PASS relay: a stores c's lighter branch below c's tip, keeps its head, and the branch is not canonical (head = maximum of ≻, consensus.md:215) — stored=True a head=26:0x13395c7d69:w=0x10196a
+PASS relay: a syncs c's tip from a peer claiming more work, keeps its head, and c's tip is not canonical — GetFrom=True stored=True sessions 0->1 a head=26:0x13395c7d69:w=0x10196a
+PASS replay after the relay: a's head is a/b's tip; c's tip is stored and not canonical — a head=26:0x13395c7d69:w=0x10196a
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=29
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+PASS every miner produced blocks — {"a": 100, "b": 37, "c": 35}
+PASS every miner won blocks: a and b canonical ones, c every block of its isolated late branch — {"canonical": {"a": 92, "b": 6, "c": 2}, "c late": "7/7"}
+PASS signed and fallback templates both occur — signed=91/100
+PASS replay of a reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of a agree — 0x3853679a75b3
+PASS replay of b reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of b agree — 0x3853679a75b3
+PASS replay of c reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of c agree — 0x3853679a75b3
+{"result": "PASS", "checks": 27, "work": "/tmp/pocol-e2e-q014iblh"}
+# finished 2026-10-23T22:42:09Z exit=0

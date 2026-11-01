@@ -1,0 +1,13 @@
+test_health_rejects_false_success (test_prepare.PreparationTests.test_health_rejects_false_success) ... ok
+test_manifest_tamper_missing_and_escape (test_prepare.PreparationTests.test_manifest_tamper_missing_and_escape) ... ok
+test_private_inventory (test_prepare.PreparationTests.test_private_inventory) ... ok
+test_reject_duplicate_or_injected_names_and_unknown_options (test_prepare.PreparationTests.test_reject_duplicate_or_injected_names_and_unknown_options) ... ok
+test_reject_network_chain_and_invalid_ports (test_prepare.PreparationTests.test_reject_network_chain_and_invalid_ports) ... ok
+test_reject_rehearsal_as_deployment (test_prepare.PreparationTests.test_reject_rehearsal_as_deployment) ... ok
+test_reject_unsafe_addresses (test_prepare.PreparationTests.test_reject_unsafe_addresses) ... ok
+test_rpc_rejects_remote_or_authenticated_urls_before_network (test_prepare.PreparationTests.test_rpc_rejects_remote_or_authenticated_urls_before_network) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.006s
+
+OK

@@ -1,0 +1,13 @@
+{
+  "specVersion": "M1 draft 0.6",
+  "revision": "R6-01 (C14, prefix only)",
+  "correction": "The 0.5 expected 24-byte head omitted the 33-byte contentHash field (0xa0 || 32 bytes), which follows the size field 0x821640 and precedes the chunks-list header. Length (65561) and the level table were already correct in 0.5 (Codex run) and are inherited from m1-draft-0.5/vectors/request-bound-c14.json.",
+  "source": "coordination/review-001/c14-independent-head.json (independent)",
+  "rb2848": {
+    "manifestHeadHex24": "0xfa0100150180fa01000ffa01000b822f6101821640a02fdc",
+    "contentHash": "0x2fdc37b7cb1bc0c7d76531ac9fe8a3209d061deb25645d3b0c82c117af54b88b",
+    "byteLayout": "fa010015 (top) | 01 (version) | 80 (entryIndex) | fa01000f (files) | fa01000b (file) | 82 2f 61 ('/a') | 01 (mime) | 82 16 40 (size 5696) | a0 (32-byte string) 2f dc ... (contentHash), then f9 ffe0 (chunks list) at offset 54",
+    "chunksHeaderOffset": 54,
+    "chunksHeaderHex": "f9ffe0"
+  }
+}

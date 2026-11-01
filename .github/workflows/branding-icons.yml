@@ -1,0 +1,81 @@
+name: PoCol icon release verification
+on:
+  push:
+    branches: [work/branding-20261031]
+permissions:
+  contents: read
+concurrency:
+  group: pocol-icons-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-ui:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    env:
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build GUI and verify actual WPF history before and after the fix
+        shell: powershell
+        run: |
+          if ((git rev-parse HEAD) -ne $env:EXPECTED_COMMIT) { throw 'Unexpected source commit' }
+          ./deploy/standalone/build-windows-wallet.ps1 -VerifyRegression
+      - name: Stage the GUI update and test evidence
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item prototypes/pocold/target/release/PoCol-Wallet.exe dist/
+          Copy-Item deploy/standalone/README-WINDOWS-UPDATE.md dist/
+          Copy-Item wallet-ui-tests/*.log dist/
+          Copy-Item wallet-ui-tests/activity-fixture.png dist/
+          Copy-Item wallet-preview.png dist/PoCol-Wallet-preview.png
+          $env:EXPECTED_COMMIT | Set-Content dist/UI-SOURCE-COMMIT.txt
+          $hash=(Get-FileHash dist/PoCol-Wallet.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  PoCol-Wallet.exe" | Set-Content dist/WALLET-UPDATE-SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: wallet-ui-${{ env.EXPECTED_COMMIT }}
+          path: dist/
+          retention-days: 30
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: '2'
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Set up fixed toolchain versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          rustup toolchain install 1.99.1 --profile minimal --target aarch64-linux-android
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
+          curl --fail --location --output "$RUNNER_TEMP/gradle.zip" https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+          curl --fail --location --output "$RUNNER_TEMP/gradle.sha256" https://services.gradle.org/distributions/gradle-8.11.1-bin.zip.sha256
+          printf '%s  %s\n' "$(cat "$RUNNER_TEMP/gradle.sha256")" "$RUNNER_TEMP/gradle.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-8.11.1/bin" >> "$GITHUB_PATH"
+      - name: Build actual ARM64 engine and APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          bash deploy/standalone/build-android.sh
+          python deploy/standalone/package.py --platform Android --out dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pocol-Android-arm64-${{ env.EXPECTED_COMMIT }}
+          path: dist/
+          retention-days: 30

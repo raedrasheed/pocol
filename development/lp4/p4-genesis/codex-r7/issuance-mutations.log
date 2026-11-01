@@ -1,0 +1,14 @@
+missing-credit True
+duplicate-credit True
+early-credit True
+final-credit True
+wrong-recipient True
+phase-guard-off True
+manifest-guards-off True
+bad-root-accepted True
+r23-bound-off True
+supply-wrapping True
+pending-kind True
+pending-offset True
+pending-padding True
+13 compiled issuance/pending/actual-builder assertion controls verified; full LP4 NOT PASSED

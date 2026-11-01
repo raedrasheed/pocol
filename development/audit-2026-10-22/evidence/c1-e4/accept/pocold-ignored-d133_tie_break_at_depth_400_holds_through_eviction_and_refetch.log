@@ -1,0 +1,12 @@
+# pocold-ignored-d133_tie_break_at_depth_400_holds_through_eviction_and_refetch: (cd prototypes/pocold; cargo test --release --locked --offline --test consensus -- --ignored --exact d133_tie_break_at_depth_400_holds_through_eviction_and_refetch)
+# start 2026-10-25T08:01:43Z (alongside the final mutation pass)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.25s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/target/release/deps/consensus-8931e1cfd46c771d)
+
+running 1 test
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch has been running for over 60 seconds
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 78 filtered out; finished in 71.78s
+
+# end 2026-10-25T08:02:56Z exit=0

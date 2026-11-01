@@ -1,0 +1,24 @@
+{
+  "specVersion": "M1 draft 0.5",
+  "revision": "R5-01 (C14)",
+  "inherits": "m1-draft-0.4/vectors/request-bound.json: all fixtures except rb-2848-does-not-fit keep their expectations (they passed in the Codex run of 0.4).",
+  "correction": "0.4 expected rb-2848-does-not-fit to be 65558 bytes, computed with 3-byte list headers at every level. A long-form list header is 1 + L bytes where L is the length of the body length: L = 2 for bodies 256..65535 and L = 3 for bodies 65536..16777215. In the 2848-reference manifest the chunk list body is 65504 (header 3), but the file body (65547), the files-list body (65551) and the top-level body (65557) are all >= 65536, so each of these three headers is 4 bytes. Length = 54 + 23*2848 + 3 = 65561, which matches the Codex run. The bound itself is unaffected: its proof only needs headers to be at least as large as assumed, so 54 + 23N is a lower bound on the length of any valid manifest with N >= 2847 references.",
+  "levels": {
+    "rb-2848": [
+      {"level": "chunks list", "body": 65504, "header": "f9ffe0", "total": 65507},
+      {"level": "file",        "body": 65547, "header": "fa01000b", "total": 65551},
+      {"level": "files list",  "body": 65551, "header": "fa01000f", "total": 65555},
+      {"level": "top level",   "body": 65557, "header": "fa010015", "total": 65561}
+    ],
+    "rb-2847": [
+      {"level": "chunks list", "body": 65481, "header": "f9ffc9", "total": 65484},
+      {"level": "file",        "body": 65524, "header": "f9fff4", "total": 65527},
+      {"level": "files list",  "body": 65527, "header": "f9fff7", "total": 65530},
+      {"level": "top level",   "body": 65532, "header": "f9fffc", "total": 65535}
+    ]
+  },
+  "fileBodyParts": "path '/a' (3: 82 2f 61) + mime (1: 01) + size (3: 82 + 2-byte value; 5694 for 2847, 5696 for 2848) + contentHash (33) + chunks list total",
+  "fixture": {"id": "rb-2848-does-not-fit", "construction": "as in 0.4", "expected": {"result": "reject", "firstRule": "decode.oversize", "stage": "decode", "manifestLength": 65561, "requests": 0,
+              "manifestHeadHex": "0xfa0100150180fa01000ffa01000b822f6101821640f9ffe0"}},
+  "boundStatement": "Unchanged from R4-03: at most 2847 content references, at most 2850 eth_getCode requests per load. Lower bound used in the proof: length >= 54 + 23N for N >= 2847; the exact length can exceed it by the header growth at the 65536 boundary (here +3)."
+}

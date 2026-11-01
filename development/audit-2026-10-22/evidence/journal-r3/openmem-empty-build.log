@@ -1,0 +1,9 @@
+=== f-mem-build-empty: jm_open_memory JM_MEM_KIND=empty JM_MEM_DIR=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/jr3w/memdirs/empty ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:22:49Z
+
+running 1 test
+test jm_open_memory ... JM-OPENMEM {"blocks":3000,"inProcessUndercounts":true,"journalBytes":5780087,"kind":"empty","openSeconds":7.920219271,"peakAboveBaselineBytes":7172096,"peakOverJournal":1.2408283819949424,"records":3000,"rssAfterBytes":46436352,"rssBeforeBytes":39264256,"vmHwmAfterOpenBytes":46436352,"vmHwmAfterResetBytes":39264256}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 33.75s
+
+=== end 2026-10-24T01:23:23Z exit=0

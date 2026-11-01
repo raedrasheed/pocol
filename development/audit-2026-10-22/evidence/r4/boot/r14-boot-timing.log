@@ -1,0 +1,12 @@
+# r14-boot-timing-by-mode on 1074b47 (0 changed tracked paths), 2026-10-28T11:31:36Z, load 5.07 11.57 12.12; the H_END grow (nice 10) runs beside it
+
+running 1 test
+JM-BOOT-TIMING {"bootPhaseMs":[8,9,10],"memoryPhaseMs":[7,7,7],"run":0,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[8,9,10],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[9,9,10],"memoryPhaseMs":[6,7,7],"run":1,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[9,9,10],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[9,10,10],"memoryPhaseMs":[6,10,9],"run":2,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[9,10,10],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[9,9,10],"memoryPhaseMs":[7,7,8],"run":3,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[9,9,10],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[9,9,15],"memoryPhaseMs":[9,8,8],"run":4,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[9,9,15],"tExecMs":1000}
+test jm_r14_boot_timing_by_mode ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.74s
+

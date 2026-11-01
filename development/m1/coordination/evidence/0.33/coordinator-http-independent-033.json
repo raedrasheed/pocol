@@ -1,0 +1,28 @@
+{
+  "scenario": "Independent HTTP integration with synthetic worker/receipt/notifier fixtures; no real author loop or owner decisions",
+  "checks": 18,
+  "passed": 18,
+  "failed": 0,
+  "workerStarts": 2,
+  "continuationNotifications": 1,
+  "results": [
+    "attach actual HTTP",
+    "one first worker via normal gates",
+    "review before receipt forbidden",
+    "actual fixture review accepted",
+    "one durable continuation and notification",
+    "continuation alone starts no author",
+    "duplicate review rejected",
+    "browser reviewer request blocked",
+    "explicit next plan acknowledged",
+    "second worker starts exactly once after review",
+    "duplicate continuation ack rejected",
+    "missing pause idempotency rejected",
+    "valid pause accepted",
+    "pause defers continuation",
+    "valid resume accepted",
+    "complete scope suppresses continuation",
+    "saved owner answers unchanged",
+    "normal permission mode and same-host transport"
+  ]
+}

@@ -1,0 +1,717 @@
+[
+  {
+    "id": "D1",
+    "decision": "A Rust pocold node using revm.",
+    "rationale": "Compared with a geth fork (LGPL/GPL licensing and ongoing maintenance) and Engine API (does not enforce the template before mining). The chosen option controls determinism and fits 8 GB."
+  },
+  {
+    "id": "D2",
+    "decision": "Two stages with separate evidence: A on anvil, B in PoCol.",
+    "rationale": "Success in A does not establish B."
+  },
+  {
+    "id": "D3",
+    "decision": "A modified Cancun profile with disclosed exceptions.",
+    "rationale": "Preserves tool compatibility."
+  },
+  {
+    "id": "D4",
+    "decision": "A template signed by the attempt-0 proposer, with deterministic fallback.",
+    "rationale": "Mempool derivation does not establish agreement [PDF:100]; a quorum would turn the protocol into BFT."
+  },
+  {
+    "id": "D5",
+    "decision": "Seed and Draw derive from the parent seal.",
+    "rationale": "Prevents grinding through template content [PDF:91]."
+  },
+  {
+    "id": "D6",
+    "decision": "Shares in shareList signed by the winner.",
+    "rationale": "Compared with a subsequent share window and heartbeats [PDF:105]."
+  },
+  {
+    "id": "D7",
+    "decision": "Settlement deferred D blocks, using denominator max(C, κm) and burning.",
+    "rationale": "Denominator C alone makes exclusion profitable."
+  },
+  {
+    "id": "D8",
+    "decision": "B_reg bond held throughout membership.",
+    "rationale": "[PDF:89 §5.4.4]."
+  },
+  {
+    "id": "D9",
+    "decision": "uint64 nonce and bounded mode with c=2.",
+    "rationale": "[PDF:95]; T8 settles the value."
+  },
+  {
+    "id": "D10",
+    "decision": "S3 for the experiment; S4 required for the public network.",
+    "rationale": "SSTORE costs more; calldata does not put bytes in state."
+  },
+  {
+    "id": "D11",
+    "decision": "Immutable versions, rollback through setCurrent, no deletion until termination.",
+    "rationale": "EIP-6780."
+  },
+  {
+    "id": "D12",
+    "decision": "Render in an opaque-origin sandbox.",
+    "rationale": "Extension pages expose chrome.*."
+  },
+  {
+    "id": "D13",
+    "decision": "DEV, LN and RP trust levels.",
+    "rationale": "An MPT proof does not establish root validity."
+  },
+  {
+    "id": "D14",
+    "decision": "An EIP-1193 provider with two network-bound approvals.",
+    "rationale": "MetaMask is unavailable from the sandbox."
+  },
+  {
+    "id": "D15",
+    "decision": "Cumulative work, then lexicographic branch-path order at the first difference using (signed, importSeq, blockHash). Details in D133.",
+    "rationale": "[PDF:74, PDF:76] specify cumulative work. The earlier formulation (signed at first difference, then first-seen tip) is not transitive (I73)."
+  },
+  {
+    "id": "D16",
+    "decision": "powHash over TemplateID‖nonce.",
+    "rationale": "Removes circularity."
+  },
+  {
+    "id": "D17",
+    "decision": "[L(a), U(a)] windows using u128 arithmetic.",
+    "rationale": "Historically verifiable."
+  },
+  {
+    "id": "D18",
+    "decision": "Storage budget approximately 29.5 GiB with N_rep ≥ 3.",
+    "rationale": "Derived from the inventory; D85 makes its time bound effective."
+  },
+  {
+    "id": "D19",
+    "decision": "A MessageChannel bridge handed over once.",
+    "rationale": "The sandbox origin is null."
+  },
+  {
+    "id": "D20",
+    "decision": "Limits with lengths calculated from structure.",
+    "rationale": "Consistent worst cases."
+  },
+  {
+    "id": "D21",
+    "decision": "A_h* from active, non-burned members; an empty set means an announced halt.",
+    "rationale": "Falling back to M_h assigns a range to a nonproducing member."
+  },
+  {
+    "id": "D22",
+    "decision": "Sticky FB; fallback timestamp L(0)+Δ_fb_wait.",
+    "rationale": "Prevents splitting honest miners."
+  },
+  {
+    "id": "D23",
+    "decision": "ts = max(L(0), C), chosen by the proposer.",
+    "rationale": "ASERT needs actual time; this is a disclosed deviation from [PDF:90, PDF:99]."
+  },
+  {
+    "id": "D24",
+    "decision": "Consensus caps, then closing, then termination.",
+    "rationale": "Shared verifiable rules."
+  },
+  {
+    "id": "D25",
+    "decision": "System calls protected by SYSTEM_ADDRESS.",
+    "rationale": "Prevents manipulation."
+  },
+  {
+    "id": "D26",
+    "decision": "An inline loader with a CSP hash, and approval bound to txHash.",
+    "rationale": "Trusted startup."
+  },
+  {
+    "id": "D27",
+    "decision": "Byte-specified factory initcode; a stateless factory.",
+    "rationale": "Literal, testable derivation."
+  },
+  {
+    "id": "D28",
+    "decision": "Genesis through a configuration file.",
+    "rationale": "[PDF:96 §5.7.2]."
+  },
+  {
+    "id": "D29",
+    "decision": "Winner-equivocation evidence (type 2).",
+    "rationale": "Including shareRoot in PoW turns it into an extranonce."
+  },
+  {
+    "id": "D30",
+    "decision": "Trie with K_eff ≤ 32, 2048-block diffs and TrieRebuild.",
+    "rationale": "The value 128 exceeds 6 GiB."
+  },
+  {
+    "id": "D31",
+    "decision": "A template state machine and a queue for templates arriving before their parent.",
+    "rationale": "Resolves late, early and second templates."
+  },
+  {
+    "id": "D32",
+    "decision": "Draw over A_h* weighted by shares.",
+    "rationale": "Historically verifiable validity."
+  },
+  {
+    "id": "D33",
+    "decision": "Byte-level P2P schemas and aggregate resource bounds.",
+    "rationale": "A message limit alone does not bound memory."
+  },
+  {
+    "id": "D34",
+    "decision": "Synchronous snapshot storage keyed by netKey, with writes through storage_set using the unified envelope (D96).",
+    "rationale": "Provides localStorage semantics without exposing chrome.storage."
+  },
+  {
+    "id": "D35",
+    "decision": "Composite WAIT trigger.",
+    "rationale": "An absolute timer failed when the parent was late."
+  },
+  {
+    "id": "D36",
+    "decision": "Build_fb with full execution.",
+    "rationale": "Skipping system calls breaks state."
+  },
+  {
+    "id": "D37",
+    "decision": "Three isolation layers: CSP, DNR and RtcLockdown.",
+    "rationale": "CSP and DNR do not cover STUN."
+  },
+  {
+    "id": "D38",
+    "decision": "Two-stage synchronization.",
+    "rationale": "Eligibility requires parent state."
+  },
+  {
+    "id": "D39",
+    "decision": "Compute closing, gate2 and final before execution.",
+    "rationale": "Compared with manual settlement."
+  },
+  {
+    "id": "D40",
+    "decision": "Derived timing parameters with a boot gate.",
+    "rationale": "The previous relation omitted parent search time."
+  },
+  {
+    "id": "D41",
+    "decision": "Registry functions fail with Closing.",
+    "rationale": "Compared with partial prohibition."
+  },
+  {
+    "id": "D42",
+    "decision": "The block message broadcasts only the header.",
+    "rationale": "The complete block is 65 times larger."
+  },
+  {
+    "id": "D43",
+    "decision": "Exclusive branching between signed and fallback templates.",
+    "rationale": "Compared with signed templates for every a."
+  },
+  {
+    "id": "D44",
+    "decision": "SimNet runs actual pocold modules.",
+    "rationale": "BlockSim does not run the rule implementation."
+  },
+  {
+    "id": "D45",
+    "decision": "P11, P15, P51 and P55 profiles derived from the gate.",
+    "rationale": "One dev profile violates the gate."
+  },
+  {
+    "id": "D46",
+    "decision": "T18b with a caps/64 profile.",
+    "rationale": "Full caps cannot be reached within test time."
+  },
+  {
+    "id": "D47",
+    "decision": "T19 uses cursor progress per height as its unit.",
+    "rationale": "Avoids mixing two units."
+  },
+  {
+    "id": "D48",
+    "decision": "A 14-component inventory.",
+    "rationale": "Compared with a single byte ceiling."
+  },
+  {
+    "id": "D49",
+    "decision": "TXBYTES_CAP applies to len(rawTx).",
+    "rationale": "Covers the envelope."
+  },
+  {
+    "id": "D50",
+    "decision": "SYS_KEYS and SYS_ACCT units, and sticky closing.",
+    "rationale": "Compared with raising the cap."
+  },
+  {
+    "id": "D51",
+    "decision": "Every system transfer goes through PAY.",
+    "rationale": "A value-bearing CALL permits invalidating the block."
+  },
+  {
+    "id": "D52",
+    "decision": "Hash-keyed trie nodes with reference counts.",
+    "rationale": "Path keys do not support historical proofs."
+  },
+  {
+    "id": "D53",
+    "decision": "A single R1–R26 gate, with only one exception in R21.",
+    "rationale": "A parallel gate opens an exemption leak."
+  },
+  {
+    "id": "D54",
+    "decision": "The user's system-resource budget is zero during closing.",
+    "rationale": "Makes KF and AF true by construction."
+  },
+  {
+    "id": "D55",
+    "decision": "Compressed receipts; logs stored once.",
+    "rationale": "Compared with full storage."
+  },
+  {
+    "id": "D56",
+    "decision": "bondState separate from the tombstone; evidence precedes the cursor.",
+    "rationale": "The cost is weaker deterrence during closing."
+  },
+  {
+    "id": "D57",
+    "decision": "final requires h ≥ closeH+D with membership frozen.",
+    "rationale": "Compared with a union bound including rotation."
+  },
+  {
+    "id": "D58",
+    "decision": "netKey identity and signEligible inside ProfileMutex.",
+    "rationale": "chainId alone is insufficient."
+  },
+  {
+    "id": "D59",
+    "decision": "reactivate for an exited, HELD record after W_act.",
+    "rationale": "Compared with free reentry."
+  },
+  {
+    "id": "D60",
+    "decision": "A deterministic K_eff trie window, as a retention rule.",
+    "rationale": "Compared with a grindable consensus cap."
+  },
+  {
+    "id": "D61",
+    "decision": "A compact registry with swap-and-pop and rotating sweep.",
+    "rationale": "Compared with an index containing holes."
+  },
+  {
+    "id": "D62",
+    "decision": "Authorization through msg.sender; only removeInactive is public.",
+    "rationale": "Compared with reactivate(id) plus a check."
+  },
+  {
+    "id": "D63",
+    "decision": "X8 with TCP/UDP sinks and control K4.",
+    "rationale": "SOCKS does not observe UDP."
+  },
+  {
+    "id": "D64",
+    "decision": "The gate computes derived values and returns every violated rule.",
+    "rationale": "Compared with returning only the first rule."
+  },
+  {
+    "id": "D65",
+    "decision": "payInt = floor(R·c/max(C, κm)).",
+    "rationale": "[PDF:104 §5.9.2]."
+  },
+  {
+    "id": "D66",
+    "decision": "Classified burns, with one burnedTotal slot.",
+    "rationale": "Compared with per-kind counters."
+  },
+  {
+    "id": "D67",
+    "decision": "finalBurn = blockTips_F; block F settles everything remaining.",
+    "rationale": "Shares of F are not recorded."
+  },
+  {
+    "id": "D68",
+    "decision": "A host tips accumulator passed through protected calldata.",
+    "rationale": "Implements the fees component in R_tot [PDF:103]. Compared with an Escrow balance difference and EIP-1153."
+  },
+  {
+    "id": "D69",
+    "decision": "R22 for profile policy; R23 for the overflow bound.",
+    "rationale": "A minimum-subsidy constraint is arbitrary."
+  },
+  {
+    "id": "D70",
+    "decision": "Forced transfers and adding tips to COINBASE are not system writes.",
+    "rationale": "Counting them as writes would invalidate every tipped transaction during closing."
+  },
+  {
+    "id": "D71",
+    "decision": "ExecFixture and ChainFixture layers, with a deterministic search-bounded FixtureMiner.",
+    "rationale": "Fallback grinding is prohibited."
+  },
+  {
+    "id": "D72",
+    "decision": "Stateless item 1b: identity and version from cfg.",
+    "rationale": "Compared with Status alone, removing fields from UT, and checking only in H-full."
+  },
+  {
+    "id": "D73",
+    "decision": "T0 with L0–L4 layers.",
+    "rationale": "Old V1 meets the target only with probability 2^−16."
+  },
+  {
+    "id": "D74",
+    "decision": "Absolute-anchor ASERT with AS, ASQ and R25; binding arithmetic in D83.",
+    "rationale": "Compared with a moving-average window and parent-relative adjustment. Absolute anchoring computes from the parent header alone, enabling H-pre and RP checks."
+  },
+  {
+    "id": "D75",
+    "decision": "Three-way rejection expectations with diagnoseChain; template channel for signed form only.",
+    "rationale": "firstReject alone hides fixture defects."
+  },
+  {
+    "id": "D76",
+    "decision": "Fully self-describing chain vectors, with T_j in milliseconds.",
+    "rationale": "Referring to a previous revision does not permit independent execution."
+  },
+  {
+    "id": "D77",
+    "decision": "GenesisSpec includes CP; the extension carries genesisPre; RP window [max(1, h−12), h] checks items 1, 1b and 2–9 with a reference or genesis anchor. Details in D82/D84.",
+    "rationale": "Compared with uploading fixtures and rejecting h < 13. Anchoring to genesis is stronger than a disconnected window."
+  },
+  {
+    "id": "D78",
+    "decision": "pending[j] is a reversible consensus slot keyed by height. closeBlock(j) writes amount, kind and proposer; recordResult(j) writes winner in block j+1 (D141).",
+    "rationale": "Compared with a blockHash key and recomputation at settle. Writing winner in block j itself makes the UT-committed stateRoot depend on the mining outcome (I76)."
+  },
+  {
+    "id": "D79",
+    "decision": "GenesisSpec version 1 schema: 52-item CP, M_0List, allocRoot, sysCodeHash, seven decoding errors and GSV1 vector.",
+    "rationale": "Compared with an RLP dictionary and canonical JSON. The positional list is smaller and deterministic; the hash is recorded through agreement among three libraries."
+  },
+  {
+    "id": "D80",
+    "decision": "At h=0 in RP: no header request, viewNoBlocks and 4901. In LN: normal viewing and signing.",
+    "rationale": "A zero-count request falsely suggests verification; eth_getProof against allocRoot is more complex. Refusal until block 1 is simple and honest."
+  },
+  {
+    "id": "D81",
+    "decision": "Check pocol_getHeaders in fixed first-violation order: F0 type (−32602), F1 fromZero, F2 countRange, F3 fromAboveHead, F4 beyondHead (u128). The last four return −32018.",
+    "rationale": "Checking state first is unnecessarily costly; returning all reasons complicates clients. The choice is deterministic and consistent with firstReject."
+  },
+  {
+    "id": "D82",
+    "decision": "Three RP counts: window W = [b, h] with n ≤ 13; uncounted reference b−1 when b > 1 checked by 1, 1b and viewFuture; retrieval from = max(1, b−1), count ≤ 14. Too few or too many gives viewIncomplete.",
+    "rationale": "Shrinking the window weakens verification; fully checking the reference recurses; omitting it leaves parentHash(b) without a comparison."
+  },
+  {
+    "id": "D83",
+    "decision": "Fixed-width ASERT: Δt, e, s and f in i128; early saturation at s ≥ 256 or s ≤ −257; k ∈ [−272, 239]; operands ≤ 512 bits. Output equals D74 by the equivalence lemma.",
+    "rationale": "Allocation precedes an external timeout; a consensus rule for |Δt| changes validity; floating point is nondeterministic."
+  },
+  {
+    "id": "D84",
+    "decision": "Two RP-client constraints before PoW: viewFuture for ts > C+Φ_view, and viewTargetCeil for target > min(2^256−1, target_g·2^4). The only advertised bound is numeric minWorkRP = work(ceilTarget), labeled ineffective at 1.",
+    "rationale": "Checking the reference timestamp recurses; a signed checkpoint adds centralization; schedule comparison rejects honest networks. work is nonincreasing, making the bound exact."
+  },
+  {
+    "id": "D85",
+    "decision": "Binding height bound: R13, R20, item 10a (h ≤ H_END) and theorem E1.",
+    "rationale": "Derived H_MAX is complicated; liquidation in one block exceeds G_SYS; burning remaining bonds confiscates honest members' bonds."
+  },
+  {
+    "id": "D86",
+    "decision": "R16 symbolically defines LAG = 2048 and Lmax = max(U, 2·E_win+D+1). end/full profile: R_max=0, M_max = REG_RECORDS_MAX = |M_0| = 1024 at genesis, RET=8, Z_close=147, H_CLOSE=553, H_END=700.",
+    "rationale": "Filling through registration takes thousands of blocks; exemption is prohibited (D53); state injection bypasses the rules. Cost: registration turnover is not exercised."
+  },
+  {
+    "id": "D87",
+    "decision": "RpcGuard is a local service policy binding on implementation but outside validity: heavy/light classification, global bounds, eth_getLogs range ≤ 1024, ≤ 10000 logs and ≤ 32 MiB scanned, explicit rejection without truncation, cancellation ≤ 100 ms, separate runtime and R26. PS and RG gates are required for M7. Details in D88–D94.",
+    "rationale": "Reducing range does not bound concurrency; streaming without global limits does not bound snapshots; a session cursor needs state; per-source limits can be bypassed with multiple connections."
+  },
+  {
+    "id": "D88",
+    "decision": "RPC resource ownership lifecycle: sequential HTTP/1.1 (S1), seven phases with start points/deadlines, streamed batches without resources between members, 48 MiB heavy and 16 MiB light budgets, thread-local SCRATCH accounting in a 20-thread pool, 178 MiB ≤ 192 MiB, derived classification table and per-connection token bucket with FIFO.",
+    "rationale": "Per-member reservation in an accumulated batch can reach 512 MiB. HTTP/2 breaks S1. A shared budget starves light traffic. Estimated accounting does not bound revm. Cost: new connections and heavy traffic can be locally denied service."
+  },
+  {
+    "id": "D89",
+    "decision": "pocol_getLogs(filter, anchorHash) with anchor/P2 and exact P1 bound (P3). LogClient retries [a, lc], then [lc+1, b]; fetchAll capped at 4 MiB; fetchEach for tests.",
+    "rationale": "Resuming from nextFromBlock loses data. A partial result with success status misleads. Later blockHash verification does not detect empty blocks. Per-block filtering is costly. A session cursor can be exhausted. Cost: double scanning and a nonstandard method."
+  },
+  {
+    "id": "D90",
+    "decision": "A send controller with one clock per response and batch, advancing only while pending: one-time GRACE, cumulative-rate rule, no per-member grace, derived BATCH_SEND_MAX = 258.0791015625s and reserve BATCH_WALL = 420s ≥ 404.2791015625s.",
+    "rationale": "Per-member deadlines preserve repeated initial grace. A wall clock punishes honest readers for server slowness. Low BATCH_WALL interrupts honest batches. Cost: an intermittent reader without credit may be closed."
+  },
+  {
+    "id": "D91",
+    "decision": "Complete LogClient transitions: P1 versus RES, splitting or bisection, 3 per-block retries, withinLimit marker, transactional sink with attemptId, anchor check before commit, S-a..S-e invariants and three counters with maxRequests on totalRequests checked before sending.",
+    "rationale": "Treating scratch as P1 assumes unguaranteed progress. Immediate rejection turns temporary pressure into failure. Deferring all pieces recreates accumulation. Invalidation without an ID cannot distinguish late pieces. A per-attempt counter does not bound restarts."
+  },
+  {
+    "id": "D92",
+    "decision": "Credit semantics and controller enforcement: credit = A−R·sendTime without a cap; timer at s_v+TIMER_EPS (1 ms), backup check every 50 ms, delay ≤ 200 ms; strict bounds = exact values + ENFORCE_SLACK; SO_SNDBUF = 32 KiB; accepted-versus-read difference is measurement only; CloseOK governs every closure.",
+    "rationale": "Sliding windows and buckets do not reduce maximum occupancy and penalize intermittent readers. Periodic checking with a bound equal to the theoretical value is contradictory. sendTime ≤ max(GRACE, A/R)+ENFORCE_SLACK holds regardless of pause distribution."
+  },
+  {
+    "id": "D93",
+    "decision": "Two-layer controller verification: (1) PacerSim runs the same implementation over abstract Clock and SocketSink, with a literal model distinguishing P, A and Rc, two acceptance modes, next-member production immediately at A = P, specified client behavior, iteration to quiescence within each instant, and PS1–PS8 as a deterministic gate. (2) Real sockets: PacerTrace and TC-send, TC-recv, CloseOK and Enforced predicates gate every run; conditional-case conditions are functions of the complete trace; DiscriminationCheck is a conditional negative control; B_meas is measurement only.",
+    "rationale": "Prediction from bytes alone is wrong (I44); pause-start values do not imply the result (I45). Mock-only tests miss Windows faults; ETW needs privileges; a model without next-member production leaves PS5c underived. Cost: A's accuracy against the kernel is supported only by “received ≤ A” and A matching size at sendDone."
+  },
+  {
+    "id": "D94",
+    "decision": "Separate completion events: sendDone (server), the first A = P = size after finish, releases reservation, stops sendTime and starts IDLE. receiveDone (client), Rc = size, is invisible to the server and enters no deadline. All server deadlines measure through sendDone. TC-send checks only the server; TC-recv checks Rc ≤ A and receiveDone if the client continues; unreadAtSendDone is a measurement. Decisive vector: PS5c and RG14(0b).",
+    "rationale": "Holding reservation until client reading makes it hostage to a nonreader. Application acknowledgments change standard JSON-RPC. Requiring Rc = A at sendDone rejects a conforming implementation (I46). Cost: server completion does not mean client receipt; this is disclosed."
+  },
+  {
+    "id": "D95",
+    "decision": "Default-deny extension bridge authorization, with a second defense in the node. BridgeAuth runs in the worker before any request or local effect, using D96's unified envelope and Bpre then B0–B4. Explicit rpc_read matrix separate from light/heavy classification; eth_call/eth_estimateGas simulate with mandatory to, gas ≤ 30M and no state override; eth_getLogs exclusively through LogClient. wallet_req is limited to eth_accounts, eth_requestAccounts, eth_chainId and eth_sendTransaction. Prohibited in every kind: eth_sendRawTransaction, signing, wallet_*, filters, debug/txpool/admin/anvil/evm, eth_getProof and all pocol_*. Only write path: wallet_req, approval, Wallet, WalletSubmit with keccak256(raw) = approved txHash. RpcReadClient is the sole transport exported to Bridge and rechecks the allowlist; dependency-cruiser forbids Bridge importing WalletSubmit or HttpTransport. Node: ORIGIN_DENY = {pocol_submitShare, pocol_getTemplate} returns −32601 for any request carrying Origin. Verification: BR1–BR19, BR-neg and BR-dep.",
+    "rationale": "A denylist leaves new methods allowed. Cost classification is not authorization. Origin alone cannot distinguish site from wallet at the node. A separate mining port isolates more strongly but doubles RpcGuard budgets, remaining a public-network option. A general schema library has a larger surface. Cost: reads expose public state; eth_call consumes RpcGuard quota; sites requiring eth_getProof or filters do not work in v1; parser correctness is supported by BR16, not assumed."
+  },
+  {
+    "id": "D96",
+    "decision": "Unified envelope for all bridge messages: {id, kind, payload}, integer id in [0, 2^32−1], payload = {method, params}, params always an array. storage_set: site_storageSet [str(256), str(61440)|null], site_storageClear []. nav: site_navigate [pathStr], site_openExternal [httpsUrl] with confirmation. site_ is reserved for local methods and absent from rpc_read. Same check order for every kind. Disclosed local errors: −32005 {rate|pending}, 4300 {quota, limit}. SiteStorage derives its key from frame context and accounts quota literally: entry = utf8len(k)+utf8len(v); newTotal = total − old entry + new entry; admit at newTotal ≤ 1048576; deletion/clear not rejected. Atomic application with one chrome.storage.local.set or none. Verification: BR7a–BR7h, BR17 (including boundary table BR17e), BR18, bridge-fault:legacyLocal and quotaNoSubtract.",
+    "rationale": "A structural exception for each local kind needs two parsers and error orders, causing I48. Removing kind loses the double (kind, method) check. Unprefixed local names can collide.\n\nQuota-accounting alternatives:\n(A) String.length (UTF-16 units): differs from actual stored bytes and is awkward to test in Python.\n(B) Serialized dictionary JSON size: depends on key ordering and escaping, preventing literal accounting.\n(C) chrome.storage.local.getBytesInUse: includes unspecified Chrome overhead and prevents deterministic unit tests.\nSelected: UTF-8 bytes of key/value, deterministic and manually derivable as in BR17e.\n\nCost: nonstandard code 4300, localStorage values limited to 61440 bytes per key, actual disk quota differs due to Chrome overhead, and every admitted write rewrites the entire site dictionary."
+  },
+  {
+    "id": "D97",
+    "decision": "Deterministic bridge rate/pending model:\n- Stamp: arrivalMs = floor(performance.now()), set by the worker at receipt before checks; process in arrival order.\n- Bucket: per site session (D99), integer arithmetic. tokens_mt ∈ [0, 50000], refill 50 per millisecond, cost 1000.\n  - Size rejection consumes no token.\n  - Every rate-admitted message consumes its token even if rejected later.\n- Checks: BridgeAuth.check implements only Bpre–B3; destination components enforce B4 constraints.\n- Per-session pendingReads:\n  - Increment at admission.\n  - Decrement at final response, timeout, or orphan settlement after frame teardown.\n  - Navigation does not reset it.\n  - One eth_getLogs message = one pending request.\n- Verification:\n  - BR19a/BR19b are deterministic units.\n  - BR19c/BR16 against BridgeRef using recorded times.\n  - BR20 for navigation.\n  - Negative controls noRefill and frameBudget.",
+    "rationale": "Alternatives:\n(A) Expect a fixed count in Chrome: not implied by a refilling bucket (I49).\n(B) Fixed window: permits double rate around window boundaries.\n(C) Floating point: nondeterministic boundary results.\n(D) Remove rate limiting: does not bound rejected-message parsing cost.\n(E) Per-frame ownership: navigation renews it (I52), so ownership moved to the session.\n\nDisclosed cost:\n- BR19c proves implementation consistency with its own arrival times, not their accuracy.\n- BR19c may remain “inconclusive” on a slow device.\n- −32603 {transport} is a local code."
+  },
+  {
+    "id": "D98",
+    "decision": "Extension RecvGuard: all network reception passes only through HttpTransport.\n- Stream reads; count after decompression and before append; cancel immediately above the method's RECV_LIMIT. Reject oversized Content-Length before reading.\n- Iterative parsing at depth ≤ 16, rejecting invalid UTF-8 and duplicate keys.\n- Errors have the same bounds: truncated message, data ≤ 4 KiB.\n- Advance reservation from separate pools: SITE_POOL = 32 MiB, SESSION_RECV_MAX = 10 MiB, protected TRUST_POOL = 2 MiB, CONTENT_POOL, RECV_INFLIGHT_MAX = 48. Unavailable within 2s gives busy.\n- Never adopt partial content. Verification: MR1–MR12 with recvNoLimit control.",
+    "rationale": "Alternatives:\n(A) Accumulate with text()/json(), then check: exhausts memory before checking (I51).\n(B) Trust Content-Length: may be absent or false with chunking/compression.\n(C) Isolate each request in an offscreen document: MV3 permits one document, costs more and does not bound total memory.\n(D) One global bound without per-method limits: lets a false light response occupy the budget.\n\nSelected: streaming accounting, per-method bounds and separate pools; deterministic and boundary-testable (MR6). A separate trust pool prevents site starvation of network checks.\n\nCost:\n- eth_call above 1 MiB does not work for sites.\n- Temporary parsing memory is measured, not proven.\n- Chrome enforces header limits."
+  },
+  {
+    "id": "D99",
+    "decision": "SiteSession keyed by (tabId, netKey, siteAddress):\n- Created by user action; ends at tab close or navigation to another address.\n- Owns message bucket, pendingReads, navigation bucket (capacity 3, one per 2s), receive reservation, ChunkCache (≤ 4 MiB+64 KiB) and one LoadJob.\n- site_navigate creates a frame joining the same session without renewal.\n- Torn-down-frame requests become orphans: cancelled without reply, counted until settlement.\n- Global bounds: 16 pending reads, 16 MiB chunk cache.\n- Verification: BR20a–BR20d with frameBudget control.",
+    "rationale": "Alternatives:\n(A) Per-frame ownership: self-navigation renews it (I52).\n(B) Wait for cancellation completion before the new frame: slows honest navigation and does not prevent bucket renewal.\n(C) Prohibit site_navigate and full reload: breaks multipage sites.\n(D) Site-wide budget across tabs: lets one tab block another for the same site.\n\nSelected: (E) session-level inheritance with orphan accounting. Gains B's benefit without blocking the UI; cumulative limits do not depend on navigation count.\n\nCost:\n- 0.5 navigation/s after three consecutive navigations may slow fast-clicking users, recorded in T12.\n- User-created tabs multiply quota up to the global bound."
+  },
+  {
+    "id": "D100",
+    "decision": "Two extension receive-bound classes:\n- exact: RECV_LIMIT ≥ WorstLegit derived from CP and actual client parameters.\n- capped: closed list {eth_call at 1 MiB, eth_estimateGas at 64 KiB}, with disclosed product limits narrower than the node.\n\nAssociated changes:\n- BG1 checks both classes instead of RpcGuard's general bound.\n- RecvFit rejects profiles whose legitimate responses exceed client bounds.\n- eth_getBlockBy* bound increases to 164 KiB.\n- Bridge eth_feeHistory schema restricts n ≤ 128, p ≤ 16.\n- RECV_INFLIGHT_MAX excludes the trust pool.",
+    "rationale": "Alternatives:\n(A) Raise all client limits to server limits (8 MiB for heavy methods): the site pool then fits only four responses, weakening D98.\n(B) Keep old BG1: contradicts the selected eth_call limit, preventing any build.\n(C) One general bound: fails to distinguish compatibility guarantees from product constraints.\n\nThe choice makes each method either derived and boundary-tested or explicitly capped and recorded in T12. Derivation exposed the 160 KiB error.\n\nCost:\n- eth_call above 1 MiB, large eth_estimateGas reverts and feeHistory above 128 blocks do not work for sites.\n- Bounds assume compact JSON."
+  },
+  {
+    "id": "D101",
+    "decision": "Bounded StoreQueue for SiteStorage writes; qbytes = 64+utf8len(k)+utf8len(v):\n- Limits: per session ≤ 8 messages and ≤ 262144 bytes; extension-wide ≤ 64 messages, ≤ 4 MiB, ≤ 2 active writes. Counters include every unreleased message.\n- Admit/reject (−32005 {store}) before append.\n- Order: FIFO per storage key, one active write per key.\n- Evaluate quota when the message becomes its key's head, without a slot (D102).\n- Timeouts: 10s queue wait, 5s write. Write timeout gives storeTimeout; block key until the Chrome promise settles, then reread state.\n- Teardown/session end: cancel waiting messages without replies, finish active writes and wait ≤ 5s for active writes before snapshot.\n- Loader: enforce quota locally, coalesce writes per key, bound unanswered sends to 8 messages/256 KiB, and send writes before navigation.\n- Verification: BR21a–BR21f with storeUnbounded and quotaNoRelease controls.",
+    "rationale": "Alternatives:\n(A) Queue depth 1: rejects legitimate consecutive writes.\n(B) Coalesce last values in the worker: changes per-message response semantics.\n(C) Count limit only: does not bound memory.\n(D) Cancel active writes on teardown: impossible with chrome.storage.\n\nSelected: count/byte-bounded queue rejecting before append, with loader coalescing. Bounds memory, preserves order and atomicity, and is testable with mock clock/storage.\n\nThe global byte limit is defensively redundant under defaults (I55), tested in BR21e.\n\nCost:\n- Sites exceeding limits or navigating without waiting lose pending writes.\n- A hung Chrome write holds its slot until settlement."
+  },
+  {
+    "id": "D102",
+    "decision": "Separate response from StoreQueue resource ownership:\n- Two states per admitted message:\n  - replyState ∈ {none, sent, suppressed}.\n  - ownState ∈ {queued, ready, active, released}.\n- Reply at most once; it releases nothing.\n- Only release subtracts qbytes/count from session/global counters and frees active slot/key lock if owned. Execute exactly once.\n- Transitions:\n  - queued → ready or released on head evaluation; 4300 rejection without calling Chrome.\n  - ready → active on taking a global slot and starting set.\n  - queued/ready → released on wait expiry or cancellation.\n  - active → released only on chrome.storage promise settlement, regardless of prior storeTimeout or teardown. Post-response settlement reloads without another response.\n- Verification: BR21a(q8), BR21b(r6), BR21f, (f2), with storeEarlyRelease and quotaNoRelease controls.",
+    "rationale": "Write-timeout alternatives:\n(A) Release on timeout response: admits beyond bounds and double-subtracts (I54).\n(B) Separate hung-write counter: creates parallel semantics.\n(C) Withhold timeout response until settlement: leaves the site unanswered.\n\nQuota-rejection alternatives (I56):\n(D) Evaluate after taking a slot; define active release without a promise: rejection waits behind other sites' hung writes and adds a second active-release event.\n(E) Evaluate at admission: earlier queued writes may change total.\n\nSelected: evaluate at key head, where total is confirmed and cannot change before start. Rejection is immediate and slot-independent; onSettle remains the sole active-release event; counters literally equal held resources.\n\nCost: a hung Chrome write holds the session quota and slot until settlement."
+  },
+  {
+    "id": "D103",
+    "decision": "Local-storage recovery across MV3 worker generations:\n- Confirmed generation fence before any data write.\n- Immutable records versioned (epoch, seq).\n- Per-key checkpoint recovery before any snapshot or head evaluation.\n- Worker loss drops memory state; viewer tears frames down with notice, without automatic reload.\n- D101/D102 apply within one generation.\n- D104 governs seq allocation, concurrent recovery and disk bounds.",
+    "rationale": "Compared with a persistent offscreen owner, boot-time dictionary rereading, IndexedDB transactions and reconnecting a live frame with snapshot reconciliation. The choice assumes no ordering across generations and requires only single-item set atomicity.\n\nCost:\n- JavaScript state and unsent writes are lost with notice.\n- One checkpoint write per key per generation.\n- D104 disk bounds do not follow from D103 alone."
+  },
+  {
+    "id": "D104",
+    "decision": "Single recovery, unified allocation and a binding local-storage disk budget:\n- Recovery: one RecoveryGate per key/generation, shared by every snapshot and storage_set.\n- Allocation: one SeqAlloc assigns a number at every set issuance, whether checkpoint, retry or write. Never reuse numbers; exhaustion gives storeRecovery.\n- Two checkpoint attempts using RecoverySlots (D109), then failed, or unrecovered/busy if the first slot is unavailable.\n- Encoding: fmt 2 with base64 and SITE_ENTRIES_MAX = 4096, so RECORD_BYTES_MAX = 1442048.\n- Admission: each set uses getBytesInUse plus unsettled operations, LATE_RESERVE and META_RESERVE within 256 MiB, ≤ 1024 names, ≤ 64 sites.\n- Generation window: 4 generations within 60s.\n- Sweep: never delete the greatest record; failed deletions remain counted.\n- Entire-site deletion: user action through a tombstone only.\n- Enumeration: getKeys mandatory; no get(null).\n- Verification: BR22d, BR22e, BR22f and BR23.",
+    "rationale": "I57 — alternatives:\n- Per-tab lock: issues two checkpoints with the same name.\n- Optimistic recovery with reconciliation: exposes a snapshot before resolution.\n- Derive write seq from checkpoint number: collides with retries.\n\nI58 — alternatives:\n- Unbounded retention: violates the advertised bound.\n- Automatic eviction: silently deletes confirmed state.\n- get(null): unbounded memory.\n- Assume successful deletion: does not hold on failure.\n\nThe choice makes record names unique by construction, preserves every confirmed write by the survival lemma and turns failed sweeping into write rejection rather than growth. Moving checkpoints to RecoverySlots addresses I62 (D109).\n\nCost:\n- Disk bound conditional on A15c.\n- Limits of 4096 pairs and 64 sites.\n- Up to 60s waiting after repeated generation loss.\n- Requires getKeys availability."
+  },
+  {
+    "id": "D105",
+    "decision": "Local-storage DiskLedger:\n- Admission/reservation is one synchronous step, covering bytes, names and new-site slot, returning an operation-owned ticket.\n- Ticket remains counted after settle until a refresh requested afterward completes; remove it while adopting that measurement.\n- Serialized refresh.\n- Subtract deletion only through measurement.\n- Verification: BR23(d8–d11) and diskNoReserve control.",
+    "rationale": "Alternatives:\n(A) Async lock around checking: serializes all writes behind slow measurement.\n(B) Check without reservation, then recheck at issuance: retains the same gap.\n(C) Drop reservation at settle: creates a gap before measurement.\n\nThe choice makes the bound a construction lemma in a single-threaded worker.\n\nCost:\n- Temporary usage overestimation.\n- A never-settling operation ticket remains until worker loss."
+  },
+  {
+    "id": "D106",
+    "decision": "Per-key serialized AdminDelete:\n1. deleting; block new sessions.\n2. Close every key session; cancel waiting messages.\n3. Wait for RecoveryGate resolution (≤ 25s including reads, D109/D110).\n4. Tombstone with a SeqAlloc version on an AdminSlots slot (D108); no other allocation until resolution.\n\nTwo tombstone attempts, then unrecovered with notice of failure, uncertainty or adminBusy. Total time ≤ 45s. Recreate through a new session. LATE_NAMES = 28 (D109).",
+    "rationale": "Alternatives:\n(A) Ordinary tombstone in key FIFO: waits for a write that may never settle; surviving sessions allow old-snapshot writes after it.\n(B) Direct record deletion: violates the survival lemma.\n(C) Retain sessions while invalidating their snapshots: needs reconciliation.\n\nThe choice makes the tombstone the highest version by construction. Tombstone-slot ownership is in D108; gate-resolution bound in D109/D110.\n\nCost: site tabs are torn down and their unsent writes lost."
+  },
+  {
+    "id": "D107",
+    "decision": "Separate apply and settle during recovery:\n- Resolution depends only on settle.\n- First success immediately makes the key ready; confirmed = greatest successfully settled version.\n- failed resolves after every attempt fails or times out and remains terminal for the generation.\n- BR22d variants V-a..V-e, with readyOnApply control.",
+    "rationale": "Alternatives:\n(A) ready at apply: the worker does not necessarily observe it, and it may come from a dead generation.\n(B) Fixed readiness time: contradicts first-success semantics, causing I60.\n\nThe choice makes every variant derivable."
+  },
+  {
+    "id": "D108",
+    "decision": "AdminSlots for tombstone-slot ownership:\n- Two extension-wide slots outside STORE_ACTIVE_GLOBAL.\n- Acquire only at tombstone set issuance through AdminFIFO, waiting ≤ 5s.\n- Release only at settle; neither timeout nor resolution releases it.\n- No tombstone without a slot.\n- No first-attempt slot gives adminBusy without a tombstone. No second-attempt slot gives uncertain or failed.\n- Bound lemma: ≤ 2 unsettled tombstones per generation.\n- Current derivations:\n  - AdminSlots contributes GEN_WINDOW_MAX·ADMIN_SLOTS = 8 to LATE_NAMES, out of total 28 (D109).\n  - META_RESERVE constraint with TOMB_BYTES_MAX = 512.\n  - BG1 gates.\n  - Total AdminDelete bound 45s (D110).\n  - Earlier values 20 and 30s are historical and superseded.\n- Verification: BR24(x9–x11), adminEarlyRelease control.",
+    "rationale": "Alternatives:\n(A) One slot held until settle: prevents retry while the first is pending, breaking the resolution bound.\n(B) Release on timeout: unbounded unsettled tombstones invalidate reserves (I61).\n(C) Unlimited slots with a counter: no fixed dead-generation bound.\n(D) Per-key slot: bound scales with site count.\n\nThe choice makes the bound a construction lemma and permits one retry. Tombstone phase alone ≤ 20s, plus gate resolution ≤ 25s.\n\nCost: two pending tombstones prevent further deletion until settlement or worker loss (adminBusy)."
+  },
+  {
+    "id": "D109",
+    "decision": "RecoverySlots for checkpoint ownership:\n- Two extension-wide slots, separate from STORE_ACTIVE_GLOBAL, AdminSlots and ReadSlots (D110).\n- Acquire only at issuance through RecoveryFIFO, waiting ≤ 5s from request, in the same synchronous step as DiskLedger.reserve and SeqAlloc.alloc.\n- Release only at settle or disk rejection before issuance; neither timeout nor resolution releases it.\n- No checkpoint without a slot.\n- No first slot: unrecovered/busy without issuance. No second slot: treat as its timeout, making key failed under D107. Becoming ready withdraws the pending slot request.\n- Lemmas:\n  - ≤ 2 unsettled checkpoints per generation.\n  - Checkpoint phase ≤ 20s from t0; total resolution ≤ 25s from t_s including reads (D110).\n- Derivations: LATE_RESERVE = 23072768, LATE_NAMES = 28, AdminDelete bound 45s, BG1 gates.\n- Verification: BR22f, recoveryNoSlot control.",
+    "rationale": "Alternatives:\n(A) Checkpoints on the two global slots with unlimited wait: two pending attempts for different keys prevent resolution and block all sites' writes (I62).\n(B) Issue a second attempt without a slot: breaks the late-operation bound.\n(C) Release on timeout: unbounded unsettled operations.\n(D) Per-key slot: bound scales with site count.\n\nThe choice makes both bound and resolution construction lemmas without assuming promise settlement, following D108.\n\nCost:\n- Two pending checkpoints prevent recovery of other keys until settlement or worker loss.\n- Disk reserve nearly doubles (approximately 22 MiB)."
+  },
+  {
+    "id": "D110",
+    "decision": "Bounded RecoveryGate read phase:\n- t_s is unrecovered → recovering time. Create gateId and start total RECOVERY_READ_DEADLINE = 5s.\n- Deadline includes read-slot waits, getKeys, every get, decoding and validation.\n- ReadSlots: two extension-wide slots, released only by read-promise settlement.\n- RECOVERY_GETS_MAX = 4. Corrupt records with no valid record within that limit give failed {corrupt}.\n- Deadline expiry gives unrecovered/readTimeout without writing or reservation.\n- Ignore reads tied to a noncurrent gateId, preventing post-resolution checkpoints.\n- Derived bounds: gate resolution ≤ 25s from t_s; AdminDelete ≤ 45s.\n- Verification: BR22g, lateReadCheckpoint control.",
+    "rationale": "Alternatives:\n(A) Checkpoint-only deadline: hung reads prevent resolution (I63).\n(B) Per-call deadline without a pending-read bound: hung promises accumulate with every new gate.\n(C) Terminal failed on read timeout: disables the site for the generation due to a read that wrote nothing.\n(D) Unbounded corrupt-record reads: no resolution time bound.\n\nThe choice makes resolution a construction lemma without assuming promise settlement. Reads do not change disk, so LATE_RESERVE is unaffected. Corruption failure is explicit rather than silently selecting an older record.\n\nCost: two pending reads deny recovery to other sites (readTimeout) until settlement or worker loss. Corruption in the greatest four records disables the site until administrative deletion."
+  },
+  {
+    "id": "D111",
+    "decision": "Deletion/recovery operation identity at slot grant:\n- Each AdminDelete has opId and state {running, settled}.\n- Any resolution synchronously transitions to settled, withdraws all pending AdminFIFO requests for the operation and leaves deleting.\n- Slot grant passes a guard in the same step as DiskLedger.reserve, SeqAlloc.alloc and issuance. Require an unwithdrawn request, op.state = running and matching deleting[key].opId.\n- Failure immediately returns the slot without reserve, alloc or set; count adminStaleDropped.\n- RecoverySlots uses the same guard with gateId.\n- Verification: BR24(x12), x12b, BR22f-f5; adminNoCancel and adminStaleIssue controls.",
+    "rationale": "Alternatives:\n(A) Withdrawal alone: correctness depends on covering every resolution path.\n(B) Guard alone: dead requests remain blocking FIFO and cause false adminBusy.\n(C) Dedicated slot per operation until resolution: breaks ADMIN_SLOTS bound (I61).\n\nThe choice makes “no tombstone after resolution” a construction lemma in a single-threaded worker. Withdrawal preserves FIFO fairness; the guard does not depend on complete withdrawal.\n\nCost: extra per-operation state/ID and a strict implementation constraint against await between grant and issuance."
+  },
+  {
+    "id": "D112",
+    "decision": "Site-slot accounting across worker generations:\n- sitesLive counts distinct keys with any record in the last measurement, including {} and tombstones.\n- Key-creating operations: data set and checkpoint for a recordless key; ≤ LATE_SITES_PER_GEN = 4 unsettled per generation.\n- Dynamic reserve LATE_SITES(now) = 4·lateGens(now) ≤ 16; lateGens counts confirmed epoch items in the T_LATE window.\n- Drop a generation's contribution only when a refresh requested after bootMs+T_LATE completes.\n- Creating-operation admission requires sitesLive + R_sites + LATE_SITES + 1 ≤ 64; otherwise 4300 {sites}, with retryAfterMs when reserve causes rejection.\n- Remove the last tombstone only without a session, gate or ticket, and after older generations leave the window.\n- Explicit A15d assumption: a rejected promise never applies later.\n- Verification: BR23(d12–d14), noLateSites control.",
+    "rationale": "Alternatives:\n(A) Fixed reserve 16: permanently reduces capacity to 48 sites.\n(B) Block new sites for 60s after every boot: correct but disrupts opening new sites after repeated MV3 worker loss.\n(C) Durable intent marker per new site: that marker can itself apply late, so reserve remains and an extra write/name is added.\n\nThe choice makes the bound a construction lemma under the same A15c/A15d assumptions underlying disk bounds. Impact is time-limited and near capacity. Dropping contributions through measurement rather than elapsed time prevents a gap between window exit and visibility of effects.\n\nCost:\n- Temporary rejection of new sites for up to 60s at sitesLive ≥ 48 with repeated loss.\n- lateGens depends on wall-clock bootMs.\n- Exposes previously implicit A15d."
+  },
+  {
+    "id": "D113",
+    "decision": "Site-slot accounting for counted keys:\n- A retained tombstone is a record preserving the key's sitesLive slot. Operations on counted keys, including recreation after deletion, reserve no slot and are unaffected by LATE_SITES.\n- Every non-remove ticket on a counted key pins it until dropped through a post-settle-requested measurement.\n- Remove the key from sitesLive only through an adopted measurement not seeing it, with no pin.\n- TombReaper removes the sole tombstone under D112 at every refresh/epoch-window exit. Opening a session before issuance prevents it.\n- A new slot is required only after last-record removal and adoption of a measurement not seeing the key.\n- Verification: BR23(d1, d9, d15), BR24(x6); seatOnCounted and dropPinned controls.",
+    "rationale": "Alternatives:\n(A) Always reserve a new slot on recreation: double-counts and rejects recreating K at 64 despite no increase in keys (I67).\n(B) Release the slot at tombstone issuance: late writes restore the key uncounted.\n(C) Block sessions only during tombstone removal: misses a dead generation's late remove deleting the tombstone before settlement of a slotless operation.\n\nThe choice aligns accounting with on-disk keys. pin closes the gap between slotless admission and effect visibility, following D105 tickets. TombReaper specifies who removes the last tombstone and when, previously unspecified.\n\nCost:\n- A deleted site remains counted until tombstone removal, up to 60s after deletion if older generations remain in-window, delaying new-site admission at capacity.\n- Per-key pin state."
+  },
+  {
+    "id": "D114",
+    "decision": "BR23(d15c) tests pin in two phases:\n- Within T_LATE: direct assertion after a measurement not seeing K requires sitesLive=64 and pinnedKeys=1. X's response at 30100 is literal per path:\n  - Correct: 4300 {reason: 'sites', limit: 64}, no retryAfterMs, because sitesLive+R_sites alone prevent admission.\n  - dropPinned: same code with retryAfterMs: 29900, because reserve alone prevents admission.\n  - Same code, different data shape.\n- After all lateGens contributions expire (LATE_SITES=0): an overrun vector keeps a live pending checkpoint carrying pin. Correct implementation rejects X; dropPinned admits it and reaches 65 after apply(C0).\n\nDead remove applies within T_LATE under A15c. DiskLedger.refreshNow() is a test-build-only hook and does not change decisions.",
+    "rationale": "The first table did not distinguish implementations because LATE_SITES rejected X in both. The second expected retryAfterMs in the correct implementation, contrary to D112 (I68).\n\nAlternatives:\n(A) Direct assertion alone: detects the defect without demonstrating its effect on the 64 bound.\n(B) Boot without a contribution: violates D112.\n(C) Data ticket instead of checkpoint: requires ready; checkpoint success sweeps the tombstone.\n(D) Always include retryAfterMs: changes a correct rule to simplify agreement.\n\nThe choice derives every cell, including error data shape, from existing D105/D107/D112/D113 rules.\n\nCost: K becomes failed in the test generation, a recorded side effect."
+  },
+  {
+    "id": "D115",
+    "decision": "The VA annex in validation defines self-contained consensus, incentive and retention gates:\n- Common framework: SimNet/NetSim, va/base profile, honest rates, adversarial β, measurement window, seeds, CI rule and source of truth.\n- T7, T7b, T7c, T7e, T9, T10, T10b(i–vi), T19, T20, T23, T18b and T25, with scenarios, metrics, denominators and pass/fail/inconclusive criteria.\n- Table mapping each conditional claim to its measuring test.\n- Literal cases in VA-spec, reviewed before M5/M6/M8 code.",
+    "rationale": "Alternatives:\n(A) Define while writing M5 code: leaves acceptance gates undefined at approval (I69).\n(B) Convert gates to measurements: lowers standards to simplify agreement.\n(C) Complete literal definitions in the main specification: doubles its length.\n\nThe choice puts binding rules/criteria in the specification and literal scripts in an annex reviewed before code, following M1-spec/M7-spec.\n\nCost:\n- Arms/seeds may exceed available runtime on 8 GB; schedule batches and disclose duration.\n- Some items, such as T7e(b) and T10b(iii)(d), require an honest signed block in a specified window; otherwise record the case without a claim."
+  },
+  {
+    "id": "D116",
+    "decision": "Exclusion effect defined through C_full and C_kept:\n- g_dir = floor(R·c_w/max(C_kept, κm)) − floor(R·c_w/max(C_full, κm)).\n- Zero at C_full ≤ κm; above it, bound strictly below R·c_w·(1/κm−1/C_full)+1.\n- Indirect Draw/lastShare effects disclosed without a bound; T7c(S) measures them with a 2% threshold.\n- Vectors SV10a–c.",
+    "rationale": "The earlier C_incl formula incorrectly gave zero (I70).\n\nAlternatives:\n(A) Redefine C_incl as the full count: leaves the bound ambiguous.\n(B) Measure only: hides a provable arithmetic defect.\n\nThe choice follows directly from payInt (D65) and is tested across the threshold."
+  },
+  {
+    "id": "D117",
+    "decision": "VA termination framework:\n- T_RUN_MAX.\n- Quiescence height triggers the measurement barrier (D122), replacing the fixed 300s window.\n- Stalled seeds and zero denominators take the worst value and are not dropped.\n- Excitation quorum 20/24.\n- Convergence: G through HeadCheck after the barrier; temporal S (t_conv) before it.\n- Literal halves 23/23.\n- Explicit AdvOracle in T10b(iii); production during withholding is an S criterion.\n- Arithmetic definitions of T4-H/W/L and T8.",
+    "rationale": "Alternatives:\n(A) Drop stalled seeds: silent bias.\n(B) G deadline for a probabilistic event: false failure.\n(C) Wait for the adversary to find a nonce using its own power: excitation may not occur.\n\nThe choice separates rule correctness (G) from probability (S) without lowering criteria. A 300s window with continuing mining was removed because tip equality remains probabilistic (I69), replaced by D122."
+  },
+  {
+    "id": "D118",
+    "decision": "Side-block policy: at each height retain the canonical block and one noncanonical block with the greatest cumulative work for its branch, then earliest-seen. Delete the loser with descendants; refetch through sync if it later becomes heavier. Local retention, not validity.",
+    "rationale": "Alternatives:\n(A) Earliest-seen only: adversary can occupy the slot with a weak branch.\n(B) Delete all noncanonical blocks: slows honest reorganization.\n\nThe choice aligns with fork choice and bounds memory."
+  },
+  {
+    "id": "D119",
+    "decision": "Local ReplicaMonitor in pocol_getRetention: replicas listed in node configuration, checked every 10s. A replica is live if it responds within 2s, complete=true and head ≥ local head−6. The extension warns at replicasLive < 2.",
+    "rationale": "Alternatives:\n(A) Retention field in Status: changes P2P messages.\n(B) Manual declaration: not a measurement.\n\nThe choice is outside consensus and testable in T25. Trusted only in LN."
+  },
+  {
+    "id": "D120",
+    "decision": "Exclusion share sets:\n- ν (winning nonce) is always an implicit share outside shareList, counted in C and c_w.\n- E_full: received explicit shares, trimmed to S_max smallest nonces excluding ν; C_full ≤ 257.\n- E_kept: shareList contents.\n- General g_dir = floor(R·c_w^kept/max(C_kept, κm)) − floor(R·c_w^full/max(C_full, κm)).\n- D116 bound applies only to ownSharesOnly with fixed c_w. emptyShares is computed exactly and can be negative.\n- Vectors SV10d–f; T7c(G) does not require observing C_full > κm in SimNet.",
+    "rationale": "Alternatives:\n(A) Include ν in shareList: changes item 9, encoding and S_max.\n(B) Exclude ν from C: contradicts SV1 and existing payInt.\n(C) One bound for all arms: wrong when c_w differs (I71).\n\nThe choice preserves consensus rules and derives every arm from payInt (D65)."
+  },
+  {
+    "id": "D121",
+    "decision": "VA statistical rules:\n- Every probabilistic deadline is S; post-quiescence equality is G, with an explicit classification table.\n- CEN clips each seed metric to a finite range before aggregation and computes paired metrics within each seed.\n- Estimator is the mean; CI uses paired percentile bootstrap (10^4, numpy type 7, PCG64 seeded from SHA256).\n- Passing requires ≤ 2/24 or ≤ 4/48 clipped seeds.\n- Stalled G seeds count; exceeding the same quorum fails.\n- T4-L becomes S.\n- underpowered only with an explicit event threshold; removed from T7c.",
+    "rationale": "Alternatives:\n(A) +∞ with median: resolves ordering, not paired differences.\n(B) Drop stalled seeds: silent bias.\n(C) G bounds for probabilistic events: false failures and conflict with D117 (I69).\n\nThe choice is literally reproducible and treats stalls as worst cases, not undefined cases."
+  },
+  {
+    "id": "D122",
+    "decision": "VA measurement barrier:\n- halt: disconnect adversary, stop faults, heal partition.\n- stopMining for every honest node: fixture command, not protocol rule.\n- Drain to Quiet: 2s without transfers or pending requests between honest nodes, DRAIN_MAX = 900s; exceeding it fails G.\n- All HeadCheck is G:\n  - Q1: equal cumulative work at honest tips.\n  - Q2: differing tips are legitimate ties after signed preference.\n  - Q3: equal stateRoot, receiptsRoot and gasUsed for every shared block at every instant.\n  - Q4: state matches RefReplay of the tip branch.\n  - Q5: rollback ≤ R_keep.\n- Record ties as tie, not violations.\n- Temporal S convergence is measured before the barrier; a tie is not convergence.\n- QV1–QV6 with three negative controls.",
+    "rationale": "Alternatives:\n(A) Fixed window with continuing mining: an in-flight block or tie causes false failure (I69).\n(B) Make all tip equality S: loses deterministic detection of fork-choice/execution errors.\n(C) Stop mining but require one tip: rejects a legitimate tie resolved locally by “first seen” [PDF:74].\n(D) Wait for a tie-breaking block: reintroduces PoW inside a deadline.\n\nThe choice makes each G item a deterministic function of fixed post-Quiet state. Quiet is deterministically reachable in an honest network without production/faults. Probability remains entirely in S.\n\nCost:\n- stopMining is not real operation; HeadCheck establishes rule correctness, not convergence speed.\n- Legitimate ties mean honest nodes may retain different tips until the next block, a disclosed protocol behavior."
+  },
+  {
+    "id": "D123",
+    "decision": "Measurement-barrier quiescence includes every deferred action capable of changing the chain:\n- ChainWork: future queue, unknownParent with known parent, running validation/import/reorg, sync/fetch timers and Status advertising an unfetched heavier tip.\n- Mandatory registration through ChainTimer, with a clippy rule.\n- statusSweep at barrier and after every tip change.\n- Future-queue policy:\n  - F1: wait for anything imported by an honest node, eligible for all within Φ under A3.\n  - F2: wait for anything eligible within 2Φ.\n  - F3: purgeFuture otherwise, a disclosed fixture command with futurePurged measurement.\n- Quiescence lemma conditional on complete registration; PostQuiet G gate; QUIET_HOLD = 3Φ+60s.\n- QV7–QV10 on qv/net, with three negative controls.\n- Replaces D122's Quiet definition and instant-independence statement; retains the rest of D122.",
+    "rationale": "Alternatives:\n(A) Wait for every future entry: unbounded, as large-a fallback has distant ts = L(a).\n(B) Drop the whole queue: drops something another honest node imported, recreating Q1 failure.\n(C) Change the protocol queue rule: changes validity to simplify tests.\n(D) Manually enumerate queues without timer registration: cannot detect a forgotten timer.\n\nThe choice makes quiescence deterministic and time-bounded (future queue ≤ t_halt+3Φ), preserving every entry that can reach an honest tip to avoid false failure. Negative controls and PostQuiet can detect missing registration.\n\nCost:\n- purgeFuture removes headers the real protocol would later import. Distant timestamps remain a T10c measurement, not HeadCheck.\n- The lemma depends on complete ChainTimer registration."
+  },
+  {
+    "id": "D124",
+    "decision": "Resolve unavailable bodies and rejected entries at the measurement barrier:\n- Drop undelivered adversary messages; restart stopped honest nodes without wiping.\n- Possession: a root-matching body in honest storage, durable or pending.\n- t_avail ≤ t_halt+max(Δ, RESTART_MAX), with a possession-closure lemma afterward.\n- Path U (fixture command): at t_avail purgeUnavailable removes every entry whose body no honest node holds, together with descendants, requests and timers.\n- Path A: wait for entries held by honest nodes; failure to import is a G sync failure.\n- Path V (node implementation behavior): rejection cancels the entry, descendants and timers in the same step. NotFound immediately moves the request to another peer.\n- Correct F1/F2 to eligibility, not import, bounds.\n- DRAIN_MAX(run) = max(Δ, RESTART_MAX)+3Φ+SYNC_RETRY_MAX+N_miss·c_b+2s; SYNC_RETRY_MAX enters once. DRAIN_CAP = 3600s; exceeding it makes the seed unevaluable under D121's quorum.\n- QV11–QV14; keepUnavailable, purgeHeld, skipHolder and noCancelOnReject negative controls.\n- Replaces D123's termination statement and D122's fixed DRAIN_MAX.",
+    "rationale": "Alternatives:\n(A) Wait for a fixed ceiling, then “inconclusive”: confuses legitimate withholding with sync defects.\n(B) Remove everything not imported by its holder: drops data retrievable from another honest node, falsely failing Q1.\n(C) A protocol fetch timeout deleting headers: changes node behavior to simplify tests and may discard temporary withholding that the adversary later reveals.\n(D) Fixed drain time: does not follow after long partitions because missing-block count has no prior bound.\n\nThe choice makes removal deterministic from fixed post-t_avail possession, preserving everything recoverable. The bound derives from measured state; sync faults remain detectable (skipHolder).\n\nCost:\n- Path U is not a real network where bodies may appear later.\n- The sequential bound is conservative and potentially large."
+  },
+  {
+    "id": "D125",
+    "decision": "Complete measurement-barrier resolution:\n- (1) BodyMismatch: a non-root-matching body is a response error; drop it, penalize its source and refetch. Path V only covers H-pre rejection or H-full rejection on a matching body.\n- (2) Rec: recoverable-dependency closure at t_avail. U removes entries outside it as bodyUnavailable or depUnavailable; fixture exclusions do not enter pocol_getRejects.\n- (3) DrainPin: a SimNet fixture command prevents evicting any Rec header/body from t_halt through Quiet, except V/F3. Possession lemma replaces stability lemma.\n- (4) Bound: Need(i) includes each honest node's missing history. DRAIN_MAX sums fetching, headers, rollback and TrieRebuild. drainBound literally matches HeadCheckRef; DRAIN_CAP does not apply to QV. Rollback beyond R_keep reports Q5 with deepReorgRequired.\n- QV15–QV18c; rejectOnBadBody, excludeDepAsInvalid, noDrainPin, drainUndercount and silentDeepReorg negative controls.",
+    "rationale": "Alternatives:\n(A) Classify every ambiguous case “unevaluable”: hides sync faults.\n(B) Permanent protocol retention: changes D118/memory to simplify tests.\n(C) Large fixed bound: underived and hides undercounting.\n(D) Treat BodyMismatch as invalidity: lets a malicious peer discard a valid block and contradicts N5.\n\nThe choice makes every removal depend on a preserved reference set, separates response errors from invalid blocks, and derives a bound matched against an independent reference so the ceiling cannot conceal undercounting.\n\nCost: DrainPin/U are synthetic, not real eviction under memory pressure; the sequential bound is conservative."
+  },
+  {
+    "id": "D126",
+    "decision": "Complete the measurement barrier:\n- (1) Two-phase protection:\n  - Atomic HaltPin at t_halt pins every header/body known or held by an honest node, then adds late honest arrivals and restart data. Bounds do not evict pinned data; above-bound arrivals are admitted and counted.\n  - narrow at t_avail releases entries outside Rec in the same U step.\n  - pinBreach (G), computed from NetSim trace: a block removed by U as bodyUnavailable despite a holder at the barrier.\n- (2) Need(i) = Rec \\ imported_i without a work condition, with closure ensuring every post-t_avail import belongs to Rec.\n- (3) Bound:\n  - T_i = |Need(i)| bounds transitions by the lemma that every tip change occurs on import.\n  - d*_i = min(R_keep, Hmax−Lmin) per rollback, with replay.\n  - HR includes Kmiss, discovery starts S_i and H-pre cost.\n  - Formula-independent BudgetCheck compares each activity class's count/duration against its bound.\n- QV19–QV21; pinLate, needHeadsOnly, rbPerBranch, hdrUndercount controls; correction of QV17 noDrainPin control.\n- Replaces D125's Need/HR/RB definitions, possession lemma and DrainPin activation; retains the rest of D125.",
+    "rationale": "Alternatives:\n(A) Compute Rec at t_halt: misses late honest messages and restart-loaded data.\n(B) Permanent protocol protection: changes D118 to simplify tests.\n(C) Count distinct branches with a constant factor: does not bound sequential adoptions.\n(D) Match two references using the same formula only: does not prove completeness.\n\nThe choice:\n- Makes protection active before every post-barrier event.\n- Makes concealed eviction detectable by an independent predicate.\n- Builds bounds on closed sets and proven transition counts.\n- Adds independent BudgetCheck, failing when a class is omitted.\n\nCost: much looser bound, including all Rec per node and d*_i per transition, approaching DRAIN_CAP in long partitions. Above-limit admission during draining does not model real memory pressure."
+  },
+  {
+    "id": "D127",
+    "decision": "Complete drain-bound accounting and test discrimination:\n- (1) Kpend_i: known unchecked headers at t_avail, separate from Kmiss_i, included in HR_i.\n- (2) HdrCache node behavior prevents repeated H-pre for the same header.\n- (3) BudgetCheck table: each sequential class has a count, duration and one DRAIN_MAX component. Parallel waits (restart, eligibilityWait, preHaltRetry) are measured as intervals against a single fixed bound, not summed.\n- (4) One SimParams record supplies test overrides to simulator, formula and reference.\n- (5) needHeadsOnly, rbPerBranch, hdrUndercount, kpendIgnored and noHdrCache controls fail deterministic BudgetCheck predicates, not Quiet overruns.\n- (6) QV19–QV21 derived with signed timestamps and explicit targets, equal-work-per-height lemma, and new QV22.\n- Replaces D126's HR formula and BudgetCheck criterion wording; retains the rest of D126.",
+    "rationale": "Alternatives:\n(A) Keep controls based on Quiet overrun: not implied by a conservative bound; defects may pass.\n(B) Sum all class durations: incorrectly compares parallel waits to one bound.\n(C) Remove c_h: conceals real cost.\n(D) Inflate RTT outside the definition: makes reference and simulator inconsistent.\n\nThe choice maps every bound component to a countable row and makes each negative control fail a numerically derived predicate, without changing validity.\n\nCost: HdrCache needs memory bounded by sync queues. Vectors need offset clocks and greater fixture-mining cost in QV21."
+  },
+  {
+    "id": "D128",
+    "decision": "Enforce drain-fetch bounds and rederive vectors:\n- (1) FetchSched is node behavior, not validity:\n  - DiscRun: one discovery run plus dirty flag; runs R_i ≤ 1+S_i.\n  - tried per run: productive requests reveal a new hash; unproductive ones exclude the peer.\n  - BodySched: one in-flight body request per hash and triedPeers; every (hash, peer) pair gets ≤ one request.\n  - HfullDone: do not repeat H-full for a resolved block.\n- (2) HR_i = (|Kmiss_i| + (1+S_i)·(|H|−1))·RTT_halt + (|Kmiss_i|+|Kpend_i|)·c_h, a proven conservative bound.\n- (3) H-pre has Hs/Hp stages. HdrCache stores only completed results, never unknownParent/notEvaluable, with inFlightHdr.\n- (4) QV20 uses two isolated honest holders without violating D118; derived negative predicate (b = 0, transitions ≥ 1), no fixed timing table.\n- (5) QV21/QV22 values come from the trace, with derived lower bounds and FixtureSetupError. QV22 has honest holder N15.\n- (6) QV22b; noFetchDedup and cacheNotEvaluable controls.\n- Replaces D127's HR formula, hdrFetch row and HdrCache definition; retains the rest of D127.",
+    "rationale": "Alternatives:\n(A) Bound ⌈Kmiss/512⌉ with a standard locator: overlapping peer responses invalidate it.\n(B) Fixed fetch ordering to force timed multiple transitions: fragile, not implied by protocol rules.\n(C) Pre-barrier fixture exception to D118: changes retention to simplify tests.\n(D) Retain AdvPeer as QV22 body source: its messages drop at the barrier, turning the vector into a U-path test.\n\nThe choice proves each numeric bound from explicit scheduling rules, makes vectors reach their states using honest sources without retention violations, and makes every negative control fail a measured-value-derived predicate.\n\nCost:\n- Looser bound: productive requests counted per header rather than batch.\n- Deterministic demonstration of multiple transitions is no longer available; their count is measured."
+  },
+  {
+    "id": "D129",
+    "decision": "Separate header copy from block, and restore fetch-peer eligibility.\n\n(1) Violation classes:\n- envReject: depends only on sig/winnerSig bytes, namely items 1, 3, 8 and the signature part of 13. Reject hdrId, not blockHash: penalize sender without block-reject record or descendant cancellation.\n- blockReject: every other violation; reject blockHash and descendants.\n\n(2) Caching:\n- BlockCache keyed by blockHash, EnvCache by hdrId, inFlightHdr by both.\n- Store and serve the first envelope-valid copy.\n\n(3) Drain bound:\n- HR_i += Venv_i·(c_env+RTT_halt), where Venv_i is copies measured at t_avail.\n- Lemma: no new copy arises after t_avail.\n\n(4) Reeligibility:\n- Reset triedPeers on Status, block/descendant announcement or exponential backoff up to 60s, preferring untried peers.\n- statusSweep at t_avail in the atomic U step. Lemma: afterward each (hash, peer) pair ≤ 1 request, zero backoff waits.\n\n(5) Vectors/controls:\n- QV23, T23 N9, corrections to QV18/QV22b.\n- cacheByBlockHash, mergeInFlight, skipHp and noReeligible.\n\nReplaces D128's HdrCache definition and triedPeers rule; retains the rest of D128.",
+    "rationale": "Cache-key alternatives:\n(A) Include both signatures in blockHash: changes consensus encoding. RFC6979 is unverifiable, so a signer can make different blockHashes for identical content, fragmenting descendants.\n(B) Full-byte key only: repeats content checks for every adversarial copy.\n(C) Cache no signature verdict: repeats recovery on every duplicate arrival.\n\ntriedPeers alternatives:\n(D) Permanent exclusion: prevents recovery from temporary NotFound.\n(E) Periodically reset everyone: unbounded load.\n\nThe choice preserves validity rules, prevents a malformed-copy verdict from invalidating a valid block, and retains provable, BudgetCheck-countable drain bounds.\n\nCost:\n- A second cache key's memory.\n- A connected adversary forces an envelope check per copy, bounded by banning after three violations and the peer limit.\n- Venv bound depends on measured counts."
+  },
+  {
+    "id": "D130",
+    "decision": "Complete D129 fetching and envelope handling.\n\n(1) Fetching:\n- Reeligibility (Status, announcement or backoff) adds the peer to reeligible without removing it from the cycle's tried set.\n- Strict selection: untried in ID order, then reeligible.\n- cycleReset starts a new cycle; in SimNet, atomic at t_avail for every hash.\n- Lemma: afterward every pair ≤ one request; zero reeligible requests.\n\n(2) Envelope:\n- Two stages: stateless envPre, and parent-state envOwn without execution, with final verdict per hdrId. Before parent state: envPending.\n- c_env = c_rec + c_own.\n- Execute once per blockHash after first envOk copy.\n- Path V, RejectPath.cancel, HfullDone and block-rejection records apply only to blockReject or import.\n\n(3) Vectors/controls:\n- QV23d, QV24.\n- statusResetsTried, envRejectCancels, hfullDoneOnEnv, execPerCopy.\n\nReplaces D129's triedPeers removal rule; retains the rest of D129.",
+    "rationale": "Fetch alternatives:\n(A) Bound all reeligibilities: Status message count has no prior bound.\n(B) Remove reeligibility: breaks live recovery (N9).\n(C) Prefer evidenced eligible peers over untried ones: sometimes faster, but recreates repeated requests.\n\nEnvelope alternatives:\n(D) Move ownership checks to H-pre: requires parent state.\n(E) Execute each copy: apply cost per adversarial copy.\n(F) Cache envOwn by blockHash: reintroduces poisoning.\n\nThe choice makes the bound a construction lemma without restricting the live network; adversarial copies incur only nonexecution checks; validity rules remain unchanged.\n\nCost:\n- A newly holding peer is not queried until untried peers are exhausted, potentially delaying fetch.\n- cycleReset is a SimNet fixture command.\n- Per-parent c_own cost/state."
+  },
+  {
+    "id": "D131",
+    "decision": "Complete D129/D130 RTT accounting and envelope fetching.\n\n(1) RTT:\n- RTT(i,j) is a per-link upper bound in SimParams, default RTT_halt.\n- RTT_i = max_j RTT(i,j) is the sole value used in HR_i, c_b(i) and BudgetCheck bounds.\n- Per-request G predicate: measured duration ≤ RTT(i,j).\n\n(2) Fetching:\n- New P2P request GetEnvelope [blockHash, exclude ≤ 4] returns only the stored valid copy.\n- EnvFetch state machine with strict BodySched scheduling.\n- ENV_PENDING_MAX = 4 per block.\n- Live envWait without a blockHash verdict.\n\n(3) Rec:\n- Requires validEnv, computed by HeadCheckRef.\n- U adds envUnavailable, a fixture exclusion, not blockReject.\n\n(4) Bound:\n- HR_i = (|Kmiss_i|+(1+S_i)·(|H|−1))·RTT_i + (|Kmiss_i|+|Kpend_i|)·c_h + Venv_i·c_env + |Henv_i|·(|H|−1)·RTT_i, by a fetch lemma.\n\n(5) Vectors/controls:\n- QV25a, QV25c, QV25c-dup, T23 N10.\n- globalRtt, envAsBlockReject, noEnvUnavailable, noEnvFetch.\n\nReplaces HR_i/c_b formulas and envRefetch ≤ Venv; retains the rest of D129/D130.",
+    "rationale": "RTT alternatives:\n(A) Global maximum-link RTT: correct but inflates every bound.\n(B) Sum actual request RTTs in the formula: makes the bound depend on the run's own trace.\nSelected: a prior per-node bound, with a per-request predicate detecting overruns.\n\nEnvelope alternatives:\n(C) Rely on GetHeaders: cannot reach side blocks, as in QV25c.\n(D) blockReject after exhausting copies: permits poisoning a valid block whose envelope appears later.\n(E) Keep an envelope-less block in Rec: prevents Quiet, causing I72.\nSelected: preserves validity, separates missing envelope from invalid content, retains live recovery via envWait, and derives bounds from explicit scheduling.\n\nCost:\n- Another P2P message type.\n- envWait occupies sync queues up to their bounds.\n- envUnavailable is synthetic SimNet exclusion; the live network only waits."
+  },
+  {
+    "id": "D132",
+    "decision": "Unify envelope exclusion in verification rules:\n- (1) Closed U-reason set: bodyUnavailable, envUnavailable, depUnavailable (with missingAncestor). Same set in common QV11–QV25 criterion, bodyPurged, SimNet.recSet, HeadCheckRef, BudgetCheck and VA-spec.\n- (2) None means consensus invalidity. Appearance in pocol_getRejects, triggering parentInvalid/ancestorInvalid, HfullDone/blockReject, or penalizing an honest peer for it fails G.\n- (3) PinSet includes envOk and envPending copies.\n- (4) EnvHeldAtHalt extends pinBreach.\n- (5) Possession, closure and reachability lemmas explicitly require validEnv.\n- No validity change; rest of D131 retained.",
+    "rationale": "Alternatives:\n(A) Rely on implicit D131 precedence: leaves textual conflict between QV25a and the common criterion (I72).\n(B) Merge envUnavailable into bodyUnavailable: misclassifies a block with a held body, falsely failing pinBreach.\n(C) blockReject on envelope exhaustion: restores poisoning prevented by D129.\n\nThe choice derives all vectors/controls from one classification. Correct QV25a passes; envAsBlockReject fails an explicit rule.\n\nCost: extra reason field and EnvHeldAtHalt reference definition; pinning envelopes increases pinBytes."
+  },
+  {
+    "id": "D133",
+    "decision": "A transitive total fork-choice order:\n- t1 ≻ t2 by cumulative work first. On ties compare children of the lowest common ancestor using key = (signed ? 0 : 1, importSeq, blockHash).\n- importSeq is a local counter assigned at first successful import and constant while retained.\n- Tip = maximum, independent of enumeration order.\n- Transition lemma: tip changes only on import.\n- Verification: amended Q2, Q2b, ForkChoiceRef, QV26 with twenty import orders and three enumeration orders, QV26m, pairwiseTiebreak control.\n- Classification: consensus fork-choice rule, not a validity change.",
+    "rationale": "Alternatives:\n(A) Selected: lexicographic path order. Transitive by construction, preserves signed preference, cannot be ground.\n(B) Minimum blockHash at difference: consistent across nodes, but winner can grind shareRoot to win every tie.\n(C) Tip first-seen alone: transitive but removes D15 signed preference.\n(D) Retain pairwise comparison with fixed enumeration: conceals rather than removes the cycle; results still depend inconsistently on arrival order.\n\nCost:\n- Same-kind sibling ties stay local; honest nodes may retain two tips until the next block.\n- Delivery-order-controlling adversaries affect local ties as with first-seen, measured in T10."
+  },
+  {
+    "id": "D134",
+    "decision": "Bounded-name epoch fence:\n- Name only 'pocol:epoch:'+hex16(E), no nonce. Generations computing the same E write the same name; retries add no names.\n- Before issuance: EN+1 ≤ EPOCH_NAMES_MAX = 8 name gate, then generation window over visible items.\n- On violation, wait monotonic T_LATE and sweep. Persistent violation disables local storage for the generation with storeRecovery {epochNames}.\n- Sweep: after T_LATE from live-generation boot, delete every name below the greatest visible, regardless of stored bootMs.\n- Lemmas: writers, name bound (≤ 8 always), lateGens coverage despite late value writes.\n- Rederivation: LATE_NAMES = 24 excluding epochs; name condition adds EPOCH_NAMES_MAX; META_RESERVE reserves 8·EPOCH_BYTES_MAX = 2048.\n- Supersedes D103 nonce naming/sweeping and every LATE_NAMES = 28 mention in D106/D108/D109. Now 24 plus 8 epoch items.\n- Verification: BR22h, epochNonceNames/epochNoGate/epochSweepEarly controls, within M1-spec.",
+    "rationale": "Alternatives:\n(A) Fixed ring of overwriteable names: late writes may lower the maximum, repeating E across two data-writing generations and colliding seq.\n(B) Two keys: fence plus generation item written only by confirmed generations. Correct, but coverage proves the shared name suffices; the second key adds an unnecessary write.\n(C) Limit worker-loss rate: unjustified assumption.\n(D) Sweep only after items appear: no instantaneous bound; sweeping may fail.\n\nThe choice makes the bound independent of disappearing-generation count: each possible name is visible or M+1; gate precedes issuance. Safe sweeping T_LATE after live boot prevents resurrection without trusting stored bootMs.\n\nCost: a loss loop shorter than 60s after reaching the limit, or persistent delete failure, disables local storage fail-closed with notice."
+  },
+  {
+    "id": "D135",
+    "decision": "Correct name-boundary vectors after D134 without changing the rule:\n- Every BR23 name-bound vector follows names+R_names+1+LATE_NAMES+EPOCH_NAMES_MAX ≤ 1024.\n- d11: boundary 991; first admitted, second disk.\n- d11b: old-formula boundary 999; expect rejection.\n- Negative control bridge-fault:epochReserveOmitted fails d11/d11b.\n- Explicit d6 derivation: first rejection at 992.\n- M1-spec carries both paths of both vectors and corrects LATE_NAMES = 28 to 24 plus 8 epochs.",
+    "rationale": "I64.\n\nAlternatives:\n(A) Change rule to fit old vector: removes the epoch reserve underlying the name-bound lemma.\n(B) Delete the vector: leaves the boundary untested.\n(C) Correct only d11: fails to detect omission of eight, since corrected d11 admits the first item in both paths.\n\nThe choice aligns vectors with the current rule and adds a deterministic discriminator for defective implementations.\n\nCost: one additional vector and negative control."
+  },
+  {
+    "id": "D136",
+    "decision": "Bounded envelope-verdict retention (local node policy):\n- Verdict without copy bytes ≤ 128 B; retain only for a blockHash with a local entry.\n- Bounds: 8 rejection verdicts per block, 16384 globally, 1024 pending copies globally, 64 checks in progress. ENV_MEM_MAX = 6 MiB.\n- At capacity, drop unsolicited copies without checking or penalty.\n- Always check solicited EnvFetch responses, with per-block then global FIFO eviction.\n- Clean up on resolution/removal.\n- Eviction permits rechecking; fullness never writes blockReject.\n- HaltPin pins rejection verdicts during draining.\n- Verification: T23 N11–N11c, three negative controls.",
+    "rationale": "I75.\n\nAlternatives:\n(A) Permanent deduplication set: unbounded memory.\n(B) Time-to-live alone: cannot bound peaks under rapid flooding.\n(C) Per-peer quota: cheap peer identities bypass it.\n(D) Drop every copy at capacity, including requested ones: flooding permanently blocks the valid envelope.\n\nThe choice gives a fixed memory bound independent of peer count, while preserving recovery: solicited requests are bounded by strict EnvFetch scheduling and reach an honest holder. Validity is unchanged.\n\nCost:\n- Flooding delays acceptance of gossip-arriving valid envelopes until EnvFetch retrieves them.\n- Rechecking evicted hdrId costs c_env."
+  },
+  {
+    "id": "D137",
+    "decision": "Envelope-fetch resource ownership, amending D136 checks/memory:\n- Slot reservation: every GetEnvelope reserves one of ENV_SOLICIT_SLOTS = 32 before issuance. The slot owns one check and reply buffer ≤ 3131 B, granted to the head of EnvQueue (FIFO per block) in the send step.\n- Gossip slots: separate ENV_GOSSIP_SLOTS = 32 for unsolicited copies; total ENV_INFLIGHT_GLOBAL = 64.\n- Request condition: no request before parent state is available.\n- Release exactly once on one of eight exits: check, NotFound, ENV_REQ_TIMEOUT = 2s, disconnect, over-limit, import, envOk through another path, or removal.\n- Timeout gives reeligible with exponential backoff, not permanent exclusion.\n- Late replies follow gossip handling.\n- ENV_MEM_MAX = 7 MiB includes slots and EnvQueue.\n- Verification: N12, N12t, N12b; envSolicitUnbounded, envReplyUnreserved, envTimeoutExclude controls.",
+    "rationale": "I75.\n\nAlternatives:\n(A) Check above the ceiling: unbounded resources.\n(B) Queue responses after receipt: unreserved bytes; eviction recreates starvation.\n(C) Drop requested replies at capacity: fullness becomes denial of service.\n(D) Per-block slot: bound scales with entry count.\n\nThe choice makes “solicited replies are always checked” true by construction within a fixed ceiling. Separate pools prevent gossip starvation of recovery. FIFO plus timeout provides an explicit recovery bound. Slots are local, so waiting adds no drain-bound component. Validity is unchanged.\n\nCost:\n- An adversary holding slots with slow replies delays recovery up to (P−1)·⌈Q/32⌉·(2s+c_env).\n- Honest peers slower than 2s are retried after exponential backoff."
+  },
+  {
+    "id": "D138",
+    "decision": "EnvSlots cancellation ownership, amending D137:\n- Slot states: reserved, buffered, checking, released.\n- Cancellation request is separate from release:\n  - reserved/buffered: reset substream, release in the same step.\n  - checking: no release before check settlement. envPre/envOwn without apply is synchronous, uninterruptible computation ≤ c_env.\n- ENV_REQ_TIMEOUT measures from send to last response byte; cancel its timer on entering checking. Response wins equality.\n- Each grant has a never-reused u64 attemptId; ignore events not matching the current attempt.\n- Cancelled-check result:\n  - Retain envReject and penalize sender if x still has an entry.\n  - Use envOk only if x remains in envWait.\n  - Otherwise lateCheckDropped.\n- Ceiling lemma: running checks ≤ 64, buffers ≤ 64·3131 B at every instant.\n- Slot role duration ≤ ENV_REQ_TIMEOUT + c_env.\n- Drain lemma: no timeout because RTT_i < ENV_REQ_TIMEOUT; checking is outside the timeout.\n- Verification: N12c/N12r; envReleaseOnCancel/envTimeoutCoversCheck controls.",
+    "rationale": "I75.\n\nAlternatives:\n(A) Interrupt checks on cancellation: interruption points inside signature recovery/assignment complicate implementation; the bound still depends on response latency, while checks are already short.\n(B) Synchronous checking inside EnvFetch loop: prevents concurrent release by construction, but blocks all fetch/timeout events during each check.\n(C) Timeout includes checking: breaks the drain lemma; RTT_i < 2s is insufficient.\n(D) Decrement on cancellation while work continues: the D137 defect itself.\n\nThe choice makes check/buffer ceilings construction lemmas: ownership ends at work settlement, not cancellation request. Timeout measures reception alone, preserving the drain bound under existing RTT_i assumptions. Validity is unchanged.\n\nCost:\n- A cancelled slot remains held up to c_env.\n- Exceeding assumed ENV_CHECK_MAX delays recovery without breaking the ceiling and is monitored."
+  },
+  {
+    "id": "D139",
+    "decision": "Corrected recovery bound and specified check scheduler, amending D137/D138:\n- EnvCheckPool: four dedicated envelope-check threads with FIFO queue.\n  - c_env = (⌈63/W⌉+1)·ENV_EXEC_MAX = 850 ms, bounding checking including wait.\n  - Monitor ENV_EXEC_MAX overruns; do not release the slot.\n- Work-conserving grants: release grants the EnvQueue head in the same step.\n- EnvFetch reeligible is FIFO with one position per peer.\n- D_x = (2P−1)·(⌈Q/32⌉+1)·T_role + B, T_role = ENV_REQ_TIMEOUT + c_env. P counts distinct peers over the interval, including holder; Q is maximum queue length; B ≤ 60s.\n- Bound requires a stable peer set; churn increases P and is not hidden.\n- Verification: N12p/N12h/N12w; envCheckSharedPool and ref-fault:recoveryOldBound controls.",
+    "rationale": "I75: previous formula omitted the successful request and did not bound processor waiting.\n\nScheduler alternatives:\n(A) Shared ComputePool: unbounded waiting.\n(B) Consensus runtime: blocks validation.\n(C) One thread per slot: costly on 8 GB.\nSelected: derives duration from the ceiling of 64 live checks.\n\nBound alternatives:\n(A) Unconditional fixed bound: false under churn.\n(B) Connection-time ordering: breaks the one-pair drain lemma.\nSelected: explicitly conditional, derived from existing scheduling after clarifying reeligible ordering.\n\nCost:\n- Conservative, large bound for large Q.\n- Unlimited peer churn delays recovery without a fixed bound.\n- Four additional threads."
+  },
+  {
+    "id": "D140",
+    "decision": "Narrow envelope-recovery theorem, amending D139 start point/conditions:\n- t_0 is the first instant G1–G4 hold together and persist until acceptance: G1 parent state available, x retained in envWait with a local entry; G2 connected honest holder serves an envOk copy; G3 every post-t_0 request to it completes within RTT_h* < ENV_REQ_TIMEOUT; G4 stable peers.\n- Time before t_0 is preCondWait measurement, outside D_x. Losing a condition voids the guarantee; restoration starts fresh t_0'.\n- A consistently slower-than-timeout holder has no solicited-path acceptance guarantee. Acceptance is possible only through gossip or another holder, without blockReject.\n- D_x formula, slot ownership and EnvCheckPool unchanged.\n- Verification: N12a, N12s, N12s-i; envRequestBeforeParent/t0Unconditioned controls; three-valued RecoveryRef.conditions verdict.",
+    "rationale": "I75: D139's bound exceeded its conditions.\n\nAlternatives:\n(A) Longer/adaptive timeout: increases slot occupancy under flooding without bounding arbitrary slowness.\n(B) Add parent-availability time: no prior bound, since it follows sync/execution.\n(C) Admit a post-timeout reply on the slot: recreates unbounded occupancy and breaks D138.\n\nThe choice makes the guarantee correct under explicit trace-checkable conditions and treats everything outside them as disclosed measurement, not timed success/failure. Validity is unchanged.\n\nCost: no acceptance guarantee when the only holder is persistently slow or its link adversarially controlled; the block remains in envWait up to queue limits."
+  },
+  {
+    "id": "D141",
+    "decision": "Record mining results in the child block.\n- apply(h) reads neither block h's nonce, owner, shareList nor either signature.\n- closeBlock(h) leaves pending[h].winner = 0.\n- recordResult(h−1) in block h phase 0 writes winner from ctx.parentResult: the parent nonce owner computed by item 13 validation and stored in BlockMeta.\n- Guarantee: D ≥ 2 (R8) places recording before every settle.\n- F: no pending[F] is created; recordResult(F−1) precedes finalize.\n- Distinct keys per block unchanged.\n- Verification: TW1–TW4, exec-fault:winnerInState control.\n- Consensus rule applied before any network exists, so no fork.",
+    "rationale": "I76.\n\nAlternatives:\n(A) Selected: defer to child. Reuses recordShares(h−1), changing neither encoding, timing nor settlement amounts.\n(B) Post-close root outside TemplateID: changes header/blockHash encoding and L0/T0/RP vectors, doubles roots.\n(C) Read winner from ancestor header at settle: extends ctx dependence to D blocks; pending is no longer self-contained for RPC, evidence and rollback.\n\nCost:\n- pocol_getPot shows winner = null for the tip.\n- F's winner is not recorded in state; it already has no direct reward.\n- parentResult correctness depends on retaining nonce owner with parent; TW/Q4 detect errors."
+  },
+  {
+    "id": "D142",
+    "decision": "Complete parent result is an input to child execution:\n- ctx.parentResult = ParentResult(p) = {blockHash(p), winner = owner(p.nonce), shares[(n, owner(n))] for each n in shareList(p)}.\n- Sole source: Header(p) bytes keyed by blockHash(p), committing shareRoot, with p's assignment over grandparent state.\n- recordShares(h−1) writes count[h−1] (including ν for winner) and lastShare only from shares. recordResult(h−1) writes winner.\n- BlockMeta's stored value is derived; rederive/compare on every replay (parentResultMismatch).\n- No mining memory, share pool or another copy of (TemplateID, nonce).\n- Verification: TW5 with four arms and an ordering variant; sharesFromFirstSeen, sharesFromMiner and sharesDropped controls.",
+    "rationale": "I76 (reopened).\n\nAlternatives:\n(A) Selected: explicit parent result derived from committed content. All envelope copies yield the same result; parents with different shareRoots are distinguished by blockHash.\n(B) Pass full Header(p) to apply: brings assignment computation and grandparent state into the host, duplicating item 13 work.\n(C) Record shares in the same block: recreates circularity because shareList is outside UT.\n\nNo validity rule changes beyond specifying the input. SV1–SV10 and empty-list TW1–TW4 values are unchanged.\n\nCost: retain a derived value per block and rederive it on replay."
+  },
+  {
+    "id": "D143",
+    "decision": "Fixture-vector share thresholds derive from the built UT:\n- T_share = min(2^256−1, UT.target·CP.m), through FixtureMiner.shareThreshold calling the consensus function.\n- Record block-10 ASERT trace in sv-fix literally: Δt = −27, e = −2950, s = −1, f = 62586, target = F·2^223.\n- Item-9 predicate for every share.\n- Controls: TW5-gap (gap share rejected by item 9) and fixture-fault:fixedShareThreshold (deterministically fails threshold equality).\n- TW5 settlement values unchanged.",
+    "rationale": "I77.\n\nAlternatives:\n(A) Change sv-fix timestamps to make target = 2^240 at h=10: changes the shared fixture rule and requires rederiving SV8/SV9/TW1–TW4.\n(B) Retain the constant and search again: hides the contradiction.\n\nThe choice makes fixtures use the rule itself, preventing divergence. The deterministic control detects the constant without relying on a probabilistic event.\n\nCost: literal F is not written here; two implementations and a reference establish it in annex M4b."
+  }
+]

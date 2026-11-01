@@ -1,0 +1,41 @@
+{
+  "node": "v22.13.1",
+  "cases": [
+    {
+      "input": "https://[not-ip]/",
+      "accepted": false
+    },
+    {
+      "input": "https://[::1::2]/",
+      "accepted": false
+    },
+    {
+      "input": "https://999.999.999.999/",
+      "accepted": false
+    },
+    {
+      "input": "https://%00.example/",
+      "accepted": false
+    },
+    {
+      "input": "https://user%40example.org/",
+      "accepted": false
+    },
+    {
+      "input": "https://[::1]:",
+      "accepted": true
+    },
+    {
+      "input": "https://[::1]/",
+      "accepted": true
+    },
+    {
+      "input": "https://example.org/",
+      "accepted": true
+    },
+    {
+      "input": "https://user@example.org/",
+      "accepted": false
+    }
+  ]
+}

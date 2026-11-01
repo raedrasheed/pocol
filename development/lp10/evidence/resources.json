@@ -1,0 +1,14 @@
+{
+ "a": {
+  "rssMiB": 24.1,
+  "journalMiB": 0.44
+ },
+ "b": {
+  "rssMiB": 23.7,
+  "journalMiB": 0.44
+ },
+ "c": {
+  "rssMiB": 23.3,
+  "journalMiB": 0.43
+ }
+}

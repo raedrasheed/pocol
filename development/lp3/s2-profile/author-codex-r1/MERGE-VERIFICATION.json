@@ -1,0 +1,12 @@
+{
+  "mergedPr": 10,
+  "verification": "Freshly fetched Git history; GitHub API still Forbidden. Owner confirmed merge.",
+  "targetBranch": "work/lp3-consensus-foundation",
+  "resultingCommit": "d17273af35880f0e1d8a438e529e69c22a18f731",
+  "parents": [
+    "fd7a17fd51691b275343b0cbc96bfce1d2f90745",
+    "bd2ae28ac29c11ea65258481e34444d05d61e4dd"
+  ],
+  "treeEqualsAcceptedPrHead": true,
+  "acceptedHeadIsAncestor": true
+}

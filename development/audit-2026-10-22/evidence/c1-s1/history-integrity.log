@@ -1,0 +1,19 @@
+C-1 S1: redb full integrity check cost and file size (journal_measure::history_integrity_check_cost,
+release, --ignored; 4-CPU host, warm page cache; run while no other build was running, 2026-10-24).
+Synthetic blocks of 4 receipts of HIST_REC bytes and 4 index entries; HIST_MB of receipts.
+HIST_MB=256 HIST_REC=2048 (batched commits, as replay):
+JM-HIST-FILL {"blocks":32768,"ms":21722}
+JM-HIST-CHECK {"blocks":32768,"checkMs":735,"clean":true,"fileBytes":1078472704,"msPerGiB":731.7758138086358,"openMs":2}
+HIST_MB=64 HIST_REC=2048, HIST_DURABLE=1 (one durable commit per block, as live import):
+JM-HIST-FILL {"blocks":8192,"durableEach":true,"ms":9831}
+JM-HIST-CHECK {"blocks":8192,"checkMs":177,"clean":true,"fileBytes":270020608,"msPerGiB":703.8436964337182,"openMs":2}
+HIST_MB=64 HIST_REC=2048 (batched):
+JM-HIST-FILL {"blocks":8192,"durableEach":false,"ms":4469}
+JM-HIST-CHECK {"blocks":8192,"checkMs":197,"clean":true,"fileBytes":270020608,"msPerGiB":783.3740576126693,"openMs":2}
+HIST_MB=64, by receipt size (batched):
+JM-HIST-CHECK {"blocks":83886,"checkMs":340,"clean":true,"fileBytes":270020608,"msPerGiB":1352.0161400421705,"openMs":2,"payloadBytes":67108800,"receiptBytes":200}
+JM-HIST-CHECK {"blocks":16777,"checkMs":162,"clean":true,"fileBytes":135278592,"msPerGiB":1285.8366790807522,"openMs":3,"payloadBytes":67108000,"receiptBytes":1000}
+JM-HIST-CHECK {"blocks":8192,"checkMs":242,"clean":true,"fileBytes":270020608,"msPerGiB":962.3173702653095,"openMs":2,"payloadBytes":67108864,"receiptBytes":2048}
+Reading: the check costs 0.70-1.35 s per GiB of file; the file is 2.0-4.1 times the receipt payload
+(redb grows by regions, so fileBytes is quantized); the per-block durable commit costs 1.2 ms/block here.
+The first three lines were printed before the payloadBytes field was added; their payload is HIST_MB.

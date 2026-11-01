@@ -1,0 +1,175 @@
+{
+  "runId": 39050327868,
+  "head": "25ec1f852a7bf9cd9c2960594f3962b18d9197c7",
+  "jobs": [
+    {
+      "id": 117447426006,
+      "name": "cancun-pay-controls",
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "25ec1f852a7bf9cd9c2960594f3962b18d9197c7",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-17T16:39:03Z",
+          "completed_at": "2026-10-17T16:39:04Z"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-17T16:39:04Z",
+          "completed_at": "2026-10-17T16:39:06Z"
+        },
+        {
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-17T16:39:06Z",
+          "completed_at": "2026-10-17T16:39:06Z"
+        },
+        {
+          "name": "Install pinned experimental toolchain and comparison tools",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-17T16:39:06Z",
+          "completed_at": "2026-10-17T16:39:25Z"
+        },
+        {
+          "name": "Reproduce compiler output and run actual Rust execution tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-17T16:39:25Z",
+          "completed_at": "2026-10-17T16:39:49Z"
+        },
+        {
+          "name": "Compile PAY mutation controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-17T16:39:49Z",
+          "completed_at": "2026-10-17T16:40:21Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-17T16:40:22Z",
+          "completed_at": "2026-10-17T16:40:23Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-17T16:40:23Z",
+          "completed_at": "2026-10-17T16:40:23Z"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-17T16:40:23Z",
+          "completed_at": "2026-10-17T16:40:23Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-17T16:40:23Z",
+          "completed_at": "2026-10-17T16:40:23Z"
+        }
+      ]
+    },
+    {
+      "id": 117447426271,
+      "name": "legacy-windows-regression",
+      "status": "in_progress",
+      "conclusion": null,
+      "headSha": "25ec1f852a7bf9cd9c2960594f3962b18d9197c7",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-17T16:39:02Z",
+          "completed_at": "2026-10-17T16:39:03Z"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-17T16:39:03Z",
+          "completed_at": "2026-10-17T16:39:11Z"
+        },
+        {
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-17T16:39:11Z",
+          "completed_at": "2026-10-17T16:39:11Z"
+        },
+        {
+          "name": "Preserved full legacy Windows verification",
+          "status": "in_progress",
+          "conclusion": null,
+          "number": 4,
+          "started_at": "2026-10-17T16:39:11Z",
+          "completed_at": null
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "status": "pending",
+          "conclusion": null,
+          "number": 5,
+          "started_at": null,
+          "completed_at": null
+        },
+        {
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "pending",
+          "conclusion": null,
+          "number": 9,
+          "started_at": null,
+          "completed_at": null
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "pending",
+          "conclusion": null,
+          "number": 10,
+          "started_at": null,
+          "completed_at": null
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 12107032805,
+      "name": "lp4-p2-controls",
+      "digest": "sha256:a89945c288ddec55c8d73a4bf4268fd6e3774f778b2be7cae88908293b2dc3d9",
+      "size": 22419,
+      "workflow_run": {
+        "id": 39050327868,
+        "repository_id": 1388115529,
+        "head_repository_id": 1388115529,
+        "head_branch": "codex-lp4-p2-runtime",
+        "head_sha": "25ec1f852a7bf9cd9c2960594f3962b18d9197c7"
+      }
+    }
+  ]
+}

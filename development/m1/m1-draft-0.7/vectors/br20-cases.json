@@ -1,0 +1,37 @@
+{
+  "specVersion": "M1 draft 0.7",
+  "revision": "R7-05 (S1-S4: D99)",
+  "baseline": "FD:L1290-1320 (SiteSession), FD:L1195-1197 (nav bucket), FD:L2762-2799 (BR20a-d).",
+  "messages": "m_i = {\"id\":i,\"kind\":\"rpc_read\",\"payload\":{\"method\":M,\"params\":P}}; eth_call P = [{\"to\":\"0x976ea74026e726554db657fa54763abd0c3a0aa9\"},\"latest\"] (s2, TK-1); site_navigate uses kind nav with P = [\"/\"].",
+  "BR20a": {
+    "session": "created at 1000 ms: tokens_mt 50000, nav 6000, pending 0",
+    "rows": [
+      {"t": 1000, "frame": "F1", "msgs": [1, 4], "method": "eth_call", "check": "pass", "route": "forwarded", "after": {"tokens_mt": 46000, "pending": 4}},
+      {"t": 1000, "frame": "F1", "msgs": [5, 49], "method": "eth_blockNumber", "check": "pass", "route": "pending", "after": {"tokens_mt": 1000, "pending": 4}},
+      {"t": 1000, "frame": "F1", "msgs": [50, 50], "method": "site_navigate", "check": "pass", "route": "nav", "after": {"tokens_mt": 0, "nav": 4000, "pending": 4}, "then": "the 4 requests become orphans; F2 joins the session"},
+      {"t": 1001, "frame": "F2", "msgs": [51, 51], "method": "eth_blockNumber", "check": "rate", "route": "-", "after": {"tokens_mt": 50}, "replyId": null},
+      {"t": 1020, "frame": "F2", "msgs": [52, 52], "method": "eth_blockNumber", "check": "pass", "route": "pending", "after": {"tokens_mt": 0}},
+      {"t": 1040, "frame": "F2", "msgs": [53, 53], "method": "eth_call", "check": "pass", "route": "pending", "after": {"tokens_mt": 0}},
+      {"t": 1041, "settle": 1, "after": {"pending": 3}, "then": "zero replies to any frame"},
+      {"t": 1060, "frame": "F2", "msgs": [54, 54], "method": "eth_call", "check": "pass", "route": "forwarded", "after": {"tokens_mt": 0, "pending": 4}},
+      {"t": 1061, "frame": "F2", "msgs": [55, 55], "method": "eth_blockNumber", "check": "rate", "route": "-", "after": {"tokens_mt": 50}}
+    ],
+    "negativeControl": "bridge-fault:frameBudget gives F2 a new bucket and pending 0, so m51 becomes pass / forwarded: the model must differ from the table there",
+    "lateOldFrame": "P extra row: at 1002 a message from F1 (port closed) is dropped and consumes no token"
+  },
+  "BR20b": {"steps": [[0, "nav"], [0, "nav"], [0, "nav"], [0, "nav"], [2000, "nav"], [2001, "nav"]], "expected": ["nav", "nav", "nav", "navRejected", "nav", "navRejected"], "teardownOnReject": false},
+  "BR20c": {
+    "label": "Integrated Chrome test (future). The model run (P: retry 100 ms, zero frame-load latency, 7 site chunks) checks the G bounds against the same rules.",
+    "criteriaG": ["max concurrent eth_call (live or orphan) <= 4", "accepted messages by time t <= 50 + 50 t", "navigations by time t <= 3 + t/2", "eth_getCode for chunks == number of site chunks (once)", "every decision equals BridgeRef", "session reservation <= 10 MiB"],
+    "criteriaC": ["worker ping p99 <= 100 ms", "closing the tab ends the session and frees reservations within 1 s after orphans settle", "extension process memory <= baseline + 64 MiB", "inconclusive with recorded values if unmeasurable"]
+  },
+  "BR20d": "vectors/mr10-cases.json BR20d (16 forwarded, 4 pending; trust check succeeds)",
+  "S1lifecycle": {
+    "key": "(tabId, netKey, siteAddress); created only by a user action (omnibox or extension UI)",
+    "ends": "tab closed, or the user navigates to another address or network",
+    "owns": ["message bucket", "pendingReads", "nav bucket", "SESSION_RECV_MAX reservation", "ChunkCache", "StoreQueue share (D101)"],
+    "frames": "frames created by site_navigate or reload join the session and renew no budget; one LoadJob per session; navigation cancels the previous LoadJob; its orphan chunk requests stay in CONTENT_POOL until they settle; blob URLs of the previous load are revoked on teardown; messages from a torn-down frame's port are dropped after it closes and consume no token",
+    "orphanStates": ["live -> orphan (teardown: aborted, no reply, counter unchanged)", "orphan -> settled (transport promise rejected, receive buffer and reservation released; counter -1)", "the longest time to settle is the transport timeout"],
+    "bounds": ["<= 4 live or orphan reads", "messages accepted by second t <= 50 + 50 t", "navigations by second t <= 3 + t/2", "each chunk fetched once while it stays cached"]
+  }
+}

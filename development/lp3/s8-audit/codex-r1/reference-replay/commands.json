@@ -1,0 +1,48 @@
+[
+  {
+    "name": "node-version",
+    "args": [
+      "node",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 0.007
+  },
+  {
+    "name": "compiler-version",
+    "args": [
+      "node",
+      "/workspace/work/lp3-tscompiler/node_modules/typescript/bin/tsc",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 0.1
+  },
+  {
+    "name": "python-version",
+    "args": [
+      "python3",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 0.003
+  },
+  {
+    "name": "typecheck",
+    "args": [
+      "node",
+      "/workspace/work/lp3-tscompiler/node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model/tsconfig.json",
+      "--typeRoots",
+      "/workspace/work/lp3-tscompiler/node_modules/@types"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 2,
+    "seconds": 2.538
+  }
+]

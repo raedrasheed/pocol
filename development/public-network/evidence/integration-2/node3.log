@@ -1,0 +1,74 @@
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[node3 74741208] opened: head h=0 records=0
+[node3 74744020] lock h=1 a=0 PROP tid=0x8992568533
+[node3 74744043] head h=1 0x0d0906583b87 signed=true txs=2
+[node3 74745012] lock h=2 a=0 PROP tid=0x6a9fca9cf1
+[node3 74745032] head h=2 0x69f18f7a3689 signed=true txs=0
+[node3 74746026] lock h=3 a=0 PROP tid=0x1d5a216598
+[node3 74746045] range exhausted; idle until next template
+[node3 74813019] attempt 0 expired; advancing
+[node3 74813022] lock h=3 a=1 FB tid=0x517e3b5688
+[node3 74813040] range exhausted; idle until next template
+[node3 74873042] attempt 1 expired; advancing
+[node3 74873045] lock h=3 a=2 FB tid=0xf22a5c1628
+[node3 74873055] head h=3 0xb504b4af9db1 signed=false txs=0
+[node3 74873057] lock h=4 a=0 PROP tid=0xa2fe2b2750
+[node3 74873073] range exhausted; idle until next template
+[node3 74873092] head h=4 0xbd521a1635a6 signed=true txs=0
+[node3 74873095] lock h=5 a=0 PROP tid=0x78cd82d0fa
+[node3 74873126] head h=5 0x1125c9ef85f0 signed=true txs=0
+[node3 74873153] head h=6 0xc6ad7c23d306 signed=true txs=0
+[node3 74874048] lock h=7 a=0 PROP tid=0x4eccc83fae
+[node3 74874064] head h=7 0x9e9e4d69b755 signed=true txs=0
+[node3 74875051] lock h=8 a=0 PROP tid=0x21a9eaf4d1
+[node3 74875060] head h=8 0xf7d82f128371 signed=true txs=1
+[node3 74876007] lock h=9 a=0 PROP tid=0xd33ec0f379
+[node3 74876021] head h=9 0xea9ae5ff48d1 signed=true txs=0
+[node3 74877007] lock h=10 a=0 PROP tid=0x6bf6b62c0b
+[node3 74877014] head h=10 0x3ef876c466b2 signed=true txs=0
+[node3 74878010] lock h=11 a=0 PROP tid=0x7b8889ab1d
+[node3 74878026] head h=11 0x864a8cd2e08d signed=true txs=0
+[node3 74879012] lock h=12 a=0 PROP tid=0x9cde92b84d
+[node3 74879031] head h=12 0x32f1a6fe66ef signed=true txs=0
+[node3 74888035] lock h=13 a=0 FB tid=0x45f49426a5
+[node3 74888049] range exhausted; idle until next template
+[node3 74888057] head h=13 0x002f01b15b9a signed=false txs=0
+[node3 74888068] lock h=14 a=0 PROP tid=0x0542eff7f6
+[node3 74888082] head h=14 0xeb0329819aa3 signed=true txs=0
+[node3 74888084] lock h=15 a=0 PROP tid=0xa08067cc11
+[node3 74888097] range exhausted; idle until next template
+[node3 74888119] head h=15 0xe7b32f29385f signed=true txs=0
+[node3 74889041] lock h=16 a=0 PROP tid=0x94e9ff66aa
+[node3 74889055] range exhausted; idle until next template
+[node3 74889064] head h=16 0x85f693813cc2 signed=true txs=1
+[node3 74898010] lock h=17 a=0 FB tid=0x9e42d05eca
+[node3 74898023] range exhausted; idle until next template
+[node3 74957044] attempt 0 expired; advancing
+[node3 74957049] lock h=17 a=1 FB tid=0xc5254a0b3c
+[node3 74957059] head h=17 0x619951f08a9b signed=false txs=0
+[node3 74957083] lock h=18 a=0 PROP tid=0x4426cc6cc6
+[node3 74957097] range exhausted; idle until next template
+[node3 74965134] head h=18 0x1b3654813db4 signed=false txs=0
+[node3 74965137] lock h=19 a=0 PROP tid=0x027432cc2b
+[node3 74965150] head h=19 0xa7062f0e3906 signed=true txs=0
+[node3 74965166] lock h=20 a=0 PROP tid=0x572ab851f2
+[node3 74965186] head h=20 0xacd93a880f52 signed=true txs=0
+[node3 74965195] lock h=21 a=0 PROP tid=0x6007f40fdb
+[node3 74965215] head h=21 0x87b64ae5a398 signed=true txs=0
+[node3 74966021] lock h=22 a=0 PROP tid=0xfeebec3437
+[node3 74966044] head h=22 0xa2a6fa3ab316 signed=true txs=0
+[node3 74967020] lock h=23 a=0 PROP tid=0x2c7a8c94c9
+[node3 74967033] range exhausted; idle until next template
+[node3 74967043] head h=23 0x54ae868d0335 signed=true txs=1
+[node3 74968028] lock h=24 a=0 PROP tid=0x3c4dcc9a89
+[node3 74968048] head h=24 0x7aa49d8a17f0 signed=true txs=1
+[node3 74969056] head h=25 0x8a30e0118667 signed=true txs=1
+[node3 74970029] lock h=26 a=0 PROP tid=0x439268a2e0
+[node3 74970044] range exhausted; idle until next template
+[node3 74970052] head h=26 0x3e723331c829 signed=true txs=1
+[node3 74971032] lock h=27 a=0 PROP tid=0xceba4f12ac
+[node3 74971049] head h=27 0x4f850a5c3162 signed=true txs=1
+[node3 74972033] lock h=28 a=0 PROP tid=0xdf4ff87674
+[node3 74972066] head h=28 0xbbcac38676ed signed=true txs=1
+[node3 74973035] lock h=29 a=0 PROP tid=0xed10e8eeac
+[node3 74973055] head h=29 0x0068e130bc94 signed=true txs=0

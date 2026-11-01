@@ -1,0 +1,179 @@
+# commit 0b9b4d082b56605cc700a826b72497d81773c3ae (tracked changes under prototypes/ and proposals/: none)
+# host Linux 6.18.44-fc-v153 x86_64; rustc rustc 1.99.1 (58cf8f9c3 2026-10-13)
+# start 2026-10-23T15:30:07Z
+$ (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --test caps -- --nocapture)
+   Compiling pocold v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-9/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.37s
+     Running tests/caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps-8dfae025daa9f0e6)
+
+running 7 tests
+test counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary ... ok
+test a_received_template_past_the_caps_is_treated_as_absent ... ok
+CAPS {"cumTxBytes":226,"profile":"txbytes_cap=a0+b0-0=226","roomLeft":0,"templateSizes":[2,0,0]}
+CAPS {"cumTxBytes":113,"profile":"txbytes_cap=a0+b0-1=225","roomLeft":112,"templateSizes":[1,0,0]}
+test txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16 ... ok
+CAPS {"cumTxs":5,"head":25,"pool":5,"profile":"tx_cap=5","templateSizes":[5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
+test tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing ... ok
+CAPS {"cumTxBytes":339,"pool":3,"profile":"txbytes_cap=395","templateSizes":[3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
+test txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones ... ok
+[txbytes 69420146] lock h=1 a=0 PROP tid=0xb23e15cc21
+[txcap 69420146] lock h=1 a=0 PROP tid=0x3082055762
+[txbytes 69420150] head h=1 0xa50f14e10fb8 signed=true txs=2
+[txcap 69420150] head h=1 0x896e836d40b7 signed=true txs=3
+[txbytes 69421154] lock h=2 a=0 PROP tid=0x0bce646cbe
+[txcap 69421154] lock h=2 a=0 PROP tid=0xc8a02d175f
+[txcap 69421158] head h=2 0x336f5ea002d0 signed=true txs=0
+[txbytes 69421158] head h=2 0x5087304f0352 signed=true txs=0
+[txcap 69422161] lock h=3 a=0 PROP tid=0x406f99accb
+[txbytes 69422162] lock h=3 a=0 PROP tid=0x5f8f6615c6
+[txcap 69422165] head h=3 0x80eddfd20a43 signed=true txs=0
+[txbytes 69422166] head h=3 0x8dd1b28c9c5b signed=true txs=0
+[txcap 69423169] lock h=4 a=0 PROP tid=0x7de82a3438
+[txbytes 69423170] lock h=4 a=0 PROP tid=0x0f7cf9b521
+[txcap 69423172] head h=4 0x305ae405ec65 signed=true txs=0
+[txbytes 69423175] head h=4 0x3c7516aa3d46 signed=true txs=0
+[txcap 69424176] lock h=5 a=0 PROP tid=0x8128d7c12a
+[txbytes 69424182] lock h=5 a=0 PROP tid=0x95d947465e
+[txcap 69424182] head h=5 0x39d7fda965e7 signed=true txs=0
+[txbytes 69424185] head h=5 0x7f3e028d4a6b signed=true txs=0
+[txcap 69425187] lock h=6 a=0 PROP tid=0x83156ffe90
+[txbytes 69425190] lock h=6 a=0 PROP tid=0x9793164f57
+[txcap 69425192] head h=6 0xbf6dd4b2ea19 signed=true txs=0
+[txbytes 69425197] head h=6 0x0fca356f6b15 signed=true txs=0
+[txbytes 69426050] lock h=7 a=0 PROP tid=0x22d60a94dc
+[txcap 69426051] lock h=7 a=0 PROP tid=0xc281aacc50
+[txbytes 69426055] head h=7 0x6781e9cadaca signed=true txs=0
+[txcap 69426056] head h=7 0x816762f32762 signed=true txs=0
+[txbytes 69427060] lock h=8 a=0 PROP tid=0xbc2f3b4920
+[txcap 69427062] lock h=8 a=0 PROP tid=0x919246f137
+[txbytes 69427067] head h=8 0xf9dd61c1ad3e signed=true txs=0
+[txcap 69427067] head h=8 0xb9d0a6775647 signed=true txs=0
+CAPS {"cumTxBytes":226,"cumTxs":2,"head":8,"profile":"live txbytes","rejects":[],"seconds":8.007009916,"signed":[true,true,true,true,true,true,true,true]}
+CAPS {"cumTxBytes":339,"cumTxs":3,"head":8,"profile":"live txcap","rejects":[],"seconds":8.007761987,"signed":[true,true,true,true,true,true,true,true]}
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... ok
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.08s
+
+exit=0
+# end 2026-10-23T15:30:27Z
+
+$ (cd prototypes/lp4-execution && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked --test caps_identity -- --nocapture)
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling version_check v0.9.5
+   Compiling cfg-if v1.0.5
+   Compiling typenum v1.20.1
+   Compiling generic-array v0.14.9
+   Compiling const-oid v0.9.6
+   Compiling subtle v2.6.1
+   Compiling serde_core v1.0.229
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling getrandom v0.2.17
+   Compiling rand_core v0.6.4
+   Compiling shlex v2.0.1
+   Compiling serde v1.0.229
+   Compiling find-msvc-tools v0.1.14
+   Compiling cc v1.8.0
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling ff v0.13.1
+   Compiling base16ct v0.2.0
+   Compiling crunchy v0.2.4
+   Compiling group v0.13.0
+   Compiling unicode-segmentation v1.13.3
+   Compiling cpufeatures v0.2.17
+   Compiling convert_case v0.10.0
+   Compiling unicode-xid v0.2.6
+   Compiling once_cell v1.21.4
+   Compiling serde_derive v1.0.229
+   Compiling paste v1.0.15
+   Compiling tiny-keccak v2.0.2
+   Compiling blst v0.3.17
+   Compiling itoa v1.0.18
+   Compiling ruint-macro v1.2.1
+   Compiling foldhash v0.1.5
+   Compiling zeroize_derive v1.5.0
+   Compiling alloy-rlp-derive v0.3.16
+   Compiling derive_more-impl v2.1.1
+   Compiling zeroize v1.9.1
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.6
+   Compiling digest v0.10.7
+   Compiling der v0.7.10
+   Compiling hmac v0.12.1
+   Compiling crypto-bigint v0.5.5
+   Compiling spki v0.7.3
+   Compiling pkcs8 v0.10.2
+   Compiling sec1 v0.7.3
+   Compiling rfc6979 v0.4.0
+   Compiling bytes v1.12.1
+   Compiling signature v2.2.0
+   Compiling elliptic-curve v0.13.8
+   Compiling ecdsa v0.16.9
+   Compiling sha2 v0.10.9
+   Compiling alloy-rlp v0.3.16
+   Compiling derive_more v2.1.1
+   Compiling k256 v0.13.4
+   Compiling ruint v1.20.1
+   Compiling hashbrown v0.15.5
+   Compiling num-integer v0.1.47
+   Compiling const-hex v1.19.3
+   Compiling num_cpus v1.17.0
+   Compiling radium v0.7.0
+   Compiling thiserror v2.0.21
+   Compiling alloy-primitives v0.8.26
+   Compiling threadpool v1.8.1
+   Compiling thiserror-impl v2.0.21
+   Compiling c-kzg v1.0.3
+   Compiling hex v0.4.3
+   Compiling tap v1.0.1
+   Compiling wyz v0.5.1
+   Compiling num-bigint v0.4.8
+   Compiling secp256k1-sys v0.10.1
+   Compiling funty v2.0.0
+   Compiling bitvec v1.1.1
+   Compiling num-rational v0.4.2
+   Compiling alloy-eip7702 v0.5.1
+   Compiling alloy-eip2930 v0.1.0
+   Compiling num-iter v0.1.46
+   Compiling enumn v0.1.14
+   Compiling auto_impl v1.4.0
+   Compiling num-complex v0.4.6
+   Compiling bitflags v2.13.2
+   Compiling rand v0.8.8
+   Compiling dyn-clone v1.0.20
+   Compiling spin v0.9.9
+   Compiling revm-primitives v15.2.0
+   Compiling lazy_static v1.5.1
+   Compiling num v0.4.3
+   Compiling rustc-hex v2.1.0
+   Compiling byteorder v1.5.0
+   Compiling aurora-engine-modexp v1.3.0
+   Compiling substrate-bn v0.6.0
+   Compiling secp256k1 v0.29.1
+   Compiling ripemd v0.1.3
+   Compiling serde_json v1.0.145
+   Compiling revm-precompile v16.2.0
+   Compiling revm-interpreter v15.2.0
+   Compiling ryu v1.0.23
+   Compiling memchr v2.8.3
+   Compiling revm v19.7.0
+   Compiling pocol-lp4-execution v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-9/prototypes/lp4-execution)
+    Finished `release` profile [optimized] target(s) in 42.54s
+     Running tests/caps_identity.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps_identity-513e5081e3be08da)
+
+running 3 tests
+test gsv1_and_the_cap_variants_match_the_model ... ok
+test log_cap_is_not_representable_in_the_genesis_spec ... ok
+LOG_CAP 1073741824 genesisHash 4db6aa5ce711e58c2d5bfaa9ffd04e0ad172824f8410ef28341fd77308d8e638 specBytes 375
+test the_devnet_genesis_hash_does_not_depend_on_log_cap ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+exit=0
+# end 2026-10-23T15:31:09Z
+

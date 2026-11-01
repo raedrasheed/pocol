@@ -1,0 +1,23 @@
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[node3 74193998] opened: head h=0 records=0
+[node3 74196007] lock h=1 a=0 PROP tid=0x7759d87650
+[node3 74196030] range exhausted; idle until next template
+[node3 74196043] head h=1 0x1aedbcc28dc7 signed=true txs=1
+[node3 74197045] lock h=2 a=0 PROP tid=0x9ea0973790
+[node3 74197074] head h=2 0xc675fd4905c3 signed=true txs=0
+[node3 74206028] lock h=3 a=0 FB tid=0x34cb9a0ab7
+[node3 74206048] range exhausted; idle until next template
+[node3 74265026] head h=3 0x7ae311d5f3bf signed=false txs=0
+[node3 74265031] lock h=4 a=0 PROP tid=0x986736c21f
+[node3 74265038] head h=4 0xfe7ddab89176 signed=true txs=0
+[node3 74265043] lock h=5 a=0 PROP tid=0x7ffa11e363
+[node3 74265065] range exhausted; idle until next template
+[node3 74265077] head h=5 0xb2662cb9138b signed=true txs=0
+[node3 74265083] lock h=6 a=0 PROP tid=0x57c8ecd9e1
+[node3 74265098] head h=6 0x77e75fd97390 signed=true txs=0
+[node3 74266037] lock h=7 a=0 PROP tid=0xd6657f9053
+[node3 74266048] head h=7 0x9eefca06425a signed=true txs=0
+[node3 74267052] lock h=8 a=0 PROP tid=0x14ecb56530
+[node3 74267074] head h=8 0x5f2645cc0932 signed=true txs=0
+[node3 74268004] lock h=9 a=0 PROP tid=0x1862e18b28
+[node3 74268026] range exhausted; idle until next template

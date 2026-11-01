@@ -1,0 +1,9 @@
+27a28
+> sys.set_int_max_str_digits(0)
+249,252c250
+<     detail = ref['detail']
+<     if ref['code'] == 'gsVersion':
+<         detail = str(detail) if detail < 2 ** 128 else 'specVersion above 2^128'
+<     return ref['code'] == got.get('code') and str(detail) == got.get('detail')
+---
+>     return ref['code'] == got.get('code') and str(ref['detail']) == got.get('detail')

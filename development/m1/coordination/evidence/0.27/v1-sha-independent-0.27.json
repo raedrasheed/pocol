@@ -1,0 +1,284 @@
+{
+  "shaCases": [
+    {
+      "case": "SHA-S1",
+      "cache": true,
+      "observedActualShaCalls": 258,
+      "distinctInputs": 258,
+      "reportedShaCalls": 258,
+      "outcome": {
+        "ok": true,
+        "n": 1,
+        "anchoredGenesis": true,
+        "minWork": 4095,
+        "frame": true,
+        "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-S1",
+      "cache": false,
+      "observedActualShaCalls": 516,
+      "distinctInputs": 258,
+      "reportedShaCalls": 516,
+      "outcome": {
+        "ok": true,
+        "n": 1,
+        "anchoredGenesis": true,
+        "minWork": 4095,
+        "frame": true,
+        "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-S1bad",
+      "cache": true,
+      "observedActualShaCalls": 5,
+      "distinctInputs": 5,
+      "reportedShaCalls": 5,
+      "outcome": {
+        "ok": false,
+        "rule": "9",
+        "at": 1,
+        "detail": "T_share",
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "9"
+          }
+        },
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-S1bad",
+      "cache": false,
+      "observedActualShaCalls": 10,
+      "distinctInputs": 5,
+      "reportedShaCalls": 10,
+      "outcome": {
+        "ok": false,
+        "rule": "9",
+        "at": 1,
+        "detail": "T_share",
+        "frame": false,
+        "cancel": 4901,
+        "log": {
+          "code": -32019,
+          "data": {
+            "rule": "9"
+          }
+        },
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-W",
+      "cache": true,
+      "observedActualShaCalls": 3355,
+      "distinctInputs": 3355,
+      "reportedShaCalls": 3355,
+      "outcome": {
+        "ok": true,
+        "n": 13,
+        "anchoredGenesis": false,
+        "minWork": 4095,
+        "frame": true,
+        "message": "RP: work and identity bound for 13 headers, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
+        "rootReliance": false
+      },
+      "pass": true
+    },
+    {
+      "case": "SHA-W",
+      "cache": false,
+      "observedActualShaCalls": 6721,
+      "distinctInputs": 3355,
+      "reportedShaCalls": 6721,
+      "outcome": {
+        "ok": true,
+        "n": 13,
+        "anchoredGenesis": false,
+        "minWork": 4095,
+        "frame": true,
+        "message": "RP: work and identity bound for 13 headers, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
+        "rootReliance": false
+      },
+      "pass": true
+    }
+  ],
+  "retryCases": [
+    {
+      "reason": "busy",
+      "delay": 250,
+      "replies": 1,
+      "times": [
+        0,
+        0,
+        250
+      ],
+      "waitMs": 250,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 250,
+      "replies": 3,
+      "times": [
+        0,
+        0,
+        250,
+        500,
+        750
+      ],
+      "waitMs": 750,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 250,
+      "replies": 4,
+      "times": [
+        0,
+        0,
+        250,
+        500,
+        750
+      ],
+      "waitMs": 750,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 2000,
+      "replies": 1,
+      "times": [
+        0,
+        0,
+        2000
+      ],
+      "waitMs": 2000,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 2000,
+      "replies": 3,
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "waitMs": 6000,
+      "pass": true
+    },
+    {
+      "reason": "busy",
+      "delay": 2000,
+      "replies": 4,
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "waitMs": 6000,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 0,
+      "replies": 1,
+      "times": [
+        0,
+        0,
+        0
+      ],
+      "waitMs": 0,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 0,
+      "replies": 3,
+      "times": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "waitMs": 0,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 0,
+      "replies": 4,
+      "times": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "waitMs": 0,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 2000,
+      "replies": 1,
+      "times": [
+        0,
+        0,
+        2000
+      ],
+      "waitMs": 2000,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 2000,
+      "replies": 3,
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "waitMs": 6000,
+      "pass": true
+    },
+    {
+      "reason": "rate",
+      "delay": 2000,
+      "replies": 4,
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "waitMs": 6000,
+      "pass": true
+    }
+  ],
+  "checks": 18,
+  "passed": 18,
+  "failed": 0,
+  "rateCasesAreConditionalOnUnapprovedCap": true
+}

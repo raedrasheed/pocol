@@ -1,0 +1,110 @@
+{
+  "checks": 3,
+  "passed": 0,
+  "failed": 3,
+  "source": "reference/browser.md:270-283; JSON-RPC response ID binding precedent bridge_ref_06.envelope",
+  "results": [
+    {
+      "case": "wrongId",
+      "actual": {
+        "verdict": {
+          "ok": true,
+          "n": 1,
+          "anchoredGenesis": true,
+          "minWork": 4095,
+          "frame": true,
+          "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
+          "rootReliance": false
+        },
+        "atMs": 0,
+        "why": null,
+        "sleptMs": 0,
+        "requests": [
+          {
+            "t": 0,
+            "method": "eth_blockNumber",
+            "params": []
+          },
+          {
+            "t": 0,
+            "method": "pocol_getHeaders",
+            "params": [
+              "0x1",
+              "0x1"
+            ]
+          }
+        ]
+      },
+      "expected": "controlled no-frame under the shared receive/envelope guard",
+      "pass": false
+    },
+    {
+      "case": "missingId",
+      "actual": {
+        "verdict": {
+          "ok": true,
+          "n": 1,
+          "anchoredGenesis": true,
+          "minWork": 4095,
+          "frame": true,
+          "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
+          "rootReliance": false
+        },
+        "atMs": 0,
+        "why": null,
+        "sleptMs": 0,
+        "requests": [
+          {
+            "t": 0,
+            "method": "eth_blockNumber",
+            "params": []
+          },
+          {
+            "t": 0,
+            "method": "pocol_getHeaders",
+            "params": [
+              "0x1",
+              "0x1"
+            ]
+          }
+        ]
+      },
+      "expected": "controlled no-frame under the shared receive/envelope guard",
+      "pass": false
+    },
+    {
+      "case": "duplicateResult",
+      "actual": {
+        "verdict": {
+          "ok": true,
+          "n": 1,
+          "anchoredGenesis": true,
+          "minWork": 4095,
+          "frame": true,
+          "message": "RP: work and identity bound for 1 header back to genesis, with computed work of at least 4095 per header (work(ceilTarget)), without execution or membership verification",
+          "rootReliance": false
+        },
+        "atMs": 0,
+        "why": null,
+        "sleptMs": 0,
+        "requests": [
+          {
+            "t": 0,
+            "method": "eth_blockNumber",
+            "params": []
+          },
+          {
+            "t": 0,
+            "method": "pocol_getHeaders",
+            "params": [
+              "0x1",
+              "0x1"
+            ]
+          }
+        ]
+      },
+      "expected": "controlled no-frame under the shared receive/envelope guard",
+      "pass": false
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "name": "witness-factory",
+    "source": "src/system/issuance_tests.rs",
+    "old": "artifact(\"ChunkFactory.sol\",\"ChunkFactory\").original_bytes()]}",
+    "new": "artifact(\"SystemBoundaryWitness.sol\",\"SystemBoundaryWitness\").original_bytes()]}",
+    "test": "system::issuance_tests::sealed_genesis_real_factory_signed_user_creation_issuance_and_late_rollback",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "skip-user-factory",
+    "source": "src/system/issuance_tests.rs",
+    "old": "c.execute_users(&[raw(v[\"chunkStore\"].as_str().unwrap())])",
+    "new": "c.execute_users(&[])",
+    "test": "system::issuance_tests::sealed_genesis_real_factory_signed_user_creation_issuance_and_late_rollback",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]

@@ -1,0 +1,10 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> pocol-extension@0.1.0 build
+> node build.mjs
+
+{
+ "dist": "/workspace/scratch/780b46016e2a/pocol/prototypes/pocol-extension/dist",
+ "loaderSha256": "+WxiCc3fMUmIYGyO+I+Kle60GrqtjrFxaAm0B1GXU+U=",
+ "csp": "sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-+WxiCc3fMUmIYGyO+I+Kle60GrqtjrFxaAm0B1GXU+U=' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+}

@@ -1,0 +1,117 @@
+{
+  "run": 39463120365,
+  "sourceHead": "3bde461b0c921db5fd5bd95179e7f3ad52fd3e7e",
+  "tree": "28101df34e73feb6357bca2bd9cea945f0aee958",
+  "artifacts": [
+    {
+      "id": 12285904099,
+      "name": "lp4-independent-cancun",
+      "bytes": 132088,
+      "sha256": "46e0ef2a6bd4b6298885d7ed8986153c0dd4e296b902770a79ecf1e783fbb73a",
+      "source": "3bde461b0c921db5fd5bd95179e7f3ad52fd3e7e"
+    },
+    {
+      "id": 12285246235,
+      "name": "lp4-p2-controls",
+      "bytes": 2464752,
+      "sha256": "7547314fd20f3e551c41aa4ca24f634a9a06821a6e0b2c54b5dbcbb5aad5d894",
+      "source": "3bde461b0c921db5fd5bd95179e7f3ad52fd3e7e"
+    },
+    {
+      "id": 12284226444,
+      "name": "lp4-native-cancun-reference",
+      "bytes": 135110,
+      "sha256": "91ebd9bc33dbf96fc2539e5c9e3185a59bfd17c5816c58b91d84fb094623a036",
+      "source": "3bde461b0c921db5fd5bd95179e7f3ad52fd3e7e"
+    },
+    {
+      "id": 12283294689,
+      "name": "lp4-legacy-windows",
+      "bytes": 27102,
+      "sha256": "f2dfde8f48752dc9bca4d1fedd6a3f15d040ec4c9497652b2e43688c3c76b2d4",
+      "source": "3bde461b0c921db5fd5bd95179e7f3ad52fd3e7e"
+    },
+    {
+      "id": 12282589356,
+      "name": "lp4-native-windows",
+      "bytes": 5089,
+      "sha256": "4c38b5da7e2d50beb27d2a9bab37074284fc0c0c1c6bc62f6878ef8ba0b7e702",
+      "source": "3bde461b0c921db5fd5bd95179e7f3ad52fd3e7e"
+    }
+  ],
+  "allZipHashesVerified": true,
+  "jobs": [
+    {
+      "id": 118767368337,
+      "name": "native-cancun-reference",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118767368722,
+      "name": "legacy-windows-regression",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118767368733,
+      "name": "cancun-pay-controls",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118767368736,
+      "name": "independent-cancun-comparison",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 118767368798,
+      "name": "registry-windows-execution",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "sourceFiles": 2807,
+  "allSourceHashesVerified": true,
+  "total": 20661,
+  "uniqueIdentities": 20661,
+  "exactPrimaryRootLogPairs": 19488,
+  "expectedRejectionPresence": 1173,
+  "excluded": 0,
+  "blocked": 0,
+  "incomplete": 0,
+  "mismatch": 0,
+  "engineError": 0,
+  "seconds": 3051.943,
+  "primaryBytesEqualPublishedR4": true,
+  "rustLinux": 92,
+  "rustWindows": 92,
+  "compiledControls": {
+    "lp4-context-mutations": 7,
+    "lp4-registry-mutations": 17,
+    "lp4-code-mutations": 11,
+    "lp4-issuance-mutations": 13,
+    "lp4-mutations": 16,
+    "lp4-system-mutations": 15,
+    "lp4-system-nested-mutations": 2,
+    "lp4-create-mutations": 7,
+    "lp4-budget-mutations": 3
+  },
+  "legacy": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "scope": "Upstream control comparison and SYS/ISSUANCE-R4 native CODE-01 and SYS-01 controls (not wire authentication) only;1173 second-engine rejection presence is not signed-wire/error-precedence proof; no P2/P3/LP4 acceptance",
+  "bootable": false,
+  "independentIndividualCasesArchived": false,
+  "independentScope": "Historical R4 artifact includes aggregate summary/source inventory/empty incomplete list only; full individual independent case archive omitted before R5 fix",
+  "actualIssuanceVectorMatchesPublishedDigest": true,
+  "compiledCurrentSYSIssuanceControls": {
+    "issuance": 13,
+    "system": 15,
+    "nested": 2
+  }
+}

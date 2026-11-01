@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/workspace/Proof-of-Collaboration/prototypes/lp4-execution/tests/gst_geth_control.py", line 43, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/Proof-of-Collaboration/prototypes/lp4-execution/tests/gst_geth_control.py", line 25, in main
+    group,end=decoder.raw_decode(text,offset);offset=end;assert isinstance(group,list)
+                                                                ^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

@@ -1,0 +1,26 @@
+{
+  "result": "PASS",
+  "observedSeconds": 180,
+  "checkedAtUnix": 1793278990,
+  "commonHeight": 53,
+  "commonHash": "0x7a36af9df5a13622c7ec944648e89c050a7d9c53f255bd2edef8087a0146ef79",
+  "publicLaunchReady": false,
+  "nodes": {
+    "node1": {
+      "height": 59,
+      "compatiblePeers": 6
+    },
+    "node2": {
+      "height": 59,
+      "compatiblePeers": 6
+    },
+    "node3": {
+      "height": 59,
+      "compatiblePeers": 6
+    },
+    "node4": {
+      "height": 59,
+      "compatiblePeers": 6
+    }
+  }
+}

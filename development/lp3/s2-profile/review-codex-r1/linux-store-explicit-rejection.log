@@ -1,0 +1,9 @@
+   Compiling lp1-node v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 1.14s
+     Running tests/store_journal.rs (/workspace/pocol-s2-review/target/debug/deps/store_journal-2ddc5113448babde)
+
+running 1 test
+test writer_is_explicitly_unsupported_off_windows ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+

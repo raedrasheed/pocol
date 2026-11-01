@@ -1,0 +1,16 @@
+{
+  "scope": "External Geth upstream Cancun controls; not PoCol wire/apply/deviation acceptance",
+  "expected": 20661,
+  "counts": {
+    "STATE_AND_NATIVE_LOG_ASSERTIONS": 19488,
+    "total": 20661,
+    "EXPECTED_REJECTION_PRESENCE_ONLY": 1173
+  },
+  "exit": 0,
+  "limited": false,
+  "seconds": 111.231,
+  "binarySHA256": "b6ec55c838bca3f4761f9d5444df4c762abfa8d40f4950d4293adbcb5f1ec603",
+  "complete": true,
+  "status": "REQUIRES REVIEW; P2/LP4 NOT PASSED",
+  "bootable": false
+}

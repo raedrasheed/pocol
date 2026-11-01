@@ -1,0 +1,40 @@
+# witnesses on 85842838d62e3403511ea5a5c891d0c6c943e363 (1 uncommitted paths)  2026-10-25T14:57:55Z
+# witness variant v2 (repaired API)
+WITNESS A01 NOT_REPRODUCED :: malformed copy -> Err(Envelope("15 body does not match the header roots")); legitimate body -> Ok(true)
+CONTROL A01 OK :: both copies reached import: the legitimate body is imported after the malformed one
+WITNESS A03 NOT_REPRODUCED :: block accepted; receipt status=[] logs=0 (LOG0 data 32769 B)
+CONTROL A03 OK :: within-limit LOG0 (32732 B) in the same position: status=[1] logs=1, so the over-limit status 0 is the limit, not gas or decoding
+CONTROL A04 OK :: the unflipped journal reopens with its records: Ok(3)
+WITNESS A04 NOT_REPRODUCED :: open failed closed: Corrupt(0)
+CONTROL A11 OK :: the transaction was accepted and the reorg to the heavier branch happened (head h=2)
+WITNESS A11 NOT_REPRODUCED :: submit={"id":1,"jsonrpc":"2.0","result":"0x8fbb8f3e7b520b14923ef141d11acc1fb19f25a92e9801918c9679 ; after reorg head h=2, pending nonce={"id":2,"jsonrpc":"2.0","result":"0x1"}
+error: linking with `cc` failed: exit status: 1
+          collect2: fatal error: ld terminated with signal 7 [Bus error]
+error: could not compile `pocol-lp4-execution` (bin "cancun_control") due to 1 previous error
+error: linking with `cc` failed: exit status: 1
+  = note: collect2: fatal error: ld terminated with signal 7 [Bus error]
+error: could not compile `pocol-lp4-execution` (bin "code_caps_control") due to 1 previous error
+CONTROL A06-conflict OK :: the conflicting profile pair exists (scenario built)
+WITNESS A06-conflict NOT_REPRODUCED :: conflict=true accounts={"code":4100,"message":"conflicting network profile is read-only"}
+CONTROL A06-sign-before-approval OK :: the confirmation dialog for the transaction was shown
+WITNESS A06-sign-before-approval NOT_REPRODUCED :: confirmTx carries a signed raw transaction before the click: undefined… (fields: type,site,network,chainId,from,payload,signingHash,to,value,data,gas,nonce,maxFeePerGas,maxPriorityFeePerGas,maxCost)
+CONTROL A06-lock-and-endpoint-change OK :: without the transitions the same session submits: sendRaw 0 -> 1
+WITNESS A06-lock-and-endpoint-change NOT_REPRODUCED :: after endpoint genesis change + wallet.lock during confirmation: reply={"code":4100,"message":"wallet locked"} sendRaw=0 pocol_status calls=1
+CONTROL A07 OK :: the valid GenesisSpec is accepted by the same decoder
+WITNESS A07 NOT_REPRODUCED :: positive control accepted=true; invalid specs accepted: none
+CONTROL A08 OK :: the valid RP window verifies
+WITNESS A08 NOT_REPRODUCED :: valid window ok=true; malformed stateRoot(31B)/logsBloom(empty)/gasLimit(list) window ok=false 1
+CONTROL A09 OK :: one 8 MiB request is served through the same pool and session
+WITNESS A09 NOT_REPRODUCED :: three concurrent 8 MiB reservations: peak session reservation=8388608 (cap 10485760); results=fulfilled,rejected,rejected
+CONTROL A14 OK :: a correct JSON-RPC 2.0 reply to the same request is accepted
+WITNESS A14 NOT_REPRODUCED :: request id=123 got jsonrpc=1.0 id=999 -> {"e":"recvParse"}
+CONTROL A12 OK :: admission engaged: 1 of 8 further writes refused with reason store, 7 admitted and queued
+WITNESS A12 NOT_REPRODUCED :: first write replied {"reason":"storeTimeout"} while unsettled (held=1); of 8 further writes 1 were refused by admission (limit 8 incl. the unsettled one)
+error: failed to write to `/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-wit2/prototypes/pocold/target/release/deps/rmetaLxIwdQ/full.rmeta`: No space left on device (os error 28)
+error: could not compile `pocold` (lib) due to 1 previous error
+Traceback (most recent call last):
+ConnectionRefusedError: [Errno 111] Connection refused
+Traceback (most recent call last):
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 111] Connection refused>
+witnesses exit 0

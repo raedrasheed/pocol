@@ -1,0 +1,62 @@
+{
+  "head": "56cda6f4d848526150607509c7273ba9f2f9f440",
+  "foundation": "c054dad4e4ae3af54f3246361153109da65a43fe",
+  "checks": [
+    {
+      "id": 117424161897,
+      "name": "windows-regression",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39042332256/job/117424161897",
+      "completed_at": "2026-10-17T14:53:51Z"
+    },
+    {
+      "id": 117424161777,
+      "name": "typecheck-and-test",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39042332274/job/117424161777",
+      "completed_at": "2026-10-17T14:49:07Z"
+    }
+  ],
+  "pr18": {
+    "number": 18,
+    "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/18",
+    "merged": true,
+    "base": "work/lp3-consensus-foundation",
+    "head": "56cda6f4d848526150607509c7273ba9f2f9f440",
+    "mergeCommit": "c054dad4e4ae3af54f3246361153109da65a43fe",
+    "merged_at": "2026-10-17T14:55:20Z"
+  },
+  "branchProtection": {
+    "protected": false,
+    "protection": {
+      "enabled": false,
+      "required_status_checks": {
+        "enforcement_level": "off",
+        "contexts": [],
+        "checks": []
+      }
+    },
+    "rulesets": []
+  },
+  "reviews": [],
+  "reviewComments": [],
+  "automatedReview": [
+    {
+      "body": "<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {\"code_review\":{\"commit_sha\":\"56cda6f4d848526150607509c7273ba9f2f9f440\",\"has_any_findings\":false,\"has_unresolved_findings\":false,\"status\":\"completed\"},\"security_review\":{\"commit_sha\":null,\"has_any_findings\":null,\"has_unresolved_findings\":null,\"status\":null}} -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ✅ **Completed** <relative-time datetime=\"2026-10-17T14:52:13.439238Z\">2026-10-17T14:52:13.439238Z</relative-time> | `56cda6f` | Draft marked ready |\n\n\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.\n\n</details>",
+      "url": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/18#issuecomment-6235302090"
+    }
+  ],
+  "windowsArtifact": {
+    "id": 12104846655,
+    "run": 39042332256,
+    "job": 117424161897,
+    "sha256": "f6cd6e8f5bc4392c78b071b89971873ef11c6c1d1435d393c5e01ac6ae78f7d0"
+  },
+  "notCountedPassing": [
+    "Windows RLIMIT_AS rows BLOCKED BY PLATFORM",
+    "two optional full-size reruns NOT RUN"
+  ],
+  "bootable": false
+}

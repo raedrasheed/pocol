@@ -1,0 +1,23 @@
+{
+  "commit": "56cda6f4d848526150607509c7273ba9f2f9f440",
+  "trackedFilesModified": false,
+  "started": "2026-10-17T14:48:58Z",
+  "githubRun": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39042332256 attempt 1",
+  "workflowRef": "raedrasheed/Proof-of-Collaboration/.github/workflows/lp3-regression.yml@refs/pull/18/merge",
+  "workflowSha": "0aef159523f2fd4c9f4937b944eebc0a1aa96676",
+  "eventName": "pull_request",
+  "runnerImage": "win22 20261012.333.1",
+  "runnerArch": "X64",
+  "os": "Microsoft Windows 10.0.20348",
+  "powershell": "7.6.6",
+  "scriptSha256": "c2eb204deff90d4577575e473f49f3f483998364ecbd2faa2949839405e3d43f",
+  "includeSlow": false,
+  "git": "git version 2.56.0.windows.2",
+  "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+  "rustup": "rustup 1.29.1 (d95a37b6a 2026-08-13)\ninfo: This is the version for the rustup toolchain manager, not the rustc compiler.\ninfo: the currently active `rustc` version is `rustc 1.99.0 (b940084d7 2026-09-28)`",
+  "rustToolchain": "1.58.1-x86_64-pc-windows-msvc",
+  "rustc": "rustc 1.58.1 (db9d1b20b 2022-01-20)\nbinary: rustc\ncommit-hash: db9d1b20bba1968c1ec1fc49616d4742c1725b4b\ncommit-date: 2022-01-20\nhost: x86_64-pc-windows-msvc\nrelease: 1.58.1\nLLVM version: 13.0.0",
+  "cargo": "cargo 1.58.0 (f01b232bc 2022-01-19)",
+  "rustfmt": "rustfmt 1.4.38-stable (db9d1b20 2022-01-20)",
+  "finished": "2026-10-17T14:53:46Z"
+}

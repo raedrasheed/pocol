@@ -1,0 +1,16 @@
+origin-system 0 101 True
+caller-origin 0 101 True
+signed-zero 0 101 True
+intrinsic-gas 0 101 True
+refund-credit 0 101 True
+allocation-cap-off 0 101 True
+remaining-budget-off 0 101 True
+nonce-increment 0 101 True
+fee-deduction 0 101 True
+warm-slot 0 101 True
+transient-carry 0 101 True
+failed-candidate-reusable 0 101 True
+logs-discarded 0 101 True
+pending-offset 0 101 True
+pending-kind 0 101 True
+15 compiled SYS-01 primitive assertion controls verified; complete integration NOT PASSED

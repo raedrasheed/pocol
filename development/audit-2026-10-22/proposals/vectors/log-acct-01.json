@@ -1,0 +1,600 @@
+{
+ "alternatives": {
+  "a": "36 + |data| per log, no count limit",
+  "b": "|data| per log, no count limit",
+  "c": "36 + 32*|topics| + |data| per log, and at most 546 logs (recommended)",
+  "d": "36 + |RLP(log)| per log (the stored size), no count limit"
+ },
+ "constants": {
+  "LOG_BLOCK_MAX": 32768,
+  "LOG_COUNT_MAX": 546
+ },
+ "recommended": "c",
+ "rule": "LOG-ACCT-01",
+ "scenarios": [
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 32767,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32767,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 32731,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32731,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 32767,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32767,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L1 one LOG0, 32731 B",
+   "txs": [
+    [
+     {
+      "data": 32731,
+      "topics": 0
+     }
+    ]
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 32768,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32768,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 32732,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32732,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 32768,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32768,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L2 one LOG0, 32732 B (exactly 32768 under a and c)",
+   "txs": [
+    [
+     {
+      "data": 32732,
+      "topics": 0
+     }
+    ]
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 32733,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32733,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L3 one LOG0, 32733 B",
+   "txs": [
+    [
+     {
+      "data": 32733,
+      "topics": 0
+     }
+    ]
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 32760,
+     "blockLogCount": 546,
+     "txs": [
+      {
+       "charged": 32760,
+       "halt": null,
+       "logs": 546
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 13104,
+     "blockLogCount": 546,
+     "txs": [
+      {
+       "charged": 13104,
+       "halt": null,
+       "logs": 546
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 32760,
+     "blockLogCount": 546,
+     "txs": [
+      {
+       "charged": 32760,
+       "halt": null,
+       "logs": 546
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L4 LG2: 546 LOG0 of 24 B",
+   "txs": [
+    {
+     "log": {
+      "data": 24,
+      "topics": 0
+     },
+     "repeat": 546
+    }
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 13128,
+     "blockLogCount": 547,
+     "txs": [
+      {
+       "charged": 13128,
+       "halt": null,
+       "logs": 547
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogCount"
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L5 LG2: 547 LOG0 of 24 B",
+   "txs": [
+    {
+     "log": {
+      "data": 24,
+      "topics": 0
+     },
+     "repeat": 547
+    }
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 19692,
+     "blockLogCount": 547,
+     "txs": [
+      {
+       "charged": 19692,
+       "halt": null,
+       "logs": 547
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 0,
+     "blockLogCount": 547,
+     "txs": [
+      {
+       "charged": 0,
+       "halt": null,
+       "logs": 547
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogCount"
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L6 547 empty LOG0",
+   "txs": [
+    {
+     "log": {
+      "data": 0,
+      "topics": 0
+     },
+     "repeat": 547
+    }
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 32760,
+     "blockLogCount": 910,
+     "txs": [
+      {
+       "charged": 32760,
+       "halt": null,
+       "logs": 910
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 0,
+     "blockLogCount": 910,
+     "txs": [
+      {
+       "charged": 0,
+       "halt": null,
+       "logs": 910
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogCount"
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L7 910 empty LOG0",
+   "txs": [
+    {
+     "log": {
+      "data": 0,
+      "topics": 0
+     },
+     "repeat": 910
+    }
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 32704,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32704,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 32668,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32668,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 32768,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32768,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L8 one LOG2, 32668 B",
+   "txs": [
+    [
+     {
+      "data": 32668,
+      "topics": 2
+     }
+    ]
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 32705,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32705,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 32669,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 32669,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 0,
+     "blockLogCount": 0,
+     "txs": [
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "L9 one LOG2, 32669 B",
+   "txs": [
+    [
+     {
+      "data": 32669,
+      "topics": 2
+     }
+    ]
+   ]
+  },
+  {
+   "expected": {
+    "a": {
+     "blockLogBytes": 32768,
+     "blockLogCount": 2,
+     "txs": [
+      {
+       "charged": 20036,
+       "halt": null,
+       "logs": 1
+      },
+      {
+       "halt": "LogBytes"
+      },
+      {
+       "charged": 12732,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "b": {
+     "blockLogBytes": 32732,
+     "blockLogCount": 2,
+     "txs": [
+      {
+       "charged": 20000,
+       "halt": null,
+       "logs": 1
+      },
+      {
+       "charged": 12732,
+       "halt": null,
+       "logs": 1
+      },
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    },
+    "c": {
+     "blockLogBytes": 32768,
+     "blockLogCount": 2,
+     "txs": [
+      {
+       "charged": 20036,
+       "halt": null,
+       "logs": 1
+      },
+      {
+       "halt": "LogBytes"
+      },
+      {
+       "charged": 12732,
+       "halt": null,
+       "logs": 1
+      }
+     ]
+    },
+    "d": {
+     "blockLogBytes": 20064,
+     "blockLogCount": 1,
+     "txs": [
+      {
+       "charged": 20064,
+       "halt": null,
+       "logs": 1
+      },
+      {
+       "halt": "LogBytes"
+      },
+      {
+       "halt": "LogBytes"
+      }
+     ]
+    }
+   },
+   "id": "M1 three transactions: 20000, 12732, 12696 B",
+   "txs": [
+    [
+     {
+      "data": 20000,
+      "topics": 0
+     }
+    ],
+    [
+     {
+      "data": 12732,
+      "topics": 0
+     }
+    ],
+    [
+     {
+      "data": 12696,
+      "topics": 0
+     }
+    ]
+   ]
+  }
+ ]
+}

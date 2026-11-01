@@ -1,0 +1,8 @@
+{"case":"AS1","medianNs":78.22946,"minNs":61.71594,"maxNs":118.94006,"rounds":11,"callsPerRound":100000}
+{"case":"AS14","medianNs":45.97298,"minNs":28.45338,"maxNs":78.78249,"rounds":11,"callsPerRound":100000}
+{"case":"AS15","medianNs":52.31319,"minNs":38.39779,"maxNs":81.10855,"rounds":11,"callsPerRound":100000}
+{"case":"AS16","medianNs":91.97339,"minNs":66.87731,"maxNs":125.76582,"rounds":11,"callsPerRound":100000}
+{"case":"AS17","medianNs":65.39138,"minNs":34.7921,"maxNs":82.51722,"rounds":11,"callsPerRound":100000}
+{"case":"AS18","medianNs":63.64632,"minNs":39.3937,"maxNs":107.90259,"rounds":11,"callsPerRound":100000}
+{"case":"AS19","medianNs":70.32485,"minNs":57.3871,"maxNs":103.81558,"rounds":11,"callsPerRound":100000}
+{"passed":true,"checksum":0}

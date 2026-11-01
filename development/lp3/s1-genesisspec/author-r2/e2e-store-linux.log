@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "<repo>/prototypes/lp1-node/tests/e2e_store.py", line 182, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "<repo>/prototypes/lp1-node/tests/e2e_store.py", line 100, in main
+    good = read(s)
+  File "<repo>/prototypes/lp1-node/tests/e2e_store.py", line 50, in read
+    with open(jpath(store), 'rb') as f:
+         ~~~~^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '<tmp>/main/candidates.lp2j'

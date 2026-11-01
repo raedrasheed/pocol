@@ -1,0 +1,170 @@
+# tree: 260d021 + the io-fault feature and the new tests, without the fixes (src/chain.rs, src/node.rs as at 260d021)
+# cargo test --release --offline --locked --features io-fault --test consensus -- --nocapture --test-threads=1 e4_checkpoint_open_that_fails_on_io e4_a_state_store_io_fault
+# 2026-10-28T07:20:41Z, rustc 1.99.1
+   Compiling pocol-lp4-execution v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/wt/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/wt/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 43.67s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/relmut-target/release/deps/consensus-2465c25e67344a28)
+
+running 2 tests
+test e4_a_state_store_io_fault_stops_the_node_and_marks_no_block_invalid ... E4-IMPORT-IO import-Write (exit Some(0)): IOF-CHILD armed before block 21 | IOF-CHILD imported block 21: Err(Block("state store: I/O error: injected I/O fault (io-fault)")); 1 blocks marked invalid | [e44 72087357] reject 0x3c809b835860: state store: I/O error: injected I/O fault (io-fault)
+
+thread 'e4_a_state_store_io_fault_stops_the_node_and_marks_no_block_invalid' (2982) panicked at tests/consensus.rs:2623:9:
+assertion `left == right` failed: import-Write: the node stops with exit 70: 
+running 1 test
+test e4_io_fault_child ... 
+IOF-CHILD armed before block 21
+
+IOF-CHILD imported block 21: Err(Block("state store: I/O error: injected I/O fault (io-fault)")); 1 blocks marked invalid
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 94 filtered out; finished in 0.27s
+
+[e44 72087221] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 72087233] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 72087239] head h=3 0x9c23845a656d signed=true txs=2
+[e44 72087244] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 72087250] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 72087256] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 72087263] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 72087268] head h=8 0xa803e9515783 signed=false txs=0
+[e44 72087275] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 72087281] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 72087287] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 72087293] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 72087301] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 72087308] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 72087316] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 72087322] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 72087328] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 72087334] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 72087341] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 72087351] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 72087357] reject 0x3c809b835860: state store: I/O error: injected I/O fault (io-fault)
+
+  left: Some(0)
+ right: Some(70)
+stack backtrace:
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test e4_checkpoint_open_that_fails_on_io_in_its_release_keeps_the_store ... [e44 72087615] head h=1 0x72f0c8f5d5ca signed=true txs=1
+[e44 72087628] head h=2 0x2076d9621b7e signed=false txs=0
+[e44 72087636] head h=3 0x9c23845a656d signed=true txs=2
+[e44 72087642] head h=4 0xc4cb90140435 signed=false txs=0
+[e44 72087649] head h=5 0xf6f188222a83 signed=false txs=0
+[e44 72087659] head h=6 0x07b5bea0223e signed=false txs=0
+[e44 72087667] head h=7 0x463a6ad81497 signed=true txs=2
+[e44 72087674] head h=8 0xa803e9515783 signed=false txs=0
+[e44 72087682] head h=9 0x23f81c4a41e0 signed=false txs=0
+[e44 72087689] head h=10 0xa9f60f5b725f signed=false txs=0
+[e44 72087697] head h=11 0x55fa06cc2ff4 signed=true txs=2
+[e44 72087704] head h=12 0xbd04564c8d1b signed=false txs=0
+[e44 72087713] head h=13 0x20ffeaee76f9 signed=false txs=0
+[e44 72087721] head h=14 0xe818f3f49177 signed=false txs=0
+[e44 72087729] head h=15 0x456da2a2e1ee signed=true txs=2
+[e44 72087739] head h=16 0xd3580bf398b0 signed=false txs=0
+[e44 72087746] head h=17 0xe1014be06a34 signed=false txs=0
+[e44 72087754] head h=18 0x61aac5a451d7 signed=false txs=0
+[e44 72087763] head h=19 0xecd8fb1d25f8 signed=true txs=2
+[e44 72087771] head h=20 0x72b8596d3f8f signed=false txs=0
+[e44 72087778] head h=21 0x3c809b835860 signed=false txs=0
+[e44 72087785] head h=22 0xd8bb44fe04f5 signed=false txs=0
+[e44 72087793] head h=23 0x26de71a890af signed=true txs=2
+[e44 72087800] head h=24 0xf264474baca2 signed=false txs=0
+[e44 72087812] head h=25 0xce6d75bfdeae signed=false txs=0
+[e44 72087821] head h=26 0x27a16aea8561 signed=false txs=0
+[e44 72087830] head h=27 0x06976c88ec44 signed=true txs=2
+[e44 72087836] head h=28 0x06f7cc24d0f6 signed=false txs=0
+[e44 72087846] head h=29 0x6b9c2a5181bf signed=false txs=0
+[e44 72087855] head h=30 0xfcb85509dc47 signed=false txs=0
+[e44 72087865] head h=31 0xc1a42987854b signed=true txs=2
+[e44 72087874] head h=32 0xb64be6560cab signed=false txs=0
+[e44 72087883] head h=33 0x77503668703d signed=false txs=0
+[e44 72087896] head h=34 0x032b50b55cac signed=false txs=0
+[e44 72087906] head h=35 0x3e56ec29d2ce signed=true txs=2
+[e44 72087915] head h=36 0xb3235d1b9a41 signed=false txs=0
+[e44 72087925] head h=37 0xa64a062654cc signed=false txs=0
+[e44 72087934] head h=38 0x69b1a66a51df signed=false txs=0
+[e44 72087944] head h=39 0x448a01b5f503 signed=true txs=2
+[e44 72087954] head h=40 0x2693a63d9f7a signed=false txs=0
+[e44 72087965] head h=41 0x5ebc162c10dd signed=false txs=0
+[e44 72087974] head h=42 0x4d39fd7aefc0 signed=false txs=0
+[e44 72087985] head h=43 0x6fdfded36eb7 signed=true txs=2
+[e44 72087992] head h=44 0x1bfafb97407d signed=false txs=0
+[e44 72087999] head h=45 0xba9ce184ff56 signed=false txs=0
+[e44 72088005] head h=46 0x5d2064b4eef5 signed=false txs=0
+[e44 72088014] head h=47 0x8ac76eeba129 signed=true txs=2
+[e44 72088023] head h=48 0xb2a0cf0392e4 signed=false txs=0
+[e44 72088030] head h=49 0xfc5dcdd8014f signed=false txs=0
+[e44 72088036] head h=50 0x0ad06a1a630b signed=false txs=0
+[e44 72088044] head h=51 0xa03b6938c920 signed=true txs=2
+[e44 72088051] head h=52 0xdf1b16e90036 signed=false txs=0
+[e44 72088057] head h=53 0xefe32398ee30 signed=false txs=0
+[e44 72088064] head h=54 0xb0dd34f98287 signed=false txs=0
+[e44 72088079] head h=55 0x7bda2ee139c8 signed=true txs=2
+[e44 72088086] head h=56 0xb56b9db45d91 signed=false txs=0
+[e44 72088092] head h=57 0x200e7dd052e4 signed=false txs=0
+[e44 72088099] head h=58 0x787aeb71b48f signed=false txs=0
+[e44 72088107] head h=59 0xc92e246ef096 signed=true txs=2
+[e44 72088114] head h=60 0x6b08d55b7dee signed=false txs=0
+[e44 72088121] head h=61 0x3d754e47b0aa signed=false txs=0
+[e44 72088134] head h=62 0x4fb04e4b3f11 signed=false txs=0
+[e44 72088142] head h=63 0xabb77bd73868 signed=true txs=2
+[e44 72088149] head h=64 0x160c52abd064 signed=false txs=0
+[e44 72088155] head h=65 0xfb96873cf75a signed=false txs=0
+[e44 72088162] head h=66 0x1c5c72bdfa19 signed=false txs=0
+[e44 72088170] head h=67 0x2690fef53b0f signed=true txs=2
+[e44 72088177] head h=68 0x51830160a027 signed=false txs=0
+[e44 72088191] head h=69 0xa30ecc72ebd1 signed=false txs=0
+[e44 72088200] head h=70 0x766d00c36a5a signed=false txs=0
+[e44 72088208] head h=71 0xad3d64372f1c signed=true txs=2
+[e44 72088214] head h=72 0x9df69c020584 signed=false txs=0
+[e44 72088220] head h=73 0x07261eb7cb3b signed=false txs=0
+[e44 72088226] head h=74 0x02daafbe04e7 signed=false txs=0
+[e44 72088233] head h=75 0x0054a1c2e056 signed=true txs=2
+[e44 72088246] head h=76 0x0f7731401058 signed=false txs=0
+[e44 72088254] head h=77 0x9278ee220f6d signed=false txs=0
+[e44 72088261] head h=78 0x456d23099425 signed=false txs=0
+[e44 72088269] head h=79 0x3c3cf8cae1ad signed=true txs=2
+[e44 72088277] head h=80 0x53245d0feb07 signed=false txs=0
+[e44 72088285] head h=81 0xe7c6b94cdec4 signed=false txs=0
+[e44 72088292] head h=82 0xddc927b4bf45 signed=false txs=0
+[e44 72088308] head h=83 0x9e79c9a9f4d4 signed=true txs=2
+[e44 72088315] head h=84 0x282c7c805edc signed=false txs=0
+[e44 72088322] head h=85 0xd380c450cac0 signed=false txs=0
+[e44 72088329] head h=86 0x9323bf82b361 signed=false txs=0
+[e44 72088338] head h=87 0x240184b03c99 signed=true txs=2
+[e44 72088349] head h=88 0xf91e4cdc19f2 signed=false txs=0
+[e44 72088359] head h=89 0xb391c51e7a1a signed=false txs=0
+[e44 72088377] head h=90 0xc63f168f7ad7 signed=false txs=0
+[e44 72088385] head h=91 0x3b53ace017c0 signed=true txs=2
+[e44 72088395] head h=92 0x3363dd70fd96 signed=false txs=0
+[e44 72088403] head h=93 0x527f7b65577d signed=false txs=0
+[e44 72088410] head h=94 0x5396466c567a signed=false txs=0
+[e44 72088419] head h=95 0x2dd98795cd7e signed=true txs=2
+[e44 72088427] head h=96 0x149d0aea4829 signed=false txs=0
+[e44 72088446] head h=97 0xd3c7859b36f2 signed=false txs=0
+[e44 72088457] head h=98 0x049cc6276e8b signed=false txs=0
+[e44 72088481] head h=98 0x342e7c3f1972 signed=false txs=0
+[e44 72088491] head h=99 0x28a66fa25cd5 signed=false txs=0
+[e44 72088501] head h=100 0xa31e16509667 signed=false txs=0
+[e44 72088565] head h=101 0xe4180adf273f signed=false txs=0
+[e44 72088575] head h=102 0x29575f1d7a1d signed=false txs=0
+
+thread 'e4_checkpoint_open_that_fails_on_io_in_its_release_keeps_the_store' (2986) panicked at src/state_store.rs:357:101:
+C-1 E4: state store read failed: Previous I/O error occurred. Please close and re-open the database.
+stack backtrace:
+  10: <consensus::e4_checkpoint_open_that_fails_on_io_in_its_release_keeps_the_store::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+  11: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+
+failures:
+
+failures:
+    e4_a_state_store_io_fault_stops_the_node_and_marks_no_block_invalid
+    e4_checkpoint_open_that_fails_on_io_in_its_release_keeps_the_store
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 93 filtered out; finished in 4.43s
+
+error: test failed, to rerun pass `--test consensus`

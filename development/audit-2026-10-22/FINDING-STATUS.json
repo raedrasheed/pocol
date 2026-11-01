@@ -1,0 +1,1330 @@
+{
+ "auditedSnapshot": "090eae4",
+ "repairBranch": "claude/audit-repair-a01-a14",
+ "pr": "https://github.com/raedrasheed/Proof-of-Collaboration/pull/27 (unreachable from this session's GitHub account since 2026-10-25); working repository since 2026-10-27: palcertcom/pocol, where #1 mirrored PR #27 and was merged at the owner's direction as 13f1eac (not acceptance), and https://github.com/palcertcom/pocol/pull/2 (draft) carries the follow-up into claude/affectionate-pascal-rjhh2k",
+ "commits": {
+  "prHead": "latest commit on claude/audit-repair-a01-a14",
+  "lastImplementation": "Node code after ad301e7: Node::open sets aside a store found damaged before genesis is pinned (the release at open, 93a40d0, could mark it damaged and open then panicked; Windows run 40589342452). Node code after dd85cc0: the D-6 review fixes (state_store: Fault::Storage against Fault::Broken, deleted nodes uncached inline, the flag after commit, FORMAT 3, stored_bytes with the release rows; node: pool slices and release steps alternate, open does not mark the store damaged on a storage error). Node code after b6d57e8: 93a40d0 (D-6 deferred checkpoint release: a dropped checkpoint's nodes owed in a release table, worked off by release_step between events and by release_all at open; A13 file term with the owed set and its rows) and 22a82c2 (release steps fsynced; jm_store_scale times imports during a release). After them tests, a comment and evidence only: e4_checkpoint_release_runs_at_open_and_between_events and RELEASE_SLICE's measured figures, with this evidence. Node code after b8fb7ab: 5abbaf3 (review fixes 1 and 4: checkpoint restore builds the boxed entry map as it restores; stored_versions and held_versions_bytes read one inventory, held_runs) and b6d57e8 (D-6 open: a stored version whose parent's version was read is read through NodeTrie::diff and its summary moved, every node still read and checked; the open from a checkpoint at the network's state caps 801 -> 262 s). After them tests and evidence only: e6d07b2 (the D-7 run test measures the hold, not QUEUE_WAIT admission), bc38d41 (jm_store_scale ckpt phase), fbe6062 (evidence). Node code before them: b8fb7ab (MODEXP trivial powers on wide even moduli to revm, independent review finding 1); tests only between b8fb7ab and 5abbaf3: 3705559 (the pacer test seen from the client; e2e_integrated's partition nodes stopped). Node code after 2839f2a: b46658a (lp4 modexp.rs, the MODEXP precompile at address 5 with an exact one-word fast path; results, gas and errors are revm 19.7's) and 0c2ad75 (its wide even-modulus path: q·2^t with t > 64, Newton inverse, CRT; jm_modexp_sweep). After them tests, documents and evidence only: b66ba65 (modexp tests), d30dc71 (jm_store_scale), d45dfe2 (wrapper_overhead_interleaved, §3b-2, decision rows 1-2). Tests only between 2839f2a and b46658a: 8d80354 (a13_row_is_what_state_redb_keeps_per_node), 69d5794 (a_blocks_addition_is_at_most_a_whole_version, the P6 premise), 073923f (e2e_integrated: the reorg-recovery views count only while the canonical version holds), 92f6a80 and 2c40a9f (e2e_integrated: the majority branch must be heavier by total work before the heal; 2c40a9f renames the helper that shadowed the run directory), 6a1e480 (send_pacer_closes_a_slow_reader_after_grace: bounds on the send time, after the Windows run on 182d73a). 2839f2a on claude/memory-r14-followup (palcertcom/pocol#2): store-mode import no longer re-executes the head (restore_canonical's S3a condition is whole-state mode's). Before it: 892dca6 (the four A13 reductions: the pool layer without code copies, state.redb counting shared nodes once and by kind, the batch by node kind, the chain's entries boxed). Both on top of the merged 13f1eac. Before that merge: 24cc167 (R14/R19 for a store-mode boot: the calibration blocks also timed through a scratch state store on the node's disk). Before it: 90c4185 (relay test, kills R5), 78fe971 (PR #27 resume point, documents only). Local commits after 733a52d are not pushed: GitHub refused this session's credentials from 2026-10-25 15:46 UTC (pr27/RESUME.md). Before them: 8584283 (D-7 re-insertion: a transaction returned from an abandoned block is offered to the peers; local relay policy). After it, tests only: d939d1a and 0833b6c (e2e_browser: a navigation race and a receipt read once across a short fork). Before it: ee14458 (D-7 at 4·GAS_LIMIT; A13 pool, overlay and code terms after the revm code-loading audit; --state-store). After it, tests only: 9bd9bc0 (jm_r14_import_by_mode), 919a50c (e2e_integrated settles pools before v3). Before it: fc24969 (C-1 E5 part 3). Before it: 53a80e9 (E4.4 Windows test fix), 5722c23 and 90ba824 (E5 parts 2 and 1), 3c0fe15 (E4.4 follow-up), 314de11 (E4.5), 45d540f (E4.4 Windows test fix), 1a5b792 (E4.4, D-6), b91c490, 8f4b473, 6c6e192, f8a58bb, 7606a31 (E4.1-E4.3), 4ad4e83 (E3), 1774b90 (E2), 28594cc (E1), ddb0de2 (S4), 4b49d03 and bef6c4f (S3a), b517b0f (S1), d1604d0 (D-7), d567ce1 (S2); earlier: the decision-package commit after af2f3a8, af2f3a8, 6e99b19, 2ce03c1, 49b2bc2, 462fffc; .github/ is unchanged since a03e089",
+  "integrationTested": "a01148e (node code as e453851; the heal check of e2e_integrated fixed, test only): Linux release suites lp4 211/0, pocold 246/0 (evidence/memory-r14/release-a01148e.log); e2e_integrated 20/20 in 5 of 5 runs, three whole-state and two store (evidence/memory-r14/integrated-rerun/; c reorganized in all five). Before: e453851 (evidence/memory-r14/accept-e453851/, witnesses-e453851.log; every node change of the deferred release and its fixes): devnet 44/44, site 21/21, browser 80/80 in both modes; integrated 20/20 twice in store mode, and in whole-state mode 20/20 once and one FAIL at the heal, where c was not the side that reorganized (a and b adopted c's heavier branch; fork choice by total work as specified; the test assumed c; fixed in the test only, reruns in evidence/memory-r14/integrated-rerun/); boot timing 8-19 ms in memory, 12-37 ms through the store; witnesses 17 NOT_REPRODUCED, every control OK. Before: ad301e7 (accept-ad301e7/): every step PASS except e2e_browser in whole-state mode (BR18, a Playwright click timed out at 44 of 45 checks while the host was loaded; it passed 80/80 on e453851), witnesses 17 NOT_REPRODUCED. Before: fbe6062 (evidence/memory-r14/accept-fbe6062/, witnesses-fbe6062.log; node code as b6d57e8): e2e in both modes: devnet 44/44, site 21/21, browser 80/80, integrated 20/20 in two runs each; boot timing 8-20 ms in memory, 11-23 ms through the store; witnesses A01, A02 (R9, R13, SYS_SLOT_MAX), A03, A04, A05, A06 (3), A07, A08, A09, A10, A11, A12, A14: 17 NOT_REPRODUCED with every control OK; release suites on its tree lp4 211/0, pocold 239/0 (release-b6d57e8.log). Before: d45dfe2 (evidence/memory-r14/accept-d45dfe2/, witnesses-d45dfe2.log; node code as 0c2ad75): the same steps, all PASS, 17 witnesses NOT_REPRODUCED. Before: 8d80354 (evidence/memory-r14/accept-8d80354/, witnesses-8d80354.log; node code as 2839f2a): e2e in both modes: devnet 44/44, site 21/21, browser 80/80; integrated: store 20/20 in two runs, whole-state run 1 FAIL 1 of 20 (a race in the test's reorg-recovery check, evidence/memory-r14/integrated-race/, fixed in 073923f) and run 2 20/20; reruns of the fixed test on 073923f: 5 of 6, one store run timed out because the test took the taller branch for the heavier (D133 compares total work; fixed in 92f6a80, whose helper shadowed the run directory, renamed in 2c40a9f); on 2c40a9f six of six 20/20, three per mode (evidence/memory-r14/accept-int-2c40a9f/); boot timing 8-18 ms in memory, 11-24 ms through the store; witnesses A01, A02 (R9, R13, SYS_SLOT_MAX), A03, A04, A05, A10, A11 NOT_REPRODUCED with controls OK. Mutation controls on 2839f2a's tree: 25 mutants, 24 killed, P6 equivalent (proof in evidence/memory-r14/README.md). 2839f2a (evidence/memory-r14/): lp4 200/0 (on 892dca6's tree), pocold 236/0 with 24 ignored; the A13 models 5/5; jm_r14_workload_gap with POCOL_ROOT_CHECK=0 before and after the fix. The R14/R19 gap (MODEXP with an even modulus, 1.2-1.6 s against t_exec = 1 s) stays open: the boot calibration's pass does not close it. Before: 24cc167 (evidence/d7-bound/accept-24cc167/ and r14-store-boot/): lp4 196/0 and pocold 233/0 with 23 ignored on its prototypes tree; e2e in both modes: devnet 44/44, site 21/21, browser 80/80, integrated 20/20 two runs of two per mode. Before: 8584283 (evidence/d7-bound/accept-8584283/): pocold 231/0 with 22 ignored; e2e in both modes: devnet 43/43, site 21/21, integrated 20/20 in three runs of three per mode (in each, node c offered its 7 returned transactions after the heal); browser: store 80/80, whole-state FAIL 1 of 49 (a navigation race in the test, fixed in d939d1a); browser on d939d1a: whole-state 3 of 3, store 1 of 3 (BR14 read a receipt once across a short fork; fixed in 0833b6c); browser on 0833b6c: PASS 80/80 in three runs of three per mode. Not rerun on 8584283 (unchanged by it): lp4, lp1-node, the crash/kill/damage steps, the spec-depth and deep-reorg tests, the A13 models, RSS, R14 and churn (their last runs are on 9bd9bc0). The 919a50c integrated reruns (evidence/d7-bound/integrated-919a50c/): 2 of 4 FAIL, the node defect fixed in 8584283. Before: 9bd9bc0 (evidence/d7-bound/accept-9bd9bc0/): lp4 193/0; pocold 229/0 with 22 ignored; crash steps, kills and damage, the store-mode spec-depth test, the deep-reorg tests; e2e in whole-state mode: devnet 43/43, site 21/21, browser 80/80, integrated FAIL 1 of 11 (a race in the test after the heal; fixed in 919a50c, whose reruns then exposed the defect fixed in 8584283); e2e in store mode (--state-store): devnet 43/43, site 21/21, browser 80/80, integrated 19/19; extension 234/234; lp1-node 137 passed and the 11 Windows-only store_journal tests UnsupportedPlatform on Linux. Before: fc24969 (evidence/c1-e4/accept/): lp4 193/0; pocold 221/0 with 20 ignored (each listed with where it ran); crash steps, kills and damage, the store-mode spec-depth test; e2e_devnet 42/42; e2e_site 20/20; extension 234/234; lp1-node 137 passed and the 11 Windows-only store_journal tests UnsupportedPlatform on Linux. Earlier: 3c3792e for the full LP10 integration before round 3",
+  "witnessTested": "e453851 (evidence/memory-r14/witnesses-e453851.log): the Rust, live and extension parts, 17 NOT_REPRODUCED, every control OK; also ad301e7 (witnesses-ad301e7.log), the same. Before: fbe6062 (evidence/memory-r14/witnesses-fbe6062.log; node code as b6d57e8): the Rust, live and extension parts, 17 NOT_REPRODUCED, every control OK. Before: d45dfe2 (witnesses-d45dfe2.log): the same, 17 NOT_REPRODUCED. Before: 24cc167 (evidence/d7-bound/witnesses-24cc167.log, rust and live parts): A01, A02, A03, A04, A05, A10, A11 NOT_REPRODUCED with controls OK; the extension witnesses last ran on 8584283 (extension unchanged). Before: 8584283 (evidence/d7-bound/witnesses-8584283.log and witnesses-8584283-rerun.log; the first run lost A02, A05 and A10 to a full disk, rerun after space was freed): every witness NOT_REPRODUCED with its positive control OK (A01-A14; whole-state mode). Before: 9bd9bc0 (evidence/d7-bound/witnesses-9bd9bc0.log): every witness NOT_REPRODUCED with its positive control OK (A01-A14; whole-state mode). Before: 3c3792e",
+  "chromeTested": "e453851: e2e_browser 80/80 in both modes; e2e_integrated 20/20 twice in store mode and once in whole-state mode, one whole-state FAIL at the heal (the test's assumption, fixed in the test; evidence/memory-r14/accept-e453851/README.md). ad301e7: e2e_browser whole-state 44 of 45 then a click timeout (BR18), store 80/80. Before: fbe6062: e2e_browser 80/80 and e2e_integrated 20/20 (two runs) in both modes (evidence/memory-r14/accept-fbe6062/). Before: d45dfe2, the same. Before: 24cc167: e2e_browser 80/80 and e2e_integrated 20/20 (two runs) in both modes. Before: 0833b6c: PASS 80/80 in three runs of three per mode; 8584283: e2e_integrated 20/20 in three runs of three per mode, e2e_browser store 80/80 (whole-state: see integrationTested). Before: 9bd9bc0: real-Chromium e2e_browser 80/80 in both modes; e2e_integrated 19/19 in store mode (whole-state: see integrationTested). Before: fc24969: real-Chromium e2e_browser 79/79 and LP10 e2e_integrated 18/18 (evidence/c1-e4/accept/). Before: 3c3792e",
+  "windowsTested": "e453851 (every node change of the deferred release and its fixes; run 40600109673, PASS on every check: lp1 12 + 150, lp4 211, pocold 245, extension 234; evidence/windows-e453851/). Also ad301e7 (run 40595988585) and dd85cc0 (run 40592643692), PASS. 93a40d0 (run 40585164582) PASS. 22a82c2: run 40589342452 FAILED one test, a defect of 93a40d0 in open on a store damaged at open, fixed after ad301e7 (evidence/windows-22a82c2/RUN.md). Before: 206eaa4 (evidence only, node code as b6d57e8; Windows CI run 40583789163, PASS on every check: lp1 12 + 150, lp4 211, pocold 239, extension 234; evidence/windows-206eaa4/); also 71eb650 and fbe6062, the same. Before: bc38d41 (node code as b6d57e8; run 40572992585, PASS on every check; evidence/windows-bc38d41/). Before, on palcertcom/pocol#2: b8fb7ab, d45dfe2, b66ba65, 563a0c3, 7624419, 2c40a9f, 69d5794, 2839f2a, f65b44a (each PASS; one FAIL on 182d73a, the pacer test, fixed in 6a1e480). Earlier: not run on 78fe971, 90c4185 or 24cc167: they are not pushed (GitHub credentials refused in this session). Before: 8584283 (Windows CI run 66, PASS on every check, the two relay tests included); 919a50c (run 65, PASS). Before: 9bd9bc0 (Windows CI run 64, PASS on every check). Before: fc24969 (Windows CI run 61, PASS on every check: lp1 12 + 150, lp4 193, pocold 221, extension 234; evidence/c1-e4/windows-runs.md). Runs 59 (cc929a7) and 60 (45d540f) failed in one E4.4 test's harness, fixed in 45d540f and 53a80e9. A Windows pass is not acceptance"
+ },
+ "axes": {
+  "implemented": "YES | PARTIAL",
+  "verified": "VERIFIED (Linux and Windows CI) | PARTIAL: regression tests, mutation controls and the reconstructed witness with its positive control on the recorded commits; the Windows CI record is verified.windows",
+  "partiallyResolved": "requirements still technically incomplete",
+  "blocked": "environment: only another platform can clear it; decision: only an owner decision can clear it",
+  "accepted": "owner acceptance; none is recorded"
+ },
+ "witnessProvenance": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+ "integration": {
+  "commit": "3c3792e90eb3c31c83abc91f26e861c8510a824f",
+  "result": "FAIL",
+  "failuresOnlyExpectedPlatformLimitation": true,
+  "suites": [
+   {
+    "suite": "lp1-node-tests",
+    "exit": 101,
+    "pass": false,
+    "executedAndFailed": {
+     "binary": "tests/store_journal.rs",
+     "executed": true,
+     "passed": 1,
+     "failed": 11,
+     "unsupportedPlatformErrors": 11
+    },
+    "onlyExpectedPlatformLimitation": true,
+    "platformNote": "store_journal uses the Windows-only atomic journal; on this host its tests execute and fail with UnsupportedPlatform, identically on the audited 090eae4. Windows verification is required to pass them."
+   },
+   {
+    "suite": "ext-build",
+    "exit": 0,
+    "pass": true
+   },
+   {
+    "suite": "lp4-tests",
+    "exit": 0,
+    "pass": true
+   },
+   {
+    "suite": "pocold-build",
+    "exit": 0,
+    "pass": true
+   },
+   {
+    "suite": "pocold-tests",
+    "exit": 0,
+    "pass": true
+   },
+   {
+    "suite": "ext-unit",
+    "exit": 0,
+    "pass": true
+   },
+   {
+    "suite": "e2e-devnet",
+    "exit": 0,
+    "pass": true
+   },
+   {
+    "suite": "e2e-site",
+    "exit": 0,
+    "pass": true
+   },
+   {
+    "suite": "e2e-browser",
+    "exit": 0,
+    "pass": true
+   },
+   {
+    "suite": "e2e-integrated",
+    "exit": 0,
+    "pass": true
+   }
+  ]
+ },
+ "integrationR3": {
+  "note": "Round-3 suites on the integrated head, release, Linux. The full LP10 integration (extension, real Chrome, integrated Chrome), the witnesses and the RSS run were not re-run on the round-3 code; their last run is the 'integration' block (3c3792e). No full acceptance.",
+  "runs": [
+   {
+    "commit": "2b1a571",
+    "suite": "pocold",
+    "result": "171 passed, 0 failed, 14 ignored",
+    "log": "evidence/integration-r3/pocold-2b1a571.log"
+   },
+   {
+    "commit": "2b1a571",
+    "suite": "lp4-execution",
+    "result": "168 passed, 0 failed",
+    "log": "evidence/integration-r3/lp4-2b1a571.log"
+   },
+   {
+    "commit": "2b1a571",
+    "suite": "caps-test build (caps.rs 9, log_cap.rs 2)",
+    "result": "11 passed, 0 failed",
+    "log": "evidence/integration-r3/capstest-2b1a571.log"
+   },
+   {
+    "commit": "1cc96c4",
+    "suite": "abandoned_queued_bodies_are_capped_and_released, 8 runs",
+    "result": "8/8 passed, busy in round 1",
+    "log": "evidence/integration-r3/abandoned-queued-8x-linux.log"
+   },
+   {
+    "commit": "c959379",
+    "suite": "e2e_devnet.py (ad84942's test)",
+    "result": "PASS 38/38",
+    "log": "evidence/integration-r3/e2e-devnet-c959379.log"
+   },
+   {
+    "commit": "c959379",
+    "suite": "e2e_site.py",
+    "result": "PASS 20/20",
+    "log": "evidence/integration-r3/e2e-site-c959379.log"
+   },
+   {
+    "commit": "c959379",
+    "suite": "pocold tests/consensus.rs",
+    "result": "43 passed, 0 failed, 2 ignored",
+    "log": "evidence/integration-r3/consensus-c959379.log"
+   },
+   {
+    "commit": "25bec25",
+    "suite": "pocold; lp4-execution",
+    "result": "164 passed, 0 failed, 12 ignored; 168 passed",
+    "log": "evidence/integration-r3/pocold-25bec25.log, lp4-25bec25.log"
+   },
+   {
+    "commit": "d40fd91",
+    "suite": "e2e_devnet.py (f583c7f's test), 3 runs; e2e_site.py",
+    "result": "3x PASS 27/27; PASS 20/20",
+    "log": "evidence/e2e-integration/"
+   }
+  ]
+ },
+ "windowsVerification": {
+  "workflow": "audit-r2-windows-verify.yml, pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k (a03e089)",
+  "runs": [
+   {
+    "run": 9,
+    "commit": "29fd44a",
+    "result": "PASS on every check"
+   },
+   {
+    "run": 16,
+    "commit": "25bec25",
+    "result": "PASS on every check (round-3 code: poll/WSAPoll in the SendPacer and the P2P reader)"
+   },
+   {
+    "run": 19,
+    "commit": "2b1a571",
+    "result": "PASS (caps r3b, journal r3c, RpcGuard r3c)"
+   },
+   {
+    "run": 20,
+    "commit": "49ae9fa",
+    "result": "FAIL, 1 timing test (abandoned_queued_bodies_are_capped_and_released); same code as run 19"
+   },
+   {
+    "run": 21,
+    "commit": "1cc96c4",
+    "result": "PASS (the test's settings changed only)"
+   },
+   {
+    "run": 59,
+    "commit": "cc929a7",
+    "result": "FAIL, 1 test (e4_checkpoint_open_releases_what_a_crash_left_in_the_store): the test copied a data directory while its node held the journal's LOCK (OS error 33); fixed in 45d540f, test only"
+   },
+   {
+    "run": 60,
+    "commit": "45d540f",
+    "result": "FAIL, the same test: a StateStore handle clone kept state.redb open during the copy (OS error 33; Linux does not enforce redb's lock); fixed in 53a80e9, test only"
+   },
+   {
+    "run": 61,
+    "commit": "fc24969",
+    "result": "PASS on every check (C-1 E4.1-E4.5 and E5 parts 1-3, every E4/E5 test included)"
+   },
+   {
+    "run": 62,
+    "commit": "f14f2c2",
+    "result": "PASS (documentation and evidence only; code as fc24969)"
+   },
+   {
+    "run": 63,
+    "commit": "5e77a70",
+    "result": "PASS (documentation and evidence only; code as fc24969)"
+   },
+   {
+    "run": 64,
+    "commit": "9bd9bc0",
+    "result": "PASS on every check (D-7 bound, A13 audit terms, store-mode switch)"
+   },
+   {
+    "run": 65,
+    "commit": "919a50c",
+    "result": "PASS (test change only; node code as ee14458)"
+   },
+   {
+    "run": 66,
+    "commit": "8584283",
+    "result": "PASS on every check (the re-insertion relay and its two tests)"
+   },
+   {
+    "run": "palcertcom/pocol 40499609598",
+    "commit": "2fb3961",
+    "result": "PASS on every step (lp1 store journal 12/0, lp1-node 150/0, lp4 196/0, pocold 233/0, extension 234/0); evidence/windows-2fb3961/"
+   },
+   {
+    "run": "palcertcom/pocol 40507248611",
+    "commit": "f65b44a",
+    "result": "PASS on every step (lp4 200/0, pocold 235/0; node code as 892dca6); evidence/windows-f65b44a/"
+   },
+   {
+    "run": "palcertcom/pocol 40510911424",
+    "commit": "2839f2a",
+    "result": "PASS on every step (lp4 200/0, pocold 236/0); evidence/windows-2839f2a/"
+   },
+   {
+    "run": "palcertcom/pocol 40512470697",
+    "commit": "c0a0e66",
+    "result": "PASS (evidence only; node code as 2839f2a)"
+   },
+   {
+    "run": "palcertcom/pocol 40516277272, 40516762578",
+    "commit": "8d80354, 799e809",
+    "result": "cancelled: replaced by a newer push (the workflow keeps one pending run per PR)"
+   },
+   {
+    "run": "palcertcom/pocol 40518244446",
+    "commit": "69d5794",
+    "result": "PASS on every step (lp4 201/0, pocold 237/0, both new tests included; node code as 2839f2a); evidence/windows-69d5794/"
+   },
+   {
+    "run": "palcertcom/pocol 40522024488",
+    "commit": "182d73a",
+    "result": "FAIL, 1 test: send_pacer_closes_a_slow_reader_after_grace (no close within the test's 5 s wait, counted from the request and so including the batch's execution); test-only fix: wait to 20 s, bounds on the send time from s_v = max(GRACE, A/R), PACER line on stdout; evidence/windows-182d73a/"
+   },
+   {
+    "run": "palcertcom/pocol 40525606586",
+    "commit": "2c40a9f",
+    "result": "PASS on every step (lp4 201/0, pocold 237/0; the pacer test as before 6a1e480); evidence/windows-2c40a9f/"
+   },
+   {
+    "run": "palcertcom/pocol 40530131878",
+    "commit": "7624419",
+    "result": "PASS on every step (lp4 201/0, pocold 237/0), with 6a1e480's pacer test: PACER sendTimeS 0.502009, acceptedBytes 32940, s_v 0.5 s, pacerLateMaxMs 2 (ENFORCE_SLACK 200), pacerWaits 10, closed 1092 ms after the request; every network.md:237-256 bound holds on Windows; the 182d73a delay's cause stays unestablished; evidence/windows-7624419/"
+   },
+   {
+    "run": "palcertcom/pocol 40535963171",
+    "commit": "563a0c3",
+    "result": "PASS on every step (lp4 201/0, pocold 238/0); PACER close 1 ms after s_v; evidence/windows-563a0c3/"
+   },
+   {
+    "run": "palcertcom/pocol 40538722157",
+    "commit": "b66ba65",
+    "result": "PASS on every step (lp4 205/0 with the four modexp tests, pocold 238/0): the first Windows run of the MODEXP precompile (b46658a); PACER close 10 ms after s_v; evidence/windows-b66ba65/"
+   },
+   {
+    "run": "palcertcom/pocol 40546902481",
+    "commit": "d45dfe2",
+    "result": "PASS on every step (lp4 208/0 with the seven modexp tests, pocold 238/0): the first Windows run of the wide even path (0c2ad75); PACER close 2 ms after s_v; evidence/windows-d45dfe2/"
+   },
+   {
+    "run": "palcertcom/pocol 40550009922",
+    "commit": "b8fb7ab",
+    "result": "PASS on every step (lp4 209/0 with the eight modexp tests, pocold 238/0): MODEXP's trivial powers handed to revm (review finding 1); PACER close 1 ms after s_v; evidence/windows-b8fb7ab/"
+   },
+   {
+    "run": "palcertcom/pocol 40550825203",
+    "commit": "beed0d2",
+    "result": "PASS on every step (evidence only; node code as b8fb7ab)"
+   },
+   {
+    "run": "palcertcom/pocol 40557534874",
+    "commit": "7e565b7",
+    "result": "PASS on every step (lp4 209/0, pocold 238/0), the first with 3705559's pacer test: client window 0.508 s (bounds 0.45 to 1.0), first byte 517 ms against an honest reader's 504 ms, pacer lateness 7 ms; evidence/windows-7e565b7/"
+   },
+   {
+    "run": "palcertcom/pocol 40558373933",
+    "commit": "d104891",
+    "result": "PASS on every step (evidence only; node code as b8fb7ab): client window 0.509 s, first byte 732 ms against an honest reader's 783 ms, pacer lateness 10 ms; evidence/windows-d104891/"
+   },
+   {
+    "run": "palcertcom/pocol 40561773086",
+    "commit": "b47fb85",
+    "result": "PASS on every step (evidence only; node code as b8fb7ab): client window 0.506 s, first byte 741 ms against an honest reader's 746 ms, pacer lateness 3 ms; evidence/windows-b47fb85/"
+   },
+   {
+    "run": "palcertcom/pocol 40572992585",
+    "commit": "bc38d41",
+    "result": "PASS on every step (lp4 211/0, pocold 239/0; node code as b6d57e8): the stored-version diff tests, the checkpoint tests with the middle-version damage case, a13_counts_a_handle_for_every_held_version and the D-7 run test pass on Windows; client window 0.504 s, first byte 583 ms against an honest reader's 562 ms, pacer lateness 3 ms; evidence/windows-bc38d41/"
+   },
+   {
+    "run": "palcertcom/pocol 40575426466",
+    "commit": "fbe6062",
+    "result": "PASS on every step (evidence only; node code as b6d57e8; lp4 211/0, pocold 239/0): client window 0.504 s, first byte 721 ms against an honest reader's 721 ms, pacer lateness 1 ms; evidence/windows-fbe6062/"
+   },
+   {
+    "run": "palcertcom/pocol 40578404549",
+    "commit": "71eb650",
+    "result": "PASS on every step (evidence only; node code as b6d57e8; lp4 211/0, pocold 239/0): client window 0.504 s, first byte 737 ms against an honest reader's 795 ms, pacer lateness 1 ms; evidence/windows-71eb650/"
+   },
+   {
+    "run": "palcertcom/pocol 40583789163",
+    "commit": "206eaa4",
+    "result": "PASS on every step (evidence only; node code as b6d57e8; lp4 211/0, pocold 239/0): client window 0.504 s, first byte 751 ms against an honest reader's 784 ms, pacer lateness 3 ms; evidence/windows-206eaa4/"
+   },
+   {
+    "run": "palcertcom/pocol 40585164582",
+    "commit": "93a40d0",
+    "result": "PASS on every step (lp4 211/0, pocold 240/0; the deferred checkpoint release): client window 0.506 s, pacer lateness 3 ms; evidence/windows-93a40d0/"
+   },
+   {
+    "run": "palcertcom/pocol 40589342452",
+    "commit": "22a82c2",
+    "result": "FAIL, one test (pocold 239/1): e4_checkpoint_damage_falls_back_to_a_verified_state, case 'a missing node only a middle version names'. Open panicked (state store read failed: state store damaged) because the release at open (93a40d0) had marked the store damaged when the removed node was also owed, and open went on to pin genesis's version in it. The node the case removes is chosen from a HashSet, so it varies by run; a Linux sweep over the candidates reproduced it (14 of 363). Fixed in the commit after ad301e7 (a store found damaged before genesis is pinned is set aside and started empty), with e4_checkpoint_open_rebuilds_a_store_its_release_finds_damaged; evidence/windows-22a82c2/RUN.md"
+   },
+   {
+    "run": "palcertcom/pocol 40592643692",
+    "commit": "dd85cc0",
+    "result": "PASS on every step (lp4 211/0, pocold 241/0): client window 0.514 s, pacer lateness 10 ms; evidence/windows-dd85cc0/"
+   },
+   {
+    "run": "palcertcom/pocol 40595988585",
+    "commit": "ad301e7",
+    "result": "PASS on every step (lp4 211/0, pocold 244/0): client window 0.505 s, pacer lateness 2 ms; evidence/windows-ad301e7/"
+   },
+   {
+    "run": "palcertcom/pocol 40600109673",
+    "commit": "e453851",
+    "result": "PASS on every step (lp4 211/0, pocold 245/0): the damage test that failed on 22a82c2, e4_checkpoint_open_rebuilds_a_store_its_release_finds_damaged and e4_release_steps_alternate_with_pool_slices pass on Windows; client window 0.503 s, pacer lateness 2 ms; evidence/windows-e453851/"
+   }
+  ],
+  "defectsFoundAndFixed": [
+   "retention.rkeep: a directory fsync Windows refuses (run 1)",
+   "a dropped P2P peer's reader not woken by shutdown (run 2)",
+   "a Nagle/delayed-ACK stall of about 200 ms on every RPC answer (run 2)",
+   "kernel absorption of unread RPC answers (runs 3, 5, 7): SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call (29fd44a)"
+  ],
+  "notCovered": "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests",
+  "record": "WINDOWS-VERIFICATION.md"
+ },
+ "e2eDevnetMutation": [
+  {
+   "suite": "e2e-devnet-mutation",
+   "round": "stage A",
+   "testCommit": "bfeb226",
+   "codeTree": "a03e089 (= 3c3792e)",
+   "cleanRuns": "3/3 PASS 25/25",
+   "mutants": {
+    "total": 10,
+    "caughtIntended": 6,
+    "caughtEarly": 3,
+    "survived": 1,
+    "incomplete": 0
+   },
+   "superseded": "its claim that a wrong choice fails every time is withdrawn: a height-first fork choice (Mheight) passed it 25/25 (e2e-mutation-r2/README.md §2)",
+   "evidence": "evidence/e2e-mutation/README.md"
+  },
+  {
+   "suite": "e2e-devnet-mutation-r2",
+   "round": "2",
+   "testCommit": "f583c7f",
+   "codeTree": "c195a89 (= a03e089)",
+   "cleanRuns": "3/3 PASS 27/27",
+   "mutants": {
+    "total": 13,
+    "caughtIntended": 8,
+    "caughtEarly": 4,
+    "survived": 1,
+    "incomplete": 0
+   },
+   "survivorCoveredBy": "tests/consensus.rs fork_choice_heavier_tied_signed_first_and_rollback",
+   "newMutantsVsStageATest": {
+    "Msess": "PASS 25/25 (survived)",
+    "Mreplay": "PASS 25/25 (survived)",
+    "Mheight": "PASS 25/25 (review run)"
+   },
+   "cargoSuite": "pocold release 123 passed",
+   "evidence": "evidence/e2e-mutation-r2/README.md"
+  },
+  {
+   "suite": "e2e-devnet-mutation-r3",
+   "round": "3",
+   "testCommit": "1512409",
+   "script": "sha256 6667e11a…a621bf, 35 checks",
+   "cleanRuns": "3/3 PASS 35/35 on base-r3c, plus one control run on base-r3d",
+   "mutants": {
+    "total": 21,
+    "caughtIntended": 16,
+    "caughtEarly": 4,
+    "survived": 1,
+    "incomplete": 0
+   },
+   "note": "not merged on its own; its test changes (and 16bebfd, E2E-R3-7) reach the branch with round 4 at c959379",
+   "evidence": "evidence/e2e-mutation-r3/README.md"
+  },
+  {
+   "suite": "e2e-devnet-mutation-r4",
+   "round": "4 (current)",
+   "testCommit": "ad84942",
+   "script": "sha256 9c6d7c0d…98814c, 38 checks",
+   "cleanRuns": "3/3 PASS 38/38 on base-r4",
+   "mutants": {
+    "total": 23,
+    "caught": 22,
+    "caughtIntended": 16,
+    "caughtEarly": 6,
+    "survived": 1,
+    "incomplete": 0,
+    "notCounted": "M4's first run failed the step-3 precondition before anything M4 changes is checked; its second run was caught at the intended check"
+   },
+   "survivorCoveredBy": "tests/consensus.rs fork_choice_heavier_tied_signed_first_and_rollback (Mtie: the D133 tie-break is local)",
+   "cargoSuite": "pocold release at ad84942: exit 0",
+   "integrated": "c959379: PASS 38/38 (evidence/integration-r3/e2e-devnet-c959379.log)",
+   "openItems": [
+    "the step-3 climb bound (240 s) can give a false FAIL when a/b's lead overshoots (M4.log); a bound growing with the late blocks needed is proposed, not made",
+    "one run per mutant; Mtie's single pass does not show it always passes",
+    "Msilent and Mtransient are now caught first by the new 4b Status check, so step 5 is not shown to catch them on its own in this round",
+    "step 8b (heal while mining) catches no mutant by itself; the step-9 race allowance and the torn-tail allowance were never exercised",
+    "the full LP10 integration and the Windows workflow were not re-run on this test"
+   ],
+   "evidence": "evidence/e2e-mutation-r4/README.md"
+  }
+ ],
+ "decisions": {
+  "approvedByOwner": [
+   "D-A13-BUDGET (option 1, local)",
+   "D-REORG-REDB (2026-10-23): a storage repair for R_keep adoption; D133 and validity unchanged; it does not cover the six consensus proposals",
+   "RpcGuard implementation in pocold (the 2026-10-23 instruction to complete the authorized works, RpcGuard and the Windows verification); a local service policy (D87)",
+   "engineering decisions taken under the standing authorization (REPAIR-PLAN.md)",
+   "D-1 option (a): storage conformance S1-S5 toward 6 GiB at the network profile (landed: S1, S2, S3a, S4, E1-E4, E5 parts 1-3; the state store is opt-in, Limits::state_store)",
+   "D-6: local state checkpoints (implemented in C-1 E4.4, store mode)",
+   "D-7 (2026-10-25): sliced pool revalidation and a local bound on the pooled transactions' summed declared gas limits of 4·GAS_LIMIT, configurable within the resource limits; pool policy only (implemented in ee14458); within its re-insertion behaviour, a returned transaction admitted again is offered to the peers (local relay policy, 8584283)"
+  ],
+  "proposedNotApproved": [
+   "LOG-ACCT-01",
+   "D-A03-DIRTY",
+   "D-A03-CAPS",
+   "D-BODY-MAX",
+   "D-A03-SYSUSER",
+   "LOG-CAP-AGGREGATE",
+   "CAPS-SUSTAINABILITY N1-N8 (proposals/CAPS-SUSTAINABILITY.md)",
+   "RPCGUARD P1-P4 (proposals/RPCGUARD-R2-PROPOSALS.md)",
+   "every journal mitigation (JOURNAL-GROWTH-AND-REPLAY.md §7)",
+   "D-2 (proposals/OPEN-DECISIONS.md row 1: option (a) is not local alone; at t_exec = 2 s the timing gates R2/R3/R7 need dFbWait and D_att, CP fields, evidence/memory-r14/d2-gate.log)",
+   "D-3",
+   "D-4",
+   "D-5",
+   "the A13 key-path assumption (paths of at most 21 nodes): presented 2026-10-25 with its rationale, worst case and the conservative alternative (proposals/DECISION-PACKAGE.md); not adopted",
+   "the R14/R19 calibration workload: whether the admission timing should calibrate on the slowest kinds per gas (presented 2026-10-25; restated 2026-10-27 in proposals/OPEN-DECISIONS.md row 2 with the measurement of A13-DERIVATION §3b: with the test-only root checks off, only MODEXP with an even modulus exceeds t_exec = 1 s, at 1.2-1.6 s; the state-heavy figures cited before were measured with those checks on); not adopted",
+   "store mode as the default for the network profile (a local default; proposals/OPEN-DECISIONS.md row 9): presented 2026-10-27, recommended to stay opt-in; not adopted"
+  ],
+  "note": "Passing tests approve nothing. The implementation uses the recommended alternatives of the six consensus proposals provisionally."
+ },
+ "findings": [
+  {
+   "id": "A01",
+   "severity": "HIGH",
+   "title": "Valid block hash poisoning through an unbound body",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "ac3a951",
+    "d132203"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "consensus::a01_malformed_or_unbound_bodies_reject_only_the_copy",
+     "consensus::a01_committed_invalid_body_is_still_a_block_rejection_and_cached",
+     "consensus::a_valid_header_with_a_foreign_body_rejects_only_that_copy",
+     "consensus::body_max_bounds_the_encoded_body_not_the_item_sum",
+     "consensus::d_body_max_vectors"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": [
+     "D-BODY-MAX (encoded body on every path; found while reviewing this repair)"
+    ]
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "BLOCKED BY DECISION"
+  },
+  {
+   "id": "A02",
+   "severity": "HIGH",
+   "title": "ParamGate not enforced before boot",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "10678de",
+    "d132203",
+    "33f98b7",
+    "77d6984"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "admission::tests (R1–R26 at their boundaries; audit reproductions)",
+     "admission::tests::{r26_predicates_are_the_gate_conjunction, absent_rpc_fields_enter_the_gate_as_zero_never_nominal, specification_scope_refuses_every_open_condition, experimental_devnet_waives_only_r26_predicates_reading_absent_fields}",
+     "pocold admission::pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms",
+     "compile_fail doc tests (no bypass constructor)",
+     "admission::tests: the experimental scope admits only ProfileKind::Simnet (Synthetic and Network refused, review F5)",
+     "RPC_FIELDS derived with an exhaustive RpcLimits pattern (review F6; omitting a field fails to compile)"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [
+    "Only an experimental-devnet admission is possible: Specification scope refuses every current profile (rpc-absent, calibration-synthetic, timing-not-a-bound, gas-monotonicity-assumed, gate-deferred LP3 items)",
+    "R14/R19 timing is a single measured sample on the booting host, not a p99 or worst-case bound; under CPU contention a debug build fails closed [R14, R19]",
+    "R18 gas facts assume monotonicity in the domain fields (A13 §4 item 1)",
+    "R26: 4 RpcGuard fields are absent (scratch_heavy, scratch_light, mem_total, cancel_max_ms) and waived only in the experimental scope; 25 are present at their running values, 6 of them by an equivalent bound named in the admission notes (heavy_active, light_active, conn_buf, light_resp_mem, rate, bucket_cap) (RPCGUARD.md §8; round 3)"
+   ],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": [
+     "D-A02-PROFILE (devnet parameters; engineering, approved under the standing authorization)"
+    ]
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "PARTIALLY RESOLVED"
+  },
+  {
+   "id": "A03",
+   "severity": "HIGH",
+   "title": "Runtime log and state limits not enforced",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "10678de",
+    "07ac864",
+    "b132a05",
+    "a797c83"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "apply::tests::a03::* (LOG_BLOCK_MAX, LG2, topics, cumulative, LOG_CAP, dirty keys/accounts, caps, halt semantics)",
+     "apply::tests::a03::proposals::{log_acct_01_vectors, d_a03_dirty_vectors (status, halt kind and dirty-account count, incl. the block-invalid residue case), d_a03_caps_vectors, log_cap_aggregate_vectors}",
+     "consensus::a03_over_limit_log_halts_the_transaction_and_the_block_is_valid",
+     "caps track (round 3): pocold tests/log_cap.rs in the caps-test build (LOG_CAP = 2^24, simnet only, validation.md:2065): the chain's log bytes are filled to exactly 2^24, then a logging tx halts (status 0, whole gas limit charged), transfers, plain creations and silent calls succeed, and 20 more blocks keep the escrow invariant (T17); caps-test build 11/0 on 2b1a571 (evidence/integration-r3/capstest-2b1a571.log)",
+     "caps track: independent genesisHash model (proposals/model/caps_model.py, own Keccak and GenesisSpec encoder, 25 checks; lp4 tests/caps_identity.rs): LOG_CAP is not encoded in GenesisSpec, so nodes with different LOG_CAP share a genesisHash; a LOG_CAP change is still a hard fork, and a mismatch is a silent split at check 17 (argued from code; no two-node run)"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": [
+     "LOG-ACCT-01",
+     "D-A03-DIRTY (including the block-invalid halt-residue case)",
+     "D-A03-CAPS",
+     "D-A03-SYSUSER",
+     "LOG-CAP-AGGREGATE",
+     "CAPS-SUSTAINABILITY N1 (LOG_CAP = 2^32 with gate rule R27, = LOG-CAP-AGGREGATE-ALTERNATIVES A1a) and N7 (eth_call/eth_estimateGas report an A03 halt): PROPOSED, not approved"
+    ]
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "BLOCKED BY DECISION"
+  },
+  {
+   "id": "A04",
+   "severity": "HIGH",
+   "title": "Journal frame corruption drops committed records",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "20bedce",
+    "d132203",
+    "cedabe7"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "store::a04_* (every single-bit flip fails closed; truncation; boundary edits; commit-file damage; uncommitted tail; v1 migration; 4 KiB slots)",
+     "Windows CI (round 3): the pocold store tests (journal v2) and lp1-node store_journal, the Windows-only journal, 12 passed (runs 9-21; WINDOWS-VERIFICATION.md)"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [
+    "Real power loss is not tested (simulated by file edits only)",
+    "On Windows a rename is not followed by a directory flush (store::sync_dir and retention.rkeep skip it; WINDOWS-VERIFICATION.md run 1)"
+   ],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": [
+     "D-A04-FORMAT journal v2 (local storage format, engineering)"
+    ]
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  },
+  {
+   "id": "A05",
+   "severity": "HIGH",
+   "title": "P2P and RPC resource exhaustion",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "a2dbf16",
+    "d132203",
+    "cedabe7",
+    "33f98b7",
+    "45712cd",
+    "77d6984",
+    "b132a05",
+    "a5e2517",
+    "ad71484",
+    "6a561b6",
+    "dc4e3d1",
+    "a39379b",
+    "be95e26",
+    "29fd44a",
+    "0f48e6e",
+    "65a828b",
+    "1530d7f",
+    "8039a09",
+    "d0e87f9",
+    "dd7d1ec",
+    "1cc96c4",
+    "af2f3a8"
+   ],
+   "implemented": "PARTIAL",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "net::* (idle/hello deadlines, frames, slow reader, churn, inbound floods, connection cap, batches)",
+     "net::rpc_work_deadline_skips_expired_work_and_releases_resources (deadline derived from the measured heavy duration; mutations: no skip, no batch deadline: each fails)",
+     "net::legitimate_requests_progress_under_bounded_heavy_load",
+     "net::a_light_turn_runs_at_most_light_turn_requests_then_wakes_the_node (mutation: no LIGHT_TURN bound fails)",
+     "net::a_light_flood_coalesces_wakes_and_main_events_progress (mutation: a Wake per request fails)",
+     "net::abandoned_queued_bodies_are_capped_and_released (mutation: no cap fails)",
+     "net::a_full_heavy_pool_answers_busy_before_anything_runs (mutation: reservations never fail fails)",
+     "rpc::tests::response_pools_reserve_shrink_and_release",
+     "net::rpc_request_buffer_covers_headers_and_body (413 drained before close; its mutation is caught in release 2 of 3 runs, a race)",
+     "net::tests::a_close_between_the_writers_test_and_its_wait_wakes_it (F1; mutation fails)",
+     "net::miner_replacement_keeps_at_most_one_miner_thread (F7; mutation fails)",
+     "net::peer_threads_stay_within_the_inventory_while_consensus_is_stalled (invariant check)",
+     "net::light_lane_wakes_coalesce_until_taken (mutation fails)",
+     "net::an_answer_is_reserved_until_its_connection_has_written_it (mutation fails)",
+     "rpc::tests::a_busy_answer_does_not_parse_an_over_limit_body (mutation fails)",
+     "consensus::a_max_size_transaction_is_answered_in_the_light_lane (mutation fails)",
+     "RpcGuard (network.md:182-330, rounds 1-3c): per-item table in RPCGUARD.md (spec item, mechanism, ENFORCED / EQUIVALENT / PARTIAL / NOT ENFORCED, test, mutant); tests/net.rs among them queued_requests_are_busy_at_queue_wait, queue_wait_bounds_the_wait_for_a_heavy_queue_place, queue_wait_bounds_the_wait_on_a_full_main_queue, the_node_never_runs_a_request_its_connection_gave_up, compute_deadline_runs_from_admission_and_queue_wait_bounds_admission, a_late_revert_or_halt_past_its_deadline_is_32020, the_compute_deadline_includes_encoding, the_conditional_light_entries_have_the_light_deadline, a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane, send_pacer_closes_a_slow_reader_after_grace, send_pacer_timer_follows_a_over_r_past_grace, unread_default_client_absorption; rpc::tests::sockwait_reports_readiness_within_its_timeout; lp4 tests/simulate_stop.rs",
+     "RpcGuard mutation controls: round 2 on dc4e3d1, 21 mutants, 20 caught, 1 equivalent; round 3 on d0e87f9, 59 mutants, 53 caught, 6 survivors explained; round 3c on dd7d1ec, 35 mutants, 30 caught, 5 survivors explained (2 equivalent, 2 within the spec's bounds, 1 test limit) (evidence/rpcguard-r3c/MUTATIONS-RPCGUARD-R3C.md)",
+     "Review R2 fixes (af2f3a8, evidence/reviews-2026-10-24/r2-fixes/): net::a_batch_does_not_hold_p2p_events_for_its_whole_length (fail-before: a Hello 4.85 s into a 5.05 s batch), net::a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled (3 mutants killed), net::guard_and_dispatch_error_items_stay_within_err_item_max (2 mutants killed), net::bytes_after_the_request_do_not_reset_the_answer (fail-before: a reset after the body), the REQ_READ_DEADLINE trickle in net::rpc_connection_cap_refuses_excess_unread_and_keeps_serving (reviewer mutant M13 killed)",
+     "net::abandoned_queued_bodies_are_capped_and_released after 1cc96c4 (test settings only: HEAVY_QUEUE 2, QUEUE_WAIT 5 ms, up to 12 rounds; assertions unchanged): Linux 8/8 (evidence/integration-r3/abandoned-queued-8x-linux.log), Windows run 21 PASS"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [
+    "RpcGuard is mapped item by item in RPCGUARD.md (ENFORCED, EQUIVALENT, PARTIAL, NOT ENFORCED). Not enforced or partial: SCRATCH outside the log handlers and light SCRATCH (absent), RPC_MEM_TOTAL as a field (absent; bounded by A13), CANCEL_MAX for precompile runs (absent; proposal P2), PacerTrace, chunked batch streaming, the numeric log range before admission, pocol_getLogs anchors, the unlisted-method rule (PARTIAL; proposal P4), the conditional light entries' lane (they run on the heavy lane, with the light deadline and answer limit), the aggregate rate across reconnects (proposal P1); RPC runs on the consensus thread (no separate runtime)",
+    "A running request is preempted only inside EVM simulation (eth_call/eth_estimateGas: the stop hook is polled every 10^6 gas and before every call); a precompile run is uninterruptible (a 30M-gas BLAKE2F takes about 0.5 s), so CANCEL_MAX = 100 ms is not enforced; encoding is checked once, not every 1 MiB",
+    "Effectful methods: pocol_submitShare is checked against COMPUTE_DEADLINE only before it runs (the P3 reading, option A). eth_sendRawTransaction's pool admission runs under the deadline since af2f3a8 (review R2-2): past it nothing is pooled"
+   ],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": [
+     "RpcGuard implementation in pocold (owner approved: the 2026-10-23 instruction to complete the authorized works, RpcGuard and the Windows verification; a local service policy, D87, no validity effect)",
+     "RPCGUARD P1 (aggregate rate across connections), P2 (CANCEL_MAX for precompile runs), P3 (effectful methods past COMPUTE_DEADLINE), P4 (methods outside the classification table) (proposals/RPCGUARD-R2-PROPOSALS.md): PROPOSED, not approved"
+    ]
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "PARTIALLY RESOLVED"
+  },
+  {
+   "id": "A06",
+   "severity": "HIGH",
+   "title": "Signing eligibility across wallet and profile transitions",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "51aa8f7",
+    "4856842",
+    "cedabe7",
+    "df63725"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "worker_test.mjs (A06 and A06-R2 submission states over a deterministic transport barrier; mutations: no re-check, no hook, submission under the mutex: each fails)",
+     "e2e_browser.mjs real Chrome A06 and A06-R2 (lock, profile change and endpoint change while queued; lock after initiation)"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [
+    "After a request is initiated it may be broadcast; it is reported as initiated/broadcast, never as cancelled (by design)"
+   ],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": [
+     "D-A06-CONFLICT (engineering)",
+     "D-A06-SUBMIT (changed expectation: a profile change during signing cancels the not-yet-initiated submission)"
+    ]
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  },
+  {
+   "id": "A07",
+   "severity": "MEDIUM",
+   "title": "Extension GenesisSpec decoder accepts invalid specs",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "51aa8f7",
+    "4856842"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "tests/decoder_diff.mjs (1151 items vs Rust verdicts)",
+     "pocold decoder_reference"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": []
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  },
+  {
+   "id": "A08",
+   "severity": "HIGH",
+   "title": "RP header structure not validated",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "51aa8f7"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "decoder corpus (every UT field, seal, shares, winner signature)",
+     "live RP mutations in e2e_browser.mjs"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": []
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  },
+  {
+   "id": "A09",
+   "severity": "MEDIUM",
+   "title": "Session receive reservations not atomic",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "51aa8f7"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "worker_test.mjs A09 (peak <= cap; release on every path)"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": []
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  },
+  {
+   "id": "A10",
+   "severity": "MEDIUM",
+   "title": "ORIGIN_DENY not applied per batch member",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "a2dbf16"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "net::a10_origin_deny_applies_to_every_batch_member"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": []
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  },
+  {
+   "id": "A11",
+   "severity": "MEDIUM",
+   "title": "Reorg drops detached transactions",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "a2dbf16",
+    "d132203"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "consensus::a11_reorg_restores_detached_transactions_without_resubmission",
+     "consensus::a11_excludes_included_and_conflicting_transactions_and_keeps_order"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": []
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  },
+  {
+   "id": "A12",
+   "severity": "MEDIUM",
+   "title": "Storage admission released before the write settles",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "51aa8f7"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "worker_test.mjs A12"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": []
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  },
+  {
+   "id": "A13",
+   "severity": "HIGH",
+   "title": "Resource derivations do not match the representation",
+   "reproduction": {
+    "onAuditedSnapshot": "source review (no runtime witness)",
+    "by": "source review",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "25be2da",
+    "d132203",
+    "cedabe7",
+    "33f98b7",
+    "45712cd",
+    "77d6984",
+    "b132a05",
+    "3c07cb5",
+    "a5e2517",
+    "66d69c6",
+    "f7c345b",
+    "54b2da1",
+    "9ce5a7c",
+    "ad71484",
+    "6a561b6",
+    "0f48e6e",
+    "49b2bc2",
+    "2ce03c1",
+    "6e99b19",
+    "af2f3a8",
+    "7606a31",
+    "f8a58bb",
+    "6c6e192",
+    "8f4b473",
+    "b91c490",
+    "1a5b792",
+    "45d540f",
+    "314de11",
+    "3c0fe15",
+    "90ba824",
+    "5722c23",
+    "53a80e9",
+    "fc24969",
+    "ee14458",
+    "892dca6",
+    "2839f2a",
+    "b46658a",
+    "0c2ad75",
+    "b8fb7ab",
+    "5abbaf3",
+    "b6d57e8"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "PARTIAL",
+    "tests": [
+     "resources::tests::{snapshot_model_bounds_measured_clone_bytes, execution_model_bounds_measured_adversarial_peaks (public cases), loaded_accounts_start_with_unallocated_storage_maps, sys_gas_envelope_fixture}",
+     "lp4 tests/rss_snapshot.rs (full-cap snapshot clones: RSS 0.45 of the model)",
+     "private adversarial execution measurements, each case against its own term (evidence/PRIVATE-REVIEW-PACKAGE.md; not in the public repository)",
+     "consensus::{a13_* (side states, deep-fork rebuild, boot bound with separate default/below/exact/network-scale assertions, pool caps), a13_bound_breakdown}",
+     "evidence/rss-*.json (measured RSS of a 3-node devnet under load: not worst-case evidence)",
+     "A13-DERIVATION.md §2a, §2b, §4 (each assumption ENFORCED / DERIVED / INSPECTION / OPEN)",
+     "consensus::a_competing_branch_within_side_blocks_max_is_adopted",
+     "D-REORG-REDB (R_keep adoption): consensus::{adoption_at_the_spec_depth_2048_and_not_at_2049 and d133_tie_break_at_depth_400_holds_through_eviction_and_refetch (release, --ignored; evidence/spec-depth-9ce5a7c.log), r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond, d133_tie_break_at_depth_holds_through_eviction_and_refetch, side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again, a_session_branch_is_adopted_through_a_flood_of_competing_side_branches, replay_gives_a_reimported_block_a_new_import_seq, an_offloaded_block_is_served_viewed_and_re_executed_from_the_journal, a_crash_around_an_adoption_reopens_on_one_whole_chain, a_sync_session_refetches_an_evicted_branch_and_serves_it, a_long_catch_up_is_not_bounded_by_the_protected_branch_size, a_side_branch_below_the_k_hist_window_imports_without_rebuilding_each_parent, a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation}; mutation controls evidence/mutations-redb.json",
+     "consensus::a13_bound_breakdown asserts the model total on Linux x86_64: 5,581,426,268 B in round 3 (RPCGUARD.md §8), 5,487,223,178 B since C-1 S2 (code counted once per lineage: journal_measure::retained_states_of_one_lineage_share_their_code_buffers; A13-DERIVATION.md)",
+     "Decision package C-2 items 1-3 (49b2bc2, 2ce03c1; evidence/c2-execution/): lp4 code_caps_engine_tests (known code total, once-per-phase check, revalidate_touched equals the full check), mutation controls; 380 transfers on the near-cap devnet state 22,553 ms before, 655 ms after (same host, same load)",
+     "Review R3-3 (af2f3a8): consensus::replay_restores_each_adopted_branch_with_the_work_live_did (fail-before: 4 rebuilds and 76 re-executions at open against live's 0 and 2)",
+     "tests/network_budget.rs: the network profile model, 150.83 GiB before C-1 S2 and 105.83 GiB after (gate 120.95 GiB); the test asserts it does not fit 6 GiB",
+     "journal track, rounds 1-3c (JOURNAL-GROWTH-AND-REPLAY.md): #[ignore] measurements in tests/journal_measure.rs (JM-BYTES, JM-REPLAY, JM-KIND, JM-EXEC, JM-STATE, JM-CREATE, JM-TXSTATE, jm_deep_reorg_latency, JM-OPENMEM-FRESH) on code whose src equals fa97594's; they measure and assert nothing about time (evidence/journal-r3/ on 7f587bb, journal-r3b/ on e3dfb47, journal-r3c/ on 1d094de)",
+     "C-1 E4/E5 (store mode, opt-in; D-6 checkpoints), evidence/c1-e4/: consensus::{e4_a_store_node_answers_as_a_whole_state_node, e4_store_node_at_the_r_keep_boundary_answers_as_a_whole_state_node, e4_store_node_rebuilds_a_fork_below_k_hist_as_a_whole_state_node, e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node (release, --ignored), e4_checkpoint_open_resumes_and_equals_replay_from_genesis, e4_checkpoint_open_releases_what_a_crash_left_in_the_store, e4_checkpoint_survives_kills, e4_checkpoint_damage_falls_back_to_a_verified_state (17 cases), e4_checkpoint_crash_at_each_step (--features crash-test, 22 cases), e4_checkpoint_refuses_an_entry_bound_to_its_siblings_record, e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains, e4_checkpoint_resumes_with_replays_protect_set, e5_entries_without_a_state_share_one_empty_state, e5_a_closing_node_leaves_its_versions_to_the_next_open}; tests/state_store.rs (7); mutation controls mutants-e42/e43/e44/e44-retest.log and mutants-final.log (30 of 30 killed on fc24969); the deep-reorg --ignored tests (2048/2049 adoption, D133 at 400, A11) passed on fc24969; disk and time evidence/c1-e4/disk-impact-final.md; tests/network_budget.rs: the network profile model 27.92 GiB whole-state and 9.67 GiB in store mode (gate 11.05), neither fits 6 GiB",
+     "R3 on palcertcom/pocol#2 (2026-10-27): jm_store_scale (release, ignored; evidence/memory-r14/scale-d30dc71/): a store-mode node grown to 950,000 accounts and 3,800,300 slots under the network's state caps, A13 bound 5,255,359,885 B for that profile; measured VmHWM 474 MiB growing, 539 MB after an open from a checkpoint (477 MB after 5abbaf3), state.redb 2,056 MiB, stored versions 0.20 of one version's model; a depth-8 reorg adopted in 1.53 s; the open from a checkpoint 783-801 s on d30dc71 and 262 s on bc38d41 (b6d57e8: stored versions read through NodeTrie::diff). A measurement under a synthetic workload, not a bound. Tests: lp4 node_trie::tests::{diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds, diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ}; consensus::e4_checkpoint_open_resumes_and_equals_replay_from_genesis (versions read 3 whole, 32 by diff), e4_checkpoint_damage_falls_back_to_a_verified_state (a node only a middle version names); network_budget::a13_counts_a_handle_for_every_held_version; release suites lp4 211/0, pocold 239/0 (evidence/memory-r14/release-b6d57e8.log)"
+    ],
+    "witnessOnRepair": "n/a (source review)",
+    "commits": {
+     "integration": "fc24969 (evidence/c1-e4/accept/): lp4 193/0, pocold 221/0, e2e_devnet 42/42, e2e_site 20/20, extension 234/234. Before: 3c3792e for the full LP10 integration",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "fc24969: e2e_browser 79/79, e2e_integrated 18/18. Before: 3c3792e",
+     "windows": "fc24969 (run 61, PASS). A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [
+    "OPEN: gas monotonicity in the domain fields (§4.1)",
+    "OPEN: R14/R19 timing is not a worst-case bound (§4.2); measured (journal round 3, §3.2a): one valid one-tx full-gas MODEXP block (small even modulus) validates in about 1.0 s, above the devnet t_exec = 1 s — 2026-10-28 (round 4, evidence/r4/boot/): after round 3's MODEXP fast paths, the slowest valid block measured validates in 0.40 s (shape sweep, median) against t_exec = 1 s, in whole-state mode; a grid and a seeded random search, not a bound. Still OPEN: what would bound it is decision row 2 (calibrating on the slowest kinds), not approved.",
+    "OPEN: allocator overhead and fragmentation (§4.3b); the boot gate keeps a 1/8 reserve for them, which is a margin, not a proof; the model total (5,581,426,268 B = 5.198 GiB at the round-3 code, 8039a09 and later; 5,577,343,580 B = 5.194 GiB at fa97594; 5,627,687,516 B = 5.241 GiB at 9ce5a7c) counts requested bytes — 2026-10-28: 5,581,321,485 B on 1074b47; 5,581,616,397 B (5.198 GiB) after the side set (87d2392); 5,581,944,077 B (5.199 GiB) after the side set's own 76 B term (review F-C); the gate is model × 8/7 ≤ 6 GiB, i.e. model ≤ 5.25 GiB (evidence/r4/README.md § 4).",
+    "OPEN, CRITICAL, partly addressed (decision package C-2 items 1-3, 49b2bc2 and 2ce03c1: on the same near-cap state, 380 transfers 22,553 ms before and 655 ms after on one loaded host; a CREATE2 block 4,862 -> 562 ms; an empty child 777 -> 465 ms, the state root remaining; the MODEXP block unchanged; evidence/c2-execution/). As measured in round 3 (journal round 3c, JOURNAL-GROWTH-AND-REPLAY.md §3.2d): a valid block of 380 transfers validates in about 10.2 s on a devnet state with accounts, slots and code near the caps, above T_blk = 4 s. Causes: every USER transaction runs code_caps::validate_snapshot and two whole-snapshot clones (native::execute_for_profile, build_engine), and every scan keccaks every runtime (code_caps::code_len), so each scan is O(accounts + slots + logical code bytes). On the same state a CREATE2-heavy child takes about 2.4 s and an empty block about 0.41 s; the create term code_caps::current_total is 0.47-0.54 s per 247-create block at the devnet ACCT_CAP (§3.2c). Lower bounds on the worst case",
+    "OPEN: CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) (§4.5–4.7); the whole world root is recomputed on every block (about +0.23 s per block near the devnet SLOT_CAP/ACCT_CAP; about 14.4 s per block at network caps, synthetic; §3.2b); the devnet open at H_END takes up to about 7.3 h, plus about 8.5 min for the TX_CAP-bounded transfer blocks (§3.3); pool re-execution of 50 abandoned one-tx MODEXP transactions in an adopting reorg took about 50 s (§5.3)",
+    "OPEN: RetentionStore and the redb trie are not implemented (§4.10); the specification's node targets <= 750 MiB plus 192 MiB RPC (network.md:158), pocold's in-memory architecture needs 5.198 GiB of model at the round-3 code (5.194 GiB at fa97594; 5.241 GiB at 9ce5a7c)",
+    "OPEN (journal obligation, local, no validity effect): journal disk growth; the append-only journal has no compaction and grows with every import and re-fetch (D-REORG-REDB-DESIGN-FREEZE.md R2.6); canonical maximum about 11.3 GiB at network caps and about 0.22 GiB on the devnet; the solicited re-fetch vector re-journals evicted in-window blocks per cycle and, with the fork point below K_hist, also rebuilds from genesis per cycle (JOURNAL-GROWTH-AND-REPLAY.md §2, §4)",
+    "OPEN (journal obligation): re-execution from genesis; open replays every record from genesis (Theta(H^2)); a deep-fork rebuild/restore below K_hist re-executes the fork point from genesis twice, because retain prunes the canonical fork point below head-K_hist: a depth-2048 reorg near the devnet tip takes 96 s on an empty chain and up to about 11 h under the worst measured kind (about 13 h with the state at the devnet caps), in two stalls that each exceed D_att (§5.3); no snapshot, reverse-diff or incremental-root mitigation is implemented",
+    "OPEN (journal obligation) and CONDITION (not in the steady-state bound): the open-time memory transient; open-time replay holds the whole journal (store::open, pre-existing) and a two-entry-per-record replay index; the transient is about 1.0x the journal on top of the steady resident chain, peak 2.1-5.7x the journal by block kind (§3.4); at the network maximum or under the adversarial journal it exceeds the budget, so a node can be pushed into a state where it cannot restart",
+    "The network profile is not admissible on pocold: the A13 history term TXBYTES_CAP = 8 GiB alone exceeds the 6 GiB budget, so every network figure is a projection, not a configuration this node boots",
+    "History term (caps track): caps::LOG_CAP is 2^24 in the caps-test build (a smaller, still valid upper bound there); sizing the devnet TX caps to cover H_END (CAPS-SUSTAINABILITY O2) puts the model at 11.12-14.62 GiB at fa97594, which fails the 6 GiB gate unless canonical history moves off the heap (CAPS-SUSTAINABILITY §5b)",
+    "INSPECTION only: transient-snapshot inventory, one EVM execution at a time, the answer-being-built tree ratio (§4.11, §4.13, §4.16)",
+    "DERIVED with stated revm 19.7 facts: execution memory, operation classes (§4.4, §3a)",
+    "No guaranteed process-memory ceiling exists (§2b)",
+    "PARTLY ADDRESSED (C-1 E4/E5, fc24969): the redb trie (state.redb) and D-6 checkpoints are implemented as an opt-in store mode; store mode answers as whole-state mode on every compared block, receipt and state query, and open from a checkpoint equals replay from genesis. Its network-profile model is 9.67 GiB (gate 11.05), above 6 GiB, so it is not the default and the network profile does not boot. Open: the D-7 value (owner), the code one execution reads (a gas-derived bound, not done), the pool's and the rebuild's code sets (E5), and state.redb's file factor at the adversarial scale (condition store-file-factor) [superseded on 2026-10-25: the D-7 value is approved and implemented, and the code sets are derived; see the D-7 entry]",
+    "PARTLY ADDRESSED (D-7 and the code-loading audit, ee14458; A13-DERIVATION §2d): the pool's layer follows its 4·GAS_LIMIT bound; a created account keeps every slot it loaded (one per 100 gas, witnessed), so the overlay and layer terms count it; store-mode code read by an execution stays one CODE_CAP set (an account load costs as little as 100 gas). Network model: store mode 7.61 GiB (gate 8.69), whole-state 25.24 GiB; above the 5.25 GiB cap by 2.36 GiB, and no non-normative option reaches it (proposals/DECISION-PACKAGE.md). R14/R19 timing does not include store mode's commit and fsync (evidence/d7-bound)",
+    "IMPLEMENTED (local, D-6's mechanism; 93a40d0 and 22a82c2; found 2026-10-27 at scale, evidence/memory-r14/scale-d30dc71/ckpt-instrumented.log): a checkpoint that dropped the oldest one released, inside its transaction on the consensus thread, every node only the dropped checkpoint held: 10.3-13.7 s at 950,000 accounts, so imports stalled up to 10.6 s every 1,024 records. Now the write owes the dropped checkpoint's nodes in a release table (finishing first what an earlier write left owed), release_step works off 256 owed references per fsynced transaction between events, and open finishes what is owed (release_all). Measured on 22a82c2 at the same size (scale-d30dc71/ckpt-22a82c2.log): the write 0.13-0.24 s; 1,399 steps, 50 ms at most (180 ms at most over the next release); 70 empty-block imports during the release 120 ms median, 155 ms max. Steps not fsynced (93a40d0) made each import's durable commit write their pages (379 ms median, 905 ms max) and let state.redb grow to 4.3-8.6 GB. A13: the file term counts (KEPT + 2) sets of held versions plus a release row per owed node; network store mode 5,581,321,485 B (5.198 GiB), 5.941 GiB required, under the 5.25 GiB cap. Tests: state_store a_dropped_checkpoint_is_released_in_steps_and_ends_as_a_release_in_the_write, consensus e4_checkpoint_release_runs_at_open_and_between_events, network_budget (the file term), crash-test crashes inside release steps 1, 20 and 60 (evidence/memory-r14/deferred-release/). reset_pins at open still costs about 12 s at that size. Independent review of 93a40d0 and 22a82c2 (evidence/memory-r14/review-2026-10-27/D6-REVIEW.md): nothing critical or high; fixed in the commit after dd85cc0: (1, medium) a storage error in a release step no longer marks the store damaged, only a release row that contradicts the counts does (a_release_step_that_fails_on_io_leaves_the_store_whole, a_release_row_that_contradicts_the_counts_marks_the_store_damaged); (2, low) pool slices and release steps alternate while both are pending (e4_release_steps_alternate_with_pool_slices); (3, low) no list of deleted ids is held; (4) the flag is set after the commit, stored_bytes counts the release rows, FORMAT 3 (a format-2 store opens as format 3), rows not references in the docs and stats"
+   ],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": [
+     "D-A13-BUDGET (owner approved option 1: local limits reduced, 6 GiB kept)",
+     "D-REORG-REDB (owner approved 2026-10-23 as a storage repair for R_keep adoption; D133 and validity unchanged; §4.18 implemented)",
+     "Journal mitigations (JOURNAL-GROWTH-AND-REPLAY.md §7: headers-first sync, dedupe markers, compaction behind a signed snapshot, reverse diffs, an O(window) retain and canonical index, keeping the fork-point state, an incremental state root with O(dirty) block checks, and bounding re-execution cost per gas): every one PROPOSED, none approved or implemented"
+    ]
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "PARTIALLY RESOLVED"
+  },
+  {
+   "id": "A14",
+   "severity": "LOW",
+   "title": "JSON-RPC responses not correlated with the request",
+   "reproduction": {
+    "onAuditedSnapshot": "REPRODUCED",
+    "by": "reconstructed witness (independently written from REPORT.md; the original audit programs were not received)",
+    "evidence": "evidence/baseline-090eae4.log"
+   },
+   "repairCommits": [
+    "51aa8f7",
+    "d132203"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "worker_test.mjs A14 (13 malformed shapes)",
+     "rpc unit tests (-32020 {resultBytes} carries the request id; round 3, network.md:210; it was -32008 before)"
+    ],
+    "witnessOnRepair": "NOT_REPRODUCED with its positive control (evidence/WITNESS-CONTROLS.md)",
+    "commits": {
+     "integration": "3c3792e for the full LP10 integration with real Chrome (not re-run since); pocold 184/0 and lp4 173/0 on the decision-package tree; e2e_devnet 42/42 twice on af2f3a8 binaries with the R4 checks (evidence/reviews-2026-10-24/r4-fixes/); e2e_site last on c959379",
+     "witness": "3c3792e (not re-run since)",
+     "realChrome": "3c3792e (not re-run since)",
+     "windows": "462fffc (Windows CI run 26 on 43e7e0f, PASS); the run on af2f3a8 was in progress when this was written. A Windows pass is not acceptance"
+    },
+    "windows": "Windows CI (audit-r2-windows-verify.yml, a pull_request trigger limited to PRs into claude/affectionate-pascal-rjhh2k; WINDOWS-VERIFICATION.md): runs 1-7 found and fixed four Windows defects (a retention.rkeep directory fsync Windows refuses; a dropped P2P peer's reader not woken by shutdown; a Nagle/delayed-ACK stall of about 200 ms on every RPC answer; kernel absorption of unread RPC answers, fixed by SO_SNDBUF 32 KiB plus a write cap of SEND_SOCK_BUF per call). PASS on every check: run 9 (29fd44a), run 16 (25bec25, the first run of the round-3 poll/WSAPoll code), run 19 (2b1a571), run 21 (1cc96c4) and run 22 (c959379) and run 26 (43e7e0f, code 462fffc, the last code commit). Run 20 (49ae9fa, same code as run 19) failed one timing test, abandoned_queued_bodies_are_capped_and_released; 1cc96c4 changed only that test's settings, and run 21 passed"
+   },
+   "partiallyResolved": [],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": []
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "round-2 changes reviewed by independent agent instances (two passes: the F1-F9 review of df63725 and the review of the D-A13-BUDGET range); round 3: per-track reviews by separate agent instances (caps: three; RpcGuard: three; journal: four; e2e: three); the last pass of each track (caps r3b, RpcGuard r3c, journal r3c, e2e round 4) is not reviewed yet; no external human audit",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)"
+  }
+ ],
+ "additionalFindings": [
+  {
+   "id": "CAPS-01",
+   "origin": "found during the repair (caps track, 2026-10-23); not an audit finding, so there is no reproduction on 090eae4",
+   "severity": "not rated by the audit",
+   "title": "The block builder ignored the chain-cumulative TX_CAP/TXBYTES_CAP: past exhaustion the node's own block was rejected '16 caps' and every height waited D_att+Γ for a fallback (74-78 s measured on the D_att=73 test devnet; about 30 s on the default devnet and about 330 s on the network profile, derived); starvation only when TX_CAP is below one block's count (tests only)",
+   "normative": false,
+   "conformance": "execution.md:83 (the builder skips past the remaining room); consensus.md:101 §4(a) (a violating template counts as absent); consensus.md:170 (item 16)",
+   "repairCommits": [
+    "bdb14bb",
+    "9094f98",
+    "c635594",
+    "5965b8d",
+    "e985ce1"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "pocold tests/caps.rs: the builder tests, a reorg at the exhaustion boundary, template locking and live single-miner nodes; 6/6 fail on the unfixed builder (evidence/caps/unfixed-*.log); the byte-exact TXBYTES boundary (round 2); the TXBYTES counter's block and branch, both directions, and the cross-block exact fit (round 3); the TX_CAP branch scope both ways and a boundary matrix of 11 TX_CAP and 12 TXBYTES_CAP cases (round 3b); caps.rs 9/0 on 2b1a571",
+     "mutation controls: round 2, 16/16 killed (c635594); round 3, 55/55 (5965b8d); round 3b, 84 mutants, 83 killed, R7 argued equivalent (e985ce1, evidence/caps-r3b/)",
+     "Windows CI: tests/caps.rs passes (run 15 for round 3; runs 19 and 21 for round 3b)"
+    ],
+    "evidence": [
+     "evidence/caps/ (README.md, README-r2.md)",
+     "evidence/caps-r3/",
+     "evidence/caps-r3b/",
+     "evidence/integration-r3/pocold-2b1a571.log"
+    ]
+   },
+   "relatedConformance": "caps-test build (validation.md:2065), a797c83: LOG_CAP = 2^24, simnet only, with tests/log_cap.rs. PARTIAL: HIST_TRIE_BUDGET = 64 MiB is not set, because pocold has no historical trie or K_eff",
+   "partiallyResolved": [
+    "The pool keeps transactions that can never be included after exhaustion, and a sender can squat the pool near the TXBYTES boundary for free (code inspection): the spec states no rule (network.md:149-153), so this is proposal N5"
+   ],
+   "openRelated": [
+    "No peer punishment for a violating template (consensus.md:101): pocold has no template peer scoring",
+    "eth_call/eth_estimateGas ignore the A03 halts (N7; code inspection only)",
+    "pocold's Hello lacks protocolVersion (network.md:7): a wire-format conformance gap outside the caps track",
+    "The base-fee effect of halted gas counted in gasUsed is from code inspection, not measured",
+    "No network-profile chain was run; network figures are model arithmetic",
+    "Commits 182026d, bdb14bb and ddf023a carry the cap tests with the builder unfixed, by design: tests/caps.rs fails at them (bisecting)"
+   ],
+   "blocked": {
+    "environment": [
+     "Not covered on Windows: the real-Chrome and Python e2e suites (not in the workflow), pocold's thread-count assertions (they read /proc), and the #[ignore] measurement tests"
+    ],
+    "decision": [
+     "CAPS-SUSTAINABILITY N1-N8 (proposals/CAPS-SUSTAINABILITY.md): PROPOSED, not approved"
+    ]
+   },
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "three agent reviews (CV-1..CV-12, R2C-1..R2C-6, C3R-1..C3R-4); the round-3b changes are not reviewed yet",
+   "disposition": "BLOCKED BY DECISION"
+  },
+  {
+   "id": "POOL-REINSERT-01",
+   "origin": "found during the repair (D-7 acceptance, e2e_integrated on 919a50c, 2026-10-25); not an audit finding, so there is no reproduction on 090eae4",
+   "severity": "not rated by the audit",
+   "title": "A transaction returned to the pool from an abandoned block was never relayed: when the node that held it alone was not drawn (it had left the active set during a partition longer than W_act), the transaction was never included",
+   "normative": false,
+   "conformance": "network.md (pool): a transaction returned after a reorg is re-checked; relaying it is a local policy. consensus.md §2: A_h (lastShare or graceStart within W_act) is unchanged",
+   "repairCommits": [
+    "8584283",
+    "90c4185"
+   ],
+   "implemented": "YES",
+   "verified": {
+    "status": "VERIFIED (Linux and Windows CI)",
+    "tests": [
+     "pocold tests/consensus.rs transactions_returned_from_an_abandoned_block_are_offered_to_the_peers (a loopback peer: each returned transaction once, the previous pool's not again, the peer kept, the counters) and src/net.rs an_offer_past_half_the_queue_is_refused_and_keeps_the_peer",
+     "mutation controls: evidence/d7-bound/mutants-relay.log 6 of 7 on 8584283 (R5, the offer arm calling send, survived the loopback test); after node::relay_tests::a_returned_transaction_is_not_queued_to_a_peer_past_half_its_queue (90c4185, a test peer whose queue is past half), evidence/d7-bound/mutants-relay-2.log: 7 of 7 killed",
+     "e2e_integrated on 8584283: 20/20 in three runs of three per mode; in each, c offered its 7 returned transactions (reinsertedOffered 7, reinsertedUnoffered 0). On 919a50c, before it: 2 of 4 FAIL (evidence/d7-bound/integrated-919a50c/)",
+     "Windows CI run 66: PASS"
+    ]
+   },
+   "openRelated": [
+    "A returned transaction that a peer refused, or that no peer had room for, stays with this node until it is drawn; it is not offered again",
+    "A member that left A_h returns only through reactivate (consensus.md §2); unchanged"
+   ],
+   "accepted": "NOT ACCEPTED (owner acceptance pending)",
+   "independentReview": "none yet",
+   "disposition": "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e)",
+   "blocked": {
+    "environment": [
+     "The e2e_integrated runs that exercise it are Linux-only: the Windows workflow runs the Rust tests (run 66) but not the e2e or Chrome suites"
+    ],
+    "decision": []
+   }
+  }
+ ],
+ "summary": {
+  "PARTIALLY RESOLVED": [
+   "A02",
+   "A05",
+   "A13"
+  ],
+  "BLOCKED BY DECISION": [
+   "A01",
+   "A03"
+  ],
+  "VERIFIED (Linux and Windows CI) — BLOCKED BY ENVIRONMENT (Windows e2e and thread counts)": [
+   "A04",
+   "A06",
+   "A07",
+   "A08",
+   "A09",
+   "A10",
+   "A11",
+   "A12",
+   "A14"
+  ],
+  "ACCEPTED": [],
+  "additionalFindings": {
+   "CAPS-01": "BLOCKED BY DECISION"
+  }
+ },
+ "round4": {
+  "date": "2026-10-28",
+  "commits": [
+   "3adc356",
+   "16838eb",
+   "118afd7",
+   "e028068",
+   "1074b47",
+   "a136f27",
+   "748b16d",
+   "eed8309",
+   "eb85bed",
+   "b4f13f3",
+   "719da04",
+   "87d2392",
+   "051dfaa",
+   "5cd7d43"
+  ],
+  "evidence": "evidence/r4/README.md",
+  "items": {
+   "1 seeded faults RV10-RV12": "KILLED by tests with deterministic I/O fault injection (evidence/r4/mutants-r4.log); none classed as equivalent. A defect found on the way: a state.redb I/O failure was taken as an invalid block; fixed (3adc356).",
+   "2 reorganization at a heal": "DONE: two deterministic tests (one per direction) and e2e_heal; controls K1-K3 (lighter branch, no reorg, no sync) each fail them.",
+   "3 failure evidence": "DONE: the harnesses keep node logs, inputs, seeds and Playwright traces on failure. The kept trace of the e2e_browser failure on 051dfaa shows the BR18 click timeout is the test's (the navigation completed in a new frame while Playwright's click on the torn-down frame never returned); the click on ad301e7 had the same signature but no trace. Still open without a shown cause: the e028068 admission refusal with debug assertions, reconnect_churn under heavy load (fails on 719da04 too), the Windows R14/R19 refusal on 1074b47. Found and fixed: the checkpoint refusal at reopen at large heights (the snapshot decoder's count guard took 134 bytes a record where 126 are written).",
+   "4 memory and storage": "PARTIAL: computed 5.198 GiB (store mode, network) against measured peaks of 455-486 MB on the workloads run (open at the state caps, pool at its gas bound, a full-write block, a reorg of 24, H_END of empty blocks). The model's largest terms (execution, code set, batch) were not driven to their worst; RPC and peers not at the caps; no R_keep-deep reorg at the caps. Journal: measured 2,011 B per empty record (260.6 MB at H_END); canonical bound about 11.3 GiB; side-block re-journal unbounded (decision row 5). An import that grew with H was fixed (eb85bed, 87d2392). On 5cd7d43 the grow to H_END took 2,184 s with a flat median import of 10-12 ms; VmHWM 601 MB at H_END. Its reopen was refused by the checkpoint decode guard (REC_MIN, fixed in 50f9207); on b375d4c the reopen at H_END resumed from checkpoint 129,024 in 13.3 s (evidence/r4/hend/hend-b375d4c-grow-and-reopen.log).",
+   "5 checkpoint open": "DONE for the profiled parts: 245/243 s -> 207/215 s on the same input (retain 74 s -> 14-16 s); the durable block commits (about 150 s) remain; an unsynced-commit attempt filled the disk and was reverted.",
+   "6 performance and boot": "DONE as measurements: R21, R22, A13 with actual values (BOOT-BLOCKERS-2026-10-28.md); R14/R19 phases 7-11 ms against 3,000 ms (not a bound); the slowest measured MODEXP block 0.40 s. The network profile does not boot. No limit raised, no consensus rule changed.",
+   "7 decision table": "DONE: proposals/DECISION-TABLE-2026-10-28.md (EN, AR). No open decision is taken by this round."
+  },
+  "notAccepted": "The PR stays a draft; nothing here is full acceptance."
+ }
+}

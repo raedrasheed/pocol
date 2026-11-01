@@ -1,0 +1,1363 @@
+{
+  "counts": {
+    "Complete": 41
+  },
+  "findings": {
+    "F01": {
+      "dependsOn": [],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F02": {
+      "dependsOn": [
+        "U22"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F03": {
+      "dependsOn": [],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F04": {
+      "dependsOn": [
+        "U02",
+        "U03",
+        "P-U02-1",
+        "P-U02-2"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F05": {
+      "dependsOn": [
+        "U04"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F06": {
+      "dependsOn": [
+        "U01"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F07": {
+      "dependsOn": [
+        "CR-M1-01",
+        "U36",
+        "P-D29-1",
+        "P-D29-2"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F08": {
+      "dependsOn": [
+        "U06",
+        "U22"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F09": {
+      "dependsOn": [
+        "U07",
+        "U08"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAfterRootReviewOf031",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F10": {
+      "dependsOn": [
+        "U09"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F11": {
+      "dependsOn": [
+        "U10",
+        "P-U10-1"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F12": {
+      "dependsOn": [
+        "U11",
+        "U22"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F13": {
+      "dependsOn": [],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F14": {
+      "dependsOn": [],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F15": {
+      "dependsOn": [],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F16": {
+      "dependsOn": [
+        "U12",
+        "U17"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F17": {
+      "dependsOn": [
+        "U10",
+        "U08",
+        "U11",
+        "P-U08-1",
+        "P-U10-1"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAfterRootReviewOf031",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F18": {
+      "dependsOn": [
+        "U13"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F19": {
+      "dependsOn": [
+        "U20"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F20": {
+      "dependsOn": [],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F21": {
+      "dependsOn": [
+        "U21"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F22": {
+      "dependsOn": [],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F23": {
+      "dependsOn": [
+        "U01"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F24": {
+      "dependsOn": [
+        "U16"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F25": {
+      "dependsOn": [
+        "U14",
+        "P-D29-1",
+        "P-D29-2",
+        "P-D29-3"
+      ],
+      "disposition": "closableAtSpecScope",
+      "from031": "closableAfterRootReviewOf031",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "F26": {
+      "dependsOn": [],
+      "disposition": "pendingRootRecordAll41",
+      "from031": "closableAtSpecScope",
+      "status": "Closed-M1-spec",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    }
+  },
+  "globalAcceptance": true,
+  "m1Complete": true,
+  "note": "a candidate matrix computed from executed evidence; root records Complete and F26 only after reviewing this run",
+  "rows": {
+    "B1": {
+      "basis": {
+        "c1": "R31 row.B1.criteria",
+        "c2": "R31 row.B1.criteria",
+        "c3": "R31 row.B1.criteria",
+        "c4": "R31 row.B1.criteria",
+        "c5": "R31 row.B1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B1.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Envelope, Bpre, B0-B4, errors, returned id",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B10": {
+      "basis": {
+        "c1": "R31 row.B10.criteria",
+        "c2": "R31 row.B10.criteria",
+        "c3": "R31 row.B10.criteria",
+        "c4": "R31 row.B10.criteria",
+        "c5": "R31 row.B10.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B10.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "BR19c in Chrome"
+      ],
+      "status": "Complete",
+      "title": "BR19a/b/c, BridgeRef decision rule",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B11": {
+      "basis": {
+        "c1": "R31 row.B11.criteria",
+        "c2": "R31 row.B11.criteria",
+        "c3": "R31 row.B11.criteria",
+        "c4": "R31 row.B11.criteria",
+        "c5": "R31 row.B11.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B11.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "BR16 generator and seed; refs; BridgeTrace",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B2": {
+      "basis": {
+        "c1": "R31 row.B2.criteria",
+        "c2": "R31 row.B2.criteria",
+        "c3": "R31 row.B2.criteria",
+        "c4": "R31 row.B2.criteria",
+        "c5": "R31 row.B2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B2.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Integer bucket; arrivalMs; pendingReads",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B3": {
+      "basis": {
+        "c1": "R31 row.B3.criteria",
+        "c2": "R31 row.B3.criteria",
+        "c3": "R31 row.B3.criteria",
+        "c4": "R31 row.B3.criteria",
+        "c5": "R31 row.B3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B3.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "httpsUrl in the browser"
+      ],
+      "status": "Complete",
+      "title": "(kind, method) matrix; str, pathStr, httpsUrl",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B4": {
+      "basis": {
+        "c1": "R31 row.B4.criteria",
+        "c2": "R31 row.B4.criteria",
+        "c3": "R31 row.B4.criteria",
+        "c4": "R31 row.B4.criteria",
+        "c5": "R31 row.B4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B4.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "SiteStorage and Navigator semantics",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B5": {
+      "basis": {
+        "c1": "R31 row.B5.criteria",
+        "c2": "R31 row.B5.criteria",
+        "c3": "R31 row.B5.criteria",
+        "c4": "R31 row.B5.criteria",
+        "c5": "R31 row.B5.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B5.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Explicitly tested deny list",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B6": {
+      "basis": {
+        "c1": "R31 row.B6.criteria",
+        "c2": "R31 row.B6.criteria",
+        "c3": "R31 row.B6.criteria",
+        "c4": "R31 row.B6.criteria",
+        "c5": "R31 row.B6.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B6.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Single write path to WalletSubmit",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B7": {
+      "basis": {
+        "c1": "R31 row.B7.criteria",
+        "c2": "R31 row.B7.criteria",
+        "c3": "R31 row.B7.criteria",
+        "c4": "R31 row.B7.criteria",
+        "c5": "R31 row.B7.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B7.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "dependency-cruiser and ESLint verdicts in CI"
+      ],
+      "status": "Complete",
+      "title": "dependency-cruiser rule text",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B8": {
+      "basis": {
+        "c1": "R31 row.B8.criteria",
+        "c2": "R31 row.B8.criteria",
+        "c3": "R31 row.B8.criteria",
+        "c4": "R31 row.B8.criteria",
+        "c5": "R31 row.B8.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B8.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "BR runs in Chrome on anvil-br with RpcTap",
+        "BR10 (row V2)"
+      ],
+      "status": "Complete",
+      "title": "BR1-BR14, BR17-BR18 byte-exact; txA; RpcTap; zero request",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "B9": {
+      "basis": {
+        "c1": "R31 row.B9.criteria",
+        "c2": "R31 row.B9.criteria",
+        "c3": "R31 row.B9.criteria",
+        "c4": "R31 row.B9.criteria",
+        "c5": "R31 row.B9.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.B9.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Full BR17e table (24 messages)",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "C1": {
+      "basis": {
+        "c1": "R31 row.C1.criteria",
+        "c2": "R31 row.C1.criteria",
+        "c3": "R31 row.C1.criteria",
+        "c4": "R31 row.C1.criteria",
+        "c5": "R31 row.C1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.C1.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "REVIEW-DECISIONS-0.30.json"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Initcode, address formula, 3 vectors",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "C2": {
+      "basis": {
+        "c1": "R31 row.C2.criteria",
+        "c2": "R31 row.C2.criteria",
+        "c3": "R31 row.C2.criteria",
+        "c4": "R31 row.C2.criteria",
+        "c5": "R31 row.C2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.C2.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "REVIEW-DECISIONS-0.30.json"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Manifest encoding and normalization",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "C3": {
+      "basis": {
+        "c1": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c2": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c3": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c4": "R31 row.C3.criteria",
+        "c5": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.C3.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "REVIEW-DECISIONS-0.31.json"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Website slots and permissions",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "C4": {
+      "basis": {
+        "c1": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c2": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c3": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c4": "R31 row.C4.criteria",
+        "c5": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.C4.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "REVIEW-DECISIONS-0.31.json"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "T1 and T16 with literal inputs",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "E1": {
+      "basis": {
+        "c1": "R31 row.E1.criteria",
+        "c2": "R31 row.E1.criteria",
+        "c3": "R31 row.E1.criteria",
+        "c4": "R31 row.E1.criteria",
+        "c5": "R31 row.E1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.E1.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Epoch item and record names, values, largest-wins",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "E2": {
+      "basis": {
+        "c1": "R31 row.E2.criteria",
+        "c2": "R31 row.E2.criteria",
+        "c3": "R31 row.E2.criteria",
+        "c4": "R31 row.E2.criteria",
+        "c5": "R31 row.E2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.E2.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "D134: shared name per E, name gate, sweep, lemmas, BR22h, SR-model",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "E3": {
+      "basis": {
+        "c1": "R31 row.E3.criteria",
+        "c2": "R31 row.E3.criteria",
+        "c3": "R31 row.E3.criteria",
+        "c4": "R31 row.E3.criteria",
+        "c5": "R31 row.E3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.E3.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "BR22c in Chrome with CDP"
+      ],
+      "status": "Complete",
+      "title": "Fence and recovery; lemmas; viewer on loss; BR22a; BR22b/c",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "E4": {
+      "basis": {
+        "c1": "R31 row.E4.criteria",
+        "c2": "R31 row.E4.criteria",
+        "c3": "R31 row.E4.criteria",
+        "c4": "R31 row.E4.criteria",
+        "c5": "R31 row.E4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.E4.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "D104: RecoveryGate, SeqAlloc, fmt 2, RECORD_BYTES_MAX, disk, window, sweep, tombstone",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "E5": {
+      "basis": {
+        "c1": "R31 row.E5.criteria",
+        "c2": "R31 row.E5.criteria",
+        "c3": "R31 row.E5.criteria",
+        "c4": "R31 row.E5.criteria",
+        "c5": "R31 row.E5.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.E5.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "BR22d (V-a..V-e), BR22e, BR22f, BR22g, 25 s derivation",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "E6": {
+      "basis": {
+        "c1": "R31 row.E6.criteria",
+        "c2": "R31 row.E6.criteria",
+        "c3": "R31 row.E6.criteria",
+        "c4": "R31 row.E6.criteria",
+        "c5": "R31 row.E6.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.E6.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "REVIEW-DECISIONS-0.30.json"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "BR23 (d1-d11, d11b), BR24, AdminDelete/DiskLedger/AdminSlots; constants; BR22f-f5",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "E7": {
+      "basis": {
+        "c1": "R31 row.E7.criteria",
+        "c2": "R31 row.E7.criteria",
+        "c3": "R31 row.E7.criteria",
+        "c4": "R31 row.E7.criteria",
+        "c5": "R31 row.E7.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.E7.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "DeleteOp; sitesLive; tomb rules; BR23 (d15c)",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "Q1": {
+      "basis": {
+        "c1": "R31 row.Q1.criteria",
+        "c2": "R31 row.Q1.criteria",
+        "c3": "R31 row.Q1.criteria",
+        "c4": "R31 row.Q1.criteria",
+        "c5": "R31 row.Q1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.Q1.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "qbytes, counters, FIFO, global limit, timeouts",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "Q2": {
+      "basis": {
+        "c1": "R31 row.Q2.criteria",
+        "c2": "R31 row.Q2.criteria",
+        "c3": "R31 row.Q2.criteria",
+        "c4": "R31 row.Q2.criteria",
+        "c5": "R31 row.Q2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.Q2.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Teardown and wait-before-snapshot",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "Q3": {
+      "basis": {
+        "c1": "R31 row.Q3.criteria",
+        "c2": "R31 row.Q3.criteria",
+        "c3": "R31 row.Q3.criteria",
+        "c4": "R31 row.Q3.criteria",
+        "c5": "R31 row.Q3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.Q3.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "BR21c in Chrome",
+        "BR21d real loader"
+      ],
+      "status": "Complete",
+      "title": "BR21a, BR21b, BR21e, BR21f; TQ; BR21c/d",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "Q4": {
+      "basis": {
+        "c1": "R31 row.Q4.criteria",
+        "c2": "R31 row.Q4.criteria",
+        "c3": "R31 row.Q4.criteria",
+        "c4": "R31 row.Q4.criteria",
+        "c5": "R31 row.Q4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.Q4.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "BridgeRef/SiteStorageRef StoreQueue extension",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "R1": {
+      "basis": {
+        "c1": "R31 row.R1.criteria",
+        "c2": "R31 row.R1.criteria",
+        "c3": "R31 row.R1.criteria",
+        "c4": "R31 row.R1.criteria",
+        "c5": "R31 row.R1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.R1.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "REVIEW-DECISIONS-0.30.json"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "RECV_LIMIT table; WorstLegit; RecvFit",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "R2": {
+      "basis": {
+        "c1": "R31 row.R2.criteria",
+        "c2": "R31 row.R2.criteria",
+        "c3": "R31 row.R2.criteria",
+        "c4": "R31 row.R2.criteria",
+        "c5": "R31 row.R2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.R2.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "MaliciousHttp over sockets",
+        "CAP1",
+        "MR7 timing",
+        "MR10d memory"
+      ],
+      "status": "Complete",
+      "title": "MR6b-MR6d, CAP1, RF1-RF4, MR10a-MR10f",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "R3": {
+      "basis": {
+        "c1": "R31 row.R3.criteria",
+        "c2": "R31 row.R3.criteria",
+        "c3": "R31 row.R3.criteria",
+        "c4": "R31 row.R3.criteria",
+        "c5": "R31 row.R3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.R3.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Read steps 1-6 and the pools",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "R4": {
+      "basis": {
+        "c1": "R31 row.R4.criteria",
+        "c2": "R31 row.R4.criteria",
+        "c3": "R31 row.R4.criteria",
+        "c4": "R31 row.R4.criteria",
+        "c5": "R31 row.R4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.R4.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "MaliciousHttp over sockets"
+      ],
+      "status": "Complete",
+      "title": "MaliciousHttp scripts MR1-MR12",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "S1": {
+      "basis": {
+        "c1": "R31 row.S1.criteria",
+        "c2": "R31 row.S1.criteria",
+        "c3": "R31 row.S1.criteria",
+        "c4": "R31 row.S1.criteria",
+        "c5": "R31 row.S1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.S1.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "SiteSession lifecycle; orphan request states",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "S2": {
+      "basis": {
+        "c1": "R31 row.S2.criteria",
+        "c2": "R31 row.S2.criteria",
+        "c3": "R31 row.S2.criteria",
+        "c4": "R31 row.S2.criteria",
+        "c5": "R31 row.S2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.S2.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "Navigation bucket formula",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "S3": {
+      "basis": {
+        "c1": "R31 row.S3.criteria",
+        "c2": "R31 row.S3.criteria",
+        "c3": "R31 row.S3.criteria",
+        "c4": "R31 row.S3.criteria",
+        "c5": "R31 row.S3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.S3.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "BR20c/BR20d in Chrome"
+      ],
+      "status": "Complete",
+      "title": "Corrected BR20a table; BR20b; BR20c script",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "S4": {
+      "basis": {
+        "c1": "R31 row.S4.criteria",
+        "c2": "R31 row.S4.criteria",
+        "c3": "R31 row.S4.criteria",
+        "c4": "R31 row.S4.criteria",
+        "c5": "R31 row.S4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.S4.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "BridgeRef session extension",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "V1": {
+      "basis": {
+        "c1": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c2": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c3": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows",
+        "c4": "R31 row.V1.criteria",
+        "c5": "REVIEW-DECISIONS-0.31 acceptedSpecScopeRows + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.V1.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "REVIEW-DECISIONS-0.31.json"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "HeaderNetCheck vectors",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "V2": {
+      "basis": {
+        "c1": "R31 row.V2.criteria",
+        "c2": "R31 row.V2.criteria",
+        "c3": "R31 row.V2.criteria",
+        "c4": "R31 row.V2.criteria",
+        "c5": "R31 row.V2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.V2.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "TS-LC",
+        "BR10",
+        "RG3",
+        "RG3-bridge",
+        "RG3b",
+        "RG9"
+      ],
+      "status": "Complete",
+      "title": "LogClient vectors",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "V3": {
+      "basis": {
+        "c1": "R31 row.V3.criteria",
+        "c2": "R31 row.V3.criteria",
+        "c3": "R31 row.V3.criteria",
+        "c4": "R31 row.V3.criteria",
+        "c5": "R31 row.V3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.V3.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "NetworkProfiles.validate: GSV1, N1, N6, N11",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "V4": {
+      "basis": {
+        "c1": "R31 row.V4.criteria",
+        "c2": "R31 row.V4.criteria",
+        "c3": "R31 row.V4.criteria",
+        "c4": "R31 row.V4.criteria",
+        "c5": "R31 row.V4.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.V4.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "X8 matrix in Chrome/CDP",
+        "C7 per-path windows"
+      ],
+      "status": "Complete",
+      "title": "X8: pages C1-C8, flags K0-K5",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "X1": {
+      "basis": {
+        "c1": "R31 row.X1.criteria",
+        "c2": "R31 row.X1.criteria",
+        "c3": "R31 row.X1.criteria",
+        "c4": "R31 row.X1.criteria",
+        "c5": "R31 row.X1.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.X1.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [],
+      "status": "Complete",
+      "title": "netKey with vector (777001, 0x11 x 32)",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "X2": {
+      "basis": {
+        "c1": "R31 row.X2.criteria",
+        "c2": "R31 row.X2.criteria",
+        "c3": "R31 row.X2.criteria",
+        "c4": "R31 row.X2.criteria",
+        "c5": "R31 row.X2.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.X2.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "browser run of the race scenarios"
+      ],
+      "status": "Complete",
+      "title": "signEligible",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    },
+    "X3": {
+      "basis": {
+        "c1": "R31 row.X3.criteria",
+        "c2": "R31 row.X3.criteria",
+        "c3": "R31 row.X3.criteria",
+        "c4": "R31 row.X3.criteria",
+        "c5": "R31 row.X3.criteria + history.globalClosure (C33-C36 verified closed; C37 closure computed in this run)"
+      },
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "genuineBlockers": [],
+      "links": {
+        "r31RowCheck": "row.X3.criteria",
+        "r31Sha256": "e61bf8dd8704151f21108b599b626349e4805bd0b554b68dbfd8f2dce3b52d0f",
+        "review": "the 34 earlier candidates (root reviews 0.2-0.28, bound in 0.29-0.31)"
+      },
+      "phaseA": [
+        "X1-X7, d1-d5 and Q8-Q12 in Chrome with anvil"
+      ],
+      "status": "Complete",
+      "title": "Q8-Q12, X1-X7, d1-d5",
+      "finalRootReview": "coordination/review-001/REVIEW-0.32.md"
+    }
+  },
+  "schema": "pocol-m1-root-acceptance/0.32",
+  "acceptedAt": "2026-10-08T09:54:12.799Z",
+  "acceptedBy": "Codex localcoordinator independentreview",
+  "scope": "M1specifications/fixtures/referenceclaims/experimentdefinitions",
+  "personalOwnerApproval": false,
+  "productionApproved": false,
+  "evidence": {
+    "suite": "coordination/review-001/m1-draft-0.32/results/run-results-0.32.json",
+    "independent": "coordination/review-001/final-gate-independent-032.json",
+    "history": "coordination/review-001/history-independent-032.json",
+    "closure": "coordination/review-001/m1-draft-0.32/results/history-closure-0.32.json"
+  }
+}

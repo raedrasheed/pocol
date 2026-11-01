@@ -1,0 +1,47 @@
+name: Independent testnet keys and enrollment
+on:
+  pull_request:
+    branches: [main, codex/private-testnet, codex/english-only]
+    paths: ['prototypes/pocold/**', 'prototypes/lp4-execution/**', 'prototypes/lp1-node/**', 'deploy/private-testnet/**', '.github/workflows/independent-testnet-keys.yml']
+  push:
+    branches: [main]
+    paths: ['prototypes/pocold/**', '.github/workflows/independent-testnet-keys.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  keys-and-enrollment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: '2'
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Build and key/genesis controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          git rev-parse HEAD > evidence/commit.txt
+          rustup toolchain install 1.99.1 --profile minimal
+          cargo +1.99.1 build --release --locked --bins --manifest-path prototypes/pocold/Cargo.toml 2>&1 | tee evidence/build.log
+          python3 prototypes/pocold/tests/independent_keys.py -v 2>&1 | tee evidence/controls.log
+      - name: Real local nodes, independent signatures, enrollment and site
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 prototypes/pocold/tests/e2e_independent_keys.py --work "$RUNNER_TEMP/independent-key-test" 2>&1 | tee evidence/integration.log
+      - name: Preserve public results only (never secret files)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: independent-keys-${{ env.EXPECTED_COMMIT }}
+          path: |
+            evidence/
+            ${{ runner.temp }}/independent-key-test/public-evidence/
+          retention-days: 14

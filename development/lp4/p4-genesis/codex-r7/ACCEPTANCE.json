@@ -1,0 +1,19 @@
+{
+  "scope": "Partial sealed genesis/factory/signed USER/issuance integration",
+  "rustPassed": 96,
+  "independentGenesisMembers": [
+    4,
+    1024
+  ],
+  "independentSignedCases": 8,
+  "compiledIssuanceControls": 13,
+  "compiledIntegrationControls": 2,
+  "remainingSyntheticRoles": [
+    "ShareLedger"
+  ],
+  "incompleteActualRoles": [
+    "Escrow settlement/finalization"
+  ],
+  "all27FullGates": "NOT PASSED",
+  "bootable": false
+}

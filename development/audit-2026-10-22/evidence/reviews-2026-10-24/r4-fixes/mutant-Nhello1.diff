@@ -1,0 +1,15 @@
+ prototypes/pocold/src/node.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+diff --git a/prototypes/pocold/src/node.rs b/prototypes/pocold/src/node.rs
+index 480e3f9..5b009f6 100644
+--- a/prototypes/pocold/src/node.rs
++++ b/prototypes/pocold/src/node.rs
+@@ -746,7 +746,7 @@ impl Node{
+                 let stale=prev.map_or(false,|p|p.stale&&p.head==head);
+                 let st=PeerStatus{work:U256::from_be_bytes(work),head,height,stale};
+                 let start=first&&self.session.is_none()&&height>0&&self.wants(&st);
+-                self.peer_status.insert(from,st);
++                if first{self.peer_status.insert(from,st);}
+                 if start{self.start_session(from,now_ms());}
+             }
+             Msg::Block{header,body}=>{

@@ -1,0 +1,13 @@
+# Claude author turn017 ? new0.19: V2 LogClient specification and reference fixtures
+
+Write ONLY NEW m1-draft-0.19. Accepted0.18; read REVIEW-0.18.md. Runner run_checks_019.py, new results only. Read latest accepted review/ledger read-only. Specs and fixtures only; no browser/production implementation, shell, installs, old edits, owner approvals or agent loops.
+
+Sources: reference/browser.md:74-141 (D89/D91), validation.md LC1-LC18 full section, implementation checklist V2 and approved baseline. Create English normative annex, pure-stdlib manual-clock reference FSM/MockLogServer/SinkChecker and hand-derived goldens. Do not derive expected results from the model.
+
+Cover ALL LC1-LC18 and variants with full request logs, fixed branch A/B/A-prime hashes and canonical RefA/B/A-prime log lists. Exact literal totals LC1=5 LC5=5 LC8=7 LC10=4 sent (no fifth precommit) LC16=11 LC17=12 (restart exhaustion variant8), LC18=10. Compare complete final log contents and hashes, never just count/projected keys. Preserve piece histories and explicitly discard every aborted attempt. Faulty consumer LC16 must expose18logs and stale A hashes.
+
+Pure step table: P1 reasons resultBytes/resultCount/scanBytes require a<=lc<=b-1; RES deadline/scratch a-1<=lc<=b-1. Unknown reason/invalid lc =>serverViolation. P1 prefix inherits withinLimit recursively, repeatP1 onmarked range violates, RESallowed. Prefix completes beforetail, nojump. RES lc<a splits midpoint exceptsingleton retries500ms three retries/four replies then preciseerror. -32021 waits retryAfterMs, incrementsrequest counters butnot singletonretrycounter. -32022 restartmax3/fourattempts; -32601 unsupported. Strict Complete ordering/blockrange/perheightblockhash/appendcontinuity. Anchorfromlatest, beyondHeadabort, precommit sameanchor.number/hash, totalcounter acrossaborts, maxRequestscheckBEFOREsend.
+
+Sink S-a..e independently check begin/piece/one terminal, no afterterminal/no overlap, atmostonecommit finalattempt, range coverage, actualMockrequestcounts. Deliberate controls violationdetection, partialcontentsneverreturnedfetchAll. fetchAll4MiB/30s/4096, fetchEachtestonly600s/65536; no exposingfetchEach towebsites. Fake clock timeout/retryboundaries inclusive derived; scripted replyscripts exact and negativecases malformed/unordered/changedhash.
+
+Standalone new runner inputSHA/coverageguards and safe positional-only diagnosticboundary. Reuse accepted fixtures read-only, no old main/results writes. If any sourceconflict show concrete case and recordgap/proposed supplement, do not silently redefine. Honest V2Partial (no actualChrome/TS/RPCserver), ownersfullgate/CONF_DEPTH/CR-E4proposals unchanged. Returnfiles andnotexecutedstatement.

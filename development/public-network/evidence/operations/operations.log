@@ -1,0 +1,12 @@
+test_backup_respects_both_locks_and_never_includes_keys (__main__.Operations.test_backup_respects_both_locks_and_never_includes_keys) ... ok
+test_checksums_reject_links_extras_and_traversal (__main__.Operations.test_checksums_reject_links_extras_and_traversal) ... ok
+test_duplicate_json_keys_are_refused (__main__.Operations.test_duplicate_json_keys_are_refused) ... ok
+test_inventory_rejects_exposure_and_injection_errors (__main__.Operations.test_inventory_rejects_exposure_and_injection_errors) ... ok
+test_monitor_rejects_unsafe_urls_before_any_io (__main__.Operations.test_monitor_rejects_unsafe_urls_before_any_io) ... ok
+test_public_build_digest_recomputed_independently (__main__.Operations.test_public_build_digest_recomputed_independently) ... ok
+test_restore_rejects_tampering_wrong_identity_and_existing_target (__main__.Operations.test_restore_rejects_tampering_wrong_identity_and_existing_target) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.050s
+
+OK

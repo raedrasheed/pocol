@@ -1,0 +1,15 @@
+{
+  "result": "FAIL",
+  "manifestFiles": 290,
+  "referenceSections": 12,
+  "translatedArchives": 2,
+  "rawArabicFiles": [],
+  "thesisUnchanged": true,
+  "errors": [
+    "Current digest: prototypes/pocold/src/node.rs",
+    "Current digest: prototypes/pocold/src/rpc.rs",
+    "Current digest: prototypes/pocold/tests/consensus.rs",
+    "Current digest: prototypes/pocold/tests/e2e_devnet.py",
+    "Current digest: prototypes/pocold/tests/net.rs"
+  ]
+}

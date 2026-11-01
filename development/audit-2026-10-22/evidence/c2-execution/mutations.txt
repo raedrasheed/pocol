@@ -1,0 +1,9 @@
+M1 USER total not updated after a commit | CAUGHT | code_caps_engine_tests::user_phase_keeps_the_code_total_across_transactions
+M2 create hook ignores the journal's base accounts | CAUGHT | code_caps_engine_tests::independent_engine_limits_with_a_known_code_total
+M3 USER phase skips its one-time check | CAUGHT | code_caps_engine_tests::user_phase_checks_its_snapshot_once_at_the_first_transaction
+M4 revalidate_touched skips the CODE_CAP check | SURVIVED | 
+M5 revalidate_touched skips the B_code_max check | SURVIVED | 
+M6 apply: stale total after the USER phase | SURVIVED | 
+M7 system: stale total after the USER phase | SURVIVED | 
+M8 StateRef reads every slot as zero | CAUGHT | admission::tests::approved_p11_timing_profile_is_admitted, admission::tests::calibration_keeps_the_full_gas_workload_through_a_long_closing_sequence, admission::tests::audit_reproductions_are_rejected_with_their_rules, admission::tests::approved_single_host_devnet_is_admitted_with_reported_provenance
+M9 PAY durability on an empty state | CAUGHT | admission::tests::audit_reproductions_are_rejected_with_their_rules, admission::tests::approved_single_host_devnet_is_admitted_with_reported_provenance, admission::tests::approved_p11_timing_profile_is_admitted, admission::tests::calibration_keeps_the_full_gas_workload_through_a_long_closing_sequence

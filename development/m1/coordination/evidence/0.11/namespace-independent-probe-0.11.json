@@ -1,0 +1,9 @@
+{
+  "requirement": "reference/browser.md:509-510 raw pocol:epoch:* EN+1<=8 before issue",
+  "initialPhysicalPrefixNames": 8,
+  "actualPhysicalPrefixNames": 9,
+  "limit": 8,
+  "generationState": "confirmed",
+  "reportedViolations": [],
+  "passed": false
+}

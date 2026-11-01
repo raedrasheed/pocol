@@ -1,0 +1,43 @@
+{"corpus":"S8 TS Genesis","seed":"0x5338c0de","counts":{"L0":6458,"ok":4871,"gsCount":366,"gsStructure":129,"gsInt":86,"gsRange":65,"gsOrder":19,"gsVersion":6}}
+✔ AS1-AS19 targets, traces and bounded intermediates (2.983659ms)
+✔ 1027 previously frozen ASERT rows (20.286327ms)
+✖ timing metrics, TJ1-4 and overflow equality (11.373456ms)
+✔ membership, partition completeness, owner and exact hashes (3.798805ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (3.681741ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (11.862082ms)
+✔ full schema width/order/reserved failures and deep malformed framing (20.572658ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (118.922289ms)
+✔ SV1-SV5/SV7/SV7s pure settlement arithmetic; execution and SV6 deferred LP4 (2.482628ms)
+✔ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (3.491983ms)
+✔ S8 seeded adversarial Genesis framing and canonical acceptance (911.420356ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1129.28341
+
+✖ failing tests:
+
+test at prototypes/.cf-mut-_84lsmjg/tests.ts:29:1
+✖ timing metrics, TJ1-4 and overflow equality (11.373456ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(m.arrivesByDeadline(1009000n,1009000n))
+  
+      at TestContext.<anonymous> (file:///workspace/Proof-of-Collaboration/prototypes/.cf-mut-_84lsmjg/tests.ts:33:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

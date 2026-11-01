@@ -1,0 +1,10 @@
+# e2e-integrated-whole-state-2: (cd prototypes/pocol-extension; node tests/e2e_integrated.mjs)
+# start 2026-10-27T14:52:51Z
+PASS every node runs in the requested state mode — stateStore=false,false,false
+PASS fresh-directory launch: 3 pocold processes produce and agree — t=15s
+PASS BR15 pocol_getTemplate with Origin -> -32601; without Origin -> served — {"code":-32601,"message":"method not available to sites"}
+FAIL LP10 driver completed — ReferenceError: Cannot access 'work' before initialization
+    at main (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7c/prototypes/pocol-extension/tests/e2e_integrated.mjs:68:21)
+    at process.processTicksAndRejections (node:internal/pro
+{"result":"FAIL","checks":4,"failed":1,"work":"/tmp/pocol-lp10-VfhhZP"}
+# end 2026-10-27T14:53:07Z exit=1

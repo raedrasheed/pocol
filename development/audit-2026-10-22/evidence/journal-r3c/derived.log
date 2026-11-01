@@ -1,0 +1,254 @@
+== journal r3 derived figures: python3 -I tools/journal_projections.py evidence (from development/audit-2026-10-22) ==
+Inputs: journal-r3/*.log (code 7f587bb), journal-measure.log (stage-A JM-REPLAY), journal-measure-r2.log (round 2).
+Projections are arithmetic on measured per-block costs, not measurements of a chain of that height.
+
+[1] open(H) = a*H + (b/2)*H^2, empty blocks
+  stage A (3 pts) a=2.2620 ms b=4.5916e-04 ms  net H=129600: a-term 293 s + b-term 3856 s = 4149 s = 69.2 min = 1.15 h
+      H=  1000 meas     2.63 s  fit     2.49 s
+      H=  5000 meas    17.01 s  fit    17.05 s
+      H= 20000 meas   137.07 s  fit   137.07 s
+  r3 (6 pts)     a=2.0479 ms b=4.3789e-04 ms  net H=129600: a-term 265 s + b-term 3677 s = 3943 s = 65.7 min = 1.10 h
+      H=  1000 meas     2.54 s  fit     2.27 s
+      H=  2500 meas     6.85 s  fit     6.49 s
+      H=  5000 meas    15.90 s  fit    15.71 s
+      H= 10000 meas    42.42 s  fit    42.37 s
+      H= 15000 meas    79.45 s  fit    79.98 s
+      H= 20000 meas   128.80 s  fit   128.54 s
+  two-point  1000- 2500: a=2.4016 ms b=2.6953e-04 ms -> net 2575 s = 42.9 min = 0.72 h
+  two-point  2500- 5000: a=2.2972 ms b=3.5303e-04 ms -> net 3262 s = 54.4 min = 0.91 h
+  two-point  5000-10000: a=2.1171 ms b=4.2506e-04 ms -> net 3844 s = 64.1 min = 1.07 h
+  two-point 10000-15000: a=2.1339 ms b=4.2171e-04 ms -> net 3818 s = 63.6 min = 1.06 h
+  two-point 15000-20000: a=1.8662 ms b=4.5740e-04 ms -> net 4083 s = 68.1 min = 1.13 h
+  network empty-block open range (LS fits and the three highest two-point fits): 64-69 min
+  b-term (r3 LS): devnet 88 s, network 3677 s
+
+[2] JM-SPLIT (bare-chain replay, 20 buckets): insert+retain slope 4.6596e-04 ms/height; vs r3 fitted b 4.3789e-04 ms -> 106% attributed
+    first/last bucket: validate 2.446/2.199 insert 0.041/2.152 retain 0.082/6.437 ms
+    bare replay total over 20 buckets = 127.6 s vs Node::open at H=20000 128.8 s -> 99% of open explained
+
+[3] JM-EXEC: per-block validate (median) of one-tx full-gas blocks, sorted by net ns/gas
+  modexp_b8_e1024_m8_even        1023.0 ms  net 128.48 ns/gas  body  1271 B  x jump_loop 124.7
+  modexp_b8_e4096_m8_even        1013.8 ms  net 127.31 ns/gas  body  4343 B  x jump_loop 123.5
+  modexp_b1_e1024_m1_even        1001.5 ms  net 125.77 ns/gas  body  1257 B  x jump_loop 122.0
+  modexp_b4_e1024_m4_even         987.9 ms  net 124.06 ns/gas  body  1263 B  x jump_loop 120.4
+  modexp_b8_e256_m8_even          979.7 ms  net 123.02 ns/gas  body   503 B  x jump_loop 119.4
+  modexp_b2_e1024_m2_even         957.4 ms  net 120.22 ns/gas  body  1258 B  x jump_loop 116.7
+  modexp_b8_e1024_m8_odd          653.6 ms  net  82.00 ns/gas  body  1271 B  x jump_loop  79.6
+  modexp_b1_e1024_m1_odd          532.1 ms  net  66.72 ns/gas  body  1257 B  x jump_loop  64.8
+  modexp_b8_e1024_m8_pow2         423.6 ms  net  53.08 ns/gas  body  1271 B  x jump_loop  51.6
+  modexp_b16_e1024_m16_even       374.9 ms  net  46.95 ns/gas  body  1286 B  x jump_loop  45.7
+  modexp_b8_e32_m8_even           328.3 ms  net  41.09 ns/gas  body   278 B  x jump_loop  40.0
+  bn_pair_10                      264.9 ms  net  33.11 ns/gas  body  2055 B  x jump_loop  32.3
+  modexp_b16_e1024_m16_odd        262.6 ms  net  32.82 ns/gas  body  1287 B  x jump_loop  32.0
+  bn_pair_2                       238.4 ms  net  29.78 ns/gas  body   519 B  x jump_loop  29.0
+  bn_pair_1                       224.7 ms  net  28.05 ns/gas  body   326 B  x jump_loop  27.4
+  kzg_point_eval                  209.5 ms  net  26.14 ns/gas  body   326 B  x jump_loop  25.5
+  modexp_b24_e1024_m24_even       194.2 ms  net  24.22 ns/gas  body  1303 B  x jump_loop  23.7
+  modexp_b8_e32_m8_odd            187.1 ms  net  23.33 ns/gas  body   278 B  x jump_loop  22.8
+  bn_mul                          178.0 ms  net  22.18 ns/gas  body   226 B  x jump_loop  21.7
+  modexp_b1_e32_m1_odd            177.6 ms  net  22.13 ns/gas  body   260 B  x jump_loop  21.6
+  keccak_1KiB                     140.4 ms  net  17.45 ns/gas  body   110 B  x jump_loop  17.1
+  modexp_b32_e1024_m32_even       133.2 ms  net  16.55 ns/gas  body  1319 B  x jump_loop  16.2
+  bn_add                          128.9 ms  net  16.00 ns/gas  body   259 B  x jump_loop  15.7
+  modexp_b32_e1024_m32_odd        124.7 ms  net  15.48 ns/gas  body  1319 B  x jump_loop  15.2
+  blake2f_100k                    114.7 ms  net  14.22 ns/gas  body   347 B  x jump_loop  14.0
+  keccak_32KiB                    110.0 ms  net  13.63 ns/gas  body   110 B  x jump_loop  13.4
+  modexp_b32_e32_m32_odd          109.4 ms  net  13.55 ns/gas  body   326 B  x jump_loop  13.3
+  ecrecover                        94.6 ms  net  11.69 ns/gas  body   259 B  x jump_loop  11.5
+  modexp_b64_e1024_m64_odd         80.3 ms  net   9.89 ns/gas  body  1383 B  x jump_loop   9.8
+  modexp_b64_e64_m64_odd           76.3 ms  net   9.39 ns/gas  body   423 B  x jump_loop   9.3
+  modexp_b128_e128_m128_odd        64.8 ms  net   7.94 ns/gas  body   615 B  x jump_loop   7.9
+  keccak_32B                       62.2 ms  net   7.61 ns/gas  body   110 B  x jump_loop   7.6
+  full_gas_transfers               62.4 ms  net   7.60 ns/gas  body 44840 B  x jump_loop   7.6
+  modexp_b256_e256_m256_odd        54.3 ms  net   6.63 ns/gas  body   999 B  x jump_loop   6.6
+  modexp_b512_e512_m512_odd        39.6 ms  net   4.77 ns/gas  body  1767 B  x jump_loop   4.8
+  blake2f_12                       26.4 ms  net   3.11 ns/gas  body   347 B  x jump_loop   3.2
+  sha256_32KiB                     16.4 ms  net   1.85 ns/gas  body   129 B  x jump_loop   2.0
+  identity_0B                      14.5 ms  net   1.62 ns/gas  body   129 B  x jump_loop   1.8
+  ripemd160_32KiB                   9.1 ms  net   0.94 ns/gas  body   129 B  x jump_loop   1.1
+  jump_loop                         8.2 ms  net   0.82 ns/gas  body   103 B  x jump_loop   1.0
+  identity_32KiB                    6.6 ms  net   0.62 ns/gas  body   129 B  x jump_loop   0.8
+  mcopy_32KiB                       4.0 ms  net   0.29 ns/gas  body   112 B  x jump_loop   0.5
+  mem_grow_mstore                   3.4 ms  net   0.22 ns/gas  body   111 B  x jump_loop   0.4
+  mem_frame_32KiB                   3.0 ms  net   0.17 ns/gas  body   142 B  x jump_loop   0.4
+  ecrecover_invalid_v               2.9 ms  net   0.16 ns/gas  body   259 B  x jump_loop   0.4
+  mem_frame_256KiB                  2.3 ms  net   0.08 ns/gas  body   142 B  x jump_loop   0.3
+  empty_fallback                    1.7 ms  net   0.00 ns/gas  body     3 B  x jump_loop   0.2
+  worst measured: modexp_b8_e1024_m8_even 1023.0 ms/block (128.5 ns/gas net), 125x jump_loop (r2 compute)
+
+[4] JM-KIND per-record open replay (JM-OPEN0 intercept 61.6 ms)
+  empty                          3.45 ms/record (1.91 steady)    2315.8 B/record
+  full_gas_transfers            64.57 ms/record (63.03 steady)   46979.0 B/record
+  log_heavy_546                  5.90 ms/record (4.36 steady)    1904.7 B/record
+  full_body_max                  7.67 ms/record (6.13 steady)  198407.5 B/record
+  full_gas_compute               8.87 ms/record (7.33 steady)    2241.2 B/record
+  bn_pair_2                    229.35 ms/record (227.81 steady)    2941.8 B/record
+  kzg_point_eval               214.62 ms/record (213.08 steady)    2184.0 B/record
+  modexp_b8_e256_m8_even       938.72 ms/record (937.18 steady)    2748.3 B/record
+  modexp_b8_e1024_m8_even     1028.85 ms/record (1027.31 steady)    3396.8 B/record
+
+[5] JM-STATE: validate of an empty / bn_pair_2 / worst-kind child vs live user state
+  slots    h=   1 slots=     0 accts=     5 empty     1.8 pair   249.4 modexp_b8_e1  1106.1 root     0.2 clone  0.00 ms
+  slots    h=  47 slots=  8188 accts=    28 empty    23.7 pair   255.2 modexp_b8_e1  1063.2 root    19.4 clone  0.08 ms
+  slots    h=  91 slots= 16020 accts=    50 empty    43.4 pair   270.9 modexp_b8_e1  1036.7 root    41.1 clone  0.18 ms
+  slots    h= 137 slots= 24208 accts=    73 empty    66.8 pair   329.5 modexp_b8_e1  1115.0 root    60.8 clone  0.34 ms
+  slots    h= 181 slots= 32040 accts=    95 empty    81.1 pair   318.0 modexp_b8_e1  1087.6 root    77.7 clone  0.47 ms
+  slots    h= 227 slots= 40228 accts=   118 empty   112.2 pair   339.6 modexp_b8_e1  1180.8 root   100.7 clone  0.64 ms
+  slots    h= 269 slots= 47704 accts=   139 empty   134.3 pair   363.9 modexp_b8_e1  1212.5 root   117.5 clone  0.76 ms
+  accounts h=   1 slots=     0 accts=     5 empty     2.0 pair   244.0 modexp_b8_e1  1160.1 root     0.2 clone  0.00 ms
+  accounts h=  29 slots=     0 accts=  3225 empty    19.2 pair   259.3 modexp_b8_e1  1126.1 root    11.8 clone  0.21 ms
+  accounts h=  57 slots=     0 accts=  6445 empty    37.5 pair   294.4 modexp_b8_e1  1058.3 root    21.9 clone  0.45 ms
+  accounts h=  85 slots=     0 accts=  9665 empty    60.2 pair   281.0 modexp_b8_e1  1072.9 root    30.8 clone  0.84 ms
+  accounts h= 113 slots=     0 accts= 12885 empty    76.4 pair   304.6 modexp_b8_e1  1077.4 root    42.9 clone  0.97 ms
+  accounts h= 139 slots=     0 accts= 15875 empty    97.3 pair   368.1 modexp_b8_e1  1152.4 root    54.9 clone  2.47 ms
+  accounts h= 163 slots=     0 accts= 18635 empty   117.6 pair   347.1 modexp_b8_e1  1190.6 root    61.5 clone  2.30 ms
+  both     h=   1 slots=     0 accts=     5 empty     1.9 pair   233.3 modexp_b8_e1  1000.4 root     0.2 clone  0.00 ms
+  both     h=  65 slots= 11392 accts=    37 empty    29.7 pair   260.2 modexp_b8_e1  1015.9 root    25.5 clone  0.13 ms
+  both     h= 127 slots= 22428 accts=    68 empty    59.9 pair   287.1 modexp_b8_e1  1076.1 root    53.3 clone  0.32 ms
+  both     h= 189 slots= 33464 accts=    99 empty    81.7 pair   353.3 modexp_b8_e1  1104.8 root    78.6 clone  0.53 ms
+  both     h= 253 slots= 44856 accts=   131 empty   112.6 pair   337.4 modexp_b8_e1  1121.3 root   110.2 clone  0.78 ms
+  both     h= 339 slots= 47704 accts=  8189 empty   189.4 pair   415.8 modexp_b8_e1  1205.6 root   154.7 clone  1.90 ms
+  both     h= 431 slots= 47704 accts= 18769 empty   235.3 pair   518.5 modexp_b8_e1  1301.2 root   190.3 clone  3.18 ms
+  synthetic slots= 250000 accts=  62500: state_root    826.3 ms clone   23.5 ms
+  synthetic slots=1000000 accts= 250000: state_root   3379.0 ms clone  100.2 ms
+  synthetic slots=4000000 accts=1000000: state_root  14406.3 ms clone  867.5 ms
+  devnet near caps (47704 slots, 18769 accts): state term +233.4 ms per block (validate/root increment ratio 1.23); worst child 1301.2 ms; its compute part at full / at empty state = 1.07
+  network caps (synthetic 4000000 slots, 1000000 accts): root+clone 15.3 s; root x devnet ratio 17.7 s -> state term 15.3-17.7 s per block (T_blk 60 s, t_exec 3 s)
+  full-gas blocks to fill SLOT_CAP and ACCT_CAP (359 slots / 230 accounts per block): devnet 225, network 15489
+
+[6] open-time bounds (projections from measured per-record costs; caps-feasible)
+  devnet H_END=20000 (b-term 88 s, JM-OPEN0 0.06 s):
+    all empty (measured JM-REPLAY) -> 129 s = 2.1 min = 0.04 h
+    full_gas_compute            20000 blocks within the caps (+ empty) -> 234 s = 3.9 min = 0.07 h
+    full_gas_transfers             52 blocks within the caps (+ empty) -> 129 s = 2.2 min = 0.04 h
+    bn_pair_2                   20000 blocks within the caps (+ empty) -> 4644 s = 77.4 min = 1.29 h
+    kzg_point_eval              20000 blocks within the caps (+ empty) -> 4349 s = 72.5 min = 1.21 h
+    modexp_b8_e256_m8_even      20000 blocks within the caps (+ empty) -> 18831 s = 313.9 min = 5.23 h
+    modexp_b8_e1024_m8_even     13200 blocks within the caps (+ empty) -> 13661 s = 227.7 min = 3.79 h
+    modexp_b8_e256_m8_even on a state at the devnet caps (+233 ms each, after 225 fill blocks) -> 23235 s = 387.3 min = 6.45 h
+  network H_END=129600 (b-term 3677 s, JM-OPEN0 0.06 s):
+    all empty (fit range, [1]) -> 64-69 min
+    full_gas_compute           129600 blocks within the caps (+ empty) -> 4628 s = 77.1 min = 1.29 h
+    full_gas_transfers          26315 blocks within the caps (+ empty) -> 5534 s = 92.2 min = 1.54 h
+    bn_pair_2                  129600 blocks within the caps (+ empty) -> 33202 s = 553.4 min = 9.22 h
+    kzg_point_eval             129600 blocks within the caps (+ empty) -> 31292 s = 521.5 min = 8.69 h
+    modexp_b8_e256_m8_even     129600 blocks within the caps (+ empty) -> 125135 s = 2085.6 min = 34.76 h
+    modexp_b8_e1024_m8_even    129600 blocks within the caps (+ empty) -> 136817 s = 2280.3 min = 38.00 h
+    modexp_b8_e256_m8_even on a state at the network caps (+15.3 s each, after 15489 fill blocks) -> 1853531 s = 30892.2 min = 514.87 h = 21.5 days
+    modexp_b8_e256_m8_even on a state at the network caps (+17.7 s each, after 15489 fill blocks) -> 2129114 s = 35485.2 min = 591.42 h = 24.6 days
+
+[7] JM-REBUILD-KIND per-block genesis rebuild: empty 1.8 ms, full_gas_transfers 65.0 ms, full_gas_compute 7.2 ms, bn_pair_2 229.9 ms, kzg_point_eval 206.5 ms, modexp_b8_e256_m8_even 959.9 ms, modexp_b8_e1024_m8_even 1014.1 ms
+  loaded reorg (modexp_b8_e256_m8_even, f=50): first stall 48.2 s (0.963 s/rebuild); adopting 97.7 s = 50 rebuilds (48.2 s) + 49.6 s other (restore of 50 empty T blocks + pool re-execution of 50 detached txs)
+  devnet tip 20000, d=2048, f=17952:
+    a=empty (JM-REBUILD 2.4 ms)                    2(f+d)a = 96 s = 1.6 min = 0.03 h (stalls f*a 43 s, (f+d)*a 48 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 43 s = 0.7 min = 0.01 h
+    a=full_gas_transfers                           2(f+d)a = 2600 s = 43.3 min = 0.72 h (stalls f*a 1167 s, (f+d)*a 1300 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 1168 s = 19.5 min = 0.32 h
+    a=full_gas_compute                             2(f+d)a = 287 s = 4.8 min = 0.08 h (stalls f*a 129 s, (f+d)*a 144 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 129 s = 2.2 min = 0.04 h
+    a=bn_pair_2                                    2(f+d)a = 9196 s = 153.3 min = 2.55 h (stalls f*a 4127 s, (f+d)*a 4598 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 4131 s = 68.8 min = 1.15 h
+    a=kzg_point_eval                               2(f+d)a = 8259 s = 137.6 min = 2.29 h (stalls f*a 3706 s, (f+d)*a 4129 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 3710 s = 61.8 min = 1.03 h
+    a=modexp_b8_e256_m8_even                       2(f+d)a = 38396 s = 639.9 min = 10.67 h (stalls f*a 17232 s, (f+d)*a 19198 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 17248 s = 287.5 min = 4.79 h
+    a=modexp_b8_e1024_m8_even                      2(f+d)a = 40565 s = 676.1 min = 11.27 h (stalls f*a 18206 s, (f+d)*a 20283 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 18222 s = 303.7 min = 5.06 h
+    a=modexp_b8_e256_m8_even + devnet state term   2(f+d)a = 47731 s = 795.5 min = 13.26 h (stalls f*a 21422 s, (f+d)*a 23866 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 21441 s = 357.3 min = 5.96 h
+  network tip 129600, d=2048, f=127552:
+    a=empty (JM-REBUILD 2.4 ms)                    2(f+d)a = 622 s = 10.4 min = 0.17 h (stalls f*a 306 s, (f+d)*a 311 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 306 s = 5.1 min = 0.09 h
+    a=full_gas_transfers                           2(f+d)a = 16849 s = 280.8 min = 4.68 h (stalls f*a 8291 s, (f+d)*a 8424 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 8292 s = 138.2 min = 2.30 h
+    a=full_gas_compute                             2(f+d)a = 1861 s = 31.0 min = 0.52 h (stalls f*a 916 s, (f+d)*a 931 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 916 s = 15.3 min = 0.25 h
+    a=bn_pair_2                                    2(f+d)a = 59588 s = 993.1 min = 16.55 h (stalls f*a 29323 s, (f+d)*a 29794 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 29327 s = 488.8 min = 8.15 h
+    a=kzg_point_eval                               2(f+d)a = 53516 s = 891.9 min = 14.87 h (stalls f*a 26335 s, (f+d)*a 26758 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 26339 s = 439.0 min = 7.32 h
+    a=modexp_b8_e256_m8_even                       2(f+d)a = 248809 s = 4146.8 min = 69.11 h (stalls f*a 122439 s, (f+d)*a 124405 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 122454 s = 2040.9 min = 34.01 h
+    a=modexp_b8_e1024_m8_even                      2(f+d)a = 262863 s = 4381.1 min = 73.02 h (stalls f*a 129355 s, (f+d)*a 131432 s; + <= 1024 detached txs); re-fetch cycle (f+16)a = 129371 s = 2156.2 min = 35.94 h
+
+[8] JM-OPENMEM-FRESH (peak / steady / transient over journal)
+  full_body_max        journal   16862277 B records    85: peak 2.142 steady 1.119 transient 1.023
+  full_body_max        journal   16862277 B records    85: peak 2.139 steady 1.117 transient 1.022
+  empty                journal    5780087 B records  3000: peak 4.627 steady 3.564 transient 1.063
+  empty                journal    5780087 B records  3000: peak 4.593 steady 3.542 transient 1.050
+  full_gas_transfers   journal    1879159 B records    40: peak 5.672 steady 4.614 transient 1.057
+  full_gas_transfers   journal    1879159 B records    40: peak 5.674 steady 4.651 transient 1.022
+
+[9] canonical worst-case journal at network caps (GiB): headers 0.371 + tx 8.000 + parentResult 0.961 + framing 0.005
+  evidence 1 item/block (storage.md inventory)                        0.989 -> total 10.33 GiB
+  evidence one item per identity ever (resources.rs:98-101; binding)  1.979 -> total 11.32 GiB
+  evidence E_max per block (not binding)                              3.955 -> total 13.29 GiB
+
+[10] JM-CREATE (r3b): create-heavy block re-execution vs live accounts (J-REV3-1)
+  create-term = create2ChildMs - emptyChildMs (the create-specific cost ON TOP of the (a9) root term).
+  A=     5  empty     1.8  create2    17.4 ms (create-term    15.6 ms,  247 creates,    63.1 us/create)  cold-call    7.5 ms (ctrl)  many-small    35.6 ms / 149 txs (  226.7 us/create)
+  A=  2765  empty    17.9  create2    85.2 ms (create-term    67.3 ms,  247 creates,   272.5 us/create)  cold-call   25.4 ms (ctrl)  many-small   167.1 ms / 149 txs ( 1001.6 us/create)
+  A=  5525  empty    37.3  create2   153.6 ms (create-term   116.3 ms,  247 creates,   470.7 us/create)  cold-call   40.3 ms (ctrl)  many-small   338.1 ms / 149 txs ( 2018.4 us/create)
+  A=  8055  empty    53.8  create2   263.4 ms (create-term   209.6 ms,  247 creates,   848.5 us/create)  cold-call  107.3 ms (ctrl)  many-small   544.6 ms / 149 txs ( 3293.9 us/create)
+  A= 10815  empty    68.2  create2   358.2 ms (create-term   290.0 ms,  247 creates,  1174.3 us/create)  cold-call   78.9 ms (ctrl)  many-small   635.6 ms / 149 txs ( 3808.3 us/create)
+  A= 13345  empty    88.8  create2   380.2 ms (create-term   291.4 ms,  247 creates,  1179.6 us/create)  cold-call   96.7 ms (ctrl)  many-small   696.5 ms / 149 txs ( 4078.5 us/create)
+  A= 15645  empty   102.2  create2   589.3 ms (create-term   487.0 ms,  247 creates,  1971.7 us/create)  cold-call  125.3 ms (ctrl)  many-small   895.7 ms / 149 txs ( 5325.0 us/create)
+  LS fit (per create): us/create = -42.2 + 1.1177e-01 * A  (A = live user accounts); the slope IS the current_total O(accounts) scan.
+    devnet  ACCT_CAP    20000:      2193 us/create x 247 creates =    0.54 s/block of current_total scan (create-specific; additive to the root term)
+    network ACCT_CAP  1000000:    111724 us/create x 247 creates =   27.60 s/block of current_total scan (create-specific; additive to the root term)
+  NOTE the network per-block figure is an extrapolation of an extrapolation: (1) create-term/creates fit linear in A, measured only to A=15645 (= 78% of the devnet ACCT_CAP); (2) extended linearly to the network ACCT_CAP (10^6, ~64x beyond the measured range); creates per block (247) assumed unchanged.
+
+[11] devnet state term at the caps (J-REV3-3): measured empty-child 235.3 ms at 47704 slots (95% of SLOT_CAP) + 18769 accts (94% of ACCT_CAP); slopes ~2.5 us/slot, ~4.3 us/acct -> at-cap empty-child ~246 ms (state term ~+11 ms vs the 235 ms at the measured fill: the measured figure is a slight under-estimate).
+
+[12] JM-TXSTATE (r3c): per-tx / per-create / per-block terms by state dimension (JV3B-1/2)
+  perTx = (transferMs - emptyChildMs)/transferTxs; predicted = validate_snapshot + 2 clones (the per-tx scans alone).
+  accts start      A=     5 S=     0 code=   15509 B | vs   0.09 inv   0.05 clone  0.00 ms | pred      93 perTx     154 us | empty     2.1  transfers  380     60.5  create2    17.7 (   63 us/cr)  manySmall 149     34.3 ms
+  accts accts      A=  3915 S=     0 code=   15509 B | vs   0.45 inv   0.22 clone  0.17 ms | pred     783 perTx    1159 us | empty    24.1  transfers  380    464.3  create2   114.7 (  367 us/cr)  manySmall 149    249.6 ms
+  accts accts      A=  7825 S=     0 code=   15509 B | vs   0.98 inv   0.57 clone  0.47 ms | pred    1918 perTx    2141 us | empty    54.7  transfers  380    868.1  create2   233.4 (  723 us/cr)  manySmall 149    516.6 ms
+  accts accts      A= 11735 S=     0 code=   15509 B | vs   1.35 inv   0.69 clone  0.67 ms | pred    2702 perTx    2903 us | empty    80.3  transfers  380   1183.4  create2   349.3 ( 1089 us/cr)  manySmall 149    663.1 ms
+  accts accts-end  A= 15415 S=     0 code=   15509 B | vs   1.87 inv   0.92 clone  0.95 ms | pred    3756 perTx    5566 us | empty   132.8  transfers  380   2247.8  create2   529.4 ( 1606 us/cr)  manySmall 149   1079.5 ms
+  code  start      A=     5 S=     0 code=   15509 B | vs   0.10 inv   0.05 clone  0.00 ms | pred     100 perTx     179 us | empty     1.9  transfers  380     69.9  create2    19.1 (   70 us/cr)  manySmall 149     44.4 ms
+  code  code       A=    20 S=     0 code=  507029 B | vs   2.99 inv   1.47 clone  0.01 ms | pred    3001 perTx    3249 us | empty    37.4  transfers  380   1272.2  create2   423.5 ( 1563 us/cr)  manySmall 149    732.4 ms
+  code  code       A=    35 S=     0 code=  998549 B | vs   6.24 inv   3.06 clone  0.01 ms | pred    6258 perTx    6022 us | empty    62.1  transfers  380   2350.4  create2   815.7 ( 3051 us/cr)  manySmall 149   1405.7 ms
+  code  code       A=    50 S=     0 code= 1490069 B | vs   9.72 inv   4.52 clone  0.01 ms | pred    9743 perTx    9571 us | empty    89.9  transfers  380   3726.9  create2  1299.1 ( 4896 us/cr)  manySmall 149   2276.0 ms
+  code  code       A=    65 S=     0 code= 1981589 B | vs  23.16 inv  11.78 clone  0.02 ms | pred   23203 perTx   12048 us | empty   127.4  transfers  380   4705.7  create2  1594.0 ( 5938 us/cr)  manySmall 149   2860.8 ms
+  code  code-end   A=    67 S=     0 code= 2047125 B | vs  11.54 inv   6.07 clone  0.02 ms | pred   11576 perTx   13618 us | empty   124.4  transfers  380   5299.2  create2  1852.4 ( 6996 us/cr)  manySmall 149   2990.5 ms
+  slots start      A=     5 S=     0 code=   15509 B | vs   0.09 inv   0.04 clone  0.00 ms | pred      91 perTx     166 us | empty     1.8  transfers  380     64.8  create2    18.2 (   66 us/cr)  manySmall 149     41.4 ms
+  slots slots      A=    39 S= 12104 code=   15509 B | vs   0.09 inv   0.05 clone  0.09 ms | pred     279 perTx     336 us | empty    34.6  transfers  380    162.2  create2    51.2 (   67 us/cr)  manySmall 149    101.5 ms
+  slots slots      A=    72 S= 23852 code=   15509 B | vs   0.10 inv   0.05 clone  0.18 ms | pred     460 perTx     585 us | empty    65.2  transfers  380    287.7  create2    84.2 (   77 us/cr)  manySmall 149    178.3 ms
+  slots slots      A=   105 S= 35600 code=   15509 B | vs   0.10 inv   0.05 clone  0.27 ms | pred     635 perTx     743 us | empty    98.3  transfers  380    380.8  create2   116.0 (   71 us/cr)  manySmall 149    229.1 ms
+  slots slots-end  A=   136 S= 46636 code=   15509 B | vs   0.10 inv   0.05 clone  0.31 ms | pred     720 perTx     965 us | empty   131.8  transfers  380    498.4  create2   153.8 (   89 us/cr)  manySmall 149    301.9 ms
+  all   start      A=     5 S=     0 code=   15509 B | vs   0.08 inv   0.04 clone  0.00 ms | pred      87 perTx     235 us | empty     2.0  transfers  380     91.2  create2    17.6 (   63 us/cr)  manySmall 149     37.8 ms
+  all   code-end   A=    67 S=     0 code= 2047125 B | vs  11.79 inv   5.87 clone  0.01 ms | pred   11821 perTx   12735 us | empty   119.5  transfers  380   4958.8  create2  1628.8 ( 6110 us/cr)  manySmall 149   2977.2 ms
+  all   slots-end  A=   198 S= 46636 code= 2047125 B | vs  21.83 inv  10.89 clone  0.86 ms | pred   23554 perTx   13388 us | empty   256.3  transfers  380   5343.9  create2  1798.4 ( 6243 us/cr)  manySmall 149   3302.5 ms
+  all   accts-end  A= 18828 S= 46636 code= 2047125 B | vs  13.86 inv   6.89 clone  2.51 ms | pred   18887 perTx   25875 us | empty   412.6  transfers  380  10245.1  create2  2384.6 ( 7984 us/cr)  manySmall 149   5751.1 ms
+  per-block worst at each series end (validate of the child, ms; devnet T_blk 4 s, t_exec 1 s):
+    accts (A=15415 S=0 code=15509): worst = 380 transfers 2248 ms  [empty 133, 380 transfers 2248, CREATE2 child 529, 149 one-create txs 1080]
+    code  (A=67 S=0 code=2047125): worst = 380 transfers 5299 ms  [empty 124, 380 transfers 5299, CREATE2 child 1852, 149 one-create txs 2991]
+    slots (A=136 S=46636 code=15509): worst = 380 transfers 498 ms  [empty 132, 380 transfers 498, CREATE2 child 154, 149 one-create txs 302]
+    all   (A=18828 S=46636 code=2047125): worst = 380 transfers 10245 ms  [empty 413, 380 transfers 10245, CREATE2 child 2385, 149 one-create txs 5751]
+  slope per liveUserAccounts validate_snapshot 1.151e-04 ms, clone 6.128e-05 ms, empty child 8.479e-03 ms, perTx 3.512e-01 us
+  slope per logicalCode   validate_snapshot 5.634e-06 ms, clone 7.379e-09 ms, empty child 6.027e-05 ms, perTx 6.615e-03 us
+  slope per liveUserSlots validate_snapshot 2.098e-07 ms, clone 6.638e-06 ms, empty child 2.787e-03 ms, perTx 1.713e-02 us
+  empty-block code term = 10.7 validate_snapshot-equivalents per block (code series end; the SYSTEM calls and the USER-phase check each scan)
+  NETWORK PROJECTION (not measured; pocold refuses the profile): validate_snapshot at ACCT_CAP 10^6 + CODE_CAP 2^30 ~ 6.2 s (linear: 1.151e-04 ms/acct, 5.634e-06 ms/B);
+    + 2 clones (synthetic network-caps clone 0.87 s, journal-r3/state-syn.log) -> ~7.9 s per USER tx; a 380-transfer block ~3002 s (= 50.0 min) vs T_blk 60 s;
+    empty block code term ~11 x 6.2 s = ~66 s (on top of the 14.4 s+ root term, [5]); filling CODE_CAP 2^30 at one 32,768-B deploy per block = 32768 blocks (< H_END 129600).
+    each step is a linear extension far beyond the measured range (code to 2 MiB, accounts to ~16k): a projection, labelled as such.
+
+[13] devnet bounds with all three dimensions near the caps ("all" end: A=18828 S=46636 code=2047125, after 274 fill blocks = height 549)
+  per-block state term (empty child) +411 ms (vs the [5] slots/accounts-only +233 ms)
+  open at H_END, modexp_b8_e256_m8_even on that state for the remaining 19451 blocks -> 26304 s = 438.4 min = 7.31 h
+  380-transfer block on that state 10.25 s (> T_blk 4 s); TX_CAP 20000 bounds such blocks to ~52 per chain (+~511 s of open in total)
+
+[14] JM-CREATE repeats (JV3B-3): r3b create.log + r3c create-r1/r2; us/create = (create2ChildMs - emptyChildMs)/creates
+  A~     5  runs (sorted)     63     68     70 us/create  median     68  (many-small r3b/r1/r2:     36     40     37 ms)
+  A~  2765  runs (sorted)    268    273    275 us/create  median    273  (many-small r3b/r1/r2:    167    171    168 ms)
+  A~  5525  runs (sorted)    471    552    577 us/create  median    552  (many-small r3b/r1/r2:    338    335    320 ms)
+  A~  8055  runs (sorted)    831    841    849 us/create  median    841  (many-small r3b/r1/r2:    545    483    512 ms)
+  A~ 10815  runs (sorted)    958   1072   1174 us/create  median   1072  (many-small r3b/r1/r2:    636    619    657 ms)
+  A~ 13345  runs (sorted)   1164   1180   1291 us/create  median   1180  (many-small r3b/r1/r2:    697    729    727 ms)
+  A~ 15645  runs (sorted)   1596   1691   1972 us/create  median   1691  (many-small r3b/r1/r2:    896   1033    988 ms)
+  fit median  us/create =    25.3 + 9.7902e-02 * A -> devnet ACCT_CAP 0.49 s/block, network ACCT_CAP 24.2 s/block (247 creates; accounts dimension only)
+  fit run 0   us/create =   -42.2 + 1.1177e-01 * A -> devnet ACCT_CAP 0.54 s/block, network ACCT_CAP 27.6 s/block (247 creates; accounts dimension only)
+  fit run 1   us/create =    10.6 + 9.9440e-02 * A -> devnet ACCT_CAP 0.49 s/block, network ACCT_CAP 24.6 s/block (247 creates; accounts dimension only)
+  fit run 2   us/create =    51.4 + 9.3227e-02 * A -> devnet ACCT_CAP 0.47 s/block, network ACCT_CAP 23.0 s/block (247 creates; accounts dimension only)
+  RANGE over the fits: devnet 0.47-0.54 s/block, network 23.0-27.6 s/block (accounts only; the code dimension is [12], the network figure an extrapolation of an extrapolation)
+
+[15] scratch timing mutants on jm_tx_state_term (JM_TX_SERIES=accts,code JM_TX_POINTS=1; series ends; ms)
+  none mutant build, no mutant enabled (control)     accts empty   108.8  380 transfers   1802.3 (  4457 us/tx)  CREATE2   514.7  many-small   966.8
+  none mutant build, no mutant enabled (control)     code  empty   124.2  380 transfers   5178.1 ( 13300 us/tx)  CREATE2  1845.0  many-small  2896.0
+  A    current_total -> Ok(0)                        accts empty   104.8  380 transfers   2030.0 (  5066 us/tx)  CREATE2   125.2  many-small   776.3
+  A    current_total -> Ok(0)                        code  empty   127.6  380 transfers   4899.3 ( 12557 us/tx)  CREATE2   135.5  many-small  2070.4
+  B    no validate_snapshot in execute_for_profile   accts empty   115.8  380 transfers   1069.8 (  2511 us/tx)  CREATE2   537.0  many-small   765.6
+  B    no validate_snapshot in execute_for_profile   code  empty   139.8  380 transfers    192.2 (   138 us/tx)  CREATE2  1767.1  many-small  1170.0
+  C    +1 extra snapshot clone per engine            accts empty   204.5  380 transfers   4303.5 ( 10787 us/tx)  CREATE2   553.0  many-small  1176.4
+  C    +1 extra snapshot clone per engine            code  empty   119.8  380 transfers   4918.8 ( 12629 us/tx)  CREATE2  1676.0  many-small  3028.2
+  D    code_len skips hash_slow                      accts empty   109.8  380 transfers   1676.5 (  4123 us/tx)  CREATE2   502.8  many-small   993.2
+  D    code_len skips hash_slow                      code  empty     1.6  380 transfers     35.1 (    88 us/tx)  CREATE2     7.9  many-small    19.9

@@ -1,0 +1,30 @@
+# instrumented open (verify phase), wt-time = b47fb85 + review fixes + TIMING prints, 2026-10-27T19:17:21Z
+
+running 1 test
+JM-SCALE-A13 {"acctCap":1000000,"boundBytes":"5255514985","budgetRequiredBytes":"6006302840","gasLimit":8000000,"hEnd":129600,"oneVersionAtCapsBytes":"1977381717","phase":"verify","slotCap":4000000,"stateFileBoundBytes":"2388797023392","sysSlotMax":65536}
+TIMING store::open 0.39s records 29527
+TIMING history open done 0.47s
+TIMING events+offsets done 1.16s
+TIMING state store open, checkpoints decoded, pins reset (29 released) 13.51s
+TIMING enable_store done 13.62s
+TIMING restore stored version 1 h 0 scan 0.0s total 0.0s
+test jm_store_scale has been running for over 60 seconds
+TIMING restore stored version 5 h 28644 scan 17.2s total 73.7s
+TIMING restore stored version 9 h 28648 scan 16.8s total 144.1s
+TIMING restore stored version 13 h 28652 scan 16.5s total 214.0s
+TIMING restore stored version 17 h 28656 scan 16.7s total 281.2s
+TIMING restore stored version 21 h 28660 scan 16.0s total 346.4s
+TIMING restore stored version 25 h 28664 scan 16.9s total 413.1s
+TIMING restore stored version 29 h 28668 scan 17.5s total 481.7s
+TIMING restore stored version 33 h 28672 scan 17.0s total 548.5s
+TIMING restore entries 28673 stored 33 total 548.47s rootcheck 0.00s ancestors 0.01s adopt 0.13s scan_view 547.25s other 1.08s
+TIMING checkpoint 27 (record 28672) restore -> true at 562.12s
+TIMING replay starts at record 28672 of 29527, 562.14s
+TIMING replay loop 238.44s (855 records), at 800.57s
+TIMING open body done 800.62s
+JM-SCALE {"allocatedBytes":679870464,"extra":{"head":"[45, a3, 33, 41, 76, e4, 4a, 23]","openSeconds":800.698386797,"resumedFrom":28672},"fragmentedBytes":1749937672,"height":29519,"historyBytes":32559104,"journalBytes":41372174,"metadataBytes":14849898,"nodeCacheBytes":267554577,"nodes":1356933,"oneVersionModelBytes":"1855000692","phase":"reopened after the reorg","rssBytes":460963840,"stateFileBytes":2156408832,"storedBytes":369846912,"storedOverModel":0.19937831484108148,"sysSlots":114,"userAccounts":949767,"userSlots":3799232,"vmHwmBytes":473440256}
+test jm_store_scale ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 803.20s
+
+exit 0

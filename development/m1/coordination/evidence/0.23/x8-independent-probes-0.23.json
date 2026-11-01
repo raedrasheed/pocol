@@ -1,0 +1,305 @@
+{
+  "revision": "0.23",
+  "checks": 37,
+  "passed": 36,
+  "failed": 1,
+  "results": [
+    {
+      "check": "all_required_positive_controls_and_zero_cells",
+      "expected": [
+        "PASS"
+      ],
+      "actual": "PASS",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C1",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C2",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C3",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C4",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C5",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C6",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C7",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K0_C8",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C1",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C2",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C3",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C4",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C5",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C6",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C7",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K1_C8",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C1",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C2",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C3",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C4",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C5",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C6",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C7",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K2_C8",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K5_C5",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K5_C6",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "gating_reach_K5_C7",
+      "expected": [
+        "FAIL"
+      ],
+      "actual": "FAIL",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C1",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C2",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C3",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C4",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C5",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C6",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C7",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "missing_positive_C8",
+      "expected": [
+        "PENDING"
+      ],
+      "actual": "PENDING",
+      "pass": true
+    },
+    {
+      "check": "duplicate_window_cannot_erase_recorded_K0_reach",
+      "expected": [
+        "FAIL",
+        "INVALID"
+      ],
+      "actual": "PASS",
+      "pass": false
+    }
+  ]
+}

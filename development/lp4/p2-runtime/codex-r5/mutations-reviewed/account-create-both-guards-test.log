@@ -1,0 +1,39 @@
+warning: field `pre_transaction` is never read
+  --> src/pay.rs:20:5
+   |
+16 | pub struct NativeContext {
+   |            ------------- field in this struct
+...
+20 |     pre_transaction: InMemoryDB,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `durable` is never used
+  --> src/pay.rs:26:8
+   |
+22 | impl NativeContext {
+   | ------------------ method in this implementation
+...
+26 |     fn durable(&self, recipient: Address) -> bool {
+   |        ^^^^^^^
+
+warning: `pocol-lp4-execution-pay-account-create-both-guards` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-cd7904ea960f4166)
+
+running 1 test
+
+thread 'recipients_overflow_and_encoding_reject_without_effects' (120990) panicked at tests/pay_boundary.rs:64:9:
+assertion failed: !accepted(&r)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test recipients_overflow_and_encoding_reject_without_effects ... FAILED
+
+failures:
+
+failures:
+    recipients_overflow_and_encoding_reject_without_effects
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test pay_boundary`

@@ -1,0 +1,46 @@
+[
+  {
+    "name": "rust-version",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "-vV"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.04
+  },
+  {
+    "name": "build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--offline",
+      "--locked"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.056
+  },
+  {
+    "name": "regression",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "profile",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "fixtures_integration"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 3.177
+  }
+]

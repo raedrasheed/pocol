@@ -1,0 +1,210 @@
+[
+  {
+    "name": "git-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.01,
+    "command": "git --version",
+    "cwd": "<repo>",
+    "log": "logs/git-version.log"
+  },
+  {
+    "name": "python-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.02,
+    "command": "python -c \"import sys; print(sys.version)\"",
+    "cwd": "<repo>",
+    "log": "logs/python-version.log"
+  },
+  {
+    "name": "rustup-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.13,
+    "command": "rustup --version",
+    "cwd": "<repo>",
+    "log": "logs/rustup-version.log"
+  },
+  {
+    "name": "rustup-toolchain-install",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 1.34,
+    "command": "rustup toolchain install 1.58.1 --profile minimal -c rustfmt --no-self-update",
+    "cwd": "<repo>",
+    "log": "logs/rustup-toolchain-install.log"
+  },
+  {
+    "name": "rustc-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.05,
+    "command": "rustc -vV",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/rustc-version.log"
+  },
+  {
+    "name": "cargo-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.06,
+    "command": "cargo -V",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/cargo-version.log"
+  },
+  {
+    "name": "rustfmt-version",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.02,
+    "command": "rustfmt --version",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/rustfmt-version.log"
+  },
+  {
+    "name": "cargo-fetch",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.3,
+    "command": "cargo fetch --locked",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/cargo-fetch.log"
+  },
+  {
+    "name": "cargo-build",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 28.52,
+    "command": "cargo build --offline --locked --target-dir <scratch>/r4/runner/lp3-target",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/cargo-build.log"
+  },
+  {
+    "name": "cargo-build-release",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 27.33,
+    "command": "cargo build --release --offline --locked --target-dir <scratch>/r4/runner/lp3-target",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/cargo-build-release.log"
+  },
+  {
+    "name": "rustfmt-check",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.17,
+    "command": "cargo fmt -- --check",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/rustfmt-check.log"
+  },
+  {
+    "name": "store-journal",
+    "exitCode": 101,
+    "timedOut": false,
+    "seconds": 1.31,
+    "command": "cargo test --offline --locked --target-dir <scratch>/r4/runner/lp3-target --test store_journal -- --test-threads=1 --nocapture",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/store-journal.log"
+  },
+  {
+    "name": "store-process-crash-recovery",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.23,
+    "command": "cargo test --offline --locked --target-dir <scratch>/r4/runner/lp3-target --test store_process -- --test-threads=1 --nocapture",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/store-process-crash-recovery.log"
+  },
+  {
+    "name": "cargo-test-full",
+    "exitCode": 101,
+    "timedOut": false,
+    "seconds": 44.12,
+    "command": "cargo test --offline --locked --target-dir <scratch>/r4/runner/lp3-target --no-fail-fast -- --test-threads=1 --nocapture",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/cargo-test-full.log"
+  },
+  {
+    "name": "genesis-batch-alloc-debug",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 30.47,
+    "command": "cargo test --offline --locked --target-dir <scratch>/r4/runner/lp3-target --test genesis_batch_alloc",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/genesis-batch-alloc-debug.log"
+  },
+  {
+    "name": "genesis-batch-alloc-release-max",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 21.26,
+    "command": "cargo test --release --offline --locked --target-dir <scratch>/r4/runner/lp3-target --test genesis_batch_alloc",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/genesis-batch-alloc-release-max.log",
+    "env": "LP3_ALLOC_MAX_VERSION=1"
+  },
+  {
+    "name": "verify-fixtures",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 1.05,
+    "command": "<scratch>/r4/runner/lp3-target/debug/lp1-node verify-fixtures --fixtures fixtures",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/verify-fixtures.log"
+  },
+  {
+    "name": "e2e-http",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 1.47,
+    "command": "python tests/e2e_http.py --bin <scratch>/r4/runner/lp3-target/debug/lp1-node --fixtures fixtures",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/e2e-http.log"
+  },
+  {
+    "name": "store-init-probe",
+    "exitCode": 2,
+    "timedOut": false,
+    "seconds": 0.0,
+    "command": "<scratch>/r4/runner/lp3-target/debug/lp1-node store init --store <scratch>/r4/runner/lp3-target/probe-store --fixtures fixtures",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/store-init-probe.log"
+  },
+  {
+    "name": "lp3-genesis-diff",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 41.44,
+    "command": "python tests/lp3_genesis_diff.py --bin <scratch>/r4/runner/lp3-target/debug/lp1-node --m1 ../../development/m1 --out <scratch>/r4/runner/lp3-evidence/lp3-genesis-diff.json",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/lp3-genesis-diff.log"
+  },
+  {
+    "name": "lp3-genesis-cli",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 47.07,
+    "command": "python tests/lp3_genesis_cli.py --bin <scratch>/r4/runner/lp3-target/debug/lp1-node --m1 ../../development/m1 --out <scratch>/r4/runner/lp3-evidence/lp3-genesis-cli.json",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/lp3-genesis-cli.log"
+  },
+  {
+    "name": "lp3-genesis-diff-release-max",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 65.74,
+    "command": "python tests/lp3_genesis_diff.py --bin <scratch>/r4/runner/lp3-target/release/lp1-node --m1 ../../development/m1 --max-version --out <scratch>/r4/runner/lp3-evidence/lp3-genesis-diff-release-max.json",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/lp3-genesis-diff-release-max.log"
+  },
+  {
+    "name": "lp3-genesis-cli-release-max",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 29.82,
+    "command": "python tests/lp3_genesis_cli.py --bin <scratch>/r4/runner/lp3-target/release/lp1-node --m1 ../../development/m1 --out <scratch>/r4/runner/lp3-evidence/lp3-genesis-cli-release-max.json --max-version",
+    "cwd": "<repo>/prototypes/lp1-node",
+    "log": "logs/lp3-genesis-cli-release-max.log"
+  }
+]

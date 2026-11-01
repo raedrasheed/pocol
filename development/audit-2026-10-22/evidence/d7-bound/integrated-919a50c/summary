@@ -1,0 +1,6 @@
+ext-build exit=0
+e2e-integrated-whole-state-1 exit=0
+e2e-integrated-store-1 exit=0
+e2e-integrated-whole-state-2 exit=1
+e2e-integrated-store-2 exit=1
+done

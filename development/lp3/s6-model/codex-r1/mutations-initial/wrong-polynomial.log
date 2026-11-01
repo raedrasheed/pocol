@@ -1,0 +1,64 @@
+✖ AS1-AS19 targets, traces and bounded intermediates (2.317207ms)
+✖ 1027 previously frozen ASERT rows (2.362831ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.249636ms)
+✔ membership, partition completeness, owner and exact hashes (2.932868ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (1.668162ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (9.612037ms)
+✔ full schema width/order/reserved failures and deep malformed framing (14.324889ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (80.893629ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 125.060153
+
+✖ failing tests:
+
+test at ../work/lp3-s6/mutations/ts-wrong-polynomial-7l4xucd9/prototypes/lp3-model/tests.ts:8:1
+✖ AS1-AS19 targets, traces and bounded intermediates (2.317207ms)
+  AssertionError [ERR_ASSERTION]: AS4
+  + actual - expected
+  
+  + 1945510631341591619502555809724597608301677252963795331953879826414174208n
+  - 2498486097431518392330970956174457253048648722214525014113795976235843584n
+  
+      at file:///workspace/work/lp3-s6/mutations/ts-wrong-polynomial-7l4xucd9/prototypes/lp3-model/tests.ts:20:94
+      at Array.forEach (<anonymous>)
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/mutations/ts-wrong-polynomial-7l4xucd9/prototypes/lp3-model/tests.ts:20:8)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1945510631341591619502555809724597608301677252963795331953879826414174208n,
+    expected: 2498486097431518392330970956174457253048648722214525014113795976235843584n,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../work/lp3-s6/mutations/ts-wrong-polynomial-7l4xucd9/prototypes/lp3-model/tests.ts:25:1
+✖ 1027 previously frozen ASERT rows (2.362831ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '1212752760901770805203403673166947556407556486131353842203724251645607936'
+  - '1764798108831680880958902807596305023896287473899505874613042326913679360'
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/mutations/ts-wrong-polynomial-7l4xucd9/prototypes/lp3-model/tests.ts:27:143)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '1212752760901770805203403673166947556407556486131353842203724251645607936',
+    expected: '1764798108831680880958902807596305023896287473899505874613042326913679360',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

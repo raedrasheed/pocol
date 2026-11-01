@@ -1,0 +1,51 @@
+{
+  "specVersion": "M1 draft 0.3",
+  "revision": "R3-07 (annex batch 1, partial)",
+  "status": "Baseline-derived transcriptions and literal preimages. Hash outputs are computed by tools/run_checks_03.py and recorded in results; they are NOT asserted values until cross-checked with the M0 K1-K3 libraries (E05).",
+  "X1_netKey": {
+    "baseline": "FD:L981 netKey = keccak256(RLP(['PoCol-net-v1', chainId, genesisHash])); FD:L4959 vector (777001, 0x11 x 32)",
+    "encodingAssumptions": [
+      "'PoCol-net-v1' is the 12-byte ASCII string",
+      "chainId is an RLP integer: minimal big-endian bytes, as in P02 (777001 = 0x0bdb29)",
+      "genesisHash is a 32-byte string"
+    ],
+    "assumptionStatus": "P: the baseline does not spell out the integer encoding of chainId; this is the standard RLP integer form",
+    "vector": {
+      "chainId": 777001,
+      "genesisHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+      "rlpPreimage": "0xf28c506f436f6c2d6e65742d7631830bdb29a01111111111111111111111111111111111111111111111111111111111111111",
+      "rlpPreimageLength": 51,
+      "byteLayout": "f2 = list, 50-byte body; 8c + 12 ASCII bytes; 83 0b db 29; a0 + 32 x 0x11",
+      "netKey": "computed by run_checks_03.py (result id annex.X1.netKey); not yet cross-checked"
+    },
+    "remaining": "Negative/neighbour vectors (chainId 777002, a different genesisHash) and the uses in signEligible (X2) belong to batch 4."
+  },
+  "V1_RW_unit": {
+    "baseline": "FD:L2646 (RW-unit); formulas FD:L988-990",
+    "formulas": "b = max(1, h-12); n = h-b+1; from = max(1, b-1); count = h-from+1; anchoredGenesis = (b == 1)",
+    "rows": [
+      {"id": "RW1", "h": "1",                    "b": "1",                    "from": "1",                    "count": 1,  "n": 1,  "anchoredGenesis": true},
+      {"id": "RW2", "h": "3",                    "b": "1",                    "from": "1",                    "count": 3,  "n": 3,  "anchoredGenesis": true},
+      {"id": "RW3", "h": "13",                   "b": "1",                    "from": "1",                    "count": 13, "n": 13, "anchoredGenesis": true},
+      {"id": "RW4", "h": "14",                   "b": "2",                    "from": "1",                    "count": 14, "n": 13, "anchoredGenesis": false},
+      {"id": "RW5", "h": "20",                   "b": "8",                    "from": "7",                    "count": 14, "n": 13, "anchoredGenesis": false},
+      {"id": "RW6", "h": "18446744073709551615", "b": "18446744073709551603", "from": "18446744073709551602", "count": 14, "n": 13, "anchoredGenesis": false, "note": "h = 2^64-1; b = 2^64-13; from = 2^64-14; no overflow"}
+    ],
+    "exhaustive": "for every h in [1, 10^6]: count <= 14, n <= 13, count = n + [b > 1] (FD:L2646)"
+  },
+  "V1_HC_unit": {
+    "baseline": "FD:L2647 (HC-unit); constants FD:L993-996",
+    "formulas": "ceilTarget = min(2^256-1, target_g * 2^4); minWork = floor(2^256 / (ceilTarget + 1)); a header target above ceilTarget gives viewTargetCeil",
+    "rows": [
+      {"id": "HC1", "target_g": "2^240", "target": "2^244", "expected": "accepted (target == ceilTarget)"},
+      {"id": "HC2", "target_g": "2^240", "target": "2^244+1", "expected": "viewTargetCeil"},
+      {"id": "HC3", "target_g": "2^256-1", "expected": "ceilTarget = 2^256-1, no overflow"},
+      {"id": "HC4", "target_g": "2^240", "expected": "minWork = 4095; message contains '4095' and contains neither '4095.9' nor '/16'"},
+      {"id": "HC5", "target_g": "2^256-1", "expected": "minWork = 1, with the 'work bound ineffective' message"},
+      {"id": "HC6", "target_g": "2^252", "expected": "ceilTarget = 2^256-1, minWork = 1"},
+      {"id": "HC7", "target_g": "1", "expected": "ceilTarget = 16, minWork = floor(2^256/17) as a literal decimal (computed by run_checks_03.py, result id annex.V1.HC7)"}
+    ],
+    "exhaustive": "10^4 random values: for every target <= ceilTarget, work(target) >= minWork (BigInt) (FD:L2647)",
+    "remaining": "The literal message texts (HC4, HC5, viewTargetCeil) and the RP-window vectors of FD:L5017 (chainId 777002, h=3 anchored on genesis, viewIncomplete for a missing header and a missing reference at h=20, viewGenesis, h=0 -> viewNoBlocks, NX-V3e/f/g) are batch 11."
+  }
+}

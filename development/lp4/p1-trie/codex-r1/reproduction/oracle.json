@@ -1,0 +1,12 @@
+{
+  "keccakBackend": "frozen M1 pure Python Keccak",
+  "cases": 1218,
+  "seed": "0x4c50345031",
+  "mismatches": 0,
+  "includes1024Accounts": true,
+  "inputSha256": "e326005db15dcb9500667c987d578cf43e933a72508cca9e60220cc698187445",
+  "outputSha256": "eba08cda8ef616373768b2a74f58f5d3da099616892bf90d66bf5dda696be6a2",
+  "independentAlgorithm": "insert uncompressed nibble tree, then compress",
+  "resourceProof": false,
+  "GenesisBuilderPassed": false
+}

@@ -1,0 +1,67 @@
+# C-1 final mutation controls on the final tree: E4.4 (D-6) checkpoints (pass 1's set with K10 split, K11b added and K19's
+# removed check gone), E4.3's survivors C7 and C10, and E5 (E1-E7). Each mutant on a fresh copy of the committed tree with new
+# file times and its own target dir. Stages, stopping at the first that fails: lp4 --lib node_trie; pocold --test state_store;
+# pocold --test consensus e4_ e5_; pocold --features crash-test --test consensus e4_checkpoint_crash. KILLED if a test fails.
+# The runner is kept out of the repository; this log is copied from its output.
+# K1 the snapshot seal is not checked: pocold/src/checkpoint.rs: replace "if keccak256(body).0[..]!=seal[..]{return Err(" with "if false&&keccak256(body).0[..]!=seal[..]{return Err("
+# K2 the journal binding is not checked: pocold/src/node.rs: replace "let r=if k>n_rec||offs[k]!=b.end||rolls[k]!=b.hash{" with "let r=if k>n_rec{"
+# K3 total work is not checked against the parent: pocold/src/checkpoint.rs: replace "if r.total_work!=p.total_work.saturating_add(crate::chain::work(&header.target)){" with "if false{"
+# K4 the journal header is not checked against the entry: pocold/src/checkpoint.rs: replace "if block_hash(&header)!=r.hash{" with "if false{"
+# K5 a stored version's state root is not checked: pocold/src/checkpoint.rs: replace "if r.0!=e.header.state_root{" with "if false&&r.0!=e.header.state_root{"
+# K6 a stored version's summary is not checked: pocold/src/checkpoint.rs: replace "match r.summary{Some(want) if got!=want=>" with "match r.summary{Some(want) if false&&got!=want=>"
+# K7 open does not release pins no checkpoint holds: pocold/src/state_store.rs: replace "for (r,n) in held{for _ in 0..n-want.get(&r).copied().unwrap_or(0){release(&mut p,&mut t,&r,&mut gone)?;released+=1;}}" with "let _=held;"
+# K8 a checkpoint does not pin its roots: pocold/src/state_store.rs: replace "for r in roots{pin_stored(&mut p,&mut t,r)?;}" with "let _=roots;"
+# K9 old checkpoints are never released: pocold/src/state_store.rs: replace "for old in seqs.iter().take(seqs.len().saturating_sub(keep.max(1))){drop_one(" with "for old in seqs.iter().take(0){drop_one("
+# K10a replay's protect set is not compared with the snapshot's: pocold/src/node.rs: replace "else if s.protect.as_ref().map_or(false,|p|p.len()!=protect.len()||p.iter().any(|h|!protect.contains(h))){" with "else if false{"
+# K10b replay's protect set is not restored on resume: pocold/src/node.rs: replace "match r{Ok(())=>{resumed=Some(k);chain.protect=protect;break}" with "match r{Ok(())=>{resumed=Some(k);let _=protect;break}"
+# K11 a replay checkpoint does not make history durable first: pocold/src/node.rs: replace "                history.sync().map_err(|e|format!(\"replay {i}: history {}\",e.0))?;\n" with "\n"
+# K11b restore does not require an entry's history records: pocold/src/checkpoint.rs: replace "if !src.has(&r.hash)?{return Err(why(\"not in history.redb\"))}" with ""
+# K12 the roots record is not checked against its snapshot: pocold/src/node.rs: replace "if *roots!=crate::checkpoint::roots(&s){return Err(" with "if false&&*roots!=crate::checkpoint::roots(&s){return Err("
+# K13 restored entries lose their pruned flag: pocold/src/checkpoint.rs: replace "let mut e=e;e.pruned=r.flags&F_PRUNED!=0;" with "let mut e=e;e.pruned=false;"
+# K14 restored entries are not offloaded: pocold/src/checkpoint.rs: replace "if r.flags&F_OFFLOADED!=0{crate::chain::offload(&mut e);}" with ""
+# K15 restored entries are not slimmed: pocold/src/checkpoint.rs: replace "if r.flags&F_SLIM!=0{crate::chain::slim(&mut e);}" with "if r.flags&F_SLIM!=0{e.slim=true;}"
+# K16 next_seq is not restored: pocold/src/checkpoint.rs: replace "c.next_seq=s.next_seq;" with ""
+# K17 the eviction set is not restored: pocold/src/checkpoint.rs: replace "c.evicted=evicted;" with "let _=evicted;"
+# K18 a missing node does not mark the store damaged: pocold/src/state_store.rs: replace "Ok(None)=>{self.mark_damaged(&format!(\"node {} is named but not stored\",B256::from(*id)));None}" with "Ok(None)=>None,"
+# K20 an import sequence beyond next_seq is not refused: pocold/src/checkpoint.rs: replace "if blocks.values().any(|e|e.import_seq>=s.next_seq&&e.height>0){" with "if false{"
+# C7 a rebuilt state is not kept on its entry: pocold/src/chain.rs: replace "x.state=p.state;x.stored=p.stored;x.pruned=false;x.full=true;" with "x.state=p.state;x.pruned=false;x.full=true;"
+# C10 a rolling rebuild's root ignores a stored ancestor: pocold/src/chain.rs: replace "            if let Some(pin)=&e.stored{break (empty_state(),Some(pin.clone()))}\n" with "            if let Some(pin)=&e.stored{let _=pin;}\n"
+# E1 an entry without a state allocates its own empty state: pocold/src/chain.rs: replace "E.get_or_init(Default::default).clone()}" with "let _=&E;std::sync::Arc::new(Default::default())}"
+# E2 a store of another format is used: pocold/src/state_store.rs: replace "f=>return Err(StateStoreError(format!(\"state store format {f:?}, not {FORMAT}\")))}}" with "_=>{}}}"
+# E3 a slot leaf does not keep its key's preimage: lp4-execution/src/node_trie.rs: replace "out.extend_from_slice(&v.to_be_bytes::<32>());out.extend_from_slice(&slot.to_be_bytes::<32>());}" with "out.extend_from_slice(&v.to_be_bytes::<32>());let _=slot;out.extend_from_slice(&[0u8;32]);}"
+# E4 an account leaf does not keep its address: lp4-execution/src/node_trie.rs: replace "                        out.extend_from_slice(address.as_slice());\n" with "                        let _=address;out.extend_from_slice(&[0u8;20]);\n"
+# E5 a closing node releases its versions one transaction each: pocold/src/state_store.rs: replace "if self.closing.load(Ordering::SeqCst){return Ok(())}" with ""
+# E6 a node does not close its store when it drops: pocold/src/node.rs: replace "impl Drop for Node{fn drop(&mut self){if let Some(s)=&self.state_store{s.close();}}}" with "impl Drop for Node{fn drop(&mut self){let _=&self.state_store;}}"
+# E7 a damaged store serves the nodes its cache holds: pocold/src/state_store.rs: replace "        if self.is_damaged(){return Err(StateStoreError(\"state store damaged\".into()))}\n        if let Some(n)=self.cache.lock().unwrap().get(id){return Ok(Some(n))}" with "        if let Some(n)=self.cache.lock().unwrap().get(id){return Ok(Some(n))}"
+## final pass (tree fc249699bad145100bba2cfaa9687647c9ee123e): 30 of 30 killed
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "K1 the snapshot seal is not checked", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K2 the journal binding is not checked", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K3 total work is not checked against the parent", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K4 the journal header is not checked against the entry", "status": "KILLED", "failed": ["e4_checkpoint_refuses_an_entry_bound_to_its_siblings_record"]}
+{"mutant": "K5 a stored version's state root is not checked", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K6 a stored version's summary is not checked", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K7 open does not release pins no checkpoint holds", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e4_checkpoint_open_releases_what_a_crash_left_in_the_store", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis", "e4_checkpoint_resumes_with_replays_protect_set", "e4_checkpoint_survives_kills", "e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains", "e5_a_closing_node_leaves_its_versions_to_the_next_open"]}
+{"mutant": "K8 a checkpoint does not pin its roots", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e4_checkpoint_open_releases_what_a_crash_left_in_the_store", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis", "e4_checkpoint_resumes_with_replays_protect_set", "e4_checkpoint_survives_kills", "e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains", "e5_a_closing_node_leaves_its_versions_to_the_next_open"]}
+{"mutant": "K9 old checkpoints are never released", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K10a replay's protect set is not compared with the snapshot's", "status": "KILLED", "failed": ["e4_checkpoint_resumes_with_replays_protect_set"]}
+{"mutant": "K10b replay's protect set is not restored on resume", "status": "KILLED", "failed": ["e4_checkpoint_resumes_with_replays_protect_set"]}
+{"mutant": "K11 a replay checkpoint does not make history durable first", "status": "KILLED", "failed": ["e4_checkpoint_crash_at_each_step"]}
+{"mutant": "K11b restore does not require an entry's history records", "status": "KILLED", "failed": ["e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains"]}
+{"mutant": "K12 the roots record is not checked against its snapshot", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "K13 restored entries lose their pruned flag", "status": "KILLED", "failed": ["e4_checkpoint_open_releases_what_a_crash_left_in_the_store", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis", "e4_checkpoint_survives_kills"]}
+{"mutant": "K14 restored entries are not offloaded", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e4_checkpoint_open_releases_what_a_crash_left_in_the_store", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis", "e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains", "e4_checkpoint_survives_kills", "e5_a_closing_node_leaves_its_versions_to_the_next_open"]}
+{"mutant": "K15 restored entries are not slimmed", "status": "KILLED", "failed": ["e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains"]}
+{"mutant": "K16 next_seq is not restored", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e4_checkpoint_open_resumes_and_equals_replay_from_genesis", "e4_checkpoint_resumes_with_replays_protect_set", "e4_checkpoint_survives_kills", "e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains", "e5_a_closing_node_leaves_its_versions_to_the_next_open"]}
+{"mutant": "K17 the eviction set is not restored", "status": "KILLED", "failed": ["e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains"]}
+{"mutant": "K18 a missing node does not mark the store damaged", "status": "KILLED", "failed": ["a_missing_node_marks_the_store_damaged"]}
+{"mutant": "K20 an import sequence beyond next_seq is not refused", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state"]}
+{"mutant": "C7 a rebuilt state is not kept on its entry", "status": "KILLED", "failed": ["e4_store_node_rebuilds_a_fork_below_k_hist_as_a_whole_state_node"]}
+{"mutant": "C10 a rolling rebuild's root ignores a stored ancestor", "status": "KILLED", "failed": ["e4_store_node_rebuilds_a_fork_below_k_hist_as_a_whole_state_node"]}
+{"mutant": "E1 an entry without a state allocates its own empty state", "status": "KILLED", "failed": ["e5_entries_without_a_state_share_one_empty_state"]}
+{"mutant": "E2 a store of another format is used", "status": "KILLED", "failed": ["a_store_of_another_format_is_rebuilt"]}
+{"mutant": "E3 a slot leaf does not keep its key's preimage", "status": "KILLED", "failed": ["node_trie::tests::node_encodings_round_trip"]}
+{"mutant": "E4 an account leaf does not keep its address", "status": "KILLED", "failed": ["node_trie::tests::node_encodings_round_trip"]}
+{"mutant": "E5 a closing node releases its versions one transaction each", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e5_a_closing_node_leaves_its_versions_to_the_next_open"]}
+{"mutant": "E6 a node does not close its store when it drops", "status": "KILLED", "failed": ["e4_checkpoint_damage_falls_back_to_a_verified_state", "e5_a_closing_node_leaves_its_versions_to_the_next_open"]}
+{"mutant": "E7 a damaged store serves the nodes its cache holds", "status": "KILLED", "failed": ["a_missing_node_marks_the_store_damaged"]}

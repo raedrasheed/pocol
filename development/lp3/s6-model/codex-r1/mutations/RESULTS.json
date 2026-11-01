@@ -1,0 +1,134 @@
+[
+  {
+    "name": "truncate-negative",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.273,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-truncate-negative-ed6vk1og/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "wrong-polynomial",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.266,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-wrong-polynomial-b31thhf6/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "biased-sample",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.261,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-biased-sample-2zg4q7vi/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "include-parent-weight",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.265,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-include-parent-weight-xou71s2_/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "exclusive-membership",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.316,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-exclusive-membership-6il9k_rh/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "partition-gap",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.297,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-partition-gap-l_ye1a_5/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "allow-reserved",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.341,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-allow-reserved-iie5v8o8/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "late-deadline-equality",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.376,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-late-deadline-equality-jynzl41m/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "allow-timestamp-limit",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.339,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-allow-timestamp-limit-y8voevo1/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "skip-final-counter",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.37,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-skip-final-counter-dae6d1d5/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "schema-ignore-width",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.281,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-schema-ignore-width-hvdcv7_9/prototypes/lp3-model/tests.ts"
+    ]
+  },
+  {
+    "name": "sha3-instead-of-keccak",
+    "caught": true,
+    "exitCode": 1,
+    "seconds": 0.346,
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/work/lp3-s6/mutations/ts-sha3-instead-of-keccak-bv4hzf9y/prototypes/lp3-model/tests.ts"
+    ]
+  }
+]

@@ -1,0 +1,38 @@
+{
+  "run": 39428650062,
+  "sourceHead": "f3fbe13863030adfed6912450e255acd986238b5",
+  "sourceTree": "540fa389c5a9e3c2d0d81b6a8f3f71b4387479e5",
+  "completedArtifactsVerified": 4,
+  "rustLinux": 90,
+  "rustWindows": 90,
+  "independentProfileCases": 9,
+  "allSignedCaseCertificatesMatchPublished": true,
+  "signedCases": 1173,
+  "unmodifiedPyEvmAccepted": 73,
+  "unmodifiedSignedAudit": "NOT PASSED",
+  "independentSignedGethRejected": 1173,
+  "compiled": {
+    "lp4-pool-mutations": 10,
+    "lp4-wire-mutations": 13,
+    "lp4-user-mutations": 6,
+    "independentSigned": 3
+  },
+  "primaryCaseBytesEqualR4": true,
+  "independentGethUnchangedSourceFiles": 2000,
+  "legacy": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "scope": "Four completed artifacts only; independent long comparison pending; no P2/P3/LP4 acceptance",
+  "bootable": false,
+  "codeMutationsBuiltAndDetected": 12,
+  "codeCases": 76,
+  "codeFollowUpTransactions": 2,
+  "codeDeltaIdentities": 20661,
+  "unchangedCodeCases": 20647,
+  "independentAmendedExecution": 8,
+  "independentInvalidInputSnapshotAdmissionOnly": 6,
+  "actualGenesisBuilder": "NOT PASSED"
+}

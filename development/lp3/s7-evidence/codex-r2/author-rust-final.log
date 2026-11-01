@@ -1,0 +1,21 @@
+   Compiling lp1-node v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 0.88s
+     Running tests/envelope.rs (prototypes/lp1-node/target/debug/deps/envelope-51a199780388289c)
+
+running 3 tests
+test t0_l2_pow_and_max_shape_not_full_validity ... ok
+test t0_l0_shapes_and_canonical_rejections ... ok
+test t0_l1_net_and_signed_diagnostics ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/finality_core.rs (prototypes/lp1-node/target/debug/deps/finality_core-81a5bfac8f0a83d0)
+
+running 4 tests
+test cf3_cursor_bounds_checked ... ok
+test cf1_cf2_triggers_and_sticky_identity ... ok
+test cf5_cf6_each_conjunct_and_u64 ... ok
+test cf4_gate2_boundaries ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

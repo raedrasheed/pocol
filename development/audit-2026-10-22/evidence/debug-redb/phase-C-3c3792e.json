@@ -1,0 +1,56 @@
+{
+ "phase": "DEBUG-OTHER",
+ "result": "PASS",
+ "sec": 110.0,
+ "binaries": [
+  {
+   "binary": "unittests",
+   "result": "ok",
+   "passed": 38,
+   "failed": 0,
+   "ignored": 0
+  },
+  {
+   "binary": "tests/admission.rs",
+   "result": "ok",
+   "passed": 3,
+   "failed": 0,
+   "ignored": 0
+  },
+  {
+   "binary": "tests/decoder_reference.rs",
+   "result": "ok",
+   "passed": 1,
+   "failed": 0,
+   "ignored": 0
+  },
+  {
+   "binary": "tests/net.rs",
+   "result": "ok",
+   "passed": 20,
+   "failed": 0,
+   "ignored": 0
+  },
+  {
+   "binary": "tests/secp_fixture.rs",
+   "result": "ok",
+   "passed": 1,
+   "failed": 0,
+   "ignored": 0
+  },
+  {
+   "binary": "tests/site.rs",
+   "result": "ok",
+   "passed": 6,
+   "failed": 0,
+   "ignored": 0
+  },
+  {
+   "binary": "tests/store.rs",
+   "result": "ok",
+   "passed": 12,
+   "failed": 0,
+   "ignored": 0
+  }
+ ]
+}

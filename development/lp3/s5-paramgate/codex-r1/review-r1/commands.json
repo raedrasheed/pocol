@@ -1,0 +1,999 @@
+[
+  {
+    "name": "rust-version",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "-vV"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.04
+  },
+  {
+    "name": "cargo-version",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "-V"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.029
+  },
+  {
+    "name": "python-version",
+    "args": [
+      "python3",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.013
+  },
+  {
+    "name": "build",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "build",
+      "--offline",
+      "--locked"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 39.281
+  },
+  {
+    "name": "regression",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "test",
+      "--offline",
+      "--locked",
+      "--lib",
+      "--test",
+      "param_gate",
+      "--test",
+      "assignment",
+      "--test",
+      "adversarial",
+      "--test",
+      "fixtures_integration",
+      "--test",
+      "genesis_spec",
+      "--test",
+      "profile",
+      "--test",
+      "timing"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 13.831
+  },
+  {
+    "name": "format",
+    "args": [
+      "cargo",
+      "+1.58.1",
+      "fmt",
+      "--",
+      "--check"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.256
+  },
+  {
+    "name": "probe-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "/workspace/Proof-of-Collaboration/development/lp3/s5-paramgate/codex-r1/probe.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/target/debug/liblp1_node.rlib",
+      "--extern",
+      "serde_json=/workspace/work/lp3-s5/review-r1/target/debug/deps/libserde_json-ede5723d69af46e8.rlib",
+      "-L",
+      "dependency=/workspace/work/lp3-s5/review-r1/target/debug/deps",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.546
+  },
+  {
+    "name": "oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s5-paramgate/codex-r1/oracle.py",
+      "/workspace/work/lp3-s5/review-r1/probe"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.478
+  },
+  {
+    "name": "remove-first-r26-predicate-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-first-r26-predicate-woovcykh/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-first-r26-predicate-woovcykh/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.237
+  },
+  {
+    "name": "remove-first-r26-predicate-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-first-r26-predicate-woovcykh/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-first-r26-predicate-woovcykh/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.31
+  },
+  {
+    "name": "remove-first-r26-predicate",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-first-r26-predicate-woovcykh/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "remove-r26-predicate-0-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-0-3xw1dvsl/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-0-3xw1dvsl/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.181
+  },
+  {
+    "name": "remove-r26-predicate-0-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-0-3xw1dvsl/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-0-3xw1dvsl/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.29
+  },
+  {
+    "name": "remove-r26-predicate-0",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-0-3xw1dvsl/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "remove-r26-predicate-1-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-1-uica431b/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-1-uica431b/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.203
+  },
+  {
+    "name": "remove-r26-predicate-1-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-1-uica431b/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-1-uica431b/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.31
+  },
+  {
+    "name": "remove-r26-predicate-1",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-1-uica431b/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.003
+  },
+  {
+    "name": "remove-r26-predicate-2-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-2-gued_j5o/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-2-gued_j5o/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.205
+  },
+  {
+    "name": "remove-r26-predicate-2-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-2-gued_j5o/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-2-gued_j5o/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.319
+  },
+  {
+    "name": "remove-r26-predicate-2",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-2-gued_j5o/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.005
+  },
+  {
+    "name": "remove-r26-predicate-3-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-3-tls2iz5p/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-3-tls2iz5p/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.224
+  },
+  {
+    "name": "remove-r26-predicate-3-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-3-tls2iz5p/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-3-tls2iz5p/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.302
+  },
+  {
+    "name": "remove-r26-predicate-3",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-3-tls2iz5p/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "remove-r26-predicate-4-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-4-9rvqemvm/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-4-9rvqemvm/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.251
+  },
+  {
+    "name": "remove-r26-predicate-4-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-4-9rvqemvm/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-4-9rvqemvm/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.328
+  },
+  {
+    "name": "remove-r26-predicate-4",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-4-9rvqemvm/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.003
+  },
+  {
+    "name": "remove-r26-predicate-5-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-5-e8u9v3mx/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-5-e8u9v3mx/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.189
+  },
+  {
+    "name": "remove-r26-predicate-5-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-5-e8u9v3mx/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-5-e8u9v3mx/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.312
+  },
+  {
+    "name": "remove-r26-predicate-5",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-5-e8u9v3mx/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.005
+  },
+  {
+    "name": "remove-r26-predicate-6-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-6-rgc7ls4n/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-6-rgc7ls4n/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.202
+  },
+  {
+    "name": "remove-r26-predicate-6-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-6-rgc7ls4n/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-6-rgc7ls4n/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.313
+  },
+  {
+    "name": "remove-r26-predicate-6",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-6-rgc7ls4n/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "remove-r26-predicate-7-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-7-lw9le1i8/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-7-lw9le1i8/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.179
+  },
+  {
+    "name": "remove-r26-predicate-7-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-7-lw9le1i8/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-7-lw9le1i8/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.319
+  },
+  {
+    "name": "remove-r26-predicate-7",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-7-lw9le1i8/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.003
+  },
+  {
+    "name": "remove-r26-predicate-8-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-8-1_rfmzy1/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-8-1_rfmzy1/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.206
+  },
+  {
+    "name": "remove-r26-predicate-8-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-8-1_rfmzy1/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-8-1_rfmzy1/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.321
+  },
+  {
+    "name": "remove-r26-predicate-8",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-8-1_rfmzy1/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.003
+  },
+  {
+    "name": "remove-r26-predicate-9-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-9-b_llfw8f/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-9-b_llfw8f/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.208
+  },
+  {
+    "name": "remove-r26-predicate-9-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-9-b_llfw8f/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-9-b_llfw8f/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.358
+  },
+  {
+    "name": "remove-r26-predicate-9",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-9-b_llfw8f/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.003
+  },
+  {
+    "name": "remove-r26-predicate-10-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-10-tgl_y6m3/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-10-tgl_y6m3/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.19
+  },
+  {
+    "name": "remove-r26-predicate-10-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-10-tgl_y6m3/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-10-tgl_y6m3/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.322
+  },
+  {
+    "name": "remove-r26-predicate-10",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-10-tgl_y6m3/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "remove-r26-predicate-11-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-11-veyrhojn/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-11-veyrhojn/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.178
+  },
+  {
+    "name": "remove-r26-predicate-11-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-11-veyrhojn/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-11-veyrhojn/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.293
+  },
+  {
+    "name": "remove-r26-predicate-11",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-11-veyrhojn/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.003
+  },
+  {
+    "name": "remove-r26-predicate-12-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-12-taeuiha_/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-12-taeuiha_/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.184
+  },
+  {
+    "name": "remove-r26-predicate-12-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-12-taeuiha_/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-12-taeuiha_/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.289
+  },
+  {
+    "name": "remove-r26-predicate-12",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-12-taeuiha_/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.003
+  },
+  {
+    "name": "remove-r26-predicate-13-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-13-r57dah7b/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-13-r57dah7b/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.188
+  },
+  {
+    "name": "remove-r26-predicate-13-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-13-r57dah7b/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-13-r57dah7b/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.303
+  },
+  {
+    "name": "remove-r26-predicate-13",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-13-r57dah7b/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.003
+  },
+  {
+    "name": "remove-r26-predicate-14-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-14-cvxryhdq/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-14-cvxryhdq/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.178
+  },
+  {
+    "name": "remove-r26-predicate-14-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-14-cvxryhdq/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-14-cvxryhdq/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.408
+  },
+  {
+    "name": "remove-r26-predicate-14",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-14-cvxryhdq/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "remove-r26-predicate-15-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-15-omshtzyg/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-15-omshtzyg/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.185
+  },
+  {
+    "name": "remove-r26-predicate-15-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/remove-r26-predicate-15-omshtzyg/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-15-omshtzyg/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.323
+  },
+  {
+    "name": "remove-r26-predicate-15",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/remove-r26-predicate-15-omshtzyg/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "accept-derive-error-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/accept-derive-error-q98_ndw4/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/accept-derive-error-q98_ndw4/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.191
+  },
+  {
+    "name": "accept-derive-error-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/accept-derive-error-q98_ndw4/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/accept-derive-error-q98_ndw4/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.311
+  },
+  {
+    "name": "accept-derive-error",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/accept-derive-error-q98_ndw4/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "wrong-lag-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/wrong-lag-2wibyk1w/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/wrong-lag-2wibyk1w/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.193
+  },
+  {
+    "name": "wrong-lag-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/wrong-lag-2wibyk1w/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/wrong-lag-2wibyk1w/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.295
+  },
+  {
+    "name": "wrong-lag",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/wrong-lag-2wibyk1w/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 101,
+    "seconds": 0.004
+  },
+  {
+    "name": "wrong-ceil-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--crate-name",
+      "lp1_node",
+      "--crate-type",
+      "rlib",
+      "/workspace/work/lp3-s5/review-r1/wrong-ceil-5v7xxztp/lib.rs",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/wrong-ceil-5v7xxztp/liblp1_node.rlib"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.182
+  },
+  {
+    "name": "wrong-ceil-test-compile",
+    "args": [
+      "rustc",
+      "+1.58.1",
+      "--edition=2021",
+      "--test",
+      "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs",
+      "--extern",
+      "lp1_node=/workspace/work/lp3-s5/review-r1/wrong-ceil-5v7xxztp/liblp1_node.rlib",
+      "-o",
+      "/workspace/work/lp3-s5/review-r1/wrong-ceil-5v7xxztp/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.318
+  },
+  {
+    "name": "wrong-ceil",
+    "args": [
+      "/workspace/work/lp3-s5/review-r1/wrong-ceil-5v7xxztp/test"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/prototypes/lp1-node",
+    "exitCode": 0,
+    "seconds": 0.003
+  }
+]

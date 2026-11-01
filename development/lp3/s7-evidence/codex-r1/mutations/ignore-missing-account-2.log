@@ -1,0 +1,21 @@
+
+running 4 tests
+test maximal_amounts_counts_and_shape_negatives ... ok
+test sv4_sv5_routes_only_sv6_state_is_deferred ... FAILED
+test sv7_and_sv7s_parts_and_conservation ... ok
+test sv1_sv2_sv3_integer_rounding ... ok
+
+failures:
+
+---- sv4_sv5_routes_only_sv6_state_is_deferred stdout ----
+thread 'sv4_sv5_routes_only_sv6_state_is_deferred' panicked at 'assertion failed: `(left == right)`
+  left: `U256([200, 0, 0, 0])`,
+ right: `U256([100, 0, 0, 0])`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/rewards.rs:31:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    sv4_sv5_routes_only_sv6_state_is_deferred
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

@@ -1,0 +1,449 @@
+{
+  "specVersion": "M1 draft 0.2",
+  "omnibox": [
+    {
+      "input": "",
+      "expected": {
+        "kind": "lookup",
+        "path": null,
+        "version": null
+      }
+    },
+    {
+      "input": "/",
+      "expected": {
+        "kind": "lookup",
+        "path": null,
+        "version": null
+      }
+    },
+    {
+      "input": "/index.html?x=1#part",
+      "expected": {
+        "kind": "lookup",
+        "path": "/index.html",
+        "version": null
+      }
+    },
+    {
+      "input": "/docs/",
+      "expected": {
+        "kind": "lookup",
+        "path": "/docs/index.html",
+        "version": null
+      }
+    },
+    {
+      "input": "/a//b",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "input": "//x",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "input": "/./a",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "input": "/a/../b",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "input": "/%61",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "input": "/a%2fb",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "input": "/INDEX.html",
+      "expected": {
+        "kind": "lookup",
+        "path": "/INDEX.html",
+        "version": null
+      }
+    },
+    {
+      "input": "/a#b?c",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a",
+        "version": null
+      }
+    },
+    {
+      "input": "/index.html?q=%20",
+      "expected": {
+        "kind": "lookup",
+        "path": "/index.html",
+        "version": null
+      }
+    },
+    {
+      "input": "/a\\b",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "input": "/a;b",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "input": "/docs",
+      "expected": {
+        "kind": "lookup",
+        "path": "/docs",
+        "version": null
+      }
+    },
+    {
+      "input": "/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.length"
+      }
+    },
+    {
+      "input": "/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/",
+      "expected": {
+        "kind": "lookup",
+        "path": "/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/index.html",
+        "version": null
+      }
+    },
+    {
+      "input": "/a.html@v2",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 2
+      }
+    },
+    {
+      "input": "/a.html@v2?x=1",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 2
+      }
+    },
+    {
+      "input": "/a.html?x=@v2",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": null
+      }
+    },
+    {
+      "input": "@v3",
+      "expected": {
+        "kind": "lookup",
+        "path": null,
+        "version": 3
+      }
+    },
+    {
+      "input": "/@v3",
+      "expected": {
+        "kind": "lookup",
+        "path": null,
+        "version": 3
+      }
+    },
+    {
+      "input": "/a.html@v0",
+      "expected": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "input": "/a.html@v01",
+      "expected": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "input": "/a.html@v4294967295",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": 4294967295
+      }
+    },
+    {
+      "input": "/a.html@v4294967296",
+      "expected": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "input": "/a.html@v",
+      "expected": {
+        "kind": "malformedSelector"
+      }
+    },
+    {
+      "input": "/a@vx",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "input": "/a@v1@v2",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    }
+  ],
+  "navigate": [
+    {
+      "input": "/",
+      "expected": {
+        "kind": "lookup",
+        "path": null,
+        "version": "session"
+      }
+    },
+    {
+      "input": "/x/",
+      "expected": {
+        "kind": "lookup",
+        "path": "/x/index.html",
+        "version": "session"
+      }
+    },
+    {
+      "input": "/about.html",
+      "expected": {
+        "kind": "lookup",
+        "path": "/about.html",
+        "version": "session"
+      }
+    },
+    {
+      "input": "/a/../b.html",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "input": "/a%2fb",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "input": "//x",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "input": "about.html",
+      "expected": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "input": "/a b",
+      "expected": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "input": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "kind": "schemaError"
+      }
+    },
+    {
+      "input": "/a.html@v2",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    },
+    {
+      "input": "/a.html?x#y",
+      "expected": {
+        "kind": "lookup",
+        "path": "/a.html",
+        "version": "session"
+      }
+    }
+  ],
+  "reference": [
+    {
+      "input": "../style.css",
+      "base": "/docs/page.html",
+      "expected": {
+        "kind": "lookup",
+        "path": "/style.css",
+        "version": "session"
+      }
+    },
+    {
+      "input": "img/a.png",
+      "base": "/docs/page.html",
+      "expected": {
+        "kind": "lookup",
+        "path": "/docs/img/a.png",
+        "version": "session"
+      }
+    },
+    {
+      "input": "./",
+      "base": "/docs/page.html",
+      "expected": {
+        "kind": "lookup",
+        "path": "/docs/index.html",
+        "version": "session"
+      }
+    },
+    {
+      "input": "..",
+      "base": "/docs/page.html",
+      "expected": {
+        "kind": "lookup",
+        "path": null,
+        "version": "session"
+      }
+    },
+    {
+      "input": "../../x.html",
+      "base": "/a.html",
+      "expected": {
+        "kind": "404",
+        "rule": "ref.aboveRoot"
+      }
+    },
+    {
+      "input": "/a/../b.html",
+      "base": "/docs/page.html",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.dotSegment"
+      }
+    },
+    {
+      "input": "a//b.html",
+      "base": "/page.html",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.emptySegment"
+      }
+    },
+    {
+      "input": "x%20y.png",
+      "base": "/page.html",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.percent"
+      }
+    },
+    {
+      "input": "style.css?v=2#k",
+      "base": "/page.html",
+      "expected": {
+        "kind": "lookup",
+        "path": "/style.css",
+        "version": "session"
+      }
+    },
+    {
+      "input": "?q=1",
+      "base": "/docs/page.html",
+      "expected": {
+        "kind": "lookup",
+        "path": "/docs/page.html",
+        "version": "session"
+      }
+    },
+    {
+      "input": "#top",
+      "base": "/page.html",
+      "expected": {
+        "kind": "fragmentOnly"
+      }
+    },
+    {
+      "input": "",
+      "base": "/page.html",
+      "expected": {
+        "kind": "lookup",
+        "path": "/page.html",
+        "version": "session"
+      }
+    },
+    {
+      "input": "https://example.org/",
+      "base": "/page.html",
+      "expected": {
+        "kind": "scheme",
+        "scheme": "https"
+      }
+    },
+    {
+      "input": "data:image/png;base64,AA==",
+      "base": "/page.html",
+      "expected": {
+        "kind": "scheme",
+        "scheme": "data"
+      }
+    },
+    {
+      "input": "JavaScript:alert(1)",
+      "base": "/page.html",
+      "expected": {
+        "kind": "scheme",
+        "scheme": "javascript"
+      }
+    },
+    {
+      "input": "//evil.example/x.js",
+      "base": "/page.html",
+      "expected": {
+        "kind": "networkPath"
+      }
+    },
+    {
+      "input": "a\\b.css",
+      "base": "/page.html",
+      "expected": {
+        "kind": "404",
+        "rule": "nav.grammar"
+      }
+    }
+  ]
+}

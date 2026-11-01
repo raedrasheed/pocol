@@ -1,0 +1,11 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)
+error[E0502]: cannot borrow `db` as immutable because it is also borrowed as mutable
+   --> tests/registry_payment.rs:133:67
+    |
+133 |  let r=slot(addr(0x12));put(&mut db,registry_address(),r,(storage(&db,registry_address(),r)&!((U256::from(255))<<16u32))|(U256::fro...
+    |                         --- ------- mutable borrow occurs here    ^^^ immutable borrow occurs here
+    |                         |
+    |                         mutable borrow later used by call
+
+For more information about this error, try `rustc --explain E0502`.
+error: could not compile `pocol-lp4-execution` (test "registry_payment") due to 1 previous error

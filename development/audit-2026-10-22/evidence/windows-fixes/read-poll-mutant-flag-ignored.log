@@ -1,0 +1,4 @@
+test net::tests::a_reader_sees_its_closed_flag_without_a_shutdown ... FAILED
+thread 'net::tests::a_reader_sees_its_closed_flag_without_a_shutdown' (16914) panicked at src/net.rs:297:9:
+the reader waited 10.006281428s after its peer was closed
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 38 filtered out; finished in 10.13s

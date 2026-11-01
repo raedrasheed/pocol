@@ -1,0 +1,21 @@
+{
+  "result": "PASS",
+  "scope": "operational-smoke-only",
+  "observedSeconds": 30,
+  "chainId": 777911,
+  "genesisHash": "0x7509e23ecc2ea7495a87679bd0e8da98854e0531ab2d278a491161bc72674b16",
+  "commonHeight": 9,
+  "commonHash": "0x3d14de061ad2596ef2869c9f83ca01a4ffc16f9dac92d8dcd398c5a632ad38eb",
+  "heightsBefore": {
+    "node1": 10,
+    "node2": 10,
+    "node3": 10
+  },
+  "heightsAfter": {
+    "node1": 15,
+    "node2": 15,
+    "node3": 15
+  },
+  "realMultiHostProven": false,
+  "note": "RPC observations alone cannot prove host separation, isolation or timing bounds."
+}

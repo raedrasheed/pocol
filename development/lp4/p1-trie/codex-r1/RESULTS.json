@@ -1,0 +1,19 @@
+{
+  "scope": "P1 canonical trie roots only",
+  "status": "LOCAL PASS; current-head GitHub/Windows required before merge",
+  "rustTests": 134,
+  "trieTestGroups": 5,
+  "oracleCases": 1218,
+  "mismatches": 0,
+  "frozenRootVectors": 19,
+  "compiledAssertionMutations": 8,
+  "allCaught": true,
+  "initialPanicControlExcluded": true,
+  "GenesisBuilder": "NOT PASSED",
+  "GeneralR18": "NOT PASSED",
+  "GeneralR21": "NOT PASSED",
+  "caps64": "NOT PASSED",
+  "realFinalizationAndSV6": "NOT PASSED",
+  "LP4": "NOT PASSED",
+  "bootable": false
+}

@@ -1,0 +1,39 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (2.590322ms)
+✔ 1027 previously frozen ASERT rows (9.53256ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.322281ms)
+✔ membership, partition completeness, owner and exact hashes (3.840677ms)
+✖ weight interval, strict CDF, unbiased rejection and uniform fallback (2.046348ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (7.963611ms)
+✔ full schema width/order/reserved failures and deep malformed framing (10.771381ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (78.917692ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 126.794161
+
+✖ failing tests:
+
+test at ../work/lp3-s6/mutations/ts-biased-sample-2zg4q7vi/prototypes/lp3-model/tests.ts:48:1
+✖ weight interval, strict CDF, unbiased rejection and uniform fallback (2.046348ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0n !== null
+  
+      at TestContext.<anonymous> (file:///workspace/work/lp3-s6/mutations/ts-biased-sample-2zg4q7vi/prototypes/lp3-model/tests.ts:51:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0n,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

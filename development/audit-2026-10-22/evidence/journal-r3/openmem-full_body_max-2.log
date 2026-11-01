@@ -1,0 +1,9 @@
+=== f-mem-open-full_body_max-2: jm_open_memory JM_MEM_KIND=full_body_max JM_MEM_OPEN=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/jr3w/memdirs/full_body_max ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:22:37Z
+
+running 1 test
+test jm_open_memory ... JM-OPENMEM-FRESH {"baseline":"RSS after admitted() and malloc_trim, before Node::open; journal size from metadata","journalBytes":16862277,"kind":"full_body_max","openSeconds":0.49805881,"peakAboveBaselineBytes":36073472,"peakOverJournal":2.1393001668754463,"records":85,"rssAfterBytes":26599424,"rssAfterTrimmedBytes":26202112,"rssBeforeBytes":7368704,"steadyAboveBaselineBytes":18833408,"steadyOverJournal":1.1168958972741345,"transientBytes":17240064,"transientOverJournal":1.0224042696013118,"vmHwmAfterBytes":43442176,"vmHwmBeforeBytes":7413760}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.56s
+
+=== end 2026-10-24T01:22:38Z exit=0

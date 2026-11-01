@@ -1,0 +1,82 @@
+{
+ "code": "3c3792e (D-REORG-REDB final code)",
+ "phaseA_assert_release": {
+  "result": "COMPLETE",
+  "counts": {
+   "PASS": 44
+  },
+  "total": 44,
+  "note": "release + debug_assertions + overflow_checks; each consensus test alone, --include-ignored (spec-depth tests included)"
+ },
+ "phaseB_pure_debug": {
+  "result": "COMPLETE",
+  "counts": {
+   "PASS": 44
+  },
+  "total": 44,
+  "note": "unoptimized debug; each consensus test alone, --include-ignored; per-test timeout 3600 s",
+  "slowest": {
+   "adoption_at_the_spec_depth_2048_and_not_at_2049": 1473.4,
+   "d133_tie_break_at_depth_400_holds_through_eviction_and_refetch": 589.2,
+   "a_competing_branch_within_side_blocks_max_is_adopted": 110.6,
+   "d133_tie_break_at_depth_holds_through_eviction_and_refetch": 72.4
+  }
+ },
+ "phaseC_pure_debug_other_binaries": {
+  "result": "PASS",
+  "binaries": [
+   {
+    "binary": "unittests",
+    "result": "ok",
+    "passed": 38,
+    "failed": 0,
+    "ignored": 0
+   },
+   {
+    "binary": "tests/admission.rs",
+    "result": "ok",
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0
+   },
+   {
+    "binary": "tests/decoder_reference.rs",
+    "result": "ok",
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0
+   },
+   {
+    "binary": "tests/net.rs",
+    "result": "ok",
+    "passed": 20,
+    "failed": 0,
+    "ignored": 0
+   },
+   {
+    "binary": "tests/secp_fixture.rs",
+    "result": "ok",
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0
+   },
+   {
+    "binary": "tests/site.rs",
+    "result": "ok",
+    "passed": 6,
+    "failed": 0,
+    "ignored": 0
+   },
+   {
+    "binary": "tests/store.rs",
+    "result": "ok",
+    "passed": 12,
+    "failed": 0,
+    "ignored": 0
+   }
+  ],
+  "sec": 110.0
+ },
+ "lp4_execution": "unchanged since 687ac38 (identical tree); its full debug run there: 162 PASS (evidence/debug-final.log)",
+ "superseded": "evidence/debug-complete-687ac38.json (687ac38: phase A 31/31; phase B PARTIAL 28/31) is kept unchanged"
+}

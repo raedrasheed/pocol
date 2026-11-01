@@ -1,0 +1,42 @@
+[
+  {
+    "path": "src/store.rs",
+    "oldSha256": null,
+    "newSha256": "8d041cf6753ffb2fc652ac1bd9d48bae67bb1b01d8e20369afec92bc2ce5b0a9"
+  },
+  {
+    "path": "src/lib.rs",
+    "oldSha256": "efd69ccae2cc7e5e123b05d07ed98769db262352b06dea8d30d07e1ba4eb422b",
+    "newSha256": "989e051a103c79356f7618b2ce34ed73fec4c939681974816460a9049af575c2"
+  },
+  {
+    "path": "src/main.rs",
+    "oldSha256": "3caa8af87593ceb3d6d385401fdb53975cb3fb44cad6283ac4a28e589c17370f",
+    "newSha256": "28e18ada22a5a5d060384ad201b515ff9561b7aa83645958ba253f26f05b352b"
+  },
+  {
+    "path": "tests/store_journal.rs",
+    "oldSha256": null,
+    "newSha256": "2919ac0a366495509ce92d0279501c7675b1a09294561712f746c58d4a9401f5"
+  },
+  {
+    "path": "tests/store_process.rs",
+    "oldSha256": null,
+    "newSha256": "9fec3ceed4ec6df750cd232c71881ffb0884d03f664ae66a46b813a799e378a2"
+  },
+  {
+    "path": "tests/e2e_store.py",
+    "oldSha256": null,
+    "newSha256": "545192541d328b3892d2ee0fe53c8c13d2d9e885f7f540a5114ac33560c9404b"
+  },
+  {
+    "path": "README.md",
+    "oldSha256": "7e5ae7217104a0a4319f6fdefe007bdffd2b9b0b949c336765b6e7ec765ce486",
+    "newSha256": "5ec42bd51c7de241488aaa6136b68782ead18c78e83db4749429ff0d281e63a6"
+  },
+  {
+    "path": "LP2-PROGRESS-0.37-AR.md",
+    "oldSha256": null,
+    "newSha256": "35530c946591022837d045b8e4661973ef4c54999c64cccf5abb160a0e0850d9"
+  }
+]

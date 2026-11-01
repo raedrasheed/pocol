@@ -1,0 +1,22 @@
+{
+  "schema": "pocol-m1-n26-cases/0.26",
+  "status": "normative fixtures for N26-1..3 (accepted qualified technical decisions); executed with the unchanged 0.25 helper module",
+  "helper": "m1-draft-0.25/tools/supplements_ref.py (decode_value_hex, js_like_loads, chainid_exact, chainid_double)",
+  "inherits": ["m1-draft-0.25/representation/cr-e4-01-u64-epoch.json", "m1-draft-0.25/representation/cr-e4-02-surrogates.json", "m1-draft-0.25/representation/cid-1-profile-chainid.json"],
+  "n26_1_valueTexts": [
+    {"id": "N1-tomb-min", "ver": ["1", 0], "text": "{\"b64\":\"\",\"epoch\":\"0000000000000001\",\"fmt\":2,\"seq\":0,\"tomb\":true}", "expect": {"ok": true, "dict": {}, "tomb": true}},
+    {"id": "N1-tomb-max", "ver": ["18446744073709551615", 4294967295], "text": "{\"b64\":\"\",\"epoch\":\"ffffffffffffffff\",\"fmt\":2,\"seq\":4294967295,\"tomb\":true}", "expect": {"ok": true, "dict": {}, "tomb": true}},
+    {"id": "N1-2p53plus1", "ver": ["9007199254740993", 0], "text": "{\"b64\":\"\",\"epoch\":\"0020000000000001\",\"fmt\":2,\"seq\":0,\"tomb\":true}", "expect": {"ok": true, "dict": {}, "tomb": true}},
+    {"id": "N1-legacyNumber", "ver": ["9007199254740993", 0], "text": "{\"b64\":\"\",\"epoch\":9007199254740993,\"fmt\":2,\"seq\":0,\"tomb\":true}", "expect": {"ok": false, "reason": "epoch"},
+     "note": "the numeric form is not valid under N26-1; a JS reader would also see 9007199254740992"},
+    {"id": "N1-uppercase", "ver": ["18446744073709551615", 0], "text": "{\"b64\":\"\",\"epoch\":\"FFFFFFFFFFFFFFFF\",\"fmt\":2,\"seq\":0,\"tomb\":true}", "expect": {"ok": false, "reason": "epoch"}},
+    {"id": "N1-zero", "ver": ["1", 0], "text": "{\"b64\":\"\",\"epoch\":\"0000000000000000\",\"fmt\":2,\"seq\":0,\"tomb\":true}", "expect": {"ok": false, "reason": "epoch"}},
+    {"id": "N1-extraField", "ver": ["1", 0], "text": "{\"b64\":\"\",\"epoch\":\"0000000000000001\",\"fmt\":2,\"seq\":0,\"tomb\":true,\"x\":1}", "expect": {"ok": false, "reason": "fields"}},
+    {"id": "N1-fmt3", "ver": ["1", 0], "text": "{\"b64\":\"\",\"epoch\":\"0000000000000001\",\"fmt\":3,\"seq\":0,\"tomb\":true}", "expect": {"ok": false, "reason": "fmt"}},
+    {"id": "N1-seqString", "ver": ["1", 0], "text": "{\"b64\":\"\",\"epoch\":\"0000000000000001\",\"fmt\":2,\"seq\":\"0\",\"tomb\":true}", "expect": {"ok": false, "reason": "seq"}},
+    {"id": "N1-pairs", "ver": ["2", 5], "text": "{\"b64\":\"AAAAAmswAAAAAWE=\",\"epoch\":\"0000000000000002\",\"fmt\":2,\"seq\":5,\"tomb\":false}", "expect": {"ok": true, "dict": {"k0": "a"}, "tomb": false},
+     "derivation": "pairs = be32(2) 'k0' be32(1) 'a' = 00000002 6b30 00000001 61 (11 bytes); base64 = AAAAAmswAAAAAWE="}
+  ],
+  "n26_2": {"bridgeCases": "m1-draft-0.25/representation/cr-e4-02-surrogates.json bridgeCases (executed on the 0.4 bridge model)"},
+  "n26_3": {"cases": "m1-draft-0.25/representation/cid-1-profile-chainid.json fixtures (exact reading column is normative)"}
+}

@@ -1,0 +1,11 @@
+{
+  "create2OfficialExample0": "pass",
+  "chunkLengthsAndOffset10": "pass",
+  "rlpRoundTrip": "pass",
+  "chunkVectors": 3,
+  "negativeManifestFixtures": 11,
+  "implementationUnderTest": null,
+  "evmExecuted": false,
+  "independentHashImplementations": false,
+  "claudeOrCodexReviewExecuted": false
+}

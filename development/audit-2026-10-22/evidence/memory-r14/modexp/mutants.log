@@ -1,0 +1,14 @@
+## MODEXP fast path (b46658a) on a separate worktree (2026-10-27T16:05:26Z)
+MX1 KILLED (35s) lp4-execution/src/modexp.rs: 'if m<=1{return 0}' -> 'if m==0{return 0}'; failing: ['modexp::tests::the_precompile_returns_what_revm_returns']
+MX2 KILLED (31s) lp4-execution/src/modexp.rs: 'if exp.is_empty(){return 1}' -> 'if exp.is_empty(){return 0}'; failing: ['modexp::tests::the_precompile_returns_what_revm_returns', 'modexp::tests::modpow_word_equals_revm_on_one_word_moduli']
+MX3 KILLED (31s) lp4-execution/src/modexp.rs: '    x1+q*y\n' -> '    x1+y\n'; failing: ['modexp::tests::the_precompile_returns_what_revm_returns', 'modexp::tests::modpow_word_equals_revm_on_one_word_moduli', 'modexp::tests::the_measured_shapes_match_revm']
+MX4 KILLED (33s) lp4-execution/src/modexp.rs: 'e<u64::from(t)};' -> 'e<u64::from(t)/2};'; failing: ['modexp::tests::the_precompile_returns_what_revm_returns', 'modexp::tests::modpow_word_equals_revm_on_one_word_moduli']
+MX5 KILLED (32s) lp4-execution/src/modexp.rs: 'let tail=&exp[exp.len().saturating_sub(8)..];' -> 'let tail=&exp[exp.len().saturating_sub(4)..];'; failing: ['modexp::tests::the_precompile_returns_what_revm_returns']
+MX6 KILLED (31s) lp4-execution/src/modexp.rs: 'for _ in 0..6{x=x.wrapping_mul' -> 'for _ in 0..3{x=x.wrapping_mul'; failing: ['modexp::tests::modpow_word_equals_revm_on_one_word_moduli', 'modexp::tests::the_measured_shapes_match_revm', 'modexp::tests::the_precompile_returns_what_revm_returns']
+MX7 KILLED (33s) lp4-execution/src/modexp.rs: 'if u.1||u.0>=self.q{' -> 'if u.1||u.0>self.q{'; failing: ['modexp::tests::the_precompile_returns_what_revm_returns']
+MX8 SURVIVED (31s) lp4-execution/src/modexp.rs: 'if s.len()>8{return None}' -> 'if s.len()>9{return None}'; failing: []
+MX9 KILLED (31s) lp4-execution/src/modexp.rs: '((a<<8)|u128::from(*x))%u128::from(m)) as u64;' -> '((a<<8)|u128::from(*x))) as u64;'; failing: ['modexp::tests::modpow_word_equals_revm_on_one_word_moduli', 'modexp::tests::the_precompile_returns_what_revm_returns']
+MX10 KILLED (31s) lp4-execution/src/modexp.rs: '    if gas>gas_limit{return None}\n' -> '\n'; failing: ['modexp::tests::the_precompile_returns_what_revm_returns']
+MX11 KILLED (31s) lp4-execution/src/native.rs: 'p.extend([crate::modexp::BERLIN]);p' -> 'p'; failing: ['modexp::tests::the_engine_runs_this_modexp_at_address_5']
+## MX8 after the test also draws moduli of more than one word (2026-10-27T16:12:06Z)
+MX8 KILLED (32s) lp4-execution/src/modexp.rs: 'if s.len()>8{return None}' -> 'if s.len()>9{return None}'; failing: ['modexp::tests::the_precompile_returns_what_revm_returns']

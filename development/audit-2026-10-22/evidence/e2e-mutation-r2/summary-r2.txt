@@ -1,0 +1,17 @@
+{"label": "base-run1", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 249.9, "leftover_killed": [], "ports_busy_after": []}
+{"label": "base-run2", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 276.0, "leftover_killed": [], "ports_busy_after": []}
+{"label": "base-run3", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 259.4, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M1a", "exit": 1, "outcome": "FAIL", "first_fail": "timeout waiting for a,b reach 15", "elapsed_s": 121.4, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M1b", "exit": 1, "outcome": "FAIL", "first_fail": "heal: every node's head is a/b's tip (heavier, and lower than c's tip)", "elapsed_s": 404.5, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M2", "exit": 1, "outcome": "FAIL", "first_fail": "user transactions included; receipts identical on all nodes", "elapsed_s": 272.9, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M2a", "exit": 1, "outcome": "FAIL", "first_fail": "user transactions included; receipts identical on all nodes", "elapsed_s": 214.0, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M3", "exit": 1, "outcome": "FAIL", "first_fail": "timeout waiting for c syncs", "elapsed_s": 155.1, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M3b", "exit": 1, "outcome": "FAIL", "first_fail": "heal: every node's head is a/b's tip (heavier, and lower than c's tip)", "elapsed_s": 363.8, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M4", "exit": 1, "outcome": "FAIL", "first_fail": "heal: c reorganized exactly once (one head switch, nothing mined)", "elapsed_s": 308.7, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M5", "exit": 1, "outcome": "FAIL", "first_fail": "every miner produced blocks", "elapsed_s": 265.2, "leftover_killed": [], "ports_busy_after": []}
+{"label": "M6", "exit": 1, "outcome": "FAIL", "first_fail": "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "elapsed_s": 95.4, "leftover_killed": [], "ports_busy_after": []}
+{"label": "Mtie", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 326.4, "leftover_killed": [], "ports_busy_after": []}
+{"label": "Mheight", "exit": 1, "outcome": "FAIL", "first_fail": "heal: every node's head is a/b's tip (heavier, and lower than c's tip)", "elapsed_s": 399.3, "leftover_killed": [], "ports_busy_after": []}
+{"label": "Msess", "exit": 1, "outcome": "FAIL", "first_fail": "relay: a syncs c's tip from a peer claiming more work, keeps its head, and c's tip is not canonical", "elapsed_s": 263.0, "leftover_killed": [], "ports_busy_after": []}
+{"label": "Mreplay", "exit": 1, "outcome": "FAIL", "first_fail": "replay after the relay: a's head is a/b's tip; c's tip is stored and not canonical", "elapsed_s": 172.8, "leftover_killed": [], "ports_busy_after": []}
+done

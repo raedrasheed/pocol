@@ -1,0 +1,3 @@
+thread 'a_batch_does_not_hold_p2p_events_for_its_whole_length' (31835) panicked at tests/net.rs:1097:5:
+the Hello came 4.851359429s into a 5.054840069s batch: it waited for the batch
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 49 filtered out; finished in 5.39s

@@ -1,0 +1,71 @@
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[node3 74242407] opened: head h=0 records=0
+[node3 74246019] lock h=1 a=0 PROP tid=0x2f74a5406e
+[node3 74246032] head h=1 0xdafdd66898f9 signed=true txs=2
+[node3 74247021] lock h=2 a=0 PROP tid=0x171e133669
+[node3 74247041] head h=2 0xdaa70ec0d398 signed=true txs=0
+[node3 74248024] lock h=3 a=0 PROP tid=0x7689d64d53
+[node3 74248045] head h=3 0xc623a74ed828 signed=true txs=0
+[node3 74249027] lock h=4 a=0 PROP tid=0xedabfaeec4
+[node3 74249045] range exhausted; idle until next template
+[node3 74316034] attempt 0 expired; advancing
+[node3 74316037] lock h=4 a=1 FB tid=0xb1f464c354
+[node3 74316055] range exhausted; idle until next template
+[node3 74376028] attempt 1 expired; advancing
+[node3 74376030] lock h=4 a=2 FB tid=0x75e2c069a9
+[node3 74376039] head h=4 0xe2d29726b34b signed=false txs=0
+[node3 74376052] lock h=5 a=0 PROP tid=0x467b158f66
+[node3 74376065] head h=5 0xfef8b222bff6 signed=true txs=0
+[node3 74376076] lock h=6 a=0 PROP tid=0x9500867024
+[node3 74376093] head h=6 0xf670f1d94e18 signed=true txs=0
+[node3 74384103] lock h=7 a=0 FB tid=0x79eabfaa7f
+[node3 74384118] range exhausted; idle until next template
+[node3 74443038] attempt 0 expired; advancing
+[node3 74443041] lock h=7 a=1 FB tid=0xcd533ce9b1
+[node3 74443058] range exhausted; idle until next template
+[node3 74443079] head h=7 0xe4d1b2e7aa83 signed=false txs=0
+[node3 74443082] lock h=8 a=0 PROP tid=0x05df9a5dd8
+[node3 74443108] head h=8 0x2a194905c197 signed=true txs=0
+[node3 74443112] lock h=9 a=0 PROP tid=0x5658a6956e
+[node3 74443127] head h=9 0x4c82fbd1ef65 signed=true txs=0
+[node3 74443130] lock h=10 a=0 PROP tid=0xa0c6d7c43d
+[node3 74443148] range exhausted; idle until next template
+[node3 74443162] head h=10 0xc2979f846aae signed=true txs=0
+[node3 74444057] lock h=11 a=0 PROP tid=0x7e2c60a4bf
+[node3 74444067] head h=11 0x6378a45ccbe1 signed=true txs=0
+[node3 74445036] lock h=12 a=0 PROP tid=0x48ca5b554f
+[node3 74445059] head h=12 0xf4623ae3f616 signed=true txs=1
+[node3 74446051] lock h=13 a=0 PROP tid=0x2b438b173a
+[node3 74446062] head h=13 0xd4f1beb86aad signed=true txs=0
+[node3 74447036] lock h=14 a=0 PROP tid=0x25f4a76958
+[node3 74447048] head h=14 0x100667fd1546 signed=true txs=0
+[node3 74448064] head h=15 0x3cff67a7399c signed=true txs=0
+[node3 74449016] lock h=16 a=0 PROP tid=0x351ec18d40
+[node3 74449032] head h=16 0x906ebfc89f50 signed=true txs=0
+[node3 74450035] head h=17 0x1626bcf42ef0 signed=true txs=0
+[node3 74451019] lock h=18 a=0 PROP tid=0xf7bd69d002
+[node3 74451030] head h=18 0xd9c9a4779769 signed=true txs=0
+[node3 74452019] lock h=19 a=0 PROP tid=0xb8944c5897
+[node3 74452032] range exhausted; idle until next template
+[node3 74452057] head h=19 0x224322724054 signed=true txs=0
+[node3 74453023] lock h=20 a=0 PROP tid=0x0dc9249c0e
+[node3 74453037] head h=20 0x3a1941e5161d signed=true txs=0
+[node3 74454054] head h=21 0x2b0341ea96b8 signed=true txs=0
+[node3 74455037] lock h=22 a=0 PROP tid=0x7ab34c8324
+[node3 74455055] head h=22 0xa4463bebe944 signed=true txs=1
+[node3 74455065] head h=22 0xe4b5482035bf signed=true txs=1
+[node3 74456031] lock h=23 a=0 PROP tid=0x39df0e6b87
+[node3 74456051] head h=23 0x3243b4d29128 signed=true txs=0
+[node3 74456068] head h=23 0xcf2c62d41872 signed=true txs=0
+[node3 74457041] lock h=24 a=0 PROP tid=0x7727843a71
+[node3 74457051] head h=24 0x78415d3c1ec5 signed=true txs=0
+[node3 74458043] lock h=25 a=0 PROP tid=0x851530c966
+[node3 74458058] head h=25 0x6047cf40357e signed=true txs=0
+[node3 74459036] lock h=26 a=0 PROP tid=0x994c26a70b
+[node3 74459060] head h=26 0xb906ac0df5b5 signed=true txs=0
+[node3 74460076] head h=27 0x47403d699ef1 signed=true txs=0
+[node3 74461042] lock h=28 a=0 PROP tid=0x34b9c6a1a8
+[node3 74461065] range exhausted; idle until next template
+[node3 74461095] head h=28 0x95347a1fdb90 signed=true txs=0
+[node3 74462055] lock h=29 a=0 PROP tid=0xf4f17d0193
+[node3 74462072] head h=29 0x142ddebd2ffe signed=true txs=0

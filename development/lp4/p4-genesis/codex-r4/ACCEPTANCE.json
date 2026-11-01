@@ -1,0 +1,25 @@
+{
+  "scope": "Partial approved ISSUANCE-01 implementation, not full execution acceptance",
+  "ownerDecision": "APPROVED_ADDITIVE_LP4",
+  "rustPassed": 92,
+  "independentGenesisMembers": [
+    4,
+    1024
+  ],
+  "independentSignedCases": 6,
+  "compiledMutationControls": {
+    "issuance": 13,
+    "system": 15,
+    "nested": 2
+  },
+  "allFullObligations": "NOT PASSED",
+  "bootable": false,
+  "limitations": [
+    "Two synthetic program roles",
+    "FinalFundingWitness does not settle pending or implement real finalization/SV6",
+    "No complete UT/stored-parent/grandparent admission or phase schedule",
+    "General R18/R21 and caps64 not proven",
+    "No immediate all-op cap or disk/crash/reorg acceptance",
+    "New R4 hosted checks not yet run"
+  ]
+}

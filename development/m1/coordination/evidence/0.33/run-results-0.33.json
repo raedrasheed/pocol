@@ -1,0 +1,347 @@
+{
+  "package": "Localcoordinator authoredpatch0.33; M1specaccepted0.32 unchanged",
+  "executedAtUtc": "2026-10-08T10:42:41.185Z",
+  "environment": {
+    "node": "v22.13.1"
+  },
+  "summary": {
+    "checks": 82,
+    "passed": 82,
+    "recorded": 0,
+    "failed": 0
+  },
+  "independentHTTP": "coordinator-http-independent-033.json",
+  "livePreservation": "coordinator-live-preservation-033.json",
+  "liveContinuation": "coordinator-live-continuation-033.json",
+  "logEncoding": "PowerShell UTF16LE decodedusing existingutil beforearchiving; no test failure",
+  "results": [
+    {
+      "check": "node.1.duplicate guidance submissions create one queued item",
+      "status": "pass"
+    },
+    {
+      "check": "node.2.special idempotency keys on guidance: one item and one notification per key, also after reload",
+      "status": "pass"
+    },
+    {
+      "check": "node.3.special idempotency keys on authorJob: one item and one notification per key, also after reload",
+      "status": "pass"
+    },
+    {
+      "check": "node.4.ordinary UUID idempotency keys behave exactly as before",
+      "status": "pass"
+    },
+    {
+      "check": "node.5.author job: one spawn, no replay, next job waits for the actual review",
+      "status": "pass"
+    },
+    {
+      "check": "node.6.failed author turn needs an actual review before any dispatch; retry stays available after it",
+      "status": "pass"
+    },
+    {
+      "check": "node.7.a worker start failure leaves no lease and must be reviewed",
+      "status": "pass"
+    },
+    {
+      "check": "node.8.pause drains to the job boundary, preserves state, and resume dispatches",
+      "status": "pass"
+    },
+    {
+      "check": "node.9.restart: finished child is imported without spawning",
+      "status": "pass"
+    },
+    {
+      "check": "node.10.restart: dead child without a result is interrupted, reviewed, then explicitly retried",
+      "status": "pass"
+    },
+    {
+      "check": "node.11.restart: a live child is re-attached, never duplicated",
+      "status": "pass"
+    },
+    {
+      "check": "node.12.stale service lock is taken over with evidence; a live one refuses",
+      "status": "pass"
+    },
+    {
+      "check": "node.13.empty or malformed lock fails closed even when every pid looks dead",
+      "status": "pass"
+    },
+    {
+      "check": "node.14.two controllers in the same process: no shared ownership; owner updates port and releases",
+      "status": "pass"
+    },
+    {
+      "check": "node.15.release never removes a successor lock; a replaced owner cannot update it",
+      "status": "pass"
+    },
+    {
+      "check": "node.16.competing stale recovery: one mutex holder at a time; a late recoverer re-reads and stops",
+      "status": "pass"
+    },
+    {
+      "check": "node.17.ledger with an uncheckpointed author blocks dispatch",
+      "status": "pass"
+    },
+    {
+      "check": "node.18.author dispatch plan is validated; browser text never becomes CLI arguments",
+      "status": "pass"
+    },
+    {
+      "check": "node.19.reviewer attachment expires honestly and an absent host blocks dispatch",
+      "status": "pass"
+    },
+    {
+      "check": "node.20.current receipts and actual reviews appear as timestamped Claude/Codex cards",
+      "status": "pass"
+    },
+    {
+      "check": "node.21.owner answers are queued, never approved; UI-TEST is test-only",
+      "status": "pass"
+    },
+    {
+      "check": "node.22.a valid saved loopback connection for this workspace is reused: same port and capabilities",
+      "status": "pass"
+    },
+    {
+      "check": "node.23.invalid saved connections fail closed: never reused, explicit reason, no capability in the notice",
+      "status": "pass"
+    },
+    {
+      "check": "node.24.--fresh-connection and a different --port create new capabilities; a bad --port is refused",
+      "status": "pass"
+    },
+    {
+      "check": "node.25.a reused connection keeps the open browser working and the reviewer API unreachable from the browser",
+      "status": "pass"
+    },
+    {
+      "check": "node.26.a saved valid connection never bypasses the single-service lock",
+      "status": "pass"
+    },
+    {
+      "check": "node.27.default off: without saved standing authorization a review queues no continuation and notifies nothing",
+      "status": "pass"
+    },
+    {
+      "check": "node.28.enabled: exactly one durable continuation item and one fixed notification per actual review, also after restart",
+      "status": "pass"
+    },
+    {
+      "check": "node.29.policy: default off; every missing, malformed, complete or blocked-without-ready-item ledger disables it",
+      "status": "pass"
+    },
+    {
+      "check": "node.30.completion: a complete worklist suppresses the callback after an actual review",
+      "status": "pass"
+    },
+    {
+      "check": "node.31.pause defers the continuation; a manual resume decides it once; stop suppresses",
+      "status": "pass"
+    },
+    {
+      "check": "node.32.gates: an active writer or an open continuation suppresses; an acknowledged one allows the next",
+      "status": "pass"
+    },
+    {
+      "check": "node.33.second author: dispatched only AFTER the actual first review, through claim/ack, with a matching reviewed ledger; every gate still blocks",
+      "status": "pass"
+    },
+    {
+      "check": "node.34.ledger: unknown, unreviewed or mismatched inactive states stay blocked",
+      "status": "pass"
+    },
+    {
+      "check": "node.35.restart at durable boundaries: a pending review is decided once; a half-recorded item is finished, never duplicated",
+      "status": "pass"
+    },
+    {
+      "check": "node.36.legacy reviews saved before the update never trigger a continuation",
+      "status": "pass"
+    },
+    {
+      "check": "node.37.a continuation send interrupted by a restart is uncertain and never retried automatically",
+      "status": "pass"
+    },
+    {
+      "check": "node.38.continuation ack: bad plans are refused, an ack without a plan starts nothing, a second ack is refused",
+      "status": "pass"
+    },
+    {
+      "check": "node.39.the continuation message is fixed, server-side and points the existing thread at the saved authority",
+      "status": "pass"
+    },
+    {
+      "check": "node.40.authority display is read-only, from safe ledger fields, and separate from owner answers",
+      "status": "pass"
+    },
+    {
+      "check": "node.41.UTF-16 receipt: allowlist keeps visible text, drops hidden reasoning and raw payloads",
+      "status": "pass"
+    },
+    {
+      "check": "node.42.secrets are masked: private key in tool input, mnemonic in result, registered tokens",
+      "status": "pass"
+    },
+    {
+      "check": "node.43.sink detector catches real sinks and ignores comments that name them",
+      "status": "pass"
+    },
+    {
+      "check": "node.44.tool text is kept as inert data and the frontend has no executable HTML sink",
+      "status": "pass"
+    },
+    {
+      "check": "node.45.RTL layout: technical fragments are isolated LTR <bdi> text nodes, Arabic prose stays text",
+      "status": "pass"
+    },
+    {
+      "check": "node.46.history cards: roles, missing timestamps marked, hashes and commit attached",
+      "status": "pass"
+    },
+    {
+      "check": "node.47.source history reload uses the cache and never invokes an agent",
+      "status": "pass"
+    },
+    {
+      "check": "node.48.saved check results and the fixed status panel come from files",
+      "status": "pass"
+    },
+    {
+      "check": "node.49.nothing is sent before the item and the attempt are durable; delivery is not attach/claim/ack",
+      "status": "pass"
+    },
+    {
+      "check": "node.50.duplicate idempotency key never re-queues or re-notifies; pause/resume do not notify",
+      "status": "pass"
+    },
+    {
+      "check": "node.51.restart during a send: the attempt becomes uncertain and is never replayed; explicit retry reuses the item",
+      "status": "pass"
+    },
+    {
+      "check": "node.52.held notifications (server start) are sent once on release, not before",
+      "status": "pass"
+    },
+    {
+      "check": "node.53.failed delivery: honest redacted error, no automatic retry, explicit retry, duplicate retry ignored",
+      "status": "pass"
+    },
+    {
+      "check": "node.54.more than 25 explicit failed retries: unique increasing attempts, none stuck, old keys never resend (also after reload)",
+      "status": "pass"
+    },
+    {
+      "check": "node.55.state written before the fix migrates: counter from the highest attempt, legacy keys kept",
+      "status": "pass"
+    },
+    {
+      "check": "node.56.special keys: item and retry keys dedup, stay tied to their own notification, survive reload",
+      "status": "pass"
+    },
+    {
+      "check": "node.57.no transport configured: request saved, honest notConfigured state",
+      "status": "pass"
+    },
+    {
+      "check": "node.58.job completion requests a review exactly once, even with repeated callbacks",
+      "status": "pass"
+    },
+    {
+      "check": "node.59.failed CLI run: bounded, redacted stderr excerpt is visible; executable-not-found is explicit",
+      "status": "pass"
+    },
+    {
+      "check": "node.60.real transport: fixed queue command against the existing thread, no shell, bounded output",
+      "status": "pass"
+    },
+    {
+      "check": "node.61.real transport: launch error, non-zero exit and timeout are reported honestly",
+      "status": "pass"
+    },
+    {
+      "check": "node.62.real transport: configuration and message are validated; never built from browser input",
+      "status": "pass"
+    },
+    {
+      "check": "node.63.real transport through the broker: browser text and secrets never reach the command line",
+      "status": "pass"
+    },
+    {
+      "check": "node.64.static page served with CSP; API requires the control token",
+      "status": "pass"
+    },
+    {
+      "check": "node.65.wrong Host and cross-origin writes are refused",
+      "status": "pass"
+    },
+    {
+      "check": "node.66.content type, body size and unknown paths",
+      "status": "pass"
+    },
+    {
+      "check": "node.67.duplicate POST with the same idempotency key returns the same item",
+      "status": "pass"
+    },
+    {
+      "check": "node.68.reviewer API: separate token, no browser origin, then claim and ack",
+      "status": "pass"
+    },
+    {
+      "check": "node.69.a review recorded through the reviewer API reaches the browser timeline on the next poll",
+      "status": "pass"
+    },
+    {
+      "check": "node.70.saved notifier fallback reads only codexBin and threadId; never tokens or other settings",
+      "status": "pass"
+    },
+    {
+      "check": "node.71.notifier settings precedence: argument > environment > saved; saved used only as fallback",
+      "status": "pass"
+    },
+    {
+      "check": "node.72.missing or corrupt connection file gives nothing and an honest notConfigured notifier",
+      "status": "pass"
+    },
+    {
+      "check": "node.73.saved values are validated by the existing Notifier, exactly like explicit ones",
+      "status": "pass"
+    },
+    {
+      "check": "node.74.capability set (--tools) is explicit; scoped allow/deny and default permissions kept",
+      "status": "pass"
+    },
+    {
+      "check": "node.75.smoke prompt follows the ledger to the latest saved review result; it assumes no revision",
+      "status": "pass"
+    },
+    {
+      "check": "node.76.invalid plan or session fails before any lease or spawn",
+      "status": "pass"
+    },
+    {
+      "check": "node.77.job directory failure happens before the lease",
+      "status": "pass"
+    },
+    {
+      "check": "node.78.spawn throwing after the lease: lease removed, no completion, next start works",
+      "status": "pass"
+    },
+    {
+      "check": "node.79.failure after spawn stops the child and releases the lease",
+      "status": "pass"
+    },
+    {
+      "check": "node.80.exit and error both firing complete the job exactly once",
+      "status": "pass"
+    },
+    {
+      "check": "node.81.one lease at a time; release only removes the matching job lease",
+      "status": "pass"
+    },
+    {
+      "check": "node.82.explicit claude path must be a real executable file (.exe on Windows, never .cmd)",
+      "status": "pass"
+    }
+  ]
+}

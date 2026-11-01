@@ -1,0 +1,38 @@
+time 2026-10-24T18:47:01Z worktree af2f3a8acb8ffd979f0197e9861530d49584ad0d run Nworkpar
+343a6c15a14b9a965856b2c93d53d15d9cd83fb279eee6edd7475538c139cf33  /home/user/Proof-of-Collaboration/prototypes/pocold/tests/e2e_devnet.py
+c2c9512e00eb471935895a664a535adbe7b8382c4e8d5027eac65f41325e0a9f  /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r4fix/bin-Nworkpar/pocold
+b7f963d0e437dcd11eee51a22c638cf40866efe4a0a0683d2c78cd3d34f66151  /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r4fix/bin-Nworkpar/pocol-sign
+ 18:47:01 up  2:45,  0 user,  load average: 0.18, 0.22, 0.78
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a,b reach 15: met after 19.7s (bound 120s)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT c syncs: met after 0.5s (bound 90s)
+PASS late-joining node c syncs to the head — c=16
+WAIT tx receipts on all nodes: met after 0.5s (bound 90s)
+WAIT identical receipts on all nodes: met after 0.0s (bound 60s)
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=True valid kept=True
+WAIT a new reject entry: met after 0.0s (bound 15s)
+WAIT a produces after the corrupted block: met after 1.0s (bound 60s)
+PASS malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing — new rejects=[{'hash': '0x261e2e1d9bf64e7ae9ee38fa21e18354099185eeb0f37cd078dd4f968902fdde', 'reason': '3 template signature'}] a 19->20
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT a/b lead isolated c: met after 3.6s (bound 180s)
+PASS partition: a and b lead isolated c by more than 4 c tip blocks of work — a/b=['24:0x9a5e83f802:w=0xee180', '24:0x9a5e83f802:w=0xee180'] c=20:0x6d526f71d6:w=0xb9297 in 4s
+WAIT a stopped: met after 0.0s (bound 30s)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT a follows b's next block: met after 0.5s (bound 180s)
+WAIT b stopped: met after 0.0s (bound 30s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a and b settle on one tip: met after 0.0s (bound 60s)
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT c climbs to a/b's height + 2 (7 late blocks): met after 24.7s (bound 240s)
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+FAIL work: on a's and c's branches every block's difficulty and totalDifficulty equal W computed here from its committed target — first mismatch a: 2, c: 2
+{"result": "FAIL", "error": "work: on a's and c's branches every block's difficulty and totalDifficulty equal W computed here from its committed target", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts identical on all nodes", "transfer value applied", "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing", "partition: a and b lead isolated c by more than 4 c tip blocks of work"], "elapsed_s": 171, "work": "/tmp/pocol-e2e-0wpc4ydf"}
+exit 1 outcome FAIL  18:49:52 up  2:48,  0 user,  load average: 0.12, 0.20, 0.68

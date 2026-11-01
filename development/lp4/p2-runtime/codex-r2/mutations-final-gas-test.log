@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-6df46533a5fe72cd)
+
+running 1 test
+
+thread 'funding_zero_self_and_exact_boundaries' (65169) panicked at tests/pay_boundary.rs:56:9:
+assertion `left == right` failed
+  left: true
+ right: false
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test funding_zero_self_and_exact_boundaries ... FAILED
+
+failures:
+
+failures:
+    funding_zero_self_and_exact_boundaries
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test pay_boundary`

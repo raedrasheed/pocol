@@ -1,0 +1,7 @@
+# REC_MIN fix: release consensus + state_store + network_budget, then debug assertions consensus; 2026-10-28T17:28:16Z, load 2.94 2.45 2.47; e2e_browser reruns and the H_END reopen beside it
+test result: ok. 93 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 134.60s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+test result: ok. 14 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.14s
+## debug assertions
+test result: ok. 93 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 307.36s
+## end 2026-10-28T17:36:23Z

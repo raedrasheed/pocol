@@ -1,0 +1,10 @@
+{
+  "localImplementationCommit": "72e77bc3458b3d443a508aee73e26b3a000df116",
+  "sha256": {
+    "prototypes/lp1-node/src/trie.rs": "2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999",
+    "prototypes/lp1-node/src/lib.rs": "b493eba63aeefde6d2feee89630fe0d4987e44fc30e3fad0e94d9d7687fb338e",
+    "prototypes/lp1-node/tests/trie.rs": "24d0392ead35f9fdb133556a7014aea0306f3016b554aa62cab1d3ba98154352",
+    "prototypes/lp1-node/tests/data/lp4-trie-vectors.json": "d7a3c3fcbae35e06f916e7e147252b0234d650f48ceae07387912fc00576a61d",
+    "development/m1/m1-draft-0.2/tools/keccak.py": "99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d"
+  }
+}

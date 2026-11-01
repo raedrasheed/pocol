@@ -1,0 +1,15 @@
+ prototypes/pocold/src/node.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+diff --git a/prototypes/pocold/src/node.rs b/prototypes/pocold/src/node.rs
+index 480e3f9..fe6910a 100644
+--- a/prototypes/pocold/src/node.rs
++++ b/prototypes/pocold/src/node.rs
+@@ -385,7 +385,7 @@ impl Node{
+         // (after retain offloaded the abandoned branch, so the two are never resident together).
+         if new_head{match self.chain.restore_canonical(fork_h,&self.journal){Ok(n)=>self.stats.restored+=n as u64,
+             Err(e)=>{self.log(&format!("FATAL restore of the adopted branch: {e:?}"));std::process::exit(70);}}}
+-        self.broadcast(&Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()},from);
++        if from.is_none(){self.broadcast(&Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()},from);}
+         if new_head{
+             if self.chain.get(&self.chain.head).and_then(|e|e.parent)!=Some(old_head){self.stats.reorgs+=1;}
+             self.log(&format!("head h={} {} signed={} txs={}",self.chain.head().height,&hex(&hash)[..14],self.chain.head().signed,b.body.txs.len()));

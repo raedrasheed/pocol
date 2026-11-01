@@ -1,0 +1,30 @@
+== Mreplay: (cwd e2e-r2/src/prototypes/pocold, c195a89 sources (code = a03e089) + Mreplay) cargo test --release --locked --test net
+== exit 0
+
+running 20 tests
+test a10_origin_deny_applies_to_every_batch_member ... ok
+test a_light_flood_coalesces_wakes_and_main_events_progress ... ok
+test a_full_heavy_pool_answers_busy_before_anything_runs ... ok
+test a_light_turn_runs_at_most_light_turn_requests_then_wakes_the_node ... ok
+test a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving ... ok
+test abandoned_queued_bodies_are_capped_and_released ... ok
+test an_answer_is_reserved_until_its_connection_has_written_it ... ok
+test idle_peers_without_hello_are_bounded_and_expire ... ok
+test inbound_floods_cannot_take_the_slots_for_configured_peers ... ok
+test legitimate_requests_progress_under_bounded_heavy_load ... ok
+test light_lane_wakes_coalesce_until_taken ... ok
+test miner_replacement_keeps_at_most_one_miner_thread ... ok
+test only_a_hello_is_accepted_before_the_handshake ... ok
+test oversized_and_stalled_frames_close_the_peer ... ok
+test peer_threads_stay_within_the_inventory_while_consensus_is_stalled ... ok
+test reconnect_churn_keeps_threads_and_slots_bounded ... ok
+test rpc_batches_answer_every_member_in_order_and_cap_their_length ... ok
+test rpc_connection_cap_refuses_excess_unread_and_keeps_serving ... ok
+test rpc_request_buffer_covers_headers_and_body ... ok
+test rpc_work_deadline_skips_expired_work_and_releases_resources ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 39.67s
+
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/src/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.05s
+     Running tests/net.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-e2e/release/deps/net-ee45483c40cadcf3)

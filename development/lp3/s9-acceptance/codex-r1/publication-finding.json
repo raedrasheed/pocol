@@ -1,0 +1,9 @@
+{
+  "status": "DETECTED BEFORE MERGE; corrected by raw-byte text upload",
+  "initialRemoteHead": "c7ec9d2d440996f8bdf833a3ea974b3e06fbff35",
+  "initialRemoteTree": "8002f6222d1ebfbe8a61ca0950ef753474d13c6c",
+  "initialExpectedTree": "cf9851a57eaad6d131c9d32f1ebd9f062c89bfe0",
+  "cause": "Path.read_text universal newline conversion of raw CRLF evidence",
+  "remedy": "read_bytes().decode(utf-8); require exact Git tree equality",
+  "originalEvidenceChanged": false
+}

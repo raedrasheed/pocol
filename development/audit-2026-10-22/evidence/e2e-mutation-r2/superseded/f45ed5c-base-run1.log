@@ -1,0 +1,20 @@
+== base-run1 2026-10-23T16:57:19Z
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold/tests/e2e_devnet.py sha256=5c82ad7132052e694b0d6b678e62d570f119bae076cea41a9544d1cc536ad2f0
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/bins/base/pocold sha256=71d36fe4cf377dee920dd45815ce0e96d3b632dddeccba418676647b7e2ca0f1
+== pocol-sign sha256=1aa79f9db56db49a23bd72abbfb05e37eba6e48bcb11b37968fe16290e418f29
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/bins/base/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-12/prototypes/pocold)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=True valid kept=True
+PASS malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing — new rejects=[{'hash': '0x35204eeb14d0f8e3d8844b543f2c3a6953a24571c4873af106b86916cbf36acc', 'reason': '3 template signature'}] a 19->20
+PASS partition: isolated c leads the frozen a/b tips by more than 4 a/b tip blocks of work — c=28:0x7130de0748:w=0x1238b9 a/b=['22:0x2a213baac4:w=0xe89a5', '22:0x2a213baac4:w=0xe89a5'] in 20s
+PASS partition: c's tip is strictly heavier and strictly lower than every a/b tip, each >= 2 blocks past the fork — c=28:0x7130de0748:w=0x1238b9 a/b=['30:0x4bf92599df:w=0xfc346', '30:0x4bf92599df:w=0xfc346'] fork=[19, 19]; work above the frozen a/b tips in a/b tip blocks: c 4.38, late a/b 1.46; late attempts [1, 1, 0, 0, 0, 0, 0, 0]
+PASS heal: every node's head is c's tip (heavier, and lower than every a/b tip) — heads a/b/c=['28:0x7130de0748:w=0x1238b9', '28:0x7130de0748:w=0x1238b9', '28:0x7130de0748:w=0x1238b9'] c_tip=28:0x7130de0748:w=0x1238b9 in 0s
+PASS heal: on every node the canonical block at c's tip height is c's tip
+PASS heal: no a/b tip is canonical on any node — a/b=['30:0x4bf92599df:w=0xfc346', '30:0x4bf92599df:w=0xfc346']
+PASS heal: a and b each reorganized exactly once (one head switch, nothing mined) — a/b reorgs [0, 0] -> [1, 1]
+FAIL relay: c holds no block of a's branch above the fork — 11 blocks h=20..30
+{"result": "FAIL", "error": "relay: c holds no block of a's branch above the fork", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts identical on all nodes", "transfer value applied", "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing", "partition: isolated c leads the frozen a/b tips by more than 4 a/b tip blocks of work", "partition: c's tip is strictly heavier and strictly lower than every a/b tip, each >= 2 blocks past the fork", "heal: every node's head is c's tip (heavier, and lower than every a/b tip)", "heal: on every node the canonical block at c's tip height is c's tip", "heal: no a/b tip is canonical on any node", "heal: a and b each reorganized exactly once (one head switch, nothing mined)"], "work": "/tmp/pocol-e2e-2_b_cqxj"}
+== summary {"label": "base-run1", "exit": 1, "outcome": "FAIL", "first_fail": "relay: c holds no block of a's branch above the fork", "elapsed_s": 160.4, "leftover_killed": [], "ports_busy_after": []}

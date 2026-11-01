@@ -1,0 +1,11 @@
+matched 100000
+matched 200000
+matched 300000
+matched 400000
+matched 500000
+matched 600000
+matched 700000
+matched 800000
+matched 900000
+matched 1000000
+{"cases": 1000000, "seed": 23423090776689740, "batchSize": 10000, "sRange": [-300, 300], "distinctS": 601, "maxBits": 512, "mismatchesRust": 0, "mismatchesTS": 0, "inputSha256": "220b40eb3be4a380aaa4eb7f4722de1b3ab7d36b18e02fe8cbcf752052a3fee9", "tsOutputSha256": "9ac0d73a9c1525b9b9dc5ecf401fce2d9d35428e81f904a8aabc0979cfec3f55", "rustOutputSha256": "4df463e35651c3ec98f64a6d6fb885a71abade365df93d017cff3439778cd475", "seconds": 69.517}

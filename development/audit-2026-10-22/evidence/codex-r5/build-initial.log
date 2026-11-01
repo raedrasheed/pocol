@@ -1,0 +1,6 @@
+   Compiling pocol-lp4-execution v0.1.0 (<repo>/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (<repo>/prototypes/pocold)
+error: failed to build archive at `<repo>/prototypes/pocold/target/release/deps/libpocol_lp4_execution-fd2653843b256966.rlib`: failed to map object file: memory map must have a non-zero length
+
+error: could not compile `pocol-lp4-execution` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

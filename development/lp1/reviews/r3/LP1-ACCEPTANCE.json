@@ -1,0 +1,98 @@
+{
+  "milestone": "LP1",
+  "baseline": "M1 0.32",
+  "prototypeRevision": 3,
+  "transportRevision": "0.36",
+  "status": "accepted-local-experimental",
+  "at": "2026-10-08T12:22:22.378636+00:00",
+  "criteria": {
+    "A0": {
+      "status": "pass",
+      "evidence": [
+        "baseline-preservation.json",
+        "independent-provenance.json",
+        "tested-source-manifest.json"
+      ]
+    },
+    "A1": {
+      "status": "pass",
+      "evidence": [
+        "commands.json",
+        "cargo-build.log",
+        "cargo-test.log",
+        "rustfmt-check.log",
+        "dependency-licenses.json"
+      ]
+    },
+    "A2": {
+      "status": "pass",
+      "evidence": [
+        "cargo-test.log",
+        "independent-rlp.json",
+        "independent-rlp.rs"
+      ]
+    },
+    "A3": {
+      "status": "pass",
+      "evidence": [
+        "verify-fixtures.log",
+        "cargo-test.log"
+      ]
+    },
+    "A4": {
+      "status": "pass",
+      "evidence": [
+        "independent-asert.json",
+        "cargo-test.log"
+      ]
+    },
+    "A5": {
+      "status": "pass",
+      "evidence": [
+        "verify-fixtures.log",
+        "cargo-test.log"
+      ]
+    },
+    "A6": {
+      "status": "pass",
+      "evidence": [
+        "cargo-test.log",
+        "independent-http.json"
+      ]
+    },
+    "A7": {
+      "status": "pass",
+      "evidence": [
+        "e2e-http.log",
+        "independent-http.json",
+        "cargo-test.log"
+      ]
+    },
+    "A8": {
+      "status": "pass",
+      "evidence": [
+        "REVIEW-LP1-R3.md",
+        "commands.json",
+        "tested-source-manifest.json"
+      ]
+    }
+  },
+  "ordinaryRustTestsPassed": 54,
+  "ignored": 0,
+  "allocationProbe": {
+    "calls": 1069,
+    "allocations": 0,
+    "counterProbe": true,
+    "maxShiftBits": 512
+  },
+  "independentRlpChecks": 375,
+  "processHttpChecks": {
+    "harness": 45,
+    "independent": 35
+  },
+  "productionApproved": false,
+  "specificationChanged": false,
+  "fullM3Complete": false,
+  "fullM7Complete": false,
+  "remainingLp1Blockers": []
+}

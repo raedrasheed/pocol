@@ -1,0 +1,408 @@
+
+running 49 tests
+test asert::tests::mutation_sensitivity ... ok
+test asert::tests::named_boundaries ... ok
+test asert::tests::rejection_cases ... ok
+test decimal::tests::known_values ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+test fixed::tests::byte_round_trip ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::cp_table_shape ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_batch::tests::limits_are_consistent ... ok
+test genesis_batch::tests::line_forms_and_refusals ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test genesis_spec::tests::schema_shape ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test hashes::tests::domain_preimages_layout ... ok
+test hashes::tests::keccak_known_answers_k1_k3 ... ok
+test hashes::tests::sha256_known_answer ... ok
+test hashes::tests::signature_shape_faults ... ok
+test header::tests::field_faults ... ok
+test header::tests::nonminimal_integer_rejected ... ok
+test header::tests::share_count_boundary ... ok
+test header::tests::typed_round_trip ... ok
+test hex::tests::round_trip ... ok
+test http::tests::bind_policy ... ok
+test json::tests::accepts_and_rejects ... ok
+test json::tests::c19_native_oracle_rows ... ok
+test json::tests::depth_boundary ... ok
+test json::tests::integral_binary64_semantics ... ok
+test json::tests::quote_escapes_controls ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rpc::tests::c19_oracle_ids_over_rpc ... ok
+test rpc::tests::empty_chain_priority ... ok
+test rpc::tests::envelope_rules ... ok
+test rpc::tests::quantities ... ok
+test store::tests::error_json_shapes ... ok
+test store::tests::layout_constants ... ok
+test store::tests::prefix_match_semantics ... ok
+test store::tests::record_builder_layout ... ok
+test window::tests::messages ... ok
+test window::tests::plan_table ... ok
+
+test result: ok. 49 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test asert_extreme_inputs_never_panic ... ok
+test genesis_corpus_never_panics ... {"corpus":"genesis","seed":"0x4c5031010034009f","trials":5000,"noopTrials":[2037, 3053],"changed":4998,"changedDecoded":381}
+ok
+test header_and_rlp_corpus ... {"corpus":"header","seed":"0x4c50310100340001","acceptedMutants":1947}
+ok
+test rpc_corpus_envelopes_and_state ... ok
+test window_corpus_never_panics ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.13s
+
+{"test":"asert_alloc","calls":1069,"allocations":0,"counterProbe":true,"maxShiftBits":512,"earlyHigh":286,"none":3,"probeLen":64}
+
+running 12 tests
+test a0_provenance_and_no_private_material ... ok
+test a2_chain_headers_reencode_exactly ... ok
+test a3_signatures_and_hash_oracle ... ok
+test a4_asert_oracle_rows ... ok
+test a5_mutations_are_rejected ... ok
+test a5_named_counts_and_order ... ok
+test a5_uncached_outcomes_equal_cached ... ok
+test a5_window_cases_match_saved_transcripts ... ok
+test a6_chain_loads_only_when_fully_valid ... ok
+test a6_rpc_over_validated_chain ... ok
+test a6_window_check_over_own_rpc_matches_transcript ... ok
+test profile_binds_literal_genesis_and_rejects_mutations ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.31s
+
+{"case":"oversizedLine256MiB","ok":true,"peakHeapBytes":8455441,"boundBytes":8520962,"perInputAboveBuffers":15,"rows":3}
+{"case":"gsv1Times30000","ok":true,"peakHeapBytes":8455847,"boundBytes":8520962,"perInputAboveBuffers":421,"rows":30001}
+{"case":"limitPlusOneThenMaxValid","ok":true,"peakHeapBytes":13895089,"boundBytes":14092374,"perInputAboveBuffers":5439663,"rows":3}
+{"case":"maxDeepNest","ok":true,"peakHeapBytes":16844034,"boundBytes":16910848,"perInputAboveBuffers":8388608,"rows":2}
+{"case":"maxFlatList","ok":true,"peakHeapBytes":8455458,"boundBytes":8520962,"perInputAboveBuffers":32,"rows":2}
+{"case":"gsVersion256KiB","ok":true,"peakHeapBytes":10400962,"boundBytes":11142402,"perInputAboveBuffers":1945536,"rows":2}
+{"test":"genesis_batch_alloc","buffersBytes":8455426,"maxSpecBytes":2818474,"cases":6,"failed":0}
+
+running 16 tests
+test accepted_inputs_are_pinned_and_unchanged ... ok
+test c30_deep_and_shallow_twins_on_a_small_stack ... ok
+test encode_round_trips_valid_specs ... ok
+test every_cp_width_minimum_enum_and_gamma_bound ... ok
+test extreme_depths_keep_the_shallow_result ... ok
+test gs_version_detail_is_the_exact_decimal_at_every_length ... ok
+test gsv1_decodes_to_every_expected_field_and_reencodes ... ok
+test k1_k3_and_three_library_gsv1_hash ... ok
+test l4n_and_all_supplement_negatives ... ok
+test max_spec_bytes_is_the_largest_valid_encoding ... ok
+test member_count_relations_are_param_gate_not_decode ... ok
+test member_list_order_reserved_ids_and_shapes ... ok
+test n11_different_genesis_hash_is_rejected ... ok
+test seeded_corpus_never_panics_and_accepts_only_canonical_bytes ... {"corpus":"lp3-genesis","seed":"0x4c50330100010001","trials":20000,"codes":{"L0":17005,"gsCount":365,"gsInt":94,"gsOrder":9,"gsRange":64,"gsStructure":210,"gsVersion":6,"ok":2247}}
+ok
+test stage_order_across_fields ... ok
+test version_chain_id_and_root_fields ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.91s
+
+
+running 2 tests
+test empty_chain_transport ... ok
+test transport_positive_negative_and_shutdown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+
+
+running 12 tests
+test p1_append_batches_across_reopen_match_fixture_chain ... FAILED
+test p1_init_status_and_never_overwrite ... FAILED
+test p2_idempotent_tip_and_linear_store_rules ... FAILED
+test p2_invalid_append_leaves_state_unchanged ... FAILED
+test p3_deterministic_corruption_corpus_never_clean ... FAILED
+test p3_metadata_incomplete_and_corrupt ... FAILED
+test p3_profile_binding_is_exact ... FAILED
+test p3_record_corruption_reorder_duplicate_and_bounds ... FAILED
+test p4_every_truncation_of_the_final_record ... FAILED
+test p4_partial_guard_and_checksum_bytes_are_verified ... FAILED
+test write_and_sync_failures_poison_the_writer ... FAILED
+test writer_is_explicitly_unsupported_off_windows ... ok
+
+failures:
+
+failures:
+    p1_append_batches_across_reopen_match_fixture_chain
+    p1_init_status_and_never_overwrite
+    p2_idempotent_tip_and_linear_store_rules
+    p2_invalid_append_leaves_state_unchanged
+    p3_deterministic_corruption_corpus_never_clean
+    p3_metadata_incomplete_and_corrupt
+    p3_profile_binding_is_exact
+    p3_record_corruption_reorder_duplicate_and_bounds
+    p4_every_truncation_of_the_final_record
+    p4_partial_guard_and_checksum_bytes_are_verified
+    write_and_sync_failures_poison_the_writer
+
+test result: FAILED. 1 passed; 11 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling lp1-node v0.1.0 (<repo>/prototypes/lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 3.98s
+     Running unittests (<target>/debug/deps/lp1_node-2a43b164d1a908ff)
+     Running unittests (<target>/debug/deps/lp1_node-253103454a543e3f)
+     Running tests/adversarial.rs (<target>/debug/deps/adversarial-4c32bace6826cc8d)
+     Running tests/asert_alloc.rs (<target>/debug/deps/asert_alloc-8e69c3ca3cbc826a)
+     Running tests/fixtures_integration.rs (<target>/debug/deps/fixtures_integration-d89c0b25992d220b)
+     Running tests/genesis_batch_alloc.rs (<target>/debug/deps/genesis_batch_alloc-e90ef1ff34dbbcad)
+     Running tests/genesis_spec.rs (<target>/debug/deps/genesis_spec-3b338d5e5ecb73af)
+     Running tests/http_loopback.rs (<target>/debug/deps/http_loopback-9a935d61e3f3a0dc)
+     Running tests/store_journal.rs (<target>/debug/deps/store_journal-2ddc5113448babde)
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:117:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::p1_append_batches_across_reopen_match_fixture_chain
+             at ./tests/store_journal.rs:117:5
+   5: store_journal::p1_append_batches_across_reopen_match_fixture_chain::{{closure}}
+             at ./tests/store_journal.rs:112:1
+   6: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:92:33
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::p1_init_status_and_never_overwrite
+             at ./tests/store_journal.rs:92:13
+   5: store_journal::p1_init_status_and_never_overwrite::{{closure}}
+             at ./tests/store_journal.rs:88:1
+   6: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::p2_idempotent_tip_and_linear_store_rules
+             at ./tests/store_journal.rs:151:13
+   6: store_journal::p2_idempotent_tip_and_linear_store_rules::{{closure}}
+             at ./tests/store_journal.rs:147:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::p2_invalid_append_leaves_state_unchanged
+             at ./tests/store_journal.rs:187:13
+   6: store_journal::p2_invalid_append_leaves_state_unchanged::{{closure}}
+             at ./tests/store_journal.rs:183:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::p3_deterministic_corruption_corpus_never_clean
+             at ./tests/store_journal.rs:491:13
+   6: store_journal::p3_deterministic_corruption_corpus_never_clean::{{closure}}
+             at ./tests/store_journal.rs:489:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::p3_metadata_incomplete_and_corrupt
+             at ./tests/store_journal.rs:271:13
+   6: store_journal::p3_metadata_incomplete_and_corrupt::{{closure}}
+             at ./tests/store_journal.rs:269:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::p3_profile_binding_is_exact
+             at ./tests/store_journal.rs:255:13
+   6: store_journal::p3_profile_binding_is_exact::{{closure}}
+             at ./tests/store_journal.rs:253:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::p3_record_corruption_reorder_duplicate_and_bounds
+             at ./tests/store_journal.rs:302:13
+   6: store_journal::p3_record_corruption_reorder_duplicate_and_bounds::{{closure}}
+             at ./tests/store_journal.rs:300:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::p4_every_truncation_of_the_final_record
+             at ./tests/store_journal.rs:380:13
+   6: store_journal::p4_every_truncation_of_the_final_record::{{closure}}
+             at ./tests/store_journal.rs:378:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::p4_partial_guard_and_checksum_bytes_are_verified
+             at ./tests/store_journal.rs:431:13
+   6: store_journal::p4_partial_guard_and_checksum_bytes_are_verified::{{closure}}
+             at ./tests/store_journal.rs:429:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: UnsupportedPlatform("exclusive single-writer enforcement is implemented only on Windows (share_mode 0); no portable lock is claimed")', tests/store_journal.rs:75:25
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/std/src/panicking.rs:498:5
+   1: core::panicking::panic_fmt
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/panicking.rs:107:14
+   2: core::result::unwrap_failed
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1613:5
+   3: core::result::Result<T,E>::unwrap
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/result.rs:1295:23
+   4: store_journal::built_store
+             at ./tests/store_journal.rs:75:5
+   5: store_journal::write_and_sync_failures_poison_the_writer
+             at ./tests/store_journal.rs:557:13
+   6: store_journal::write_and_sync_failures_poison_the_writer::{{closure}}
+             at ./tests/store_journal.rs:552:1
+   7: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+   8: core::ops::function::FnOnce::call_once
+             at /rustc/db9d1b20bba1968c1ec1fc49616d4742c1725b4b/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+     Running tests/store_process.rs (<target>/debug/deps/store_process-c4cd139329b23c91)
+   Doc-tests lp1_node
+error: test failed, to rerun pass '--test store_journal'

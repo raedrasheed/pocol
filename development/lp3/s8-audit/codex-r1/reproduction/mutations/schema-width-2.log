@@ -1,0 +1,39 @@
+
+running 16 tests
+test accepted_inputs_are_pinned_and_unchanged ... ok
+test encode_round_trips_valid_specs ... ok
+test every_cp_width_minimum_enum_and_gamma_bound ... FAILED
+test k1_k3_and_three_library_gsv1_hash ... ok
+test gsv1_decodes_to_every_expected_field_and_reencodes ... ok
+test l4n_and_all_supplement_negatives ... FAILED
+test member_count_relations_are_param_gate_not_decode ... ok
+test c30_deep_and_shallow_twins_on_a_small_stack ... ok
+test n11_different_genesis_hash_is_rejected ... ok
+test member_list_order_reserved_ids_and_shapes ... ok
+test stage_order_across_fields ... ok
+test version_chain_id_and_root_fields ... ok
+test seeded_corpus_never_panics_and_accepts_only_canonical_bytes ... ok
+test max_spec_bytes_is_the_largest_valid_encoding ... ok
+test extreme_depths_keep_the_shallow_result ... ok
+test gs_version_detail_is_the_exact_decimal_at_every_length ... ok
+
+failures:
+
+---- every_cp_width_minimum_enum_and_gamma_bound stdout ----
+thread 'every_cp_width_minimum_enum_and_gamma_bound' panicked at 'assertion failed: `(left == right)`
+  left: `("ok", "")`,
+ right: `("gsRange", "g_ts")`: g_ts 2^width', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/genesis_spec.rs:415:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- l4n_and_all_supplement_negatives stdout ----
+thread 'l4n_and_all_supplement_negatives' panicked at 'assertion failed: `(left == right)`
+  left: `"ok"`,
+ right: `"gsRange"`: W2-u64', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/genesis_spec.rs:299:9
+
+
+failures:
+    every_cp_width_minimum_enum_and_gamma_bound
+    l4n_and_all_supplement_negatives
+
+test result: FAILED. 14 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.49s
+

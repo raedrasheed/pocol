@@ -1,0 +1,71 @@
+[
+ {
+  "mutant": "BASE",
+  "status": "PASS",
+  "failed": []
+ },
+ {
+  "mutant": "S4M1 views do not restore a slimmed entry",
+  "status": "KILLED",
+  "failed": [
+   "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"
+  ]
+ },
+ {
+  "mutant": "S4M2 validate reads a slimmed parent as it is",
+  "status": "KILLED",
+  "failed": [
+   "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"
+  ]
+ },
+ {
+  "mutant": "S4M3 the ranges are not stored",
+  "status": "KILLED",
+  "failed": [
+   "s4_evidence_against_a_slimmed_ancestor_restores_it_first",
+   "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"
+  ]
+ },
+ {
+  "mutant": "S4M4 unslim does not restore the ParentResult",
+  "status": "KILLED",
+  "failed": [
+   "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"
+  ]
+ },
+ {
+  "mutant": "S4M5 the evidence walk reads a slimmed ancestor as it is",
+  "status": "KILLED",
+  "failed": [
+   "s4_evidence_against_a_slimmed_ancestor_restores_it_first"
+  ]
+ },
+ {
+  "mutant": "S4M6 slimming at half the depth",
+  "status": "KILLED",
+  "failed": [
+   "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"
+  ]
+ },
+ {
+  "mutant": "S4M7 restored entries are never slimmed again",
+  "status": "KILLED",
+  "failed": [
+   "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"
+  ]
+ },
+ {
+  "mutant": "S4M8 P2P serves a resident slimmed entry from memory",
+  "status": "KILLED",
+  "failed": [
+   "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"
+  ]
+ },
+ {
+  "mutant": "S4M9 a slimmed block re-executed from its slimmed copy",
+  "status": "KILLED",
+  "failed": [
+   "s4_slimmed_entries_answer_as_full_ones_and_restore_exactly"
+  ]
+ }
+]

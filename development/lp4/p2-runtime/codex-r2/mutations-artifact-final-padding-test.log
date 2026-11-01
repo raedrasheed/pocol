@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running tests/pay_boundary.rs (prototypes/lp4-execution/target/debug/deps/pay_boundary-cdce46239dbb7ac7)
+
+running 1 test
+
+thread 'recipients_overflow_and_encoding_reject_without_effects' (80827) panicked at tests/pay_boundary.rs:74:61:
+assertion failed: !accepted(&r)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test recipients_overflow_and_encoding_reject_without_effects ... FAILED
+
+failures:
+
+failures:
+    recipients_overflow_and_encoding_reject_without_effects
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test pay_boundary`

@@ -1,0 +1,5 @@
+go: downloading github.com/natefinch/lumberjack/v2 v2.2.1
+go: downloading github.com/go-yaml/yaml/v3 v3.0.1
+go: downloading github.com/go-yaml/yaml/v2 v2.4.0
+error obtaining VCS status: exit status 128
+	Use -buildvcs=false to disable VCS stamping.

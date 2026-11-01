@@ -1,0 +1,9 @@
+# Claude author turn 001
+
+Read coordination/README.md, issue-ledger.json, both original review reports, m1-draft-0.2 and the approved baseline. Propose and apply revisions ONLY in new m1-draft-0.3. If it already exists, report its state rather than overwrite. Preserve every existing file. Do not edit the coordinator ledger. Do not spawn agents. No production contracts/node/extension implementation, install, deployment or transactions. Normal permission controls stay enabled.
+
+Address C03-C06 and C09 with traceable dispositions and literal adversarial fixtures: canonical deep RLP recursion; oversized @v digit conversion; actual requests vs unique counts/shared manifest-content cache; snapshot mock scenarios A-B and A-B-A, support/budget assumptions. Include RLP child crossing parent boundary/error precedence. Do not introduce arbitrary rejection of valid RLP without explicit baseline-compatible proposal. Correct T1-12 AlreadyCurrent interference and T1-10 immutability expectations; specify version integer width.
+
+Separate M1-spec acceptance from later implementation experiments (EVM/compiler/browser), without weakening full annex completeness. Existing 37 unstarted annex items must be completed in sequential reviewable batches. Prepare precise baseline-derived coverage/dependency inventory, complete feasible specification/fixture content now, and plan remaining batches. Missing work alone is not a blocker. Genuine blockers need exact source lines, preferred solution and falsifiable acceptance tests.
+
+C08: investigate design-ID provenance if available; raw SHA256 and design ID are different, not necessarily contradictory. Preserve baseline. Python launcher points to missing MiniConda3. Do not claim execution without running checks. Return changed paths, revision IDs, commands, owner questions and limitations. Codex reviews after this turn ends.

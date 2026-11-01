@@ -1,0 +1,144 @@
+{
+  "schema": "pocol-delegated-technical-decisions/1",
+  "at": "2026-10-08T08:02:53.390Z",
+  "authority": {
+    "kind": "user-standing-authorization",
+    "scope": "M1 specifications, reference models, tests and coordinator improvements; justified reversible technical choices delegated to current coordinator",
+    "personalApproval": false,
+    "noProduction": true,
+    "noPermissionBypass": true
+  },
+  "reversibility": "Selections apply to a new explicit specification overlay and reference fixtures only. Earlier baselines/drafts/evidence remain unchanged; another selection requires a new revision and affected tests.",
+  "supportingEvidence": [
+    "coordination/review-001/OWNER-DECISIONS-AFTER-0.28-EN.md",
+    "coordination/review-001/REVIEW-0.28.md",
+    "coordination/review-001/REVIEW-0.27.md",
+    "coordination/review-001/v1-sha-independent-0.27.json",
+    "coordination/review-001/u14-independent-0.28.json"
+  ],
+  "decisions": [
+    {
+      "id": "U01",
+      "option": "reference-address",
+      "value": "0x0000000000000000000000000000000000c0c005",
+      "alternatives": [
+        "Use existing full20byte fixture address",
+        "Choose another reference address and regenerate every dependent value"
+      ],
+      "rationale": "Fully specified reversible M1 reference network address, matches existing independently verified deterministic vectors. No evidence of intended real deployment address is inferred.",
+      "consequences": "Bind M1 fixtures to this address; later deployment address selection requires regeneration, not personal confirmation."
+    },
+    {
+      "id": "U02",
+      "option": "interstitial",
+      "alternatives": [
+        "Warning+explicit confirmation+persistent revoked banner",
+        "Always refuse explicitly selected revoked versions"
+      ],
+      "rationale": "Retains default revocation ban and permits deliberate historical inspection; baseline does not forbid explicit selection.",
+      "consequences": "Explicit@v<n> revoked view requires warning and deliberate click; default display stays refused."
+    },
+    {
+      "id": "U10",
+      "option": "keep-with-warning",
+      "alternatives": [
+        "Keep old publisher until explicitly removed",
+        "Revoke old publisher automatically on transfer"
+      ],
+      "rationale": "Preserves separate owner and publisher roles and existing T1-12 behavior; make the residual authority visible.",
+      "consequences": "Transfer warning must disclose retained rights; new owner must explicitly remove previous publisher. Reversible specification policy, no real transfer."
+    },
+    {
+      "id": "U14",
+      "option": "whole-load-through-verdict",
+      "deadlineMs": 10000,
+      "tieRule": "Deadline at elapsed>=10000 wins; no success after or exactly at expiry",
+      "coveredOperations": [
+        "Website content retrieval/load",
+        "HeaderNetCheck RP initial load including eth_blockNumber, getHeaders retries and verification"
+      ],
+      "alternatives": [
+        "Per-request10s only",
+        "Whole-load until last reply",
+        "Whole-load through verdict including computation"
+      ],
+      "rationale": "Independent timing cases show14.05s and computation escape under narrower scopes. One end-to-end budget bounds remote stalls.",
+      "consequences": "Slow legitimate loads can fail. Proof-read10s-per-request and20s-cumulative-wait proposal must be explicitly amended: request timeout=min(10000, remaining whole-load budget), no wait beyond deadline. No policy silently inherited; actual browser enforcement is a later implementation experiment."
+    },
+    {
+      "id": "CR-M1-01",
+      "option": "adopt-rev2-with-explicit-deadline-amendment",
+      "alternatives": [
+        "Proof-bound internal reads",
+        "Amend mechanism",
+        "Keep reread detector with weaker guarantee"
+      ],
+      "rationale": "Proof-bound state consistency avoids unsupported snapshot guarantee under A->B->A; root-reviewed reference fixtures support definitions, not actual node compatibility.",
+      "consequences": "Internal-only eth_getProof limit524288 bytes; STATE_POOL1MiB; sites still forbidden;6-key proof depends on canonical manifest split. E03 remains a precisely specified later experiment; no measured node support claimed. U14 supersedes proposed20s cumulative wait and bounds all retries by remaining10s load budget."
+    },
+    {
+      "id": "U08",
+      "option": "A-canonical-contract-and-viewer",
+      "alternatives": [
+        "Canonical1-3 chunks",
+        "Flexible at most3",
+        "Unrestricted split with larger proof budgets",
+        "Unrestricted contract with viewer rejection"
+      ],
+      "rationale": "All valid content remains representable; deterministic split bounds writes and six-key state proof. This narrows split choices explicitly rather than silently.",
+      "consequences": "Contract+viewer require24575-byte full chunks then remainder, exactlyceil(len/24575). Older input domain preserved as historical baseline only; adopted overlay and boundary fixtures required."
+    },
+    {
+      "id": "RF-E6-1",
+      "option": "A-total-two",
+      "alternatives": [
+        "Add5001 timeline cell and total2",
+        "Scope fault toop1 only",
+        "Read1 asop1 subtotal"
+      ],
+      "rationale": "Full executed global adminNoCancel timeline yields one stale request from each of two operations.",
+      "consequences": "Effective x12b literal total2, op1=1 andop2=1; no stale allocations/tickets/sets. Older conflicting literal remains preserved."
+    },
+    {
+      "id": "V1-SHA-COST",
+      "option": "A-explicit-total3355",
+      "limits": {
+        "templateId": 14,
+        "powHash": 13,
+        "shareHash": 3328,
+        "sha256Total": 3355
+      },
+      "alternatives": [
+        "Explicit category bound3355 retaining every check",
+        "PoW-only13 without overall bound",
+        "Drop share checks",
+        "Narrow share domain",
+        "Keep literal13 and block"
+      ],
+      "rationale": "Direct SHA interception confirms3355distinct inputs/6721uncached calls and all required checks. Caching cannot satisfy13.",
+      "consequences": "Explicitly supersede effective source cost sentence in new overlay. TemplateID caching required for stated operation budget; no check omitted and no device performance measured."
+    },
+    {
+      "id": "P-C32-2",
+      "option": "A-rate-delay-cap",
+      "rateDelayMs": [
+        0,
+        2000
+      ],
+      "busyDelayMs": [
+        250,
+        2000
+      ],
+      "maxRetries": 3,
+      "alternatives": [
+        "Client0..2000cap",
+        "Define server formula",
+        "Uncapped nonnegative delay under whole deadline",
+        "Busy interval for rate",
+        "No rate retry"
+      ],
+      "rationale": "Finite defensive wait with valid short token-bucket delays preserved; no claim that the source already defines this range.",
+      "consequences": "Out-of-range delay returns controlled viewIncomplete without sleep; valid delay also must fit remaining whole-load deadline. Total sleep<=6000 alone is not total-load proof."
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+# e2e_browser reruns on 5cd7d43 + 1 changed paths (live_rp/e2e_browser harness fixes), 2026-10-28T17:09:30Z
+whole-state 1 exit=0 80 pass 0 fail
+whole-state 2 exit=0 80 pass 0 fail
+whole-state 3 exit=0 80 pass 0 fail
+store 1 exit=0 80 pass 0 fail
+store 2 exit=0 80 pass 0 fail
+store 3 exit=0 80 pass 0 fail

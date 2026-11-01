@@ -1,0 +1,516 @@
+# commit 0b9b4d082b56605cc700a826b72497d81773c3ae (tracked changes under prototypes/ and proposals/: none)
+# host Linux 6.18.44-fc-v153 x86_64; rustc rustc 1.99.1 (58cf8f9c3 2026-10-13)
+# start 2026-10-23T15:30:07Z
+$ (cd prototypes/lp4-execution && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked)
+   Compiling pocol-lp4-execution v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-9/prototypes/lp4-execution)
+    Finished `release` profile [optimized] target(s) in 26.89s
+     Running unittests src/lib.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/pocol_lp4_execution-60bdfb64a979e763)
+
+running 102 tests
+test admission::tests::absent_rpc_fields_enter_the_gate_as_zero_never_nominal ... ok
+test admission::tests::approved_p11_timing_profile_is_admitted ... ok
+test admission::tests::approved_single_host_devnet_is_admitted_with_reported_provenance ... ok
+test admission::tests::audit_reproductions_are_rejected_with_their_rules ... ok
+test admission::tests::experimental_devnet_waives_only_r26_predicates_reading_absent_fields ... ok
+test admission::tests::r26_predicates_are_the_gate_conjunction ... ok
+test admission::tests::identity_rules_r22_to_r26 ... ok
+test admission::tests::rejections_are_deterministic_and_name_their_causes ... ok
+test admission::tests::resource_rules_r14_to_r21 ... ok
+test apply::tests::a03::a13_reads_and_empty_calls_leave_no_container_residue ... ok
+test apply::tests::a03::a_halt_reverts_state_except_nonce_and_fee ... ok
+test admission::tests::size_membership_and_end_rules_r8_to_r13 ... ok
+test apply::tests::a03::cumulative_logs_across_transactions_and_a_halt_consumes_no_budget ... ok
+test apply::tests::a03::lg2_546_logs_succeed_547_halt_and_topics_are_charged ... ok
+test apply::tests::a03::log_block_max_below_at_and_above ... ok
+test apply::tests::a03::log_cap_is_aggregate_over_the_chain ... ok
+test apply::tests::a03::proposals::d_a03_caps_vectors ... ok
+test admission::tests::specification_scope_refuses_every_open_condition ... ok
+test admission::tests::timing_rules_r1_to_r7_at_their_boundaries ... ok
+test apply::tests::a03::proposals::log_cap_aggregate_vectors ... ok
+test apply::tests::a03::slot_and_account_caps_halt_the_transaction ... ok
+test apply::tests::a03::dirty_keys_and_accounts_per_block ... ok
+test apply::tests::a03::proposals::log_acct_01_vectors ... ok
+test apply::tests::genesis_builds_with_v1_programs_and_ledger_empty ... ok
+test apply::tests::a03::proposals::d_a03_dirty_vectors ... ok
+test apply::tests::evidence_burns_bond_and_tombs_identity ... ok
+test apply::tests::closing_cursor_pays_bonds_and_final_block_settles_everything ... ok
+test apply::tests::settlement_matches_independent_formula ... ok
+test apply::tests::user_transfer_tips_flow_into_pot ... ok
+test apply::tests::wrong_parent_result_presence_and_reverted_system_call_reject ... ok
+test code_caps_engine_tests::missing_hash_or_r9_reject ... ok
+test code_caps_engine_tests::shared_code_charged_per_address ... ok
+test decimal::tests::known_values ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test apply::tests::sv1_to_sv7s_exec_fixture_values ... ok
+test fixed::tests::byte_round_trip ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::cp_table_shape ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test genesis_spec::tests::schema_shape ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test hex::tests::round_trip ... ok
+test json::tests::accepts_and_rejects ... ok
+test json::tests::c19_native_oracle_rows ... ok
+test json::tests::depth_boundary ... ok
+test json::tests::integral_binary64_semantics ... ok
+test json::tests::quote_escapes_controls ... ok
+test code_caps_engine_tests::independent_engine_limits_against_complete_state_roots ... ok
+test resources::tests::loaded_accounts_start_with_unallocated_storage_maps ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+test resources::tests::r18_network_values_and_caps64_minimum_boundary ... ok
+test resources::tests::r21_retention_formula ... ok
+test apply::tests::twenty_blocks_settle_and_keep_invariants ... ok
+test resources::tests::snapshot_model_bounds_measured_clone_bytes ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rpc_http::tests::bind_policy ... ok
+test system::chunk_tests::compiled_d27_boundaries_exact_initcode_idempotence_and_no_storage ... ok
+test system::chunk_tests::compiled_d27_invalid_lengths_value_and_storage_collision_reject ... ok
+test system::chunk_tests::d27_length_limit_is_independent_of_approved_larger_runtime_cap ... ok
+test system::issuance_tests::actual_builder_four_and_1024_records_and_corrupt_inputs ... ok
+test system::issuance_tests::actual_phase2_post_storage_cap_rejects_entire_candidate ... ok
+test system::issuance_tests::actual_root_matching_supply_overflow_and_r23_bound_reject_before_acceptance ... ok
+test system::issuance_tests::authenticated_user_origin_never_grants_system_caller_authority ... ok
+test system::issuance_tests::derived_final_host_credit_zero_observed_by_compiled_witness_not_real_finalization ... ok
+test resources::tests::execution_model_bounds_measured_adversarial_peaks ... ok
+test system::issuance_tests::phase_order_manifest_and_zero_subsidy_fail_closed ... ok
+test system::issuance_tests::real_phase2_oog_and_late_commitment_error_erase_user_and_credit ... ok
+test system::issuance_tests::sealed_genesis_real_factory_signed_user_creation_issuance_and_late_rollback ... ok
+test system::issuance_tests::signed_user_cannot_see_current_issuance_exact_pending_and_replay_rollback ... ok
+test system::tests::actual_registry_system_calls_pay_and_caller_authorization ... ok
+test system::tests::allocation_is_minimum_of_30m_and_remaining_not_block_gaslimit ... ok
+test system::tests::compiled_nested_eip150_and_nested_revert_boundaries ... ok
+test system::tests::compiled_nested_matches_independent_complete_roots_and_exact_gas ... ok
+test system::tests::fresh_epochs_match_independent_compiled_witness_gas_and_root ... ok
+test system::tests::independent_execution_report ... ok
+test system::tests::independent_pending_encoder_and_invalid_context ... ok
+test system::issuance_tests::issuance_reproducible_report ... ok
+test system::tests::issuance_timing_is_observable_without_selecting_a_rule ... ok
+test system::tests::later_revert_or_log_invalidates_all_candidate_effects ... ok
+test system::tests::system_origin_and_caller_do_not_create_origin_or_system_accounts ... ok
+test system::tests::user_origin_nonce_and_fees_remain_normal ... ok
+test tests::chain_id_opcode_and_invalid_chain ... ok
+test tests::delegated_and_static_pay_calls_are_guarded ... ok
+test tests::direct_pay_is_not_accepted_as_empty_account_success ... ok
+test tests::exact_store_gas_boundary ... ok
+test tests::nested_pay_is_guarded_even_when_call_result_is_ignored ... ok
+test tests::out_of_gas_discards_storage_diff ... ok
+test tests::revert_discards_storage_diff ... ok
+test tests::sstore_is_a_diff_and_snapshot_is_immutable ... ok
+test user_phase::tests::user_context_sys_allowance_and_closing ... ok
+test system::tests::raw_budget_exact_minus_one_remaining_zero_and_refund_no_credit ... ok
+test resources::tests::measured_worst_case_stays_within_derived_bounds_and_caps ... ok
+test resources::tests::sys_gas_envelope_fixture ... ok
+
+test result: ok. 102 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.95s
+
+     Running unittests src/bin/cancun_control.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/cancun_control-c8639c833ede1a73)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/code_caps_control.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/code_caps_control-bd69afaf6413e125)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/signed_rejection_control.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/signed_rejection_control-e4988f807ba6c18d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/caps_identity.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps_identity-513e5081e3be08da)
+
+running 3 tests
+test gsv1_and_the_cap_variants_match_the_model ... ok
+test log_cap_is_not_representable_in_the_genesis_spec ... ok
+test the_devnet_genesis_hash_does_not_depend_on_log_cap ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/code_caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/code_caps-da9daaef27a48b23)
+
+running 4 tests
+test inventory_charges_shared_code_per_address_and_system_accounts_without_physical_dedup ... ok
+test missing_or_mismatched_code_and_below_r9_profile_never_execute ... ok
+test profile_code_rule_keeps_compiled_registry_escrow_pay_results_and_rollback_identical ... ok
+test independent_signed_top_and_compiled_nested_code_limits_roots_gas_receipts_and_rollback ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/create_collision.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/create_collision-0b85464089d3f001)
+
+running 10 tests
+test complete_storage_overlay_and_rollback_facts ... ok
+test depth_and_internal_nonce_limit_precede_storage_collision ... ok
+test create_and_create2_block_unloaded_nonzero_and_allow_zero ... ok
+test collision_preserves_target_warmth ... ok
+test existing_nonce_and_code_collision_remain_enforced ... ok
+test reverted_init_code_restores_destination_but_consumes_factory_nonce ... ok
+test funding_failure_precedes_collision_nonce_and_warmth ... ok
+test storage_collision_precedes_destination_balance_overflow ... ok
+test outer_revert_restores_factory_nonce_and_destination ... ok
+test top_level_creation_collides_and_preserves_snapshot ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fees.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/fees-85e750ad0d028e4d)
+
+running 3 tests
+test fee_cap_priority_and_equality ... ok
+test london_fixed_boundaries_and_wide_intermediate ... ok
+test independent_bigint_london_vectors ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/native_context.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/native_context-4072e06be63f0f7a)
+
+running 3 tests
+test explicit_fields_execute_and_snapshot_is_immutable ... ok
+test blockhash_exact_256_window_genesis_and_current_boundaries ... ok
+test explicit_base_fee_gas_limit_and_chain_rejections_do_not_mutate ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pay_boundary.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/pay_boundary-ad2bf5fc432d2802)
+
+running 10 tests
+test delegated_foreign_code_cannot_spend_registry_balance ... ok
+test both_roles_transfer_no_callback_and_no_snapshot_commit ... ok
+test auth_modes_value_and_direct_reject ... ok
+test inherited_static_call_cannot_write_balances ... ok
+test maximum_nonce_rejected_before_execution ... ok
+test nested_revert_restores_both_balances ... ok
+test funding_zero_self_and_exact_boundaries ... ok
+test pay02_existing_code_survives_selfdestruct_and_stays_payable_next_transaction ... ok
+test recipients_overflow_and_encoding_reject_without_effects ... ok
+test pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pool.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/pool-8a3f4afe3a556208)
+
+running 3 tests
+test source_identity_hash_and_changed_profile_cannot_reuse_admission ... ok
+test network_identity_drives_both_signature_domain_and_actual_chainid_opcode ... ok
+test actual_admission_identity_size_capacity_and_reorg_recheck ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/profile_execution.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/profile_execution-97275f00a88290d7)
+
+running 1 test
+test nine_profile_signed_executions_match_independent_full_roots_receipts_and_gas ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/receipts.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/receipts-e9c13690079c9a02)
+
+running 2 tests
+test independent_bloom_and_indexed_root ... ok
+test empty_root_and_budget_and_supported_types ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/registry_payment.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/registry_payment-7151aa64bb02520c)
+
+running 11 tests
+test bridge_authorization_and_missing_refund_destination_roll_back_all_effects ... ok
+test closing_ret_counts_all_records_and_never_pays_twice ... ok
+test budgets_exact_limits_failed_calls_and_phase_replay_cannot_reset ... ok
+test prefix_precedence_budgets_and_durable_probe_fail_without_state_commit ... ok
+test actual_sweep_scan_and_deletion_caps_preserve_swapped_cursor ... ok
+test full_register_reward_exit_middle_claim_use_approved_ceilings_and_escrow ... ok
+test zero_bond_durable_code_only_and_balance_only_admission ... ok
+test reactivation_inactivity_and_closing_refunds_actual_record_amounts ... ok
+test timestamp_closing_height_overflow_and_capacity_boundaries ... ok
+test strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic ... ok
+test zero_delay_and_tomb_cleanup_equality_preserve_unchanged_limits ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/reward_durability.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/reward_durability-6cc68c3fc3d554c0)
+
+running 1 test
+test pay02_rejects_both_ephemeral_reward_attacks ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rpc_pool.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/rpc_pool-52a06509091c73f5)
+
+running 2 tests
+test actual_rpc_handler_rejects_chain_type_unprotected_and_keeps_pool_and_snapshot ... ok
+test real_loopback_http_submission_delivers_ci2_error_without_state_or_pool_write ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/rss_snapshot.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/rss_snapshot-b94b9ef18709a5af)
+
+running 1 test
+test full_cap_snapshot_clones_stay_within_the_model_in_rss ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/user_phase.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/user_phase-e05dd0f98eb33319)
+
+running 3 tests
+test sequential_signed_execution_refund_revert_and_commitments ... ok
+test late_wrong_chain_type_and_unprotected_are_not_included ... ok
+test wrong_commitments_and_late_invalid_transaction_leave_snapshot_unchanged ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wire.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/wire-999a2885f8f0f286)
+
+running 3 tests
+test specified_chain_type_pool_mapping_is_not_block_acceptance ... ok
+test byte_budget_equality_and_minus_one ... ok
+test signed_envelopes_match_independent_oracle ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pocol_lp4_execution
+
+running 3 tests
+test src/admission.rs - admission (line 35) ... ok
+test src/admission.rs - admission (line 43) - compile fail ... ok
+test src/admission.rs - admission (line 39) - compile fail ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.69s
+
+exit=0
+# end 2026-10-23T15:33:27Z
+
+$ (cd prototypes/pocold && CARGO_TARGET_DIR=<own> flock <cpu.lock> cargo test --release --locked)
+   Compiling pocold v0.1.0 (/home/user/Proof-of-Collaboration/.claude/worktrees/wf_497f8ecc-72b-9/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.40s
+     Running unittests src/lib.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/pocold-67e6ee59e98bb7e5)
+
+running 38 tests
+test asert::tests::rejection_cases ... ok
+test asert::tests::named_boundaries ... ok
+test assignment::tests::rejected_hash_retries_without_wrap_or_modulo_fallback ... ok
+test decimal::tests::known_values ... ok
+test asert::tests::mutation_sensitivity ... ok
+test fixed::tests::byte_round_trip ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::cp_table_shape ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test genesis_spec::tests::schema_shape ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test hashes::tests::domain_preimages_layout ... ok
+test hashes::tests::sha256_known_answer ... ok
+test hashes::tests::keccak_known_answers_k1_k3 ... ok
+test hashes::tests::signature_shape_faults ... ok
+test header::tests::nonminimal_integer_rejected ... ok
+test header::tests::field_faults ... ok
+test header::tests::typed_round_trip ... ok
+test hex::tests::round_trip ... ok
+test header::tests::share_count_boundary ... ok
+test rlp::tests::canonical_round_trips ... ok
+test net::tests::status_work_and_locator_requests_round_trip_within_bounds ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rpc::tests::batch_members_beyond_the_byte_limit_are_not_run ... ok
+test rpc::tests::response_pools_reserve_shrink_and_release ... ok
+test rpc::tests::a_busy_answer_does_not_parse_an_over_limit_body ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+test net::tests::a_close_between_the_writers_test_and_its_wait_wakes_it ... ok
+
+test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running unittests src/bin/pocol-sign.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/pocol_sign-436a5fd45db85a66)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/pocol-site.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/pocol_site-559202cc7f62ec1d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/pocold-59cae1c1d817ac50)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/admission.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/admission-11956eeaa7a96731)
+
+running 3 tests
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test init_devnet_refuses_gate_invalid_timing_and_writes_nothing ... ok
+test load_refuses_the_audited_profiles_and_admits_the_valid_one ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests/caps.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/caps-8dfae025daa9f0e6)
+
+running 7 tests
+test a_received_template_past_the_caps_is_treated_as_absent ... ok
+test counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary ... ok
+test txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16 ... ok
+test tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing ... ok
+test txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones ... ok
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... ok
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.89s
+
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/consensus-145a5b6e408e4a7f)
+
+running 44 tests
+test a03_over_limit_log_halts_the_transaction_and_the_block_is_valid ... ok
+test a01_malformed_or_unbound_bodies_reject_only_the_copy ... ok
+test a01_committed_invalid_body_is_still_a_block_rejection_and_cached ... ok
+test a13_bound_breakdown ... ok
+test a11_reorg_restores_detached_transactions_without_resubmission ... ok
+test a13_pool_pending_state_is_capped_and_normalized ... ok
+test a13_boot_refuses_a_bound_above_the_memory_budget ... ok
+test a13_rebuild_of_a_deep_fork_keeps_only_the_target_state ... ok
+test a13_side_branch_states_are_capped_and_rebuilt_on_demand ... ok
+test a11_excludes_included_and_conflicting_transactions_and_keeps_order ... ok
+test a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation ... ok
+test a_max_size_transaction_is_answered_in_the_light_lane ... ok
+test a_crash_around_an_adoption_reopens_on_one_whole_chain ... ok
+test a_session_block_arriving_before_its_parent_stays_protected ... ok
+test a_session_branch_is_adopted_through_a_flood_of_competing_side_branches ... ok
+test a_long_catch_up_is_not_bounded_by_the_protected_branch_size ... ok
+test a_side_branch_below_the_k_hist_window_imports_without_rebuilding_each_parent ... ok
+test a_valid_header_with_a_foreign_body_rejects_only_that_copy ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ignored, spec-depth test: run in release with --ignored
+test an_offloaded_block_is_served_viewed_and_re_executed_from_the_journal ... ok
+test body_max_bounds_the_encoded_body_not_the_item_sum ... ok
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ignored, spec-depth test: run in release with --ignored
+test a_competing_branch_within_side_blocks_max_is_adopted ... ok
+test d_body_max_vectors ... ok
+test every_validity_item_rejects_its_mutation ... ok
+test evidence_type1_and_type2_punish_through_a_signed_block ... ok
+test final_block_has_no_child_and_h_end_is_enforced ... ok
+test a_sync_session_refetches_an_evicted_branch_and_serves_it ... ok
+test fork_choice_heavier_tied_signed_first_and_rollback ... ok
+test get_logs_limits_answer_32020_with_resume_data ... ok
+test k_hist_retention_and_trie_rebuild_for_deep_fork ... ok
+test node_detects_template_equivocation_and_produces_valid_evidence ... ok
+test ordinary_blocks_then_closing_then_final_at_h_end ... ok
+test journal_replay_rebuilds_pruned_state_for_a_journaled_fork ... ok
+test d133_tie_break_at_depth_holds_through_eviction_and_refetch ... ok
+test replay_gives_a_reimported_block_a_new_import_seq ... ok
+test a_peer_with_a_false_status_cannot_hold_the_sync_session ... ok
+test r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond ... ok
+test template_form_classes_follow_d129 ... ok
+test the_r_keep_boundary_removes_a_side_block_exactly_r_keep_below_the_head ... ok
+test replay_uses_the_largest_r_keep_the_data_directory_has_used ... ok
+test thirty_five_blocks_from_fresh_genesis_replay_identically ... ok
+test side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again ... ok
+test range_sync_reaches_the_peer_head_through_truncated_responses ... ok
+
+test result: ok. 42 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 8.81s
+
+     Running tests/decoder_reference.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/decoder_reference-2435ebcf115cbef4)
+
+running 1 test
+test reference_verdicts_for_the_decoder_corpus ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/log_cap.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/log_cap-8b5cf1d2f63ea991)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/net.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/net-564d55a4b2200959)
+
+running 20 tests
+test a10_origin_deny_applies_to_every_batch_member ... ok
+test a_light_turn_runs_at_most_light_turn_requests_then_wakes_the_node ... ok
+test a_full_heavy_pool_answers_busy_before_anything_runs ... ok
+test a_light_flood_coalesces_wakes_and_main_events_progress ... ok
+test a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving ... ok
+test abandoned_queued_bodies_are_capped_and_released ... ok
+test an_answer_is_reserved_until_its_connection_has_written_it ... ok
+test idle_peers_without_hello_are_bounded_and_expire ... ok
+test inbound_floods_cannot_take_the_slots_for_configured_peers ... ok
+test legitimate_requests_progress_under_bounded_heavy_load ... ok
+test light_lane_wakes_coalesce_until_taken ... ok
+test miner_replacement_keeps_at_most_one_miner_thread ... ok
+test only_a_hello_is_accepted_before_the_handshake ... ok
+test oversized_and_stalled_frames_close_the_peer ... ok
+test peer_threads_stay_within_the_inventory_while_consensus_is_stalled ... ok
+test reconnect_churn_keeps_threads_and_slots_bounded ... ok
+test rpc_batches_answer_every_member_in_order_and_cap_their_length ... ok
+test rpc_connection_cap_refuses_excess_unread_and_keeps_serving ... ok
+test rpc_request_buffer_covers_headers_and_body ... ok
+test rpc_work_deadline_skips_expired_work_and_releases_resources ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 46.67s
+
+     Running tests/secp_fixture.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/secp_fixture-b0646478aeb6a400)
+
+running 1 test
+test accepted_chain_fixture_signatures_recover_through_k256 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/site.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/site-7214fe8fb19b6fbe)
+
+running 6 tests
+test chunk_code_checks ... ok
+test canonical_manifest_round_trips ... ok
+test hostile_current_output_never_panics ... ok
+test path_normalization_d96 ... ok
+test t16_rejection_vectors ... ok
+test manifest_vectors_positive_and_negative ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/store.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-caps/release/deps/store-4946a2ee8af47afe)
+
+running 12 tests
+test a04_audit_case_one_bit_in_the_first_length_is_corruption ... ok
+test a04_boundary_edits_and_duplicates_are_corruption ... ok
+test a04_commit_file_damage ... ok
+test a04_v1_journal_migrates_only_when_fully_verified ... ok
+test a04_truncation_of_committed_records_is_corruption ... ok
+test append_returns_offsets_and_read_at_round_trips ... ok
+test binding_mismatch_and_second_writer_rejected ... ok
+test complete_record_corruption_is_never_skipped ... ok
+test missing_journal_with_recovery_artifacts_refuses_to_start ... ok
+test a04_zero_filled_tail_is_an_interrupted_append ... ok
+test append_reopen_and_torn_tail_at_every_offset ... ok
+test a04_every_single_bit_flip_of_a_committed_journal_fails_closed ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+   Doc-tests pocold
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0
+# end 2026-10-23T15:34:43Z
+

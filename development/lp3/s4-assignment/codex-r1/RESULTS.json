@@ -1,0 +1,108 @@
+{
+  "scope": "LP3 S4 pure parent membership, nonce partition and proposer Draw core",
+  "base": "866666e2f129c26575409d07d8b7b4fa11899f78",
+  "mergeParents": [
+    "30daceb7e8c632041fd44a40afec57553f85fff2",
+    "be134089f940dd81e0312d9dee28a70b8c111667"
+  ],
+  "mergedTreeEqualsS3Head": true,
+  "testedCommit": "71cbbcc5cfed12eda204e29579f31cf672e7d972",
+  "sourceBranch": "codex-lp3-s4-assignment",
+  "targetBranch": "work/lp3-consensus-foundation",
+  "python": "3.12.14",
+  "referenceSha256": {
+    "development/LP3-MILESTONE.md": "b1e7eba5e2472c0b45dadcb6c39860934a66ac73c73ed72056313ed539bcfe5e",
+    "development/m1/reference/consensus.md": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+    "development/m1/reference/execution.md": "67e90f4c6d351e877dd8cdb113d13f14c79745a2be0c89f2772c471ad92f4718",
+    "development/m1/reference/threat.md": "47c42e8bbe2e3232beb18b4a03e79b41ae2dacd063c5a2333d72dbfd3bc2b547"
+  },
+  "technicalVerdict": "PASS for documented pure S4 core under accepted A1; draft increment, not full LP3 acceptance",
+  "review": "Separate sequential Codex review pass with new Python hashlib/native integer oracle; not an external reviewer identity or GitHub approval",
+  "unmetS4PureCoreCriteria": [],
+  "unmodifiedSnapshotFailureCount": 0,
+  "results": [
+    {
+      "check": "author lib + S4 tests",
+      "status": "PASS",
+      "tests": 58,
+      "detail": "50 lib including retry/exhaustion control, 8 S4 integration tests; not added again to regression count."
+    },
+    {
+      "check": "clean regression",
+      "status": "PASS",
+      "tests": 103,
+      "detail": "50 lib + 5 adversarial + 8 assignment + 12 fixtures + 16 GenesisSpec + 6 profile + 6 timing."
+    },
+    {
+      "check": "seeded partition cases",
+      "status": "PASS",
+      "cases": 256,
+      "detail": "inside one integration test; bounded small spaces enumerated for owner completeness."
+    },
+    {
+      "check": "independent Python/hashlib oracle",
+      "status": "PASS",
+      "scenarios": 697,
+      "samplingCases": 7977,
+      "emptyMembershipCases": 81,
+      "mismatches": 0,
+      "detail": "Includes maximum ActList 65535 and over-bound rejection, full 64-bit nonce space, reserved-ID edges, 40 permutation variants, weight/owner boundaries and synthetic rejection thresholds."
+    },
+    {
+      "check": "mutation detection",
+      "status": "PASS",
+      "caught": 8,
+      "total": 8,
+      "detail": "Each mutation uses a fresh temporary checkout and target, removed afterwards. Cargo exit 101 must include assertion failures, not compiler failures."
+    },
+    {
+      "check": "fixture verification",
+      "status": "PASS",
+      "detail": "22 RP window fixture cases, 1027 ASERT rows, 3677 hash entries, K1-K3."
+    },
+    {
+      "check": "build, fmt and protected-tree preservation",
+      "status": "PASS"
+    },
+    {
+      "check": "initial review-probe compilation",
+      "status": "FAIL",
+      "resolved": true,
+      "detail": "Rust 1.58 JSON macro array-expression parsing and ambiguous Value/integer comparison. Probe corrected; compiler then passed and oracle matched. This is a tool failure, not an implementation failure. Original probe and compiler output retained."
+    },
+    {
+      "check": "new Windows execution / Windows-only writer/crash checks",
+      "status": "BLOCKED BY PLATFORM",
+      "detail": "Linux host; no new Windows pass claimed."
+    },
+    {
+      "check": "heavy unchanged S1/S3 differential/allocation suites",
+      "status": "NOT RUN",
+      "detail": "Prior implementation and evidence preserved; selected regression covers library and integration surfaces."
+    },
+    {
+      "check": "live registry/ledger authentication and EVM execution",
+      "status": "NOT RUN",
+      "detail": "Pure supplied-parent input API, no state proof/certificate or real-node integration claimed."
+    },
+    {
+      "check": "real SHA256 collision generation and full 2^32 retry exhaustion",
+      "status": "NOT RUN",
+      "detail": "A1 assumes secure SHA256. Exhaustion and rejection paths exercised using private test-only digest injection; real-hash counter preimages are checked independently."
+    },
+    {
+      "check": "S5, full ParamGate, boot, full LP3 acceptance",
+      "status": "NOT RUN",
+      "detail": "Outside this increment; not started."
+    }
+  ],
+  "expectedFailingMutationCommands": 8,
+  "reviewFindings": [],
+  "remainingLimitations": [
+    "ParentView and ShareCount are caller-supplied facts; computed assignments never certify state validity, membership provenance or signing authority.",
+    "Actual parent registry/ledger integration, signing/private keys, EVM and boot permissions are absent.",
+    "M1 has no ticket-collision tie policy; code fails closed with TicketCollision rather than inventing consensus tie semantics. A1 is the supported cryptographic assumption.",
+    "Only be32 counters are used; counter exhaustion returns an explicit error and never wraps or selects a biased fallback.",
+    "No new Windows execution or external review/GitHub approval."
+  ]
+}

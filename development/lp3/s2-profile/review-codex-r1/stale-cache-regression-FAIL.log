@@ -1,0 +1,130 @@
+   Compiling lp1-node v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp1-node)
+    Finished test [unoptimized + debuginfo] target(s) in 2.85s
+     Running unittests (/workspace/pocol-tools/target/debug/deps/lp1_node-2a43b164d1a908ff)
+
+running 49 tests
+test asert::tests::named_boundaries ... ok
+test asert::tests::mutation_sensitivity ... ok
+test asert::tests::rejection_cases ... ok
+test decimal::tests::known_values ... ok
+test fixed::tests::byte_round_trip ... ok
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test genesis::tests::cp_table_shape ... ok
+test genesis_batch::tests::limits_are_consistent ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test fixed::tests::work_values ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test genesis_batch::tests::line_forms_and_refusals ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::schema_shape ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test hashes::tests::domain_preimages_layout ... ok
+test hashes::tests::keccak_known_answers_k1_k3 ... ok
+test hashes::tests::signature_shape_faults ... ok
+test hashes::tests::sha256_known_answer ... ok
+test header::tests::nonminimal_integer_rejected ... ok
+test header::tests::field_faults ... ok
+test hex::tests::round_trip ... ok
+test http::tests::bind_policy ... ok
+test header::tests::typed_round_trip ... ok
+test header::tests::share_count_boundary ... ok
+test json::tests::accepts_and_rejects ... ok
+test json::tests::c19_native_oracle_rows ... ok
+test json::tests::integral_binary64_semantics ... ok
+test json::tests::quote_escapes_controls ... ok
+test json::tests::depth_boundary ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rpc::tests::c19_oracle_ids_over_rpc ... ok
+test rpc::tests::empty_chain_priority ... ok
+test rpc::tests::envelope_rules ... ok
+test rpc::tests::quantities ... ok
+test store::tests::error_json_shapes ... ok
+test store::tests::layout_constants ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test store::tests::prefix_match_semantics ... ok
+test window::tests::plan_table ... ok
+test window::tests::messages ... ok
+test store::tests::record_builder_layout ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+
+test result: ok. 49 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests/fixtures_integration.rs (/workspace/pocol-tools/target/debug/deps/fixtures_integration-d89c0b25992d220b)
+
+running 12 tests
+test a0_provenance_and_no_private_material ... FAILED
+test a3_signatures_and_hash_oracle ... FAILED
+test a2_chain_headers_reencode_exactly ... FAILED
+test a4_asert_oracle_rows ... FAILED
+test a5_mutations_are_rejected ... FAILED
+test a5_named_counts_and_order ... FAILED
+test a5_window_cases_match_saved_transcripts ... FAILED
+test a5_uncached_outcomes_equal_cached ... FAILED
+test a6_rpc_over_validated_chain ... FAILED
+test profile_binds_literal_genesis_and_rejects_mutations ... FAILED
+test a6_chain_loads_only_when_fully_valid ... FAILED
+test a6_window_check_over_own_rpc_matches_transcript ... FAILED
+
+failures:
+
+---- a0_provenance_and_no_private_material stdout ----
+thread 'a0_provenance_and_no_private_material' panicked at 'called `Result::unwrap()` on an `Err` value: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/PROVENANCE.json: No such file or directory (os error 2)"', tests/fixtures_integration.rs:20:51
+
+---- a3_signatures_and_hash_oracle stdout ----
+thread 'a3_signatures_and_hash_oracle' panicked at 'fixture node loads: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:15:38
+
+---- a2_chain_headers_reencode_exactly stdout ----
+thread 'a2_chain_headers_reencode_exactly' panicked at 'fixture json: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/chain.json: No such file or directory (os error 2)"', tests/common/mod.rs:19:39
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- a4_asert_oracle_rows stdout ----
+thread 'a4_asert_oracle_rows' panicked at 'fixture json: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/asert-oracle.json: No such file or directory (os error 2)"', tests/common/mod.rs:19:39
+
+---- a5_mutations_are_rejected stdout ----
+thread 'a5_mutations_are_rejected' panicked at 'fixture node loads: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:15:38
+
+---- a5_named_counts_and_order stdout ----
+thread 'a5_named_counts_and_order' panicked at 'fixture node loads: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:15:38
+
+---- a5_window_cases_match_saved_transcripts stdout ----
+thread 'a5_window_cases_match_saved_transcripts' panicked at 'fixture node loads: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:15:38
+
+---- a5_uncached_outcomes_equal_cached stdout ----
+thread 'a5_uncached_outcomes_equal_cached' panicked at 'fixture node loads: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:15:38
+
+---- a6_rpc_over_validated_chain stdout ----
+thread 'a6_rpc_over_validated_chain' panicked at 'fixture node loads: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:15:38
+
+---- profile_binds_literal_genesis_and_rejects_mutations stdout ----
+thread 'profile_binds_literal_genesis_and_rejects_mutations' panicked at 'fixture json: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:19:39
+
+---- a6_chain_loads_only_when_fully_valid stdout ----
+thread 'a6_chain_loads_only_when_fully_valid' panicked at 'fixture node loads: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:15:38
+
+---- a6_window_check_over_own_rpc_matches_transcript stdout ----
+thread 'a6_window_check_over_own_rpc_matches_transcript' panicked at 'fixture node loads: "read /workspace/pocol-s2/pocol-s2-mutant-bi9nxzl8/crate/fixtures/profile.json: No such file or directory (os error 2)"', tests/common/mod.rs:15:38
+
+
+failures:
+    a0_provenance_and_no_private_material
+    a2_chain_headers_reencode_exactly
+    a3_signatures_and_hash_oracle
+    a4_asert_oracle_rows
+    a5_mutations_are_rejected
+    a5_named_counts_and_order
+    a5_uncached_outcomes_equal_cached
+    a5_window_cases_match_saved_transcripts
+    a6_chain_loads_only_when_fully_valid
+    a6_rpc_over_validated_chain
+    a6_window_check_over_own_rpc_matches_transcript
+    profile_binds_literal_genesis_and_rejects_mutations
+
+test result: FAILED. 0 passed; 12 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--test fixtures_integration'

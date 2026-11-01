@@ -1,0 +1,375 @@
+# Diagnostic/primitive checks only: no job success implies LP4/T2/T2b acceptance.
+name: LP4 execution controls
+on:
+  pull_request:
+    branches: [work/lp3-consensus-foundation, codex-lp4-p2-runtime]
+    paths: ['prototypes/lp4-execution/**', 'prototypes/lp1-node/src/**', '.github/workflows/lp4-execution-controls.yml']
+permissions:
+  contents: read
+jobs:
+  cancun-pay-controls:
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_HOME: ${{ github.workspace }}/work/lp4-execution-cargo
+      CARGO_INCREMENTAL: '0'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Install pinned experimental toolchain and comparison tools
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          python -m venv work/lp4-venv
+          work/lp4-venv/bin/pip install -r prototypes/lp4-execution/tests/python-requirements.lock
+          work/lp4-venv/bin/pip install --only-binary=:all: --no-deps --require-hashes -r prototypes/lp4-execution/tests/python-comparison-extra.lock
+          npm ci --prefix prototypes/lp4-execution/tools --ignore-scripts --no-audit --no-fund
+      - name: Verify locked source archives and prepare default-runtime notices
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 fetch --locked --manifest-path prototypes/lp4-execution/Cargo.toml
+          cargo +1.99.1 tree --offline --locked --manifest-path prototypes/lp4-execution/Cargo.toml --target all -e normal,build --prefix none --format '{p}' > work/lp4-active-packages.txt
+          python prototypes/lp4-execution/tests/source_inventory.py "$CARGO_HOME" work/lp4-source-inventory.json
+          python prototypes/lp4-execution/tests/source_notice_audit.py "$CARGO_HOME" work/lp4-active-packages.txt development/lp4/p2-runtime/codex-r9/upstream-license-grants.json work/lp4-runtime-notices
+      - name: Reproduce compiler output and run actual Rust execution tests
+        run: |
+          set -euo pipefail
+          mkdir -p work/lp4-controls
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/tool_inventory.py "$PWD/prototypes/lp4-execution/tools/node_modules" "$(rustc +1.99.1 --print sysroot)" work/lp4-controls/tool-inventory.json
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_contracts.cjs work/lp4-controls/pay-harness.json
+          cmp prototypes/lp4-execution/tests/data/pay-harness.json work/lp4-controls/pay-harness.json
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_durability.cjs work/lp4-controls/reward-durability.json
+          cmp prototypes/lp4-execution/tests/data/reward-durability.json work/lp4-controls/reward-durability.json
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_budget_witness.cjs work/lp4-controls/registry-write-budget.json
+          cmp prototypes/lp4-execution/tests/data/registry-write-budget.json work/lp4-controls/registry-write-budget.json
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_registry.cjs work/lp4-controls/registry-payment.json
+          cmp prototypes/lp4-execution/tests/data/registry-payment.json work/lp4-controls/registry-payment.json
+          for module in profile genesis_spec genesis decimal json fixed trie hex; do
+            cmp "prototypes/lp1-node/src/$module.rs" "prototypes/lp4-execution/src/p1_$module.rs"
+          done
+          cmp prototypes/lp1-node/src/rlp.rs prototypes/lp4-execution/src/wire_rlp.rs
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_code_caps.cjs work/lp4-controls/code-caps-witness.json
+          cmp prototypes/lp4-execution/tests/data/code-caps-witness.json work/lp4-controls/code-caps-witness.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/code_caps_fixtures.py work/lp4-controls/code-caps-execution.json work/lp4-controls/code-caps-expanded.json
+          cmp prototypes/lp4-execution/tests/data/code-caps-execution.json work/lp4-controls/code-caps-execution.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/code_caps_native_views.py work/lp4-controls/code-caps-execution.json work/lp4-controls/code-caps-native-views.json
+          cmp prototypes/lp4-execution/tests/data/code-caps-native-views.json work/lp4-controls/code-caps-native-views.json
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_system_epoch.cjs work/lp4-controls/system-epoch-witness.json
+          cmp prototypes/lp4-execution/tests/data/system-epoch-witness.json work/lp4-controls/system-epoch-witness.json
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_system_boundary.cjs work/lp4-controls/system-boundary-witness.json
+          cmp prototypes/lp4-execution/tests/data/system-boundary-witness.json work/lp4-controls/system-boundary-witness.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/system_boundary_oracle.py work/lp4-controls/system-boundary-independent.json
+          cmp prototypes/lp4-execution/tests/data/system-boundary-independent.json work/lp4-controls/system-boundary-independent.json
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_chunk.cjs work/lp4-controls/chunk-factory.json
+          cmp prototypes/lp4-execution/tests/data/chunk-factory.json work/lp4-controls/chunk-factory.json
+          NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" node prototypes/lp4-execution/tests/compile_pending.cjs work/lp4-controls/pending-escrow.json
+          cmp prototypes/lp4-execution/tests/data/pending-escrow.json work/lp4-controls/pending-escrow.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/issuance_signed_fixtures.py work/lp4-controls/issuance-signed.json
+          cmp prototypes/lp4-execution/tests/data/issuance-signed.json work/lp4-controls/issuance-signed.json
+          LP4_CHUNK_REPORT_PATH="$PWD/work/lp4-controls/chunk-vectors.json" LP4_ISSUANCE_REPORT_PATH="$PWD/work/lp4-controls/issuance-vectors.json" LP4_ISSUANCE_DIAGNOSTIC_PATH="$PWD/work/lp4-controls/issuance-diagnostic.json" LP4_SYS_REPORT_PATH="$PWD/work/lp4-controls/system-vectors.json" cargo +1.99.1 test --locked --manifest-path prototypes/lp4-execution/Cargo.toml 2>&1 | tee work/lp4-controls/rust-tests.log
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/system_boundary_oracle.py work/lp4-controls/system-boundary-repeat.json work/lp4-controls/issuance-diagnostic.json work/lp4-controls/issuance-independent.json
+          cmp prototypes/lp4-execution/tests/data/system-boundary-independent.json work/lp4-controls/system-boundary-repeat.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/system_oracle.py work/lp4-controls/system-vectors.json work/lp4-controls/system-independent.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/issuance_oracle.py work/lp4-controls/issuance-vectors.json work/lp4-controls/issuance-independent.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/chunk_oracle.py work/lp4-controls/chunk-vectors.json work/lp4-controls/chunk-independent.json
+          cargo +1.99.1 run --locked --manifest-path prototypes/lp4-execution/Cargo.toml --example context_vectors > work/lp4-controls/context-vectors.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/context_oracle.py work/lp4-controls/context-vectors.json work/lp4-controls/context-oracle.json
+          RUSTUP_TOOLCHAIN=1.99.1 work/lp4-venv/bin/python prototypes/lp4-execution/tests/context_mutations.py work/lp4-context-mutations 2>&1 | tee work/lp4-controls/context-mutations.log
+          cargo +1.99.1 run --locked --manifest-path prototypes/lp4-execution/Cargo.toml --example pay_vectors > work/lp4-controls/pay-vectors.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/pay_oracle.py work/lp4-controls/pay-vectors.json prototypes/lp4-execution/tests/data/pay-harness.json work/lp4-controls/pay-oracle.json
+          cargo +1.99.1 run --locked --manifest-path prototypes/lp4-execution/Cargo.toml --example lifecycle_vectors > work/lp4-controls/lifecycle-vectors.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/lifecycle_oracle.py work/lp4-controls/lifecycle-vectors.json prototypes/lp4-execution/tests/data/reward-durability.json work/lp4-controls/lifecycle-oracle.json
+          cargo +1.99.1 run --locked --manifest-path prototypes/lp4-execution/Cargo.toml --example registry_write_budget > work/lp4-controls/registry-write-vectors.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/registry_budget_oracle.py work/lp4-controls/registry-write-vectors.json prototypes/lp4-execution/tests/data/registry-write-budget.json work/lp4-controls/registry-write-counts.json
+          cargo +1.99.1 run --locked --manifest-path prototypes/lp4-execution/Cargo.toml --example registry_vectors > work/lp4-controls/registry-vectors.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/registry_execution_oracle.py work/lp4-controls/registry-vectors.json work/lp4-controls/registry-oracle.json
+      - name: Compile PAY mutation controls
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: python prototypes/lp4-execution/tests/pay_mutations.py work/lp4-mutations
+      - name: Compile approved CREATE collision mutation controls
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: python prototypes/lp4-execution/tests/create_mutations.py work/lp4-create-mutations
+      - name: Compile write-budget contradiction controls (not Registry acceptance)
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" python prototypes/lp4-execution/tests/registry_budget_mutations.py work/lp4-budget-mutations
+      - name: Compile actual Registry and bridge mutation controls
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" python prototypes/lp4-execution/tests/registry_mutations.py work/lp4-registry-mutations
+      - name: Compiled approved SystemCall primitive mutation controls
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: |
+          python prototypes/lp4-execution/tests/system_mutations.py work/lp4-system-mutations
+          python prototypes/lp4-execution/tests/system_mutations.py work/lp4-system-nested-mutations boundary
+          python prototypes/lp4-execution/tests/genesis_factory_mutations.py work/lp4-genesis-factory-mutations
+      - name: Compiled approved issuance and pending mutation controls
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" python prototypes/lp4-execution/tests/issuance_mutations.py work/lp4-issuance-mutations
+      - name: Compiled source-built D27 ChunkFactory controls
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules" python prototypes/lp4-execution/tests/chunk_mutations.py work/lp4-chunk-mutations
+      - name: Complete pinned upstream Cancun control corpus
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error --max-time 300 https://codeload.github.com/ethereum/legacytests/tar.gz/1f581b8ccdc4c63acf5f2c5c1b155c690c32a8eb -o work/legacy.tar.gz
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/gst_extract.py work/legacy.tar.gz work/gst-corpus development/lp4/p2-runtime/codex-r2/source-receipts.json
+          cargo +1.99.1 build --locked --release --manifest-path prototypes/lp4-execution/Cargo.toml --bin cancun_control
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/gst_control.py work/gst-corpus prototypes/lp4-execution/target/release/cancun_control work/lp4-controls/gst
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/gst_exception_audit.py work/gst-corpus work/lp4-controls/gst/cases.jsonl work/lp4-controls/gst/exception-category-audit.json
+          python prototypes/lp4-execution/tests/gst_exception_mutations.py work/lp4-exception-mutations work/gst-corpus work/lp4-controls/gst/cases.jsonl
+      - name: P3 signed-wire fee receipt primitives (not full P3 admission)
+        run: |
+          set -euo pipefail
+          cmp prototypes/lp1-node/src/rlp.rs prototypes/lp4-execution/src/wire_rlp.rs
+          cmp prototypes/lp1-node/src/fixed.rs prototypes/lp4-execution/src/p1_fixed.rs
+          cmp prototypes/lp1-node/src/trie.rs prototypes/lp4-execution/src/p1_trie.rs
+          cmp prototypes/lp1-node/src/hex.rs prototypes/lp4-execution/src/p1_hex.rs
+          for module in profile genesis_spec genesis decimal json; do
+            cmp "prototypes/lp1-node/src/$module.rs" "prototypes/lp4-execution/src/p1_$module.rs"
+          done
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/profile_execution_fixtures.py work/lp4-controls/profile-execution.json
+          cmp prototypes/lp4-execution/tests/data/profile-execution.json work/lp4-controls/profile-execution.json
+          RUSTUP_TOOLCHAIN=1.99.1 work/lp4-venv/bin/python prototypes/lp4-execution/tests/pool_mutations.py work/lp4-pool-mutations | tee work/lp4-controls/pool-mutations.log
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/wire_fixtures.py work/lp4-controls/wire-envelopes.json
+          cmp prototypes/lp4-execution/tests/data/wire-envelopes.json work/lp4-controls/wire-envelopes.json
+          python prototypes/lp4-execution/tests/fee_fixtures.py work/lp4-controls/london-fees.json
+          cmp prototypes/lp4-execution/tests/data/london-fees.json work/lp4-controls/london-fees.json
+          cargo +1.99.1 run --offline --locked --manifest-path prototypes/lp4-execution/Cargo.toml --example wire_vectors > work/lp4-controls/wire-execution.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/wire_oracle.py work/lp4-controls/wire-execution.json work/lp4-controls/wire-oracle.json
+          cargo +1.99.1 run --offline --locked --manifest-path prototypes/lp4-execution/Cargo.toml --example receipt_roots -- work/lp4-controls/wire-execution.json > work/lp4-controls/receipt-roots.json
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/receipt_oracle.py work/lp4-controls/wire-execution.json work/lp4-controls/receipt-roots.json | tee work/lp4-controls/receipt-oracle.log
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/user_phase_fixtures.py work/lp4-controls/user-phase.json
+          cmp prototypes/lp4-execution/tests/data/user-phase.json work/lp4-controls/user-phase.json
+          RUSTUP_TOOLCHAIN=1.99.1 work/lp4-venv/bin/python prototypes/lp4-execution/tests/user_phase_mutations.py work/lp4-user-mutations | tee work/lp4-controls/user-mutations.log
+          RUSTUP_TOOLCHAIN=1.99.1 work/lp4-venv/bin/python prototypes/lp4-execution/tests/wire_mutations.py work/lp4-wire-mutations | tee work/lp4-controls/wire-mutations.log
+      - name: Signed negative controls and unmodified second-engine diagnostic
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 build --offline --locked --manifest-path prototypes/lp4-execution/Cargo.toml --bin signed_rejection_control
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/gst_signed_rejections.py work/gst-corpus work/lp4-controls/gst/cases.jsonl prototypes/lp4-execution/target/debug/signed_rejection_control work/lp4-controls/signed-admission | tee work/lp4-controls/signed-admission.log
+          python -c "import json; s=json.load(open('work/lp4-controls/signed-admission/summary.json')); assert s['total']==1173 and sum(s['counts'][k] for k in ['SIGNED_NATIVE_CATEGORY_AND_INPUT_PREDICATE','SIGNED_OVER_U256_WIRE_INTEGER','SIGNED_PRIORITY_WIRE_PRECEDENCE','POCOL_TYPE3_REJECTION_NOT_ORIGINAL_CATEGORY'])==1173"
+      - name: Approved CODE-01 native controls and all individual corpus deltas
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+          CARGO_INCREMENTAL: '0'
+        run: |
+          set -euo pipefail
+          python prototypes/lp4-execution/tests/code_caps_mutations.py work/lp4-code-mutations | tee work/lp4-controls/code-mutations.log
+          cargo +1.99.1 build --offline --locked --release --manifest-path prototypes/lp4-execution/Cargo.toml --bin code_caps_control
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/gst_code_replacements.py work/gst-corpus prototypes/lp4-execution/target/release/code_caps_control prototypes/lp4-execution/tests/data/execution-profile.hex work/lp4-controls/gst/cases.jsonl work/lp4-controls/code-deltas | tee work/lp4-controls/code-deltas.log
+          work/lp4-venv/bin/python prototypes/lp4-execution/tests/gst_code_independent.py work/gst-corpus work/lp4-controls/code-deltas prototypes/lp4-execution/tests/data/execution-profile.hex work/lp4-controls/code-deltas-independent | tee work/lp4-controls/code-deltas-independent.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: lp4-p2-controls
+          path: |
+            work/lp4-controls
+            work/lp4-system-nested-mutations/*.log
+            work/lp4-system-nested-mutations/results.json
+            work/lp4-system-mutations/*.log
+            work/lp4-system-mutations/results.json
+            work/lp4-issuance-mutations/*.log
+            work/lp4-issuance-mutations/results.json
+            work/lp4-chunk-mutations/*.log
+            work/lp4-chunk-mutations/results.json
+            work/lp4-genesis-factory-mutations/*.log
+            work/lp4-genesis-factory-mutations/results.json
+            work/lp4-code-mutations/*.log
+            work/lp4-code-mutations/results.json
+            work/lp4-pool-mutations/*.log
+            work/lp4-pool-mutations/results.json
+            work/lp4-user-mutations/*.log
+            work/lp4-user-mutations/results.json
+            work/lp4-wire-mutations/*.log
+            work/lp4-wire-mutations/results.json
+            work/lp4-context-mutations/*.log
+            work/lp4-context-mutations/results.json
+            work/lp4-exception-mutations/*.log
+            work/lp4-exception-mutations/exception-compiled-controls.json
+            work/lp4-runtime-notices
+            work/lp4-source-inventory.json
+            work/lp4-active-packages.txt
+            work/lp4-mutations/*.log
+            work/lp4-mutations/results.json
+            work/lp4-create-mutations/*.log
+            work/lp4-create-mutations/results.json
+            work/lp4-budget-mutations/*.log
+            work/lp4-budget-mutations/results.json
+            work/lp4-registry-mutations/*.log
+            work/lp4-registry-mutations/results.json
+          if-no-files-found: error
+          retention-days: 14
+  legacy-windows-regression:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - name: Preserved full legacy Windows verification
+        shell: pwsh
+        env:
+          INCLUDE_SLOW: 'false'
+          EVIDENCE_DIR: ${{ runner.temp }}\lp4-legacy-evidence
+        run: ./.github/scripts/lp3-s1-windows-verify.ps1 -Evidence $env:EVIDENCE_DIR
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: lp4-legacy-windows
+          path: ${{ runner.temp }}\lp4-legacy-evidence
+          if-no-files-found: error
+          retention-days: 14
+  registry-windows-execution:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Actual pinned native execution on Windows
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force work/lp4-native-windows | Out-Null
+          cargo +1.99.1 test --locked --manifest-path prototypes/lp4-execution/Cargo.toml 2>&1 | Tee-Object work/lp4-native-windows/rust-tests.log
+          $lp4NativeExit = $LASTEXITCODE
+          if ($lp4NativeExit -ne 0) { exit $lp4NativeExit }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: lp4-native-windows
+          path: work/lp4-native-windows
+          if-no-files-found: error
+          retention-days: 14
+
+  independent-cancun-comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Independent engine and frozen fixture sources
+        run: |
+          set -euo pipefail
+          python -m venv work/independent-venv
+          work/independent-venv/bin/pip install -r prototypes/lp4-execution/tests/python-requirements.lock
+          work/independent-venv/bin/pip install --only-binary=:all: --no-deps --require-hashes -r prototypes/lp4-execution/tests/python-comparison-extra.lock
+          curl --fail --location --silent --show-error --max-time 300 https://codeload.github.com/ethereum/legacytests/tar.gz/1f581b8ccdc4c63acf5f2c5c1b155c690c32a8eb -o work/legacy.tar.gz
+          work/independent-venv/bin/python prototypes/lp4-execution/tests/gst_extract.py work/legacy.tar.gz work/independent-corpus development/lp4/p2-runtime/codex-r2/source-receipts.json
+      - name: Complete independent comparison (disagreement or timeout fails)
+        run: |
+          set -euo pipefail
+          work/independent-venv/bin/python prototypes/lp4-execution/tests/gst_comparison_checks.py
+          work/independent-venv/bin/python prototypes/lp4-execution/tests/gst_admission_checks.py
+          work/independent-venv/bin/python prototypes/lp4-execution/tests/gst_admission_mutations.py work/independent-admission-mutations
+          work/independent-venv/bin/python prototypes/lp4-execution/tests/gst_blake2_checks.py
+          work/independent-venv/bin/python prototypes/lp4-execution/tests/gst_independent.py work/independent-corpus work/independent-results --profile lp4-create01-modexp-admission --timeout 7200 --workers 2
+          python -c "import json; s=json.load(open('work/independent-results/summary.json')); c=s['counts']; assert c['total']==20661 and not s['limited'] and s['selectedCases'] is None; assert all(c.get(k,0)==0 for k in ['MISMATCH','ENGINE_ERROR','BLOCKED_TIMEOUT']), s"
+          work/independent-venv/bin/python prototypes/lp4-execution/tests/gst_archive_independent.py work/independent-results work/independent-corpus
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: lp4-independent-cancun
+          path: |
+            work/independent-results/summary.json
+            work/independent-results/sources.json
+            work/independent-results/incomplete.jsonl
+            work/independent-results/cases.jsonl.gz
+            work/independent-results/cases-receipt.json
+            work/independent-admission-mutations/results.json
+            work/independent-admission-mutations/*.log
+          if-no-files-found: error
+          retention-days: 14
+  native-cancun-reference:
+    needs: cancun-pay-controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GOPATH: ${{ github.workspace }}/work/geth-path
+      GOCACHE: ${{ github.workspace }}/work/geth-cache
+      GOBIN: ${{ github.workspace }}/work/geth-bin
+      GOMAXPROCS: '2'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Build pinned independent native reference
+        run: |
+          set -euo pipefail
+          mkdir -p work/geth-results
+          go version > work/geth-results/compiler.txt
+          go install -buildvcs=false -p 2 github.com/ethereum/go-ethereum/cmd/evm@v1.14.12
+          go mod download -json github.com/ethereum/go-ethereum@v1.14.12 > work/geth-results/source-module.json
+          go version -m "$GOBIN/evm" > work/geth-results/binary-build-info.txt
+          sha256sum "$GOBIN/evm" > work/geth-results/binary-sha256.txt
+          curl --fail --location --silent --show-error --max-time 300 https://codeload.github.com/ethereum/legacytests/tar.gz/1f581b8ccdc4c63acf5f2c5c1b155c690c32a8eb -o work/legacy.tar.gz
+          python prototypes/lp4-execution/tests/gst_extract.py work/legacy.tar.gz work/geth-corpus development/lp4/p2-runtime/codex-r2/source-receipts.json
+      - name: Complete independent native Cancun state and log assertions
+        run: |
+          set -euo pipefail
+          python prototypes/lp4-execution/tests/gst_geth_control.py work/geth-corpus "$GOBIN/evm" work/geth-results
+          python -c "import json; s=json.load(open('work/geth-results/summary.json')); assert s['complete'] and not s['limited'] and s['expected']==s['counts']['total']==20661 and s['counts'].get('FAILURE',0)==0, s"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: lp4-p2-controls
+          path: work/signed-input-artifact
+      - name: Actual signed independent Geth admission and compiled controls
+        run: |
+          set -euo pipefail
+          python prototypes/lp4-execution/tests/build_signed_geth.py go "$GOPATH/pkg/mod/github.com/ethereum/go-ethereum@v1.14.12" work/signed-geth
+          python prototypes/lp4-execution/tests/gst_signed_geth_verify.py work/signed-geth/signed-geth-control work/signed-input-artifact/lp4-controls/signed-admission work/signed-geth-results
+          python prototypes/lp4-execution/tests/signed_geth_mutations.py go work/signed-geth work/signed-input-artifact/lp4-controls/signed-admission work/signed-geth-mutations
+      - name: Compile independent engine arithmetic and collision controls
+        run: |
+          python prototypes/lp4-execution/tests/gst_geth_mutations.py work/geth-mutations "$GOPATH/pkg/mod/github.com/ethereum/go-ethereum@v1.14.12" go work/geth-corpus "$GOBIN/evm"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: lp4-native-cancun-reference
+          path: |
+            work/signed-geth/source-proof.json
+            work/signed-geth/build.log
+            work/signed-geth/build-info.txt
+            work/signed-geth-results
+            work/signed-geth-mutations/results.json
+            work/signed-geth-mutations/*.log
+            work/geth-results/summary.json
+            work/geth-results/process-receipt.json
+            work/geth-results/sources.json
+            work/geth-results/compiler.txt
+            work/geth-results/source-module.json
+            work/geth-results/binary-build-info.txt
+            work/geth-results/binary-sha256.txt
+            work/geth-mutations/results.json
+            work/geth-mutations/*-build.log
+          if-no-files-found: error
+          retention-days: 14

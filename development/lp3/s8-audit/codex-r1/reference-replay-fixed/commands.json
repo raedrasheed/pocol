@@ -1,0 +1,116 @@
+[
+  {
+    "name": "node-version",
+    "args": [
+      "node",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 0.008
+  },
+  {
+    "name": "compiler-version",
+    "args": [
+      "node",
+      "/workspace/work/lp3-tscompiler/node_modules/typescript/bin/tsc",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 0.11
+  },
+  {
+    "name": "python-version",
+    "args": [
+      "python3",
+      "--version"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 0.056
+  },
+  {
+    "name": "typecheck",
+    "args": [
+      "node",
+      "/workspace/work/lp3-tscompiler/node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model/tsconfig.json",
+      "--typeRoots",
+      "/workspace/work/lp3-tscompiler/node_modules/@types"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 3.879
+  },
+  {
+    "name": "eight-tests",
+    "args": [
+      "node",
+      "--experimental-strip-types",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model/tests.ts"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 1.117
+  },
+  {
+    "name": "assignment-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/assignment-oracle.py",
+      "/workspace/work/lp3-s8/reference-replay-fixed",
+      "/workspace/Proof-of-Collaboration/prototypes/lp3-model"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 4.03
+  },
+  {
+    "name": "arithmetic-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/arithmetic-oracle.py",
+      "/workspace/work/lp3-s8/reference-replay-fixed",
+      "12000"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 2.429
+  },
+  {
+    "name": "genesis-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/genesis-oracle.py",
+      "/workspace/work/lp3-s8/reference-replay-fixed"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 3.149
+  },
+  {
+    "name": "timing-oracle",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/timing-oracle.py",
+      "/workspace/work/lp3-s8/reference-replay-fixed"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 0,
+    "seconds": 0.555
+  },
+  {
+    "name": "mutations",
+    "args": [
+      "python3",
+      "/workspace/Proof-of-Collaboration/development/lp3/s6-model/codex-r1/mutations.py",
+      "/workspace/work/lp3-s8/reference-replay-fixed/mutations"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration",
+    "exitCode": 1,
+    "seconds": 12.778
+  }
+]

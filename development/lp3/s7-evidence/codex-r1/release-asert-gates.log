@@ -1,0 +1,11 @@
+   Compiling lp1-node v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp1-node)
+    Finished release [optimized] target(s) in 1.17s
+     Running tests/asert_alloc.rs (target/release/deps/asert_alloc-0a097fd9a1092888)
+{"test":"asert_alloc","calls":1069,"allocations":0,"counterProbe":true,"maxShiftBits":512,"earlyHigh":286,"none":3,"probeLen":64}
+     Running tests/asert_named.rs (target/release/deps/asert_named-7ab8e927ef4b002a)
+
+running 1 test
+test as1_through_as19_actual_internal_traces_and_targets ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,19 @@
+{
+  ".github/workflows/lp4-execution-controls.yml": "195951804c537b7f72f05cffacdc36f32a38196ddca9322894e6236ce7023ab5",
+  "development/LP4-ACCEPTANCE.json": "dd31637c03325d73ed3bda2a36efa20c7b1ae855028e74df0271d1c211db398f",
+  "development/LP4-MILESTONE.md": "d7356b0a4da4643e539630648ff46c3dd4f43536064e67811002fe443a7b7802",
+  "development/LP4-REGISTRY-APPROVAL.md": "a467cc529b1c38b2b62874ad0218f43bb011bb57954342d3ed0c09496ebda1db",
+  "development/lp4/p2-runtime/codex-r6/REGISTRY-TRANSITION-DECISION.md": "c4af2fd72e340a7354620310e7efcd989b59eef16e1bb406508cc96de9f4d831",
+  "development/m1/reference/consensus.md": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+  "development/m1/reference/execution.md": "67e90f4c6d351e877dd8cdb113d13f14c79745a2be0c89f2772c471ad92f4718",
+  "development/m1/reference/governance.md": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b",
+  "development/m1/reference/incentives.md": "ee77e12a5d8e624bc20f6f6704cb38016d60cc47d81e3fd25a32b0af366d1365",
+  "prototypes/lp4-execution/Cargo.lock": "d6e757466555edd023347af5b3cc45021ff1bcd88328de8c9a390fd99ad13904",
+  "prototypes/lp4-execution/contracts/RegistryWriteBudgetWitness.sol": "5bd18377d4b84c89138bbe953701391181ee722b4a825d6053a1fcfc07daac76",
+  "prototypes/lp4-execution/examples/registry_write_budget.rs": "624bb83eb769226f7fb4f4b62b79903890bd1eea4224cca5f1d2e784e09c24b7",
+  "prototypes/lp4-execution/src/native.rs": "15ac50f8aeb370b3661539295eb879dd5e4649b4968a7e091892a310e8b14c12",
+  "prototypes/lp4-execution/tests/compile_budget_witness.cjs": "83c767942deb60ccdd2c8b52fa3200ab3d0764b39a4242f3f801c51e0aba3049",
+  "prototypes/lp4-execution/tests/data/registry-write-budget.json": "c858c9c5f743e68f8e6f553877e59c8bee064da8404e8cac188e0bc5909f5a98",
+  "prototypes/lp4-execution/tests/registry_budget_mutations.py": "ab0f890c3b3bb8a6d15b6f3ceb22fa1954490604085d3222733df645e5d54cad",
+  "prototypes/lp4-execution/tests/registry_budget_oracle.py": "57b0f185c5a0e5a4fb62fbefab81bef6214d3e5320e21f3f6ae2a0386bac7ef3"
+}

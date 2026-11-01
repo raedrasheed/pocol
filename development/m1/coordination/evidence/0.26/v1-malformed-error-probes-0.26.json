@@ -1,0 +1,34 @@
+{
+  "checks": 3,
+  "passed": 0,
+  "failed": 3,
+  "results": [
+    {
+      "check": "missingBusyData",
+      "expected": "controlled viewIncomplete; no frame",
+      "actual": {
+        "exception": "KeyError",
+        "message": "'data'"
+      },
+      "pass": false
+    },
+    {
+      "check": "busyDataNull",
+      "expected": "controlled viewIncomplete; no frame",
+      "actual": {
+        "exception": "TypeError",
+        "message": "'NoneType' object is not subscriptable"
+      },
+      "pass": false
+    },
+    {
+      "check": "missingRetryDelay",
+      "expected": "controlled viewIncomplete; no frame",
+      "actual": {
+        "exception": "KeyError",
+        "message": "'retryAfterMs'"
+      },
+      "pass": false
+    }
+  ]
+}

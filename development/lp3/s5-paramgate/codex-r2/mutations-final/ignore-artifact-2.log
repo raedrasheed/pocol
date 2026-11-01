@@ -1,0 +1,22 @@
+
+running 7 tests
+test numeric_sys_timing_trie_and_identity_negatives ... ok
+test exact_supply_calibration_and_timing_boundaries ... ok
+test complete_local_rpc_and_identity_binding_controls ... ok
+test each_rule_has_a_negative_vector_and_numeric_order ... ok
+test resource_binding_complete_version_and_missing_fail_closed ... FAILED
+test pg_end_1_to_5_and_l ... ok
+test production_profile_and_version_restrictions_and_boot_disabled ... ok
+
+failures:
+
+---- resource_binding_complete_version_and_missing_fail_closed stdout ----
+thread 'resource_binding_complete_version_and_missing_fail_closed' panicked at '2', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:184:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    resource_binding_complete_version_and_missing_fail_closed
+
+test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+

@@ -1,0 +1,90 @@
+{
+  "at": "2026-10-08T07:32:25.204Z",
+  "ownerDecisionIds": [
+    "U01",
+    "U02",
+    "U10",
+    "U14",
+    "CR-M1-01",
+    "U08",
+    "RF-E6-1",
+    "V1-SHA-COST",
+    "P-C32-2"
+  ],
+  "decisionSetMatches": true,
+  "initialProtectedFiles": 139,
+  "unchanged": 139,
+  "changed": [],
+  "rows": {
+    "CompleteCandidate": [
+      "X1",
+      "X2",
+      "X3",
+      "B1",
+      "B2",
+      "B3",
+      "B4",
+      "B5",
+      "B6",
+      "B7",
+      "B8",
+      "B9",
+      "B10",
+      "B11",
+      "R2",
+      "R3",
+      "R4",
+      "S1",
+      "S2",
+      "S3",
+      "S4",
+      "Q1",
+      "Q2",
+      "Q3",
+      "Q4",
+      "E1",
+      "E2",
+      "E3",
+      "E4",
+      "E5",
+      "E7",
+      "V2",
+      "V3",
+      "V4"
+    ],
+    "ownerBlocked": {
+      "C1": [
+        "U01"
+      ],
+      "C2": [
+        "U01"
+      ],
+      "C3": [
+        "U01",
+        "U02",
+        "U10",
+        "U14",
+        "CR-M1-01",
+        "U08"
+      ],
+      "C4": [
+        "U01",
+        "U10",
+        "U08"
+      ],
+      "R1": [
+        "CR-M1-01"
+      ],
+      "E6": [
+        "RF-E6-1"
+      ],
+      "V1": [
+        "V1-SHA-COST",
+        "P-C32-2"
+      ]
+    }
+  },
+  "dependencyClarification": "HeaderNetCheck timing under U14 is conditional; owner must explicitly state whether the chosen10s policy covers it. CR-M1-01 per-request/cumulative-wait caps must be reconciled with U14. No branch adopted.",
+  "remainingIndependentAuthorRepair": "None identified in the reviewed C32/SHA/policy correction scope",
+  "recommendedPolicyOnly": true
+}

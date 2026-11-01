@@ -1,0 +1,23 @@
+{
+  "schema": "pocol-coordinator-patch/0.33",
+  "target": "coordination/issue3-repo/tools/local-coordinator",
+  "status": "patch bundle for root review; not applied, not executed by the author",
+  "hashes": "The author cannot execute code, so no SHA-256 is asserted here. 'node m1-draft-0.33/coordinator/tools/bundle.mjs assemble' computes oldSha256 (live file) and newSha256 (bundle file) for every changed file, and sha256 for every unchanged file it copies byte for byte, into <out>/APPLY-MANIFEST.json. 'apply' refuses unless the live tree still matches that computed manifest.",
+  "files": [
+    {"path": "src/broker.mjs", "change": "modified", "why": "continuation after an actual review (standing-authority gated, one durable item per review), inactive-ledger fix bound to a persisted broker review, read-only authority view, stop flag"},
+    {"path": "src/notifier.mjs", "change": "modified", "why": "fixed 'continuation' reason and message for the same existing host thread"},
+    {"path": "src/server.mjs", "change": "modified", "why": "validated reuse of the saved loopback connection (port and capabilities), fail-closed otherwise, --fresh-connection"},
+    {"path": "public/index.html", "change": "modified", "why": "read-only standing delegation / continuation section"},
+    {"path": "public/app.js", "change": "modified", "why": "renders the authority section and continuation items/notifications"},
+    {"path": "package.json", "change": "modified", "why": "test script lists the two new test files"},
+    {"path": "test/continuation.test.mjs", "change": "added", "why": "continuation, ledger, restart, pause/stop, claim/ack and second-author tests"},
+    {"path": "test/connection.test.mjs", "change": "added", "why": "saved-connection reuse, fail-closed validation, reviewer-API isolation, single service"}
+  ],
+  "unchangedRequired": [
+    "src/util.mjs", "src/redact.mjs", "src/history.mjs", "src/owner.mjs", "src/worker.mjs",
+    "public/coordinator.css", "dialogue-style.css",
+    "test/helpers.mjs", "test/broker.test.mjs", "test/history.test.mjs", "test/server.test.mjs", "test/worker.test.mjs", "test/notifier.test.mjs"
+  ],
+  "neverTouched": ["coordination/ui-control/** (state.json, connection.json, service.lock, worker.lease, jobs, logs)", "coordination/issue-ledger.json", "any dependency or runtime binary"],
+  "tests": {"baseline": 63, "added": {"test/continuation.test.mjs": 14, "test/connection.test.mjs": 5}, "expectedTotal": 82}
+}

@@ -1,0 +1,5 @@
+error: no matching package named `revm` found
+location searched: directory source `/workspace/pocol-tools/vendor` (which is replacing registry `crates-io`)
+required by package `pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)`
+help: packages with similar names: rand or ryu
+

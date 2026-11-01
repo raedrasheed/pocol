@@ -1,0 +1,8 @@
+{
+  "path": "/workspace/work/lp4/p4-system-r4-complete-local-evidence.tar.gz",
+  "bytes": 23882959,
+  "sha256": "ec7ffc1a6571612635f3c9ac696a7f21d2f28f075e1aea32fe5c4358cb1a73e0",
+  "scope": "Complete R1-R4 local evidence including all attempts, copied mutant sources, build/test logs, full final and repeated vectors; current crate source; no build cache",
+  "publication": "LOCAL, not uploaded to GitHub; public receipt, compact evidence and reproducer only",
+  "bootable": false
+}

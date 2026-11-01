@@ -1,0 +1,60 @@
+{
+  "checks": [
+    {
+      "path": "m1-draft-0.26/vectors/v1-network.json",
+      "exists": true,
+      "match": true
+    },
+    {
+      "path": "m1-draft-0.26/vectors/v1-window-cases.json",
+      "exists": true,
+      "match": true
+    },
+    {
+      "path": "coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json",
+      "exists": true,
+      "match": true
+    },
+    {
+      "path": "coordination/review-001/m1-draft-0.26/results/hash-freeze-v1-0.26.json",
+      "exists": true,
+      "match": true
+    },
+    {
+      "path": "coordination/review-001/asert-native-oracle.json",
+      "exists": true,
+      "match": true
+    },
+    {
+      "path": "coordination/review-001/m1-draft-0.27/results/hash-freeze-v1-0.27.json",
+      "exists": true,
+      "match": true
+    },
+    {
+      "path": "coordination/review-001/M1-ACCEPTANCE-0.32.json",
+      "exists": true,
+      "match": true
+    },
+    {
+      "path": "fixtures/asert-oracle.json",
+      "match": true
+    },
+    {
+      "path": "fixtures/chain.json",
+      "match": true
+    },
+    {
+      "path": "fixtures/hash-oracle.json",
+      "match": true
+    },
+    {
+      "path": "fixtures/profile.json",
+      "match": true
+    },
+    {
+      "path": "fixtures/window-cases.json",
+      "match": true
+    }
+  ],
+  "ok": true
+}

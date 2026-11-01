@@ -1,0 +1,28 @@
+
+running 5 tests
+test frozen_empty_root_and_secure_empty_storage ... FAILED
+test prefix_inline_branch_and_budget_boundaries ... ok
+test state_storage_and_ordered_semantics ... ok
+test maximum_prefix_depth_remains_bounded ... ok
+test frozen_independent_insertion_oracle_roots ... FAILED
+
+failures:
+
+---- frozen_empty_root_and_secure_empty_storage stdout ----
+thread 'frozen_empty_root_and_secure_empty_storage' panicked at 'assertion failed: `(left == right)`
+  left: `[118, 190, 139, 82, 141, 0, 117, 247, 170, 233, 141, 111, 165, 122, 109, 60, 131, 174, 72, 10, 132, 105, 230, 104, 215, 176, 175, 150, 137, 149, 172, 113]`,
+ right: `[86, 232, 31, 23, 27, 204, 85, 166, 255, 131, 69, 230, 146, 192, 248, 110, 91, 72, 224, 27, 153, 108, 173, 192, 1, 98, 47, 181, 227, 99, 180, 33]`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/trie.rs:5:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- frozen_independent_insertion_oracle_roots stdout ----
+thread 'frozen_independent_insertion_oracle_roots' panicked at 'assertion failed: `(left == right)`
+  left: `"76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71"`,
+ right: `"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/trie.rs:67:9
+
+
+failures:
+    frozen_empty_root_and_secure_empty_storage
+    frozen_independent_insertion_oracle_roots
+
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

@@ -1,0 +1,40 @@
+{"corpus":"S8 TS Genesis","seed":"0x5338c0de","counts":{"L0":6458,"ok":4871,"gsCount":366,"gsStructure":129,"gsInt":86,"gsRange":65,"gsOrder":19,"gsVersion":6}}
+✔ AS1-AS19 targets, traces and bounded intermediates (5.282422ms)
+✔ 1027 previously frozen ASERT rows (14.606881ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.09966ms)
+✖ membership, partition completeness, owner and exact hashes (4.997186ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (6.578131ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (11.469618ms)
+✔ full schema width/order/reserved failures and deep malformed framing (10.552245ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (109.751115ms)
+✔ SV1-SV5/SV7/SV7s pure settlement arithmetic; execution and SV6 deferred LP4 (1.706846ms)
+✔ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (0.648316ms)
+✔ S8 seeded adversarial Genesis framing and canonical acceptance (1105.428811ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1291.639738
+
+✖ failing tests:
+
+test at prototypes/.cf-mut-vlr8mgos/tests.ts:38:1
+✖ membership, partition completeness, owner and exact hashes (4.997186ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///workspace/Proof-of-Collaboration/prototypes/.cf-mut-vlr8mgos/tests.ts:42:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }

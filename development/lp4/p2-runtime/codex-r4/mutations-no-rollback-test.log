@@ -1,0 +1,29 @@
+warning: unused variable: `frame`
+  --> src/collision.rs:31:48
+   |
+31 |             FrameOrResult::Frame(Frame::Create(frame)) if blocked=>{
+   |                                                ^^^^^ help: if this is intentional, prefix it with an underscore: `_frame`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pocol-lp4-execution-create-no-rollback` (lib) generated 1 warning (run `cargo fix --lib -p pocol-lp4-execution-create-no-rollback` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running tests/create_collision.rs (prototypes/lp4-execution/target/debug/deps/create_collision-cbadf1a65316aed7)
+
+running 1 test
+
+thread 'create_and_create2_block_unloaded_nonzero_and_allow_zero' (93421) panicked at tests/create_collision.rs:29:8:
+assertion `left == right` failed
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test create_and_create2_block_unloaded_nonzero_and_allow_zero ... FAILED
+
+failures:
+
+failures:
+    create_and_create2_block_unloaded_nonzero_and_allow_zero
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test create_collision`

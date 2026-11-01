@@ -1,0 +1,121 @@
+   Compiling pocold v0.1.0 (/workspace/scratch/780b46016e2a/pocol/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.66s
+     Running unittests src/lib.rs (prototypes/pocold/target/release/deps/pocold-8ee68f288d71c8fc)
+
+running 51 tests
+test assignment::tests::rejected_hash_retries_without_wrap_or_modulo_fallback ... ok
+test asert::tests::rejection_cases ... ok
+test decimal::tests::known_values ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test fixed::tests::byte_round_trip ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test asert::tests::mutation_sensitivity ... ok
+test fixed::tests::shifts_and_bits ... ok
+test asert::tests::named_boundaries ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::cp_table_shape ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test genesis_spec::tests::schema_shape ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test hashes::tests::domain_preimages_layout ... ok
+test hashes::tests::keccak_known_answers_k1_k3 ... ok
+test hashes::tests::sha256_known_answer ... ok
+test hashes::tests::signature_shape_faults ... ok
+test header::tests::field_faults ... ok
+test header::tests::nonminimal_integer_rejected ... ok
+test hex::tests::round_trip ... ok
+test header::tests::share_count_boundary ... ok
+test header::tests::typed_round_trip ... ok
+test net::tests::status_work_and_locator_requests_round_trip_within_bounds ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test net::tests::an_offer_past_half_the_queue_is_refused_and_keeps_the_peer ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rpc::tests::batch_members_beyond_the_byte_limit_are_not_run ... ok
+test rpc::tests::error_items_fit_err_item_max_and_a_batch_of_them_small_reply_max ... ok
+test rpc::tests::net_key_matches_the_extension ... ok
+test rpc::tests::response_pools_reserve_shrink_and_release ... ok
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::a_busy_answer_does_not_parse_an_over_limit_body ... ok
+test rpc::tests::the_class_probe_agrees_with_the_parsed_class ... ok
+test rpc::tests::the_per_connection_bucket_refuses_only_more_tokens_than_its_capacity ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... ok
+test statediff::tests::diffs_compose_along_a_chain ... ok
+test statediff::tests::states_equal_sees_the_cached_code ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+test rpc::tests::sockwait_reports_readiness_within_its_timeout ... ok
+test node::relay_tests::a_returned_transaction_is_not_queued_to_a_peer_past_half_its_queue ... ok
+test statediff::tests::a_diff_turns_each_state_into_the_other_exactly ... ok
+test net::tests::a_reader_sees_its_closed_flag_without_a_shutdown ... ok
+test net::tests::a_close_between_the_writers_test_and_its_wait_wakes_it ... ok
+
+test result: ok. 51 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/net.rs (prototypes/pocold/target/release/deps/net-c8d8185d867d50ec)
+
+running 55 tests
+test a_connection_whose_send_buffer_cannot_be_set_is_refused ... ok
+test a10_origin_deny_applies_to_every_batch_member ... ok
+test a_full_heavy_pool_answers_busy_before_anything_runs ... ok
+test a_full_light_lane_answers_busy ... ok
+test a_batch_does_not_hold_p2p_events_for_its_whole_length ... ok
+test a_late_get_logs_answer_carries_resume_data ... ok
+test a_late_revert_or_halt_past_its_deadline_is_32020 ... ok
+test a_light_flood_coalesces_wakes_and_main_events_progress ... ok
+test a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane ... ok
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test a_light_turn_runs_at_most_light_turn_requests_then_wakes_the_node ... ok
+test a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving ... ok
+test a_precompile_call_past_its_deadline_is_32020_not_a_late_success ... ok
+test a_request_reaching_its_handler_past_the_deadline_never_runs ... ok
+test a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled ... ok
+test abandoned_queued_bodies_are_capped_and_released ... ok
+test an_answer_is_reserved_until_its_connection_has_written_it ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test batch_members_each_get_their_own_compute_deadline ... ok
+test batch_wall_closes_the_batch ... ok
+test batch_wall_counts_the_time_queued ... ok
+test bytes_after_the_request_do_not_reset_the_answer ... ok
+test compute_deadline_runs_from_admission_and_queue_wait_bounds_admission ... ok
+test estimate_gas_stops_its_search_at_the_deadline ... ok
+test get_params_and_rpc_stats_report_the_limits ... ok
+test guard_and_dispatch_error_items_stay_within_err_item_max ... ok
+test heavy_compute_deadline_cancels_eth_call ... ok
+test heavy_queue_overflow_answers_busy_with_retry_after ... ok
+test idle_peers_without_hello_are_bounded_and_expire ... ok
+test inbound_floods_cannot_take_the_slots_for_configured_peers ... ok
+test incompatible_identity_fences_queued_transactions_and_status_refresh ... ok
+test legitimate_requests_progress_under_bounded_heavy_load ... ok
+test light_compute_deadline_fires ... ok
+test light_lane_wakes_coalesce_until_taken ... ok
+test light_requests_behind_long_heavy_work_are_answered_never_deadline ... ok
+test miner_replacement_keeps_at_most_one_miner_thread ... ok
+test only_a_hello_is_accepted_before_the_handshake ... ok
+test oversized_and_stalled_frames_close_the_peer ... ok
+test oversized_handshake_and_unsafe_peer_names_are_refused ... ok
+test peer_threads_stay_within_the_inventory_while_consensus_is_stalled ... ok
+test queue_wait_bounds_the_wait_for_a_heavy_queue_place ... ok
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... ok
+test queued_requests_are_busy_at_queue_wait ... ok
+test reconnect_churn_keeps_threads_and_slots_bounded ... ok
+test rpc_batches_answer_every_member_in_order_and_cap_their_length ... ok
+test rpc_connection_cap_refuses_excess_unread_and_keeps_serving ... ok
+test rpc_request_buffer_covers_headers_and_body ... ok
+test rpc_work_deadline_skips_expired_work_and_releases_resources ... ok
+PACER {"acceptedBytes":211628,"clientWindowS":0.49901953,"closedMs":834,"firstByteMs":335,"honestFirstByteMs":399,"os":"linux","pacerLateMaxMs":1,"pacerWaits":10,"sendTimeS":0.501468,"violationS":0.5}
+test send_pacer_closes_a_slow_reader_after_grace ... ok
+test send_pacer_timer_follows_a_over_r_past_grace ... ok
+test the_compute_deadline_includes_encoding ... ok
+test the_conditional_light_entries_have_the_light_deadline ... ok
+test the_node_never_runs_a_request_its_connection_gave_up ... ok
+test the_per_connection_bucket_charges_k_tokens_per_request ... ok
+ABSORB {"answerBytes":14681122,"kernelTookWholeAnswer":false,"os":"linux","peakReserved":14680950,"reservedOneSecondLater":14680950}
+test unread_default_client_absorption ... ok
+
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 92.32s

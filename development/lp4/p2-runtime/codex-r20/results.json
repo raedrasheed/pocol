@@ -1,0 +1,16 @@
+{
+  "rustTests": 71,
+  "rustExit": 0,
+  "compiledMutations": 11,
+  "allBuiltSuccessfullyAndAssertionsDetected": true,
+  "nativeFixtureCases": 76,
+  "followUpTransactions": 2,
+  "completeRootsAndGasMatchedIndependent": true,
+  "fixtureAndCompilerAndViewsReproducedByteIdentical": true,
+  "acceptedPrimitiveCopiesUnchanged": 9,
+  "dependencyFilesUnchanged": true,
+  "sharedRuntimeMatchesPublishedR4": true,
+  "wireAuthentication": "NOT IMPLEMENTED in P2; native views are not signed-wire acceptance",
+  "all27Gates": "NOT PASSED",
+  "bootable": false
+}

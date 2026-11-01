@@ -1,0 +1,118 @@
+{
+  "schema": "pocol-coordinator-applied-manifest/0.33",
+  "live": "D:\\PoCol-Development\\coordination\\issue3-repo\\tools\\local-coordinator",
+  "assembled": "D:\\PoCol-Development\\coordination\\review-001\\coordinator-033-assembled",
+  "bundle": "D:\\PoCol-Development\\m1-draft-0.33\\coordinator",
+  "files": [
+    {
+      "path": "src/broker.mjs",
+      "change": "modified",
+      "oldSha256": "1674c99ba677d5995bd475d2149596dedb78321e78edc1c3db11d6116da4ca1e",
+      "newSha256": "dc398a7d3daa9315a53451857d950643eb977bc5909391fd914d5abef168dd2f"
+    },
+    {
+      "path": "src/notifier.mjs",
+      "change": "modified",
+      "oldSha256": "bd66acc8c4f9a1fdc1376ed4f661f1c1405a87c753445006182caa290adb0ae1",
+      "newSha256": "9999b4b0762285b56be33f469ac39b594d0342d7dfbbe39a8c84662b2ebec161"
+    },
+    {
+      "path": "src/server.mjs",
+      "change": "modified",
+      "oldSha256": "1b8114c0857a754453e3f26b61f344a72399d30b9376e705138558938986c36b",
+      "newSha256": "465d7e7ed7a373c5bfdac3a06059a35faa29ad16459c026a437230050547cc93"
+    },
+    {
+      "path": "public/index.html",
+      "change": "modified",
+      "oldSha256": "74473926407f80c7282d69d99f4d246518d02c8360d6176d40d99a88b8b25b77",
+      "newSha256": "eb230cb603af16a40e59a2828feed281ac53cf3d2a79f379b495bb4d414f8e03"
+    },
+    {
+      "path": "public/app.js",
+      "change": "modified",
+      "oldSha256": "689b5bdc9a871f64f14d80ac108de0635e68f1334d1aec02e266b46e57c83161",
+      "newSha256": "735eb18cdd8ec7a965d49d793adfa427ae1e636e2799cd29ff17ee0d9da709fd"
+    },
+    {
+      "path": "package.json",
+      "change": "modified",
+      "oldSha256": "3194ab329564e3afdc7c1f4509728a6f125ed09b784914d562174bad9bb18747",
+      "newSha256": "b65ccff1695190b54a6725ce4f4e049079618c8e167f2eb6c69bc0de5d64fd66"
+    },
+    {
+      "path": "test/continuation.test.mjs",
+      "change": "added",
+      "oldSha256": null,
+      "newSha256": "ec60a38c72a9683fd7b324a7153b5cb125649b8e87c0fbd7723c764d4347679e"
+    },
+    {
+      "path": "test/connection.test.mjs",
+      "change": "added",
+      "oldSha256": null,
+      "newSha256": "fc85e38145bda45215295a69e108af86954c203273eb8cc44f20ed87ade1b658"
+    }
+  ],
+  "unchanged": [
+    {
+      "path": ".gitignore",
+      "sha256": "e65c80e944a276f4f136d2f825916816992c8473ff324a26d968499435ac52f3"
+    },
+    {
+      "path": "README-AR.md",
+      "sha256": "fb316b7b07510e9c5e8c44df3c90f627d3b160b8473fab5edee83b3c8b9a8f0f"
+    },
+    {
+      "path": "dialogue-style.css",
+      "sha256": "014f75f4c3740cb90c12f985259a301e9b304d8ca089690d6a2eec26715ab022"
+    },
+    {
+      "path": "public/coordinator.css",
+      "sha256": "4e2f3387605f75870df7c1ee2f9e11859ab8f2de3fc0907c35198c370f224cf5"
+    },
+    {
+      "path": "src/history.mjs",
+      "sha256": "391529994aecd09492c499102915e8d8a1207b6c5bb3d7b3429d3b64af8ab80d"
+    },
+    {
+      "path": "src/owner.mjs",
+      "sha256": "31bc3d10b81d8ef17f39a82241bd585959dbf37c9484a1d7b53ceb313d641971"
+    },
+    {
+      "path": "src/redact.mjs",
+      "sha256": "22300deda016a0d42290354be4287312a229f1149efb0d77d2bd51f5773338c7"
+    },
+    {
+      "path": "src/util.mjs",
+      "sha256": "628faaaeba7cb533cb0e351e393746c1e157901bd548228672e4d14e639c84b6"
+    },
+    {
+      "path": "src/worker.mjs",
+      "sha256": "c9f35bca549398cded8840a80af0c81b7653900d67bb733665bcd3ccfc124aa4"
+    },
+    {
+      "path": "test/broker.test.mjs",
+      "sha256": "cd0326ce69eed46a68df722901137eb0c20aa1342165566029c9df74593ec0fe"
+    },
+    {
+      "path": "test/helpers.mjs",
+      "sha256": "a382991c066322d8e3e1c3dae78cc941ab102034b9d6dcec78d2d77de4d4c94a"
+    },
+    {
+      "path": "test/history.test.mjs",
+      "sha256": "bfc2ae8838aac08961944dd55403b5aee7708aa8699dcdd8eddad85bb0071d17"
+    },
+    {
+      "path": "test/notifier.test.mjs",
+      "sha256": "82896e748bc137cd97f17d75c34cf02d7e76ace0fcfaa3f188b829a97a994ea2"
+    },
+    {
+      "path": "test/server.test.mjs",
+      "sha256": "8dfbb3d3ca250a2a39e0b4ecfef373cada37f5c0a290fae910b233af932a8c19"
+    },
+    {
+      "path": "test/worker.test.mjs",
+      "sha256": "ebfc18767d9c30abb56138e527680bc91527beb15c6c2cd43d4a8c43828a203e"
+    }
+  ]
+}

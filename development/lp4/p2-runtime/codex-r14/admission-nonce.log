@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/nonce/gst_admission_checks.py", line 37, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/nonce/gst_admission_checks.py", line 31, in main
+    check(True,nonce=2**64-2,state_nonce=2**64-2);check(False,nonce=2**64-1,state_nonce=2**64-1)
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/work/lp4/p2-registry-full/admission-python-mutations/nonce/gst_admission_checks.py", line 24, in check
+    assert actual==expected,('admission boundary',count,actual,expected)
+           ^^^^^^^^^^^^^^^^
+AssertionError: ('admission boundary', 11, True, False)

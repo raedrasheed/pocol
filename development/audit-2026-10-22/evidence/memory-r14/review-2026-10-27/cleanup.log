@@ -1,0 +1,22 @@
+# e2e_integrated's partition cleanup (review finding 3): an error thrown in place of the majority-branch wait, in a temporary copy of the test as at 3705559 (fixed) and as at d45dfe2 (old); afterwards the pocold processes left are counted, then stopped
+== variant fixed (7e565b7, an error thrown in place of the majority-branch wait) 2026-10-27T18:12:58Z
+FAIL LP10 driver completed — Error: seeded: the majority-branch wait fails
+{"result":"FAIL","checks":8,"failed":1,"work":"/tmp/pocol-lp10-J3OsdE"}
+pocold processes left after the run: 0
+== variant old (7e565b7, an error thrown in place of the majority-branch wait) 2026-10-27T18:14:00Z
+FAIL LP10 driver completed — Error: seeded: the majority-branch wait fails
+{"result":"FAIL","checks":8,"failed":1,"work":"/tmp/pocol-lp10-iVUBy8"}
+pocold processes left after the run: 2
+  29102 /home/user/Proof-of-Collaboration/prototypes/pocold/target/release/pocold run --network /tmp/pocol-lp10-iVUBy8/net --data /tmp/pocol-lp10-iVUBy8/data/a --name a --miner a --listen 127.0.0.1:30
+  29104 /home/user/Proof-of-Collaboration/prototypes/pocold/target/release/pocold run --network /tmp/pocol-lp10-iVUBy8/net --data /tmp/pocol-lp10-iVUBy8/data/b --name b --miner b --listen 127.0.0.1:30
+done
+
+# An earlier attempt timed the wait out after 1 ms instead. In the old variant the condition already held at its first check, so the wait did not fail and the test passed 20/20: not a deterministic fault. Kept for the record:
+== variant fixed (3705559, the wait's timeout 1 ms) 2026-10-27T18:08:05Z
+FAIL LP10 driver completed — Error: timeout: majority branch heavier
+{"result":"FAIL","checks":8,"failed":1,"work":"/tmp/pocol-lp10-8IFolu"}
+pocold processes left after the run: 0
+== variant old (3705559, the wait's timeout 1 ms) 2026-10-27T18:09:22Z
+{"result":"PASS","checks":20,"failed":0,"work":"/tmp/pocol-lp10-1TzLsG"}
+pocold processes left after the run: 0
+done

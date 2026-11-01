@@ -1,0 +1,29 @@
+[
+  {
+    "name": "blob-header",
+    "buildExit": 0,
+    "assertionExit": 1,
+    "assertionKilled": true,
+    "old": "if err:=eip4844.VerifyEIP4844Header(parent,h);err!=nil",
+    "new": "if err:=eip4844.VerifyEIP4844Header(parent,h);false && err!=nil",
+    "mutatedSourceSHA256": "254dbc45243cd81d5f05b50cacd6e3946d921062410521ecb11f4b40288a9658"
+  },
+  {
+    "name": "sender-eoa",
+    "buildExit": 0,
+    "assertionExit": 1,
+    "assertionKilled": true,
+    "old": " st,err:=state.New",
+    "new": " msg.SkipFromEOACheck=true\n st,err:=state.New",
+    "mutatedSourceSHA256": "7749610b6a928374a9d7456cd7d32f6dca9ab45d9f9e6c654d9935b9de80fcfc"
+  },
+  {
+    "name": "nonce",
+    "buildExit": 0,
+    "assertionExit": 1,
+    "assertionKilled": true,
+    "old": " st,err:=state.New",
+    "new": " msg.SkipNonceChecks=true\n st,err:=state.New",
+    "mutatedSourceSHA256": "f0f75e0eca2edb6bbabd95748a7ab13d5037727e377f9cb8d51a42d6b3c11d6b"
+  }
+]

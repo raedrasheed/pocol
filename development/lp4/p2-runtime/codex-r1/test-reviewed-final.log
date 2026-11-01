@@ -1,0 +1,46 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
+     Running unittests src/lib.rs (prototypes/lp4-execution/target/debug/deps/pocol_lp4_execution-b4bb3c1aa332e474)
+
+running 8 tests
+test tests::delegated_and_static_pay_calls_are_guarded ... ok
+test tests::direct_pay_is_not_accepted_as_empty_account_success ... ok
+test tests::nested_pay_is_guarded_even_when_call_result_is_ignored ... ok
+test tests::exact_store_gas_boundary ... FAILED
+test tests::out_of_gas_discards_storage_diff ... ok
+test tests::chain_id_opcode_and_invalid_chain ... FAILED
+test tests::sstore_is_a_diff_and_snapshot_is_immutable ... FAILED
+test tests::revert_discards_storage_diff ... ok
+
+failures:
+
+---- tests::exact_store_gas_boundary stdout ----
+
+thread 'tests::exact_store_gas_boundary' (48701) panicked at src/lib.rs:99:9:
+assertion failed: matches!(sandbox.execute(caller,target,43_111,CHAIN_ID).unwrap().result,
+    ExecutionResult::Halt{..})
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- tests::chain_id_opcode_and_invalid_chain stdout ----
+
+thread 'tests::chain_id_opcode_and_invalid_chain' (48698) panicked at src/lib.rs:81:9:
+assertion `left == right` failed
+  left: []
+ right: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 222, 174]
+
+---- tests::sstore_is_a_diff_and_snapshot_is_immutable stdout ----
+
+thread 'tests::sstore_is_a_diff_and_snapshot_is_immutable' (48705) panicked at src/lib.rs:57:50:
+assertion `left == right` failed
+  left: 41012
+ right: 43112
+
+
+failures:
+    tests::chain_id_opcode_and_invalid_chain
+    tests::exact_store_gas_boundary
+    tests::sstore_is_a_diff_and_snapshot_is_immutable
+
+test result: FAILED. 5 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

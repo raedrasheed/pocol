@@ -1,0 +1,33 @@
+✔ AS1-AS19 targets, traces and bounded intermediates (2.486392ms)
+✔ 1027 previously frozen ASERT rows (10.360328ms)
+✔ timing metrics, TJ1-4 and overflow equality (1.369752ms)
+✔ membership, partition completeness, owner and exact hashes (4.680567ms)
+✔ weight interval, strict CDF, unbiased rejection and uniform fallback (3.646263ms)
+✔ Keccak K1-K3 and frozen literal GSV1 Rust/TS identity (10.0709ms)
+✔ full schema width/order/reserved failures and deep malformed framing (17.99856ms)
+✔ all accepted L4n/order supplements and 1500-level malformed twins (101.041989ms)
+✔ SV1-SV5/SV7/SV7s pure settlement arithmetic; execution and SV6 deferred LP4 (1.298322ms)
+✔ newly approved CF1-CF6 core mapping, boundaries and no execution certificate (0.755761ms)
+✖ S8 seeded adversarial Genesis framing and canonical acceptance (0.564994ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 170.659911
+
+✖ failing tests:
+
+test at prototypes/lp3-model/tests.ts:119:1
+✖ S8 seeded adversarial Genesis framing and canonical acceptance (0.564994ms)
+  Error: hex
+      at Module.unhex (file:///workspace/Proof-of-Collaboration/prototypes/lp3-model/model.ts:37:84)
+      at TestContext.<anonymous> (file:///workspace/Proof-of-Collaboration/prototypes/lp3-model/tests.ts:121:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

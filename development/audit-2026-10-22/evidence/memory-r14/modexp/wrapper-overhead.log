@@ -1,0 +1,7 @@
+# modexp::tests::wrapper_overhead_interleaved, tree d30dc71 + this test (uncommitted), nice 10 beside the jm_store_scale run 2026-10-27T16:58:52Z
+MODEXP-WRAPPER m12 n151 odd: ours median 8.4 us, revm median 8.1 us, the fast-path checks alone 0.08 us
+MODEXP-WRAPPER m9 n151 even: ours median 10.2 us, revm median 9.6 us, the fast-path checks alone 0.12 us
+MODEXP-WRAPPER m9 n32768 odd: ours median 1449.8 us, revm median 1438.6 us, the fast-path checks alone 0.07 us
+MODEXP-WRAPPER m256 n2 odd: ours median 18.1 us, revm median 17.6 us, the fast-path checks alone 0.38 us
+MODEXP-WRAPPER m1024 n2 odd: ours median 273.9 us, revm median 268.2 us, the fast-path checks alone 0.56 us
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 142 filtered out; finished in 2.84s

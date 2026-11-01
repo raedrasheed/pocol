@@ -1,0 +1,8 @@
+{
+  "path": "/workspace/work/lp4/p2-code01-evidence/preserved/r20-code01-full-evidence.tar.gz",
+  "bytes": 4123578,
+  "sha256": "b3ad1167926e52894afe80ed37a5399747320c38d14efabfaa887cf8f8276102",
+  "publication": "Complete raw archive LOCAL ONLY; source/fixtures/certificates/checksums public after expected-head publication",
+  "contains": "All initial/final CODE mutation sources/build/assertion logs; all native execution/reproduction logs and full fixtures/views",
+  "bootable": false
+}

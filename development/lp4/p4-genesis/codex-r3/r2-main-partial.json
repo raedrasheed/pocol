@@ -1,0 +1,53 @@
+{
+  "system-vectors.json": "BYTE IDENTICAL",
+  "system-independent.json": "BYTE IDENTICAL",
+  "system-epoch-witness.json": "BYTE IDENTICAL",
+  "lp4-p2-controls/lp4-controls/rust-tests.log": 80,
+  "lp4-native-windows/rust-tests.log": 80,
+  "compiledSystemMutations": 15,
+  "gst/summary.json": {
+    "approvedStorageCollisionRule": "LP4-CREATE-01",
+    "scope": "Upstream Cancun only; NOT PoCol T2 acceptance. Exception reason equivalence not proven.",
+    "counts": {
+      "total": 20661,
+      "passControl": 20661,
+      "failControl": 0,
+      "runnerFailure": 0,
+      "nonCancunVariants": 87932
+    },
+    "seconds": 164.717,
+    "runnerExit": 0,
+    "limited": false,
+    "fullIndependentEVM": "NOT RUN",
+    "bootable": false
+  },
+  "code-deltas/summary.json": {
+    "rule": "LP4-CODE-01",
+    "total": 20661,
+    "changed": 14,
+    "unchanged": 20647,
+    "excluded": 0,
+    "blocked": 0,
+    "runnerFailure": 0,
+    "sourceFiles": 2807,
+    "profileFileSHA256": "fc6c76f1089e99698c0625c89cd5520ead2099a6d44f35b973ebd59163c527c4",
+    "baselineSHA256": "1bd455f96ded27e7f7f65253a3a3912f8044089ec60394cc036e994cb3c5a28b",
+    "seconds": 183.048,
+    "scope": "Enumerate ALL CODE-01 deltas without dropping original Cancun controls.\n\nUnsigned delta runner isolates code limits using the supplied profile's exact CP.\nSynthetic fixture context/chain1 is preserved; this is not signed PoCol apply or\ncomplete ParamGate. Changed cases are individual observations, not blanket PASS.\nIndependent replacement execution remains mandatory beyond root reconstruction.\n",
+    "status": "NOT PASSED: observations only; independent replacement gate remains open",
+    "bootable": false
+  },
+  "code-deltas-independent/summary.json": {
+    "total": 14,
+    "matchedExecution": 8,
+    "matchedSnapshotAdmissionOnly": 6,
+    "excluded": 0,
+    "blocked": 0,
+    "profileFileSHA256": "fc6c76f1089e99698c0625c89cd5520ead2099a6d44f35b973ebd59163c527c4",
+    "deltaCasesSHA256": "17c758ee6595ea78841afd4672944320ec1268b19079eb91fac61d152e095971",
+    "scope": "Independent amended execution of EACH enumerated CODE-01 corpus delta.\nLocal explicit py-evm subclasses, upstream source unchanged. Unsigned/spoof\ncomparison, not signed-wire, ParamGate or full PoCol system execution acceptance.\n",
+    "status": "Scoped independent execution/inventory evidence; actual GenesisBuilder and complete T2/P2/P3 NOT PASSED",
+    "bootable": false
+  },
+  "legacyResultsType": "dict"
+}

@@ -1,0 +1,6 @@
+# e4_checkpoint_open_rebuilds_a_store_its_release_finds_damaged on the tree committed as e453851, with src/node.rs reverted to ad301e7 (the fix taken out), release, 2026-10-27; then the fix put back. Lines: the test's result and its panic.
+test e4_checkpoint_open_rebuilds_a_store_its_release_finds_damaged ... FAILED
+thread 'e4_checkpoint_open_rebuilds_a_store_its_release_finds_damaged' (23230) panicked at src/state_store.rs:355:101:
+C-1 E4: state store read failed: state store damaged
+  12: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 91 filtered out; finished in 8.37s

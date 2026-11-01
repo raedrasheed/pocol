@@ -1,0 +1,10 @@
+test_ambiguous_and_missing_key_selectors_fail (__main__.IndependentKeys.test_ambiguous_and_missing_key_selectors_fail) ... ok
+test_bad_genesis_inputs_never_create_output (__main__.IndependentKeys.test_bad_genesis_inputs_never_create_output) ... ok
+test_genesis_uses_only_public_inputs_and_keeps_admission (__main__.IndependentKeys.test_genesis_uses_only_public_inputs_and_keeps_admission) ... ok
+test_independent_generation_and_no_overwrite (__main__.IndependentKeys.test_independent_generation_and_no_overwrite) ... ok
+test_unsafe_secret_files_fail_without_disclosure (__main__.IndependentKeys.test_unsafe_secret_files_fail_without_disclosure) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.109s
+
+OK

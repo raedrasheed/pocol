@@ -1,0 +1,50 @@
+{
+  "schema": "pocol-m1-c30-depth/0.22",
+  "source": {"file": "reference/consensus.md", "lines": [13, 16], "literals": ["RLP صارم", "ترتيب التقييم: البنية، ثم gsVersion"]},
+  "rootProbe": {"file": "coordination/review-001/genesis-depth-independent-probe.json", "depth": 1500, "bytes": 4291, "oldActual": "RecursionError"},
+  "note": [
+    "Hand-derived lengths and codes. wrap(x) = RLP list header for len(x) followed by x, applied 'depth' times by a loop (no recursion).",
+    "Length rule for wrapping L bytes once: +1 while L <= 55, +2 while L <= 255, +3 while L <= 65535. E.g. 1 byte, 1500 wraps: 55 wraps to 56, 100 wraps to 256, 1345 wraps of +3: 256 + 4035 = 4291.",
+    "oldDeep = the outcome of the published 0.21 recursive parser on the deep input; default RecursionError (the defect).",
+    "Every deep case has a shallow twin that must give the same code and detail: depth does not change precedence (structure before gsVersion ... gsInt; framing L0 first).",
+    "gsv1 placements edit the 0.21 GSV1 item tree (m1-draft-0.21/vectors/v3-gsv1.json) and insert the wrapped bytes as one raw leaf."
+  ],
+  "cases": [
+    {"id": "T-nest", "place": "top", "inner": "80", "deep": {"depth": 1500, "length": 4291}, "shallow": {"depth": 2, "length": 3},
+     "expect": {"code": "gsStructure", "detail": "top[0]"}, "why": "top[0] is a list (the root probe's construction)"},
+    {"id": "T-truncated", "place": "top", "inner": "80", "dropLast": true, "deep": {"depth": 1500, "length": 4290}, "shallow": {"depth": 2, "length": 2},
+     "expect": {"code": "L0", "detail": "truncated list"}, "why": "the outermost header already claims one byte more than exists",
+     "oldDeep": {"code": "L0", "detail": "truncated list"}, "oldWhy": "the 0.21 parser checks the list end before recursing, so this deep input never recursed"},
+    {"id": "T-crossing", "place": "top", "inner": "c2c28080", "deep": {"depth": 1500, "length": 4300}, "shallow": {"depth": 1, "length": 5},
+     "expect": {"code": "L0", "detail": "item crosses list end"}, "why": "c2 declares 2 body bytes but its child c2 80 80 is 3 bytes"},
+    {"id": "T-trailing", "place": "top", "inner": "80", "suffix": "00", "deep": {"depth": 1500, "length": 4292}, "shallow": {"depth": 2, "length": 4},
+     "expect": {"code": "L0", "detail": "1 trailing bytes"}},
+    {"id": "T-longForm", "place": "top", "inner": "f80180", "deep": {"depth": 1500, "length": 4297}, "shallow": {"depth": 1, "length": 4},
+     "expect": {"code": "L0", "detail": "long form for short list"}},
+    {"id": "T-leadingZero", "place": "top", "inner": "f9000180", "deep": {"depth": 1500, "length": 4300}, "shallow": {"depth": 1, "length": 5},
+     "expect": {"code": "L0", "detail": "leading zero in length"}},
+    {"id": "T-truncString", "place": "top", "inner": "8201", "deep": {"depth": 1500, "length": 4294}, "shallow": {"depth": 1, "length": 3},
+     "expect": {"code": "L0", "detail": "truncated string"}, "why": "the innermost string claims 2 bytes at the end of the buffer"},
+    {"id": "T-wrappedInt", "place": "top", "inner": "8105", "deep": {"depth": 1500, "length": 4294}, "shallow": {"depth": 2, "length": 4},
+     "expect": {"code": "gsStructure", "detail": "top[0]"}, "why": "81 05 is valid framing (wrapped); structure is judged before gsInt"},
+    {"id": "G-cpLeaf", "place": "gsv1", "path": [2, 2], "inner": "0a", "deep": {"depth": 1500, "length": 4632}, "shallow": {"depth": 1, "length": 342},
+     "expect": {"code": "gsStructure", "detail": "CP item is a list"},
+     "why": "deep: CP body 177 - 1 + 4291 = 4467 (f9 11 73), CP 4470; payload 338 - 179 + 4470 = 4629 (f9 12 15); total 4632. shallow: c1 0a, CP body 178 (f8 b2), payload 339, total 342"},
+    {"id": "G-m0Entry", "place": "gsv1", "path": [4, 0, 1], "inner": "94b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1", "deep": {"depth": 1500, "length": 4674}, "shallow": {"depth": 1, "length": 342},
+     "expect": {"code": "gsStructure", "detail": "M_0List entry"},
+     "why": "deep: 21 bytes -> 35 wraps to 56, 100 to 256, 1365 x 3 -> 4351; entry body 4372 (f9 11 14) -> 4375; M_0 body 4418 (f9 11 42) -> 4421; payload 338 - 88 + 4421 = 4671 (f9 12 3f); total 4674. shallow: d5 + 21, entry body 43 (eb), M_0 body 87 (f8 57), payload 339, total 342"},
+    {"id": "G-extraTop", "place": "gsv1Append", "inner": "80", "deep": {"depth": 1500, "length": 4632}, "shallow": {"depth": 1, "length": 343},
+     "expect": {"code": "gsCount", "detail": "top 7"}, "why": "a 7th top item is not shape-checked; structure, version pass; count fails. payload 338 + 4291 = 4629 -> 4632; shallow c1 80: 340 -> 343"},
+    {"id": "G-versionAndDeepCp", "place": "gsv1", "path": [2, 2], "inner": "0a", "edits": [{"op": "set", "path": [0], "value": "02"}],
+     "deep": {"depth": 1500, "length": 4632}, "shallow": {"depth": 1, "length": 342},
+     "expect": {"code": "gsStructure", "detail": "CP item is a list"}, "why": "structure precedes gsVersion at any depth"},
+    {"id": "G-cpLeafTruncated", "place": "gsv1", "path": [2, 2], "inner": "0a", "dropLast": true, "deep": {"depth": 1500, "length": 4631}, "shallow": {"depth": 1, "length": 341},
+     "expect": {"code": "L0", "detail": "truncated list"}, "why": "dropping the final byte makes the outer header claim one byte too many; framing before structure",
+     "oldDeep": {"code": "L0", "detail": "truncated list"}, "oldWhy": "rejected at the outermost header before any recursion"}
+  ],
+  "profiles": [
+    {"id": "P-T-nest", "case": "T-nest", "expect": {"ok": false, "error": {"code": "gsStructure"}, "trace": ["shape:ok", "decode:fail"]}},
+    {"id": "P-T-crossing", "case": "T-crossing", "expect": {"ok": false, "error": {"code": "L0"}, "trace": ["shape:ok", "decode:fail"]}},
+    {"id": "P-G-m0Entry", "case": "G-m0Entry", "expect": {"ok": false, "error": {"code": "gsStructure"}, "trace": ["shape:ok", "decode:fail"]}}
+  ]
+}

@@ -1,0 +1,20 @@
+[package]
+name = "pocol-lp4-execution"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+
+[dependencies]
+revm = { version = "=19.7.0", features = ["serde"] }
+serde_json = "=1.0.145"
+k256 = { version = "=0.13.4", features = ["ecdsa"] }
+sha2 = "=0.10.9"
+
+[features]
+# validation.md:2065: the caps-test build constant LOG_CAP=2^24 (simnet only, absent from the release).
+# Never a default. The same line's HIST_TRIE_BUDGET=64 MiB is not set: pocold has no historical trie or
+# K_eff (T18b L12/L13), so it would only change the R21 admission arithmetic.
+caps-test = []
+# C-1 E1: compare every incremental state root with the full computation (pocold's tests). Never a default.
+root-check = []

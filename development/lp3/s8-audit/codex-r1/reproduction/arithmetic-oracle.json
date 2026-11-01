@@ -1,0 +1,15 @@
+{
+  "seed": 23422077264810580,
+  "cases": 12000,
+  "sRange": [
+    -300,
+    300
+  ],
+  "tsMismatches": 0,
+  "rustMatched": 12000,
+  "maxBits": 512,
+  "seconds": 2.06,
+  "inputSha256": "eb87412dd9cf6540d7bb1ba28dd31a523efc78732d1f07a0e987c2b6d6a73a9c",
+  "tsOutputSha256": "44103026efd8b7e8004719e998f97afad02ec28ca9e193d71babf0c773a12ade",
+  "rustOutputSha256": "7018051dfed0a0c28e8ea7fe19a700fc018217f2c3fa31be4cba5fd800600e5b"
+}

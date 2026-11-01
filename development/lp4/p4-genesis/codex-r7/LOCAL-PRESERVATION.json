@@ -1,0 +1,8 @@
+{
+  "path": "/workspace/work/lp4/p4-system-r7-genesis-complete-evidence.tar.gz",
+  "bytes": 3960435,
+  "sha256": "6d40c24fa4059f3ae91bc616956727466e19a9750844d3af6d85862888169786",
+  "publication": "LOCAL raw complete attempts/full vectors/mutant sources/build-test-Solidity logs; public compact packet only",
+  "independentFullCorpus": "Separate ongoing producer, not included or counted as passing",
+  "bootable": false
+}

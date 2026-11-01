@@ -1,0 +1,39 @@
+== M4 2026-10-24T10:20:51Z
+== worktree HEAD ad849421710168e12aa10846951783c09807833c
+== script /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold/tests/e2e_devnet.py sha256=9c6d7c0d32334f25a676945f2ea9e72a9496de3a0a0ff41ff3fb1846d198814c
+== POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M4/pocold sha256=a487444d51a33769b096f385039708225857ab5047deaf4cdd797b53582fe9cc
+== pocol-sign sha256=3a3ad90bb6df7119e86dff324aed2aec199dd35843a47d9cce0ca33229029103
+== cmd: POCOLD=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r3/bins/M4/pocold flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e.lock flock /tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/cpu.lock timeout -k 30 1800 python3 -I /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold/tests/e2e_devnet.py (cwd /home/user/Proof-of-Collaboration/.claude/worktrees/wf_86607a23-c25-10/prototypes/pocold)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a,b reach 15: met after 19.1s (bound 120s)
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT c syncs: met after 0.5s (bound 90s)
+PASS late-joining node c syncs to the head — c=16
+WAIT tx receipts on all nodes: met after 5.0s (bound 90s)
+WAIT identical receipts on all nodes: met after 5.0s (bound 60s)
+PASS user transactions included; receipts identical on all nodes — 0x12
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not — garbage closed=True wrong-network closed=True valid kept=True
+WAIT a new reject entry: met after 0.0s (bound 15s)
+WAIT a produces after the corrupted block: met after 1.0s (bound 60s)
+PASS malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing — new rejects=[{'hash': '0x5fc64499320f0d8a1d8da3940b78c93add0055faa9648f2d9d4237fc0f6bdde0', 'reason': '3 template signature'}] a 22->23
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT a/b lead isolated c: met after 60.8s (bound 180s)
+PASS partition: a and b lead isolated c by more than 4 c tip blocks of work — a/b=['36:0x7d8f98ce70:w=0x1076de', '36:0x7d8f98ce70:w=0x1076de'] c=23:0xb7f5aa8e09:w=0xd8f50 in 61s
+WAIT a stopped: met after 0.0s (bound 30s)
+WAIT a answers RPC: met after 0.5s (bound 60s)
+WAIT a follows b's next block: met after 5.0s (bound 180s)
+WAIT b stopped: met after 0.0s (bound 30s)
+WAIT b answers RPC: met after 0.5s (bound 60s)
+WAIT a and b settle on one tip: met after 0.0s (bound 60s)
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+WAIT c climbs to a/b's height + 2 (18 late blocks): NOT met after 240.1s (bound 240s)
+WAIT c stopped: met after 0.0s (bound 30s)
+WAIT c answers RPC: met after 0.5s (bound 60s)
+FAIL partition: a/b's tip is strictly heavier than c's tip and at least 2 blocks lower, both >= 2 blocks past the fork — a/b=39:0x2519c968c0:w=0x111e10 c=37:0xf0d9ce0d44:w=0xea5e6 fork=22; work above c0 in c tip blocks: a/b 5.03, late c 1.54; 14 late blocks, attempts [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2] in 240s
+{"result": "FAIL", "error": "partition: a/b's tip is strictly heavier than c's tip and at least 2 blocks lower, both >= 2 blocks past the fork", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts identical on all nodes", "transfer value applied", "malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", "malicious peer: a corrupted block after a valid Hello is rejected and a keeps producing", "partition: a and b lead isolated c by more than 4 c tip blocks of work"], "elapsed_s": 395, "work": "/tmp/pocol-e2e-nydzskev"}
+== summary {"label": "M4", "exit": 1, "outcome": "FAIL", "checks_passed": 7, "first_fail": "partition: a/b's tip is strictly heavier than c's tip and at least 2 blocks lower, both >= 2 blocks past the fork", "elapsed_s": 395.6, "test_s": 395, "leftover_killed": [], "ports_busy_after": []}

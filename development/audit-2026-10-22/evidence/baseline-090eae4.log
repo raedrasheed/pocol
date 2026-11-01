@@ -1,0 +1,19 @@
+# baseline witnesses on 090eae4dc059d1a7df330d9fe674c873ac515564  2026-10-22T07:21:04Z
+# rustc rustc 1.97.0 (2d8144b78 2026-07-07) | cargo cargo 1.97.0 (c980f4866 2026-06-30) | node v22.22.0 | python Python 3.11.15
+WITNESS A01 REPRODUCED :: malformed copy -> Err(Block("15 empty body item")); legitimate body -> Err(Block("known invalid: 15 empty body item"))
+WITNESS A03 REPRODUCED :: block accepted; receipt status=[1] logs=1 (LOG0 data 32769 B)
+WITNESS A04 REPRODUCED :: open returned Ok: payloads=0 torn_tail=true
+WITNESS A11 REPRODUCED :: submit={"id":1,"jsonrpc":"2.0","result":"0x8fbb8f3e7b520b14923ef141d11acc1fb19f25a92e9801918c9679 ; after reorg head h=2, pending nonce={"id":2,"jsonrpc":"2.0","result":"0x0"}
+WITNESS A02-R9 REPRODUCED :: S_max=1 build -> Ok
+WITNESS A02-R13 REPRODUCED :: H_CLOSE=H_END build -> Ok
+WITNESS A02-SYS_SLOT_MAX REPRODUCED :: Genesis::build -> Ok, system slots=69, standalone r18 -> Err
+WITNESS A06-conflict REPRODUCED :: conflict=true accounts=["0x2cd88a5b6e1c924a28d3fc2a66d40751bf979874"]
+WITNESS A06-sign-before-approval REPRODUCED :: confirmTx carries a signed raw transaction before the click: 0x02f86d830bdeca80843b…
+WITNESS A06-lock-and-endpoint-change REPRODUCED :: after endpoint genesis change + wallet.lock during confirmation: reply="0x1111111111111111111111111111111111111111111111111111111111111111" sendRaw=1 pocol_status calls=1
+WITNESS A07 REPRODUCED :: positive control accepted=true; invalid specs accepted: T_blk=0, nonceMode=2, allocRoot empty, M0List scalar, sysCodeHash empty
+WITNESS A08 REPRODUCED :: valid window ok=true; malformed stateRoot(31B)/logsBloom(empty)/gasLimit(list) window ok=true 
+WITNESS A09 REPRODUCED :: three concurrent 8 MiB reservations: peak session reservation=25165824 (cap 10485760); results=fulfilled,fulfilled,fulfilled
+WITNESS A14 REPRODUCED :: request id=123 got jsonrpc=1.0 id=999 -> {"v":"0x99"}
+WITNESS A12 REPRODUCED :: first write replied {"reason":"storeTimeout"} while unsettled (held=1); of 8 further writes 0 were refused by admission (limit 8 incl. the unsettled one)
+WITNESS A10 REPRODUCED :: singleton -> {'code': -32601, 'message': 'method not available to sites'}; batch member -> [{"id": 2, "jsonrpc": "2.0", "result": null}]
+WITNESS A05 REPRODUCED :: 48 P2P sockets without Hello still open after 12 s: 48; node threads 54 -> 118 after 64 idle RPC connections

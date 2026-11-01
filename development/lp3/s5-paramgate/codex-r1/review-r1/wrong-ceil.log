@@ -1,0 +1,10 @@
+
+running 5 tests
+test checked_overflow_and_repeating_rationals_never_authorize ... ok
+test each_r26_predicate_has_an_isolated_negative_control ... ok
+test exact_default_rpc_derivations ... ok
+test pg_l_and_end_registry_derivations ... ok
+test all_named_pg_rpc_rejections_and_405_acceptance ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

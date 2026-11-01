@@ -1,0 +1,12 @@
+   Compiling pocol-lp4-execution-create-partial-scan v0.1.0 (/workspace/work/lp4/p2-create/mutations/partial-scan)
+warning: unused variable: `value`
+  --> src/collision.rs:16:77
+   |
+16 |     context.evm.db.accounts.get(&address).map(|a|a.storage.iter().any(|(key,value)|{
+   |                                                                             ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pocol-lp4-execution-create-partial-scan` (lib) generated 1 warning (run `cargo fix --lib -p pocol-lp4-execution-create-partial-scan` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.75s
+  Executable tests/create_collision.rs (prototypes/lp4-execution/target/debug/deps/create_collision-9ee39e62bc85ffa4)

@@ -1,0 +1,18 @@
+{
+  "checks": 68,
+  "failed": 0,
+  "results": [
+    {
+      "manifest": "preservation-before-0.27.json",
+      "files": 40,
+      "unchanged": 40,
+      "changed": []
+    },
+    {
+      "manifest": "preservation-before-0.28.json",
+      "files": 28,
+      "unchanged": 28,
+      "changed": []
+    }
+  ]
+}

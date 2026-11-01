@@ -1,0 +1,22 @@
+error: no rules expected the token `.`
+  --> /workspace/pocol-s4/oracle_probe.rs:31:285
+   |
+31 | ...aw,"samples":samples,"digests":[0,1,u32::MAX].iter().map(|k|hex::encode(&proposer_digest(&seal,height,*k))).collect::<Vec<_>>()})
+   |                                                 ^ no rules expected this token in macro call
+
+error[E0283]: type annotations needed
+  --> /workspace/pocol-s4/oracle_probe.rs:17:26
+   |
+17 |     let mode=if v["mode"]==0 {NonceMode::Bounded}else{NonceMode::Unbounded};let c=v["c"].as_u64().unwrap() as u8;
+   |                          ^^ cannot infer type for type `{integer}`
+   |
+   = note: multiple `impl`s satisfying `serde_json::Value: PartialEq<{integer}>` found in the `serde_json` crate:
+           - impl PartialEq<i16> for serde_json::Value;
+           - impl PartialEq<i32> for serde_json::Value;
+           - impl PartialEq<i64> for serde_json::Value;
+           - impl PartialEq<i8> for serde_json::Value;
+           and 6 more
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0283`.

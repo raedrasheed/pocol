@@ -1,0 +1,24 @@
+{
+  "schema": "pocol-m1-v2-sink-controls/0.19",
+  "source": {"file": "reference/browser.md", "lines": [125, 130], "literals": ["(S-a)", "(S-b)", "(S-c)", "(S-d)", "(S-e)"]},
+  "note": "Deliberate corruptions of the recorded timeline of a passing case. Each must be detected with EXACTLY the listed rule set (hand-derived); the unmodified timelines must give none. Mutations are applied to sink entries only; the MockLogServer request entries are kept.",
+  "controls": [
+    {"id": "baseline.LC1", "base": "LC1", "mutation": "none", "rules": []},
+    {"id": "baseline.LC16", "base": "LC16", "mutation": "none", "rules": []},
+    {"id": "dupBegin", "base": "LC1", "mutation": "duplicate begin(1) right after itself", "rules": ["S-a"]},
+    {"id": "noBegin", "base": "LC1", "mutation": "remove begin(1)", "rules": ["S-a"]},
+    {"id": "pieceSeqGap", "base": "LC1", "mutation": "piece seq 0, 2, 3 instead of 0, 1, 2", "rules": ["S-a"]},
+    {"id": "dropTerminal", "base": "LC16", "mutation": "remove abort(1, reorg)", "rules": ["S-a", "S-b", "S-e"],
+     "why": "attempt 1 has no terminal (S-a); begin(2) while attempt 1 is open (S-b); attempt 2's request attribution then includes attempt 1's requests (S-e)"},
+    {"id": "pieceAfterCommit", "base": "LC1", "mutation": "append piece(1, 3, [3001,3001], []) after commit", "rules": ["S-b"]},
+    {"id": "skipId", "base": "LC16", "mutation": "renumber attempt 2 as 3", "rules": ["S-b"]},
+    {"id": "twoCommits", "base": "LC16", "mutation": "replace abort(1, reorg) by commit(1, <attempt 2 summary>)", "rules": ["S-c", "S-d", "S-e"],
+     "why": "two commits (S-c); attempt 1 ranges cover only 1..2048 (S-d); its summary claims 10 logs and other counts (S-e)"},
+    {"id": "commitNotLast", "base": "LC1", "mutation": "append begin(2, anchor) and abort(2, reorg) after commit(1)", "rules": ["S-c"]},
+    {"id": "gap", "base": "LC1", "mutation": "piece seq 1 range [1026, 2048]", "rules": ["S-d"]},
+    {"id": "overlap", "base": "LC1", "mutation": "piece seq 1 range [1024, 2048]", "rules": ["S-d"]},
+    {"id": "summaryLogs", "base": "LC1", "mutation": "commit summary logs 9", "rules": ["S-e"]},
+    {"id": "headCount", "base": "LC1", "mutation": "commit summary headRequests 1", "rules": ["S-e"]},
+    {"id": "totalExcludesAborted", "base": "LC16", "mutation": "commit summary totalRequests 5 (attempt 2 only)", "rules": ["S-e"]}
+  ]
+}

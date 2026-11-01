@@ -1,0 +1,55 @@
+{
+  "schema": "pocol-m1-representation/0.25",
+  "id": "CR-E4-01",
+  "status": "proposed alternatives for review. Nothing here is applied to the baseline or to any earlier package, and nothing is owner-approved.",
+  "sources": {
+    "range": {"file": "reference/browser.md", "lines": [539, 539], "literals": []},
+    "value": {"file": "reference/browser.md", "lines": [534, 535], "literals": []},
+    "openItem": {"file": "m1-draft-0.13/annex/E4-E5-RECOVERY.md", "lines": [73, 78], "literals": ["P-E4-1, proposed CR-E4-01", "epochNotJsSafe"]}
+  },
+  "concern": {
+    "statement": "The baseline epoch range is [1, 2^64-1]. The fmt-2 value {fmt, epoch, seq, tomb, b64} does not fix the JSON type of epoch. If epoch is a JSON number, every JS reader holds it as an IEEE-754 double, which is exact only up to 2^53. The 0.13 reference therefore rejects value epochs above 2^53-1 (epochNotJsSafe), which narrows the domain.",
+    "provedWith": [
+      {"epoch": "9007199254740993", "jsonNumberReadAs": "9007199254740992", "effect": "the value no longer equals the record name's epoch 0020000000000001: decode reports 'epoch', so the record is corrupt and the generation cannot recover"},
+      {"epoch": "18446744073709551615", "jsonNumberReadAs": "18446744073709551616", "effect": "2^64 is outside [1, 2^64-1]: the largest legal epoch cannot be stored as a number at all"},
+      {"epoch": "9007199254740992", "jsonNumberReadAs": "9007199254740992", "effect": "exact; the first collision is 2^53 + 1 with 2^53"}
+    ],
+    "reading": "JSON.parse maps an integer literal to the nearest double (round half to even); Python float() of the same literal computes the same nearest double, which the runner uses as the model. The root may confirm in Node with tools/js_number_probe.cjs.",
+    "practicalReach": "Reaching 2^53 needs 2^53 worker generations, so the concern is about the declared domain, not about expected use. Narrowing the domain is still a baseline change and is not done silently."
+  },
+  "alternatives": [
+    {"id": "A", "recommended": true, "name": "hex16 string",
+     "text": "epoch is the same 16 lowercase hex digits as the record name, as a JSON string. The decoder requires ^[0-9a-f]{16}$, a value in [1, 2^64-1], equal to the name's epoch. seq stays a JSON number (<= 2^32-1, exact in JS).",
+     "cost": "+2 bytes for the largest JS-safe epoch (16 digits -> 18 characters with quotes). The maximum model record becomes enc = 1442009 <= RECORD_BYTES_MAX 1442048 (was 1442007); P-E4-4's netKey bound becomes <= 105 characters (was 107).",
+     "baselineImpact": "fills an unspecified type (browser.md:534 fixes field names only); RECORD_BYTES_MAX, names, ranges and limits are unchanged"},
+    {"id": "B", "name": "decimal string", "text": "epoch as a canonical decimal string (no sign, no leading zero), 1..20 digits.",
+     "cost": "largest value 22 characters with quotes; enc 1442013 for the maximum record", "drawback": "a second canonical form of the same number besides the name's hex"},
+    {"id": "C", "name": "BigInt-aware number", "text": "keep a JSON number and read it with a BigInt-aware parser.",
+     "drawback": "the value is written through chrome.storage, whose values are JSON-serialisable data; a BigInt is not (JSON.stringify(1n) throws TypeError), and a Number cannot carry the value before it is written. Not feasible on the storage path."},
+    {"id": "D", "name": "cap at 2^53-1", "text": "declare epoch exhaustion at 2^53-1.",
+     "drawback": "narrows the baseline domain [1, 2^64-1]: a baseline change that needs the owner. Not recommended."}
+  ],
+  "fixtures": {
+    "roundTrip": [
+      {"epoch": "1", "hex16": "0000000000000001", "jsonNumberReadAs": "1"},
+      {"epoch": "9007199254740991", "hex16": "001fffffffffffff", "jsonNumberReadAs": "9007199254740991"},
+      {"epoch": "9007199254740992", "hex16": "0020000000000000", "jsonNumberReadAs": "9007199254740992"},
+      {"epoch": "9007199254740993", "hex16": "0020000000000001", "jsonNumberReadAs": "9007199254740992"},
+      {"epoch": "18446744073709551615", "hex16": "ffffffffffffffff", "jsonNumberReadAs": "18446744073709551616"}
+    ],
+    "seq": 4294967295,
+    "dict": {"k0": "a"},
+    "decodeRejects": [
+      {"id": "zero", "ver": ["1", 0], "epoch": "0000000000000000", "reason": "epoch"},
+      {"id": "uppercase", "ver": ["18446744073709551615", 0], "epoch": "FFFFFFFFFFFFFFFF", "reason": "epoch"},
+      {"id": "short", "ver": ["1", 0], "epoch": "1", "reason": "epoch"},
+      {"id": "number", "ver": ["1", 0], "epoch": 1, "reason": "epoch"},
+      {"id": "nameMismatch", "ver": ["1", 0], "epoch": "0000000000000002", "reason": "epoch"},
+      {"id": "seventeen", "ver": ["1", 0], "epoch": "00000000000000001", "reason": "epoch"}
+    ],
+    "maxRecord": {"rule": "the 0.13 maximum record (4096 entries 'K0000'..'K0fff' -> 251 x 'a'; netKey '0x'+64 x '1'; addr '0x'+40 x '2'; name length 142) with epoch 2^64-1 and seq 2^32-1",
+                  "valueJsonLength": 1441867, "encSize": 1442009, "withinRecordBytesMax": true, "netKeyBound": 105},
+    "oldCodecPreserved": {"epoch": "9007199254740992", "oldEncodeReason": "epochNotJsSafe", "note": "the 0.13 reference keeps rejecting; nothing older changes"}
+  },
+  "recommendedAmendment": "Proposal (not applied): in browser.md:534-535 add 'epoch is the record name's 16 lowercase hex digits as a JSON string; seq is a JSON integer'. Update annex E4 section 4 decoder rules and P-E4-4 (netKey <= 105). Decider: root reviewer, as a representation detail the baseline leaves open; if root classifies it as a baseline change, the owner."
+}

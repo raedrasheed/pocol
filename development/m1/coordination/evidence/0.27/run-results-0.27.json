@@ -1,0 +1,4037 @@
+{
+  "package": "M1 draft 0.27 (C32 error envelope; V1 SHA-256 accounting; carried 0.26 evidence)",
+  "executedAtUtc": "2026-10-08T06:56:41+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "statusSchema": {
+    "coreStatus": [
+      "pass",
+      "recorded",
+      "FAIL"
+    ],
+    "diagnosticRenames": {
+      "name": "diagName",
+      "check": "diagCheck",
+      "status": "proposalStatus",
+      "ok": "diagOk",
+      "label": "diagLabel",
+      "condition": "diagCondition"
+    },
+    "partialGap": "recorded entries with partialGap=true"
+  },
+  "evidenceKind": "reference models of the specification; saved reviewed evidence re-bound; no browser, network, EVM or chain",
+  "notExecuted": [
+    "Phase A experiments",
+    "any owner decision"
+  ],
+  "summary": {
+    "checks": 320,
+    "passed": 248,
+    "recorded": 72,
+    "failed": 0,
+    "partialGaps": 3,
+    "rows": {
+      "Partial": 7,
+      "CompleteCandidate": 34
+    },
+    "seconds": 97.4
+  },
+  "results": [
+    {
+      "exists": true,
+      "sha256": "30039cb1d48237ece53c4f809074ec2e06567f851c25dc62c4df440cc8aa1ce4",
+      "check": "input.sha256 <package>/tools/run_checks_027.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "56eac33b4a3dd8782a8e8f37ee92a2ad47a938266cfe402876a2bf52c6d34d49",
+      "check": "input.sha256 <package>/tools/v1_ref_027.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "f3db94c25175045567b7d6b4cd727484781055cb305fa7d829387d8932a181e9",
+      "check": "input.sha256 <package>/vectors/c32-error-cases.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "beddb1e38d5d5cd90c6351f651a83c8db4a024338b58944b2d7cf5eb0e94be4b",
+      "check": "input.sha256 <package>/vectors/v1-sha-accounting.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "42e11273269f58b5cd98d9ec0e173c3a441cbea0542943c2a6da1535e6725cfd",
+      "check": "input.sha256 <package>/annex/C32-RPC-ERROR-ENVELOPE.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "df9c37379ef744cef6b30c9a7d697443eaede66c99480fce0dd72ee8b40c548c",
+      "check": "input.sha256 <package>/annex/V1-SHA-COST.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "8e078ce7ae07e3c8e31673cc6f8536aa2243c8140d98b2da3781f2cac2cf21e0",
+      "check": "input.sha256 <package>/owner/V1-SHA-COST-CHANGE-REQUEST.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "0fed3de5f7c823d02af7ae98c648735363601c86e5153eba52678fe92ac3f70c",
+      "check": "input.sha256 <package>/audit/consolidation-0.27.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "6035da78a835e89630d35201c20cc47e84fb83c60225278f3418b5d736d185b6",
+      "check": "input.sha256 coordination/task-025.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "eed538ca794b4f3e73c94ae3c83ccfd7fa26551edadd91fece2cf68c94904cea",
+      "check": "input.sha256 coordination/review-001/REVIEW-0.26.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "95a3c8a8379562c620d67d01c36a0208710999bc53cf4d1a289e4d437e655521",
+      "check": "input.sha256 coordination/issue-ledger.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "b88dbe94b19241d4ff67db87c426f43a22444f74e1a3c6949159112170dbf5ea",
+      "check": "input.sha256 coordination/review-001/v1-malformed-error-probes-0.26.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "df1f2de1e2573531f28eac50f40540d5c4c327251856acd29058adbc45c92310",
+      "check": "input.sha256 coordination/review-001/v1-share-work-probe-0.26.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "ef0b3c33d6c8e966d42772c765578f89d2e73e959273cafc079bda6d7e3c97d5",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.26/results/run-results-0.26.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "f511eb3833904aabae7b78924afeeeddfbe6b0dc434e83a4bbdaa4bb6877e48e",
+      "check": "input.sha256 coordination/review-001/m1-draft-0.26/results/v1-transcripts-0.26.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "1a5e6a99ae3629d45891da017f97b8b3c4b3a26c906cef00b1616e50985ac039",
+      "check": "input.sha256 coordination/review-001/REVIEWER-DECISIONS-0.25.json",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7",
+      "check": "input.sha256 reference/browser.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+      "check": "input.sha256 reference/consensus.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "3571e2aa5b3901b046fe7444d1950b32c30699a627c91c090298c69d2108bf1c",
+      "check": "input.sha256 reference/network.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1",
+      "check": "input.sha256 reference/validation.md",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "9ef34c56e23a698c453b2f63d646a94a1c749387f05c2b530b5dad438c00161f",
+      "check": "input.sha256 m1-draft-0.26/tools/v1_ref.py",
+      "status": "recorded"
+    },
+    {
+      "exists": true,
+      "sha256": "9ef4b5bcaec52c1a4b8b0bfd6b3eab5e746d32701bd930a83cdbfe7f28cd395b",
+      "check": "input.sha256 m1-draft-0.26/vectors/v1-window-cases.json",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.positionalOnly",
+      "status": "pass"
+    },
+    {
+      "diagName": "n",
+      "proposalStatus": "s",
+      "obj": {
+        "x": [
+          1
+        ]
+      },
+      "check": "boundary.probe",
+      "status": "recorded"
+    },
+    {
+      "check": "boundary.renamedAndCopied",
+      "status": "pass"
+    },
+    {
+      "attributeMainCallsAtLines": [],
+      "check": "boundary.noOldMainCalled",
+      "status": "pass"
+    },
+    {
+      "issue": "C14",
+      "check": "evidence.supersededFailure.R04.bound.length rb-2848-does-not-fit",
+      "status": "pass"
+    },
+    {
+      "issue": "C14",
+      "check": "evidence.supersededFailure.R05.c14.fixture rb-2848",
+      "status": "pass"
+    },
+    {
+      "issue": "0.6 checker collision (R7-01)",
+      "check": "evidence.supersededFailure.R06.br19a.a7 sizeLinesKeepTokensBefore",
+      "status": "pass"
+    },
+    {
+      "compared": 23,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.2",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.3",
+      "status": "pass"
+    },
+    {
+      "compared": 15,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.4",
+      "status": "pass"
+    },
+    {
+      "compared": 21,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.5",
+      "status": "pass"
+    },
+    {
+      "compared": 20,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.6",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.7",
+      "status": "pass"
+    },
+    {
+      "compared": 3,
+      "mismatches": [],
+      "copyOnly": [],
+      "check": "evidence.reviewCopy.m1-draft-0.8",
+      "status": "pass"
+    },
+    {
+      "compared": 12,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.9",
+      "status": "pass"
+    },
+    {
+      "compared": 12,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.10",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.11",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.12",
+      "status": "pass"
+    },
+    {
+      "compared": 9,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.13",
+      "status": "pass"
+    },
+    {
+      "compared": 4,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.14",
+      "status": "pass"
+    },
+    {
+      "compared": 4,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.15",
+      "status": "pass"
+    },
+    {
+      "compared": 11,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.16",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.17",
+      "status": "pass"
+    },
+    {
+      "compared": 6,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.18",
+      "status": "pass"
+    },
+    {
+      "compared": 10,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.19",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.20",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.21",
+      "status": "pass"
+    },
+    {
+      "compared": 8,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.22",
+      "status": "pass"
+    },
+    {
+      "compared": 24,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.23",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.24",
+      "status": "pass"
+    },
+    {
+      "compared": 21,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.25",
+      "status": "pass"
+    },
+    {
+      "compared": 18,
+      "mismatches": [],
+      "copyOnly": [
+        "review-copy-manifest.json"
+      ],
+      "check": "evidence.reviewCopy.m1-draft-0.26",
+      "status": "pass"
+    },
+    {
+      "check": "decision.notOwnerApproved",
+      "status": "pass"
+    },
+    {
+      "check": "decision.noOwnerItemAccepted",
+      "status": "pass"
+    },
+    {
+      "statuses": {
+        "C07": "open",
+        "C06": "open",
+        "U08-CR": "pending-owner-change-request",
+        "RF-E6-1": "source-reconciliation-proposed-unapproved",
+        "C32": "open-reference-defect",
+        "V1-SHA-COST": "open-source-clarification",
+        "V1-DEFINITIONS": "open-authoring"
+      },
+      "check": "decision.ledger",
+      "status": "pass"
+    },
+    {
+      "check": "decision.shaCostRouted",
+      "status": "pass"
+    },
+    {
+      "check": "decision.P-V1-3withdrawn",
+      "status": "pass"
+    },
+    {
+      "summary": {
+        "checks": 377,
+        "passed": 302,
+        "recorded": 75,
+        "failed": 0,
+        "partialGaps": 3,
+        "rows": {
+          "Partial": 7,
+          "CompleteCandidate": 34
+        },
+        "seconds": 25.6
+      },
+      "check": "evidence.run026.preparedSuite",
+      "status": "pass"
+    },
+    {
+      "statuses": {
+        "C1": "Partial",
+        "C2": "Partial",
+        "C3": "Partial",
+        "C4": "Partial",
+        "X1": "CompleteCandidate",
+        "X2": "CompleteCandidate",
+        "X3": "CompleteCandidate",
+        "B1": "CompleteCandidate",
+        "B2": "CompleteCandidate",
+        "B3": "CompleteCandidate",
+        "B4": "CompleteCandidate",
+        "B5": "CompleteCandidate",
+        "B6": "CompleteCandidate",
+        "B7": "CompleteCandidate",
+        "B8": "CompleteCandidate",
+        "B9": "CompleteCandidate",
+        "B10": "CompleteCandidate",
+        "B11": "CompleteCandidate",
+        "R1": "Partial",
+        "R2": "CompleteCandidate",
+        "R3": "CompleteCandidate",
+        "R4": "CompleteCandidate",
+        "S1": "CompleteCandidate",
+        "S2": "CompleteCandidate",
+        "S3": "CompleteCandidate",
+        "S4": "CompleteCandidate",
+        "Q1": "CompleteCandidate",
+        "Q2": "CompleteCandidate",
+        "Q3": "CompleteCandidate",
+        "Q4": "CompleteCandidate",
+        "E1": "CompleteCandidate",
+        "E2": "CompleteCandidate",
+        "E3": "CompleteCandidate",
+        "E4": "CompleteCandidate",
+        "E5": "CompleteCandidate",
+        "E6": "Partial",
+        "E7": "CompleteCandidate",
+        "V1": "Partial",
+        "V2": "CompleteCandidate",
+        "V3": "CompleteCandidate",
+        "V4": "CompleteCandidate"
+      },
+      "entries": 41,
+      "check": "evidence.run026.rowStatuses",
+      "status": "recorded"
+    },
+    {
+      "check": "evidence.rootProbes.malformed",
+      "status": "pass"
+    },
+    {
+      "check": "evidence.rootProbes.share",
+      "status": "pass"
+    },
+    {
+      "unverified": [],
+      "check": "hash025.rootVerified",
+      "status": "pass"
+    },
+    {
+      "check": "V1.network.genesisPre",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "V1.ec.addressesFromFixtureKeys",
+      "status": "pass"
+    },
+    {
+      "check": "V1.ec.signRecoverRoundTrip",
+      "status": "pass"
+    },
+    {
+      "bad": [],
+      "check": "V1.units.carried",
+      "status": "pass"
+    },
+    {
+      "firstViolation": null,
+      "check": "V1.units.hcRandom",
+      "status": "pass"
+    },
+    {
+      "headerBytes": [
+        3004,
+        3004,
+        3004,
+        3004,
+        3004,
+        3004,
+        3004,
+        3004,
+        3004,
+        3004,
+        3004,
+        3004,
+        3004
+      ],
+      "s1First": [
+        3937,
+        3958,
+        6167,
+        7185
+      ],
+      "check": "SHA.build.shareFixtures",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 3
+      },
+      "counters": {
+        "headerDecodes": 3,
+        "templateIds": 3,
+        "asert": 3,
+        "powHash": 3,
+        "shareHash": 0,
+        "ecrecover": 6,
+        "maxAsertBits": 257,
+        "sha256Total": 6,
+        "sha256ByCategory": {
+          "templateId": 3,
+          "powHash": 3,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 6,
+        "sleptMs": 0
+      },
+      "uncachedSha": 14,
+      "exception": null,
+      "check": "V1.case.RW-h3",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 13
+      },
+      "counters": {
+        "headerDecodes": 13,
+        "templateIds": 13,
+        "asert": 13,
+        "powHash": 13,
+        "shareHash": 0,
+        "ecrecover": 26,
+        "maxAsertBits": 257,
+        "sha256Total": 26,
+        "sha256ByCategory": {
+          "templateId": 13,
+          "powHash": 13,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 26,
+        "sleptMs": 0
+      },
+      "uncachedSha": 64,
+      "exception": null,
+      "check": "V1.case.RW-h13",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 13
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 14,
+        "asert": 13,
+        "powHash": 13,
+        "shareHash": 0,
+        "ecrecover": 26,
+        "maxAsertBits": 257,
+        "sha256Total": 27,
+        "sha256ByCategory": {
+          "templateId": 14,
+          "powHash": 13,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 27,
+        "sleptMs": 0
+      },
+      "uncachedSha": 65,
+      "exception": null,
+      "check": "V1.case.RW-h14",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 13
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 14,
+        "asert": 13,
+        "powHash": 13,
+        "shareHash": 0,
+        "ecrecover": 26,
+        "maxAsertBits": 257,
+        "sha256Total": 27,
+        "sha256ByCategory": {
+          "templateId": 14,
+          "powHash": 13,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 27,
+        "sleptMs": 0
+      },
+      "uncachedSha": 65,
+      "exception": null,
+      "check": "V1.case.RW-h20",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 0,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.NX-V1",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewGenesis",
+        "at": 1,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 10,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.NX-V2",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 0,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.NX-V3",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "netChain",
+        "at": 7,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.NX-V3b",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "netGenesis",
+        "at": 7,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.V1-refGenesis",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "netVersion",
+        "at": 7,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.V1-refVersion",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 13
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 14,
+        "asert": 13,
+        "powHash": 13,
+        "shareHash": 0,
+        "ecrecover": 26,
+        "maxAsertBits": 257,
+        "sha256Total": 27,
+        "sha256ByCategory": {
+          "templateId": 14,
+          "powHash": 13,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 27,
+        "sleptMs": 0
+      },
+      "uncachedSha": 65,
+      "exception": null,
+      "check": "V1.case.NX-V3c",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 0,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.NX-V3d",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": 9,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 3,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.V1-outOfOrder",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "2",
+        "at": 9,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 2,
+        "asert": 1,
+        "powHash": 1,
+        "shareHash": 0,
+        "ecrecover": 2,
+        "maxAsertBits": 257,
+        "sha256Total": 3,
+        "sha256ByCategory": {
+          "templateId": 2,
+          "powHash": 1,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 3,
+        "sleptMs": 0
+      },
+      "uncachedSha": 6,
+      "exception": null,
+      "check": "V1.case.V1-wrongParent9",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewFuture",
+        "at": 7,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.NX-V3e",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewTargetCeil",
+        "at": 8,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 2,
+        "asert": 1,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 1,
+        "maxAsertBits": 36,
+        "sha256Total": 2,
+        "sha256ByCategory": {
+          "templateId": 2,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 2,
+        "sleptMs": 0
+      },
+      "uncachedSha": 2,
+      "exception": null,
+      "check": "V1.case.NX-V3f",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 13
+      },
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 14,
+        "asert": 13,
+        "powHash": 13,
+        "shareHash": 0,
+        "ecrecover": 26,
+        "maxAsertBits": 257,
+        "sha256Total": 27,
+        "sha256ByCategory": {
+          "templateId": 14,
+          "powHash": 13,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 27,
+        "sleptMs": 0
+      },
+      "uncachedSha": 65,
+      "exception": null,
+      "check": "V1.case.NX-V3g",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 1
+      },
+      "counters": {
+        "headerDecodes": 1,
+        "templateIds": 1,
+        "asert": 1,
+        "powHash": 1,
+        "shareHash": 0,
+        "ecrecover": 2,
+        "maxAsertBits": 257,
+        "sha256Total": 2,
+        "sha256ByCategory": {
+          "templateId": 1,
+          "powHash": 1,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 2,
+        "sleptMs": 0
+      },
+      "uncachedSha": 4,
+      "exception": null,
+      "check": "V1.case.NX-V4",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 0,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 0
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.V1-err32018",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "at": null,
+        "n": null
+      },
+      "counters": {
+        "headerDecodes": 0,
+        "templateIds": 0,
+        "asert": 0,
+        "powHash": 0,
+        "shareHash": 0,
+        "ecrecover": 0,
+        "maxAsertBits": 0,
+        "sha256Total": 0,
+        "sha256ByCategory": {
+          "templateId": 0,
+          "powHash": 0,
+          "shareHash": 0
+        },
+        "sha256UniquePreimages": 0,
+        "sleptMs": 3000
+      },
+      "uncachedSha": 0,
+      "exception": null,
+      "check": "V1.case.NX-V6",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        40,
+        41
+      ],
+      "missingLiterals": [],
+      "check": "C32.source.retry.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "lines": [
+        364,
+        364
+      ],
+      "missingLiterals": [],
+      "check": "C32.source.shape.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "lines": [
+        234,
+        234
+      ],
+      "missingLiterals": [],
+      "check": "C32.source.busyRange.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "lines": [
+        217,
+        217
+      ],
+      "missingLiterals": [],
+      "check": "C32.source.rateShape.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/network.md",
+      "lines": [
+        374,
+        374
+      ],
+      "missingLiterals": [],
+      "check": "C32.source.rpProtection.provenance",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "busy data not an object",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-root-missingData",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "busy data not an object",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-root-dataNull",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "busy reason",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-root-missingDelay",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "busy data not an object",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-dataArray",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "busy data not an object",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-dataString",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "busy reason",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-reasonMissing",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "busy reason",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-reasonUnknown",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayNull",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayBool",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayString",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayNegative",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayFraction",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "json: _Reject",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayNaN",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "json: _Reject",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayInfinity",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayOverflowFloat",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-delayHugeInt",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-busy249",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-busy2001",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "retryAfterMs",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-rate2001",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "error.code",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-codeString",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "error.code",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-codeBool",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "error.code",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-codeFraction",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "error.code",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-codeMissing",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "error.message",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-messageMissing",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "error not an object",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-errorString",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "result xor error",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-errorAndResult",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "result xor error",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-neither",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "jsonrpc",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-noJsonrpc",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "envelope not an object",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-replyArray",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "json: JSONDecodeError",
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-notJson",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "detail": null
+      },
+      "times": [
+        0,
+        0,
+        250
+      ],
+      "exception": null,
+      "check": "C32.case.C32-ok-busy250",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "detail": null
+      },
+      "times": [
+        0,
+        0,
+        2000
+      ],
+      "exception": null,
+      "check": "C32.case.C32-ok-busy2000",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "detail": null
+      },
+      "times": [
+        0,
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-ok-rate0",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "detail": null
+      },
+      "times": [
+        0,
+        0,
+        2000
+      ],
+      "exception": null,
+      "check": "C32.case.C32-ok-rate2000",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "detail": null
+      },
+      "times": [
+        0,
+        0,
+        500
+      ],
+      "exception": null,
+      "check": "C32.case.C32-ok-integralFloat",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "detail": null
+      },
+      "times": [
+        0,
+        0,
+        500
+      ],
+      "exception": null,
+      "check": "C32.case.C32-ok-exponent",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "detail": null
+      },
+      "times": [
+        0,
+        0,
+        250,
+        300,
+        2300
+      ],
+      "exception": null,
+      "check": "C32.case.C32-ok-threeRetries",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "retriesExhausted": 3,
+          "last": "busy"
+        }
+      },
+      "times": [
+        0,
+        0,
+        2000,
+        4000,
+        6000
+      ],
+      "exception": null,
+      "check": "C32.case.C32-exhausted-max",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "malformed": "busy data not an object",
+          "retries": 1
+        }
+      },
+      "times": [
+        0,
+        0,
+        300
+      ],
+      "exception": null,
+      "check": "C32.case.C32-retryThenMalformed",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "error": -32603,
+          "retries": 0
+        }
+      },
+      "times": [
+        0,
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-otherErrorNoRetry",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "outcome": {
+        "ok": false,
+        "rule": "viewIncomplete",
+        "detail": {
+          "eth_blockNumber": "malformed",
+          "why": "busy data not an object"
+        }
+      },
+      "times": [
+        0
+      ],
+      "exception": null,
+      "check": "C32.case.C32-blockNumberMalformed",
+      "status": "pass"
+    },
+    {
+      "check": "C32.rootProbesCovered",
+      "status": "pass"
+    },
+    {
+      "raised": [],
+      "check": "C32.noCaseRaises",
+      "status": "pass"
+    },
+    {
+      "note": "3 retries x 2000 ms; inside the 10 s RP protection",
+      "check": "C32.maxTotalWait",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        58,
+        58
+      ],
+      "missingLiterals": [],
+      "check": "SHA.source.bound.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/consensus.md",
+      "lines": [
+        59,
+        59
+      ],
+      "missingLiterals": [],
+      "check": "SHA.source.templateId.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/consensus.md",
+      "lines": [
+        61,
+        61
+      ],
+      "missingLiterals": [],
+      "check": "SHA.source.powHash.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/consensus.md",
+      "lines": [
+        64,
+        64
+      ],
+      "missingLiterals": [],
+      "check": "SHA.source.blockHash.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/consensus.md",
+      "lines": [
+        153,
+        161
+      ],
+      "missingLiterals": [],
+      "check": "SHA.source.items.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/consensus.md",
+      "lines": [
+        55,
+        55
+      ],
+      "missingLiterals": [],
+      "check": "SHA.source.shareList.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/browser.md",
+      "lines": [
+        44,
+        50
+      ],
+      "missingLiterals": [],
+      "check": "SHA.source.window.provenance",
+      "status": "pass"
+    },
+    {
+      "file": "reference/validation.md",
+      "lines": [
+        926,
+        926
+      ],
+      "missingLiterals": [],
+      "check": "SHA.source.tShare.provenance",
+      "status": "pass"
+    },
+    {
+      "failingCells": [],
+      "counters": {
+        "headerDecodes": 1,
+        "templateIds": 1,
+        "asert": 1,
+        "powHash": 1,
+        "shareHash": 256,
+        "ecrecover": 2,
+        "maxAsertBits": 257,
+        "sha256Total": 258,
+        "sha256ByCategory": {
+          "templateId": 1,
+          "powHash": 1,
+          "shareHash": 256
+        },
+        "sha256UniquePreimages": 258,
+        "sleptMs": 0
+      },
+      "uncached": 516,
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 1
+      },
+      "check": "SHA.case.SHA-S1",
+      "status": "pass"
+    },
+    {
+      "literalBound": 13,
+      "cachedTotal": 258,
+      "satisfied": false,
+      "note": "recorded, never passed: the source bound is an open owner change request",
+      "check": "SHA.sourceBound13.SHA-S1",
+      "status": "recorded"
+    },
+    {
+      "failingCells": [],
+      "counters": {
+        "headerDecodes": 1,
+        "templateIds": 1,
+        "asert": 1,
+        "powHash": 1,
+        "shareHash": 3,
+        "ecrecover": 2,
+        "maxAsertBits": 257,
+        "sha256Total": 5,
+        "sha256ByCategory": {
+          "templateId": 1,
+          "powHash": 1,
+          "shareHash": 3
+        },
+        "sha256UniquePreimages": 5,
+        "sleptMs": 0
+      },
+      "uncached": 10,
+      "outcome": {
+        "ok": false,
+        "rule": "9",
+        "at": 1,
+        "n": null
+      },
+      "check": "SHA.case.SHA-S1bad",
+      "status": "pass"
+    },
+    {
+      "literalBound": 13,
+      "cachedTotal": 5,
+      "satisfied": true,
+      "note": "recorded, never passed: the source bound is an open owner change request",
+      "check": "SHA.sourceBound13.SHA-S1bad",
+      "status": "recorded"
+    },
+    {
+      "failingCells": [],
+      "counters": {
+        "headerDecodes": 14,
+        "templateIds": 14,
+        "asert": 13,
+        "powHash": 13,
+        "shareHash": 3328,
+        "ecrecover": 26,
+        "maxAsertBits": 257,
+        "sha256Total": 3355,
+        "sha256ByCategory": {
+          "templateId": 14,
+          "powHash": 13,
+          "shareHash": 3328
+        },
+        "sha256UniquePreimages": 3355,
+        "sleptMs": 0
+      },
+      "uncached": 6721,
+      "outcome": {
+        "ok": true,
+        "rule": null,
+        "at": null,
+        "n": 13
+      },
+      "check": "SHA.case.SHA-W",
+      "status": "pass"
+    },
+    {
+      "literalBound": 13,
+      "cachedTotal": 3355,
+      "satisfied": false,
+      "note": "recorded, never passed: the source bound is an open owner change request",
+      "check": "SHA.sourceBound13.SHA-W",
+      "status": "recorded"
+    },
+    {
+      "check": "SHA.structuralBound",
+      "status": "pass"
+    },
+    {
+      "check": "SHA.matchesRootProbe",
+      "status": "pass"
+    },
+    {
+      "entries": 3677,
+      "within": {
+        "true": 3586,
+        "false": 1
+      },
+      "check": "SHA.hashEntries",
+      "status": "pass"
+    },
+    {
+      "imports": {},
+      "check": "boundary.noNetworkModules",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "boundary.noPrivatePathInPackage",
+      "status": "pass"
+    },
+    {
+      "files": [],
+      "check": "boundary.noPrivateKeyInOutputs",
+      "status": "pass"
+    },
+    {
+      "file": "v1-transcripts-0.27.json",
+      "sha256": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753",
+      "bytes": 581904,
+      "check": "V1.transcripts.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "file": "hash-freeze-v1-0.27.json",
+      "sha256": "e77b22ab5a01ab078eef843f59df40f523153b6554a911b00e32ae9c4391d8dd",
+      "bytes": 1271264,
+      "check": "V1.hashExport.writtenAndReadBack",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^keccak\\.selftest$",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.C1.evidence.R02:^keccak\\.selftest$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^codeTable\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.C1.evidence.R02:^codeTable\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^draft01\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.C1.evidence.R02:^draft01\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.C1.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "proposalStatus": "Partial",
+      "ownerOpen": [
+        "U01"
+      ],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [
+        "triad.codeTable"
+      ],
+      "missing": [],
+      "check": "row.C1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^positive ",
+      "matched": 11,
+      "passed": 11,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^positive ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^negative ",
+      "matched": 62,
+      "passed": 62,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^negative ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^isolation\\.",
+      "matched": 59,
+      "passed": 59,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^isolation\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^boundary\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^boundary\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^path",
+      "matched": 58,
+      "passed": 58,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R02:^path",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^rlp\\.",
+      "matched": 47,
+      "passed": 47,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R03:^rlp\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^selector ",
+      "matched": 17,
+      "passed": 17,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R03:^selector ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^versionWidth",
+      "matched": 16,
+      "passed": 16,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R03:^versionWidth",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^regression02\\.",
+      "matched": 192,
+      "passed": 192,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R03:^regression02\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bound\\.",
+      "matched": 11,
+      "passed": 10,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R04:^bound\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^c14\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R06:^c14\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^c20\\.",
+      "matched": 168,
+      "passed": 168,
+      "unexplainedFailures": [],
+      "check": "row.C2.evidence.R08:^c20\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "proposalStatus": "Partial",
+      "ownerOpen": [
+        "U01"
+      ],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [
+        "triad.manifests"
+      ],
+      "missing": [],
+      "check": "row.C2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^abi\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R02:^abi\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^version",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R02:^version",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^snapshot ",
+      "matched": 14,
+      "passed": 14,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R03:^snapshot ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^snapshot\\.",
+      "matched": 29,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R04:^snapshot\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^proof\\.",
+      "matched": 56,
+      "passed": 56,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R05:^proof\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^snapshotE\\.",
+      "matched": 6,
+      "passed": 5,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R08:^snapshotE\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.e07\\.",
+      "matched": 22,
+      "passed": 22,
+      "unexplainedFailures": [],
+      "check": "row.C3.evidence.R25:^S25\\.e07\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.e07\\.",
+      "matched": 22,
+      "passed": 22,
+      "unexplainedFailures": [],
+      "check": "row.C3.supplement.S25-E07",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "proposalStatus": "Partial",
+      "ownerOpen": [
+        "CR-M1-01",
+        "U02",
+        "U10",
+        "U14",
+        "U08-CR"
+      ],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [
+        "alias.versionRecords"
+      ],
+      "missing": [],
+      "check": "row.C3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^generator\\.",
+      "matched": 2,
+      "passed": 2,
+      "unexplainedFailures": [],
+      "check": "row.C4.evidence.R02:^generator\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.2/results/run-results.json",
+      "pattern": "^coverage",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.C4.evidence.R02:^coverage",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^requests\\.",
+      "matched": 29,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.C4.evidence.R03:^requests\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^fr-shared\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.C4.evidence.R03:^fr-shared\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "proposalStatus": "Partial",
+      "ownerOpen": [
+        "U01",
+        "U10",
+        "U08-CR"
+      ],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [
+        "triad.manifests",
+        "alias.t1_02.manifestHash"
+      ],
+      "missing": [],
+      "check": "row.C4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^annex\\.X1\\.",
+      "matched": 2,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.X1.evidence.R03:^annex\\.X1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^sitestorage\\.",
+      "matched": 11,
+      "passed": 11,
+      "unexplainedFailures": [],
+      "check": "row.X1.evidence.R05:^sitestorage\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.X1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^profile\\.",
+      "matched": 16,
+      "passed": 16,
+      "unexplainedFailures": [],
+      "check": "row.X2.evidence.R06:^profile\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^epoch\\.",
+      "matched": 24,
+      "passed": 24,
+      "unexplainedFailures": [],
+      "check": "row.X2.evidence.R08:^epoch\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.X2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^x3\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.X3.evidence.R06:^x3\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^dnr\\.",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.X3.evidence.R06:^dnr\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.X3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.",
+      "matched": 132,
+      "passed": 132,
+      "unexplainedFailures": [],
+      "check": "row.B1.evidence.R04:^bridge\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^bridge04\\.",
+      "matched": 103,
+      "passed": 103,
+      "unexplainedFailures": [],
+      "check": "row.B1.evidence.R05:^bridge04\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^guard\\.",
+      "matched": 8,
+      "passed": 8,
+      "unexplainedFailures": [],
+      "check": "row.B1.evidence.R05:^guard\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^id\\.",
+      "matched": 31,
+      "passed": 31,
+      "unexplainedFailures": [],
+      "check": "row.B1.evidence.R06:^id\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bucket\\.",
+      "matched": 7,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.B2.evidence.R04:^bucket\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^pending\\.",
+      "matched": 5,
+      "passed": 5,
+      "unexplainedFailures": [],
+      "check": "row.B2.evidence.R04:^pending\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^pending\\.",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.B2.evidence.R05:^pending\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.",
+      "matched": 132,
+      "passed": 132,
+      "unexplainedFailures": [],
+      "check": "row.B3.evidence.R04:^bridge\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^url\\.",
+      "matched": 36,
+      "passed": 35,
+      "unexplainedFailures": [],
+      "check": "row.B3.evidence.R05:^url\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^sitestorage\\.",
+      "matched": 11,
+      "passed": 11,
+      "unexplainedFailures": [],
+      "check": "row.B4.evidence.R05:^sitestorage\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^navigator\\.",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.B4.evidence.R05:^navigator\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^openExternal\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.B4.evidence.R05:^openExternal\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bridge\\.denyList",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.B5.evidence.R04:^bridge\\.denyList",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B5.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^writePath\\.",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.B6.evidence.R05:^writePath\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B6.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^dependency\\.",
+      "matched": 8,
+      "passed": 8,
+      "unexplainedFailures": [],
+      "check": "row.B7.evidence.R04:^dependency\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^fetchRule\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.B7.evidence.R08:^fetchRule\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B7.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^br\\.",
+      "matched": 77,
+      "passed": 77,
+      "unexplainedFailures": [],
+      "check": "row.B8.evidence.R05:^br\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^txA\\.",
+      "matched": 3,
+      "passed": 2,
+      "unexplainedFailures": [],
+      "check": "row.B8.evidence.R05:^txA\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^keys\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.B8.evidence.R05:^keys\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B8.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.5/results/run-results-0.5.json",
+      "pattern": "^br17e\\.",
+      "matched": 29,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.B9.evidence.R05:^br17e\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B9.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^br19[abc]\\.",
+      "matched": 17,
+      "passed": 16,
+      "unexplainedFailures": [],
+      "check": "row.B10.evidence.R06:^br19[abc]\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br19a\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.B10.evidence.R08:^br19a\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B10.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^br16\\.",
+      "matched": 7,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.B11.evidence.R06:^br16\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^bridgetrace\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.B11.evidence.R06:^bridgetrace\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.B11.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^recv\\.",
+      "matched": 20,
+      "passed": 20,
+      "unexplainedFailures": [],
+      "check": "row.R1.evidence.R04:^recv\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^bound\\.",
+      "matched": 11,
+      "passed": 10,
+      "unexplainedFailures": [],
+      "check": "row.R1.evidence.R04:^bound\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.6/results/run-results-0.6.json",
+      "pattern": "^c14\\.",
+      "matched": 3,
+      "passed": 3,
+      "unexplainedFailures": [],
+      "check": "row.R1.evidence.R06:^c14\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "proposalStatus": "Partial",
+      "ownerOpen": [
+        "CR-M1-01"
+      ],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.R1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr10\\.",
+      "matched": 5,
+      "passed": 5,
+      "unexplainedFailures": [],
+      "check": "row.R2.evidence.R08:^mr10\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.R2.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.R2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.4/results/run-results-0.4.json",
+      "pattern": "^recv\\.",
+      "matched": 20,
+      "passed": 20,
+      "unexplainedFailures": [],
+      "check": "row.R3.evidence.R04:^recv\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.R3.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.R3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^mr\\.",
+      "matched": 30,
+      "passed": 29,
+      "unexplainedFailures": [],
+      "check": "row.R4.evidence.R08:^mr\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.R4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "unexplainedFailures": [],
+      "check": "row.S1.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.S1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20b",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.S2.evidence.R08:^br20b",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.S2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "unexplainedFailures": [],
+      "check": "row.S3.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20b",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.S3.evidence.R08:^br20b",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20c\\.",
+      "matched": 6,
+      "passed": 5,
+      "unexplainedFailures": [],
+      "check": "row.S3.evidence.R08:^br20c\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.S3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.8/results/run-results-0.8.json",
+      "pattern": "^br20a\\.",
+      "matched": 12,
+      "passed": 12,
+      "unexplainedFailures": [],
+      "check": "row.S4.evidence.R08:^br20a\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.S4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^(utf8|qbytes|admission|quota|config)\\.",
+      "matched": 80,
+      "passed": 80,
+      "unexplainedFailures": [],
+      "check": "row.Q1.evidence.R09:^(utf8|qbytes|admission|quota|config)\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.Q1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^case[ .]",
+      "matched": 96,
+      "passed": 72,
+      "unexplainedFailures": [],
+      "check": "row.Q2.evidence.R09:^case[ .]",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.Q2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^case[ .]",
+      "matched": 96,
+      "passed": 72,
+      "unexplainedFailures": [],
+      "check": "row.Q3.evidence.R09:^case[ .]",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^transitions\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.Q3.evidence.R09:^transitions\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.Q3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^fault ",
+      "matched": 13,
+      "passed": 13,
+      "unexplainedFailures": [],
+      "check": "row.Q4.evidence.R09:^fault ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.9/results/run-results-0.9.json",
+      "pattern": "^transitions\\.",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.Q4.evidence.R09:^transitions\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.Q4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)e1\\.",
+      "matched": 38,
+      "passed": 38,
+      "unexplainedFailures": [],
+      "check": "row.E1.evidence.R12:(^|\\.)e1\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)c24\\.",
+      "matched": 123,
+      "passed": 122,
+      "unexplainedFailures": [],
+      "check": "row.E1.evidence.R12:(^|\\.)c24\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.E1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)e2\\.",
+      "matched": 35,
+      "passed": 23,
+      "unexplainedFailures": [],
+      "check": "row.E2.evidence.R12:(^|\\.)e2\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "(^|\\.)c25\\.",
+      "matched": 20,
+      "passed": 20,
+      "unexplainedFailures": [],
+      "check": "row.E2.evidence.R12:(^|\\.)c25\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.E2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "e3\\.br22a\\.allCombinations$",
+      "matched": 1,
+      "passed": 1,
+      "unexplainedFailures": [],
+      "check": "row.E3.evidence.R12:e3\\.br22a\\.allCombinations$",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.12/results/run-results-0.12.json",
+      "pattern": "e3\\.control ",
+      "matched": 4,
+      "passed": 4,
+      "unexplainedFailures": [],
+      "check": "row.E3.evidence.R12:e3\\.control ",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.sweepMax\\.",
+      "matched": 8,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.E3.evidence.R25:^S25\\.sweepMax\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.sweepMax\\.",
+      "matched": 8,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.E3.supplement.S25-SWEEPMAX",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.E3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.15/results/run-results-0.15.json",
+      "pattern": "(^|\\.)e4\\.",
+      "matched": 55,
+      "passed": 54,
+      "unexplainedFailures": [],
+      "check": "row.E4.evidence.R15:(^|\\.)e4\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^CR-E4-01\\.",
+      "matched": 7,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.E4.evidence.R25:^CR-E4-01\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^CR-E4-02\\.",
+      "matched": 23,
+      "passed": 23,
+      "unexplainedFailures": [],
+      "check": "row.E4.evidence.R25:^CR-E4-02\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.E4.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.15/results/run-results-0.15.json",
+      "pattern": "e5\\.case BR22d-",
+      "matched": 6,
+      "passed": 6,
+      "unexplainedFailures": [],
+      "check": "row.E5.evidence.R15:e5\\.case BR22d-",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.E5.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR23-d\\d+[a-z]?\\.",
+      "matched": 211,
+      "passed": 207,
+      "unexplainedFailures": [],
+      "check": "row.E6.evidence.R18:BR23-d\\d+[a-z]?\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR24-x\\d+",
+      "matched": 273,
+      "passed": 272,
+      "unexplainedFailures": [],
+      "check": "row.E6.evidence.R18:BR24-x\\d+",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "proposalStatus": "Partial",
+      "ownerOpen": [
+        "RF-E6-1"
+      ],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.E6.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "BR23-d15c\\.",
+      "matched": 33,
+      "passed": 31,
+      "unexplainedFailures": [],
+      "check": "row.E7.evidence.R18:BR23-d15c\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "coverage\\.BR23-d1[2-5]",
+      "matched": 9,
+      "passed": 9,
+      "unexplainedFailures": [],
+      "check": "row.E7.evidence.R18:coverage\\.BR23-d1[2-5]",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.18/results/run-results-0.18.json",
+      "pattern": "e5\\.case BR22d-V-[de]$",
+      "matched": 2,
+      "passed": 2,
+      "unexplainedFailures": [],
+      "check": "row.E7.evidence.R18:e5\\.case BR22d-V-[de]$",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.E7.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.3/results/run-results-0.3.json",
+      "pattern": "^annex\\.V1\\.",
+      "matched": 16,
+      "passed": 15,
+      "unexplainedFailures": [],
+      "check": "row.V1.evidence.R03:^annex\\.V1\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "pendingRootReview",
+        "c2": "pendingRootReview",
+        "c3": "pendingRootReview",
+        "c4": "blocked",
+        "c5": "blocked"
+      },
+      "proposalStatus": "Partial",
+      "ownerOpen": [
+        "V1-SHA-COST"
+      ],
+      "reviewerOpen": [
+        "P-V1",
+        "P-C32"
+      ],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.V1.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^suite019\\.LC\\d",
+      "matched": 276,
+      "passed": 276,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R20:^suite019\\.LC\\d",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^C29\\.",
+      "matched": 82,
+      "passed": 56,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R20:^C29\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.20/results/run-results-0.20.json",
+      "pattern": "^suite019\\.sinkControl\\.",
+      "matched": 15,
+      "passed": 15,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R20:^suite019\\.sinkControl\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.lclit\\.",
+      "matched": 58,
+      "passed": 58,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R25:^S25\\.lclit\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.rg3b\\.",
+      "matched": 7,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.V2.evidence.R25:^S25\\.rg3b\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.rg3b\\.",
+      "matched": 7,
+      "passed": 7,
+      "unexplainedFailures": [],
+      "check": "row.V2.supplement.S25-RG3B",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^S25\\.lclit\\.",
+      "matched": 58,
+      "passed": 58,
+      "unexplainedFailures": [],
+      "check": "row.V2.supplement.S25-LCLIT",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.V2.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.22/results/run-results-0.22.json",
+      "pattern": "^suite021\\.",
+      "matched": 139,
+      "passed": 110,
+      "unexplainedFailures": [],
+      "check": "row.V3.evidence.R22:^suite021\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.22/results/run-results-0.22.json",
+      "pattern": "^C30\\.",
+      "matched": 75,
+      "passed": 74,
+      "unexplainedFailures": [],
+      "check": "row.V3.evidence.R22:^C30\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.25/results/run-results-0.25.json",
+      "pattern": "^CID-1\\.",
+      "matched": 32,
+      "passed": 32,
+      "unexplainedFailures": [],
+      "check": "row.V3.evidence.R25:^CID-1\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.V3.criteria",
+      "status": "recorded"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^C31\\.",
+      "matched": 73,
+      "passed": 73,
+      "unexplainedFailures": [],
+      "check": "row.V4.evidence.R24:^C31\\.",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^suite023\\.eval\\.R\\d+",
+      "matched": 14,
+      "passed": 14,
+      "unexplainedFailures": [],
+      "check": "row.V4.evidence.R24:^suite023\\.eval\\.R\\d+",
+      "status": "pass"
+    },
+    {
+      "results": "coordination/review-001/m1-draft-0.24/results/run-results-0.24.json",
+      "pattern": "^C7plan\\.",
+      "matched": 16,
+      "passed": 11,
+      "unexplainedFailures": [],
+      "check": "row.V4.evidence.R24:^C7plan\\.",
+      "status": "pass"
+    },
+    {
+      "criteria": {
+        "c1": "satisfied",
+        "c2": "satisfied",
+        "c3": "satisfied",
+        "c4": "satisfied",
+        "c5": "satisfied"
+      },
+      "proposalStatus": "CompleteCandidate",
+      "ownerOpen": [],
+      "reviewerOpen": [],
+      "unresolved": [],
+      "hashOwnerBlocked": [],
+      "missing": [],
+      "check": "row.V4.criteria",
+      "status": "recorded"
+    },
+    {
+      "differing": {},
+      "check": "consolidation.rowsMatchProposal",
+      "status": "pass"
+    },
+    {
+      "differing": {},
+      "check": "consolidation.carriedFrom0_26",
+      "status": "pass"
+    },
+    {
+      "counts": {
+        "Partial": 7,
+        "CompleteCandidate": 34
+      },
+      "rows": {
+        "C1": "Partial",
+        "C2": "Partial",
+        "C3": "Partial",
+        "C4": "Partial",
+        "X1": "CompleteCandidate",
+        "X2": "CompleteCandidate",
+        "X3": "CompleteCandidate",
+        "B1": "CompleteCandidate",
+        "B2": "CompleteCandidate",
+        "B3": "CompleteCandidate",
+        "B4": "CompleteCandidate",
+        "B5": "CompleteCandidate",
+        "B6": "CompleteCandidate",
+        "B7": "CompleteCandidate",
+        "B8": "CompleteCandidate",
+        "B9": "CompleteCandidate",
+        "B10": "CompleteCandidate",
+        "B11": "CompleteCandidate",
+        "R1": "Partial",
+        "R2": "CompleteCandidate",
+        "R3": "CompleteCandidate",
+        "R4": "CompleteCandidate",
+        "S1": "CompleteCandidate",
+        "S2": "CompleteCandidate",
+        "S3": "CompleteCandidate",
+        "S4": "CompleteCandidate",
+        "Q1": "CompleteCandidate",
+        "Q2": "CompleteCandidate",
+        "Q3": "CompleteCandidate",
+        "Q4": "CompleteCandidate",
+        "E1": "CompleteCandidate",
+        "E2": "CompleteCandidate",
+        "E3": "CompleteCandidate",
+        "E4": "CompleteCandidate",
+        "E5": "CompleteCandidate",
+        "E6": "Partial",
+        "E7": "CompleteCandidate",
+        "V1": "Partial",
+        "V2": "CompleteCandidate",
+        "V3": "CompleteCandidate",
+        "V4": "CompleteCandidate"
+      },
+      "check": "consolidation.summary",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "browser.md:58 \"<= 13 SHA-256\" cannot be met by a full window (27 without shares, 3355 with 256 shares per header); owner change request open",
+      "check": "gap.V1-SHA-COST",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "U01, U02, U10, U14, CR-M1-01, U08, RF-E6-1 and V1-SHA-COST have no owner answer",
+      "check": "gap.ownerDecisions",
+      "status": "recorded"
+    },
+    {
+      "partialGap": true,
+      "text": "P-V1 (minus the withdrawn P-V1-3) and P-C32-1..4 await root decisions",
+      "check": "gap.reviewerDecisions",
+      "status": "recorded"
+    },
+    {
+      "missing": [],
+      "required": 89,
+      "check": "coverage027.required",
+      "status": "pass"
+    },
+    {
+      "check": "coverage027.noStepAborted",
+      "status": "pass"
+    },
+    {
+      "before": {
+        "coordination/review-001/m1-draft-0.26/results/run-results-0.26.json": "ef0b3c33d6c8e966d42772c765578f89d2e73e959273cafc079bda6d7e3c97d5",
+        "coordination/review-001/m1-draft-0.26/results/v1-transcripts-0.26.json": "f511eb3833904aabae7b78924afeeeddfbe6b0dc434e83a4bbdaa4bb6877e48e",
+        "coordination/review-001/v1-malformed-error-probes-0.26.json": "b88dbe94b19241d4ff67db87c426f43a22444f74e1a3c6949159112170dbf5ea",
+        "coordination/review-001/v1-share-work-probe-0.26.json": "df1f2de1e2573531f28eac50f40540d5c4c327251856acd29058adbc45c92310",
+        "m1-draft-0.26/tools/v1_ref.py": "9ef34c56e23a698c453b2f63d646a94a1c749387f05c2b530b5dad438c00161f",
+        "m1-draft-0.26/tools/run_checks_026.py": "29afe90d93c0f6990c41334964ba9d126713235a0290fe1b41881a6561d9f698",
+        "m1-draft-0.26/vectors/v1-window-cases.json": "9ef4b5bcaec52c1a4b8b0bfd6b3eab5e746d32701bd930a83cdbfe7f28cd395b",
+        "m1-draft-0.26/vectors/v1-chains.json": "902e2e9fa3c5579fb9e8cd06b611f6a682d50d50ea8016f33356e47d26c09051",
+        "m1-draft-0.25/audit/row-inventory.json": "bdc72f7f8b6195a5dceb41cac67fb1ee14c7dfd40ca43915fc4025e93a901cb1",
+        "m1-draft-0.5/annex/br-messages.json": "c2e216f344344db066e8212b13ac176c6f7f85c889ee58cacea707a80f780f03"
+      },
+      "after": {
+        "coordination/review-001/m1-draft-0.26/results/run-results-0.26.json": "ef0b3c33d6c8e966d42772c765578f89d2e73e959273cafc079bda6d7e3c97d5",
+        "coordination/review-001/m1-draft-0.26/results/v1-transcripts-0.26.json": "f511eb3833904aabae7b78924afeeeddfbe6b0dc434e83a4bbdaa4bb6877e48e",
+        "coordination/review-001/v1-malformed-error-probes-0.26.json": "b88dbe94b19241d4ff67db87c426f43a22444f74e1a3c6949159112170dbf5ea",
+        "coordination/review-001/v1-share-work-probe-0.26.json": "df1f2de1e2573531f28eac50f40540d5c4c327251856acd29058adbc45c92310",
+        "m1-draft-0.26/tools/v1_ref.py": "9ef34c56e23a698c453b2f63d646a94a1c749387f05c2b530b5dad438c00161f",
+        "m1-draft-0.26/tools/run_checks_026.py": "29afe90d93c0f6990c41334964ba9d126713235a0290fe1b41881a6561d9f698",
+        "m1-draft-0.26/vectors/v1-window-cases.json": "9ef4b5bcaec52c1a4b8b0bfd6b3eab5e746d32701bd930a83cdbfe7f28cd395b",
+        "m1-draft-0.26/vectors/v1-chains.json": "902e2e9fa3c5579fb9e8cd06b611f6a682d50d50ea8016f33356e47d26c09051",
+        "m1-draft-0.25/audit/row-inventory.json": "bdc72f7f8b6195a5dceb41cac67fb1ee14c7dfd40ca43915fc4025e93a901cb1",
+        "m1-draft-0.5/annex/br-messages.json": "c2e216f344344db066e8212b13ac176c6f7f85c889ee58cacea707a80f780f03"
+      },
+      "check": "preserved.olderFilesUnchanged",
+      "status": "pass"
+    }
+  ]
+}

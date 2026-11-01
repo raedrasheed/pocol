@@ -1,0 +1,33 @@
+# C-1 E4.1 mutation controls (each mutant on a fresh copy with new file times, own target dir).
+# Tests, in order (a mutant stops at its first failing stage): lp4 --lib (node_trie, view, state_trie, apply tests);
+# pocold consensus e1_ s3a_every pool e3_. Runners are kept out of the repository; only this log is committed.
+# N1 releasing a root does not release its children: lp4-execution/src/node_trie.rs: replace 'e.1-=1;if e.1==0{let (n,_)=self.nodes.remove(&id).unwrap();stack.extend(n.children());}' with 'e.1-=1;if e.1==0{let _=self.nodes.remove(&id).unwrap();}'
+# N2 a stored node named again is not counted: lp4-execution/src/node_trie.rs: replace 'if let Some(e)=self.nodes.get_mut(&id){e.1+=1;continue}' with 'if self.nodes.contains_key(&id){continue}'
+# N3 a child's reference is taken at its parent's depth: lp4-execution/src/node_trie.rs: replace 'Kid::Node(id,n)=>(id,node_ref(&n,at+1),Some(*n.key()))' with 'Kid::Node(id,n)=>(id,node_ref(&n,at),Some(*n.key()))'
+# N4 a lookup returns a leaf without checking its key: lp4-execution/src/node_trie.rs: replace 'Node::Leaf{key,val}=>return (key==k).then(||val.clone()),' with 'Node::Leaf{val,..}=>return Some(val.clone()),'
+# N5 a deletion of an absent key is not dropped before grouping: lp4-execution/src/node_trie.rs: replace 'let ch=if ch.iter().any(|(k,v)|v.is_none()&&diverge(&prefix,k,d)<p)' with 'let ch=if false&&ch.iter().any(|(k,v)|v.is_none()&&diverge(&prefix,k,d)<p)'
+# N6 new code is not recorded: lp4-execution/src/node_trie.rs: replace 'if let Some(c)=code{b.code.entry(info.code_hash).or_insert(c);}' with 'let _=code;'
+# N7 an updated slot's preimage is not recorded: lp4-execution/src/node_trie.rs: replace 'if v!=U256::ZERO{b.slots.entry((*addr,h)).or_insert(*sl);}(h,' with '(h,'
+# N8 a node with trailing bytes decodes: lp4-execution/src/node_trie.rs: replace '(i==b.len()).then_some(n)' with 'Some(n)'
+# N9 an account's storage root is not taken from its storage trie: lp4-execution/src/node_trie.rs: replace 'let storage_root=root_of(storage.as_ref().map(|(_,n)|&**n));' with 'let storage_root=root_of(None);'
+# N10 an account's storage trie is not kept when only its fields change: lp4-execution/src/node_trie.rs: replace 'let start=old_storage.map(|id|(id,load(s,b,&id)));update(s,b,start,0,&sc)' with 'let _=old_storage;update(s,b,None,0,&sc)'
+# N11 a changed child is rebuilt from its changes alone: lp4-execution/src/node_trie.rs: replace 'let oldn=old.map(|(id,_)|(id,load(s,b,&id)));' with 'let oldn:Option<(Id,Arc<Node>)>=None;let _=old;'
+# N12 the overlay reads a parent account's info as default: lp4-execution/src/view.rs: replace 'base.account(&a).map(|x|DbAccount{info:x.info,account_state:x.state,storage:Default::default()})' with 'base.account(&a).map(|x|DbAccount{info:Default::default(),account_state:x.state,storage:Default::default()})'
+## pass 1 (tree 7606a31)
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "N1 releasing a root does not release its children", "status": "KILLED", "failed": ["apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N2 a stored node named again is not counted", "status": "KILLED", "failed": ["apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N3 a child's reference is taken at its parent's depth", "status": "KILLED", "failed": ["apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "node_trie::tests::an_update_from_an_overlay_view_equals_the_update_from_its_merge", "node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N4 a lookup returns a leaf without checking its key", "status": "KILLED", "failed": ["node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N5 a deletion of an absent key is not dropped before grouping", "status": "PASS", "failed": []}
+{"mutant": "N6 new code is not recorded", "status": "KILLED", "failed": ["apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N7 an updated slot's preimage is not recorded", "status": "KILLED", "failed": ["apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N8 a node with trailing bytes decodes", "status": "KILLED", "failed": ["node_trie::tests::node_encodings_round_trip"]}
+{"mutant": "N9 an account's storage root is not taken from its storage trie", "status": "KILLED", "failed": ["apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "node_trie::tests::an_update_from_an_overlay_view_equals_the_update_from_its_merge", "node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N10 an account's storage trie is not kept when only its fields change", "status": "KILLED", "failed": ["apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "node_trie::tests::an_update_from_an_overlay_view_equals_the_update_from_its_merge", "node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N11 a changed child is rebuilt from its changes alone", "status": "KILLED", "failed": ["apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state", "node_trie::tests::an_update_from_an_overlay_view_equals_the_update_from_its_merge", "node_trie::tests::trie_versions_in_a_store_give_world_roots_and_the_state_reads"]}
+{"mutant": "N12 the overlay reads a parent account's info as default", "status": "KILLED", "failed": ["view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"]}
+## pass 2: node_trie test with clustered raw keys added (tree f8a58bb)
+{"mutant": "BASE", "status": "PASS", "failed": []}
+{"mutant": "N5 a deletion of an absent key is not dropped before grouping", "status": "KILLED", "failed": ["node_trie::tests::raw_clustered_keys_build_and_update_give_p1_roots"]}
+## result: 12 of 12 killed

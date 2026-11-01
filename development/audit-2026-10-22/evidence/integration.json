@@ -1,0 +1,1011 @@
+{
+ "runs": [
+  {
+   "commit": "4856842819f8d5fc703afedcc2e8a7e8c18b2501",
+   "dirty": false,
+   "host": "Linux-6.18.44-fc-v140-x86_64-with-glibc2.39",
+   "toolchain": {
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+    "node": "v22.22.0",
+    "python": "3.11.15"
+   },
+   "started": "2026-10-22T10:26:34Z",
+   "logs": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/audit/integration-4856842",
+   "suites": [
+    {
+     "suite": "lp1-node-tests",
+     "cmd": "cargo test --offline --no-fail-fast",
+     "exit": 101,
+     "seconds": 24.4,
+     "summary": {
+      "passed": 137,
+      "failed": 11
+     },
+     "blockedByPlatform": {
+      "binary": "tests/store_journal.rs",
+      "unsupportedPlatform": 11,
+      "result": "test result: FAILED. 1 passed; 11 failed"
+     },
+     "summaryExcludingBlocked": {
+      "passed": 136,
+      "failed": 0
+     },
+     "pass": true,
+     "correction": "round 2: 'pass' here was computed after excluding tests/store_journal.rs. Those 11 tests executed on Linux and failed (UnsupportedPlatform: Windows-only journal); the suite's actual outcome is exit 101, i.e. FAIL. The failure is the expected platform limitation (identical on 090eae4), recorded separately since round 2."
+    },
+    {
+     "suite": "ext-build",
+     "cmd": "node build.mjs",
+     "exit": 0,
+     "seconds": 0.1,
+     "summary": {},
+     "pass": true
+    },
+    {
+     "suite": "lp4-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 15.9,
+     "summary": {
+      "passed": 151,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-build",
+     "cmd": "cargo build --release --offline",
+     "exit": 0,
+     "seconds": 0.3,
+     "summary": {
+      "lines": [
+       "Finished `release` profile [optimized + debuginfo] target(s) in 0.16s"
+      ]
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 17.3,
+     "summary": {
+      "passed": 86,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "ext-unit",
+     "cmd": "node tests/unit.mjs",
+     "exit": 0,
+     "seconds": 21.8,
+     "summary": {
+      "result": "PASS",
+      "passed": 225,
+      "failed": []
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-devnet",
+     "cmd": "python3 tests/e2e_devnet.py",
+     "exit": 0,
+     "seconds": 124.7,
+     "summary": {
+      "result": "PASS",
+      "checks": 17
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-site",
+     "cmd": "python3 tests/e2e_site.py",
+     "exit": 0,
+     "seconds": 36.7,
+     "summary": {
+      "result": "PASS",
+      "checks": 20
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-browser",
+     "cmd": "node tests/e2e_browser.mjs",
+     "exit": 0,
+     "seconds": 155.8,
+     "summary": {
+      "result": "PASS",
+      "checks": 72,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-integrated",
+     "cmd": "node tests/e2e_integrated.mjs",
+     "exit": 0,
+     "seconds": 217.6,
+     "summary": {
+      "result": "PASS",
+      "checks": 18,
+      "failed": 0
+     },
+     "pass": true
+    }
+   ],
+   "result": "PASS",
+   "finished": "2026-10-22T10:36:48Z",
+   "correction": "round 2: this run's overall 'PASS' relied on the lp1-node classification above; with actual outcomes it is FAIL, with every failure being the expected platform limitation."
+  },
+  {
+   "commit": "e3a24b107145a507ff84a3505f941dc4f856c166",
+   "dirty": false,
+   "host": "Linux-6.18.44-fc-v140-x86_64-with-glibc2.39",
+   "toolchain": {
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+    "node": "v22.22.0",
+    "python": "3.11.15"
+   },
+   "started": "2026-10-22T10:56:29Z",
+   "logs": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/audit/integration-e3a24b1",
+   "suites": [
+    {
+     "suite": "lp1-node-tests",
+     "cmd": "cargo test --offline --no-fail-fast",
+     "exit": 101,
+     "seconds": 26.6,
+     "summary": {
+      "passed": 137,
+      "failed": 11
+     },
+     "blockedByPlatform": {
+      "binary": "tests/store_journal.rs",
+      "unsupportedPlatform": 11,
+      "result": "test result: FAILED. 1 passed; 11 failed"
+     },
+     "summaryExcludingBlocked": {
+      "passed": 136,
+      "failed": 0
+     },
+     "pass": true,
+     "correction": "round 2: 'pass' here was computed after excluding tests/store_journal.rs. Those 11 tests executed on Linux and failed (UnsupportedPlatform: Windows-only journal); the suite's actual outcome is exit 101, i.e. FAIL. The failure is the expected platform limitation (identical on 090eae4), recorded separately since round 2."
+    },
+    {
+     "suite": "ext-build",
+     "cmd": "node build.mjs",
+     "exit": 0,
+     "seconds": 0.1,
+     "summary": {},
+     "pass": true
+    },
+    {
+     "suite": "lp4-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 16.1,
+     "summary": {
+      "passed": 151,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-build",
+     "cmd": "cargo build --release --offline",
+     "exit": 0,
+     "seconds": 0.3,
+     "summary": {
+      "lines": [
+       "Finished `release` profile [optimized + debuginfo] target(s) in 0.18s"
+      ]
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 18.5,
+     "summary": {
+      "passed": 87,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "ext-unit",
+     "cmd": "node tests/unit.mjs",
+     "exit": 0,
+     "seconds": 29.0,
+     "summary": {
+      "result": "PASS",
+      "passed": 226,
+      "failed": []
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-devnet",
+     "cmd": "python3 tests/e2e_devnet.py",
+     "exit": 0,
+     "seconds": 139.0,
+     "summary": {
+      "result": "PASS",
+      "checks": 17
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-site",
+     "cmd": "python3 tests/e2e_site.py",
+     "exit": 0,
+     "seconds": 45.1,
+     "summary": {
+      "result": "PASS",
+      "checks": 20
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-browser",
+     "cmd": "node tests/e2e_browser.mjs",
+     "exit": 0,
+     "seconds": 148.0,
+     "summary": {
+      "result": "PASS",
+      "checks": 74,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-integrated",
+     "cmd": "node tests/e2e_integrated.mjs",
+     "exit": 0,
+     "seconds": 159.8,
+     "summary": {
+      "result": "PASS",
+      "checks": 18,
+      "failed": 0
+     },
+     "pass": true
+    }
+   ],
+   "result": "PASS",
+   "finished": "2026-10-22T11:06:12Z",
+   "correction": "round 2: this run's overall 'PASS' relied on the lp1-node classification above; with actual outcomes it is FAIL, with every failure being the expected platform limitation."
+  },
+  {
+   "commit": "7e0c55936a955ddc25528e5678948a14fa16e010",
+   "dirty": false,
+   "host": "Linux-6.18.44-fc-v140-x86_64-with-glibc2.39",
+   "toolchain": {
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+    "rustcLp1": "rustc 1.58.1 (db9d1b20b 2022-01-20)",
+    "rustcPinned": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "node": "v22.22.0",
+    "python": "3.11.15"
+   },
+   "started": "2026-10-22T16:31:11Z",
+   "logs": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/integration-final",
+   "suites": [
+    {
+     "suite": "lp1-node-tests",
+     "cmd": "cargo +1.58.1 test --offline --locked --no-fail-fast",
+     "exit": 101,
+     "seconds": 56.7,
+     "summary": {
+      "passed": 137,
+      "failed": 11
+     },
+     "pass": false,
+     "executedAndFailed": {
+      "binary": "tests/store_journal.rs",
+      "executed": true,
+      "passed": 1,
+      "failed": 11,
+      "unsupportedPlatformErrors": 11
+     },
+     "otherBinaries": {
+      "passed": 136,
+      "failed": 0
+     },
+     "onlyExpectedPlatformLimitation": true,
+     "platformNote": "store_journal uses the Windows-only atomic journal; on this host its tests execute and fail with UnsupportedPlatform, identically on the audited 090eae4. Windows verification is required to pass them."
+    },
+    {
+     "suite": "ext-build",
+     "cmd": "node build.mjs",
+     "exit": 0,
+     "seconds": 0.2,
+     "summary": {},
+     "pass": true
+    },
+    {
+     "suite": "lp4-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 55.0,
+     "summary": {
+      "passed": 162,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-build",
+     "cmd": "cargo build --release --offline",
+     "exit": 0,
+     "seconds": 12.9,
+     "summary": {
+      "lines": [
+       "Compiling pocold v0.1.0 (/home/user/Proof-of-Collaboration/prototypes/pocold)",
+       "    Finished `release` profile [optimized + debuginfo] target(s) in 12.76s"
+      ]
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 90.7,
+     "summary": {
+      "passed": 108,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "ext-unit",
+     "cmd": "node tests/unit.mjs",
+     "exit": 0,
+     "seconds": 31.2,
+     "summary": {
+      "result": "PASS",
+      "passed": 234,
+      "failed": []
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-devnet",
+     "cmd": "python3 tests/e2e_devnet.py",
+     "exit": 0,
+     "seconds": 125.2,
+     "summary": {
+      "result": "PASS",
+      "checks": 17
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-site",
+     "cmd": "python3 tests/e2e_site.py",
+     "exit": 0,
+     "seconds": 56.8,
+     "summary": {
+      "result": "PASS",
+      "checks": 20
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-browser",
+     "cmd": "node tests/e2e_browser.mjs",
+     "exit": 1,
+     "seconds": 202.8,
+     "summary": {
+      "result": "FAIL",
+      "checks": 78,
+      "failed": 2
+     },
+     "pass": false
+    },
+    {
+     "suite": "e2e-integrated",
+     "cmd": "node tests/e2e_integrated.mjs",
+     "exit": 0,
+     "seconds": 195.0,
+     "summary": {
+      "result": "PASS",
+      "checks": 18,
+      "failed": 0
+     },
+     "pass": true
+    }
+   ],
+   "result": "FAIL",
+   "finished": "2026-10-22T16:44:58Z",
+   "failuresOnlyExpectedPlatformLimitation": false
+  },
+  {
+   "commit": "8871f457c59cd083449ac6c50e09cc65b9bcfefc",
+   "dirty": false,
+   "host": "Linux-6.18.44-fc-v140-x86_64-with-glibc2.39",
+   "toolchain": {
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+    "rustcLp1": "rustc 1.58.1 (db9d1b20b 2022-01-20)",
+    "rustcPinned": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "node": "v22.22.0",
+    "python": "3.11.15"
+   },
+   "started": "2026-10-22T16:51:00Z",
+   "logs": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/integration-final2",
+   "suites": [
+    {
+     "suite": "lp1-node-tests",
+     "cmd": "cargo +1.58.1 test --offline --locked --no-fail-fast",
+     "exit": 101,
+     "seconds": 56.7,
+     "summary": {
+      "passed": 137,
+      "failed": 11
+     },
+     "pass": false,
+     "executedAndFailed": {
+      "binary": "tests/store_journal.rs",
+      "executed": true,
+      "passed": 1,
+      "failed": 11,
+      "unsupportedPlatformErrors": 11
+     },
+     "otherBinaries": {
+      "passed": 136,
+      "failed": 0
+     },
+     "onlyExpectedPlatformLimitation": true,
+     "platformNote": "store_journal uses the Windows-only atomic journal; on this host its tests execute and fail with UnsupportedPlatform, identically on the audited 090eae4. Windows verification is required to pass them."
+    },
+    {
+     "suite": "ext-build",
+     "cmd": "node build.mjs",
+     "exit": 0,
+     "seconds": 0.1,
+     "summary": {},
+     "pass": true
+    },
+    {
+     "suite": "lp4-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 16.5,
+     "summary": {
+      "passed": 162,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-build",
+     "cmd": "cargo build --release --offline",
+     "exit": 0,
+     "seconds": 0.3,
+     "summary": {
+      "lines": [
+       "Finished `release` profile [optimized + debuginfo] target(s) in 0.19s"
+      ]
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 128.6,
+     "summary": {
+      "passed": 108,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "ext-unit",
+     "cmd": "node tests/unit.mjs",
+     "exit": 0,
+     "seconds": 30.5,
+     "summary": {
+      "result": "PASS",
+      "passed": 234,
+      "failed": []
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-devnet",
+     "cmd": "python3 tests/e2e_devnet.py",
+     "exit": 0,
+     "seconds": 135.3,
+     "summary": {
+      "result": "PASS",
+      "checks": 17
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-site",
+     "cmd": "python3 tests/e2e_site.py",
+     "exit": 0,
+     "seconds": 51.1,
+     "summary": {
+      "result": "PASS",
+      "checks": 20
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-browser",
+     "cmd": "node tests/e2e_browser.mjs",
+     "exit": 0,
+     "seconds": 200.0,
+     "summary": {
+      "result": "PASS",
+      "checks": 79,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-integrated",
+     "cmd": "node tests/e2e_integrated.mjs",
+     "exit": 0,
+     "seconds": 143.2,
+     "summary": {
+      "result": "PASS",
+      "checks": 18,
+      "failed": 0
+     },
+     "pass": true
+    }
+   ],
+   "result": "FAIL",
+   "finished": "2026-10-22T17:03:42Z",
+   "failuresOnlyExpectedPlatformLimitation": true
+  },
+  {
+   "commit": "c19dc8a9f9fb38a41b7376e90152986965736d0d",
+   "dirty": false,
+   "host": "Linux-6.18.44-fc-v140-x86_64-with-glibc2.39",
+   "toolchain": {
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+    "rustcLp1": "rustc 1.58.1 (db9d1b20b 2022-01-20)",
+    "rustcPinned": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "node": "v22.22.0",
+    "python": "3.11.15"
+   },
+   "started": "2026-10-22T19:43:35Z",
+   "logs": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/integ-final3",
+   "suites": [
+    {
+     "suite": "lp1-node-tests",
+     "cmd": "cargo +1.58.1 test --offline --locked --no-fail-fast",
+     "exit": 101,
+     "seconds": 79.8,
+     "summary": {
+      "passed": 137,
+      "failed": 11
+     },
+     "pass": false,
+     "executedAndFailed": {
+      "binary": "tests/store_journal.rs",
+      "executed": true,
+      "passed": 1,
+      "failed": 11,
+      "unsupportedPlatformErrors": 11
+     },
+     "otherBinaries": {
+      "passed": 136,
+      "failed": 0
+     },
+     "onlyExpectedPlatformLimitation": true,
+     "platformNote": "store_journal uses the Windows-only atomic journal; on this host its tests execute and fail with UnsupportedPlatform, identically on the audited 090eae4. Windows verification is required to pass them."
+    },
+    {
+     "suite": "ext-build",
+     "cmd": "node build.mjs",
+     "exit": 0,
+     "seconds": 1.5,
+     "summary": {},
+     "pass": true
+    },
+    {
+     "suite": "lp4-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 34.2,
+     "summary": {
+      "passed": 162,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-build",
+     "cmd": "cargo build --release --offline",
+     "exit": 0,
+     "seconds": 1.9,
+     "summary": {
+      "lines": [
+       "Finished `release` profile [optimized + debuginfo] target(s) in 1.74s"
+      ]
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 385.8,
+     "summary": {
+      "passed": 110,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "ext-unit",
+     "cmd": "node tests/unit.mjs",
+     "exit": 0,
+     "seconds": 31.3,
+     "summary": {
+      "result": "PASS",
+      "passed": 234,
+      "failed": []
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-devnet",
+     "cmd": "python3 tests/e2e_devnet.py",
+     "exit": 0,
+     "seconds": 127.3,
+     "summary": {
+      "result": "PASS",
+      "checks": 17
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-site",
+     "cmd": "python3 tests/e2e_site.py",
+     "exit": 0,
+     "seconds": 42.6,
+     "summary": {
+      "result": "PASS",
+      "checks": 20
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-browser",
+     "cmd": "node tests/e2e_browser.mjs",
+     "exit": 0,
+     "seconds": 213.1,
+     "summary": {
+      "result": "PASS",
+      "checks": 79,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-integrated",
+     "cmd": "node tests/e2e_integrated.mjs",
+     "exit": 0,
+     "seconds": 164.4,
+     "summary": {
+      "result": "PASS",
+      "checks": 18,
+      "failed": 0
+     },
+     "pass": true
+    }
+   ],
+   "result": "FAIL",
+   "finished": "2026-10-22T20:01:37Z",
+   "failuresOnlyExpectedPlatformLimitation": true
+  },
+  {
+   "commit": "82ddb032da50571bcbaba702d5f7482d62213510",
+   "dirty": false,
+   "host": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+   "toolchain": {
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+    "rustcLp1": "rustc 1.58.1 (db9d1b20b 2022-01-20)",
+    "rustcPinned": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "node": "v22.22.0",
+    "python": "3.11.15"
+   },
+   "started": "2026-10-23T08:23:51Z",
+   "logs": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/integration-82ddb03",
+   "suites": [
+    {
+     "suite": "lp1-node-tests",
+     "cmd": "cargo +1.58.1 test --offline --locked --no-fail-fast",
+     "exit": 101,
+     "seconds": 46.8,
+     "summary": {
+      "passed": 137,
+      "failed": 11
+     },
+     "pass": false,
+     "executedAndFailed": {
+      "binary": "tests/store_journal.rs",
+      "executed": true,
+      "passed": 1,
+      "failed": 11,
+      "unsupportedPlatformErrors": 11
+     },
+     "otherBinaries": {
+      "passed": 136,
+      "failed": 0
+     },
+     "onlyExpectedPlatformLimitation": true,
+     "platformNote": "store_journal uses the Windows-only atomic journal; on this host its tests execute and fail with UnsupportedPlatform, identically on the audited 090eae4. Windows verification is required to pass them."
+    },
+    {
+     "suite": "ext-build",
+     "cmd": "node build.mjs",
+     "exit": 0,
+     "seconds": 1.0,
+     "summary": {},
+     "pass": true
+    },
+    {
+     "suite": "lp4-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 11.2,
+     "summary": {
+      "passed": 162,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-build",
+     "cmd": "cargo build --release --offline",
+     "exit": 0,
+     "seconds": 0.2,
+     "summary": {
+      "lines": [
+       "Finished `release` profile [optimized + debuginfo] target(s) in 0.14s"
+      ]
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 59.1,
+     "summary": {
+      "passed": 123,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "ext-unit",
+     "cmd": "node tests/unit.mjs",
+     "exit": 0,
+     "seconds": 22.6,
+     "summary": {
+      "result": "PASS",
+      "passed": 234,
+      "failed": []
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-devnet",
+     "cmd": "python3 tests/e2e_devnet.py",
+     "exit": 1,
+     "seconds": 33.5,
+     "summary": {
+      "result": "FAIL",
+      "checks": [
+       "two nodes produce blocks from fresh genesis",
+       "late-joining node c syncs to the head",
+       "user transactions included; receipts identical on all nodes",
+       "transfer value applied",
+       "malicious frames/Hello/invalid block do not stop node a",
+       "partition: branches diverge"
+      ]
+     },
+     "pass": false
+    },
+    {
+     "suite": "e2e-site",
+     "cmd": "python3 tests/e2e_site.py",
+     "exit": 0,
+     "seconds": 51.1,
+     "summary": {
+      "result": "PASS",
+      "checks": 20
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-browser",
+     "cmd": "node tests/e2e_browser.mjs",
+     "exit": 0,
+     "seconds": 209.3,
+     "summary": {
+      "result": "PASS",
+      "checks": 79,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-integrated",
+     "cmd": "node tests/e2e_integrated.mjs",
+     "exit": 0,
+     "seconds": 245.0,
+     "summary": {
+      "result": "PASS",
+      "checks": 18,
+      "failed": 0
+     },
+     "pass": true
+    }
+   ],
+   "result": "FAIL",
+   "finished": "2026-10-23T08:35:11Z",
+   "failuresOnlyExpectedPlatformLimitation": false
+  },
+  {
+   "commit": "3c3792e90eb3c31c83abc91f26e861c8510a824f",
+   "dirty": true,
+   "host": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+   "toolchain": {
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+    "rustcLp1": "rustc 1.58.1 (db9d1b20b 2022-01-20)",
+    "rustcPinned": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "node": "v22.22.0",
+    "python": "3.11.15"
+   },
+   "started": "2026-10-23T09:09:21Z",
+   "logs": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/integration-final",
+   "suites": [
+    {
+     "suite": "lp1-node-tests",
+     "cmd": "cargo +1.58.1 test --offline --locked --no-fail-fast",
+     "exit": 101,
+     "seconds": 40.1,
+     "summary": {
+      "passed": 137,
+      "failed": 11
+     },
+     "pass": false,
+     "executedAndFailed": {
+      "binary": "tests/store_journal.rs",
+      "executed": true,
+      "passed": 1,
+      "failed": 11,
+      "unsupportedPlatformErrors": 11
+     },
+     "otherBinaries": {
+      "passed": 136,
+      "failed": 0
+     },
+     "onlyExpectedPlatformLimitation": true,
+     "platformNote": "store_journal uses the Windows-only atomic journal; on this host its tests execute and fail with UnsupportedPlatform, identically on the audited 090eae4. Windows verification is required to pass them."
+    },
+    {
+     "suite": "ext-build",
+     "cmd": "node build.mjs",
+     "exit": 0,
+     "seconds": 0.1,
+     "summary": {},
+     "pass": true
+    },
+    {
+     "suite": "lp4-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 10.8,
+     "summary": {
+      "passed": 162,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-build",
+     "cmd": "cargo build --release --offline",
+     "exit": 0,
+     "seconds": 0.2,
+     "summary": {
+      "lines": [
+       "Finished `release` profile [optimized + debuginfo] target(s) in 0.11s"
+      ]
+     },
+     "pass": true
+    },
+    {
+     "suite": "pocold-tests",
+     "cmd": "cargo test --release --offline",
+     "exit": 0,
+     "seconds": 45.4,
+     "summary": {
+      "passed": 123,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "ext-unit",
+     "cmd": "node tests/unit.mjs",
+     "exit": 0,
+     "seconds": 22.3,
+     "summary": {
+      "result": "PASS",
+      "passed": 234,
+      "failed": []
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-devnet",
+     "cmd": "python3 tests/e2e_devnet.py",
+     "exit": 0,
+     "seconds": 176.7,
+     "summary": {
+      "result": "PASS",
+      "checks": 17
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-site",
+     "cmd": "python3 tests/e2e_site.py",
+     "exit": 0,
+     "seconds": 54.6,
+     "summary": {
+      "result": "PASS",
+      "checks": 20
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-browser",
+     "cmd": "node tests/e2e_browser.mjs",
+     "exit": 0,
+     "seconds": 178.3,
+     "summary": {
+      "result": "PASS",
+      "checks": 79,
+      "failed": 0
+     },
+     "pass": true
+    },
+    {
+     "suite": "e2e-integrated",
+     "cmd": "node tests/e2e_integrated.mjs",
+     "exit": 0,
+     "seconds": 160.0,
+     "summary": {
+      "result": "PASS",
+      "checks": 18,
+      "failed": 0
+     },
+     "pass": true
+    }
+   ],
+   "result": "FAIL",
+   "finished": "2026-10-23T09:20:49Z",
+   "failuresOnlyExpectedPlatformLimitation": true
+  }
+ ],
+ "note": "Runs are kept as recorded. Round-1 runs carry 'correction' fields; round-2 runs record actual outcomes (pass = exit 0) and classify the expected platform limitation separately."
+}

@@ -1,0 +1,11 @@
+=== f-reorg-load: jm_deep_reorg_latency JM_REORG_HEIGHT=100 JM_REORG_KIND=modexp_b8_e256_m8_even ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:08:21Z
+
+running 1 test
+test jm_deep_reorg_latency ... JM-REORG-MECH {"forkPointHeight":50,"forkPointPrunedBefore":true,"headHeight":100,"kHist":32,"stateAfterNextRetain":false,"stateAfterRebuild":true,"stateAfterSideInsert":true,"t0KeepsItsState":true,"t0NonCanonical":true}
+JM-REORG {"actualRebuilds":100,"adoptingImport":{"index":50,"rebuilds":50,"restoredBlocks":50,"seconds":97.728546629},"allImports":{"rebuilds":100,"seconds":193.7213837},"canonicalHeight":100,"firstSideImport":{"forkPointPrunedAfter":true,"rebuilds":50,"seconds":48.170037316},"forkPointHeight":50,"kHist":32,"kind":"modexp_b8_e256_m8_even","reorgDepth":50,"stageAModelRebuilds":50,"theirBlocks":52}
+JM-REORG-OPEN {"openSeconds":193.247748397,"rebuildsDuringOpen":100,"records":152}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 815.01s
+
+=== end 2026-10-24T01:21:56Z exit=0

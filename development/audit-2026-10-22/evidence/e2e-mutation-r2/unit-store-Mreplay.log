@@ -1,0 +1,22 @@
+== Mreplay: (cwd e2e-r2/src/prototypes/pocold, c195a89 sources (code = a03e089) + Mreplay) cargo test --release --locked --test store
+== exit 0
+
+running 12 tests
+test a04_audit_case_one_bit_in_the_first_length_is_corruption ... ok
+test a04_boundary_edits_and_duplicates_are_corruption ... ok
+test a04_commit_file_damage ... ok
+test a04_v1_journal_migrates_only_when_fully_verified ... ok
+test a04_truncation_of_committed_records_is_corruption ... ok
+test append_returns_offsets_and_read_at_round_trips ... ok
+test binding_mismatch_and_second_writer_rejected ... ok
+test complete_record_corruption_is_never_skipped ... ok
+test missing_journal_with_recovery_artifacts_refuses_to_start ... ok
+test a04_zero_filled_tail_is_an_interrupted_append ... ok
+test append_reopen_and_torn_tail_at_every_offset ... ok
+test a04_every_single_bit_flip_of_a_committed_journal_fails_closed ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/src/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.69s
+     Running tests/store.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-e2e/release/deps/store-41cf86f0afe65d68)

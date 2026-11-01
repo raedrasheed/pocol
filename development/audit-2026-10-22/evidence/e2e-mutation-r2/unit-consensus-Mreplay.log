@@ -1,0 +1,137 @@
+== Mreplay: (cwd e2e-r2/src/prototypes/pocold, c195a89 sources (code = a03e089) + Mreplay) cargo test --release --locked --test consensus
+== exit 101
+
+running 44 tests
+test a03_over_limit_log_halts_the_transaction_and_the_block_is_valid ... ok
+test a01_malformed_or_unbound_bodies_reject_only_the_copy ... ok
+test a01_committed_invalid_body_is_still_a_block_rejection_and_cached ... ok
+test a13_bound_breakdown ... ok
+test a11_reorg_restores_detached_transactions_without_resubmission ... ok
+test a13_pool_pending_state_is_capped_and_normalized ... ok
+test a13_boot_refuses_a_bound_above_the_memory_budget ... ok
+test a13_side_branch_states_are_capped_and_rebuilt_on_demand ... ok
+test a13_rebuild_of_a_deep_fork_keeps_only_the_target_state ... ok
+test a11_excludes_included_and_conflicting_transactions_and_keeps_order ... ok
+test a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation ... ok
+test a_max_size_transaction_is_answered_in_the_light_lane ... ok
+test a_crash_around_an_adoption_reopens_on_one_whole_chain ... FAILED
+test a_session_block_arriving_before_its_parent_stays_protected ... ok
+test a_session_branch_is_adopted_through_a_flood_of_competing_side_branches ... ok
+test a_side_branch_below_the_k_hist_window_imports_without_rebuilding_each_parent ... ok
+test a_long_catch_up_is_not_bounded_by_the_protected_branch_size ... ok
+test a_valid_header_with_a_foreign_body_rejects_only_that_copy ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ignored, spec-depth test: run in release with --ignored
+test an_offloaded_block_is_served_viewed_and_re_executed_from_the_journal ... ok
+test body_max_bounds_the_encoded_body_not_the_item_sum ... ok
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ignored, spec-depth test: run in release with --ignored
+test a_competing_branch_within_side_blocks_max_is_adopted ... ok
+test d_body_max_vectors ... ok
+test every_validity_item_rejects_its_mutation ... ok
+test evidence_type1_and_type2_punish_through_a_signed_block ... ok
+test a_sync_session_refetches_an_evicted_branch_and_serves_it ... ok
+test final_block_has_no_child_and_h_end_is_enforced ... ok
+test fork_choice_heavier_tied_signed_first_and_rollback ... ok
+test get_logs_limits_answer_32020_with_resume_data ... ok
+test k_hist_retention_and_trie_rebuild_for_deep_fork ... ok
+test node_detects_template_equivocation_and_produces_valid_evidence ... ok
+test ordinary_blocks_then_closing_then_final_at_h_end ... ok
+test journal_replay_rebuilds_pruned_state_for_a_journaled_fork ... FAILED
+test d133_tie_break_at_depth_holds_through_eviction_and_refetch ... ok
+test replay_gives_a_reimported_block_a_new_import_seq ... FAILED
+test r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond ... ok
+test a_peer_with_a_false_status_cannot_hold_the_sync_session ... ok
+test template_form_classes_follow_d129 ... ok
+test replay_uses_the_largest_r_keep_the_data_directory_has_used ... ok
+test the_r_keep_boundary_removes_a_side_block_exactly_r_keep_below_the_head ... ok
+test side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again ... ok
+test thirty_five_blocks_from_fresh_genesis_replay_identically ... ok
+test range_sync_reaches_the_peer_head_through_truncated_responses ... ok
+
+failures:
+
+---- a_crash_around_an_adoption_reopens_on_one_whole_chain stdout ----
+
+thread 'a_crash_around_an_adoption_reopens_on_one_whole_chain' (21879) panicked at tests/consensus.rs:868:29:
+assertion `left == right` failed: the old chain, whole
+  left: [99, 19, 145, 98, 62, 234, 133, 182, 109, 53, 220, 59, 53, 57, 140, 175, 183, 15, 13, 157, 162, 142, 62, 81, 121, 167, 155, 181, 62, 185, 175, 52]
+ right: [177, 43, 178, 45, 219, 163, 63, 10, 18, 219, 25, 36, 87, 110, 107, 165, 20, 51, 250, 48, 204, 126, 31, 54, 166, 185, 45, 102, 78, 24, 254, 171]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<[u8; 32], [u8; 32]>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: consensus::a_crash_around_an_adoption_reopens_on_one_whole_chain
+   5: consensus::a_crash_around_an_adoption_reopens_on_one_whole_chain::{closure#0}
+             at ./tests/consensus.rs:847:67
+   6: <consensus::a_crash_around_an_adoption_reopens_on_one_whole_chain::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+---- journal_replay_rebuilds_pruned_state_for_a_journaled_fork stdout ----
+
+thread 'journal_replay_rebuilds_pruned_state_for_a_journaled_fork' (22083) panicked at tests/consensus.rs:296:5:
+assertion `left == right` failed
+  left: [35, 11, 161, 36, 234, 86, 172, 84, 98, 130, 27, 53, 207, 84, 41, 16, 170, 232, 195, 220, 22, 189, 89, 178, 45, 35, 6, 63, 255, 56, 86, 57]
+ right: [51, 44, 64, 165, 215, 212, 166, 132, 85, 156, 64, 41, 11, 210, 27, 215, 98, 206, 8, 136, 25, 159, 223, 205, 57, 152, 17, 46, 78, 237, 12, 227]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:452:17
+   3: core::panicking::assert_failed::<[u8; 32], [u8; 32]>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: consensus::journal_replay_rebuilds_pruned_state_for_a_journaled_fork
+             at ./tests/consensus.rs:296:5
+   5: consensus::journal_replay_rebuilds_pruned_state_for_a_journaled_fork::{closure#0}
+             at ./tests/consensus.rs:277:71
+   6: <consensus::journal_replay_rebuilds_pruned_state_for_a_journaled_fork::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+---- replay_gives_a_reimported_block_a_new_import_seq stdout ----
+
+thread 'replay_gives_a_reimported_block_a_new_import_seq' (22099) panicked at tests/consensus.rs:816:33:
+assertion `left == right` failed: replay keeps the re-import order
+  left: [233, 161, 103, 254, 87, 124, 212, 172, 15, 251, 124, 146, 96, 66, 47, 180, 26, 224, 121, 172, 59, 64, 180, 169, 30, 235, 182, 26, 23, 108, 3, 12]
+ right: [188, 79, 14, 177, 187, 44, 49, 108, 30, 14, 200, 70, 44, 57, 30, 169, 135, 50, 85, 35, 68, 247, 186, 172, 79, 34, 66, 234, 131, 48, 3, 150]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<[u8; 32], [u8; 32]>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/panicking.rs:407:5
+   4: consensus::replay_gives_a_reimported_block_a_new_import_seq
+             at ./tests/consensus.rs:816:33
+   5: consensus::replay_gives_a_reimported_block_a_new_import_seq::{closure#0}
+             at ./tests/consensus.rs:803:62
+   6: <consensus::replay_gives_a_reimported_block_a_new_import_seq::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+
+failures:
+    a_crash_around_an_adoption_reopens_on_one_whole_chain
+    journal_replay_rebuilds_pruned_state_for_a_journaled_fork
+    replay_gives_a_reimported_block_a_new_import_seq
+
+test result: FAILED. 39 passed; 3 failed; 2 ignored; 0 measured; 0 filtered out; finished in 8.15s
+
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/e2e-r2/src/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.97s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-e2e/release/deps/consensus-69c67b29f5fc4c9b)
+error: test failed, to rerun pass `--test consensus`

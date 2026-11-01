@@ -1,0 +1,23 @@
+{
+  "scopeProbeNotYetAdjudicated": true,
+  "results": [
+    {
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32603,\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "classification": [
+        "retry",
+        250,
+        "busy"
+      ],
+      "observation": "accepted retry; does model assume upstream RecvGuard and request-id binding?"
+    },
+    {
+      "literal": "{\"jsonrpc\":\"2.0\",\"id\":9999,\"error\":{\"code\":-32021,\"message\":\"busy\",\"data\":{\"reason\":\"busy\",\"retryAfterMs\":250}}}",
+      "classification": [
+        "retry",
+        250,
+        "busy"
+      ],
+      "observation": "accepted retry; does model assume upstream RecvGuard and request-id binding?"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+
+running 7 tests
+test numeric_sys_timing_trie_and_identity_negatives ... ok
+test exact_supply_calibration_and_timing_boundaries ... ok
+test each_rule_has_a_negative_vector_and_numeric_order ... FAILED
+test production_profile_and_version_restrictions_and_boot_disabled ... FAILED
+test complete_local_rpc_and_identity_binding_controls ... ok
+test pg_end_1_to_5_and_l ... FAILED
+test resource_binding_complete_version_and_missing_fail_closed ... ok
+
+failures:
+
+---- each_rule_has_a_negative_vector_and_numeric_order stdout ----
+thread 'each_rule_has_a_negative_vector_and_numeric_order' panicked at '22', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:320:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- production_profile_and_version_restrictions_and_boot_disabled stdout ----
+thread 'production_profile_and_version_restrictions_and_boot_disabled' panicked at 'assertion failed: `(left == right)`
+  left: `["R24"]`,
+ right: `["R22", "R24"]`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:264:5
+
+---- pg_end_1_to_5_and_l stdout ----
+thread 'pg_end_1_to_5_and_l' panicked at 'assertion failed: `(left == right)`
+  left: `[]`,
+ right: `["R22"]`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/gate.rs:138:5
+
+
+failures:
+    each_rule_has_a_negative_vector_and_numeric_order
+    pg_end_1_to_5_and_l
+    production_profile_and_version_restrictions_and_boot_disabled
+
+test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+

@@ -1,0 +1,262 @@
+{
+  "scope": "Verified diagnostics only; SYS contract NOT APPROVED and no acceptance",
+  "cases": 25,
+  "independentFrameMatches": 21,
+  "independentUnsignedMatches": 2,
+  "independentValidationRejections": 2,
+  "sharedRoot": "0xf0e48510b772754b7cbbdd32b1bcf7a77b3350419c4fde4642a1ff0cc07bd5ee",
+  "freshRoot": "0x499340f755645e065240edf8be10c9b87e4d9d90200c9deadcb14a450fb0ed01",
+  "rows": [
+    {
+      "model": "shared-frame-epoch",
+      "method": "readSlot()",
+      "gasSpentBeforeRefund": 2323,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "shared-frame-epoch",
+      "method": "readSlot()",
+      "gasSpentBeforeRefund": 323,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "shared-frame-epoch",
+      "method": "setTransient()",
+      "gasSpentBeforeRefund": 248,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "shared-frame-epoch",
+      "method": "readTransient()",
+      "gasSpentBeforeRefund": 356,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "shared-frame-epoch",
+      "method": "persistTransient()",
+      "gasSpentBeforeRefund": 22358,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "7",
+      "error": null
+    },
+    {
+      "model": "shared-frame-epoch",
+      "method": "clearSlot()",
+      "gasSpentBeforeRefund": 3058,
+      "gasUsed": null,
+      "refundCounter": 4800,
+      "systemNonce": 1,
+      "slot1": "7",
+      "error": null
+    },
+    {
+      "model": "shared-frame-epoch",
+      "method": "restoreSlot()",
+      "gasSpentBeforeRefund": 281,
+      "gasUsed": null,
+      "refundCounter": -2000,
+      "systemNonce": 1,
+      "slot1": "7",
+      "error": null
+    },
+    {
+      "model": "fresh-frame-epoch",
+      "method": "readSlot()",
+      "gasSpentBeforeRefund": 2323,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "fresh-frame-epoch",
+      "method": "readSlot()",
+      "gasSpentBeforeRefund": 2323,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "fresh-frame-epoch",
+      "method": "setTransient()",
+      "gasSpentBeforeRefund": 248,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "fresh-frame-epoch",
+      "method": "readTransient()",
+      "gasSpentBeforeRefund": 356,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "fresh-frame-epoch",
+      "method": "persistTransient()",
+      "gasSpentBeforeRefund": 2458,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "fresh-frame-epoch",
+      "method": "clearSlot()",
+      "gasSpentBeforeRefund": 5158,
+      "gasUsed": null,
+      "refundCounter": 4800,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "fresh-frame-epoch",
+      "method": "restoreSlot()",
+      "gasSpentBeforeRefund": 22281,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "explicit-origin-fixed-SYSTEM-caller",
+      "method": "originAndCaller()",
+      "gasSpentBeforeRefund": 182,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "explicit-origin-fixed-SYSTEM-caller",
+      "method": "originAndCaller()",
+      "gasSpentBeforeRefund": 182,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "explicit-origin-fixed-SYSTEM-caller",
+      "method": "originAndCaller()",
+      "gasSpentBeforeRefund": 182,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "ordinary-tx",
+      "method": null,
+      "gasSpentBeforeRefund": null,
+      "gasUsed": 23387,
+      "refundCounter": null,
+      "systemNonce": 2,
+      "slot1": null,
+      "error": null
+    },
+    {
+      "model": "ordinary-tx30M-under-8M-GASLIMIT",
+      "method": null,
+      "gasSpentBeforeRefund": null,
+      "gasUsed": null,
+      "refundCounter": null,
+      "systemNonce": null,
+      "slot1": null,
+      "error": "Transaction(CallerGasLimitMoreThanBlock)"
+    },
+    {
+      "model": "direct-frame30M-under-8M-GASLIMIT",
+      "method": "readSlot()",
+      "gasSpentBeforeRefund": 2323,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "ordinary-tx-zero-price-basefee100",
+      "method": null,
+      "gasSpentBeforeRefund": null,
+      "gasUsed": null,
+      "refundCounter": null,
+      "systemNonce": null,
+      "slot1": null,
+      "error": "Transaction(GasPriceLessThanBasefee)"
+    },
+    {
+      "model": "direct-frame-zero-price-basefee100",
+      "method": "readSlot()",
+      "gasSpentBeforeRefund": 2323,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "0",
+      "error": null
+    },
+    {
+      "model": "real-compiled-Registry-old-unsigned-tx-control",
+      "method": null,
+      "gasSpentBeforeRefund": null,
+      "gasUsed": 51895,
+      "refundCounter": null,
+      "systemNonce": 2,
+      "slot1": null,
+      "error": null
+    },
+    {
+      "model": "real-compiled-Registry-direct-frame",
+      "method": "markClose()",
+      "gasSpentBeforeRefund": 30831,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "1",
+      "error": null
+    },
+    {
+      "model": "real-compiled-Registry-direct-frame",
+      "method": "beginBlock()",
+      "gasSpentBeforeRefund": 18434,
+      "gasUsed": null,
+      "refundCounter": 0,
+      "systemNonce": 1,
+      "slot1": "1",
+      "error": null
+    }
+  ],
+  "bootable": false
+}

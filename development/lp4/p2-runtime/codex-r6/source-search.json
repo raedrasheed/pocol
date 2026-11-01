@@ -1,0 +1,140 @@
+{
+  "scope": "Source inventory; not an execution acceptance oracle",
+  "files": {
+    "development/m1/reference/consensus.md": {
+      "sha256": "e718bdc9ff4e4acbbbe50e08fd400985e93709421c4b7ac2634d2dcc3660f75a",
+      "matches": [
+        {
+          "line": 21,
+          "text": "- 16–24: subsidy u256, B_reg u256, R_max u8, M_max u16 ≥ 1, M_min u16 ≥ 1, REG_RECORDS_MAX u32, SWEEP_MAX u16, SWEEP_SCAN u16, REG_OPS u16."
+        },
+        {
+          "line": 22,
+          "text": "- 25–30: W_act u32, Theta_inact u32, E_win u32, U u32, E_max u8, EVID_BYTES_MAX u32."
+        },
+        {
+          "line": 39,
+          "text": "3. For each MinerRegistry entry: active and HELD, bond = B_reg, lastShare = 0, graceStart = 0. ActList follows M_0List order; RecLen = ActLen = |M_0|."
+        },
+        {
+          "line": 86,
+          "text": "- A_h = {m ∈ Act_h, tomb=0 : lastShare ≥ h−W_act or graceStart ≥ h−W_act}."
+        }
+      ]
+    },
+    "development/m1/reference/execution.md": {
+      "sha256": "67e90f4c6d351e877dd8cdb113d13f14c79745a2be0c89f2772c471ad92f4718",
+      "matches": [
+        {
+          "line": 44,
+          "text": "- Slots 0–4: RecLen, ActLen, sweepCur, block counters, heldTotal."
+        }
+      ]
+    },
+    "development/m1/reference/incentives.md": {
+      "sha256": "ee77e12a5d8e624bc20f6f6704cb38016d60cc47d81e3fd25a32b0af366d1365",
+      "matches": [
+        {
+          "line": 36,
+          "text": "- w3: exitHeight, dueHeight, burnHeight, graceStart."
+        },
+        {
+          "line": 46,
+          "text": "- deregister and removeInactive: active → exited, with dueHeight = h+U."
+        },
+        {
+          "line": 47,
+          "text": "- reactivate: from exited, HELD and tomb=0, after W_act."
+        },
+        {
+          "line": 48,
+          "text": "- claimBond or sweeping: after dueHeight and outside closing, through PAY, then delete the record."
+        }
+      ]
+    },
+    "development/m1/reference/threat.md": {
+      "sha256": "47c42e8bbe2e3232beb18b4a03e79b41ae2dacd063c5a2333d72dbfd3bc2b547",
+      "matches": [
+        {
+          "line": 119,
+          "text": "- Only the identity owner can reactivate, with a bond, after W_act and within R_max."
+        }
+      ]
+    },
+    "development/m1/reference/validation.md": {
+      "sha256": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1",
+      "matches": [
+        {
+          "line": 1799,
+          "text": "  - Churn arm (k=4): each identity calls deregister, then reactivate after W_act, with staggered offsets within R_max and reconnecting to new peers after each return."
+        }
+      ]
+    },
+    "development/m1/reference/decisions.json": {
+      "sha256": "01d91aa42f61a0c71cd9f50572533d1945e552cb0da1e7959aeffceb06e1e959",
+      "matches": [
+        {
+          "line": 294,
+          "text": "    \"decision\": \"reactivate an exited, HELD record after W_act.\","
+        }
+      ]
+    },
+    "development/m1/reference/FINAL_DESIGN.md": {
+      "sha256": "d54b5aee37a052a053198c43a0278ae8561331f58e3f1148faa6ed4a194a480e",
+      "matches": [
+        {
+          "line": 238,
+          "text": "- Only the identity owner can reactivate, with a bond, after W_act and within R_max."
+        },
+        {
+          "line": 339,
+          "text": "- 16–24: subsidy u256, B_reg u256, R_max u8, M_max u16 ≥ 1, M_min u16 ≥ 1, REG_RECORDS_MAX u32, SWEEP_MAX u16, SWEEP_SCAN u16, REG_OPS u16."
+        },
+        {
+          "line": 340,
+          "text": "- 25–30: W_act u32, Theta_inact u32, E_win u32, U u32, E_max u8, EVID_BYTES_MAX u32."
+        },
+        {
+          "line": 357,
+          "text": "3. For each MinerRegistry entry: active and HELD, bond = B_reg, lastShare = 0, graceStart = 0. ActList follows M_0List order; RecLen = ActLen = |M_0|."
+        },
+        {
+          "line": 404,
+          "text": "- A_h = {m ∈ Act_h, tomb=0 : lastShare ≥ h−W_act or graceStart ≥ h−W_act}."
+        },
+        {
+          "line": 606,
+          "text": "- w3: exitHeight, dueHeight, burnHeight, graceStart."
+        },
+        {
+          "line": 616,
+          "text": "- deregister and removeInactive: active → exited, with dueHeight = h+U."
+        },
+        {
+          "line": 617,
+          "text": "- reactivate: from exited, HELD and tomb=0, after W_act."
+        },
+        {
+          "line": 618,
+          "text": "- claimBond or sweeping: after dueHeight and outside closing, through PAY, then delete the record."
+        },
+        {
+          "line": 781,
+          "text": "- Slots 0–4: RecLen, ActLen, sweepCur, block counters, heldTotal."
+        },
+        {
+          "line": 2244,
+          "text": "- Membership [CP]: R_max=2, M_max=256, M_min=1, REG_RECORDS_MAX=16384, SWEEP_MAX=16, SWEEP_SCAN=64, REG_OPS=16, W_act=128, Θ_inact=1024."
+        },
+        {
+          "line": 4313,
+          "text": "  - Churn arm (k=4): each identity calls deregister, then reactivate after W_act, with staggered offsets within R_max and reconnecting to new peers after each return."
+        },
+        {
+          "line": 5188,
+          "text": "- D59: reactivate an exited, HELD record after W_act."
+        }
+      ]
+    }
+  }
+}

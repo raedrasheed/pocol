@@ -1,0 +1,4 @@
+    Blocking waiting for file lock on build directory
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.29s
+     Running `prototypes/lp4-execution/target/debug/examples/registry_vectors`

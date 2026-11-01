@@ -1,0 +1,65 @@
+   Compiling version_check v0.9.4
+   Compiling typenum v1.15.0
+   Compiling subtle v2.4.1
+   Compiling crunchy v0.2.2
+   Compiling proc-macro2 v1.0.36
+   Compiling unicode-xid v0.2.2
+   Compiling libc v0.2.117
+   Compiling getrandom v0.1.16
+   Compiling cfg-if v1.0.0
+   Compiling syn v1.0.86
+   Compiling serde_derive v1.0.136
+   Compiling block-padding v0.2.1
+   Compiling serde v1.0.136
+   Compiling ppv-lite86 v0.2.16
+   Compiling opaque-debug v0.3.0
+   Compiling cpufeatures v0.2.1
+   Compiling serde_json v1.0.79
+   Compiling ryu v1.0.9
+   Compiling itoa v1.0.1
+   Compiling arrayref v0.3.6
+   Compiling base64 v0.12.3
+   Compiling keccak v0.1.0
+   Compiling generic-array v0.14.5
+   Compiling quote v1.0.15
+   Compiling digest v0.9.0
+   Compiling block-buffer v0.9.0
+   Compiling crypto-mac v0.8.0
+   Compiling rand_core v0.5.1
+   Compiling libsecp256k1-core v0.2.2
+   Compiling sha2 v0.9.9
+   Compiling sha3 v0.9.1
+   Compiling hmac v0.8.1
+   Compiling rand_chacha v0.2.2
+   Compiling libsecp256k1-gen-ecmult v0.2.1
+   Compiling libsecp256k1-gen-genmult v0.2.1
+   Compiling hmac-drbg v0.3.0
+   Compiling rand v0.7.3
+   Compiling libsecp256k1 v0.5.0
+   Compiling lp1-node v0.1.0 (/workspace/pocol-s3/mutant-wrong-xh-gczahwu1/crate)
+    Finished test [unoptimized + debuginfo] target(s) in 32.38s
+     Running tests/timing.rs (/workspace/pocol-s3/mutant-target-wrong-xh/debug/deps/timing-213f3944cf79dfe0)
+
+running 6 tests
+test exact_millisecond_deadline_and_strict_attempt_transition ... ok
+test future_equality_and_u64_overflow_edges ... ok
+test inclusive_windows_fallback_and_proposer_edges ... ok
+test timestamp_limit_and_wire_attempt_limits ... ok
+test network_and_p11_derived_bounds ... FAILED
+test seeded_adversarial_windows_never_wrap_or_panic ... ok
+
+failures:
+
+---- network_and_p11_derived_bounds stdout ----
+thread 'network_and_p11_derived_bounds' panicked at 'assertion failed: `(left == right)`
+  left: `(14, 19, 36)`,
+ right: `(14, 22, 36)`', tests/timing.rs:6:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    network_and_p11_derived_bounds
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--test timing'

@@ -1,0 +1,23 @@
+# jm-boot-timing: (cd prototypes/pocold; env JM_BT_RUNS=10 cargo test --release --locked --offline --test journal_measure -- --ignored --nocapture jm_r14_boot_timing_by_mode)
+# start 2026-10-27T13:55:45Z
+   Compiling pocol-lp4-execution v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7c/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7c/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 43.29s
+     Running tests/journal_measure.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7-target/release/deps/journal_measure-449e4af5f992d64e)
+
+running 1 test
+JM-BOOT-TIMING {"bootPhaseMs":[17,12,13],"memoryPhaseMs":[17,11,10],"run":0,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[13,12,13],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[14,12,13],"memoryPhaseMs":[9,10,10],"run":1,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[14,12,13],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[12,22,24],"memoryPhaseMs":[10,10,11],"run":2,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[12,22,24],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[17,18,13],"memoryPhaseMs":[17,18,13],"run":3,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[12,12,12],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[11,13,13],"memoryPhaseMs":[10,10,10],"run":4,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[11,13,13],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[17,14,14],"memoryPhaseMs":[8,10,14],"run":5,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[17,14,14],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[12,13,15],"memoryPhaseMs":[8,9,10],"run":6,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[12,13,15],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[11,13,12],"memoryPhaseMs":[8,9,10],"run":7,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[11,13,12],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[17,17,13],"memoryPhaseMs":[17,17,9],"run":8,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[11,11,13],"tExecMs":1000}
+JM-BOOT-TIMING {"bootPhaseMs":[11,13,14],"memoryPhaseMs":[8,9,11],"run":9,"samples":[7,7],"storeFileBytes":1589248,"storePhaseMs":[11,13,14],"tExecMs":1000}
+test jm_r14_boot_timing_by_mode ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 2.22s
+
+# end 2026-10-27T13:56:31Z exit=0

@@ -1,0 +1,18 @@
+# A13 model bound at the round-3 code (8039a09): the devnet default (default limits, two configured peers).
+# command: (prototypes/pocold) flock cpu.lock cargo test --release --locked --offline --test consensus a13_b -- --nocapture --test-threads=1
+# Round 3 (review m2): rpc/small answers outside the pools = conn_max x SMALL_REPLY_PEAK = 32 x 132,768 = 4,248,576 B
+# (was 32 x 5,184 = 165,888 B): total 5,581,426,268 B (was 5,577,343,580 B at fa97594, +4,082,688 B); required budget
+# 6,378,772,878 B <= 6 GiB; rpc term 218,579,136 B. a13_bound_breakdown asserts the total (Linux x86_64).
+# ---- captured output ----
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.10s
+     Running tests/consensus.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-rpcguard/release/deps/consensus-2a680330c507033c)
+
+running 2 tests
+test a13_boot_refuses_a_bound_above_the_memory_budget ... A13-BOUND {"budgetGiB":6,"codeMiB":"184.5","executionMiB":"1131.2","historyMiB":"1577.0","queuesMiB":"248.5","requiredBudgetBytes":"6378772878","rpcMiB":"208.5","sideBlocksMiB":"135.0","snapshotMiB":"38.2","snapshots":45,"threadsMiB":"83.2","totalBytes":"5581426268","totalGiB":"5.198"}
+ok
+test a13_bound_breakdown ... A13-BREAKDOWN {"items":[["snapshots/head and K_hist retained states","1320217206"],["snapshots/side_max side-branch states","80013164"],["snapshots/transient working copies","400065820"],["snapshots/table growth in a working copy","40006582"],["code/head and K_hist retained states","141892773"],["code/side_max side-branch states","8599562"],["code/transient working copies","42997810"],["history/blocks (H_END+1)","521366067"],["history/transaction bytes (TXBYTES_CAP)","16777216"],["history/transaction index and receipts (TX_CAP)","7600000"],["history/logs (LOG_CAP)","1107296256"],["history/evidence","525824"],["side/offloaded side-block metadata (side_cap + 2·r_keep entries)","140986368"],["side/one full block before offload or during restore","433635"],["side/evicted-hash FIFO (EVICTED_MAX)","98304"],["queues/transaction pool","65135072"],["queues/orphan blocks","17448960"],["queues/future blocks","16815104"],["queues/templates","34117200"],["queues/seen sets","39068992"],["queues/rejection and evidence caches","2133952"],["queues/peer send queues and frames","26255360"],["queues/main event queue","33587200"],["queues/network event forwarders","25977600"],["rpc/connection requests (conn_max)","36700160"],["rpc/heavy response pool","50331648"],["rpc/light response pool ((conn_max+1) x LIGHT_RESP_MAX)","17301504"],["rpc/small answers outside the pools (conn_max x SMALL_REPLY_PEAK)","4248576"],["rpc/queued heavy bodies (HEAVY_QUEUE)","16781312"],["rpc/light lane (LIGHT_QUEUE)","139264"],["rpc/request parse tree","9175040"],["rpc/answer being built","83901632"],["threads/I/O thread stacks and heap","16506880"],["threads/consensus stack","16777216"],["threads/main stack and heap","1056768"],["threads/exited-stack cache","41943040"],["threads/exiting not-yet-joined (conservative)","11010048"],["execution/frames, code analysis, preallocations, precompiles","134896909"],["execution/memory and operation classes (worst gas split)","1051240244"]],"total":"5581426268"}
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.31s
+
+exit=0

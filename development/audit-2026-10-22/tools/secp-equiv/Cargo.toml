@@ -1,0 +1,16 @@
+# Audit tool (not part of any product build): links the removed libsecp256k1 0.5.0 next to k256 0.13.4
+# to compare recover_address verdicts and RFC 6979 signatures. Build offline with a lockfile copied
+# from prototypes/pocold at commit 51aa8f7 (which still locks both crates).
+[package]
+name = "secp-equiv"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+libsecp256k1 = "=0.5.0"
+k256 = { version = "=0.13.4", features = ["ecdsa"] }
+sha3 = "=0.9.1"
+
+[profile.release]
+debug = false

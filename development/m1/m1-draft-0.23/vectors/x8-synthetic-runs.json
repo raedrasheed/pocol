@@ -1,0 +1,26 @@
+{
+  "schema": "pocol-m1-x8-synthetic/0.23",
+  "note": [
+    "Synthetic logs for the offline evaluator only. They are NOT Chrome results. Verdicts are hand-derived from the rules in x8-config.json.",
+    "base: every SELFTEST logs all five ports; K0-K2 windows are empty; K3 has one event on the expected port for C5, C6, C7; K4 has one event on the expected port for every channel; K5 has one event on the expected port for C1-C4 and C8. Modifications are applied to the base."
+  ],
+  "base": {"selftestAllPorts": true, "reach": {"K3": "C5-C7", "K4": "C1-C8", "K5": "C1-C4,C8"}},
+  "runs": [
+    {"id": "R1-allGood", "mods": [], "expect": {"verdict": "PASS", "fail": [], "untestable": [], "informationalUnexplained": []}},
+    {"id": "R2-K0leak", "mods": [{"op": "addEvent", "K": "K0", "C": "C1", "proto": "tcp", "port": 18080}], "expect": {"verdict": "FAIL", "fail": [["K0", "C1"]]}},
+    {"id": "R3-K4c7silent", "mods": [{"op": "clearEvents", "K": "K4", "C": "C7"}], "expect": {"verdict": "PENDING", "untestable": [["K4", "C7"]]}},
+    {"id": "R4-selftestMissing", "mods": [{"op": "dropSelftestPort", "K": "K2", "proto": "udp", "port": 19000}], "expect": {"verdict": "INVALID"}},
+    {"id": "R5-K0secondary", "mods": [{"op": "addSecondary", "K": "K0", "C": "C4"}], "expect": {"verdict": "FAIL", "fail": []}},
+    {"id": "R6-K3unexplained", "mods": [{"op": "clearEvents", "K": "K3", "C": "C5"}], "expect": {"verdict": "PASS", "informationalUnexplained": ["K3/C5"]}},
+    {"id": "R7-K5c6reach", "mods": [{"op": "addEvent", "K": "K5", "C": "C6", "proto": "tcp", "port": 13478}], "expect": {"verdict": "FAIL", "fail": [["K5", "C6"]]}},
+    {"id": "R8-K4wrongPort", "mods": [{"op": "clearEvents", "K": "K4", "C": "C4"}, {"op": "addEvent", "K": "K4", "C": "C4", "proto": "tcp", "port": 18080}],
+     "expect": {"verdict": "PENDING", "untestable": [["K4", "C4"]]}},
+    {"id": "R9-missingWindow", "mods": [{"op": "dropWindow", "K": "K1", "C": "C8"}], "expect": {"verdict": "PENDING", "untestable": []}},
+    {"id": "R10-K0udp19000", "mods": [{"op": "addEvent", "K": "K0", "C": "C2", "proto": "udp", "port": 19000}], "expect": {"verdict": "FAIL", "fail": [["K0", "C2"]]}},
+    {"id": "R11-K2leak", "mods": [{"op": "addEvent", "K": "K2", "C": "C4", "proto": "tcp", "port": 18443}], "expect": {"verdict": "FAIL", "fail": [["K2", "C4"]]}},
+    {"id": "R12-K5httpOnlyPass", "mods": [{"op": "clearEvents", "K": "K5", "C": "C1"}], "expect": {"verdict": "PASS", "informationalUnexplained": ["K5/C1"]}},
+    {"id": "R13-K0dns", "mods": [{"op": "addDns", "K": "K0", "C": "C1"}], "expect": {"verdict": "FAIL", "fail": []}},
+    {"id": "R14-invalidBeatsFail", "mods": [{"op": "dropSelftestPort", "K": "K0", "proto": "tcp", "port": 18080}, {"op": "addEvent", "K": "K0", "C": "C1", "proto": "tcp", "port": 18080}],
+     "expect": {"verdict": "INVALID", "fail": [["K0", "C1"]]}}
+  ]
+}

@@ -1,0 +1,6 @@
+# pocold-bins: (cd prototypes/pocold; env CARGO_TARGET_DIR=/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/target cargo build --release --locked --offline --bins)
+# start 2026-10-25T07:45:41Z
+   Compiling pocol-lp4-execution v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/lp4-execution)
+   Compiling pocold v0.1.0 (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-final/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 38.33s
+# end 2026-10-25T07:46:20Z exit=0

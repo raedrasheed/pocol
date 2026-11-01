@@ -1,0 +1,133 @@
+{
+  "status": "PROPOSED identifiers computed from proposed signatures and layout P13; not compiler output (experiment E-04).",
+  "factory": {
+    "functions": {
+      "store(bytes)": "0xb374012b",
+      "predict(bytes)": "0xa64139fa"
+    },
+    "errors": {
+      "ChunkLength(uint256)": "0x980b4b67",
+      "ChunkMismatch(address)": "0x8f318868",
+      "ChunkCreateFailed()": "0x48c2f2c1"
+    },
+    "revertData": {
+      "ChunkLength(0)": "0x980b4b670000000000000000000000000000000000000000000000000000000000000000",
+      "ChunkLength(24576)": "0x980b4b670000000000000000000000000000000000000000000000000000000000006000"
+    }
+  },
+  "website": {
+    "functions": {
+      "createVersion(bytes32,uint32,address[],uint32[])": "0xf6bd6733",
+      "publish(uint32)": "0x23ab50ac",
+      "setCurrent(uint32)": "0x07702370",
+      "revoke(uint32)": "0x5fce1927",
+      "setPublisher(address,bool)": "0x618bb079",
+      "transferOwnership(address)": "0xf2fde38b",
+      "acceptOwnership()": "0x79ba5097",
+      "owner()": "0x8da5cb5b",
+      "pendingOwner()": "0xe30c3978",
+      "versionCount()": "0x8aad29e1",
+      "currentVersion()": "0x9d888e86",
+      "getVersion(uint32)": "0xfd345003",
+      "isPublisher(address)": "0x41859ac8",
+      "publisherCount()": "0xf5eed98d"
+    },
+    "errors": {
+      "NotOwner(address)": "0x245aecd3",
+      "NotPublisher(address)": "0xe35593b5",
+      "NotPendingOwner(address)": "0xa09b9a43",
+      "ZeroAddress()": "0xd92e233d",
+      "InvalidCandidate(address)": "0x8b0cbd13",
+      "UnknownVersion(uint32)": "0x75f524a8",
+      "WrongStatus(uint32,uint8)": "0xc5b2d764",
+      "CurrentVersion(uint32)": "0x3561d917",
+      "AlreadyCurrent(uint32)": "0x91d03d8d",
+      "VersionLimit()": "0xb956a42f",
+      "PublisherLimit()": "0x9728c86b",
+      "ManifestLength(uint32)": "0x42e182f2",
+      "ChunkArrays(uint256,uint256)": "0x9c489de5",
+      "ManifestSplit(uint256)": "0x00263015",
+      "ManifestChunkInvalid(uint256)": "0xf1f135b5",
+      "ManifestHashMismatch()": "0x868ff181"
+    },
+    "eventTopic0": {
+      "VersionCreated(uint32,address,bytes32,uint32)": "0x3ebab631a8d503a4aaa77b85e772f1dbba081398d7ffbbd416d95e72c090b949",
+      "VersionPublished(uint32,uint64)": "0x002a82bf962724a1bc8735fe5a9606b24497f92fc98713fec64280108d6e35c9",
+      "CurrentVersionChanged(uint32,uint32)": "0xf4117cd6e20520aeec7322fff36c361a330c8691546ff426c68efab6b5e0b063",
+      "VersionRevoked(uint32)": "0x1575adace8922f010b33506fc4d0630b8cae56683a367a2f06a960561335ddd6",
+      "PublisherChanged(address,bool)": "0x3e8beca81633826a4b42c86c076bd6c23bda8c202f3b46d0268b1dd497412c01",
+      "OwnershipNominated(address,address)": "0x7cbe00258cd5670c808f2116fb86564f7f5717eef219817bc486add91c9ab7ca",
+      "OwnershipTransferred(address,address)": "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"
+    }
+  },
+  "slots": {
+    "fixed": {
+      "owner": 0,
+      "pendingOwner": 1,
+      "versionCount|currentVersion": 2,
+      "versions(mapping)": 3,
+      "publishers(mapping)": 4,
+      "publisherCount": 5
+    },
+    "formulas": {
+      "Version[id].base": "keccak256(be256(id) || be256(3))",
+      "Version[id] word base+1": "manifestLen bits 0-31 | status bits 32-39 | publishedBlock bits 40-103",
+      "Version[id].chunks.length": "base + 2",
+      "Version[id].chunks[i]": "keccak256(be256(base + 2)) + i; addr bits 0-159 | len bits 160-191",
+      "publishers[a]": "keccak256(pad32(a) || be256(4)); value 1 = enabled",
+      "slot 2": "versionCount bits 0-31 | currentVersion bits 32-63"
+    },
+    "version": {
+      "1": {
+        "manifestHash": "0xa15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c",
+        "packed(manifestLen|status|publishedBlock)": "0xa15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054d",
+        "chunks.length": "0xa15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054e",
+        "chunks[i]": [
+          "0x126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc07",
+          "0x126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc08",
+          "0x126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc09"
+        ]
+      },
+      "2": {
+        "manifestHash": "0xc3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4d",
+        "packed(manifestLen|status|publishedBlock)": "0xc3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4e",
+        "chunks.length": "0xc3a24b0501bd2c13a7e57f2db4369ec4c223447539fc0724a9d55ac4a06ebd4f",
+        "chunks[i]": [
+          "0x5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d054f",
+          "0x5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d0550",
+          "0x5a25901f4e763cd8206577d67de0167d3e8fe9bd84fb215ae1d92272809d0551"
+        ]
+      },
+      "1024": {
+        "manifestHash": "0x8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58577",
+        "packed(manifestLen|status|publishedBlock)": "0x8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58578",
+        "chunks.length": "0x8a910a3b1971d2c76c48765917730961d1ad3a099191b12bc820ee69f7c58579",
+        "chunks[i]": [
+          "0xc7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886d",
+          "0xc7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886e",
+          "0xc7176e086a12f12931e228efa332f07c219e98ee2e8cf6998ae4057358a0886f"
+        ]
+      }
+    },
+    "examplePublisherSlots(placeholder addresses, not test accounts)": {
+      "A=0x00000000000000000000000000000000000000a1": "0x040df0cfdbe2439420993d589140042c9218e6e20c99578d1a137f827725261d",
+      "B=0x00000000000000000000000000000000000000b2": "0x3b6bbf16da7d3d22adf7c29f0da3800d2b6284959b37106e92bf8f1319f54c85"
+    }
+  },
+  "t1_02_expectedState": {
+    "description": "After: deploy(owner=A); setPublisher(B,true); B: createVersion(ver-minimal); publish(1); setCurrent(1). <A>, <B>, <publishBlock> are bound at run time.",
+    "slot0": "pad32(<A>)",
+    "slot1": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "slot2": "0x0000000000000000000000000000000000000000000000000000000100000001",
+    "publishers[<A>]": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "publishers[<B>]": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "slot5": "0x0000000000000000000000000000000000000000000000000000000000000002",
+    "Version[1].base": "0xa15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c",
+    "value@Version[1].base": "0x17f69a21ff29e4deaef80bf635e57531863713eb2bc5df15ed4497df068f33e0",
+    "value@base+1": "0x00000000000000000000000000000000000000<publishBlock as 8 bytes>010000004f",
+    "value@base+1 if publishBlock=1": "0x000000000000000000000000000000000000000000000000000001010000004f",
+    "value@base+2": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "slot of chunks[0]": "0x126fa0859c3b6c65087899d2a6ef4db9ca4209343a9d5478bc96a6404374bc07",
+    "value@chunks[0]": "0x00000000000000000000004fbfed2132e3e3f8a0dbfac65cb3eaf871f28d138f"
+  }
+}

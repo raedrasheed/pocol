@@ -1,0 +1,29 @@
+TRACK journal R2 — adversarial re-fetch re-journal witness, fork point BELOW the K_hist window.
+Branch wf/journal-r2 from wf/journal 86b339e (base a03e089, tree == 3c3792e). Host Linux 6.18.44-fc-v153, 4 CPUs.
+Release, under cpu.lock. The witness PROGRAM is gitignored and NOT committed
+(prototypes/pocold/tests/zz_audit_witness_refetch.rs, matched by **/tests/zz_audit_witness*.rs); only this log is
+committed. Local in-process node only; no external hosts, no real funds.
+This is a NEW log (it does not edit the stage-A witness-refetch.log). It supersedes the stage-A witness in two ways
+the review required (J-V2, J-V3): (1) the fork point is BELOW K_hist, so each re-fetch cycle re-pays a TrieRebuild
+from genesis — a CPU cost the stage-A witness (fork at genesis, headHeight 2) could not see; (2) the bound outcomes
+are OBSERVED values (resident side count, evicted total, rebuilds, bytes), not hard-coded literals.
+What it drives: the solicited-import + retention path directly (Node::import_with(..,true), then chain.protect.clear()
+which mirrors end_session, then chain.retain() which stands in for the retain a LATER successful import runs —
+end_session itself does not retain, node.rs:578-581). It does NOT drive the TCP sync-session lifecycle; the real
+session path end to end is the committed positive control a_sync_session_refetches_an_evicted_branch_and_serves_it
+(tests/consensus.rs). The per-session journaling BOUND (<= protect_max * record size) and the cycle-rate gate are
+derived in JOURNAL-GROWTH-AND-REPLAY.md §4 from the code, not from this witness.
+Command: flock <cpu.lock> <bin> refetch_rejournal_below_k_hist --nocapture   (ran to 'test result: ok')
+============================================================
+WREF-SETUP {"allInWindow":true,"canonicalHeight":600,"evictedTotal":24,"forkBelowKHist":true,"forkPointHeight":300,"journalDiskBytes":1172120,"journalRecords":640,"kHist":32,"rKeep":1024,"residentSideAfterRetain":16,"setupBytesAppended":32239,"setupRebuilds":300,"setupSeconds":0.876764652,"sideBlocks":40,"sideCap":16}
+WREF-ROUND {"bytesAppended":16464,"cumulativeJournalBytes":1188584,"cumulativeJournalRecords":664,"evictedTotal":48,"rebuilds":316,"recordsAppended":24,"refetchedDelta":24,"residentSideAfterRetain":16,"round":1,"seconds":0.784328926}
+WREF-ROUND {"bytesAppended":16464,"cumulativeJournalBytes":1205048,"cumulativeJournalRecords":688,"evictedTotal":72,"rebuilds":316,"recordsAppended":24,"refetchedDelta":24,"residentSideAfterRetain":16,"round":2,"seconds":0.902702307}
+WREF-ROUND {"bytesAppended":16464,"cumulativeJournalBytes":1221512,"cumulativeJournalRecords":712,"evictedTotal":96,"rebuilds":316,"recordsAppended":24,"refetchedDelta":24,"residentSideAfterRetain":16,"round":3,"seconds":0.8598897}
+WREF-ROUND {"bytesAppended":16464,"cumulativeJournalBytes":1237976,"cumulativeJournalRecords":736,"evictedTotal":120,"rebuilds":316,"recordsAppended":24,"refetchedDelta":24,"residentSideAfterRetain":16,"round":4,"seconds":0.771069565}
+WREF-ROUND {"bytesAppended":16464,"cumulativeJournalBytes":1254440,"cumulativeJournalRecords":760,"evictedTotal":144,"rebuilds":316,"recordsAppended":24,"refetchedDelta":24,"residentSideAfterRetain":16,"round":5,"seconds":0.84191033}
+WREF-ROUND {"bytesAppended":16464,"cumulativeJournalBytes":1270904,"cumulativeJournalRecords":784,"evictedTotal":168,"rebuilds":316,"recordsAppended":24,"refetchedDelta":24,"residentSideAfterRetain":16,"round":6,"seconds":0.832834578}
+WREF-ROUND {"bytesAppended":16464,"cumulativeJournalBytes":1287368,"cumulativeJournalRecords":808,"evictedTotal":192,"rebuilds":316,"recordsAppended":24,"refetchedDelta":24,"residentSideAfterRetain":16,"round":7,"seconds":0.785903232}
+WREF-ROUND {"bytesAppended":16464,"cumulativeJournalBytes":1303832,"cumulativeJournalRecords":832,"evictedTotal":216,"rebuilds":316,"recordsAppended":24,"refetchedDelta":24,"residentSideAfterRetain":16,"round":8,"seconds":0.866017697}
+WREF-SUMMARY {"cpuAmplificationPerCycle":"observed: rebuilds~=forkPointHeight every round after the first (TrieRebuild from genesis, fork below K_hist)","cycleRateGate":"end_session clears protect but does NOT retain (node.rs:578-581); a live re-eviction needs a LATER successful import to trigger retain (an honest block every T_blk)","diskGrowsPerCycle":"observed: bytesAppended>0 every round (append-only; no dedupe of a re-imported in-window block)","evictedMaxDoesNotStopSolicited":"observed: records keep being appended though the blocks were evicted (EVICTED_MAX guards UNSOLICITED re-delivery only, chain.rs)","onlyStandingLimiter":"the R_keep window advancing past height+R_keep as the honest head grows (import_with height guard) — not side_cap/protect_max/EVICTED_MAX/per-peer/ban","perSessionBoundNotDrivenHere":"a real session ends at protect_max=2*r_keep blocks (node.rs sync_tick); bytes/session <= protect_max * record size (derived in report, not here)","sideCapBoundsResidentMetadataOnly":"observed: residentSideAfterRetain stays <= sideCap while the journal keeps growing"}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.09s
+=== END ===

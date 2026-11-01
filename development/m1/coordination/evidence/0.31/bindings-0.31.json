@@ -1,0 +1,62 @@
+{
+ "checks": {
+  "C36.reviewDecisions030.acceptedUnaffected": "pass",
+  "C36.reviewDecisions030.sha256": "recorded",
+  "C36.scopeProbes.parsedLiterals": "pass",
+  "bind030.delegatedNineApplied": "pass",
+  "bind030.ledgerNotReopened": "pass",
+  "bind030.output.bindings-0.30.json": "pass",
+  "bind030.output.hash-freeze-0.30.json": "pass",
+  "bind030.pattern.^C34\\.": "pass",
+  "bind030.pattern.^U08\\.": "pass",
+  "bind030.pattern.^U14\\.rp\\.": "pass",
+  "bind030.pattern.^authority\\.convention\\.": "pass",
+  "bind030.pattern.^bind029\\.decisionApplied\\.": "pass",
+  "bind030.pattern.^decision\\.U08\\.applied$": "pass",
+  "bind030.pattern.^experiments\\.definitionsComplete$": "pass",
+  "bind030.pattern.^freeze\\.": "pass",
+  "bind030.pattern.^history\\.HF-(9|10|11)$": "pass",
+  "bind030.reviewCopyByteIdentical": "pass",
+  "bind030.root.asert-native-comparison-0.27": "pass",
+  "bind030.root.deadline-independent-029": "pass",
+  "bind030.root.full-hash-triad-executed-029": "pass",
+  "bind030.root.guard-independent-030": "pass",
+  "bind030.root.v1-hash-independent-0.27": "pass",
+  "bind030.root.v1-signatures-independent-0.27": "pass",
+  "bind030.summaryAndFailures": "pass"
+ },
+ "files": {
+  "coordination/DELEGATED-M1-CONVENTIONS-030.json": "7fe60444c74b4714e2c5cd5dc1cdd4ffb254a3bcd7c35469e77ba799aef6a6de",
+  "coordination/issue-ledger.json": "e2d424a00d3282666d47deba760a0f23aeb445f38bc66f669684efafbb21dcbc",
+  "coordination/review-001/REVIEW-0.30.md": "7c698d2d0e540936a7b49e64adfbf00cb0d1a185ee3b286f50568dcc554b0388",
+  "coordination/review-001/REVIEW-DECISIONS-0.30.json": "e3ba338d4bac41e63daab9dec230e5a29f5a4ff910c675f6f3b975e0c0ff0295",
+  "coordination/review-001/error-data-native-comparison-030.json": "4eb08b8be5f03ef445df9341ff38ea57931f2120da87fb5742219dc1833d08ed",
+  "coordination/review-001/error-data-native-comparison-utf8-030.json": "a9150a409c6f427aab038748b974717b749b93673f7dc919733d2cba9570c34f",
+  "coordination/review-001/error-data-native-expanded-031.json": "383600e1567b1c21da7dc3dcb1300b688837cb1abab16b3e92985e85d6442646",
+  "coordination/review-001/error-data-native-oracle-030.json": "c723dabd549349b719642ad63ae736d348f285bd476c10c0c6bffe71f3a5399f",
+  "coordination/review-001/guard-corpus-independent-030.json": "4f94ba747153a538c67da0e33f007fcf6a1656e78fa2c3eb0aecae14af445424",
+  "coordination/review-001/guard-independent-030.json": "a7662b729342ac4a9617be81e319f8fc8b8fa9c2245848cbd684a79bf6b7069d",
+  "coordination/review-001/m1-draft-0.27/results/v1-transcripts-0.27.json": "409dbc5c55145a4884a95c6354e66db53a67cad88642d841400e9ba956d3e753",
+  "coordination/review-001/m1-draft-0.30/results/acceptance-matrix-0.30.json": "6637b8ee6690416e04cb6e39b4bcd36cd9ab5e4a4af43fc2983397659011d9ed",
+  "coordination/review-001/m1-draft-0.30/results/bindings-0.30.json": "c474066fb05357badaadc603b0fb5c5e7bf09dfde40f6d4c9a2b970e6d4e44cb",
+  "coordination/review-001/m1-draft-0.30/results/hash-freeze-0.30.json": "65ada59605beb7a9fb7e140b458787378ed09b164a02fd40e3a58c8674982092",
+  "coordination/review-001/m1-draft-0.30/results/run-results-0.30.json": "1deeb60ebe390cd69f0d233720e1027573ca7e16cbc28fb626de67e075e02618",
+  "coordination/review-001/v1-envelope-scope-probes-029.json": "c4a66f22efbb8aca304f92320bccf0688169abbdf9b21d504c64d881447afe57",
+  "coordination/task-029.md": "72d7ee2dee7b42c789812979ac4c2d31c18f9ae6400ea6bc5c15bc3f40e26bde",
+  "m1-draft-0.30/decisions/conventions-applied-0.30.json": "eb1b4a16cce4909d6b701688715b338d128812e0c3e878062a72e54c9735c503",
+  "m1-draft-0.30/tools/guard_ref_030.py": "b134948db8a69e111f88db06e506d56d111069c408df6acf4186a238273e32ae",
+  "m1-draft-0.30/tools/run_checks_030.py": "b24b2e227310af8f459ef21194fe9d6bab5d4fe0bb63468bdc649824e57587a0",
+  "m1-draft-0.30/vectors/c33-guard-cases.json": "9b5845029ab3d0891a752227ff564dabadc8727087db23aa5feacae4f7c4e64c"
+ },
+ "freezeBoundFrom030": {
+  "coordination/review-001/m1-draft-0.30/results/bindings-0.30.json": "c474066fb05357badaadc603b0fb5c5e7bf09dfde40f6d4c9a2b970e6d4e44cb",
+  "coordination/review-001/m1-draft-0.30/results/hash-freeze-0.30.json": "65ada59605beb7a9fb7e140b458787378ed09b164a02fd40e3a58c8674982092"
+ },
+ "runtime": {
+  "codecSha256": "9b867a8e1e7f66b54ed52b8a6718e53eeb10e0c996c3d040abf6f7c872b91e02",
+  "node": "C:\\nvm4w\\nodejs\\node.EXE",
+  "nodeVersion": "v22.13.1",
+  "python": "3.11.1"
+ },
+ "schema": "pocol-m1-bindings/0.31"
+}

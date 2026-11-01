@@ -1,0 +1,40 @@
+{
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "architecture": "x86_64",
+  "logicalCpus": 5,
+  "cpuQuota": "400000 100000",
+  "memoryMax": "17179869184",
+  "method": "Final acceptance harnesses sequential, after million-case oracle, release gate build/test and other authored CPU workloads finished. 10000 warmup, 11 rounds x 100000 calls per case, fixed order. Median ns/call is the acceptance statistic; min/max batch means retained. Shared host; not a worst-case individual-call latency proof.",
+  "compiler": "Rust 1.58.1 Cargo release library and rustc -O benchmark harness",
+  "node": "v24.19.0",
+  "acceptanceLogs": [
+    "bench-rust-final.log",
+    "bench-ts-final.log"
+  ],
+  "exploratoryLogs": [
+    "bench-rust.log",
+    "bench-ts.log",
+    "bench-rust-isolated.log",
+    "bench-ts-isolated.log"
+  ],
+  "commands": [
+    {
+      "name": "bench-rust-final",
+      "args": [
+        "/workspace/work/lp3-s7/bench-rust"
+      ],
+      "exitCode": 0,
+      "seconds": 0.538
+    },
+    {
+      "name": "bench-ts-final",
+      "args": [
+        "node",
+        "--experimental-strip-types",
+        "/workspace/work/lp3-s7/bench.mjs"
+      ],
+      "exitCode": 0,
+      "seconds": 11.356
+    }
+  ]
+}

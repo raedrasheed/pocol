@@ -1,0 +1,20 @@
+# commit c389ca1c14e131476496c91bd1a8965fa3ca382a
+# date 2026-10-25T05:09:31Z
+# cpu  Intel(R) Xeon(R) Processor @ 2.80GHz x 4
+# mem MemTotal:       16477348 kB
+# disk /dev/vda        252G   32G  6.8G  83% /
+# fs ext2/ext3
+# NAME  ROTA  SIZE MODEL
+# zram0    0    0B 
+# vda      1  256G 
+# vdb      1  9.6M 
+# vdc      1  308M 
+# vdd      1 47.8M 
+# vde      1  692K 
+# vdf      1  5.8M 
+# rustc rustc 1.99.1 (58cf8f9c3 2026-10-13)
+# note: the E4.4 mutation runner (2 test threads) was running beside this measurement
+JM-STORE {"blocks":52,"buildSeconds":94.81394266,"checkpointsWritten":0,"filesBytes":{"history":17379328,"journal":1928507,"state":0},"fillBlocks":12,"forkDepth":8,"fullBlocks":40,"importFillBlocks":{"maxMs":90.60364,"meanMs":51.88537825,"medianMs":63.97694,"n":12},"importFullBlocks":{"maxMs":262.00007,"meanMs":193.93082437500001,"medianMs":188.853878,"n":40},"mode":"whole-state","nodeCacheBytes":0,"openFromGenesisSeconds":8.898701056,"openResumedFrom":null,"openSeconds":9.758618839,"reorgSeconds":1.500506329,"rssAfterBytes":42160128,"rssBeforeBytes":34570240,"sideBlocks":9,"stateAccounts":2770,"stateNonzeroSlots":114,"storeNodes":0,"storedVersions":0,"syncSeconds":8.379890539,"transactions":12172,"vmHwmAfterBytes":44326912,"vmHwmBeforeBytes":34570240}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 123.63s
+JM-STORE {"blocks":52,"buildSeconds":93.116091018,"checkpointsWritten":3,"filesBytes":{"history":17379328,"journal":1928507,"state":8957952},"fillBlocks":12,"forkDepth":8,"fullBlocks":40,"importFillBlocks":{"maxMs":220.905635,"meanMs":118.72771875000001,"medianMs":119.081205,"n":12},"importFullBlocks":{"maxMs":507.84071900000004,"meanMs":407.67432777500005,"medianMs":404.276207,"n":40},"mode":"store","nodeCacheBytes":4377776,"openFromGenesisSeconds":22.738579301,"openResumedFrom":48,"openSeconds":6.584718433,"reorgSeconds":1.453255251,"rssAfterBytes":47951872,"rssBeforeBytes":34537472,"sideBlocks":9,"stateAccounts":2770,"stateNonzeroSlots":114,"storeNodes":7788,"storedVersions":29,"syncSeconds":17.731749552,"transactions":12172,"vmHwmAfterBytes":48971776,"vmHwmBeforeBytes":34537472}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 142.26s

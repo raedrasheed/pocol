@@ -1,0 +1,1377 @@
+{
+ "tree": "dd7d1ec dd7d1ec086b29d1edea40b003a5c6e1e759cf322 (git archive of prototypes/, round 3c)",
+ "runner": "run_mutations_rpcguard_r3_final.py",
+ "mutants": [
+  {
+   "id": "RGM1-PACER",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     276.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM4-ENTRY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "light_compute_deadline_fires",
+     "OK",
+     271.2
+    ],
+    [
+     "a_request_reaching_its_handler_past_the_deadline_never_runs",
+     "OK",
+     0.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ],
+     "FAILED",
+     13.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RGM8-POSTCHECK",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+      "a_late_revert_or_halt_past_its_deadline_is_32020",
+      "a_late_get_logs_answer_carries_resume_data"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+     "OK",
+     13.6
+    ],
+    [
+     "a_late_revert_or_halt_past_its_deadline_is_32020",
+     "OK",
+     2.4
+    ],
+    [
+     "a_late_get_logs_answer_carries_resume_data",
+     "OK",
+     0.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_precompile_call_past_its_deadline_is_32020_not_a_late_success",
+      "a_late_revert_or_halt_past_its_deadline_is_32020",
+      "a_late_get_logs_answer_carries_resume_data"
+     ],
+     "FAILED",
+     14.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V2-PACER-LATE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     14.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "V8-NO-ENTRY-CHECK-HEAVY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ]
+    ]
+   ],
+   "expect": "survivor: equivalent (RPCGUARD.md \u00a79 V8): every heavy handler that works re-checks the deadline, the others are bounded and their late answer is replaced",
+   "control": [
+    [
+     "light_compute_deadline_fires",
+     "OK",
+     271.2
+    ],
+    [
+     "a_request_reaching_its_handler_past_the_deadline_never_runs",
+     "OK",
+     0.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ],
+     "OK",
+     13.3
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "N3-PARTIAL-WRITE-AS-WHOLE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "an_answer_is_reserved_until_its_connection_has_written_it"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ],
+    [
+     "an_answer_is_reserved_until_its_connection_has_written_it",
+     "OK",
+     14.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "an_answer_is_reserved_until_its_connection_has_written_it"
+     ],
+     "FAILED",
+     16.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N4-HEADER-BODY-BOUNDARY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     14.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N9-ONE-DEADLINE-PER-BATCH",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "batch_members_each_get_their_own_compute_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "batch_members_each_get_their_own_compute_deadline",
+     "OK",
+     15.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "batch_members_each_get_their_own_compute_deadline"
+     ],
+     "FAILED",
+     13.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "N11-LIGHT-USES-HEAVY-DEADLINE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "light_compute_deadline_fires",
+     "OK",
+     271.2
+    ],
+    [
+     "a_request_reaching_its_handler_past_the_deadline_never_runs",
+     "OK",
+     0.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "light_compute_deadline_fires",
+      "a_request_reaching_its_handler_past_the_deadline_never_runs"
+     ],
+     "FAILED",
+     13.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M1-RESULTS-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_late_revert_or_halt_past_its_deadline_is_32020"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_late_revert_or_halt_past_its_deadline_is_32020",
+     "OK",
+     2.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_late_revert_or_halt_past_its_deadline_is_32020"
+     ],
+     "FAILED",
+     13.6
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M2-SLEEP-POLL-1MS",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     13.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M2-NO-WALL-IN-WAIT",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "batch_wall_closes_the_batch"
+     ]
+    ]
+   ],
+   "expect": "survivor: bounded by the backstop: BATCH_WALL is then seen at most PACER_BACKSTOP (50 ms) late, within its 100 ms release (network.md:282)",
+   "control": [
+    [
+     "batch_wall_closes_the_batch",
+     "OK",
+     15.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "batch_wall_closes_the_batch"
+     ],
+     "OK",
+     15.7
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M4-32008",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::responses_above_resp_max_become_an_error"
+     ]
+    ],
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "rpc::tests::responses_above_resp_max_become_an_error",
+     "OK",
+     5.1
+    ],
+    [
+     "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release",
+     "OK",
+     13.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "rpc::tests::responses_above_resp_max_become_an_error"
+     ],
+     "FAILED",
+     5.0
+    ],
+    [
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release"
+     ],
+     "FAILED",
+     13.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M2-BACKSTOP-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "survivor: the close is then up to PACER_BACKSTOP (50 ms) after s_v, within ENFORCE_SLACK (200 ms), the bound network.md:247 binds and the test asserts",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "OK",
+     14.9
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "RV3-SV-GRACE-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_timer_follows_a_over_r_past_grace",
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_timer_follows_a_over_r_past_grace",
+     "OK",
+     19.4
+    ],
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_timer_follows_a_over_r_past_grace",
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     17.0
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "I3b-NO-WRITE-CAP",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "send_pacer_timer_follows_a_over_r_past_grace",
+      "an_answer_is_reserved_until_its_connection_has_written_it"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ],
+    [
+     "send_pacer_timer_follows_a_over_r_past_grace",
+     "OK",
+     19.4
+    ],
+    [
+     "an_answer_is_reserved_until_its_connection_has_written_it",
+     "OK",
+     14.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "send_pacer_timer_follows_a_over_r_past_grace",
+      "an_answer_is_reserved_until_its_connection_has_written_it"
+     ],
+     "FAILED",
+     38.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RV3-NO-BACKSTOP",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "send_pacer_timer_follows_a_over_r_past_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ],
+    [
+     "send_pacer_timer_follows_a_over_r_past_grace",
+     "OK",
+     19.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace",
+      "send_pacer_timer_follows_a_over_r_past_grace"
+     ],
+     "FAILED",
+     64.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-WAIT-OUT-BACKSTOP",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "send_pacer_closes_a_slow_reader_after_grace",
+     "OK",
+     110.2
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "send_pacer_closes_a_slow_reader_after_grace"
+     ],
+     "FAILED",
+     25.2
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RV3-LATE-CHECK-BEFORE-ENCODING",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_compute_deadline_includes_encoding"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_compute_deadline_includes_encoding",
+     "OK",
+     15.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_compute_deadline_includes_encoding"
+     ],
+     "FAILED",
+     71.3
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RV3-LATE-HEAVY-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_compute_deadline_includes_encoding"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_compute_deadline_includes_encoding",
+     "OK",
+     15.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_compute_deadline_includes_encoding"
+     ],
+     "FAILED",
+     14.7
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RV3-M5-PAD-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_conditional_light_entries_have_the_light_deadline",
+      "a_light_method_over_light_body_max_has_the_light_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_conditional_light_entries_have_the_light_deadline",
+     "OK",
+     136.8
+    ],
+    [
+     "a_light_method_over_light_body_max_has_the_light_deadline",
+     "OK",
+     0.4
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_conditional_light_entries_have_the_light_deadline",
+      "a_light_method_over_light_body_max_has_the_light_deadline"
+     ],
+     "FAILED",
+     13.3
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "RV3-CAS-CHECK-THEN-SET",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_node_never_runs_a_request_its_connection_gave_up"
+     ]
+    ]
+   ],
+   "expect": "survivor: a test limit, not a defect (RPCGUARD.md \u00a72): the race window of a load-then-store is nanoseconds and no hook can sit inside one compare_exchange; atomicity is by construction",
+   "control": [
+    [
+     "the_node_never_runs_a_request_its_connection_gave_up",
+     "OK",
+     16.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_node_never_runs_a_request_its_connection_gave_up"
+     ],
+     "OK",
+     86.4
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "R3-m5-DEADLINE-BY-LANE",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_light_method_over_light_body_max_has_the_light_deadline",
+      "the_conditional_light_entries_have_the_light_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_light_method_over_light_body_max_has_the_light_deadline",
+     "OK",
+     0.4
+    ],
+    [
+     "the_conditional_light_entries_have_the_light_deadline",
+     "OK",
+     136.8
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_light_method_over_light_body_max_has_the_light_deadline",
+      "the_conditional_light_entries_have_the_light_deadline"
+     ],
+     "FAILED",
+     13.5
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3-M4-NO-CLASS-LIMIT",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release",
+      "a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane"
+     ]
+    ]
+   ],
+   "expect": "survivor: equivalent (RPCGUARD.md \u00a79): member() applies both class limits on every path and batch() bounds a batch below BATCH_BYTES_HARD, so answer()'s check over the reservation is defence in depth",
+   "control": [
+    [
+     "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release",
+     "OK",
+     13.3
+    ],
+    [
+     "a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane",
+     "OK",
+     76.0
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release",
+      "a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane"
+     ],
+     "OK",
+     13.6
+    ]
+   ],
+   "result": "SURVIVED",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-CLASS-LIMIT-LANE-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane",
+     "OK",
+     76.0
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane"
+     ],
+     "FAILED",
+     56.0
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-CLASS-LIMIT-LIGHT-LANE-REMOVED",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release",
+     "OK",
+     13.3
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release"
+     ],
+     "FAILED",
+     13.8
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-COND-NOT-LIGHT",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ]
+    ],
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_conditional_light_entries_have_the_light_deadline",
+     "OK",
+     136.8
+    ],
+    [
+     "rpc::tests::the_class_probe_agrees_with_the_parsed_class",
+     "OK",
+     105.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ],
+     "FAILED",
+     13.0
+    ],
+    [
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ],
+     "FAILED",
+     4.6
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-COND-FULL-FLAG-IGNORED",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ]
+    ],
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_conditional_light_entries_have_the_light_deadline",
+     "OK",
+     136.8
+    ],
+    [
+     "rpc::tests::the_class_probe_agrees_with_the_parsed_class",
+     "OK",
+     105.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ],
+     "FAILED",
+     12.5
+    ],
+    [
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ],
+     "FAILED",
+     25.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-COND-COUNT-65",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ]
+    ],
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_conditional_light_entries_have_the_light_deadline",
+     "OK",
+     136.8
+    ],
+    [
+     "rpc::tests::the_class_probe_agrees_with_the_parsed_class",
+     "OK",
+     105.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ],
+     "FAILED",
+     13.8
+    ],
+    [
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ],
+     "FAILED",
+     78.2
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-COND-HEX-COUNT-IGNORED",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ]
+    ],
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_conditional_light_entries_have_the_light_deadline",
+     "OK",
+     136.8
+    ],
+    [
+     "rpc::tests::the_class_probe_agrees_with_the_parsed_class",
+     "OK",
+     105.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ],
+     "FAILED",
+     14.2
+    ],
+    [
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ],
+     "FAILED",
+     4.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-PROBE-PARAMS-IGNORED",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ]
+    ],
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_conditional_light_entries_have_the_light_deadline",
+     "OK",
+     136.8
+    ],
+    [
+     "rpc::tests::the_class_probe_agrees_with_the_parsed_class",
+     "OK",
+     105.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_conditional_light_entries_have_the_light_deadline"
+     ],
+     "FAILED",
+     13.6
+    ],
+    [
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ],
+     "FAILED",
+     5.0
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-PROBE-FIRST-PARAM",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "rpc::tests::the_class_probe_agrees_with_the_parsed_class",
+     "OK",
+     105.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ],
+     "FAILED",
+     4.9
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-VALUE-NONARRAY-LIGHT",
+   "groups": [
+    [
+     [
+      "--lib"
+     ],
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "rpc::tests::the_class_probe_agrees_with_the_parsed_class",
+     "OK",
+     105.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "rpc::tests::the_class_probe_agrees_with_the_parsed_class"
+     ],
+     "FAILED",
+     5.1
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-BATCH-MEMBER-LIST-ONLY",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_conditional_light_entries_have_the_light_deadline",
+      "batch_members_each_get_their_own_compute_deadline"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_conditional_light_entries_have_the_light_deadline",
+     "OK",
+     136.8
+    ],
+    [
+     "batch_members_each_get_their_own_compute_deadline",
+     "OK",
+     15.1
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_conditional_light_entries_have_the_light_deadline",
+      "batch_members_each_get_their_own_compute_deadline"
+     ],
+     "FAILED",
+     14.6
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  },
+  {
+   "id": "R3C-ENCODE-CHECK-SKIPS-HOOK",
+   "groups": [
+    [
+     [
+      "--test",
+      "net"
+     ],
+     [
+      "the_compute_deadline_includes_encoding"
+     ]
+    ]
+   ],
+   "expect": "caught",
+   "control": [
+    [
+     "the_compute_deadline_includes_encoding",
+     "OK",
+     15.5
+    ]
+   ],
+   "mutant": [
+    [
+     [
+      "the_compute_deadline_includes_encoding"
+     ],
+     "FAILED",
+     13.4
+    ]
+   ],
+   "result": "CAUGHT",
+   "asExpected": true
+  }
+ ]
+}

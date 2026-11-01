@@ -1,0 +1,19 @@
+{
+  ".github/workflows/lp4-execution-controls.yml": "3ee59ff0a212db137eacb58eeb0a6f662bc028a9a38375c906c84f9c2ad2c7aa",
+  "development/LP4-ACCEPTANCE.json": "195adcf48baba084c9adecf7debac2a513481ec429fac847f4835676a645d816",
+  "development/LP4-MILESTONE.md": "38f64e0df6900d79d15976fca509b50f65c04cc09c3f88e4ecbd9d63a51691d2",
+  "development/LP4-PAY-LIFECYCLE-APPROVAL.md": "f271b7ff8cb93398bb296c23d66e1bf54361f34f5f442b96e763e3c210511923",
+  "prototypes/lp4-execution/Cargo.lock": "d6e757466555edd023347af5b3cc45021ff1bcd88328de8c9a390fd99ad13904",
+  "prototypes/lp4-execution/README.md": "5338e7c68a3e36c424aa508ee61a2077be4e3bea4726c4f1cd6c32caf49800c9",
+  "prototypes/lp4-execution/examples/lifecycle_vectors.rs": "19035444b26d035ce64ef5b130a20542069ec70030e3631903bcd7e73dcc2c35",
+  "prototypes/lp4-execution/examples/pay_vectors.rs": "5cef4dece6785fa326765a63681006f337151e4a85b637d708097b18f57805ad",
+  "prototypes/lp4-execution/src/native.rs": "659cfa283013d68136fd2210ce2e1cf0c758066ea7d69355d049e5d1dc812809",
+  "prototypes/lp4-execution/src/pay.rs": "dfbe2315507515f27c4ac86858acf3d6c58c27b379e9c5e6d2a2572169e6da88",
+  "prototypes/lp4-execution/tests/data/pay-harness.json": "b324c129adcaf8ca91133d84b33af3f0d1ab6656d3f5004704e1a864935c6f15",
+  "prototypes/lp4-execution/tests/data/reward-durability.json": "c5aba9fa19ded72a527bb17cad422ef2d2b7c5212ec64d8dd87b279ed8a50b53",
+  "prototypes/lp4-execution/tests/lifecycle_oracle.py": "900ac6da22ab5c3b1b7e14c066e6789f49b2eedf845473348969e8b61d30b501",
+  "prototypes/lp4-execution/tests/pay_boundary.rs": "50c31f2876d533ebbf9e233e15e1f233ddb56a8b05d6ac456ce3eddfb69b735f",
+  "prototypes/lp4-execution/tests/pay_mutations.py": "08bec8656f3b4fd46c5885f0afd42907306307efb198119968742d67721b11d3",
+  "prototypes/lp4-execution/tests/pay_oracle.py": "5a0bc71052693bf0e8fb9e30ad9b4a273fc9b5bc7a926429bea3c1a0656b9c82",
+  "prototypes/lp4-execution/tests/reward_durability.rs": "7dcdb19c0d068c674c5f39d6e8887a989f245468f216217c5318b3d3f0ca856a"
+}

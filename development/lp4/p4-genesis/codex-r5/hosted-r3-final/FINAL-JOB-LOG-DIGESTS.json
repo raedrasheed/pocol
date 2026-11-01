@@ -1,0 +1,30 @@
+{
+  "decodedUtf8Logs": [
+    {
+      "file": "job-118739752979.log",
+      "bytes": 42012,
+      "sha256": "6baf24257b520b9c2509d38fa5d0a783c767a3d3e8bedf52d87696614cf8b7bc"
+    },
+    {
+      "file": "job-118739753003.log",
+      "bytes": 103412,
+      "sha256": "de35b5a5f3a926befbc9cfefd988311d3fd33bf163677963bf758626a333180f"
+    },
+    {
+      "file": "job-118739753065.log",
+      "bytes": 40575,
+      "sha256": "b4b234741eafcd9f2899f7349e3b0f1c187c84106e3e97102f5f317d6896a3f8"
+    },
+    {
+      "file": "job-118739753147.log",
+      "bytes": 55379,
+      "sha256": "6d7e3030c0b5b22b432a406028ec7c003ff5d284e0255aced9b439c422fb007a"
+    },
+    {
+      "file": "job-118739753149.log",
+      "bytes": 22828,
+      "sha256": "bed3d02a1e46a508bac4cfe4689b09cbf0100d5300bf1fe63320f5ed9093b188"
+    }
+  ],
+  "independentPerCaseReceipt": "NOT ARCHIVED by historical workflow; summary and sources available only"
+}

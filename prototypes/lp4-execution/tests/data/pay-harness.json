@@ -1,0 +1,238 @@
+{
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "input": {
+    "language": "Solidity",
+    "sources": {
+      "PayBoundaryHarness.sol": {
+        "content": "// SPDX-License-Identifier: Apache-2.0\npragma solidity 0.8.28;\n\n// Execution test harnesses only: NOT accepted PoCol system contract implementations.\n// Native contract: development/LP4-PAY-APPROVAL.md, LP4-PAY-01.\ncontract PayBoundaryHarness {\n    address constant PAY = address(0xC0C0ff);\n    function sendRaw(bytes calldata data, uint256 gasAmount, uint256 value, uint8 mode)\n        external returns (bool ok, uint256 spent, bytes memory result)\n    {\n        uint256 beforeGas = gasleft();\n        if (mode == 0) (ok, result) = PAY.call{gas: gasAmount, value: value}(data);\n        else if (mode == 1) (ok, result) = PAY.staticcall{gas: gasAmount}(data);\n        else if (mode == 2) (ok, result) = PAY.delegatecall{gas: gasAmount}(data);\n        else {\n            address pay = PAY;\n            bytes memory input = data;\n            assembly { ok := callcode(gasAmount, pay, value, add(input, 32), mload(input), 0, 0) }\n        }\n        spent = beforeGas - gasleft();\n    }\n    function twoCalls(bytes calldata data,uint256 gasAmount) external returns(bool first,bool second) {\n        (first,) = PAY.call{gas:gasAmount}(data);\n        (second,) = PAY.call{gas:gasAmount}(data);\n    }\n    function staticVia(address target, bytes calldata data) external returns(bool ok, bytes memory result) {\n        (ok,result) = target.staticcall(data);\n    }\n    function sendThenRevert(address recipient, uint256 amount) external {\n        (bool ok,) = PAY.call(abi.encode(recipient, amount));\n        require(ok, \"PAY failed\");\n        revert(\"outer rollback\");\n    }\n    function delegateForeign(address foreign, bytes calldata data) external returns(bool ok) {\n        (ok,) = foreign.delegatecall(data);\n    }\n}\ncontract RecipientTrap {\n    fallback() external payable { revert(\"callback forbidden\"); }\n}\n"
+      }
+    },
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "evmVersion": "cancun",
+      "metadata": {
+        "bytecodeHash": "none",
+        "appendCBOR": false
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "abi",
+            "evm.deployedBytecode.object",
+            "evm.bytecode.object",
+            "storageLayout"
+          ]
+        }
+      }
+    }
+  },
+  "output": {
+    "contracts": {
+      "PayBoundaryHarness.sol": {
+        "PayBoundaryHarness": {
+          "abi": [
+            {
+              "inputs": [
+                {
+                  "internalType": "address",
+                  "name": "foreign",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                }
+              ],
+              "name": "delegateForeign",
+              "outputs": [
+                {
+                  "internalType": "bool",
+                  "name": "ok",
+                  "type": "bool"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "gasAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "mode",
+                  "type": "uint8"
+                }
+              ],
+              "name": "sendRaw",
+              "outputs": [
+                {
+                  "internalType": "bool",
+                  "name": "ok",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "spent",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "result",
+                  "type": "bytes"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "address",
+                  "name": "recipient",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amount",
+                  "type": "uint256"
+                }
+              ],
+              "name": "sendThenRevert",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "address",
+                  "name": "target",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                }
+              ],
+              "name": "staticVia",
+              "outputs": [
+                {
+                  "internalType": "bool",
+                  "name": "ok",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "result",
+                  "type": "bytes"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "gasAmount",
+                  "type": "uint256"
+                }
+              ],
+              "name": "twoCalls",
+              "outputs": [
+                {
+                  "internalType": "bool",
+                  "name": "first",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "second",
+                  "type": "bool"
+                }
+              ],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "bytecode": {
+              "object": "6080604052348015600e575f5ffd5b506107878061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610055575f3560e01c80634a7be26a1461005957806359a096f4146100845780637755a2b81461009957806386e0b6fe146100c3578063f30eff80146100e6575b5f5ffd5b61006c61006736600461057f565b610107565b60405161007b93929190610618565b60405180910390f35b61009761009236600461065c565b6102b2565b005b6100ac6100a7366004610684565b6103a9565b60408051921515835290151560208301520161007b565b6100d66100d13660046106cc565b610470565b604051901515815260200161007b565b6100f96100f43660046106cc565b6104d3565b60405161007b92919061071b565b5f5f60605f5a90508460ff165f036101835762c0c0ff6001600160a01b031687878b8b60405161013892919061073d565b5f60405180830381858888f193505050503d805f8114610173576040519150601f19603f3d011682016040523d82523d5f602084013e610178565b606091505b509094509150610299565b8460ff166001036101e55762c0c0ff6001600160a01b0316878a8a6040516101ac92919061073d565b5f604051808303818686fa925050503d805f8114610173576040519150601f19603f3d011682016040523d82523d5f602084013e610178565b8460ff166002036102475762c0c0ff6001600160a01b0316878a8a60405161020e92919061073d565b5f604051808303818686f4925050503d805f8114610173576040519150601f19603f3d011682016040523d82523d5f602084013e610178565b5f62c0c0ff90505f8a8a8080601f0160208091040260200160405190810160405280939291908181526020018383808284375f920182905250845194955093849350915050602084018b868ef2955050505b5a6102a4908261074c565b925050955095509592505050565b604080516001600160a01b03841660208201529081018290525f9062c0c0ff9060600160408051601f19818403018152908290526102ef91610771565b5f604051808303815f865af19150503d805f8114610328576040519150601f19603f3d011682016040523d82523d5f602084013e61032d565b606091505b50509050806103705760405162461bcd60e51b815260206004820152600a6024820152691410564819985a5b195960b21b60448201526064015b60405180910390fd5b60405162461bcd60e51b815260206004820152600e60248201526d6f7574657220726f6c6c6261636b60901b6044820152606401610367565b5f5f62c0c0ff6001600160a01b03168386866040516103c992919061073d565b5f604051808303815f8787f1925050503d805f8114610403576040519150601f19603f3d011682016040523d82523d5f602084013e610408565b606091505b505060405190925062c0c0ff908490610424908890889061073d565b5f604051808303815f8787f1925050503d805f811461045e576040519150601f19603f3d011682016040523d82523d5f602084013e610463565b606091505b5092969095509350505050565b5f836001600160a01b0316838360405161048b92919061073d565b5f60405180830381855af49150503d805f81146104c3576040519150601f19603f3d011682016040523d82523d5f602084013e6104c8565b606091505b509095945050505050565b5f6060846001600160a01b031684846040516104f092919061073d565b5f60405180830381855afa9150503d805f8114610528576040519150601f19603f3d011682016040523d82523d5f602084013e61052d565b606091505b5090969095509350505050565b5f5f83601f84011261054a575f5ffd5b50813567ffffffffffffffff811115610561575f5ffd5b602083019150836020828501011115610578575f5ffd5b9250929050565b5f5f5f5f5f60808688031215610593575f5ffd5b853567ffffffffffffffff8111156105a9575f5ffd5b6105b58882890161053a565b9096509450506020860135925060408601359150606086013560ff811681146105dc575f5ffd5b809150509295509295909350565b5f81518084528060208401602086015e5f602082860101526020601f19601f83011685010191505092915050565b8315158152826020820152606060408201525f61063860608301846105ea565b95945050505050565b80356001600160a01b0381168114610657575f5ffd5b919050565b5f5f6040838503121561066d575f5ffd5b61067683610641565b946020939093013593505050565b5f5f5f60408486031215610696575f5ffd5b833567ffffffffffffffff8111156106ac575f5ffd5b6106b88682870161053a565b909790965060209590950135949350505050565b5f5f5f604084860312156106de575f5ffd5b6106e784610641565b9250602084013567ffffffffffffffff811115610702575f5ffd5b61070e8682870161053a565b9497909650939450505050565b8215158152604060208201525f61073560408301846105ea565b949350505050565b818382375f9101908152919050565b8181038181111561076b57634e487b7160e01b5f52601160045260245ffd5b92915050565b5f82518060208501845e5f92019182525091905056"
+            },
+            "deployedBytecode": {
+              "object": "608060405234801561000f575f5ffd5b5060043610610055575f3560e01c80634a7be26a1461005957806359a096f4146100845780637755a2b81461009957806386e0b6fe146100c3578063f30eff80146100e6575b5f5ffd5b61006c61006736600461057f565b610107565b60405161007b93929190610618565b60405180910390f35b61009761009236600461065c565b6102b2565b005b6100ac6100a7366004610684565b6103a9565b60408051921515835290151560208301520161007b565b6100d66100d13660046106cc565b610470565b604051901515815260200161007b565b6100f96100f43660046106cc565b6104d3565b60405161007b92919061071b565b5f5f60605f5a90508460ff165f036101835762c0c0ff6001600160a01b031687878b8b60405161013892919061073d565b5f60405180830381858888f193505050503d805f8114610173576040519150601f19603f3d011682016040523d82523d5f602084013e610178565b606091505b509094509150610299565b8460ff166001036101e55762c0c0ff6001600160a01b0316878a8a6040516101ac92919061073d565b5f604051808303818686fa925050503d805f8114610173576040519150601f19603f3d011682016040523d82523d5f602084013e610178565b8460ff166002036102475762c0c0ff6001600160a01b0316878a8a60405161020e92919061073d565b5f604051808303818686f4925050503d805f8114610173576040519150601f19603f3d011682016040523d82523d5f602084013e610178565b5f62c0c0ff90505f8a8a8080601f0160208091040260200160405190810160405280939291908181526020018383808284375f920182905250845194955093849350915050602084018b868ef2955050505b5a6102a4908261074c565b925050955095509592505050565b604080516001600160a01b03841660208201529081018290525f9062c0c0ff9060600160408051601f19818403018152908290526102ef91610771565b5f604051808303815f865af19150503d805f8114610328576040519150601f19603f3d011682016040523d82523d5f602084013e61032d565b606091505b50509050806103705760405162461bcd60e51b815260206004820152600a6024820152691410564819985a5b195960b21b60448201526064015b60405180910390fd5b60405162461bcd60e51b815260206004820152600e60248201526d6f7574657220726f6c6c6261636b60901b6044820152606401610367565b5f5f62c0c0ff6001600160a01b03168386866040516103c992919061073d565b5f604051808303815f8787f1925050503d805f8114610403576040519150601f19603f3d011682016040523d82523d5f602084013e610408565b606091505b505060405190925062c0c0ff908490610424908890889061073d565b5f604051808303815f8787f1925050503d805f811461045e576040519150601f19603f3d011682016040523d82523d5f602084013e610463565b606091505b5092969095509350505050565b5f836001600160a01b0316838360405161048b92919061073d565b5f60405180830381855af49150503d805f81146104c3576040519150601f19603f3d011682016040523d82523d5f602084013e6104c8565b606091505b509095945050505050565b5f6060846001600160a01b031684846040516104f092919061073d565b5f60405180830381855afa9150503d805f8114610528576040519150601f19603f3d011682016040523d82523d5f602084013e61052d565b606091505b5090969095509350505050565b5f5f83601f84011261054a575f5ffd5b50813567ffffffffffffffff811115610561575f5ffd5b602083019150836020828501011115610578575f5ffd5b9250929050565b5f5f5f5f5f60808688031215610593575f5ffd5b853567ffffffffffffffff8111156105a9575f5ffd5b6105b58882890161053a565b9096509450506020860135925060408601359150606086013560ff811681146105dc575f5ffd5b809150509295509295909350565b5f81518084528060208401602086015e5f602082860101526020601f19601f83011685010191505092915050565b8315158152826020820152606060408201525f61063860608301846105ea565b95945050505050565b80356001600160a01b0381168114610657575f5ffd5b919050565b5f5f6040838503121561066d575f5ffd5b61067683610641565b946020939093013593505050565b5f5f5f60408486031215610696575f5ffd5b833567ffffffffffffffff8111156106ac575f5ffd5b6106b88682870161053a565b909790965060209590950135949350505050565b5f5f5f604084860312156106de575f5ffd5b6106e784610641565b9250602084013567ffffffffffffffff811115610702575f5ffd5b61070e8682870161053a565b9497909650939450505050565b8215158152604060208201525f61073560408301846105ea565b949350505050565b818382375f9101908152919050565b8181038181111561076b57634e487b7160e01b5f52601160045260245ffd5b92915050565b5f82518060208501845e5f92019182525091905056"
+            }
+          },
+          "storageLayout": {
+            "storage": [],
+            "types": null
+          }
+        },
+        "RecipientTrap": {
+          "abi": [
+            {
+              "stateMutability": "payable",
+              "type": "fallback"
+            }
+          ],
+          "evm": {
+            "bytecode": {
+              "object": "6080604052348015600e575f5ffd5b50603780601a5f395ff3fe6080604081905262461bcd60e51b81526020608452601260a4527131b0b6363130b1b5903337b93134b23232b760711b60c452606490fd"
+            },
+            "deployedBytecode": {
+              "object": "6080604081905262461bcd60e51b81526020608452601260a4527131b0b6363130b1b5903337b93134b23232b760711b60c452606490fd"
+            }
+          },
+          "storageLayout": {
+            "storage": [],
+            "types": null
+          }
+        }
+      }
+    },
+    "errors": [
+      {
+        "component": "general",
+        "errorCode": "2018",
+        "formattedMessage": "Warning: Function state mutability can be restricted to view\n  --> PayBoundaryHarness.sol:26:5:\n   |\n26 |     function staticVia(address target, bytes calldata data) external returns(bool ok, bytes memory result) {\n   |     ^ (Relevant source part starts here and spans across multiple lines).\n\n",
+        "message": "Function state mutability can be restricted to view",
+        "severity": "warning",
+        "sourceLocation": {
+          "end": 1354,
+          "file": "PayBoundaryHarness.sol",
+          "start": 1197
+        },
+        "type": "Warning"
+      }
+    ],
+    "sources": {
+      "PayBoundaryHarness.sol": {
+        "id": 0
+      }
+    }
+  }
+}

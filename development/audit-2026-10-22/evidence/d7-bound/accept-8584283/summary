@@ -1,0 +1,16 @@
+pocold-release exit=0
+pocold-bins exit=0
+ext-build exit=0
+e2e-devnet-whole-state exit=0
+e2e-site-whole-state exit=0
+e2e-browser-whole-state exit=1
+e2e-devnet-store exit=0
+e2e-site-store exit=0
+e2e-browser-store exit=0
+e2e-integrated-whole-state-1 exit=0
+e2e-integrated-store-1 exit=0
+e2e-integrated-whole-state-2 exit=0
+e2e-integrated-store-2 exit=0
+e2e-integrated-whole-state-3 exit=0
+e2e-integrated-store-3 exit=0
+done

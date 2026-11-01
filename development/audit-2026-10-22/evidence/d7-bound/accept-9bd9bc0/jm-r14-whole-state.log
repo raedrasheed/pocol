@@ -1,0 +1,12 @@
+# jm-r14-whole-state: (cd prototypes/pocold; env JM_R14_MODES=whole-state cargo test --release --locked --offline --test journal_measure -- --ignored --nocapture jm_r14_import_by_mode)
+# start 2026-10-25T13:19:10Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.20s
+     Running tests/journal_measure.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wt-d7-target/release/deps/journal_measure-e0b0f085e3fd5e7e)
+
+running 1 test
+JM-R14 {"blocks":10,"gasUsed":[7950000,7950000,7950000,7950000,7950000,7950000,7950000,7950000,7950000,7950000],"importMs":[29.580219,22.381562000000002,24.863151,23.760959000000003,32.170714000000004,28.969571,25.804000000000002,29.147447,28.74658,28.430643],"maxMs":32.170714000000004,"maxOverTExec":0.032170714,"medianMs":28.74658,"mode":"whole-state","tExecMs":1000}
+test jm_r14_import_by_mode ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.83s
+
+# end 2026-10-25T13:19:11Z exit=0

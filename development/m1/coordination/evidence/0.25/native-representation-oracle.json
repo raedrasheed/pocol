@@ -1,0 +1,72 @@
+{
+  "node": "v22.13.1",
+  "numeric": [
+    {
+      "integer": "9007199254740991",
+      "parsedNumberExactInteger": "9007199254740991",
+      "numberPreservesValue": true,
+      "hexRoundTrip": true,
+      "decimalRoundTrip": true
+    },
+    {
+      "integer": "9007199254740993",
+      "parsedNumberExactInteger": "9007199254740992",
+      "numberPreservesValue": false,
+      "hexRoundTrip": true,
+      "decimalRoundTrip": true
+    },
+    {
+      "integer": "18446744073709551615",
+      "parsedNumberExactInteger": "18446744073709551616",
+      "numberPreservesValue": false,
+      "hexRoundTrip": true,
+      "decimalRoundTrip": true
+    }
+  ],
+  "strings": [
+    {
+      "utf16Units": [
+        "d800"
+      ],
+      "utf8Hex": "efbfbd",
+      "utf8Bytes": 3,
+      "jsonRoundTripPreservesUnits": true
+    },
+    {
+      "utf16Units": [
+        "d801"
+      ],
+      "utf8Hex": "efbfbd",
+      "utf8Bytes": 3,
+      "jsonRoundTripPreservesUnits": true
+    },
+    {
+      "utf16Units": [
+        "fffd"
+      ],
+      "utf8Hex": "efbfbd",
+      "utf8Bytes": 3,
+      "jsonRoundTripPreservesUnits": true
+    },
+    {
+      "utf16Units": [
+        "d83d",
+        "de00"
+      ],
+      "utf8Hex": "f09f9880",
+      "utf8Bytes": 4,
+      "jsonRoundTripPreservesUnits": true
+    },
+    {
+      "utf16Units": [
+        "0041"
+      ],
+      "utf8Hex": "41",
+      "utf8Bytes": 1,
+      "jsonRoundTripPreservesUnits": true
+    }
+  ],
+  "distinctLoneSurrogateKeysRemainDistinctBeforeEncoding": true,
+  "textEncoderCollision": true,
+  "mathematicalU64MaxLosesOneOnNativeNumericParse": true
+}

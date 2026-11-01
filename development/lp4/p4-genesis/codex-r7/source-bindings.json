@@ -1,0 +1,12 @@
+{
+  "base": "7f898bea6f9c9f90132359f9ca551d448a7c6542",
+  "files": {
+    ".github/workflows/lp4-execution-controls.yml": "7c6b2ca0d1ac1fa6d6131a2059e32e96e52aae4d788125040f9c7c57e575b9be",
+    "prototypes/lp4-execution/src/system/issuance_tests.rs": "017e9e7778b97659b061af0136c0da0ef2ada961b10399523dc3be03c48e5da2",
+    "prototypes/lp4-execution/src/system/tests.rs": "dffce80137e87de0c35a0e104c6bbbb47d395f679d0c0e01b51c44bdb2ba74ad",
+    "prototypes/lp4-execution/tests/data/issuance-signed.json": "f6bef5032a763ec0d56640ae18e8fa0b0f83b06383ee732099fbd672bd78074e",
+    "prototypes/lp4-execution/tests/genesis_factory_mutations.py": "d33fa3528377b4e2b0a0d8c578d212170965ba6e880fb21fd472367476246160",
+    "prototypes/lp4-execution/tests/issuance_oracle.py": "7757e039ac0ca49a6c2b9de7dbd748820bca85d07ba5f8537eeee1a6c640ffd9",
+    "prototypes/lp4-execution/tests/issuance_signed_fixtures.py": "a47549ace038899d8a09bfc1505ef8debf1c6dbecc5618e63d53328bda3a2c85"
+  }
+}

@@ -1,0 +1,5 @@
+thread 'a11_deep_reorg_restores_the_oldest_detached_transaction' (24813) panicked at tests/consensus.rs:464:5:
+assertion `left == right` failed: the oldest detached block's transaction is back in the pool
+  left: []
+ right: [[2, 248, 110, 131, 11, 222, 182, 128, 132, 59, 154, 202, 0, 133, 23, 72, 118, 232, 0, 130, 82, 8, 148, 11, 246, 105, 99, 85, 133, 225, 175, 53, 116, 46, 111, 32, 215, 31, 23, 113, 210, 130, 124, 7, 128, 192, 128, 160, 1, 29, 213, 91, 30, 16, 196, 136, 158, 248, 241, 204, 85, 85, 179, 38, 239, 76, 11, 77, 211, 86, 6, 72, 207, 44, 41, 126, 72, 167, 9, 62, 160, 27, 84, 97, 160, 198, 244, 208, 243, 191, 98, 241, 58, 247, 96, 225, 244, 135, 38, 89, 3, 172, 56, 176, 187, 24, 24, 90, 15, 72, 92, 58, 160]]
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 45 filtered out; finished in 21.88s

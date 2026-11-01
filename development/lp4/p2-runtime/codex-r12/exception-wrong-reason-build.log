@@ -1,0 +1,17 @@
+   Compiling pocol-exception-wrong-reason v0.1.0 (/workspace/work/lp4/p2-registry-full/exception-control-wrong-reason)
+warning: unused variable: `e`
+  --> src/bin/cancun_control.rs:20:16
+   |
+20 |     if let Err(e)=pocol_lp4_execution::native::validate_nonce(&db,Address::from_str(tx["sender"].as_str().unwrap()).unwrap(),Some(u6...
+   |                ^ help: if this is intentional, prefix it with an underscore: `_e`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e`
+  --> src/bin/cancun_control.rs:47:45
+   |
+47 |     let r=match evm.transact(){Ok(r)=>r,Err(e)=>return json!({"error":"Transaction(LackOfFundForMaxFee { fee: 1, balance: 0 })"})};
+   |                                             ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: `pocol-exception-wrong-reason` (bin "exception-wrong-reason") generated 2 warnings (run `cargo fix --bin "exception-wrong-reason" -p pocol-exception-wrong-reason` to apply 2 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.48s

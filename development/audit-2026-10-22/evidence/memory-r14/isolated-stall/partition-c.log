@@ -1,0 +1,52 @@
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 15663734] opened: head h=16 records=24
+[c 15668770] lock h=17 a=0 FB tid=0xf57bbdbebc
+[c 15668856] range exhausted; idle until next template
+[c 15708008] attempt 0 expired; advancing
+[c 15708015] lock h=17 a=1 FB tid=0x12e653021d
+[c 15708065] head h=17 0x9e51eb71a541 signed=false txs=0
+[c 15713112] lock h=18 a=0 FB tid=0x4f564de97b
+[c 15713241] head h=18 0xa7d79feea748 signed=false txs=0
+[c 15713252] lock h=19 a=0 PROP tid=0xbc5c89dab2
+[c 15713359] head h=19 0xad1b721b12aa signed=true txs=0
+[c 15714024] lock h=20 a=0 PROP tid=0x0e06e3ed4e
+[c 15714039] head h=20 0xfde3076a1680 signed=true txs=0
+[c 15715028] lock h=21 a=0 PROP tid=0x95c5a75639
+[c 15715046] head h=21 0x77f71315536c signed=true txs=0
+[c 15716031] lock h=22 a=0 PROP tid=0x5c00a6bfe5
+[c 15716049] head h=22 0x6147619d0908 signed=true txs=0
+[c 15717040] lock h=23 a=0 PROP tid=0x1fc7906281
+[c 15717062] head h=23 0x46fc2d7e16cd signed=true txs=0
+[c 15718040] lock h=24 a=0 PROP tid=0xf5e0121546
+[c 15718058] head h=24 0x41c5be40c3d7 signed=true txs=0
+[c 15719042] lock h=25 a=0 PROP tid=0x7a9cd38a65
+[c 15719052] head h=25 0xe97901b6e035 signed=true txs=0
+[c 15720046] lock h=26 a=0 PROP tid=0x8730d1d7f0
+[c 15720071] head h=26 0xf29e316f804c signed=true txs=0
+[c 15721055] lock h=27 a=0 PROP tid=0xe860c258d3
+[c 15721068] head h=27 0xfffb7e3f2851 signed=true txs=0
+[c 15722058] lock h=28 a=0 PROP tid=0x6ac21232ad
+[c 15722071] head h=28 0x76f18e159d83 signed=true txs=0
+[c 15723011] lock h=29 a=0 PROP tid=0xf30e1caa01
+[c 15723033] head h=29 0x8b2ccdb52e55 signed=true txs=0
+[c 15724025] lock h=30 a=0 PROP tid=0x9c34df31cd
+[c 15724045] head h=30 0x98a8855f7a14 signed=true txs=0
+[c 15725026] lock h=31 a=0 PROP tid=0x55065e4248
+[c 15725045] range exhausted; idle until next template
+[c 15771025] attempt 0 expired; advancing
+[c 15771032] lock h=31 a=1 FB tid=0x1cf852a65d
+[c 15771052] head h=31 0x0ed0773866ee signed=false txs=0
+[c 15771062] lock h=32 a=0 PROP tid=0x3d2d789cf1
+[c 15771085] head h=32 0x9afdf3291ac7 signed=true txs=0
+[c 15772041] lock h=33 a=0 PROP tid=0x0af7f090ae
+[c 15772055] head h=33 0x44a899ea2f73 signed=true txs=0
+[c 15773042] lock h=34 a=0 PROP tid=0x8ee3cc585d
+[c 15773052] head h=34 0x510668e6d746 signed=true txs=0
+[c 15774049] lock h=35 a=0 PROP tid=0x18ef60068a
+[c 15774064] head h=35 0xd21555e73086 signed=true txs=0
+[c 15775050] lock h=36 a=0 PROP tid=0x76e60382e2
+[c 15775066] head h=36 0xc83153e5b7a7 signed=true txs=0
+[c 15776059] lock h=37 a=0 PROP tid=0x4ba23fc060
+[c 15776070] head h=37 0xedb83e423bda signed=true txs=0
+[c 15777009] lock h=38 a=0 PROP tid=0x954ec21dad
+[c 15777014] range exhausted; idle until next template

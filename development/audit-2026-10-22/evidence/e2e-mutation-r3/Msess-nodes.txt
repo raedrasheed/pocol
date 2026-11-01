@@ -1,0 +1,192 @@
+== a.log (last 60 of 65 lines)
+[a 12643052] head h=2 0x6bdc080f0468 signed=false txs=0
+[a 12643055] lock h=3 a=0 PROP tid=0x54e8111490
+[a 12643058] head h=3 0x71468e5a6e6d signed=true txs=0
+[a 12644049] lock h=4 a=0 PROP tid=0x0a7b50e4ef
+[a 12644058] head h=4 0x3312aef3a6f2 signed=true txs=0
+[a 12645053] lock h=5 a=0 PROP tid=0xecf9e960dc
+[a 12645061] head h=5 0x66b59d5ff074 signed=true txs=0
+[a 12650069] lock h=6 a=0 FB tid=0x3dc1728989
+[a 12650073] head h=6 0xf26020289fb4 signed=false txs=0
+[a 12650093] head h=7 0x741b76646c43 signed=true txs=0
+[a 12651022] lock h=8 a=0 PROP tid=0x97c705c1c4
+[a 12651028] head h=8 0xb4ba4519e583 signed=true txs=0
+[a 12652028] lock h=9 a=0 PROP tid=0x1440bf906e
+[a 12652032] head h=9 0x74d963256bad signed=true txs=0
+[a 12653029] lock h=10 a=0 PROP tid=0x928c113dfd
+[a 12653034] head h=10 0x599d0994eeb7 signed=true txs=0
+[a 12654043] head h=11 0x301187b4a1e3 signed=true txs=0
+[a 12655038] lock h=12 a=0 PROP tid=0xc7fcdd49b2
+[a 12655044] head h=12 0x73b2ea2e98dd signed=true txs=0
+[a 12656049] head h=13 0x8a1ed41d7380 signed=true txs=0
+[a 12657042] lock h=14 a=0 PROP tid=0xc8e26c0920
+[a 12657048] head h=14 0x39472a8790ec signed=true txs=0
+[a 12658055] head h=15 0xb2c081de30c8 signed=true txs=0
+[a 12659049] lock h=16 a=0 PROP tid=0xbf986c42cb
+[a 12659055] head h=16 0x41faf56de919 signed=true txs=0
+[a 12660059] lock h=17 a=0 PROP tid=0x3010cf7cd5
+[a 12660072] head h=17 0x55f1478b103b signed=true txs=5
+[a 12661050] head h=18 0x51ab72c6d4e8 signed=true txs=0
+[a 12661290] peer evil: wrong network; closing
+[a 12662034] lock h=19 a=0 PROP tid=0xadc80f9fda
+[a 12662043] head h=19 0xfc80691155e3 signed=true txs=0
+[a 12663046] head h=20 0xc0aa8df641b5 signed=true txs=0
+[a 12663297] reject 0x40de874287fc: 3 template signature
+[a 12664040] lock h=21 a=0 PROP tid=0xcc00e706c3
+[a 12664049] head h=21 0x28a0a32f682e signed=true txs=0
+[a 12665040] lock h=22 a=0 PROP tid=0x5a45254352
+[a 12665054] head h=22 0x5589155f8acb signed=true txs=0
+[a 12666046] lock h=23 a=0 PROP tid=0x0229797c4c
+[a 12666057] head h=23 0x837a3e846fde signed=true txs=0
+[a 12667060] head h=24 0x8b55a4c494b2 signed=true txs=0
+[a 12668051] lock h=25 a=0 PROP tid=0xa9ebb9705b
+[a 12668056] head h=25 0xb4145e37b39f signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[a 12668592] opened: head h=25 records=38
+[a 12669066] head h=26 0x114696a0c7b8 signed=true txs=0
+[a 12674112] lock h=27 a=0 FB tid=0x9abfad3c96
+[a 12716008] attempt 0 expired; advancing
+[a 12716012] lock h=27 a=1 FB tid=0xcf0305afc2
+[a 12757010] attempt 1 expired; advancing
+[a 12757012] lock h=27 a=2 FB tid=0xd9cd1a3161
+[a 12797712] TrieRebuild for a fork below the K_hist window
+[a 12797719] TrieRebuild for a fork below the K_hist window
+[a 12797729] TrieRebuild for a fork below the K_hist window
+[a 12797742] TrieRebuild for a fork below the K_hist window
+[a 12797755] TrieRebuild for a fork below the K_hist window
+[a 12797769] TrieRebuild for a fork below the K_hist window
+[a 12798044] attempt 2 expired; advancing
+[a 12798047] lock h=27 a=3 FB tid=0xa67a345ff5
+[a 12800283] TrieRebuild for a fork below the K_hist window
+[a 12800340] head h=28 0x3adff08da2f8 signed=true txs=0
+== b.log (last 60 of 70 lines)
+[b 12645050] lock h=5 a=0 PROP tid=0xecf9e960dc
+[b 12645058] head h=5 0xd452bc732b9c signed=true txs=0
+[b 12650065] lock h=6 a=0 FB tid=0x162c0bd0d2
+[b 12650076] head h=6 0xdcbb1e135ab2 signed=false txs=0
+[b 12650078] lock h=7 a=0 PROP tid=0xe91e4256c8
+[b 12650085] head h=7 0x741b76646c43 signed=true txs=0
+[b 12651019] lock h=8 a=0 PROP tid=0x97c705c1c4
+[b 12651024] head h=8 0xb4ba4519e583 signed=true txs=0
+[b 12652024] lock h=9 a=0 PROP tid=0x1440bf906e
+[b 12652029] head h=9 0x74d963256bad signed=true txs=0
+[b 12653026] lock h=10 a=0 PROP tid=0x928c113dfd
+[b 12653032] head h=10 0xd6b727528191 signed=true txs=0
+[b 12654030] lock h=11 a=0 PROP tid=0xfe6373d623
+[b 12654037] head h=11 0x301187b4a1e3 signed=true txs=0
+[b 12655033] lock h=12 a=0 PROP tid=0xc7fcdd49b2
+[b 12655045] head h=12 0xb8514ac73717 signed=true txs=0
+[b 12656036] lock h=13 a=0 PROP tid=0x029054aebc
+[b 12656042] head h=13 0x8a1ed41d7380 signed=true txs=0
+[b 12657039] lock h=14 a=0 PROP tid=0xc8e26c0920
+[b 12657044] head h=14 0x107c422dc8f8 signed=true txs=0
+[b 12658042] lock h=15 a=0 PROP tid=0x65a59984ec
+[b 12658049] head h=15 0xb2c081de30c8 signed=true txs=0
+[b 12659046] lock h=16 a=0 PROP tid=0xbf986c42cb
+[b 12659051] head h=16 0x41faf56de919 signed=true txs=0
+[b 12660053] lock h=17 a=0 PROP tid=0x3010cf7cd5
+[b 12660076] head h=17 0xdab08f6afadd signed=true txs=5
+[b 12661029] lock h=18 a=0 PROP tid=0xac5b2562c9
+[b 12661042] head h=18 0x51ab72c6d4e8 signed=true txs=0
+[b 12662030] lock h=19 a=0 PROP tid=0xadc80f9fda
+[b 12662040] head h=19 0x0cd9a5a2864c signed=true txs=0
+[b 12663033] lock h=20 a=0 PROP tid=0xc6f6d5f2fe
+[b 12663040] head h=20 0xc0aa8df641b5 signed=true txs=0
+[b 12664036] lock h=21 a=0 PROP tid=0xcc00e706c3
+[b 12664046] head h=21 0x39db7c6c2e85 signed=true txs=0
+[b 12665039] lock h=22 a=0 PROP tid=0xf6b4fdddb2
+[b 12665049] head h=22 0x5589155f8acb signed=true txs=0
+[b 12666042] lock h=23 a=0 PROP tid=0x0229797c4c
+[b 12666054] head h=23 0xc3fa8c9f527a signed=true txs=0
+[b 12667045] lock h=24 a=0 PROP tid=0x596ca80d0e
+[b 12667053] head h=24 0x8b55a4c494b2 signed=true txs=0
+[b 12668048] lock h=25 a=0 PROP tid=0xa9ebb9705b
+[b 12668055] head h=25 0x103bce03cd98 signed=true txs=0
+[b 12669053] lock h=26 a=0 PROP tid=0x730896eec4
+[b 12669060] head h=26 0x114696a0c7b8 signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[b 12669580] opened: head h=26 records=39
+[b 12674597] lock h=27 a=0 FB tid=0x9abfad3c96
+[b 12716029] attempt 0 expired; advancing
+[b 12716031] lock h=27 a=1 FB tid=0xcf0305afc2
+[b 12757019] attempt 1 expired; advancing
+[b 12757022] lock h=27 a=2 FB tid=0xd9cd1a3161
+[b 12797719] TrieRebuild for a fork below the K_hist window
+[b 12797729] TrieRebuild for a fork below the K_hist window
+[b 12797742] TrieRebuild for a fork below the K_hist window
+[b 12797755] TrieRebuild for a fork below the K_hist window
+[b 12797770] TrieRebuild for a fork below the K_hist window
+[b 12797786] TrieRebuild for a fork below the K_hist window
+[b 12798007] attempt 2 expired; advancing
+[b 12798010] lock h=27 a=3 FB tid=0xa67a345ff5
+[b 12800340] TrieRebuild for a fork below the K_hist window
+== c.log (last 60 of 66 lines)
+[c 12658309] head h=5 0xd452bc732b9c signed=true txs=0
+[c 12658312] head h=6 0xdcbb1e135ab2 signed=false txs=0
+[c 12658316] head h=7 0x741b76646c43 signed=true txs=0
+[c 12658320] head h=8 0xb4ba4519e583 signed=true txs=0
+[c 12658323] head h=9 0x74d963256bad signed=true txs=0
+[c 12658326] head h=10 0xd6b727528191 signed=true txs=0
+[c 12658330] head h=11 0x301187b4a1e3 signed=true txs=0
+[c 12658333] head h=12 0xb8514ac73717 signed=true txs=0
+[c 12658337] head h=13 0x8a1ed41d7380 signed=true txs=0
+[c 12658341] head h=14 0x107c422dc8f8 signed=true txs=0
+[c 12658344] head h=15 0xb2c081de30c8 signed=true txs=0
+[c 12659050] lock h=16 a=0 PROP tid=0xbf986c42cb
+[c 12659054] head h=16 0xa9ac7f861b85 signed=true txs=0
+[c 12660080] head h=17 0x55f1478b103b signed=true txs=5
+[c 12661049] head h=18 0x51ab72c6d4e8 signed=true txs=0
+[c 12662034] lock h=19 a=0 PROP tid=0xadc80f9fda
+[c 12662042] head h=19 0xc26925b57427 signed=true txs=0
+[c 12663047] head h=20 0xc0aa8df641b5 signed=true txs=0
+[c 12664040] lock h=21 a=0 PROP tid=0xcc00e706c3
+[c 12664044] head h=21 0x28a0a32f682e signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 12664459] opened: head h=21 records=26
+[c 12669478] lock h=22 a=0 FB tid=0xca628280a2
+[c 12711013] attempt 0 expired; advancing
+[c 12711019] lock h=22 a=1 FB tid=0xcfdf8e9386
+[c 12752049] attempt 1 expired; advancing
+[c 12752053] lock h=22 a=2 FB tid=0xafdd94a557
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 12784144] opened: head h=21 records=26
+[c 12784195] attempt 0 expired; advancing
+[c 12784197] lock h=22 a=1 FB tid=0xcfdf8e9386
+[c 12784212] head h=22 0x54ab9eea6429 signed=false txs=0
+[c 12784245] attempt 0 expired; advancing
+[c 12784248] lock h=23 a=1 FB tid=0xf87952a28d
+[c 12784252] head h=23 0x6e79aa96577a signed=false txs=0
+[c 12789263] lock h=24 a=0 FB tid=0xede1b35cbf
+[c 12789267] head h=24 0x98690bfbdab6 signed=false txs=0
+[c 12794285] lock h=25 a=0 FB tid=0x6c1a7a2da0
+[c 12794290] head h=25 0x3bb7e0f97da9 signed=false txs=0
+[c 12794292] lock h=26 a=0 PROP tid=0xd46817742b
+[c 12794300] head h=26 0xf1ce4e1af2e3 signed=true txs=0
+[c 12795041] lock h=27 a=0 PROP tid=0x0c70e050a2
+[c 12795046] head h=27 0x1af460a08aa9 signed=true txs=0
+[c 12796045] lock h=28 a=0 PROP tid=0xdf5901a994
+[c 12796051] head h=28 0x3adff08da2f8 signed=true txs=0
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 12796334] opened: head h=28 records=33
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[c 12796807] opened: head h=28 records=33
+[c 12796818] head h=22 0x5589155f8acb signed=true txs=0
+[c 12796824] head h=23 0xc3fa8c9f527a signed=true txs=0
+[c 12796830] head h=24 0x8b55a4c494b2 signed=true txs=0
+[c 12796834] head h=25 0x103bce03cd98 signed=true txs=0
+[c 12796838] head h=26 0x114696a0c7b8 signed=true txs=0
+[c 12796858] attempt 0 expired; advancing
+[c 12796860] lock h=27 a=1 FB tid=0xcf0305afc2
+[c 12796908] attempt 1 expired; advancing
+[c 12796911] lock h=27 a=2 FB tid=0xd9cd1a3161
+[c 12798011] attempt 2 expired; advancing
+[c 12798015] lock h=27 a=3 FB tid=0xa67a345ff5
+== d.log (last 60 of 8 lines)
+pocold: experimental-devnet admission, not specification compliance (7 conditions; see status "admission")
+[d 12797335] opened: head h=28 records=33
+[d 12797688] head h=23 0xc3fa8c9f527a signed=true txs=0
+[d 12797692] head h=24 0x8b55a4c494b2 signed=true txs=0
+[d 12797695] head h=25 0x103bce03cd98 signed=true txs=0
+[d 12797698] head h=26 0x114696a0c7b8 signed=true txs=0
+[d 12797699] attempt 0 expired; advancing
+[d 12797701] lock h=27 a=1 FB tid=0xcf0305afc2

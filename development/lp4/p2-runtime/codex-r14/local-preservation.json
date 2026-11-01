@@ -1,0 +1,7 @@
+{
+  "path": "/workspace/work/lp4/p2-registry-full/preserved-evidence/r14-complete-local-preservation.tar.gz",
+  "bytes": 3382885,
+  "sha256": "bb227a8a6fbbaabb1c283b24eda4325a1375515b649ee14c16fb7c47226bfba3",
+  "verifiedMembers": 86,
+  "scope": "Local-only complete new engine receipts/attempts/overlays/source. No new raw archive upload or route substitution; public equivalence certificates bind verified prior published outputs."
+}

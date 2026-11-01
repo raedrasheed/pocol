@@ -1,0 +1,11 @@
+{
+  "testedCommit": "2a04902869247eba1b7101c6b4b14e8b97a953e8",
+  "sha256": {
+    "prototypes/lp1-node/src/param_gate.rs": "727cbf3cd499d06b983ff551319bf16f9de4e6c5f1d0df8b08c95d1676f46f30",
+    "prototypes/lp1-node/src/lib.rs": "c0a5e14c4d3e5754be86a7dd4e0366ec581804693cf1c613374969f51237ffb2",
+    "prototypes/lp1-node/tests/param_gate.rs": "25c5e69b3174f8311dd0fc924eae612519abc60420b20c46fdc3a0df5e3bb02f",
+    "development/lp3/s5-paramgate/codex-r1/oracle.py": "896981ebdd95ca671b0727641d57713468956ed23540f9a02d5c298af414b4aa",
+    "development/lp3/s5-paramgate/codex-r1/probe.rs": "9f627cdc6e02ff1a63980a5493f5c4b5dc856ba723c451481b89ee912ad333af",
+    "development/lp3/s5-paramgate/codex-r1/verify.py": "60547ed7513b49fc2c7e4089ff8a5d88101451d3408db1f7aca98951df51611b"
+  }
+}

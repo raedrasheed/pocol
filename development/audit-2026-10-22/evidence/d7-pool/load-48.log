@@ -1,0 +1,4 @@
+run load-48 k=48 busyLoops=3  19:36:41 up 11 min,  0 user,  load average: 1.12, 0.88, 0.40
+D7-MEASURE {"sliced":{"importMs":164.615938,"maxTxMs":233.603891,"poolTxs":48,"restMs":7642.964869,"sliceMaxMs":214.36856400000002,"sliceMs":50,"slicesAfterImport":47},"whole":{"importMs":7930.3517870000005,"maxTxMs":211.686823,"poolTxs":48,"restMs":0.000044,"sliceMaxMs":0.0,"sliceMs":3600000,"slicesAfterImport":0}}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 31.86s
+end  19:37:13 up 12 min,  0 user,  load average: 2.26, 1.18, 0.52

@@ -1,0 +1,636 @@
+{
+  "run": {
+    "id": 39064768819,
+    "name": "LP4 execution controls",
+    "node_id": "WFR_kwLOUrz2Sc8AAAAJGHERMw",
+    "head_branch": "codex-lp4-p2-runtime",
+    "head_sha": "b76729bfd91b253f96346cb5f6fe56b537ef24e0",
+    "path": ".github/workflows/lp4-execution-controls.yml",
+    "display_title": "LP4 P2: Registry payment implementation and approved 10/2/10 bounds (acceptance incomplete)",
+    "run_number": 9,
+    "event": "pull_request",
+    "status": "completed",
+    "conclusion": "success",
+    "workflow_id": 387799828,
+    "check_suite_id": 105866731893,
+    "check_suite_node_id": "CS_kwDOUrz2Sc8AAAAYpiYhdQ",
+    "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819",
+    "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819",
+    "pull_requests": [
+      {
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/pulls/24",
+        "id": 4901676276,
+        "number": 24,
+        "head": {
+          "ref": "codex-lp4-p2-runtime",
+          "sha": "b76729bfd91b253f96346cb5f6fe56b537ef24e0",
+          "repo": {
+            "id": 1388115529,
+            "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration",
+            "name": "Proof-of-Collaboration"
+          }
+        },
+        "base": {
+          "ref": "work/lp3-consensus-foundation",
+          "sha": "c0ef36c68fb83f9474de7e70fe61973b466647a8",
+          "repo": {
+            "id": 1388115529,
+            "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration",
+            "name": "Proof-of-Collaboration"
+          }
+        }
+      }
+    ],
+    "created_at": "2026-10-17T19:59:00Z",
+    "updated_at": "2026-10-17T20:06:46Z",
+    "actor": {
+      "login": "raedrasheed",
+      "id": 36733882,
+      "node_id": "MDQ6VXNlcjM2NzMzODgy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/36733882?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/raedrasheed",
+      "html_url": "https://github.com/raedrasheed",
+      "followers_url": "https://api.github.com/users/raedrasheed/followers",
+      "following_url": "https://api.github.com/users/raedrasheed/following{/other_user}",
+      "gists_url": "https://api.github.com/users/raedrasheed/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/raedrasheed/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/raedrasheed/subscriptions",
+      "organizations_url": "https://api.github.com/users/raedrasheed/orgs",
+      "repos_url": "https://api.github.com/users/raedrasheed/repos",
+      "events_url": "https://api.github.com/users/raedrasheed/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/raedrasheed/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "run_attempt": 1,
+    "referenced_workflows": [],
+    "run_started_at": "2026-10-17T19:59:00Z",
+    "triggering_actor": {
+      "login": "raedrasheed",
+      "id": 36733882,
+      "node_id": "MDQ6VXNlcjM2NzMzODgy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/36733882?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/raedrasheed",
+      "html_url": "https://github.com/raedrasheed",
+      "followers_url": "https://api.github.com/users/raedrasheed/followers",
+      "following_url": "https://api.github.com/users/raedrasheed/following{/other_user}",
+      "gists_url": "https://api.github.com/users/raedrasheed/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/raedrasheed/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/raedrasheed/subscriptions",
+      "organizations_url": "https://api.github.com/users/raedrasheed/orgs",
+      "repos_url": "https://api.github.com/users/raedrasheed/repos",
+      "events_url": "https://api.github.com/users/raedrasheed/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/raedrasheed/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "jobs_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819/jobs",
+    "logs_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819/logs",
+    "check_suite_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/check-suites/105866731893",
+    "artifacts_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819/artifacts",
+    "cancel_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819/cancel",
+    "rerun_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819/rerun",
+    "previous_attempt_url": null,
+    "workflow_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/workflows/387799828",
+    "head_commit": {
+      "id": "b76729bfd91b253f96346cb5f6fe56b537ef24e0",
+      "tree_id": "474a5fd21cce4bcc83f6e8ea13581147a9d3ff7f",
+      "message": "Use supported workspace context for isolated CI Cargo home",
+      "timestamp": "2026-10-17T19:58:49Z",
+      "author": {
+        "name": "Raed S. Rasheed",
+        "email": "36733882+raedrasheed@users.noreply.github.com"
+      },
+      "committer": {
+        "name": "Raed S. Rasheed",
+        "email": "36733882+raedrasheed@users.noreply.github.com"
+      }
+    },
+    "repository": {
+      "id": 1388115529,
+      "node_id": "R_kgDOUrz2SQ",
+      "name": "Proof-of-Collaboration",
+      "full_name": "raedrasheed/Proof-of-Collaboration",
+      "private": false,
+      "owner": {
+        "login": "raedrasheed",
+        "id": 36733882,
+        "node_id": "MDQ6VXNlcjM2NzMzODgy",
+        "avatar_url": "https://avatars.githubusercontent.com/u/36733882?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/raedrasheed",
+        "html_url": "https://github.com/raedrasheed",
+        "followers_url": "https://api.github.com/users/raedrasheed/followers",
+        "following_url": "https://api.github.com/users/raedrasheed/following{/other_user}",
+        "gists_url": "https://api.github.com/users/raedrasheed/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/raedrasheed/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/raedrasheed/subscriptions",
+        "organizations_url": "https://api.github.com/users/raedrasheed/orgs",
+        "repos_url": "https://api.github.com/users/raedrasheed/repos",
+        "events_url": "https://api.github.com/users/raedrasheed/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/raedrasheed/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration",
+      "description": null,
+      "fork": false,
+      "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration",
+      "forks_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/forks",
+      "keys_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/keys{/key_id}",
+      "collaborators_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/collaborators{/collaborator}",
+      "teams_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/teams",
+      "hooks_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/hooks",
+      "issue_events_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/issues/events{/number}",
+      "events_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/events",
+      "assignees_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/assignees{/user}",
+      "branches_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/branches{/branch}",
+      "tags_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/tags",
+      "blobs_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/blobs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/tags{/sha}",
+      "git_refs_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/refs{/sha}",
+      "trees_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/trees{/sha}",
+      "statuses_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/statuses/{sha}",
+      "languages_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/languages",
+      "stargazers_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/stargazers",
+      "contributors_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/contributors",
+      "subscribers_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/subscribers",
+      "subscription_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/subscription",
+      "commits_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/commits{/sha}",
+      "git_commits_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/commits{/sha}",
+      "comments_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/comments{/number}",
+      "issue_comment_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/issues/comments{/number}",
+      "contents_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/contents/{+path}",
+      "compare_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/compare/{base}...{head}",
+      "merges_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/merges",
+      "archive_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/{archive_format}{/ref}",
+      "downloads_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/downloads",
+      "issues_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/issues{/number}",
+      "pulls_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/pulls{/number}",
+      "milestones_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/notifications{?since,all,participating}",
+      "labels_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/labels{/name}",
+      "releases_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/releases{/id}",
+      "deployments_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/deployments"
+    },
+    "head_repository": {
+      "id": 1388115529,
+      "node_id": "R_kgDOUrz2SQ",
+      "name": "Proof-of-Collaboration",
+      "full_name": "raedrasheed/Proof-of-Collaboration",
+      "private": false,
+      "owner": {
+        "login": "raedrasheed",
+        "id": 36733882,
+        "node_id": "MDQ6VXNlcjM2NzMzODgy",
+        "avatar_url": "https://avatars.githubusercontent.com/u/36733882?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/raedrasheed",
+        "html_url": "https://github.com/raedrasheed",
+        "followers_url": "https://api.github.com/users/raedrasheed/followers",
+        "following_url": "https://api.github.com/users/raedrasheed/following{/other_user}",
+        "gists_url": "https://api.github.com/users/raedrasheed/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/raedrasheed/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/raedrasheed/subscriptions",
+        "organizations_url": "https://api.github.com/users/raedrasheed/orgs",
+        "repos_url": "https://api.github.com/users/raedrasheed/repos",
+        "events_url": "https://api.github.com/users/raedrasheed/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/raedrasheed/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration",
+      "description": null,
+      "fork": false,
+      "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration",
+      "forks_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/forks",
+      "keys_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/keys{/key_id}",
+      "collaborators_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/collaborators{/collaborator}",
+      "teams_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/teams",
+      "hooks_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/hooks",
+      "issue_events_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/issues/events{/number}",
+      "events_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/events",
+      "assignees_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/assignees{/user}",
+      "branches_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/branches{/branch}",
+      "tags_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/tags",
+      "blobs_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/blobs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/tags{/sha}",
+      "git_refs_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/refs{/sha}",
+      "trees_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/trees{/sha}",
+      "statuses_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/statuses/{sha}",
+      "languages_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/languages",
+      "stargazers_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/stargazers",
+      "contributors_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/contributors",
+      "subscribers_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/subscribers",
+      "subscription_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/subscription",
+      "commits_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/commits{/sha}",
+      "git_commits_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/git/commits{/sha}",
+      "comments_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/comments{/number}",
+      "issue_comment_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/issues/comments{/number}",
+      "contents_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/contents/{+path}",
+      "compare_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/compare/{base}...{head}",
+      "merges_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/merges",
+      "archive_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/{archive_format}{/ref}",
+      "downloads_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/downloads",
+      "issues_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/issues{/number}",
+      "pulls_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/pulls{/number}",
+      "milestones_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/notifications{?since,all,participating}",
+      "labels_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/labels{/name}",
+      "releases_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/releases{/id}",
+      "deployments_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/deployments"
+    }
+  },
+  "jobs": {
+    "total_count": 3,
+    "jobs": [
+      {
+        "id": 117489995965,
+        "run_id": 39064768819,
+        "workflow_name": "LP4 execution controls",
+        "head_branch": "codex-lp4-p2-runtime",
+        "run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOUrz2Sc8AAAAbWvMQvQ",
+        "head_sha": "b76729bfd91b253f96346cb5f6fe56b537ef24e0",
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/jobs/117489995965",
+        "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819/job/117489995965",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:59:00Z",
+        "started_at": "2026-10-17T19:59:03Z",
+        "completed_at": "2026-10-17T20:00:34Z",
+        "name": "registry-windows-execution",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-17T19:59:04Z",
+            "completed_at": "2026-10-17T19:59:05Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-17T19:59:05Z",
+            "completed_at": "2026-10-17T19:59:13Z"
+          },
+          {
+            "name": "Actual pinned native execution on Windows",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-17T19:59:13Z",
+            "completed_at": "2026-10-17T20:00:28Z"
+          },
+          {
+            "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-17T20:00:28Z",
+            "completed_at": "2026-10-17T20:00:30Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-17T20:00:30Z",
+            "completed_at": "2026-10-17T20:00:32Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-17T20:00:32Z",
+            "completed_at": "2026-10-17T20:00:32Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/check-runs/117489995965",
+        "labels": [
+          "windows-2022"
+        ],
+        "runner_id": 1000001930,
+        "runner_name": "GitHub Actions 1000001930",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 117489996135,
+        "run_id": 39064768819,
+        "workflow_name": "LP4 execution controls",
+        "head_branch": "codex-lp4-p2-runtime",
+        "run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOUrz2Sc8AAAAbWvMRZw",
+        "head_sha": "b76729bfd91b253f96346cb5f6fe56b537ef24e0",
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/jobs/117489996135",
+        "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819/job/117489996135",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:59:00Z",
+        "started_at": "2026-10-17T19:59:02Z",
+        "completed_at": "2026-10-17T20:06:07Z",
+        "name": "cancun-pay-controls",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-17T19:59:03Z",
+            "completed_at": "2026-10-17T19:59:04Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-17T19:59:04Z",
+            "completed_at": "2026-10-17T19:59:06Z"
+          },
+          {
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-17T19:59:06Z",
+            "completed_at": "2026-10-17T19:59:06Z"
+          },
+          {
+            "name": "Install pinned experimental toolchain and comparison tools",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-17T19:59:06Z",
+            "completed_at": "2026-10-17T19:59:22Z"
+          },
+          {
+            "name": "Verify locked source archives and prepare default-runtime notices",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-17T19:59:22Z",
+            "completed_at": "2026-10-17T19:59:26Z"
+          },
+          {
+            "name": "Reproduce compiler output and run actual Rust execution tests",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-17T19:59:26Z",
+            "completed_at": "2026-10-17T19:59:58Z"
+          },
+          {
+            "name": "Compile PAY mutation controls",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-17T19:59:58Z",
+            "completed_at": "2026-10-17T20:00:38Z"
+          },
+          {
+            "name": "Compile approved CREATE collision mutation controls",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-17T20:00:38Z",
+            "completed_at": "2026-10-17T20:00:55Z"
+          },
+          {
+            "name": "Compile write-budget contradiction controls (not Registry acceptance)",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-17T20:00:55Z",
+            "completed_at": "2026-10-17T20:01:04Z"
+          },
+          {
+            "name": "Compile actual Registry and bridge mutation controls",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-17T20:01:04Z",
+            "completed_at": "2026-10-17T20:02:04Z"
+          },
+          {
+            "name": "Complete pinned upstream Cancun control corpus",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-17T20:02:04Z",
+            "completed_at": "2026-10-17T20:06:03Z"
+          },
+          {
+            "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-17T20:06:03Z",
+            "completed_at": "2026-10-17T20:06:04Z"
+          },
+          {
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 23,
+            "started_at": "2026-10-17T20:06:04Z",
+            "completed_at": "2026-10-17T20:06:05Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 24,
+            "started_at": "2026-10-17T20:06:05Z",
+            "completed_at": "2026-10-17T20:06:05Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 25,
+            "started_at": "2026-10-17T20:06:05Z",
+            "completed_at": "2026-10-17T20:06:05Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/check-runs/117489996135",
+        "labels": [
+          "ubuntu-24.04"
+        ],
+        "runner_id": 1000001931,
+        "runner_name": "GitHub Actions 1000001931",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      },
+      {
+        "id": 117489996157,
+        "run_id": 39064768819,
+        "workflow_name": "LP4 execution controls",
+        "head_branch": "codex-lp4-p2-runtime",
+        "run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOUrz2Sc8AAAAbWvMRfQ",
+        "head_sha": "b76729bfd91b253f96346cb5f6fe56b537ef24e0",
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/jobs/117489996157",
+        "html_url": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39064768819/job/117489996157",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-17T19:59:00Z",
+        "started_at": "2026-10-17T19:59:02Z",
+        "completed_at": "2026-10-17T20:06:45Z",
+        "name": "legacy-windows-regression",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-17T19:59:03Z",
+            "completed_at": "2026-10-17T19:59:04Z"
+          },
+          {
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-17T19:59:04Z",
+            "completed_at": "2026-10-17T19:59:11Z"
+          },
+          {
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-17T19:59:11Z",
+            "completed_at": "2026-10-17T19:59:12Z"
+          },
+          {
+            "name": "Preserved full legacy Windows verification",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-17T19:59:12Z",
+            "completed_at": "2026-10-17T20:06:41Z"
+          },
+          {
+            "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-17T20:06:41Z",
+            "completed_at": "2026-10-17T20:06:42Z"
+          },
+          {
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-17T20:06:42Z",
+            "completed_at": "2026-10-17T20:06:42Z"
+          },
+          {
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-17T20:06:42Z",
+            "completed_at": "2026-10-17T20:06:44Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11,
+            "started_at": "2026-10-17T20:06:44Z",
+            "completed_at": "2026-10-17T20:06:44Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/check-runs/117489996157",
+        "labels": [
+          "windows-2022"
+        ],
+        "runner_id": 1000001932,
+        "runner_name": "GitHub Actions 1000001932",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions"
+      }
+    ]
+  },
+  "artifacts": {
+    "total_count": 3,
+    "artifacts": [
+      {
+        "id": 12113236432,
+        "node_id": "MDg6QXJ0aWZhY3QxMjExMzIzNjQzMg==",
+        "name": "lp4-p2-controls",
+        "size_in_bytes": 1098668,
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12113236432",
+        "archive_download_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12113236432/zip",
+        "expired": false,
+        "digest": "sha256:b2c10413e252aa1e2766c4b81939284e36b5cab740079c25e344562bbcffeb22",
+        "created_at": "2026-10-17T20:06:04Z",
+        "updated_at": "2026-10-17T20:06:04Z",
+        "expires_at": "2026-10-31T20:06:04Z",
+        "workflow_run": {
+          "id": 39064768819,
+          "repository_id": 1388115529,
+          "head_repository_id": 1388115529,
+          "head_branch": "codex-lp4-p2-runtime",
+          "head_sha": "b76729bfd91b253f96346cb5f6fe56b537ef24e0"
+        }
+      },
+      {
+        "id": 12112786405,
+        "node_id": "MDg6QXJ0aWZhY3QxMjExMjc4NjQwNQ==",
+        "name": "lp4-native-windows",
+        "size_in_bytes": 4041,
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112786405",
+        "archive_download_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112786405/zip",
+        "expired": false,
+        "digest": "sha256:68b7ecf67b533efc5b88b0ca5be6a4d5eb6609ce06812e42a24bd720662e5927",
+        "created_at": "2026-10-17T20:00:30Z",
+        "updated_at": "2026-10-17T20:00:30Z",
+        "expires_at": "2026-10-31T20:00:29Z",
+        "workflow_run": {
+          "id": 39064768819,
+          "repository_id": 1388115529,
+          "head_repository_id": 1388115529,
+          "head_branch": "codex-lp4-p2-runtime",
+          "head_sha": "b76729bfd91b253f96346cb5f6fe56b537ef24e0"
+        }
+      },
+      {
+        "id": 12112708361,
+        "node_id": "MDg6QXJ0aWZhY3QxMjExMjcwODM2MQ==",
+        "name": "lp4-legacy-windows",
+        "size_in_bytes": 27093,
+        "url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112708361",
+        "archive_download_url": "https://api.github.com/repos/raedrasheed/Proof-of-Collaboration/actions/artifacts/12112708361/zip",
+        "expired": false,
+        "digest": "sha256:dee1baa4b76e5b09f508f3877a2edfe32b2fe0e0b433afe138f871d22eaa264c",
+        "created_at": "2026-10-17T20:06:41Z",
+        "updated_at": "2026-10-17T20:06:41Z",
+        "expires_at": "2026-10-31T20:06:41Z",
+        "workflow_run": {
+          "id": 39064768819,
+          "repository_id": 1388115529,
+          "head_repository_id": 1388115529,
+          "head_branch": "codex-lp4-p2-runtime",
+          "head_sha": "b76729bfd91b253f96346cb5f6fe56b537ef24e0"
+        }
+      }
+    ]
+  }
+}

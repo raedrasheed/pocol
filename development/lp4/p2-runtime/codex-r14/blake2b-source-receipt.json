@@ -1,0 +1,27 @@
+{
+  "name": "blake2b-py",
+  "version": "0.3.2",
+  "license": "MIT",
+  "repository": "https://github.com/ethereum/blake2b-py",
+  "files": [
+    {
+      "filename": "blake2b_py-0.3.2-cp312-cp312-manylinux_2_34_x86_64.whl",
+      "url": "https://files.pythonhosted.org/packages/6a/07/73c427771a2ff2823cbd494373118767c47760bce9e6046fb555ddeead37/blake2b_py-0.3.2-cp312-cp312-manylinux_2_34_x86_64.whl",
+      "size": 212363,
+      "sha256": "cf4ad9a69345091fb578acae2ba4e15cbe8de5dd56a50e46aa4c014c7a41401b"
+    },
+    {
+      "filename": "blake2b_py-0.3.2.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/62/eb/42e4ce7a7747c460ff17d7b5bbd9d5f9ecd5afa367f95d90bedb46828530/blake2b_py-0.3.2.tar.gz",
+      "size": 15256,
+      "sha256": "e325b7b60eb52ef0e6134df6e5cfc459d1daceae4adbfe77cfd3bdc9e062a258"
+    }
+  ],
+  "installedNativeModuleSHA256": "e7c945323b76fadec4aa113fcdf0cd4b276cc3a3a1d49de3ef3e181e4c5bcb6b",
+  "wheelRecordFilesVerified": 4,
+  "sourceCargoDependencies": {
+    "pyo3": "~0.23"
+  },
+  "runtimeCargoChange": false,
+  "provenanceScope": "Pinned test-only artifact/source and notice preparation; full tool/distribution provenance NOT PASSED"
+}

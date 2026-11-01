@@ -1,0 +1,4 @@
+thread 'an_invalid_template_from_the_drawn_proposer_punishes_its_peer' (4296) panicked at tests/consensus.rs:310:45:
+assertion `left == right` failed: the invalid signed template punishes its peer
+--
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 50 filtered out; finished in 0.34s

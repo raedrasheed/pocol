@@ -1,0 +1,30 @@
+[
+  {
+    "command": [
+      "python3",
+      "/workspace/pocol-review/independent_checks.py"
+    ],
+    "cwd": "/workspace",
+    "exitCode": 0,
+    "result": "independent-checks.json"
+  },
+  {
+    "command": [
+      "python3",
+      "/workspace/pocol-review/preservation.py"
+    ],
+    "cwd": "/workspace",
+    "exitCode": 0,
+    "result": "preservation.json"
+  },
+  {
+    "command": [
+      "sha256sum",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "cwd": "/workspace/Proof-of-Collaboration/development/lp3/s1-genesisspec/windows-run-37976178670",
+    "exitCode": 0,
+    "result": "windows-checksums.log"
+  }
+]

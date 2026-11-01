@@ -1,0 +1,130 @@
+[
+  {
+    "acceptedRule": false,
+    "mode": "current-native",
+    "outcome": "Success gas=4971731",
+    "size": 24576,
+    "success": true,
+    "test": "runtime-code"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "current-native",
+    "outcome": "Halt CreateContractSizeLimit gas=8000000",
+    "size": 24577,
+    "success": false,
+    "test": "runtime-code"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "current-native",
+    "outcome": "Halt CreateContractSizeLimit gas=8000000",
+    "size": 32768,
+    "success": false,
+    "test": "runtime-code"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "current-native",
+    "outcome": "Halt CreateContractSizeLimit gas=8000000",
+    "size": 32769,
+    "success": false,
+    "test": "runtime-code"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "current-native",
+    "outcome": "Success gas=252720",
+    "size": 49152,
+    "success": true,
+    "test": "initcode"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "current-native",
+    "outcome": "Transaction(CreateInitCodeSizeLimit)",
+    "size": 49153,
+    "success": false,
+    "test": "initcode"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "current-native",
+    "outcome": "Transaction(CreateInitCodeSizeLimit)",
+    "size": 65536,
+    "success": false,
+    "test": "initcode"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "current-native",
+    "outcome": "Transaction(CreateInitCodeSizeLimit)",
+    "size": 65537,
+    "success": false,
+    "test": "initcode"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "diagnostic-revm-cp-override",
+    "outcome": "Success gas=4971731",
+    "size": 24576,
+    "success": true,
+    "test": "runtime-code"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "diagnostic-revm-cp-override",
+    "outcome": "Success gas=4971949",
+    "size": 24577,
+    "success": true,
+    "test": "runtime-code"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "diagnostic-revm-cp-override",
+    "outcome": "Success gas=6611795",
+    "size": 32768,
+    "success": true,
+    "test": "runtime-code"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "diagnostic-revm-cp-override",
+    "outcome": "Halt CreateContractSizeLimit gas=8000000",
+    "size": 32769,
+    "success": false,
+    "test": "runtime-code"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "diagnostic-revm-cp-override",
+    "outcome": "Success gas=252720",
+    "size": 49152,
+    "success": true,
+    "test": "initcode"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "diagnostic-revm-cp-override",
+    "outcome": "Success gas=252726",
+    "size": 49153,
+    "success": true,
+    "test": "initcode"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "diagnostic-revm-cp-override",
+    "outcome": "Success gas=319280",
+    "size": 65536,
+    "success": true,
+    "test": "initcode"
+  },
+  {
+    "acceptedRule": false,
+    "mode": "diagnostic-revm-cp-override",
+    "outcome": "Transaction(CreateInitCodeSizeLimit)",
+    "size": 65537,
+    "success": false,
+    "test": "initcode"
+  }
+]

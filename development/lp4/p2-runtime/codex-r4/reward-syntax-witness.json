@@ -1,0 +1,73 @@
+{
+  "scope": "FORMAT ONLY; allocation/account eligibility and boot NOT PASSED",
+  "cases": [
+    {
+      "name": "zero",
+      "inputSHA256": "83c62d8610bd1ec21102c673459b88006dd28fcce3bf3b1dac19a0d170b4a3ee",
+      "exit": 0,
+      "formatResult": {
+        "line": 1,
+        "ok": true,
+        "genesisHash": "0xb6cef876604ceecc248094688fe722e1d2588c36c2b04dce4d1a47ff6b17f4c8",
+        "chainId": 777902,
+        "m0": 2,
+        "reencodeEqual": true,
+        "bootable": false
+      },
+      "allMessages": [
+        {
+          "line": 1,
+          "ok": true,
+          "genesisHash": "0xb6cef876604ceecc248094688fe722e1d2588c36c2b04dce4d1a47ff6b17f4c8",
+          "chainId": 777902,
+          "m0": 2,
+          "reencodeEqual": true,
+          "bootable": false
+        },
+        {
+          "check": "genesis-decode",
+          "inputs": 1,
+          "accepted": 1,
+          "rejected": 0,
+          "refused": 0,
+          "reencodeEqual": true,
+          "maxSpecBytes": 2818474
+        }
+      ]
+    },
+    {
+      "name": "not-proven-present",
+      "inputSHA256": "dea12d152b9820bf343238ad78bf9ce170f0646559ef86fa843daa81fb9330a5",
+      "exit": 0,
+      "formatResult": {
+        "line": 1,
+        "ok": true,
+        "genesisHash": "0xa814a70f1a22211a43ee1d0c2b62cf2e5e8cff872961f39dadbd3b6a88481fc6",
+        "chainId": 777902,
+        "m0": 2,
+        "reencodeEqual": true,
+        "bootable": false
+      },
+      "allMessages": [
+        {
+          "line": 1,
+          "ok": true,
+          "genesisHash": "0xa814a70f1a22211a43ee1d0c2b62cf2e5e8cff872961f39dadbd3b6a88481fc6",
+          "chainId": 777902,
+          "m0": 2,
+          "reencodeEqual": true,
+          "bootable": false
+        },
+        {
+          "check": "genesis-decode",
+          "inputs": 1,
+          "accepted": 1,
+          "rejected": 0,
+          "refused": 0,
+          "reencodeEqual": true,
+          "maxSpecBytes": 2818474
+        }
+      ]
+    }
+  ]
+}

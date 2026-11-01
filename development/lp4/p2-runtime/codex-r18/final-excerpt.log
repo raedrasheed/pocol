@@ -1,0 +1,5 @@
+2026-10-20T08:38:44.4896846Z PASS 20 actual engine/adaptor acceptance, equality and negative checks; signed-wire proof NOT PASSED
+2026-10-20T08:38:50.3622404Z PASS 8 comparator mutations rejected by boundary assertions; native compiled-control evidence separate
+2026-10-20T08:38:51.1054533Z PASS 160 independent native/pure-Python Blake2 comparisons; zero/1/10/12 rounds, modulo schedule, counters and final flags; full P2 NOT PASSED
+2026-10-20T09:29:05.3546744Z {'scope': 'Independent py-evm fixture state/log comparison only; no PoCol wire/PAY acceptance', 'profile': 'lp4-create01-modexp-admission', 'selectedCases': None, 'counts': {'MATCH': 19488, 'total': 20661, 'EXCEPTION_PRESENCE_ONLY': 1173}, 'limited': False, 'workers': 2, 'timeoutSeconds': 7200, 'seconds': 3013.471, 'status': 'REQUIRES REVIEW; NOT PASSED', 'bootable': False}
+2026-10-20T09:29:06.6125057Z SHA256 digest of uploaded artifact is 2d7316a037445fdb91e2430202db8ca595c0cae3966584f348558a5ecc2bf849

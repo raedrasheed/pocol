@@ -1,0 +1,7 @@
+{
+  "status": "review-harness-corrected",
+  "failure": "pause defers continuation assertion",
+  "cause": "InitialHTTPtest omittedrequiredpause/resume idempotencyKey; originalscript preserved; correctedtest explicitly verifiesHTTP400andvalidpause/resume.",
+  "original": "coordinator-http-independent-033.mjs",
+  "corrected": "coordinator-http-independent-033-v2.mjs"
+}

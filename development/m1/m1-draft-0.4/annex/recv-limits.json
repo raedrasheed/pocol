@@ -1,0 +1,51 @@
+{
+  "schema": "pocol-m1-recv-limits/1",
+  "specVersion": "M1 draft 0.4",
+  "revision": "R4-07 (annex row R1, brought forward for CR-M1-01)",
+  "baseline": "FD:L1253-1276 (table), FD:L1261 (assumptions: compact JSON, 69 B per u256 quantity with its comma, 32 B per decimal percentile), FD:L979 (RecvFit), FD:L2359-2361, BG1/D100 vectors FD:L2610-2616, RF1-RF4 FD:L3294-3298, CP values FD:L2246-2247.",
+  "cpNetwork": {"B_code_max": 32768, "BODY_MAX": 196608, "TX_MAX": 131072, "LOG_BLOCK_MAX": 32768, "RESP_MAX": 8388608, "genesisPreMax": 47104,
+                "source": "FD:L2246-2247, FD:L819, FD:L1960, FD:L1266"},
+  "rows": [
+    {"methods": ["eth_chainId", "net_version", "web3_clientVersion", "eth_blockNumber", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_getBalance", "eth_getStorageAt", "eth_getTransactionCount", "eth_sendRawTransaction"],
+     "limit": 4096, "class": "exact", "worstLegit": "result <= 70 B, envelope <= 1024 B (FD:L1262)", "worstFormula": "1024 + 70", "label": "B"},
+    {"methods": ["eth_getCode"], "limit": 69632, "class": "exact", "worstFormula": "2*B_code_max + 1024", "baselineValue": 66560, "label": "B"},
+    {"methods": ["pocol_getHeaders(count<=14)"], "limit": 98304, "class": "exact", "worstFormula": "14*(2*3067 + 16) + 1024", "baselineValue": 87124, "label": "B"},
+    {"methods": ["pocol_getParams"], "limit": 98304, "class": "exact", "worstFormula": "2*genesisPreMax + 4096", "baselineValue": 98304, "label": "B", "note": "requires |genesisPre| <= 47104, checked by RecvFit"},
+    {"methods": ["eth_getBlockByHash", "eth_getBlockByNumber"], "limit": 167936, "class": "exact", "worstFormula": "2048 + floor(BODY_MAX/85)*70", "baselineValue": 163958, "label": "B"},
+    {"methods": ["eth_feeHistory(n<=128,p<=16)"], "limit": 180224, "class": "exact", "worstFormula": "325 + 2*(n+1)*69 + 2*n*32 + n*(69*p + 3)", "params": {"n": 128, "p": 16}, "baselineValue": 168015, "label": "B"},
+    {"methods": ["eth_getTransactionByHash"], "limit": 266240, "class": "exact", "worstFormula": "2*TX_MAX + 2048", "baselineValue": 264192, "label": "B"},
+    {"methods": ["eth_getTransactionReceipt"], "limit": 348160, "class": "exact", "worstFormula": "2*LOG_BLOCK_MAX + 546*512 + 2048", "baselineValue": 347136, "label": "B"},
+    {"methods": ["eth_call"], "limit": 1048576, "class": "capped", "label": "B", "note": "node allows RESP_MAX"},
+    {"methods": ["eth_estimateGas"], "limit": 65536, "class": "capped", "label": "B"},
+    {"methods": ["pocol_getLogs"], "limit": 8388608, "class": "exact (LN)", "worstFormula": "RESP_MAX", "label": "B"},
+    {"methods": ["eth_getProof(Website, k<=6 keys)"], "limit": 524288, "class": "exact (conditional)", "label": "P (CR-M1-01)",
+     "worstFormula": "(k+1) * 65 * (2*564 + 5) + 4096 with k = 6",
+     "premises": ["PR-1: the state and storage tries are hexary Merkle-Patricia tries keyed by keccak256 of the 32-byte key (64 nibbles), with Ethereum node encoding", "PR-2: a JSON proof element is a quoted 0x-hex string of the node RLP, followed by a comma"],
+     "premiseStatus": "NOT stated in the baseline. FD:L921 gives 'trie node = 32+4+RLP' (a storage record); FD:L935 gives P(d) = 568d+186+32(d+1) without defining P or d and without a depth bound. 568 = 32+4+532 matches a storage record of a full branch node, so P(d) is read as a per-path storage cost, not a proof-size bound. The bound here therefore rests on PR-1 and PR-2, which E03 must confirm."}
+  ],
+  "proofBoundDerivation": {
+    "pathNodes": "Under PR-1 every branch node consumes exactly 1 nibble of the 64-nibble key path, every extension node at least 1, and a leaf ends the path: at most 64 + 1 = 65 nodes per proof path. Absence proofs end earlier.",
+    "nodeBytes": "Largest node: a branch with 16 hash references (16 x 33 B) and a value slot of at most 33 B: body 561, list header 3, total 564 B. Leaves and extensions are smaller (account leaf <= 148 B).",
+    "jsonPerNode": "2*564 hex characters + '0x' + 2 quotes + 1 comma = 1133 B",
+    "perPath": "65 * 1133 = 73645 B",
+    "perRequest": "(k + 1) paths: one account proof plus k storage proofs; fixed fields and the JSON-RPC envelope are bounded by 4096 B (address, balance, codeHash, nonce, storageHash and per-key key/value strings: <= 400 + 6*200 B, plus <= 1024 B envelope, rounded up)",
+    "values": {"k1": 151386, "k6": 519611},
+    "proposedLimit": 524288,
+    "round1Keys": 1, "round2Keys": 6
+  },
+  "d100Vectors": {
+    "failBuild": [
+      {"id": "D100-1", "change": {"eth_getCode": 65536}, "reason": "65536 < 66560"},
+      {"id": "D100-2", "change": {"eth_getBlockByHash": 163840}, "reason": "163840 < 163958"},
+      {"id": "D100-3", "change": {"FEE_HISTORY_BLOCKS_MAX": 256}, "reason": "worst 335567 > 180224"},
+      {"id": "D100-4", "change": {"eth_getCode": "capped without a producer-limit row"}, "reason": "adding a method to capped needs a row (FD:L1259)"}
+    ],
+    "pass": [{"id": "D100-5", "case": "eth_call at 1 MiB, capped"}]
+  },
+  "recvFit": [
+    {"id": "RF3", "change": {"genesisPreBytes": 47105}, "expected": "recvFit", "reason": "2*47105 + 4096 = 98306 > 98304"},
+    {"id": "RF4", "change": {"BODY_MAX": 262144}, "expected": "recvFit", "reason": "2048 + floor(262144/85)*70 = 217928 > 167936"},
+    {"id": "RF-network", "change": {}, "expected": "accept"}
+  ],
+  "remaining": "R1 is Partial: the RecvFit values for sv-fix, end/full and logs/dense need their CP files (FD:L2380, section) and the RF1/RF2 profile bytes; BG1 is batch 3/4 together with the bridge constants."
+}

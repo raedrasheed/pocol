@@ -1,0 +1,11 @@
+=== f-reorg: jm_deep_reorg_latency  ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:07:54Z
+
+running 1 test
+test jm_deep_reorg_latency ... JM-REORG-MECH {"forkPointHeight":300,"forkPointPrunedBefore":true,"headHeight":600,"kHist":32,"stateAfterNextRetain":false,"stateAfterRebuild":true,"stateAfterSideInsert":true,"t0KeepsItsState":true,"t0NonCanonical":true}
+JM-REORG {"actualRebuilds":600,"adoptingImport":{"index":299,"rebuilds":300,"restoredBlocks":299,"seconds":1.16950291},"allImports":{"rebuilds":600,"seconds":2.652387577},"canonicalHeight":600,"firstSideImport":{"forkPointPrunedAfter":true,"rebuilds":300,"seconds":0.617906875},"forkPointHeight":300,"kHist":32,"kind":"empty","reorgDepth":300,"stageAModelRebuilds":300,"theirBlocks":302}
+JM-REORG-OPEN {"openSeconds":4.129038964,"rebuildsDuringOpen":600,"records":902}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 15.34s
+
+=== end 2026-10-24T01:08:09Z exit=0

@@ -1,0 +1,1 @@
+extern crate lp1_node; fn main(){ let _ = lp1_node::profile::ForkSchedule(vec![(1,0)]); }

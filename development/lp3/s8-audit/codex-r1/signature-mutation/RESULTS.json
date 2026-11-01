@@ -1,0 +1,66 @@
+[
+  {
+    "name": "canonical-high-s",
+    "caught": true,
+    "commands": [
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--crate-name",
+          "lp1_node",
+          "--crate-type",
+          "rlib",
+          "/workspace/work/lp3-s8/signature-mutation/canonical-high-s-0wrn8wy3/src/lib.rs",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/signature-mutation/canonical-high-s-0wrn8wy3/liblp1_node.rlib"
+        ],
+        "exitCode": 0,
+        "seconds": 5.002
+      },
+      {
+        "args": [
+          "rustc",
+          "+1.58.1",
+          "--edition=2021",
+          "--test",
+          "/workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/adversarial_lp3.rs",
+          "--extern",
+          "lp1_node=/workspace/work/lp3-s8/signature-mutation/canonical-high-s-0wrn8wy3/liblp1_node.rlib",
+          "-L",
+          "dependency=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps",
+          "--extern",
+          "sha2=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha2-3deba24a94277214.rlib",
+          "--extern",
+          "sha3=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libsha3-047f8d903510c050.rlib",
+          "--extern",
+          "libsecp256k1=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/liblibsecp256k1-54f32c2b59b1fe02.rlib",
+          "--extern",
+          "serde_json=/workspace/Proof-of-Collaboration/prototypes/lp1-node/target/release/deps/libserde_json-74555e37c0c725e2.rlib",
+          "-o",
+          "/workspace/work/lp3-s8/signature-mutation/canonical-high-s-0wrn8wy3/tests"
+        ],
+        "exitCode": 0,
+        "seconds": 0.579
+      },
+      {
+        "args": [
+          "/workspace/work/lp3-s8/signature-mutation/canonical-high-s-0wrn8wy3/tests"
+        ],
+        "exitCode": 101,
+        "seconds": 0.24
+      }
+    ]
+  }
+]

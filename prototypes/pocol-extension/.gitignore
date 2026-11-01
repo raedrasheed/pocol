@@ -1,0 +1,4 @@
+dist/
+dist-fault-*/
+tests/*.last.json
+releases/

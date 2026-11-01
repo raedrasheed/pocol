@@ -1,0 +1,11 @@
+{
+  "scope": "Actual recovered signed unmodified Geth Cancun admission; not full PoCol apply or proof of exact upstream error precedence",
+  "total": 1173,
+  "counts": {
+    "REJECTED": 1173
+  },
+  "accepted": [],
+  "status": "SCOPED REJECTION VERIFIED; FULL P2/P3 NOT PASSED",
+  "binarySHA256": "fa70813da8f9a2602f61224641eed51858747052c45ec4e9eb218e23cc4a8c1d",
+  "bootable": false
+}

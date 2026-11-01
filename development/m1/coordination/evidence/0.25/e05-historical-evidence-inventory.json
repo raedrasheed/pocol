@@ -1,0 +1,36 @@
+{
+  "role": "Saved prior E05 evidence inventory; source/input binding assessed in final audit, not a new execution",
+  "inputs": {
+    "file": "coordination/hash-triad/inputs-expanded.tsv",
+    "sha256": "371dc284709da7a082b179a884770d7e1b5b568d8bf9ada66660c32965bac4dd",
+    "rows": 611,
+    "columnsValid": true,
+    "bytes": 11809649
+  },
+  "saved": [
+    {
+      "file": "coordination/hash-triad/rust-expanded-result.json",
+      "sha256": "9b7458f67aa5d7271058b4321dfc3e624a483a30368fea0cd3181222e7f0986e",
+      "library": "Rust sha3 0.9.1",
+      "checks": 611,
+      "failed": 0,
+      "declaredPositiveFileHashesVerified": null
+    },
+    {
+      "file": "coordination/hash-triad/python-expanded-result.json",
+      "sha256": "abd03d1b74cccc0fd0e0474f7aa2e11e854397a5b15e79a25be1e1da8e18046d",
+      "library": "pycryptodome 3.24.0",
+      "checks": 611,
+      "failed": 0,
+      "declaredPositiveFileHashesVerified": 486
+    },
+    {
+      "file": "coordination/hash-triad/noble-expanded-result.json",
+      "sha256": "92e416051e422e631c1dd77a93afdad685f917df57bc51b185afbca94f51a4ec",
+      "library": "@noble/hashes 1.7.1 (TypeScript library, shipped JS build)",
+      "checks": 611,
+      "failed": 0,
+      "declaredPositiveFileHashesVerified": null
+    }
+  ]
+}

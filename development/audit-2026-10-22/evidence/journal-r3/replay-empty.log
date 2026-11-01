@@ -1,0 +1,25 @@
+=== f-replay: jm_replay_empty_blocks JM_CHECKPOINTS=1000,2500,5000,10000,15000,20000 ; bin=journal_measure-c06c4849ffc15c1f ; start 2026-10-24T01:30:03Z
+
+running 1 test
+test jm_replay_empty_blocks ...   built 2000/20000 (17s)
+  built 4000/20000 (37s)
+  built 6000/20000 (60s)
+  built 8000/20000 (87s)
+  built 10000/20000 (118s)
+  built 12000/20000 (152s)
+  built 14000/20000 (190s)
+  built 16000/20000 (234s)
+  built 18000/20000 (281s)
+  built 20000/20000 (331s)
+JM-REPLAY {"height":1000,"journalDiskBytes":1911072,"openSeconds":2.536344142,"perRecordMicros":2536.344142,"records":1000,"rssAfterBytes":138653696,"rssBeforeBytes":138653696,"vmHwmAfterBytes":238080000,"vmHwmBeforeBytes":238080000}
+JM-REPLAY {"height":2500,"journalDiskBytes":4807742,"openSeconds":6.846233708,"perRecordMicros":2738.4934832,"records":2500,"rssAfterBytes":138653696,"rssBeforeBytes":138653696,"vmHwmAfterBytes":238080000,"vmHwmBeforeBytes":238080000}
+JM-REPLAY {"height":5000,"journalDiskBytes":9588809,"openSeconds":15.898903451,"perRecordMicros":3179.7806902,"records":5000,"rssAfterBytes":138653696,"rssBeforeBytes":138653696,"vmHwmAfterBytes":238080000,"vmHwmBeforeBytes":238080000}
+JM-REPLAY {"height":10000,"journalDiskBytes":15962437,"openSeconds":42.424376889,"perRecordMicros":4242.4376889,"records":10000,"rssAfterBytes":157851648,"rssBeforeBytes":138653696,"vmHwmAfterBytes":238080000,"vmHwmBeforeBytes":238080000}
+JM-REPLAY {"height":15000,"journalDiskBytes":19457077,"openSeconds":79.450727073,"perRecordMicros":5296.7151382,"records":15000,"rssAfterBytes":194506752,"rssBeforeBytes":157851648,"vmHwmAfterBytes":238080000,"vmHwmBeforeBytes":238080000}
+JM-REPLAY {"height":20000,"journalDiskBytes":22887077,"openSeconds":128.804261414,"perRecordMicros":6440.2130707,"records":20000,"rssAfterBytes":199987200,"rssBeforeBytes":158986240,"vmHwmAfterBytes":238080000,"vmHwmBeforeBytes":238080000}
+JM-BUILD {"buildSeconds":331.095981582,"bytesPerRecordAvg":1144.35385,"finalJournalDiskBytes":22887077,"finalRecords":20000,"hMax":20000}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 607.55s
+
+=== end 2026-10-24T01:40:10Z exit=0

@@ -1,0 +1,19 @@
+{
+  "upstreamVersion": "v1.14.12",
+  "unchangedFiles": 1998,
+  "changedBuildMetadataOnly": [
+    "go.mod",
+    "go.sum"
+  ],
+  "originalGoModSHA256": "ede0d711b97e9c0144ca587630d7aefa5f28fe4c4bf2257178f6b21ab1ab53c2",
+  "originalGoSumSHA256": "b8af3d1fed1d12cd2cf47ecae6990286444d56a345d01bf9c27114b46dc87ba3",
+  "builtGoModSHA256": "0fe3000eda5af9fc3158e054bd3a50c01abedd4a1db7c3b54f08b5f339840c7d",
+  "builtGoSumSHA256": "32f9a539d8a2f26a4cba308963d362edab270a0673f44320727b0de076045c5b",
+  "binarySHA256": "287be576c5f4739ec5bd948f65accc1227bbc987c1ed9b61c78820f359f0f1d4",
+  "buildFlags": [
+    "-mod=readonly",
+    "-buildvcs=false",
+    "-p2"
+  ],
+  "networkDuringSuccessfulBuild": "OFF"
+}

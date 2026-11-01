@@ -1,0 +1,229 @@
+{
+ "suite": "e2e_integrated",
+ "work": "/tmp/pocol-lp10-gPOTT5",
+ "keptAt": "2026-10-28T15:20:16.601Z",
+ "commit": "719da0487492c2acd956ff25a4aac611f08a394b",
+ "pocold": {
+  "path": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/acc-target/release/pocold",
+  "sha256": "e7e47ca69d03c83e10d007fb4fb4f52799a591bb24c95a7cc7428c8791a16f64"
+ },
+ "env": {
+  "POCOLD_BIN_DIR": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/acc-target/release",
+  "POCOL_E2E_KEEP": "/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/accept-719da04/kept"
+ },
+ "files": [
+  {
+   "path": "a.log",
+   "bytes": 15336,
+   "sha256": "b0131f6a3c9700b3527008c2c3b91d9a69ed8143e8d756b72a72482d6bbb3b9b"
+  },
+  {
+   "path": "b.log",
+   "bytes": 16737,
+   "sha256": "9b89fee703f4c39e5f5c2464a81839749bb10bfea83ce0ec7220361e3bfc36cb"
+  },
+  {
+   "path": "c.log",
+   "bytes": 5832,
+   "sha256": "3b89c2536fa8734c54e11426342b251c0ad24ddd1a3c12cd9242b0270b9f6e8e"
+  },
+  {
+   "path": "data/a/LOCK",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "data/a/blocks.commit",
+   "bytes": 4160,
+   "sha256": "56ff483981c4b54bec28b2668d437bf965165631dac2ca2fd3cbd834c35f5202"
+  },
+  {
+   "path": "data/a/blocks.journal",
+   "bytes": 548190,
+   "sha256": "8f62748203d61a9ca1ab5529f2b79383c5c5577f3abdaaf6fc278960f766b2d8"
+  },
+  {
+   "path": "data/a/retention.rkeep",
+   "bytes": 4,
+   "sha256": "bfa0ec8bdf2946547879d50a68687ea32e2fa628db187357415858b633d194d9"
+  },
+  {
+   "path": "data/b/LOCK",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "data/b/blocks.commit",
+   "bytes": 4160,
+   "sha256": "6f753978bb1561c195699ed8c08d80d39aec2f80dbe95644069ea0236acf99a5"
+  },
+  {
+   "path": "data/b/blocks.journal",
+   "bytes": 548190,
+   "sha256": "bb0c4a94a5660bd7cc6b6d4d4cc88b9f9d0c98369d267992384b1d1f63208c91"
+  },
+  {
+   "path": "data/b/retention.rkeep",
+   "bytes": 4,
+   "sha256": "bfa0ec8bdf2946547879d50a68687ea32e2fa628db187357415858b633d194d9"
+  },
+  {
+   "path": "data/c/LOCK",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "data/c/blocks.commit",
+   "bytes": 4160,
+   "sha256": "5dbcfb19a5136dfb9d4edb21cf3b52a9017e12fee4a06174c199918968e61fb7"
+  },
+  {
+   "path": "data/c/blocks.journal",
+   "bytes": 284305,
+   "sha256": "d39ffa5cd9887286c192e80808ea4854b7222aa16767f5ef1bcc59fdf5332c04"
+  },
+  {
+   "path": "data/c/retention.rkeep",
+   "bytes": 4,
+   "sha256": "bfa0ec8bdf2946547879d50a68687ea32e2fa628db187357415858b633d194d9"
+  },
+  {
+   "path": "net/alloc.json",
+   "bytes": 500,
+   "sha256": "75c162a90e0ddab83fff55d2453d2e2cf477cbc09626e0ef3f0988a54a9c17bb"
+  },
+  {
+   "path": "net/devnet.json",
+   "bytes": 4895,
+   "sha256": "3d01698b7d54fdc8fbb760eb286cd4e6b751a722f5f29d243f17c2f9984faaa2"
+  },
+  {
+   "path": "net/genesis.spec.hex",
+   "bytes": 754,
+   "sha256": "f6ec9a475e2c01b93a53e3cd621c581d79a2d56ab9a6749d1cb61e37f03cf54a"
+  },
+  {
+   "path": "net/profile.json",
+   "bytes": 959,
+   "sha256": "fa88657bf088ac5aa5166096633c61f74f5779e49f3718bbb892fdf1a3dfb914"
+  },
+  {
+   "path": "pids.json",
+   "bytes": 2,
+   "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  {
+   "path": "s1/a.js",
+   "bytes": 43,
+   "sha256": "4fe697e422a3b236f3ea5dabae2b87f1573b8271d93d3e42f128c24cd3c8b70a"
+  },
+  {
+   "path": "s1/big.txt",
+   "bytes": 45003,
+   "sha256": "a772418a5375ffa8807bf444f6f5ad4b95feaabb66ec8b1c6d480e38969cdf83"
+  },
+  {
+   "path": "s1/i.png",
+   "bytes": 77,
+   "sha256": "886eca293713dd0dc77ee8c492c64e81359f6e0286b79d5f6df20c506466d1e2"
+  },
+  {
+   "path": "s1/index.html",
+   "bytes": 214,
+   "sha256": "28f1fb7e474b0eeaddb25479edd91c4d913af6124ea0bee46e184acd6428b496"
+  },
+  {
+   "path": "s1/s.css",
+   "bytes": 14,
+   "sha256": "fbcfb8cebf66a942ed68bf09df370543a2f3a80c6df8e9d85197e58256baeb0c"
+  },
+  {
+   "path": "s2/a.js",
+   "bytes": 43,
+   "sha256": "4fd792e7d544eff8fa16b07cd57c0b257afc4af3fedc6a34b817ed29599d8b11"
+  },
+  {
+   "path": "s2/big.txt",
+   "bytes": 45003,
+   "sha256": "702ae36099a8cd8feca0e4591e134ce6418caddf725d32a284009d73a071e58f"
+  },
+  {
+   "path": "s2/i.png",
+   "bytes": 77,
+   "sha256": "886eca293713dd0dc77ee8c492c64e81359f6e0286b79d5f6df20c506466d1e2"
+  },
+  {
+   "path": "s2/index.html",
+   "bytes": 214,
+   "sha256": "d47f02edef066bb5fa6a8c637342194d8df495b485525a174f5ddfb00c897260"
+  },
+  {
+   "path": "s2/s.css",
+   "bytes": 14,
+   "sha256": "fbcfb8cebf66a942ed68bf09df370543a2f3a80c6df8e9d85197e58256baeb0c"
+  }
+ ],
+ "notCopied": [
+  {
+   "path": "data/a/history.redb",
+   "bytes": 1589248
+  },
+  {
+   "path": "data/b/history.redb",
+   "bytes": 1589248
+  },
+  {
+   "path": "data/c/history.redb",
+   "bytes": 1589248
+  }
+ ],
+ "extra": {
+  "results": [
+   {
+    "name": "every node runs in the requested state mode",
+    "pass": true,
+    "detail": "stateStore=false,false,false"
+   },
+   {
+    "name": "fresh-directory launch: 3 pocold processes produce and agree",
+    "pass": true,
+    "detail": "t=25s"
+   },
+   {
+    "name": "BR15 pocol_getTemplate with Origin -> -32601; without Origin -> served",
+    "pass": true,
+    "detail": "{\"code\":-32601,\"message\":\"method not available to sites\"}"
+   },
+   {
+    "name": "v1 published through node a; pocol-site fetch from every node gives identical verified bytes",
+    "pass": true,
+    "detail": "c810903a49ed1e83,c810903a49ed1e83,c810903a49ed1e83"
+   },
+   {
+    "name": "Chrome renders v1 identically through each node (HTML/CSS/JS/PNG from verified chunks)",
+    "pass": true,
+    "detail": "{\"h1\":\"LP10 site v1\",\"v\":\"1\",\"color\":\"rgb(17, 170, 85)\",\"img\":2,\"ver\":\"version 0 · block 33\",\"trust\":\"LN\",\"errors\":0}"
+   },
+   {
+    "name": "Chrome RP profile accepts the live window and renders v1",
+    "pass": true,
+    "detail": "RP"
+   },
+   {
+    "name": "partition: Chrome via isolated c shows v2 (minority branch) while a shows v1",
+    "pass": true,
+    "detail": "LP10 site v2 / LP10 site v1"
+   },
+   {
+    "name": "partition: branches diverged",
+    "pass": true,
+    "detail": "c=52 ab=160 base=37"
+   },
+   {
+    "name": "LP10 driver completed",
+    "pass": false,
+    "detail": "Error: timeout: a and b on one tip\n    at wait (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/r4/wt/prototypes/pocol-extension/tests/harness.mjs:24:9)\n    at async main (file:///tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b"
+   }
+  ]
+ }
+}

@@ -1,0 +1,44 @@
+cargo.exe :    Compiling lp1-node v0.1.0 (<workspace>/coordination\lp1-repo\prototypes\lp1-node)
+At line:9 char:1
++ & <toolchain>/toolchains/stable-x86_64-pc-windows-msvc/bi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling lp...types\lp1-node):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+    Finished test [unoptimized + debuginfo] target(s) in 26.80s
+     Running unittests (coordination/lp1-build-r1/target\debug\deps\lp1_node-9a5a0b8cbd27e91e.exe)
+
+running 33 tests
+test asert::tests::mutation_sensitivity ... ok
+test asert::tests::named_boundaries ... ok
+test asert::tests::rejection_cases ... ok
+test fixed::tests::byte_round_trip ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::cp_table_shape ... ok
+test genesis::tests::structural_rejections ... ok
+test hashes::tests::domain_preimages_layout ... ok
+test hashes::tests::keccak_known_answers_k1_k3 ... ok
+test hashes::tests::sha256_known_answer ... ok
+test hashes::tests::signature_shape_faults ... ok
+test header::tests::field_faults ... ok
+test header::tests::nonminimal_integer_rejected ... ok
+test header::tests::share_count_boundary ... ok
+test header::tests::typed_round_trip ... ok
+test hex::tests::round_trip ... ok
+test http::tests::bind_policy ... ok
+test json::tests::accepts_and_rejects ... ok
+test json::tests::c19_native_oracle_rows ... ok
+test json::tests::depth_boundary ... ok
+test json::tests::integral_binary64_semantics ... ok
+test json::tests::quote_escapes_controls ... ok
+test rlp::tests::canonical_round_trips ... ok
+
+thread 'main' has overflowed its stack
+error: test failed, to rerun pass '--lib'
+
+Caused by:
+  process didn't exit successfully: `<workspace>/coordination/lp1-build-r1/target\debug\deps\lp1_node-9a5a0b8cbd27e91e.exe --test-threads=1` (exit code: 0xc00000fd,
+STATUS_STACK_OVERFLOW)
+test rlp::tests::depth_bound ...

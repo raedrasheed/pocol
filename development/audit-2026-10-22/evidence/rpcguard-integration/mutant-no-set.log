@@ -1,0 +1,6 @@
+test get_params_and_rpc_stats_report_the_limits ... FAILED
+thread 'get_params_and_rpc_stats_report_the_limits' (28394) panicked at tests/net.rs:735:5:
+assertion `left == right` failed: the RPC connection's kernel send buffer is SEND_SOCK_BUF
+  left: Number(3939840)
+ right: 65536
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.50s

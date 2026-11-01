@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PoCol · Local coordinator</title>
+<link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/coordinator.css"><script src="/app.js" defer></script></head>
+<body>
+<main>
+  <header><span class="eyebrow">POCOL / LOCAL COORDINATOR</span><h1>Track and control M1 work</h1>
+    <p>This page is the interface to a local broker serving the current coordinator. It does not run an independent loop, create a reviewer or start an author cycle except at your request and after coordinator approval.</p>
+    <p id="connection" class="connection" role="status">Connecting to the local server…</p></header>
+
+  <section class="card" aria-labelledby="statusTitle">
+    <div class="section-head"><h2 id="statusTitle">Current status</h2><span id="updatedAt" dir="ltr"></span></div>
+    <dl class="facts">
+      <dt>Stage</dt><dd id="phase"></dd>
+      <dt>Latest verified check</dt><dd id="latestCheck"></dd>
+      <dt>Active worker</dt><dd id="activeWorker"></dd>
+      <dt>Reviewer (host coordinator)</dt><dd id="reviewer"></dd>
+      <dt>Notifier for the existing Codex thread</dt><dd id="notifier"></dd>
+      <dt>Pause status</dt><dd id="pauseState"></dd>
+      <dt>Waiting for</dt><dd id="waiting"></dd>
+    </dl>
+    <details><summary>Open findings in the coordinator ledger</summary><ul id="findings" class="plain"></ul></details>
+    <p id="statusNote" class="muted"></p>
+  </section>
+
+  <section class="card" aria-labelledby="authorityTitle">
+    <div class="section-head"><h2 id="authorityTitle">Standing authorization and continuation</h2><span>Read only</span></div>
+    <dl class="facts">
+      <dt>Recorded authorization</dt><dd id="authStanding"></dd>
+      <dt>Scope</dt><dd id="authScope"></dd>
+      <dt>Independent worklist</dt><dd id="authWorklist"></dd>
+      <dt>Post-review continuation request</dt><dd id="authContinuation"></dd>
+    </dl>
+    <p id="authNote" class="muted"></p>
+  </section>
+
+  <section class="card" aria-labelledby="controlTitle">
+    <div class="section-head"><h2 id="controlTitle">Guidance and control</h2><span>Each request is saved with a unique key and is not duplicated</span></div>
+    <label for="guidance">Guidance for the coordinator</label>
+    <textarea id="guidance" rows="4" maxlength="8000" placeholder="Write your note or request. It is saved and delivered to the host coordinator for acknowledgment."></textarea>
+    <div class="row"><button id="sendGuidance">Send guidance</button>
+      <select id="jobMode" aria-label="Author-cycle type"><option value="smoke">Read-only check (does not write files)</option><option value="author">Author cycle in a new draft</option></select>
+      <button id="requestJob" class="secondary">Request author cycle</button>
+      <button id="pause" class="secondary danger">Pause at a safe boundary</button>
+      <button id="resume" class="secondary">Resume</button></div>
+    <p class="muted">A cycle request starts nothing directly: it waits for coordinator approval and a task plan, then an actual Codex review before any subsequent cycle. Pausing waits for the current task to finish and deletes no files.</p>
+    <p id="error" role="alert" hidden></p>
+    <h3 class="sub">Saved queue</h3>
+    <div id="queue"><p class="empty">No requests yet.</p></div>
+  </section>
+
+  <section class="card" aria-labelledby="ownerTitle">
+    <div class="section-head"><h2 id="ownerTitle">Project-owner questions</h2><span>Recommendations, not approvals</span></div>
+    <p class="muted">Your answer is saved and delivered to the host coordinator. It is not a recorded decision until acknowledged. Nothing is adopted automatically.</p>
+    <div id="owner"></div>
+  </section>
+
+  <section class="card" aria-labelledby="historyTitle">
+    <div class="section-head"><h2 id="historyTitle">History: past and current</h2><span id="historyCount"></span></div>
+    <p class="muted">Historical cards are imported from workspace files without running any agent. Current cards contain receipts for author tasks run by this broker and reviews actually recorded by the host coordinator through the reviewer interface. Cards follow recorded timestamps; an absent timestamp shows “Unavailable” and retains its position among neighboring cards. Only permitted text is displayed: response text, tool calls and abbreviated results, and the final result. Internal model reasoning and secret values are not displayed.</p>
+    <div id="history"><p class="empty">Loading…</p></div>
+  </section>
+  <footer>Agreement between Claude and Codex is not a test. The server is local, on 127.0.0.1 only.</footer>
+</main>
+</body></html>

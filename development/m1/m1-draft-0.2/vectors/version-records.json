@@ -1,0 +1,148 @@
+{
+  "specVersion": "M1 draft 0.2",
+  "factoryAssumption": "Chunk addresses assume factory 0x0000000000000000000000000000000000c0c005, a proposed expansion of the elided baseline value (U01). Regenerate if U01 changes.",
+  "fixtures": [
+    {
+      "id": "ver-minimal",
+      "record": {
+        "manifestHash": "0x17f69a21ff29e4deaef80bf635e57531863713eb2bc5df15ed4497df068f33e0",
+        "manifestLen": 79,
+        "chunks": [
+          [
+            "0xbfed2132e3e3f8a0dbfac65cb3eaf871f28d138f",
+            79
+          ]
+        ]
+      },
+      "provider": [
+        "0xbfed2132e3e3f8a0dbfac65cb3eaf871f28d138f",
+        "0xbffcaeb40682a2dfe0d39de9eee7d1f20891ad3b"
+      ],
+      "expected": {
+        "result": "accept"
+      },
+      "note": "createVersion inputs for T1-02"
+    },
+    {
+      "id": "ver-manifest-65536",
+      "record": {
+        "manifestHash": "0x57ddcce5bc46d82d0c780a17a5827a1cf5d285b34207dd4923587024fcf88105",
+        "manifestLen": 65536,
+        "chunks": [
+          [
+            "0xfc2d3e82feb152122046a645969447e5f23f0c8f",
+            24575
+          ],
+          [
+            "0x9c0812df181cc7f6f5685958f44b523dd77489e6",
+            24575
+          ],
+          [
+            "0x0bd20c364101b644c2b3e6266df5bee768b2fef0",
+            16386
+          ]
+        ]
+      },
+      "provider": [
+        "0xfc2d3e82feb152122046a645969447e5f23f0c8f",
+        "0x9c0812df181cc7f6f5685958f44b523dd77489e6",
+        "0x0bd20c364101b644c2b3e6266df5bee768b2fef0",
+        "0x05d400d2313a4ae1b630b3f37004d7332e0e3282"
+      ],
+      "expected": {
+        "result": "accept"
+      },
+      "note": "canonical split [24575, 24575, 16386]"
+    },
+    {
+      "id": "ver-manifest-hash",
+      "record": {
+        "manifestHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "manifestLen": 79,
+        "chunks": [
+          [
+            "0xbfed2132e3e3f8a0dbfac65cb3eaf871f28d138f",
+            79
+          ]
+        ]
+      },
+      "provider": [
+        "0xbfed2132e3e3f8a0dbfac65cb3eaf871f28d138f",
+        "0xbffcaeb40682a2dfe0d39de9eee7d1f20891ad3b"
+      ],
+      "expected": {
+        "result": "reject",
+        "firstRule": "manifest.hash",
+        "stage": "manifest"
+      },
+      "isolation": "full"
+    },
+    {
+      "id": "ver-manifest-chunk-missing",
+      "record": {
+        "manifestHash": "0x17f69a21ff29e4deaef80bf635e57531863713eb2bc5df15ed4497df068f33e0",
+        "manifestLen": 79,
+        "chunks": [
+          [
+            "0xbfed2132e3e3f8a0dbfac65cb3eaf871f28d138f",
+            79
+          ]
+        ]
+      },
+      "provider": [],
+      "expected": {
+        "result": "reject",
+        "firstRule": "mfetch.missing",
+        "stage": "manifest"
+      },
+      "isolation": "next",
+      "nextRuleWhenDisabled": "mfetch.prefix",
+      "mock": true
+    },
+    {
+      "id": "ver-manifest-noncanonical-split",
+      "record": {
+        "manifestHash": "0x17f69a21ff29e4deaef80bf635e57531863713eb2bc5df15ed4497df068f33e0",
+        "manifestLen": 79,
+        "chunks": [
+          [
+            "0x27d3ad9258a6da81a17aa978566dc585a840dcce",
+            40
+          ],
+          [
+            "0x945d5025981ec194ae413d8738891cd6b26c0228",
+            39
+          ]
+        ]
+      },
+      "provider": [
+        "0x27d3ad9258a6da81a17aa978566dc585a840dcce",
+        "0x945d5025981ec194ae413d8738891cd6b26c0228",
+        "0xbffcaeb40682a2dfe0d39de9eee7d1f20891ad3b"
+      ],
+      "expected": {
+        "result": "reject",
+        "firstRule": "manifest.split",
+        "stage": "manifest"
+      },
+      "isolation": "full",
+      "note": "proposed restriction U08"
+    },
+    {
+      "id": "ver-manifest-length-0",
+      "record": {
+        "manifestHash": "0x17f69a21ff29e4deaef80bf635e57531863713eb2bc5df15ed4497df068f33e0",
+        "manifestLen": 0,
+        "chunks": []
+      },
+      "provider": [],
+      "expected": {
+        "result": "reject",
+        "firstRule": "manifest.length",
+        "stage": "manifest"
+      },
+      "isolation": "next",
+      "nextRuleWhenDisabled": "manifest.hash"
+    }
+  ]
+}

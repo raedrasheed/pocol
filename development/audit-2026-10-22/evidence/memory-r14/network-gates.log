@@ -1,0 +1,23 @@
+# network_profile_boot_gates_itemized on the working tree of 7624419 + this test (2026-10-27T15:40:53Z)
+NETWORK-GATE {"actual":"26","fails":false,"inputs":"Δ_rel=26 σ=14 Δ=5 t_exec=3","required":"Δ_rel ≥ σ+Δ+2t_exec = 25","rule":"R2"}
+NETWORK-GATE {"actual":"25","fails":false,"inputs":"dFbWait=25 Φ=10 Δ=5 t_exec=3","required":"dFbWait ≥ Φ+Δ+2t_exec = 21","rule":"R3"}
+NETWORK-GATE {"actual":"10 < 25, 26 ≥ 3","fails":false,"inputs":"Φ=10 dFbWait=25 Δ_rel=26 t_exec=3","required":"Φ < dFbWait and Δ_rel ≥ t_exec","rule":"R4"}
+NETWORK-GATE {"actual":"75","fails":false,"inputs":"dFbWait=25 D_att=300","required":"3·dFbWait ≤ D_att = 300","rule":"R5"}
+NETWORK-GATE {"actual":"330","fails":false,"inputs":"D_att=300 Γ=30 X^W=36 c=2 T_blk=60 Φ=10","required":"D_att+Γ ≥ 2(X^W+c·T_blk)+Φ = 322","rule":"R7"}
+NETWORK-GATE {"actual":"16, 2200 vs 2064, 2048","fails":false,"inputs":"D=16 U=2200 E_win=2048 R_keep=2048","required":"D ≥ 2, U ≥ E_win+D, E_win ≤ R_keep","rule":"R8"}
+NETWORK-GATE {"actual":"256, 32768","fails":false,"inputs":"S_max=256 κ=2 m=32 B_code_max=32768","required":"S_max ≥ 4κm = 256, B_code_max ≥ 24577","rule":"R9"}
+NETWORK-GATE {"actual":"196608","fails":false,"inputs":"BODY_MAX=196608 TX_MAX=131072","required":"BODY_MAX ≥ TX_MAX+16384 = 147456","rule":"R10"}
+NETWORK-GATE {"actual":"129600 ≤ 129600","fails":false,"inputs":"H_END=129600 H_CLOSE=129440 Z_close=160","required":"H_END > Z_close, H_CLOSE+Z_close ≤ H_END, T_CLOSE ≤ T_END","rule":"R13"}
+NETWORK-GATE {"actual":"15","fails":false,"inputs":"validate_p99 = max phase ms measured here [9, 14, 15]","required":"≤ t_exec·1000 = 3000","rule":"R14"}
+NETWORK-GATE {"actual":"16384","fails":false,"inputs":"REG_RECORDS_MAX=16384 U=2200 E_win=2048 D=16 M_max=256 R_max=2 RET=128 P2=2","required":"≥ records_required = Some(12578)","rule":"R16"}
+NETWORK-GATE {"actual":"16","fails":false,"inputs":"SWEEP_MAX=16 R_max=2 E_max=4","required":"≥ R_max+E_max = 6","rule":"R17"}
+NETWORK-GATE {"actual":"[9, 14, 15]","fails":false,"inputs":"phase ms measured here [9, 14, 15]","required":"each ≤ 3000","rule":"R19"}
+NETWORK-GATE {"actual":"160","fails":false,"inputs":"Z_close=160","required":"≥ close_blocks_required = Some(147)","rule":"R20"}
+NETWORK-GATE {"actual":"59619697068","fails":true,"inputs":"(K_hist+side_max)·snapshot(ACCT_CAP+5, SLOT_CAP+SYS_SLOT_MAX), K_hist=32 side_max=2","required":"≤ HIST_TRIE_BUDGET = 1717986918 (no retentionStress exception off simnet)","rule":"R21"}
+NETWORK-GATE {"actual":"equal (target_g derived from the same H_cal)","fails":false,"inputs":"H_cal=65536 (synthetic) T_blk=60","required":"target_g = 2^256/(H_cal·T_blk)","rule":"R25"}
+NETWORK-GATE-VERDICT {"gateViolations":["R21"],"phaseMs":[9,14,15],"sigma":"14","t_execMs":3000,"x_h":"22","x_w":"36"}
+NETWORK-SPEC-SCOPE {"missing":["specification:rpc-absent","specification:calibration-synthetic","specification:timing-not-a-bound","specification:gas-monotonicity-assumed","specification:gate-deferred-general-R18","specification:gate-deferred-general-R21","specification:gate-deferred-caps64","specification:r21-retention-stress"],"notes":["RpcGuard: mechanisms this node does not enforce: scratch_heavy, scratch_light, mem_total, cancel_max_ms","calibration: H_cal is a synthetic fixture (devnet --work-bits), not a measured hash rate","timing: 19 apply samples of the synthetic GAS_LIMIT compute workload on this host; not a p99 or worst-case bound (A13-DERIVATION §4)","SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)","gate: deferred LP3 obligation LP4:general-R18","gate: deferred LP3 obligation LP4:general-R21","gate: deferred LP3 obligation LP4:caps64-minimum-SYS_SLOT_MAX","R21: admitted only by the simnet retentionStress exception"],"rules":["R14","R18","R19","R21","R25","R26"]}
+NETWORK-R21-STORE {"additionsFit":false,"histTrieBudget":1717986918,"historicalAdditionsBytes":"24267648672","liveVersionBytes":"2001761109","wholeStateInput":"59619697068","windowBytes":"26269409781"}
+NETWORK-A13 {"budgetBytes":6442450944,"budgetRequiredBytes":"30650861848","modelBytes":"26819504117","passes":false,"stateStore":false}
+NETWORK-A13 {"budgetBytes":6442450944,"budgetRequiredBytes":"6241109195","modelBytes":"5460970545","passes":true,"stateStore":true}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.21s

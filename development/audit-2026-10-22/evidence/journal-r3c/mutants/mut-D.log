@@ -1,0 +1,16 @@
+cmd: flock cpu.lock cargo test --release --locked --test journal_measure -- jm_tx_state_term --exact --ignored --nocapture --test-threads=1  (HEAD 1d094de02045c1b232b3545f66a78d5a49c18cbe; dirty:  M prototypes/lp4-execution/src/code_caps.rs  M prototypes/lp4-execution/src/native.rs  M prototypes/lp4-execution/src/pay.rs )
+env: JM_TX_SERIES=accts,code JM_TX_POINTS=1  ZZ_MUT_D=1
+start 2026-10-24T09:05:30Z
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.11s
+     Running tests/journal_measure.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-journal/release/deps/journal_measure-982c9e7c578ccd56)
+
+running 1 test
+test jm_tx_state_term ... JM-TXSTATE {"buildSeconds":1.083630214,"create2Creates":247,"create2Ms":6.545472999999999,"create2PerCreateUs":21.950299595141697,"emptyChildMs":1.123749,"fillBlocks":0,"height":1,"inventoryMs":0.000519,"liveUserAccounts":5,"liveUserSlots":0,"logicalCode":15509,"manySmallMs":24.565182,"manySmallPerTxUs":157.32505369127517,"manySmallTxs":149,"phase":"start","predictedPerTxUs":2.593,"series":"accts","stateAccountsAll":10,"stateCloneMs":0.000799,"transferMs":29.157784999999997,"transferPerTxUs":73.77377894736841,"transferTxs":380,"validateSnapshotMs":0.000995}
+JM-TXSTATE {"buildSeconds":52.459801204,"create2Creates":247,"create2Ms":502.77757199999996,"create2PerCreateUs":1590.8467044534411,"emptyChildMs":109.838436,"fillBlocks":67,"height":135,"inventoryMs":0.853194,"liveUserAccounts":15415,"liveUserSlots":0,"logicalCode":15509,"manySmallMs":993.190422,"manySmallPerTxUs":5928.536818791947,"manySmallTxs":149,"phase":"accts-end","predictedPerTxUs":3578.6160000000004,"series":"accts","stateAccountsAll":15420,"stateCloneMs":0.949014,"transferMs":1676.5187369999999,"transferPerTxUs":4122.842897368421,"transferTxs":380,"validateSnapshotMs":1.680588}
+JM-TXSTATE {"buildSeconds":1.086691194,"create2Creates":247,"create2Ms":5.803359,"create2PerCreateUs":19.153506072874496,"emptyChildMs":1.072443,"fillBlocks":0,"height":1,"inventoryMs":0.000504,"liveUserAccounts":5,"liveUserSlots":0,"logicalCode":15509,"manySmallMs":15.927863,"manySmallPerTxUs":99.70080536912752,"manySmallTxs":149,"phase":"start","predictedPerTxUs":2.5500000000000003,"series":"code","stateAccountsAll":10,"stateCloneMs":0.000795,"transferMs":28.161695,"transferPerTxUs":71.2875052631579,"transferTxs":380,"validateSnapshotMs":0.0009599999999999999}
+JM-TXSTATE {"buildSeconds":2.804629696,"create2Creates":247,"create2Ms":7.889731,"create2PerCreateUs":25.266947368421054,"emptyChildMs":1.648795,"fillBlocks":62,"height":125,"inventoryMs":0.004743,"liveUserAccounts":67,"liveUserSlots":0,"logicalCode":2047125,"manySmallMs":19.939059,"manySmallPerTxUs":122.75344966442952,"manySmallTxs":149,"phase":"code-end","predictedPerTxUs":17.712,"series":"code","stateAccountsAll":72,"stateCloneMs":0.0041659999999999996,"transferMs":35.076978000000004,"transferPerTxUs":87.96890263157896,"transferTxs":380,"validateSnapshotMs":0.00938}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 55.42s
+
+end 2026-10-24T09:06:36Z exit=0

@@ -1,0 +1,171 @@
+{
+  "commit": "56cda6f4d848526150607509c7273ba9f2f9f440",
+  "trackedFilesModified": false,
+  "toolchain": "1.58.1-x86_64-pc-windows-msvc",
+  "os": "Microsoft Windows 10.0.20348",
+  "githubRun": "https://github.com/raedrasheed/Proof-of-Collaboration/actions/runs/39042332256 attempt 1",
+  "counts": {
+    "PASS": 16,
+    "FAIL": 0,
+    "BLOCKED BY PLATFORM": 8,
+    "NOT RUN": 2
+  },
+  "results": [
+    {
+      "check": "toolchain",
+      "status": "PASS",
+      "exitCode": null,
+      "detail": "1.58.1-x86_64-pc-windows-msvc; cargo 1.58.0 (f01b232bc 2022-01-19)"
+    },
+    {
+      "check": "cargo-build",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "exit 0"
+    },
+    {
+      "check": "cargo-build-release",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "exit 0"
+    },
+    {
+      "check": "rustfmt-check",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "exit 0"
+    },
+    {
+      "check": "store-journal",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "running 12 tests\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.21s\n     Running tests\\store_journal.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\store_journal-d9664d9a1ef7c229.exe)"
+    },
+    {
+      "check": "store-process-crash-recovery",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "running 3 tests\ntest result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.09s\n     Running tests\\store_process.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\store_process-627bedfb6af805f4.exe)"
+    },
+    {
+      "check": "cargo-test-full",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "running 50 tests\ntest result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s\nrunning 0 tests\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\nrunning 5 tests\ntest result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s\nrunning 2 tests\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s\n{\"test\":\"asert_alloc\",\"calls\":1069,\"allocations\":0,\"counterProbe\":true,\"maxShiftBits\":512,\"earlyHigh\":286,\"none\":3,\"probeLen\":64}\nrunning 1 test\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\nrunning 8 tests\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s\nrunning 3 tests\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s\nrunning 4 tests\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\nrunning 12 tests\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.12s\nrunning 7 tests\ntest result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s\n{\"case\":\"oversizedLine256MiB\",\"ok\":true,\"peakHeapBytes\":8455441,\"boundBytes\":8520962,\"perInputAboveBuffers\":15,\"rows\":3}\n{\"case\":\"gsv1Times30000\",\"ok\":true,\"peakHeapBytes\":8455847,\"boundBytes\":8520962,\"perInputAboveBuffers\":421,\"rows\":30001}\n{\"case\":\"limitPlusOneThenMaxValid\",\"ok\":true,\"peakHeapBytes\":13895089,\"boundBytes\":14092374,\"perInputAboveBuffers\":5439663,\"rows\":3}\n{\"case\":\"maxDeepNest\",\"ok\":true,\"peakHeapBytes\":16844034,\"boundBytes\":16910848,\"perInputAboveBuffers\":8388608,\"rows\":2}\n{\"case\":\"maxFlatList\",\"ok\":true,\"peakHeapBytes\":8455458,\"boundBytes\":8520962,\"perInputAboveBuffers\":32,\"rows\":2}\n{\"case\":\"gsVersion256KiB\",\"ok\":true,\"peakHeapBytes\":10400962,\"boundBytes\":11142402,\"perInputAboveBuffers\":1945536,\"rows\":2}\n{\"test\":\"genesis_batch_alloc\",\"buffersBytes\":8455426,\"maxSpecBytes\":2818474,\"cases\":6,\"failed\":0}\nrunning 16 tests\ntest result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.57s\nrunning 2 tests\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.72s\nrunning 5 tests\ntest result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\nrunning 6 tests\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\nrunning 4 tests\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\nrunning 12 tests\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.08s\nrunning 3 tests\ntest result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.82s\nrunning 6 tests\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\nrunning 0 tests\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n     Running unittests (D:\\a\\_temp\\lp3-target\\debug\\deps\\lp1_node-9a5a0b8cbd27e91e.exe)\n     Running unittests (D:\\a\\_temp\\lp3-target\\debug\\deps\\lp1_node-e2c2f11ab36d6e60.exe)\n     Running tests\\adversarial.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\adversarial-3f5c5a9ec2ae19a0.exe)\n     Running tests\\adversarial_lp3.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\adversarial_lp3-1489ff197e5d5629.exe)\n     Running tests/asert_alloc.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\asert_alloc-fa866688f0d7c99e.exe)\n     Running tests\\asert_named.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\asert_named-252a0b748143fb9b.exe)\n     Running tests\\assignment.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\assignment-48e9e70aaec0e00f.exe)\n     Running tests\\envelope.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\envelope-9e392c40d319510d.exe)\n     Running tests\\finality_core.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\finality_core-5ac6ed078e01b5a2.exe)\n     Running tests\\fixtures_integration.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\fixtures_integration-cbe3d637733ebf63.exe)\n     Running tests\\gate.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\gate-83ec8dda987a8f1c.exe)\n     Running tests/genesis_batch_alloc.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\genesis_batch_alloc-2dd10e46527a1e15.exe)\n     Running tests\\genesis_spec.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\genesis_spec-6b94476906e4b626.exe)\n     Running tests\\http_loopback.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\http_loopback-03fcf2acf3360684.exe)\n     Running tests\\param_gate.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\param_gate-10353f16a9125672.exe)\n     Running tests\\profile.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\profile-be30e303e934ced2.exe)\n     Running tests\\rewards.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\rewards-b382ce9760fd1d27.exe)\n     Running tests\\store_journal.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\store_journal-d9664d9a1ef7c229.exe)\n     Running tests\\store_process.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\store_process-627bedfb6af805f4.exe)\n     Running tests\\timing.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\timing-9e4929655521a322.exe)"
+    },
+    {
+      "check": "genesis-batch-alloc-debug",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "{\"case\":\"oversizedLine256MiB\",\"ok\":true,\"peakHeapBytes\":8455441,\"boundBytes\":8520962,\"perInputAboveBuffers\":15,\"rows\":3}\n{\"case\":\"gsv1Times30000\",\"ok\":true,\"peakHeapBytes\":8455847,\"boundBytes\":8520962,\"perInputAboveBuffers\":421,\"rows\":30001}\n{\"case\":\"limitPlusOneThenMaxValid\",\"ok\":true,\"peakHeapBytes\":13895089,\"boundBytes\":14092374,\"perInputAboveBuffers\":5439663,\"rows\":3}\n{\"case\":\"maxDeepNest\",\"ok\":true,\"peakHeapBytes\":16844034,\"boundBytes\":16910848,\"perInputAboveBuffers\":8388608,\"rows\":2}\n{\"case\":\"maxFlatList\",\"ok\":true,\"peakHeapBytes\":8455458,\"boundBytes\":8520962,\"perInputAboveBuffers\":32,\"rows\":2}\n{\"case\":\"gsVersion256KiB\",\"ok\":true,\"peakHeapBytes\":10400962,\"boundBytes\":11142402,\"perInputAboveBuffers\":1945536,\"rows\":2}\n{\"test\":\"genesis_batch_alloc\",\"buffersBytes\":8455426,\"maxSpecBytes\":2818474,\"cases\":6,\"failed\":0}\n     Running tests/genesis_batch_alloc.rs (D:\\a\\_temp\\lp3-target\\debug\\deps\\genesis_batch_alloc-2dd10e46527a1e15.exe)"
+    },
+    {
+      "check": "genesis-batch-alloc-release-max",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "{\"case\":\"oversizedLine256MiB\",\"ok\":true,\"peakHeapBytes\":8455441,\"boundBytes\":8520962,\"perInputAboveBuffers\":15,\"rows\":3}\n{\"case\":\"gsv1Times30000\",\"ok\":true,\"peakHeapBytes\":8455847,\"boundBytes\":8520962,\"perInputAboveBuffers\":421,\"rows\":30001}\n{\"case\":\"limitPlusOneThenMaxValid\",\"ok\":true,\"peakHeapBytes\":13895089,\"boundBytes\":14092374,\"perInputAboveBuffers\":5439663,\"rows\":3}\n{\"case\":\"maxDeepNest\",\"ok\":true,\"peakHeapBytes\":16844034,\"boundBytes\":16910848,\"perInputAboveBuffers\":8388608,\"rows\":2}\n{\"case\":\"maxFlatList\",\"ok\":true,\"peakHeapBytes\":8455458,\"boundBytes\":8520962,\"perInputAboveBuffers\":32,\"rows\":2}\n{\"case\":\"gsVersion256KiB\",\"ok\":true,\"peakHeapBytes\":10400962,\"boundBytes\":11142402,\"perInputAboveBuffers\":1945536,\"rows\":2}\n{\"case\":\"gsVersionMax\",\"ok\":true,\"peakHeapBytes\":27562054,\"boundBytes\":36640166,\"perInputAboveBuffers\":19106628,\"rows\":2}\n{\"test\":\"genesis_batch_alloc\",\"buffersBytes\":8455426,\"maxSpecBytes\":2818474,\"cases\":7,\"failed\":0}\n     Running tests/genesis_batch_alloc.rs (D:\\a\\_temp\\lp3-target\\release\\deps\\genesis_batch_alloc-a161516a205e5074.exe)"
+    },
+    {
+      "check": "verify-fixtures",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "{\"check\":\"asert\",\"ok\":true,\"rows\":1027,\"matched\":1027,\"declared\":1027}\n{\"check\":\"hash\",\"ok\":true,\"knownAnswersK1K3\":true,\"entries\":3677,\"digestMatches\":3677,\"groups\":{\"v1.blockHash\":{\"derived\":15,\"entries\":15},\"v1.powHash\":{\"derived\":15,\"entries\":15},\"v1.shareHash\":{\"derived\":3587,\"entries\":3587},\"v1.shareRoot\":{\"derived\":15,\"entries\":15},\"v1.sigMsg\":{\"derived\":15,\"entries\":15},\"v1.templateId\":{\"derived\":15,\"entries\":15},\"v1.winMsg\":{\"derived\":15,\"entries\":15}},\"failures\":[]}\n{\"check\":\"summary\",\"ok\":true}"
+    },
+    {
+      "check": "e2e-http",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "{\"e2e\": \"lp1-http\", \"checks\": 45, \"failed\": 0, \"failures\": []}"
+    },
+    {
+      "check": "e2e-store",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "{\"e2e\": \"lp2-store\", \"checks\": 24, \"failed\": 0, \"failures\": []}"
+    },
+    {
+      "check": "lp3-genesis-diff",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "{\"check\": \"lp3-genesis-diff\", \"ok\": true, \"inputs\": 30075, \"agree\": 30075, \"mismatches\": 0, \"firstMismatches\": [], \"rustExit\": 0, \"rustSummary\": {\"check\": \"genesis-decode\", \"inputs\": 30075, \"accepted\": 2749, \"rejected\": 27326, \"refused\": 0, \"reencodeEqual\": true, \"maxSpecBytes\": 2818474}, \"referenceCodes\": {\"L0\": 8516, \"gsCount\": 5621, \"gsInt\": 1535, \"gsLen\": 1566, \"gsOrder\": 635, \"gsRange\": 948, \"gsStructure\": 7741, \"gsSys\": 324, \"gsVersion\": 440, \"ok\": 2749}, \"byGroup\": {\"bytes\": {\"L0\": 8500, \"gsCount\": 177, \"gsInt\": 52, \"gsOrder\": 4, \"gsRange\": 29, \"gsStructure\": 107, \"gsVersion\": 1, \"ok\": 1130}, \"c30\": {\"L0\": 14, \"gsCount\": 2, \"gsStructure\": 10}, \"gsv1\": {\"ok\": 1}, \"ladder\": {\"gsOrder\": 1, \"gsStructure\": 2, \"gsVersion\": 12, \"ok\": 1}, \"neg\": {\"L0\": 2, \"gsCount\": 3, \"gsInt\": 4, \"gsLen\": 3, \"gsOrder\": 3, \"gsRange\": 7, \"gsStructure\": 1, \"gsSys\": 4, \"gsVersion\": 2, \"ok\": 3}, \"structured\": {\"gsCount\": 5439, \"gsInt\": 1479, \"gsLen\": 1563, \"gsOrder\": 627, \"gsRange\": 912, \"gsStructure\": 7621, \"gsSys\": 320, \"gsVersion\": 425, \"ok\": 1614}}, \"seed\": 1280324353, \"maxVersion\": false, \"largestInput\": 2818474, \"corpusSha256\": \"22f80cbb58a88823fbd56a93fcb357b91bd4ce6878b62f87fe9cdbd4c0ec48df\", \"pinnedInputs\": {\"m1-draft-0.21/tools/netprofile_ref.py\": \"ca94ef3423222016a63808685e56869e5ed732a3cce732b9c29fc022221690e5\", \"m1-draft-0.22/tools/iterative_parse.py\": \"742e1936ead8fda8521db7a3ae01baa94e335dd8295ec77a30b09b8ddeb7034a\", \"m1-draft-0.2/tools/keccak.py\": \"99aa7770d2966ccbc804eb913cd97d54e15bba627c4ee7f71dc3f248a2f91a1d\", \"m1-draft-0.2/tools/rlp_strict.py\": \"abd9ba9accacdefff7edc1fc18eb7513402e2ef21528ebac64c6e84cde6a236a\", \"m1-draft-0.21/vectors/v3-gsv1.json\": \"88097ee293aeab70c2089c2b61da8ce624503a59dfafd34657e9c1a465056f32\", \"m1-draft-0.22/vectors/c30-depth.json\": \"728d8b4ac88c0212d8b1cb6224c5f834f923619e1c32320dcf1eae120fb72464\"}, \"python\": \"3.11.9\"}"
+    },
+    {
+      "check": "lp3-genesis-cli",
+      "status": "PASS",
+      "exitCode": 0,
+      "detail": "{"
+    },
+    {
+      "check": "lp3-genesis-cli: largeOneLine192MiB.limit256MiB",
+      "status": "BLOCKED BY PLATFORM",
+      "exitCode": null,
+      "detail": "RLIMIT_AS / wait4 not available on Windows"
+    },
+    {
+      "check": "lp3-genesis-cli: largeOneLine192MiB.limit64MiB",
+      "status": "BLOCKED BY PLATFORM",
+      "exitCode": null,
+      "detail": "RLIMIT_AS / wait4 not available on Windows"
+    },
+    {
+      "check": "lp3-genesis-cli: limitPlusOneThenMaxValid",
+      "status": "BLOCKED BY PLATFORM",
+      "exitCode": null,
+      "detail": "RLIMIT_AS / wait4 not available on Windows"
+    },
+    {
+      "check": "lp3-genesis-cli: limitPlusOneThenMaxValid.noLimit",
+      "status": "PASS",
+      "exitCode": null,
+      "detail": "exit 1, 0.33 s"
+    },
+    {
+      "check": "lp3-genesis-cli: maxDeepAndFlat",
+      "status": "BLOCKED BY PLATFORM",
+      "exitCode": null,
+      "detail": "RLIMIT_AS / wait4 not available on Windows"
+    },
+    {
+      "check": "lp3-genesis-cli: gsv1Times100000",
+      "status": "BLOCKED BY PLATFORM",
+      "exitCode": null,
+      "detail": "RLIMIT_AS / wait4 not available on Windows"
+    },
+    {
+      "check": "lp3-genesis-cli: gsVersion262144Bytes",
+      "status": "BLOCKED BY PLATFORM",
+      "exitCode": null,
+      "detail": "RLIMIT_AS / wait4 not available on Windows"
+    },
+    {
+      "check": "lp3-genesis-cli: lineForms",
+      "status": "PASS",
+      "exitCode": null,
+      "detail": "exit 1, 0 s"
+    },
+    {
+      "check": "lp3-genesis-cli: reservationFailure.limit8MiB",
+      "status": "BLOCKED BY PLATFORM",
+      "exitCode": null,
+      "detail": "RLIMIT_AS / wait4 not available on Windows"
+    },
+    {
+      "check": "lp3-genesis-diff-release-max",
+      "status": "NOT RUN",
+      "exitCode": null,
+      "detail": "optional; dispatch with include_slow"
+    },
+    {
+      "check": "lp3-genesis-cli-release-max",
+      "status": "NOT RUN",
+      "exitCode": null,
+      "detail": "optional; dispatch with include_slow"
+    },
+    {
+      "check": "RLIMIT_AS address-space limit checks",
+      "status": "BLOCKED BY PLATFORM",
+      "exitCode": null,
+      "detail": "Windows has no RLIMIT_AS; bounded memory is covered here by genesis-batch-alloc (counting allocator)"
+    }
+  ]
+}

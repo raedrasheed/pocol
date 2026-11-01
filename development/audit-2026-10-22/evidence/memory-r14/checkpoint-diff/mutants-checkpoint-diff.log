@@ -1,0 +1,21 @@
+# seeded faults in the checkpoint-open diff; tree = bc38d41 (the worktree's HEAD); lp4 node_trie::tests::diff*, pocold --test consensus e4_checkpoint_*
+BASE lp4-execution: ok 2 ran, 0 failed 
+BASE pocold: ok 7 ran, 0 failed 
+DF1 two subtrees taken as equal on their first byte: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+DF2 a subtree only the second version has is not read: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+DF3 a subtree only the first version has is not listed: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+DF4 parting prefixes: the second node is not read: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+DF5 a prefix taken as parted where one holds the other: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+DF6 a leaf with another value is not listed: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ | |)
+DF7 the last nibble is not compared: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+DF8 a longer second node: the first node's other children are not listed: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+DF9 a longer first node: the second node's other children are not read: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+DF10 a longer second node with no child on its path is not read: KILLED (2 ran, 1 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds)
+DF11 the storage of an account only the second version has is not read: KILLED (2 ran, 1 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds)
+DF12 a changed account's storage is not compared: BUILD-FAILED ()
+# seeded faults in the checkpoint-open diff; tree = bc38d41 (the worktree's HEAD); lp4 node_trie::tests::diff*, pocold --test consensus e4_checkpoint_*
+DF12 a changed account's storage is not compared: KILLED (2 ran, 1 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds | |)
+DF13 the child index is off by one: KILLED (2 ran, 2 failed node_trie::tests::diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds node_trie::tests::diff_of_raw_clustered_keys_is_exactly_the_rows_that_differ)
+RS1 restore diffs from the grandparent's version: SURVIVED (7 ran, 0 failed )
+RS2 restore reads every version whole: SURVIVED (7 ran, 0 failed )
+RS3 restore moves the parent's summary without the diff: KILLED (7 ran, 6 failed e4_checkpoint_damage_falls_back_to_a_verified_state e4_checkpoint_open_releases_what_a_crash_left_in_the_store e4_checkpoint_open_resumes_and_equals_replay_from_genesis e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains e4_checkpoint_resumes_with_replays_protect_set e4_checkpoint_survives_kills)

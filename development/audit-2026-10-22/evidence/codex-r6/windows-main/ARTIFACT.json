@@ -1,0 +1,22 @@
+{
+  "artifact_id": 12884953527,
+  "archive_sha256": "ff96291f2e44d1cd2f8e54cd732be4d63f4e17a4b293aedb7b6305891b3f4024",
+  "members": {
+    "logs/extension-npm-ci.log": "05412baf22b53c79cfeeb4f0c06e9b1af6e1ef494953e199f1d9f200f075a6a1",
+    "environment.json": "1ce597b0e44dbf96ec9fc7c1d5e85ee5b094fcc60f8c6ef58d21c865267e3036",
+    "logs/extension-unit.log": "26836d0927466a017edffc54ea0148929eee670f75d968df4da32c31e961e3a0",
+    "logs/extension-build.log": "df36b4c5b5290c405e35c5cc79a93dab70c03bde890e0f217c5d4686fc9b191e",
+    "logs/fetch-lp1-node.log": "83ece739504338123dfd8634caf9c2c77d4b4dbc526d4773ba3a4c740c71dea2",
+    "logs/fetch-lp4-execution.log": "565b88190976c506b5aae332cf0b9d78a79d3dd8de13c5cd172e708d6b66d253",
+    "logs/fetch-pocold.log": "79b807772a28c0578f04da7992e540d025931e702f668b51006a37681675df90",
+    "logs/lp1-node-all.log": "deaabad6b45e757826c0564a69bc60894880c74aadec47dbc3d56b25e75369b3",
+    "logs/lp1-store-journal.log": "e23edd86547218a270d04eb56e5d99c3d99f1c9767d6e6cd75429c17518233e0",
+    "logs/lp4-execution.log": "f57c61e2894a6679951648b2c50a6c0704bc03985c57f6010a46756ba2b9cc7e",
+    "logs/pocold-io-fault.log": "b7c234098abd2000a9634838f3380b6f71aaec917c617918e153d5dac8119b38",
+    "logs/pocold.log": "4e393093e88faff5ea6854d989d142fbc435bef7f6ee94838cf45b997ad317f9",
+    "logs/rustup-install-1.58.1.log": "d563621968cf06ba6b90d950fc80a93677eebbe933be4db66a45f2f7ac845e20",
+    "logs/rustup-install-1.99.1.log": "97416d6612cda48b4ea01363a62d256dbc58c178589b2569508da319f0f86cbd",
+    "results.json": "04601ae84cc60e413b978d240869426b065cb172f9ffd9140897ae1d88243558",
+    "summary.md": "bd6ba899c5154b2312f3196e3ca26d1999ff4a3b07211db354dc9f2285d1418e"
+  }
+}

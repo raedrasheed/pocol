@@ -1,0 +1,21 @@
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/Proof-of-Collaboration/prototypes/lp4-execution)
+error[E0382]: borrow of moved value: `code`
+  --> tests/reward_durability.rs:10:79
+   |
+ 7 |  let code=Bytecode::new_raw(Bytes::from((0..text.len()).step_by(2).map(|i|u8::from_str_radix(&text[i..i+2],16).unwrap()).collect::<V...
+   |      ---- move occurs because `code` has type `Bytecode`, which does not implement the `Copy` trait
+ 8 |  for prefunded in [false,true] {
+   |  ----------------------------- inside of this loop
+ 9 |  let mut db=InMemoryDB::default();let user=Address::from([0x11;20]);db.insert_account_info(user,AccountInfo::from_balance(U256::from...
+10 |  db.insert_account_info(registry_address(),AccountInfo::new(U256::from(100),1,code.hash_slow(),code));
+   |                                                                               ^^^^             ---- value moved here, in previous iteration of loop
+   |                                                                               |
+   |                                                                               value borrowed here after move
+   |
+help: consider cloning the value if the performance cost is acceptable
+   |
+10 |  db.insert_account_info(registry_address(),AccountInfo::new(U256::from(100),1,code.hash_slow(),code.clone()));
+   |                                                                                                    ++++++++
+
+For more information about this error, try `rustc --explain E0382`.
+error: could not compile `pocol-lp4-execution` (test "reward_durability") due to 1 previous error

@@ -1,0 +1,50 @@
+[
+  {
+    "manifest": "development/lp3/s1-genesisspec/codex-review-2026-10-17/SHA256SUMS",
+    "verifiedFiles": 22
+  },
+  {
+    "manifest": "development/lp3/s1-genesisspec/windows-run-37976178670/SHA256SUMS",
+    "verifiedFiles": 35
+  },
+  {
+    "manifest": "development/lp3/s2-profile/author-codex-r1/SHA256SUMS",
+    "verifiedFiles": 18
+  },
+  {
+    "manifest": "development/lp3/s2-profile/review-codex-r1/SHA256SUMS",
+    "verifiedFiles": 23
+  },
+  {
+    "manifest": "development/lp3/s3-timing/codex-r1/SHA256SUMS",
+    "verifiedFiles": 26
+  },
+  {
+    "manifest": "development/lp3/s4-assignment/codex-r1/SHA256SUMS",
+    "verifiedFiles": 32
+  },
+  {
+    "manifest": "development/lp3/s7-evidence/codex-r2/SHA256SUMS",
+    "verifiedFiles": 77
+  },
+  {
+    "manifest": "development/lp3/s7-evidence/codex-r1/SHA256SUMS",
+    "verifiedFiles": 69
+  },
+  {
+    "manifest": "development/lp3/s6-model/codex-r1/SHA256SUMS",
+    "verifiedFiles": 88
+  },
+  {
+    "manifest": "development/lp3/s5-paramgate/codex-r2/SHA256SUMS",
+    "verifiedFiles": 201
+  },
+  {
+    "manifest": "development/lp3/s5-paramgate/codex-r1/SHA256SUMS",
+    "verifiedFiles": 155
+  },
+  {
+    "manifest": "development/lp3/s8-audit/codex-r1/SHA256SUMS",
+    "verifiedFiles": 157
+  }
+]

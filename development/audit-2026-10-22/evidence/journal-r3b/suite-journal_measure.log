@@ -1,0 +1,22 @@
+cmd: flock cpu.lock cargo test --release --locked --test journal_measure
+=== start 2026-10-24T05:57:24Z ===
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.14s
+     Running tests/journal_measure.rs (/tmp/claude-0/-home-user-Proof-of-Collaboration/5c42c059-8cb3-5c8b-83e8-431ffbd082d1/scratchpad/wf-target-r3-journal/release/deps/journal_measure-38e7084ad7dc4091)
+
+running 12 tests
+test jm_create_state_term ... ignored, measurement: run in release with --ignored --nocapture
+test jm_deep_fork_rebuild_vs_height ... ignored, measurement: run in release with --ignored --nocapture
+test jm_deep_reorg_latency ... ignored, measurement: run in release with --ignored --nocapture
+test jm_exec_cost_per_gas ... ignored, measurement: run in release with --ignored --nocapture
+test jm_open_memory ... ignored, measurement: run in release with --ignored --nocapture
+test jm_rebuild_by_kind ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_by_kind ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_component_split ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_empty_blocks ... ignored, measurement: run in release with --ignored --nocapture
+test jm_state_root_synthetic ... ignored, measurement: run in release with --ignored --nocapture
+test jm_state_size_term ... ignored, measurement: run in release with --ignored --nocapture
+test jm_journal_bytes_per_record ... ok
+
+test result: ok. 1 passed; 0 failed; 11 ignored; 0 measured; 0 filtered out; finished in 1.22s
+
+=== end 2026-10-24T05:59:44Z exit=0 ===

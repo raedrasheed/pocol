@@ -1,0 +1,154 @@
+{
+  "oracle": "Independent Node BigInt and strict-name/type counterexamples derived from E1 normative declarations",
+  "summary": {
+    "checks": 24,
+    "passed": 24,
+    "failed": 0
+  },
+  "results": [
+    {
+      "check": "Native Node BigInt pocol:epoch:0000000000000001",
+      "passed": true,
+      "actual": "pocol:epoch:0000000000000001",
+      "expected": "pocol:epoch:0000000000000001"
+    },
+    {
+      "check": "Native Node BigInt pocol:epoch:0000000000000006",
+      "passed": true,
+      "actual": "pocol:epoch:0000000000000006",
+      "expected": "pocol:epoch:0000000000000006"
+    },
+    {
+      "check": "Native Node BigInt pocol:epoch:000000000000000d",
+      "passed": true,
+      "actual": "pocol:epoch:000000000000000d",
+      "expected": "pocol:epoch:000000000000000d"
+    },
+    {
+      "check": "Native Node BigInt pocol:epoch:00000000000000ff",
+      "passed": true,
+      "actual": "pocol:epoch:00000000000000ff",
+      "expected": "pocol:epoch:00000000000000ff"
+    },
+    {
+      "check": "Native Node BigInt pocol:epoch:0000000100000000",
+      "passed": true,
+      "actual": "pocol:epoch:0000000100000000",
+      "expected": "pocol:epoch:0000000100000000"
+    },
+    {
+      "check": "Native Node BigInt pocol:epoch:ffffffffffffffff",
+      "passed": true,
+      "actual": "pocol:epoch:ffffffffffffffff",
+      "expected": "pocol:epoch:ffffffffffffffff"
+    },
+    {
+      "check": "Native Node BigInt site:N:A:r:0000000000000001:00000000",
+      "passed": true,
+      "actual": "site:N:A:r:0000000000000001:00000000",
+      "expected": "site:N:A:r:0000000000000001:00000000"
+    },
+    {
+      "check": "Native Node BigInt site:N:A:r:000000000000000d:00000001",
+      "passed": true,
+      "actual": "site:N:A:r:000000000000000d:00000001",
+      "expected": "site:N:A:r:000000000000000d:00000001"
+    },
+    {
+      "check": "Native Node BigInt site:N:A:r:ffffffffffffffff:ffffffff",
+      "passed": true,
+      "actual": "site:N:A:r:ffffffffffffffff:ffffffff",
+      "expected": "site:N:A:r:ffffffffffffffff:ffffffff"
+    },
+    {
+      "check": "Strict epoch tail '\\n'",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict record tail '\\n'",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict epoch tail '\\r\\n'",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict record tail '\\r\\n'",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict epoch tail 'x'",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict record tail 'x'",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict epoch tail ' '",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict record tail ' '",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict epoch tail ':nonce'",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "Strict record tail ':nonce'",
+      "passed": true,
+      "actual": null,
+      "expected": null
+    },
+    {
+      "check": "bool epoch",
+      "passed": true,
+      "actual": "refused",
+      "expected": "refused"
+    },
+    {
+      "check": "bool sequence",
+      "passed": true,
+      "actual": "refused",
+      "expected": "refused"
+    },
+    {
+      "check": "bool bootMs invalid",
+      "passed": true,
+      "actual": false,
+      "expected": false
+    },
+    {
+      "check": "bool epoch value invalid",
+      "passed": true,
+      "actual": false,
+      "expected": false
+    },
+    {
+      "check": "bool seq value invalid",
+      "passed": true,
+      "actual": false,
+      "expected": false
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{"label": "old-M1b", "exit": 1, "outcome": "FAIL", "first_fail": "timeout waiting for 100 blocks on all nodes", "elapsed_s": 480.4, "leftover_killed": [], "ports_busy_after": []}
+{"label": "old-M3b", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 149.3, "leftover_killed": [], "ports_busy_after": []}
+{"label": "old-M4", "exit": 1, "outcome": "FAIL", "first_fail": "heal: the lighter side reorganizes and all nodes converge on a head at least as heavy as either branch", "elapsed_s": 106.1, "leftover_killed": [], "ports_busy_after": []}
+{"label": "old-M6", "exit": 0, "outcome": "PASS", "first_fail": null, "elapsed_s": 174.2, "leftover_killed": [], "ports_busy_after": []}
+{"label": "old-M2", "exit": 1, "outcome": "FAIL", "first_fail": "timeout waiting for heal convergence", "elapsed_s": 158.9, "leftover_killed": [], "ports_busy_after": []}
+done

@@ -1,0 +1,8979 @@
+{
+  "package": "M1 draft 0.9 (annex Q1-Q4: StoreQueue D101/D102)",
+  "executedAtUtc": "2026-10-07T13:22:40+00:00",
+  "environment": {
+    "python": "3.11.1",
+    "executable": "D:\\PoCol-Development\\coordination\\runtime\\python311\\python.exe",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "thirdPartyPackages": "none"
+  },
+  "evidenceKind": "reference model of the specification text against hand-written golden data; fake clock and fake backend only",
+  "notExecuted": [
+    "BR21c (Chrome on anvil-br, C measurements)",
+    "BR21d (real loader in Chrome)",
+    "TypeScript StoreQueue/SiteStorage",
+    "browser / MV3 extension, DNR",
+    "chrome.storage.local atomicity",
+    "real transactions"
+  ],
+  "summary": {
+    "checks": 235,
+    "passed": 197,
+    "recorded": 38,
+    "failed": 0,
+    "seconds": 24.1
+  },
+  "results": [
+    {
+      "check": "input.sha256 reference/browser.md",
+      "status": "recorded",
+      "sha256": "4f8e153aa546bb317de3f31857897a3c902944c3a46de30285f2036b3723ace7",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 reference/validation.md",
+      "status": "recorded",
+      "sha256": "a934a94b36ff9ceb12fb38719d0b5b78bfd17c2d67c7845c0c555d55b8b453b1",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 reference/implementation.md",
+      "status": "recorded",
+      "sha256": "7701f1c9fdc16e18dc5434f7a6eaa197a933b0c11b1262b5c78adf2f289df7f3",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 reference/governance.md",
+      "status": "recorded",
+      "sha256": "44058e57404fd19e776c703b8fc40d9d40ee73da286bc625d79dd46b6d4a0c8b",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.2/M1-ANNEX-CHECKLIST-0.2.md",
+      "status": "recorded",
+      "sha256": "067afa4e7b8389fe135e9e357585e5f8d46bf2a2b05572341e5ea4fac1ba4580",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.7/M1-STATUS-0.7.md",
+      "status": "recorded",
+      "sha256": "521a38c338b27576a75801e429649c8083ea082a61be8755021d87ee28523da1",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.8/README.md",
+      "status": "recorded",
+      "sha256": "40d61cff291e102b246e8399b538b5ad6bf62b1428f82273ea57db6b3d3e8f5d",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.8/M1-SPEC-0.8-AMENDMENT.md",
+      "status": "recorded",
+      "sha256": "1c317257cf96297fbb3f488862e5f1150514bcbc6d82956cef5a4e5170e16a08",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.8/tools/run_checks_08.py",
+      "status": "recorded",
+      "sha256": "da209a56e4a0f0eb197cb675aaabc0032d7e4e34585fe44c3d72bb645ecc0a8c",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.9/tools/storequeue_ref.py",
+      "status": "recorded",
+      "sha256": "d634e93e6c1564473a2fdcda74781d24c2eecf56e0b23ca12d33a43a47c91ad7",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.9/tools/run_checks_09.py",
+      "status": "recorded",
+      "sha256": "77027b589ec61debcfca5c79d59e1ab6bd0562ed97747b5920db9a6cd3429928",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.9/vectors/storequeue-units.json",
+      "status": "recorded",
+      "sha256": "57f85d276bde4290f7bb9bb61f89cf20fd42adecdb8f63fbc2f6e354d1ab6ac7",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.9/vectors/storequeue-cases.json",
+      "status": "recorded",
+      "sha256": "565a66e8b52b784a2720f4aa4b34d78f4dec54b948dd9059e1f0bd59e6f8f560",
+      "exists": true
+    },
+    {
+      "check": "input.sha256 m1-draft-0.9/vectors/storequeue-transitions.json",
+      "status": "recorded",
+      "sha256": "918e5f58f7eb79e81e350c86a4d3d769bfb89833e0c1fec0ecdcdd31b8774f3c",
+      "exists": true
+    },
+    {
+      "check": "provenance units.utf8",
+      "status": "pass",
+      "file": "reference/implementation.md",
+      "lines": [
+        206,
+        206
+      ],
+      "missing": []
+    },
+    {
+      "check": "provenance units.qbytes",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        409,
+        412
+      ],
+      "missing": []
+    },
+    {
+      "check": "provenance units.admission",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        414,
+        420
+      ],
+      "missing": []
+    },
+    {
+      "check": "provenance units.quotaBR17e",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        198,
+        206
+      ],
+      "missing": []
+    },
+    {
+      "check": "provenance units.quotaUtf8Boundary",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        396,
+        398
+      ],
+      "missing": []
+    },
+    {
+      "check": "provenance units.config",
+      "status": "pass",
+      "file": "reference/governance.md",
+      "lines": [
+        132,
+        142
+      ],
+      "missing": []
+    },
+    {
+      "check": "utf8.ascii",
+      "status": "pass",
+      "expected": 3,
+      "got": 3
+    },
+    {
+      "check": "utf8.empty",
+      "status": "pass",
+      "expected": 0,
+      "got": 0
+    },
+    {
+      "check": "utf8.null",
+      "status": "pass",
+      "expected": 0,
+      "got": 0
+    },
+    {
+      "check": "utf8.latin1",
+      "status": "pass",
+      "expected": 2,
+      "got": 2
+    },
+    {
+      "check": "utf8.arabic-salam",
+      "status": "pass",
+      "expected": 8,
+      "got": 8
+    },
+    {
+      "check": "utf8.arabic-word-space-emoji",
+      "status": "pass",
+      "expected": 19,
+      "got": 19
+    },
+    {
+      "check": "utf8.euro-bmp3",
+      "status": "pass",
+      "expected": 3,
+      "got": 3
+    },
+    {
+      "check": "utf8.bmp-max",
+      "status": "pass",
+      "expected": 3,
+      "got": 3
+    },
+    {
+      "check": "utf8.non-bmp-emoji",
+      "status": "pass",
+      "expected": 4,
+      "got": 4
+    },
+    {
+      "check": "utf8.notStringLength.non-bmp-emoji",
+      "status": "pass"
+    },
+    {
+      "check": "utf8.non-bmp-max",
+      "status": "pass",
+      "expected": 4,
+      "got": 4
+    },
+    {
+      "check": "utf8.lone-high",
+      "status": "pass",
+      "expected": 3,
+      "got": 3
+    },
+    {
+      "check": "utf8.lone-low",
+      "status": "pass",
+      "expected": 3,
+      "got": 3
+    },
+    {
+      "check": "utf8.reversed-pair",
+      "status": "pass",
+      "expected": 6,
+      "got": 6
+    },
+    {
+      "check": "utf8.lone-inside",
+      "status": "pass",
+      "expected": 5,
+      "got": 5
+    },
+    {
+      "check": "qbytes.M",
+      "status": "pass",
+      "expected": 61507,
+      "got": 61507
+    },
+    {
+      "check": "qbytes.m",
+      "status": "pass",
+      "expected": 68,
+      "got": 68
+    },
+    {
+      "check": "qbytes.delete",
+      "status": "pass",
+      "expected": 67,
+      "got": 67
+    },
+    {
+      "check": "qbytes.kv",
+      "status": "pass",
+      "expected": 66,
+      "got": 66
+    },
+    {
+      "check": "qbytes.clear",
+      "status": "pass",
+      "expected": 64,
+      "got": 64
+    },
+    {
+      "check": "qbytes.max",
+      "status": "pass",
+      "expected": 61760,
+      "got": 61760
+    },
+    {
+      "check": "qbytes.br21e-k50",
+      "status": "pass",
+      "expected": 53972,
+      "got": 53972
+    },
+    {
+      "check": "qbytes.br21f-m0",
+      "status": "pass",
+      "expected": 4109,
+      "got": 4109
+    },
+    {
+      "check": "qbytes.arabic-value",
+      "status": "pass",
+      "expected": 73,
+      "got": 73
+    },
+    {
+      "check": "qbytes.arabic-key-emoji-value",
+      "status": "pass",
+      "expected": 78,
+      "got": 78
+    },
+    {
+      "check": "qbytes.lone-surrogate-key",
+      "status": "pass",
+      "expected": 69,
+      "got": 69
+    },
+    {
+      "check": "admission.q3-sessBytes",
+      "status": "pass",
+      "expected": [
+        "sessBytes"
+      ],
+      "got": [
+        "sessBytes"
+      ]
+    },
+    {
+      "check": "admission.q5-sessN",
+      "status": "pass",
+      "expected": [
+        "sessN"
+      ],
+      "got": [
+        "sessN"
+      ]
+    },
+    {
+      "check": "admission.q10-globN",
+      "status": "pass",
+      "expected": [
+        "globN"
+      ],
+      "got": [
+        "globN"
+      ]
+    },
+    {
+      "check": "admission.e-t5-globBytes",
+      "status": "pass",
+      "expected": [
+        "globBytes"
+      ],
+      "got": [
+        "globBytes"
+      ]
+    },
+    {
+      "check": "admission.e-t4-exact",
+      "status": "pass",
+      "expected": [],
+      "got": []
+    },
+    {
+      "check": "admission.all-four",
+      "status": "pass",
+      "expected": [
+        "sessN",
+        "sessBytes",
+        "globN",
+        "globBytes"
+      ],
+      "got": [
+        "sessN",
+        "sessBytes",
+        "globN",
+        "globBytes"
+      ]
+    },
+    {
+      "check": "admission.sess-bytes-equality",
+      "status": "pass",
+      "expected": [],
+      "got": []
+    },
+    {
+      "check": "admission.sess-n-equality",
+      "status": "pass",
+      "expected": [],
+      "got": []
+    },
+    {
+      "check": "admission.glob-bytes-equality-function-only",
+      "status": "pass",
+      "expected": [],
+      "got": []
+    },
+    {
+      "check": "admission.glob-bytes-over-function-only",
+      "status": "pass",
+      "expected": [
+        "globBytes"
+      ],
+      "got": [
+        "globBytes"
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.1",
+      "status": "pass",
+      "expected": [
+        null,
+        61443,
+        null
+      ],
+      "got": [
+        null,
+        61443,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.2",
+      "status": "pass",
+      "expected": [
+        null,
+        122886,
+        null
+      ],
+      "got": [
+        null,
+        122886,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.3",
+      "status": "pass",
+      "expected": [
+        null,
+        184329,
+        null
+      ],
+      "got": [
+        null,
+        184329,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.4",
+      "status": "pass",
+      "expected": [
+        null,
+        245772,
+        null
+      ],
+      "got": [
+        null,
+        245772,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.5",
+      "status": "pass",
+      "expected": [
+        null,
+        307215,
+        null
+      ],
+      "got": [
+        null,
+        307215,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.6",
+      "status": "pass",
+      "expected": [
+        null,
+        368658,
+        null
+      ],
+      "got": [
+        null,
+        368658,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.7",
+      "status": "pass",
+      "expected": [
+        null,
+        430101,
+        null
+      ],
+      "got": [
+        null,
+        430101,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.8",
+      "status": "pass",
+      "expected": [
+        null,
+        491544,
+        null
+      ],
+      "got": [
+        null,
+        491544,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.9",
+      "status": "pass",
+      "expected": [
+        null,
+        552987,
+        null
+      ],
+      "got": [
+        null,
+        552987,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.10",
+      "status": "pass",
+      "expected": [
+        null,
+        614430,
+        null
+      ],
+      "got": [
+        null,
+        614430,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.11",
+      "status": "pass",
+      "expected": [
+        null,
+        675873,
+        null
+      ],
+      "got": [
+        null,
+        675873,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.12",
+      "status": "pass",
+      "expected": [
+        null,
+        737316,
+        null
+      ],
+      "got": [
+        null,
+        737316,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.13",
+      "status": "pass",
+      "expected": [
+        null,
+        798759,
+        null
+      ],
+      "got": [
+        null,
+        798759,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.14",
+      "status": "pass",
+      "expected": [
+        null,
+        860202,
+        null
+      ],
+      "got": [
+        null,
+        860202,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.15",
+      "status": "pass",
+      "expected": [
+        null,
+        921645,
+        null
+      ],
+      "got": [
+        null,
+        921645,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.16",
+      "status": "pass",
+      "expected": [
+        null,
+        983088,
+        null
+      ],
+      "got": [
+        null,
+        983088,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e1.17",
+      "status": "pass",
+      "expected": [
+        null,
+        1044531,
+        null
+      ],
+      "got": [
+        null,
+        1044531,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e2",
+      "status": "pass",
+      "expected": [
+        4300,
+        1044531,
+        1105974
+      ],
+      "got": [
+        4300,
+        1044531,
+        1105974
+      ]
+    },
+    {
+      "check": "quota.BR17e.e3",
+      "status": "pass",
+      "expected": [
+        4300,
+        1044531,
+        1048577
+      ],
+      "got": [
+        4300,
+        1044531,
+        1048577
+      ]
+    },
+    {
+      "check": "quota.BR17e.e4",
+      "status": "pass",
+      "expected": [
+        null,
+        1048576,
+        null
+      ],
+      "got": [
+        null,
+        1048576,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e5",
+      "status": "pass",
+      "expected": [
+        4300,
+        1048576,
+        1048580
+      ],
+      "got": [
+        4300,
+        1048576,
+        1048580
+      ]
+    },
+    {
+      "check": "quota.BR17e.e6",
+      "status": "pass",
+      "expected": [
+        4300,
+        1048576,
+        1048577
+      ],
+      "got": [
+        4300,
+        1048576,
+        1048577
+      ]
+    },
+    {
+      "check": "quota.BR17e.e7",
+      "status": "pass",
+      "expected": [
+        null,
+        987137,
+        null
+      ],
+      "got": [
+        null,
+        987137,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e8",
+      "status": "pass",
+      "expected": [
+        null,
+        925694,
+        null
+      ],
+      "got": [
+        null,
+        925694,
+        null
+      ]
+    },
+    {
+      "check": "quota.BR17e.e9",
+      "status": "pass",
+      "total": 925694
+    },
+    {
+      "check": "quota.utf8.startTotal",
+      "status": "pass",
+      "got": 1048570
+    },
+    {
+      "check": "quota.utf8.emoji-fits",
+      "status": "pass",
+      "expected": [
+        null,
+        1048575,
+        null
+      ],
+      "got": [
+        null,
+        1048575,
+        null
+      ]
+    },
+    {
+      "check": "quota.utf8.two-emoji-over",
+      "status": "pass",
+      "expected": [
+        4300,
+        1048570,
+        1048579
+      ],
+      "got": [
+        4300,
+        1048570,
+        1048579
+      ]
+    },
+    {
+      "check": "quota.utf8.lone-surrogate-fits",
+      "status": "pass",
+      "expected": [
+        null,
+        1048574,
+        null
+      ],
+      "got": [
+        null,
+        1048574,
+        null
+      ]
+    },
+    {
+      "check": "quota.utf8.two-lone-over",
+      "status": "pass",
+      "expected": [
+        4300,
+        1048570,
+        1048577
+      ],
+      "got": [
+        4300,
+        1048570,
+        1048577
+      ]
+    },
+    {
+      "check": "quota.utf8.arabic-equality",
+      "status": "pass",
+      "expected": [
+        null,
+        1048576,
+        null
+      ],
+      "got": [
+        null,
+        1048576,
+        null
+      ]
+    },
+    {
+      "check": "quota.utf8.arabic-one-over",
+      "status": "pass",
+      "expected": [
+        4300,
+        1048570,
+        1048577
+      ],
+      "got": [
+        4300,
+        1048570,
+        1048577
+      ]
+    },
+    {
+      "check": "quota.utf8.clear",
+      "status": "pass",
+      "expected": [
+        null,
+        0,
+        null
+      ],
+      "got": [
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "check": "quota.utf8.delete-missing",
+      "status": "pass",
+      "expected": [
+        null,
+        1048570,
+        null
+      ],
+      "got": [
+        null,
+        1048570,
+        null
+      ]
+    },
+    {
+      "check": "config.defaults-release",
+      "status": "pass",
+      "expected": {
+        "id": "defaults-release",
+        "params": "DEFAULTS",
+        "build": "release",
+        "ok": true,
+        "violations": []
+      },
+      "got": {
+        "ok": true,
+        "violations": []
+      }
+    },
+    {
+      "check": "config.defaults-test",
+      "status": "pass",
+      "expected": {
+        "id": "defaults-test",
+        "params": "DEFAULTS",
+        "build": "test",
+        "ok": true,
+        "violations": []
+      },
+      "got": {
+        "ok": true,
+        "violations": []
+      }
+    },
+    {
+      "check": "config.tq-test",
+      "status": "pass",
+      "expected": {
+        "id": "tq-test",
+        "params": "TQ",
+        "build": "test",
+        "ok": true,
+        "violations": []
+      },
+      "got": {
+        "ok": true,
+        "violations": []
+      }
+    },
+    {
+      "check": "config.tq-release-rejected",
+      "status": "pass",
+      "expected": {
+        "id": "tq-release-rejected",
+        "params": "TQ",
+        "build": "release",
+        "ok": false,
+        "violations": [
+          "nonDefaultRelease",
+          "globBytesBound"
+        ]
+      },
+      "got": {
+        "ok": false,
+        "violations": [
+          "nonDefaultRelease",
+          "globBytesBound"
+        ]
+      }
+    },
+    {
+      "check": "config.wait-not-after-write",
+      "status": "pass",
+      "expected": {
+        "id": "wait-not-after-write",
+        "params": {
+          "base": "DEFAULTS",
+          "set": {
+            "wait": 5000
+          }
+        },
+        "build": "test",
+        "ok": false,
+        "violations": [
+          "waitAfterWrite"
+        ]
+      },
+      "got": {
+        "ok": false,
+        "violations": [
+          "waitAfterWrite"
+        ]
+      }
+    },
+    {
+      "check": "config.sess-bytes-too-small",
+      "status": "pass",
+      "expected": {
+        "id": "sess-bytes-too-small",
+        "params": {
+          "base": "DEFAULTS",
+          "set": {
+            "sessBytes": 61759
+          }
+        },
+        "build": "test",
+        "ok": false,
+        "violations": [
+          "sessBytesFitsMax"
+        ]
+      },
+      "got": {
+        "ok": false,
+        "violations": [
+          "sessBytesFitsMax"
+        ]
+      }
+    },
+    {
+      "check": "config.active-zero-release",
+      "status": "pass",
+      "expected": {
+        "id": "active-zero-release",
+        "params": {
+          "base": "DEFAULTS",
+          "set": {
+            "active": 0
+          }
+        },
+        "build": "release",
+        "ok": false,
+        "violations": [
+          "nonDefaultRelease",
+          "activeMin"
+        ]
+      },
+      "got": {
+        "ok": false,
+        "violations": [
+          "nonDefaultRelease",
+          "activeMin"
+        ]
+      }
+    },
+    {
+      "check": "config.sess-msgs-over-glob",
+      "status": "pass",
+      "expected": {
+        "id": "sess-msgs-over-glob",
+        "params": {
+          "base": "DEFAULTS",
+          "set": {
+            "sessMsgs": 65
+          }
+        },
+        "build": "test",
+        "ok": false,
+        "violations": [
+          "msgsOrder"
+        ]
+      },
+      "got": {
+        "ok": false,
+        "violations": [
+          "msgsOrder"
+        ]
+      }
+    },
+    {
+      "check": "config.defaultsImmutable",
+      "status": "pass"
+    },
+    {
+      "check": "config.tqReleaseConstructionRejected",
+      "status": "pass"
+    },
+    {
+      "check": "provenance transitions",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        447,
+        473
+      ],
+      "missing": []
+    },
+    {
+      "check": "provenance case.BR21a-q1q5",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        297,
+        302
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21a-q1q5",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21a-q1q5",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21a-q1q5",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 0,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21a-q1q5",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 0,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {},
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 4,
+          "do": "set",
+          "id": "k04",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k04",
+              -32005,
+              "store",
+              [
+                "sessBytes"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 5,
+          "do": "set",
+          "id": "k90",
+          "sess": {
+            "S1": [
+              5,
+              246096
+            ]
+          },
+          "glob": [
+            5,
+            246096
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 6,
+          "do": "set",
+          "id": "k91",
+          "sess": {
+            "S1": [
+              6,
+              246164
+            ]
+          },
+          "glob": [
+            6,
+            246164
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 7,
+          "do": "set",
+          "id": "k92",
+          "sess": {
+            "S1": [
+              7,
+              246232
+            ]
+          },
+          "glob": [
+            7,
+            246232
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 8,
+          "do": "set",
+          "id": "k93",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 9,
+          "do": "set",
+          "id": "k94",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k94",
+              -32005,
+              "store",
+              [
+                "sessN"
+              ]
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21a-q6",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        303,
+        303
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21a-q6",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21a-q6",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21a-q6",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 8,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 8,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21a-q6",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 8,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 8,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k90",
+            "k91",
+            "k92",
+            "k93"
+          ],
+          "total": 245788
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 4,
+          "do": "set",
+          "id": "k04",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k04",
+              -32005,
+              "store",
+              [
+                "sessBytes"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 5,
+          "do": "set",
+          "id": "k90",
+          "sess": {
+            "S1": [
+              5,
+              246096
+            ]
+          },
+          "glob": [
+            5,
+            246096
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 6,
+          "do": "set",
+          "id": "k91",
+          "sess": {
+            "S1": [
+              6,
+              246164
+            ]
+          },
+          "glob": [
+            6,
+            246164
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 7,
+          "do": "set",
+          "id": "k92",
+          "sess": {
+            "S1": [
+              7,
+              246232
+            ]
+          },
+          "glob": [
+            7,
+            246232
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 8,
+          "do": "set",
+          "id": "k93",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 9,
+          "do": "set",
+          "id": "k94",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k94",
+              -32005,
+              "store",
+              [
+                "sessN"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              7,
+              184793
+            ]
+          },
+          "glob": [
+            7,
+            184793
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k00",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 200,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              6,
+              123286
+            ]
+          },
+          "glob": [
+            6,
+            123286
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "k01",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 300,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              5,
+              61779
+            ]
+          },
+          "glob": [
+            5,
+            61779
+          ],
+          "sets": 4,
+          "replies": [
+            [
+              "k02",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 400,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              4,
+              272
+            ]
+          },
+          "glob": [
+            4,
+            272
+          ],
+          "sets": 5,
+          "replies": [
+            [
+              "k03",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 500,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              3,
+              204
+            ]
+          },
+          "glob": [
+            3,
+            204
+          ],
+          "sets": 6,
+          "replies": [
+            [
+              "k90",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 600,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              136
+            ]
+          },
+          "glob": [
+            2,
+            136
+          ],
+          "sets": 7,
+          "replies": [
+            [
+              "k91",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 700,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            1,
+            68
+          ],
+          "sets": 8,
+          "replies": [
+            [
+              "k92",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 800,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 8,
+          "replies": [
+            [
+              "k93",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21a-q7",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        304,
+        304
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21a-q7",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21a-q7",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21a-q7",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 8,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 8,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21a-q7",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 8,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 8,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k01",
+            "k02",
+            "k03",
+            "k90",
+            "k91",
+            "k92",
+            "k93"
+          ],
+          "total": 184345
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 4,
+          "do": "set",
+          "id": "k04",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k04",
+              -32005,
+              "store",
+              [
+                "sessBytes"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 5,
+          "do": "set",
+          "id": "k90",
+          "sess": {
+            "S1": [
+              5,
+              246096
+            ]
+          },
+          "glob": [
+            5,
+            246096
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 6,
+          "do": "set",
+          "id": "k91",
+          "sess": {
+            "S1": [
+              6,
+              246164
+            ]
+          },
+          "glob": [
+            6,
+            246164
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 7,
+          "do": "set",
+          "id": "k92",
+          "sess": {
+            "S1": [
+              7,
+              246232
+            ]
+          },
+          "glob": [
+            7,
+            246232
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 8,
+          "do": "set",
+          "id": "k93",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 9,
+          "do": "set",
+          "id": "k94",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k94",
+              -32005,
+              "store",
+              [
+                "sessN"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              7,
+              184793
+            ]
+          },
+          "glob": [
+            7,
+            184793
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "transport"
+            ]
+          ]
+        },
+        {
+          "t": 200,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              6,
+              123286
+            ]
+          },
+          "glob": [
+            6,
+            123286
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "k01",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 300,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              5,
+              61779
+            ]
+          },
+          "glob": [
+            5,
+            61779
+          ],
+          "sets": 4,
+          "replies": [
+            [
+              "k02",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 400,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              4,
+              272
+            ]
+          },
+          "glob": [
+            4,
+            272
+          ],
+          "sets": 5,
+          "replies": [
+            [
+              "k03",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 500,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              3,
+              204
+            ]
+          },
+          "glob": [
+            3,
+            204
+          ],
+          "sets": 6,
+          "replies": [
+            [
+              "k90",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 600,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              136
+            ]
+          },
+          "glob": [
+            2,
+            136
+          ],
+          "sets": 7,
+          "replies": [
+            [
+              "k91",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 700,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            1,
+            68
+          ],
+          "sets": 8,
+          "replies": [
+            [
+              "k92",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 800,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 8,
+          "replies": [
+            [
+              "k93",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21a-q8",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        305,
+        314
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21a-q8",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21a-q8",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21a-q8",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 9,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21a-q8",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 9,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00",
+            "k96"
+          ],
+          "total": 61447
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 4,
+          "do": "set",
+          "id": "k04",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k04",
+              -32005,
+              "store",
+              [
+                "sessBytes"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 5,
+          "do": "set",
+          "id": "k90",
+          "sess": {
+            "S1": [
+              5,
+              246096
+            ]
+          },
+          "glob": [
+            5,
+            246096
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 6,
+          "do": "set",
+          "id": "k91",
+          "sess": {
+            "S1": [
+              6,
+              246164
+            ]
+          },
+          "glob": [
+            6,
+            246164
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 7,
+          "do": "set",
+          "id": "k92",
+          "sess": {
+            "S1": [
+              7,
+              246232
+            ]
+          },
+          "glob": [
+            7,
+            246232
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 8,
+          "do": "set",
+          "id": "k93",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 9,
+          "do": "set",
+          "id": "k94",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k94",
+              -32005,
+              "store",
+              [
+                "sessN"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 5000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "storeTimeout"
+            ]
+          ]
+        },
+        {
+          "t": 6000,
+          "do": "set",
+          "id": "k95",
+          "sess": {
+            "S1": [
+              8,
+              246300
+            ]
+          },
+          "glob": [
+            8,
+            246300
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k95",
+              -32005,
+              "store",
+              [
+                "sessN"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 10001,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              7,
+              184793
+            ]
+          },
+          "glob": [
+            7,
+            184793
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k01",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10002,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              6,
+              123286
+            ]
+          },
+          "glob": [
+            6,
+            123286
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k02",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10003,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              5,
+              61779
+            ]
+          },
+          "glob": [
+            5,
+            61779
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k03",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10005,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              4,
+              61711
+            ]
+          },
+          "glob": [
+            4,
+            61711
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k90",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10006,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              3,
+              61643
+            ]
+          },
+          "glob": [
+            3,
+            61643
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k91",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10007,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k92",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10008,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k93",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10010,
+          "do": "set",
+          "id": "k96",
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 12000,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            1,
+            68
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 12100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k96",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21a-q9",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        315,
+        315
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21a-q9",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21a-q9",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21a-q9",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 64,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 64,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded BR21a-q9",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 64,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 64,
+        "maxActive": 2
+      },
+      "backendDicts": {
+        "site:np1:0xp1": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07"
+          ],
+          "total": 32
+        },
+        "site:np2:0xp2": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07"
+          ],
+          "total": 32
+        },
+        "site:np3:0xp3": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07"
+          ],
+          "total": 32
+        },
+        "site:np4:0xp4": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07"
+          ],
+          "total": 32
+        },
+        "site:np5:0xp5": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07"
+          ],
+          "total": 32
+        },
+        "site:np6:0xp6": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07"
+          ],
+          "total": 32
+        },
+        "site:np7:0xp7": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07"
+          ],
+          "total": 32
+        },
+        "site:np8:0xp8": {
+          "keys": [
+            "k00",
+            "k01",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07"
+          ],
+          "total": 32
+        }
+      },
+      "counters": [
+        {
+          "t": 55,
+          "do": "set",
+          "id": "S7m7",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              0,
+              0
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            56,
+            3808
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 56,
+          "do": "set",
+          "id": "S8m0",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              1,
+              68
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            57,
+            3876
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 57,
+          "do": "set",
+          "id": "S8m1",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              2,
+              136
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            58,
+            3944
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 58,
+          "do": "set",
+          "id": "S8m2",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              3,
+              204
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            59,
+            4012
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 59,
+          "do": "set",
+          "id": "S8m3",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              4,
+              272
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            60,
+            4080
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 60,
+          "do": "set",
+          "id": "S8m4",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              5,
+              340
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            61,
+            4148
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 61,
+          "do": "set",
+          "id": "S8m5",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              6,
+              408
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            62,
+            4216
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 62,
+          "do": "set",
+          "id": "S8m6",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              7,
+              476
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            63,
+            4284
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 63,
+          "do": "set",
+          "id": "S8m7",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              8,
+              544
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            64,
+            4352
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 63,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              8,
+              544
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            64,
+            4352
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 64,
+          "do": "set",
+          "id": "S9m0",
+          "sess": {
+            "S1": [
+              8,
+              544
+            ],
+            "S2": [
+              8,
+              544
+            ],
+            "S3": [
+              8,
+              544
+            ],
+            "S4": [
+              8,
+              544
+            ],
+            "S5": [
+              8,
+              544
+            ],
+            "S6": [
+              8,
+              544
+            ],
+            "S7": [
+              8,
+              544
+            ],
+            "S8": [
+              8,
+              544
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            64,
+            4352
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "S9m0",
+              -32005,
+              "store",
+              [
+                "globN"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 100,
+          "do": "settleAll",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ],
+            "S4": [
+              0,
+              0
+            ],
+            "S5": [
+              0,
+              0
+            ],
+            "S6": [
+              0,
+              0
+            ],
+            "S7": [
+              0,
+              0
+            ],
+            "S8": [
+              0,
+              0
+            ],
+            "S9": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 64,
+          "replies": [
+            [
+              "S1m0",
+              null
+            ],
+            [
+              "S2m0",
+              null
+            ],
+            [
+              "S1m1",
+              null
+            ],
+            [
+              "S2m1",
+              null
+            ],
+            [
+              "S1m2",
+              null
+            ],
+            [
+              "S2m2",
+              null
+            ],
+            [
+              "S1m3",
+              null
+            ],
+            [
+              "S2m3",
+              null
+            ],
+            [
+              "S1m4",
+              null
+            ],
+            [
+              "S2m4",
+              null
+            ],
+            [
+              "S1m5",
+              null
+            ],
+            [
+              "S2m5",
+              null
+            ],
+            [
+              "S1m6",
+              null
+            ],
+            [
+              "S2m6",
+              null
+            ],
+            [
+              "S1m7",
+              null
+            ],
+            [
+              "S2m7",
+              null
+            ],
+            [
+              "S3m0",
+              null
+            ],
+            [
+              "S4m0",
+              null
+            ],
+            [
+              "S3m1",
+              null
+            ],
+            [
+              "S4m1",
+              null
+            ],
+            [
+              "S3m2",
+              null
+            ],
+            [
+              "S4m2",
+              null
+            ],
+            [
+              "S3m3",
+              null
+            ],
+            [
+              "S4m3",
+              null
+            ],
+            [
+              "S3m4",
+              null
+            ],
+            [
+              "S4m4",
+              null
+            ],
+            [
+              "S3m5",
+              null
+            ],
+            [
+              "S4m5",
+              null
+            ],
+            [
+              "S3m6",
+              null
+            ],
+            [
+              "S4m6",
+              null
+            ],
+            [
+              "S3m7",
+              null
+            ],
+            [
+              "S4m7",
+              null
+            ],
+            [
+              "S5m0",
+              null
+            ],
+            [
+              "S6m0",
+              null
+            ],
+            [
+              "S5m1",
+              null
+            ],
+            [
+              "S6m1",
+              null
+            ],
+            [
+              "S5m2",
+              null
+            ],
+            [
+              "S6m2",
+              null
+            ],
+            [
+              "S5m3",
+              null
+            ],
+            [
+              "S6m3",
+              null
+            ],
+            [
+              "S5m4",
+              null
+            ],
+            [
+              "S6m4",
+              null
+            ],
+            [
+              "S5m5",
+              null
+            ],
+            [
+              "S6m5",
+              null
+            ],
+            [
+              "S5m6",
+              null
+            ],
+            [
+              "S6m6",
+              null
+            ],
+            [
+              "S5m7",
+              null
+            ],
+            [
+              "S6m7",
+              null
+            ],
+            [
+              "S7m0",
+              null
+            ],
+            [
+              "S8m0",
+              null
+            ],
+            [
+              "S7m1",
+              null
+            ],
+            [
+              "S8m1",
+              null
+            ],
+            [
+              "S7m2",
+              null
+            ],
+            [
+              "S8m2",
+              null
+            ],
+            [
+              "S7m3",
+              null
+            ],
+            [
+              "S8m3",
+              null
+            ],
+            [
+              "S7m4",
+              null
+            ],
+            [
+              "S8m4",
+              null
+            ],
+            [
+              "S7m5",
+              null
+            ],
+            [
+              "S8m5",
+              null
+            ],
+            [
+              "S7m6",
+              null
+            ],
+            [
+              "S8m6",
+              null
+            ],
+            [
+              "S7m7",
+              null
+            ],
+            [
+              "S8m7",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21a-q10",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        316,
+        324
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21a-q10",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21a-q10",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21a-q10",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 0,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded BR21a-q10",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 0,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 2
+      },
+      "backendDicts": {},
+      "counters": [
+        {
+          "t": 54,
+          "do": "set",
+          "id": "S14m2",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              3,
+              184521
+            ],
+            "S15": [
+              0,
+              0
+            ],
+            "S16": [
+              0,
+              0
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            55,
+            3382885
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 55,
+          "do": "set",
+          "id": "S14m3",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              0,
+              0
+            ],
+            "S16": [
+              0,
+              0
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            56,
+            3444392
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 56,
+          "do": "set",
+          "id": "S15m0",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              1,
+              61507
+            ],
+            "S16": [
+              0,
+              0
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            57,
+            3505899
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 57,
+          "do": "set",
+          "id": "S15m1",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              2,
+              123014
+            ],
+            "S16": [
+              0,
+              0
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            58,
+            3567406
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 58,
+          "do": "set",
+          "id": "S15m2",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              3,
+              184521
+            ],
+            "S16": [
+              0,
+              0
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            59,
+            3628913
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 59,
+          "do": "set",
+          "id": "S15m3",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              4,
+              246028
+            ],
+            "S16": [
+              0,
+              0
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            60,
+            3690420
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 60,
+          "do": "set",
+          "id": "S16m0",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              4,
+              246028
+            ],
+            "S16": [
+              1,
+              61507
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            61,
+            3751927
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 61,
+          "do": "set",
+          "id": "S16m1",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              4,
+              246028
+            ],
+            "S16": [
+              2,
+              123014
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            62,
+            3813434
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 62,
+          "do": "set",
+          "id": "S16m2",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              4,
+              246028
+            ],
+            "S16": [
+              3,
+              184521
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            63,
+            3874941
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 63,
+          "do": "set",
+          "id": "S16m3",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              4,
+              246028
+            ],
+            "S16": [
+              4,
+              246028
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            64,
+            3936448
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 63,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              4,
+              246028
+            ],
+            "S16": [
+              4,
+              246028
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            64,
+            3936448
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 64,
+          "do": "set",
+          "id": "S17m0",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              4,
+              246028
+            ],
+            "S3": [
+              4,
+              246028
+            ],
+            "S4": [
+              4,
+              246028
+            ],
+            "S5": [
+              4,
+              246028
+            ],
+            "S6": [
+              4,
+              246028
+            ],
+            "S7": [
+              4,
+              246028
+            ],
+            "S8": [
+              4,
+              246028
+            ],
+            "S9": [
+              4,
+              246028
+            ],
+            "S10": [
+              4,
+              246028
+            ],
+            "S11": [
+              4,
+              246028
+            ],
+            "S12": [
+              4,
+              246028
+            ],
+            "S13": [
+              4,
+              246028
+            ],
+            "S14": [
+              4,
+              246028
+            ],
+            "S15": [
+              4,
+              246028
+            ],
+            "S16": [
+              4,
+              246028
+            ],
+            "S17": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            64,
+            3936448
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "S17m0",
+              -32005,
+              "store",
+              [
+                "globN"
+              ]
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21b-r1r2",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        326,
+        327
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21b-r1r2",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21b-r1r2",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21b-r1r2",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 3,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21b-r1r2",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 3,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {},
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "navigate",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21b-r3",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        328,
+        328
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21b-r3",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21b-r3",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21b-r3",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21b-r3",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "navigate",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 300,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 1,
+          "replies": []
+        }
+      ],
+      "snapshots": [
+        {
+          "t": 300,
+          "frame": "F2",
+          "keys": [
+            "k00"
+          ],
+          "total": 61443,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "check": "provenance case.BR21b-r4",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        329,
+        329
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21b-r4",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21b-r4",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21b-r4",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21b-r4",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "navigate",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 5000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 5100,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 6000,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 1,
+          "replies": []
+        }
+      ],
+      "snapshots": [
+        {
+          "t": 5100,
+          "frame": "F2",
+          "keys": [],
+          "total": 0,
+          "badge": true
+        }
+      ]
+    },
+    {
+      "check": "provenance case.BR21b-r5",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        330,
+        330
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21b-r5",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21b-r5",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21b-r5",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21b-r5",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "close",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 300,
+          "do": "settle",
+          "id": null,
+          "sess": {},
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 1,
+          "replies": []
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21b-r6-base",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        331,
+        333
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21b-r6-base",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21b-r6-base",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21b-r6-base",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 1,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21b-r6-base",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 1,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {},
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 5000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "storeTimeout"
+            ]
+          ]
+        },
+        {
+          "t": 5100,
+          "do": "navigate",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21b-r6",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        334,
+        334
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21b-r6",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21b-r6",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21b-r6",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21b-r6",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 5000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "storeTimeout"
+            ]
+          ]
+        },
+        {
+          "t": 5100,
+          "do": "navigate",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 7000,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 1,
+          "replies": []
+        }
+      ],
+      "snapshots": [
+        {
+          "t": 7000,
+          "frame": "F2",
+          "keys": [
+            "k00"
+          ],
+          "total": 61443,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "check": "provenance case.BR21b-r6-variant",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        335,
+        335
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21b-r6-variant",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21b-r6-variant",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21b-r6-variant",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded BR21b-r6-variant",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 5000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "storeTimeout"
+            ]
+          ]
+        },
+        {
+          "t": 5100,
+          "do": "navigate",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 10100,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 11000,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 1,
+          "replies": []
+        }
+      ],
+      "snapshots": [
+        {
+          "t": 10100,
+          "frame": "F2",
+          "keys": [],
+          "total": 0,
+          "badge": true
+        }
+      ]
+    },
+    {
+      "check": "provenance case.Q2-n1-multi-frame",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        425,
+        478
+      ],
+      "missing": []
+    },
+    {
+      "check": "case Q2-n1-multi-frame",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent Q2-n1-multi-frame",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease Q2-n1-multi-frame",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 3,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded Q2-n1-multi-frame",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 3,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00",
+            "k10"
+          ],
+          "total": 61447
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k10",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ],
+            "S2": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            3,
+            61643
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "navigate",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 300,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            1,
+            68
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 400,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k10",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": [
+        {
+          "t": 300,
+          "frame": "F2",
+          "keys": [
+            "k00"
+          ],
+          "total": 61443,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "check": "provenance case.Q2-c1-cancel-ready",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        465,
+        476
+      ],
+      "missing": []
+    },
+    {
+      "check": "case Q2-c1-cancel-ready",
+      "status": "pass",
+      "row": "Q2",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent Q2-c1-cancel-ready",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease Q2-c1-cancel-ready",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 3,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded Q2-c1-cancel-ready",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 3,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 2
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        },
+        "site:net2:0xb2": {
+          "keys": [
+            "k20"
+          ],
+          "total": 4
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k20",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              68
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k30",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              68
+            ],
+            "S3": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            3,
+            61643
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "navigate",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              68
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              1,
+              68
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            68
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k00",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 101,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k20",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": [
+        {
+          "t": 3,
+          "frame": "H2",
+          "keys": [],
+          "total": 0,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "check": "provenance case.Q1-w1-seat-retained",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        442,
+        445
+      ],
+      "missing": []
+    },
+    {
+      "check": "case Q1-w1-seat-retained",
+      "status": "pass",
+      "row": "Q1",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent Q1-w1-seat-retained",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease Q1-w1-seat-retained",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 3,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 3,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded Q1-w1-seat-retained",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 3,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 3,
+        "maxActive": 2
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        },
+        "site:net2:0xb2": {
+          "keys": [
+            "k20"
+          ],
+          "total": 4
+        },
+        "site:net3:0xc3": {
+          "keys": [
+            "k30"
+          ],
+          "total": 4
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 5000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "storeTimeout"
+            ]
+          ]
+        },
+        {
+          "t": 5001,
+          "do": "set",
+          "id": "k20",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              68
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 5002,
+          "do": "set",
+          "id": "k30",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              68
+            ],
+            "S3": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            3,
+            61643
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 6000,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              1,
+              68
+            ],
+            "S3": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            2,
+            136
+          ],
+          "sets": 3,
+          "replies": []
+        },
+        {
+          "t": 6100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            1,
+            68
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "k20",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 6200,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "k30",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.Q1-l1-late-fail",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        469,
+        469
+      ],
+      "missing": []
+    },
+    {
+      "check": "case Q1-l1-late-fail",
+      "status": "pass",
+      "row": "Q1",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent Q1-l1-late-fail",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease Q1-l1-late-fail",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded Q1-l1-late-fail",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k01"
+          ],
+          "total": 4
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 5000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "storeTimeout"
+            ]
+          ]
+        },
+        {
+          "t": 6000,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            1,
+            68
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 6100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k01",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.Q1-ord1-delete-clear-order",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        426,
+        426
+      ],
+      "missing": []
+    },
+    {
+      "check": "case Q1-ord1-delete-clear-order",
+      "status": "pass",
+      "row": "Q1",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent Q1-ord1-delete-clear-order",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease Q1-ord1-delete-clear-order",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 5,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 5,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded Q1-ord1-delete-clear-order",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 5,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 5,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "c"
+          ],
+          "total": 2
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "o1",
+          "sess": {
+            "S1": [
+              1,
+              67
+            ]
+          },
+          "glob": [
+            1,
+            67
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "clear",
+          "id": "o2",
+          "sess": {
+            "S1": [
+              2,
+              131
+            ]
+          },
+          "glob": [
+            2,
+            131
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "o3",
+          "sess": {
+            "S1": [
+              3,
+              197
+            ]
+          },
+          "glob": [
+            3,
+            197
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "o4",
+          "sess": {
+            "S1": [
+              4,
+              262
+            ]
+          },
+          "glob": [
+            4,
+            262
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 4,
+          "do": "set",
+          "id": "o5",
+          "sess": {
+            "S1": [
+              5,
+              328
+            ]
+          },
+          "glob": [
+            5,
+            328
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              4,
+              261
+            ]
+          },
+          "glob": [
+            4,
+            261
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "o1",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 200,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              3,
+              197
+            ]
+          },
+          "glob": [
+            3,
+            197
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "o2",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 300,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              131
+            ]
+          },
+          "glob": [
+            2,
+            131
+          ],
+          "sets": 4,
+          "replies": [
+            [
+              "o3",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 400,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            1,
+            66
+          ],
+          "sets": 5,
+          "replies": [
+            [
+              "o4",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 500,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 5,
+          "replies": [
+            [
+              "o5",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.Q1-key1-frame-derived",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        495,
+        495
+      ],
+      "missing": []
+    },
+    {
+      "check": "case Q1-key1-frame-derived",
+      "status": "pass",
+      "row": "Q1",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent Q1-key1-frame-derived",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease Q1-key1-frame-derived",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded Q1-key1-frame-derived",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 2
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k"
+          ],
+          "total": 2
+        },
+        "site:net2:0xb2": {
+          "keys": [
+            "k"
+          ],
+          "total": 2
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "x1",
+          "sess": {
+            "S1": [
+              1,
+              66
+            ],
+            "S2": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            66
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "x2",
+          "sess": {
+            "S1": [
+              1,
+              66
+            ],
+            "S2": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            2,
+            132
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            1,
+            66
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "x1",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 200,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "x2",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.Q1-timer-exact",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        463,
+        468
+      ],
+      "missing": []
+    },
+    {
+      "check": "case Q1-timer-exact",
+      "status": "pass",
+      "row": "Q1",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent Q1-timer-exact",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease Q1-timer-exact",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      }
+    },
+    {
+      "check": "case.recorded Q1-timer-exact",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 2,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 1,
+        "maxActive": 1
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 4999,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 5000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "storeTimeout"
+            ]
+          ]
+        },
+        {
+          "t": 10000,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              2,
+              61575
+            ]
+          },
+          "glob": [
+            2,
+            61575
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 10001,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": [
+            [
+              "k01",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10500,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 1,
+          "replies": []
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.Q1-exp-ready",
+      "status": "pass",
+      "file": "reference/browser.md",
+      "lines": [
+        436,
+        436
+      ],
+      "missing": []
+    },
+    {
+      "check": "case Q1-exp-ready",
+      "status": "pass",
+      "row": "Q1",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent Q1-exp-ready",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease Q1-exp-ready",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded Q1-exp-ready",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 2,
+        "maxActive": 2
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        },
+        "site:net2:0xb2": {
+          "keys": [
+            "k20"
+          ],
+          "total": 61443
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k20",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              61507
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k30",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              61507
+            ],
+            "S3": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            3,
+            123082
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k31",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              61507
+            ],
+            "S3": [
+              2,
+              136
+            ]
+          },
+          "glob": [
+            4,
+            123150
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 5001,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              61507
+            ],
+            "S3": [
+              2,
+              136
+            ]
+          },
+          "glob": [
+            4,
+            123150
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k00",
+              -32603,
+              "storeTimeout"
+            ],
+            [
+              "k20",
+              -32603,
+              "storeTimeout"
+            ]
+          ]
+        },
+        {
+          "t": 10002,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              61507
+            ],
+            "S3": [
+              1,
+              68
+            ]
+          },
+          "glob": [
+            3,
+            123082
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k30",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 10003,
+          "do": "tick",
+          "id": null,
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              1,
+              61507
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "k31",
+              -32005,
+              "store"
+            ]
+          ]
+        },
+        {
+          "t": 11000,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              1,
+              61507
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 11001,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              0,
+              0
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 2,
+          "replies": []
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21e",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        346,
+        358
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21e",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21e",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21e",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 1,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 3,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded BR21e",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 1,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 3,
+        "maxActive": 2
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00"
+          ],
+          "total": 61443
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "k00",
+          "sess": {
+            "S1": [
+              1,
+              61507
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            61507
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "k01",
+          "sess": {
+            "S1": [
+              2,
+              123014
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            2,
+            123014
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "k02",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            3,
+            184521
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "k03",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              0,
+              0
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            4,
+            246028
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 4,
+          "do": "set",
+          "id": "e50",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              1,
+              53972
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            5,
+            300000
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 5,
+          "do": "set",
+          "id": "e51a",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              1,
+              53972
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            5,
+            300000
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "e51a",
+              -32005,
+              "store",
+              [
+                "globBytes"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 6,
+          "do": "set",
+          "id": "e60",
+          "sess": {
+            "S1": [
+              4,
+              246028
+            ],
+            "S2": [
+              1,
+              53972
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            5,
+            300000
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "e60",
+              -32005,
+              "store",
+              [
+                "globBytes"
+              ]
+            ]
+          ]
+        },
+        {
+          "t": 100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ],
+            "S2": [
+              1,
+              53972
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            4,
+            238493
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "k00",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 101,
+          "do": "set",
+          "id": "e51b",
+          "sess": {
+            "S1": [
+              3,
+              184521
+            ],
+            "S2": [
+              2,
+              54040
+            ],
+            "S3": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            5,
+            238561
+          ],
+          "sets": 3,
+          "replies": []
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21f",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        359,
+        384
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21f",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21f",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21f",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 6,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 5,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded BR21f",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 6,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 5,
+        "maxActive": 2
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07",
+            "k08",
+            "k09",
+            "k10",
+            "k11",
+            "k12",
+            "k13",
+            "k14",
+            "k15",
+            "k16",
+            "k17",
+            "k18"
+          ],
+          "total": 987137
+        },
+        "site:net2:0xb2": {
+          "keys": [
+            "k"
+          ],
+          "total": 2
+        },
+        "site:net3:0xc3": {
+          "keys": [
+            "k"
+          ],
+          "total": 2
+        }
+      },
+      "counters": [
+        {
+          "t": 0,
+          "do": "set",
+          "id": "m0",
+          "sess": {
+            "SA": [
+              1,
+              4109
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            4109
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "m1",
+          "sess": {
+            "SA": [
+              2,
+              4177
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            2,
+            4177
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 2,
+          "do": "set",
+          "id": "m2",
+          "sess": {
+            "SA": [
+              3,
+              4244
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            3,
+            4244
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": 3,
+          "do": "set",
+          "id": "m3",
+          "sess": {
+            "SA": [
+              3,
+              4244
+            ],
+            "SB": [
+              1,
+              66
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            4,
+            4310
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 4,
+          "do": "set",
+          "id": "m4",
+          "sess": {
+            "SA": [
+              3,
+              4244
+            ],
+            "SB": [
+              1,
+              66
+            ],
+            "SC": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            5,
+            4376
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "SA": [
+              1,
+              67
+            ],
+            "SB": [
+              1,
+              66
+            ],
+            "SC": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            3,
+            199
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "m0",
+              null
+            ],
+            [
+              "m1",
+              4300,
+              "quota"
+            ]
+          ]
+        },
+        {
+          "t": 200,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "SA": [
+              1,
+              67
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            2,
+            133
+          ],
+          "sets": 4,
+          "replies": [
+            [
+              "m3",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 300,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "SA": [
+              0,
+              0
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            1,
+            66
+          ],
+          "sets": 4,
+          "replies": [
+            [
+              "m2",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 400,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "SA": [
+              0,
+              0
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 4,
+          "replies": [
+            [
+              "m4",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 500,
+          "do": "set",
+          "id": "m5",
+          "sess": {
+            "SA": [
+              1,
+              68
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            68
+          ],
+          "sets": 5,
+          "replies": []
+        },
+        {
+          "t": 600,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "SA": [
+              0,
+              0
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 5,
+          "replies": [
+            [
+              "m5",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "provenance case.BR21f2",
+      "status": "pass",
+      "file": "reference/validation.md",
+      "lines": [
+        385,
+        388
+      ],
+      "missing": []
+    },
+    {
+      "check": "case BR21f2",
+      "status": "pass",
+      "row": "Q3",
+      "mismatches": [],
+      "invariantViolations": [],
+      "badBoundary": [],
+      "illegalTransitions": []
+    },
+    {
+      "check": "case.replayConsistent BR21f2",
+      "status": "pass"
+    },
+    {
+      "check": "case.noDoubleRelease BR21f2",
+      "status": "pass",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 3,
+        "maxActive": 2
+      }
+    },
+    {
+      "check": "case.recorded BR21f2",
+      "status": "recorded",
+      "stats": {
+        "releaseCount": 4,
+        "doubleReleaseCount": 0,
+        "quotaRecheckMismatch": 0,
+        "backendSetCalls": 3,
+        "maxActive": 2
+      },
+      "backendDicts": {
+        "site:net1:0xa1": {
+          "keys": [
+            "k00",
+            "k02",
+            "k03",
+            "k04",
+            "k05",
+            "k06",
+            "k07",
+            "k08",
+            "k09",
+            "k10",
+            "k11",
+            "k12",
+            "k13",
+            "k14",
+            "k15",
+            "k16",
+            "k17"
+          ],
+          "total": 987133
+        },
+        "site:net2:0xb2": {
+          "keys": [
+            "k"
+          ],
+          "total": 2
+        },
+        "site:net3:0xc3": {
+          "keys": [
+            "k"
+          ],
+          "total": 2
+        }
+      },
+      "counters": [
+        {
+          "t": -2,
+          "do": "set",
+          "id": "b1",
+          "sess": {
+            "SA": [
+              0,
+              0
+            ],
+            "SB": [
+              1,
+              66
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            66
+          ],
+          "sets": 1,
+          "replies": []
+        },
+        {
+          "t": -1,
+          "do": "set",
+          "id": "c1",
+          "sess": {
+            "SA": [
+              0,
+              0
+            ],
+            "SB": [
+              1,
+              66
+            ],
+            "SC": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            2,
+            132
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 0,
+          "do": "set",
+          "id": "a1",
+          "sess": {
+            "SA": [
+              0,
+              0
+            ],
+            "SB": [
+              1,
+              66
+            ],
+            "SC": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            2,
+            132
+          ],
+          "sets": 2,
+          "replies": [
+            [
+              "a1",
+              4300,
+              "quota"
+            ]
+          ]
+        },
+        {
+          "t": 1,
+          "do": "set",
+          "id": "a2",
+          "sess": {
+            "SA": [
+              1,
+              67
+            ],
+            "SB": [
+              1,
+              66
+            ],
+            "SC": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            3,
+            199
+          ],
+          "sets": 2,
+          "replies": []
+        },
+        {
+          "t": 100,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "SA": [
+              1,
+              67
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              1,
+              66
+            ]
+          },
+          "glob": [
+            2,
+            133
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "b1",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 200,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "SA": [
+              1,
+              67
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            1,
+            67
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "c1",
+              null
+            ]
+          ]
+        },
+        {
+          "t": 300,
+          "do": "settle",
+          "id": null,
+          "sess": {
+            "SA": [
+              0,
+              0
+            ],
+            "SB": [
+              0,
+              0
+            ],
+            "SC": [
+              0,
+              0
+            ]
+          },
+          "glob": [
+            0,
+            0
+          ],
+          "sets": 3,
+          "replies": [
+            [
+              "a2",
+              null
+            ]
+          ]
+        }
+      ],
+      "snapshots": []
+    },
+    {
+      "check": "transitions.allMicroExercised",
+      "status": "pass",
+      "missing": []
+    },
+    {
+      "check": "fault storeUnbounded detected by BR21a-q10",
+      "status": "pass",
+      "detectBy": 64,
+      "firstMismatch": {
+        "t": 64,
+        "field": "replies",
+        "want": [
+          [
+            "S17m0",
+            -32005,
+            "store",
+            [
+              "globN"
+            ]
+          ]
+        ],
+        "got": []
+      },
+      "observed": []
+    },
+    {
+      "check": "fault storeUnbounded detected by BR21e",
+      "status": "pass",
+      "detectBy": 5,
+      "firstMismatch": {
+        "t": 5,
+        "field": "replies",
+        "want": [
+          [
+            "e51a",
+            -32005,
+            "store",
+            [
+              "globBytes"
+            ]
+          ]
+        ],
+        "got": []
+      },
+      "observed": []
+    },
+    {
+      "check": "fault storeUnbounded detected by BR21a-q1q5",
+      "status": "pass",
+      "detectBy": 4,
+      "firstMismatch": {
+        "t": 4,
+        "field": "replies",
+        "want": [
+          [
+            "k04",
+            -32005,
+            "store",
+            [
+              "sessBytes"
+            ]
+          ]
+        ],
+        "got": []
+      },
+      "observed": []
+    },
+    {
+      "check": "fault storeEarlyRelease detected by BR21a-q8",
+      "status": "pass",
+      "detectBy": 6000,
+      "firstMismatch": {
+        "t": 5000,
+        "field": "sess",
+        "want": {
+          "S1": [
+            8,
+            246300
+          ]
+        },
+        "got": {
+          "S1": [
+            7,
+            184793
+          ]
+        }
+      },
+      "observed": [
+        {
+          "t": 5000,
+          "want": {
+            "S1": [
+              7,
+              184793
+            ]
+          },
+          "got": {
+            "S1": [
+              7,
+              184793
+            ]
+          }
+        },
+        {
+          "final": {
+            "doubleReleaseCount": 1
+          },
+          "got": {
+            "doubleReleaseCount": 1
+          }
+        }
+      ]
+    },
+    {
+      "check": "fault storeEarlyRelease detected by BR21b-r6",
+      "status": "pass",
+      "detectBy": 5100,
+      "firstMismatch": {
+        "t": 5000,
+        "field": "sess",
+        "want": {
+          "S1": [
+            2,
+            123014
+          ]
+        },
+        "got": {
+          "S1": [
+            1,
+            61507
+          ]
+        }
+      },
+      "observed": [
+        {
+          "t": 5000,
+          "want": {
+            "S1": [
+              1,
+              61507
+            ]
+          },
+          "got": {
+            "S1": [
+              1,
+              61507
+            ]
+          }
+        },
+        {
+          "t": 5100,
+          "want": {
+            "S1": [
+              0,
+              0
+            ]
+          },
+          "got": {
+            "S1": [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "check": "fault quotaNoRelease detected by BR21f",
+      "status": "pass",
+      "detectBy": 100,
+      "firstMismatch": {
+        "t": 100,
+        "field": "sess",
+        "want": {
+          "SA": [
+            1,
+            67
+          ]
+        },
+        "got": {
+          "SA": [
+            2,
+            135
+          ]
+        }
+      },
+      "observed": [
+        {
+          "t": 100,
+          "want": {
+            "SA": [
+              2,
+              135
+            ]
+          },
+          "got": {
+            "SA": [
+              2,
+              135
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "check": "fault quotaNoRelease detected by BR21f2",
+      "status": "pass",
+      "detectBy": 0,
+      "firstMismatch": {
+        "t": 0,
+        "field": "sess",
+        "want": {
+          "SA": [
+            0,
+            0
+          ]
+        },
+        "got": {
+          "SA": [
+            1,
+            68
+          ]
+        }
+      },
+      "observed": [
+        {
+          "t": 0,
+          "want": {
+            "SA": [
+              1,
+              68
+            ]
+          },
+          "got": {
+            "SA": [
+              1,
+              68
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "check": "fault quotaAfterSeat detected by BR21f2",
+      "status": "pass",
+      "detectBy": 0,
+      "firstMismatch": {
+        "t": 0,
+        "field": "replies",
+        "want": [
+          [
+            "a1",
+            4300,
+            "quota"
+          ]
+        ],
+        "got": []
+      },
+      "observed": []
+    },
+    {
+      "check": "fault readyFifoByReadyTime detected by BR21f",
+      "status": "pass",
+      "detectBy": 100,
+      "firstMismatch": {
+        "t": 100,
+        "field": "own",
+        "want": {
+          "m1": "released",
+          "m2": "active",
+          "m4": "ready"
+        },
+        "got": {
+          "m1": "released",
+          "m2": "ready",
+          "m4": "active"
+        }
+      },
+      "observed": []
+    },
+    {
+      "check": "fault readyFifoByReadyTime detected by BR21a-q9",
+      "status": "pass",
+      "detectBy": "final",
+      "firstMismatch": {
+        "t": "final",
+        "field": "setOrder",
+        "want": [
+          "S1m0",
+          "S2m0",
+          "S1m1",
+          "S2m1",
+          "S1m2",
+          "S2m2",
+          "S1m3",
+          "S2m3",
+          "S1m4",
+          "S2m4",
+          "S1m5",
+          "S2m5",
+          "S1m6",
+          "S2m6",
+          "S1m7",
+          "S2m7",
+          "S3m0",
+          "S4m0",
+          "S3m1",
+          "S4m1",
+          "S3m2",
+          "S4m2",
+          "S3m3",
+          "S4m3",
+          "S3m4",
+          "S4m4",
+          "S3m5",
+          "S4m5",
+          "S3m6",
+          "S4m6",
+          "S3m7",
+          "S4m7",
+          "S5m0",
+          "S6m0",
+          "S5m1",
+          "S6m1",
+          "S5m2",
+          "S6m2",
+          "S5m3",
+          "S6m3",
+          "S5m4",
+          "S6m4",
+          "S5m5",
+          "S6m5",
+          "S5m6",
+          "S6m6",
+          "S5m7",
+          "S6m7",
+          "S7m0",
+          "S8m0",
+          "S7m1",
+          "S8m1",
+          "S7m2",
+          "S8m2",
+          "S7m3",
+          "S8m3",
+          "S7m4",
+          "S8m4",
+          "S7m5",
+          "S8m5",
+          "S7m6",
+          "S8m6",
+          "S7m7",
+          "S8m7"
+        ],
+        "got": [
+          "S1m0",
+          "S2m0",
+          "S3m0",
+          "S4m0",
+          "S5m0",
+          "S6m0",
+          "S7m0",
+          "S8m0",
+          "S1m1",
+          "S2m1",
+          "S3m1",
+          "S4m1",
+          "S5m1",
+          "S6m1",
+          "S7m1",
+          "S8m1",
+          "S1m2",
+          "S2m2",
+          "S3m2",
+          "S4m2",
+          "S5m2",
+          "S6m2",
+          "S7m2",
+          "S8m2",
+          "S1m3",
+          "S2m3",
+          "S3m3",
+          "S4m3",
+          "S5m3",
+          "S6m3",
+          "S7m3",
+          "S8m3",
+          "S1m4",
+          "S2m4",
+          "S3m4",
+          "S4m4",
+          "S5m4",
+          "S6m4",
+          "S7m4",
+          "S8m4",
+          "S1m5",
+          "S2m5",
+          "S3m5",
+          "S4m5",
+          "S5m5",
+          "S6m5",
+          "S7m5",
+          "S8m5",
+          "S1m6",
+          "S2m6",
+          "S3m6",
+          "S4m6",
+          "S5m6",
+          "S6m6",
+          "S7m6",
+          "S8m6",
+          "S1m7",
+          "S2m7",
+          "S3m7",
+          "S4m7",
+          "S5m7",
+          "S6m7",
+          "S7m7",
+          "S8m7"
+        ]
+      },
+      "observed": []
+    },
+    {
+      "check": "fault perItemKey detected by BR21a-q1q5",
+      "status": "pass",
+      "detectBy": 1,
+      "firstMismatch": {
+        "t": 1,
+        "field": "sets",
+        "want": 1,
+        "got": 2
+      },
+      "observed": []
+    },
+    {
+      "check": "fault sessionKey detected by Q2-n1-multi-frame",
+      "status": "pass",
+      "detectBy": 1,
+      "firstMismatch": {
+        "t": 1,
+        "field": "sets",
+        "want": 1,
+        "got": 2
+      },
+      "observed": []
+    },
+    {
+      "check": "fault keyFromMessage detected by Q1-key1-frame-derived",
+      "status": "pass",
+      "detectBy": 1,
+      "firstMismatch": {
+        "t": 1,
+        "field": "sets",
+        "want": 2,
+        "got": 1
+      },
+      "observed": []
+    }
+  ]
+}

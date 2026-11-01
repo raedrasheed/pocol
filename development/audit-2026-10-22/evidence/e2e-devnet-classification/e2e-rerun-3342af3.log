@@ -1,0 +1,50 @@
+== run 1 08:35:29
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious frames/Hello/invalid block do not stop node a — rejects=0
+PASS partition: branches diverge — c=22 ab=108
+PASS heal: c reorganizes to the heavier branch
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=111
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..105 on 3 nodes — []
+FAIL every miner produced blocks — {"a": 65, "b": 0, "c": 0}
+{"result": "FAIL", "error": "every miner produced blocks", "checks": ["two nodes produce blocks from fresh genesis", "late-joining node c syncs to the head", "user transactions included; receipts iden
+== run 2 08:37:36
+PASS two nodes produce blocks from fresh genesis — a=15 b=15
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x12
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious frames/Hello/invalid block do not stop node a — rejects=0
+PASS partition: branches diverge — c=23 ab=35
+PASS heal: c reorganizes to the heavier branch
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=37
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+PASS every miner produced blocks — {"a": 52, "b": 36, "c": 30}
+PASS signed and fallback templates both occur — signed=91/100
+PASS replay of a reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of a agree — 0xdb57041c5adf
+PASS replay of b reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of b agree — 0xdb57041c5adf
+PASS replay of c reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of c agree — 0xdb57041c5adf
+{"result": "PASS", "checks": 17, "work": "/tmp/pocol-e2e-0k1mluio"}
+== run 3 08:40:01
+PASS two nodes produce blocks from fresh genesis — a=16 b=16
+PASS late-joining node c syncs to the head — c=16
+PASS user transactions included; receipts identical on all nodes — 0x11
+PASS transfer value applied — 1000000000000000000005000
+PASS malicious frames/Hello/invalid block do not stop node a — rejects=0
+PASS partition: branches diverge — c=21 ab=27
+PASS heal: c reorganizes to the heavier branch
+PASS SIGKILL crash: b restarts from its journal and rejoins — b=29
+PASS identical canonical hash/stateRoot/receiptsRoot at heights 1..100 on 3 nodes — []
+PASS every miner produced blocks — {"a": 70, "b": 30, "c": 34}
+PASS signed and fallback templates both occur — signed=92/100
+PASS replay of a reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of a agree — 0x9c376039d861
+PASS replay of b reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of b agree — 0x9c376039d861
+PASS replay of c reproduces its live head h=106 (hash/stateRoot/receiptsRoot) — replayed head h=106
+PASS two independent replays of c agree — 0x9c376039d861
+{"result": "PASS", "checks": 17, "work": "/tmp/pocol-e2e-xqgw9wxi"}

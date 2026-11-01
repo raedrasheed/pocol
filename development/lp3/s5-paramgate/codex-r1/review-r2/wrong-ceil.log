@@ -1,0 +1,22 @@
+
+running 5 tests
+test all_named_pg_rpc_rejections_and_405_acceptance ... ok
+test each_r26_predicate_has_an_isolated_negative_control ... ok
+test pg_l_and_end_registry_derivations ... FAILED
+test exact_default_rpc_derivations ... ok
+test checked_overflow_and_repeating_rationals_never_authorize ... ok
+
+failures:
+
+---- pg_l_and_end_registry_derivations stdout ----
+thread 'pg_l_and_end_registry_derivations' panicked at 'assertion failed: `(left == right)`
+  left: `20`,
+ right: `21`', /workspace/Proof-of-Collaboration/prototypes/lp1-node/tests/param_gate.rs:13:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    pg_l_and_end_registry_derivations
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

@@ -1,0 +1,10 @@
+PACER {"acceptedBytes":211628,"closedMs":1414,"os":"linux","pacerLateMaxMs":1,"pacerWaits":10,"sendTimeS":0.501716,"violationS":0.5}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 2.69s
+PACER {"acceptedBytes":211628,"closedMs":1172,"os":"linux","pacerLateMaxMs":1,"pacerWaits":10,"sendTimeS":0.501477,"violationS":0.5}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 2.14s
+PACER {"acceptedBytes":211628,"closedMs":1224,"os":"linux","pacerLateMaxMs":1,"pacerWaits":10,"sendTimeS":0.501664,"violationS":0.5}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 2.87s
+PACER {"acceptedBytes":211628,"closedMs":1414,"os":"linux","pacerLateMaxMs":1,"pacerWaits":10,"sendTimeS":0.501575,"violationS":0.5}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 2.37s
+PACER {"acceptedBytes":211628,"closedMs":1388,"os":"linux","pacerLateMaxMs":2,"pacerWaits":10,"sendTimeS":0.502219,"violationS":0.5}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 2.70s

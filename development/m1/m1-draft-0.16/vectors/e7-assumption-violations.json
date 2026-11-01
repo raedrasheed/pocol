@@ -1,0 +1,23 @@
+{
+  "schema": "pocol-m1-e7-assumption-violations/0.16",
+  "note": [
+    "Cases OUTSIDE the conditional sites lemma (browser.md:695-700): A15c or A15d is broken on purpose (threat.md:48-49).",
+    "They show what the bound does NOT cover. They are reported separately and never count as evidence for the lemma: the expected result IS a 65th key."
+  ],
+  "cases": [
+    {"id": "assumption.A15c", "violates": "A15c", "source": {"file": "reference/threat.md", "lines": [48, 48], "literals": ["A15c", "T_LATE = 60s"]},
+     "setup": {"keys": {"count": 63, "prefix": "S"}, "epochs": [{"E": 6, "bootMs": -120000}], "liveE": 6, "dropped": [6]},
+     "events": [{"t": -10, "do": "op", "id": "A", "key": "A", "kind": "data"}, {"t": 0, "do": "death"}, {"t": 100, "do": "boot", "E": 7},
+                {"t": 60150, "do": "refreshComplete"}, {"t": 60200, "do": "op", "id": "B2", "key": "B", "kind": "data"},
+                {"t": 60300, "do": "settle", "id": "B2"}, {"t": 60400, "do": "apply", "id": "A"}],
+     "expect": {"decisions": {"A": null, "B2": null}, "final": {"violationKinds": ["diskKeysOver64"], "maxDiskKeys": 65},
+                "why": "A of the dead generation lands at 60400, after bootMs(E+1)+T_LATE = 60100 and after E+1's contribution was dropped at 60150."}},
+    {"id": "assumption.A15d", "violates": "A15d", "source": {"file": "reference/threat.md", "lines": [49, 49], "literals": ["A15d"]},
+     "setup": {"keys": {"count": 63, "prefix": "S"}},
+     "events": [{"t": 0, "do": "op", "id": "A", "key": "A", "kind": "data"}, {"t": 100, "do": "settle", "id": "A", "ok": false},
+                {"t": 150, "do": "refreshComplete"}, {"t": 200, "do": "op", "id": "B", "key": "B", "kind": "data"},
+                {"t": 250, "do": "settle", "id": "B"}, {"t": 300, "do": "refreshComplete"}, {"t": 400, "do": "apply", "id": "A"}],
+     "expect": {"decisions": {"A": null, "B": null}, "final": {"violationKinds": ["diskKeysOver64"], "maxDiskKeys": 65},
+                "why": "A's promise was rejected (seat freed by the 150 measurement), yet A is applied at 400."}}
+  ]
+}

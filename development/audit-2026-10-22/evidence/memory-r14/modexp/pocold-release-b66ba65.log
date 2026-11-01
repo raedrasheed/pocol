@@ -1,0 +1,37 @@
+# pocold release suite, --no-fail-fast, b66ba65 2026-10-27T16:12:59Z
+     Running unittests src/lib.rs (target/release/deps/pocold-0278ad1ad2996f0c)
+test result: ok. 51 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+     Running unittests src/bin/pocol-sign.rs (target/release/deps/pocol_sign-87ce8e667ddc648a)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/pocol-site.rs (target/release/deps/pocol_site-c2c46d64b0642492)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/release/deps/pocold-96d5e2d5caaefc9f)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/admission.rs (target/release/deps/admission-209204a3f0c8a2a4)
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.87s
+     Running tests/caps.rs (target/release/deps/caps-8d79b211ee842447)
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.16s
+     Running tests/consensus.rs (target/release/deps/consensus-864896f11b814bf3)
+test result: ok. 83 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 164.57s
+     Running tests/decoder_reference.rs (target/release/deps/decoder_reference-a638f1b7cff484bc)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+     Running tests/journal_measure.rs (target/release/deps/journal_measure-bae419db3ca5aa62)
+test result: ok. 2 passed; 0 failed; 18 ignored; 0 measured; 0 filtered out; finished in 2.06s
+     Running tests/log_cap.rs (target/release/deps/log_cap-8b31ac30437d6fcb)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/log_cap_scope.rs (target/release/deps/log_cap_scope-46ce57f51a1ef8e1)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/net.rs (target/release/deps/net-5f94272bd3458d6a)
+test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 91.94s
+     Running tests/network_budget.rs (target/release/deps/network_budget-a7430a70c05c9e68)
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+     Running tests/secp_fixture.rs (target/release/deps/secp_fixture-5911aa51ea0feebf)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+     Running tests/site.rs (target/release/deps/site-0f61be3f5a38fc03)
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/state_store.rs (target/release/deps/state_store-ddf7740b056c227b)
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+     Running tests/store.rs (target/release/deps/store-224cec4d0b00cee1)
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.13s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+passed 238 failed 0 ignored 24

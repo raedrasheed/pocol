@@ -1,0 +1,17 @@
+{
+  "commit": "182d73afd75faa629b35e6d74d9311ca6483e767",
+  "expectedCommit": "182d73afd75faa629b35e6d74d9311ca6483e767",
+  "dirty": false,
+  "os": "Microsoft Windows NT 10.0.20348.0",
+  "ps": "7.6.8",
+  "runner": "GitHub Actions 1000000057",
+  "runnerImage": "win22 20261022.344.1",
+  "started": "2026-10-27T14:36:52Z",
+  "rustc": {
+    "1.99.1": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "1.58.1": "rustc 1.58.1 (db9d1b20b 2022-01-20)"
+  },
+  "node": "v22.22.0",
+  "nodeSha256": "c97fa376d2becdc8863fcd3ca2dd9a83a9f3468ee7ccf7a6d076ec66a645c77a",
+  "finished": "2026-10-27T15:03:15Z"
+}

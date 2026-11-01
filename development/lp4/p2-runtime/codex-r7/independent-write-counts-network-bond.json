@@ -1,0 +1,59 @@
+{
+  "scope": "mandatory-write-set witnesses only; not full Registry",
+  "status": "ACCEPTANCE BLOCKER REPRODUCED",
+  "bootable": false,
+  "cases": [
+    {
+      "case": "register",
+      "originalCeiling": 9,
+      "measuredChangedSlots": 10,
+      "SSTOREKeys": [
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c5",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c6",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c7",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c8",
+        "0xf652222313e28459528d920b65115c16c04f3efc82aaedc97be59f3f377c0d3f"
+      ],
+      "comparison": "MATCHED INDEPENDENT EXECUTION",
+      "acceptance": "BLOCKED: ORIGINAL CEILING EXCEEDED",
+      "gasUsed": 243370
+    },
+    {
+      "case": "setRewardAddress",
+      "originalCeiling": 1,
+      "measuredChangedSlots": 2,
+      "SSTOREKeys": [
+        "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c6"
+      ],
+      "comparison": "MATCHED INDEPENDENT EXECUTION",
+      "acceptance": "BLOCKED: ORIGINAL CEILING EXCEEDED",
+      "gasUsed": 49060
+    },
+    {
+      "case": "claimBond-middle",
+      "originalCeiling": 9,
+      "measuredChangedSlots": 10,
+      "SSTOREKeys": [
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db0",
+        "0x036b6384b5eca791c62761152d0c79bb0604c104a5fb6f4eb0703f3154bb3db1",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c5",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c6",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c7",
+        "0x07315875c131dc1dff59b5eecd3feba7c4eb34f9c8bac4a22e69acd1d04d63c8",
+        "0xe32b95672c21b9230f354820820cd9b871fb1fe387babc0c44b339ef6084bf70"
+      ],
+      "comparison": "MATCHED INDEPENDENT EXECUTION",
+      "acceptance": "BLOCKED: ORIGINAL CEILING EXCEEDED",
+      "gasUsed": 71285
+    }
+  ]
+}

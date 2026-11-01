@@ -1,0 +1,12 @@
+truncate-negative True
+wrong-polynomial True
+biased-sample True
+include-parent-weight True
+exclusive-membership True
+partition-gap True
+allow-reserved True
+late-deadline-equality True
+allow-timestamp-limit True
+skip-final-counter True
+schema-ignore-width True
+sha3-instead-of-keccak True

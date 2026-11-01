@@ -1,0 +1,3 @@
+   Compiling pocol-lp4-execution-wrong-chain v0.1.0 (/workspace/work/lp4/p2-pay/legacy-control-mutations/wrong-chain)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.18s
+  Executable unittests src/lib.rs (prototypes/lp4-execution/target/debug/deps/pocol_lp4_execution-681f8878c5becc59)

@@ -1,0 +1,8 @@
+{
+  ".github/workflows/lp4-execution-controls.yml": "241b3445a7e0d18b67acc678fbccf36c847982ae07fc66ec32622df1cb3c715f",
+  "development/lp4/p2-runtime/codex-r16/CONTINUATION.md": "fb101a9f6956d91dfec05ac2ca167a37b45edd6d671292acb73e692b7ca50b43",
+  "development/lp4/p2-runtime/codex-r16/REVIEW.md": "9d2e018d3b5252fb64508b09b3519fa646f09b7edadc7a8eb5fdb2d882472baf",
+  "development/lp4/p2-runtime/codex-r16/budget1200-selected-summary.json": "9805872f5af968611e5b18edc7fd105116fa05d024e76a50d53b6338dfe088f4",
+  "development/lp4/p2-runtime/codex-r16/failure-excerpt.log": "473ee79dfcfc82cbb9bf5f9d20ff17f1f6d3cef6a1c3a190fb599be102bde134",
+  "development/lp4/p2-runtime/codex-r16/hosted-failure.json": "2a7d9a97d36b1e4339ec45ec973e23ca7010f8a741427d793d23423f181df457"
+}

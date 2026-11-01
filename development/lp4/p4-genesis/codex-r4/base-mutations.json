@@ -1,0 +1,137 @@
+[
+  {
+    "name": "origin-system",
+    "old": "let origin=self.proposer.origin()?;",
+    "new": "let origin=system_address();",
+    "test": "system::tests::system_origin_and_caller_do_not_create_origin_or_system_accounts",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "caller-origin",
+    "old": "input.caller=system_address();",
+    "new": "input.caller=origin;",
+    "test": "system::tests::system_origin_and_caller_do_not_create_origin_or_system_accounts",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "signed-zero",
+    "old": "Self::Signed(a) if a!=Address::ZERO",
+    "new": "Self::Signed(a) if true",
+    "test": "system::tests::system_origin_and_caller_do_not_create_origin_or_system_accounts",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "intrinsic-gas",
+    "old": "let raw=result.gas.spent();",
+    "new": "let raw=result.gas.spent()+21000;",
+    "test": "system::tests::fresh_epochs_match_independent_compiled_witness_gas_and_root",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "refund-credit",
+    "old": "self.used=self.used.checked_add(raw)",
+    "new": "self.used=self.used.checked_add(raw.saturating_sub(result.gas.refunded().max(0) as u64))",
+    "test": "system::tests::raw_budget_exact_minus_one_remaining_zero_and_refund_no_credit",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "allocation-cap-off",
+    "old": "remaining.min(PER_CALL_GAS)",
+    "new": "remaining",
+    "test": "system::tests::allocation_is_minimum_of_30m_and_remaining_not_block_gaslimit",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "remaining-budget-off",
+    "old": "let allocation=remaining.min(PER_CALL_GAS);",
+    "new": "let allocation=PER_CALL_GAS;",
+    "test": "system::tests::allocation_is_minimum_of_30m_and_remaining_not_block_gaslimit",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "nonce-increment",
+    "old": "commit_epoch(&mut self.state,state);",
+    "new": "commit_epoch(&mut self.state,state); self.state.accounts.entry(system_address()).or_default().info.nonce+=1;",
+    "test": "system::tests::fresh_epochs_match_independent_compiled_witness_gas_and_root",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "fee-deduction",
+    "old": "commit_epoch(&mut self.state,state);",
+    "new": "commit_epoch(&mut self.state,state); let a=self.state.accounts.entry(system_address()).or_default(); a.info.balance=a.info.balance.saturating_sub(U256::from(raw));",
+    "test": "system::tests::fresh_epochs_match_independent_compiled_witness_gas_and_root",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "warm-slot",
+    "old": "let mut input=CallInputs::new_boxed",
+    "new": "evm.context.evm.load_account(to).unwrap(); evm.context.evm.sload(to,U256::ZERO).unwrap(); let mut input=CallInputs::new_boxed",
+    "test": "system::tests::fresh_epochs_match_independent_compiled_witness_gas_and_root",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "transient-carry",
+    "old": "let mut input=CallInputs::new_boxed",
+    "new": "if self.used>0 {evm.context.evm.tstore(to,U256::ZERO,U256::from(7));} let mut input=CallInputs::new_boxed",
+    "test": "system::tests::fresh_epochs_match_independent_compiled_witness_gas_and_root",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "failed-candidate-reusable",
+    "old": "fn poison(&mut self){self.failed=true;",
+    "new": "fn poison(&mut self){self.failed=false;",
+    "test": "system::tests::later_revert_or_log_invalidates_all_candidate_effects",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "logs-discarded",
+    "old": "if !logs.is_empty()",
+    "new": "if false && !logs.is_empty()",
+    "test": "system::tests::later_revert_or_log_invalidates_all_candidate_effects",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "pending-offset",
+    "old": "origin.as_slice())<<8",
+    "new": "origin.as_slice())<<16",
+    "test": "system::tests::independent_pending_encoder_and_invalid_context",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  },
+  {
+    "name": "pending-kind",
+    "old": "U256::from(matches!(self,Self::Fallback) as u64)",
+    "new": "U256::ZERO",
+    "test": "system::tests::independent_pending_encoder_and_invalid_context",
+    "buildExit": 0,
+    "testExit": 101,
+    "assertionKilled": true
+  }
+]
