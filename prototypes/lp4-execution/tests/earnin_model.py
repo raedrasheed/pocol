@@ -92,7 +92,7 @@ class Registry:
             raise Revert('BadState')
         if r.bond_state == ACCRUING and h >= r.registered_at + T_PROB:
             raise Revert('BadState')
-        r.status = 1
+        r.status, r.exit, r.due = 1, 0, 0   # as v1: reactivate clears the exit clocks
         self.active.append(sender)
 
     # ---- system paths (section 4)
@@ -106,13 +106,13 @@ class Registry:
             elif r.live() and r.status == 2 and h >= r.due:
                 self._refund_erase(ident)
 
-    def punish(self, ident):
+    def punish(self, ident, h):
         r = self.records[ident]
         if not r.live():
             raise Revert('BadState')
-        if r.status == 1:
+        if r.status == 1:            # as v1: an active record exits with exit = due = h
             self.active.remove(ident)
-            r.status = 2
+            r.status, r.exit, r.due = 2, h, h
         if r.bond_state == ACCRUING:
             self.accruing -= 1
         self.held_total -= r.bond
@@ -195,11 +195,12 @@ def cutover(old_accounts, old_records, miners, system):
 
 # ---------------- vectors
 def snapshot(reg):
-    return {'records': {k: asdict(v) for k, v in sorted(reg.records.items())}, 'active': list(reg.active),
+    return {'records': {k: {**asdict(v), 'bond': str(v.bond)} for k, v in sorted(reg.records.items())}, 'active': list(reg.active),
             'heldTotal': str(reg.held_total), 'accruing': reg.accruing, 'burned': str(reg.burned),
             'paid': {k: str(v) for k, v in sorted(reg.paid.items())}}
 
 def run(steps, durable=()):
+    """Heights never decrease, so an EVM harness can replay the same steps block by block."""
     reg = Registry(durable=set(durable))
     reg.register('m0', 'm0', B, 0)      # a HELD genesis-like member keeps ActLen > M_min
     out = []
@@ -214,7 +215,7 @@ def run(steps, durable=()):
         assert reg.held_total == sum(r.bond for r in reg.records.values() if r.live()), step
         assert reg.accruing == sum(1 for r in reg.records.values() if r.live() and r.bond_state == ACCRUING), step
         assert 0 <= reg.accruing <= P_MAX
-    return {'steps': out, 'final': snapshot(reg)}
+    return {'durable': sorted(durable), 'steps': out, 'final': snapshot(reg)}
 
 def vectors():
     v = {}
@@ -231,11 +232,12 @@ def vectors():
                        durable=['ra', 'rb'])
     v['deadline'] = run([('register', 'a', 'ra', 2 * PCOL, 10), ('sweep', 10 + T_PROB - 1), ('sweep', 10 + T_PROB),
                          ('reactivate', 'a', 10 + T_PROB + W_ACT), ('sweep', 10 + T_PROB + U),
-                         ('register', 'z', 'rz', 0, 20), ('sweep', 20 + T_PROB), ('sweep', 20 + T_PROB + U)],
+                         ('register', 'z', 'rz', 0, 10 + T_PROB + U + 1), ('sweep', 10 + 2 * T_PROB + U + 1),
+                         ('sweep', 10 + 2 * T_PROB + 2 * U + 1)],
                         durable=['ra', 'rz'])
     v['exit-and-reactivate-in-probation'] = run([('register', 'a', 'a', 0, 1), ('deregister', 'a', 100),
                                                 ('reactivate', 'a', 100 + W_ACT - 1), ('reactivate', 'a', 100 + W_ACT)])
-    v['punish'] = run([('register', 'a', 'a', 3 * PCOL, 1), ('settle_to', 'a', 2 * PCOL), ('punish', 'a'),
+    v['punish'] = run([('register', 'a', 'a', 3 * PCOL, 1), ('settle_to', 'a', 2 * PCOL), ('punish', 'a', 1),
                        ('settle_to', 'a', PCOL)])
     v['draw'] = {
         'mixed': draw_weights(['a', 'b', 'c'], {'b'}, {'a': 3, 'b': 9, 'c': 1}),

@@ -166,3 +166,41 @@ The P1 reference model gives an independent expected result for each of these:
 - the draw candidates and weights for D1–D2;
 - cutover: a small synthetic old state yields the expected allocation, report and failure cases
   (a balance below `B`, a non-durable reward).
+
+## 9. P2 implementation
+
+The current network's programs (`PoColSystemV1.sol`, `system-v1.json`, `system-continuous.json`) are
+unchanged. The old chain keeps validating with them, and the cutover tool reads it with them.
+
+**Source and build**
+- `prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol` is V1 plus its continuous
+  `markClose`, with every change marked `EARN-IN`.
+- `tests/compile_system_earnin.cjs` builds it with the same locked compiler and settings as V1:
+  `solc` 0.8.28, optimizer 200, Cancun, no metadata. Command:
+  `NODE_PATH=<solc@0.8.28> node tests/compile_system_earnin.cjs tests/data/system-earnin.json`.
+
+**Program selection**
+- `SystemPrograms::earnin()` loads the new programs.
+- `SystemPrograms::for_spec(cp, sysCodeHash)` picks the bundled program set that the GenesisSpec
+  names. Admission uses it.
+- `DevnetConfig::earnin` builds a devnet with these programs and `B_reg` = 20 PCOL.
+
+**Tests**
+- `lp4-execution/tests/earnin_contracts.rs` replays all 8 model scenarios against the compiled
+  MinerRegistry. It compares reverts, records, `heldTotal`, the accruing count, the active set,
+  burns and payments.
+- Four planted mutants (`P_MAX` 9, R9 removed, no promotion at `B`, `T_PROB` + 1) each fail it.
+- `pocold/tests/earnin.rs` runs a full chain:
+  - R9 for a first-transaction registration;
+  - a 0 PCOL bond filled by real Escrow settlement and promoted at exactly 20 PCOL;
+  - normal payment afterwards;
+  - top-up that is too large (reverted) and exact (promoted);
+  - the escrow invariant after every block.
+
+**Write counts of the new or changed paths**, measured by `earn_in_write_ceilings` (SSTOREs; the V1
+ceilings stay as they are):
+- `register` with a partial bond: 11 (V1 `register` is 10);
+- `topUp`: 3, or 5 when it promotes;
+- `accrue`: 2, or 4 when it promotes.
+
+The proposer draw (D1–D2) and the cutover tool are P3.

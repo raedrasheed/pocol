@@ -25,6 +25,8 @@ pub struct DevnetConfig{
     pub miners:Vec<String>,
     /// Extra funded devnet accounts (label, wei).
     pub accounts:Vec<(String,U256)>,
+    /// Earn-in rules (EARN-IN-SPEC.md): the earn-in system programs and B_reg = 20 PCOL.
+    pub earnin:bool,
 }
 impl DevnetConfig{
     pub fn new(chain_id:u64,g_ts:u64,miners:&[&str])->Self{
@@ -39,14 +41,14 @@ impl DevnetConfig{
             r_max:0,reg_records_max:8192,sys_slot_max:65536,z_close:160,gas_limit:8_000_000,slot_cap:50_000,acct_cap:20_000,
             code_cap:1<<21,txbytes_cap:1<<24,tx_cap:20_000,alpha_bp:1000,gamma_bp:500,c:2,
             miners:miners.iter().map(|s|s.to_string()).collect(),
-            accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))]}
+            accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false}
     }
     pub fn cp(&self)->[fixed::U256;52]{
         let n=|v:u64|fixed::U256::from_u64(v);
         let big=|v:u128|fixed::U256::from_be_slice(&v.to_be_bytes()).unwrap();
         [n(self.g_ts),self.target_g(),n(self.t_blk.into()),n(self.tau.into()),n(0),n(self.c.into()),n(self.d_att.into()),n(self.d_fb_wait.into()),
          n(self.m.into()),n(self.kappa.into()),n(self.s_max.into()),n(self.d.into()),n(self.w_w.into()),n(self.alpha_bp.into()),n(self.gamma_bp.into()),
-         big(2_000_000_000_000_000_000),big(100_000_000_000_000_000_000),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
+         big(2_000_000_000_000_000_000),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
          n(self.w_act.into()),n(self.theta_inact.into()),n(self.e_win.into()),n(self.u.into()),n(4),n(8192),
          n(self.gas_limit),n(1_000_000_000),n(131072),n(196608),n(32768),n(self.code_cap),n(self.txbytes_cap),n(self.tx_cap),n(self.slot_cap),n(self.acct_cap),
          n(self.sys_slot_max.into()),n(2048),n(256),n(512),n(96_000_000),
@@ -100,7 +102,7 @@ pub fn account_key(label:&str)->Key{Key::devnet(&format!("account:{label}"))}
 /// is a candidate, not an admitted profile (see `Devnet::admit`).
 pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     if cfg.chain_id==777001{return Err("network chainId is not a devnet".into())}
-    let programs=if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()};
+    let programs=if cfg.earnin{SystemPrograms::earnin()}else if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()};
     let mut miners:Vec<MinerIdentity>=cfg.miners.iter().map(|l|miner_identity(l)).collect();
     miners.sort_by_key(|m|m.id);
     let mut alloc=InMemoryDB::default();

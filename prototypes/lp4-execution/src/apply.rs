@@ -41,6 +41,13 @@ impl SystemPrograms{
     pub fn v1()->Self{Self::from_compiled_json(include_str!("../tests/data/system-v1.json")).expect("bundled system-v1.json")}
     pub fn continuous()->Self{Self::from_compiled_json(include_str!("../tests/data/system-continuous.json")).expect("bundled continuous system programs")}
     pub fn for_params(cp:&crate::profile::ConsensusParams)->Self{if cp.H_END==0{Self::continuous()}else{Self::v1()}}
+    /// Earn-in network programs (development/decisions/EARN-IN-SPEC.md), compile_system_earnin.cjs.
+    pub fn earnin()->Self{Self::from_compiled_json(include_str!("../tests/data/system-earnin.json")).expect("bundled earn-in system programs")}
+    /// The bundled program set whose sysCodeHash a GenesisSpec names; otherwise the CP default, which
+    /// then fails the genesis code check exactly as before.
+    pub fn for_spec(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->Self{
+        [Self::continuous(),Self::v1(),Self::earnin()].into_iter().find(|p|p.sys_code_hash().0==*sys_code_hash).unwrap_or_else(||Self::for_params(cp))
+    }
     /// sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 for PAY])).
     pub fn sys_code_hash(&self)->B256{crate::genesis_builder::code_hash(&self.codes)}
 }

@@ -1,5 +1,9 @@
 {
  "accrual": {
+  "durable": [
+   "ra",
+   "rb"
+  ],
   "final": {
    "accruing": 0,
    "active": [
@@ -15,7 +19,7 @@
    },
    "records": {
     "a": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -25,7 +29,7 @@
      "tomb": false
     },
     "b": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -35,7 +39,7 @@
      "tomb": false
     },
     "m0": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -141,6 +145,10 @@
  "cutover-low-balance": "MinerBalanceBelowBond",
  "cutover-not-durable": "RewardNotDurable",
  "deadline": {
+  "durable": [
+   "ra",
+   "rz"
+  ],
   "final": {
    "accruing": 0,
    "active": [
@@ -153,7 +161,7 @@
    },
    "records": {
     "m0": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -216,7 +224,7 @@
      "z",
      "rz",
      "0",
-     "20"
+     "60531"
     ],
     "result": null
    },
@@ -224,7 +232,7 @@
     "ok": true,
     "op": [
      "sweep",
-     "60500"
+     "121011"
     ],
     "result": null
    },
@@ -232,7 +240,7 @@
     "ok": true,
     "op": [
      "sweep",
-     "60540"
+     "121051"
     ],
     "result": null
    }
@@ -259,6 +267,9 @@
   }
  },
  "durable-reward": {
+  "durable": [
+   "y"
+  ],
   "final": {
    "accruing": 2,
    "active": [
@@ -271,7 +282,7 @@
    "paid": {},
    "records": {
     "b": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -281,7 +292,7 @@
      "tomb": false
     },
     "c": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -291,7 +302,7 @@
      "tomb": false
     },
     "m0": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -339,6 +350,7 @@
   ]
  },
  "exit-and-reactivate-in-probation": {
+  "durable": [],
   "final": {
    "accruing": 1,
    "active": [
@@ -350,17 +362,17 @@
    "paid": {},
    "records": {
     "a": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
-     "due": 140,
-     "exit": 100,
+     "due": 0,
+     "exit": 0,
      "registered_at": 1,
      "reward": "a",
      "status": 1,
      "tomb": false
     },
     "m0": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -413,6 +425,7 @@
   ]
  },
  "probation-seats": {
+  "durable": [],
   "final": {
    "accruing": 8,
    "active": [
@@ -432,7 +445,7 @@
    "paid": {},
    "records": {
     "full": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -442,7 +455,7 @@
      "tomb": false
     },
     "m0": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -452,7 +465,7 @@
      "tomb": false
     },
     "p0": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -462,7 +475,7 @@
      "tomb": false
     },
     "p1": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -472,7 +485,7 @@
      "tomb": false
     },
     "p2": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -482,7 +495,7 @@
      "tomb": false
     },
     "p3": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -492,7 +505,7 @@
      "tomb": false
     },
     "p4": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -502,7 +515,7 @@
      "tomb": false
     },
     "p5": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -512,7 +525,7 @@
      "tomb": false
     },
     "p6": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -522,7 +535,7 @@
      "tomb": false
     },
     "p7": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -647,6 +660,7 @@
   ]
  },
  "punish": {
+  "durable": [],
   "final": {
    "accruing": 0,
    "active": [
@@ -657,17 +671,17 @@
    "paid": {},
    "records": {
     "a": {
-     "bond": 5000000000000000000,
+     "bond": "5000000000000000000",
      "bond_state": 2,
-     "due": 0,
-     "exit": 0,
+     "due": 1,
+     "exit": 1,
      "registered_at": 1,
      "reward": "a",
      "status": 2,
      "tomb": true
     },
     "m0": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -703,7 +717,8 @@
     "ok": true,
     "op": [
      "punish",
-     "a"
+     "a",
+     "1"
     ],
     "result": null
    },
@@ -719,6 +734,7 @@
   ]
  },
  "register-values": {
+  "durable": [],
   "final": {
    "accruing": 2,
    "active": [
@@ -732,7 +748,7 @@
    "paid": {},
    "records": {
     "a": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -742,7 +758,7 @@
      "tomb": false
     },
     "b": {
-     "bond": 5000000000000000000,
+     "bond": "5000000000000000000",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -752,7 +768,7 @@
      "tomb": false
     },
     "c": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -762,7 +778,7 @@
      "tomb": false
     },
     "m0": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -821,6 +837,7 @@
   ]
  },
  "top-up": {
+  "durable": [],
   "final": {
    "accruing": 1,
    "active": [
@@ -833,7 +850,7 @@
    "paid": {},
    "records": {
     "a": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
@@ -843,7 +860,7 @@
      "tomb": false
     },
     "b": {
-     "bond": 0,
+     "bond": "0",
      "bond_state": 4,
      "due": 0,
      "exit": 0,
@@ -853,7 +870,7 @@
      "tomb": false
     },
     "m0": {
-     "bond": 20000000000000000000,
+     "bond": "20000000000000000000",
      "bond_state": 1,
      "due": 0,
      "exit": 0,
