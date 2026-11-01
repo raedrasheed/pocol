@@ -438,7 +438,7 @@ async function studioRequest(msg, sender) {
   if (msg.type === 'studio.status') {
     const all = await store.get(null);
     const jobs = Object.entries(all).filter(([k,j]) => k.startsWith(JOB_PREFIX) && j?.origin === origin && j.sourceTabId === sender.tab.id).map(([,j]) => ({...publicJob(j),title:j.request?.title,createdAt:j.createdAt,site:j.result?.site || j.request?.site || null})).sort((a,b)=>b.createdAt-a.createdAt).slice(0,20);
-    return { version: '0.4.0', capabilities: ['publish', 'openSite', 'jobStatus'], network: await publicNetwork(), jobs };
+    return { version: chrome.runtime.getManifest().version, capabilities: ['publish', 'openSite', 'jobStatus'], network: await publicNetwork(), jobs };
   }
   if (msg.type === 'studio.jobStatus') {
     if (typeof payload.jobId !== 'string' || !/^[a-f0-9-]{36}$/.test(payload.jobId)) throw new Error('Invalid job');
@@ -486,7 +486,7 @@ async function ideRequest(msg,sender) {
   if(msg.type==='ide.status') {
     const all=await store.get(null);
     const jobs=Object.entries(all).filter(([k,j])=>k.startsWith(IDE_JOB_PREFIX)&&j?.origin===origin&&j.sourceTabId===sender.tab.id).map(([,j])=>({...publicContractJob(j),title:j.request?.title,createdAt:j.createdAt})).sort((a,b)=>b.createdAt-a.createdAt).slice(0,20);
-    return {version:'0.4.0',capabilities:['contractTransactions','jobStatus'],network:await publicNetwork(),jobs};
+    return {version:chrome.runtime.getManifest().version,capabilities:['contractTransactions','jobStatus'],network:await publicNetwork(),jobs};
   }
   if(msg.type==='ide.jobStatus') {
     if(typeof payload.jobId!=='string'||!/^[a-f0-9-]{36}$/.test(payload.jobId))throw new Error('Invalid contract job');

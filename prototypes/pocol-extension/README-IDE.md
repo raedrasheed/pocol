@@ -1,6 +1,6 @@
-# PoCol Studio, IDE & Viewer 0.4.0
+# PoCol Studio, IDE & Viewer 0.4.1
 
-Version 0.4.0 combines Studio website publication, IDE contract deployment, the supplied PoCol artwork, and support for an explicitly configured full 64-bit mining range. Network labels use PoCol Mainnet. Existing wallet storage, addresses, chain ID and genesis remain unchanged. Studio confirmation defaults to English, with Arabic available from the language control.
+Version 0.4.1 combines Studio website publication, IDE contract deployment, the supplied PoCol artwork, and support for an explicitly configured full 64-bit mining range. Network labels use PoCol Mainnet. Existing wallet storage, addresses, chain ID and genesis remain unchanged. Studio confirmation defaults to English, with Arabic available from the language control.
 
 The 0.3 series adds contract deployment and contract writes from PoCol IDE using the **same PoCol wallet address** as Studio and the native Windows/Linux wallet. No MetaMask account is needed. Websites send public contract intents; private keys and passwords are accepted only in the extension's trusted confirmation tab.
 
@@ -64,7 +64,7 @@ Contract intents are limited to 256 KiB, ABI to 512 entries/96 KiB, arguments to
 
 ## Source and verification
 
-Baseline: PoCol Studio extension 0.2.1 from `palcertcom/pocol`, branch `work/pocol-studio`, commit `93d7f39fbe1f34890bbe1685a0f95309fc1cb7a5`. The published 0.3.1 IDE and icon release is reconciled with the full-range verifier in 0.4.0; wallet storage is not migrated.
+Baseline: PoCol Studio extension 0.2.1 from `palcertcom/pocol`, branch `work/pocol-studio`, commit `93d7f39fbe1f34890bbe1685a0f95309fc1cb7a5`. The published 0.3.1 IDE and icon release is reconciled with the full-range verifier in 0.4.1; wallet storage is not migrated.
 
 Pinned dependencies: Noble hashes 1.8.0, Noble secp256k1 2.3.0, ethers 6.17.0. Dependencies are bundled locally; there are no runtime CDN imports.
 
