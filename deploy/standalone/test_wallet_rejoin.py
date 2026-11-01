@@ -34,8 +34,9 @@ def run():
             s = status(w, lambda v: v['height'] >= 3 and v['peers'] > 0, 240)
             assert s['registryStatus'] == 'none' and not s['rejoinAvailable'], s
             e = w.request({'method': 'quote_rejoin'}, 'error'); assert 'Register first' in e['message'], e
-            # PAY-02: the reward address (this identity) must have nonce > 0 before the registration,
-            # so the identity first sends one transfer, as in test_wallet.py.
+            # PAY-02: the reward address (this identity) must have nonce > 0 before the registration.
+            # The wallet refuses the review instead of letting it revert, so send one transfer first.
+            e = w.request({'method': 'quote_register'}, 'error'); assert 'Send one transfer first' in e['message'], e
             q = w.request({'method': 'quote_send', 'to': ids[0], 'amount': '1'}, 'quote')
             sent = w.request({'method': 'confirm', 'quote_id': q['quoteId']}, 'submitted')
             status(w, lambda v: any(x['hash'] == sent['hash'] and x['state'] == 'Included' for x in v['activity']), 300)

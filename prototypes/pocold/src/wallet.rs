@@ -78,6 +78,9 @@ fn step_json(step:RejoinStep)->Value{
         RejoinStep::Missed=>json!({"step":"missed"}),
     }
 }
+/// PAY-02 judges a reward address on the pre-transaction state: it must have sent a transaction
+/// (or hold code). The wallet registers with itself as the reward address, so the included nonce decides.
+fn registration_reward_durable(included_nonce:Option<u64>)->bool{included_nonce.is_some_and(|n|n>0)}
 fn selector(signature:&str)->Bytes{keccak256(signature)[..4].to_vec().into()}
 /// Registry calls of a rejoin, sent by the member itself to `apply::program_address(0)` with value 0.
 pub fn exit_calldata()->Bytes{selector("deregister()")}
@@ -227,6 +230,11 @@ impl<'a> Wallet<'a>{
             },
             Command::QuoteRegister=>{
                 if self.status(n)["registered"].as_bool().unwrap_or(false){return Err("This identity already has a registry record".into())}
+                // PAY-02: the reward address (this identity) must have nonce > 0 in the state before the
+                // registration, or register(address) reverts with RewardNotDurable and only costs the fee.
+                if !registration_reward_durable(n.chain.view_of(&n.chain.head().hash).and_then(|s|s.v().account(&self.key.address())).map(|a|a.info.nonce)){
+                    return Err("This identity has not sent a transaction yet, and the registry pays rewards only to an account that has. Send one transfer first (a small amount, even to your own address), wait for it to be included, then register.".into())
+                }
                 let mut data=keccak256("register(address)")[..4].to_vec();data.extend_from_slice(self.key.address().into_word().as_slice());
                 self.quote(n,"registration",apply::program_address(0),crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg),data.into(),REGISTRY_GAS)
             },
@@ -425,6 +433,11 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         assert!(matches!(decide(reactivate,&Rejoin{tried_at:Some(135),attempts:REACTIVATE_ATTEMPTS,..plan()},136,None,Some("Reverted"),true),Action::Stop(_)));
         assert!(matches!(decide(RejoinStep::Missed,&plan(),140,None,None,true),Action::Stop(_)));
         assert!(matches!(decide(RejoinStep::Unavailable,&plan(),141,None,None,false),Action::Stop(m) if m.contains("refunded")));
+    }
+    #[test] fn registration_needs_a_prior_transaction(){
+        assert!(!registration_reward_durable(None));
+        assert!(!registration_reward_durable(Some(0)));
+        assert!(registration_reward_durable(Some(1)));
     }
     #[test] fn rejoin_calls_match_the_registry_selectors(){
         assert_eq!(exit_calldata().as_ref(),&keccak256("deregister()")[..4]);

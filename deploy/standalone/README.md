@@ -110,7 +110,8 @@ server keys are genesis miners. The PC/phone must hold an eligible registered
 identity to enable mining. A new identity can use **Review mining registration**,
 review the current bond and maximum fee, and explicitly confirm its transaction.
 Registration does not automatically enable mining. It needs funds, available
-registry capacity and network inclusion. The fresh-network bootstrap funds the Windows identity
+registry capacity and network inclusion. The identity must also have sent one included transaction
+first (PAY-02 pays rewards only to such an account); the wallet refuses the review until then. The fresh-network bootstrap funds the Windows identity
 with PCOL; send PCOL to the phone's public address to fund its bond and
 fees. Turning mining off does not deregister, release the bond or stop the wallet.
 Inactive/ejected identities follow existing registry rules; registration is never
