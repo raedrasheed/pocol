@@ -116,6 +116,29 @@ fees. Turning mining off does not deregister, release the bond or stop the walle
 Inactive/ejected identities follow existing registry rules; registration is never
 silently repeated and a toggle does not bypass eligibility.
 
+**Rejoin mining:** a registered identity with no shares in the last `W_act` blocks
+(32 on PoCol Mainnet) is outside the active set. It gets no nonce range and cannot
+win or share. The Registry only resets its grace with `reactivate()`, and that
+call requires an exited record. When the engine reports `rejoinAvailable`, the
+Windows wallet shows **Rejoin mining**. One review and confirmation then cover the
+whole sequence:
+1. `deregister()` is signed immediately. The bond stays held.
+2. `reactivate()` is signed by the engine once the next block is in
+   `[exit + W_act, exit + U)`. On Mainnet that is blocks exit+32 to exit+39. The
+   engine makes at most three attempts, one per new head, because another
+   registration can take the block's single slot (`R_max = 1`).
+3. Mining is turned on once the identity is back in the active set.
+
+The review shows the maximum fee for all four signatures. No PCOL is transferred.
+- If the window passes, the Registry refunds the bond to the reward address at
+  `exit + U` and erases the record. You then register again.
+- If the wallet restarts while the identity is exited, **Rejoin mining** reviews
+  the reactivation alone.
+- Keep mining running afterwards: an identity that stops sharing leaves the
+  active set again after `W_act` blocks.
+- Nothing about consensus, the Registry, keys or balances changes.
+- The Android app does not offer this action.
+
 ## Keys and updates
 
 Windows uses authenticated user-bound DPAPI ciphertext and rejects raw Unix keys,
