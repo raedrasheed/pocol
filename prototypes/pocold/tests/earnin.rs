@@ -33,7 +33,7 @@ fn net() -> Net {
 }
 
 /// The next block, won (and shared) entirely in `miner`'s nonce range.
-fn next(net: &mut Net, miner: Address, txs: Vec<Vec<u8>>) {
+fn next(net: &mut Net, miner: Address, txs: Vec<Vec<u8>>) -> Address {
     let parent = net.chain.full_entry(&net.chain.head).unwrap();
     let context = net.chain.child_ctx(&parent, 0).unwrap();
     let range = context.assignment.ranges().iter().find(|r| r.id() == raw_addr(miner)).unwrap_or_else(|| panic!("miner has no range at {}: {:?}", parent.height + 1, context.assignment.ranges().iter().map(|r| r.id()).collect::<Vec<_>>()));
@@ -52,7 +52,7 @@ fn next(net: &mut Net, miner: Address, txs: Vec<Vec<u8>>) {
                 assert!(net.chain.insert(entry));
                 let h = net.chain.head();
                 apply::check_escrow_invariant(&h.state, net.chain.spec.profile(), h.height, false).unwrap();
-                return;
+                return context.proposer;
             }
             if shares.len() < usize::from(net.chain.spec.cp().S_max) && le_target(&hash, &context.t_share) { shares.push(nonce as u64); }
             nonce += 1;
@@ -90,7 +90,7 @@ fn a_zero_bond_miner_earns_its_bond_then_is_paid_and_top_up_promotes_at_once() {
     let a = alice.address();
     assert_eq!(nonce(&net, a), 0, "the registration is alice's first transaction (R9)");
     let t = register(&net, &alice, 0);
-    next(&mut net, one, vec![t]);
+    let _ = next(&mut net, one, vec![t]);
     let r = record(&net, a);
     assert_eq!((r.status, r.bond_state, r.bond, r.reward), (1, 4, U256::ZERO, a), "a probation record");
     assert_eq!(accruing_count(&net), U256::from(1));
@@ -100,7 +100,10 @@ fn a_zero_bond_miner_earns_its_bond_then_is_paid_and_top_up_promotes_at_once() {
     let mut last = U256::ZERO;
     while record(&net, a).bond_state == 4 {
         assert!(net.chain.head().height < 200, "the bond must fill within the fixture's horizon");
-        next(&mut net, a, vec![]);
+        let accruing_before = record(&net, a).bond_state == 4;
+        let proposer = next(&mut net, a, vec![]);
+        // D1: while she is ACCRUING and full members remain in A_h, she is never the proposer.
+        if accruing_before { assert_ne!(proposer, a, "an ACCRUING member was drawn as proposer at {}", net.chain.head().height); }
         let r = record(&net, a);
         assert!(r.bond >= last && r.bond <= U256::from(B), "the bond only grows up to B");
         last = r.bond;
@@ -111,20 +114,20 @@ fn a_zero_bond_miner_earns_its_bond_then_is_paid_and_top_up_promotes_at_once() {
     assert_eq!(accruing_count(&net), U256::ZERO);
     // From now on her rewards reach her balance (any overflow of the promoting payment already did).
     let before = balance(&net, a);
-    for _ in 0..6 { next(&mut net, a, vec![]); }
+    for _ in 0..6 { let _ = next(&mut net, a, vec![]); }
     assert!(balance(&net, a) > before, "a HELD member is paid normally");
 
     // Alice is the active miner by now (the genesis miners stopped sharing), so she mines the rest.
     // Top-up: bob joins with 5 PCOL, tops up the exact remainder, and is promoted in that block.
     let bob = devnet::account_key("bob");
     let t = register(&net, &bob, 5 * PCOL);
-    next(&mut net, a, vec![t]);
+    let _ = next(&mut net, a, vec![t]);
     assert_eq!((record(&net, bob.address()).bond_state, record(&net, bob.address()).bond), (4, U256::from(5 * PCOL)));
     let over = tx(&net, &bob, keccak256("topUp()")[..4].to_vec(), U256::from(16 * PCOL));
-    next(&mut net, a, vec![over]);
+    let _ = next(&mut net, a, vec![over]);
     assert_eq!(record(&net, bob.address()).bond, U256::from(5 * PCOL), "a top-up above B - bond reverts");
     let exact = tx(&net, &bob, keccak256("topUp()")[..4].to_vec(), U256::from(15 * PCOL));
-    next(&mut net, a, vec![exact]);
+    let _ = next(&mut net, a, vec![exact]);
     let r = record(&net, bob.address());
     assert_eq!((r.bond_state, r.bond), (1, U256::from(B)));
     assert_eq!(accruing_count(&net), U256::ZERO);
