@@ -38,7 +38,7 @@ def run():
     with tempfile.TemporaryDirectory(prefix='pocol-wallet-') as tmp:
         root=Path(tmp);homes=[root/f'home{i}' for i in range(5)];ids=[identity(h) for h in homes];keys=[(h/'identity.pocol-key').read_bytes() for h in homes]
         p2p=[port() for _ in range(3)];api=[port() for _ in range(3)]
-        cfg={'continuous':True,'chainId':777932,'genesisTime':int(time.time())+5,'registrationPerBlock':1,'miners':[{'id':a,'reward':a} for a in ids[:3]],'accounts':[{'address':a,'wei':str(10**24)} for a in ids]}
+        cfg={'continuous':True,'fullNonce':True,'chainId':777932,'genesisTime':int(time.time())+5,'registrationPerBlock':1,'miners':[{'id':a,'reward':a} for a in ids[:3]],'accounts':[{'address':a,'wei':str(10**24)} for a in ids]}
         (root/'config.json').write_text(json.dumps(cfg),encoding='utf-8')
         call('pocold','init-testnet','--config',root/'config.json','--out',root/'genesis')
         args=['network','--from',root/'genesis','--out',root/'network.pocol.json']

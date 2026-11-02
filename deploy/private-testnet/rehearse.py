@@ -16,11 +16,11 @@ def _arg(args, name):
     return int(args[args.index(name) + 1])
 
 
-# The devnet keeps the v1 bounded nonce range with c = 2: about e^-2 of the attempts have no winning
-# nonce in any member's range. Every node then idles until the attempt ends, and the next attempt is valid
-# only after U(a) + gamma (consensus timing windows), so one such block costs D_att + gamma + 1 seconds.
-# Waits that need the chain to advance are budgeted per block with that cost, as e2e_independent_keys.py
-# does, instead of a flat time that a few unlucky attempts in a row can exceed.
+# The devnet uses the full nonce range (private_testnet.py prepare: --full-nonce), so attempts do not run
+# out of nonces. Waits that need the chain to advance are still budgeted per block, each block allowed one
+# missed attempt: the next attempt is valid only after U(a) + gamma (consensus timing windows), so such a
+# block costs D_att + gamma + 1 seconds. This matches e2e_independent_keys.py and keeps the bounded-range
+# profile (v1, c = 2, about e^-2 of attempts without a winner) usable with the same budgets.
 ATTEMPT_SECONDS = _arg(TIMING_ARGS, '--d-att') + _arg(LOCAL_ARGS, '--gamma') + 1
 CONFIRMATIONS = 6
 

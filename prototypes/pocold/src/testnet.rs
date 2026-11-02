@@ -20,6 +20,10 @@ use std::{collections::HashSet, path::Path};
 struct Config {
     #[serde(default)]
     continuous: bool,
+    /// nonceMode 1: the full 64-bit nonce domain from genesis, so no attempt can run out of nonces (as
+    /// Mainnet after its v2 height). Absent or false keeps the v1 bounded range and the same genesis bytes.
+    #[serde(default)]
+    full_nonce: bool,
     chain_id: u64,
     genesis_time: u64,
     registration_per_block: u8,
@@ -84,6 +88,9 @@ pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
     cfg.d_fb_wait = 6;
     cfg.hash_rate = (1 << 18) / 10;
     cfg.r_max = input.registration_per_block;
+    if input.full_nonce {
+        cfg.nonce_mode = 1;
+    }
     let mut alloc = InMemoryDB::default();
     let mut seen = HashSet::new();
     for account in &input.accounts {
@@ -181,6 +188,10 @@ pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
         "miners":input.miners.iter().map(|m|serde_json::json!({"id":m.id,"reward":m.reward})).collect::<Vec<_>>(),
         "calibration":{"hashesPerSecond":cfg.hash_rate,"class":"synthetic-fixture"},
         "timing":timing.to_json(),"admission":crate::admission_json(&admitted)});
+    let mut info = info;
+    if input.full_nonce {
+        info["fullNonce"] = serde_json::json!(true);
+    }
     // Admission must succeed before any output. Partial I/O failures remain visible and are not overwritten.
     std::fs::create_dir(out).map_err(|e| format!("output directory: {e}"))?;
     for (name, contents) in [
