@@ -117,6 +117,26 @@ fees. Turning mining off does not deregister, release the bond or stop the walle
 Inactive/ejected identities follow existing registry rules; registration is never
 silently repeated and a toggle does not bypass eligibility.
 
+**Mining on the earn-in network (chain ID 261597237):** the bond is 20 PCOL, and a new
+identity does not need it up front.
+1. Get the first fee: the fee faucet sends 0.002 PCOL once to an account that has never sent a
+   transaction (see `deploy/faucet/README.md`).
+2. **Review mining registration** offers a 0 PCOL bond by default. It can be the identity's first
+   transaction: the earn-in Registry accepts the identity itself as its reward address without the
+   PAY-02 prior transaction.
+3. The record is on *probation*: it mines like any member, but each reward fills the bond until it
+   holds 20 PCOL. Only then are rewards paid to the balance. The wallet shows the progress and the
+   deadline (`registeredAt + 60,480` blocks, about 7 days).
+4. **Top up bond** (Windows) or `quote_top_up` fills the rest at once. If rewards filled part of
+   it before the top-up was included, the extra returns to the identity.
+5. A probation record still short of 20 PCOL at the deadline is exited by the Registry, and its
+   accrued bond is refunded. Probation seats are limited to 8 at a time, so a registration with
+   less than 20 PCOL is refused while they are full.
+
+Probation members do not propose blocks while any full member exists. Balances from PoCol Mainnet
+moved to this network at the cutover, and each old 100 PCOL bond was returned to its reward
+address, so an old miner registers again here.
+
 **Rejoin mining:** a registered identity with no shares in the last `W_act` blocks
 (32 on PoCol Mainnet) is outside the active set. It gets no nonce range and cannot
 win or share. The Registry only resets its grace with `reactivate()`, and that

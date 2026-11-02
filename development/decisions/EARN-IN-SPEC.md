@@ -53,12 +53,19 @@ takes no arguments (length 4) and counts as a user operation, but not in the `R_
 
 **U2. `topUp()`.**
 1. **Preconditions:** the caller's record has `live`, `bondState = ACCRUING`, `status = 1`, and
-   `h < registeredAt + T_PROB`; else revert `BadState`. `msg.value ≤ B − bond`; else revert
-   `BadValue`.
-2. **Escrow transfer:** `Sys.pay(ESCROW, msg.value)` MUST succeed, or the call reverts
-   `PaymentFailed`.
-3. **Update:** `bond += msg.value` and `heldTotal += msg.value`. If `bond = B`, then
-   `bondState = HELD` and `accruing −= 1`.
+   `h < registeredAt + T_PROB`; else revert `BadState`.
+2. **Amount:** `add = min(msg.value, B − bond)`. The rest, `msg.value − add`, returns to the caller.
+   Rewards accrue every block, so a top-up quoted for the remainder can arrive after the remainder
+   shrank; it still fills the bond, and only the remainder at inclusion is kept.
+3. **Transfers:** `Sys.pay(ESCROW, add)` MUST succeed, and if `msg.value > add`,
+   `Sys.pay(msg.sender, msg.value − add)` MUST succeed (the caller is durable: it sent this
+   transaction); otherwise the call reverts `PaymentFailed`.
+4. **Update:** `bond += add` and `heldTotal += add`. If `bond = B`, then `bondState = HELD` and
+   `accruing −= 1`.
+
+*Changed in P4 (found by the wallet end-to-end test):* the P1 rule reverted `BadValue` when
+`msg.value > B − bond`, which made an exact-remainder top-up revert whenever a reward accrued between
+the quote and inclusion.
 
 **U3. `setRewardAddress`, `deregister`, `removeInactive`** use `live` in place of `held`. Every other
 condition is unchanged.
@@ -155,7 +162,8 @@ The P1 reference model gives an independent expected result for each of these:
 - registration with `v = 0`, `0 < v < B`, `v = B` and `v > B`;
 - the `P_MAX` limit;
 - both sides of R9 (`reward = msg.sender`, and another reward address);
-- `topUp`: exact fill, over fill, and while not ACCRUING;
+- `topUp`: partial fill, exact fill, over fill (the rest returned), after accrual shrank the
+  remainder, and while not ACCRUING;
 - accrual: under the bond, exactly reaching it, and with excess; winner, shares and the all-ACCRUING
   proposer fallback;
 - the deadline exactly at `registeredAt + T_PROB − 1` and at `+ T_PROB`; refunding 0 and non-zero
@@ -188,13 +196,15 @@ unchanged. The old chain keeps validating with them, and the cutover tool reads 
 **Tests**
 - `lp4-execution/tests/earnin_contracts.rs` replays all 8 model scenarios against the compiled
   MinerRegistry. It compares reverts, records, `heldTotal`, the accruing count, the active set,
-  burns and payments.
-- Four planted mutants (`P_MAX` 9, R9 removed, no promotion at `B`, `T_PROB` + 1) each fail it.
+  burns, payments, and each sender's net PCOL into the Registry.
+- Six planted mutants each fail it: `P_MAX` 9, R9 removed, no promotion at `B`, `T_PROB` + 1, and
+  (P4) the old `BadValue` rule for an over-fill and an excess kept instead of returned.
 - `pocold/tests/earnin.rs` runs a full chain:
   - R9 for a first-transaction registration;
   - a 0 PCOL bond filled by real Escrow settlement and promoted at exactly 20 PCOL;
   - normal payment afterwards;
-  - top-up that is too large (reverted) and exact (promoted);
+  - a partial top-up (still on probation), then one above the remainder (promoted, the rest
+    returned to the sender);
   - the escrow invariant after every block.
 
 **Write counts of the new or changed paths**, measured by `earn_in_write_ceilings` (SSTOREs; the V1
@@ -204,3 +214,53 @@ ceilings stay as they are):
 - `accrue`: 2, or 4 when it promotes.
 
 The proposer draw (D1–D2) and the cutover tool are P3.
+
+## 10. P4–P6 implementation
+
+**Wallet engine (`pocold/src/wallet.rs`) and Windows wallet**
+- `quote_register` takes an optional `bond`. On the earn-in network it defaults to 0. It skips the
+  PAY-02 prior-transaction guard there (R9), refuses a partial bond while the `P_MAX` probation
+  seats are full, and quotes 400,000 gas. That is about twice the 194,143 gas a zero-bond first
+  registration measures in `earn_in_write_ceilings`. The old network keeps the full bond, the guard
+  and 1,000,000 gas.
+- `quote_top_up` defaults to the whole remainder, and U2 returns any excess at inclusion.
+- Status adds `registryStatus: "probation"`, `earnIn`, `bondHeld`, `bondTarget`, `probationEndsAt`
+  and `topUpAvailable`, and the mining text shows the probation progress.
+- A probation record's rejoin window ends at its deadline (U4).
+- The Windows wallet shows **Top up bond**, the probation text in the registration review, and a
+  "Bond top-up" history row.
+
+**Other clients**
+- `pocol_getMiners` adds `bond` and `registeredAt`.
+- The gateway reward accounting (`deploy/rewards/pocol_rewards.py`) reads CP 16. An ACCRUING
+  record's payment first fills its bond (`bondAccruedWei`, `projectedBondWei`).
+- `deploy/mainnet/network_identity.py` moves every pinned chain ID and genesis hash once the new
+  genesis exists.
+
+**Fee faucet (A2):** `deploy/faucet/`.
+- It sends 0.002 PCOL once per new address, within daily and per-client limits.
+- It signs with `pocol-sign --key-file`, keeps a durable ledger written before each send, and pins
+  the chain ID.
+
+**End-to-end test:** `deploy/standalone/test_wallet_earnin.py`. Four native processes and the real
+wallet go through every step:
+- faucet;
+- first-transaction zero-bond registration;
+- probation mining with accrual;
+- a top-up that lands after more accrual;
+- promotion.
+
+Its first run found the U2 over-fill revert (section 3). Evidence:
+`evidence/earnin-wallet-e2e.log`.
+
+**Cutover rehearsal and runbook**
+- `deploy/mainnet/rehearse_cutover.py --local` runs the whole cutover on a stopped old-style
+  network. It checks the new allocation against the old chain's RPC answers at `S`, and runs the
+  cutover twice to show it is deterministic. It then boots the new network and checks:
+  - the moved contract;
+  - the refunded bond;
+  - the 20 PCOL miner bonds;
+  - a migrated account's zero-bond registration.
+- `--copy` is the operator rehearsal on a copy of a server's data.
+- `deploy/mainnet/new_network_config.py` derives the new config from the old `devnet.json`.
+- `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md` (and `-AR.md`) is the owner's procedure.

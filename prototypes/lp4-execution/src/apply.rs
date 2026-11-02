@@ -42,6 +42,11 @@ impl SystemPrograms{
     pub fn continuous()->Self{Self::from_compiled_json(include_str!("../tests/data/system-continuous.json")).expect("bundled continuous system programs")}
     pub fn for_params(cp:&crate::profile::ConsensusParams)->Self{if cp.H_END==0{Self::continuous()}else{Self::v1()}}
     /// Earn-in network programs (development/decisions/EARN-IN-SPEC.md), compile_system_earnin.cjs.
+    /// Earn-in constants of the bundled program (PoColSystemEarnIn.sol): bondState ACCRUING, probation seats
+    /// and the probation deadline in blocks.
+    pub const EARNIN_ACCRUING:u8=4;
+    pub const EARNIN_P_MAX:u64=8;
+    pub const EARNIN_T_PROB:u64=60_480;
     pub fn earnin()->Self{Self::from_compiled_json(include_str!("../tests/data/system-earnin.json")).expect("bundled earn-in system programs")}
     /// The bundled program set whose sysCodeHash a GenesisSpec names; otherwise the CP default, which
     /// then fails the genesis code check exactly as before.
@@ -147,7 +152,9 @@ pub fn chain_facts(db:&dyn crate::view::View)->ChainFacts{
 
 /// One Registry record (four words, REGISTRY-LAYOUT.md).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct MinerRecord{pub id:Address,pub status:u8,pub tomb:bool,pub bond_state:u8,pub last_share:u64,pub reward:Address,pub bond:U256,pub exit_height:u64,pub due_height:u64,pub burn_height:u64,pub grace_start:u64}
+pub struct MinerRecord{pub id:Address,pub status:u8,pub tomb:bool,pub bond_state:u8,pub last_share:u64,pub reward:Address,pub bond:U256,pub exit_height:u64,pub due_height:u64,pub burn_height:u64,pub grace_start:u64,
+    /// Earn-in w0 bits 152..215 (EARN-IN-SPEC.md section 2); zero on v1 networks.
+    pub registered_at:u64}
 pub fn record_slot(id:Address)->U256{U256::from_be_bytes(keccak256([id.into_word().as_slice(),U256::from(7).to_be_bytes::<32>().as_slice()].concat()).0)}
 fn array_slot(slot:u64)->U256{U256::from_be_bytes(keccak256(U256::from(slot).to_be_bytes::<32>()).0)}
 pub fn miner_record(db:&dyn crate::view::View,id:Address)->Option<MinerRecord>{
@@ -155,7 +162,8 @@ pub fn miner_record(db:&dyn crate::view::View,id:Address)->Option<MinerRecord>{
     let w1=word(db,r,s+U256::from(1));let w3=word(db,r,s+U256::from(3));
     Some(MinerRecord{id,status:low_u64(bits(w0,0,8)) as u8,tomb:bits(w0,8,8)!=U256::ZERO,bond_state:low_u64(bits(w0,16,8)) as u8,
         last_share:low_u64(bits(w0,88,64)),reward:Address::from_word(B256::from(w1)),bond:word(db,r,s+U256::from(2)),
-        exit_height:low_u64(bits(w3,0,64)),due_height:low_u64(bits(w3,64,64)),burn_height:low_u64(bits(w3,128,64)),grace_start:low_u64(bits(w3,192,64))})
+        exit_height:low_u64(bits(w3,0,64)),due_height:low_u64(bits(w3,64,64)),burn_height:low_u64(bits(w3,128,64)),grace_start:low_u64(bits(w3,192,64)),
+        registered_at:low_u64(bits(w0,152,64))})
 }
 /// ActList in order (consensus §2 M_h/Act_h from the parent state).
 pub fn active_list(db:&dyn crate::view::View)->Vec<Address>{

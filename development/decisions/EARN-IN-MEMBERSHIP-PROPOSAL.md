@@ -85,8 +85,10 @@ proposer share). When the bond reaches `B_reg`:
 The funds stay in Escrow and `heldTotal` grows by the same amount, so the escrow invariant
 `balance ≥ pending + heldTotal + burned` keeps holding.
 
-**R5. Top-up.** `topUp()`, called by the identity itself with `0 < msg.value ≤ B_reg − bond`, adds
-to an ACCRUING bond. The record is promoted when the bond reaches `B_reg`.
+**R5. Top-up.** `topUp()`, called by the identity itself with `msg.value > 0`, adds
+`min(msg.value, B_reg − bond)` to an ACCRUING bond and returns the rest to the caller. The record is
+promoted when the bond reaches `B_reg`. (P4 change: the first draft reverted a value above
+`B_reg − bond`; see EARN-IN-SPEC.md U2.)
 
 **R6. Probation deadline.** An ACCRUING record still ACCRUING at
 `registeredAt + T_prob` (`T_prob` = 60,480) is exited by the sweep, with `exit = h` and

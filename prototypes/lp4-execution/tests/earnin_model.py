@@ -45,6 +45,7 @@ class Registry:
     durable: set = field(default_factory=set)   # addresses that pass the PAY-02 probe
     paid: dict = field(default_factory=dict)    # reward address -> PCOL paid out of Escrow
     burned: int = 0
+    spent: dict = field(default_factory=dict)   # sender -> PCOL it moved into the Registry (net of returns)
 
     def pay(self, to, amount):
         self.paid[to] = self.paid.get(to, 0) + amount
@@ -65,6 +66,7 @@ class Registry:
         self.records[sender] = Record(reward=reward, bond=value, bond_state=state, registered_at=h)
         self.active.append(sender)
         self.held_total += value
+        self.spent[sender] = self.spent.get(sender, 0) + value
         if state == ACCRUING:
             self.accruing += 1
 
@@ -74,11 +76,12 @@ class Registry:
         r = self.records.get(sender)
         if r is None or not r.live() or r.bond_state != ACCRUING or r.status != 1 or h >= r.registered_at + T_PROB:
             raise Revert('BadState')
-        if value > B - r.bond:
-            raise Revert('BadValue')
-        r.bond += value
-        self.held_total += value
+        add = min(value, B - r.bond)
+        r.bond += add
+        self.held_total += add
+        self.spent[sender] = self.spent.get(sender, 0) + add   # the rest returns to the sender
         self._promote(r)
+        return value - add
 
     def deregister(self, sender, h):
         r = self.records.get(sender)
@@ -197,7 +200,8 @@ def cutover(old_accounts, old_records, miners, system):
 def snapshot(reg):
     return {'records': {k: {**asdict(v), 'bond': str(v.bond)} for k, v in sorted(reg.records.items())}, 'active': list(reg.active),
             'heldTotal': str(reg.held_total), 'accruing': reg.accruing, 'burned': str(reg.burned),
-            'paid': {k: str(v) for k, v in sorted(reg.paid.items())}}
+            'paid': {k: str(v) for k, v in sorted(reg.paid.items())},
+            'spent': {k: str(v) for k, v in sorted(reg.spent.items())}}
 
 def run(steps, durable=()):
     """Heights never decrease, so an EVM harness can replay the same steps block by block."""
@@ -225,8 +229,11 @@ def vectors():
                                [('register', 'full', 'full', B, 2)])
     v['durable-reward'] = run([('register', 'a', 'x', 0, 1), ('register', 'b', 'y', 0, 1), ('register', 'c', 'c', 0, 1)],
                               durable=['y'])
+    # Over-fill returns the rest: a top-up quoted for the remainder still lands after rewards accrued meanwhile.
     v['top-up'] = run([('register', 'a', 'a', 15 * PCOL, 1), ('top_up', 'a', 6 * PCOL, 2), ('top_up', 'a', 5 * PCOL, 2),
-                       ('top_up', 'a', 1, 3), ('register', 'b', 'b', 0, 4), ('top_up', 'b', 0, 5)])
+                       ('top_up', 'a', 1, 3), ('register', 'b', 'b', 0, 4), ('top_up', 'b', 0, 5),
+                       ('register', 'c', 'c', 0, 5), ('top_up', 'c', 7 * PCOL, 6), ('settle_to', 'c', 10 * PCOL),
+                       ('top_up', 'c', 13 * PCOL, 7), ('top_up', 'c', 1, 8)])
     v['accrual'] = run([('register', 'a', 'ra', 0, 1), ('settle_to', 'a', 7 * PCOL), ('settle_to', 'a', 13 * PCOL),
                         ('settle_to', 'a', 3 * PCOL), ('register', 'b', 'rb', 19 * PCOL, 2), ('settle_to', 'b', 4 * PCOL)],
                        durable=['ra', 'rb'])

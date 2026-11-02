@@ -1,0 +1,19 @@
+[Unit]
+Description=PoCol fee faucet (earn-in network)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pocol-faucet
+Group=pocol-faucet
+ExecStart=/usr/bin/python3 /opt/pocol-faucet/pocol_faucet.py --config /etc/pocol-faucet/config.json
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/pocol-faucet
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,7 @@
 //! Earn-in network on a full chain (EARN-IN-SPEC.md): real blocks, real settlement through
 //! RewardEscrow. A zero-bond registration as an account's first transaction (R9) earns its 20 PCOL
-//! bond from its own wins and shares, then is promoted and paid normally; top-up promotes at once.
+//! bond from its own wins and shares, then is promoted and paid normally; a top-up promotes at once and
+//! returns whatever exceeds the remainder.
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -118,17 +119,21 @@ fn a_zero_bond_miner_earns_its_bond_then_is_paid_and_top_up_promotes_at_once() {
     assert!(balance(&net, a) > before, "a HELD member is paid normally");
 
     // Alice is the active miner by now (the genesis miners stopped sharing), so she mines the rest.
-    // Top-up: bob joins with 5 PCOL, tops up the exact remainder, and is promoted in that block.
+    // Top-up: bob joins with 5 PCOL, tops up part, then sends more than the remainder (as a wallet
+    // quote does when rewards accrued meanwhile): the bond fills to B and the rest returns to bob.
     let bob = devnet::account_key("bob");
     let t = register(&net, &bob, 5 * PCOL);
     let _ = next(&mut net, a, vec![t]);
     assert_eq!((record(&net, bob.address()).bond_state, record(&net, bob.address()).bond), (4, U256::from(5 * PCOL)));
+    let part = tx(&net, &bob, keccak256("topUp()")[..4].to_vec(), U256::from(4 * PCOL));
+    let _ = next(&mut net, a, vec![part]);
+    assert_eq!((record(&net, bob.address()).bond_state, record(&net, bob.address()).bond), (4, U256::from(9 * PCOL)), "a partial top-up stays on probation");
+    let before = balance(&net, bob.address());
     let over = tx(&net, &bob, keccak256("topUp()")[..4].to_vec(), U256::from(16 * PCOL));
     let _ = next(&mut net, a, vec![over]);
-    assert_eq!(record(&net, bob.address()).bond, U256::from(5 * PCOL), "a top-up above B - bond reverts");
-    let exact = tx(&net, &bob, keccak256("topUp()")[..4].to_vec(), U256::from(15 * PCOL));
-    let _ = next(&mut net, a, vec![exact]);
     let r = record(&net, bob.address());
-    assert_eq!((r.bond_state, r.bond), (1, U256::from(B)));
+    assert_eq!((r.bond_state, r.bond), (1, U256::from(B)), "promoted in the top-up's block");
+    let spent = before - balance(&net, bob.address());
+    assert!(spent > U256::from(11 * PCOL) && spent < U256::from(11 * PCOL + PCOL / 100), "only the 11 PCOL remainder (plus the fee) left bob: {spent}");
     assert_eq!(accruing_count(&net), U256::ZERO);
 }

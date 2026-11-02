@@ -331,7 +331,7 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE):
     if 'templateId' in pocol:
         require(pocol['templateId'].lower() == '0x'+header['templateId'].hex(), 'Template mismatch')
     winner = address(block.get('miner'))
-    cp = {i: _call(query, CAPS, 'get(uint256)', [i], h, 1)[0] for i in (4, 5, 8, 9, 10, 11, 13, 14, 15, 18, 24)}
+    cp = {i: _call(query, CAPS, 'get(uint256)', [i], h, 1)[0] for i in (4, 5, 8, 9, 10, 11, 13, 14, 15, 16, 18, 24)}
     require(cp[4] in (0, 1) and 0 < cp[5] <= 255 and 0 < cp[24] < 1 << 32, 'Invalid nonce configuration')
     require(0 < cp[8] <= 65535 and 0 < cp[9] <= 255 and 0 < cp[10] <= 256 and 1 < cp[11] <= 65535, 'Invalid reward configuration')
     require(cp[13]+cp[14] <= 10000 and 0 < cp[15] <= MAX_U256 and len(header['shares']) <= cp[10], 'Invalid reward caps')
@@ -349,6 +349,9 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE):
     proposer = header['proposer'] if header['signed'] else winner
     payments = [(winner, wp), (proposer, pp)] + [(m, rest*c//denominator) for m, c in counts.items()]
     records, accounts, amounts, rewards = {}, {}, Counter(), {}
+    # Earn-in (EARN-IN-SPEC.md P1): a payment to an ACCRUING record (bondState 4) first fills its bond up
+    # to B_reg (cp[16]) inside Escrow; only the excess reaches the reward address.
+    bonds, accrued = {}, Counter()
     escrow_balance = quantity(_result(query, 'eth_getBalance', [ESCROW, hex(h)]))
     require(escrow_balance >= amount, 'Reward escrow underfunded')
     for miner, payment in payments:
@@ -362,6 +365,15 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE):
         reward = '0x'+record[1].to_bytes(20, 'big').hex()
         if reward == ZERO:
             continue
+        if (record[0] >> 16) & 255 == 4:
+            bond = bonds.setdefault(miner, record[2])
+            add = min(payment, max(cp[16] - bond, 0))
+            bonds[miner] += add
+            accrued[miner] += add
+            rewards[miner] = reward
+            payment -= add
+            if payment == 0:
+                continue
         if reward not in accounts:
             nonce = quantity(_result(query, 'eth_getTransactionCount', [reward, hex(h)]))
             code = b'' if nonce else hex_bytes(_result(query, 'eth_getCode', [reward, hex(h)]), maximum=65536)
@@ -378,8 +390,10 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE):
     check = _result(query, 'eth_getBlockByNumber', [hex(h), False])
     if not isinstance(check, dict) or check.get('hash', '').lower() != block_hash:
         raise SnapshotChanged('Canonical block changed; reload the reward snapshot')
-    beneficiaries = [{'minerId': m, 'rewardAddress': rewards[m], 'amountWei': str(amounts[m])} for m in sorted(amounts) if amounts[m] > 0]
-    paid = sum(amounts.values())
+    beneficiaries = [dict({'minerId': m, 'rewardAddress': rewards[m], 'amountWei': str(amounts[m])},
+                          **({'bondAccruedWei': str(accrued[m])} if accrued[m] else {}))
+                     for m in sorted(set(amounts) | set(accrued)) if amounts[m] > 0 or accrued[m] > 0]
+    paid = sum(amounts.values()) + sum(accrued.values())
     require(0 <= paid <= amount, 'Reward accounting mismatch')
     return {'schema': 'pocol-block-reward-v1', 'chainId': CHAIN_ID, 'genesisHash': GENESIS,
             'source': 'https://explorer.pocol.net',
@@ -387,5 +401,6 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE):
             'blockHeight': h, 'blockHash': block_hash, 'settlementHeight': h+cp[11],
             'subsidyWei': str(cp[15]), 'grossRewardWei': str(amount),
             'projectedPaidWei': str(paid), 'projectedBurnedWei': str(amount-paid),
+            'projectedBondWei': str(sum(accrued.values())),
             'beneficiaryCount': len(beneficiaries), 'beneficiaries': beneficiaries,
             'status': 'pending', 'shareCount': len(header['shares'])}

@@ -332,11 +332,12 @@ contract MinerRegistry {
         }else{
             if(!live(w))revert BadState();
             if(topping){
-                // EARN-IN U2.
+                // EARN-IN U2: fill up to B; the rest returns to the sender (durable: it sent this transaction).
                 if(!accruingState(w)||(w&255)!=1||pastProbation(w,height))revert BadState();
-                uint256 bond=get(r+2);if(msg.value>cfg(16)-bond)revert BadValue();
-                if(!Sys.pay(Sys.ESCROW,msg.value))revert PaymentFailed();
-                put(r+2,bond+msg.value);put(4,get(4)+msg.value);promote(r,w,bond+msg.value);
+                uint256 bond=get(r+2);uint256 add=cfg(16)-bond;if(msg.value<add)add=msg.value;
+                if(!Sys.pay(Sys.ESCROW,add))revert PaymentFailed();
+                if(msg.value>add && !Sys.pay(msg.sender,msg.value-add))revert PaymentFailed();
+                put(r+2,bond+add);put(4,get(4)+add);promote(r,w,bond+add);
             }
             else if(rewarding){if(!Sys.pay(arg,0))revert RewardNotDurable();put(r+1,uint160(arg));}
             else if(exiting||removing){

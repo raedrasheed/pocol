@@ -136,6 +136,14 @@ fn earn_in_registry_reproduces_every_model_scenario(){
             let got=refunds+h.settled.get(&a).copied().unwrap_or_default();
             assert_eq!(got.to_string(),amount.as_str().unwrap(),"{scenario} paid {n}");
         }
+        // Each sender's net PCOL into the Registry (bonds and top-ups, less returned excess and refunds).
+        for a in &h.senders{
+            let n=fin["records"].as_object().unwrap().keys().chain(fin["spent"].as_object().unwrap().keys()).find(|n|name(n)==*a).cloned();
+            let Some(n)=n else{continue};
+            let field=|k:&str|fin[k].get(&n).and_then(|x|x.as_str()).map(|x|x.parse::<U256>().unwrap()).unwrap_or_default();
+            let refunds=field("paid")-h.settled.get(a).copied().unwrap_or_default();
+            assert_eq!(h.start[a]-balance(&h.db,*a),field("spent")-refunds,"{scenario} sender {n} net PCOL");
+        }
         checked+=1;
     }
     assert_eq!(checked,8,"every model scenario replayed");
@@ -151,11 +159,12 @@ fn earn_in_write_ceilings(){
     let reg_partial=writes(&r);
     let r=call(&mut h.db,a,selector("topUp()"),U256::from(5*PCOL),1);ok(&r,"topUp");
     let top=writes(&r);
-    let r=call(&mut h.db,a,selector("topUp()"),U256::from(10*PCOL),1);ok(&r,"topUp promote");
-    let top_promote=writes(&r);
+    let r=call(&mut h.db,a,selector("topUp()"),U256::from(12*PCOL),1);ok(&r,"topUp promote, 2 PCOL returned");
+    let top_promote=writes(&r);let top_gas=r.result.gas_used();
     let b2=h.sender("w-b");
     let r=call(&mut h.db,b2,with_arg("register(address)",Some(b2)),U256::ZERO,1);ok(&r,"register zero");
-    let mut acc=|h:&mut Harness,amount:u128|{
+    let reg_gas=r.result.gas_used();
+    let acc=|h:&mut Harness,amount:u128|{
         let code=h.db.accounts[&escrow_address()].info.clone();
         insert(&mut h.db,escrow_address(),code.balance,code.nonce,Bytecode::default());
         let mut d=selector("accrue(address,uint256)");d.extend(b2.into_word());d.extend(U256::from(amount).to_be_bytes::<32>());
@@ -164,6 +173,8 @@ fn earn_in_write_ceilings(){
         ok(&r,"accrue");writes(&r)
     };
     let accrue=acc(&mut h,PCOL);let accrue_promote=acc(&mut h,30*PCOL);
-    eprintln!("CEILINGS register-partial={reg_partial} topUp={top} topUp-promote={top_promote} accrue={accrue} accrue-promote={accrue_promote}");
+    eprintln!("CEILINGS register-partial={reg_partial} topUp={top} topUp-promote={top_promote} accrue={accrue} accrue-promote={accrue_promote} gas: register-zero={reg_gas} topUp-promote-with-return={top_gas}");
     assert_eq!((reg_partial,top,top_promote,accrue,accrue_promote),(11,3,5,2,4));
+    // The wallet's fee reservation and the fee faucet amount are sized from these (deploy/faucet/README.md).
+    assert!(reg_gas<=400_000&&top_gas<=200_000,"register {reg_gas}, topUp {top_gas}");
 }

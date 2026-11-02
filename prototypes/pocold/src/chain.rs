@@ -45,6 +45,11 @@ impl Spec{
     pub fn admission(&self)->&Admitted{&self.admitted}
     pub fn cp(&self)->&pocol_lp4_execution::profile::ConsensusParams{self.profile().cp()}
     pub fn chain_id(&self)->u64{self.profile().spec().chain_id}
+    /// Whether this genesis runs the earn-in system programs (EARN-IN-SPEC.md).
+    pub fn earnin(&self)->bool{
+        static EARNIN:std::sync::OnceLock<[u8;32]>=std::sync::OnceLock::new();
+        self.profile().spec().sys_code_hash==*EARNIN.get_or_init(||pocol_lp4_execution::apply::SystemPrograms::earnin().sys_code_hash().0)
+    }
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}
     pub fn active_version(&self,h:u64)->u16{self.profile().forks().active_version(h)}
     /// The genesis CP remains immutable. Consensus v2 activates the complete u64
