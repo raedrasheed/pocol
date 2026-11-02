@@ -15,13 +15,16 @@ This repository holds the specification and the implementation used by PoCol:
 - native Windows, Linux and Android wallets;
 - a Chrome MV3 extension for Studio publishing, IDE contract transactions and verified on-chain sites.
 
-The existing public chain is operator-designated **PoCol Mainnet**, with currency
-symbol **PCOL**, chain ID `1599846715`, and genesis hash
+The public chain is operator-designated **PoCol Mainnet**, with currency symbol
+**PCOL**. The clients in this repository pin its chain ID `1599846715` and genesis hash
 `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`.
-The 0.4.0 upgrade preserves that identity, wallets, balances and history. Consensus
-version 2 enables the complete nonce range `0` through `18446744073709551615` at
-one explicitly configured future height; merging the code does not activate it.
-See the [coordinated rollout guide](deploy/mainnet/README.md).
+
+History: the 0.4.0 upgrade of the first PoCol Mainnet kept that network's identity,
+wallets, balances and history. Its consensus version 2 enables the complete nonce
+range `0` through `18446744073709551615` at one explicitly configured height; see the
+[coordinated rollout guide](deploy/mainnet/README.md). The
+[earn-in cutover runbook](deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md) moves PoCol Mainnet
+to a new genesis; its step 3 switches the identity above.
 
 The Mainnet name is a deployment designation. The engine still reports its actual
 experimental admission scope, `specificationCompliant: false` and

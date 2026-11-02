@@ -6,9 +6,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parent
 files = ['pocol_studio_gateway.py', 'install_studio_gateway.py']
-payloads = {name: {'sha256': hashlib.sha256((root/name).read_bytes()).hexdigest(),
-                   'base64': base64.b64encode((root/name).read_bytes()).decode()} for name in files}
-script = '''#!/usr/bin/env bash
+TEMPLATE = '''#!/usr/bin/env bash
 # Installs a separate loopback-only Studio relay and adds its existing-HTTPS route.
 # Never modifies node configuration, blockchain data, miner/wallet keys, or Explorer code.
 set -Eeuo pipefail
@@ -31,6 +29,14 @@ with tempfile.TemporaryDirectory(prefix='pocol-studio-install-') as directory:
         os.chmod(target, 0o600)
     subprocess.run([sys.executable, str(pathlib.Path(directory) / 'install_studio_gateway.py'), *sys.argv[1:]], check=True)
 POCOL_STUDIO_INSTALL
-'''.replace('__PAYLOADS__', repr(payloads))
-(root/'Install-PoCol-Studio-Gateway.sh').write_text(script)
-print('Built Install-PoCol-Studio-Gateway.sh')
+'''
+
+def script(sources):
+    """The installer text for {name: bytes} of `files` (network_identity.py rebuilds it from switched bytes)."""
+    payloads = {name: {'sha256': hashlib.sha256(sources[name]).hexdigest(),
+                       'base64': base64.b64encode(sources[name]).decode()} for name in files}
+    return TEMPLATE.replace('__PAYLOADS__', repr(payloads))
+
+if __name__ == '__main__':
+    (root/'Install-PoCol-Studio-Gateway.sh').write_text(script({name: (root/name).read_bytes() for name in files}))
+    print('Built Install-PoCol-Studio-Gateway.sh')

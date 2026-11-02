@@ -234,8 +234,20 @@ The proposer draw (D1–D2) and the cutover tool are P3.
 - `pocol_getMiners` adds `bond` and `registeredAt`.
 - The gateway reward accounting (`deploy/rewards/pocol_rewards.py`) reads CP 16. An ACCRUING
   record's payment first fills its bond (`bondAccruedWei`, `projectedBondWei`).
-- `deploy/mainnet/network_identity.py` moves every pinned chain ID and genesis hash once the new
-  genesis exists.
+- `deploy/mainnet/network_identity.py` moves every chain ID, genesis hash and GenesisSpec pinned in
+  the repository's clients and the documents shipped with them once the new genesis exists. The
+  content version a page loads them by, and the Studio gateway installer that embeds them, move too.
+  - It takes the cutover's public `genesis.spec.hex`, and refuses one that is not canonical RLP,
+    does not hash to the genesis hash, or does not carry the new chain ID.
+  - Each file must hold exactly its listed number of copies and no copy of the old Mainnet identity,
+    so `--check` fails on any other identity, and a redo with a new genesis switches from the
+    identity the tree carries.
+  - Its test passes before and after the switch, and fails if another tracked file pins the old
+    identity. On the switched tree it also requires what the step-3 PR changes by hand: new release
+    notes in place of `deploy/standalone/RELEASE-UPGRADE.md`, and new package versions.
+
+  The website snapshots in `deploy/websites` are build output. The runbook's step 5 updates them,
+  together with the reward gateway's fork schedule, the Studio relay and the Explorer configuration.
 
 **Fee faucet (A2):** `deploy/faucet/`.
 - It sends 0.002 PCOL once per new address, within daily and per-client limits.

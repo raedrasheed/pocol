@@ -2,7 +2,7 @@ name: Full nonce consensus upgrade
 on:
   pull_request:
     branches: [main, work/branding-20261031]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', '.github/workflows/full-nonce-upgrade.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'README.md', '.github/workflows/full-nonce-upgrade.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -37,12 +37,12 @@ jobs:
           python deploy/standalone/test_upgrade.py -v
           python -m unittest discover -s deploy/standalone -p test_prepare_nonce_upgrade.py -v
           python -m unittest discover -s deploy/rewards -v
-      - name: Test stopped seed migration and mainnet preflight
+      - name: Test stopped seed migration, mainnet preflight and cutover tools
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
           python3 -B -m unittest discover -s deploy/public-testnet -p test_nonce_upgrade.py -v
-          python3 -B -m unittest discover -s deploy/mainnet -p test_preflight.py -v
+          python3 -B -m unittest discover -s deploy/mainnet -p 'test_*.py' -v
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
