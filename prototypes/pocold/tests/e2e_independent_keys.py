@@ -21,12 +21,17 @@ from runtime import digest
 BIN = Path(os.environ.get('POCOLD_BIN_DIR', str(ROOT / 'prototypes/pocold/target/release')))
 LOCAL = ['--delta', '1', '--phi', '1', '--t-exec', '1', '--delta-rel', '8', '--gamma', '5']
 CONFIRMATIONS = 6
-# init-testnet keeps the v1 bounded nonce range and D_att=60 (testnet.rs).
-# Exhausting a range is legitimate: the next attempt starts strictly after
-# U(a)+gamma, so it can cost 66 seconds. Budget inclusion, six confirmations,
-# one extra exhausted attempt, and 60 seconds of RPC/scheduling slack. This is
-# a finite test budget, not a guarantee of probabilistic mining progress.
+# The genesis uses "fullNonce" (nonceMode 1, the full 64-bit nonce domain), as Mainnet after its v2
+# height does, so an attempt cannot run out of nonces. The budgets still allow one exhausted-or-late
+# attempt per block (D_att=60, the next attempt only after U(a)+gamma: 66 seconds): inclusion, six
+# confirmations, one extra attempt, and 60 seconds of RPC/scheduling slack. This is a finite test
+# budget, not a guarantee of probabilistic mining progress.
 CONFIRMATION_TIMEOUT = (CONFIRMATIONS + 2) * (60 + 5 + 1) + 60
+# pocol-site publish sends its transactions one after another and waits for each (site.rs Publisher):
+# one chunk for the small index.html, one manifest chunk, the Website deployment, createVersion, publish
+# and setCurrent. Each gets the same per-block budget instead of a flat 300 s.
+PUBLISH_TRANSACTIONS = 6
+PUBLISH_TIMEOUT = (PUBLISH_TRANSACTIONS + 2) * (60 + 5 + 1) + 60
 
 
 def main():
@@ -44,7 +49,7 @@ def main():
     for name in ['m1', 'm2', 'm3', 'm4', 'r1', 'r2', 'r3', 'r4', 'alice', 'bob']:
         addresses[name] = subprocess.check_output([str(BIN / 'pocol-key'), 'generate', '--out',
             str(keys / (name + '.pocol-key'))], text=True).strip()
-    config = {'chainId': 777914, 'genesisTime': int(time.time()) + 5, 'registrationPerBlock': 1,
+    config = {'chainId': 777914, 'genesisTime': int(time.time()) + 5, 'registrationPerBlock': 1, 'fullNonce': True,
         'miners': [{'id': addresses[f'm{i}'], 'reward': addresses[f'r{i}']} for i in range(1, 4)],
         'accounts': [{'address': addresses[name], 'wei': str(10**24)} for name in ['alice', 'bob', 'm4', 'r4']]}
     (evidence / 'genesis-input.json').write_text(json.dumps(config, indent=2))
@@ -159,7 +164,7 @@ def main():
         registration = send('m4', registry, 100 * 10**18, 0, calldata, 1000000)
         confirmed(registration)
         assert all(any(m['id'].lower() == addresses['m4'] and m['status'] == 1 for m in rpc(u, 'pocol_getMiners')) for u in urls)
-        wait(lambda: rpc(urls[3], 'pocol_status')['stats']['mined'] > 0, 'new miner produces a block')
+        wait(lambda: rpc(urls[3], 'pocol_status')['stats']['mined'] > 0, 'new miner produces a block', CONFIRMATION_TIMEOUT)
         ok('non-genesis miner registers through a transaction and produces real blocks')
         duplicate = send('m4', registry, 100 * 10**18, 1, calldata, 1000000)
         confirmed(duplicate, '0x0')
@@ -170,7 +175,7 @@ def main():
         (source / 'index.html').write_text('<!doctype html><html lang="en"><title>PoCol test</title><h1>Independent keys</h1></html>')
         published = subprocess.run([str(BIN / 'pocol-site'), 'publish', '--rpc', f'127.0.0.1:{ports[4]}',
             '--chain-id', '777914', '--key-file', str(keys / 'alice.pocol-key'), '--dir', str(source)],
-            capture_output=True, text=True, timeout=300)
+            capture_output=True, text=True, timeout=PUBLISH_TIMEOUT)
         (evidence / 'publish.log').write_text(published.stdout + published.stderr)
         published.check_returncode()
         site = json.loads(published.stdout)['site']

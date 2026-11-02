@@ -24,7 +24,7 @@ fn command(args:&[String])->i32{
         "init-testnet"=>pocold::testnet::init(args),
         "run"=>run(args),
         "status"=>status(args),
-        _=>{eprintln!("usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [NODE]\n  pocold status --network DIR --data DIR [NODE]\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] (--state-store is experimental; open a data directory in the mode it was made in)\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).");Ok(())}
+        _=>{eprintln!("usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [NODE]\n  pocold status --network DIR --data DIR [NODE]\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] (--state-store is experimental; open a data directory in the mode it was made in)\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).");Ok(())}
     };
     if let Err(e)=r{eprintln!("error: {e}");return 1}
     0
@@ -59,6 +59,9 @@ fn init(args:&[String])->Result<(),String>{
     cfg.t_blk=num(args,"--t-blk",cfg.t_blk);cfg.tau=num(args,"--tau",cfg.tau);cfg.d_att=num(args,"--d-att",cfg.d_att);cfg.d_fb_wait=num(args,"--fb-wait",cfg.d_fb_wait);cfg.c=num(args,"--c",cfg.c);
     cfg.h_end=num(args,"--h-end",cfg.h_end);cfg.h_close=num(args,"--h-close",cfg.h_close);cfg.d=num(args,"--d",cfg.d);cfg.w_w=num(args,"--w-w",cfg.w_w);
     // About 2^bits hashes per block: H_cal = 2^bits / T_blk (R25d calibration, synthetic for a devnet).
+    // --full-nonce: nonceMode 1, the full 64-bit nonce domain from genesis, so no attempt can run out of
+    // nonces (as Mainnet after its v2 height). Without it the profile keeps the v1 bounded range.
+    if args.iter().any(|a|a=="--full-nonce"){cfg.nonce_mode=1;}
     let bits:u32=num(args,"--work-bits",18);cfg.hash_rate=(1u64<<bits.min(63))/u64::from(cfg.t_blk.max(1));
     if let Some(a)=arg(args,"--accounts"){cfg.accounts=a.split(',').map(|l|(l.to_string(),revm::primitives::U256::from(10u128.pow(24)))).collect();}
     let net=devnet::build(&cfg)?;
@@ -74,6 +77,7 @@ fn init(args:&[String])->Result<(),String>{
         "calibration":{"hashesPerSecond":cfg.hash_rate,"class":"synthetic-fixture","note":"devnet difficulty chosen with --work-bits, not a measured hash rate"},
         "timing":timing.to_json(),
         "admission":pocold::admission_json(&admitted)});
+    let mut info=info;if cfg.nonce_mode==1{info["fullNonce"]=serde_json::json!(true);}
     std::fs::write(out.join("devnet.json"),serde_json::to_string_pretty(&info).unwrap()).map_err(|e|e.to_string())?;
     println!("{}",serde_json::to_string_pretty(&info).unwrap());Ok(())
 }

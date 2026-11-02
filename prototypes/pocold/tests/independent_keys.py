@@ -10,6 +10,26 @@ import unittest
 BIN = Path(os.environ.get('POCOLD_BIN_DIR', str(Path(__file__).resolve().parents[1] / 'target/release')))
 
 
+def rlp(data, i=0):
+    """Decodes one RLP item at data[i:]: (bytes or list, next index). Enough to read a GenesisSpec."""
+    b = data[i]
+    if b < 0x80: return data[i:i + 1], i + 1
+    if b < 0xb8: n = b - 0x80; return data[i + 1:i + 1 + n], i + 1 + n
+    if b < 0xc0: k = b - 0xb7; n = int.from_bytes(data[i + 1:i + 1 + k], 'big'); return data[i + 1 + k:i + 1 + k + n], i + 1 + k + n
+    if b < 0xf8: n, start = b - 0xc0, i + 1
+    else: k = b - 0xf7; n, start = int.from_bytes(data[i + 1:i + 1 + k], 'big'), i + 1 + k
+    items, j = [], start
+    while j < start + n:
+        item, j = rlp(data, j); items.append(item)
+    return items, start + n
+
+
+def nonce_mode(net):
+    """CP field 4 (nonceMode) of the genesis written by init-testnet or init-devnet."""
+    spec, _ = rlp(bytes.fromhex((net / 'genesis.spec.hex').read_text().strip().removeprefix('0x')))
+    return int.from_bytes(spec[2][4], 'big')
+
+
 class IndependentKeys(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -100,6 +120,25 @@ class IndependentKeys(unittest.TestCase):
         original = (self.root / 'net/genesis.spec.hex').read_bytes()
         self.assertNotEqual(self.init(config).returncode, 0)
         self.assertEqual(original, (self.root / 'net/genesis.spec.hex').read_bytes())
+
+    def test_full_nonce_option_only_changes_the_nonce_mode(self):
+        config = self.config()
+        self.assertEqual(self.init(config, 'plain').returncode, 0)
+        self.assertEqual(self.init({**config, 'fullNonce': False}, 'false').returncode, 0)
+        self.assertEqual(self.init({**config, 'fullNonce': True}, 'full').returncode, 0)
+        for name in ('genesis.spec.hex', 'alloc.json'):
+            self.assertEqual((self.root / 'plain' / name).read_bytes(), (self.root / 'false' / name).read_bytes(), name)
+        self.assertEqual(nonce_mode(self.root / 'plain'), 0, 'the default keeps the v1 bounded nonce range')
+        self.assertEqual(nonce_mode(self.root / 'full'), 1, 'fullNonce gives the full 64-bit nonce domain')
+        self.assertNotIn('fullNonce', json.loads((self.root / 'plain/devnet.json').read_text()))
+        self.assertIs(json.loads((self.root / 'full/devnet.json').read_text())['fullNonce'], True)
+        self.assertEqual((self.root / 'plain/alloc.json').read_bytes(), (self.root / 'full/alloc.json').read_bytes())
+        self.assertNotEqual(self.init({**config, 'fullNonce': 1}, 'typed').returncode, 0, 'fullNonce is a boolean')
+        devnet = ['init-devnet', '--miners', 'a,b,c', '--chain-id', '777912', '--genesis-time', '1793275000']
+        self.assertEqual(self.call('pocold', *devnet, '--out', self.root / 'dev').returncode, 0)
+        self.assertEqual(self.call('pocold', *devnet, '--full-nonce', '--out', self.root / 'dev-full').returncode, 0)
+        self.assertEqual((nonce_mode(self.root / 'dev'), nonce_mode(self.root / 'dev-full')), (0, 1))
+        self.assertIs(json.loads((self.root / 'dev-full/devnet.json').read_text())['fullNonce'], True)
 
     def test_bad_genesis_inputs_never_create_output(self):
         config = self.config()

@@ -45,7 +45,8 @@ class FullNonceUpgrade(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.home = self.root / 'home'
-        self.invitation = network(self.root, [self.home], ['127.0.0.1:30300'])
+        # The upgrade moves a v1 bounded-range network to v2, so it starts without fullNonce.
+        self.invitation = network(self.root, [self.home], ['127.0.0.1:30300'], full_nonce=False)
         self.before = read_json(self.invitation)
         metadata = json.loads(self.before['files']['devnet.json'])
         metadata['upgradeTestNote'] = 'Unicode fixture: Δφ / شبكة PoCol / 日本語'

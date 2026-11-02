@@ -8,8 +8,26 @@ import subprocess
 import sys
 import time
 
-from private_testnet import HERE, ROOT, rpc, write_json
+from private_testnet import HERE, LOCAL_ARGS, ROOT, TIMING_ARGS, rpc, write_json
 from runtime import digest
+
+
+def _arg(args, name):
+    return int(args[args.index(name) + 1])
+
+
+# The devnet uses the full nonce range (private_testnet.py prepare: --full-nonce), so attempts do not run
+# out of nonces. Waits that need the chain to advance are still budgeted per block, each block allowed one
+# missed attempt: the next attempt is valid only after U(a) + gamma (consensus timing windows), so such a
+# block costs D_att + gamma + 1 seconds. This matches e2e_independent_keys.py and keeps the bounded-range
+# profile (v1, c = 2, about e^-2 of attempts without a winner) usable with the same budgets.
+ATTEMPT_SECONDS = _arg(TIMING_ARGS, '--d-att') + _arg(LOCAL_ARGS, '--gamma') + 1
+CONFIRMATIONS = 6
+
+
+def blocks_budget(blocks):
+    """Seconds for `blocks` new blocks, each allowed one exhausted attempt, plus RPC/scheduling slack."""
+    return blocks * ATTEMPT_SECONDS + 60
 
 
 def available_port(ip):
@@ -93,22 +111,23 @@ def main():
         tx = rpc(urls['node1'], 'eth_sendRawTransaction', [raw])
         # A receipt on each moving tip does not imply one canonical inclusion block:
         # concurrent miners can include the transaction on transient sibling branches.
-        # Keep the equality requirement and wait for a shared inclusion six blocks deep.
+        # Keep the equality requirement and wait for a shared inclusion CONFIRMATIONS blocks deep.
         def transfer_converged():
             receipts = [rpc(url, 'eth_getTransactionReceipt', [tx]) for url in urls.values()]
             if not all(receipts) or len({r['blockHash'] for r in receipts}) != 1:
                 return False
             height = int(receipts[0]['blockNumber'], 16)
-            return all(rpc(url, 'pocol_status')['head']['height'] >= height + 6 and
+            return all(rpc(url, 'pocol_status')['head']['height'] >= height + CONFIRMATIONS and
                        rpc(url, 'eth_getBlockByNumber', [hex(height), False])['hash'] == receipts[0]['blockHash']
                        for url in urls.values())
-        wait(transfer_converged, 240, 'confirmed convergent transfer')
+        # Inclusion, one sibling-branch resolution, and six confirmations.
+        wait(transfer_converged, blocks_budget(CONFIRMATIONS + 2), 'confirmed convergent transfer')
         receipts = [rpc(url, 'eth_getTransactionReceipt', [tx]) for url in urls.values()]
         assert all(r['status'] == '0x1' for r in receipts)
         assert len({r['blockHash'] for r in receipts}) == 1
         assert all(int(rpc(url, 'eth_getBalance', [bob['address'], 'latest']), 16) == int(bob['wei']) + 12345 for url in urls.values())
         record('test currency transfer included on every node with identical receipt block and balance')
-        wait(lambda: min(rpc(url, 'pocol_status')['head']['height'] for url in urls.values()) >= 8, 240, 'eight blocks')
+        wait(lambda: min(rpc(url, 'pocol_status')['head']['height'] for url in urls.values()) >= 8, blocks_budget(8), 'eight blocks')
         command = [sys.executable, str(HERE / 'private_testnet.py'), 'check', '--release', str(release),
                    '--observe', '180', '--report', str(work / 'health.json')]
         for name, url in urls.items():
