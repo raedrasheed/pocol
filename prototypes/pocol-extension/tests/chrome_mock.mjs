@@ -2,6 +2,7 @@
 // Node (component tests). NOT real-browser evidence: real Chrome runs are separate.
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaaaaa' } = {}) {
   const heldLocks = new Set();
@@ -101,5 +102,8 @@ export function installFetchMock(handlers) {
 
 /** Imports a fresh copy of the built service worker (query string defeats module caching). */
 export async function loadWorker(dist, tag = String(Math.random())) {
+  // chrome.runtime.getManifest returns the built manifest of the extension under test, as in Chrome.
+  const manifest = JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8'));
+  globalThis.chrome.runtime.getManifest = () => structuredClone(manifest);
   return import(pathToFileURL(join(dist, 'sw.js')).href + '?w=' + tag);
 }

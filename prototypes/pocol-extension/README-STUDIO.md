@@ -1,8 +1,8 @@
-# PoCol Studio extension — 0.4.0
+# PoCol Studio extension — 0.4.1
 
 Built from the existing PoCol extension at `50c2f27ee67961dec7aaf0eb735c0b641810e0ea`, with a trusted browser publishing workflow and the original isolated viewer.
 
-Version 0.4.0 preserves Studio publication and wallet storage alongside IDE contract publishing and full-range RP verification. The network is labeled PoCol Mainnet; its chain ID, genesis and wallet addresses are unchanged. Fees use **PCOL**. See `README-IDE.md` for the complete release, installation and upgrade instructions.
+Version 0.4.1 preserves Studio publication and wallet storage alongside IDE contract publishing and full-range RP verification. The network is labeled PoCol Mainnet; its chain ID, genesis and wallet addresses are unchanged. Fees use **PCOL**. See `README-IDE.md` for the complete release, installation and upgrade instructions.
 
 ## Build and checks
 

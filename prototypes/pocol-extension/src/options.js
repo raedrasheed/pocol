@@ -4,7 +4,7 @@ const send = (m) => chrome.runtime.sendMessage(m);
 async function refresh() {
   const jobs = Object.entries(await chrome.storage.local.get(null)).filter(([k]) => k.startsWith('studio:job:')||k.startsWith('ide:job:')).map(([, v]) => v).sort((a,b) => b.createdAt-a.createdAt);
   $('studioJobs').replaceChildren(...jobs.map((job) => { const li=document.createElement('li'), link=document.createElement('a'); link.href=chrome.runtime.getURL(job.kind==='contract'?'contract.html':'publisher.html')+'#'+job.id; link.textContent=(job.request?.title || 'PoCol operation')+' · '+job.status; li.append(link); return li; }));
-  if (!jobs.length) $('studioJobs').textContent = 'No publications yet · لا توجد عمليات نشر بعد';
+  if (!jobs.length) $('studioJobs').textContent = 'No publications yet';
   const r = await send({ type: 'profiles.list' });
   const publicProfile = (r.profiles || []).find((p) => p.name === 'pocol-public');
   if (publicProfile && !publicProfile.invalid) $('publicForkSchedule').value = JSON.stringify(publicProfile.forkSchedule);

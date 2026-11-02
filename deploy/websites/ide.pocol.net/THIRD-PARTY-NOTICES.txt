@@ -1,0 +1,545 @@
+PoCol IDE — Third-party notices
+Distribution snapshot: 2026-10-31
+
+This distribution includes software from the projects listed below. Copyright,
+license, and third-party notice texts are preserved under licenses/. Paths are
+relative to this file. Individual components remain subject to their own terms.
+This inventory does not assign a license to the PoCol IDE application itself.
+
+The inventory covers the installed production dependency tree and build tools;
+it does not assert that every installed package is present in a browser bundle.
+Versions and package archive URLs come from package-lock.json and installed
+package manifests. An additional machine-readable inventory is available at
+licenses/inventory.json. Upstream dependencies have not been patched by this IDE.
+
+SOLIDITY COMPILER: DISTINGUISH THE WRAPPER FROM THE COMPILER
+
+The installed npm package solc 0.8.38 declares MIT for its JavaScript bindings.
+Its unchanged MIT text is in licenses/solc-0.8.38/LICENSE.
+The browser's compiler/soljson.js also contains the Emscripten-compiled Solidity
+compiler, whose upstream project is licensed under GNU GPL version 3. The exact
+upstream v0.8.38 license text is preserved separately in:
+  licenses/solidity-0.8.38/LICENSE.txt
+
+Compiler version:
+  0.8.38+commit.1835d247.Emscripten.clang
+SHA-256 of the compiler copied from the installed npm package:
+  0b15fcb24fe784ed60f3853afc7f7e133a427bf1ac0d682e3f808d44b8e2fa6c
+The compiler binary is copied without modification by scripts/prepare-assets.mjs.
+The PoCol compilation worker is separate application code.
+
+Corresponding compiler source and build information for version 0.8.38:
+  https://github.com/argotorg/solidity/releases/tag/v0.8.38
+  https://github.com/argotorg/solidity/releases/download/v0.8.38/solidity_0.8.38.tar.gz
+  https://github.com/argotorg/solidity/tree/v0.8.38
+  https://github.com/argotorg/solidity/tree/v0.8.38/scripts
+  https://github.com/argotorg/solidity/blob/v0.8.38/LICENSE.txt
+  https://github.com/argotorg/solc-js/tree/v0.8.38
+  https://registry.npmjs.org/solc/-/solc-0.8.38.tgz
+
+The official source release archive above is the buildable source distribution
+recommended by the Solidity release announcement; it is distinct from GitHub's
+automatically generated repository archives. Its published SHA-256 is:
+  a96f89d20525724acd9717032a0315466078c0176d5d13016d81f4cc81fd4115
+The compiler source contains its own third-party code and applicable notices.
+Keep these source locations and license texts available with the compiler. If a
+distributor modifies or replaces the compiler, provide the matching modified
+source and update this information; this text does not declare the obligations
+of a changed distribution satisfied automatically.
+
+ETHEREUMJS SOURCE AVAILABILITY
+
+The local EVM uses the 10.1.3 releases of EthereumJS. The installed common and
+binarytree packages declare MIT. The block, evm, mpt, rlp, statemanager, tx, util,
+and vm packages declare MPL-2.0. Exact copied texts are listed per package below.
+The packages include their original TypeScript source in src/. Matching source
+is available from the package archive URLs in licenses/inventory.json and from
+the official releases and tagged repository:
+  https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs/vm%4010.1.3
+  https://github.com/ethereumjs/ethereumjs-monorepo/tree/%40ethereumjs/vm%4010.1.3/packages
+
+DOMPurify declares (MPL-2.0 OR Apache-2.0); both installed license texts are
+included. Its published package archive includes src/. Monaco's original
+ThirdPartyNotices.txt is included alongside its MIT text. Build-tool notices
+such as Vite's and Rolldown's are also preserved without edits.
+
+INSTALLED COMPONENT INVENTORY
+
+@adraffy/ens-normalize 1.11.1
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git+https://github.com/adraffy/ens-normalize.js.git
+Package archive: https://registry.npmjs.org/@adraffy/ens-normalize/-/ens-normalize-1.11.1.tgz
+License and notice files:
+  licenses/adraffy--ens-normalize-1.11.1/LICENSE
+
+@ethereumjs/binarytree 10.1.3
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/binarytree/-/binarytree-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--binarytree-10.1.3/LICENSE
+
+@ethereumjs/block 10.1.3
+License declaration: MPL-2.0
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/block/-/block-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--block-10.1.3/LICENSE
+
+@ethereumjs/common 10.1.3
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/common/-/common-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--common-10.1.3/LICENSE
+
+@ethereumjs/evm 10.1.3
+License declaration: MPL-2.0
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/evm/-/evm-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--evm-10.1.3/LICENSE
+
+@ethereumjs/mpt 10.1.3
+License declaration: MPL-2.0
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/mpt/-/mpt-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--mpt-10.1.3/MPL-2.0.txt
+Note: The npm package declares MPL-2.0 but contains no root license file. The unchanged MPL-2.0 text is copied from @ethereumjs/vm 10.1.3.
+
+@ethereumjs/rlp 10.1.3
+License declaration: MPL-2.0
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/rlp/-/rlp-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--rlp-10.1.3/LICENSE
+
+@ethereumjs/statemanager 10.1.3
+License declaration: MPL-2.0
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/statemanager/-/statemanager-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--statemanager-10.1.3/LICENSE
+
+@ethereumjs/tx 10.1.3
+License declaration: MPL-2.0
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/tx/-/tx-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--tx-10.1.3/LICENSE
+
+@ethereumjs/util 10.1.3
+License declaration: MPL-2.0
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/util/-/util-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--util-10.1.3/LICENSE
+
+@ethereumjs/vm 10.1.3
+License declaration: MPL-2.0
+Scope: Production dependency tree
+Repository: https://github.com/ethereumjs/ethereumjs-monorepo.git
+Package archive: https://registry.npmjs.org/@ethereumjs/vm/-/vm-10.1.3.tgz
+License and notice files:
+  licenses/ethereumjs--vm-10.1.3/LICENSE
+
+@js-sdsl/ordered-map 4.4.2
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/js-sdsl/js-sdsl.git
+Package archive: https://registry.npmjs.org/@js-sdsl/ordered-map/-/ordered-map-4.4.2.tgz
+License and notice files:
+  licenses/js-sdsl--ordered-map-4.4.2/LICENSE
+
+@noble/curves 2.4.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git+https://github.com/paulmillr/noble-curves.git
+Package archive: https://registry.npmjs.org/@noble/curves/-/curves-2.4.0.tgz
+License and notice files:
+  licenses/noble--curves-2.4.0/LICENSE
+
+@noble/hashes 2.4.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git+https://github.com/paulmillr/noble-hashes.git
+Package archive: https://registry.npmjs.org/@noble/hashes/-/hashes-2.4.0.tgz
+License and notice files:
+  licenses/noble--hashes-2.4.0/LICENSE
+
+@oxc-project/types 0.156.0
+License declaration: MIT
+Scope: Build dependency
+Repository: git+https://github.com/oxc-project/oxc.git
+Package archive: https://registry.npmjs.org/@oxc-project/types/-/types-0.156.0.tgz
+License and notice files:
+  licenses/oxc-project--types-0.156.0/LICENSE
+
+@rolldown/binding-linux-x64-gnu 1.2.16
+License declaration: MIT
+Scope: Build dependency
+Repository: git+https://github.com/rolldown/rolldown.git
+Package archive: https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.16.tgz
+License and notice files:
+  licenses/rolldown--binding-linux-x64-gnu-1.2.16/LICENSE
+  licenses/rolldown--binding-linux-x64-gnu-1.2.16/THIRD-PARTY-LICENSE
+Note: Build-only native binding; license and dependency notices are copied from rolldown 1.2.16.
+
+@rolldown/pluginutils 1.0.1
+License declaration: MIT
+Scope: Build dependency
+Repository: git+https://github.com/rolldown/plugins.git
+Package archive: https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz
+License and notice files:
+  licenses/rolldown--pluginutils-1.0.1/LICENSE
+
+@types/node 26.6.6
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
+Package archive: https://registry.npmjs.org/@types/node/-/node-26.6.6.tgz
+License and notice files:
+  licenses/types--node-26.6.6/LICENSE
+
+@types/trusted-types 2.0.7
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
+Package archive: https://registry.npmjs.org/@types/trusted-types/-/trusted-types-2.0.7.tgz
+License and notice files:
+  licenses/types--trusted-types-2.0.7/LICENSE
+
+aes-js 4.0.0-beta.5
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git://github.com/ricmoo/aes-js.git
+Package archive: https://registry.npmjs.org/aes-js/-/aes-js-4.0.0-beta.5.tgz
+License and notice files:
+  licenses/aes-js-4.0.0-beta.5/LICENSE.txt
+
+command-exists 1.2.9
+License declaration: MIT
+Scope: Production dependency tree
+Repository: http://github.com/mathisonian/command-exists
+Package archive: https://registry.npmjs.org/command-exists/-/command-exists-1.2.9.tgz
+License and notice files:
+  licenses/command-exists-1.2.9/LICENSE
+
+commander 8.3.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/tj/commander.js.git
+Package archive: https://registry.npmjs.org/commander/-/commander-8.3.0.tgz
+License and notice files:
+  licenses/commander-8.3.0/LICENSE
+
+debug 4.4.3
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git://github.com/debug-js/debug.git
+Package archive: https://registry.npmjs.org/debug/-/debug-4.4.3.tgz
+License and notice files:
+  licenses/debug-4.4.3/LICENSE
+
+detect-libc 2.1.2
+License declaration: Apache-2.0
+Scope: Build dependency
+Repository: git://github.com/lovell/detect-libc.git
+Package archive: https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz
+License and notice files:
+  licenses/detect-libc-2.1.2/LICENSE
+
+dompurify 3.4.15
+License declaration: (MPL-2.0 OR Apache-2.0)
+Scope: Production dependency tree
+Repository: git://github.com/cure53/DOMPurify.git
+Package archive: https://registry.npmjs.org/dompurify/-/dompurify-3.4.15.tgz
+License and notice files:
+  licenses/dompurify-3.4.15/LICENSE
+  licenses/dompurify-3.4.15/LICENSE-MPL
+
+ethers 6.17.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git://github.com/ethers-io/ethers.js.git
+Package archive: https://registry.npmjs.org/ethers/-/ethers-6.17.0.tgz
+License and notice files:
+  licenses/ethers-6.17.0/LICENSE.md
+
+@noble/curves 1.2.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/paulmillr/noble-curves.git
+Package archive: https://registry.npmjs.org/@noble/curves/-/curves-1.2.0.tgz
+License and notice files:
+  licenses/noble--curves-1.2.0/LICENSE
+
+@noble/hashes 1.3.2
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/paulmillr/noble-hashes.git
+Package archive: https://registry.npmjs.org/@noble/hashes/-/hashes-1.3.2.tgz
+License and notice files:
+  licenses/noble--hashes-1.3.2/LICENSE
+
+@types/node 22.7.5
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
+Package archive: https://registry.npmjs.org/@types/node/-/node-22.7.5.tgz
+License and notice files:
+  licenses/types--node-22.7.5/LICENSE
+
+undici-types 6.19.8
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git+https://github.com/nodejs/undici.git
+Package archive: https://registry.npmjs.org/undici-types/-/undici-types-6.19.8.tgz
+License and notice files:
+  licenses/undici-types-6.19.8/LICENSE
+
+eventemitter3 5.0.4
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git://github.com/primus/eventemitter3.git
+Package archive: https://registry.npmjs.org/eventemitter3/-/eventemitter3-5.0.4.tgz
+License and notice files:
+  licenses/eventemitter3-5.0.4/LICENSE
+
+fdir 6.5.0
+License declaration: MIT
+Scope: Build dependency
+Repository: git+https://github.com/thecodrr/fdir.git
+Package archive: https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz
+License and notice files:
+  licenses/fdir-6.5.0/LICENSE
+
+fflate 0.8.2
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/101arrowz/fflate
+Package archive: https://registry.npmjs.org/fflate/-/fflate-0.8.2.tgz
+License and notice files:
+  licenses/fflate-0.8.2/LICENSE
+
+follow-redirects 1.16.2
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git+ssh://git@github.com/follow-redirects/follow-redirects.git
+Package archive: https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.2.tgz
+License and notice files:
+  licenses/follow-redirects-1.16.2/LICENSE
+
+js-sha3 0.8.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/emn178/js-sha3.git
+Package archive: https://registry.npmjs.org/js-sha3/-/js-sha3-0.8.0.tgz
+License and notice files:
+  licenses/js-sha3-0.8.0/LICENSE.txt
+
+lightningcss 1.33.0
+License declaration: MPL-2.0
+Scope: Build dependency
+Repository: https://github.com/parcel-bundler/lightningcss.git
+Package archive: https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz
+License and notice files:
+  licenses/lightningcss-1.33.0/LICENSE
+
+lightningcss-linux-x64-gnu 1.33.0
+License declaration: MPL-2.0
+Scope: Build dependency
+Repository: https://github.com/parcel-bundler/lightningcss.git
+Package archive: https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.33.0.tgz
+License and notice files:
+  licenses/lightningcss-linux-x64-gnu-1.33.0/LICENSE
+
+lru-cache 11.0.2
+License declaration: ISC
+Scope: Production dependency tree
+Repository: git://github.com/isaacs/node-lru-cache.git
+Package archive: https://registry.npmjs.org/lru-cache/-/lru-cache-11.0.2.tgz
+License and notice files:
+  licenses/lru-cache-11.0.2/LICENSE
+
+marked 14.0.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git://github.com/markedjs/marked.git
+Package archive: https://registry.npmjs.org/marked/-/marked-14.0.0.tgz
+License and notice files:
+  licenses/marked-14.0.0/LICENSE.md
+
+memorystream 0.3.1
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/JSBizon/node-memorystream.git
+Package archive: https://registry.npmjs.org/memorystream/-/memorystream-0.3.1.tgz
+License and notice files:
+  licenses/memorystream-0.3.1/LICENSE
+
+monaco-editor 0.57.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/microsoft/monaco-editor
+Package archive: https://registry.npmjs.org/monaco-editor/-/monaco-editor-0.57.0.tgz
+License and notice files:
+  licenses/monaco-editor-0.57.0/LICENSE
+  licenses/monaco-editor-0.57.0/ThirdPartyNotices.txt
+
+ms 2.1.3
+License declaration: MIT
+Scope: Production dependency tree
+Repository: vercel/ms
+Package archive: https://registry.npmjs.org/ms/-/ms-2.1.3.tgz
+License and notice files:
+  licenses/ms-2.1.3/license.md
+
+nanoid 3.3.20
+License declaration: MIT
+Scope: Build dependency
+Repository: ai/nanoid
+Package archive: https://registry.npmjs.org/nanoid/-/nanoid-3.3.20.tgz
+License and notice files:
+  licenses/nanoid-3.3.20/LICENSE
+
+picocolors 1.1.1
+License declaration: ISC
+Scope: Build dependency
+Repository: alexeyraspopov/picocolors
+Package archive: https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz
+License and notice files:
+  licenses/picocolors-1.1.1/LICENSE
+
+picomatch 4.0.7
+License declaration: MIT
+Scope: Build dependency
+Repository: micromatch/picomatch
+Package archive: https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz
+License and notice files:
+  licenses/picomatch-4.0.7/LICENSE
+
+postcss 8.5.32
+License declaration: MIT
+Scope: Build dependency
+Repository: postcss/postcss
+Package archive: https://registry.npmjs.org/postcss/-/postcss-8.5.32.tgz
+License and notice files:
+  licenses/postcss-8.5.32/LICENSE
+
+react 19.3.1
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/react/react.git
+Package archive: https://registry.npmjs.org/react/-/react-19.3.1.tgz
+License and notice files:
+  licenses/react-19.3.1/LICENSE
+
+react-dom 19.3.1
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/react/react.git
+Package archive: https://registry.npmjs.org/react-dom/-/react-dom-19.3.1.tgz
+License and notice files:
+  licenses/react-dom-19.3.1/LICENSE
+
+rolldown 1.2.16
+License declaration: MIT
+Scope: Build dependency
+Repository: git+https://github.com/rolldown/rolldown.git
+Package archive: https://registry.npmjs.org/rolldown/-/rolldown-1.2.16.tgz
+License and notice files:
+  licenses/rolldown-1.2.16/LICENSE
+  licenses/rolldown-1.2.16/THIRD-PARTY-LICENSE
+
+scheduler 0.28.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/react/react.git
+Package archive: https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz
+License and notice files:
+  licenses/scheduler-0.28.0/LICENSE
+
+semver 5.7.2
+License declaration: ISC
+Scope: Production dependency tree
+Repository: https://github.com/npm/node-semver.git
+Package archive: https://registry.npmjs.org/semver/-/semver-5.7.2.tgz
+License and notice files:
+  licenses/semver-5.7.2/LICENSE
+
+solc 0.8.38
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git+https://github.com/ethereum/solc-js.git
+Package archive: https://registry.npmjs.org/solc/-/solc-0.8.38.tgz
+License and notice files:
+  licenses/solc-0.8.38/LICENSE
+
+source-map-js 1.2.2
+License declaration: BSD-3-Clause
+Scope: Build dependency
+Repository: 7rulnik/source-map-js
+Package archive: https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz
+License and notice files:
+  licenses/source-map-js-1.2.2/LICENSE
+
+tinyglobby 0.2.17
+License declaration: MIT
+Scope: Build dependency
+Repository: git+https://github.com/SuperchupuDev/tinyglobby.git
+Package archive: https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz
+License and notice files:
+  licenses/tinyglobby-0.2.17/LICENSE
+
+tmp 0.2.6
+License declaration: MIT
+Scope: Production dependency tree
+Repository: https://github.com/raszi/node-tmp.git
+Package archive: https://registry.npmjs.org/tmp/-/tmp-0.2.6.tgz
+License and notice files:
+  licenses/tmp-0.2.6/LICENSE
+
+tslib 2.7.0
+License declaration: 0BSD
+Scope: Production dependency tree
+Repository: https://github.com/Microsoft/tslib.git
+Package archive: https://registry.npmjs.org/tslib/-/tslib-2.7.0.tgz
+License and notice files:
+  licenses/tslib-2.7.0/CopyrightNotice.txt
+  licenses/tslib-2.7.0/LICENSE.txt
+
+undici-types 8.9.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git+https://github.com/nodejs/undici.git
+Package archive: https://registry.npmjs.org/undici-types/-/undici-types-8.9.0.tgz
+License and notice files:
+  licenses/undici-types-8.9.0/LICENSE
+
+vite 8.3.5
+License declaration: MIT
+Scope: Build dependency
+Repository: git+https://github.com/vitejs/vite.git
+Package archive: https://registry.npmjs.org/vite/-/vite-8.3.5.tgz
+License and notice files:
+  licenses/vite-8.3.5/LICENSE.md
+
+ws 8.21.0
+License declaration: MIT
+Scope: Production dependency tree
+Repository: git+https://github.com/websockets/ws.git
+Package archive: https://registry.npmjs.org/ws/-/ws-8.21.0.tgz
+License and notice files:
+  licenses/ws-8.21.0/LICENSE
