@@ -130,7 +130,10 @@ def prepare(args):
     genesis_time = args.genesis_time or int(time.time()) + 600
     command = [str(args.bin_dir.resolve() / 'pocold'), 'init-devnet', '--out', str(net),
                '--miners', ','.join(n['name'] for n in inventory['nodes']),
-               '--chain-id', str(inventory['chainId']), '--genesis-time', str(genesis_time)]
+               '--chain-id', str(inventory['chainId']), '--genesis-time', str(genesis_time),
+               # nonceMode 1: the full 64-bit nonce domain, as Mainnet after its v2 height, so an attempt
+               # cannot run out of nonces and stall the chain for D_att (pocold init-devnet --full-nonce).
+               '--full-nonce']
     result = subprocess.run(command + TIMING_ARGS + LOCAL_ARGS, capture_output=True, text=True, timeout=120)
     (args.out / 'prepare.log').write_text(result.stderr + result.stdout)
     if result.returncode:

@@ -24,12 +24,16 @@ def call(name, *args, ok=True):
 def identity(home):
     return json.loads(call('pocol', 'identity', '--home', home).stdout)['address']
 
-def network(root, homes, seeds):
+def network(root, homes, seeds, full_nonce=True):
+    """A test network. `full_nonce` (default) gives nonceMode 1, the full nonce range, so the chain never
+    stalls on an exhausted attempt; the full-nonce upgrade tests pass False to start from the v1 range."""
     ids = [identity(h) for h in homes]
     public = root / 'public.json'
-    public.write_text(json.dumps({'chainId': 777915, 'genesisTime': int(time.time()) + 5,
+    config = {'chainId': 777915, 'genesisTime': int(time.time()) + 5,
         'registrationPerBlock': 1, 'miners': [{'id': a, 'reward': a} for a in ids[:3]],
-        'accounts': [{'address': a, 'wei': str(10**24)} for a in ids]}), encoding='utf-8')
+        'accounts': [{'address': a, 'wei': str(10**24)} for a in ids]}
+    if full_nonce: config['fullNonce'] = True
+    public.write_text(json.dumps(config), encoding='utf-8')
     call('pocold', 'init-testnet', '--config', public, '--out', root / 'genesis')
     args = ['network', '--from', root / 'genesis', '--out', root / 'network.pocol.json']
     for seed in seeds: args += ['--seed', seed]

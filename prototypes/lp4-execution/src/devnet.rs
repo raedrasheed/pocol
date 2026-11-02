@@ -22,13 +22,13 @@ pub struct DevnetConfig{
     pub alpha_bp:u16,pub gamma_bp:u16,
     /// nonceMode=0 bound multiplier: nMax=min(2^64, c·work(target)).
     pub c:u8,
+    /// CP field 4: 0 bounded (v1), 1 the full 64-bit nonce domain from genesis.
+    pub nonce_mode:u8,
     pub miners:Vec<String>,
     /// Extra funded devnet accounts (label, wei).
     pub accounts:Vec<(String,U256)>,
     /// Earn-in rules (EARN-IN-SPEC.md): the earn-in system programs and B_reg = 20 PCOL.
     pub earnin:bool,
-    /// CP field 4: 0 bounded (v1), 1 the full 64-bit nonce domain from genesis.
-    pub nonce_mode:u8,
 }
 impl DevnetConfig{
     pub fn new(chain_id:u64,g_ts:u64,miners:&[&str])->Self{

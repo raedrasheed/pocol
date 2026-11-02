@@ -24,6 +24,10 @@ struct Config {
     /// `continuous`.
     #[serde(default)]
     earnin: bool,
+    /// nonceMode 1: the full 64-bit nonce domain from genesis, so no attempt can run out of nonces (as
+    /// Mainnet after its v2 height). Absent or false keeps the v1 bounded range and the same genesis bytes.
+    #[serde(default)]
+    full_nonce: bool,
     chain_id: u64,
     genesis_time: u64,
     registration_per_block: u8,
@@ -101,6 +105,9 @@ fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &
     cfg.r_max = input.registration_per_block;
     if input.earnin {
         cfg.earnin = true;
+        cfg.nonce_mode = 1;
+    }
+    if input.full_nonce {
         cfg.nonce_mode = 1;
     }
     let (mut alloc, report) = match cutover {
@@ -201,6 +208,9 @@ fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &
     let mut info = info;
     if input.earnin {
         info["earnin"] = serde_json::json!(true);
+    }
+    if input.full_nonce {
+        info["fullNonce"] = serde_json::json!(true);
     }
     // Admission must succeed before any output. Partial I/O failures remain visible and are not overwritten.
     std::fs::create_dir(out).map_err(|e| format!("output directory: {e}"))?;
