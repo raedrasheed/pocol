@@ -27,6 +27,12 @@ CONFIRMATIONS = 6
 # one extra exhausted attempt, and 60 seconds of RPC/scheduling slack. This is
 # a finite test budget, not a guarantee of probabilistic mining progress.
 CONFIRMATION_TIMEOUT = (CONFIRMATIONS + 2) * (60 + 5 + 1) + 60
+# pocol-site publish sends its transactions one after another and waits for each (site.rs Publisher):
+# one chunk for the small index.html, one manifest chunk, the Website deployment, createVersion, publish
+# and setCurrent. Each may cost an exhausted attempt, so the publish gets the same per-block budget
+# instead of a flat 300 s.
+PUBLISH_TRANSACTIONS = 6
+PUBLISH_TIMEOUT = (PUBLISH_TRANSACTIONS + 2) * (60 + 5 + 1) + 60
 
 
 def main():
@@ -159,7 +165,7 @@ def main():
         registration = send('m4', registry, 100 * 10**18, 0, calldata, 1000000)
         confirmed(registration)
         assert all(any(m['id'].lower() == addresses['m4'] and m['status'] == 1 for m in rpc(u, 'pocol_getMiners')) for u in urls)
-        wait(lambda: rpc(urls[3], 'pocol_status')['stats']['mined'] > 0, 'new miner produces a block')
+        wait(lambda: rpc(urls[3], 'pocol_status')['stats']['mined'] > 0, 'new miner produces a block', CONFIRMATION_TIMEOUT)
         ok('non-genesis miner registers through a transaction and produces real blocks')
         duplicate = send('m4', registry, 100 * 10**18, 1, calldata, 1000000)
         confirmed(duplicate, '0x0')
@@ -170,7 +176,7 @@ def main():
         (source / 'index.html').write_text('<!doctype html><html lang="en"><title>PoCol test</title><h1>Independent keys</h1></html>')
         published = subprocess.run([str(BIN / 'pocol-site'), 'publish', '--rpc', f'127.0.0.1:{ports[4]}',
             '--chain-id', '777914', '--key-file', str(keys / 'alice.pocol-key'), '--dir', str(source)],
-            capture_output=True, text=True, timeout=300)
+            capture_output=True, text=True, timeout=PUBLISH_TIMEOUT)
         (evidence / 'publish.log').write_text(published.stdout + published.stderr)
         published.check_returncode()
         site = json.loads(published.stdout)['site']
