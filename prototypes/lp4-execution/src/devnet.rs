@@ -27,6 +27,8 @@ pub struct DevnetConfig{
     pub accounts:Vec<(String,U256)>,
     /// Earn-in rules (EARN-IN-SPEC.md): the earn-in system programs and B_reg = 20 PCOL.
     pub earnin:bool,
+    /// CP field 4: 0 bounded (v1), 1 the full 64-bit nonce domain from genesis.
+    pub nonce_mode:u8,
 }
 impl DevnetConfig{
     pub fn new(chain_id:u64,g_ts:u64,miners:&[&str])->Self{
@@ -41,12 +43,12 @@ impl DevnetConfig{
             r_max:0,reg_records_max:8192,sys_slot_max:65536,z_close:160,gas_limit:8_000_000,slot_cap:50_000,acct_cap:20_000,
             code_cap:1<<21,txbytes_cap:1<<24,tx_cap:20_000,alpha_bp:1000,gamma_bp:500,c:2,
             miners:miners.iter().map(|s|s.to_string()).collect(),
-            accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false}
+            accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false,nonce_mode:0}
     }
     pub fn cp(&self)->[fixed::U256;52]{
         let n=|v:u64|fixed::U256::from_u64(v);
         let big=|v:u128|fixed::U256::from_be_slice(&v.to_be_bytes()).unwrap();
-        [n(self.g_ts),self.target_g(),n(self.t_blk.into()),n(self.tau.into()),n(0),n(self.c.into()),n(self.d_att.into()),n(self.d_fb_wait.into()),
+        [n(self.g_ts),self.target_g(),n(self.t_blk.into()),n(self.tau.into()),n(self.nonce_mode.into()),n(self.c.into()),n(self.d_att.into()),n(self.d_fb_wait.into()),
          n(self.m.into()),n(self.kappa.into()),n(self.s_max.into()),n(self.d.into()),n(self.w_w.into()),n(self.alpha_bp.into()),n(self.gamma_bp.into()),
          big(2_000_000_000_000_000_000),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
          n(self.w_act.into()),n(self.theta_inact.into()),n(self.e_win.into()),n(self.u.into()),n(4),n(8192),
@@ -126,19 +128,44 @@ fn identity(spec:&GenesisSpec,forks:&[(u16,u64)])->Result<ProfileIdentity,String
     let bytes=gs::encode(spec);let hash=gs::genesis_hash(&bytes);
     ProfileIdentity::validate(&bytes,&hash,spec.chain_id,ProfileKind::Simnet,NodeKind::Simnet,forks).map_err(|e|format!("{e:?}"))
 }
-/// alloc JSON: {"0x..":{"nonce":n,"balance":"decimal"}}
+/// alloc JSON: {"0x..":{"nonce":n,"balance":"decimal"[,"code":"0x..","storage":{"0xslot":"0xvalue"}]}}.
+/// `code` and `storage` appear only for an account that has them (a cutover genesis carries contracts), so
+/// a balance-only allocation serializes exactly as before.
 pub fn alloc_to_json(db:&InMemoryDB)->serde_json::Value{
     let mut m=serde_json::Map::new();
     let mut keys:Vec<_>=db.accounts.keys().collect();keys.sort();
-    for a in keys{let i=&db.accounts[a].info;m.insert(format!("{a:#x}"),serde_json::json!({"nonce":i.nonce,"balance":i.balance.to_string()}));}
+    for a in keys{
+        let acct=&db.accounts[a];let i=&acct.info;
+        let mut v=serde_json::json!({"nonce":i.nonce,"balance":i.balance.to_string()});
+        if let Some(code)=i.code.as_ref().filter(|c|!c.is_empty()){v["code"]=serde_json::json!(format!("0x{}",hex(code.original_byte_slice())));}
+        let mut slots:Vec<_>=acct.storage.iter().filter(|(_,x)|!x.is_zero()).collect();slots.sort();
+        if !slots.is_empty(){v["storage"]=serde_json::Value::Object(slots.into_iter().map(|(k,x)|(format!("{k:#x}"),serde_json::json!(format!("{x:#x}")))).collect());}
+        m.insert(format!("{a:#x}"),v);
+    }
     serde_json::Value::Object(m)
 }
+fn hex(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
 pub fn alloc_from_json(v:&serde_json::Value)->Result<InMemoryDB,String>{
     let mut db=InMemoryDB::default();
     for (k,x) in v.as_object().ok_or("alloc object")?{
         let a:Address=k.parse().map_err(|_|"address")?;
+        if x.as_object().is_some_and(|o|o.keys().any(|k|!["nonce","balance","code","storage"].contains(&k.as_str()))){return Err("alloc account: unknown field".into())}
         let nonce=x["nonce"].as_u64().ok_or("nonce")?;let balance:U256=x["balance"].as_str().ok_or("balance")?.parse().map_err(|_|"balance value")?;
-        db.insert_account_info(a,AccountInfo{nonce,balance,..Default::default()});
+        let mut info=AccountInfo{nonce,balance,..Default::default()};
+        if let Some(code)=x.get("code"){
+            let text=code.as_str().ok_or("code")?.strip_prefix("0x").ok_or("code prefix")?;
+            if text.is_empty()||text.len()%2!=0{return Err("code hex".into())}
+            let bytes=(0..text.len()).step_by(2).map(|i|u8::from_str_radix(&text[i..i+2],16)).collect::<Result<Vec<u8>,_>>().map_err(|_|"code hex")?;
+            let code=revm::primitives::Bytecode::new_raw(bytes.into());info.code_hash=code.hash_slow();info.code=Some(code);
+        }
+        db.insert_account_info(a,info);
+        if let Some(storage)=x.get("storage"){
+            for (slot,value) in storage.as_object().ok_or("storage")?{
+                let slot:U256=slot.parse().map_err(|_|"storage slot")?;let value:U256=value.as_str().ok_or("storage value")?.parse().map_err(|_|"storage value")?;
+                if value.is_zero(){return Err("storage: zero values are not listed".into())}
+                db.insert_account_storage(a,slot,value).map_err(|_|"storage")?;
+            }
+        }
     }
     Ok(db)
 }

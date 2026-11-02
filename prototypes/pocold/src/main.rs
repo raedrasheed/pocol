@@ -22,9 +22,10 @@ fn command(args:&[String])->i32{
         "build-info"=>{println!("{}",pocold::identity::BUILD_INFO);Ok(())},
         "init-devnet"=>init(args),
         "init-testnet"=>pocold::testnet::init(args),
+        "cutover"=>cutover(args),
         "run"=>run(args),
         "status"=>status(args),
-        _=>{eprintln!("usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [NODE]\n  pocold status --network DIR --data DIR [NODE]\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] (--state-store is experimental; open a data directory in the mode it was made in)\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).");Ok(())}
+        _=>{eprintln!("usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [NODE]\n  pocold status --network DIR --data DIR [NODE]\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] (--state-store is experimental; open a data directory in the mode it was made in)\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).");Ok(())}
     };
     if let Err(e)=r{eprintln!("error: {e}");return 1}
     0
@@ -95,6 +96,15 @@ fn run(args:&[String])->Result<(),String>{
     n.log(&format!("opened: head h={} records={}",n.chain.head().height,n.journal_records()));
     n.start_network()?;n.run();
     println!("{}",n.status_json());Ok(())
+}
+/// The new network's genesis from a stopped old node's data at height S (EARN-IN-SPEC.md section 7).
+fn cutover(args:&[String])->Result<(),String>{
+    let net=PathBuf::from(arg(args,"--network").ok_or("--network OLD_GENESIS_DIR")?);let data=PathBuf::from(arg(args,"--data").ok_or("--data OLD_DATA_DIR")?);
+    let height:u64=arg(args,"--height").ok_or("--height S")?.parse().map_err(|e|format!("--height: {e}"))?;
+    let config_path=PathBuf::from(arg(args,"--config").ok_or("--config NEW.json")?);let out=PathBuf::from(arg(args,"--out").ok_or("--out NEW_DIR")?);
+    let config=std::fs::read(&config_path).map_err(|e|format!("{}: {e}",config_path.display()))?;
+    if config.len()>262144{return Err("new genesis config exceeds 256 KiB".into())}
+    pocold::cutover::run(&net,&data,height,&config,&out,limits(args)?,&local(args))
 }
 fn status(args:&[String])->Result<(),String>{
     let limits=limits(args)?;let net=PathBuf::from(arg(args,"--network").ok_or("--network")?);let data=PathBuf::from(arg(args,"--data").ok_or("--data")?);

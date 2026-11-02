@@ -20,6 +20,10 @@ use std::{collections::HashSet, path::Path};
 struct Config {
     #[serde(default)]
     continuous: bool,
+    /// Earn-in network (EARN-IN-SPEC.md): earn-in system programs, B_reg = 20 PCOL, nonceMode 1. Needs
+    /// `continuous`.
+    #[serde(default)]
+    earnin: bool,
     chain_id: u64,
     genesis_time: u64,
     registration_per_block: u8,
@@ -50,7 +54,7 @@ pub fn local() -> NodeLocal {
     }
 }
 
-fn allowed(address: Address) -> bool {
+pub(crate) fn allowed(address: Address) -> bool {
     let numeric = U256::from_be_slice(address.as_slice());
     !address.is_zero()
         && address != pocol_lp4_execution::pay_address()
@@ -59,6 +63,15 @@ fn allowed(address: Address) -> bool {
 }
 
 pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
+    build(config, None, out)
+}
+/// Cutover genesis (EARN-IN-SPEC.md section 7): `alloc` is the allocation built from the old chain, and
+/// `report` is written next to the genesis as cutover-report.json with the new genesis hash added. The
+/// config must list no accounts; every balance comes from the old chain.
+pub fn prepare_cutover(config: &[u8], alloc: InMemoryDB, report: serde_json::Value, out: &Path) -> Result<(), String> {
+    build(config, Some((alloc, report)), out)
+}
+fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &Path) -> Result<(), String> {
     if out.exists() {
         return Err("output must be a new directory; genesis is never overwritten".into());
     }
@@ -74,6 +87,8 @@ pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
         || !(1..=64).contains(&input.miners.len())
         || input.accounts.len() > 10000
         || input.registration_per_block > 4
+        || (input.earnin && !input.continuous)
+        || (cutover.is_some() && !input.accounts.is_empty())
     {
         return Err("invalid experimental testnet parameters".into());
     }
@@ -84,7 +99,14 @@ pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
     cfg.d_fb_wait = 6;
     cfg.hash_rate = (1 << 18) / 10;
     cfg.r_max = input.registration_per_block;
-    let mut alloc = InMemoryDB::default();
+    if input.earnin {
+        cfg.earnin = true;
+        cfg.nonce_mode = 1;
+    }
+    let (mut alloc, report) = match cutover {
+        Some((alloc, report)) => (alloc, Some(report)),
+        None => (InMemoryDB::default(), None),
+    };
     let mut seen = HashSet::new();
     for account in &input.accounts {
         if !allowed(account.address)
@@ -112,27 +134,22 @@ pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
         if !allowed(miner.id) || !allowed(miner.reward) || !seen.insert(miner.id) {
             return Err("invalid or duplicate miner identity".into());
         }
-        // Preserve an explicitly funded reward account and give it the required durable nonce.
-        let balance = alloc
+        // Preserve an existing reward account (its balance, and in a cutover its nonce, code and storage)
+        // and give it at least the required durable nonce.
+        let mut info = alloc
             .accounts
             .get(&miner.reward)
-            .map(|a| a.info.balance)
+            .map(|a| a.info.clone())
             .unwrap_or_default();
-        alloc.insert_account_info(
-            miner.reward,
-            AccountInfo {
-                nonce: 1,
-                balance,
-                ..Default::default()
-            },
-        );
+        info.nonce = info.nonce.max(1);
+        alloc.insert_account_info(miner.reward, info);
         members.push(Member {
             id: miner.id.0 .0,
             reward_addr: miner.reward.0 .0,
         });
     }
     members.sort_by_key(|m| m.id);
-    let programs = if input.continuous {SystemPrograms::continuous()} else {SystemPrograms::v1()};
+    let programs = if input.earnin {SystemPrograms::earnin()} else if input.continuous {SystemPrograms::continuous()} else {SystemPrograms::v1()};
     let mut cp=cfg.cp();
     if input.continuous {for i in 45..=48{cp[i]=pocol_lp4_execution::fixed::U256::ZERO;}}
     let mut spec = GenesisSpec {
@@ -181,6 +198,10 @@ pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
         "miners":input.miners.iter().map(|m|serde_json::json!({"id":m.id,"reward":m.reward})).collect::<Vec<_>>(),
         "calibration":{"hashesPerSecond":cfg.hash_rate,"class":"synthetic-fixture"},
         "timing":timing.to_json(),"admission":crate::admission_json(&admitted)});
+    let mut info = info;
+    if input.earnin {
+        info["earnin"] = serde_json::json!(true);
+    }
     // Admission must succeed before any output. Partial I/O failures remain visible and are not overwritten.
     std::fs::create_dir(out).map_err(|e| format!("output directory: {e}"))?;
     for (name, contents) in [
@@ -192,6 +213,11 @@ pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
         ("devnet.json", serde_json::to_string_pretty(&info).unwrap()),
     ] {
         std::fs::write(out.join(name), contents).map_err(|e| format!("write {name}: {e}"))?;
+    }
+    if let Some(mut report) = report {
+        report["newGenesis"] = serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),"genesisTime":cfg.g_ts});
+        std::fs::write(out.join("cutover-report.json"), serde_json::to_string_pretty(&report).unwrap())
+            .map_err(|e| format!("write cutover-report.json: {e}"))?;
     }
     println!(
         "{}",
