@@ -20,7 +20,7 @@ Scope: local `simnet` profiles only (OWNER-STANDING-AUTHORIZATION.md). Endpoints
 | BridgeAuth: Bpre size, integer token bucket, B0 strict JSON (no duplicate keys, depth ≤ 8), B1 kind, B2 frozen Map allowlist, B3 exact schemas | `src/lib/bridge.js` | D95–D97 |
 | B4 routing: pendingReads 4 / global 16, LogClient (pocol_getLogs, ≤ 1024 blocks, −32020), nav bucket 6000/1/2000, one pending confirmation, wallet one pending and ≤ 5/min | `src/sw.js` | D97, D99 |
 | SiteStorage: literal quota, 4096 entries, one atomic set per write, per-key serialization; StoreQueue admission 8 / 256 KiB per session, 64 / 4 MiB global | `src/lib/sitestore.js` | D34, D96, D101 |
-| Wallet: PBKDF2-SHA256 600000 + AES-GCM seed, HKDF key per netKey, 15-minute lock, EIP-1559 signing; the exact bytes and hash are shown before signing and submission | `src/lib/wallet.js`, `src/sw.js` | D14 |
+| Wallet: PBKDF2-SHA256 600000 + AES-GCM seed, HKDF key per netKey (the built-in profile: a fixed salt, the original Mainnet's netKey, so its address survives an identity change), 15-minute lock, EIP-1559 signing; the exact bytes and hash are shown before signing and submission | `src/lib/wallet.js`, `src/sw.js` | D14 |
 
 Vendored crypto: `@noble/hashes` 1.8.0 and `@noble/secp256k1` 2.3.0 (MIT, licenses copied into `dist/vendor`).
 

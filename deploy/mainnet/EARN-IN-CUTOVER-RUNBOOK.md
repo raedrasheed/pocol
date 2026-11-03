@@ -26,6 +26,8 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
    head with CI, including the Windows wallet run. Then merge nothing else into `main` until step 3 is
    merged, so that the release which runs the new network (step 4) differs from the one that builds its
    genesis (step 2) only by the step-3 switch.
+   Merge #20 and #21 before building that release too: its `pocold` then refuses a command it lacks,
+   and its extension keeps each Viewer wallet's address.
 
    Steps 0.2 and 2 need this release's `pocold`: the deployed `/opt/pocol-testnet/bin/pocold` is an
    older build without the `cutover` command, which it answers with a usage text and exit status 0.
@@ -72,10 +74,11 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
      stays the same (step 3);
    - after updating the extension, set Options > Trusted local fork schedule back to `[[1,"0"]]`
      (the H15000 value `[[1,"0"],[2,"15000"]]` belongs to the old network);
-   - the extension's Viewer wallet derives its key from the network's chain ID and genesis, so after
-     the update it shows a new address, and on-chain sites start with empty local storage. Move PCOL
-     held at the Viewer wallet's address to a Studio, IDE or native wallet address (these keep their
-     address) before block `S`;
+   - the extension's Viewer wallet keeps its address after the update: the built-in profile's wallet
+     key does not depend on the network's chain ID or genesis. A custom network profile keeps its own
+     address, so a local profile of the new network has another one. Update the extension in place and
+     do not remove it: its wallet seed cannot be exported, and a new install creates a new wallet.
+     On-chain sites start with empty local storage on the new network;
    - old Android installations cannot follow the new network (A3).
 
 ## 1. Freeze (approval: stop the live network)
@@ -157,7 +160,11 @@ with those paths) or simply to run the same command again.
 `--check` passes only on a tree that carries exactly this identity. If the launch later needs a new
 genesis (for example a new launch time), run the same commands again with the new hash and spec: the
 tool switches from the identity the tree carries. Then put the new genesis hash in the release notes
-too. Documents about the old network's history stay as they are, and so do the website snapshots in
+too. Keep the chain ID only for a genesis that never produced a block: wallets keep their keys across
+genesis files (native wallets, Studio, the IDE and the Viewer wallet), so after blocks were produced a
+transaction signed there would also be valid on a relaunch with the same chain ID. Relaunch such a
+network with a new chain ID instead (step 2's `new_network_config.py --chain-id`, then `--chain-id`
+here). Documents about the old network's history stay as they are, and so do the website snapshots in
 `deploy/websites` (step 5). `test_network_identity.py` passes on the switched tree and fails if any
 other tracked file pins the old identity.
 
@@ -293,7 +300,10 @@ Everything below comes from the merged head of step 3.
 
      Replace them with the new network's instructions from the release notes of step 3, including the
      schedule `[[1,"0"]]`. Do not quote the old schedule, the old chain ID or the H15000 name in them:
-     the closing checks refuse all three.
+     the closing checks refuse all three. In the same `guide-content.js` (English and Arabic) and
+     `pocol-tools.html`, the development wallet's description says that HKDF derives a key for each
+     network identity: say instead that the built-in network's wallet keeps one key, and that each
+     custom network gets its own.
   3. Make the reward panel accept earn-in records. In `reward.js` and `api/reward.php`, a beneficiary's
      `amountWei` may be `0` when its `bondAccruedWei` is above 0, and `sum(amountWei) +
      sum(bondAccruedWei)` must equal `projectedPaidWei`. Show the bond part as well. Before publishing,
