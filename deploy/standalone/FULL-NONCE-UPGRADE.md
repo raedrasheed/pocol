@@ -82,7 +82,7 @@ deploy a network. Do not modify `genesis.spec.hex` or initialize a replacement c
    genesis and allocation. They verify journal framing/commit records without
    repairing or rewriting chain state, and keep a recoverable original binding.
    Install/switch to the reviewed new bundle only as part of the coordinated stopped
-   release. The tool does not start services. Raw `pocold --network` services without
+   release. The tool does not start services. Raw `pocold run --network` services without
    this wrapper require the matching executable and reviewed `devnet.json`, with
    their original genesis/allocation and data directory retained.
 7. Update the Chrome extension and configure the **locally trusted** profile schedule

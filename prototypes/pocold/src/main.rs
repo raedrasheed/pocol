@@ -11,13 +11,19 @@ fn num<T:std::str::FromStr>(args:&[String],k:&str,d:T)->T{arg(args,k).and_then(|
 /// main only collects the arguments, then runs the command on the consensus thread, whose
 /// stack reservation is explicit (A13 thread inventory), and joins it.
 fn main(){
+    // A first argument that is not text is a command this build does not have (args() would panic on it).
+    if let Some(c)=std::env::args_os().nth(1).filter(|c|c.to_str().is_none()){eprintln!("error: unknown command {c:?}\n{USAGE}");std::process::exit(2)}
     let args:Vec<String>=std::env::args().collect();
     let code=match pocold::threads::spawn("consensus",pocold::threads::CONSENSUS_STACK,move||command(&args)).map(|t|t.join()){
         Ok(Ok(code))=>code,Ok(Err(_))=>101,Err(e)=>{eprintln!("error: spawn consensus thread: {e}");1}};
     std::process::exit(code);
 }
+const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] (--state-store is experimental; open a data directory in the mode it was made in)\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
+/// Runs one command and returns the process exit status. `help` (also `--help`, `-h`) prints the
+/// usage on stdout and exits 0. No command, or a command this build does not have, prints the
+/// usage on stderr and exits 2, so a script never takes a command that did not run for success.
 fn command(args:&[String])->i32{
-    let cmd=args.get(1).map(|s|s.as_str()).unwrap_or("help");
+    let Some(cmd)=args.get(1).map(|s|s.as_str()) else {eprintln!("{USAGE}");return 2};
     let r=match cmd{
         "build-info"=>{println!("{}",pocold::identity::BUILD_INFO);Ok(())},
         "init-devnet"=>init(args),
@@ -25,7 +31,9 @@ fn command(args:&[String])->i32{
         "cutover"=>cutover(args),
         "run"=>run(args),
         "status"=>status(args),
-        _=>{eprintln!("usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [NODE]\n  pocold status --network DIR --data DIR [NODE]\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] (--state-store is experimental; open a data directory in the mode it was made in)\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).");Ok(())}
+        // A reader that closes the pipe early (`pocold help | head`) is not an error.
+        "help"|"--help"|"-h"=>{use std::io::Write;match writeln!(std::io::stdout(),"{USAGE}"){Err(e) if e.kind()!=std::io::ErrorKind::BrokenPipe=>Err(format!("stdout: {e}")),_=>Ok(())}},
+        _=>{eprintln!("error: unknown command {cmd:?}\n{USAGE}");return 2}
     };
     if let Err(e)=r{eprintln!("error: {e}");return 1}
     0
