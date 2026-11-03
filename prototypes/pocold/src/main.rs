@@ -11,6 +11,8 @@ fn num<T:std::str::FromStr>(args:&[String],k:&str,d:T)->T{arg(args,k).and_then(|
 /// main only collects the arguments, then runs the command on the consensus thread, whose
 /// stack reservation is explicit (A13 thread inventory), and joins it.
 fn main(){
+    // A first argument that is not text is a command this build does not have (args() would panic on it).
+    if let Some(c)=std::env::args_os().nth(1).filter(|c|c.to_str().is_none()){eprintln!("error: unknown command {c:?}\n{USAGE}");std::process::exit(2)}
     let args:Vec<String>=std::env::args().collect();
     let code=match pocold::threads::spawn("consensus",pocold::threads::CONSENSUS_STACK,move||command(&args)).map(|t|t.join()){
         Ok(Ok(code))=>code,Ok(Err(_))=>101,Err(e)=>{eprintln!("error: spawn consensus thread: {e}");1}};
@@ -29,7 +31,8 @@ fn command(args:&[String])->i32{
         "cutover"=>cutover(args),
         "run"=>run(args),
         "status"=>status(args),
-        "help"|"--help"|"-h"=>{println!("{USAGE}");Ok(())},
+        // A reader that closes the pipe early (`pocold help | head`) is not an error.
+        "help"|"--help"|"-h"=>{use std::io::Write;match writeln!(std::io::stdout(),"{USAGE}"){Err(e) if e.kind()!=std::io::ErrorKind::BrokenPipe=>Err(format!("stdout: {e}")),_=>Ok(())}},
         _=>{eprintln!("error: unknown command {cmd:?}\n{USAGE}");return 2}
     };
     if let Err(e)=r{eprintln!("error: {e}");return 1}

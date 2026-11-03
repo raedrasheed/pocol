@@ -71,3 +71,25 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
         }
     }
 }
+
+/// A first argument that is not valid text (bytes on Unix, an unpaired surrogate on Windows) is an
+/// unknown command too, not a panic.
+#[test] fn a_command_that_is_not_text_exits_2(){
+    #[cfg(unix)] let arg={use std::os::unix::ffi::OsStrExt;std::ffi::OsStr::from_bytes(b"run\xff").to_os_string()};
+    #[cfg(windows)] let arg={use std::os::windows::ffi::OsStringExt;std::ffi::OsString::from_wide(&[0x72,0x75,0x6e,0xD800])};
+    let o=Command::new(env!("CARGO_BIN_EXE_pocold")).arg(&arg).output().unwrap();let err=text(&o.stderr);
+    assert_eq!(o.status.code(),Some(2),"{err}");
+    assert!(err.starts_with("error: unknown command ")&&err.trim_end().ends_with(EXIT_LINE)&&!err.contains("panicked"),"{err}");
+    assert!(o.stdout.is_empty());
+}
+
+/// `help` into a pipe whose reader has already gone still exits 0, without a panic.
+#[test] fn help_into_a_closed_pipe_exits_0(){
+    use std::process::Stdio;
+    for _ in 0..20{
+        let mut c=Command::new(env!("CARGO_BIN_EXE_pocold")).arg("help").stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        drop(c.stdout.take());
+        let o=c.wait_with_output().unwrap();
+        assert_eq!(o.status.code(),Some(0),"{}",text(&o.stderr));assert!(o.stderr.is_empty(),"{}",text(&o.stderr));
+    }
+}
