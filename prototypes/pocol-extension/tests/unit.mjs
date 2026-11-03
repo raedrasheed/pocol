@@ -189,6 +189,8 @@ ok('T16 size mismatch rejected', throws(() => { const f = file('/index.html', 1,
   const oldNet = JSON.parse(JSON.parse(readFileSync(new URL('../../../deploy/mainnet/h15000/network.pocol.json', import.meta.url), 'utf8')).files['devnet.json']);
   const oldNetKey = HEX.toHex(C.keccak(RLP.encode([new TextEncoder().encode('PoCol-net-v1'), RLP.encUint(BigInt(oldNet.chainId)), HEX.fromHex(oldNet.genesisHash)])));
   ok('wallet: the built-in profile salt is the original Mainnet netKey', WAL.PUBLIC_WALLET_SALT === oldNetKey, WAL.PUBLIC_WALLET_SALT + ' ' + oldNetKey);
+  // The address the released extension shows for this seed on the built-in profile; the salt alone does not pin it.
+  ok('wallet: seed 0x42…42 keeps its released built-in address', WAL.addressOf(await WAL.networkKey(new Uint8Array(32).fill(0x42), WAL.PUBLIC_WALLET_SALT)) === '0x2cd72d94d4cddd988f8676a6c98979b26df51940');
   const tx = { chainId: 777900, nonce: 3n, maxPriority: 1n, maxFee: 2n, gas: 21000n, to: A, value: 1n, data: '0x' };
   const s = WAL.signTx(k1, tx); const raw = HEX.fromHex(s.raw);
   ok('signTx: txHash = keccak(raw)', HEX.toHex(C.keccak(raw)) === s.hash);

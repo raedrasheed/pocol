@@ -261,14 +261,18 @@ The proposer draw (D1–D2) and the cutover tool are P3.
   imports the new invitation; the address stays the same. `deploy/standalone/test_upgrade.py`
   (`NewGenesisRejoin`) runs these steps and the old-invitation case, and the step-3 release notes give
   them to users.
-- The extension's Viewer wallet keeps its address without any step. On the built-in network (the
-  `pocol-public` profile, or a custom profile with its identity) wallets are keyed with a fixed salt,
-  the original Mainnet's netKey (`PUBLIC_WALLET_SALT` in `src/lib/wallet.js`), instead of the netKey,
-  which changes with the identity; a profile of any other network keeps its own key (D14). Before the
-  switch both salts are equal, so nothing changes until the step-3 release. `tests/studio_test.mjs`
-  switches a built copy of the extension to another identity and checks that the address stays the
-  same, also for a local profile of the new network and for a site. On-chain sites still start with
-  empty local storage on the new network.
+- The extension's Viewer wallet keeps its address without any step. The built-in `pocol-public`
+  profile keys its wallet with a fixed salt, the original Mainnet's netKey (`PUBLIC_WALLET_SALT` in
+  `src/lib/wallet.js`), instead of its netKey, which changes with the identity. A custom profile keeps
+  its own netKey (D14), so no extension update moves its address; a local profile of the new network
+  therefore has another address than the Viewer wallet. Before the switch both salts of the built-in
+  profile are equal, so nothing changes until the step-3 release. `tests/studio_test.mjs` switches a
+  built copy of the extension to another identity and checks that the Viewer address stays the same,
+  also for a site and for a transaction it signs, and that a custom profile keeps the address it had
+  before; `unit.mjs` pins the salt and one released address. On-chain sites still start with empty
+  local storage on the new network. Because the Viewer key, like the native, Studio and IDE keys, no
+  longer depends on the genesis, a relaunch after a genesis produced blocks takes a new chain ID
+  (runbook step 3).
 - Studio's release builder refuses a `dist/app.js` whose extension download link names another
   version than the extension it packages.
 

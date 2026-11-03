@@ -33,12 +33,10 @@ const REVOKE_DNR_GRACE_MS = 2000;
 export function netKeyOf(chainId, genesisHash) {
   return toHex(keccak(rlp.encode([new TextEncoder().encode('PoCol-net-v1'), rlp.encUint(BigInt(chainId)), genesisHash])));
 }
-// The built-in network's netKey: the identity the extension pins now.
-const PUBLIC_NET_KEY = netKeyOf(NETWORK.chainId, fromHex(NETWORK.genesisHash));
-/** The salt of a profile's wallet key (D14): its netKey, except on the built-in network (the built-in profile
- *  or a custom profile with its identity), whose wallets keep one address across network identities
- *  (PUBLIC_WALLET_SALT). Before an identity change both are the same value. */
-export const walletSalt = (p) => (p.netKey === PUBLIC_NET_KEY ? PUBLIC_WALLET_SALT : p.netKey);
+/** The salt of a profile's wallet key (D14): its netKey, except for the built-in profile, whose wallet keeps one
+ *  address when its pinned identity changes (PUBLIC_WALLET_SALT). A custom profile always keeps its own netKey,
+ *  so no extension update moves its address; no custom profile can take the built-in name. */
+export const walletSalt = (p) => (p.name === NETWORK.name ? PUBLIC_WALLET_SALT : p.netKey);
 // An operator supplies the schedule through this extension's settings page. It is
 // separate from the immutable public network identity and never populated by RPC.
 const PUBLIC_FORKS_KEY = 'pocol:publicForkSchedule';
