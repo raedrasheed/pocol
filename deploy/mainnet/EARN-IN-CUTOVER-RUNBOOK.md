@@ -29,6 +29,7 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
 
    Steps 0.2 and 2 need this release's `pocold`: the deployed `/opt/pocol-testnet/bin/pocold` is an
    older build without the `cutover` command, which it answers with a usage text and exit status 0.
+   (Newer builds answer a command they lack with `error: unknown command` and exit status 2.)
    On each server, keep a checkout of the merged head that the `pocol-testnet` user can read (for
    example in `/var/tmp/pocol-checkout`) for the `deploy/mainnet` scripts, and extract that head's
    Linux package (its `source-commit.txt` names the commit) outside `/opt/pocol-testnet`. Never copy

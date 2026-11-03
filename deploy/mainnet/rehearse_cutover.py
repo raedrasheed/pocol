@@ -37,7 +37,11 @@ def cutover(network, data, height, config, out, node_args):
     p = subprocess.run([str(BIN / ('pocold' + EXE)), 'cutover', '--network', str(network), '--data', str(data), '--height', str(height),
                         '--config', str(config), '--out', str(out), *node_args], capture_output=True, text=True, timeout=1800)
     if p.returncode: raise AssertionError(f'cutover failed: {p.stderr.strip()}')
-    return json.loads((out / 'cutover-report.json').read_text(encoding='utf-8'))
+    report = out / 'cutover-report.json'
+    # A pocold without the cutover command (the deployed one, for example) prints its usage and exits 0.
+    if not report.is_file(): raise AssertionError(f'{BIN / ("pocold" + EXE)} exited 0 without writing {report}: it is a build '
+                                                  'without the cutover command; set POCOLD_BIN_DIR to the merged release')
+    return json.loads(report.read_text(encoding='utf-8'))
 
 def same_genesis(a, b):
     for name in ('genesis.spec.hex', 'alloc.json', 'cutover-report.json'):
