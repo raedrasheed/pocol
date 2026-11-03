@@ -70,10 +70,9 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
      stays the same (step 3);
    - after updating the extension, set Options > Trusted local fork schedule back to `[[1,"0"]]`
      (the H15000 value `[[1,"0"],[2,"15000"]]` belongs to the old network);
-   - the extension's Viewer wallet derives its key from the network's chain ID and genesis, so after
-     the update it shows a new address, and on-chain sites start with empty local storage. Move PCOL
-     held at the Viewer wallet's address to a Studio, IDE or native wallet address (these keep their
-     address) before block `S`;
+   - the extension's Viewer wallet keeps its address after the update: the built-in network's wallet
+     key does not depend on the network's chain ID or genesis. On-chain sites start with empty local
+     storage on the new network;
    - old Android installations cannot follow the new network (A3).
 
 ## 1. Freeze (approval: stop the live network)

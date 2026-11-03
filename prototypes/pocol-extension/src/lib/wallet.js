@@ -25,6 +25,13 @@ export async function networkKey(seed, netKeyHex) {
   const bits = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: fromHex(netKeyHex), info: enc.encode('PoCol-wallet-v1') }, k, 256);
   return new Uint8Array(bits);
 }
+/** The wallet key salt on the built-in network (the `pocol-public` profile, or a custom profile with its
+ *  identity): the netKey of the original PoCol Mainnet (its invitation is
+ *  deploy/mainnet/h15000/network.pocol.json). It does not follow the pinned identity, so the Viewer
+ *  wallet keeps its address when that identity changes, as at the earn-in cutover (owner decision,
+ *  2026-11-03). A profile of any other network keys its wallet by its own netKey (D14). Never change
+ *  it: another value moves every Viewer wallet to a new address. */
+export const PUBLIC_WALLET_SALT = '0x216872e616ed5674f319e5c2b2f39ddc6f251a4f493ac118f7dd6a61d5d1d8fa';
 export const addressOf = (secret) => toHex(addressOfSecret(secret));
 /** Unsigned EIP-1559 payload 0x02 || RLP([chainId, nonce, tip, maxFee, gas, to, value, data, []]):
  *  the bytes the confirmation shows; keccak(payload) is the signing hash (A06). */

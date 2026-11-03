@@ -7,7 +7,7 @@ import * as bridge from './lib/bridge.js';
 import { StoreAdmission, qbytes } from './lib/sitestore.js';
 import { RecordStore } from './lib/records.js';
 import * as http from './lib/transport.js';
-import { encryptSeed, decryptSeed, networkKey, addressOf, unsignedTx, signUnsigned, LOCK_MS } from './lib/wallet.js';
+import { encryptSeed, decryptSeed, networkKey, addressOf, unsignedTx, signUnsigned, LOCK_MS, PUBLIC_WALLET_SALT } from './lib/wallet.js';
 import { keccak } from './lib/crypto.js';
 import * as rlp from './lib/rlp.js';
 import { toHex, fromHex, eq } from './lib/hex.js';
@@ -33,6 +33,12 @@ const REVOKE_DNR_GRACE_MS = 2000;
 export function netKeyOf(chainId, genesisHash) {
   return toHex(keccak(rlp.encode([new TextEncoder().encode('PoCol-net-v1'), rlp.encUint(BigInt(chainId)), genesisHash])));
 }
+// The built-in network's netKey: the identity the extension pins now.
+const PUBLIC_NET_KEY = netKeyOf(NETWORK.chainId, fromHex(NETWORK.genesisHash));
+/** The salt of a profile's wallet key (D14): its netKey, except on the built-in network (the built-in profile
+ *  or a custom profile with its identity), whose wallets keep one address across network identities
+ *  (PUBLIC_WALLET_SALT). Before an identity change both are the same value. */
+export const walletSalt = (p) => (p.netKey === PUBLIC_NET_KEY ? PUBLIC_WALLET_SALT : p.netKey);
 // An operator supplies the schedule through this extension's settings page. It is
 // separate from the immutable public network identity and never populated by RPC.
 const PUBLIC_FORKS_KEY = 'pocol:publicForkSchedule';
@@ -286,7 +292,7 @@ async function route(sess, m, ctl) {
 }
 // The 15-minute lock is refreshed only by user actions (unlock, an approved grant or signature),
 // never by site-driven calls (review finding: eth_accounts kept the seed decrypted).
-async function walletKey(sess) { return isUnlocked() ? networkKey(unlocked.seed, sess.netKey) : null; }
+async function walletKey(sess) { return isUnlocked() ? networkKey(unlocked.seed, walletSalt(sess.profile)) : null; }
 const touchWallet = () => { if (unlocked) unlocked.until = Date.now() + LOCK_MS; };
 async function wallet(sess, m, ask) {
   if (m.method === 'eth_chainId') return { result: '0x' + sess.profile.chainId.toString(16) };
@@ -556,7 +562,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         walletChanged('wallet unlocked again'); unlocked = { seed, until: Date.now() + LOCK_MS }; return { ok: true }; }
       case 'wallet.lock': lockWallet('wallet locked'); return { ok: true };
       case 'wallet.status': return { ok: true, exists: !!(await store.get('wallet')).wallet, unlocked: isUnlocked() };
-      case 'wallet.address': { const p = (await profiles()).find((x) => x.name === msg.name); if (!p || p.invalid || !isUnlocked()) return { ok: false }; const seed = unlocked.seed; return { ok: true, address: addressOf(await networkKey(seed, p.netKey)) }; }
+      case 'wallet.address': { const p = (await profiles()).find((x) => x.name === msg.name); if (!p || p.invalid || !isUnlocked()) return { ok: false }; const seed = unlocked.seed; return { ok: true, address: addressOf(await networkKey(seed, walletSalt(p))) }; }
       default: return { ok: false, error: 'unknown message' };
     }
   })().then(reply, (e) => reply({ ok: false, error: { code: e.code || -32603, message: String(e.message || e) } }));

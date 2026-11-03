@@ -3,7 +3,9 @@ import { createCipheriv, pbkdf2Sync, createHmac } from 'node:crypto';
 import { build } from '../build.mjs';
 import { installChromeMock, installFetchMock, loadWorker } from './chrome_mock.mjs';
 import { siteFixture } from './site_fixture.mjs';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import vm from 'node:vm';
 const {dist,manifest}=build();
 const K=await import('../dist/lib/studio-keyfile.js'), B=await import('../dist/lib/studio-bridge.js'), N=await import('../dist/lib/studio-network.js'), RP=await import('../dist/lib/rp.js'), H=await import('../dist/lib/hex.js');
@@ -137,6 +139,63 @@ await test('corrupt saved public schedule fails closed and explicit settings can
   await mock.storage.set({[scheduleKey]:[[1,'0'],[3,'43']]});
   assert.ok((await getPublic()).invalid);assert.equal((await call('studio.status')).ok,false);
   assert.equal((await setSchedule([[1,'0']])).ok,true);assert.deepEqual((await getPublic()).forkSchedule,[[1,'0']]);assert.equal((await getPublic()).netKey,initialPublic.netKey);
+});
+// The Viewer wallet keeps its address when the built-in network's pinned identity changes (the earn-in
+// cutover): wallets on that network are keyed with a fixed salt (PUBLIC_WALLET_SALT); a profile of any other
+// network keys its wallet with its own netKey (D14).
+const W=await import('../dist/lib/wallet.js'),C=await import('../dist/lib/crypto.js');
+const viewerSeed='0x'+'42'.repeat(32),viewerAddress=W.addressOf(await W.networkKey(H.fromHex(viewerSeed),W.PUBLIC_WALLET_SALT));
+const fixtureSpec=(from,to)=>{let pre=readFileSync(new URL('./data/devnet-spec.hex',import.meta.url),'utf8').trim();if(from){assert.ok(pre.includes(from));pre=pre.replace(from,to);}const spec=RP.decodeSpec(H.fromHex(pre));return {pre,chainId:Number(spec.chainId),hash:H.toHex(C.keccak(H.fromHex(pre)))};};
+const localProfile=(name,s,forkSchedule=[[1,'0']])=>({name,chainId:s.chainId,genesisPre:s.pre,genesisHash:s.hash,trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule});
+const walletOf=async(m,name)=>(await m.send({type:'wallet.address',name})).address;
+const addressFor=async(netKey)=>W.addressOf(await W.networkKey(H.fromHex(viewerSeed),netKey));
+await test('the built-in network keys its wallets with the fixed salt; another network keys them with its netKey',async()=>{
+  await mock.send({type:'wallet.create',password:'test-only',seedHex:viewerSeed});
+  assert.equal(await walletOf(mock,N.NETWORK.name),viewerAddress);
+  // A custom profile with the built-in identity (a local node of the same network) shares the address.
+  assert.equal((await mock.send({type:'profiles.add',profile:{...N.NETWORK,name:'operator-local',trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule:(await getPublic()).forkSchedule}})).ok,true);
+  assert.equal(await walletOf(mock,'operator-local'),viewerAddress);
+  const other=fixtureSpec();assert.equal((await mock.send({type:'profiles.add',profile:localProfile('other-net',other)})).ok,true);
+  const otherKey=(await mock.send({type:'profiles.list'})).profiles.find(p=>p.name==='other-net').netKey;
+  assert.notEqual(otherKey,W.PUBLIC_WALLET_SALT);assert.equal(await walletOf(mock,'other-net'),await addressFor(otherKey));
+  for(const name of ['operator-local','other-net'])await mock.send({type:'profiles.remove',name});
+});
+await test('after the pinned identity changes, the built-in network keeps its wallet address, also for a site',async()=>{
+  // A copy of the built extension pinned to another network (the devnet fixture), as runbook step 3 switches it.
+  const next=fixtureSpec(),switched=mkdtempSync(join(tmpdir(),'pocol-switched-'));
+  try{
+    cpSync(dist,switched,{recursive:true});
+    const file=join(switched,'lib','studio-network.js'),src=readFileSync(file,'utf8');
+    const out=src.replace(/"chainId": \d+/,`"chainId": ${next.chainId}`).replace(/"genesisHash": "0x[0-9a-f]{64}"/,`"genesisHash": "${next.hash}"`).replace(/"genesisPre": "0x[0-9a-f]+"/,`"genesisPre": "${next.pre}"`);
+    assert.notEqual(out,src);writeFileSync(file,out);
+    const m=installChromeMock();await loadWorker(switched,'switched-identity');
+    const pub=(await m.send({type:'profiles.list'})).profiles.find(p=>p.name===N.NETWORK.name);
+    assert.equal(pub.invalid,undefined);assert.equal(pub.chainId,next.chainId);assert.equal(pub.genesisHash,next.hash);assert.notEqual(pub.netKey,W.PUBLIC_WALLET_SALT);
+    await m.send({type:'wallet.create',password:'test-only',seedHex:viewerSeed});
+    assert.equal(await walletOf(m,N.NETWORK.name),viewerAddress);
+    // A local node of the new network shares the address; a profile of another network does not.
+    assert.equal((await m.send({type:'profiles.add',profile:localProfile('operator-local',next,pub.forkSchedule)})).ok,true);
+    assert.equal(await walletOf(m,'operator-local'),viewerAddress);
+    // Another chain ID, or the same chain ID with another genesis, is another network.
+    const other=fixtureSpec('830bdee8','830bdee9'),twin=fixtureSpec('846553f100','846553f101');
+    assert.notEqual(other.chainId,next.chainId);assert.equal(twin.chainId,next.chainId);assert.notEqual(twin.hash,next.hash);
+    for(const [name,s] of [['other-net',other],['same-chain',twin]]){
+      assert.equal((await m.send({type:'profiles.add',profile:localProfile(name,s)})).ok,true);
+      const key=(await m.send({type:'profiles.list'})).profiles.find(p=>p.name===name).netKey;
+      assert.equal(await walletOf(m,name),await addressFor(key));assert.notEqual(await walletOf(m,name),viewerAddress);
+    }
+    for(const name of ['operator-local','other-net','same-chain'])await m.send({type:'profiles.remove',name});
+    // A site opened on the built-in profile is offered, and granted, the same address.
+    const fx=await siteFixture(switched);
+    const log=installFetchMock({...fx.handlers,eth_chainId:()=>'0x'+next.chainId.toString(16),pocol_status:()=>({chainId:next.chainId,genesisHash:next.hash,forkSchedule:[[1,'0']]})});
+    const opened=await m.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true,JSON.stringify(opened));
+    const port=m.connect('bridge:'+opened.sessionId);
+    port.post({seq:1,frame:1,text:JSON.stringify({id:1,kind:'wallet_req',payload:{method:'eth_requestAccounts',params:[]}})});
+    const ask=await port.next(x=>x.ask!==undefined && x.q.type==='confirmAccounts');assert.equal(ask.q.address,viewerAddress);
+    port.post({answer:ask.ask,ok:true});
+    assert.deepEqual((await port.next(x=>x.seq===1)).reply.result,[viewerAddress]);
+    assert.equal(log.some(entry=>entry.method==='eth_sendRawTransaction'),false);
+  }finally{rmSync(switched,{recursive:true,force:true});}
 });
 console.log(JSON.stringify({result:'PASS',passed:count}));
 // The real worker schedules delayed storage maintenance. All requested assertions are awaited.
