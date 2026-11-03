@@ -50,6 +50,8 @@ pub struct Membership {
     height: u64,
     seal: H256,
     ids: Vec<Address>,
+    /// Members whose bond is still ACCRUING (earn-in, EARN-IN-SPEC.md D1). Sorted, a subset of `ids`.
+    accruing: Vec<Address>,
 }
 impl Membership {
     /// Computes A_h*, excluding tombs even on the inactive-set fallback.
@@ -81,10 +83,22 @@ impl Membership {
         }
         let mut ids = if active.is_empty() { live } else { active };
         ids.sort();
-        Ok(Self { height, seal: *parent.seal, ids })
+        Ok(Self { height, seal: *parent.seal, ids, accruing: Vec::new() })
     }
     pub fn ids(&self) -> &[Address] {
         &self.ids
+    }
+    /// Marks the members whose parent record is ACCRUING. They keep their nonce range but are not
+    /// proposer candidates (D1). Ids outside the membership are ignored.
+    pub fn with_accruing(mut self, ids: impl IntoIterator<Item = Address>) -> Self {
+        let mut accruing: Vec<Address> = ids.into_iter().filter(|id| self.ids.binary_search(id).is_ok()).collect();
+        accruing.sort();
+        accruing.dedup();
+        self.accruing = accruing;
+        self
+    }
+    pub fn accruing(&self) -> &[Address] {
+        &self.accruing
     }
 }
 
@@ -258,6 +272,10 @@ impl DrawWeights {
             return Err(AssignmentError::EmptyMembership);
         }
         let mut weights: Vec<_> = members.ids.iter().map(|id| (*id, 0u128)).collect();
+        // D1: candidates are the non-ACCRUING members, or every member when all are ACCRUING. With no
+        // ACCRUING member (every v1 network) every member is a candidate, exactly as before.
+        let all_accruing = members.accruing.len() == members.ids.len();
+        let candidate = |id: &Address| all_accruing || members.accruing.binary_search(id).is_err();
         let mut seen = BTreeSet::new();
         let lower = members.height.saturating_sub(1).saturating_sub(w_w as u64);
         let upper = members.height.checked_sub(2);
@@ -267,7 +285,9 @@ impl DrawWeights {
             }
             if upper.map_or(false, |end| lower <= row.height && row.height <= end) {
                 if let Ok(i) = members.ids.binary_search(&row.id) {
-                    weights[i].1 = weights[i].1.checked_add(row.count as u128).ok_or(AssignmentError::WeightOverflow)?;
+                    if candidate(&row.id) {
+                        weights[i].1 = weights[i].1.checked_add(row.count as u128).ok_or(AssignmentError::WeightOverflow)?;
+                    }
                 }
             }
         }
@@ -276,10 +296,11 @@ impl DrawWeights {
             total = total.checked_add(*w).ok_or(AssignmentError::WeightOverflow)?;
         }
         if total == 0 {
-            for (_, w) in &mut weights {
-                *w = 1;
+            // D2: every candidate weighs 1; a non-candidate stays at 0.
+            for (id, w) in &mut weights {
+                *w = u128::from(candidate(id));
             }
-            total = weights.len() as u128;
+            total = weights.iter().map(|(_, w)| *w).sum();
         }
         Ok(Self { height: members.height, seal: members.seal, weights, sampler: UnbiasedSampler::new(total)? })
     }
@@ -322,7 +343,7 @@ mod tests {
     fn rejected_hash_retries_without_wrap_or_modulo_fallback() {
         let mut id = [1; 20];
         id[19] = 2;
-        let member = Membership { height: 10, seal: [0; 32], ids: vec![id] };
+        let member = Membership { height: 10, seal: [0; 32], ids: vec![id], accruing: vec![] };
         let weights = DrawWeights::new(&member, 1, &[ShareCount { height: 8, id, count: 3 }]).unwrap();
         let mut counters = Vec::new();
         let got = weights

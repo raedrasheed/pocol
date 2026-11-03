@@ -996,7 +996,7 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         "pocol_getBlockRlp"=>{let e=meta_by_tag(n,p.first().unwrap_or(&Value::Null)).ok_or((-32001,"unknown block".to_string()))?;let e=whole(n,e)?;
             Ok(json!({"header":hex(&e.header.encoded),"body":hex(&e.body.encode())}))}
         "pocol_getMiners"=>{let head=n.chain.head;let s=n.chain.view_of(&head).ok_or((-32001,"head state".to_string()))?;let s=s.v();Ok(json!(apply::record_list(s).iter().map(|id|{let r=apply::miner_record(s,*id).unwrap();
-            json!({"id":format!("{id:#x}"),"status":r.status,"tomb":r.tomb,"bondState":r.bond_state,"lastShare":r.last_share,"reward":format!("{:#x}",r.reward),"rewardBalance":qty256(s.account(&r.reward).map(|a|a.info.balance).unwrap_or_default())})}).collect::<Vec<_>>()))}
+            json!({"id":format!("{id:#x}"),"status":r.status,"tomb":r.tomb,"bondState":r.bond_state,"lastShare":r.last_share,"bond":qty256(r.bond),"registeredAt":r.registered_at,"reward":format!("{:#x}",r.reward),"rewardBalance":qty256(s.account(&r.reward).map(|a|a.info.balance).unwrap_or_default())})}).collect::<Vec<_>>()))}
         "pocol_getTemplate"=>Ok(n.template_json()),
         _=>Err(Fail::from(not_found(m))),
     }

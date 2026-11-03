@@ -26,6 +26,7 @@ fn main() {
         here.join("Cargo.lock"),
         root.join("lp4-execution/tests/data/system-v1.json"),
         root.join("lp4-execution/tests/data/system-continuous.json"),
+        root.join("lp4-execution/tests/data/system-earnin.json"),
         root.join("lp4-execution/tests/data/website.json"),
     ];
     for krate in ["pocold", "lp1-node", "lp4-execution"] {

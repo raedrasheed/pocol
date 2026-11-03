@@ -1,0 +1,1057 @@
+{
+ "accrual": {
+  "durable": [
+   "ra",
+   "rb"
+  ],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "m0",
+    "a",
+    "b"
+   ],
+   "burned": "0",
+   "heldTotal": "60000000000000000000",
+   "paid": {
+    "ra": "3000000000000000000",
+    "rb": "3000000000000000000"
+   },
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "ra",
+     "status": 1,
+     "tomb": false
+    },
+    "b": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 2,
+     "reward": "rb",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "0",
+    "b": "19000000000000000000",
+    "m0": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "ra",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "settle_to",
+     "a",
+     "7000000000000000000"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "settle_to",
+     "a",
+     "13000000000000000000"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "settle_to",
+     "a",
+     "3000000000000000000"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "rb",
+     "19000000000000000000",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "settle_to",
+     "b",
+     "4000000000000000000"
+    ],
+    "result": "0"
+   }
+  ]
+ },
+ "cutover": {
+  "alloc": {
+   "0xs1": {
+    "balance": "110000000000000000000",
+    "code": "0x",
+    "nonce": 5,
+    "storage": {}
+   },
+   "0xs2": {
+    "balance": "81000000000000000000",
+    "code": "0x",
+    "nonce": 2,
+    "storage": {}
+   },
+   "0xu1": {
+    "balance": "7",
+    "code": "0x6000",
+    "nonce": 0,
+    "storage": {
+     "0x1": "0x2"
+    }
+   }
+  },
+  "report": {
+   "accounts": 3,
+   "bondsCredited": "200000000000000000000",
+   "copiedBalances": "31000000000000000007",
+   "minerBondsDeducted": "40000000000000000000",
+   "totalSupply": "231000000000000000007"
+  }
+ },
+ "cutover-low-balance": "MinerBalanceBelowBond",
+ "cutover-not-durable": "RewardNotDurable",
+ "deadline": {
+  "durable": [
+   "ra",
+   "rz"
+  ],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "m0"
+   ],
+   "burned": "0",
+   "heldTotal": "20000000000000000000",
+   "paid": {
+    "ra": "2000000000000000000"
+   },
+   "records": {
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "2000000000000000000",
+    "m0": "20000000000000000000",
+    "z": "0"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "ra",
+     "2000000000000000000",
+     "10"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "sweep",
+     "60489"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "sweep",
+     "60490"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "reactivate",
+     "a",
+     "60522"
+    ],
+    "revert": "BadState"
+   },
+   {
+    "ok": true,
+    "op": [
+     "sweep",
+     "60530"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "z",
+     "rz",
+     "0",
+     "60531"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "sweep",
+     "121011"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "sweep",
+     "121051"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "draw": {
+  "all-accruing": {
+   "a": 2,
+   "b": 0
+  },
+  "all-accruing-zero": {
+   "a": 1,
+   "b": 1
+  },
+  "mixed": {
+   "a": 3,
+   "b": 0,
+   "c": 1
+  },
+  "mixed-zero-shares": {
+   "a": 1,
+   "b": 0,
+   "c": 1
+  }
+ },
+ "durable-reward": {
+  "durable": [
+   "y"
+  ],
+  "final": {
+   "accruing": 2,
+   "active": [
+    "m0",
+    "b",
+    "c"
+   ],
+   "burned": "0",
+   "heldTotal": "20000000000000000000",
+   "paid": {},
+   "records": {
+    "b": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "y",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "b": "0",
+    "c": "0",
+    "m0": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "ok": false,
+    "op": [
+     "register",
+     "a",
+     "x",
+     "0",
+     "1"
+    ],
+    "revert": "RewardNotDurable"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "y",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "0",
+     "1"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "exit-and-reactivate-in-probation": {
+  "durable": [],
+  "final": {
+   "accruing": 1,
+   "active": [
+    "m0",
+    "a"
+   ],
+   "burned": "0",
+   "heldTotal": "20000000000000000000",
+   "paid": {},
+   "records": {
+    "a": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "0",
+    "m0": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "a",
+     "100"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "reactivate",
+     "a",
+     "131"
+    ],
+    "revert": "BadState"
+   },
+   {
+    "ok": true,
+    "op": [
+     "reactivate",
+     "a",
+     "132"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "probation-seats": {
+  "durable": [],
+  "final": {
+   "accruing": 8,
+   "active": [
+    "m0",
+    "p0",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5",
+    "p6",
+    "p7",
+    "full"
+   ],
+   "burned": "0",
+   "heldTotal": "40000000000000000000",
+   "paid": {},
+   "records": {
+    "full": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 2,
+     "reward": "full",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "p0": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "p0",
+     "status": 1,
+     "tomb": false
+    },
+    "p1": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "p1",
+     "status": 1,
+     "tomb": false
+    },
+    "p2": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "p2",
+     "status": 1,
+     "tomb": false
+    },
+    "p3": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "p3",
+     "status": 1,
+     "tomb": false
+    },
+    "p4": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "p4",
+     "status": 1,
+     "tomb": false
+    },
+    "p5": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "p5",
+     "status": 1,
+     "tomb": false
+    },
+    "p6": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "p6",
+     "status": 1,
+     "tomb": false
+    },
+    "p7": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "p7",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "full": "20000000000000000000",
+    "m0": "20000000000000000000",
+    "p0": "0",
+    "p1": "0",
+    "p2": "0",
+    "p3": "0",
+    "p4": "0",
+    "p5": "0",
+    "p6": "0",
+    "p7": "0"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p0",
+     "p0",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p1",
+     "p1",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p2",
+     "p2",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p3",
+     "p3",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p4",
+     "p4",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p5",
+     "p5",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p6",
+     "p6",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p7",
+     "p7",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "register",
+     "p8",
+     "p8",
+     "0",
+     "1"
+    ],
+    "revert": "Capacity"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "full",
+     "full",
+     "20000000000000000000",
+     "2"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "punish": {
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "m0"
+   ],
+   "burned": "6000000000000000000",
+   "heldTotal": "20000000000000000000",
+   "paid": {},
+   "records": {
+    "a": {
+     "bond": "5000000000000000000",
+     "bond_state": 2,
+     "due": 1,
+     "exit": 1,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 2,
+     "tomb": true
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "3000000000000000000",
+    "m0": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "3000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "settle_to",
+     "a",
+     "2000000000000000000"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "punish",
+     "a",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "settle_to",
+     "a",
+     "1000000000000000000"
+    ],
+    "result": "1000000000000000000"
+   }
+  ]
+ },
+ "register-values": {
+  "durable": [],
+  "final": {
+   "accruing": 2,
+   "active": [
+    "m0",
+    "a",
+    "b",
+    "c"
+   ],
+   "burned": "0",
+   "heldTotal": "45000000000000000000",
+   "paid": {},
+   "records": {
+    "a": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "b": {
+     "bond": "5000000000000000000",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "b",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "0",
+    "b": "5000000000000000000",
+    "c": "20000000000000000000",
+    "m0": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "register",
+     "d",
+     "d",
+     "20000000000000000001",
+     "1"
+    ],
+    "revert": "BadValue"
+   }
+  ]
+ },
+ "top-up": {
+  "durable": [],
+  "final": {
+   "accruing": 1,
+   "active": [
+    "m0",
+    "a",
+    "b",
+    "c"
+   ],
+   "burned": "0",
+   "heldTotal": "60000000000000000000",
+   "paid": {},
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "b": {
+     "bond": "0",
+     "bond_state": 4,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 4,
+     "reward": "b",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 5,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "due": 0,
+     "exit": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "20000000000000000000",
+    "b": "0",
+    "c": "10000000000000000000",
+    "m0": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "15000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "top_up",
+     "a",
+     "6000000000000000000",
+     "2"
+    ],
+    "result": "1000000000000000000"
+   },
+   {
+    "ok": false,
+    "op": [
+     "top_up",
+     "a",
+     "5000000000000000000",
+     "2"
+    ],
+    "revert": "BadState"
+   },
+   {
+    "ok": false,
+    "op": [
+     "top_up",
+     "a",
+     "1",
+     "3"
+    ],
+    "revert": "BadState"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "0",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "top_up",
+     "b",
+     "0",
+     "5"
+    ],
+    "revert": "BadValue"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "0",
+     "5"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "top_up",
+     "c",
+     "7000000000000000000",
+     "6"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "settle_to",
+     "c",
+     "10000000000000000000"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "top_up",
+     "c",
+     "13000000000000000000",
+     "7"
+    ],
+    "result": "10000000000000000000"
+   },
+   {
+    "ok": false,
+    "op": [
+     "top_up",
+     "c",
+     "1",
+     "8"
+    ],
+    "revert": "BadState"
+   }
+  ]
+ }
+}

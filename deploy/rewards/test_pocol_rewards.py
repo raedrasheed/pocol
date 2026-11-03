@@ -82,7 +82,7 @@ class Node:
         self.version = (2 if activation is not None and height >= activation else 1) if version is None else version
         parent_version = (2 if activation is not None and height-1 >= activation else 1) if parent_version is None else parent_version
         self.cp = {4: 0, 5: 2, 7: 6, 8: 32, 9: 2, 10: 256,
-                   11: 4, 13: 1000, 14: 500, 15: 2 * 10**18, 18: 64, 24: 32}
+                   11: 4, 13: 1000, 14: 500, 15: 2 * 10**18, 16: 100 * 10**18, 18: 64, 24: 32}
         self.parent_raw, self.parent_hash, self.parent_seal, _, _ = header(
             height-1, '0x' + 'aa' * 32, 7, [], version=parent_version)
         seed = hashlib.sha256(b'PoColNonce' + self.parent_seal + word(height)[-8:] + word(0)[-4:]).digest()
@@ -323,6 +323,30 @@ class RewardTests(unittest.TestCase):
         self.assertEqual(result['beneficiaryCount'], 1)
         self.assertEqual(result['projectedPaidWei'], '379687500000000000')
         self.assertEqual(result['beneficiaries'][0]['minerId'], node.winner)
+
+    def test_accruing_record_fills_its_bond_before_its_reward_address(self):
+        node = Node()
+        node.cp[16] = 20 * 10**18
+        winner = node.records[node.winner]
+        winner[0] = (winner[0] & ~(255 << 16)) | (4 << 16)
+        winner[2] = 20 * 10**18 - 100_000_000_000_000_000   # 0.1 PCOL short of the bond
+        result = rewards.snapshot(node)
+        by = {b['minerId']: b for b in result['beneficiaries']}
+        self.assertEqual(by[node.winner]['bondAccruedWei'], '100000000000000000')
+        self.assertEqual(int(by[node.winner]['amountWei']), 326562500000000000 - 100_000_000_000_000_000)
+        self.assertNotIn('bondAccruedWei', by[node.order[1]])
+        self.assertEqual(result['projectedPaidWei'], '379687500000000000', 'accrual is paid value, not a burn')
+        self.assertEqual(result['projectedBondWei'], '100000000000000000')
+
+    def test_accruing_record_far_from_its_bond_receives_nothing_at_its_address(self):
+        node = Node()
+        node.cp[16] = 20 * 10**18
+        winner = node.records[node.winner]
+        winner[0] = (winner[0] & ~(255 << 16)) | (4 << 16)
+        winner[2] = 0
+        result = rewards.snapshot(node)
+        by = {b['minerId']: b for b in result['beneficiaries']}
+        self.assertEqual((by[node.winner]['amountWei'], by[node.winner]['bondAccruedWei']), ('0', '326562500000000000'))
 
     def test_zero_reward_address_is_burned(self):
         node = Node(shares=[])

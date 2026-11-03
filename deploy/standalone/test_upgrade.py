@@ -12,7 +12,7 @@ import threading
 import time
 import unittest
 
-from test_launcher import BIN, EXE, call, network
+from test_launcher import BIN, EXE, call, identity, network
 
 
 def read_json(path):
@@ -261,6 +261,92 @@ class FullNonceUpgrade(unittest.TestCase):
         self.assertEqual(journal.read_bytes(), original)
         self.assertFalse((self.home / 'network-upgrade.pending.json').exists())
         self.assert_identity_preserved()
+
+
+class NewGenesisRejoin(unittest.TestCase):
+    """A home bound to one genesis joins a network with another genesis (the earn-in cutover) the way the
+    release notes describe (runbook step 3): the new invitation goes beside the application, the old network's
+    files go to a folder in the home, the key stays, and the wallet imports the new invitation. Import and
+    upgrade refuse the new genesis while the old binding is in place, so nothing rebinds a home silently."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.home = self.root / 'home'
+        self.address = identity(self.home)
+        self.old = self.invitation('old', 777915)
+        self.new = self.invitation('new', 777916)
+        # The application folder: the engine and, as the 0.4.0 notes asked, the old invitation beside it.
+        self.app = self.root / 'app'
+        self.app.mkdir()
+        shutil.copy2(BIN / ('pocol' + EXE), self.app / ('pocol' + EXE))
+        shutil.copy2(self.old, self.app / 'network.pocol.json')
+        self.engine('import', '--home', self.home)
+
+    def invitation(self, name, chain_id):
+        root = self.root / name
+        root.mkdir()
+        config = {'chainId': chain_id, 'genesisTime': int(time.time()) + 5, 'registrationPerBlock': 1,
+                  'miners': [{'id': self.address, 'reward': self.address}],
+                  'accounts': [{'address': self.address, 'wei': str(10**24)}], 'fullNonce': True}
+        (root / 'public.json').write_text(json.dumps(config), encoding='utf-8')
+        call('pocold', 'init-testnet', '--config', root / 'public.json', '--out', root / 'genesis')
+        call('pocol', 'network', '--from', root / 'genesis', '--out', root / 'network.pocol.json',
+             '--seed', '127.0.0.1:30300')
+        return root / 'network.pocol.json'
+
+    def engine(self, *args, ok=True):
+        """The application folder's engine without --network, as the Windows wallet runs it when it opens."""
+        p = subprocess.run([str(self.app / ('pocol' + EXE)), *map(str, args)], capture_output=True, text=True,
+                           encoding='utf-8', timeout=90)
+        if ok and p.returncode:
+            raise AssertionError(p.stderr)
+        return p
+
+    def bound_chain(self):
+        return json.loads(read_json(self.home / 'network.pocol.json')['files']['devnet.json'])['chainId']
+
+    def move_aside(self):
+        # What a used home also holds: chain data, wallet activity and the H15000 upgrade's backup.
+        (self.home / 'state').mkdir(exist_ok=True)
+        (self.home / 'state' / 'blocks.journal').write_bytes(b'old chain')
+        (self.home / 'wallet-activity.json').write_text('[]', encoding='utf-8')
+        (self.home / 'network.pocol.json.before-full-nonce').write_text('{}', encoding='utf-8')
+        aside = self.home / 'old-network'
+        aside.mkdir()
+        moved = ['network.pocol.json', 'network', 'state', 'wallet-activity.json',
+                 'network.pocol.json.before-full-nonce']
+        for name in moved:
+            shutil.move(str(self.home / name), str(aside / name))
+        return aside, moved
+
+    def test_the_new_invitation_beside_the_application_and_the_old_files_aside_keep_the_address(self):
+        self.assertEqual(self.bound_chain(), 777915)
+        key = (self.home / 'identity.pocol-key').read_bytes()
+        refused = call('pocol', 'import', '--home', self.home, '--network', self.new, ok=False)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn('bound to another invitation', refused.stderr)
+        refused = call('pocol', 'upgrade', '--home', self.home, '--network', self.new, ok=False)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn('must preserve the genesis', refused.stderr)
+        shutil.copy2(self.new, self.app / 'network.pocol.json')
+        aside, moved = self.move_aside()
+        self.engine('import', '--home', self.home)
+        self.assertEqual(identity(self.home), self.address)
+        self.assertEqual((self.home / 'identity.pocol-key').read_bytes(), key)
+        self.assertEqual(self.bound_chain(), 777916)
+        self.assertEqual(sorted(p.name for p in aside.iterdir()), sorted(moved))
+        self.assertEqual((aside / 'state' / 'blocks.journal').read_bytes(), b'old chain')
+
+    def test_an_old_invitation_left_beside_the_application_binds_the_home_again(self):
+        # Why the notes replace the file beside the application first: otherwise opening the wallet rebinds
+        # the cleared home to the old genesis, and importing the new invitation is then refused.
+        self.move_aside()
+        self.engine('import', '--home', self.home)
+        self.assertEqual(self.bound_chain(), 777915)
+        refused = call('pocol', 'import', '--home', self.home, '--network', self.new, ok=False)
+        self.assertIn('bound to another invitation', refused.stderr)
 
 
 if __name__ == '__main__':

@@ -46,6 +46,19 @@ fn threads()->usize{
     #[cfg(target_os="linux")]{std::fs::read_to_string("/proc/self/status").unwrap().lines().find(|l|l.starts_with("Threads:")).unwrap()[8..].trim().parse().unwrap()}
     #[cfg(not(target_os="linux"))]{eprintln!("THREADS-NOT-MEASURED");0}
 }
+/// Process threads by kind, from their names (Linux /proc): peer readers and writers (`peer-*`), RPC
+/// connections (`rpc-*`), and every other thread. Elsewhere (0, 0, 0), as `threads`. A thread just
+/// spawned carries its parent's name until it sets its own, so one named like the P2P listener or the
+/// RPC acceptor counts with what they spawn (the baseline holds the listener and acceptor themselves).
+fn thread_kinds()->(usize,usize,usize){
+    #[cfg(target_os="linux")]{let (mut p,mut r,mut o)=(0,0,0);
+        for e in std::fs::read_dir("/proc/self/task").unwrap().flatten(){
+            // A thread that exits between the listing and this read is not counted.
+            let Ok(n)=std::fs::read_to_string(e.path().join("comm")) else{continue};
+            let n=n.trim_end();if n.starts_with("peer-")||n=="p2p-listen"{p+=1}else if n.starts_with("rpc-")||n=="rpc"{r+=1}else{o+=1}}
+        (p,r,o)}
+    #[cfg(not(target_os="linux"))]{(0,0,0)}
+}
 fn wait_until(ms:u64,f:impl Fn()->bool)->bool{let t=Instant::now();while t.elapsed()<Duration::from_millis(ms){if f(){return true}std::thread::sleep(Duration::from_millis(20));}f()}
 fn rpc(port:u16,body:&str,origin:bool)->(u16,String){
     let mut s=TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();let _=s.set_nodelay(true);
@@ -300,7 +313,7 @@ fn small()->Limits{
 /// most one that has finished but is not yet joined (the acceptor joins it at the next accept); the
 /// A13 inventory counts conn_max RPC threads (and this test's own threads).
 #[test] fn peer_threads_stay_within_the_inventory_while_consensus_is_stalled(){let _g=serial();
-    let r=start("inventory",small());let base=threads();let peers_max=6usize;
+    let r=start("inventory",small());let base=threads();let k0=thread_kinds();let peers_max=6usize;
     let stop=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let heavy={let (port,stop)=(r.rpc,stop.clone());std::thread::spawn(move||{let mut n=0;while !stop.load(Ordering::SeqCst){
         let (code,_)=rpc(port,r#"{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"data":"0x5b600056","gas":"0x1c9c380"},"latest"]}"#,false);if code==200{n+=1}}n})};
@@ -308,13 +321,23 @@ fn small()->Limits{
         if let Ok(mut s)=TcpStream::connect(("127.0.0.1",port)){let _=s.set_write_timeout(Some(Duration::from_millis(200)));let _=s.write_all(&h);
             for _ in 0..100{if s.write_all(&frame(&Msg::GetRange{start:1,count:1})).is_err(){break}}k+=1;}
     }k})}).collect();
-    let own=1+3;let t=Instant::now();let mut worst=0usize;
-    while t.elapsed()<Duration::from_secs(6){worst=worst.max(threads().saturating_sub(base+own));std::thread::sleep(Duration::from_millis(3));}
+    // Threads are counted by kind (their names): the bound on peer threads is this test's subject; an
+    // RPC connection thread can still be closing when the heavy sender's next connection starts (A13
+    // counts conn_max of them), and the rest must not grow. Operations run 41499486344 (attempt 1)
+    // saw 15 threads in all against the old total bound 2*peers_max+2 (14), with no breakdown.
+    // Each kind's largest excess over the start, over all samples (the test's own threads are other).
+    let own=1+3;let t=Instant::now();let (mut worst,mut peer,mut rpc,mut other)=(0usize,0usize,0usize,0usize);
+    while t.elapsed()<Duration::from_secs(6){let k=thread_kinds();
+        worst=worst.max((k.0+k.1+k.2).saturating_sub(k0.0+k0.1+k0.2+own));peer=peer.max(k.0.saturating_sub(k0.0));
+        rpc=rpc.max(k.1.saturating_sub(k0.1));other=other.max(k.2.saturating_sub(k0.2+own));
+        std::thread::sleep(Duration::from_millis(3));}
     stop.store(true,Ordering::SeqCst);let calls=heavy.join().unwrap();let conns:usize=churn.into_iter().map(|h|h.join().unwrap()).sum();
     assert!(calls>=2&&conns>=10,"the scenario ran: {calls} heavy calls, {conns} peer connections");
-    assert!(worst<=2*peers_max+2,"threads beyond the inventory: {worst} > {}",2*peers_max+2);
+    let rpc_max=small().rpc.conn_max;
+    assert!(peer<=2*peers_max+1&&rpc<=rpc_max&&other==0,
+        "threads beyond the inventory: peer {peer} (bound {}), rpc {rpc} (bound {rpc_max}), other {other} (bound 0); {worst} extra in all",2*peers_max+1);
     assert!(wait_until(5000,||live(&r)==0&&threads()<=base+2),"live={} threads {} vs {base}",live(&r),threads());
-    println!("INVENTORY {}",serde_json::json!({"worstExtraThreads":worst,"bound":2*peers_max+2,"heavyCalls":calls,"peerConnections":conns}));
+    println!("INVENTORY {}",serde_json::json!({"worstExtraThreads":worst,"peerThreads":peer,"rpcThreads":rpc,"otherThreads":other,"peerBound":2*peers_max+1,"heavyCalls":calls,"peerConnections":conns}));
 }
 
 // ---------------- round 2: the RPC work deadline, tested on its own ----------------
@@ -345,7 +368,7 @@ fn stats(port:u16)->serde_json::Value{let (_,b)=rpc(port,r#"{"jsonrpc":"2.0","id
 #[test] fn rpc_work_deadline_skips_expired_work_and_releases_resources(){let _g=serial();
     let c=&pocold::rpc::COUNTERS;let d=heavy_duration();let dl=(d/4).max(Duration::from_millis(2));
     let mut l=small();l.rpc.work_deadline=dl;let r=start("deadline",l);
-    let base=threads();let (e0,m0)=(counter(&c.expired),counter(&c.expired_members));let (ha0,lq0)=(counter(&c.heavy_active),counter(&c.light_queued));
+    let base=threads();let e0=counter(&c.expired);let (ha0,lq0)=(counter(&c.heavy_active),counter(&c.light_queued));
     let stop=Arc::new(AtomicBool::new(false));
     let h=std::thread::spawn({let p=r.rpc;move||timed(p,HEAVY)});
     let lights:Vec<_>=(0..8).map(|_|{let (p,stop)=(r.rpc,stop.clone());std::thread::spawn(move||{let mut v=vec![];while !stop.load(Ordering::SeqCst){v.push(rpc(p,LIGHT,false).0)}v})}).collect();
@@ -363,15 +386,32 @@ fn stats(port:u16)->serde_json::Value{let (_,b)=rpc(port,r#"{"jsonrpc":"2.0","id
     let skipped=counter(&c.expired)-e0;
     assert!(wait_until(10_000,||rpc(r.rpc,LIGHT,false).0==200),"the node serves again");
     assert!(late>=1&&skipped>=1&&skipped<=late,"light 504s {late}, skipped {skipped} (of {} light requests)",codes.len());
-    // A batch: the first member runs past the deadline; the 19 after it are not started.
+    // A batch: the first member runs past the deadline; the 19 after it are not started. On a slow or
+    // busy host the node can reach the batch only after its deadline (d/4); it then skips the whole
+    // batch unrun (`expired`, the rule tested above) and no member is counted, or it starts the batch
+    // just as the deadline passes and all 20 members expire. Either way no member ran, so the batch is
+    // sent again, at most 5 times; any other count is a failure at once. Operations run 41499486344
+    // (attempt 2) saw 0 members after its one send.
     let mut b=vec![HEAVY.to_string()];b.extend((0..19).map(|_|LIGHT.to_string()));let body=format!("[{}]",b.join(","));
-    let (code,t)=timed(r.rpc,&body);assert_eq!(code,504);assert!(t<d,"{t:?}");
-    assert!(wait_until(10_000,||counter(&c.expired_members)-m0==19),"members after the deadline are not started: {}",counter(&c.expired_members)-m0);
+    let (mut sends,mut whole)=(0,0);
+    let members=loop{sends+=1;
+        let (m1,e1)=(counter(&c.expired_members),counter(&c.expired));
+        let (code,t)=timed(r.rpc,&body);assert_eq!(code,504);assert!(t<d,"{t:?}");
+        // The node has finished with this batch: it ran it (19 members expire after the first), or skipped it.
+        assert!(wait_until(30_000,||counter(&c.expired_members)-m1>=19||counter(&c.expired)>e1),
+            "the node runs or skips the batch: members {}, skipped {}",counter(&c.expired_members)-m1,counter(&c.expired)-e1);
+        // Counted once the batch has left the heavy lane, so a batch whose 20 members all expired is not read at 19.
+        assert!(wait_until(30_000,||counter(&c.heavy_active)<=ha0),"the batch released its place");
+        let members=counter(&c.expired_members)-m1;
+        if !(members==0||members==20)||sends==5{break members}
+        whole+=1;
+    };
+    assert_eq!(members,19,"members after the deadline are not started ({sends} sends, {whole} skipped whole)");
     // Resources: connection threads, queued bodies and reservations are all released.
     assert!(wait_until(5000,||counter(&c.active)==0&&threads()<=base+2),"active={} threads {} vs {base}",counter(&c.active),threads());
     let st=stats(r.rpc);assert_eq!(st["queued"],1,"only the stats request itself is queued");assert_eq!(st["heavyReserved"],pocold::rpc::RESP_MAX,"only the stats request itself is reserved");assert_eq!(st["lightReserved"],0);
     println!("DEADLINE {}",serde_json::json!({"heavyMs":d.as_millis() as u64,"workDeadlineMs":dl.as_millis() as u64,"heavyAnsweredMs":ht.as_millis() as u64,
-        "lightRequests":codes.len(),"light504":late,"light503":codes.iter().filter(|c|**c==503).count(),"skipped":skipped,"batchMembersNotRun":counter(&c.expired_members)-m0}));
+        "lightRequests":codes.len(),"light504":late,"light503":codes.iter().filter(|c|**c==503).count(),"skipped":skipped,"batchMembersNotRun":members,"batchSends":sends,"batchesSkippedWhole":whole}));
 }
 /// Review F4: the body of a heavy request whose caller already got 504 stays queued until the
 /// node reaches it. At most queued_max (HEAVY_QUEUE) are held at any moment, a further heavy

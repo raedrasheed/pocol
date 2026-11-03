@@ -94,12 +94,19 @@ class Launcher(unittest.TestCase):
 def port():
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); return s.getsockname()[1]
 
+BUSY_RETRIES = 20
+
 def rpc(port, method, params=None):
-    req = urllib.request.Request(f'http://127.0.0.1:{port}', data=json.dumps({'jsonrpc':'2.0','id':1,'method':method,'params':params or []}).encode(), headers={'Content-Type':'application/json'})
-    with urllib.request.urlopen(req, timeout=3) as response:
-        value=json.load(response)
-        if 'error' in value: raise RuntimeError(value['error'])
-        return value['result']
+    # -32021 is the node's load-shedding answer; a client waits retryAfterMs and asks again.
+    for attempt in range(BUSY_RETRIES + 1):
+        req = urllib.request.Request(f'http://127.0.0.1:{port}', data=json.dumps({'jsonrpc':'2.0','id':1,'method':method,'params':params or []}).encode(), headers={'Content-Type':'application/json'})
+        with urllib.request.urlopen(req, timeout=3) as response:
+            value=json.load(response)
+        error=value.get('error')
+        if error is None: return value['result']
+        delay=(error.get('data') or {}).get('retryAfterMs') if isinstance(error, dict) else None
+        if error.get('code')!=-32021 or not isinstance(delay, int) or attempt==BUSY_RETRIES: raise RuntimeError(error)
+        time.sleep(delay/1000)
 
 def integration():
     with tempfile.TemporaryDirectory(prefix='pocol-standalone-') as tmp:

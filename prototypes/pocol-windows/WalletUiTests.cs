@@ -74,6 +74,11 @@ internal static class WalletUiTests {
    state["rejoinAvailable"]=false;Response(state);Check(Control<Button>("Rejoin").Visibility==Visibility.Collapsed,"Rejoin stayed visible after it became unavailable.");
    Response(D("type","rejoin","state","Reactivating","message","Reactivation submitted (attempt 1 of 3)."));Check(Control<TextBlock>("Message").Text=="Reactivation submitted (attempt 1 of 3).","Rejoin progress not shown.");
    Response(Snapshot(new object[]{Entry(Transfer,"reactivation","Included"),Entry(Registration,"rejoin","Included")}));Check(CardText(0,0)=="Mining reactivation"&&CardText(1,0)=="Mining rejoin · exit","Rejoin history rows missing.");
+   // Earn-in probation: the engine offers a top-up; the UI shows the action and its history row.
+   state["type"]="status";state.Remove("rejoinAvailable");Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Collapsed,"Top-up shown although the engine did not offer it.");
+   state["topUpAvailable"]=true;Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Visible,"Top-up action missing during probation.");
+   state["topUpAvailable"]=false;Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Collapsed,"Top-up stayed visible after probation.");
+   Response(Snapshot(new object[]{Entry(Transfer,"topup","Included")}));Check(CardText(0,0)=="Bond top-up","Top-up history row missing.");
    transfer["state"]="Included";transfer["confirmations"]=2;state["type"]="status";Response(state);
    if(args.Length==1){
     Invoke("Page","Activity");window.Show();window.UpdateLayout();
@@ -83,7 +88,7 @@ internal static class WalletUiTests {
     var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using(var file=File.Create(args[0]))png.Save(file);
    }
    window.Close();app.Shutdown();Check(Directory.Exists(home)==homeExisted,"UI test unexpectedly created a wallet home.");
-   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh and rejoin");return 0;
+   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin and probation top-up");return 0;
   }catch(Exception e){Console.WriteLine("FAIL "+e.GetBaseException().Message);return 1;}
  }
 }

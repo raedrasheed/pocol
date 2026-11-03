@@ -24,8 +24,12 @@ pub enum Command {
     Status,
     Mining { enabled:bool },
     QuoteSend { to:String, amount:String },
-    QuoteRegister,
+    /// `bond`: the PCOL locked now. Earn-in networks take 0..B (default 0: the rest is earned from rewards);
+    /// other networks take exactly B (the default).
+    QuoteRegister { #[serde(default)] bond:Option<String> },
     QuoteRejoin,
+    /// Earn-in: fill an ACCRUING bond (default: the whole remainder).
+    QuoteTopUp { #[serde(default)] amount:Option<String> },
     Confirm { quote_id:String },
     Cancel,
     Stop,
@@ -35,6 +39,9 @@ struct Quote { id:String, tx:Option<Tx>, deadline:Instant, kind:&'static str, re
 /// Reactivation signatures one rejoin confirmation allows (each counted in its maximum fee).
 pub const REACTIVATE_ATTEMPTS:u8=3;
 const REGISTRY_GAS:u64=1_000_000;
+/// Earn-in registration: about 2x the 194,143 gas a zero-bond first registration measures
+/// (lp4-execution tests/earnin_contracts.rs), so the fee faucet's 0.002 PCOL covers its maximum fee.
+const EARNIN_REGISTER_GAS:u64=400_000;
 /// Heads the exit may stay unincluded before the plan stops (nothing changed on chain then).
 pub const EXIT_WAIT_BLOCKS:u64=30;
 struct Rejoin { exit:Option<(B256,u64)>, max_fee:U256, priority:U256, attempts:u8, last:Option<B256>, tried_at:Option<u64> }
@@ -59,11 +66,14 @@ pub enum RejoinStep {
 }
 pub fn rejoin_step(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64)->RejoinStep{
     let Some(r)=record else{return RejoinStep::Unavailable};
-    if r.tomb||r.bond_state!=1{return RejoinStep::Unavailable}
+    if r.tomb||!matches!(r.bond_state,1|4){return RejoinStep::Unavailable}
+    // Earn-in (EARN-IN-SPEC U4): a probation record reactivates only before registeredAt + T_PROB.
+    let deadline=(r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).then(|| r.registered_at.saturating_add(apply::SystemPrograms::EARNIN_T_PROB));
     match r.status{
         1 if member=>RejoinStep::Active,
+        1 if deadline.is_some_and(|d|next.saturating_add(w_act)>=d)=>RejoinStep::Missed,
         1=>RejoinStep::Exit,
-        2=>{let opens=r.exit_height.saturating_add(w_act);let closes=r.due_height;
+        2=>{let opens=r.exit_height.saturating_add(w_act);let closes=deadline.map_or(r.due_height,|d|d.min(r.due_height));
             if next>=closes{RejoinStep::Missed}else if next<opens{RejoinStep::Wait{opens,closes}}else{RejoinStep::Reactivate{closes}}},
         _=>RejoinStep::Unavailable,
     }
@@ -163,7 +173,10 @@ impl<'a> Wallet<'a>{
         let account=state.as_ref().and_then(|s|s.v().account(&addr));
         let balance=account.map(|a|a.info.balance).unwrap_or_default();
         let (record,member,step)=self.rejoin_view(n);
-        let eligible=record.as_ref().is_some_and(|r|r.status==1&&!r.tomb&&r.bond_state==1);
+        // A HELD or (earn-in) ACCRUING active record mines: probation keeps a nonce range.
+        let eligible=record.as_ref().is_some_and(|r|r.status==1&&!r.tomb&&matches!(r.bond_state,1|4));
+        let earn=n.chain.spec.earnin();let target=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
+        let probation=record.as_ref().filter(|r|r.status==1&&!r.tomb&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING);
         let mut activity=self.activity.clone();
         for item in &mut activity{
             let parsed=item["hash"].as_str().and_then(|s|s.parse::<B256>().ok());
@@ -192,14 +205,22 @@ impl<'a> Wallet<'a>{
         }};
         let mut rejoin=step_json(step);
         rejoin["inProgress"]=json!(self.rejoin.is_some());rejoin["attempts"]=json!(self.rejoin.as_ref().map(|p|p.attempts).unwrap_or(0));
-        let registry=match &record{None=>"none",Some(r) if r.tomb=>"removed",Some(r) if r.bond_state!=1=>"closed",Some(r) if r.status==1=>"member",Some(r) if r.status==2=>"exited",Some(_)=>"closed"};
+        let registry=match &record{None=>"none",Some(r) if r.tomb=>"removed",Some(r) if !matches!(r.bond_state,1|4)=>"closed",
+            Some(r) if r.status==1&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING=>"probation",Some(r) if r.status==1=>"member",Some(r) if r.status==2=>"exited",Some(_)=>"closed"};
+        let ends=probation.map(|r|r.registered_at+apply::SystemPrograms::EARNIN_T_PROB);
+        let mining_state=match (probation,ends){
+            (Some(r),Some(end)) if self.rejoin.is_none()=>format!("{mining_state} · Probation: bond {} of {} PCOL, filled from your rewards (by block {end})",coins(r.bond),coins(target)),
+            _=>mining_state,
+        };
         crate::network_display::annotate(json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
             "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
             "miningEnabled":enabled,"miningEligible":eligible,"registered":record.is_some(),
             "miningActive":member,"registryStatus":registry,"rejoin":rejoin,
             "rejoinAvailable":self.rejoin.is_none()&&matches!(step,RejoinStep::Exit|RejoinStep::Wait{..}|RejoinStep::Reactivate{..}),
             "miningState":mining_state,
-            "blocksMined":n.stats.mined,"bond":coins(crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg)),
+            "blocksMined":n.stats.mined,"bond":coins(target),
+            "earnIn":earn,"bondHeld":record.as_ref().map(|r|coins(r.bond)),"bondTarget":coins(target),"probationEndsAt":ends,
+            "topUpAvailable":earn&&probation.is_some()&&ends.is_some_and(|e|head.height+1<e),
             "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true}))
     }
     pub fn handle(&mut self,n:&mut Node,raw:&str)->Value{
@@ -228,15 +249,43 @@ impl<'a> Wallet<'a>{
                 if pending.account(&to).is_some_and(|a|a.info.code_hash!=revm::primitives::KECCAK_EMPTY&&a.info.code_hash!=revm::primitives::B256::ZERO){return Err("This send screen supports account transfers only".into())}
                 self.quote(n,"transfer",to,amount(&a)?,Bytes::new(),21_000)
             },
-            Command::QuoteRegister=>{
+            Command::QuoteRegister{bond}=>{
                 if self.status(n)["registered"].as_bool().unwrap_or(false){return Err("This identity already has a registry record".into())}
+                let earn=n.chain.spec.earnin();let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
+                let value=match bond.as_deref(){
+                    None=>if earn{U256::ZERO}else{full},
+                    Some("0")=>U256::ZERO,
+                    Some(text)=>amount(text)?,
+                };
+                if value>full{return Err(format!("The bond is at most {} PCOL",coins(full)))}
+                if !earn&&value!=full{return Err(format!("This network takes the full {} PCOL bond",coins(full)))}
+                if earn&&value<full{
+                    let head=n.chain.head();
+                    let taken=n.chain.view_of(&head.hash).map(|s|s.v().slot(&apply::program_address(0),&U256::from(8))).unwrap_or_default();
+                    if taken>=U256::from(apply::SystemPrograms::EARNIN_P_MAX){return Err(format!("All {} probation seats are taken. Register with the full {} PCOL bond, or try again later.",apply::SystemPrograms::EARNIN_P_MAX,coins(full)))}
+                }
                 // PAY-02: the reward address (this identity) must have nonce > 0 in the state before the
                 // registration, or register(address) reverts with RewardNotDurable and only costs the fee.
-                if !registration_reward_durable(n.chain.view_of(&n.chain.head().hash).and_then(|s|s.v().account(&self.key.address())).map(|a|a.info.nonce)){
+                // The earn-in Registry accepts a self reward without that probe (R9).
+                if !earn&&!registration_reward_durable(n.chain.view_of(&n.chain.head().hash).and_then(|s|s.v().account(&self.key.address())).map(|a|a.info.nonce)){
                     return Err("This identity has not sent a transaction yet, and the registry pays rewards only to an account that has. Send one transfer first (a small amount, even to your own address), wait for it to be included, then register.".into())
                 }
                 let mut data=keccak256("register(address)")[..4].to_vec();data.extend_from_slice(self.key.address().into_word().as_slice());
-                self.quote(n,"registration",apply::program_address(0),crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg),data.into(),REGISTRY_GAS)
+                let mut q=self.quote(n,"registration",apply::program_address(0),value,data.into(),if earn{EARNIN_REGISTER_GAS}else{REGISTRY_GAS})?;
+                q["bondTarget"]=json!(coins(full));q["probation"]=json!(value<full);
+                Ok(q)
+            },
+            Command::QuoteTopUp{amount:requested}=>{
+                if !n.chain.spec.earnin(){return Err("Bond top-up exists only on the earn-in network".into())}
+                let (record,_,_)=self.rejoin_view(n);let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
+                let r=record.filter(|r|r.status==1&&!r.tomb&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).ok_or("Top-up needs an active probation record")?;
+                if n.chain.head().height+1>=r.registered_at+apply::SystemPrograms::EARNIN_T_PROB{return Err("The probation period has ended".into())}
+                let remaining=full-r.bond;
+                let value=match requested.as_deref(){None=>remaining,Some(text)=>amount(text)?};
+                if value>remaining{return Err(format!("At most {} PCOL remains to fill the bond",coins(remaining)))}
+                let mut q=self.quote(n,"topup",apply::program_address(0),value,keccak256("topUp()")[..4].to_vec().into(),REGISTRY_GAS)?;
+                q["bondTarget"]=json!(coins(full));q["bondHeld"]=json!(coins(r.bond));
+                Ok(q)
             },
             Command::QuoteRejoin=>self.quote_rejoin(n),
             Command::Confirm{quote_id}=>{
@@ -391,7 +440,7 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         for s in ["", "0", "-1", "NaN", "1e18", "1.0000000000000000001", ".1", "1..2", " 1"]{assert!(amount(s).is_err(),"{s}")}
     }
     fn record(status:u8,exit:u64,due:u64)->apply::MinerRecord{
-        apply::MinerRecord{id:Address::repeat_byte(7),status,tomb:false,bond_state:1,last_share:5,reward:Address::repeat_byte(7),bond:U256::from(100u64),exit_height:exit,due_height:due,burn_height:0,grace_start:0}
+        apply::MinerRecord{id:Address::repeat_byte(7),status,tomb:false,bond_state:1,last_share:5,reward:Address::repeat_byte(7),bond:U256::from(100u64),exit_height:exit,due_height:due,burn_height:0,grace_start:0,registered_at:0}
     }
     #[test] fn rejoin_step_follows_the_registry_window(){
         // Mainnet: W_act=32, U=40. Exit at 100 → reactivate() may be included at 132..=139; the sweep refunds at 140.
@@ -443,7 +492,25 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         assert_eq!(exit_calldata().as_ref(),&keccak256("deregister()")[..4]);
         assert_eq!(reactivate_calldata().as_ref(),&keccak256("reactivate()")[..4]);
     }
+    #[test] fn probation_rejoin_ends_at_the_deadline(){
+        // Heights offset by T_PROB so registeredAt stays positive.
+        let t=apply::SystemPrograms::EARNIN_T_PROB;
+        let mut r=record(2,t+100,t+140);r.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;r.registered_at=t;
+        assert_eq!(rejoin_step(Some(&r),t+132,false,32),RejoinStep::Reactivate{closes:t+140},"before the deadline the usual window applies");
+        r.registered_at=135;
+        assert_eq!(rejoin_step(Some(&r),t+132,false,32),RejoinStep::Reactivate{closes:t+135},"the deadline closes the window early");
+        assert_eq!(rejoin_step(Some(&r),t+135,false,32),RejoinStep::Missed);
+        let mut active=record(1,0,0);active.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;active.registered_at=200;
+        assert_eq!(rejoin_step(Some(&active),t+168,false,32),RejoinStep::Missed,"an exit at T+168 would reopen at the deadline");
+        assert_eq!(rejoin_step(Some(&active),t+167,false,32),RejoinStep::Exit);
+        assert_eq!(rejoin_step(Some(&active),t+500,true,32),RejoinStep::Active);
+    }
     #[test] fn command_surface_is_closed(){
         assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_rejoin"}"#),Ok(Command::QuoteRejoin)));
+        assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_register"}"#),Ok(Command::QuoteRegister{bond:None})));
+        assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_register","bond":"0"}"#),Ok(Command::QuoteRegister{bond:Some(b)}) if b=="0"));
+        assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_top_up"}"#),Ok(Command::QuoteTopUp{amount:None})));
+        assert!(serde_json::from_str::<Command>(r#"{"method":"quote_register","bond":20}"#).is_err(),"amounts are decimal strings");
+        assert!(serde_json::from_str::<Command>(r#"{"method":"quote_top_up","value":"1"}"#).is_err());
         assert!(serde_json::from_str::<Command>(r#"{"method":"reactivate"}"#).is_err());assert!(serde_json::from_str::<Command>(r#"{"method":"mining","enabled":true,"secret":"x"}"#).is_err());assert!(serde_json::from_str::<Command>(r#"{"method":"send","amount":1}"#).is_err());}
 }

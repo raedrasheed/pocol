@@ -176,3 +176,24 @@ fn seeded_partition_properties_and_permutation_invariance() {
         }
     }
 }
+
+/// Earn-in D1–D2 (EARN-IN-SPEC.md), the cases of earnin-vectors.json "draw": a/b/c are ids 1/2/3.
+#[test]
+fn accruing_members_are_not_proposer_candidates_unless_all_are() {
+    let act = [member(1, 9, 0, false), member(2, 9, 0, false), member(3, 9, 0, false)];
+    let row = |n: u8, count: u64| ShareCount { height: 8, id: id(n), count };
+    let mixed = members(10, &act, 32).with_accruing([id(2)]);
+    assert_eq!(DrawWeights::new(&mixed, 3, &[row(1, 3), row(2, 9), row(3, 1)]).unwrap().weights(), &[(id(1), 3), (id(2), 0), (id(3), 1)]);
+    assert_eq!(DrawWeights::new(&mixed, 3, &[row(2, 9)]).unwrap().weights(), &[(id(1), 1), (id(2), 0), (id(3), 1)]);
+    let two = [member(1, 9, 0, false), member(2, 9, 0, false)];
+    let all = members(10, &two, 32).with_accruing([id(1), id(2)]);
+    assert_eq!(DrawWeights::new(&all, 3, &[row(1, 2)]).unwrap().weights(), &[(id(1), 2), (id(2), 0)]);
+    assert_eq!(DrawWeights::new(&all, 3, &[]).unwrap().weights(), &[(id(1), 1), (id(2), 1)]);
+    // Unchanged without ACCRUING members, and ids outside the membership are ignored.
+    let plain = members(10, &act, 32);
+    let rows = [row(1, 3), row(2, 9), row(3, 1)];
+    assert_eq!(DrawWeights::new(&plain.clone().with_accruing([id(9)]), 3, &rows).unwrap().weights(), DrawWeights::new(&plain, 3, &rows).unwrap().weights());
+    let w = DrawWeights::new(&mixed, 3, &[row(1, 3), row(2, 9), row(3, 1)]).unwrap();
+    assert_eq!(w.total(), 4);
+    for i in 0..w.total() { assert_ne!(w.choose(i).unwrap(), id(2), "an ACCRUING member is never drawn"); }
+}

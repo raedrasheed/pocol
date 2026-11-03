@@ -45,6 +45,11 @@ impl Spec{
     pub fn admission(&self)->&Admitted{&self.admitted}
     pub fn cp(&self)->&pocol_lp4_execution::profile::ConsensusParams{self.profile().cp()}
     pub fn chain_id(&self)->u64{self.profile().spec().chain_id}
+    /// Whether this genesis runs the earn-in system programs (EARN-IN-SPEC.md).
+    pub fn earnin(&self)->bool{
+        static EARNIN:std::sync::OnceLock<[u8;32]>=std::sync::OnceLock::new();
+        self.profile().spec().sys_code_hash==*EARNIN.get_or_init(||pocol_lp4_execution::apply::SystemPrograms::earnin().sys_code_hash().0)
+    }
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}
     pub fn active_version(&self,h:u64)->u16{self.profile().forks().active_version(h)}
     /// The genesis CP remains immutable. Consensus v2 activates the complete u64
@@ -411,7 +416,9 @@ impl Chain{
         let st=self.view_or(p)?;let st=st.v();
         let act:Vec<ParentMember>=apply::active_list(st).into_iter().map(|id|{let r=apply::miner_record(st,id);
             ParentMember{id:raw_addr(id),tomb:r.map(|r|r.tomb).unwrap_or(false),last_share:r.map(|r|r.last_share).unwrap_or(0),grace_start:r.map(|r|r.grace_start).unwrap_or(0)}}).collect();
-        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max).map_err(|e|Reject::Block(format!("membership {e:?}")))
+        // Earn-in D1: ACCRUING records (bondState 4) are not proposer candidates. None exist on v1 networks.
+        let accruing:Vec<_>=apply::active_list(st).into_iter().filter(|id|apply::miner_record(st,*id).is_some_and(|r|r.bond_state==4)).map(raw_addr).collect();
+        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
     }
     pub fn draw(&self,p:&Entry,members:&Membership,h:u64)->Result<Address,Reject>{
         let cp=self.spec.cp();let lo=h.saturating_sub(1).saturating_sub(u64::from(cp.W_w)).max(1);let mut hist=Vec::new();

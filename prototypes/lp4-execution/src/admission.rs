@@ -225,7 +225,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     let spec=gs::verify_hash(r.spec_bytes,&hash).map_err(|e|terminal("R24",format!("GenesisSpec decode: {e:?}")))?;
     let cp=ConsensusParams::from_values(&spec.cp).map_err(|e|terminal("R24",format!("CP schema: {e:?}")))?;
     let mut notes=Vec::new();
-    let programs=SystemPrograms::for_params(&cp);
+    let programs=SystemPrograms::for_spec(&cp,&spec.sys_code_hash);
 
     // Builder facts: allocRoot and system slots of the constructed genesis (before the
     // allocRoot comparison, which the gate makes as R24).
@@ -352,7 +352,7 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
     let mut gas_log=Vec::new();let mut roots=Vec::new();
     let hash=gs::genesis_hash(spec_bytes);let spec=gs::verify_hash(spec_bytes,&hash).map_err(|e|format!("{e:?}"))?;
     let profile=fact_identity(spec_bytes,&hash,spec.chain_id)?;let cp=profile.cp().clone();
-    let genesis=Genesis::build(alloc,&profile,&SystemPrograms::for_params(&cp)).map_err(|e|format!("{e:?}"))?;
+    let genesis=Genesis::build(alloc,&profile,&SystemPrograms::for_spec(&cp,&spec.sys_code_hash)).map_err(|e|format!("{e:?}"))?;
     let mut state=genesis.state().clone();
     // Fund the calibration sender by moving balance (total supply unchanged).
     let key=crate::txsign::Key::devnet("admission-calibration");let sender=key.address();let spin=scratch_address("pocol-admission-spin");
