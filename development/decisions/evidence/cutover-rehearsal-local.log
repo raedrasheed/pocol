@@ -2,27 +2,27 @@
  "result": "PASS",
  "mode": "local",
  "deterministic": true,
- "S": 7,
+ "S": 17,
  "newHeight": 6,
  "checkedAccounts": 7,
  "old": {
-  "blockHash": "0x09c46fae76318617bb2e2cd0a75a96e8f70dd8f4d5ee1408fdca84b1733cea2b",
+  "blockHash": "0x54956ccf67a3089a77cbfd02bcc749438ffb9604051a28e9a9527b855006bff7",
   "chainId": 777950,
-  "genesisHash": "0x622286cb120cba0d0545818d3c3caef6d10c428c8b5740a29dffb13a5a1c4e1c",
-  "head": 67,
-  "height": 7
+  "genesisHash": "0x67d44ca7594599e563b023976f8728acffafa12a24baae86fddcfd7f89921e51",
+  "head": 77,
+  "height": 17
  },
  "new": {
   "chainId": 777951,
-  "genesisHash": "0x41aa83f2aed0ebe57c7f1fb0746c2f2f8952d5ef5308125dd84d2fe1e9e59748",
-  "genesisTime": 1793707948
+  "genesisHash": "0x566a10753315c65b39a1e284cc6f02c90cba0eaeb98397a83d00863c2065cf6e",
+  "genesisTime": 1793712675
  },
  "accountsCopied": 7,
- "copiedBalances": "4000401085432534458169411",
+ "copiedBalances": "4000412930941345080777042",
  "bondsCreditedTotal": "400000000000000000000",
  "bondsCredited": 4,
  "minerBondsDeducted": "60000000000000000000",
- "potsDroppedTotal": "8000324457000000000",
+ "potsDroppedTotal": "8000096572000000000",
  "potsDropped": 4,
  "excluded": [
   {
@@ -31,7 +31,7 @@
   },
   {
    "address": "0x0000000000000000000000000000000000c0c002",
-   "balance": "412914386957000000000"
+   "balance": "421068973368824218750"
   },
   {
    "address": "0x0000000000000000000000000000000000c0c003",
@@ -42,8 +42,9 @@
    "balance": "0"
   }
  ],
- "totalSupply": "4000801085432534458169411"
+ "totalSupply": "4000812930941345080777042"
 }
 exit 0
-seconds 166
-pocold compatibilitySha256 5c12be4d725ae260304b6579102f358e000f9d930584676c41f11a160296105c
+seconds 198
+pocold compatibilitySha256 bfb0e484d277995465c75f098ba1bc464836cac11ac55cfbfbdd045ad28f5a5f
+binaries cargo +1.99.1 build --locked --release --bins of this tree (as full-nonce-upgrade builds them; no root-check)

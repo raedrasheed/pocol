@@ -17,7 +17,10 @@ Two modes, both on copies; neither touches a live service, a key or the original
 
 --copy    The operator rehearsal on a COPY of a real server's network bundle and data directory:
           runs the cutover twice at the given height with the server's own NODE and LOCAL flags,
-          checks determinism and the report's totals, and prints a summary. It starts nothing.
+          checks determinism and the report's totals, and prints a summary with each run's time and
+          the slower run's time per block (step 2 re-executes up to the final S). It starts nothing.
+
+Each cutover's output is kept next to its output directory (RUN.log).
 
     python3 deploy/mainnet/rehearse_cutover.py --local --work /tmp/pocol-rehearsal
     python3 deploy/mainnet/rehearse_cutover.py --copy --network COPY/net --data COPY/data \\
@@ -40,13 +43,22 @@ CONTRACT_INIT = '0x602a6000556001601160003960016000f300'
 # A cutover below the node's 32-block state window re-executes the old chain from genesis: on Mainnet's
 # 20,000+ blocks that takes minutes, more on a slow disk. The limit is only a safety net.
 CUTOVER_TIMEOUT = 6 * 3600
+# The local chain's cutover takes seconds. A limit well under the CI job's own ends a hung cutover as a failure
+# of this script, so the job's failure step keeps the logs (a job that hits its own limit is cancelled instead).
+LOCAL_CUTOVER_TIMEOUT = 300
 
 def cutover(network, data, height, config, out, node_args, timeout=CUTOVER_TIMEOUT):
+    log = out.parent / f'{out.name}.log'
+    def keep(stdout, stderr):
+        text = lambda x: x.decode(errors='replace') if isinstance(x, bytes) else (x or '')
+        log.write_text(f'pocold cutover --height {height} --out {out}\n--- stdout\n{text(stdout)}\n--- stderr\n{text(stderr)}\n', encoding='utf-8')
     try:
         p = subprocess.run([str(BIN / ('pocold' + EXE)), 'cutover', '--network', str(network), '--data', str(data), '--height', str(height),
                             '--config', str(config), '--out', str(out), *node_args], capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        raise AssertionError(f'cutover did not finish within {timeout} s (height {height}, data {data})') from None
+    except subprocess.TimeoutExpired as e:
+        keep(e.stdout, e.stderr)
+        raise AssertionError(f'cutover did not finish within {timeout} s (height {height}, data {data}); its output is in {log}') from None
+    keep(p.stdout, p.stderr)
     if p.returncode: raise AssertionError(f'cutover failed: {p.stderr.strip()}')
     report = out / 'cutover-report.json'
     # A pocold without the cutover command (the deployed one, for example) prints its usage and exits 0.
@@ -72,11 +84,13 @@ def summary(report):
 
 def copy_mode(a):
     work = Path(a.work); work.mkdir(parents=True)
-    # Each run's time is what step 2 takes on that server: plan the freeze for at least the larger one.
-    t = time.monotonic(); r1 = cutover(a.network, a.data, a.height, a.config, work / 'run1', a.node_args); s1 = round(time.monotonic() - t)
-    t = time.monotonic(); r2 = cutover(a.network, a.data, a.height, a.config, work / 'run2', a.node_args); s2 = round(time.monotonic() - t)
+    # A run re-executes every block from 1 to the height, so its time grows with the height: step 2, at the final
+    # S, takes about S x secondsPerBlock (the slower run's) on this server.
+    t = time.monotonic(); r1 = cutover(a.network, a.data, a.height, a.config, work / 'run1', a.node_args); t1 = time.monotonic() - t
+    t = time.monotonic(); r2 = cutover(a.network, a.data, a.height, a.config, work / 'run2', a.node_args); t2 = time.monotonic() - t
     same_genesis(work / 'run1', work / 'run2'); check_report(r1)
-    print(json.dumps({'result': 'PASS', 'mode': 'copy', 'deterministic': True, 'seconds': [s1, s2], **summary(r1)}, indent=1))
+    print(json.dumps({'result': 'PASS', 'mode': 'copy', 'deterministic': True, 'seconds': [round(t1), round(t2)],
+                      'secondsPerBlock': round(max(t1, t2) / max(a.height, 1), 4), **summary(r1)}, indent=1))
 
 class Nodes:
     def __init__(self, root): self.root = root; self.procs = []; self.logs = []
@@ -165,8 +179,8 @@ def local_mode(a):
                'miners': [{'id': i, 'reward': i} for i in ids[:3]], 'accounts': []}
     (root / 'new.json').write_text(json.dumps(new_cfg))
     flags = ['--state-store']
-    r1 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis', flags)
-    r2 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis-2', flags)
+    r1 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis', flags, timeout=LOCAL_CUTOVER_TIMEOUT)
+    r2 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis-2', flags, timeout=LOCAL_CUTOVER_TIMEOUT)
     same_genesis(root / 'new-genesis', root / 'new-genesis-2'); check_report(r1)
     assert r1['old']['height'] == s and r1['old']['blockHash'] == old_hash and r1['old']['chainId'] == old_chain, r1['old']
     assert r1['old']['head'] >= s + 60, ('the cutover was not taken below the state window', r1['old'])

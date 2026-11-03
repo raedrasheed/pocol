@@ -205,11 +205,12 @@ fn deep(tag: &str, limits: impl Fn() -> Limits) {
         assert!(node.chain.get(&at_s).unwrap().slim, "positive control: the entry at S is slimmed");
         assert!(node.stats.resumed_from.is_some(), "positive control: the open resumed from a checkpoint");
     } else {
-        // The rebuild checks every re-executed state against its header: a stateRoot at S that the
-        // re-execution does not reach is refused, and no state is kept for S. (A slimmed entry's header is
-        // read back from the journal, so this in-memory change applies to the entries that are not slimmed.)
+        // The rebuild checks every re-executed state against its header: the cutover's rebuild refuses a
+        // stateRoot at S that the re-execution does not reach, names the height, and keeps no state for S.
+        // (A slimmed entry's header is read back from the journal, so this in-memory change applies to the
+        // entries that are not slimmed.)
         node.chain.blocks.get_mut(&at_s).unwrap().header.state_root = [0xee; 32];
-        match node.rebuild_state(&at_s) { Err(pocold::chain::Reject::Block(m)) => assert!(m.contains("stateRoot"), "{m}"), r => panic!("{r:?}") }
+        match pocold::cutover::rebuild_at(&mut node, &at_s, s) { Err(m) => assert!(m.contains("stateRoot") && m.contains(&format!("at height {s}:")), "{m}"), r => panic!("{r:?}") }
         assert!(node.chain.view_of(&at_s).is_none(), "no state at S after the refused rebuild");
     }
     drop(node);
@@ -225,7 +226,8 @@ fn deep(tag: &str, limits: impl Fn() -> Limits) {
     let (mut d1, mut d2) = (json(&at_head, "devnet.json"), json(&below, "devnet.json"));
     d1.as_object_mut().unwrap().remove("timing"); d2.as_object_mut().unwrap().remove("timing");
     assert_eq!(d1, d2, "devnet.json, apart from the measured timing");
-    // Again on the directory the first rebuild wrote to (step 2 can be run again): the same bytes.
+    // Again on the same data directory (step 2 can be run again): the same bytes. With checkpoints (deep-slim)
+    // this run opens the store the first deep cutover wrote; without them each open starts the store anew.
     let again = temp(&format!("again-{tag}"));
     pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &again, limits(), &local()).unwrap();
     for f in ["genesis.spec.hex", "alloc.json", "cutover-report.json"] { assert_eq!(std::fs::read(below.join(f)).unwrap(), std::fs::read(again.join(f)).unwrap(), "{f}, run twice"); }
@@ -290,6 +292,17 @@ fn a_deep_cutover_restores_the_slimmed_ancestor_an_evidence_walk_reads() {
     pocold::cutover::run(&old_dir, &d_slim, s, config.as_bytes(), &o_slim, limits(3), &local()).unwrap();
     pocold::cutover::run(&old_dir, &d_full, s, config.as_bytes(), &o_full, limits(u64::MAX), &local()).unwrap();
     for f in ["genesis.spec.hex", "alloc.json", "cutover-report.json"] { assert_eq!(std::fs::read(o_slim.join(f)).unwrap(), std::fs::read(o_full.join(f)).unwrap(), "{f}"); }
+    // One more round for the evidence block, not one per slimmed entry its walk reads (heights j - 2 down to the
+    // template's block b4; restoring one entry per round took 3 rounds here): the first restores them all. The
+    // node that never slims needs one round.
+    let mut n = open(&d_slim, 3);
+    let at_s = n.chain.canonical_at(s).unwrap().hash;
+    assert_eq!(pocold::cutover::rebuild_at(&mut n, &at_s, s), Ok(2));
+    assert!(n.chain.view_of(&at_s).is_some());
+    drop(n);
+    let mut n = open(&d_full, u64::MAX);
+    assert_eq!(pocold::cutover::rebuild_at(&mut n, &at_s, s), Ok(1));
+    drop(n);
     for d in [old_dir, d_slim, d_full, o_slim, o_full] { let _ = std::fs::remove_dir_all(d); }
 }
 

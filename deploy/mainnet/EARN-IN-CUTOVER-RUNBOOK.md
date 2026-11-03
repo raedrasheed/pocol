@@ -67,10 +67,14 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
    - pots dropped;
    - total supply.
 
-   It runs the cutover twice, and each run re-executes the old chain from genesis (step 2), beside the
-   live node: about one core and one disk sync per block, at a lower priority (`nice`, `ionice`). Each
-   run's time is in `seconds`: plan step 2 for at least the larger one, on all three servers with the
-   network stopped. A cutover error here is a stop: do not go on to step 1.
+   Run it in `tmux` or `screen`: it prints nothing until it ends. It runs the cutover twice, and each
+   run re-executes the old chain from genesis up to the rehearsal height (as step 2 does up to `S`),
+   beside the live node: about one core and one disk sync per block, at a lower priority (`nice`,
+   `ionice`). Each run's time is in `seconds`, and the slower run's time per block in
+   `secondsPerBlock`. Step 2 runs up to the final `S`, which is higher, on all three servers with the
+   network stopped: plan it for at least `S × secondsPerBlock`, with a generous margin for a slower
+   server, or rehearse again on a fresh copy closer to the freeze. A cutover error here is a stop: do
+   not go on to step 1.
 
    Delete `/var/tmp/pocol-rehearsal*` afterwards.
 3. Choose the final height `S` and the launch time. Publish both, with this text:
@@ -101,6 +105,10 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
 
 ## 2. Build the new genesis (on each server, independently)
 
+Run these commands in `tmux` or `screen`: the cutover prints nothing until it ends, and a dropped SSH
+session would stop it. While it runs, `top` shows `pocold` busy; do not stop it before the time
+planned in step 0.2.
+
 ```sh
 python3 deploy/mainnet/new_network_config.py --old /opt/pocol-testnet/net/devnet.json \
     --genesis-time <launch time> --out /var/tmp/new-network.json
@@ -123,10 +131,17 @@ python3 -c 'import json; d=json.load(open("cutover-report.json")); del d["old"][
   head. So the cutover rebuilds the state at `S`: it re-executes every block from 1 to `S` from the
   node's own block file (`blocks.journal`), writes each state to `state.redb`, and checks each state
   root against its block header. That is about `S` block executions, where a node start from its
-  checkpoint replays fewer than 128. It prints nothing until one JSON line at the end and writes
-  `--out` only then, so an interrupted run leaves nothing and can be run again. Step 0.2 measured how
-  long it takes; run it in `tmux` or `screen`. (Builds before #22 refuse such a height: "the state at
-  that height is not available (pruned)".)
+  checkpoint replays fewer than 128. An old block that carries type-2 evidence and lies more than the
+  slim depth below the head (about 4,400 blocks by default) adds at most one more pass from genesis up
+  to that block. It prints nothing until one JSON line at the end and writes `--out` only then, so an
+  interrupted run leaves nothing and can be run again. Plan its time from step 0.2's
+  `secondsPerBlock`. (Builds before #22 refuse such a height: "the state at that height is not
+  available (pruned)".)
+- If the cutover exits with an error on any server, stop, and do not use the other servers' output.
+  The cutover adds no block to the old chain, so the old network can continue from the same data:
+  start the old service again on all three servers (`sudo systemctl start pocol-testnet.service`),
+  keep the step-1 backup, find the cause, and publish a new `S` and launch time. (The rollback script
+  below is for after step 4.)
 - All three servers must print the same five sums. `genesis.spec.hex` and `alloc.json` are the
   genesis: its hash and every balance. `devnet.json` also records the admission timing that server
   measured (`timing`), and `cutover-report.json` that server's own old head (`old.head`), so those two
