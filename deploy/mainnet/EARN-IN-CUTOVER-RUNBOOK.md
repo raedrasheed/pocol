@@ -74,8 +74,9 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
      (the H15000 value `[[1,"0"],[2,"15000"]]` belongs to the old network);
    - the extension's Viewer wallet keeps its address after the update: the built-in profile's wallet
      key does not depend on the network's chain ID or genesis. A custom network profile keeps its own
-     address, so a local profile of the new network has another one. On-chain sites start with empty
-     local storage on the new network;
+     address, so a local profile of the new network has another one. Update the extension in place and
+     do not remove it: its wallet seed cannot be exported, and a new install creates a new wallet.
+     On-chain sites start with empty local storage on the new network;
    - old Android installations cannot follow the new network (A3).
 
 ## 1. Freeze (approval: stop the live network)
@@ -297,7 +298,10 @@ Everything below comes from the merged head of step 3.
 
      Replace them with the new network's instructions from the release notes of step 3, including the
      schedule `[[1,"0"]]`. Do not quote the old schedule, the old chain ID or the H15000 name in them:
-     the closing checks refuse all three.
+     the closing checks refuse all three. In the same `guide-content.js` (English and Arabic) and
+     `pocol-tools.html`, the development wallet's description says that HKDF derives a key for each
+     network identity: say instead that the built-in network's wallet keeps one key, and that each
+     custom network gets its own.
   3. Make the reward panel accept earn-in records. In `reward.js` and `api/reward.php`, a beneficiary's
      `amountWei` may be `0` when its `bondAccruedWei` is above 0, and `sum(amountWei) +
      sum(bondAccruedWei)` must equal `projectedPaidWei`. Show the bond part as well. Before publishing,
