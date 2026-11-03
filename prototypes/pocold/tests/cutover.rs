@@ -145,6 +145,65 @@ fn scenario(store: bool) {
     for d in [old_dir, data, out, again] { let _ = std::fs::remove_dir_all(d); }
 }
 
+/// The runbook cuts S at least 60 blocks below the stopped head, below the K_hist window (32) of kept states.
+/// The cutover rebuilds the state at S and writes the same files as a cutover taken while S was the head.
+#[test]
+fn a_cutover_70_blocks_below_the_head_rebuilds_the_state_and_matches_one_at_the_head() { deep(false) }
+#[test]
+fn a_store_mode_cutover_70_blocks_below_the_head_rebuilds_the_state_and_matches_one_at_the_head() { deep(true) }
+
+fn deep(store: bool) {
+    let tag = if store { "deep-store" } else { "deep-whole" };
+    let limits = || Limits { state_store: store, ..Default::default() };
+    let (old_dir, data) = (temp(&format!("old-{tag}")), temp(&format!("data-{tag}")));
+    let (_cfg, keys, miners) = old_network(&old_dir);
+    let open = || Node::open(Config { dir: data.clone(), name: "old".into(), miner: None, listen: None, peers: vec![], rpc: None,
+        stop_at: None, log: false, limits: limits() }, pocold::load_spec_for(&old_dir, &local(), store.then_some(data.as_path())).unwrap()).unwrap();
+    let mut chain = Chain::new(spec(&old_dir));
+    let grow = |node: &mut Node, chain: &mut Chain, txs: Vec<Vec<u8>>| {
+        let b = mine(chain, &keys, txs); let (e, _) = chain.validate(&b, None, 0).unwrap(); chain.insert(e);
+        assert!(node.import(b, None).unwrap());
+    };
+    // A state at S that differs from genesis: a transfer and a contract with storage.
+    let alice = devnet::account_key("alice");
+    let init = unhex("602a600055600060005360016000f3").unwrap();
+    let mut node = open();
+    let t = tx(&chain, &alice, Some(Address::with_last_byte(0xca)), 3 * PCOL, vec![], 21_000); grow(&mut node, &mut chain, vec![t]);
+    let t = tx(&chain, &alice, None, 0, init, 300_000); grow(&mut node, &mut chain, vec![t]);
+    for _ in 0..3 { grow(&mut node, &mut chain, vec![]); }
+    let s = chain.head().height;
+    drop(node);
+    let config = serde_json::json!({"continuous":true,"earnin":true,"chainId":777918,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
+        "miners":miners.iter().map(|(id,reward)|serde_json::json!({"id":id,"reward":reward})).collect::<Vec<_>>(),"accounts":[]}).to_string();
+    let at_head = temp(&format!("at-head-{tag}"));
+    pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &at_head, limits(), &local()).unwrap();
+
+    // 70 more blocks: on open the node keeps no state at S (R21), so this cutover has to rebuild it.
+    let mut node = open();
+    for _ in 0..70 { grow(&mut node, &mut chain, vec![]); }
+    drop(node);
+    let node = open();
+    let top = node.chain.head().height;
+    assert_eq!(top, s + 70);
+    assert!(node.chain.view_of(&node.chain.canonical_at(s).unwrap().hash).is_none(), "the state at S is pruned before the cutover");
+    drop(node);
+    let below = temp(&format!("below-{tag}"));
+    pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &below, limits(), &local()).unwrap();
+
+    for f in ["genesis.spec.hex", "alloc.json"] { assert_eq!(std::fs::read(at_head.join(f)).unwrap(), std::fs::read(below.join(f)).unwrap(), "{f}"); }
+    let json = |dir: &Path, f: &str| -> serde_json::Value { serde_json::from_str(&std::fs::read_to_string(dir.join(f)).unwrap()).unwrap() };
+    let (mut r1, mut r2) = (json(&at_head, "cutover-report.json"), json(&below, "cutover-report.json"));
+    assert_eq!((r1["old"]["head"].as_u64(), r2["old"]["head"].as_u64()), (Some(s), Some(top)));
+    r1["old"].as_object_mut().unwrap().remove("head"); r2["old"].as_object_mut().unwrap().remove("head");
+    assert_eq!(r1, r2, "the report, apart from the old head");
+    let (mut d1, mut d2) = (json(&at_head, "devnet.json"), json(&below, "devnet.json"));
+    d1.as_object_mut().unwrap().remove("timing"); d2.as_object_mut().unwrap().remove("timing");
+    assert_eq!(d1, d2, "devnet.json, apart from the measured timing");
+    // The old data directory still opens at the same head (the rollback keeps it).
+    assert_eq!(open().chain.head().height, top);
+    for d in [old_dir, data, at_head, below] { let _ = std::fs::remove_dir_all(d); }
+}
+
 #[test]
 fn a_genesis_miner_without_a_durable_bond_balance_is_refused() {
     let db = revm::InMemoryDB::default();

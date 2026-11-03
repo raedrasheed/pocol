@@ -74,12 +74,16 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     let (chain_id,genesis)=(spec.chain_id(),crate::types::hex(&spec.genesis_hash()));
     let d=u64::from(spec.cp().D);
     let cfg=crate::node::Config{dir:data.to_path_buf(),name:"cutover".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits};
-    let node=crate::node::Node::open(cfg,spec)?;
+    let mut node=crate::node::Node::open(cfg,spec)?;
     let head=node.chain.head().height;
     if height>head{return Err(format!("height {height} is above the old head {head}"))}
-    let entry=node.chain.canonical_at(height).ok_or("no canonical block at that height")?;
-    let block=crate::types::hex(&entry.hash);
-    let state=node.chain.view_of(&entry.hash).ok_or("the state at that height is not available (pruned)")?;
+    let hash=node.chain.canonical_at(height).ok_or("no canonical block at that height")?.hash;
+    let block=crate::types::hex(&hash);
+    // R21 keeps a state only for the last K_hist blocks (32), and the runbook cuts S at least 60 below the
+    // head. A pruned state is rebuilt by re-execution from the nearest retained one (TrieRebuild, the
+    // node's own path), and every rebuilt stateRoot is checked against its committed header.
+    if node.chain.view_of(&hash).is_none(){node.rebuild_state(&hash).map_err(|e|format!("rebuild the state at height {height}: {e:?}"))?;}
+    let state=node.chain.view_of(&hash).ok_or("the state at that height is not available")?;
     let mut old=crate::chain::whole_state(state.v());
     // Code by hash, for accounts whose code the view returns separately.
     let hashes:Vec<_>=old.accounts.values().filter_map(|a|a.info()).filter(|i|i.code.is_none()&&i.code_hash!=revm::primitives::KECCAK_EMPTY).map(|i|i.code_hash).collect();

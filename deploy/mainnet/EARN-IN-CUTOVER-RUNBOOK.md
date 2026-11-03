@@ -26,8 +26,9 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
    head with CI, including the Windows wallet run. Then merge nothing else into `main` until step 3 is
    merged, so that the release which runs the new network (step 4) differs from the one that builds its
    genesis (step 2) only by the step-3 switch.
-   Merge #20 and #21 before building that release too: its `pocold` then refuses a command it lacks,
-   and its extension keeps each Viewer wallet's address.
+   Merge #20, #21 and #22 before building that release too: its `pocold` then refuses a command it
+   lacks, its extension keeps each Viewer wallet's address, and its cutover rebuilds the state at `S`,
+   which lies below the 32 blocks of states a node keeps.
 
    Steps 0.2 and 2 need this release's `pocold`: the deployed `/opt/pocol-testnet/bin/pocold` is an
    older build without the `cutover` command, which it answers with a usage text and exit status 0.
@@ -113,6 +114,10 @@ python3 -c 'import json; d=json.load(open("cutover-report.json")); del d["old"][
   check `--data`: a wrong path gets a new, empty store, and the cutover then refuses the height. It
   refuses to run while the old node holds the lock, refuses a height above the head, and never
   overwrites an output directory.
+- A node keeps the state of its last 32 blocks only, and `S` is at least 60 below the head. So the
+  cutover rebuilds the state at `S` by re-executing the old chain from the node's own journal, and
+  checks every state root against its block header. This takes longer than a node start. (Builds
+  before the fix for this refuse such a height: "the state at that height is not available (pruned)".)
 - All three servers must print the same five sums. `genesis.spec.hex` and `alloc.json` are the
   genesis: its hash and every balance. `devnet.json` also records the admission timing that server
   measured (`timing`), and `cutover-report.json` that server's own old head (`old.head`), so those two

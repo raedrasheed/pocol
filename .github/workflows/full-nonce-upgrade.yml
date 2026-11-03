@@ -43,6 +43,8 @@ jobs:
           set -euo pipefail
           python3 -B -m unittest discover -s deploy/public-testnet -p test_nonce_upgrade.py -v
           python3 -B -m unittest discover -s deploy/mainnet -p 'test_*.py' -v
+          # The cutover on a local Mainnet-shaped network, 60+ blocks below the stopped head as in the runbook.
+          python3 -B deploy/mainnet/rehearse_cutover.py --local --work "$RUNNER_TEMP/pocol-rehearsal"
           python3 -B -m unittest discover -s deploy/studio -v
           python3 -B -m unittest discover -s deploy/faucet -v
   browser:
