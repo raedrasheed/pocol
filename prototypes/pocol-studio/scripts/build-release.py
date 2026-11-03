@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -77,6 +78,11 @@ def main():
     version = json.loads((extension / 'package.json').read_text())['version']
     if manifest.get('version') != version:
         raise ValueError('Extension build is stale: package and manifest versions differ.')
+    # Studio's install dialog downloads the extension package this release ships, and only that one.
+    links = set(re.findall(r'downloads/PoCol-Studio-IDE-Viewer-[^"\'<>\s]+?\.zip', (dist / 'app.js').read_text(encoding='utf-8')))
+    if links != {f'downloads/PoCol-Studio-IDE-Viewer-{version}.zip'}:
+        raise ValueError(f'dist/app.js links the extension as {sorted(links)}, not version {version}: '
+                         'update the link and the app.js?v= content version in dist/index.html.')
     subprocess.run([sys.executable, str(gateway / 'build_installer.py')], check=True)
     output.mkdir(parents=True, exist_ok=True)
 

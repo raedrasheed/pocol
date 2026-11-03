@@ -37,12 +37,14 @@ jobs:
           python deploy/standalone/test_upgrade.py -v
           python -m unittest discover -s deploy/standalone -p test_prepare_nonce_upgrade.py -v
           python -m unittest discover -s deploy/rewards -v
-      - name: Test stopped seed migration, mainnet preflight and cutover tools
+      - name: Test stopped seed migration, mainnet preflight and cutover tools, Studio gateway and faucet
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
           python3 -B -m unittest discover -s deploy/public-testnet -p test_nonce_upgrade.py -v
           python3 -B -m unittest discover -s deploy/mainnet -p 'test_*.py' -v
+          python3 -B -m unittest discover -s deploy/studio -v
+          python3 -B -m unittest discover -s deploy/faucet -v
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -64,6 +66,11 @@ jobs:
           /usr/bin/python3 -m unittest tests/test_linux_export.py -v
           npm run package
         working-directory: prototypes/pocol-extension
+      - name: Verify Studio
+        run: |
+          npm test
+          npm run check
+        working-directory: prototypes/pocol-studio
       - name: Upload extension release
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:

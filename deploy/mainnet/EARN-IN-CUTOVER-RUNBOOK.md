@@ -23,16 +23,33 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
 ## 0. Before the day
 
 1. Merge the pull requests in order (A1): #16, then #17, then #18. Build the release from the merged
-   head with CI, including the Windows wallet run.
+   head with CI, including the Windows wallet run. Then merge nothing else into `main` until step 3 is
+   merged, so that the release which runs the new network (step 4) differs from the one that builds its
+   genesis (step 2) only by the step-3 switch.
+
+   Steps 0.2 and 2 need this release's `pocold`: the deployed `/opt/pocol-testnet/bin/pocold` is an
+   older build without the `cutover` command, which it answers with a usage text and exit status 0.
+   On each server, keep a checkout of the merged head that the `pocol-testnet` user can read (for
+   example in `/var/tmp/pocol-checkout`) for the `deploy/mainnet` scripts, and extract that head's
+   Linux package (its `source-commit.txt` names the commit) outside `/opt/pocol-testnet`. Never copy
+   it into `/opt/pocol-testnet/bin`: the installed bundle then fails its own verification, and so
+   does a rollback.
+   ```sh
+   mkdir /var/tmp/pocol-earnin-bin
+   tar -xzf PoCol-Mainnet-<version>-linux-x86_64.tar.gz -C /var/tmp/pocol-earnin-bin
+   cat /var/tmp/pocol-earnin-bin/source-commit.txt   # the merged head
+   ```
 2. **Operator rehearsal on a copy (A2)**, on one server, while the old network keeps running:
    ```sh
    sudo -u pocol-testnet cp -a /var/lib/pocol-testnet /var/tmp/pocol-rehearsal-data   # a copy; leave the original alone
    ```
    The copy must be taken while the service is stopped for a moment, or from the newest backup.
-   A copy of a running store can be torn. Then:
+   A copy of a running store can be torn. Then, in the checkout, run the rehearsal as the service
+   user, who owns the copy:
    ```sh
    python3 deploy/mainnet/new_network_config.py --old /opt/pocol-testnet/net/devnet.json \
        --genesis-time <a time 1 day ahead> --out /var/tmp/rehearsal-network.json
+   sudo -u pocol-testnet env POCOLD_BIN_DIR=/var/tmp/pocol-earnin-bin \
    python3 deploy/mainnet/rehearse_cutover.py --copy --network /opt/pocol-testnet/net \
        --data /var/tmp/pocol-rehearsal-data --height <its head - 60> \
        --config /var/tmp/rehearsal-network.json --work /var/tmp/pocol-rehearsal -- \
@@ -48,9 +65,15 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
    Delete `/var/tmp/pocol-rehearsal*` afterwards.
 3. Choose the final height `S` and the launch time. Publish both, with this text:
    - transactions included after block `S` do not move to the new network;
-   - wallets must be updated after the launch;
+   - wallets must be updated after the launch, as the new release notes describe: an existing wallet
+     moves its old network files aside, keeps its key, and imports the new network, so its address
+     stays the same (step 3);
    - after updating the extension, set Options > Trusted local fork schedule back to `[[1,"0"]]`
      (the H15000 value `[[1,"0"],[2,"15000"]]` belongs to the old network);
+   - the extension's Viewer wallet derives its key from the network's chain ID and genesis, so after
+     the update it shows a new address, and on-chain sites start with empty local storage. Move PCOL
+     held at the Viewer wallet's address to a Studio, IDE or native wallet address (these keep their
+     address) before block `S`;
    - old Android installations cannot follow the new network (A3).
 
 ## 1. Freeze (approval: stop the live network)
@@ -70,17 +93,25 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
 ```sh
 python3 deploy/mainnet/new_network_config.py --old /opt/pocol-testnet/net/devnet.json \
     --genesis-time <launch time> --out /var/tmp/new-network.json
-sudo -u pocol-testnet /opt/pocol-testnet/bin/pocold cutover --network /opt/pocol-testnet/net \
+sudo -u pocol-testnet /var/tmp/pocol-earnin-bin/pocold cutover --network /opt/pocol-testnet/net \
     --data /var/lib/pocol-testnet --height <S> --config /var/tmp/new-network.json \
     --out /var/tmp/pocol-earnin-genesis \
     --state-store --checkpoint-every 128 --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
-sha256sum /var/tmp/pocol-earnin-genesis/*
+cd /var/tmp/pocol-earnin-genesis
+sha256sum /var/tmp/new-network.json genesis.spec.hex alloc.json
+python3 -c 'import json; d=json.load(open("devnet.json")); del d["timing"]; print(json.dumps(d, sort_keys=True))' | sha256sum
+python3 -c 'import json; d=json.load(open("cutover-report.json")); del d["old"]["head"]; print(json.dumps(d, sort_keys=True))' | sha256sum
 ```
 
-- The cutover only reads the old data directory. It refuses to run while the old node holds the
-  lock, refuses a height above the head, and never overwrites an output directory.
-- All three servers must produce the same four SHA-256 sums, and the same `new-network.json`.
-  If they differ, stop and investigate. Do not pick one.
+- The cutover opens the old data directory the way a node start does: it takes the lock and may
+  rewrite the node's derived files. Run it only after the step-1 backup, as the service user, and
+  check `--data`: a wrong path gets a new, empty store, and the cutover then refuses the height. It
+  refuses to run while the old node holds the lock, refuses a height above the head, and never
+  overwrites an output directory.
+- All three servers must print the same five sums. `genesis.spec.hex` and `alloc.json` are the
+  genesis: its hash and every balance. `devnet.json` also records the admission timing that server
+  measured (`timing`), and `cutover-report.json` that server's own old head (`old.head`), so those two
+  are compared without them. If any sum differs, stop and investigate. Do not pick one.
 - `cutover-report.json` holds:
   - `S` and the old block hash;
   - the account count and the copied balances;
@@ -91,8 +122,11 @@ sha256sum /var/tmp/pocol-earnin-genesis/*
 
 ## 3. Switch the clients to the new identity
 
-In the repository, with the new genesis hash from `cutover-report.json` (`newGenesis.genesisHash`,
-which starts with `0x`) and a copy of the public `genesis.spec.hex` from step 2's output:
+In a checkout of `main` that keeps the repository's LF line endings (on Windows, clone with
+`git clone -c core.autocrlf=false`: the tool refuses hashed files whose line endings were converted, and
+its message says how to fix an existing checkout), with the new genesis hash from `cutover-report.json`
+(`newGenesis.genesisHash`, which starts with `0x`) and a copy of the public `genesis.spec.hex` from step
+2's output:
 
 ```sh
 python3 deploy/mainnet/network_identity.py --genesis-hash <newGenesis.genesisHash> \
@@ -114,27 +148,64 @@ files are:
 - the Windows wallet tests, the preflight, rewards, gateway, packaging and the repository README.
 
 Each file must hold exactly its listed number of copies of the identity before and after the switch,
-and no copy of the old Mainnet identity; nothing is written unless every file passes. `--check` passes
-only on a tree that carries exactly this identity. If the launch later needs a new genesis (for example a new launch time), run the same
-commands again with the new hash and spec: the tool switches from the identity the tree carries.
-Documents about the old network's history stay as they are, and so do the website snapshots in
+and no copy of the old Mainnet identity. Nothing is written unless every file passes: the tool writes
+every new file beside its original first, then replaces the originals, the node file last. If a
+replacement fails, it lists the files it replaced and says whether to restore them (`git checkout --`
+with those paths) or simply to run the same command again.
+`--check` passes only on a tree that carries exactly this identity. If the launch later needs a new
+genesis (for example a new launch time), run the same commands again with the new hash and spec: the
+tool switches from the identity the tree carries. Then put the new genesis hash in the release notes
+too. Documents about the old network's history stay as they are, and so do the website snapshots in
 `deploy/websites` (step 5). `test_network_identity.py` passes on the switched tree and fails if any
 other tracked file pins the old identity.
 
-In the same PR, change what the tool cannot, because it ships with every package:
+In the same PR, change what the tool cannot, because it ships with the packages:
 - replace `deploy/standalone/RELEASE-UPGRADE.md`, the old network's 0.4.0 update notes, with the new
-  network's notes;
-- give the packages new version numbers: `deploy/standalone/package.py` and
-  `deploy/standalone/test_release_package.py`, the extension's `package.json` and
-  `package-lock.json`, and the titles of `README-IDE.md` and `README-STUDIO.md`.
+  network's notes. They must name the chain ID `261597237` and the new genesis hash, which users
+  check, and may name the old network as history. They must also give existing wallets their way
+  across, because Import and Upgrade refuse a home bound to the old genesis, and a new home would
+  make a new, empty address:
+  1. close the wallet, or stop the service as its user;
+  2. put the new release's files and the new `network.pocol.json` in the application folder, replacing
+     the old invitation there (the 0.4.0 notes put it beside `PoCol-Wallet.exe`; the standalone Linux
+     service keeps it in `/opt/pocol-standalone`). The wallet starts its engine as soon as it opens,
+     and an old invitation beside it binds the home to the old genesis again;
+  3. in the wallet's home (on Windows `%LOCALAPPDATA%\PoCol`; the standalone Linux service uses
+     `/var/lib/pocol-standalone`), make a folder such as `old-network` and move into it
+     `network.pocol.json`, `network`, `state`, `wallet-activity.json` and, if present,
+     `network-upgrade.pending.json` and `network.pocol.json.before-full-nonce`. Delete nothing;
+  4. keep `identity.pocol-key` and `identity.address` where they are;
+  5. open the wallet, or start the service: it imports the new invitation beside it (Settings →
+     Import, or `pocol import --home <home> --network network.pocol.json`, does the same). The address
+     stays the same.
 
-`test_network_identity.py` fails on the switched tree until both are done. Commit, open a PR, let CI
-build the clients, and merge.
+  `deploy/standalone/test_upgrade.py` (`NewGenesisRejoin`) runs these steps, and shows that an old
+  invitation left beside the application binds the home to the old genesis again;
+- give the packages new version numbers: `deploy/standalone/package.py` and
+  `deploy/standalone/test_release_package.py`; the Windows wallet's assembly versions in `Wallet.cs`
+  and its label in `Wallet.xaml`; the files in `deploy/standalone/linux-desktop`; the extension's
+  `package.json` and `package-lock.json`; Studio's `package.json`; the Android app's `versionName` (and
+  `versionCode`, if a signed update must install over 5) in `prototypes/pocol-android/app/build.gradle`;
+  and `.github/workflows/five-device-build.yml`, whose name, artifact names and APK check carry 0.4.0;
+- rewrite the texts that are true only of the old network: the title and the same-chain upgrade
+  text of `deploy/standalone/README.md`, and the titles and release paragraphs of the extension's
+  `README-IDE.md`, `README-STUDIO.md` and `README-AR.md`, which say that the chain ID and genesis are
+  unchanged. Name the new network in words there: each of these files must keep its listed number of
+  copies of the identity (or the PR updates its counts in `FILES`);
+- point Studio's extension download in `prototypes/pocol-studio/dist/app.js` and
+  `prototypes/pocol-studio/QUICKSTART-AR.txt` at the new extension package;
+- then run the first command again, which refreshes Studio's content version and the gateway
+  installer after these edits, and `--check` last.
+
+`test_network_identity.py` fails on the switched tree until all of this is done, and lists what is
+left. Commit, open a PR, let CI build the clients, and merge.
 
 ## 4. Start the new network (approval: start the new servers)
 
-1. Put the three genesis files in a network directory. The report is published, but it is not part
-   of the bundle.
+1. On the first server, put its three genesis files in a network directory. Step 2 showed that all
+   three servers built the same genesis; the `timing` in this server's `devnet.json` is informational,
+   because every node measures its own at boot. The report is published, but it is not part of the
+   bundle.
    ```sh
    mkdir /var/tmp/pocol-earnin-net
    cp /var/tmp/pocol-earnin-genesis/{genesis.spec.hex,alloc.json,devnet.json} /var/tmp/pocol-earnin-net/
@@ -144,9 +215,20 @@ build the clients, and merge.
    the same inventory as the old release. `prepare.py` refuses binaries built from other sources than
    the checkout.
 3. On each server:
-   - move the old installation and data aside, **without deleting them**: `/opt/pocol-testnet` to
-     `/opt/pocol-testnet-1599846715`, and `/var/lib/pocol-testnet` to
-     `/var/lib/pocol-testnet-1599846715`;
+   - move the old installation, data and service unit aside, **without deleting them**.
+     `install.sh` refuses to install while any of the three exists. The script stops at the first
+     failure and never moves onto an existing name:
+     ```sh
+     sudo bash -e <<'EOF'
+     old=1599846715
+     for path in /opt/pocol-testnet /var/lib/pocol-testnet; do
+       test ! -e "$path-$old"; mv -T "$path" "$path-$old"
+     done
+     test ! -e "/etc/systemd/pocol-testnet.service-$old"
+     mv -T /etc/systemd/system/pocol-testnet.service "/etc/systemd/pocol-testnet.service-$old"
+     systemctl daemon-reload
+     EOF
+     ```
    - keep `/etc/pocol-testnet` (the same miner keys) and every website and gateway configuration
      file, including `api/config.php`; step 5 changes only their network values;
    - install the new bundle with its `install.sh`, as before.
@@ -191,17 +273,34 @@ Everything below comes from the merged head of step 3.
      - pocol.net: `network.js`, `reward.js`, `api/network.php`, `api/reward.php`;
      - the Explorer bundle `assets/index-Cj8htKRO.js`;
      - the IDE bundle `assets/index-extension041-02af63944c2b.js`, and the superseded
-       `assets/index-CJbrNXr_.js`, which no page loads;
+       `assets/index-CJbrNXr_.js`, which no page loads; also raise the extension version the IDE asks
+       for ("0.4.0 or later") to the new one, because older extensions pin the old network;
      - the IDE guide `DEPLOY-README-AR.txt`, which lists the network settings.
-  2. Make the reward panel accept earn-in records. In `reward.js` and `api/reward.php`, a beneficiary's
+  2. Remove the old network's H15000 upgrade instructions from pocol.net. They tell users to save the
+     schedule `[[1,"0"],[2,"15000"]]`, to use the complete 0.4.0 package and to run Settings → Upgrade
+     existing network, which refuses a new genesis. They are in:
+     - `about-locales.js`, in all 45 locales: `appsUpgradeNotice`, `appsConnectionBody`,
+       `appsWindowsUpdateBody`, `appsWindowsUpdateDownload`, `studioRelease` and `ideExtensionBody`.
+       `app.js` writes these over the page text when it loads, so change them here, not only in the
+       HTML;
+     - the same texts in `index.html`, and the H15000 sections of `guide-content.js` and
+       `pocol-tools.html`;
+     - `README-AR.txt`, which sends users to `NETWORK-UPDATE-15000.txt` to join;
+     - `RETAINED-NATIVE-DOWNLOADS.json`: list the new packages and the new invitation, without the
+       H15000 `activationHeight`.
+
+     Replace them with the new network's instructions from the release notes of step 3, including the
+     schedule `[[1,"0"]]`. Do not quote the old schedule, the old chain ID or the H15000 name in them:
+     the closing checks refuse all three.
+  3. Make the reward panel accept earn-in records. In `reward.js` and `api/reward.php`, a beneficiary's
      `amountWei` may be `0` when its `bondAccruedWei` is above 0, and `sum(amountWei) +
      sum(bondAccruedWei)` must equal `projectedPaidWei`. Show the bond part as well. Before publishing,
      test both files with records from the reward gateway above, including an accruing one.
-  3. Point every download link at the new packages, with their names, sizes and versions:
-     `wallet-downloads.js`, `index.html`, `guide-content.js`, `pocol-tools.html` and
-     `chrome-extension.html` on pocol.net, and the extension link in the IDE bundle and in
-     `DEPLOY-README-AR.txt`.
-  4. Replace `pocol.net/downloads/network.pocol.json` with the new network's invitation. Build it
+  4. Point every download link at the new packages, with their names, sizes and versions:
+     `wallet-downloads.js`, `index.html`, `guide-content.js`, `pocol-tools.html`,
+     `chrome-extension.html` and `smart-contracts.html` on pocol.net, and the extension link in the IDE
+     bundle and in `DEPLOY-README-AR.txt`.
+  5. Replace `pocol.net/downloads/network.pocol.json` with the new network's invitation. Build it
      outside the snapshot, with the new release's `pocol` and the old invitation's three seeds, one
      `--seed` each. `pocol network` writes the file with mode 600 and refuses an existing file, so
      copy it into place with mode 644:
@@ -209,39 +308,78 @@ Everything below comes from the merged head of step 3.
      pocol network --from /var/tmp/pocol-earnin-net --seed <seed 1> --seed <seed 2> --seed <seed 3> \
          --out /var/tmp/network.pocol.json
      ```
-  5. Give every changed file a new URL, so that no cache serves its old content:
+  6. Give every changed file a new URL, so that no cache serves its old content:
      - pocol.net pages load files as `name?v=` with the first 12 hex digits of the file's SHA-256. Set
        the new value in every page that loads a changed file. The invitation is loaded by
        `index.html`, `guide-content.js` and `pocol-tools.html`, and a changed `guide-content.js` then
-       needs its own new value in the pages that load it.
+       needs its own new value in the pages that load it. `about-locales.js` is loaded by nine pages:
+       `about`, `chrome-extension`, `collaborative-mining`, `how-pocol-works`, `index`,
+       `onchain-websites`, `pocol-status`, `pocol-tools` and `smart-contracts`.
      - The Explorer and the IDE load their bundles by file name. Rename each changed bundle (for
        example to `index-<first 12 hex digits of its SHA-256>.js`) and update the `index.html` that
        loads it.
-  6. Last, update the hash lists with the new hashes and sizes: each site's `SHA256SUMS.txt`, the
+  7. Last, update the hash lists with the new hashes and sizes: each site's `SHA256SUMS.txt`, the
      `.sha256` files beside downloads, and `pocol.net/RETAINED-NATIVE-DOWNLOADS.json`. Cover the
      invitation and every published package.
-  7. Afterwards the first command lists only each site's `NETWORK-UPDATE-15000.txt` history note, and
+  8. Afterwards, over the files you will publish (renamed bundles included, so `grep`, not
+     `git grep`), the first command lists only each site's `NETWORK-UPDATE-15000.txt` history note, and
      the second lists nothing:
      ```sh
-     git grep -nE '1599846715|0x5f5bb93b|be137bfd|f4ed1373' -- deploy/websites
-     git grep -nE 'PoCol-Mainnet-0\.4\.0|IDE-Viewer-0\.4\.[01]' -- 'deploy/websites/*.html' 'deploy/websites/*.js'
+     grep -rnIE '1599846715|0x5f5bb93b|be137bfd|f4ed1373' deploy/websites
+     grep -rnIE --include='*.html' --include='*.js' --include='*.json' --include='*.php' --include='*.txt' \
+         --exclude='NETWORK-UPDATE-15000.txt' --exclude='SHA256SUMS.txt' \
+         '0\.4\.[01]|15000(\\"|&quot;|")|block 15000|H15000|Upgrade existing network|NETWORK-UPDATE-15000' \
+         deploy/websites
      ```
+- **Studio.** Upload the merged head's Studio site (`prototypes/pocol-studio/dist`, the
+  `PoCol-Studio-cPanel.zip` package) to the `studio.pocol.net` document root, as in
+  [its README](../../prototypes/pocol-studio/README.md). Check that the page loads the new `app.js?v=`
+  and reports chain `261597237` as connected.
 - Publish `cutover-report.json` beside the release notes.
 
 ## 6. Fee faucet (approval: start the faucet)
 
-1. Create a dedicated operator key on one server:
-   `pocol-key generate --out /var/lib/pocol-faucet/operator.pocol-key`.
-   Fund it with an ordinary transfer from an operator account, for example 1 PCOL, which pays for
-   500 claims.
-2. Install `deploy/faucet` as in its [README](../faucet/README.md), with `config.example.json`
-   (chain ID `261597237`) and `pocol-faucet.service`. Put it behind the existing HTTPS proxy.
+1. On one server, create the faucet's user and its state directory, then a dedicated operator key
+   owned by that user (`pocol-sign` refuses a key owned by another user or readable by others):
+   ```sh
+   sudo useradd --system --home-dir /var/lib/pocol-faucet --shell /usr/sbin/nologin pocol-faucet
+   sudo install -d -m 0700 -o pocol-faucet -g pocol-faucet /var/lib/pocol-faucet
+   sudo -u pocol-faucet /opt/pocol-testnet/bin/pocol-key generate --out /var/lib/pocol-faucet/operator.pocol-key
+   ```
+   Fund the address it prints with an ordinary transfer from an operator account. Each claim sends
+   0.002 PCOL and pays its own fee, so 1 PCOL pays for a little under 490 claims.
+2. Install `deploy/faucet` from the merged head as in its [README](../faucet/README.md):
+   `pocol_faucet.py` in `/opt/pocol-faucet`, `config.example.json` as `/etc/pocol-faucet/config.json`
+   (chain ID `261597237`, the key and ledger above, the signer `/opt/pocol-testnet/bin/pocol-sign`),
+   and `pocol-faucet.service`. Put it behind the existing HTTPS proxy. Behind a proxy, also set
+   `"trustProxy": true` and make that proxy location set `X-Forwarded-For`; otherwise every user
+   shares the proxy's address and one daily allowance (`perClientDaily`). Set `"allowOrigin"` to the
+   one website origin that calls it. Check `GET /status`, then one `POST /claim` through the proxy.
 
 ## Rollback
 
-- **Before anyone transacts on the new network:** stop the new services. Move the old directories
-  back (`/opt/pocol-testnet-1599846715`, `/var/lib/pocol-testnet-1599846715`) and start
-  `pocol-testnet.service`. The old chain continues from where it stopped.
+- **Before anyone transacts on the new network:** stop the new services. Move the new installation,
+  state and unit aside under a dated name, never deleting them, then move the old ones back. The
+  script stops at the first failure, before anything starts, and never moves onto an existing name,
+  so it is safe to run again after a later launch:
+  ```sh
+  sudo bash -e <<'EOF'
+  old=1599846715 new=261597237-$(date -u +%Y%m%dT%H%M%SZ)
+  unit=/etc/systemd/system/pocol-testnet.service saved=/etc/systemd/pocol-testnet.service
+  # The old installation must be waiting under its -1599846715 names before anything moves.
+  test -e "/opt/pocol-testnet-$old"; test -e "/var/lib/pocol-testnet-$old"; test -e "$saved-$old"
+  systemctl stop pocol-testnet.service
+  for path in /opt/pocol-testnet /var/lib/pocol-testnet; do
+    test ! -e "$path-$new"; mv -T "$path" "$path-$new"
+    mv -T "$path-$old" "$path"
+  done
+  test ! -e "$saved-$new"; mv -T "$unit" "$saved-$new"
+  mv -T "$saved-$old" "$unit"
+  systemctl daemon-reload
+  systemctl start pocol-testnet.service
+  EOF
+  ```
+  The old chain continues from where it stopped.
 - **After that:** do not roll back. Fix forward on the new network.
 - The clients from step 3 work only on the new network. To serve the old network again, publish
   clients built from a commit before step 3, or from a revert of it.

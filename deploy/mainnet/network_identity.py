@@ -19,9 +19,12 @@ rollback reverts the switch commit.
 
 Derived files move with their sources: a page that loads a listed file by a content version (`?v=` and
 the first 12 hex digits of the file's SHA-256) gets the new version, and the Studio gateway installer is
-rebuilt from the switched gateway sources. Files are read and written as bytes (line endings are kept),
-nothing is written unless every file passes, and each file is replaced whole, the node file last. Documents about the old network's history and the
-website snapshots in deploy/websites (build output, runbook step 5) are not changed. Nothing is deployed.
+rebuilt from the switched gateway sources. Those hashed sources must have the LF line endings git stores,
+so a checkout that converts line endings (core.autocrlf) is refused. Files are read and written as bytes
+(line endings are kept), and nothing is written unless every file passes: every new file is written beside
+its original first, then each original is replaced whole, the node file last. Documents about the old
+network's history and the website snapshots in deploy/websites (build output, runbook step 5) are not
+changed. Nothing is deployed.
 """
 import argparse, hashlib, json, os, re, shutil, sys
 from pathlib import Path
@@ -244,27 +247,67 @@ def main(argv=None):
         out[page] = ref.sub(f'{Path(rel).name}?v={version(out[rel])}', text).encode('utf-8')
     data[INSTALLER] = (a.root / INSTALLER).read_bytes()
     out[INSTALLER] = build_installer.script({name: out[rel] for name, rel in INSTALLER_SOURCES.items()}).encode('utf-8')
+    # The content versions and the installer payloads hash these files' bytes, which must be the bytes git
+    # stores (LF). In a checkout that converts line endings (core.autocrlf) they would differ, and CI would
+    # refuse the versions the tool wrote.
+    for rel in [rel for _, rel in VERSIONED] + list(INSTALLER_SOURCES.values()):
+        if b'\r\n' in (data[rel] if rel in data else (a.root / rel).read_bytes()):
+            problems.append(f'{rel}: has CRLF line endings, so its content version or installer payload would not '
+                            'match the committed file; use a checkout without line-ending conversion: clone again with '
+                            '`git clone -c core.autocrlf=false`, or in this checkout, with nothing uncommitted, run '
+                            '`git config core.autocrlf false`, `git rm -r --cached -q .` and `git reset --hard`')
     changed = [rel for rel in out if out[rel] != data[rel]]
     if a.check and changed:
         problems += [f'{rel}: does not carry this identity (or its content version / installer payload)' for rel in changed]
     for line in problems:
         print('FAIL', line, file=sys.stderr)
-    if stale:
+    if stale and same:
+        print('FAIL hint: a listed file holds more or fewer copies of the identity than its FILES counts; name the '
+              'network in words instead of adding copies, or update its counts in FILES', file=sys.stderr)
+    elif stale:
         print('FAIL hint: a file was edited by hand or an earlier run was interrupted; restore the listed files '
               '(git checkout) and run again', file=sys.stderr)
     if problems:
         return 2
     if not a.check:
-        # Each file is replaced whole, and the node file, which names the tree's identity, goes last.
-        for rel in sorted(changed, key=lambda r: r == ANCHOR):
-            path = a.root / rel
-            tmp = path.with_name(path.name + '.network-identity.tmp')
-            tmp.write_bytes(out[rel])
-            shutil.copymode(path, tmp)
-            os.replace(tmp, path)
+        # Every new file is written beside its original first, so an I/O error changes nothing. Then each
+        # original is replaced whole, the node file (which names the tree's identity) last, so the next run
+        # sees a run that stopped part way.
+        staged = []
+        try:
+            for rel in sorted(changed, key=lambda r: r == ANCHOR):
+                path = a.root / rel
+                tmp = path.with_name(path.name + '.network-identity.tmp')
+                staged.append((tmp, path))
+                tmp.write_bytes(out[rel])
+                shutil.copymode(path, tmp)
+        except OSError as e:
+            remove(tmp for tmp, _ in staged)
+            print(f'FAIL {e}; nothing was changed', file=sys.stderr)
+            return 2
+        for i, (tmp, path) in enumerate(staged):
+            try:
+                os.replace(tmp, path)
+            except OSError as e:
+                remove(tmp for tmp, _ in staged[i:])
+                replaced = [str(path.relative_to(a.root)) for _, path in staged[:i]]
+                if same or not replaced:
+                    # Only derived files changed (or none), so the next run finishes the job.
+                    print(f'FAIL {e}; {i} of {len(staged)} files were replaced; run the same command again', file=sys.stderr)
+                else:
+                    print(f'FAIL {e}; {i} of {len(staged)} files were replaced: restore them '
+                          f'(git checkout -- {" ".join(replaced)}) and run the same command again', file=sys.stderr)
+                return 2
     print(('verified' if a.check else 'updated'), len(FILES), 'files;', 'changed:', len(changed),
           f'chainId={a.chain_id} genesisHash=0x{genesis}')
     return 0
+
+def remove(paths):
+    for path in paths:
+        try:
+            path.unlink()
+        except OSError:
+            pass
 
 if __name__ == '__main__':
     sys.exit(main())

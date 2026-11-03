@@ -1,6 +1,7 @@
 # شبكة العضوية التجريبية (earn-in): دليل الانتقال للمالك
 
-النسخة الإنجليزية هي المرجع التفصيلي للأوامر: [EARN-IN-CUTOVER-RUNBOOK.md](EARN-IN-CUTOVER-RUNBOOK.md).
+النسخة الإنجليزية هي المرجع التفصيلي: [EARN-IN-CUTOVER-RUNBOOK.md](EARN-IN-CUTOVER-RUNBOOK.md). وتذكر هذه
+النسخة الخطوات والفحوص نفسها، ومعها الأوامر التي تمسّ السلامة.
 
 ينقل هذا الدليل شبكة PoCol Mainnet الحالية (معرّف السلسلة `1599846715`) إلى شبكة جديدة من كتلة تكوين
 جديدة:
@@ -27,52 +28,92 @@
 ## ٠. قبل يوم الانتقال
 
 ١. ادمج طلبات الدمج بالترتيب (A1): ‎#16 ثم ‎#17 ثم ‎#18. ابنِ الإصدار من الرأس المدموج عبر CI، ويشمل ذلك
-   تشغيل محفظة Windows.
+   تشغيل محفظة Windows. ثم لا تدمج شيئًا آخر في `main` حتى تُدمج الخطوة ٣، حتى لا يختلف الإصدار الذي يشغّل
+   الشبكة الجديدة (الخطوة ٤) عن الإصدار الذي يبني تكوينها (الخطوة ٢) إلا بتحويل الخطوة ٣.
+
+   تحتاج الخطوتان ٠.٢ و٢ إلى `pocold` من هذا الإصدار: الملف المنشور `/opt/pocol-testnet/bin/pocold` بناء
+   أقدم لا يعرف الأمر `cutover`، فيجيب عنه بنص الاستخدام وبحالة خروج 0. على كل خادم، احتفظ بنسخة من
+   الرأس المدموج يستطيع المستخدم `pocol-testnet` قراءتها (مثلًا في `/var/tmp/pocol-checkout`) لسكربتات
+   `deploy/mainnet`، وفُكّ حزمة Linux المبنية من هذا الرأس (يذكر ملفها `source-commit.txt` الإيداع) خارج
+   `/opt/pocol-testnet`. لا تنسخها أبدًا إلى `/opt/pocol-testnet/bin`: يفشل عندها تحقق الحزمة المثبّتة من
+   نفسها، ويفشل التراجع كذلك.
+   ```sh
+   mkdir /var/tmp/pocol-earnin-bin
+   tar -xzf PoCol-Mainnet-<version>-linux-x86_64.tar.gz -C /var/tmp/pocol-earnin-bin
+   cat /var/tmp/pocol-earnin-bin/source-commit.txt   # الرأس المدموج
+   ```
 
 ٢. **تجربة المشغّل على نسخة (A2)**، على خادم واحد والشبكة القديمة مستمرة:
-   - خذ نسخة من مجلد البيانات أثناء إيقاف قصير للخدمة، أو من أحدث نسخة احتياطية؛ نسخة مخزن يعمل قد تكون
-     تالفة.
-   - شغّل `new_network_config.py` ثم `rehearse_cutover.py --copy` كما في النسخة الإنجليزية.
+   - خذ نسخة من مجلد البيانات أثناء إيقاف قصير للخدمة، أو من أحدث نسخة احتياطية؛ فنسخة مخزن يعمل قد تكون
+     تالفة: `sudo -u pocol-testnet cp -a /var/lib/pocol-testnet /var/tmp/pocol-rehearsal-data`.
+   - في نسخة المستودع، شغّل `new_network_config.py`، ثم شغّل `rehearse_cutover.py --copy` بمستخدم الخدمة
+     الذي يملك النسخة: `sudo -u pocol-testnet env POCOLD_BIN_DIR=/var/tmp/pocol-earnin-bin python3 ...`
+     بالأعلام نفسها التي في النسخة الإنجليزية.
    - يجب أن تظهر النتيجة `PASS` و`deterministic: true`.
    - راجع الملخص:
      - عدد الحسابات المنقولة؛
      - الضمانات المعادة (واحد لكل سجل محجوز)؛
-     - ضمانات المعدّنين المخصومة (60 PCOL)؛
+     - ضمانات المعدّنين المخصومة (`60000000000000000000`، أي 60 PCOL)؛
      - المكافآت غير المسوّاة المسقطة؛
      - إجمالي المعروض.
-   - احذف ملفات التجربة بعد ذلك.
+   - احذف `/var/tmp/pocol-rehearsal*` بعد ذلك.
 
-٣. اختر ارتفاع التجميد `S` ووقت الإطلاق، وأعلنهما مع أربع رسائل:
-   - المعاملات بعد الكتلة `S` لا تنتقل؛
-   - يجب تحديث المحافظ بعد الإطلاق؛
+٣. اختر ارتفاع التجميد `S` ووقت الإطلاق، وأعلنهما مع هذه الرسائل:
+   - المعاملات المضمّنة بعد الكتلة `S` لا تنتقل إلى الشبكة الجديدة؛
+   - يجب تحديث المحافظ بعد الإطلاق كما تشرح ملاحظات الإصدار الجديدة: تنقل المحفظة الحالية ملفات الشبكة
+     القديمة جانبًا وتحتفظ بمفتاحها، ثم تستورد الشبكة الجديدة، فيبقى عنوانها كما هو (الخطوة ٣)؛
    - بعد تحديث الإضافة، أعد Options > Trusted local fork schedule إلى `[[1,"0"]]` (القيمة
      `[[1,"0"],[2,"15000"]]` تخص الشبكة القديمة)؛
+   - محفظة Viewer في الإضافة تشتق مفتاحها من معرّف سلسلة الشبكة وكتلة تكوينها، فتعرض بعد التحديث عنوانًا
+     جديدًا، وتبدأ المواقع على السلسلة بتخزين محلي فارغ. انقل ما في عنوان محفظة Viewer من PCOL إلى عنوان
+     محفظة Studio أو IDE أو المحفظة الأصلية (وهذه تحتفظ بعناوينها) قبل الكتلة `S`؛
    - تطبيق Android القديم لا يتبع الشبكة الجديدة (A3).
 
 ## ١. التجميد (موافقة: إيقاف الشبكة الحية)
 
-١. انتظر حتى يتجاوز رأس كل خادم `S + 60`، وتحقق أن الخوادم الثلاثة تعطي التجزئة نفسها للكتلة `S`.
-٢. أوقف الخدمة القديمة على الخوادم الثلاثة.
-٣. خذ النسخة الاحتياطية المعتادة. **لا تحذف مجلد البيانات القديم أبدًا**: هو الطريق الوحيد للتراجع.
+١. انتظر حتى يبلغ رأس كل خادم `S + 60` على الأقل، وتحقق أن الخوادم الثلاثة تعطي التجزئة نفسها للكتلة `S`
+   (بالأمر `eth_getBlockByNumber` الذي في النسخة الإنجليزية).
+٢. أوقف الخدمة القديمة على الخوادم الثلاثة: `sudo systemctl stop pocol-testnet.service`.
+٣. خذ النسخة الاحتياطية المعتادة (`node_operator.py backup`). **لا تحذف مجلد البيانات القديم أبدًا**: هو
+   الطريق الوحيد للتراجع.
 
 ## ٢. بناء كتلة التكوين الجديدة (على كل خادم باستقلال)
 
-شغّل `new_network_config.py` ثم `pocold cutover` بالارتفاع `S` وبأعلام الخادم نفسها، كما في النسخة
-الإنجليزية.
-- الأداة تقرأ البيانات القديمة فقط، وترفض العمل والعقدة القديمة تعمل.
-- يجب أن تتطابق بصمات SHA-256 للملفات الأربعة على الخوادم الثلاثة. إن اختلفت فتوقف وابحث عن السبب،
-  ولا تختر إحداها.
+```sh
+python3 deploy/mainnet/new_network_config.py --old /opt/pocol-testnet/net/devnet.json \
+    --genesis-time <launch time> --out /var/tmp/new-network.json
+sudo -u pocol-testnet /var/tmp/pocol-earnin-bin/pocold cutover --network /opt/pocol-testnet/net \
+    --data /var/lib/pocol-testnet --height <S> --config /var/tmp/new-network.json \
+    --out /var/tmp/pocol-earnin-genesis \
+    --state-store --checkpoint-every 128 --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
+cd /var/tmp/pocol-earnin-genesis
+sha256sum /var/tmp/new-network.json genesis.spec.hex alloc.json
+python3 -c 'import json; d=json.load(open("devnet.json")); del d["timing"]; print(json.dumps(d, sort_keys=True))' | sha256sum
+python3 -c 'import json; d=json.load(open("cutover-report.json")); del d["old"]["head"]; print(json.dumps(d, sort_keys=True))' | sha256sum
+```
+
+- تفتح الأداة مجلد البيانات القديم كما يفعل تشغيل العقدة: تأخذ قفله وقد تعيد كتابة ملفات العقدة المشتقة.
+  شغّلها فقط بعد النسخة الاحتياطية في الخطوة ١، وبمستخدم الخدمة، وتحقق من `--data`: المسار الخاطئ يُنشئ
+  مخزنًا جديدًا فارغًا، ثم ترفض الأداة الارتفاع. وهي ترفض العمل والعقدة القديمة تمسك القفل، وترفض ارتفاعًا
+  أعلى من الرأس، ولا تكتب أبدًا فوق مجلد مخرجات موجود.
+- يجب أن تطبع الخوادم الثلاثة البصمات الخمس نفسها. `genesis.spec.hex` و`alloc.json` هما كتلة التكوين:
+  تجزئتها وكل رصيد فيها. ويسجّل `devnet.json` أيضًا توقيت القبول الذي قاسه ذلك الخادم (`timing`)، ويسجّل
+  `cutover-report.json` رأس ذلك الخادم في السلسلة القديمة (`old.head`)، فيُقارن الملفان من دونهما. إن
+  اختلفت أي بصمة فتوقف وابحث عن السبب، ولا تختر إحداها.
 - يحوي `cutover-report.json`:
   - الارتفاع `S` وتجزئة كتلته؛
-  - عدد الحسابات المنقولة ومجموع أرصدتها؛
-  - الضمانات المعادة وضمانات المعدّنين المخصومة؛
-  - المكافآت المسقطة لآخر `D` كتل؛
+  - عدد الحسابات المنقولة والأرصدة المنسوخة؛
+  - كل ضمان معاد ومجموعها، وضمانات المعدّنين المخصومة؛
+  - المكافآت المسقطة حسب الارتفاع (المكافآت غير المسوّاة لآخر `D` كتل)؛
+  - عناوين النظام المستثناة؛
   - إجمالي المعروض، وتجزئة كتلة التكوين الجديدة.
 
 ## ٣. تحويل العملاء إلى الهوية الجديدة
 
-في المستودع، بتجزئة التكوين الجديدة من `cutover-report.json` (الحقل `newGenesis.genesisHash`، وهو يبدأ بـ
-`0x`) وبنسخة من الملف العام `genesis.spec.hex` من مخرجات الخطوة ٢، شغّل:
+في نسخة من `main` تحافظ على نهايات الأسطر LF التي في المستودع (على Windows انسخ المستودع بـ
+`git clone -c core.autocrlf=false`: ترفض الأداة الملفات المحسوبة بصمتها إن حُوّلت نهايات أسطرها، وتذكر رسالتها
+كيف تُصلَح نسخة موجودة)، وبتجزئة التكوين الجديدة من `cutover-report.json` (الحقل `newGenesis.genesisHash`،
+وهو يبدأ بـ `0x`) وبنسخة من الملف العام `genesis.spec.hex` من مخرجات الخطوة ٢، شغّل:
 
 ```
 python3 deploy/mainnet/network_identity.py --genesis-hash <newGenesis.genesisHash> \
@@ -93,36 +134,86 @@ python3 deploy/mainnet/network_identity.py --genesis-hash <newGenesis.genesisHas
 - اختبارات محفظة Windows، وفحص ما قبل التشغيل، والمكافآت، والبوابة، والحزم، وملف README الرئيسي للمستودع.
 
 يجب أن يحمل كل ملف العدد المحدد له من نسخ الهوية تمامًا قبل التحويل وبعده، وألا يحمل أي نسخة من هوية
-Mainnet القديمة؛ ولا تكتب الأداة شيئًا إلا إذا نجح كل ملف. لا ينجح `--check` إلا على شجرة تحمل هذه الهوية بالضبط. وإن احتاج الإطلاق لاحقًا إلى تكوين
+Mainnet القديمة. ولا تكتب الأداة شيئًا إلا إذا نجح كل ملف: تكتب كل ملف جديد بجانب أصله أولًا، ثم تستبدل
+الأصول، وملف العقدة آخرًا. إن فشل استبدال ذكرت الملفات التي استبدلتها، وقالت هل تُعاد هذه الملفات
+(`git checkout --` مع مساراتها) أم يكفي تشغيل الأمر نفسه من جديد. لا ينجح `--check` إلا على شجرة تحمل هذه الهوية بالضبط. وإن احتاج الإطلاق لاحقًا إلى تكوين
 جديد (مثل وقت إطلاق جديد)، فشغّل الأمرين نفسيهما بالتجزئة والملف الجديدين: تنقل الأداة من الهوية التي
-تحملها الشجرة. لا تتغير المستندات التي تصف تاريخ الشبكة القديمة، ولا لقطات المواقع في `deploy/websites`
-(الخطوة ٥). وينجح `test_network_identity.py` على الشجرة بعد التحويل، ويفشل إن ثبّت أي ملف متتبَّع آخر
-الهوية القديمة.
+تحملها الشجرة. ثم ضع تجزئة التكوين الجديدة في ملاحظات الإصدار أيضًا. لا تتغير المستندات التي تصف تاريخ
+الشبكة القديمة، ولا لقطات المواقع في `deploy/websites` (الخطوة ٥). وينجح `test_network_identity.py` على
+الشجرة بعد التحويل، ويفشل إن ثبّت أي ملف متتبَّع آخر الهوية القديمة.
 
-وفي طلب الدمج نفسه غيّر ما لا تغيّره الأداة، لأنه يُشحن مع كل حزمة:
+وفي طلب الدمج نفسه غيّر ما لا تغيّره الأداة، لأنه يُشحن مع الحزم:
 - استبدل `deploy/standalone/RELEASE-UPGRADE.md`، وهي ملاحظات تحديث 0.4.0 للشبكة القديمة، بملاحظات الشبكة
-  الجديدة؛
-- أعطِ الحزم أرقام إصدار جديدة: `deploy/standalone/package.py` و`deploy/standalone/test_release_package.py`،
-  و`package.json` و`package-lock.json` في الإضافة، وعنوانا `README-IDE.md` و`README-STUDIO.md`.
+  الجديدة. يجب أن تذكر معرّف السلسلة `261597237` وتجزئة التكوين الجديدة، اللذين يتحقق منهما المستخدمون،
+  ويجوز أن تذكر الشبكة القديمة تاريخًا. ويجب أن تشرح للمحافظ الحالية طريق انتقالها، لأن الاستيراد والترقية
+  يرفضان مجلد محفظة مرتبطًا بالتكوين القديم، ولأن مجلدًا جديدًا يُنشئ عنوانًا جديدًا فارغًا:
+  ١. أغلق المحفظة، أو أوقف الخدمة بمستخدمها؛
+  ٢. ضع ملفات الإصدار الجديد وملف `network.pocol.json` الجديد في مجلد البرنامج، مكان الدعوة القديمة فيه
+     (وضعتها ملاحظات 0.4.0 بجانب `PoCol-Wallet.exe`، وتحفظها خدمة Linux المستقلة في `/opt/pocol-standalone`).
+     فالمحفظة تشغّل محركها حالما تُفتح، والدعوة القديمة بجانبها تعيد ربط مجلدها بالتكوين القديم؛
+  ٣. في مجلد المحفظة (على Windows هو `%LOCALAPPDATA%\PoCol`، وتستخدم خدمة Linux المستقلة
+     `/var/lib/pocol-standalone`) أنشئ مجلدًا مثل `old-network` وانقل إليه `network.pocol.json` و`network`
+     و`state` و`wallet-activity.json`، ثم `network-upgrade.pending.json` و`network.pocol.json.before-full-nonce`
+     إن وُجدا. لا تحذف شيئًا؛
+  ٤. أبقِ `identity.pocol-key` و`identity.address` في مكانهما؛
+  ٥. افتح المحفظة، أو شغّل الخدمة: تستورد الدعوة الجديدة التي بجانبها (ويفعل Settings → Import، أو
+     `pocol import --home <home> --network network.pocol.json`، الشيء نفسه). يبقى العنوان كما هو.
 
-يفشل `test_network_identity.py` على الشجرة بعد التحويل حتى يتم الأمران. بعدها سجّل التغيير (commit) وافتح
-طلب دمج، ودع CI يبني العملاء، ثم ادمج.
+  ويشغّل `deploy/standalone/test_upgrade.py` (`NewGenesisRejoin`) هذه الخطوات، ويُظهر أن دعوة قديمة متروكة
+  بجانب البرنامج تعيد ربط المجلد بالتكوين القديم؛
+- أعطِ الحزم أرقام إصدار جديدة: `deploy/standalone/package.py` و`deploy/standalone/test_release_package.py`؛
+  وأرقام الإصدار في `Wallet.cs` ونص الإصدار في `Wallet.xaml` لمحفظة Windows؛ والملفات في
+  `deploy/standalone/linux-desktop`؛ و`package.json` و`package-lock.json` في الإضافة؛ و`package.json` في
+  Studio؛ و`versionName` لتطبيق Android (و`versionCode` إن كان تحديث موقّع سيُثبَّت فوق 5) في
+  `prototypes/pocol-android/app/build.gradle`؛ و`.github/workflows/five-device-build.yml` الذي يحمل اسمه
+  وأسماء ملفاته وفحص APK فيه الرقم 0.4.0؛
+- أعد كتابة النصوص التي لا تصح إلا على الشبكة القديمة: عنوان `deploy/standalone/README.md` ونص الترقية على
+  السلسلة نفسها فيه، وعناوين `README-IDE.md` و`README-STUDIO.md` و`README-AR.md` في الإضافة وفقرات إصدارها،
+  التي تقول إن معرّف السلسلة وكتلة التكوين لم يتغيرا. سمِّ الشبكة الجديدة فيها بالكلمات: يجب أن يحتفظ كل
+  منها بعدد نسخ الهوية المحدد له (أو يحدّث طلب الدمج أعداده في `FILES`)؛
+- وجّه رابط تنزيل الإضافة في Studio، في `prototypes/pocol-studio/dist/app.js` و
+  `prototypes/pocol-studio/QUICKSTART-AR.txt`، إلى حزمة الإضافة الجديدة؛
+- ثم شغّل الأمر الأول مرة أخرى، فيحدّث إصدار محتوى Studio ومُثبّت البوابة بعد هذه التعديلات، و`--check`
+  أخيرًا.
+
+يفشل `test_network_identity.py` على الشجرة بعد التحويل حتى يتم كل ذلك، ويذكر ما بقي. بعدها سجّل التغيير
+(commit) وافتح طلب دمج، ودع CI يبني العملاء، ثم ادمج.
 
 ## ٤. تشغيل الشبكة الجديدة (موافقة: تشغيل الخوادم)
 
-١. ضع ملفات التكوين الثلاثة في مجلد شبكة. التقرير يُنشر لكنه ليس جزءًا من الحزمة.
-٢. ابنِ الإصدار من الرأس المدموج للخطوة ٣ بعد نجاح CI عليه، ثم ابنِ منه حزم الخوادم بـ `prepare.py` من قائمة
-   الخوادم نفسها. يرفض `prepare.py` ملفات تنفيذية مبنية من مصادر غير مصادر النسخة الحالية.
+١. على الخادم الأول، ضع ملفات التكوين الثلاثة الخاصة به في مجلد شبكة. أثبتت الخطوة ٢ أن الخوادم الثلاثة
+   بنت التكوين نفسه؛ أما `timing` في `devnet.json` لهذا الخادم فللعلم فقط، لأن كل عقدة تقيس توقيتها عند
+   التشغيل. التقرير يُنشر لكنه ليس جزءًا من الحزمة.
+   ```sh
+   mkdir /var/tmp/pocol-earnin-net
+   cp /var/tmp/pocol-earnin-genesis/{genesis.spec.hex,alloc.json,devnet.json} /var/tmp/pocol-earnin-net/
+   ```
+٢. ابنِ الإصدار من الرأس المدموج للخطوة ٣ بعد نجاح CI عليه، ثم ابنِ منه حزم الخوادم بـ
+   `deploy/public-testnet/prepare.py --network /var/tmp/pocol-earnin-net` من قائمة الخوادم نفسها. يرفض
+   `prepare.py` ملفات تنفيذية مبنية من مصادر غير مصادر النسخة الحالية.
 ٣. على كل خادم:
-   - انقل التثبيت والبيانات القديمة جانبًا **دون حذف**، بإضافة اللاحقة `-1599846715` إلى اسميهما؛
+   - انقل التثبيت والبيانات وملف الخدمة القديمة جانبًا **دون حذف**. يرفض `install.sh` التثبيت ما دام أي
+     منها موجودًا. يتوقف السكربت عند أول فشل، ولا ينقل شيئًا فوق اسم موجود:
+     ```sh
+     sudo bash -e <<'EOF'
+     old=1599846715
+     for path in /opt/pocol-testnet /var/lib/pocol-testnet; do
+       test ! -e "$path-$old"; mv -T "$path" "$path-$old"
+     done
+     test ! -e "/etc/systemd/pocol-testnet.service-$old"
+     mv -T /etc/systemd/system/pocol-testnet.service "/etc/systemd/pocol-testnet.service-$old"
+     systemctl daemon-reload
+     EOF
+     ```
    - أبقِ `/etc/pocol-testnet` (المفاتيح نفسها) وكل ملفات إعداد المواقع والبوابة، ومنها `api/config.php`؛
      وتغيّر الخطوة ٥ قيم الشبكة فيها فقط؛
-   - ثبّت الحزمة الجديدة كالمعتاد.
+   - ثبّت الحزمة الجديدة بـ `install.sh` كالمعتاد.
 ٤. شغّل الخدمة في وقت الإطلاق وتحقق:
    - `eth_chainId` يساوي `0xf97a835`؛
    - تجزئة التكوين هي المنشورة؛
    - الرأس يتقدم؛
-   - `pocol_getMiners` يعرض الخوادم الثلاثة بضمان 20 PCOL؛
+   - `pocol_getMiners` يعرض الخوادم الثلاثة بضمان (`bond`) قدره `0x1158e460913d00000` (20 PCOL)، و`bondState`
+     يساوي 1؛
    - أرصدة عينة من الحسابات تطابق التقرير.
 
 ## ٥. البوابة والمستكشف والمواقع والمحافظ (موافقة: النشر)
@@ -155,48 +246,103 @@ Mainnet القديمة؛ ولا تكتب الأداة شيئًا إلا إذا �
      - pocol.net: `network.js` و`reward.js` و`api/network.php` و`api/reward.php`؛
      - حزمة المستكشف `assets/index-Cj8htKRO.js`؛
      - حزمة IDE `assets/index-extension041-02af63944c2b.js`، والحزمة القديمة `assets/index-CJbrNXr_.js` التي
-       لا تحمّلها أي صفحة؛
+       لا تحمّلها أي صفحة؛ وارفع فيها إصدار الإضافة الذي يطلبه IDE ("0.4.0 or later") إلى الإصدار الجديد،
+       لأن الإضافات الأقدم تثبّت الشبكة القديمة؛
      - دليل IDE `DEPLOY-README-AR.txt`، وفيه إعدادات الشبكة.
-  ٢. اجعل لوحة المكافآت تقبل سجلات العضوية التجريبية: في `reward.js` و`api/reward.php` يجوز أن يكون
+  ٢. أزل من pocol.net تعليمات ترقية H15000 الخاصة بالشبكة القديمة. فهي تطلب من المستخدمين حفظ الجدول
+     `[[1,"0"],[2,"15000"]]`، واستخدام حزمة 0.4.0 الكاملة، وتشغيل Settings → Upgrade existing network الذي
+     يرفض تكوينًا جديدًا. وهي في:
+     - `about-locales.js` في اللغات الخمس والأربعين كلها: `appsUpgradeNotice` و`appsConnectionBody`
+       و`appsWindowsUpdateBody` و`appsWindowsUpdateDownload` و`studioRelease` و`ideExtensionBody`. يكتب
+       `app.js` هذه النصوص فوق نص الصفحة عند تحميلها، فغيّرها هنا لا في HTML وحده؛
+     - النصوص نفسها في `index.html`، وأقسام H15000 في `guide-content.js` و`pocol-tools.html`؛
+     - `README-AR.txt`، الذي يحيل المستخدمين إلى `NETWORK-UPDATE-15000.txt` للانضمام؛
+     - `RETAINED-NATIVE-DOWNLOADS.json`: اذكر فيه الحزم الجديدة والدعوة الجديدة، دون `activationHeight` الخاص
+       بـ H15000.
+
+     وضع مكانها تعليمات الشبكة الجديدة من ملاحظات إصدار الخطوة ٣، ومنها الجدول `[[1,"0"]]`. لا تقتبس فيها
+     الجدول القديم ولا معرّف السلسلة القديم ولا اسم H15000: فحوص الإغلاق ترفض الثلاثة.
+  ٣. اجعل لوحة المكافآت تقبل سجلات العضوية التجريبية: في `reward.js` و`api/reward.php` يجوز أن يكون
      `amountWei` للمستفيد `0` إذا كان `bondAccruedWei` له أكبر من 0، ويجب أن يساوي
      `sum(amountWei) + sum(bondAccruedWei)` القيمةَ `projectedPaidWei`. اعرض جزء الضمان أيضًا. قبل النشر،
      اختبر الملفين بسجلات من بوابة المكافآت أعلاه، ومنها سجل في فترة الاختبار.
-  ٣. وجّه كل رابط تنزيل إلى الحزم الجديدة بأسمائها وأحجامها وإصداراتها: `wallet-downloads.js` و`index.html`
-     و`guide-content.js` و`pocol-tools.html` و`chrome-extension.html` في pocol.net، ورابط الإضافة في حزمة IDE
-     وفي `DEPLOY-README-AR.txt`.
-  ٤. استبدل `pocol.net/downloads/network.pocol.json` بدعوة الشبكة الجديدة. ابنها خارج اللقطة بـ `pocol` من
+  ٤. وجّه كل رابط تنزيل إلى الحزم الجديدة بأسمائها وأحجامها وإصداراتها: `wallet-downloads.js` و`index.html`
+     و`guide-content.js` و`pocol-tools.html` و`chrome-extension.html` و`smart-contracts.html` في pocol.net، ورابط
+     الإضافة في حزمة IDE وفي `DEPLOY-README-AR.txt`.
+  ٥. استبدل `pocol.net/downloads/network.pocol.json` بدعوة الشبكة الجديدة. ابنها خارج اللقطة بـ `pocol` من
      الإصدار الجديد وبالبذور الثلاث في الدعوة القديمة، `--seed` لكل منها. يكتب `pocol network` الملف
      بالصلاحية 600 ويرفض ملفًا موجودًا، فانسخه إلى مكانه بالصلاحية 644:
      ```
      pocol network --from /var/tmp/pocol-earnin-net --seed <بذرة 1> --seed <بذرة 2> --seed <بذرة 3> \
          --out /var/tmp/network.pocol.json
      ```
-  ٥. أعطِ كل ملف تغيّر عنوانًا جديدًا، حتى لا تقدّم أي ذاكرة مؤقتة محتواه القديم:
+  ٦. أعطِ كل ملف تغيّر عنوانًا جديدًا، حتى لا تقدّم أي ذاكرة مؤقتة محتواه القديم:
      - صفحات pocol.net تحمّل الملفات بالصيغة `name?v=` مع أول 12 رقمًا ست عشريًا من SHA-256 للملف. ضع
        القيمة الجديدة في كل صفحة تحمّل ملفًا تغيّر. الدعوة تحمّلها `index.html` و`guide-content.js`
        و`pocol-tools.html`، وإذا تغيّر `guide-content.js` احتاج هو أيضًا قيمة جديدة في الصفحات التي تحمّله.
+       ويحمّل `about-locales.js` تسعُ صفحات: `about` و`chrome-extension` و`collaborative-mining`
+       و`how-pocol-works` و`index` و`onchain-websites` و`pocol-status` و`pocol-tools` و`smart-contracts`.
      - المستكشف وIDE يحمّلان حزمهما باسم الملف: أعد تسمية كل حزمة تغيّرت (مثلًا
        `index-<أول 12 رقمًا ست عشريًا من SHA-256 لها>.js`) وحدّث `index.html` الذي يحمّلها.
-  ٦. أخيرًا حدّث قوائم التجزئات بالتجزئات والأحجام الجديدة: `SHA256SUMS.txt` في كل موقع، وملفات `.sha256`
+  ٧. أخيرًا حدّث قوائم التجزئات بالتجزئات والأحجام الجديدة: `SHA256SUMS.txt` في كل موقع، وملفات `.sha256`
      بجانب التنزيلات، و`pocol.net/RETAINED-NATIVE-DOWNLOADS.json`، للدعوة ولكل حزمة نُشرت.
-  ٧. بعد ذلك يجب ألا يُظهر الأمر الأول إلا ملاحظة التاريخ `NETWORK-UPDATE-15000.txt` في كل موقع، وألا يُظهر
-     الثاني شيئًا:
+  ٨. بعد ذلك، وعلى الملفات التي ستنشرها (ومنها الحزم المعادة تسميتها، ولهذا `grep` لا `git grep`)، يجب ألا
+     يُظهر الأمر الأول إلا ملاحظة التاريخ `NETWORK-UPDATE-15000.txt` في كل موقع، وألا يُظهر الثاني شيئًا:
      ```
-     git grep -nE '1599846715|0x5f5bb93b|be137bfd|f4ed1373' -- deploy/websites
-     git grep -nE 'PoCol-Mainnet-0\.4\.0|IDE-Viewer-0\.4\.[01]' -- 'deploy/websites/*.html' 'deploy/websites/*.js'
+     grep -rnIE '1599846715|0x5f5bb93b|be137bfd|f4ed1373' deploy/websites
+     grep -rnIE --include='*.html' --include='*.js' --include='*.json' --include='*.php' --include='*.txt' \
+         --exclude='NETWORK-UPDATE-15000.txt' --exclude='SHA256SUMS.txt' \
+         '0\.4\.[01]|15000(\\"|&quot;|")|block 15000|H15000|Upgrade existing network|NETWORK-UPDATE-15000' \
+         deploy/websites
      ```
+- **Studio:** ارفع موقع Studio من الرأس المدموج (`prototypes/pocol-studio/dist`، أي الحزمة
+  `PoCol-Studio-cPanel.zip`) إلى جذر مستندات `studio.pocol.net`، كما في
+  [ملف README الخاص به](../../prototypes/pocol-studio/README.md). تحقق من أن الصفحة تحمّل `app.js?v=` الجديد،
+  وأنها تعرض السلسلة `261597237` متصلة.
 - انشر `cutover-report.json` مع ملاحظات الإصدار.
 
 ## ٦. صنبور الرسوم (موافقة: تشغيل الصنبور)
 
-١. أنشئ مفتاح مشغّل مخصصًا للصنبور، وموّله بتحويل عادي من حساب مشغّل. 1 PCOL مثلًا يكفي 500 طلب، بواقع
-   0.002 PCOL لكل عنوان جديد.
-٢. ثبّت `deploy/faucet` كما في [README](../faucet/README.md) خلف وكيل HTTPS الحالي.
+١. على خادم واحد، أنشئ مستخدم الصنبور ومجلد حالته، ثم مفتاح مشغّل مخصصًا يملكه ذلك المستخدم (يرفض
+   `pocol-sign` مفتاحًا يملكه مستخدم آخر أو يقرؤه الآخرون):
+   ```sh
+   sudo useradd --system --home-dir /var/lib/pocol-faucet --shell /usr/sbin/nologin pocol-faucet
+   sudo install -d -m 0700 -o pocol-faucet -g pocol-faucet /var/lib/pocol-faucet
+   sudo -u pocol-faucet /opt/pocol-testnet/bin/pocol-key generate --out /var/lib/pocol-faucet/operator.pocol-key
+   ```
+   موّل العنوان الذي يطبعه بتحويل عادي من حساب مشغّل. يرسل كل طلب 0.002 PCOL ويدفع رسومه، فيكفي 1 PCOL
+   لما يقل قليلًا عن 490 طلبًا.
+٢. ثبّت `deploy/faucet` من الرأس المدموج كما في [README](../faucet/README.md): `pocol_faucet.py` في
+   `/opt/pocol-faucet`، و`config.example.json` باسم `/etc/pocol-faucet/config.json` (معرّف السلسلة
+   `261597237`، والمفتاح وسجل الطلبات أعلاه، وأداة التوقيع `/opt/pocol-testnet/bin/pocol-sign`)، والوحدة
+   `pocol-faucet.service`. ضعه خلف وكيل HTTPS الحالي. وخلف الوكيل اضبط أيضًا `"trustProxy": true` واجعل موضع
+   الوكيل يضيف `X-Forwarded-For`؛ وإلا تشارك المستخدمون كلهم عنوان الوكيل وحصة يومية واحدة
+   (`perClientDaily`). واضبط `"allowOrigin"` على أصل الموقع الوحيد الذي يستدعيه. تحقق من `GET /status`، ثم من
+   طلب `POST /claim` واحد عبر الوكيل.
 
 ## التراجع
 
-- **قبل أن يتعامل أحد على الشبكة الجديدة:** أوقف الخدمات الجديدة، وأعد المجلدات القديمة إلى أسمائها، ثم
-  شغّل الخدمة القديمة. تستمر السلسلة القديمة من حيث توقفت.
+- **قبل أن يتعامل أحد على الشبكة الجديدة:** أوقف الخدمات الجديدة. انقل التثبيت والبيانات وملف الخدمة
+  الجديدة جانبًا باسم مؤرخ دون حذف، ثم أعد القديمة. يتوقف السكربت عند أول فشل قبل أن يشغّل شيئًا، ولا ينقل
+  شيئًا فوق اسم موجود، فيصح تشغيله مرة أخرى بعد إطلاق لاحق:
+  ```sh
+  sudo bash -e <<'EOF'
+  old=1599846715 new=261597237-$(date -u +%Y%m%dT%H%M%SZ)
+  unit=/etc/systemd/system/pocol-testnet.service saved=/etc/systemd/pocol-testnet.service
+  # The old installation must be waiting under its -1599846715 names before anything moves.
+  test -e "/opt/pocol-testnet-$old"; test -e "/var/lib/pocol-testnet-$old"; test -e "$saved-$old"
+  systemctl stop pocol-testnet.service
+  for path in /opt/pocol-testnet /var/lib/pocol-testnet; do
+    test ! -e "$path-$new"; mv -T "$path" "$path-$new"
+    mv -T "$path-$old" "$path"
+  done
+  test ! -e "$saved-$new"; mv -T "$unit" "$saved-$new"
+  mv -T "$saved-$old" "$unit"
+  systemctl daemon-reload
+  systemctl start pocol-testnet.service
+  EOF
+  ```
+  تستمر السلسلة القديمة من حيث توقفت.
 - **بعد ذلك:** لا تراجع؛ يكون الإصلاح على الشبكة الجديدة.
 - العملاء من الخطوة ٣ يعملون على الشبكة الجديدة فقط. لخدمة الشبكة القديمة من جديد، انشر عملاء مبنيين من
   إيداع قبل الخطوة ٣، أو من إيداع يعكسها.

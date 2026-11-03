@@ -242,12 +242,27 @@ The proposer draw (D1–D2) and the cutover tool are P3.
   - Each file must hold exactly its listed number of copies and no copy of the old Mainnet identity,
     so `--check` fails on any other identity, and a redo with a new genesis switches from the
     identity the tree carries.
+  - It writes every new file beside its original before replacing any, so an I/O error changes
+    nothing, and it refuses hashed sources whose line endings a checkout converted (CRLF), whose
+    content versions CI would refuse.
   - Its test passes before and after the switch, and fails if another tracked file pins the old
-    identity. On the switched tree it also requires what the step-3 PR changes by hand: new release
-    notes in place of `deploy/standalone/RELEASE-UPGRADE.md`, and new package versions.
+    identity. The release notes must name the tree's chain ID and genesis hash, so a redo also needs
+    new notes. On the switched tree it also requires what the step-3 PR changes by hand: new release
+    notes in place of `deploy/standalone/RELEASE-UPGRADE.md`, new package versions, and new release
+    texts where the shipped READMEs describe the old network.
 
   The website snapshots in `deploy/websites` are build output. The runbook's step 5 updates them,
   together with the reward gateway's fork schedule, the Studio relay and the Explorer configuration.
+- An existing native wallet home is bound to the old genesis, so Import and Upgrade refuse the new
+  invitation. The new invitation replaces the old one beside the application (the wallet's engine
+  imports that file as soon as it opens, and an old one binds the home to the old genesis again).
+  The home then moves the old network's files (`network.pocol.json`, `network`, `state`,
+  `wallet-activity.json` and any upgrade leftovers) into a folder of its own, keeps its key, and
+  imports the new invitation; the address stays the same. `deploy/standalone/test_upgrade.py`
+  (`NewGenesisRejoin`) runs these steps and the old-invitation case, and the step-3 release notes give
+  them to users.
+- Studio's release builder refuses a `dist/app.js` whose extension download link names another
+  version than the extension it packages.
 
 **Fee faucet (A2):** `deploy/faucet/`.
 - It sends 0.002 PCOL once per new address, within daily and per-client limits.

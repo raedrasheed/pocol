@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """network_identity.py switches every listed pin (chain ID, genesis hash, GenesisSpec) with the content
 versions and the Studio installer derived from them; --check fails on any other identity; a redo switches
-from the current one; line endings are kept; nothing is written when anything fails; bad or non-canonical
-input is refused; and no tracked file pins the old Mainnet identity unless it is switched or kept on purpose.
+from the current one; line endings are kept, and hashed sources with converted (CRLF) line endings are
+refused; nothing is written when anything fails, an I/O error included; bad or non-canonical input is
+refused; no tracked file pins the old Mainnet identity unless it is switched or kept on purpose; and on the
+switched tree the shipped notes, versions and release texts of the old network are replaced (runbook step 3).
 
 The tests derive their fixtures from the tree's current identity, so they pass before the cutover and on
 the reviewed step-3 commit that switches the tree (the runbook merges it through CI)."""
-import base64, hashlib, re, shutil, subprocess, tempfile, unittest
+import base64, hashlib, json, os, re, shutil, subprocess, tempfile, unittest
 from pathlib import Path
+from unittest import mock
 import network_identity as ni
 import build_installer
 
@@ -64,6 +67,8 @@ NON_CANONICAL = {
     'a wrapped single byte after the last item': rlp_list(_payload + b'\x81\x05'),
     'a wrapped single byte inside CP': rlp_list(_version + bytes([0x80 + len(_chain)]) + _chain
                                                 + rlp_list(_rest[_cp_start:_cp_end] + b'\x81\x05') + _rest[_cp_end:]),
+    'a 55-byte item in long form': rlp_list(_payload + b'\xb8\x37' + b'\x01' * 55),
+    'an item that overruns its list': rlp_list(_payload + b'\xc2\x01\x82\x03\x04'),
 }
 
 def held(text, chain_id, genesis, spec_hex):
@@ -91,20 +96,45 @@ KEPT = {
     'deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md': 'the move from the old network',
     'deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK-AR.md': 'the move from the old network',
 }
-# Shipped with every package, so the step-3 PR replaces or bumps them (runbook step 3): before the switch
-# they may name the old network or its versions, on the switched tree they must not.
+# The release notes every package ships. The step-3 PR replaces the old network's 0.4.0 notes with the new
+# network's, which may name the old network as history but must name the tree's identity: the chain ID and
+# genesis hash users check (after a redo, the new genesis).
+NOTES = 'deploy/standalone/RELEASE-UPGRADE.md'
+# Shipped with the packages, so the step-3 PR replaces or bumps them (runbook step 3): before the switch each
+# holds its pattern (the old release's version, or text that is true only on the old network), on the
+# switched tree none may.
 STEP3 = {
-    'deploy/standalone/RELEASE-UPGRADE.md': OLD_ANYWHERE,
+    NOTES: re.compile(r'(?m)^# PoCol Mainnet · 0\.4\.0 update$|^## Windows: keep the same account and wallet home$'),
     'deploy/standalone/package.py': re.compile(r"version\s*=\s*'0\.4\.0'"),
+    'deploy/standalone/README.md': re.compile(r'Wallet 0\.4\.0|retain their genesis'),
+    'deploy/standalone/linux-desktop/pocol-desktop': re.compile(r'0\.4\.0'),
+    'deploy/standalone/linux-desktop/install-desktop-icon.sh': re.compile(r'0\.4\.0'),
+    'deploy/standalone/linux-desktop/README-LINUX-ICONS.md': re.compile(r'0\.4\.0'),
+    'prototypes/pocol-windows/Wallet.cs': re.compile(r'Assembly(?:File)?Version\("0\.4\.0\.0"\)'),
+    'prototypes/pocol-windows/Wallet.xaml': re.compile(r'PoCol Wallet · 0\.4\.0'),
     'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
+    'prototypes/pocol-extension/README-IDE.md': re.compile(
+        r'(?m)^# PoCol Studio, IDE & Viewer 0\.4\.1|chain ID and genesis remain unchanged'),
+    'prototypes/pocol-extension/README-STUDIO.md': re.compile(
+        r'(?m)^# PoCol Studio extension — 0\.4\.1|its chain ID, genesis and wallet addresses are unchanged'),
+    'prototypes/pocol-extension/README-AR.md': re.compile(r'الإصدار 0\.4\.[01]|ومعرّف الشبكة وكتلة التكوين كما هي'),
+    'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
+    'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
+    'prototypes/pocol-studio/QUICKSTART-AR.txt': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
+    'prototypes/pocol-android/app/build.gradle': re.compile(r"versionName '0\.4\.0'"),
+    '.github/workflows/five-device-build.yml': re.compile(r'0\.4\.0'),
 }
 TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER]
 
 def unaccounted(files):
     """Paths among (path, text) pairs that pin the old identity but are neither switched nor kept."""
     return [rel for rel, text in files
-            if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT and rel not in STEP3
+            if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT and rel != NOTES
             and (rel not in ni.FILES or SWITCHED) and OLD_ANYWHERE.search(text)]
+
+def digests(files):
+    """{name: SHA-256}, so a failing comparison reports quickly instead of diffing whole files."""
+    return {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
 
 def installer_payloads(text):
     """{name: bytes} embedded in the Studio gateway installer."""
@@ -135,7 +165,7 @@ class NetworkIdentity(unittest.TestCase):
         for page, rel in ni.VERSIONED:
             self.assertEqual(versions((root / page).read_text(encoding='utf-8'), Path(rel).name), {sha12((root / rel).read_bytes())}, page)
         payloads = installer_payloads((root / ni.INSTALLER).read_text(encoding='utf-8'))
-        self.assertEqual(payloads, {name: (root / rel).read_bytes() for name, rel in ni.INSTALLER_SOURCES.items()})
+        self.assertEqual(digests(payloads), digests({name: (root / rel).read_bytes() for name, rel in ni.INSTALLER_SOURCES.items()}))
 
     def test_the_current_identity_is_proven_and_the_fixtures_are_valid(self):
         self.assertEqual(ni.keccak256(CUR_SPEC).hex(), CUR_GENESIS)
@@ -153,7 +183,8 @@ class NetworkIdentity(unittest.TestCase):
 
     def test_derived_files_follow_their_sources_today(self):
         sources = {name: (ni.ROOT / rel).read_bytes() for name, rel in ni.INSTALLER_SOURCES.items()}
-        self.assertEqual((ni.ROOT / ni.INSTALLER).read_text(encoding='utf-8'), build_installer.script(sources),
+        self.assertEqual(hashlib.sha256((ni.ROOT / ni.INSTALLER).read_bytes()).hexdigest(),
+                         hashlib.sha256(build_installer.script(sources).encode('utf-8')).hexdigest(),
                          'rebuild it: python3 deploy/studio/build_installer.py')
         for page, rel in ni.VERSIONED:
             self.assertEqual(versions((ni.ROOT / page).read_text(encoding='utf-8'), Path(rel).name), {sha12((ni.ROOT / rel).read_bytes())}, page)
@@ -179,6 +210,7 @@ class NetworkIdentity(unittest.TestCase):
         self.assertIn("chain:'0xf97a835'", (root / 'prototypes/pocol-extension/tests/contracts_test.mjs').read_text())
         self.assertIn('assert.equal(spec.chainId,261597237n)', (root / 'prototypes/pocol-extension/tests/studio_test.mjs').read_text())
         self.assertEqual(self.run_tool(root, '--check'), 0)
+        self.assertEqual(list(root.rglob('*.network-identity.tmp')), [], 'every new file replaced its original')
         before = self.snapshot(root)
         self.assertEqual(self.run_tool(root), 0)
         self.assertEqual(before, self.snapshot(root), 'a second run changes nothing')
@@ -239,6 +271,56 @@ class NetworkIdentity(unittest.TestCase):
             self.assertEqual(self.run_tool(root), 2)
             self.assertEqual(before, self.snapshot(root))
 
+    def test_an_io_error_while_writing_changes_nothing(self):
+        root = self.copy()
+        before = self.snapshot(root)
+        # A file part way through the list cannot be written (a read-only directory, a full disk). It pins the
+        # genesis hash, so every switch changes it, a redo for the same chain included.
+        hashed = [rel for rel, (_, h, _) in ni.FILES.items() if h and rel != ni.ANCHOR]
+        victim = Path(hashed[len(hashed) // 2]).name + '.network-identity.tmp'
+        real = shutil.copymode
+        def copymode(src, dst, *args, **kwargs):
+            if Path(dst).name == victim:
+                raise PermissionError(13, 'Permission denied', str(dst))
+            return real(src, dst, *args, **kwargs)
+        with mock.patch.object(ni.shutil, 'copymode', copymode):
+            self.assertEqual(self.run_tool(root), 2)
+        self.assertEqual(before, self.snapshot(root))
+        self.assertEqual(list(root.rglob('*.network-identity.tmp')), [])
+
+    def test_a_failed_replacement_is_reported_and_the_next_run_sees_it(self):
+        root = self.copy()
+        real, calls = os.replace, []
+        def replace(src, dst):
+            calls.append(dst)
+            if len(calls) == 3:
+                raise PermissionError(13, 'Permission denied', str(dst))
+            return real(src, dst)
+        with mock.patch.object(ni.os, 'replace', replace):
+            self.assertEqual(self.run_tool(root), 2)
+        self.assertEqual(list(root.rglob('*.network-identity.tmp')), [])
+        self.assertEqual(digests({'anchor': (root / ni.ANCHOR).read_bytes()}), digests({'anchor': (ni.ROOT / ni.ANCHOR).read_bytes()}),
+                         'the node file goes last')
+        self.assertEqual(self.run_tool(root), 2, 'two files already carry the given identity')
+        for rel in TRACKED:
+            shutil.copy(ni.ROOT / rel, root / rel)
+        self.assertEqual(self.run_tool(root), 0, 'restored, the switch runs')
+
+    def test_a_hashed_source_with_crlf_line_endings_is_refused(self):
+        # A checkout with core.autocrlf: the versions and payloads would be hashes of bytes git does not store.
+        for rel in [rel for _, rel in ni.VERSIONED] + list(ni.INSTALLER_SOURCES.values()):
+            with self.subTest(rel=rel):
+                root = self.copy()
+                crlf = (root / rel).read_bytes().replace(b'\n', b'\r\n')
+                (root / rel).write_bytes(crlf)
+                before = self.snapshot(root)
+                self.assertEqual(self.run_tool(root), 2)
+                self.assertEqual(before, self.snapshot(root))
+                root = self.copy()
+                self.assertEqual(self.run_tool(root), 0)
+                (root / rel).write_bytes((root / rel).read_bytes().replace(b'\n', b'\r\n'))
+                self.assertEqual(self.run_tool(root, '--check'), 2)
+
     def test_a_copy_of_the_new_identity_outside_the_table_fails(self):
         root = self.copy()
         rel = 'deploy/rewards/gateway.py'
@@ -282,19 +364,61 @@ class NetworkIdentity(unittest.TestCase):
     def test_a_hash_inside_longer_hex_is_neither_counted_nor_changed(self):
         root = self.copy()
         rel = 'deploy/rewards/gateway.py'
-        longer = f'# 0x{CUR_GENESIS}ab\n'
+        # The hash with hex digits after or before it, and the chain ID inside longer words and numbers.
+        longer = f'# 0x{CUR_GENESIS}ab ab{CUR_GENESIS} {CUR_CHAIN}0 x{CUR_CHAIN} {CUR_CHAIN}_1\n'
         (root / rel).write_text((root / rel).read_text(encoding='utf-8') + longer, encoding='utf-8')
         self.assertEqual(self.run_tool(root), 0)
         self.assertIn(longer, (root / rel).read_text(encoding='utf-8'))
 
     def test_an_old_mainnet_pin_left_after_a_switch_fails_check_and_redo(self):
+        for legacy in ('LEGACY = 1599846715\n', f'LEGACY = "0x{ni.OLD_GENESIS}"\n'):
+            with self.subTest(legacy=legacy):
+                root = self.copy()
+                self.assertEqual(self.run_tool(root), 0)
+                rel = 'deploy/studio/pocol_studio_gateway.py'
+                (root / rel).write_text((root / rel).read_text(encoding='utf-8') + legacy, encoding='utf-8')
+                before = self.snapshot(root)
+                self.assertEqual(self.run_tool(root, '--check'), 2)
+                self.assertEqual(self.run_tool(root, genesis=HASH_B, spec='b.hex'), 2)
+                self.assertEqual(before, self.snapshot(root))
+
+    def test_upper_case_copies_and_inputs_are_switched(self):
         root = self.copy()
-        self.assertEqual(self.run_tool(root), 0)
-        rel = 'deploy/studio/pocol_studio_gateway.py'
-        (root / rel).write_text((root / rel).read_text(encoding='utf-8') + 'LEGACY = 1599846715\n', encoding='utf-8')
+        # A copy of the hash and of the GenesisSpec in upper case still counts, and is switched.
+        for rel, old in (('deploy/rewards/gateway.py', CUR_GENESIS),
+                         ('prototypes/pocol-extension/src/lib/studio-network.js', CUR_SPEC.hex())):
+            text = (root / rel).read_text(encoding='utf-8')
+            self.assertIn(old, text)
+            (root / rel).write_text(text.replace(old, old.upper()), encoding='utf-8')
+        # The given hash and the spec file may be in upper case too; the files get lower case.
+        (root / 'upper.hex').write_text('0X' + SPEC_A.hex().upper() + '\n', encoding='utf-8')
+        self.assertEqual(self.run_tool(root, genesis='0x' + HASH_A[2:].upper(), spec='upper.hex'), 0)
+        self.assert_carries(root, HASH_A, SPEC_A)
+        rust = (root / ni.ANCHOR).read_text(encoding='utf-8')
+        self.assertIn(f'const MAINNET_GENESIS: &str = "{HASH_A[2:]}";', rust)
+        for rel in ni.FILES:
+            text = (root / rel).read_text(encoding='utf-8').lower()
+            self.assertNotIn(CUR_GENESIS, text, rel)
+            self.assertNotIn(CUR_SPEC.hex(), text, rel)
+
+    def test_a_copy_of_the_given_spec_outside_the_table_fails(self):
+        root = self.copy()
+        rel = 'deploy/rewards/gateway.py'
+        (root / rel).write_text((root / rel).read_text(encoding='utf-8') + f'# {SPEC_A.hex()}\n', encoding='utf-8')
         before = self.snapshot(root)
-        self.assertEqual(self.run_tool(root, '--check'), 2)
-        self.assertEqual(self.run_tool(root, genesis=HASH_B, spec='b.hex'), 2)
+        self.assertEqual(self.run_tool(root), 2, 'one GenesisSpec copy more than its table allows')
+        self.assertEqual(before, self.snapshot(root))
+
+    def test_a_tampered_old_invitation_is_refused(self):
+        root = self.copy()
+        tampered = root / 'old-invitation.json'
+        invitation = json.loads(ni.OLD_INVITATION.read_text(encoding='utf-8'))
+        spec = invitation['files']['genesis.spec.hex'].strip()
+        invitation['files']['genesis.spec.hex'] = spec[:-2] + ('00' if spec[-2:] != '00' else '01')
+        tampered.write_text(json.dumps(invitation), encoding='utf-8')
+        before = self.snapshot(root)
+        with mock.patch.object(ni, 'OLD_INVITATION', tampered), self.assertRaises(SystemExit):
+            self.run_tool(root)
         self.assertEqual(before, self.snapshot(root))
 
     def test_a_node_file_whose_chain_id_its_spec_does_not_prove_is_refused(self):
@@ -323,7 +447,28 @@ class NetworkIdentity(unittest.TestCase):
                 self.run_tool(root, **case)
         with self.assertRaises(SystemExit):
             self.run_tool(root, '--chain-id', str(ni.OLD_CHAIN_ID))
+        # Specs that are valid RLP but carry chain IDs that are never a target: the old network's (with
+        # another genesis) and 2**53, above the JavaScript safe-integer range.
+        for name, chain in (('old-chain.hex', ni.OLD_CHAIN_ID), ('too-large.hex', 2**53)):
+            raw = chain.to_bytes((chain.bit_length() + 7) // 8, 'big')
+            spec = bytearray(rlp_list(_version + bytes([0x80 + len(raw)]) + raw + _rest))
+            spec[-1] ^= 4
+            (root / name).write_text(bytes(spec).hex(), encoding='utf-8')
+            with self.subTest(chain=chain), self.assertRaises(SystemExit):
+                self.run_tool(root, '--chain-id', str(chain), genesis='0x' + ni.keccak256(bytes(spec)).hex(), spec=name)
         self.assertEqual(before, self.snapshot(root))
+
+    def test_the_release_notes_name_the_current_identity(self):
+        # True of the old notes today; on the switched tree the new notes must name the new network, and after a
+        # redo with a later genesis, that genesis.
+        notes = (ni.ROOT / NOTES).read_text(encoding='utf-8')
+        self.assertTrue(str(CUR_CHAIN) in notes, f'{NOTES}: the notes name the chain ID {CUR_CHAIN} (runbook step 3)')
+        self.assertTrue('0x' + CUR_GENESIS in notes.lower(),
+                        f'{NOTES}: the notes name the genesis hash 0x{CUR_GENESIS}; after a redo, the new one (runbook step 3)')
+        if SWITCHED:
+            # The way across for an existing wallet: the key file stays, the old network's files move aside.
+            for marker in ('identity.pocol-key', 'network.pocol.json'):
+                self.assertTrue(marker in notes, f'{NOTES}: the notes give existing wallets their way across (runbook step 3)')
 
     def test_the_guard_flags_planted_copies(self):
         planted = [('a.py', 'X = 1599846715n'), ('b.rs', 'const X: u64 = 1_599_846_715;'), ('c.js', "c='0x5F5BB93B'"),
@@ -348,12 +493,11 @@ class NetworkIdentity(unittest.TestCase):
         self.assertEqual(unaccounted(texts()), [], 'pins of the old identity: add the file to FILES, or to KEPT with a reason')
         for rel in KEPT:
             self.assertTrue((ni.ROOT / rel).is_file(), rel)
-        for rel, old in STEP3.items():
-            text = (ni.ROOT / rel).read_text(encoding='utf-8')
-            if SWITCHED:
-                self.assertIsNone(old.search(text), f'{rel}: the step-3 PR replaces or bumps it (runbook step 3)')
-            else:
-                self.assertIsNotNone(old.search(text), f'{rel}: update STEP3 to what it holds today')
+        held = [rel for rel, old in STEP3.items() if old.search((ni.ROOT / rel).read_text(encoding='utf-8'))]
+        if SWITCHED:
+            self.assertEqual(held, [], 'the step-3 PR replaces or bumps these (runbook step 3): ' + ', '.join(held))
+        else:
+            self.assertEqual(held, list(STEP3), 'update STEP3 to what the files hold today')
 
 if __name__ == '__main__':
     unittest.main()

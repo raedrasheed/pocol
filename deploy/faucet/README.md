@@ -57,7 +57,24 @@ behind the existing HTTPS reverse proxy and set `trustProxy: true` only when tha
   or `{"type": "error", "message": ...}` with status 400, 409, 413, 429, 502 or 503.
 - `GET /status` returns the chain ID, the amount, the operator address and the transfers left today.
 
-`pocol-faucet.service` is a systemd unit for a dedicated `pocol-faucet` user.
+`pocol-faucet.service` is a systemd unit for a dedicated `pocol-faucet` user. That user must own the
+key file: `pocol-sign` refuses a key owned by another user or readable by others. On a server, create
+the user and `/var/lib/pocol-faucet`, then the key as that user, and use the server's own signer
+(`/opt/pocol-testnet/bin/pocol-sign`, as in `config.example.json`):
+
+```
+sudo useradd --system --home-dir /var/lib/pocol-faucet --shell /usr/sbin/nologin pocol-faucet
+sudo install -d -m 0700 -o pocol-faucet -g pocol-faucet /var/lib/pocol-faucet
+sudo -u pocol-faucet /opt/pocol-testnet/bin/pocol-key generate --out /var/lib/pocol-faucet/operator.pocol-key
+sudo install -D -m 0644 deploy/faucet/pocol_faucet.py /opt/pocol-faucet/pocol_faucet.py
+sudo install -D -m 0644 deploy/faucet/config.example.json /etc/pocol-faucet/config.json
+sudo install -m 0644 deploy/faucet/pocol-faucet.service /etc/systemd/system/pocol-faucet.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now pocol-faucet.service
+```
+
+Each claim sends 0.002 PCOL and pays its own transfer fee (21,000 gas at the suggested gas price), so
+1 PCOL pays for a little under 490 claims at the starting base fee.
 
 ## Tests
 

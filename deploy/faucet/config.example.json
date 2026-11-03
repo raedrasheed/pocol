@@ -2,7 +2,7 @@
   "chainId": 261597237,
   "rpc": "http://127.0.0.1:8545",
   "keyFile": "/var/lib/pocol-faucet/operator.pocol-key",
-  "signer": "/opt/pocol/bin/pocol-sign",
+  "signer": "/opt/pocol-testnet/bin/pocol-sign",
   "ledger": "/var/lib/pocol-faucet/ledger.json",
   "listen": "127.0.0.1",
   "port": 8547,
