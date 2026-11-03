@@ -1289,6 +1289,9 @@ impl Node{
     }
     /// TrieRebuild of a stored block's state through the journal (offloaded bodies read back).
     pub fn rebuild_state(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.ensure_state_with(hash,Some(&Src{journal:&self.journal,history:&self.history}))}
+    /// C-1 S4: restores a slimmed entry's fields in place (header, ParentResult, nonce ranges) from the
+    /// journal and history.redb, for a walk that reads the chain's own entries (the evidence walk).
+    pub fn unslim(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.unslim(hash,&Src{journal:&self.journal,history:&self.history})}
     /// A stored block's committed body (resident or from the journal).
     pub fn body_of(&self,hash:&[u8;32])->Result<Body,Reject>{let e=self.chain.get(hash).ok_or(Reject::UnknownParent)?;self.chain.body_of(e,Some(&self.journal))}
     /// The pending state as a whole state (the layer merged over its base; tests and inspection).

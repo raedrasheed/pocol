@@ -32,6 +32,12 @@ class Cutover(unittest.TestCase):
         with self.assertRaises(AssertionError) as e: self.run_with(1, 'error: --height S')
         self.assertEqual(str(e.exception), 'cutover failed: error: --height S')
 
+    def test_a_cutover_past_the_time_limit_is_named(self):
+        def slow(argv, **kw): raise subprocess.TimeoutExpired(argv, kw['timeout'])
+        with mock.patch.object(rc.subprocess, 'run', slow), self.assertRaises(AssertionError) as e:
+            rc.cutover(self.d / 'old', self.d / 'data', 5, self.d / 'new.json', self.out, [], timeout=7)
+        self.assertIn('did not finish within 7 s', str(e.exception))
+
     def test_the_report_is_returned(self):
         self.assertEqual(self.run_with(0, report={'allocTotal': '1'}), {'allocTotal': '1'})
 

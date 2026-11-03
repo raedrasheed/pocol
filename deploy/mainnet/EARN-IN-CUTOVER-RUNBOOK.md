@@ -54,7 +54,7 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
    ```sh
    python3 deploy/mainnet/new_network_config.py --old /opt/pocol-testnet/net/devnet.json \
        --genesis-time <a time 1 day ahead> --out /var/tmp/rehearsal-network.json
-   sudo -u pocol-testnet env POCOLD_BIN_DIR=/var/tmp/pocol-earnin-bin \
+   sudo -u pocol-testnet nice -n 10 ionice -c 2 -n 7 env POCOLD_BIN_DIR=/var/tmp/pocol-earnin-bin \
    python3 deploy/mainnet/rehearse_cutover.py --copy --network /opt/pocol-testnet/net \
        --data /var/tmp/pocol-rehearsal-data --height <its head - 60> \
        --config /var/tmp/rehearsal-network.json --work /var/tmp/pocol-rehearsal -- \
@@ -66,6 +66,11 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
    - miner bonds deducted (`60000000000000000000`);
    - pots dropped;
    - total supply.
+
+   It runs the cutover twice, and each run re-executes the old chain from genesis (step 2), beside the
+   live node: about one core and one disk sync per block, at a lower priority (`nice`, `ionice`). Each
+   run's time is in `seconds`: plan step 2 for at least the larger one, on all three servers with the
+   network stopped. A cutover error here is a stop: do not go on to step 1.
 
    Delete `/var/tmp/pocol-rehearsal*` afterwards.
 3. Choose the final height `S` and the launch time. Publish both, with this text:
@@ -114,10 +119,14 @@ python3 -c 'import json; d=json.load(open("cutover-report.json")); del d["old"][
   check `--data`: a wrong path gets a new, empty store, and the cutover then refuses the height. It
   refuses to run while the old node holds the lock, refuses a height above the head, and never
   overwrites an output directory.
-- A node keeps the state of its last 32 blocks only, and `S` is at least 60 below the head. So the
-  cutover rebuilds the state at `S` by re-executing the old chain from the node's own journal, and
-  checks every state root against its block header. This takes longer than a node start. (Builds
-  before the fix for this refuse such a height: "the state at that height is not available (pruned)".)
+- A node keeps the states of its last 32 blocks (and genesis) only, and `S` is at least 60 below the
+  head. So the cutover rebuilds the state at `S`: it re-executes every block from 1 to `S` from the
+  node's own block file (`blocks.journal`), writes each state to `state.redb`, and checks each state
+  root against its block header. That is about `S` block executions, where a node start from its
+  checkpoint replays fewer than 128. It prints nothing until one JSON line at the end and writes
+  `--out` only then, so an interrupted run leaves nothing and can be run again. Step 0.2 measured how
+  long it takes; run it in `tmux` or `screen`. (Builds before #22 refuse such a height: "the state at
+  that height is not available (pruned)".)
 - All three servers must print the same five sums. `genesis.spec.hex` and `alloc.json` are the
   genesis: its hash and every balance. `devnet.json` also records the admission timing that server
   measured (`timing`), and `cutover-report.json` that server's own old head (`old.head`), so those two

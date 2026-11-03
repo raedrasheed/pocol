@@ -80,9 +80,20 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     let hash=node.chain.canonical_at(height).ok_or("no canonical block at that height")?.hash;
     let block=crate::types::hex(&hash);
     // R21 keeps a state only for the last K_hist blocks (32), and the runbook cuts S at least 60 below the
-    // head. A pruned state is rebuilt by re-execution from the nearest retained one (TrieRebuild, the
-    // node's own path), and every rebuilt stateRoot is checked against its committed header.
-    if node.chain.view_of(&hash).is_none(){node.rebuild_state(&hash).map_err(|e|format!("rebuild the state at height {height}: {e:?}"))?;}
+    // head. A pruned state is rebuilt by re-execution through the node's own path (TrieRebuild): from
+    // genesis, the nearest state kept below S, with every rebuilt stateRoot checked against its header.
+    // The evidence walk of a re-executed block reads the chain's own entries; one it needs that is slimmed
+    // (C-1 S4) is restored and the rebuild runs again, as import does. Each round restores another entry
+    // and nothing slims one again here, so the loop ends.
+    if node.chain.view_of(&hash).is_none(){loop{
+        match node.rebuild_state(&hash){
+            Ok(())=>break,
+            Err(crate::chain::Reject::NeedsRebuild(p)) if node.chain.get(&p).is_some_and(|e|e.slim)=>
+                node.unslim(&p).map_err(|e|format!("restore block {} for the rebuild at height {height}: {e:?}",crate::types::hex(&p)))?,
+            Err(crate::chain::Reject::NeedsRebuild(p))=>return Err(format!("rebuild the state at height {height}: block {} needs a rebuild",crate::types::hex(&p))),
+            Err(e)=>return Err(format!("rebuild the state at height {height}: {e:?}")),
+        }
+    }}
     let state=node.chain.view_of(&hash).ok_or("the state at that height is not available")?;
     let mut old=crate::chain::whole_state(state.v());
     // Code by hash, for accounts whose code the view returns separately.

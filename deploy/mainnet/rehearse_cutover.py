@@ -7,7 +7,7 @@ Two modes, both on copies; neither touches a live service, a key or the original
           `pocol start` miners, with Mainnet's schedule shape (a v1 genesis whose schedule activates
           v2 later), adds the kinds of state Mainnet holds (a fourth miner registered with a full
           bond, a transfer, a contract with storage), records the expected balances at a height S
-          through RPC, lets the chain run 60 more blocks as runbook step 1 does, and stops every node.
+          through RPC, lets every node reach S + 60 as runbook step 1 does, and stops every node.
           It then copies one home and runs `pocold cutover` on the copy twice (the genesis bytes must
           match; S is below the node's 32-block state window, so the cutover rebuilds its state),
           checks the new allocation against the RPC record independently of the cutover report,
@@ -37,9 +37,16 @@ ACTIVATION = 4
 # A contract whose constructor stores 42 in slot 0 and whose runtime code is one STOP byte.
 CONTRACT_INIT = '0x602a6000556001601160003960016000f300'
 
-def cutover(network, data, height, config, out, node_args):
-    p = subprocess.run([str(BIN / ('pocold' + EXE)), 'cutover', '--network', str(network), '--data', str(data), '--height', str(height),
-                        '--config', str(config), '--out', str(out), *node_args], capture_output=True, text=True, timeout=1800)
+# A cutover below the node's 32-block state window re-executes the old chain from genesis: on Mainnet's
+# 20,000+ blocks that takes minutes, more on a slow disk. The limit is only a safety net.
+CUTOVER_TIMEOUT = 6 * 3600
+
+def cutover(network, data, height, config, out, node_args, timeout=CUTOVER_TIMEOUT):
+    try:
+        p = subprocess.run([str(BIN / ('pocold' + EXE)), 'cutover', '--network', str(network), '--data', str(data), '--height', str(height),
+                            '--config', str(config), '--out', str(out), *node_args], capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise AssertionError(f'cutover did not finish within {timeout} s (height {height}, data {data})') from None
     if p.returncode: raise AssertionError(f'cutover failed: {p.stderr.strip()}')
     report = out / 'cutover-report.json'
     # A pocold without the cutover command (the deployed one, for example) prints its usage and exits 0.
@@ -65,10 +72,11 @@ def summary(report):
 
 def copy_mode(a):
     work = Path(a.work); work.mkdir(parents=True)
-    r1 = cutover(a.network, a.data, a.height, a.config, work / 'run1', a.node_args)
-    r2 = cutover(a.network, a.data, a.height, a.config, work / 'run2', a.node_args)
+    # Each run's time is what step 2 takes on that server: plan the freeze for at least the larger one.
+    t = time.monotonic(); r1 = cutover(a.network, a.data, a.height, a.config, work / 'run1', a.node_args); s1 = round(time.monotonic() - t)
+    t = time.monotonic(); r2 = cutover(a.network, a.data, a.height, a.config, work / 'run2', a.node_args); s2 = round(time.monotonic() - t)
     same_genesis(work / 'run1', work / 'run2'); check_report(r1)
-    print(json.dumps({'result': 'PASS', 'mode': 'copy', 'deterministic': True, **summary(r1)}, indent=1))
+    print(json.dumps({'result': 'PASS', 'mode': 'copy', 'deterministic': True, 'seconds': [s1, s2], **summary(r1)}, indent=1))
 
 class Nodes:
     def __init__(self, root): self.root = root; self.procs = []; self.logs = []
@@ -137,7 +145,7 @@ def local_mode(a):
         made = send(api[0], alice, old_chain, None, 0, CONTRACT_INIT, 200_000); contract = made['contractAddress']
         assert made['status'] == '0x1' and contract, made
         wait(lambda: head(api[0]) >= int(made['blockNumber'], 16) + 3, 120, 'blocks after the last transaction')
-        s = head(api[0]) - 1; tag = hex(s)
+        s = head(api[0]) - 3; tag = hex(s)
         accounts = ids + [ida, idb, contract]
         expect = {x.lower(): {'balance': int(rpc(api[0], 'eth_getBalance', [x, tag]), 16), 'nonce': int(rpc(api[0], 'eth_getTransactionCount', [x, tag]), 16)} for x in accounts}
         held = {m['reward'].lower(): int(m['bond'], 16) for m in rpc(api[0], 'pocol_getMiners') if m['bondState'] == 1 and not m['tomb']}
@@ -145,9 +153,10 @@ def local_mode(a):
         old_hash = rpc(api[0], 'eth_getBlockByNumber', [tag, False])['hash']
         params = rpc(api[0], 'pocol_getParams')
         assert params['forkSchedule'] == [[1, 0], [2, ACTIVATION]] and s > ACTIVATION and params['effectiveNonceMode'] == 1, (s, params)
-        # Runbook step 1 waits until every head is at least S + 60, so the cutover meets S below the state window.
-        wait(lambda: head(api[0]) >= s + 61, 600, 'S + 61')
-        assert rpc(api[0], 'eth_getBlockByNumber', [tag, False])['hash'] == old_hash, 'S stays canonical'
+        # As runbook step 1: every head at least S + 60 (so the cutover meets S below the state window) and the
+        # same block at S on every node.
+        wait(lambda: min(head(x) for x in api) >= s + 60, 600, 'S + 60 on every node')
+        assert all(rpc(x, 'eth_getBlockByNumber', [tag, False])['hash'] == old_hash for x in api), 'S is the same canonical block on every node'
     finally:
         nodes.stop()
     # The rehearsal runs on a copy; the stopped original stays as it was.
@@ -160,7 +169,7 @@ def local_mode(a):
     r2 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis-2', flags)
     same_genesis(root / 'new-genesis', root / 'new-genesis-2'); check_report(r1)
     assert r1['old']['height'] == s and r1['old']['blockHash'] == old_hash and r1['old']['chainId'] == old_chain, r1['old']
-    assert r1['old']['head'] >= s + 61, ('the cutover was not taken below the state window', r1['old'])
+    assert r1['old']['head'] >= s + 60, ('the cutover was not taken below the state window', r1['old'])
     # Independent check of the allocation against the old chain's RPC answers at S (C2-C4).
     alloc = {k.lower(): v for k, v in json.loads((root / 'new-genesis/alloc.json').read_text()).items()}
     def bal(x): return int(alloc[x]['balance'])

@@ -47,6 +47,14 @@ jobs:
           python3 -B deploy/mainnet/rehearse_cutover.py --local --work "$RUNNER_TEMP/pocol-rehearsal"
           python3 -B -m unittest discover -s deploy/studio -v
           python3 -B -m unittest discover -s deploy/faucet -v
+      - name: Keep the cutover rehearsal's node logs when it fails
+        if: failure() && runner.os == 'Linux'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cutover-rehearsal-logs-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/pocol-rehearsal/*.log
+          if-no-files-found: ignore
+          retention-days: 14
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
