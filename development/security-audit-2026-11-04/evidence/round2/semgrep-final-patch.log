@@ -1,0 +1,29 @@
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 10 files tracked by git with 192 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin   Rules                                                                   
+ ─────────────────────────────        ────────────────                                                                  
+  <multilang>       1      10          Custom     192                                                                   
+  python           94       6                                                                                           
+  js               39       1                                                                                           
+  php              36       1                                                                                           
+  c                12       1                                                                                           
+  rust             10       1                                                                                           
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 8 (8 blocking)
+ • Rules run: 192
+ • Targets scanned: 10
+ • Parsed lines: ~99.3%
+ • No ignore information available
+ • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
+Ran 192 rules on 10 files: 8 findings.

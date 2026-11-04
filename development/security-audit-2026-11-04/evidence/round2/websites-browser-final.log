@@ -1,0 +1,23 @@
+PASS main renders PoCol
+PASS main Arabic language and direction
+PASS guide renders its chapters
+PASS main has no uncaught JavaScript errors
+PASS explorer renders PoCol
+PASS explorer has no uncaught JavaScript errors
+PASS studio renders PoCol
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: SecurityError: Failed to read the 'serviceWorker' property from 'Navigator': Service worker is disabled because the context is sandboxed and lacks the 'allow-same-origin' flag.
+SecurityError: Failed to read the 'serviceWorker' property from 'Navigator': Service worker is disabled because the context is sandboxed and lacks the 'allow-same-origin' flag.
+    at file:///workspace/pocol/deploy/websites/tests/browser_security.mjs:87:81 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: undefined,
+  operator: 'fail',
+  diff: 'simple'
+}
+
+Node.js v24.22.1

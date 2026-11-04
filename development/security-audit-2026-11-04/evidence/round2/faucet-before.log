@@ -1,0 +1,78 @@
+....../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/json/encoder.py:260: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 36135)>
+  def _make_iterencode(markers, _default, _encoder, _indent, _floatstr,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..FFFFF----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 60266)
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 766, in __init__
+    self.handle()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py", line 440, in handle
+    self.handle_one_request()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py", line 428, in handle_one_request
+    method()
+  File "/workspace/pocol/deploy/faucet/pocol_faucet.py", line 156, in do_GET
+    self.reply(200, faucet.status())
+  File "/workspace/pocol/deploy/faucet/pocol_faucet.py", line 147, in reply
+    self.end_headers(); self.wfile.write(body)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 845, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+F
+======================================================================
+FAIL: test_a_busy_signer_does_not_queue_another_claim (test_faucet_security.FaucetSecurity.test_a_busy_signer_does_not_queue_another_claim)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/faucet/test_faucet_security.py", line 144, in test_a_busy_signer_does_not_queue_another_claim
+    self.assertTrue(finished.wait(.3), 'second request waited behind the signer')
+AssertionError: False is not true : second request waited behind the signer
+
+======================================================================
+FAIL: test_an_unanswered_send_never_claims_that_nothing_was_sent (test_faucet_security.FaucetSecurity.test_an_unanswered_send_never_claims_that_nothing_was_sent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/faucet/test_faucet_security.py", line 116, in test_an_unanswered_send_never_claims_that_nothing_was_sent
+    self.assertNotIn('Nothing was sent', value['message'])
+AssertionError: 'Nothing was sent' unexpectedly found in 'The faucet could not reach the node. Nothing was sent.'
+
+======================================================================
+FAIL: test_connections_are_capped_before_spawning_another_worker (test_faucet_security.FaucetSecurity.test_connections_are_capped_before_spawning_another_worker)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/faucet/test_faucet_security.py", line 52, in test_connections_are_capped_before_spawning_another_worker
+    self.assertTrue(closed, f'excess connection stayed open; worker count={count}')
+AssertionError: False is not true : excess connection stayed open; worker count=3
+
+======================================================================
+FAIL: test_duplicate_length_is_rejected_before_any_claim (test_faucet_security.FaucetSecurity.test_duplicate_length_is_rejected_before_any_claim)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/faucet/test_faucet_security.py", line 84, in test_duplicate_length_is_rejected_before_any_claim
+    self.assertEqual(response.status, 400)
+AssertionError: 200 != 400
+
+======================================================================
+FAIL: test_header_trickling_cannot_extend_the_absolute_read_deadline (test_faucet_security.FaucetSecurity.test_header_trickling_cannot_extend_the_absolute_read_deadline)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/faucet/test_faucet_security.py", line 70, in test_header_trickling_cannot_extend_the_absolute_read_deadline
+    self.assertTrue(closed, 'trickled headers held an admission slot beyond the read deadline')
+AssertionError: False is not true : trickled headers held an admission slot beyond the read deadline
+
+======================================================================
+FAIL: test_truncated_body_is_rejected_before_signing (test_faucet_security.FaucetSecurity.test_truncated_body_is_rejected_before_signing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/faucet/test_faucet_security.py", line 97, in test_truncated_body_is_rejected_before_signing
+    self.assertEqual(response.status, 400)
+AssertionError: 200 != 400
+
+----------------------------------------------------------------------
+Ran 14 tests in 2.054s
+
+FAILED (failures=6)

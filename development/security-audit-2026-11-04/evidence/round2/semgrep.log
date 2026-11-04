@@ -1,0 +1,37 @@
+Rule third-party-action-not-pinned-to-commit-sha contains an include pattern '.github/workflows' that will soon be interpreted as '/.github/workflows' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule third-party-action-not-pinned-to-commit-sha and change it to '**/.github/workflows'. To confirm the anchored behavior and avoid this warning, change it to '/.github/workflows'.
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 735 files tracked by git with 374 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin   Rules                                                                   
+ ─────────────────────────────        ────────────────                                                                  
+  <multilang>       2     735          Custom     374                                                                   
+  python           94     304                                                                                           
+  rust             10     201                                                                                           
+  js               39     126                                                                                           
+  solidity         50      15                                                                                           
+  yaml             11      13                                                                                           
+  php              36       7                                                                                           
+  ts               39       6                                                                                           
+  bash              1       6                                                                                           
+  java             82       3                                                                                           
+  csharp           31       2                                                                                           
+  c                12       1                                                                                           
+                                                                                                                        
+Rule third-party-action-not-pinned-to-commit-sha contains an include pattern '.github/workflows' that will soon be interpreted as '/.github/workflows' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule third-party-action-not-pinned-to-commit-sha and change it to '**/.github/workflows'. To confirm the anchored behavior and avoid this warning, change it to '/.github/workflows'.
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 637 (637 blocking)
+ • Rules run: 368
+ • Targets scanned: 735
+ • Parsed lines: ~99.9%
+ • No ignore information available
+ • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
+Ran 368 rules on 735 files: 637 findings.

@@ -1,0 +1,76 @@
+.FFFFF
+======================================================================
+FAIL: test_embedded_nul_cannot_truncate_a_native_argument (__main__.AndroidJniStrings.test_embedded_nul_cannot_truncate_a_native_argument)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 94, in test_embedded_nul_cannot_truncate_a_native_argument
+    def test_embedded_nul_cannot_truncate_a_native_argument(self): self.check('nul')
+                                                                   ^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 88, in check
+    self.assertEqual(p.returncode, 0, p.stdout+p.stderr)
+AssertionError: 1 != 0 : Exception in thread "main" java.lang.AssertionError: JNI accepted a null, NUL-containing or unpaired-surrogate argument
+	at org.pocol.node.JniBoundaryTest.rejected(JniBoundaryTest.java:8)
+	at org.pocol.node.JniBoundaryTest.main(JniBoundaryTest.java:18)
+
+
+======================================================================
+FAIL: test_java_argument_is_standard_utf8_for_rust (__main__.AndroidJniStrings.test_java_argument_is_standard_utf8_for_rust)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 93, in test_java_argument_is_standard_utf8_for_rust
+    def test_java_argument_is_standard_utf8_for_rust(self): self.check('unicode-input')
+                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 88, in check
+    self.assertEqual(p.returncode, 0, p.stdout+p.stderr)
+AssertionError: 1 != 0 : Exception in thread "main" java.lang.AssertionError: JNI changed the string: {"error":"not standard UTF-8"} != {}
+	at org.pocol.node.JniBoundaryTest.equal(JniBoundaryTest.java:4)
+	at org.pocol.node.JniBoundaryTest.main(JniBoundaryTest.java:17)
+
+
+======================================================================
+FAIL: test_null_argument_raises_java_exception (__main__.AndroidJniStrings.test_null_argument_raises_java_exception)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 96, in test_null_argument_raises_java_exception
+    def test_null_argument_raises_java_exception(self): self.check('null')
+                                                        ^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 88, in check
+    self.assertEqual(p.returncode, 0, p.stdout+p.stderr)
+AssertionError: -6 != 0 : FATAL ERROR in native method: JNI string operation received a non-string
+	at org.pocol.node.Native.identity(Native Method)
+	at org.pocol.node.JniBoundaryTest.rejected(JniBoundaryTest.java:6)
+	at org.pocol.node.JniBoundaryTest.main(JniBoundaryTest.java:20)
+
+
+======================================================================
+FAIL: test_standard_utf8_output_preserves_supplementary_characters (__main__.AndroidJniStrings.test_standard_utf8_output_preserves_supplementary_characters)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 92, in test_standard_utf8_output_preserves_supplementary_characters
+    def test_standard_utf8_output_preserves_supplementary_characters(self): self.check('unicode-output')
+                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 88, in check
+    self.assertEqual(p.returncode, 0, p.stdout+p.stderr)
+AssertionError: 1 != 0 : Exception in thread "main" java.lang.AssertionError: JNI changed the string: {"name":"PoCol ð != {"name":"PoCol 🚀"}
+	at org.pocol.node.JniBoundaryTest.equal(JniBoundaryTest.java:4)
+	at org.pocol.node.JniBoundaryTest.main(JniBoundaryTest.java:16)
+
+
+======================================================================
+FAIL: test_unpaired_surrogate_is_rejected (__main__.AndroidJniStrings.test_unpaired_surrogate_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 95, in test_unpaired_surrogate_is_rejected
+    def test_unpaired_surrogate_is_rejected(self): self.check('surrogate')
+                                                   ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol/deploy/standalone/test_android_jni.py", line 88, in check
+    self.assertEqual(p.returncode, 0, p.stdout+p.stderr)
+AssertionError: 1 != 0 : Exception in thread "main" java.lang.AssertionError: JNI accepted a null, NUL-containing or unpaired-surrogate argument
+	at org.pocol.node.JniBoundaryTest.rejected(JniBoundaryTest.java:8)
+	at org.pocol.node.JniBoundaryTest.main(JniBoundaryTest.java:19)
+
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.881s
+
+FAILED (failures=5)

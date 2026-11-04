@@ -1,0 +1,45 @@
+PASS main renders PoCol
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.selectOption: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('#language')[22m
+[2m    - locator resolved to <select dir="ltr" id="language">…</select>[22m
+[2m  - attempting select option action[22m
+[2m    2 × waiting for element to be visible and enabled[22m
+[2m      - element is not visible[22m
+[2m    - retrying select option action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible and enabled[22m
+[2m      - element is not visible[22m
+[2m    - retrying select option action[22m
+[2m      - waiting 100ms[22m
+[2m    60 × waiting for element to be visible and enabled[22m
+[2m       - element is not visible[22m
+[2m     - retrying select option action[22m
+[2m       - waiting 500ms[22m
+
+    at /workspace/pocol/deploy/websites/tests/browser_security.mjs:48:20 {
+  log: [
+    "  - waiting for locator('#language')",
+    '    - locator resolved to <select dir="ltr" id="language">…</select>',
+    '  - attempting select option action',
+    '    2 × waiting for element to be visible and enabled',
+    '      - element is not visible',
+    '    - retrying select option action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible and enabled',
+    '      - element is not visible',
+    '    - retrying select option action',
+    '      - waiting 100ms',
+    '    60 × waiting for element to be visible and enabled',
+    '       - element is not visible',
+    '     - retrying select option action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.22.1

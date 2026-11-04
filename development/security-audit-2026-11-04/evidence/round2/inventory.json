@@ -1,0 +1,4244 @@
+[
+  {
+    "path": ".github/scripts/audit-r2-windows-verify.ps1",
+    "bytes": 13606,
+    "languageExtension": ".ps1",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/scripts/lp3-s1-windows-verify.ps1",
+    "bytes": 18774,
+    "languageExtension": ".ps1",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/audit-r2-windows-verify.yml",
+    "bytes": 4182,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/branding-icons.yml",
+    "bytes": 3654,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/five-device-build.yml",
+    "bytes": 5774,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/full-nonce-upgrade.yml",
+    "bytes": 4185,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/independent-testnet-keys.yml",
+    "bytes": 2035,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/lp3-regression.yml",
+    "bytes": 1193,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/lp3-s1-windows-verify.yml",
+    "bytes": 3403,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/lp3-typescript.yml",
+    "bytes": 1037,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/lp4-execution-controls.yml",
+    "bytes": 28432,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/pocol-browser-verify.yml",
+    "bytes": 3999,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/private-testnet.yml",
+    "bytes": 2311,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/public-testnet-operations.yml",
+    "bytes": 3665,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": ".github/workflows/windows-wallet-ui.yml",
+    "bytes": 2120,
+    "languageExtension": ".yml",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/faucet/pocol_faucet.py",
+    "bytes": 11441,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/faucet/test_pocol_faucet.py",
+    "bytes": 8140,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/mainnet/network_identity.py",
+    "bytes": 17183,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/mainnet/new_network_config.py",
+    "bytes": 2758,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/mainnet/preflight.py",
+    "bytes": 18280,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/mainnet/rehearse_cutover.py",
+    "bytes": 17129,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/mainnet/test_network_identity.py",
+    "bytes": 30801,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/mainnet/test_new_network_config.py",
+    "bytes": 1926,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/mainnet/test_preflight.py",
+    "bytes": 13323,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/mainnet/test_rehearse_cutover.py",
+    "bytes": 2797,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/private-testnet/install.sh",
+    "bytes": 4367,
+    "languageExtension": ".sh",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/private-testnet/private_testnet.py",
+    "bytes": 13593,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/private-testnet/rehearse.py",
+    "bytes": 8421,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/private-testnet/runtime.py",
+    "bytes": 3462,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/private-testnet/test_prepare.py",
+    "bytes": 5482,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/install.sh",
+    "bytes": 3083,
+    "languageExtension": ".sh",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/monitor.py",
+    "bytes": 5649,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/node_operator.py",
+    "bytes": 11438,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/nonce_upgrade.py",
+    "bytes": 21297,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/prepare.py",
+    "bytes": 12190,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/test_gateway.py",
+    "bytes": 5024,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/test_nonce_upgrade.py",
+    "bytes": 14331,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/test_operations.py",
+    "bytes": 8349,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/test_remote_listener.py",
+    "bytes": 3764,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/public-testnet/test_service.py",
+    "bytes": 6191,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/rewards/gateway.py",
+    "bytes": 15577,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/rewards/pocol_rewards.py",
+    "bytes": 20353,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/rewards/test_gateway_rewards.py",
+    "bytes": 9333,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/rewards/test_pocol_rewards.py",
+    "bytes": 22833,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/Initialize-PoColNetwork.ps1",
+    "bytes": 6475,
+    "languageExtension": ".ps1",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/Start-PoCol.cmd",
+    "bytes": 55,
+    "languageExtension": ".cmd",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/build-android.sh",
+    "bytes": 1275,
+    "languageExtension": ".sh",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/build-windows-wallet.ps1",
+    "bytes": 3010,
+    "languageExtension": ".ps1",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/install-linux.sh",
+    "bytes": 2376,
+    "languageExtension": ".sh",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/linux-desktop/install-desktop-icon.sh",
+    "bytes": 1620,
+    "languageExtension": ".sh",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/package.py",
+    "bytes": 4305,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/prepare_nonce_upgrade.py",
+    "bytes": 3654,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/test_launcher.py",
+    "bytes": 10124,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/test_prepare_nonce_upgrade.py",
+    "bytes": 1857,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/test_release_package.py",
+    "bytes": 6330,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/test_upgrade.py",
+    "bytes": 18784,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/test_wallet.py",
+    "bytes": 7036,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/test_wallet_earnin.py",
+    "bytes": 9645,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/standalone/test_wallet_rejoin.py",
+    "bytes": 6584,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/studio/Install-PoCol-Studio-Gateway.sh",
+    "bytes": 40224,
+    "languageExtension": ".sh",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/studio/build_installer.py",
+    "bytes": 2158,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/studio/install_studio_gateway.py",
+    "bytes": 12132,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/studio/pocol_studio_gateway.py",
+    "bytes": 16870,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/studio/test_studio_gateway.py",
+    "bytes": 17206,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/explorer.pocol.net/api/health.php",
+    "bytes": 1193,
+    "languageExtension": ".php",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/explorer.pocol.net/api/lib.php",
+    "bytes": 5927,
+    "languageExtension": ".php",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/explorer.pocol.net/api/miner-locations.php",
+    "bytes": 2066,
+    "languageExtension": ".php",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/explorer.pocol.net/api/rpc.php",
+    "bytes": 1498,
+    "languageExtension": ".php",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/explorer.pocol.net/api/transactions.php",
+    "bytes": 2250,
+    "languageExtension": ".php",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/explorer.pocol.net/assets/index-Cj8htKRO.js",
+    "bytes": 687143,
+    "languageExtension": ".js",
+    "scope": "vendored-or-generated"
+  },
+  {
+    "path": "deploy/websites/ide.pocol.net/assets/editor.worker-CRz__AKW.js",
+    "bytes": 303774,
+    "languageExtension": ".js",
+    "scope": "vendored-or-generated"
+  },
+  {
+    "path": "deploy/websites/ide.pocol.net/assets/index-CJbrNXr_.js",
+    "bytes": 3719702,
+    "languageExtension": ".js",
+    "scope": "vendored-or-generated"
+  },
+  {
+    "path": "deploy/websites/ide.pocol.net/assets/index-extension041-02af63944c2b.js",
+    "bytes": 3719702,
+    "languageExtension": ".js",
+    "scope": "vendored-or-generated"
+  },
+  {
+    "path": "deploy/websites/ide.pocol.net/assets/sandbox.worker-DKPDIOr-.js",
+    "bytes": 492044,
+    "languageExtension": ".js",
+    "scope": "vendored-or-generated"
+  },
+  {
+    "path": "deploy/websites/ide.pocol.net/compiler/soljson.js",
+    "bytes": 10811469,
+    "languageExtension": ".js",
+    "scope": "vendored-or-generated"
+  },
+  {
+    "path": "deploy/websites/ide.pocol.net/compiler/worker.js",
+    "bytes": 4274,
+    "languageExtension": ".js",
+    "scope": "vendored-or-generated"
+  },
+  {
+    "path": "deploy/websites/pocol.net/about-locales.js",
+    "bytes": 516481,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/about-nav.js",
+    "bytes": 465,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/about.js",
+    "bytes": 14082,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/api/network.php",
+    "bytes": 13985,
+    "languageExtension": ".php",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/api/reward.php",
+    "bytes": 10410,
+    "languageExtension": ".php",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/app.js",
+    "bytes": 6703,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/guide-content.js",
+    "bytes": 89759,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/language-picker.js",
+    "bytes": 8280,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/locales.js",
+    "bytes": 281569,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/network.js",
+    "bytes": 6092,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/reward.js",
+    "bytes": 11252,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "deploy/websites/pocol.net/wallet-downloads.js",
+    "bytes": 366,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/codex-r5/collection_probe.rs",
+    "bytes": 1266,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/d3d5-hend/caps_proof.py",
+    "bytes": 12907,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/siteA1/app.js",
+    "bytes": 384,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/siteA1/app.js",
+    "bytes": 384,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA1/app.js",
+    "bytes": 384,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA2/app.js",
+    "bytes": 384,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/s1/a.js",
+    "bytes": 43,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/s2/a.js",
+    "bytes": 43,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/s1/a.js",
+    "bytes": 43,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/s2/a.js",
+    "bytes": 43,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/threadmem.rs",
+    "bytes": 1307,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/proposals/model/caps_model.py",
+    "bytes": 24393,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/proposals/model/consensus_model.py",
+    "bytes": 13544,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/tools/journal_projections.py",
+    "bytes": 26630,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/tools/make_finding_status.py",
+    "bytes": 38286,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/tools/measure_rss.py",
+    "bytes": 6506,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/tools/reconcile.py",
+    "bytes": 3018,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/tools/run_integration.py",
+    "bytes": 6047,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/audit-2026-10-22/tools/secp-equiv/src/main.rs",
+    "bytes": 7363,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/english-translation/verify.py",
+    "bytes": 4742,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp1/reviews/r3/independent-rlp.rs",
+    "bytes": 1036,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s1-genesisspec/author-r2/reproduction-c9364a2/round1-diff-without-exception.py",
+    "bytes": 13476,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s1-genesisspec/author-r3-windows-ci/crlf-reproduction/simulate_windows_newlines.py",
+    "bytes": 1690,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s1-genesisspec/author-r4-encoding-fix/simulate_windows_text_defaults.py",
+    "bytes": 2004,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s1-genesisspec/codex-review-2026-10-17/independent_checks.py",
+    "bytes": 2986,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s1-genesisspec/codex-review-2026-10-17/preservation.py",
+    "bytes": 1477,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s1-genesisspec/codex-review-2026-10-17/run.py",
+    "bytes": 1763,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s1-genesisspec/windows-run-37976178670/check_evidence.py",
+    "bytes": 12437,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s2-profile/author-codex-r1/verify.py",
+    "bytes": 3177,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s2-profile/review-codex-r1/generate.py",
+    "bytes": 6813,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s2-profile/review-codex-r1/privacy-profile.rs",
+    "bytes": 137,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s2-profile/review-codex-r1/privacy.rs",
+    "bytes": 89,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s2-profile/review-codex-r1/review_checks.rs",
+    "bytes": 8990,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s2-profile/review-codex-r1/run.py",
+    "bytes": 3666,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s3-timing/codex-r1/oracle.py",
+    "bytes": 2766,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s3-timing/codex-r1/oracle_probe.rs",
+    "bytes": 1474,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s3-timing/codex-r1/verify.py",
+    "bytes": 4448,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s4-assignment/codex-r1/oracle.py",
+    "bytes": 6404,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s4-assignment/codex-r1/oracle_probe-initial-FAIL.rs",
+    "bytes": 3254,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s4-assignment/codex-r1/oracle_probe.rs",
+    "bytes": 3294,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s4-assignment/codex-r1/verify.py",
+    "bytes": 5605,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r1/oracle.py",
+    "bytes": 3304,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r1/probe.rs",
+    "bytes": 1536,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r1/review-r1/param_gate-tests-before-fix.rs",
+    "bytes": 4970,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r1/review-r1/verify-before-fix.py",
+    "bytes": 5010,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r1/verify.py",
+    "bytes": 5271,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/gate-tests-initial-FAIL.rs",
+    "bytes": 12065,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/mutations-extra/gate-source.rs",
+    "bytes": 13407,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/mutations-extra/gate-tests.rs",
+    "bytes": 15973,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/mutations-final/gate-source.rs",
+    "bytes": 13407,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/mutations-final/gate-tests.rs",
+    "bytes": 15973,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/mutations-initial-FAIL.py",
+    "bytes": 2449,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/mutations.py",
+    "bytes": 3229,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/oracle.py",
+    "bytes": 6687,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/probe.rs",
+    "bytes": 2984,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s5-paramgate/codex-r2/verify.py",
+    "bytes": 2642,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s6-model/codex-r1/arithmetic-oracle.py",
+    "bytes": 3002,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s6-model/codex-r1/assignment-oracle.py",
+    "bytes": 6453,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s6-model/codex-r1/deep-fixture-test-initial-FAIL.ts",
+    "bytes": 8348,
+    "languageExtension": ".ts",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s6-model/codex-r1/genesis-oracle.py",
+    "bytes": 2902,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s6-model/codex-r1/mutations.py",
+    "bytes": 2583,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s6-model/codex-r1/timing-oracle.py",
+    "bytes": 1445,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s6-model/codex-r1/verify.py",
+    "bytes": 2356,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/asert_probe.rs",
+    "bytes": 769,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/bench.mjs",
+    "bytes": 982,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/bench.rs",
+    "bytes": 1259,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/million.py",
+    "bytes": 2900,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/mutations.py",
+    "bytes": 2970,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/quality.mjs",
+    "bytes": 1031,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/quality.py",
+    "bytes": 917,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/rewards_oracle.py",
+    "bytes": 2284,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/rewards_probe.mjs",
+    "bytes": 523,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/rewards_probe.rs",
+    "bytes": 1411,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r1/verify.py",
+    "bytes": 3767,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r2/cf_oracle.py",
+    "bytes": 2260,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r2/cf_probe.mjs",
+    "bytes": 706,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r2/cf_probe.rs",
+    "bytes": 1000,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r2/mutations.py",
+    "bytes": 3387,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r2/ts_mutations.py",
+    "bytes": 1937,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s7-evidence/codex-r2/verify.py",
+    "bytes": 2349,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s8-audit/codex-r1/mutations.py",
+    "bytes": 3220,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s8-audit/codex-r1/signature_mutation.py",
+    "bytes": 2240,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s8-audit/codex-r1/ts_mutations-initial-FAIL.py",
+    "bytes": 2613,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s8-audit/codex-r1/ts_mutations.py",
+    "bytes": 2639,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s8-audit/codex-r1/verify.py",
+    "bytes": 2954,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp3/s9-acceptance/codex-r1/audit.py",
+    "bytes": 5796,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p1-trie/codex-r1/budget_mutation.py",
+    "bytes": 2243,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p1-trie/codex-r1/mutations-initial.py",
+    "bytes": 2998,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p1-trie/codex-r1/mutations.py",
+    "bytes": 2990,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p1-trie/codex-r1/oracle-initial-FAIL.py",
+    "bytes": 4798,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p1-trie/codex-r1/oracle.py",
+    "bytes": 5184,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p1-trie/codex-r1/probe.rs",
+    "bytes": 1276,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p1-trie/codex-r1/verify.py",
+    "bytes": 2447,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p1-trie/codex-r2/verify_receipts.py",
+    "bytes": 2481,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r12/attempt1-runner.py",
+    "bytes": 5664,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r12/exception-audit-initial-runner.py",
+    "bytes": 5778,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r12/exception-controls.py",
+    "bytes": 3241,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r12/independent-unmodified-runner.py",
+    "bytes": 6800,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r14/geth-initial-parser.py",
+    "bytes": 3712,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r15/synthetic-loop-timing.py",
+    "bytes": 1220,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r17/verify-hosted.py",
+    "bytes": 2451,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r17/verify-npm-sources.py",
+    "bytes": 1921,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r17/verify-python-wheels.py",
+    "bytes": 2765,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r17/verify-rust-archives.py",
+    "bytes": 2125,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r19/ForceSurplus.sol",
+    "bytes": 256,
+    "languageExtension": ".sol",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r19/compile.cjs",
+    "bytes": 720,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r19/examples/forced_surplus_vectors.rs",
+    "bytes": 150,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r19/oracle.py",
+    "bytes": 2105,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r19/reproduce.py",
+    "bytes": 2930,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r19/tests/forced_surplus.rs",
+    "bytes": 4348,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r19/tests/support/surplus_registry.rs",
+    "bytes": 4383,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p2-runtime/codex-r20-hosted/verify_r20_hosted.py",
+    "bytes": 3766,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p3-wire/codex-r3-hosted-final/verify_r3_final.py",
+    "bytes": 3808,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p3-wire/codex-r4-hosted-final/verify_r4_final.py",
+    "bytes": 3776,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p3-wire/codex-r4-hosted-four/verify_r4_four.py",
+    "bytes": 6108,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r1/diagnostic/contracts/SystemEpochWitness.sol",
+    "bytes": 804,
+    "languageExtension": ".sol",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r1/diagnostic/examples/system_epoch_decision.rs",
+    "bytes": 7849,
+    "languageExtension": ".rs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r1/diagnostic/tests/compile_system_epoch.cjs",
+    "bytes": 765,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r1/diagnostic/tests/system_epoch_oracle.py",
+    "bytes": 7296,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r1/reproduce.py",
+    "bytes": 2547,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r2/verify.py",
+    "bytes": 2203,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r3/verify.py",
+    "bytes": 2758,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r3/verify_r2_partial.py",
+    "bytes": 4133,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r4-hosted-final/verify_hosted.py",
+    "bytes": 3789,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r4/hosted-r2-final/verify_hosted.py",
+    "bytes": 3780,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r4/verify.py",
+    "bytes": 2084,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r5/hosted-r3-final/verify_hosted.py",
+    "bytes": 3780,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r6/verify.py",
+    "bytes": 1724,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r7/verify.py",
+    "bytes": 2237,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r8/diagnostic/LedgerRetentionCountermodel.sol",
+    "bytes": 633,
+    "languageExtension": ".sol",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r8/diagnostic/compile.cjs",
+    "bytes": 768,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r8/diagnostic/countermodel.py",
+    "bytes": 2779,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/lp4/p4-genesis/codex-r8/verify.py",
+    "bytes": 1528,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.17/site-independent-probes.py",
+    "bytes": 3103,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.18/snapshot-alias-counterexample.py",
+    "bytes": 1117,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.18/snapshot-capture-independent-probe.py",
+    "bytes": 1523,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.19/ledger-bound-independent-probe.py",
+    "bytes": 1072,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.19/logclient-independent-probes-prepared.py",
+    "bytes": 2979,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.19/sink-unknown-terminal-probe.py",
+    "bytes": 842,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.20/sink-grammar-independent-probes.py",
+    "bytes": 2197,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.21/e05-keccak-oracle.mjs",
+    "bytes": 2088,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.21/genesis-depth-independent-probe.py",
+    "bytes": 1081,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.22/genesis-iterative-independent-probes.py",
+    "bytes": 2638,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.23/x8-independent-probes-prepared.py",
+    "bytes": 2250,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.24/x8-integrity-independent-probes.py",
+    "bytes": 3068,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.25/native-representation-oracle.mjs",
+    "bytes": 2000,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.26/asert-native-oracle.mjs",
+    "bytes": 2518,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.27/busy-independent-probes.py",
+    "bytes": 2447,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.27/v1-hash-independent-0.27.mjs",
+    "bytes": 1153,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.27/v1-sha-independent-0.27.py",
+    "bytes": 2436,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.28/u14-independent-0.28.mjs",
+    "bytes": 1716,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.29/deadline-independent-029.py",
+    "bytes": 1741,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.30/guard-independent-030.py",
+    "bytes": 3862,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.31/guard-independent-031.py",
+    "bytes": 4641,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.33/coordinator-http-independent-033-v2.mjs",
+    "bytes": 6028,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.33/coordinator-http-independent-033.mjs",
+    "bytes": 5777,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.9/independent-probes.py",
+    "bytes": 3859,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/coordination/evidence/0.9/node-utf8-oracle.mjs",
+    "bytes": 1105,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/generate_vectors.py",
+    "bytes": 3190,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/historical_source.py",
+    "bytes": 1235,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.10/tools/run_checks_010.py",
+    "bytes": 25924,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.10/tools/sr_ref.py",
+    "bytes": 31504,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.11/tools/run_checks_011.py",
+    "bytes": 15131,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.11/tools/sr_ref.py",
+    "bytes": 8044,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.12/tools/run_checks_012.py",
+    "bytes": 13506,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.12/tools/sr_ref.py",
+    "bytes": 7754,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.13/tools/fmt2_codec.py",
+    "bytes": 8474,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.13/tools/recovery_ref.py",
+    "bytes": 31864,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.13/tools/run_checks_013.py",
+    "bytes": 20661,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.14/tools/run_checks_014.py",
+    "bytes": 11570,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.15/tools/run_checks_015.py",
+    "bytes": 16046,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.16/tools/admin_ref.py",
+    "bytes": 14297,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.16/tools/run_checks_016.py",
+    "bytes": 50395,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.16/tools/sites_ref.py",
+    "bytes": 16330,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.17/tools/admin_trace.py",
+    "bytes": 3972,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.17/tools/run_checks_017.py",
+    "bytes": 24014,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.18/tools/observe_capture.py",
+    "bytes": 3835,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.18/tools/run_checks_018.py",
+    "bytes": 18011,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.19/tools/logclient_ref.py",
+    "bytes": 23384,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.19/tools/run_checks_019.py",
+    "bytes": 27269,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.2/tools/gen_fixtures.py",
+    "bytes": 28235,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.2/tools/keccak.py",
+    "bytes": 3401,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.2/tools/m1abi.py",
+    "bytes": 3169,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.2/tools/m1model.py",
+    "bytes": 10777,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.2/tools/m1paths.py",
+    "bytes": 4714,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.2/tools/rlp_strict.py",
+    "bytes": 3382,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.2/tools/run_checks.py",
+    "bytes": 9573,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.20/tools/run_checks_020.py",
+    "bytes": 18309,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.20/tools/sink_checker_strict.py",
+    "bytes": 8539,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.21/tools/netprofile_ref.py",
+    "bytes": 15796,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.21/tools/run_checks_021.py",
+    "bytes": 23059,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.22/tools/iterative_parse.py",
+    "bytes": 3912,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.22/tools/run_checks_022.py",
+    "bytes": 21069,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C1/main.js",
+    "bytes": 1202,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C2/main.js",
+    "bytes": 1729,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C3/main.js",
+    "bytes": 1340,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C4/main.js",
+    "bytes": 1113,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C5/main.js",
+    "bytes": 1178,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C6/main.js",
+    "bytes": 1267,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C7/main.js",
+    "bytes": 2423,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C8/main.js",
+    "bytes": 1459,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/tools/run_checks_023.py",
+    "bytes": 21891,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/tools/x8_eval.py",
+    "bytes": 3305,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P1/main.js",
+    "bytes": 1598,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P2/main.js",
+    "bytes": 1626,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P3/main.js",
+    "bytes": 1635,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P4/main.js",
+    "bytes": 1723,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P5/main.js",
+    "bytes": 1613,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/tools/run_checks_024.py",
+    "bytes": 22400,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/tools/x8_eval_v2.py",
+    "bytes": 7852,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.25/tools/js_number_probe.cjs",
+    "bytes": 1627,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.25/tools/run_checks_025.py",
+    "bytes": 67147,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.25/tools/supplements_ref.py",
+    "bytes": 18953,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.26/tools/run_checks_026.py",
+    "bytes": 48545,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.26/tools/v1_ref.py",
+    "bytes": 20147,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.27/tools/run_checks_027.py",
+    "bytes": 45699,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.27/tools/v1_ref_027.py",
+    "bytes": 22847,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.28/tools/run_checks_028.py",
+    "bytes": 13456,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.29/tools/overlay_ref_029.py",
+    "bytes": 17692,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.29/tools/run_checks_029.py",
+    "bytes": 70278,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.3/tools/design_id_probe.py",
+    "bytes": 3625,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.3/tools/m1model.py",
+    "bytes": 11863,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.3/tools/m1paths.py",
+    "bytes": 5428,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.3/tools/rerun_02.py",
+    "bytes": 1380,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.3/tools/rlp_strict.py",
+    "bytes": 5216,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.3/tools/run_checks_03.py",
+    "bytes": 18733,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.3/tools/snapshot_model.py",
+    "bytes": 6055,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.30/tools/guard_ref_030.py",
+    "bytes": 7237,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.30/tools/run_checks_030.py",
+    "bytes": 53322,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.31/tools/guard_ref_031.py",
+    "bytes": 7947,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.31/tools/json_codec_031.mjs",
+    "bytes": 3112,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.31/tools/run_checks_031.py",
+    "bytes": 45358,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.32/tools/run_checks_032.py",
+    "bytes": 27460,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.33/coordinator/files/public/app.js",
+    "bytes": 18713,
+    "languageExtension": ".js",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.33/coordinator/files/src/broker.mjs",
+    "bytes": 50884,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.33/coordinator/files/src/notifier.mjs",
+    "bytes": 8206,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.33/coordinator/files/src/server.mjs",
+    "bytes": 17786,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.33/coordinator/files/test/connection.test.mjs",
+    "bytes": 6808,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.33/coordinator/files/test/continuation.test.mjs",
+    "bytes": 20738,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.33/coordinator/tools/bundle.mjs",
+    "bytes": 7742,
+    "languageExtension": ".mjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.4/tools/bridge_ref.py",
+    "bytes": 12820,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.4/tools/run_checks_04.py",
+    "bytes": 20011,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.4/tools/snapshot_model_04.py",
+    "bytes": 7224,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.5/tools/bridge_ref_05.py",
+    "bytes": 3538,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.5/tools/eth_keys_ref.py",
+    "bytes": 4904,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.5/tools/proof_response_ref.py",
+    "bytes": 9772,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.5/tools/run_checks_05.py",
+    "bytes": 26848,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.5/tools/sitestorage_ref.py",
+    "bytes": 5193,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.5/tools/txa_check.cjs",
+    "bytes": 6208,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.5/tools/url_oracle.cjs",
+    "bytes": 2855,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/br16_gen.cjs",
+    "bytes": 6927,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/br16_gen.py",
+    "bytes": 6166,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/bridge_ref_06.py",
+    "bytes": 3245,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/bridgeref_06.py",
+    "bytes": 5854,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/dnr_ref.py",
+    "bytes": 4358,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/id_oracle_06.cjs",
+    "bytes": 1151,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/profile_race_ref.py",
+    "bytes": 8137,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/run_checks_06.py",
+    "bytes": 18323,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.6/tools/url_oracle_06.cjs",
+    "bytes": 2299,
+    "languageExtension": ".cjs",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.7/tools/m1model_07.py",
+    "bytes": 3709,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.7/tools/profile_race_ref_07.py",
+    "bytes": 2180,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.7/tools/recvguard_ref.py",
+    "bytes": 7648,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.7/tools/run_checks_07.py",
+    "bytes": 25070,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.7/tools/session_ref.py",
+    "bytes": 6030,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.7/tools/snapshot_e_ref.py",
+    "bytes": 2465,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.8/tools/run_checks_08.py",
+    "bytes": 6690,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.9/tools/run_checks_09.py",
+    "bytes": 20275,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "development/m1/m1-draft-0.9/tools/storequeue_ref.py",
+    "bytes": 22858,
+    "languageExtension": ".py",
+    "scope": "historical-evidence"
+  },
+  {
+    "path": "prototypes/lp1-node/src/asert.rs",
+    "bytes": 6056,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/assignment.rs",
+    "bytes": 12569,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/chain.rs",
+    "bytes": 2977,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/decimal.rs",
+    "bytes": 9720,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/envelope.rs",
+    "bytes": 2163,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/finality_core.rs",
+    "bytes": 2276,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/fixed.rs",
+    "bytes": 11931,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/fixtures.rs",
+    "bytes": 8155,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/gate.rs",
+    "bytes": 13601,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/genesis.rs",
+    "bytes": 6998,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/genesis_batch.rs",
+    "bytes": 8641,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/genesis_spec.rs",
+    "bytes": 23671,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/hashes.rs",
+    "bytes": 6363,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/header.rs",
+    "bytes": 12312,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/hex.rs",
+    "bytes": 1518,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/http.rs",
+    "bytes": 11527,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/json.rs",
+    "bytes": 14776,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/lib.rs",
+    "bytes": 1564,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/main.rs",
+    "bytes": 14440,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/param_gate.rs",
+    "bytes": 8458,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/profile.rs",
+    "bytes": 11222,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/rewards.rs",
+    "bytes": 3715,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/rlp.rs",
+    "bytes": 11954,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/rpc.rs",
+    "bytes": 13073,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/secp_backend.rs",
+    "bytes": 882,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/store.rs",
+    "bytes": 39486,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/timing.rs",
+    "bytes": 5158,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/trie.rs",
+    "bytes": 5186,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/verify.rs",
+    "bytes": 16120,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/src/window.rs",
+    "bytes": 17405,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/adversarial.rs",
+    "bytes": 7724,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/adversarial_lp3.rs",
+    "bytes": 2030,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/asert_alloc.rs",
+    "bytes": 3831,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/asert_named.rs",
+    "bytes": 3091,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/assignment.rs",
+    "bytes": 10419,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/common/mod.rs",
+    "bytes": 1443,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/e2e_http.py",
+    "bytes": 9666,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/e2e_store.py",
+    "bytes": 9039,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/envelope.rs",
+    "bytes": 4765,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/finality_core.rs",
+    "bytes": 2429,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/fixtures_integration.rs",
+    "bytes": 16813,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/gate.rs",
+    "bytes": 16032,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/genesis_batch_alloc.rs",
+    "bytes": 9819,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/genesis_spec.rs",
+    "bytes": 30738,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/http_loopback.rs",
+    "bytes": 5489,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/lp3_genesis_cli.py",
+    "bytes": 12307,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/lp3_genesis_diff.py",
+    "bytes": 16741,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/param_gate.rs",
+    "bytes": 5262,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/profile.rs",
+    "bytes": 7725,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/rewards.rs",
+    "bytes": 2947,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/store_journal.rs",
+    "bytes": 25870,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/store_process.rs",
+    "bytes": 7983,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/timing.rs",
+    "bytes": 4200,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp1-node/tests/trie.rs",
+    "bytes": 4050,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp10/run_lp10.py",
+    "bytes": 4253,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp3-model/genesis.ts",
+    "bytes": 6755,
+    "languageExtension": ".ts",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp3-model/model.ts",
+    "bytes": 11621,
+    "languageExtension": ".ts",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp3-model/probe.ts",
+    "bytes": 2975,
+    "languageExtension": ".ts",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp3-model/schema.ts",
+    "bytes": 1528,
+    "languageExtension": ".ts",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp3-model/tests.ts",
+    "bytes": 12744,
+    "languageExtension": ".ts",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/ChunkFactory.sol",
+    "bytes": 930,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/CodeCapsWitness.sol",
+    "bytes": 1307,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/FinalFundingWitness.sol",
+    "bytes": 536,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/PayBoundaryHarness.sol",
+    "bytes": 1806,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/PendingEscrow.sol",
+    "bytes": 1610,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+    "bytes": 11113,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/RegistryWriteBudgetWitness.sol",
+    "bytes": 2495,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/RewardDurabilityWitness.sol",
+    "bytes": 562,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/SystemBoundaryWitness.sol",
+    "bytes": 1035,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/SystemEpochWitness.sol",
+    "bytes": 804,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+    "bytes": 28237,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+    "bytes": 22490,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/contracts/web/Website.sol",
+    "bytes": 4896,
+    "languageExtension": ".sol",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/code_caps_decision.rs",
+    "bytes": 2985,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/context_vectors.rs",
+    "bytes": 1944,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/control_vectors.rs",
+    "bytes": 1163,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/lifecycle_vectors.rs",
+    "bytes": 1983,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/pay_vectors.rs",
+    "bytes": 3878,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/receipt_roots.rs",
+    "bytes": 1697,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/registry_vectors.rs",
+    "bytes": 6305,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/registry_write_budget.rs",
+    "bytes": 5094,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/examples/wire_vectors.rs",
+    "bytes": 3254,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/admission.rs",
+    "bytes": 32438,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/admission/scope.rs",
+    "bytes": 7438,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/admission/tests.rs",
+    "bytes": 26272,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/apply.rs",
+    "bytes": 40689,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/apply/tests.rs",
+    "bytes": 55042,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/bin/cancun_control.rs",
+    "bytes": 5598,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/bin/code_caps_control.rs",
+    "bytes": 6611,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/bin/signed_rejection_control.rs",
+    "bytes": 2305,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/code_caps.rs",
+    "bytes": 7128,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/code_caps_engine_tests.rs",
+    "bytes": 15890,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/collision.rs",
+    "bytes": 3547,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/devnet.rs",
+    "bytes": 11718,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/fees.rs",
+    "bytes": 1092,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/finality_core.rs",
+    "bytes": 2276,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/genesis_builder.rs",
+    "bytes": 9285,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/lib.rs",
+    "bytes": 8785,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/modexp.rs",
+    "bytes": 13089,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/modexp/tests.rs",
+    "bytes": 15033,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/native.rs",
+    "bytes": 12154,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/node_trie.rs",
+    "bytes": 33329,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/node_trie/tests.rs",
+    "bytes": 26794,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/p1_decimal.rs",
+    "bytes": 9720,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/p1_fixed.rs",
+    "bytes": 11931,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/p1_genesis.rs",
+    "bytes": 6998,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/p1_genesis_spec.rs",
+    "bytes": 23671,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/p1_hex.rs",
+    "bytes": 1518,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/p1_json.rs",
+    "bytes": 14776,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/p1_profile.rs",
+    "bytes": 11222,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/p1_trie.rs",
+    "bytes": 5186,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/pay.rs",
+    "bytes": 4406,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/pool.rs",
+    "bytes": 2764,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/receipts.rs",
+    "bytes": 1898,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/resources.rs",
+    "bytes": 16127,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/resources/tests.rs",
+    "bytes": 16329,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/rpc_http.rs",
+    "bytes": 12184,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/rpc_pool.rs",
+    "bytes": 2900,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/state_summary.rs",
+    "bytes": 7913,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/state_summary/tests.rs",
+    "bytes": 5603,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/state_trie.rs",
+    "bytes": 15380,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/state_trie/tests.rs",
+    "bytes": 7867,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/state_view.rs",
+    "bytes": 2814,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/system.rs",
+    "bytes": 13177,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/system/chunk_tests.rs",
+    "bytes": 5314,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/system/issuance_tests.rs",
+    "bytes": 18410,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/system/tests.rs",
+    "bytes": 22917,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/txsign.rs",
+    "bytes": 3949,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/user_phase.rs",
+    "bytes": 25706,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/view.rs",
+    "bytes": 16997,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/view/tests.rs",
+    "bytes": 7698,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/wire.rs",
+    "bytes": 7324,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/src/wire_rlp.rs",
+    "bytes": 11954,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/build_signed_geth.py",
+    "bytes": 2685,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/caps_identity.rs",
+    "bytes": 5528,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/chunk_mutations.py",
+    "bytes": 3362,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/chunk_oracle.py",
+    "bytes": 4906,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/code_caps.rs",
+    "bytes": 8405,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/code_caps_fixtures.py",
+    "bytes": 11735,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/code_caps_mutations.py",
+    "bytes": 4225,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/code_caps_native_views.py",
+    "bytes": 2033,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_budget_witness.cjs",
+    "bytes": 940,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_chunk.cjs",
+    "bytes": 751,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_code_caps.cjs",
+    "bytes": 781,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_contracts.cjs",
+    "bytes": 924,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_durability.cjs",
+    "bytes": 797,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_pending.cjs",
+    "bytes": 838,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_registry.cjs",
+    "bytes": 918,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_system_boundary.cjs",
+    "bytes": 771,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_system_earnin.cjs",
+    "bytes": 1654,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_system_epoch.cjs",
+    "bytes": 765,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_system_v1.cjs",
+    "bytes": 1919,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/compile_website.cjs",
+    "bytes": 1132,
+    "languageExtension": ".cjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/context_mutations.py",
+    "bytes": 2777,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/context_oracle.py",
+    "bytes": 2446,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/control_oracle.py",
+    "bytes": 1663,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/create_collision.rs",
+    "bytes": 9899,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/create_mutations.py",
+    "bytes": 3748,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/earnin_contracts.rs",
+    "bytes": 13889,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+    "bytes": 11547,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/earnin_model.py",
+    "bytes": 13348,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/earnin_refund_fix.rs",
+    "bytes": 12142,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/fee_fixtures.py",
+    "bytes": 818,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/fees.rs",
+    "bytes": 2080,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/genesis_factory_mutations.py",
+    "bytes": 2471,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/geth_mirror_verify.py",
+    "bytes": 2912,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_admission_checks.py",
+    "bytes": 2526,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_admission_mutations.py",
+    "bytes": 2145,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_alternatives.py",
+    "bytes": 1384,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_archive_independent.py",
+    "bytes": 3595,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_blake2_checks.py",
+    "bytes": 1023,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_code_independent.py",
+    "bytes": 4980,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_code_replacements.py",
+    "bytes": 3685,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_comparison_checks.py",
+    "bytes": 1994,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_control.py",
+    "bytes": 4208,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_diagnose.py",
+    "bytes": 3004,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_exception_audit.py",
+    "bytes": 6001,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_exception_mutations.py",
+    "bytes": 3108,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_extract.py",
+    "bytes": 1169,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_geth_control.py",
+    "bytes": 4338,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_geth_mutations.py",
+    "bytes": 2952,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_independent.py",
+    "bytes": 8443,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_independent_vm.py",
+    "bytes": 4390,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_signed_geth_verify.py",
+    "bytes": 2766,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/gst_signed_rejections.py",
+    "bytes": 6840,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/issuance_mutations.py",
+    "bytes": 5035,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/issuance_oracle.py",
+    "bytes": 8056,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/issuance_signed_fixtures.py",
+    "bytes": 1655,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/lifecycle_oracle.py",
+    "bytes": 1921,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/mutations.py",
+    "bytes": 2341,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/native_context.rs",
+    "bytes": 3458,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/pay_boundary.rs",
+    "bytes": 10315,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/pay_mutations.py",
+    "bytes": 5668,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/pay_oracle.py",
+    "bytes": 4936,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/pool.rs",
+    "bytes": 3826,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/pool_mutations.py",
+    "bytes": 4216,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/profile_execution.rs",
+    "bytes": 2991,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/profile_execution_fixtures.py",
+    "bytes": 1855,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/receipt_oracle.py",
+    "bytes": 1579,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/receipts.rs",
+    "bytes": 1877,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/registry_budget_mutations.py",
+    "bytes": 2947,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/registry_budget_oracle.py",
+    "bytes": 3780,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/registry_execution_oracle.py",
+    "bytes": 4678,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/registry_mutations.py",
+    "bytes": 5420,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+    "bytes": 19389,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/registry_transition_model.py",
+    "bytes": 8811,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/reward_durability.rs",
+    "bytes": 1894,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/reward_syntax_witness.py",
+    "bytes": 1560,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/rpc_pool.rs",
+    "bytes": 4019,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/rss_snapshot.rs",
+    "bytes": 2232,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/signed_geth_mutations.py",
+    "bytes": 2096,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/simulate_stop.rs",
+    "bytes": 4463,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/source_inventory.py",
+    "bytes": 1527,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/source_notice_audit.py",
+    "bytes": 6957,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/support/admission.rs",
+    "bytes": 1636,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/system_boundary_oracle.py",
+    "bytes": 5450,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/system_mutations.py",
+    "bytes": 5797,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/system_oracle.py",
+    "bytes": 6270,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/tool_inventory.py",
+    "bytes": 4687,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/user_phase.rs",
+    "bytes": 5218,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/user_phase_fixtures.py",
+    "bytes": 2850,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/user_phase_mutations.py",
+    "bytes": 3243,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/wire.rs",
+    "bytes": 1540,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/wire_fixtures.py",
+    "bytes": 5550,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/wire_mutations.py",
+    "bytes": 3951,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/lp4-execution/tests/wire_oracle.py",
+    "bytes": 3181,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+    "bytes": 3279,
+    "languageExtension": ".c",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-android/app/src/main/java/org/pocol/node/MainActivity.java",
+    "bytes": 29337,
+    "languageExtension": ".java",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-android/app/src/main/java/org/pocol/node/Native.java",
+    "bytes": 513,
+    "languageExtension": ".java",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-android/app/src/main/java/org/pocol/node/NodeService.java",
+    "bytes": 4168,
+    "languageExtension": ".java",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/build.mjs",
+    "bytes": 7055,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/scripts/package-release.py",
+    "bytes": 2028,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/contract-ui.js",
+    "bytes": 22214,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/ide-content.js",
+    "bytes": 1214,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/bridge.js",
+    "bytes": 12346,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/contracts.js",
+    "bytes": 18176,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/crypto.js",
+    "bytes": 1410,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/forks.js",
+    "bytes": 1198,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/hex.js",
+    "bytes": 1094,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/publisher.js",
+    "bytes": 19336,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/records.js",
+    "bytes": 14661,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/refdec.js",
+    "bytes": 14333,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/rlp.js",
+    "bytes": 2671,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/rp.js",
+    "bytes": 5715,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/site.js",
+    "bytes": 6259,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/sitestore.js",
+    "bytes": 2694,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/studio-bridge.js",
+    "bytes": 2349,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/studio-keyfile.js",
+    "bytes": 3731,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/studio-network.js",
+    "bytes": 2223,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/transport.js",
+    "bytes": 8010,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/wallet.js",
+    "bytes": 4083,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/lib/website-bytecode.js",
+    "bytes": 13268,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/options.js",
+    "bytes": 4586,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/publisher-ui.js",
+    "bytes": 12948,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/sandbox-loader.js",
+    "bytes": 23575,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/studio-content.js",
+    "bytes": 1242,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/sw.js",
+    "bytes": 44897,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/src/viewer.js",
+    "bytes": 10288,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/chrome_mock.mjs",
+    "bytes": 6323,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/contract_ui_test.mjs",
+    "bytes": 13620,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/contracts_test.mjs",
+    "bytes": 13233,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/decoder_corpus.mjs",
+    "bytes": 12154,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/decoder_diff.mjs",
+    "bytes": 2074,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/e2e_browser.mjs",
+    "bytes": 55649,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/e2e_heal.mjs",
+    "bytes": 9144,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/e2e_integrated.mjs",
+    "bytes": 22164,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/forks_test.mjs",
+    "bytes": 5669,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/harness.mjs",
+    "bytes": 10972,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/live_rp.mjs",
+    "bytes": 7083,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/publisher_test.mjs",
+    "bytes": 16434,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/records_test.mjs",
+    "bytes": 11161,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/recv_guard.mjs",
+    "bytes": 5398,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/rp_fixture.mjs",
+    "bytes": 2771,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/site_fixture.mjs",
+    "bytes": 1985,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/studio_test.mjs",
+    "bytes": 24592,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/test_linux_export.py",
+    "bytes": 8448,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/unit.mjs",
+    "bytes": 22159,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/wallet_lifecycle_test.mjs",
+    "bytes": 3218,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tests/worker_test.mjs",
+    "bytes": 36583,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tools/Export-Studio-Wallet.ps1",
+    "bytes": 4845,
+    "languageExtension": ".ps1",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-extension/tools/export-studio-wallet.py",
+    "bytes": 8751,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-studio/dist/app.js",
+    "bytes": 48560,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-studio/dist/model.js",
+    "bytes": 16113,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-studio/dist/preview.js",
+    "bytes": 3895,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-studio/dist/zip.js",
+    "bytes": 1457,
+    "languageExtension": ".js",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-studio/scripts/build-release.py",
+    "bytes": 7460,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-studio/scripts/validate-package.mjs",
+    "bytes": 1043,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-studio/tests/model.test.mjs",
+    "bytes": 5290,
+    "languageExtension": ".mjs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-windows/Wallet.cs",
+    "bytes": 20780,
+    "languageExtension": ".cs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocol-windows/WalletUiTests.cs",
+    "bytes": 9141,
+    "languageExtension": ".cs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/build.rs",
+    "bytes": 3699,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/scripts/devnet.py",
+    "bytes": 7024,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/bin/pocol-key.rs",
+    "bytes": 772,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/bin/pocol-sign.rs",
+    "bytes": 1553,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/bin/pocol-site.rs",
+    "bytes": 6670,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/bin/pocol.rs",
+    "bytes": 5755,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/chain.rs",
+    "bytes": 90816,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/checkpoint.rs",
+    "bytes": 25573,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/cutover.rs",
+    "bytes": 9606,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/history.rs",
+    "bytes": 12555,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/identity.rs",
+    "bytes": 2128,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/keyfile.rs",
+    "bytes": 4453,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/keyfile/windows.rs",
+    "bytes": 4689,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/launcher.rs",
+    "bytes": 30157,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/lib.rs",
+    "bytes": 18058,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/main.rs",
+    "bytes": 10921,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/miner.rs",
+    "bytes": 3514,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/mobile.rs",
+    "bytes": 6812,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/net.rs",
+    "bytes": 25017,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/network_display.rs",
+    "bytes": 4800,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/node.rs",
+    "bytes": 130817,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/resources.rs",
+    "bytes": 51453,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/rpc.rs",
+    "bytes": 117475,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/secp_backend.rs",
+    "bytes": 908,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/site.rs",
+    "bytes": 17013,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/state_store.rs",
+    "bytes": 39914,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/statediff.rs",
+    "bytes": 14948,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/store.rs",
+    "bytes": 18321,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/testnet.rs",
+    "bytes": 10443,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/types.rs",
+    "bytes": 5401,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/src/wallet.rs",
+    "bytes": 39864,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/admission.rs",
+    "bytes": 11663,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/caps.rs",
+    "bytes": 28183,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/checkpoint_source.rs",
+    "bytes": 3257,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/cli.rs",
+    "bytes": 5718,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/consensus.rs",
+    "bytes": 304937,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/cutover.rs",
+    "bytes": 23911,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/decoder_reference.rs",
+    "bytes": 1806,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/e2e_devnet.py",
+    "bytes": 46330,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/e2e_independent_keys.py",
+    "bytes": 13945,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/e2e_site.py",
+    "bytes": 10990,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/earnin.rs",
+    "bytes": 8451,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/eviction_memory.rs",
+    "bytes": 3710,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/fork_configuration.rs",
+    "bytes": 796,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/full_nonce.rs",
+    "bytes": 16136,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/independent_keys.py",
+    "bytes": 8697,
+    "languageExtension": ".py",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/journal_measure.rs",
+    "bytes": 134047,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/launch_delay_asert.rs",
+    "bytes": 11463,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/log_cap.rs",
+    "bytes": 9975,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/log_cap_scope.rs",
+    "bytes": 6136,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/net.rs",
+    "bytes": 123894,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/network_budget.rs",
+    "bytes": 22844,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/rejoin.rs",
+    "bytes": 9710,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/secp_fixture.rs",
+    "bytes": 2270,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/site.rs",
+    "bytes": 4696,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/state_store.rs",
+    "bytes": 40102,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/store.rs",
+    "bytes": 14761,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/support/auth_peer.rs",
+    "bytes": 2111,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/unhex_fix.rs",
+    "bytes": 7374,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/unhex_invitation_panic.rs",
+    "bytes": 1563,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  },
+  {
+    "path": "prototypes/pocold/tests/wire_mutation.rs",
+    "bytes": 1931,
+    "languageExtension": ".rs",
+    "scope": "active-or-build"
+  }
+]

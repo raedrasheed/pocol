@@ -1,0 +1,49 @@
+Traceback (most recent call last):
+  File "/workspace/pocol-audit-tools/bin/pysemgrep", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/semgrep/console_scripts/pysemgrep.py", line 64, in main
+    sys.exit(semgrep.main.main())
+             ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/semgrep/main.py", line 146, in main
+    cli(prog_name="semgrep")
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/click/core.py", line 1569, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/click/core.py", line 1490, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/click/core.py", line 1967, in invoke
+    super().invoke(ctx)
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/click/core.py", line 1353, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/click/core.py", line 907, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/click/decorators.py", line 34, in new_func
+    return f(get_current_context(), *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/semgrep/cli.py", line 74, in cli
+    state = get_state()
+            ^^^^^^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/semgrep/state.py", line 170, in get_state
+    return ctx.ensure_object(SemgrepState)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/click/core.py", line 754, in ensure_object
+    self.obj = rv = object_type()
+                    ^^^^^^^^^^^^^
+  File "<attrs generated methods semgrep.state.SemgrepState>", line 67, in __init__
+  File "<attrs generated methods semgrep.terminal.Terminal>", line 28, in __init__
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/semgrep/terminal.py", line 38, in __attrs_post_init__
+    self.configure()
+  File "/workspace/pocol-audit-tools/lib/python3.12/site-packages/semgrep/terminal.py", line 92, in configure
+    file_handler = logging.FileHandler(env.user_log_file, "w", encoding="utf-8")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/logging/__init__.py", line 1231, in __init__
+    StreamHandler.__init__(self, self._open())
+                                 ^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/logging/__init__.py", line 1263, in _open
+    return open_func(self.baseFilename, self.mode,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 30] Read-only file system: '/home/agent/.semgrep/semgrep.log'

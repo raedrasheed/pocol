@@ -1,0 +1,22 @@
+Rule tmp.pocol-semgrep-rules.yaml.github-actions.security.audit.third-party-action-not-pinned-to-commit-sha contains an include pattern '.github/workflows' that will soon be interpreted as '/.github/workflows' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule tmp.pocol-semgrep-rules.yaml.github-actions.security.audit.third-party-action-not-pinned-to-commit-sha and change it to '**/.github/workflows'. To confirm the anchored behavior and avoid this warning, change it to '/.github/workflows'.
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 13 files with 13 Code rules:
+  Scanning 13 files with 12 yaml rules.
+Rule tmp.pocol-semgrep-rules.yaml.github-actions.security.audit.third-party-action-not-pinned-to-commit-sha contains an include pattern '.github/workflows' that will soon be interpreted as '/.github/workflows' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule tmp.pocol-semgrep-rules.yaml.github-actions.security.audit.third-party-action-not-pinned-to-commit-sha and change it to '**/.github/workflows'. To confirm the anchored behavior and avoid this warning, change it to '/.github/workflows'.
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 3 (3 blocking)
+ • Rules run: 12
+ • Targets scanned: 13
+ • Parsed lines: ~99.5%
+ • No ignore information available
+ • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
+Ran 12 rules on 13 files: 3 findings.

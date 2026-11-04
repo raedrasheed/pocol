@@ -1,0 +1,13 @@
+test_ascii_calls_keep_their_existing_contract (test_android_jni.AndroidJniStrings.test_ascii_calls_keep_their_existing_contract) ... ok
+test_embedded_nul_cannot_truncate_a_native_argument (test_android_jni.AndroidJniStrings.test_embedded_nul_cannot_truncate_a_native_argument) ... ok
+test_java_argument_is_standard_utf8_for_rust (test_android_jni.AndroidJniStrings.test_java_argument_is_standard_utf8_for_rust) ... ok
+test_native_arguments_are_bounded_by_utf8_bytes (test_android_jni.AndroidJniStrings.test_native_arguments_are_bounded_by_utf8_bytes) ... ok
+test_null_argument_raises_java_exception (test_android_jni.AndroidJniStrings.test_null_argument_raises_java_exception) ... ok
+test_standard_utf8_output_preserves_supplementary_characters (test_android_jni.AndroidJniStrings.test_standard_utf8_output_preserves_supplementary_characters) ... ok
+test_unpaired_surrogate_is_rejected (test_android_jni.AndroidJniStrings.test_unpaired_surrogate_is_rejected) ... ok
+test_utf8_width_boundaries_and_seeded_scalar_roundtrips (test_android_jni.AndroidJniStrings.test_utf8_width_boundaries_and_seeded_scalar_roundtrips) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.152s
+
+OK

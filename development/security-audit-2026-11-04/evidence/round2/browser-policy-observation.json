@@ -1,0 +1,16 @@
+{
+  "observedCDPError": "Loading of unpacked extensions is disabled by the administrator.",
+  "policyFilesRelevantSubset": [
+    {
+      "file": "/etc/chromium/policies/managed/extensions.json",
+      "relevantPolicy": {
+        "ExtensionInstallBlocklist": [
+          "*"
+        ]
+      }
+    }
+  ],
+  "policyModified": false,
+  "extensionSuiteCompleted": false,
+  "plainWebsiteChecksPassed": 20
+}

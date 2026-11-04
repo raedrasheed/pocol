@@ -1,0 +1,267 @@
+    Updating crates.io index
+     Locking 3 packages to highest compatible versions
+      Adding arbitrary v1.5.0
+      Adding jobserver v0.1.35
+      Adding libfuzzer-sys v0.4.13
+ Downloading crates ...
+  Downloaded jobserver v0.1.35
+  Downloaded arbitrary v1.5.0
+  Downloaded libfuzzer-sys v0.4.13
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling generic-array v0.14.9
+   Compiling cfg-if v1.0.5
+   Compiling const-oid v0.9.6
+   Compiling subtle v2.6.1
+   Compiling syn v2.0.119
+   Compiling serde_core v1.0.229
+   Compiling syn v3.0.9
+   Compiling getrandom v0.2.17
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling rand_core v0.6.4
+   Compiling jobserver v0.1.35
+   Compiling cc v1.9.0
+   Compiling serde v1.0.229
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling ff v0.13.1
+   Compiling base16ct v0.2.0
+   Compiling cpufeatures v0.2.17
+   Compiling crunchy v0.2.4
+   Compiling group v0.13.0
+   Compiling unicode-segmentation v1.13.3
+   Compiling convert_case v0.10.0
+   Compiling unicode-xid v0.2.6
+   Compiling paste v1.0.15
+   Compiling serde_derive v1.0.229
+   Compiling tiny-keccak v2.0.2
+   Compiling once_cell v1.21.4
+   Compiling blst v0.3.17
+   Compiling ruint-macro v1.2.1
+   Compiling itoa v1.0.18
+   Compiling zeroize_derive v1.5.0
+   Compiling alloy-rlp-derive v0.3.16
+   Compiling derive_more-impl v2.1.1
+   Compiling zeroize v1.9.1
+   Compiling der v0.7.10
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.6
+   Compiling digest v0.10.7
+   Compiling hmac v0.12.1
+   Compiling crypto-bigint v0.5.5
+   Compiling spki v0.7.3
+   Compiling pkcs8 v0.10.2
+   Compiling sec1 v0.7.3
+   Compiling elliptic-curve v0.13.8
+   Compiling bytes v1.12.1
+   Compiling rfc6979 v0.4.0
+   Compiling signature v2.2.0
+   Compiling ecdsa v0.16.9
+   Compiling sha2 v0.10.9
+   Compiling foldhash v0.1.5
+   Compiling alloy-rlp v0.3.16
+   Compiling ruint v1.21.0
+   Compiling k256 v0.13.4
+   Compiling hashbrown v0.15.5
+   Compiling derive_more v2.1.1
+   Compiling num-integer v0.1.47
+   Compiling const-hex v1.19.3
+   Compiling num_cpus v1.17.0
+   Compiling radium v0.7.0
+   Compiling thiserror v2.0.21
+   Compiling threadpool v1.8.1
+   Compiling alloy-primitives v0.8.26
+   Compiling thiserror-impl v2.0.21
+   Compiling c-kzg v1.0.3
+   Compiling serde_json v1.0.145
+   Compiling tap v1.0.1
+   Compiling hex v0.4.3
+   Compiling wyz v0.5.1
+   Compiling num-bigint v0.4.8
+   Compiling secp256k1-sys v0.10.1
+   Compiling funty v2.0.0
+   Compiling bitvec v1.1.1
+   Compiling num-rational v0.4.2
+   Compiling alloy-eip2930 v0.1.0
+   Compiling alloy-eip7702 v0.5.1
+   Compiling num-iter v0.1.46
+   Compiling enumn v0.1.14
+   Compiling num-complex v0.4.6
+   Compiling auto_impl v1.4.0
+   Compiling bitflags v2.13.2
+   Compiling rand v0.8.8
+   Compiling spin v0.9.9
+   Compiling dyn-clone v1.0.20
+   Compiling revm-primitives v15.2.0
+   Compiling lazy_static v1.5.1
+   Compiling num v0.4.3
+   Compiling byteorder v1.5.0
+   Compiling rustc-hex v2.1.0
+   Compiling substrate-bn v0.6.0
+   Compiling aurora-engine-modexp v1.3.0
+   Compiling block-buffer v0.9.0
+   Compiling digest v0.9.0
+   Compiling ripemd v0.1.3
+   Compiling block-padding v0.2.1
+   Compiling ryu v1.0.23
+   Compiling opaque-debug v0.3.1
+   Compiling memchr v2.8.3
+   Compiling sha2 v0.9.9
+   Compiling revm-interpreter v15.2.0
+   Compiling redb v2.6.4
+   Compiling pocold v0.1.0 (/workspace/pocol/prototypes/pocold)
+   Compiling libfuzzer-sys v0.4.13
+   Compiling keccak v0.1.6
+   Compiling sha3 v0.9.1
+   Compiling secp256k1 v0.29.1
+   Compiling arbitrary v1.5.0
+   Compiling revm-precompile v16.2.0
+   Compiling revm v19.7.0
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/pocol/prototypes/lp4-execution)
+   Compiling pocol-security-fuzz v0.0.0 (/workspace/pocol-audit-round2/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 2m 58s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.10s
+     Running `/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers -artifact_prefix=/workspace/pocol-audit-round2/fuzz/artifacts/parsers/ -max_total_time=180 -max_len=16384 -rss_limit_mb=2048 -timeout=3 -seed=777900 /workspace/pocol-audit-round2/fuzz/corpus/parsers -fork=4`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 777900
+INFO: Loaded 1 modules   (14746 inline 8-bit counters): 14746 [0x55bf1c9894f0, 0x55bf1c98ce8a), 
+INFO: Loaded 1 PC tables (14746 PCs): 14746 [0x55bf1c98ce90,0x55bf1c9c6830), 
+INFO: -fork=4: fuzzing in separate process(s)
+INFO: -fork=4: 50 seed inputs, starting to fuzz in /tmp/libFuzzerTemp.FuzzWithFork50330.dir
+#94612: cov: 889 ft: 1099 corp: 50 exec/s: 47306 oom/timeout/crash: 0/0/0 time: 2s job: 1 dft_time: 0
+  NEW_FUNC: 0x55bf1c70cd80  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x2f8d80) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c716ec0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x302ec0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c71ad00  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x306d00) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c71c700  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x308700) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c723b60  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x30fb60) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c725a60  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x311a60) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c728020  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x314020) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c729710  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x315710) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c72e650  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x31a650) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c735a50  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x321a50) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c736040  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x322040) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c738b90  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x324b90) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c745520  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x331520) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c746060  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x332060) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c74fc90  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33bc90) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c74fd00  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33bd00) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c750960  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33c960) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c751c00  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33dc00) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7529a0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33e9a0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c754210  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x340210) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c754b20  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x340b20) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c755330  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x341330) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7557d0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3417d0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c755840  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x341840) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c755da0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x341da0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c76b7d0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3577d0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c76ccf0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x358cf0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7733c0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x35f3c0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c778120  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x364120) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c779cc0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x365cc0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c77bd40  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x367d40) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c77d9b0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3699b0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c781260  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36d260) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c782110  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36e110) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c782240  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36e240) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c783a20  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36fa20) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c783a50  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36fa50) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7848b0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3708b0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c788680  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x374680) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7926b0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x37e6b0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c793950  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x37f950) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7949a0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3809a0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c795370  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381370) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c795520  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381520) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7956d0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3816d0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7958b0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3818b0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c795a90  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381a90) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c795bc0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381bc0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c795db0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381db0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c796050  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x382050) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c796120  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x382120) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c799720  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x385720) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c799e00  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x385e00) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79a020  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x386020) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79a3d0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3863d0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79b650  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x387650) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79d990  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x389990) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79da40  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x389a40) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79daf0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x389af0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79dc10  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x389c10) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79e4b0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x38a4b0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79e5a0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x38a5a0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c79f4c0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x38b4c0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a08d0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x38c8d0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a3140  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x38f140) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a3250  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x38f250) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a48a0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3908a0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a49b0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3909b0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a6840  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x392840) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a7a70  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x393a70) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a90b0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3950b0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7a9790  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x395790) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7aa310  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x396310) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7ab5d8  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3975d8) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7eba00  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d7a00) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7eca70  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8a70) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7ecb00  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8b00) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7ecbb0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8bb0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7ecd50  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8d50) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7ecda0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8da0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#259130: cov: 1992 ft: 3428 corp: 497 exec/s: 54839 oom/timeout/crash: 0/0/0 time: 3s job: 2 dft_time: 0
+  NEW_FUNC: 0x55bf1c782060  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36e060) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c784b30  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x370b30) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c7ec9c0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d89c0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#444216: cov: 2073 ft: 3678 corp: 619 exec/s: 46271 oom/timeout/crash: 0/0/0 time: 4s job: 3 dft_time: 0
+#728675: cov: 2107 ft: 3969 corp: 712 exec/s: 56891 oom/timeout/crash: 0/0/0 time: 5s job: 4 dft_time: 0
+  NEW_FUNC: 0x55bf1c73b540  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x327540) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#1002206: cov: 2153 ft: 4100 corp: 771 exec/s: 45588 oom/timeout/crash: 0/0/0 time: 8s job: 5 dft_time: 0
+  NEW_FUNC: 0x55bf1c71c150  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x308150) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#1327717: cov: 2193 ft: 4283 corp: 867 exec/s: 46501 oom/timeout/crash: 0/0/0 time: 10s job: 6 dft_time: 0
+#1688222: cov: 2217 ft: 4382 corp: 929 exec/s: 45063 oom/timeout/crash: 0/0/0 time: 12s job: 7 dft_time: 0
+#2082984: cov: 2227 ft: 4502 corp: 970 exec/s: 43862 oom/timeout/crash: 0/0/0 time: 14s job: 8 dft_time: 0
+#2550659: cov: 2234 ft: 4575 corp: 1000 exec/s: 46767 oom/timeout/crash: 0/0/0 time: 18s job: 9 dft_time: 0
+  NEW_FUNC: 0x55bf1c7331c0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x31f1c0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c783980  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36f980) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#3077289: cov: 2273 ft: 4711 corp: 1055 exec/s: 47875 oom/timeout/crash: 0/0/0 time: 21s job: 10 dft_time: 0
+  NEW_FUNC: 0x55bf1c79aed0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x386ed0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#3688533: cov: 2298 ft: 4844 corp: 1089 exec/s: 50937 oom/timeout/crash: 0/0/0 time: 24s job: 11 dft_time: 0
+  NEW_FUNC: 0x55bf1c735cf0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x321cf0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#4338492: cov: 2311 ft: 4874 corp: 1106 exec/s: 49996 oom/timeout/crash: 0/0/0 time: 27s job: 12 dft_time: 0
+  NEW_FUNC: 0x55bf1c783830  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36f830) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#5044565: cov: 2331 ft: 4961 corp: 1139 exec/s: 50433 oom/timeout/crash: 0/0/0 time: 32s job: 13 dft_time: 0
+#5732459: cov: 2344 ft: 4998 corp: 1150 exec/s: 45859 oom/timeout/crash: 0/0/0 time: 36s job: 14 dft_time: 0
+  NEW_FUNC: 0x55bf1c7821c0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36e1c0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#6485863: cov: 2391 ft: 5152 corp: 1176 exec/s: 47087 oom/timeout/crash: 0/0/0 time: 40s job: 15 dft_time: 0
+  NEW_FUNC: 0x55bf1c774410  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x360410) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c788360  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x374360) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#7228751: cov: 2436 ft: 5239 corp: 1186 exec/s: 43699 oom/timeout/crash: 0/0/0 time: 44s job: 16 dft_time: 0
+#8047582: cov: 2448 ft: 5281 corp: 1203 exec/s: 45490 oom/timeout/crash: 0/0/0 time: 51s job: 17 dft_time: 0
+#8879635: cov: 2475 ft: 5375 corp: 1225 exec/s: 43792 oom/timeout/crash: 0/0/0 time: 56s job: 18 dft_time: 0
+#9768762: cov: 2490 ft: 5510 corp: 1266 exec/s: 44456 oom/timeout/crash: 0/0/0 time: 61s job: 19 dft_time: 0
+  NEW_FUNC: 0x55bf1c7348f0  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3208f0) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+  NEW_FUNC: 0x55bf1c783930  (/workspace/pocol-audit-round2/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36f930) (BuildId: 122a5e2c166edd85f86f50a0892e17c9c7a7ad36)
+#10792328: cov: 2500 ft: 5542 corp: 1278 exec/s: 48741 oom/timeout/crash: 0/0/0 time: 66s job: 20 dft_time: 0
+#11810253: cov: 2512 ft: 5585 corp: 1293 exec/s: 46269 oom/timeout/crash: 0/0/0 time: 73s job: 21 dft_time: 0
+#12871580: cov: 2523 ft: 5629 corp: 1313 exec/s: 46144 oom/timeout/crash: 0/0/0 time: 79s job: 22 dft_time: 0
+#13975001: cov: 2528 ft: 5764 corp: 1321 exec/s: 45975 oom/timeout/crash: 0/0/0 time: 85s job: 23 dft_time: 0
+#15139717: cov: 2540 ft: 5830 corp: 1341 exec/s: 46588 oom/timeout/crash: 0/0/0 time: 91s job: 24 dft_time: 0
+#15991774: cov: 2556 ft: 5854 corp: 1353 exec/s: 32771 oom/timeout/crash: 0/0/0 time: 100s job: 25 dft_time: 0
+#16750738: cov: 2559 ft: 5888 corp: 1364 exec/s: 28109 oom/timeout/crash: 0/0/0 time: 107s job: 26 dft_time: 0
+#17577560: cov: 2562 ft: 5893 corp: 1369 exec/s: 29529 oom/timeout/crash: 0/0/0 time: 113s job: 27 dft_time: 0
+#17910993: cov: 2562 ft: 5917 corp: 1373 exec/s: 11497 oom/timeout/crash: 0/0/0 time: 121s job: 28 dft_time: 0
+#18490038: cov: 2562 ft: 5924 corp: 1376 exec/s: 19301 oom/timeout/crash: 0/0/0 time: 130s job: 29 dft_time: 0
+#19431568: cov: 2564 ft: 5929 corp: 1379 exec/s: 30371 oom/timeout/crash: 0/0/0 time: 138s job: 30 dft_time: 0
+#20379644: cov: 2566 ft: 5932 corp: 1381 exec/s: 29627 oom/timeout/crash: 0/0/0 time: 146s job: 31 dft_time: 0
+#21522486: cov: 2567 ft: 5937 corp: 1384 exec/s: 34631 oom/timeout/crash: 0/0/0 time: 154s job: 32 dft_time: 0
+#22643251: cov: 2588 ft: 6017 corp: 1427 exec/s: 32963 oom/timeout/crash: 0/0/0 time: 164s job: 33 dft_time: 0
+#23912894: cov: 2590 ft: 6034 corp: 1434 exec/s: 36275 oom/timeout/crash: 0/0/0 time: 173s job: 34 dft_time: 0
+#25050824: cov: 2590 ft: 6061 corp: 1438 exec/s: 31609 oom/timeout/crash: 0/0/0 time: 183s job: 35 dft_time: 0
+INFO: fuzzed for 183 seconds, wrapping up soon
+INFO: exiting: 0 time: 183s

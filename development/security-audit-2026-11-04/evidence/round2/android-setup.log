@@ -1,0 +1,4 @@
+VERIFIED ndk;27.2.12479018
+VERIFIED build-tools;35.0.0
+VERIFIED cmdline-tools;latest
+VERIFIED gradle-8.11.1

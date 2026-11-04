@@ -1,0 +1,42 @@
+[
+  {
+    "original": "deploy/websites/ide.pocol.net/assets/editor.worker-CRz__AKW.js",
+    "originalSha256": "a8d36cd1157642e5729b76731d3c20eb4f773c7706594643e5baa7791861629d",
+    "formattedSha256": "e7561baee57e8a40cc75a05725476b2129a709018cfcdab1541a7c5e85897b98",
+    "snapshot": "a8d36cd1157642e5729b76731d3c20eb4f773c7706594643e5baa7791861629d.js",
+    "astSha256": "935b2d247e9234315be5096f386d00fdf6581ca56dc6b19b10cd826aedd52dc2",
+    "astEquivalent": true
+  },
+  {
+    "original": "deploy/websites/ide.pocol.net/assets/sandbox.worker-DKPDIOr-.js",
+    "originalSha256": "95bab8f2dae304c05537746594c625a20e3f37e8b33d68b9abf299feafa7fd7e",
+    "formattedSha256": "4b6c11d98285ae52b54ec3bd35740f5823fc65c021e6e9e3a96d62fea8ec5f01",
+    "snapshot": "95bab8f2dae304c05537746594c625a20e3f37e8b33d68b9abf299feafa7fd7e.js",
+    "astSha256": "6f4e3f00720ceef8b7a41a735f0c4e2757759ab3effbfffbcbae6d7350c37a28",
+    "astEquivalent": true
+  },
+  {
+    "original": "deploy/websites/ide.pocol.net/assets/index-CJbrNXr_.js",
+    "originalSha256": "aa8212c39a8c8bf471a1c49bbff72fcd81c6a0c8077284cd4b36cea367a361f1",
+    "formattedSha256": "003c7a8362b59495f2e808d4135de530ebd9c794c500c4a2b739449fe2408487",
+    "snapshot": "aa8212c39a8c8bf471a1c49bbff72fcd81c6a0c8077284cd4b36cea367a361f1.js",
+    "astSha256": "849973a4cc41c18998448b7c84d3e2a338038badacd801de3d4113e3529f6985",
+    "astEquivalent": true
+  },
+  {
+    "original": "deploy/websites/ide.pocol.net/assets/index-extension041-02af63944c2b.js",
+    "originalSha256": "02af63944c2b9fc0395b36afe2fc91dd49daae72eeaeb09c148184259e321629",
+    "formattedSha256": "4ec46b46e6023c3c58bc8400289a7e0bc1890dca7dcde1ce3634f631e196aabd",
+    "snapshot": "02af63944c2b9fc0395b36afe2fc91dd49daae72eeaeb09c148184259e321629.js",
+    "astSha256": "c915ff1232957f06be9963a1cd7a29ec08b893d00bf95d08b313962e7dbfc0c1",
+    "astEquivalent": true
+  },
+  {
+    "original": "deploy/websites/explorer.pocol.net/assets/index-Cj8htKRO.js",
+    "originalSha256": "473b5bd9e7eccb31d0e802464d73fa958876f8120e53c8661561308a228ff24a",
+    "formattedSha256": "1293bb4340db448253a74138ad04b4c0f7e8b61e0c33f8013439d347d64ac630",
+    "snapshot": "473b5bd9e7eccb31d0e802464d73fa958876f8120e53c8661561308a228ff24a.js",
+    "astSha256": "7bd9940b2bb6de8bd22bc93d7ccc1b19f0071ba6b0d2a691be91205068691c97",
+    "astEquivalent": true
+  }
+]

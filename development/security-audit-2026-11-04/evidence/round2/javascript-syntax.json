@@ -1,0 +1,662 @@
+[
+  {
+    "file": "deploy/websites/explorer.pocol.net/assets/index-Cj8htKRO.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/ide.pocol.net/assets/editor.worker-CRz__AKW.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/ide.pocol.net/assets/index-CJbrNXr_.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/ide.pocol.net/assets/index-extension041-02af63944c2b.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/ide.pocol.net/assets/sandbox.worker-DKPDIOr-.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/ide.pocol.net/compiler/soljson.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/ide.pocol.net/compiler/worker.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/about-locales.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/about-nav.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/about.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/app.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/guide-content.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/language-picker.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/locales.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/network.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/reward.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "deploy/websites/pocol.net/wallet-downloads.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/siteA1/app.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/siteA1/app.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA1/app.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA2/app.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/s1/a.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/s2/a.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/s1/a.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/s2/a.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/lp3/s7-evidence/codex-r1/bench.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/lp3/s7-evidence/codex-r1/quality.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/lp3/s7-evidence/codex-r1/rewards_probe.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/lp3/s7-evidence/codex-r2/cf_probe.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/lp4/p2-runtime/codex-r19/compile.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/lp4/p4-genesis/codex-r1/diagnostic/tests/compile_system_epoch.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/lp4/p4-genesis/codex-r8/diagnostic/compile.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/coordination/evidence/0.21/e05-keccak-oracle.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/coordination/evidence/0.25/native-representation-oracle.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/coordination/evidence/0.26/asert-native-oracle.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/coordination/evidence/0.27/v1-hash-independent-0.27.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/coordination/evidence/0.28/u14-independent-0.28.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/coordination/evidence/0.33/coordinator-http-independent-033-v2.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/coordination/evidence/0.33/coordinator-http-independent-033.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/coordination/evidence/0.9/node-utf8-oracle.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.23/pages/C1/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.23/pages/C2/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.23/pages/C3/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.23/pages/C4/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.23/pages/C5/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.23/pages/C6/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.23/pages/C7/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.23/pages/C8/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.24/pages-supplemental/C7-P1/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.24/pages-supplemental/C7-P2/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.24/pages-supplemental/C7-P3/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.24/pages-supplemental/C7-P4/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.24/pages-supplemental/C7-P5/main.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.25/tools/js_number_probe.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.31/tools/json_codec_031.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.33/coordinator/files/public/app.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.33/coordinator/files/src/broker.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.33/coordinator/files/src/notifier.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.33/coordinator/files/src/server.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.33/coordinator/files/test/connection.test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.33/coordinator/files/test/continuation.test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.33/coordinator/tools/bundle.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.5/tools/txa_check.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.5/tools/url_oracle.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.6/tools/br16_gen.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.6/tools/id_oracle_06.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "development/m1/m1-draft-0.6/tools/url_oracle_06.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_budget_witness.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_chunk.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_code_caps.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_contracts.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_durability.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_pending.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_registry.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_system_boundary.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_system_earnin.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_system_epoch.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_system_v1.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/lp4-execution/tests/compile_website.cjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/build.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/contract-ui.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/ide-content.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/bridge.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/contracts.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/crypto.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/forks.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/hex.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/publisher.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/records.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/refdec.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/rlp.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/rp.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/site.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/sitestore.js",
+    "exit": 1,
+    "error": "/workspace/pocol/prototypes/pocol-extension/src/lib/sitestore.js:15\n  /*@fault quotaNoSubtract*/const newTotal = t - (has ? entry(k, dict[k]) : 0) + entry(k, v);/*@else*/const newTotal = t + entry(k, v);/*@end*/\n                                                                                                            ^\n\nSyntaxError: Identifier 'newTotal' has already been declared\n    at checkSyntax (node:internal/main/check_syntax:84:5)\n\nNode.js v24.22.1\n"
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/studio-bridge.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/studio-keyfile.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/studio-network.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/transport.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/wallet.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/lib/website-bytecode.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/options.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/publisher-ui.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/sandbox-loader.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/studio-content.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/sw.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/src/viewer.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/chrome_mock.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/contract_ui_test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/contracts_test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/decoder_corpus.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/decoder_diff.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/e2e_browser.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/e2e_heal.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/e2e_integrated.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/forks_test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/harness.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/live_rp.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/publisher_test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/records_test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/recv_guard.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/rp_fixture.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/site_fixture.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/studio_test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/unit.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/wallet_lifecycle_test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-extension/tests/worker_test.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-studio/dist/app.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-studio/dist/model.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-studio/dist/preview.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-studio/dist/zip.js",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-studio/scripts/validate-package.mjs",
+    "exit": 0,
+    "error": null
+  },
+  {
+    "file": "prototypes/pocol-studio/tests/model.test.mjs",
+    "exit": 0,
+    "error": null
+  }
+]

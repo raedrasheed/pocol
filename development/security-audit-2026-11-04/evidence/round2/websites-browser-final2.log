@@ -1,0 +1,21 @@
+PASS main renders PoCol
+PASS main Arabic language and direction
+PASS guide renders its chapters
+PASS main has no uncaught JavaScript errors
+PASS main registers no service worker
+PASS explorer renders PoCol
+PASS explorer has no uncaught JavaScript errors
+PASS explorer registers no service worker
+PASS studio renders PoCol
+PASS studio has no uncaught JavaScript errors
+PASS studio registers no service worker
+PASS ide renders PoCol
+PASS pinned IDE Solidity compiler runs
+PASS remote Solidity imports refused
+PASS sandbox identifies local simulation
+PASS sandbox denies arbitrary method dispatch
+PASS sandbox deploy succeeds locally
+PASS sandbox pure call returns exactly 42
+PASS ide has no uncaught JavaScript errors
+PASS ide registers no service worker
+{"result":"PASS","checks":20,"browser":"155.0.8059.79","externalRequestsBlocked":2,"extensionLoaded":false,"liveRpcRequests":0}
