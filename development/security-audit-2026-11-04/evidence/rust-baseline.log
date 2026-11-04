@@ -1,0 +1,899 @@
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded alloy-eip2930 v0.1.0
+  Downloaded alloy-rlp-derive v0.3.16
+  Downloaded ark-ff-asm v0.5.0
+  Downloaded ark-ff-asm v0.3.0
+  Downloaded alloy-eip7702 v0.5.1
+  Downloaded ark-ff v0.3.0
+  Downloaded ark-ff v0.4.2
+  Downloaded alloy-primitives v0.8.26
+  Downloaded ark-ff v0.6.0
+  Downloaded ark-ff-asm v0.6.0
+  Downloaded ark-ff-macros v0.4.2
+  Downloaded ark-ff-asm v0.4.2
+  Downloaded ark-serialize v0.3.0
+  Downloaded ark-ff v0.5.0
+  Downloaded ark-serialize v0.4.2
+  Downloaded alloy-rlp v0.3.16
+  Downloaded ark-ff-macros v0.5.0
+  Downloaded ark-ff-macros v0.3.0
+  Downloaded ark-ff-macros v0.6.0
+  Downloaded ark-serialize-derive v0.6.0
+  Downloaded ark-serialize v0.5.0
+  Downloaded ark-std v0.6.0
+  Downloaded ark-serialize v0.6.0
+  Downloaded ark-std v0.5.0
+  Downloaded ark-std v0.3.0
+  Downloaded ark-std v0.4.0
+  Downloaded arrayvec v0.7.8
+  Downloaded aurora-engine-modexp v1.3.0
+  Downloaded auto_impl v1.4.0
+  Downloaded autocfg v1.5.1
+  Downloaded base16ct v0.2.0
+  Downloaded base64 v0.22.1
+  Downloaded base64ct v1.8.3
+  Downloaded bit-set v0.11.1
+  Downloaded bitflags v1.3.2
+  Downloaded borsh v1.8.1
+  Downloaded bit-vec v0.10.1
+  Downloaded bitvec v1.1.1
+  Downloaded block-padding v0.2.1
+  Downloaded bitflags v2.13.2
+  Downloaded block-buffer v0.9.0
+  Downloaded block-buffer v0.10.4
+  Downloaded byte-slice-cast v1.2.3
+  Downloaded borsh-derive v1.8.1
+  Downloaded blst v0.3.17
+  Downloaded byteorder v1.5.0
+  Downloaded cc v1.9.0
+  Downloaded cfg-if v1.0.5
+  Downloaded cfg_aliases v0.2.2
+  Downloaded chacha20 v0.10.2
+  Downloaded bytes v1.12.1
+  Downloaded bs58 v0.5.1
+  Downloaded chrono v0.4.45
+  Downloaded const-hex v1.19.3
+  Downloaded c-kzg v1.0.3
+  Downloaded const-oid v0.9.6
+  Downloaded const_format v0.2.36
+  Downloaded convert_case v0.10.0
+  Downloaded core_detect v1.0.0
+  Downloaded crunchy v0.2.4
+  Downloaded crypto-bigint v0.5.5
+  Downloaded const_format_proc_macros v0.2.34
+  Downloaded cpufeatures v0.2.17
+  Downloaded cpufeatures v0.3.1
+  Downloaded crypto-common v0.1.6
+  Downloaded defmt-parser v1.1.0
+  Downloaded defmt v1.2.0
+  Downloaded deranged v0.5.9
+  Downloaded derive_more-impl v2.1.1
+  Downloaded derive_more v2.1.1
+  Downloaded der v0.7.10
+  Downloaded digest v0.9.0
+  Downloaded defmt-macros v1.2.0
+  Downloaded derivative v2.2.0
+  Downloaded digest v0.10.7
+  Downloaded educe v0.6.0
+  Downloaded dyn-clone v1.0.20
+  Downloaded ecdsa v0.16.9
+  Downloaded either v1.19.0
+  Downloaded enumn v0.1.14
+  Downloaded elliptic-curve v0.13.8
+  Downloaded enum-ordinalize v4.4.2
+  Downloaded enum-ordinalize-derive v4.4.2
+  Downloaded equivalent v1.0.3
+  Downloaded fastrlp v0.4.0
+  Downloaded errno v0.3.14
+  Downloaded fastrand v2.5.0
+  Downloaded fastrlp v0.3.1
+  Downloaded ff v0.13.1
+  Downloaded fixed-hash v0.8.0
+  Downloaded foldhash v0.1.5
+  Downloaded fnv v1.0.7
+  Downloaded find-msvc-tools v0.1.15
+  Downloaded generic-array v0.14.9
+  Downloaded getrandom v0.3.4
+  Downloaded funty v2.0.0
+  Downloaded getrandom v0.2.17
+  Downloaded getrandom v0.4.3
+  Downloaded group v0.13.0
+  Downloaded hashbrown v0.12.3
+  Downloaded subtle v2.6.1
+  Downloaded tap v1.0.1
+  Downloaded thiserror v2.0.21
+  Downloaded static_assertions v1.1.0
+  Downloaded hashbrown v0.15.5
+  Downloaded thiserror-impl v2.0.21
+  Downloaded tempfile v3.27.0
+  Downloaded substrate-bn v0.6.0
+  Downloaded threadpool v1.8.1
+  Downloaded time-macros v0.2.32
+  Downloaded time-core v0.1.9
+  Downloaded tiny-keccak v2.0.2
+  Downloaded tinyvec v1.13.3
+  Downloaded time v0.3.55
+  Downloaded toml_parser v1.1.5+spec-1.1.0
+  Downloaded typenum v1.20.1
+  Downloaded toml_edit v0.25.17+spec-1.1.0
+  Downloaded uint v0.9.5
+  Downloaded version_check v0.9.5
+  Downloaded unicode-ident v1.0.27
+  Downloaded winnow v1.0.4
+  Downloaded wyz v0.5.1
+  Downloaded zerocopy v0.8.63
+  Downloaded zeroize v1.9.1
+  Downloaded zeroize_derive v1.5.0
+  Downloaded hex v0.4.3
+  Downloaded indexmap v1.9.3
+  Downloaded hmac v0.12.1
+  Downloaded iana-time-zone v0.1.65
+  Downloaded indexmap v2.14.2
+  Downloaded itertools v0.13.0
+  Downloaded syn v3.0.9
+  Downloaded itoa v1.0.18
+  Downloaded syn v1.0.109
+  Downloaded syn v2.0.119
+  Downloaded toml_datetime v1.1.2+spec-1.1.0
+  Downloaded unarray v0.1.4
+  Downloaded unicode-xid v0.2.6
+  Downloaded jiff v0.2.38
+  Downloaded konst v0.2.20
+  Downloaded libm v0.2.16
+  Downloaded ucd-trie v0.1.7
+  Downloaded valuable v0.1.1
+  Downloaded unicode-segmentation v1.13.3
+  Downloaded wait-timeout v0.2.1
+  Downloaded hashbrown v0.17.1
+  Downloaded impl-codec v0.6.0
+  Downloaded impl-trait-for-tuples v0.2.3
+  Downloaded itertools v0.10.5
+  Downloaded jiff-core v0.1.1
+  Downloaded k256 v0.13.4
+  Downloaded keccak v0.1.6
+  Downloaded keccak-asm v0.1.9
+  Downloaded konst_macro_rules v0.2.19
+  Downloaded lazy_static v1.5.1
+  Downloaded log v0.4.34
+  Downloaded libc v0.2.191
+  Downloaded memchr v2.8.3
+  Downloaded num v0.4.3
+  Downloaded num-conv v0.2.2
+  Downloaded num-iter v0.1.46
+  Downloaded num-integer v0.1.47
+  Downloaded num-bigint v0.4.8
+  Downloaded num-rational v0.4.2
+  Downloaded num-complex v0.4.6
+  Downloaded num_cpus v1.17.0
+  Downloaded num-traits v0.2.19
+  Downloaded opaque-debug v0.3.1
+  Downloaded once_cell v1.21.4
+  Downloaded parity-scale-codec-derive v3.7.5
+  Downloaded linux-raw-sys v0.12.1
+  Downloaded parity-scale-codec v3.7.5
+  Downloaded paste v1.0.15
+  Downloaded proptest v1.12.0
+  Downloaded powerfmt v0.2.1
+  Downloaded proc-macro2 v1.0.107
+  Downloaded pest v2.9.4
+  Downloaded quick-error v1.2.3
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded proc-macro-crate v3.5.0
+  Downloaded pkcs8 v0.10.2
+  Downloaded primitive-types v0.12.2
+  Downloaded quote v1.0.47
+  Downloaded psm v0.1.24
+  Downloaded radium v0.7.0
+  Downloaded rand_chacha v0.9.0
+  Downloaded rand v0.8.8
+  Downloaded rand_chacha v0.3.1
+  Downloaded rand v0.10.3
+  Downloaded rand_core v0.9.5
+  Downloaded rand v0.9.5
+  Downloaded rand_core v0.6.4
+  Downloaded rand_core v0.10.1
+  Downloaded redb v2.6.4
+  Downloaded rand_xorshift v0.5.0
+  Downloaded ruint-macro v1.2.1
+  Downloaded ref-cast v1.0.27
+  Downloaded ruint v1.21.0
+  Downloaded rusty-fork v0.3.1
+  Downloaded regex-syntax v0.8.11
+  Downloaded ref-cast-impl v1.0.27
+  Downloaded revm-primitives v15.2.0
+  Downloaded revm-interpreter v15.2.0
+  Downloaded revm v19.7.0
+  Downloaded signature v2.2.0
+  Downloaded sec1 v0.7.3
+  Downloaded semver v1.0.28
+  Downloaded serde_core v1.0.229
+  Downloaded rlp v0.5.2
+  Downloaded shlex v2.0.1
+  Downloaded rustc_version v0.4.1
+  Downloaded sha2 v0.10.9
+  Downloaded rustc-hash v2.1.3
+  Downloaded semver v0.11.0
+  Downloaded semver-parser v0.10.3
+  Downloaded sha2 v0.9.9
+  Downloaded sha3 v0.9.1
+  Downloaded schemars v0.9.0
+  Downloaded rustversion v1.0.23
+  Downloaded serde_with v3.22.0
+  Downloaded ripemd v0.1.3
+  Downloaded revm-precompile v16.2.0
+  Downloaded serde v1.0.229
+  Downloaded rfc6979 v0.4.0
+  Downloaded ryu v1.0.23
+  Downloaded sha3 v0.10.9
+  Downloaded rustc-hex v2.1.0
+  Downloaded spin v0.9.9
+  Downloaded serde_json v1.0.145
+  Downloaded spki v0.7.3
+  Downloaded rustix v1.1.5
+  Downloaded secp256k1 v0.29.1
+  Downloaded sha3-asm v0.1.9
+  Downloaded schemars v1.2.3
+  Downloaded stacker v0.1.25
+  Downloaded secp256k1-sys v0.10.1
+  Downloaded rustc_version v0.3.3
+  Downloaded serde_derive v1.0.229
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling version_check v0.9.5
+   Compiling libc v0.2.191
+   Compiling generic-array v0.14.9
+   Compiling typenum v1.20.1
+   Compiling cfg-if v1.0.5
+   Compiling const-oid v0.9.6
+   Compiling subtle v2.6.1
+   Compiling serde_core v1.0.229
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling getrandom v0.2.17
+   Compiling rand_core v0.6.4
+   Compiling find-msvc-tools v0.1.15
+   Compiling serde v1.0.229
+   Compiling shlex v2.0.1
+   Compiling cc v1.9.0
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling ff v0.13.1
+   Compiling crunchy v0.2.4
+   Compiling cpufeatures v0.2.17
+   Compiling base16ct v0.2.0
+   Compiling group v0.13.0
+   Compiling unicode-segmentation v1.13.3
+   Compiling convert_case v0.10.0
+   Compiling paste v1.0.15
+   Compiling unicode-xid v0.2.6
+   Compiling once_cell v1.21.4
+   Compiling tiny-keccak v2.0.2
+   Compiling blst v0.3.17
+   Compiling itoa v1.0.18
+   Compiling serde_derive v1.0.229
+   Compiling ruint-macro v1.2.1
+   Compiling foldhash v0.1.5
+   Compiling zeroize_derive v1.5.0
+   Compiling alloy-rlp-derive v0.3.16
+   Compiling zeroize v1.9.1
+   Compiling der v0.7.10
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.6
+   Compiling digest v0.10.7
+   Compiling hmac v0.12.1
+   Compiling crypto-bigint v0.5.5
+   Compiling spki v0.7.3
+   Compiling pkcs8 v0.10.2
+   Compiling sec1 v0.7.3
+   Compiling bytes v1.12.1
+   Compiling rfc6979 v0.4.0
+   Compiling elliptic-curve v0.13.8
+   Compiling signature v2.2.0
+   Compiling sha2 v0.10.9
+   Compiling ecdsa v0.16.9
+   Compiling alloy-rlp v0.3.16
+   Compiling derive_more-impl v2.1.1
+   Compiling ruint v1.21.0
+   Compiling k256 v0.13.4
+   Compiling hashbrown v0.15.5
+   Compiling num-integer v0.1.47
+   Compiling const-hex v1.19.3
+   Compiling num_cpus v1.17.0
+   Compiling thiserror v2.0.21
+   Compiling radium v0.7.0
+   Compiling threadpool v1.8.1
+   Compiling thiserror-impl v2.0.21
+   Compiling c-kzg v1.0.3
+   Compiling tap v1.0.1
+   Compiling derive_more v2.1.1
+   Compiling hex v0.4.3
+   Compiling alloy-primitives v0.8.26
+   Compiling serde_json v1.0.145
+   Compiling wyz v0.5.1
+   Compiling num-bigint v0.4.8
+   Compiling secp256k1-sys v0.10.1
+   Compiling funty v2.0.0
+   Compiling num-rational v0.4.2
+   Compiling bitvec v1.1.1
+   Compiling alloy-eip7702 v0.5.1
+   Compiling alloy-eip2930 v0.1.0
+   Compiling num-iter v0.1.46
+   Compiling enumn v0.1.14
+   Compiling auto_impl v1.4.0
+   Compiling num-complex v0.4.6
+   Compiling bitflags v2.13.2
+   Compiling rand v0.8.8
+   Compiling dyn-clone v1.0.20
+   Compiling spin v0.9.9
+   Compiling lazy_static v1.5.1
+   Compiling revm-primitives v15.2.0
+   Compiling num v0.4.3
+   Compiling byteorder v1.5.0
+   Compiling rustc-hex v2.1.0
+   Compiling substrate-bn v0.6.0
+   Compiling aurora-engine-modexp v1.3.0
+   Compiling block-buffer v0.9.0
+   Compiling digest v0.9.0
+   Compiling ripemd v0.1.3
+   Compiling ryu v1.0.23
+   Compiling opaque-debug v0.3.1
+   Compiling memchr v2.8.3
+   Compiling block-padding v0.2.1
+   Compiling sha2 v0.9.9
+   Compiling revm-interpreter v15.2.0
+   Compiling redb v2.6.4
+   Compiling pocold v0.1.0 (/workspace/pocol/prototypes/pocold)
+   Compiling keccak v0.1.6
+   Compiling sha3 v0.9.1
+   Compiling secp256k1 v0.29.1
+   Compiling revm-precompile v16.2.0
+   Compiling revm v19.7.0
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/pocol/prototypes/lp4-execution)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 42s
+     Running unittests src/lib.rs (prototypes/pocold/target/release/deps/pocold-8f659119de452fb6)
+
+running 75 tests
+test asert::tests::rejection_cases ... ok
+test decimal::tests::known_values ... ok
+test asert::tests::named_boundaries ... ok
+test asert::tests::mutation_sensitivity ... ok
+test assignment::tests::rejected_hash_retries_without_wrap_or_modulo_fallback ... ok
+test decimal::tests::multiplication_matches_schoolbook ... ok
+test fixed::tests::decimal_round_trip_and_bounds ... ok
+test fixed::tests::byte_round_trip ... ok
+test fixed::tests::shifts_and_bits ... ok
+test fixed::tests::work_values ... ok
+test genesis::tests::cp_table_shape ... ok
+test genesis::tests::structural_rejections ... ok
+test genesis_spec::tests::bit_lengths ... ok
+test genesis_spec::tests::framing_details ... ok
+test genesis_spec::tests::reserved_ids ... ok
+test genesis_spec::tests::schema_shape ... ok
+test genesis_spec::tests::structure_precedes_version_and_wrapped_ints_are_gs_int ... ok
+test hashes::tests::domain_preimages_layout ... ok
+test hashes::tests::keccak_known_answers_k1_k3 ... ok
+test hashes::tests::sha256_known_answer ... ok
+test hashes::tests::signature_shape_faults ... ok
+test header::tests::nonminimal_integer_rejected ... ok
+test header::tests::field_faults ... ok
+test header::tests::share_count_boundary ... ok
+test header::tests::typed_round_trip ... ok
+test hex::tests::round_trip ... ok
+test identity::schedule_tests::different_activation_heights_cannot_connect ... ok
+test launcher::upgrade_tests::description_does_not_relabel_fixture_networks_or_change_invitation_identity ... ok
+test launcher::upgrade_tests::upgrade_scans_all_branches_without_mutating_journal_and_holds_lock ... ok
+test launcher::upgrade_tests::upgrade_transition_is_append_only_and_metadata_preserving ... ok
+test miner::tests::saturated_hash_count_does_not_disable_cancellation_checkpoints ... ok
+test mobile::tests::explicit_upgrade_does_not_create_a_missing_wallet ... ok
+test mobile::tests::network_preview_rejects_missing_input_without_side_effects ... ok
+test launcher::upgrade_tests::upgrade_refuses_torn_corrupt_or_wrong_identity_journal_without_repair ... ok
+test launcher::upgrade_tests::upgrade_public_write_resumes_partial_temp_and_preserves_unexpected_data ... ok
+test net::tests::an_offer_past_half_the_queue_is_refused_and_keeps_the_peer ... ok
+test net::tests::status_work_and_locator_requests_round_trip_within_bounds ... ok
+test network_display::tests::another_chain_or_genesis_cannot_receive_the_designation ... ok
+test network_display::tests::designation_preserves_identity_balances_and_qualification ... ok
+test network_display::tests::invitation_metadata_does_not_override_its_genesis ... ok
+test network_display::tests::published_genesis_receives_the_designation_without_changing_its_bytes ... ok
+test decimal::tests::split_and_karatsuba_match_repeated_division ... ok
+test net::tests::a_reader_sees_its_closed_flag_without_a_shutdown ... ok
+test node::f5f6_tests::observe_template_ignores_non_drawn_proposer ... ok
+test rlp::tests::canonical_round_trips ... ok
+test rlp::tests::depth_bound_default ... ok
+test rlp::tests::depth_requests_above_ceiling_are_refused ... ok
+test rlp::tests::small_and_zero_limits_are_consistent ... ok
+test rlp::tests::strictness_boundaries ... ok
+test rpc::tests::a_busy_answer_allocates_no_parse_tree ... ok
+test rpc::tests::a_busy_answer_does_not_parse_an_over_limit_body ... ok
+test rpc::tests::batch_members_beyond_the_byte_limit_are_not_run ... ok
+test rpc::tests::busy_answers_scan_the_ids_a_parse_would_echo ... ok
+test rpc::tests::error_items_fit_err_item_max_and_a_batch_of_them_small_reply_max ... ok
+test rpc::tests::f13_host_check_blocks_dns_rebinding ... ok
+test rpc::tests::f13_no_cors_wildcard_in_any_response_header ... ok
+test rpc::tests::net_key_matches_the_extension ... ok
+test rpc::tests::response_pools_reserve_shrink_and_release ... ok
+test rpc::tests::responses_above_resp_max_become_an_error ... ok
+test net::tests::a_close_between_the_writers_test_and_its_wait_wakes_it ... ok
+test rpc::tests::the_class_probe_agrees_with_the_parsed_class ... ok
+test rpc::tests::the_per_connection_bucket_refuses_only_more_tokens_than_its_capacity ... ok
+test node::relay_tests::a_returned_transaction_is_not_queued_to_a_peer_past_half_its_queue ... ok
+test statediff::tests::diffs_compose_along_a_chain ... ok
+test statediff::tests::states_equal_sees_the_cached_code ... ok
+test wallet::tests::command_surface_is_closed ... ok
+test wallet::tests::decimal_amounts_never_use_floats ... ok
+test wallet::tests::probation_rejoin_ends_at_the_deadline ... ok
+test wallet::tests::registration_needs_a_prior_transaction ... ok
+test wallet::tests::rejoin_calls_match_the_registry_selectors ... ok
+test wallet::tests::rejoin_plan_decisions ... ok
+test wallet::tests::rejoin_step_follows_the_registry_window ... ok
+test rpc::tests::sockwait_reports_readiness_within_its_timeout ... ok
+test node::f7_tests::never_signs_a_second_template_for_the_same_parent_height ... ok
+test statediff::tests::a_diff_turns_each_state_into_the_other_exactly ... ok
+
+test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running unittests src/bin/pocol.rs (prototypes/pocold/target/release/deps/pocol-640aebed8fa865ab)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/pocol-key.rs (prototypes/pocold/target/release/deps/pocol_key-0e38c9c2bb98ee2b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/pocol-sign.rs (prototypes/pocold/target/release/deps/pocol_sign-f6bb9ac93329809c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/pocol-site.rs (prototypes/pocold/target/release/deps/pocol_site-76b983b11fd22288)
+
+running 1 test
+test f12_tests::walk_refuses_symlink_and_never_reads_outside_dir ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (prototypes/pocold/target/release/deps/pocold-3ee69e58586bbcb3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/admission.rs (prototypes/pocold/target/release/deps/admission-1b1b5a6c783091cc)
+
+running 4 tests
+test pocold_admission_is_an_experimental_devnet_with_absent_rpc_mechanisms ... ok
+test init_devnet_refuses_gate_invalid_timing_and_writes_nothing ... ok
+test a_store_mode_boot_is_timed_through_a_scratch_state_store_in_its_data_directory ... ok
+test load_refuses_the_audited_profiles_and_admits_the_valid_one ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+     Running tests/caps.rs (prototypes/pocold/target/release/deps/caps-e43372897a564706)
+
+running 11 tests
+test a_block_over_tx_cap_on_an_empty_parent_is_refused ... ok
+test a_received_template_past_the_caps_is_treated_as_absent ... ok
+test the_builder_skips_the_dependents_of_a_skipped_transaction ... ok
+test counters_are_per_branch_across_a_reorg_at_the_exhaustion_boundary ... ok
+test tx_cap_exhaustion_builder_skips_and_the_chain_keeps_producing ... ok
+test txbytes_cap_boundary_is_byte_exact_in_the_builder_and_in_item_16 ... ok
+test tx_cap_boundary_is_exact_at_every_position_and_block_shape ... ok
+test txbytes_cap_exhaustion_skips_a_transaction_that_does_not_fit_and_its_senders_later_ones ... ok
+test txbytes_cap_boundary_is_exact_at_every_position_and_block_shape ... ok
+test a_mining_devnet_node_keeps_producing_past_txbytes_cap ... ok
+test a_mining_devnet_node_includes_up_to_tx_cap_and_keeps_producing ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.54s
+
+     Running tests/checkpoint_source.rs (prototypes/pocold/target/release/deps/checkpoint_source-27adea5ef95e501a)
+
+running 1 test
+test verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/cli.rs (prototypes/pocold/target/release/deps/cli-62162980b9bce739)
+
+running 6 tests
+test a_command_that_is_not_text_exits_2 ... ok
+test help_exits_0_with_the_usage_on_stdout ... ok
+test no_command_exits_2_with_the_usage_on_stderr ... ok
+test every_command_in_the_usage_runs ... ok
+test help_into_a_closed_pipe_exits_0 ... ok
+test an_unknown_command_exits_2_names_it_and_runs_nothing ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/consensus.rs (prototypes/pocold/target/release/deps/consensus-042be6f5b7603e09)
+
+running 101 tests
+test a11_deep_reorg_restores_the_oldest_detached_transaction ... ignored, deep-reorg test: run in release with --ignored
+test a03_over_limit_log_halts_the_transaction_and_the_block_is_valid ... ok
+test a01_malformed_or_unbound_bodies_reject_only_the_copy ... ok
+test a01_committed_invalid_body_is_still_a_block_rejection_and_cached ... ok
+test a11_detached_transactions_keep_their_order_inside_a_block ... ok
+test a11_reorg_restores_detached_transactions_without_resubmission ... ok
+test a13_boot_refuses_a_bound_above_the_memory_budget ... ok
+test a11_detached_transactions_return_after_retention_removed_their_block ... ok
+test a13_bound_breakdown ... ok
+test a13_pool_pending_state_is_capped_and_normalized ... ok
+test a13_side_branch_states_are_capped_and_rebuilt_on_demand ... ok
+test a13_rebuild_of_a_deep_fork_keeps_only_the_target_state ... ok
+test a11_excludes_included_and_conflicting_transactions_and_keeps_order ... ok
+test a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation ... ok
+test a_crash_around_an_adoption_reopens_on_one_whole_chain ... ok
+test a_journal_read_that_fails_in_an_import_stops_the_node ... ok
+test a_max_size_transaction_is_answered_in_the_light_lane ... ok
+test a_competing_branch_within_side_blocks_max_is_adopted ... ok
+test a_pool_gas_bound_past_the_memory_budget_is_refused_at_open ... ok
+test a_same_nonce_transaction_does_not_replace_a_pooled_one ... ok
+test a_peer_with_a_false_status_cannot_hold_the_sync_session ... ok
+test a_session_block_arriving_before_its_parent_stays_protected ... ok
+test a_side_branch_below_the_k_hist_window_imports_without_rebuilding_each_parent ... ok
+test a_snapshot_of_minimal_entries_reads_back ... ok
+test a_session_branch_is_adopted_through_a_flood_of_competing_side_branches ... ok
+test a_submission_during_a_long_backlog_is_busy_at_its_deadline_and_not_pooled ... ok
+test a_valid_header_with_a_foreign_body_rejects_only_that_copy ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ignored, spec-depth test: run in release with --ignored
+test an_invalid_template_from_the_drawn_proposer_punishes_its_peer ... ok
+test an_offloaded_block_is_served_viewed_and_re_executed_from_the_journal ... ok
+test body_max_bounds_the_encoded_body_not_the_item_sum ... ok
+test a_sync_session_refetches_an_evicted_branch_and_serves_it ... ok
+test continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling ... ok
+test d133_heal_a_and_b_reorganize_onto_the_heavier_c_branch ... ok
+test d133_heal_c_reorganizes_onto_the_heavier_a_b_branch ... ok
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ignored, spec-depth test: run in release with --ignored
+test a_long_catch_up_is_not_bounded_by_the_protected_branch_size ... ok
+test d7_pool_revalidation_hold_under_a_heavy_pool ... ignored, D-7 measurement: run in release with --ignored --nocapture
+test d7_the_store_mode_pool_layer_keeps_no_code_copies ... ok
+test d_body_max_vectors ... ok
+test e1_a_rolling_rebuild_carries_the_trie ... ok
+test d133_tie_break_at_depth_holds_through_eviction_and_refetch ... ok
+test e1_a_trie_that_is_not_the_parents_is_never_used ... ok
+test e3_pending_answers_are_the_pool_layer ... ok
+test canonical_history_off_the_heap_answers_as_it_did_resident ... ok
+test e4_a_store_node_answers_as_a_whole_state_node ... ok
+test e4_checkpoint_kill_child ... ignored, the child process of e4_checkpoint_survives_kills
+test e4_checkpoint_open_rebuilds_a_store_its_release_finds_damaged ... ok
+test e4_checkpoint_open_releases_what_a_crash_left_in_the_store ... ok
+test e1_incremental_roots_are_the_full_roots_on_every_path ... ok
+test e4_checkpoint_refuses_an_entry_bound_to_its_siblings_record ... ok
+test e4_checkpoint_open_resumes_and_equals_replay_from_genesis ... ok
+test a_damaged_history_store_is_never_served_and_is_rebuilt has been running for over 60 seconds
+test e4_checkpoint_release_runs_at_open_and_between_events ... ok
+test e4_checkpoint_resumes_with_replays_protect_set ... ok
+test e4_checkpoint_damage_falls_back_to_a_verified_state ... ok
+test e4_release_steps_alternate_with_pool_slices ... ok
+test e4_checkpoint_resumes_slimmed_offloaded_and_evicting_chains ... ok
+test e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node ... ignored, spec-depth test: run in release with --ignored
+test e4_store_node_at_the_r_keep_boundary_answers_as_a_whole_state_node ... ok
+test e4_store_node_rebuilds_a_fork_below_k_hist_as_a_whole_state_node ... ok
+test e5_a_closing_node_leaves_its_versions_to_the_next_open ... ok
+test every_block_total_work_is_its_parents_plus_the_work_of_its_own_target ... ok
+test every_validity_item_rejects_its_mutation ... ok
+test evidence_type1_and_type2_punish_through_a_signed_block ... ok
+test final_block_has_no_child_and_h_end_is_enforced ... ok
+test fork_choice_heavier_tied_signed_first_and_rollback ... ok
+test get_logs_limits_answer_32020_with_resume_data ... ok
+test get_logs_scratch_limit_is_32020_scratch_with_resume_data ... ok
+test journal_read_fault_child ... ignored, the child process of a_journal_read_that_fails_in_an_import_stops_the_node
+test e5_entries_without_a_state_share_one_empty_state ... ok
+test k_hist_retention_and_trie_rebuild_for_deep_fork ... ok
+test node_detects_template_equivocation_and_produces_valid_evidence ... ok
+test ordinary_blocks_then_closing_then_final_at_h_end ... ok
+test journal_replay_rebuilds_pruned_state_for_a_journaled_fork ... ok
+test r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond ... ok
+test pool_revalidation_at_the_gas_bound_does_not_hold_up_block_import ... ok
+test reorg_reinsertion_puts_detached_transactions_first_within_the_gas_bound ... ok
+test replay_gives_a_reimported_block_a_new_import_seq ... ok
+test range_sync_reaches_the_peer_head_through_truncated_responses ... ok
+test replay_restores_each_adopted_branch_with_the_work_live_did ... ok
+test retain_prunes_each_canonical_height_once_and_again_where_a_state_came_back ... ok
+test replay_uses_the_largest_r_keep_the_data_directory_has_used ... ok
+test rpc_answers_minus_32016_past_the_pool_gas_bound_and_reports_it ... ok
+test e4_checkpoint_survives_kills ... ok
+test retain_prunes_side_blocks_made_canonical_below_the_cut_and_leaves_no_orphan ... ok
+test s4_evidence_against_a_slimmed_ancestor_restores_it_first ... ok
+test s3a_state_queries_answer_as_with_full_states ... ok
+test s4_slimmed_entries_answer_as_full_ones_and_restore_exactly ... ok
+test settle_sheds_a_full_canonical_state_at_the_lowest_height_it_keeps ... ok
+test sliced_pool_revalidation_equals_the_whole_rebuild ... ok
+test store_mode_imports_on_the_head_execute_each_block_once ... ok
+test template_form_classes_follow_d129 ... ok
+test side_cap_holds_after_a_reorg_and_only_a_session_takes_an_evicted_block_again ... ok
+test the_pool_gas_bound_is_configurable_and_refused_below_gas_limit ... ok
+test the_pool_gas_bound_refuses_past_it_and_is_recounted_on_a_new_head ... ok
+test the_r_keep_boundary_removes_a_side_block_exactly_r_keep_below_the_head ... ok
+test the_pool_counters_equal_the_contents_through_admission_revalidation_and_reorgs ... ok
+test thirty_five_blocks_from_fresh_genesis_replay_identically ... ok
+test a_damaged_history_store_is_never_served_and_is_rebuilt ... ok
+test transactions_returned_from_an_abandoned_block_are_offered_to_the_peers ... ok
+test s3a_every_retained_state_equals_the_full_state_it_replaces ... ok
+
+test result: ok. 94 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 116.07s
+
+     Running tests/cutover.rs (prototypes/pocold/target/release/deps/cutover-a9da1bb4764248c3)
+
+running 7 tests
+test a_genesis_miner_without_a_durable_bond_balance_is_refused ... ok
+test a_stopped_old_chain_becomes_an_earn_in_genesis_that_keeps_every_account ... ok
+test a_cutover_70_blocks_below_the_head_rebuilds_the_state_and_matches_one_at_the_head ... ok
+test a_store_mode_cutover_through_slimmed_entries_and_checkpoints_matches_one_at_the_head ... ok
+test a_store_mode_cutover_70_blocks_below_the_head_rebuilds_the_state_and_matches_one_at_the_head ... ok
+test a_deep_cutover_restores_the_slimmed_ancestor_an_evidence_walk_reads ... ok
+test a_store_mode_old_chain_gives_the_same_cutover ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.80s
+
+     Running tests/decoder_reference.rs (prototypes/pocold/target/release/deps/decoder_reference-935e13db24d8cafb)
+
+running 1 test
+test reference_verdicts_for_the_decoder_corpus ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/earnin.rs (prototypes/pocold/target/release/deps/earnin-cc8598ffc16e2afa)
+
+running 1 test
+test a_zero_bond_miner_earns_its_bond_then_is_paid_and_top_up_promotes_at_once ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/eviction_memory.rs (prototypes/pocold/target/release/deps/eviction_memory-ce13ca42964ac4ea)
+
+running 1 test
+test eviction_high_water_covers_growth_and_trim_without_raising_budget ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/fork_configuration.rs (prototypes/pocold/target/release/deps/fork_configuration-6fa2de4cf4e83d5e)
+
+running 1 test
+test trusted_local_schedule_is_explicit_and_fails_closed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/full_nonce.rs (prototypes/pocold/target/release/deps/full_nonce-f82c03628d40e398)
+
+running 5 tests
+test difficulty_one_changes_from_two_nonce_slots_to_ranges_for_all_seven_members ... ok
+test miner_handles_the_maximum_nonce_and_full_range_cancellation ... ok
+test activation_preserves_v1_history_and_settles_its_rewards_across_the_fork ... ok
+test reorg_crossing_activation_replays_the_selected_branch_identically ... ok
+test persisted_checkpoint_reopens_across_activation_and_refuses_rewriting_history ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+     Running tests/journal_measure.rs (prototypes/pocold/target/release/deps/journal_measure-8f1259f98b50b7a8)
+
+running 24 tests
+test history_integrity_check_cost ... ignored, measurement: run in release with --ignored --nocapture
+test jm_create_state_term ... ignored, measurement: run in release with --ignored --nocapture
+test jm_deep_fork_rebuild_vs_height ... ignored, measurement: run in release with --ignored --nocapture
+test jm_deep_reorg_latency ... ignored, measurement: run in release with --ignored --nocapture
+test jm_exec_cost_per_gas ... ignored, measurement: run in release with --ignored --nocapture
+test jm_journal_to_hend ... ignored, measurement: run in release with --ignored --nocapture
+test jm_modexp_random ... ignored, measurement: run in release with --ignored --nocapture
+test jm_modexp_sweep ... ignored, measurement: run in release with --ignored --nocapture
+test jm_open_memory ... ignored, measurement: run in release with --ignored --nocapture
+test jm_r14_boot_timing_by_mode ... ignored
+test jm_r14_import_by_mode ... ignored, measurement: run in release with --ignored --nocapture
+test jm_r14_workload_gap ... ignored, measurement: run in release with --ignored --nocapture
+test jm_rebuild_by_kind ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_by_kind ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_component_split ... ignored, measurement: run in release with --ignored --nocapture
+test jm_replay_empty_blocks ... ignored, measurement: run in release with --ignored --nocapture
+test jm_state_root_synthetic ... ignored, measurement: run in release with --ignored --nocapture
+test jm_state_size_term ... ignored, measurement: run in release with --ignored --nocapture
+test jm_store_mode_churn ... ignored, measurement: run in release with --ignored --nocapture
+test jm_store_mode_disk_impact ... ignored, measurement: run in release with --ignored --nocapture
+test jm_store_scale ... ignored, measurement: run in release with --ignored --nocapture
+test jm_tx_state_term ... ignored, measurement: run in release with --ignored --nocapture
+test retained_states_of_one_lineage_share_their_code_buffers ... ok
+test jm_journal_bytes_per_record ... ok
+
+test result: ok. 2 passed; 0 failed; 22 ignored; 0 measured; 0 filtered out; finished in 2.05s
+
+     Running tests/launch_delay_asert.rs (prototypes/pocold/target/release/deps/launch_delay_asert-6d35775d7ba91bfa)
+
+running 5 tests
+test first_block_always_full_difficulty_and_window_clamp ... ok
+test late_start_burst_and_recovery ... ok
+test on_time_schedule_keeps_full_difficulty ... ok
+test asert_saturation_threshold_for_earnin_params ... ok
+test pow_and_share_acceptance_collapse ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/log_cap.rs (prototypes/pocold/target/release/deps/log_cap-607be52e92563842)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/log_cap_scope.rs (prototypes/pocold/target/release/deps/log_cap_scope-b61e146e73bf8783)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/net.rs (prototypes/pocold/target/release/deps/net-8da62382bd57f518)
+
+running 55 tests
+test a10_origin_deny_applies_to_every_batch_member ... ok
+test a_connection_whose_send_buffer_cannot_be_set_is_refused ... ok
+test a_batch_does_not_hold_p2p_events_for_its_whole_length ... ok
+test a_late_revert_or_halt_past_its_deadline_is_32020 ... ok
+test a_light_flood_coalesces_wakes_and_main_events_progress ... ok
+test a_late_get_logs_answer_carries_resume_data ... ok
+test a_full_heavy_pool_answers_busy_before_anything_runs ... ok
+test a_full_light_lane_answers_busy ... ok
+test a_light_method_answer_over_light_resp_max_is_32020_on_the_heavy_lane ... ok
+test a_light_method_over_light_body_max_has_the_light_deadline ... ok
+test a_light_turn_runs_at_most_light_turn_requests_then_wakes_the_node ... ok
+test a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving ... ok
+test a_precompile_call_past_its_deadline_is_32020_not_a_late_success ... ok
+test a_request_reaching_its_handler_past_the_deadline_never_runs ... ok
+test an_answer_over_its_limit_is_32020_result_bytes_with_a_clean_release ... ok
+test abandoned_queued_bodies_are_capped_and_released ... ok
+test an_answer_is_reserved_until_its_connection_has_written_it ... ok
+test a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled ... ok
+test bytes_after_the_request_do_not_reset_the_answer ... ok
+test compute_deadline_runs_from_admission_and_queue_wait_bounds_admission ... ok
+test batch_wall_counts_the_time_queued ... ok
+test batch_members_each_get_their_own_compute_deadline ... ok
+test batch_wall_closes_the_batch ... ok
+test heavy_compute_deadline_cancels_eth_call ... ok
+test get_params_and_rpc_stats_report_the_limits ... ok
+test guard_and_dispatch_error_items_stay_within_err_item_max ... ok
+test estimate_gas_stops_its_search_at_the_deadline ... ok
+test heavy_queue_overflow_answers_busy_with_retry_after ... ok
+test idle_peers_without_hello_are_bounded_and_expire ... ok
+test inbound_floods_cannot_take_the_slots_for_configured_peers ... ok
+test incompatible_identity_fences_queued_transactions_and_status_refresh ... ok
+test legitimate_requests_progress_under_bounded_heavy_load ... ok
+test light_compute_deadline_fires ... ok
+test only_a_hello_is_accepted_before_the_handshake ... ok
+test light_requests_behind_long_heavy_work_are_answered_never_deadline ... ok
+test miner_replacement_keeps_at_most_one_miner_thread ... ok
+test light_lane_wakes_coalesce_until_taken ... ok
+test oversized_and_stalled_frames_close_the_peer ... ok
+test oversized_handshake_and_unsafe_peer_names_are_refused ... ok
+test peer_threads_stay_within_the_inventory_while_consensus_is_stalled ... ok
+test reconnect_churn_keeps_threads_and_slots_bounded ... ok
+test queue_wait_bounds_the_wait_on_a_full_main_queue ... ok
+test queued_requests_are_busy_at_queue_wait ... ok
+test queue_wait_bounds_the_wait_for_a_heavy_queue_place ... ok
+test rpc_batches_answer_every_member_in_order_and_cap_their_length ... ok
+test rpc_connection_cap_refuses_excess_unread_and_keeps_serving ... ok
+test rpc_request_buffer_covers_headers_and_body ... ok
+test the_compute_deadline_includes_encoding ... ok
+test the_conditional_light_entries_have_the_light_deadline ... ok
+test send_pacer_timer_follows_a_over_r_past_grace ... ok
+test rpc_work_deadline_skips_expired_work_and_releases_resources ... ok
+PACER {"acceptedBytes":211552,"clientWindowS":0.500108746,"closedMs":1108,"firstByteMs":608,"honestFirstByteMs":1010,"os":"linux","pacerLateMaxMs":1,"pacerWaits":10,"sendTimeS":0.501737,"violationS":0.5}
+test send_pacer_closes_a_slow_reader_after_grace ... ok
+test the_node_never_runs_a_request_its_connection_gave_up ... ok
+test the_per_connection_bucket_charges_k_tokens_per_request ... ok
+ABSORB {"answerBytes":14681046,"kernelTookWholeAnswer":false,"os":"linux","peakReserved":14680950,"reservedOneSecondLater":14680950}
+test unread_default_client_absorption ... ok
+
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 99.52s
+
+     Running tests/network_budget.rs (prototypes/pocold/target/release/deps/network_budget-9ab74e4405671e79)
+
+running 8 tests
+test a13_counts_a_handle_for_every_held_version ... ok
+test a13_model_at_the_network_profile ... ok
+test a13_store_file_and_batch_terms_follow_the_node_trie_bounds ... ok
+test a13_store_model_at_the_devnet_profile ... ok
+test a13_store_model_at_the_network_profile ... ok
+test network_store_model_at_the_o2_caps ... ok
+test d7_a13_pool_terms_follow_the_gas_bound ... ok
+test network_profile_boot_gates_itemized ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+     Running tests/rejoin.rs (prototypes/pocold/target/release/deps/rejoin-d311dc36bf7c83a1)
+
+running 2 tests
+test a_missed_window_refunds_the_bond_and_removes_the_record ... ok
+test an_inactive_member_rejoins_with_a_nonce_range_and_its_bond ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.69s
+
+     Running tests/secp_fixture.rs (prototypes/pocold/target/release/deps/secp_fixture-406877ba78dad472)
+
+running 1 test
+test accepted_chain_fixture_signatures_recover_through_k256 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/site.rs (prototypes/pocold/target/release/deps/site-b6ac6fbc3fa0adf0)
+
+running 6 tests
+test canonical_manifest_round_trips ... ok
+test hostile_current_output_never_panics ... ok
+test chunk_code_checks ... ok
+test t16_rejection_vectors ... ok
+test path_normalization_d96 ... ok
+test manifest_vectors_positive_and_negative ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/state_store.rs (prototypes/pocold/target/release/deps/state_store-6f3d65dcd7196c0a)
+
+running 15 tests
+test a13_row_is_what_state_redb_keeps_per_node ... ok
+test a_damaged_node_is_never_served_and_the_store_is_rebuilt ... ok
+test a_format_2_store_opens_as_format_3_and_another_format_is_rebuilt ... ok
+test a_missing_node_marks_the_store_damaged ... ok
+test a_release_step_that_fails_on_io_leaves_the_store_whole ... ok
+test a_released_version_is_not_served_from_the_cache ... ok
+test a_small_node_cache_reads_the_same ... ok
+test a_late_release_leaves_the_rows_an_immediate_one_leaves ... ok
+test a_release_row_that_contradicts_the_counts_marks_the_store_damaged ... ok
+test release_step_io_child ... ignored, the child process of a_release_step_that_fails_on_io_leaves_the_store_whole
+test stored_bytes_is_every_table_s_keys_and_values_while_rows_are_owed ... ok
+test code_that_does_not_hash_to_its_key_is_never_served ... ok
+test a_store_of_another_format_is_rebuilt ... ok
+test stored_versions_have_their_roots_and_states_and_survive_reopen ... ok
+test a_dropped_checkpoint_is_released_in_steps_and_ends_as_a_release_in_the_write ... ok
+
+test result: ok. 14 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.58s
+
+     Running tests/store.rs (prototypes/pocold/target/release/deps/store-22ab0dac4dfbd142)
+
+running 12 tests
+test a04_boundary_edits_and_duplicates_are_corruption ... ok
+test a04_audit_case_one_bit_in_the_first_length_is_corruption ... ok
+test a04_truncation_of_committed_records_is_corruption ... ok
+test a04_v1_journal_migrates_only_when_fully_verified ... ok
+test a04_commit_file_damage ... ok
+test append_returns_offsets_and_read_at_round_trips ... ok
+test binding_mismatch_and_second_writer_rejected ... ok
+test a04_zero_filled_tail_is_an_interrupted_append ... ok
+test complete_record_corruption_is_never_skipped ... ok
+test missing_journal_with_recovery_artifacts_refuses_to_start ... ok
+test append_reopen_and_torn_tail_at_every_offset ... ok
+test a04_every_single_bit_flip_of_a_committed_journal_fails_closed ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running tests/unhex_fix.rs (prototypes/pocold/target/release/deps/unhex_fix-8ac4c28cf7e0cff0)
+
+running 3 tests
+test unhex_rejects_multibyte_without_panic ... ok
+test rpc_rejects_nonascii_hex_param_and_keeps_serving ... ok
+test invitation_import_rejects_nonascii_genesis_spec ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests/unhex_invitation_panic.rs (prototypes/pocold/target/release/deps/unhex_invitation_panic-1dbea6f6f430b542)
+
+running 2 tests
+test unhex_panics_on_non_ascii_genesis_string ... FAILED
+test unhex_valid_and_odd_are_graceful ... ok
+
+failures:
+
+---- unhex_panics_on_non_ascii_genesis_string stdout ----
+unhex("0x00<U+20AC>0") panicked = false
+
+thread 'unhex_panics_on_non_ascii_genesis_string' (17338) panicked at tests/unhex_invitation_panic.rs:27:5:
+a non-ASCII char at an even index panics unhex (DoS on the invitation/boot path)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    unhex_panics_on_non_ascii_genesis_string
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test unhex_invitation_panic`

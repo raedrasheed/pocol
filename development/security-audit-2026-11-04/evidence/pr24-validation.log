@@ -1,0 +1,8 @@
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.043s
+
+OK
+PASS PR24 pinned SHA c690f990c619214d1e75354208f32580b17b4544
+PASS minimum TLS1.2, CERT_REQUIRED, hostname checking; mocked loopback transport
+PASS checksum-bearing generated installer exactly matches supported builder output

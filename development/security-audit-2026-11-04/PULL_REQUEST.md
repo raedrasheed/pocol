@@ -1,0 +1,9 @@
+Two simultaneous extension wallet creations could both observe an absent wallet and overwrite each other's seed without replacement confirmation. A creation already encrypting or saving could also unlock the wallet after an explicit lock. Reserve creation synchronously and fence its async stages with wallet epochs; keep a wallet whose save was already in flight locked.
+
+Three deterministic regressions fail against main and pass with the fix. npm test now includes them. Also convert two stale historical vulnerability witnesses into assertions of the fixed behavior, add a bounded 20,000-case wire-parser mutation test, and patch the Solidity tools' follow-redirects lock entry from 1.16.1 to 1.16.2. The Solidity compiler remains 0.8.28; all 13 compiler fixture outputs are byte-for-byte identical.
+
+Validation: node 319 passed / 30 ignored; extension 268 existing checks + 3 new tests; Studio bridge 34, publisher 42, contracts 16, contract UI 13; gateway 22; local devnet 44. Execution targets passed across a full run and a corrected 3-test target rerun; the report preserves initial failures and the corrected escrow/genesis-bond assertion.
+
+Limitations: real-browser suite failed waiting for the extension serviceworker with system Chromium; downloading Playwright's matched browser is blocked by network policy. GitHub API access currently blocks original OSV/Semgrep artifacts, CodeQL #7 status, and current CI checks. crypto-bigint timing advisory, maintenance/yanked dependencies, generated IDE/Explorer coverage gaps, and Windows/Android validation remain open. No consensus rules, cryptography/compiler major versions, workflows or schedules changed; no live-chain tests or deployment.
+
+Arabic audit report and per-finding local scan triage: development/security-audit-2026-11-04/REPORT-AR.md. This is a bounded audit and does not establish the absence of vulnerabilities.

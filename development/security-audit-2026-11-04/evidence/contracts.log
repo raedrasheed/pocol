@@ -1,0 +1,28 @@
+
+> pocol-extension@0.4.1 test:contracts
+> node --test tests/contracts_test.mjs
+
+✔ bounded public intent independently encodes ABI and ignores unknown fields (12.316107ms)
+✔ ABI validation rejects boolean strings, unsafe integers and malformed nested values (3.495523ms)
+✔ JSON payable constructor accepts value without changing the existing wallet address (2.467051ms)
+✔ wrong chain and genesis block preparing before any signature (1.749318ms)
+✔ nonpayable, read methods, malformed targets, EOA targets and insufficient funds fail (7.345481ms)
+✔ stale nonce, expired review, changed identity or address never sign (7.586617ms)
+✔ fresh review cannot be replaced by a serialized or edited review (1.303639ms)
+✔ signature is checkpointed before broadcast and an ambiguous result preserves the known hash (109.14281ms)
+✔ resume retransmits exact durable bytes after quote expiry without signing another nonce (11.897878ms)
+✔ storage failure prevents any broadcast (7.124944ms)
+✔ a signer changing value or recipient is rejected before durable storage or broadcast (7.438147ms)
+✔ parallel submissions cannot sign or broadcast twice (5.276779ms)
+✔ read-only receipt reconciliation validates canonical block and never broadcasts (40.026745ms)
+✔ a modified checkpoint cannot resume or reconcile (6.840053ms)
+✔ service worker validates top-frame IDE origin/tab binding and exposes no wallet APIs (11.175909ms)
+✔ content script filters same window/origin, exposes only three intent methods (1.400052ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 550.068241

@@ -1,0 +1,31 @@
+{
+  "scope": "exact same 355 previously selected files; excludes original coverage gaps",
+  "rules": 194,
+  "jobs": 2,
+  "perRuleTimeoutSeconds": 30,
+  "mainFindings": 258,
+  "fixedFindings": 258,
+  "added": [],
+  "removed": [],
+  "mainErrors": [
+    {
+      "type": "Syntax error",
+      "path": "deploy/websites/ide.pocol.net/assets/editor.worker-CRz__AKW.js"
+    },
+    {
+      "type": "Syntax error",
+      "path": "deploy/websites/ide.pocol.net/assets/sandbox.worker-DKPDIOr-.js"
+    }
+  ],
+  "fixedErrors": [
+    {
+      "type": "Syntax error",
+      "path": "deploy/websites/ide.pocol.net/assets/editor.worker-CRz__AKW.js"
+    },
+    {
+      "type": "Syntax error",
+      "path": "deploy/websites/ide.pocol.net/assets/sandbox.worker-DKPDIOr-.js"
+    }
+  ],
+  "interpretation": "No scanner-visible security reduction. Wallet races were established and fixed by deterministic component regression tests. Explorer timeouts resolved at 30 seconds; two IDE syntax errors and original unselected-file coverage gaps remain."
+}

@@ -1,0 +1,27 @@
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 355 files tracked by git with 194 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin   Rules                                                                   
+ ─────────────────────────────        ────────────────                                                                  
+  <multilang>       1     355          Custom     194                                                                   
+  rust             10     110                                                                                           
+  python           94      40                                                                                           
+  js               39      40                                                                                           
+  solidity         50      13                                                                                           
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 258 (258 blocking)
+ • Rules run: 194
+ • Targets scanned: 355
+ • Parsed lines: ~100.0%
+ • No ignore information available
+Ran 194 rules on 355 files: 258 findings.

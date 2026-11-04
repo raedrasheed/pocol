@@ -1,0 +1,25 @@
+PASS every node runs in the requested state mode — stateStore=false,false,false
+PASS LP8 sites published into PoCol state through nodes a and b — S_A=0x75af12b158a77eded723e383d66f58b833f36e7f S_B=0xeb66bd3b97d287ec77a7ddc0a409c5ab0d2ebeea
+PASS RP window over real headers accepted (items 1, 1b, viewFuture, 2-9, viewTargetCeil) — RP: work and identity bound for 13 headers, with computed work of at least 2048 per header (work(ceilTarget)), without execution or membership verification
+PASS RP trust message names the header count and the work bound
+PASS RP mutation window ends at a fallback header (items 4 and 5 are reachable) — height 33 of tip 40
+PASS frozen real window accepted
+PASS RP mutation: chainId changed -> netChain — got netChain
+PASS RP mutation: genesisHash changed -> netGenesis — got netGenesis
+PASS RP mutation: timestamp in the far future -> viewFuture — got viewFuture
+PASS RP mutation: parentHash changed -> 2 — got 2
+PASS RP mutation: timestamp below L(a) -> 4 — got 4
+PASS RP mutation: target not equal to ASERT -> 5 — got 5
+PASS RP mutation: nonce below nMax but PoW fails -> 7 — got 7
+PASS RP mutation: winnerSig r=0 -> 8 — got 8
+PASS RP mutation: share equal to the winning nonce -> 9 — got 9
+PASS RP mutation: bad header shape -> 1 — got 1 header arity
+PASS RP mutation: nonce >= nMax -> 6 — got 6
+PASS RP mutation: proposer signature altered -> 3 — got 3
+PASS RP window with a missing header -> viewIncomplete — got viewIncomplete
+FAIL e2e driver completed — browserContext.waitForEvent: Timeout 20000ms exceeded while waiting for event "serviceworker"
+    at openBrowser (/workspace/pocol/prototypes/pocol-extension/tests/e2e_browser.mjs:129:60)
+    at async main (/workspace/pocol/prototypes/pocol-extension/tests/e2e_browser.mjs:216:15)
+    at async file:/
+kept the failed run's logs and inputs in /workspace/pocol/prototypes/pocol-extension/tests/failures/e2e_browser-2026-11-04T191448982Z-37959
+{"result":"FAIL","checks":20,"failed":1,"work":"/tmp/pocol-browser-yEYSnl","kept":"/workspace/pocol/prototypes/pocol-extension/tests/failures/e2e_browser-2026-11-04T191448982Z-37959"}

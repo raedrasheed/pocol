@@ -1,0 +1,8 @@
+keccak v0.1.0
+└── keccak feature "default"
+    └── sha3 v0.9.1
+        ├── sha3 feature "default"
+        │   └── lp1-node v0.1.0 (/workspace/pocol/prototypes/lp1-node)
+        │       └── lp1-node feature "default" (command-line)
+        └── sha3 feature "std"
+            └── sha3 feature "default" (*)

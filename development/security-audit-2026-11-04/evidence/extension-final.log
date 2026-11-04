@@ -1,0 +1,20 @@
+
+> pocol-extension@0.4.1 test
+> node tests/unit.mjs && node --test tests/wallet_lifecycle_test.mjs
+
+{
+ "result": "PASS",
+ "passed": 268,
+ "failed": []
+}
+✔ concurrent initial creates cannot replace a wallet without explicit confirmation (161.593632ms)
+✔ lock during creation encryption wins and preserves the existing encrypted wallet (207.119396ms)
+✔ lock during wallet persistence leaves the newly persisted wallet locked (111.249023ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 567.918472

@@ -1,0 +1,28 @@
+rand v0.7.3
+└── libsecp256k1 v0.5.0
+    ├── libsecp256k1 feature "default"
+    │   └── lp1-node v0.1.0 (/workspace/pocol/prototypes/lp1-node)
+    │       └── lp1-node feature "default" (command-line)
+    ├── libsecp256k1 feature "hmac"
+    │   └── libsecp256k1 feature "default" (*)
+    ├── libsecp256k1 feature "hmac-drbg"
+    │   └── libsecp256k1 feature "hmac" (*)
+    ├── libsecp256k1 feature "sha2"
+    │   ├── libsecp256k1 feature "hmac" (*)
+    │   └── libsecp256k1 feature "std"
+    │       └── libsecp256k1 feature "default" (*)
+    ├── libsecp256k1 feature "static-context"
+    │   └── libsecp256k1 feature "default" (*)
+    ├── libsecp256k1 feature "std" (*)
+    └── libsecp256k1 feature "typenum"
+        └── libsecp256k1 feature "hmac" (*)
+├── rand feature "alloc"
+│   └── rand feature "std"
+│       └── libsecp256k1 feature "std" (*)
+├── rand feature "getrandom"
+│   └── rand feature "std" (*)
+├── rand feature "getrandom_package"
+│   └── rand feature "getrandom" (*)
+├── rand feature "libc"
+│   └── rand feature "std" (*)
+└── rand feature "std" (*)
