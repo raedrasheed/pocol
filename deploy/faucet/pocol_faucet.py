@@ -16,13 +16,16 @@ chain ID must equal the configured one.
     POST /claim {"address": "0x..."}  ->  {"hash": "0x...", "amountWei": "..."}
     GET  /status                      ->  {"chainId": ..., "amountWei": ..., "remainingToday": ...}
 """
-import argparse, datetime, http.server, json, os, re, subprocess, sys, tempfile, threading, urllib.request
+import argparse, datetime, http.server, io, json, os, re, subprocess, sys, tempfile, threading, time, urllib.request
+from contextlib import contextmanager
 from pathlib import Path
 
 ADDRESS = re.compile(r'^0x[0-9a-fA-F]{40}$')
 DEFAULTS = {'listen': '127.0.0.1', 'port': 8547, 'rpc': 'http://127.0.0.1:8545', 'amountWei': str(2 * 10**15),
             'dailyLimit': 200, 'perClientDaily': 3, 'trustProxy': False, 'allowOrigin': None, 'signer': 'pocol-sign'}
 MAX_BODY = 512
+MAX_CONNECTIONS = 16
+REQUEST_TIMEOUT = 12
 GWEI = 10**9
 
 class Refused(Exception):
@@ -96,11 +99,19 @@ class Faucet:
         return {'type': 'status', 'chainId': self.chain_id, 'amountWei': str(self.amount), 'faucet': self.address,
                 'remainingToday': max(0, int(self.cfg['dailyLimit']) - self.ledger.count(day))}
 
+    @contextmanager
+    def claim_slot(self):
+        # An unavailable node/signer must not build a queue of HTTP worker threads.
+        if not self.lock.acquire(blocking=False):
+            raise Refused(429, 'The faucet is processing a claim. Retry shortly.')
+        try: yield
+        finally: self.lock.release()
+
     def claim(self, address, client):
         if not isinstance(address, str) or not ADDRESS.match(address): raise Refused(400, 'Enter the full 0x address (42 characters)')
         address = address.lower()
         if reserved(address) or address == self.address: raise Refused(400, 'This address cannot receive faucet transfers')
-        with self.lock:
+        with self.claim_slot():
             day = today()
             if address in self.ledger.claims: raise Refused(409, 'This address has already received a faucet transfer')
             if self.ledger.count(day) >= int(self.cfg['dailyLimit']): raise Refused(429, "Today's faucet limit is reached. Try again tomorrow (UTC).")
@@ -130,9 +141,51 @@ class Faucet:
             for key in [k for k in self.clients if k[0] != day]: del self.clients[key]
             return {'type': 'sent', 'hash': tx, 'amountWei': str(self.amount), 'to': address}
 
+
+class RequestDeadline(TimeoutError): pass
+
+
+class DeadlineReader(io.RawIOBase):
+    """Socket input with one absolute header/body deadline, not a per-byte timeout."""
+    def __init__(self, connection, timeout):
+        self.connection = connection
+        self.deadline = time.monotonic() + timeout
+    def readable(self): return True
+    def readinto(self, buffer):
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0: raise RequestDeadline('Request read deadline')
+        self.connection.settimeout(remaining)
+        try: return self.connection.recv_into(buffer)
+        except TimeoutError as error: raise RequestDeadline('Request read deadline') from error
+
+
+class Server(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+    request_queue_size = MAX_CONNECTIONS
+    request_timeout = REQUEST_TIMEOUT
+
+    def __init__(self, address, request_handler, *, max_connections=MAX_CONNECTIONS):
+        self.slots = threading.BoundedSemaphore(max_connections)
+        super().__init__(address, request_handler)
+    def process_request(self, request, client_address):
+        if not self.slots.acquire(blocking=False):
+            self.shutdown_request(request); return
+        try: super().process_request(request, client_address)
+        except BaseException: self.slots.release(); raise
+    def process_request_thread(self, request, client_address):
+        try: super().process_request_thread(request, client_address)
+        finally: self.slots.release()
+
+
 def handler(faucet):
     class Handler(http.server.BaseHTTPRequestHandler):
         server_version = 'PoColFaucet'; sys_version = ''
+        def setup(self):
+            super().setup()
+            timeout = getattr(self.server, 'request_timeout', REQUEST_TIMEOUT)
+            self.connection.settimeout(timeout)
+            self.rfile.close()
+            self.rfile = io.BufferedReader(DeadlineReader(self.connection, timeout))
         def log_message(self, fmt, *args): pass
         def client(self):
             if faucet.cfg['trustProxy']:
@@ -144,7 +197,8 @@ def handler(faucet):
             self.send_response(status); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store'); self.send_header('X-Content-Type-Options', 'nosniff')
             if faucet.cfg['allowOrigin']: self.send_header('Access-Control-Allow-Origin', faucet.cfg['allowOrigin'])
-            self.end_headers(); self.wfile.write(body)
+            try: self.end_headers(); self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, TimeoutError): pass
         def do_OPTIONS(self):
             self.send_response(204)
             if faucet.cfg['allowOrigin']:
@@ -157,16 +211,27 @@ def handler(faucet):
         def do_POST(self):
             try:
                 if self.path != '/claim': raise Refused(404, 'not found')
-                length = int(self.headers.get('Content-Length') or 0)
+                lengths = self.headers.get_all('Content-Length', [])
+                if self.headers.get('Transfer-Encoding') is not None or len(lengths) != 1:
+                    raise Refused(400, 'A single Content-Length is required; chunked requests are not supported')
+                if re.fullmatch(r'[0-9]{1,3}', lengths[0]) is None:
+                    raise Refused(413, 'request body size is invalid')
+                length = int(lengths[0])
                 if length <= 0 or length > MAX_BODY: raise Refused(413, 'request body too large')
-                try: body = json.loads(self.rfile.read(length))
+                if self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/json':
+                    raise Refused(415, 'Use application/json')
+                raw = self.rfile.read(length)
+                if len(raw) != length: raise Refused(400, 'Incomplete request body')
+                try: body = json.loads(raw)
                 except ValueError: raise Refused(400, 'invalid JSON')
                 if not isinstance(body, dict) or set(body) != {'address'}: raise Refused(400, 'send {"address": "0x..."}')
                 self.reply(200, faucet.claim(body['address'], self.client()))
             except Refused as e:
                 self.reply(e.status, {'type': 'error', 'message': e.message})
+            except RequestDeadline:
+                self.reply(408, {'type': 'error', 'message': 'Request read deadline exceeded; no claim was processed.'})
             except Exception:
-                self.reply(502, {'type': 'error', 'message': 'The faucet could not reach the node. Nothing was sent.'})
+                self.reply(502, {'type': 'error', 'message': 'The faucet could not reach the node or save its response. A transfer may already have been submitted; check the address before retrying.'})
     return Handler
 
 def main(argv=None):
@@ -174,7 +239,7 @@ def main(argv=None):
     p.add_argument('--config', required=True, type=Path)
     a = p.parse_args(argv)
     faucet = Faucet(json.loads(a.config.read_text(encoding='utf-8')))
-    server = http.server.ThreadingHTTPServer((faucet.cfg['listen'], int(faucet.cfg['port'])), handler(faucet))
+    server = Server((faucet.cfg['listen'], int(faucet.cfg['port'])), handler(faucet))
     print(json.dumps({'listening': f"{faucet.cfg['listen']}:{server.server_address[1]}", **faucet.status()}), flush=True)
     try: server.serve_forever()
     except KeyboardInterrupt: pass

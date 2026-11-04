@@ -54,8 +54,18 @@ behind the existing HTTPS reverse proxy and set `trustProxy: true` only when tha
 `X-Forwarded-For`. `allowOrigin` names the one website origin allowed to call it from a browser.
 
 - `POST /claim` with `{"address": "0x..."}` returns `{"type": "sent", "hash": ..., "amountWei": ...}`,
-  or `{"type": "error", "message": ...}` with status 400, 409, 413, 429, 502 or 503.
+  or `{"type": "error", "message": ...}`. Send one `Content-Length` and an
+  `application/json` body, up to 512 bytes; incomplete or ambiguous framing is rejected.
+  Request errors use 400, 408, 409, 413 or 415; limits or a busy signer use 429;
+  node, signer or ledger errors use 500, 502 or 503.
 - `GET /status` returns the chain ID, the amount, the operator address and the transfers left today.
+
+The server admits at most 16 simultaneous connections and closes excess connections before creating
+a worker. Headers and body share an absolute 12-second read deadline, so trickling bytes cannot
+retain a worker indefinitely. Only one claim runs at a time; another claim receives 429 immediately.
+Keep the reverse proxy's connection/rate limits too: these bounds do not prevent network saturation.
+If a send's response is lost, an error can mean the transfer was already submitted. Check the
+address and the ledger's `unknown` entry before retrying; an error is not proof that nothing was sent.
 
 `pocol-faucet.service` is a systemd unit for a dedicated `pocol-faucet` user. That user must own the
 key file: `pocol-sign` refuses a key owned by another user or readable by others. On a server, create
@@ -79,13 +89,14 @@ Each claim sends 0.002 PCOL and pays its own transfer fee (21,000 gas at the sug
 ## Tests
 
 ```
-cd deploy/faucet && python3 -m unittest test_pocol_faucet -v
+python3 -m unittest discover -s deploy/faucet -p 'test*.py' -v
 python3 deploy/standalone/test_wallet_earnin.py   # opt-in, about 15 minutes: real nodes, signer and wallet
 ```
 
 The unit tests cover once per address, new accounts only, reserved addresses, the daily and
 per-client limits, the chain ID pin, an empty faucet, a durable ledger before the send, refused
-versus unanswered sends, and the HTTP surface. The end-to-end test starts a faucet from a genesis
+versus unanswered sends, connection admission, absolute read deadlines, request framing, busy-claim
+rejection and the HTTP surface. The end-to-end test starts a faucet from a genesis
 miner's key file, funds a wallet that holds nothing, and that wallet then registers with a 0 PCOL
 bond as its first transaction.
 
