@@ -16,7 +16,7 @@ interface IRegistryV1 {
     function payInfos(address[] calldata ids) external view returns(address[] memory rewards,bool[] memory accruing);
     function accrue(address id,uint256 amount) external returns(uint256 excess);
 }
-interface IEscrowV1 { function releaseBond(address id) external; function burnBond(uint256 amount) external; }
+interface IEscrowV1 { function releaseBond(address id) external returns(bool); function burnBond(uint256 amount) external; }
 interface ILedgerV1 {
     function record(uint64 j,address[] calldata seq) external;
     function totalOf(uint64 j) external view returns(uint256);
@@ -123,13 +123,17 @@ contract RewardEscrow {
     function burnedTotal() external view returns(uint256){return get(0);}
     function pending(uint256 j) external view returns(uint256,uint256,uint256){uint256 b=base(j);return(get(b),get(b+1),get(b+2));}
 
-    function releaseBond(address id) external {
+    function releaseBond(address id) external returns(bool) {
         if(msg.sender!=Sys.REGISTRY) revert Unauthorized();
         if(msg.data.length!=36) revert BadCalldata();
         (uint256 w0,address reward,uint256 bond)=IRegistryV1(Sys.REGISTRY).bondRecord(id);
         uint256 st=(w0>>16)&255;
         if((st!=1 && st!=4) || ((w0>>8)&255)!=0 || (w0&255)==0) revert BondUnavailable();
-        if(bond!=0 && !Sys.pay(reward,bond)) revert PaymentFailed();
+        // EARN-IN F1-F3 SINK: an undeliverable bond (non-durable reward) is not a system fault.
+        // Report failure instead of reverting, so the mandatory SYSTEM caller (sweep/markClose)
+        // leaves the bond in Escrow and the record live & claimable rather than halting the chain.
+        if(bond!=0 && !Sys.pay(reward,bond)) return false;
+        return true;
     }
     /// Registry-only: an evidence-burned bond stays in Escrow balance as burned.
     function burnBond(uint256 amount) external {
@@ -321,8 +325,12 @@ contract MinerRegistry {
         if(registering){
             uint160 a=uint160(id);if(id==address(0)||id==Sys.SYSTEM||(a>=0xC0C001&&a<=0xC0C0FF)||w!=0)revert BadState();
             uint256 n=get(0);uint256 active=get(1);if(n>=cfg(20)||active>=cfg(18))revert Capacity();
-            // EARN-IN U1: a self reward is durable once this transaction runs (R9); others need PAY-02.
-            if(arg!=msg.sender && !Sys.pay(arg,0))revert RewardNotDurable();
+            // EARN-IN U1: a self reward is durable once this transaction runs (R9), but ONLY when the
+            // registrant is the externally-owned account that signed the transaction (msg.sender==tx.origin):
+            // an EOA sender persists past this tx. A contract sender (msg.sender!=tx.origin) can be created
+            // and destroyed within one transaction, so its self reward is NOT guaranteed durable and must
+            // pass the PAY-02 probe like any other reward (F1-F3 source fix).
+            if(!(arg==msg.sender && msg.sender==tx.origin) && !Sys.pay(arg,0))revert RewardNotDurable();
             bool probation=msg.value<cfg(16);
             if(probation && get(ACC_COUNT)>=P_MAX)revert Capacity();
             if(msg.value!=0 && !Sys.pay(Sys.ESCROW,msg.value))revert PaymentFailed();
@@ -352,7 +360,7 @@ contract MinerRegistry {
                 put(arr(6)+active,uint160(id));put(1,active+1);put(r,((w&~(ACTPOS_MASK|uint256(255)))|1|(active<<56)));
                 put(r+3,(clocks&(LOW64<<128))|(height<<192));
             }else{
-                if((w&255)!=2||height<((get(r+3)>>64)&LOW64))revert BadState();refund(id,r);erase(id,r,w);
+                if((w&255)!=2||height<((get(r+3)>>64)&LOW64))revert BadState();if(!refund(id,r))revert PaymentFailed();erase(id,r,w);
             }
         }
         put(3,c+1+((registering||reactivating)?(uint256(1)<<16):0));
@@ -365,7 +373,7 @@ contract MinerRegistry {
     /// One sweep step (the v1 loop body, moved out for stack depth). Returns whether the record was erased.
     function sweepOne(address id,uint256 height) internal returns(bool){
         uint256 r=rec(id);uint256 w=get(r);uint256 clocks=get(r+3);
-        if(live(w)&&(w&255)==2&&height>=((clocks>>64)&LOW64)){refund(id,r);erase(id,r,w);return true;}
+        if(live(w)&&(w&255)==2&&height>=((clocks>>64)&LOW64)){if(refund(id,r)){erase(id,r,w);return true;}return false;}
         // EARN-IN S1: the probation deadline exits the record like deregister.
         if(live(w)&&(w&255)==1&&accruingState(w)&&pastProbation(w,height)){probationExit(r,w,clocks,height);return false;}
         if(((w>>8)&255)!=0&&((w>>16)&255)!=1&&height>=sumHeight((clocks>>128)&LOW64,cfg(26)+cfg(11)+1)){erase(id,r,w);return true;}
@@ -377,9 +385,14 @@ contract MinerRegistry {
         uint256 due=sumHeight(height,cfg(27));put(r,(removeActive(r,w)&~uint256(255))|2);
         put(r+3,(clocks&~((uint256(1)<<128)-1))|height|(due<<64));
     }
-    function refund(address id,uint256 r) internal {
-        IEscrowV1(Sys.ESCROW).releaseBond(id);put(4,get(4)-get(r+2));
+    function refund(address id,uint256 r) internal returns(bool){
+        // EARN-IN F1-F3 SINK: only draw down held_total/ACC_COUNT once the bond PAY succeeds.
+        // On an undeliverable bond the record stays live & claimable and its bond stays in Escrow
+        // accounted in held_total; the caller decides whether to erase/settle (it must not).
+        if(!IEscrowV1(Sys.ESCROW).releaseBond(id))return false;
+        put(4,get(4)-get(r+2));
         if(accruingState(get(r)))put(ACC_COUNT,get(ACC_COUNT)-1); // EARN-IN S2
+        return true;
     }
     function erase(address,uint256 r,uint256 w) internal {
         uint256 n=get(0);uint256 pos=(w>>24)&POSMASK;uint256 b=arr(5);if(pos>=n)revert BadState();
@@ -407,7 +420,7 @@ contract MinerRegistry {
         uint256 cursor=(c>>90)&POSMASK;uint256 n=get(0);uint256 end=cursor+cfg(50);if(end>n)end=n;
         for(;cursor<end;cursor++){
             address id=address(uint160(get(arr(5)+cursor)));uint256 r=rec(id);uint256 w=get(r);
-            if(live(w)){refund(id,r);put(r,(w&~STATE_MASK)|(uint256(3)<<16));}
+            if(live(w)){if(refund(id,r))put(r,(w&~STATE_MASK)|(uint256(3)<<16));}
         }
         put(3,(c&~CURSOR_MASK)|(cursor<<90));
     }
