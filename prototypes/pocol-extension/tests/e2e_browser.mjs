@@ -26,6 +26,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = []; let failed = 0;
 const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond, detail: String(detail).slice(0, 300) }); console.log((cond ? 'PASS ' : 'FAIL ') + name + (detail !== '' ? ' — ' + String(detail).slice(0, 300) : '')); if (!cond) failed++; };
 const wait = async (pred, ms, what) => { const t = Date.now(); let last; while (Date.now() - t < ms) { try { if ((last = await pred())) return last; } catch (e) { last = e; } await sleep(300); } throw new Error('timeout: ' + what + (last instanceof Error ? ' (' + last.message + ')' : '')); };
+// F8: Approve arms only after a press-free pause (viewer ARM_MS = 600 ms) AND, for a mouse, a fresh
+// pointer move onto the button while armed; confirmTx needs a second, independently-armed click
+// ("Confirm send"). page.click() auto-waits for the element to be "enabled" and treats aria-disabled
+// as disabled, so it never dispatches the move that clears aria-disabled — a deadlock. Drive the real
+// gesture with low-level input (no actionability gate): neutral move, press-free pause, fresh move onto
+// Approve, then down/up. { two: true } performs the second confirmTx arm.
+const APPROVE_ARM_MS = 750; // viewer ARM_MS (600) + margin
+async function approveArmed(page, { two = false } = {}) {
+  for (let i = 0, n = two ? 2 : 1; i < n; i++) {
+    const box = await page.$eval('#approve', (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+    await page.mouse.move(2, 2);                // neutral; no pointer press restarts the pause
+    await sleep(APPROVE_ARM_MS);                // press-free pause -> timeReady becomes true
+    await page.mouse.move(box.x + box.w / 2, box.y + box.h / 2); // fresh move onto Approve -> movedOver, aria-disabled cleared
+    await page.mouse.down(); await page.mouse.up();              // armed click (detail 1, mouse, movedOver)
+  }
+}
 
 // ---------------- devnet ----------------
 // E2E_KEEP=1 leaves the devnet running and writes state.json; E2E_REUSE=<work> reuses it (debug only).
@@ -324,7 +340,7 @@ async function main() {
     ok('BR18h second confirm while one is pending -> -32005 {pending}', second.error && second.error.code === -32005 && second.error.data.reason === 'pending', JSON.stringify(second));
     // The new tab (not the site frame) navigates; the container has no internet, so CDP history is the evidence.
     const newPage = b.ctx.waitForEvent('page', { timeout: 10000 });
-    await page.click('#approve'); const extR = await extP; const opened = await newPage; await sleep(1000);
+    await approveArmed(page); const extR = await extP; const opened = await newPage; await sleep(1000);
     const hist = (await (await b.ctx.newCDPSession(opened)).send('Page.getNavigationHistory')).entries.map((e) => e.url);
     ok('BR18e openExternal: confirm shows the full URL, approve opens one new tab that navigates to it, reply null',
       shown === 'https://example.org/' && extR.r === null && hist.includes('https://example.org/') && canary.http.length === 0, `${shown} ${JSON.stringify(extR)} history=${hist.join(',')}`);
@@ -352,9 +368,9 @@ async function main() {
       listed.find((x) => x.name === 'devnet').conflict === true && listed.find((x) => x.name === 'othernet').conflict === true && conflictReq === 4100 && (await page.isHidden('#modal')), `${conflictReq} ${JSON.stringify(listed.map((x) => [x.name, x.conflict]))}`);
     await b.send({ type: 'profiles.remove', name: 'othernet' });
     const accP = fr.evaluate(() => ethereum.request({ method: 'eth_requestAccounts' }));
-    await page.waitForSelector('#modal[data-kind=confirmAccounts]:not([hidden])'); const armedAtOnce = await page.$eval('#approve', (b) => !b.disabled);
+    await page.waitForSelector('#modal[data-kind=confirmAccounts]:not([hidden])'); const armedAtOnce = await page.$eval('#approve', (b) => b.getAttribute('aria-disabled') !== 'true');
     ok('A06 Chrome: approve is not armed the moment a dialog appears (a double click cannot approve it)', armedAtOnce === false);
-    await page.click('#approve');
+    await approveArmed(page);
     const accts = await accP; ok('BR14 eth_requestAccounts after click returns the per-network wallet address', accts.length === 1 && accts[0].toLowerCase() === wAddr.toLowerCase(), accts[0]);
     const s2 = info.accounts.find((a) => a.label === 'bob').address;
     const txP = fr.evaluate(([from, to]) => ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to, value: '0x1' }] }), [accts[0], s2]);
@@ -362,7 +378,7 @@ async function main() {
     // A06: the dialog shows the unsigned bytes and their signing hash; signing happens only after the click.
     const shownHash = /signingHash: (0x[0-9a-f]{64})/.exec(txText)[1], shownUnsigned = /unsigned: (0x[0-9a-f]+)/.exec(txText)[1];
     ok('BR14 no eth_sendRawTransaction before the click', tapCount('eth_sendRawTransaction') === 0);
-    await page.click('#approve'); const txHash = await txP;
+    await approveArmed(page, { two: true }); const txHash = await txP;
     const C = await import(pathToFileURL(join(dist, 'lib', 'crypto.js')).href), HX = await import(pathToFileURL(join(dist, 'lib', 'hex.js')).href), RL = await import(pathToFileURL(join(dist, 'lib', 'rlp.js')).href);
     const sent = tap.log.filter((x) => x.method === 'eth_sendRawTransaction');
     const sraw = sent.length ? HX.fromHex(sent[0].params[0]) : new Uint8Array(1); let spre = null, signer = null;
@@ -387,7 +403,7 @@ async function main() {
     // wallet requests inside WALLET_PER_MIN = 5 per session and minute; the grant is per session.
     await page.reload(); ({ fr, n } = await siteFrame(page));
     const regrant = fr.evaluate(() => ethereum.request({ method: 'eth_requestAccounts' }));
-    await page.waitForSelector('#modal[data-kind=confirmAccounts]:not([hidden])'); await page.click('#approve'); await regrant;
+    await page.waitForSelector('#modal[data-kind=confirmAccounts]:not([hidden])'); await approveArmed(page); await regrant;
     const pendingTx = () => fr.evaluate(([from, to]) => ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to, value: '0x1' }] }).then(() => 'ok', (e) => e.code), [accts[0], s2]);
     const modalTx = () => page.waitForSelector('#modal[data-kind=confirmTx]:not([hidden])');
     const modalGone = () => page.waitForSelector('#modal', { state: 'hidden', timeout: 5000 }).then(() => true, () => false);
@@ -399,7 +415,7 @@ async function main() {
     const profCode = await pTx;
     ok('A06 Chrome: a profile change while the confirmation is open -> 4901, dialog withdrawn, nothing sent; the unchanged session stays', profCode === 4901 && (await modalGone()) && tapCount('eth_sendRawTransaction') === 1 && (await page.$('#stage iframe#site')) !== null, profCode);
     // The frame is removed by the revocation, so the in-frame promise ends with a detached frame.
-    pTx = pendingTx().catch(() => 'frame detached'); await modalTx(); tap.genesisOverride = '0x' + '77'.repeat(32); await page.click('#approve');
+    pTx = pendingTx().catch(() => 'frame detached'); await modalTx(); tap.genesisOverride = '0x' + '77'.repeat(32); await approveArmed(page, { two: true });
     await page.waitForSelector('#stage .err', { timeout: 20000 }).catch(() => {}); const revokedText = await page.textContent('#stage'); await pTx;
     tap.genesisOverride = null;
     ok('A06 Chrome: endpoint genesis changed before signing -> the frame is torn down with 4901, nothing sent', /4901/.test(revokedText) && tapCount('eth_sendRawTransaction') === 1 && !(await page.$('#stage iframe')), revokedText);
@@ -420,7 +436,7 @@ async function main() {
     // dialog is open. The pending nonce on all three nodes shows whether anything reached any node.
     await page.reload(); ({ fr, n } = await siteFrame(page));
     const regrant2 = fr.evaluate(() => ethereum.request({ method: 'eth_requestAccounts' }));
-    await page.waitForSelector('#modal[data-kind=confirmAccounts]:not([hidden])'); await page.click('#approve'); await regrant2;
+    await page.waitForSelector('#modal[data-kind=confirmAccounts]:not([hidden])'); await approveArmed(page); await regrant2;
     const extra = []; for (let i = 0; i < 3; i++) { const o = await openSite(b, 'devnet', S_A); extra.push({ ...o, fr: (await siteFrame(o.page)).fr }); }
     const headBlk = await rpc(8540, 'eth_getBlockByNumber', ['latest', false]);
     const txState = () => fr.evaluate(([from, to]) => ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to, value: '0x1' }] }).then((h) => ({ ok: h }), (e) => ({ code: e.code, data: e.data })), [accts[0], s2]).catch(() => ({ detached: true }));
@@ -429,7 +445,7 @@ async function main() {
       for (const f of [fr, ...extra.map((x) => x.fr)]) f.evaluate((h) => ethereum.request({ method: 'eth_getLogs', params: [{ blockHash: h }] }), headBlk.hash).catch(() => {});
       await wait(() => tapCount('pocol_getLogs') >= l0 + 4, 15000, 'four held reads');
     };
-    const approveQueued = async () => { await modalTx(); await holdQueue(); const st = tapCount('pocol_status'); await page.click('#approve'); await wait(() => tapCount('pocol_status') > st, 15000, 'identity at signing'); await sleep(300); };
+    const approveQueued = async () => { await modalTx(); await holdQueue(); const st = tapCount('pocol_status'); await approveArmed(page, { two: true }); await wait(() => tapCount('pocol_status') > st, 15000, 'identity at signing'); await sleep(300); };
     const drained = async () => { delete tap.holdMs.pocol_getLogs; await sleep(6500); };
     const nonces = async () => JSON.stringify(await Promise.all([8540, 8541, 8542].map((p) => rpc(p, 'eth_getTransactionCount', [wAddr, 'pending']))));
     const cancelledQ = (r, c) => r.code === c && r.data && r.data.submission === 'cancelled' && r.data.before === 'queued';
@@ -444,7 +460,7 @@ async function main() {
       cancelledQ(rQ, 4901) && tapCount('eth_sendRawTransaction') === sent0 && (await nonces()) === n0 && (await page.$('#stage iframe#site')) !== null, JSON.stringify(rQ));
     // Initiated: the request has reached the tap (held there); a lock now cannot recall it.
     sent0 = tapCount('eth_sendRawTransaction'); tap.holdMs.eth_sendRawTransaction = 3000;
-    pQ = txState(); await modalTx(); await page.click('#approve'); await wait(() => tapCount('eth_sendRawTransaction') > sent0, 15000, 'submission initiated');
+    pQ = txState(); await modalTx(); await approveArmed(page, { two: true }); await wait(() => tapCount('eth_sendRawTransaction') > sent0, 15000, 'submission initiated');
     await b.send({ type: 'wallet.lock' }); rQ = await pQ; delete tap.holdMs.eth_sendRawTransaction;
     const rcI = typeof rQ.ok === 'string' ? await wait(() => rpc(8540, 'eth_getTransactionReceipt', [rQ.ok]), 90000, 'receipt') : null;
     ok('A06-R2 Chrome: wallet.lock after the request was initiated is not reported as a cancellation; the transaction is broadcast and included', typeof rQ.ok === 'string' && rcI && rcI.status === '0x1', JSON.stringify(rQ));
