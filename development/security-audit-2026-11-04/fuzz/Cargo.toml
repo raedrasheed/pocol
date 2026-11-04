@@ -1,0 +1,23 @@
+[package]
+name = "pocol-security-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+pocold = { path = "../../../prototypes/pocold" }
+pocol-lp4-execution = { path = "../../../prototypes/lp4-execution" }
+
+[[bin]]
+name = "parsers"
+path = "fuzz_targets/parsers.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
