@@ -123,6 +123,7 @@ def tls_json(path, payload=None):
     """
     hostname = 'gateway.pocol.net'
     context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     conn = http.client.HTTPSConnection(hostname, 443, timeout=12, context=context)
     try:
         conn.sock = context.wrap_socket(socket.create_connection(('127.0.0.1', 443), timeout=12),
