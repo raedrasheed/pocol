@@ -16,6 +16,10 @@ import { JOB_PREFIX, JOB_TTL_MS, validatePublishRequest, validateSiteTarget, pub
 import { IDE_JOB_PREFIX, isIdeOrigin, validateContractRequest, publicContractJob } from './lib/contracts.js';
 
 const store = chrome.storage.local;
+// F11: minimum seed-encryption password length, enforced in the worker (the security boundary), to
+// match the Studio key-file export. The viewer wallet cannot export its seed, so a weak password or a
+// silent replace is unrecoverable.
+const WALLET_PW_MIN = 10;
 // Site storage records with a worker-generation fence (D103); no data write before the fence confirms.
 const records = new RecordStore(store);
 const booted = records.boot().catch(() => null);
@@ -552,7 +556,14 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         return { ok: true }; });
       case 'open': return await openSite({ ...msg, tabId: sender.tab ? sender.tab.id : undefined });
       case 'session.storage': { const s = sessions.get(msg.sessionId); if (!s || !sender.tab || sender.tab.id !== s.tabId) return { ok: false }; await booted; const snap = await records.load(s.netKey, s.site); return { ok: true, storage: snap.dict, storageError: snap.error || null }; }
-      case 'wallet.create': { const seed = msg.seedHex ? fromHex(msg.seedHex) : crypto.getRandomValues(new Uint8Array(32)); if (seed.length !== 32) throw new Error('seed');
+      case 'wallet.create': {
+        // F11: enforce the password policy and an explicit replace-confirmation here in the worker, not
+        // only in the options page. Reject a missing/short password; and refuse to overwrite an existing
+        // wallet unless the caller passes replace:true (a bare wallet.create cannot silently destroy the
+        // current key, which the viewer wallet can never recover).
+        if (typeof msg.password !== 'string' || msg.password.length < WALLET_PW_MIN) throw new Error(`password must be at least ${WALLET_PW_MIN} characters`);
+        if ((await store.get('wallet')).wallet && msg.replace !== true) throw new Error('a wallet already exists; pass replace:true to overwrite it (this permanently discards the current key)');
+        const seed = msg.seedHex ? fromHex(msg.seedHex) : crypto.getRandomValues(new Uint8Array(32)); if (seed.length !== 32) throw new Error('seed');
         lockWallet('wallet replaced'); await store.set({ wallet: await encryptSeed(seed, msg.password) }); walletChanged('wallet replaced'); unlocked = { seed, until: Date.now() + LOCK_MS }; return { ok: true }; }
       case 'wallet.unlock': { const e0 = walletEpoch; const w = (await store.get('wallet')).wallet; if (!w) return { ok: false, error: 'no wallet' }; const seed = await decryptSeed(w, msg.password);
         // A wallet.create (or lock) during the decryption wins: the old seed is never reinstated.

@@ -117,7 +117,7 @@ await test('aligning a trusted public schedule clears custom-profile conflicts w
 await test('changing the built-in schedule revokes its Viewer session and pending approval; RPC metadata cannot override it',async()=>{
   const fx=await siteFixture(dist);
   const log=installFetchMock({...fx.handlers,eth_chainId:()=> '0x5f5bb93b',pocol_status:()=>({chainId:N.NETWORK.chainId,genesisHash:N.NETWORK.genesisHash,forkSchedule:[[1,'0'],[2,'1']]})});
-  await mock.send({type:'wallet.create',password:'test-only',seedHex:'0x'+'42'.repeat(32)});
+  await mock.send({type:'wallet.create',password:'studio-test-pw',seedHex:'0x'+'42'.repeat(32)});
   const oldAddress=(await mock.send({type:'wallet.address',name:N.NETWORK.name})).address;
   const opened=await mock.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true);
   assert.deepEqual((await getPublic()).forkSchedule,[[1,'0'],[2,'42']]);
@@ -153,7 +153,7 @@ const addressFor=async(netKey)=>W.addressOf(await W.networkKey(H.fromHex(viewerS
 // The network the copy below is switched to; a custom profile of it is added here, before the "update".
 const nextNetwork=fixtureSpec();let nextBefore;
 await test('the built-in profile keys its wallet with the fixed salt; a custom profile keys it with its netKey',async()=>{
-  await mock.send({type:'wallet.create',password:'test-only',seedHex:viewerSeed});
+  await mock.send({type:'wallet.create',password:'studio-test-pw',replace:true,seedHex:viewerSeed});
   assert.equal(await walletOf(mock,N.NETWORK.name),viewerAddress);
   // A custom profile with the pinned identity: its netKey is the original Mainnet's, so it shares the address now.
   assert.equal((await mock.send({type:'profiles.add',profile:{...N.NETWORK,name:'operator-local',trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule:(await getPublic()).forkSchedule}})).ok,true);
@@ -177,7 +177,7 @@ await test('after the pinned identity changes, the built-in profile keeps its wa
     const m=installChromeMock();await loadWorker(switched,'switched-identity');
     const pub=(await m.send({type:'profiles.list'})).profiles.find(p=>p.name===N.NETWORK.name);
     assert.equal(pub.invalid,undefined);assert.equal(pub.chainId,nextNetwork.chainId);assert.equal(pub.genesisHash,nextNetwork.hash);assert.notEqual(pub.netKey,W.PUBLIC_WALLET_SALT);
-    await m.send({type:'wallet.create',password:'test-only',seedHex:viewerSeed});
+    await m.send({type:'wallet.create',password:'studio-test-pw',seedHex:viewerSeed});
     assert.equal(await walletOf(m,N.NETWORK.name),viewerAddress);
     // The custom profile of nextNetwork keeps the address the extension gave it before the update.
     assert.equal((await m.send({type:'profiles.add',profile:localProfile('next-net',nextNetwork,pub.forkSchedule)})).ok,true);

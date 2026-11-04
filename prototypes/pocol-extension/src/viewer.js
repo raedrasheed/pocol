@@ -21,7 +21,9 @@ function dismiss(id) {
 }
 // The session ended (revoked or worker lost): every queued or shown confirmation is withdrawn.
 function dismissAll() { for (const c of confirms.splice(0)) c.resolve(false); if (showing) showing.done(false); }
-// Approve is armed only after a pause, so a double click on one dialog cannot approve the next.
+// Approve is gated against carried-over/rapid input (F8): a pause with no press (restarted on every
+// press, so a burst can't outlast it) AND, for a mouse, a fresh move onto the button (a fixed-spot
+// autoclicker holds the mouse still); confirmTx needs a second, independently-armed step.
 const ARM_MS = 600;
 function pump() {
   if (showing || !confirms.length) return;
@@ -32,10 +34,41 @@ function pump() {
     : q.type === 'confirmAccounts' ? `site: ${q.site}\nnetwork: ${q.network}\naccount: ${q.address}`
     : `network: ${q.network} (chainId ${q.chainId})\nsite: ${q.site}\nfrom: ${q.from}\nto: ${q.to}\nvalue (wei): ${q.value}\nmax cost (wei, gas·maxFee + value): ${q.maxCost}\ngas: ${q.gas}\nmaxFeePerGas (wei): ${q.maxFeePerGas}\nmaxPriorityFeePerGas (wei): ${q.maxPriorityFeePerGas}\nnonce: ${q.nonce}\ndata: ${q.data}\nsigningHash: ${q.signingHash}\nunsigned: ${q.payload}`;
   $('modal').hidden = false; $('modal').dataset.kind = q.type;
-  const done = (ok) => { if (showing !== cur) return; $('approve').onclick = $('reject').onclick = null; $('modal').hidden = true; showing = null; resolve(ok); pump(); };
+  // F8: Approve becomes live only after BOTH (a) ARM_MS with no pointer press anywhere on the dialog —
+  // every press during the wait restarts the delay, so a fast burst (the clickjacking "game") can never
+  // outlast it — AND (b), for a mouse, a fresh pointer movement onto the Approve button, which a fixed-spot
+  // autoclicker (mouse held still) never produces at any cadence. Keyboard (click detail 0) and touch taps,
+  // which the sandboxed site cannot drive and which produce no hover, are allowed once the delay passes.
+  // confirmTx (moving funds) needs a second, independently-armed click ("Confirm send"). The button is
+  // never set `disabled`, so it keeps receiving clicks (a disabled button drops them); the disarmed look
+  // is shown via aria-disabled.
+  const approve = $('approve'), modal = $('modal');
+  const twoStep = q.type === 'confirmTx'; let step = 0; let armTimer = null, timeReady = false, movedOver = false, lastType = '';
+  const arm = () => {
+    timeReady = false; movedOver = false; approve.setAttribute('aria-disabled', 'true');
+    if (armTimer) clearTimeout(armTimer);
+    armTimer = setTimeout(() => { if (showing === cur) timeReady = true; }, ARM_MS);
+  };
+  const onPress = (e) => { lastType = e.pointerType; if (!timeReady) arm(); };               // a press during the wait restarts it
+  const onMove = (e) => { if (timeReady && e.pointerType === 'mouse' && e.target === approve) { movedOver = true; approve.removeAttribute('aria-disabled'); } };
+  const done = (ok) => {
+    if (showing !== cur) return;
+    approve.onclick = $('reject').onclick = null;
+    modal.removeEventListener('pointerdown', onPress); modal.removeEventListener('pointermove', onMove);
+    if (armTimer) clearTimeout(armTimer);
+    modal.hidden = true; approve.textContent = 'Approve'; approve.removeAttribute('aria-disabled');
+    showing = null; resolve(ok); pump();
+  };
   const cur = { id, done }; showing = cur;
-  $('approve').disabled = true; setTimeout(() => { if (showing === cur) $('approve').disabled = false; }, ARM_MS);
-  $('approve').onclick = () => done(true); $('reject').onclick = () => done(false);
+  modal.addEventListener('pointerdown', onPress); modal.addEventListener('pointermove', onMove);
+  approve.textContent = 'Approve'; arm();
+  approve.onclick = (e) => {
+    if (!timeReady) { arm(); return; }                                                        // too early, or part of a burst
+    if (e.detail > 0 && lastType === 'mouse' && !movedOver) return;                           // a mouse click with no fresh move onto Approve
+    if (twoStep && step === 0) { step = 1; approve.textContent = 'Confirm send'; arm(); return; }
+    done(true);
+  };
+  $('reject').onclick = () => done(false);
 }
 
 function teardown(reason) {

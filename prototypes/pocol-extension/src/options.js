@@ -34,7 +34,18 @@ $('savePublicForkSchedule').onclick = async () => {
   $('publicForkStatus').textContent = 'Trusted schedule saved. Reopen active Viewer tabs to use it. Wallet identity is unchanged.';
   await refresh();
 };
-$('create').onclick = async () => { const r = await send({ type: 'wallet.create', password: $('pw').value }); if (!r.ok) alert(r.error.message || r.error); refresh(); };
+$('create').onclick = async () => {
+  // F11: require a real password here too (the worker enforces it regardless), and confirm before
+  // replacing an existing wallet — creating a new one permanently discards the current key.
+  const password = $('pw').value;
+  if (typeof password !== 'string' || password.length < 10) { alert('Password must be at least 10 characters.'); return; }
+  let r = await send({ type: 'wallet.create', password });
+  if (!r.ok && /already exists/.test((r.error && (r.error.message || r.error)) || '')) {
+    if (!confirm('A wallet already exists. Creating a new one PERMANENTLY discards the current key and any funds it holds, and the seed cannot be exported. Continue?')) return;
+    r = await send({ type: 'wallet.create', password, replace: true });
+  }
+  if (!r.ok) alert((r.error && (r.error.message || r.error)) || 'Could not create wallet'); refresh();
+};
 $('unlock').onclick = async () => { const r = await send({ type: 'wallet.unlock', password: $('pw').value }); if (!r.ok) alert('Could not unlock'); refresh(); };
 $('lock').onclick = async () => { await send({ type: 'wallet.lock' }); refresh(); };
 $('open').onclick = () => { window.open(chrome.runtime.getURL('viewer.html') + '#' + encodeURI($('target').value.trim()), '_blank', 'noopener'); };
