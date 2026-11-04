@@ -3,6 +3,7 @@ import http.client
 import json
 import socket
 import socketserver
+import sys
 import threading
 import time
 import unittest
@@ -149,6 +150,33 @@ class FaucetSecurity(unittest.TestCase):
         finally:
             release.set(); a.join(3)
             if b: b.join(3)
+
+    def test_status_count_has_a_stable_snapshot_during_a_claim(self):
+        faucet = self.faucet()
+        faucet.ledger.claims['0x'+'ef'*20] = {'day': pf.today(), 'state': 'sent'}
+        entered, release = threading.Event(), threading.Event()
+        errors, results = [], []
+        # Pause the count's genuine dict iterator, without replacing ledger data.
+        def trace(frame, event, arg):
+            if (event == 'line' and frame.f_code.co_name == '<genexpr>'
+                    and frame.f_code.co_filename == pf.__file__ and not entered.is_set()):
+                entered.set(); release.wait(2)
+            return trace
+        def status():
+            sys.settrace(trace)
+            try: results.append(faucet.status())
+            except Exception as error: errors.append(error)
+            finally: sys.settrace(None)
+        thread = threading.Thread(target=status); thread.start()
+        try:
+            self.assertTrue(entered.wait(1))
+            faucet.claim(NEW, 'another-client')
+        finally:
+            release.set(); thread.join(3)
+        self.assertFalse(thread.is_alive())
+        self.assertFalse(errors, repr(errors))
+        self.assertEqual(results[0]['remainingToday'], int(faucet.cfg['dailyLimit'])-1)
+        self.assertEqual(faucet.status()['remainingToday'], int(faucet.cfg['dailyLimit'])-2)
 
 
 if __name__ == '__main__': unittest.main()

@@ -96,7 +96,7 @@ python3 deploy/standalone/test_wallet_earnin.py   # opt-in, about 15 minutes: re
 The unit tests cover once per address, new accounts only, reserved addresses, the daily and
 per-client limits, the chain ID pin, an empty faucet, a durable ledger before the send, refused
 versus unanswered sends, connection admission, absolute read deadlines, request framing, busy-claim
-rejection and the HTTP surface. The end-to-end test starts a faucet from a genesis
+rejection, a stable status count during a concurrent claim, and the HTTP surface. The end-to-end test starts a faucet from a genesis
 miner's key file, funds a wallet that holds nothing, and that wallet then registers with a 0 PCOL
 bond as its first transaction.
 

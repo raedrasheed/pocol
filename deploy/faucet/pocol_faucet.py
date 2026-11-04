@@ -51,7 +51,8 @@ class Ledger:
         else:
             self.claims = {}
     def count(self, day):
-        return sum(1 for c in self.claims.values() if c.get('day') == day)
+        # /status can race a claim's insert/remove. Count an owned dict snapshot.
+        return sum(1 for c in self.claims.copy().values() if c.get('day') == day)
     def save(self):
         fd, temp = tempfile.mkstemp(prefix='.faucet-', dir=self.path.parent)
         try:
