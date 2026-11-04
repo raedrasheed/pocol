@@ -1,7 +1,9 @@
 //! Cutover genesis (development/decisions/EARN-IN-SPEC.md section 7): the new network's allocation from the
 //! old chain's canonical state after block S. Deterministic: the same old state and config give the same
-//! genesis bytes. The old data directory is opened read-only in intent (the node is not started, mines
-//! nothing and has no peers); the old node must be stopped first, its home lock enforces that.
+//! genesis bytes. The old data directory is opened the way a node start opens it (its lock; the open may
+//! rewrite the node's derived files), and a state below the K_hist window is rebuilt, in store mode into its
+//! state.redb. No block is added to it. The node is not started, mines nothing and has no peers; the old node
+//! must be stopped first, its home lock enforces that.
 use pocol_lp4_execution::apply;
 use revm::{InMemoryDB,primitives::{Address,U256}};
 use serde_json::{json,Value};
@@ -64,6 +66,35 @@ pub fn transform(old:&InMemoryDB,height:u64,d:u64,miners:&[Address],bond:U256)->
     Ok((alloc,report))
 }
 
+/// The state of the canonical block `hash` (at `height`), rebuilt when R21 has pruned it: a node keeps states only
+/// for the last K_hist blocks (32), and the runbook cuts S at least 60 below the head. The rebuild re-executes
+/// through the node's own path (TrieRebuild) from genesis, the nearest state kept below S, and checks every
+/// rebuilt stateRoot against its header. The evidence walk of a re-executed block reads the chain's own entries,
+/// up to E_win heights back; one that is slimmed (C-1 S4) ends the round with NeedsRebuild. That entry and the
+/// slimmed canonical entries in the E_win heights below it are restored and the rebuild runs again, as import
+/// does, so each such evidence block costs at most one more round. Every round but the last restores a slimmed
+/// entry and nothing slims one again here, so there are at most that many rounds plus one; the bound only turns
+/// a fault into an error. Returns the number of rebuild rounds (0 when the state is kept).
+pub fn rebuild_at(node:&mut crate::node::Node,hash:&[u8;32],height:u64)->Result<u32,String>{
+    if node.chain.view_of(hash).is_some(){return Ok(0)}
+    let rounds=1+node.chain.blocks.values().filter(|e|e.slim).count() as u32;
+    let e_win=u64::from(node.chain.spec.cp().E_win);
+    for round in 1..=rounds{
+        match node.rebuild_state(hash){
+            Ok(())=>return Ok(round),
+            Err(crate::chain::Reject::NeedsRebuild(p)) if node.chain.get(&p).is_some_and(|e|e.slim)=>{
+                let ph=node.chain.get(&p).map_or(0,|e|e.height);
+                let mut restore=vec![p];
+                restore.extend((ph.saturating_sub(e_win)..ph).filter_map(|h|node.chain.canonical_at(h)).filter(|e|e.slim).map(|e|e.hash));
+                for x in restore{node.unslim(&x).map_err(|e|format!("restore block {} for the rebuild at height {height}: {e:?}",crate::types::hex(&x)))?;}
+            }
+            Err(crate::chain::Reject::NeedsRebuild(p))=>return Err(format!("rebuild the state at height {height}: block {} needs a rebuild",crate::types::hex(&p))),
+            Err(e)=>return Err(format!("rebuild the state at height {height}: {e:?}")),
+        }
+    }
+    Err(format!("rebuild the state at height {height}: no state after {rounds} rounds"))
+}
+
 /// `pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]`
 pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],out:&std::path::Path,limits:crate::node::Limits,local:&pocol_lp4_execution::admission::NodeLocal)->Result<(),String>{
     if out.exists(){return Err("output must be a new directory; genesis is never overwritten".into())}
@@ -74,12 +105,13 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     let (chain_id,genesis)=(spec.chain_id(),crate::types::hex(&spec.genesis_hash()));
     let d=u64::from(spec.cp().D);
     let cfg=crate::node::Config{dir:data.to_path_buf(),name:"cutover".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits};
-    let node=crate::node::Node::open(cfg,spec)?;
+    let mut node=crate::node::Node::open(cfg,spec)?;
     let head=node.chain.head().height;
     if height>head{return Err(format!("height {height} is above the old head {head}"))}
-    let entry=node.chain.canonical_at(height).ok_or("no canonical block at that height")?;
-    let block=crate::types::hex(&entry.hash);
-    let state=node.chain.view_of(&entry.hash).ok_or("the state at that height is not available (pruned)")?;
+    let hash=node.chain.canonical_at(height).ok_or("no canonical block at that height")?.hash;
+    let block=crate::types::hex(&hash);
+    rebuild_at(&mut node,&hash,height)?;
+    let state=node.chain.view_of(&hash).ok_or("the state at that height is not available")?;
     let mut old=crate::chain::whole_state(state.v());
     // Code by hash, for accounts whose code the view returns separately.
     let hashes:Vec<_>=old.accounts.values().filter_map(|a|a.info()).filter(|i|i.code.is_none()&&i.code_hash!=revm::primitives::KECCAK_EMPTY).map(|i|i.code_hash).collect();

@@ -66,7 +66,9 @@ fn rpc(port:u16,body:&str,origin:bool)->(u16,String){
     // A refused connection is closed unread (RPC_CONN_MAX): the write or the read may then see a reset (code 0).
     // One write: write! would send a write per piece, and Nagle plus delayed ACKs (Windows) adds about
     // 200 ms to the measured times.
-    let _=s.write_all(format!("POST / HTTP/1.1\r\nHost: x\r\n{o}Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).as_bytes());
+    // F13: a browser reaching a loopback RPC sends a loopback Host (not a placeholder); the node now
+    // refuses a rebound DNS Host when an Origin is present, so the Origin cases here use 127.0.0.1.
+    let _=s.write_all(format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\n{o}Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).as_bytes());
     let mut out=String::new();let _=s.read_to_string(&mut out);
     let code=out.get(9..12).and_then(|c|c.parse().ok()).unwrap_or(0);(code,out.split("\r\n\r\n").nth(1).unwrap_or("").to_string())
 }

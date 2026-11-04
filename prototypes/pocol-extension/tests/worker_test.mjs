@@ -42,7 +42,7 @@ export async function workerChecks(dist) {
       pocol_getLogs: () => wait('pocol_getLogs', []) });
     await loadWorker(dist, 'wt' + ++n);
     for (const p of [prof('p1', s1), ...extra]) { const r = await mock.send({ type: 'profiles.add', profile: p }); if (!r.ok) throw new Error('profile ' + JSON.stringify(r)); }
-    if (wallet) await mock.send({ type: 'wallet.create', password: 'x', seedHex: '0x' + '42'.repeat(32) });
+    if (wallet) await mock.send({ type: 'wallet.create', password: 'worker-test-pw', seedHex: '0x' + '42'.repeat(32) });
     const t0 = ticks.length; const op = await mock.send({ type: 'open', name: 'p1', site: fx.site, path: '/' });
     if (!op.ok) throw new Error('open ' + JSON.stringify(op));
     const port = mock.connect('bridge:' + op.sessionId); const tick = ticks[t0]; const tickInfo = { t0, n: ticks.length };
@@ -190,7 +190,7 @@ export async function workerChecks(dist) {
   });
   await scenario(async () => {
     const w = await world(); const open = w.gate('eth_getTransactionCount'); const s = w.tx(); await sleep(50);
-    await w.mock.send({ type: 'wallet.create', password: 'y', seedHex: '0x' + '43'.repeat(32) }); open(); const r = await w.reply(s);
+    await w.mock.send({ type: 'wallet.create', password: 'worker-test-pw', replace: true, seedHex: '0x' + '43'.repeat(32) }); open(); const r = await w.reply(s);
     const acc = await w.reply(w.req('eth_accounts'));
     ok('A06 wallet replaced while a request is outstanding -> 4100; the old grant does not cover the new account', code(r) === 4100 && noAsk(w, 'confirmTx') && acc.result && acc.result.length === 0 && w.count('eth_sendRawTransaction') === 0, JSON.stringify([r, acc]));
   });
@@ -236,8 +236,8 @@ export async function workerChecks(dist) {
   });
   await scenario(async () => {
     const w = await world({ grant: false });
-    const un = w.mock.send({ type: 'wallet.unlock', password: 'x' }); await sleep(20);
-    await w.mock.send({ type: 'wallet.create', password: 'y', seedHex: '0x' + '43'.repeat(32) }); const r = await un;
+    const un = w.mock.send({ type: 'wallet.unlock', password: 'worker-test-pw' }); await sleep(20);
+    await w.mock.send({ type: 'wallet.create', password: 'worker-test-pw', replace: true, seedHex: '0x' + '43'.repeat(32) }); const r = await un;
     const addr = (await w.mock.send({ type: 'wallet.address', name: 'p1' })).address;
     const want = W.addressOf(await W.networkKey(H.fromHex('0x' + '43'.repeat(32)), netKeyOf(s1)));
     ok('A06 review: an unlock that was decrypting when the wallet was replaced does not reinstate the old seed', r.ok === false && addr === want, JSON.stringify([r, addr, want]));

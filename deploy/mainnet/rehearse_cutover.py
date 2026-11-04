@@ -4,18 +4,23 @@
 Two modes, both on copies; neither touches a live service, a key or the original data:
 
 --local   Builds an old-style continuous network (100 PCOL bonds, the current programs) from three
-          `pocol start` miners, adds the kinds of state Mainnet holds (a fourth miner registered
-          with a full bond, a transfer, a contract with storage), records the expected balances at a
-          height S through RPC, and stops every node. It then copies one home and runs
-          `pocold cutover` on the copy twice (the genesis bytes must match), checks the new
-          allocation against the RPC record independently of the cutover report, starts the three
-          miners on the new genesis, and checks that it mines, keeps the contract, refunds the old
-          bond, holds 20 PCOL miner bonds, and lets the migrated fourth account register again with
-          a 0 PCOL bond. About 10 minutes.
+          `pocol start` miners, with Mainnet's schedule shape (a v1 genesis whose schedule activates
+          v2 later), adds the kinds of state Mainnet holds (a fourth miner registered with a full
+          bond, a transfer, a contract with storage), records the expected balances at a height S
+          through RPC, lets every node reach S + 60 as runbook step 1 does, and stops every node.
+          It then copies one home and runs `pocold cutover` on the copy twice (the genesis bytes must
+          match; S is below the node's 32-block state window, so the cutover rebuilds its state),
+          checks the new allocation against the RPC record independently of the cutover report,
+          starts the three miners on the new genesis, and checks that it mines, keeps the contract,
+          refunds the old bond, holds 20 PCOL miner bonds, and lets the migrated fourth account
+          register again with a 0 PCOL bond. A few minutes.
 
 --copy    The operator rehearsal on a COPY of a real server's network bundle and data directory:
           runs the cutover twice at the given height with the server's own NODE and LOCAL flags,
-          checks determinism and the report's totals, and prints a summary. It starts nothing.
+          checks determinism and the report's totals, and prints a summary with each run's time and
+          the slower run's time per block (step 2 re-executes up to the final S). It starts nothing.
+
+Each cutover's output is kept next to its output directory (RUN.log).
 
     python3 deploy/mainnet/rehearse_cutover.py --local --work /tmp/pocol-rehearsal
     python3 deploy/mainnet/rehearse_cutover.py --copy --network COPY/net --data COPY/data \\
@@ -30,12 +35,30 @@ from test_launcher import BIN, EXE, call, identity, port, rpc  # noqa: E402
 
 PCOL = 10**18
 OLD_BOND, NEW_BOND = 100 * PCOL, 20 * PCOL
+# The local old network's v2 activation height (Mainnet's is 15000).
+ACTIVATION = 4
 # A contract whose constructor stores 42 in slot 0 and whose runtime code is one STOP byte.
 CONTRACT_INIT = '0x602a6000556001601160003960016000f300'
 
-def cutover(network, data, height, config, out, node_args):
-    p = subprocess.run([str(BIN / ('pocold' + EXE)), 'cutover', '--network', str(network), '--data', str(data), '--height', str(height),
-                        '--config', str(config), '--out', str(out), *node_args], capture_output=True, text=True, timeout=1800)
+# A cutover below the node's 32-block state window re-executes the old chain from genesis: on Mainnet's
+# 20,000+ blocks that takes minutes, more on a slow disk. The limit is only a safety net.
+CUTOVER_TIMEOUT = 6 * 3600
+# The local chain's cutover takes seconds. A limit well under the CI job's own ends a hung cutover as a failure
+# of this script, so the job's failure step keeps the logs (a job that hits its own limit is cancelled instead).
+LOCAL_CUTOVER_TIMEOUT = 300
+
+def cutover(network, data, height, config, out, node_args, timeout=CUTOVER_TIMEOUT):
+    log = out.parent / f'{out.name}.log'
+    def keep(stdout, stderr):
+        text = lambda x: x.decode(errors='replace') if isinstance(x, bytes) else (x or '')
+        log.write_text(f'pocold cutover --height {height} --out {out}\n--- stdout\n{text(stdout)}\n--- stderr\n{text(stderr)}\n', encoding='utf-8')
+    try:
+        p = subprocess.run([str(BIN / ('pocold' + EXE)), 'cutover', '--network', str(network), '--data', str(data), '--height', str(height),
+                            '--config', str(config), '--out', str(out), *node_args], capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        keep(e.stdout, e.stderr)
+        raise AssertionError(f'cutover did not finish within {timeout} s (height {height}, data {data}); its output is in {log}') from None
+    keep(p.stdout, p.stderr)
     if p.returncode: raise AssertionError(f'cutover failed: {p.stderr.strip()}')
     report = out / 'cutover-report.json'
     # A pocold without the cutover command (the deployed one, for example) prints its usage and exits 0.
@@ -61,10 +84,13 @@ def summary(report):
 
 def copy_mode(a):
     work = Path(a.work); work.mkdir(parents=True)
-    r1 = cutover(a.network, a.data, a.height, a.config, work / 'run1', a.node_args)
-    r2 = cutover(a.network, a.data, a.height, a.config, work / 'run2', a.node_args)
+    # A run re-executes every block from 1 to the height, so its time grows with the height: step 2, at the final
+    # S, takes about S x secondsPerBlock (the slower run's) on this server.
+    t = time.monotonic(); r1 = cutover(a.network, a.data, a.height, a.config, work / 'run1', a.node_args); t1 = time.monotonic() - t
+    t = time.monotonic(); r2 = cutover(a.network, a.data, a.height, a.config, work / 'run2', a.node_args); t2 = time.monotonic() - t
     same_genesis(work / 'run1', work / 'run2'); check_report(r1)
-    print(json.dumps({'result': 'PASS', 'mode': 'copy', 'deterministic': True, **summary(r1)}, indent=1))
+    print(json.dumps({'result': 'PASS', 'mode': 'copy', 'deterministic': True, 'seconds': [round(t1), round(t2)],
+                      'secondsPerBlock': round(max(t1, t2) / max(a.height, 1), 4), **summary(r1)}, indent=1))
 
 class Nodes:
     def __init__(self, root): self.root = root; self.procs = []; self.logs = []
@@ -113,6 +139,10 @@ def local_mode(a):
            'miners': [{'id': i, 'reward': i} for i in ids[:3]],
            'accounts': [{'address': i, 'wei': str(10**24)} for i in ids] + [{'address': ida, 'wei': str(500 * PCOL)}]}
     (root / 'old.json').write_text(json.dumps(cfg)); call('pocold', 'init-testnet', '--config', root / 'old.json', '--out', root / 'old-genesis')
+    # Mainnet's shape: genesis keeps nonceMode 0 and the schedule activates v2 later ([[1,0],[2,15000]]).
+    # Here at height 4, so the chain also leaves the bounded v1 range (no stalled attempts) early.
+    meta = json.loads((root / 'old-genesis/devnet.json').read_text()); meta['forks'] = [[1, 0], [2, ACTIVATION]]
+    (root / 'old-genesis/devnet.json').write_text(json.dumps(meta))
     p2p = [port() for _ in range(3)]; api = [port() for _ in range(3)]
     args = ['network', '--from', root / 'old-genesis', '--out', root / 'old.pocol.json']
     for p in p2p: args += ['--seed', f'127.0.0.1:{p}']
@@ -129,12 +159,18 @@ def local_mode(a):
         made = send(api[0], alice, old_chain, None, 0, CONTRACT_INIT, 200_000); contract = made['contractAddress']
         assert made['status'] == '0x1' and contract, made
         wait(lambda: head(api[0]) >= int(made['blockNumber'], 16) + 3, 120, 'blocks after the last transaction')
-        s = head(api[0]) - 1; tag = hex(s)
+        s = head(api[0]) - 3; tag = hex(s)
         accounts = ids + [ida, idb, contract]
         expect = {x.lower(): {'balance': int(rpc(api[0], 'eth_getBalance', [x, tag]), 16), 'nonce': int(rpc(api[0], 'eth_getTransactionCount', [x, tag]), 16)} for x in accounts}
         held = {m['reward'].lower(): int(m['bond'], 16) for m in rpc(api[0], 'pocol_getMiners') if m['bondState'] == 1 and not m['tomb']}
         assert set(held) == {i.lower() for i in ids} and all(v == OLD_BOND for v in held.values()), held
         old_hash = rpc(api[0], 'eth_getBlockByNumber', [tag, False])['hash']
+        params = rpc(api[0], 'pocol_getParams')
+        assert params['forkSchedule'] == [[1, 0], [2, ACTIVATION]] and s > ACTIVATION and params['effectiveNonceMode'] == 1, (s, params)
+        # As runbook step 1: every head at least S + 60 (so the cutover meets S below the state window) and the
+        # same block at S on every node.
+        wait(lambda: min(head(x) for x in api) >= s + 60, 600, 'S + 60 on every node')
+        assert all(rpc(x, 'eth_getBlockByNumber', [tag, False])['hash'] == old_hash for x in api), 'S is the same canonical block on every node'
     finally:
         nodes.stop()
     # The rehearsal runs on a copy; the stopped original stays as it was.
@@ -143,10 +179,11 @@ def local_mode(a):
                'miners': [{'id': i, 'reward': i} for i in ids[:3]], 'accounts': []}
     (root / 'new.json').write_text(json.dumps(new_cfg))
     flags = ['--state-store']
-    r1 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis', flags)
-    r2 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis-2', flags)
+    r1 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis', flags, timeout=LOCAL_CUTOVER_TIMEOUT)
+    r2 = cutover(copy / 'network', copy / 'state', s, root / 'new.json', root / 'new-genesis-2', flags, timeout=LOCAL_CUTOVER_TIMEOUT)
     same_genesis(root / 'new-genesis', root / 'new-genesis-2'); check_report(r1)
     assert r1['old']['height'] == s and r1['old']['blockHash'] == old_hash and r1['old']['chainId'] == old_chain, r1['old']
+    assert r1['old']['head'] >= s + 60, ('the cutover was not taken below the state window', r1['old'])
     # Independent check of the allocation against the old chain's RPC answers at S (C2-C4).
     alloc = {k.lower(): v for k, v in json.loads((root / 'new-genesis/alloc.json').read_text()).items()}
     def bal(x): return int(alloc[x]['balance'])

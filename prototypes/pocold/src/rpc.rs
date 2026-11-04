@@ -256,7 +256,7 @@ fn pace_write(s:&mut TcpStream,body:&[u8],l:&Limits,batch_from:Option<Instant>)-
     let (r,grace,eps)=(l.min_send_rate.max(1) as f64,l.grace.as_secs_f64(),l.timer_eps.as_secs_f64());
     // The answer is written straight from its reservation-backed String; only the small header is
     // allocated here (no second copy of the body, so an in-flight answer stays one reservation).
-    let hdr=format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: content-type\r\nConnection: close\r\n\r\n",body.len());
+    let hdr=http_head(200,body.len()); // F13: no Access-Control-Allow-Origin (was `*`)
     let parts:[&[u8];2]=[hdr.as_bytes(),body];let size=hdr.len()+body.len();
     s.set_nonblocking(true)?;
     let (t0,mut a,mut pi,mut off)=(Instant::now(),0usize,0usize,0usize);
@@ -634,16 +634,23 @@ fn conn(mut s:TcpStream,node:SyncSender<Event>,light:LightLane,l:&Limits,srv:&Se
     let mut buf=Vec::with_capacity(HEAD_MAX+READ_CHUNK);let mut tmp=[0u8;READ_CHUNK];let head_end;
     loop{let n=read_until(&mut s,&mut tmp,deadline)?;if n==0{return Ok(())}buf.extend_from_slice(&tmp[..n]);
         if let Some(i)=buf.windows(4).position(|w|w==b"\r\n\r\n"){head_end=i+4;break}if buf.len()>HEAD_MAX{return respond(&mut s,431,"{}")}}
-    let (method,len,site)={
+    let (method,len,site,host)={
         let head=String::from_utf8_lossy(&buf[..head_end]);
         let mut lines=head.split("\r\n");let first=lines.next().unwrap_or("");
-        let mut len=0usize;let mut site=false;
-        for l in lines{let mut kv=l.splitn(2,':');let k=kv.next().unwrap_or("").trim().to_ascii_lowercase();
-            if k=="content-length"{len=kv.next().unwrap_or("").trim().parse().unwrap_or(usize::MAX)}if k=="origin"{site=true}}
-        (if first.starts_with("OPTIONS"){0}else if first.starts_with("POST"){1}else{2},len,site)
+        let mut len=0usize;let mut site=false;let mut host=String::new();
+        for l in lines{let mut kv=l.splitn(2,':');let k=kv.next().unwrap_or("").trim().to_ascii_lowercase();let v=kv.next().unwrap_or("").trim();
+            if k=="content-length"{len=v.parse().unwrap_or(usize::MAX)}if k=="origin"{site=true}if k=="host"{host=v.to_string()}}
+        (if first.starts_with("OPTIONS"){0}else if first.starts_with("POST"){1}else{2},len,site,host)
     };
     if method==0{return respond(&mut s,204,"")}
     if method==2{return respond(&mut s,405,"{}")}
+    // F13: only a browser sends an Origin header (`site`), and DNS rebinding is a browser attack: the
+    // attacker's page always sends Origin on its POST even once its hostname has been rebound to
+    // 127.0.0.1. So when Origin is present, require a loopback Host (IP literal or `localhost`) and
+    // refuse a rebound DNS hostname — removing CORS alone would not stop rebinding, since the browser
+    // then treats us as the page's own origin. Non-browser clients (no Origin: curl, the pocol-site
+    // client, the test harness) are unaffected, as is the extension (its Host is the loopback address).
+    if site && !host_ok(&host){return respond(&mut s,403,"{}")}
     if len>REQ_BUF.saturating_sub(head_end){
         // Closing with unread input makes the kernel reset the connection, which can discard the
         // 413 before the client reads it: shut down the write side and drain at most REQ_BUF more
@@ -724,11 +731,30 @@ fn reserve_heavy(c:&Arc<AtomicUsize>,max:usize,until:Instant)->Option<Held>{
     }
 }
 /// A request connection's small answer, then `linger`.
+fn http_reason(code:u16)->&'static str{match code{200=>"OK",204=>"No Content",403=>"Forbidden",405=>"Method Not Allowed",413=>"Payload Too Large",431=>"Request Header Fields Too Large",503=>"Service Unavailable",_=>"Error"}}
+/// F13: the response header carries NO `Access-Control-Allow-Origin` (it used to be `*`). With no CORS
+/// grant a web page from another origin cannot read a loopback-RPC answer — which exposed the peer IP
+/// list, the node name and the miner address — nor a JSON-body (preflighted) POST at all. The extension
+/// reaches the node over its own privileged channel (host permission, not page CORS), so it is
+/// unaffected; a local non-browser client never needed CORS. `host_ok` adds the DNS-rebinding guard.
+fn http_head(code:u16,content_len:usize)->String{
+    format!("HTTP/1.1 {code} {}\r\nContent-Type: application/json\r\nContent-Length: {content_len}\r\nConnection: close\r\n\r\n",http_reason(code))
+}
+/// F13: accept only a loopback-literal or `localhost` Host (any IP literal is fine too). A DNS *name*
+/// other than localhost means the request reached us through a rebound hostname (the attacker's page
+/// origin now resolves to 127.0.0.1); the browser then treats it as same-origin and CORS cannot help,
+/// so we refuse it here. An absent Host (non-browser clients) is allowed.
+fn host_ok(host:&str)->bool{
+    let h=host.trim();
+    if h.is_empty(){return true}
+    let name=if let Some(rest)=h.strip_prefix('['){rest.split(']').next().unwrap_or("")}
+        else{match h.rsplit_once(':'){Some((a,p)) if !p.is_empty()&&p.chars().all(|c|c.is_ascii_digit())=>a,_=>h}};
+    name.eq_ignore_ascii_case("localhost")||name.parse::<std::net::IpAddr>().is_ok()
+}
 fn respond(s:&mut TcpStream,code:u16,body:&str)->std::io::Result<()>{write_reply(s,code,body)?;linger(s);Ok(())}
 fn write_reply(s:&mut TcpStream,code:u16,body:&str)->std::io::Result<()>{
-    let reason=match code{200=>"OK",204=>"No Content",405=>"Method Not Allowed",413=>"Payload Too Large",431=>"Request Header Fields Too Large",503=>"Service Unavailable",_=>"Error"};
     // One write for the header and one for the body (write! would issue a write per piece).
-    let head=format!("HTTP/1.1 {code} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: content-type\r\nConnection: close\r\n\r\n",body.len());
+    let head=http_head(code,body.len());
     s.write_all(head.as_bytes())?;s.write_all(body.as_bytes())?;s.flush()
 }
 
@@ -1171,6 +1197,23 @@ fn logs_from(n:&Node,m:&str,f:&Value)->Option<u64>{
 
 #[cfg(test)]
 mod tests{
+    // F13: a loopback-RPC answer must never carry a CORS grant a cross-origin page could use, and a
+    // rebound DNS Host must be refused. Encodes the FIXED behavior (fails on the original `*` header /
+    // absent Host check). Pure-function checks, no socket needed.
+    #[test] fn f13_no_cors_wildcard_in_any_response_header(){
+        for code in [200u16,204,403,405,413,431,503]{
+            let h=super::http_head(code,7).to_ascii_lowercase();
+            assert!(!h.contains("access-control-allow-origin"),"response {code} must carry no ACAO header: {h:?}");
+        }
+    }
+    #[test] fn f13_host_check_blocks_dns_rebinding(){
+        for good in ["127.0.0.1","127.0.0.1:8545","localhost","localhost:8545","[::1]","[::1]:8545","10.0.0.2:8545",""]{
+            assert!(super::host_ok(good),"loopback/IP/localhost/absent Host must be accepted: {good:?}");
+        }
+        for bad in ["evil.com","evil.com:8545","rebind.attacker.example","a.127.0.0.1.nip.io","node.local"]{
+            assert!(!super::host_ok(bad),"a DNS-name Host (rebinding) must be refused: {bad:?}");
+        }
+    }
     /// Review 3 (RG3V-m1): the class by the table's rows (network.md (B)), from the body probe and from
     /// the parsed member alike: listed methods, the conditional entries by params[1] as their handlers
     /// read it, and heavy for everything else (a probe parse error included).

@@ -15,6 +15,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 
 import node_operator as op
 
@@ -293,12 +294,44 @@ def atomic_public_write(path, content, owner):
     op.sync_dir(path.parent)
 
 
+def snapshot_bundle(bundle):
+    """Copy `bundle` into a fresh root-owned 0700 directory and return it (F10), so every later hash,
+    parse and binary execution reads bytes that an account able to write the original bundle cannot
+    swap mid-flight. Regular files only; `op.files` refuses links/special files, and each source is
+    opened O_NOFOLLOW so a path swapped for a symlink during the copy cannot read outside `bundle`."""
+    staging = Path(tempfile.mkdtemp(prefix='pocol-migrate-'))  # mkdtemp: 0700, owned by this euid
+    for name, source in op.files(bundle).items():
+        target = staging / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            with os.fdopen(descriptor, 'rb') as src, target.open('xb') as dst:
+                shutil.copyfileobj(src, dst)
+        except OSError as error:
+            raise ValueError('Cannot snapshot bundle file ' + name + ': ' + str(error))
+        os.chmod(target, 0o700 if name.startswith('bin/') else 0o600)
+    return staging
+
+
 def migrate_binding(old_bundle, new_bundle, data, expected_new):
     """Migrate only the release marker under both stopped-node locks; resumable."""
-    old, new, activation = verify_transition(old_bundle, new_bundle, expected_new)
-    actual_build = json.loads(subprocess.check_output([str(new_bundle / 'bin/pocold'), 'build-info'],
+    # F10: verify and run only from private, root-owned 0700 snapshots of the seed bundles, so an
+    # account that can write the bundle directories cannot swap bin/pocold — or any file whose hash we
+    # already checked — between hashing/parsing and a later parse or execution. The state-directory
+    # separation below is still checked against the ORIGINAL bundle paths the operator passed.
+    old_snap, new_snap = snapshot_bundle(old_bundle), snapshot_bundle(new_bundle)
+    try:
+        return _migrate_locked(old_bundle, new_bundle, old_snap, new_snap, data, expected_new)
+    finally:
+        shutil.rmtree(old_snap, ignore_errors=True)
+        shutil.rmtree(new_snap, ignore_errors=True)
+
+
+def _migrate_locked(old_bundle, new_bundle, old_snap, new_snap, data, expected_new):
+    old, new, activation = verify_transition(old_snap, new_snap, expected_new)
+    actual_build = json.loads(subprocess.check_output([str(new_snap / 'bin/pocold'), 'build-info'],
                                                      text=True, timeout=10))
-    require(actual_build == op.read_json(new_bundle / 'build-info.json'),
+    require(actual_build == op.read_json(new_snap / 'build-info.json'),
             'New binary and bundle build identity differ')
     require(data.is_dir() and not data.is_symlink(), 'Use the existing real state directory')
     require(not data.resolve().is_relative_to(old_bundle.resolve())
@@ -307,12 +340,12 @@ def migrate_binding(old_bundle, new_bundle, data, expected_new):
     marker = data / 'network-binding.json'
     metadata = regular(marker)
     owner = (metadata.st_uid, metadata.st_gid)
-    old_info = op.read_json(old_bundle / 'net/devnet.json')
+    old_info = op.read_json(old_snap / 'net/devnet.json')
     with op.locked(data):
         current = op.read_json(marker)
         before, after = old['identity'], new['identity']
         intent = {'schema': 'pocol-full-nonce-seed-upgrade-v1',
-                  'oldManifestSha256': op.digest(old_bundle / 'manifest.json'),
+                  'oldManifestSha256': op.digest(old_snap / 'manifest.json'),
                   'newManifestSha256': expected_new, 'before': before, 'after': after,
                   'activationHeight': str(activation)}
         intent_path = data / INTENT

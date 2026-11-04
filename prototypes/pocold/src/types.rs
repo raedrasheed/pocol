@@ -61,7 +61,13 @@ pub fn blank_header()->Header{
         nonce:0,shares:vec![],winner_sig:[0;65],ut_raw:vec![],share_list_raw:vec![],encoded:vec![]}
 }
 pub fn hex(b:&[u8])->String{let mut s=String::from("0x");for x in b{s.push_str(&format!("{x:02x}"))}s}
-pub fn unhex(s:&str)->Result<Vec<u8>,String>{let s=s.strip_prefix("0x").unwrap_or(s);if s.len()%2!=0{return Err("odd hex".into())}
+pub fn unhex(s:&str)->Result<Vec<u8>,String>{let s=s.strip_prefix("0x").unwrap_or(s);
+    // F4: a non-ASCII char can begin at an even byte index (e.g. "00\u{20AC}0" -> bytes 30 30 E2 82 AC
+    // 30, even length), and byte-slicing s[i..i+2] would cut mid-character and panic ("byte index is
+    // not a char boundary"). Reject non-ASCII up front so the decoder returns a clear Err instead of
+    // aborting the boot/invitation/RPC path. Valid hex (all ASCII) decodes exactly as before.
+    if !s.is_ascii(){return Err("non-ascii hex".into())}
+    if s.len()%2!=0{return Err("odd hex".into())}
     (0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).map_err(|e|e.to_string())).collect()}
 /// MPT root keyed by RLP(i) (txRoot, evidenceRoot).
 /// Commitment of a received body list, or None when the list cannot be the committed list of any

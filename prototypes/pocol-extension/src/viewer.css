@@ -18,3 +18,4 @@ body { display: flex; flex-direction: column; }
 .btns { display: flex; gap: 8px; justify-content: flex-start; }
 .btns button { padding: 6px 16px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
 #approve { background: var(--ln); color: #fff; border-color: transparent; }
+#approve[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }

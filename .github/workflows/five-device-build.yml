@@ -52,7 +52,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
           rustup toolchain install 1.99.1 --profile minimal
           cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml
-          cargo +1.99.1 test --locked --release --lib --test net --test cli --manifest-path prototypes/pocold/Cargo.toml
+          cargo +1.99.1 test --locked --release --lib --test net --test cli --test cutover --manifest-path prototypes/pocold/Cargo.toml
           python deploy/standalone/test_launcher.py -v
           python deploy/standalone/test_upgrade.py -v
           python deploy/standalone/test_launcher.py --integration

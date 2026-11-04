@@ -86,6 +86,8 @@ pub const MEM_BUDGET:u64=6<<30;
 /// Blocks waiting for their timestamp, buffered templates, equivocation observations,
 /// status rejects and evidence awaiting inclusion (A13 accounting).
 pub const FUTURE_MAX:usize=64;pub const TEMPLATES_MAX:usize=64;pub const SEEN_MAX:usize=4096;pub const REJECTS_MAX:usize=256;pub const EVIDENCE_POOL_MAX:usize=64;
+/// F7: hard cap on the persisted attempt-0 signing record (a backstop beyond the reorg-window prune).
+pub const SIGNED_A0_MAX:usize=4096;
 /// Events waiting for the consensus thread (all sources); senders block when it is full.
 /// D-A13-BUDGET: 256 -> 128 (network.md: queue <= 256); a full queue blocks its senders.
 pub const EVENT_QUEUE:usize=128;
@@ -241,6 +243,14 @@ pub struct Node{
     seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
     seen_wins:HashMap<([u8;32],u64),([u8;32],[u8;65])>,
     pub evidence_pool:Vec<Vec<u8>>,
+    /// F7 double-sign guard. `signed_a0` records, per (parent_hash, height), the template id this node
+    /// has already signed at attempt 0; it is persisted to `signed-a0` in the data dir and fsynced
+    /// BEFORE the template is broadcast. A second, different signed template for the same pair is
+    /// self-equivocation (type 1) that burns the bond, so once a pair is recorded this node never signs
+    /// a different one — on a restart it declines to sign; on a same-process mining-key toggle it
+    /// re-broadcasts the cached template from `signed_a0_mem` (not persisted).
+    signed_a0:HashMap<([u8;32],u64),[u8;32]>,
+    signed_a0_mem:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>)>,
     /// C-1 E4.4: the node store (store mode) and the checkpoint cadence: records between checkpoints (0:
     /// none), the records the last one covers, and the journal's rolling hash (`checkpoint::roll`).
     state_store:Option<Arc<crate::state_store::StateStore>>,ckpt:Ckpt,
@@ -317,6 +327,23 @@ fn retention_rkeep(dir:&std::path::Path,configured:u64)->std::io::Result<u64>{
         std::fs::rename(&tmp,&path)?;if cfg!(unix){std::fs::File::open(dir)?.sync_all()?;}
     }
     Ok(rk)
+}
+
+/// F7: load the attempt-0 signing record from `<dir>/signed-a0` (one line per pair:
+/// `hex(parent) height hex(tid)`). Malformed or missing lines are skipped — an empty map just means
+/// nothing has been signed yet. Only template ids persist (not bodies), so the file stays tiny.
+fn load_signed_a0(dir:&std::path::Path)->HashMap<([u8;32],u64),[u8;32]>{
+    let dec=|s:&str|->Option<[u8;32]>{crate::types::unhex(s).ok().and_then(|v|<[u8;32]>::try_from(v).ok())};
+    let mut m=HashMap::new();
+    if let Ok(text)=std::fs::read_to_string(dir.join("signed-a0")){
+        for line in text.lines(){
+            let mut it=line.split_whitespace();
+            if let (Some(p),Some(h),Some(t))=(it.next(),it.next(),it.next()){
+                if let (Some(ph),Ok(hh),Some(th))=(dec(p),h.parse::<u64>(),dec(t)){m.insert((ph,hh),th);}
+            }
+        }
+    }
+    m
 }
 
 /// C-1 E5: a closing node leaves its entries' versions pinned (`StateStore::close`); the next open releases them.
@@ -526,9 +553,10 @@ impl Node{
         let fwd=tx.clone();crate::threads::spawn("miner-fwd",crate::threads::IO_STACK,move||{for e in miner_rx{if fwd.send(Event::Miner(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
         let head_state=chain::StateHandle::of(chain.head());let (meter,pool_code)=pool_start(chain.head(),&chain.spec);
         let net=net::Net::new(cfg.limits.net.clone());
+        let signed_a0=load_signed_a0(&cfg.dir); // F7: resume the attempt-0 signing record across restarts
         let mut node=Self{cfg,chain,net,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
@@ -977,13 +1005,32 @@ impl Node{
             let ctx=match self.chain.child_ctx(&p,0){Ok(c)=>c,Err(e)=>{self.log(&format!("ctx error {e:?}"));return}};
             let me=self.cfg.miner.as_ref().map(|k|k.address());
             if me==Some(ctx.proposer){
-                let phi=self.capital_phi();
-                if now_s().saturating_add(phi)<ctx.window.lower(){if let Some(pr)=&mut self.prod{pr.mode=Mode::Propose{at_s:ctx.window.lower()-phi};}return;}
-                let txs=self.template_txs(&p);
-                if let Some(t)=self.build_signed_template(&p,txs){
-                    self.stats.signed_templates+=1;
-                    let shell=t.0.encoded.clone();self.broadcast(&Msg::Template{shell,body:t.1.encode()},None);
-                    self.lock(t.0,t.1,false);return;
+                let hk=(p.hash,ctx.height);
+                if self.signed_a0.contains_key(&hk){
+                    // F7: we already signed an attempt-0 template for this (parent,height). A different
+                    // signed template for the same pair is self-equivocation (type 1) and burns our bond,
+                    // so never sign a second. Same process (a mining-key toggle): re-broadcast the cached
+                    // template unchanged. After a restart (body not cached): decline to sign and fall
+                    // through to wait for our own re-gossiped template, or a fallback — never a new sign.
+                    if let Some((hdr,body))=self.signed_a0_mem.get(&hk).cloned(){
+                        if let (Ok(h),Ok(b))=(decode_header(&hdr),Body::decode(&body,self.chain.spec.cp().BODY_MAX as usize)){
+                            self.log(&format!("F7: re-broadcasting the template already signed for h={}",ctx.height));
+                            self.broadcast(&Msg::Template{shell:hdr,body},None);self.lock(h,b,false);return;
+                        }
+                    }
+                    self.log(&format!("F7: already signed h={} before this restart; not signing a second template",ctx.height));
+                }else{
+                    let phi=self.capital_phi();
+                    if now_s().saturating_add(phi)<ctx.window.lower(){if let Some(pr)=&mut self.prod{pr.mode=Mode::Propose{at_s:ctx.window.lower()-phi};}return;}
+                    let txs=self.template_txs(&p);
+                    if let Some(t)=self.build_signed_template(&p,txs){
+                        // Persist the signing record (fsync) BEFORE broadcasting, so a crash can never
+                        // leave us free to sign a different template for this (parent,height).
+                        self.record_signed_a0(p.hash,ctx.height,template_id(&t.0.ut_raw),t.0.encoded.clone(),t.1.encode());
+                        self.stats.signed_templates+=1;
+                        let shell=t.0.encoded.clone();self.broadcast(&Msg::Template{shell,body:t.1.encode()},None);
+                        self.lock(t.0,t.1,false);return;
+                    }
                 }
             }
             let received=self.prod.as_ref().unwrap().received_ms;
@@ -1020,6 +1067,35 @@ impl Node{
             }
         }
         None
+    }
+    /// F7: record that we signed `tid` for (parent,h), persist it durably BEFORE the caller broadcasts,
+    /// and cache the encoded template so a same-process re-attempt re-broadcasts it unchanged. Pruned to
+    /// the reorg window (a pair below it can never become the production parent again) and hard-capped.
+    fn record_signed_a0(&mut self,parent:[u8;32],h:u64,tid:[u8;32],header_enc:Vec<u8>,body_enc:Vec<u8>){
+        self.signed_a0.insert((parent,h),tid);
+        self.signed_a0_mem.insert((parent,h),(header_enc,body_enc));
+        let cutoff=h.saturating_sub(self.chain.r_keep.max(64));
+        self.signed_a0.retain(|(_,hh),_|*hh>=cutoff);
+        self.signed_a0_mem.retain(|(_,hh),_|*hh>=cutoff);
+        while self.signed_a0.len()>SIGNED_A0_MAX{
+            let Some(k)=self.signed_a0.keys().min_by_key(|(_,hh)|*hh).copied() else{break};
+            self.signed_a0.remove(&k);self.signed_a0_mem.remove(&k);
+        }
+        self.persist_signed_a0();
+    }
+    /// F7: atomically rewrite `<dir>/signed-a0` (temp file, fsync, rename, directory fsync), the same
+    /// durability `retention_rkeep` uses. A write error is logged, not fatal: the in-memory guard still
+    /// blocks a second signature this run; only cross-restart protection would be weakened.
+    fn persist_signed_a0(&self){
+        use std::io::Write;
+        let dir=&self.cfg.dir;let path=dir.join("signed-a0");let tmp=dir.join("signed-a0.tmp");
+        let mut body=String::new();
+        for ((p,h),t) in &self.signed_a0{body.push_str(&hex(&p[..]));body.push(' ');body.push_str(&h.to_string());body.push(' ');body.push_str(&hex(&t[..]));body.push('\n');}
+        let r=(||->std::io::Result<()>{
+            {let mut f=std::fs::File::create(&tmp)?;f.write_all(body.as_bytes())?;f.sync_all()?;}
+            std::fs::rename(&tmp,&path)?;if cfg!(unix){std::fs::File::open(dir)?.sync_all()?;}Ok(())
+        })();
+        if let Err(e)=r{self.log(&format!("F7: could not persist the signing record: {e}"));}
     }
     fn lock_fallback(&mut self,p:&Entry,a:u32){
         match self.chain.build_fallback(p,a){
@@ -1289,6 +1365,9 @@ impl Node{
     }
     /// TrieRebuild of a stored block's state through the journal (offloaded bodies read back).
     pub fn rebuild_state(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.ensure_state_with(hash,Some(&Src{journal:&self.journal,history:&self.history}))}
+    /// C-1 S4: restores a slimmed entry's fields in place (header, ParentResult, nonce ranges) from the
+    /// journal and history.redb, for a walk that reads the chain's own entries (the evidence walk).
+    pub fn unslim(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.unslim(hash,&Src{journal:&self.journal,history:&self.history})}
     /// A stored block's committed body (resident or from the journal).
     pub fn body_of(&self,hash:&[u8;32])->Result<Body,Reject>{let e=self.chain.get(hash).ok_or(Reject::UnknownParent)?;self.chain.body_of(e,Some(&self.journal))}
     /// The pending state as a whole state (the layer merged over its base; tests and inspection).
@@ -1353,6 +1432,18 @@ impl Node{
     /// Records a signed template; returns true when it equivocates (evidence type 1 created).
     fn observe_template(&mut self,h:&Header)->bool{
         if h.proposer.len()!=20||h.sig.len()!=65||h.a!=0{return false}
+        // F5/F6: a template counts only if its signer is the DRAWN proposer Draw(parent,0) at the drawn
+        // height. The `proposer` field and the signing key are both chosen by the sender, so a signature
+        // that merely recovers to the named `proposer` proves nothing — any peer could self-sign two
+        // templates for a (parent,h) it picks and forge "equivocation" to force sticky fallback on every
+        // node (F5). Verify the draw exactly as try_lock_signed does, after cheap parent/height filters,
+        // before recording a template or flagging equivocation. Unknown parent / wrong height / any other
+        // signer: ignore (no record, no evidence, no fallback).
+        let parent_height=match self.chain.get(&h.parent_hash){Some(e)=>e.height,None=>return false};
+        if h.h!=parent_height+1{return false}
+        let Some(par)=self.full_entry(&h.parent_hash) else{return false};
+        let Ok(ctx)=self.chain.child_ctx(&par,0) else{return false};
+        if h.proposer[..]!=ctx.proposer[..]{return false}
         let tid=template_id(&h.ut_raw);
         if !matches!(hashes::recover_address(&hashes::sig_msg(&tid),&h.sig),Ok(a) if a[..]==h.proposer[..]){return false}
         let key=(h.parent_hash,h.h);let st=Self::st_bytes(h);
@@ -1422,5 +1513,114 @@ mod relay_tests{
         assert!(p.send(&Msg::Tx{raw:vec![1u8;8]}),"the peer is kept");
         assert_eq!(n.pool.txs.len(),2,"both are pooled");
         drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod f5f6_tests{
+    //! F5/F6: observe_template must treat a template as the drawn proposer's only when its signer IS
+    //! Draw(parent,0). Encodes the FIXED behavior — a throwaway-key peer cannot forge "equivocation"
+    //! to force sticky fallback, and a wrong-height template is ignored — while a real drawn-proposer
+    //! equivocation is still detected. FAILS on the original observe_template (which flagged any
+    //! self-signed pair). Synthetic keys only; no network.
+    use super::*;
+    use pocol_lp4_execution::devnet::{self,DevnetConfig};
+    fn open_node()->(Node,std::path::PathBuf){
+        let c=DevnetConfig::new(777915,1_700_000_000,&["a","b","c"]);
+        let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
+        let dir=std::env::temp_dir().join(format!("pocold-f5f6-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let cfg=Config{dir:dir.clone(),name:"f5f6".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
+        (Node::open(cfg,spec).unwrap(),dir)
+    }
+    /// A self-signed template for (parent,h,a=0) by `key`; `salt` varies ut_raw so two differ.
+    fn selfsigned(parent:[u8;32],h:u64,key:&Key,salt:u8)->Header{
+        let mut hd=crate::types::blank_header();
+        hd.parent_hash=parent;hd.h=h;hd.a=0;hd.ut_raw=vec![salt;8];
+        hd.proposer=key.address().as_slice().to_vec();
+        let tid=template_id(&hd.ut_raw);
+        hd.sig=key.sign_hash(&B256::from(hashes::sig_msg(&tid))).to_vec();
+        hd
+    }
+    #[test] fn observe_template_ignores_non_drawn_proposer(){
+        let (mut n,dir)=open_node();
+        let gh=n.chain.head().hash;assert_eq!(n.chain.head().height,0,"fresh node at genesis");
+        // The real drawn proposer for (genesis,0) and its signing key.
+        let par=n.full_entry(&gh).unwrap();
+        let drawn=n.chain.child_ctx(&par,0).unwrap().proposer;drop(par);
+        let drawn_key=["a","b","c"].into_iter().map(|l|devnet::miner_identity(l).key).find(|k|k.address()==drawn).expect("the draw is a genesis miner");
+        // 1) A throwaway-key peer cannot forge equivocation -> no evidence, no sticky-fallback trigger.
+        let atk=devnet::account_key("zzz-f5-attacker");
+        assert!(!n.observe_template(&selfsigned(gh,1,&atk,1)),"first attacker template ignored");
+        assert!(!n.observe_template(&selfsigned(gh,1,&atk,2)),"FAIL-ON-ORIGINAL: attacker forged equivocation (returned true)");
+        assert!(n.evidence_pool.is_empty(),"FAIL-ON-ORIGINAL: a non-drawn signer produced type-1 evidence");
+        // 2) A template at the wrong height is ignored even from the real proposer.
+        assert!(!n.observe_template(&selfsigned(gh,2,&drawn_key,1)),"wrong height (h!=parent.height+1) ignored");
+        // 3) Positive control: a genuine equivocation by the DRAWN proposer is still detected.
+        assert!(!n.observe_template(&selfsigned(gh,1,&drawn_key,10)),"first genuine template recorded");
+        assert!(n.observe_template(&selfsigned(gh,1,&drawn_key,11)),"a real drawn-proposer equivocation is still flagged");
+        assert_eq!(n.evidence_pool.len(),1,"exactly one type-1 evidence, from the real proposer");
+        eprintln!("F5/F6: attacker self-signed pair ignored (pool stayed empty); real proposer equivocation still detected.");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod f7_tests{
+    //! F7: once this node signs an attempt-0 template for (parent,height) it must never sign a
+    //! DIFFERENT one (self-equivocation, type 1, burns the bond). In-process (a mining-key toggle) it
+    //! re-broadcasts the same template; after a restart (durable record loaded, body not cached) it
+    //! declines to sign. The guard runs before begin_attempt's timing gate, so the test is
+    //! deterministic (T1 is built with an explicit clock, as the consensus tests do). The original node
+    //! has no such guard at all, so on a restart/toggle it would build and broadcast the differing
+    //! template this test constructs as `h2` — the double-sign. Synthetic keys; no network.
+    use super::*;
+    use pocol_lp4_execution::devnet::{self,DevnetConfig};
+    fn miner_node(dir:&std::path::Path)->(Node,Key,[u8;32]){
+        let c=DevnetConfig::new(777917,1_700_000_000,&["a","b","c"]);
+        let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
+        let cfg=Config{dir:dir.to_path_buf(),name:"f7".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
+        let mut n=Node::open(cfg,spec).unwrap();
+        let gh=n.chain.head().hash;
+        let par=n.full_entry(&gh).unwrap();let drawn=n.chain.child_ctx(&par,0).unwrap().proposer;drop(par);
+        // Key is not Clone; re-derive the deterministic devnet key of the drawn miner's label each time.
+        let label=["a","b","c"].into_iter().find(|l|devnet::miner_identity(l).key.address()==drawn).expect("the draw is a genesis miner");
+        n.cfg.miner=Some(devnet::miner_identity(label).key); // this node is the drawn proposer (no restart_production)
+        (n,devnet::miner_identity(label).key,gh)
+    }
+    fn set_prod(n:&mut Node,parent:[u8;32]){
+        n.prod=Some(Production{parent,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms()});
+    }
+    fn locked(n:&Node)->Option<([u8;32],bool)>{match &n.prod{Some(Production{mode:Mode::Locked(l),..})=>Some((l.tid,l.fallback)),_=>None}}
+    fn stop_miner(n:&mut Node){if let Some(p)=n.prod.as_mut(){if let Some(m)=p.miner.take(){m.stop();}}}
+
+    #[test] fn never_signs_a_second_template_for_the_same_parent_height(){
+        let dir=std::env::temp_dir().join(format!("pocold-f7-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);std::fs::create_dir_all(&dir).unwrap();
+        let (mut n,key,gh)=miner_node(&dir);
+        // Sign T1 for (genesis,1) exactly as the node does, and record it (persisted + cached).
+        let par=n.full_entry(&gh).unwrap();let ctx=n.chain.child_ctx(&par,0).unwrap();
+        let (h1,_,_)=n.chain.build_signed(&par,&key,ctx.window.lower(),Body::default(),vec![]).unwrap();
+        let tid1=template_id(&h1.ut_raw);
+        n.record_signed_a0(gh,1,tid1,h1.encoded.clone(),Body::default().encode());
+        assert_eq!(n.signed_a0.get(&(gh,1)),Some(&tid1),"T1 recorded");
+        assert!(dir.join("signed-a0").exists(),"the signing record is persisted durably");
+        // A second template for the SAME (parent,height) is a different template id — this is exactly
+        // the signature the original (guardless) node would build and broadcast on a restart/toggle.
+        let (h2,_,_)=n.chain.build_signed(&par,&key,ctx.window.lower()+1,Body::default(),vec![]).unwrap();
+        assert_ne!(template_id(&h2.ut_raw),tid1,"a re-build for (parent,h) differs from T1 (the original's double-sign)");
+        drop(par);
+        // In-process re-attempt (mining-key toggle): the guard re-broadcasts T1, never a new template.
+        set_prod(&mut n,gh);n.begin_attempt(0);
+        assert_eq!(locked(&n),Some((tid1,false)),"re-attempt re-locked T1 as the signed template, not a new one");
+        assert_eq!(n.signed_a0.len(),1,"still exactly T1 — no second signature");
+        stop_miner(&mut n);drop(n);
+        // Restart: reopen on the same data dir (durable record loads; the cached body is gone).
+        let (mut n2,_k,gh2)=miner_node(&dir);assert_eq!(gh2,gh);
+        assert_eq!(n2.signed_a0.get(&(gh,1)),Some(&tid1),"the signing record survived the restart");
+        set_prod(&mut n2,gh);n2.begin_attempt(0);
+        assert!(locked(&n2).is_none(),"after a restart it declines to sign (waits), never locks a NEW signed template");
+        assert_eq!(n2.signed_a0.len(),1,"no second signature was recorded after the restart");
+        assert_eq!(n2.signed_a0.get(&(gh,1)),Some(&tid1),"still only T1");
+        eprintln!("F7: a recorded (parent,h) is never re-signed — re-broadcast in-process, declined after restart.");
+        stop_miner(&mut n2);drop(n2);let _=std::fs::remove_dir_all(&dir);
     }
 }
