@@ -199,6 +199,14 @@ function pocol_network_cached(callable $loader, ?int $now = null, ?string $direc
             throw new RuntimeException('Summary cache unavailable.');
         }
         if (is_link($directory)) throw new RuntimeException('Summary cache unavailable.');
+        // F16: as F15 — refuse a shared-temp cache directory that is not a real directory with no group or
+        // other access (and, where POSIX is present, owned by this euid), so another local account cannot
+        // pre-create it world-writable and control the cached figures or swap files inside it.
+        $dirInfo = @lstat($directory);
+        if ($dirInfo === false || ($dirInfo['mode'] & 0170000) !== 0040000 || ($dirInfo['mode'] & 0077) !== 0
+            || (function_exists('posix_geteuid') && $dirInfo['uid'] !== posix_geteuid())) {
+            throw new RuntimeException('Summary cache unavailable.');
+        }
         $file = $directory . '/summary.json';
         $cached = pocol_summary_read_cache($file, $clock());
         $failureFile = $directory . '/failure.txt';

@@ -54,10 +54,37 @@ systemd-analyze verify "$bundle/pocol-private.service"
 if ! id -u pocol >/dev/null 2>&1; then
   useradd --system --home-dir /var/lib/pocol-private --shell /usr/sbin/nologin pocol
 fi
+# F9: make the verified staging copy root-owned BEFORE copying anything out of it. Otherwise cp -a
+# carries the uploader's ownership into the world-traversable /opt tree, and in the window before the
+# unit is installed the uploader could rewrite runtime.py or the unit — or hold a write descriptor that
+# survives the later chown. Then re-verify the installed tree against the already-trusted manifest, and
+# install the unit from the verified staging copy rather than re-reading it from /opt.
+chown -R root:root "$bundle"
 install -d -m 0755 /opt/pocol-private
 cp -a -- "$bundle/." /opt/pocol-private/
 chown -R root:root /opt/pocol-private
 chmod -R go-w /opt/pocol-private
-install -m 0644 /opt/pocol-private/pocol-private.service /etc/systemd/system/pocol-private.service
+python3 - "$bundle/manifest.json" /opt/pocol-private <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+manifest = json.loads(Path(sys.argv[1]).read_text())
+root = Path(sys.argv[2])
+entries = list(root.rglob('*'))
+if root.is_symlink() or any(p.is_symlink() for p in entries):
+    raise SystemExit('Symlinks are not allowed in the installed tree')
+if {p.relative_to(root).as_posix() for p in entries if p.is_file()} != set(manifest['sha256']) | {'manifest.json'}:
+    raise SystemExit('Unexpected or missing files in the installed tree')
+for name, expected in manifest['sha256'].items():
+    path = root / name
+    if not path.resolve().is_relative_to(root.resolve()):
+        raise SystemExit('Unsafe manifest path')
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    if digest.hexdigest() != expected:
+        raise SystemExit('Installed-tree checksum mismatch: ' + name)
+PY
+install -m 0644 "$bundle/pocol-private.service" /etc/systemd/system/pocol-private.service
 systemctl daemon-reload
 echo 'Installed; NOT started or enabled. Complete the host preflight in README.md before starting.'

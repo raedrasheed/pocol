@@ -115,6 +115,12 @@ function pocol_reward_cached(callable $loader, ?int $now = null, ?string $direct
     $mask = umask(0077);
     try {
         if (is_link($directory) || (!is_dir($directory) && !@mkdir($directory, 0700) && !is_dir($directory))) pocol_reward_fail();
+        // F15: a cache directory in shared temp may have been pre-created by another local account. Require
+        // a real directory with no group/other access (and, where POSIX is present, owned by this euid), so
+        // no other account can seed a snapshot there or swap a file inside it for a symlink; fail closed.
+        $dirInfo = @lstat($directory);
+        if ($dirInfo === false || ($dirInfo['mode'] & 0170000) !== 0040000 || ($dirInfo['mode'] & 0077) !== 0
+            || (function_exists('posix_geteuid') && $dirInfo['uid'] !== posix_geteuid())) pocol_reward_fail();
         $file = $directory . '/snapshot.json'; $lockFile = $directory . '/refresh.lock'; $failure = $directory . '/failure.txt';
         foreach ([$file,$lockFile,$failure] as $path) if (is_link($path)) pocol_reward_fail();
         $readCache = static function () use ($file, $clock): ?array {
