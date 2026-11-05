@@ -1,0 +1,14 @@
+{
+  "before": {
+    "solc": "0.8.28+commit.7893614a.Emscripten.clang",
+    "tmp": "0.0.33",
+    "tmp_entry": "/workspace/pocol-dependency-followup-review-2026-11-05-f0g5mxs7/compiler-before/node_modules/tmp/lib/tmp.js",
+    "soljson_sha256": "9ef37cc1d2597ed6d2f706a960f449e33eb9eee920936cea77b11e6f43861970"
+  },
+  "after": {
+    "solc": "0.8.28+commit.7893614a.Emscripten.clang",
+    "tmp": "0.2.7",
+    "tmp_entry": "/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/node_modules/tmp/lib/tmp.js",
+    "soljson_sha256": "9ef37cc1d2597ed6d2f706a960f449e33eb9eee920936cea77b11e6f43861970"
+  }
+}

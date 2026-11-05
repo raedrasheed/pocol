@@ -1,0 +1,185 @@
+crypto-bigint v0.5.5
+├── crypto-bigint feature "generic-array"
+│   └── elliptic-curve v0.13.8
+│       ├── elliptic-curve feature "alloc"
+│       │   ├── k256 feature "alloc"
+│       │   │   └── k256 feature "std"
+│       │   │       ├── k256 feature "default"
+│       │   │       │   ├── pocol-lp4-execution v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution)
+│       │   │       │   │   ├── pocol-lp4-execution feature "default"
+│       │   │       │   │   │   └── pocold v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/pocold)
+│       │   │       │   │   │       └── pocold feature "default" (command-line)
+│       │   │       │   │   │   [dev-dependencies]
+│       │   │       │   │   │   └── pocold v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/pocold) (*)
+│       │   │       │   │   └── pocol-lp4-execution feature "root-check"
+│       │   │       │   │       [dev-dependencies]
+│       │   │       │   │       └── pocold v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/pocold) (*)
+│       │   │       │   └── pocold v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/pocold) (*)
+│       │   │       ├── alloy-primitives feature "std"
+│       │   │       │   ├── revm-primitives feature "std"
+│       │   │       │   │   ├── revm-interpreter feature "std"
+│       │   │       │   │   │   └── revm feature "std"
+│       │   │       │   │   │       └── revm feature "default"
+│       │   │       │   │   │           ├── pocol-lp4-execution v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution) (*)
+│       │   │       │   │   │           └── pocold v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/pocold) (*)
+│       │   │       │   │   └── revm-precompile feature "std"
+│       │   │       │   │       └── revm feature "std" (*)
+│       │   │       │   ├── alloy-eip2930 feature "std"
+│       │   │       │   │   └── revm-primitives feature "std" (*)
+│       │   │       │   └── alloy-eip7702 feature "std"
+│       │   │       │       └── revm-primitives feature "std" (*)
+│       │   │       └── revm-precompile feature "std" (*)
+│       │   ├── ecdsa feature "alloc"
+│       │   │   ├── k256 feature "alloc" (*)
+│       │   │   └── ecdsa feature "std"
+│       │   │       └── k256 feature "std" (*)
+│       │   └── elliptic-curve feature "std"
+│       │       ├── k256 feature "std" (*)
+│       │       └── ecdsa feature "std" (*)
+│       ├── elliptic-curve feature "arithmetic"
+│       │   ├── k256 feature "arithmetic"
+│       │   │   ├── k256 feature "default" (*)
+│       │   │   ├── k256 feature "ecdsa"
+│       │   │   │   ├── alloy-eip7702 v0.5.1
+│       │   │   │   │   ├── alloy-eip7702 feature "k256"
+│       │   │   │   │   │   └── revm-primitives v15.2.0
+│       │   │   │   │   │       ├── revm-interpreter v15.2.0
+│       │   │   │   │   │       │   └── revm v19.7.0
+│       │   │   │   │   │       │       ├── revm feature "blst"
+│       │   │   │   │   │       │       │   └── revm feature "default" (*)
+│       │   │   │   │   │       │       ├── revm feature "c-kzg"
+│       │   │   │   │   │       │       │   └── revm feature "default" (*)
+│       │   │   │   │   │       │       ├── revm feature "default" (*)
+│       │   │   │   │   │       │       ├── revm feature "portable"
+│       │   │   │   │   │       │       │   └── revm feature "default" (*)
+│       │   │   │   │   │       │       ├── revm feature "secp256k1"
+│       │   │   │   │   │       │       │   └── revm feature "default" (*)
+│       │   │   │   │   │       │       ├── revm feature "serde"
+│       │   │   │   │   │       │       │   ├── pocol-lp4-execution v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution) (*)
+│       │   │   │   │   │       │       │   └── pocold v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/pocold) (*)
+│       │   │   │   │   │       │       └── revm feature "std" (*)
+│       │   │   │   │   │       │   ├── revm-interpreter feature "portable"
+│       │   │   │   │   │       │   │   └── revm feature "portable" (*)
+│       │   │   │   │   │       │   ├── revm-interpreter feature "serde"
+│       │   │   │   │   │       │   │   └── revm feature "serde" (*)
+│       │   │   │   │   │       │   └── revm-interpreter feature "std" (*)
+│       │   │   │   │   │       └── revm-precompile v16.2.0
+│       │   │   │   │   │           └── revm v19.7.0 (*)
+│       │   │   │   │   │           ├── revm-precompile feature "blst"
+│       │   │   │   │   │           │   └── revm feature "blst" (*)
+│       │   │   │   │   │           ├── revm-precompile feature "c-kzg"
+│       │   │   │   │   │           │   └── revm feature "c-kzg" (*)
+│       │   │   │   │   │           ├── revm-precompile feature "portable"
+│       │   │   │   │   │           │   └── revm feature "portable" (*)
+│       │   │   │   │   │           ├── revm-precompile feature "secp256k1"
+│       │   │   │   │   │           │   └── revm feature "secp256k1" (*)
+│       │   │   │   │   │           └── revm-precompile feature "std" (*)
+│       │   │   │   │   │       ├── revm-primitives feature "c-kzg"
+│       │   │   │   │   │       │   └── revm-precompile feature "c-kzg" (*)
+│       │   │   │   │   │       ├── revm-primitives feature "portable"
+│       │   │   │   │   │       │   ├── revm-interpreter feature "portable" (*)
+│       │   │   │   │   │       │   └── revm-precompile feature "portable" (*)
+│       │   │   │   │   │       ├── revm-primitives feature "serde"
+│       │   │   │   │   │       │   └── revm-interpreter feature "serde" (*)
+│       │   │   │   │   │       └── revm-primitives feature "std" (*)
+│       │   │   │   │   ├── alloy-eip7702 feature "serde"
+│       │   │   │   │   │   └── revm-primitives feature "serde" (*)
+│       │   │   │   │   └── alloy-eip7702 feature "std" (*)
+│       │   │   │   ├── alloy-primitives v0.8.26
+│       │   │   │   │   ├── alloy-primitives feature "k256"
+│       │   │   │   │   │   └── alloy-eip7702 feature "k256" (*)
+│       │   │   │   │   ├── alloy-primitives feature "map"
+│       │   │   │   │   │   └── revm-primitives v15.2.0 (*)
+│       │   │   │   │   ├── alloy-primitives feature "rlp"
+│       │   │   │   │   │   ├── alloy-eip2930 v0.1.0
+│       │   │   │   │   │   │   └── revm-primitives v15.2.0 (*)
+│       │   │   │   │   │   │   ├── alloy-eip2930 feature "serde"
+│       │   │   │   │   │   │   │   └── revm-primitives feature "serde" (*)
+│       │   │   │   │   │   │   └── alloy-eip2930 feature "std" (*)
+│       │   │   │   │   │   ├── alloy-eip7702 v0.5.1 (*)
+│       │   │   │   │   │   └── revm-primitives v15.2.0 (*)
+│       │   │   │   │   ├── alloy-primitives feature "serde"
+│       │   │   │   │   │   ├── revm-primitives feature "serde" (*)
+│       │   │   │   │   │   ├── alloy-eip2930 feature "serde" (*)
+│       │   │   │   │   │   └── alloy-eip7702 feature "serde" (*)
+│       │   │   │   │   └── alloy-primitives feature "std" (*)
+│       │   │   │   ├── pocol-lp4-execution v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution) (*)
+│       │   │   │   ├── pocold v0.1.0 (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/pocold) (*)
+│       │   │   │   └── revm-precompile v16.2.0 (*)
+│       │   │   │   └── k256 feature "default" (*)
+│       │   │   ├── k256 feature "precomputed-tables"
+│       │   │   │   └── k256 feature "default" (*)
+│       │   │   └── k256 feature "schnorr"
+│       │   │       └── k256 feature "default" (*)
+│       │   └── ecdsa feature "arithmetic"
+│       │       ├── ecdsa feature "signing"
+│       │       │   └── k256 feature "ecdsa" (*)
+│       │       └── ecdsa feature "verifying"
+│       │           └── k256 feature "ecdsa" (*)
+│       ├── elliptic-curve feature "digest"
+│       │   └── ecdsa v0.16.9
+│       │       ├── ecdsa feature "alloc" (*)
+│       │       ├── ecdsa feature "arithmetic" (*)
+│       │       ├── ecdsa feature "der"
+│       │       │   └── k256 v0.13.4
+│       │       │       ├── k256 feature "alloc" (*)
+│       │       │       ├── k256 feature "arithmetic" (*)
+│       │       │       ├── k256 feature "default" (*)
+│       │       │       ├── k256 feature "digest"
+│       │       │       │   └── k256 feature "sha256"
+│       │       │       │       ├── k256 feature "ecdsa" (*)
+│       │       │       │       └── k256 feature "schnorr" (*)
+│       │       │       ├── k256 feature "ecdsa" (*)
+│       │       │       ├── k256 feature "ecdsa-core"
+│       │       │       │   ├── k256 feature "digest" (*)
+│       │       │       │   ├── k256 feature "ecdsa" (*)
+│       │       │       │   └── k256 feature "pkcs8"
+│       │       │       │       └── k256 feature "default" (*)
+│       │       │       ├── k256 feature "once_cell"
+│       │       │       │   └── k256 feature "precomputed-tables" (*)
+│       │       │       ├── k256 feature "pkcs8" (*)
+│       │       │       ├── k256 feature "precomputed-tables" (*)
+│       │       │       ├── k256 feature "schnorr" (*)
+│       │       │       ├── k256 feature "sha2"
+│       │       │       │   └── k256 feature "sha256" (*)
+│       │       │       ├── k256 feature "sha256" (*)
+│       │       │       ├── k256 feature "signature"
+│       │       │       │   └── k256 feature "schnorr" (*)
+│       │       │       └── k256 feature "std" (*)
+│       │       │   └── ecdsa feature "pkcs8"
+│       │       │       └── k256 feature "pkcs8" (*)
+│       │       ├── ecdsa feature "digest"
+│       │       │   ├── k256 feature "digest" (*)
+│       │       │   ├── ecdsa feature "pkcs8" (*)
+│       │       │   ├── ecdsa feature "signing" (*)
+│       │       │   └── ecdsa feature "verifying" (*)
+│       │       ├── ecdsa feature "hazmat"
+│       │       │   ├── k256 feature "digest" (*)
+│       │       │   ├── ecdsa feature "signing" (*)
+│       │       │   └── ecdsa feature "verifying" (*)
+│       │       ├── ecdsa feature "pkcs8" (*)
+│       │       ├── ecdsa feature "rfc6979"
+│       │       │   └── ecdsa feature "signing" (*)
+│       │       ├── ecdsa feature "signing" (*)
+│       │       ├── ecdsa feature "spki"
+│       │       │   └── ecdsa feature "alloc" (*)
+│       │       ├── ecdsa feature "std" (*)
+│       │       └── ecdsa feature "verifying" (*)
+│       ├── elliptic-curve feature "ff"
+│       │   └── elliptic-curve feature "group"
+│       │       └── elliptic-curve feature "arithmetic" (*)
+│       ├── elliptic-curve feature "group" (*)
+│       ├── elliptic-curve feature "hazmat"
+│       │   └── k256 v0.13.4 (*)
+│       ├── elliptic-curve feature "pkcs8"
+│       │   ├── k256 feature "pkcs8" (*)
+│       │   └── ecdsa feature "pkcs8" (*)
+│       ├── elliptic-curve feature "sec1"
+│       │   ├── ecdsa v0.16.9 (*)
+│       │   └── k256 v0.13.4 (*)
+│       │   └── elliptic-curve feature "pkcs8" (*)
+│       └── elliptic-curve feature "std" (*)
+├── crypto-bigint feature "rand_core"
+│   └── elliptic-curve v0.13.8 (*)
+└── crypto-bigint feature "zeroize"
+    └── elliptic-curve v0.13.8 (*)

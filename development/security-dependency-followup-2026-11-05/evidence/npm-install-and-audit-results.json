@@ -1,0 +1,34 @@
+[
+  {
+    "phase": "npm-ci-before",
+    "exit": 0,
+    "seconds": 0.45
+  },
+  {
+    "phase": "npm-ci-after",
+    "exit": 0,
+    "seconds": 0.31
+  },
+  {
+    "phase": "npm-audit-after",
+    "exit": 0,
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "dependencies": {
+        "prod": 9,
+        "dev": 0,
+        "optional": 0,
+        "peer": 0,
+        "peerOptional": 0,
+        "total": 8
+      }
+    }
+  }
+]

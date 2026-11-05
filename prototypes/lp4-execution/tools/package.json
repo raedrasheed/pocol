@@ -1,5 +1,10 @@
 {
   "dependencies": {
     "solc": "0.8.28"
+  },
+  "overrides": {
+    "solc": {
+      "tmp": "0.2.7"
+    }
   }
 }

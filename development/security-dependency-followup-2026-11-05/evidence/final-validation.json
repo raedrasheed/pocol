@@ -1,0 +1,14 @@
+{
+  "node_test_syntax": "passed",
+  "comparison_helper_ast": "passed",
+  "documentation_relative_links": "passed",
+  "staged_source_documentation_whitespace": "passed",
+  "full_staged_whitespace": {
+    "exit": 0,
+    "raw_log_files_with_original_whitespace": []
+  },
+  "tested_input_hashes_verified": 29,
+  "evidence_hashes_verified": 20,
+  "compiler_13_outputs_match_before_and_prior_accepted_hashes": true,
+  "rust_build_source_manifest_unchanged": true
+}
