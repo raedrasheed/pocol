@@ -1,0 +1,10 @@
+test_bad_digest_is_refused_before_extraction (__main__.self_test.<locals>.Validation.test_bad_digest_is_refused_before_extraction) ... ok
+test_full_collection_and_independent_permission_failure (__main__.self_test.<locals>.Validation.test_full_collection_and_independent_permission_failure) ... ok
+test_traversal_absolute_windows_and_symlink_are_refused (__main__.self_test.<locals>.Validation.test_traversal_absolute_windows_and_symlink_are_refused) ... ok
+test_valid_archive_preserves_json (__main__.self_test.<locals>.Validation.test_valid_archive_preserves_json) ... ok
+test_wrong_run_expiry_and_changed_digest_are_refused (__main__.self_test.<locals>.Validation.test_wrong_run_expiry_and_changed_digest_are_refused) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.016s
+
+OK

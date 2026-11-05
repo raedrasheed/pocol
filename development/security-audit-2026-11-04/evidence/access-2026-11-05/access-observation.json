@@ -1,0 +1,99 @@
+{
+  "observed_at_utc": "2026-11-05T03:27:48.014301+00:00",
+  "client_date": "2026-11-05",
+  "client_timezone": "Asia/Hebron",
+  "runtime_api_allowed": false,
+  "runtime_policy_enforced": true,
+  "draft_api_allowed": true,
+  "draft_revision": 5,
+  "gh_token_present_value_not_read": true,
+  "git_authenticated_operation": "ls-remote succeeded",
+  "api_result": "Forbidden",
+  "artifacts": [
+    {
+      "run": 41875907642,
+      "artifact": 13345977967,
+      "name": "OSV Scanner SARIF file",
+      "display_size": "16.1 KB",
+      "digest": "sha256:3dc96f2ff2d8b883d01249f64a57466f82c0ad7e844fb2a738eae8c0b9fdb300"
+    },
+    {
+      "run": 41889848835,
+      "artifact": 13351764891,
+      "name": "semgrep-pocol-findings",
+      "display_size": "28.8 KB",
+      "digest": "sha256:e165aa022f4540335499beead40fd02d6b0a0966fdc20073d6ef0a0924972fa0"
+    }
+  ],
+  "web_probes": [
+    {
+      "request": "osv-run",
+      "http_status": 200,
+      "artifact_text": "Artifacts Produced during runtime Name Size Digest OSV Scanner SARIF file 16.1 KB sha256:3dc96f2ff2d8b883d01249f64a57466f82c0ad7e844fb2a738eae8c0b9fdb300 You can’t perform that action at this time.\n",
+      "requires_sign_in_for_logs": true
+    },
+    {
+      "request": "semgrep-run",
+      "http_status": 200,
+      "artifact_text": "Artifacts Produced during runtime Name Size Digest semgrep-pocol-findings 28.8 KB sha256:e165aa022f4540335499beead40fd02d6b0a0966fdc20073d6ef0a0924972fa0 You can’t perform that action at this time.\n",
+      "requires_sign_in_for_logs": true
+    },
+    {
+      "request": "osv-download",
+      "http_status": 404
+    },
+    {
+      "request": "semgrep-download",
+      "http_status": 404
+    },
+    {
+      "request": "osv-job",
+      "http_status": 200,
+      "requires_sign_in_for_logs": true
+    },
+    {
+      "request": "semgrep-job",
+      "http_status": 200,
+      "requires_sign_in_for_logs": true
+    },
+    {
+      "request": "codeql-alert-7",
+      "http_status": 404,
+      "requires_sign_in_for_logs": false
+    },
+    {
+      "request": "pr24-checks",
+      "http_status": 200,
+      "requires_sign_in_for_logs": false,
+      "mentions_codeql": true,
+      "check_summary_tail": " and what’s next for GitHub. Pricing Search / Sign in Sign up Appearance settings You signed in with another tab or window. Reload to refresh your session. You signed out in another tab or window. Reload to refresh your session. You switched accounts on another tab or window. Reload to refresh your session. Dismiss alert {{ message }} palcertcom pocol Repository navigation Code Issues Pull requests 6 ( 6 ) Actions Projects Security and quality Insights More items Security: enforce TLS 1.2 minimum in Studio gateway HTTPS probe - # 24 # 24 Draft palcertcom wants to merge 2 commits into main palcertcom/pocol:main from security/tls-minimum-studio-gateway palcertcom/pocol:security/tls-minimum-studio-gateway Copy head branch name to clipboard Conversation Commits 2 ( 2 ) Checks Files changed Draft Security: enforce TLS 1.2 minimum in Studio gateway HTTPS probe # 24 palcertcom wants to merge 2 commits into main palcertcom/pocol:main from security/tls-minimum-studio-gateway palcertcom/pocol:security/tls-minimum-studio-gateway Copy head branch name to clipboard build(studio): regenerate checksum-verified installer for TLS policy c690f99 Select commit Loading Failed to load commit list. Uh oh! There was an error while loading. Please reload this page . CodeQL on: dynamic 8 Analyze (actions) Analyze (c-cpp) Analyze (csharp) Analyze (go) Analyze (java-kotlin) Analyze (javascript-typescript) Analyze (python) Analyze (rust) Full nonce consensus upgrade on: pull_request consensus (ubuntu-24.04) consensus (windows-2022) browser Code scanning results CodeQL Select a check to view from the sidebar Footer © 2026 GitHub, Inc. Footer navigation Terms Privacy Security Status Community Docs Contact Manage cookies Do not share my personal information You can’t perform that action at this time."
+    },
+    {
+      "request": "code-scanning-index",
+      "http_status": 404,
+      "requires_sign_in_for_logs": false
+    },
+    {
+      "request": "main-checks",
+      "url": "https://github.com/palcertcom/pocol/commit/0dda5056d2a78b2e135defb803df480e80422f8f/checks",
+      "http_status": 200,
+      "requires_sign_in_for_full_logs": true,
+      "codeql_jobs_listed": 8,
+      "main_alert_7_state_verified": false
+    }
+  ],
+  "original_artifact_content_downloaded": false,
+  "codeql_api_data_downloaded": false,
+  "network_or_auth_policy_changed": false,
+  "codeql_pr24_public_summary": {
+    "url": "https://github.com/palcertcom/pocol/pull/24/checks?check_run_id=126713798690",
+    "http_status": 200,
+    "check_run_id": 126713798690,
+    "pr_head_displayed": "c690f99",
+    "pr_state_displayed": "Draft",
+    "summary": "GitHub Advanced Security / CodeQL succeeded Nov 4, 2026 in 4s; No new alerts in code changed by this pull request",
+    "alert_7_main_state_verified": false,
+    "sarif_downloaded": false
+  },
+  "helper_sha256": "fa0a9601fd960ceb16c6d525bc86b98beb40592753aec9030855c4f8893c1e5d"
+}
