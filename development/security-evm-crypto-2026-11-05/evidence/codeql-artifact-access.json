@@ -1,0 +1,23 @@
+{
+  "run": 42125261816,
+  "head": "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+  "jobs": {
+    "csharp": "success",
+    "go": "success"
+  },
+  "artifacts": [
+    {
+      "id": 13460776642,
+      "language": "csharp",
+      "bytes": 41720
+    },
+    {
+      "id": 13461131017,
+      "language": "go",
+      "bytes": 43497
+    }
+  ],
+  "download": "Forbidden at productionresultssa16.blob.core.windows.net under current network policy",
+  "retried_or_policy_bypassed": false,
+  "raw_sarif_or_quality_verified": false
+}

@@ -92,3 +92,26 @@ These are 13 mocked API tests and perform no real alert writes. The separate
 extraction and preserves quality diagnostics with SARIF upload disabled. Existing
 default setup remains authoritative until an owner-managed, all-language
 configuration transition has actually been verified.
+
+## New PR29 gate: 11 separately reviewed findings
+
+Use the separate [source review](CODEQL-PR29-REVIEW-AR.md) and helper for these
+new locations. The historical 197-alert batch does not include them.
+
+```text
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply.json
+```
+
+The operator needs normal code-scanning permission. The helper discovers server
+IDs by exact reviewed PR/rule/location matches, validates every open ref against
+the complete source hash, and stops if main or the PR changes during the batch.
+Missing or ambiguous matches stop before writes. It leaves the failed CheckRun
+unchanged; verify GitHub's subsequent gate result before merging.
+
+```bash
+python3 -m unittest discover \
+  -s development/security-evm-crypto-2026-11-05 -p 'test_apply*codeql.py' -v
+```
+
+This runs 27 mocked tests (13 historical-batch and 14 PR29), with no real writes.
