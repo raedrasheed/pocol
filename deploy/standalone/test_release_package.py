@@ -31,6 +31,9 @@ class ReleasePackageTests(unittest.TestCase):
             (self.script.parent / name).write_text('public fixture\n', encoding='utf-8')
         for name in ('network.pocol.json', 'wallet.key', 'debug.keystore'):
             (self.root / name).write_bytes(b'EXCLUDED FIXTURE')
+        notice = self.root / 'prototypes/third-party/evm-crypto/NOTICE.txt'
+        notice.parent.mkdir(parents=True)
+        notice.write_bytes(b'public crypto license fixture\n')
 
     def fixture(self, path):
         file = self.root / path
@@ -54,6 +57,8 @@ class ReleasePackageTests(unittest.TestCase):
         return out
 
     def metadata(self, folder):
+        self.assertEqual((folder / 'THIRD-PARTY-CRYPTO-NOTICES.txt').read_bytes(),
+                         b'public crypto license fixture\n')
         release = json.loads((folder / 'release-info.json').read_text(encoding='utf-8'))
         self.assertEqual(release['compatibilitySha256'], self.build['compatibilitySha256'])
         self.assertEqual(release['sourceCommit'], self.commit)
@@ -78,7 +83,8 @@ class ReleasePackageTests(unittest.TestCase):
         release = self.metadata(out)
         self.assertEqual({p.name for p in out.iterdir()}, {
             'PoCol-Mainnet-0.4.0-arm64-unsigned.apk', 'README.md', 'RELEASE-UPGRADE.md',
-            'build-info.json', 'release-info.json', 'source-commit.txt', 'SHA256SUMS'})
+            'build-info.json', 'release-info.json', 'source-commit.txt', 'SHA256SUMS',
+            'THIRD-PARTY-CRYPTO-NOTICES.txt'})
         self.assertFalse(release['installable'])
         self.assertEqual(release['applicationId'], 'org.pocol.node')
         self.assertEqual(release['versionCode'], 5)

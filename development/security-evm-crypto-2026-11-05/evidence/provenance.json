@@ -1,0 +1,32 @@
+{
+  "review_date": "2026-11-05",
+  "timezone": "Asia/Hebron",
+  "base_commit": "d2c92a7dd1b88d65a636240ba10f948cd92fc419",
+  "branch": "security/evm-crypto-2026-11-05",
+  "user_authorization": "اعتمد واكمل العمل",
+  "private_and_public_crypto": "k256 0.14.0 / elliptic-curve 0.14.3 / crypto-bigint 0.7.10 / ctutils 0.4.8",
+  "engine": "revm 19.7.0",
+  "local_compatibility_patches": 3,
+  "modified_upstream_files": 6,
+  "added_upstream_license_files": 4,
+  "rust_application_passed": 545,
+  "rust_application_ignored": 31,
+  "rust_application_count_note": "225 execution + 319 node + 1 subsequent numeric-edge test containing 4 controls",
+  "independent_signing_oracle_pairs": 57400,
+  "historical_legacy_signature_vectors": 56,
+  "differential_public_verification_cases": 56376,
+  "differential_cancun_execution_cases": 4096,
+  "precompile_gas_points_per_signature": 5,
+  "upstream_and_patched_library_tests": {
+    "passed": 137,
+    "failed": 3,
+    "same_preexisting_failure_ids": true
+  },
+  "default_codeql_setup_access": "403 Resource not accessible by integration",
+  "codeql_diagnostics_workflow": "Prepared, not yet run",
+  "github_alert_writes_executed": false,
+  "published": false,
+  "physical_android_tested": false,
+  "rustsec_database_commit": "26fd2d43f7280a1fb925a3743ec463017afe7119",
+  "source_compatibility_sha256": "116dda56f203c46bb31e84ab3022254160db2ee486e21f209ec1de2df81a9973"
+}

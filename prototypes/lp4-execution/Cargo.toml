@@ -8,10 +8,8 @@ license = "Apache-2.0"
 [dependencies]
 revm = { version = "=19.7.0", features = ["serde"] }
 serde_json = "=1.0.145"
-# Keep public recovery on its accepted backend; never use this version for private keys.
-k256 = { version = "=0.13.4", features = ["ecdsa"] }
-# RUSTSEC-2026-0387: private-key operations need the corrected crypto-bigint stack.
-k256-signer = { package = "k256", version = "=0.14.0", features = ["ecdsa"] }
+# RUSTSEC-2026-0387: signing and public recovery share the corrected stack.
+k256 = { version = "=0.14.0", features = ["ecdsa"] }
 # Security floor: 0.14.3 requires crypto-bigint >=0.7.8, including the timing fixes.
 # The committed locks select the non-yanked 0.7.10 release.
 elliptic-curve = { version = "=0.14.3", default-features = false }
@@ -28,3 +26,9 @@ secp256k1 = { version = "=0.29.1", features = ["recovery"] }
 caps-test = []
 # C-1 E1: compare every incremental state root with the full computation (pocold's tests). Never a default.
 root-check = []
+
+[patch.crates-io]
+# Documented, locally maintained compatibility patches; EVM engine stays 19.7.0.
+alloy-primitives = { path = "../third-party/evm-crypto/alloy-primitives-0.8.26" }
+alloy-eip7702 = { path = "../third-party/evm-crypto/alloy-eip7702-0.5.1" }
+revm-precompile = { path = "../third-party/evm-crypto/revm-precompile-16.2.0" }

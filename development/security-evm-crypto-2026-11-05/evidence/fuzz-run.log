@@ -1,0 +1,250 @@
+info: syncing channel updates for nightly-2026-11-04-x86_64-unknown-linux-gnu
+info: latest update on 2026-11-04 for version 1.101.0-nightly (708c94ef0 2026-11-03)
+info: downloading 3 components
+warn: the missing active toolchain `nightly-2026-11-04-x86_64-unknown-linux-gnu` has been auto-installed
+warn: this might cause rustup commands to take longer time to finish than expected
+info: you may opt out with `RUSTUP_AUTO_INSTALL=0` or `rustup set auto-install disable`
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling typenum v1.20.1
+   Compiling subtle v2.6.1
+   Compiling autocfg v1.5.1
+   Compiling syn v2.0.119
+   Compiling cfg-if v1.0.5
+   Compiling num-traits v0.2.19
+   Compiling rand_core v0.10.1
+   Compiling getrandom v0.4.3
+   Compiling version_check v0.9.5
+   Compiling cmov v0.5.4
+   Compiling ctutils v0.4.8
+   Compiling const-oid v0.10.2
+   Compiling serde_core v1.0.229
+   Compiling syn v3.0.9
+   Compiling find-msvc-tools v0.1.15
+   Compiling shlex v2.0.1
+   Compiling jobserver v0.1.35
+   Compiling cc v1.9.0
+   Compiling cpubits v0.1.1
+   Compiling serde v1.0.229
+   Compiling ff v0.14.0
+   Compiling generic-array v0.14.9
+   Compiling group v0.14.0
+   Compiling base16ct v1.0.0
+   Compiling crunchy v0.2.4
+   Compiling zeroize_derive v1.5.0
+   Compiling unicode-segmentation v1.13.3
+   Compiling cpufeatures v0.2.17
+   Compiling alloy-rlp-derive v0.3.16
+   Compiling convert_case v0.10.0
+   Compiling zeroize v1.9.1
+   Compiling hybrid-array v0.4.15
+   Compiling der v0.8.3
+   Compiling unicode-xid v0.2.6
+   Compiling paste v1.0.15
+   Compiling serde_derive v1.0.229
+   Compiling tiny-keccak v2.0.2
+   Compiling cpufeatures v0.3.1
+   Compiling derive_more-impl v2.1.1
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling digest v0.11.3
+   Compiling crypto-bigint v0.7.10
+   Compiling spki v0.8.1
+   Compiling pkcs8 v0.11.0
+   Compiling sec1 v0.8.1
+   Compiling elliptic-curve v0.14.3
+   Compiling primefield v0.14.0
+   Compiling hmac v0.13.0
+   Compiling rfc6979 v0.6.0
+   Compiling wnaf v0.14.1
+   Compiling bytes v1.12.1
+   Compiling signature v3.0.0
+   Compiling ecdsa v0.17.0
+   Compiling primeorder v0.14.0
+   Compiling alloy-rlp v0.3.16
+   Compiling sha2 v0.11.1
+   Compiling blst v0.3.17
+   Compiling itoa v1.0.18
+   Compiling foldhash v0.1.5
+   Compiling ruint-macro v1.2.1
+   Compiling hashbrown v0.15.5
+   Compiling ruint v1.21.0
+   Compiling k256 v0.14.0
+   Compiling derive_more v2.1.1
+   Compiling const-hex v1.19.3
+   Compiling num-integer v0.1.47
+   Compiling num_cpus v1.17.0
+   Compiling thiserror v2.0.21
+   Compiling radium v0.7.0
+   Compiling threadpool v1.8.1
+   Compiling alloy-primitives v0.8.26+pocol.crypto.1 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/third-party/evm-crypto/alloy-primitives-0.8.26)
+   Compiling thiserror-impl v2.0.21
+   Compiling c-kzg v1.0.3
+   Compiling tap v1.0.1
+   Compiling hex v0.4.3
+   Compiling serde_json v1.0.145
+   Compiling wyz v0.5.1
+   Compiling num-bigint v0.4.8
+   Compiling crypto-common v0.1.6
+   Compiling block-buffer v0.10.4
+   Compiling secp256k1-sys v0.10.1
+   Compiling once_cell v1.21.4
+   Compiling rand_core v0.6.4
+   Compiling funty v2.0.0
+   Compiling bitvec v1.1.1
+   Compiling rand v0.8.8
+   Compiling num-rational v0.4.2
+   Compiling digest v0.10.7
+   Compiling alloy-eip7702 v0.5.1+pocol.crypto.1 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/third-party/evm-crypto/alloy-eip7702-0.5.1)
+   Compiling alloy-eip2930 v0.1.0
+   Compiling num-iter v0.1.46
+   Compiling auto_impl v1.4.0
+   Compiling enumn v0.1.14
+   Compiling bitflags v2.13.2
+   Compiling num-complex v0.4.6
+   Compiling dyn-clone v1.0.20
+   Compiling spin v0.9.9
+   Compiling lazy_static v1.5.1
+   Compiling revm-primitives v15.2.0
+   Compiling num v0.4.3
+   Compiling rustc-hex v2.1.0
+   Compiling byteorder v1.5.0
+   Compiling substrate-bn v0.6.0
+   Compiling aurora-engine-modexp v1.3.0
+   Compiling ripemd v0.1.3
+   Compiling sha2 v0.10.9
+   Compiling block-buffer v0.9.0
+   Compiling digest v0.9.0
+   Compiling opaque-debug v0.3.1
+   Compiling memchr v2.8.3
+   Compiling block-padding v0.2.1
+   Compiling ryu v1.0.23
+   Compiling sha2 v0.9.9
+   Compiling revm-interpreter v15.2.0
+   Compiling redb v2.6.4
+   Compiling pocold v0.1.0 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/pocold)
+   Compiling libfuzzer-sys v0.4.13
+   Compiling keccak v0.1.6
+   Compiling sha3 v0.9.1
+   Compiling secp256k1 v0.29.1
+   Compiling revm-precompile v16.2.0+pocol.crypto.1 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/third-party/evm-crypto/revm-precompile-16.2.0)
+   Compiling revm v19.7.0
+   Compiling getrandom v0.2.17
+   Compiling arbitrary v1.5.0
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/lp4-execution)
+   Compiling pocol-security-fuzz v0.0.0 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-audit-2026-11-04/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 36s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.06s
+     Running `/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers -artifact_prefix=development/security-audit-2026-11-04/fuzz/artifacts/parsers/ -max_total_time=60 -max_len=16384 -rss_limit_mb=2048 -timeout=3 -seed=777900 -artifact_prefix=/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-artifacts/ /workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-corpus -fork=2`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 777900
+INFO: Loaded 1 modules   (14759 inline 8-bit counters): 14759 [0x55cc90812030, 0x55cc908159d7), 
+INFO: Loaded 1 PC tables (14759 PCs): 14759 [0x55cc908159d8,0x55cc9084f448), 
+INFO: -fork=2: fuzzing in separate process(s)
+INFO: -fork=2: 69 seed inputs, starting to fuzz in /tmp/libFuzzerTemp.FuzzWithFork125584.dir
+#222623: cov: 732 ft: 949 corp: 69 exec/s: 111311 oom/timeout/crash: 0/0/0 time: 2s job: 1 dft_time: 0
+  NEW_FUNC: 0x55cc905a35c0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3065c0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905a4fc0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x307fc0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905ae320  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x311320) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905b08e0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3138e0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905b1fd0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x314fd0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905be310  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x321310) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905be900  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x321900) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905c2280  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x325280) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905c3e00  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x326e00) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905d85c0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33b5c0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905d9220  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33c220) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905da4c0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33d4c0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905dcad0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x33fad0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905dd3e0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3403e0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905ddbf0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x340bf0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905de090  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x341090) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905de100  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x341100) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905de660  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x341660) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905f0b20  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x353b20) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90600bd0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x363bd0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90609b20  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36cb20) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060a920  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36d920) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060ab00  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36db00) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060c2e0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36f2e0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060c310  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36f310) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060d170  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x370170) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060d3f0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3703f0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90610f40  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x373f40) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061af70  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x37df70) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061c210  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x37f210) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061dc30  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x380c30) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061dde0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x380de0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061e350  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381350) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061e480  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381480) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061e670  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381670) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061e9e0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3819e0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90621fe0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x384fe0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc906228e0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3858e0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90622c90  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x385c90) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90623f10  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x386f10) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90626250  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x389250) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90626300  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x389300) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90626d70  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x389d70) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90626e60  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x389e60) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90627d80  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x38ad80) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90629190  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x38c190) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9062f100  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x392100) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90630330  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x393330) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90631970  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x394970) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90632050  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x395050) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90632bd0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x395bd0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90635920  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x398920) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90674570  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d7570) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90675530  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8530) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc906755e0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d85e0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90675670  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8670) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90675720  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8720) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc906758c0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d88c0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90675910  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3d8910) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#579555: cov: 1756 ft: 3258 corp: 631 exec/s: 118977 oom/timeout/crash: 0/0/0 time: 3s job: 2 dft_time: 0
+  NEW_FUNC: 0x55cc90597a80  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x2faa80) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905a6950  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x309950) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905d2850  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x335850) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905f1be0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x354be0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905f2380  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x355380) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061df90  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x380f90) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#1094594: cov: 1900 ft: 3668 corp: 772 exec/s: 128759 oom/timeout/crash: 0/0/0 time: 6s job: 3 dft_time: 0
+  NEW_FUNC: 0x55cc9061d260  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x380260) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9061e170  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x381170) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90623790  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x386790) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc906264d0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3894d0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#1712193: cov: 1980 ft: 4052 corp: 889 exec/s: 123519 oom/timeout/crash: 0/0/0 time: 8s job: 4 dft_time: 0
+#2399304: cov: 2022 ft: 4257 corp: 959 exec/s: 114518 oom/timeout/crash: 0/0/0 time: 12s job: 5 dft_time: 0
+  NEW_FUNC: 0x55cc905bba80  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x31ea80) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060aa80  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36da80) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#3218900: cov: 2061 ft: 4394 corp: 1003 exec/s: 117085 oom/timeout/crash: 0/0/0 time: 15s job: 6 dft_time: 0
+  NEW_FUNC: 0x55cc905be5b0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3215b0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905fcec0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x35fec0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060c0f0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36f0f0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060c240  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36f240) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90610c20  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x373c20) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#4183433: cov: 2155 ft: 4763 corp: 1091 exec/s: 120566 oom/timeout/crash: 0/0/0 time: 20s job: 7 dft_time: 0
+  NEW_FUNC: 0x55cc905a4a10  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x307a10) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90606e20  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x369e20) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#5181304: cov: 2207 ft: 4957 corp: 1147 exec/s: 110874 oom/timeout/crash: 0/0/0 time: 24s job: 8 dft_time: 0
+  NEW_FUNC: 0x55cc905bd1b0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3201b0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#6335543: cov: 2255 ft: 5048 corp: 1184 exec/s: 115423 oom/timeout/crash: 0/0/0 time: 30s job: 9 dft_time: 0
+#7578320: cov: 2256 ft: 5124 corp: 1209 exec/s: 112979 oom/timeout/crash: 0/0/0 time: 35s job: 10 dft_time: 0
+  NEW_FUNC: 0x55cc905a8b10  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x30bb10) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905c0d80  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x323d80) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905e1de0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x344de0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905e23f0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x3453f0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc9060c1f0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36f1f0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#8835543: cov: 2404 ft: 5665 corp: 1423 exec/s: 104768 oom/timeout/crash: 0/0/0 time: 42s job: 11 dft_time: 0
+#10273660: cov: 2430 ft: 5788 corp: 1457 exec/s: 110624 oom/timeout/crash: 0/0/0 time: 48s job: 12 dft_time: 0
+#11898090: cov: 2449 ft: 5916 corp: 1508 exec/s: 116030 oom/timeout/crash: 0/0/0 time: 57s job: 13 dft_time: 0
+  NEW_FUNC: 0x55cc90595d60  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x2f8d60) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905c2bb0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x325bb0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc905ca490  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x32d490) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+  NEW_FUNC: 0x55cc90608da0  (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target/x86_64-unknown-linux-gnu/release/parsers+0x36bda0) (BuildId: e73460018912d31b410bdfc78044912bc1bc3e76)
+#13521486: cov: 2521 ft: 6218 corp: 1560 exec/s: 108226 oom/timeout/crash: 0/0/0 time: 64s job: 14 dft_time: 0
+INFO: fuzzed for 64 seconds, wrapping up soon
+INFO: exiting: 0 time: 64s

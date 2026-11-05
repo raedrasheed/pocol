@@ -17,8 +17,8 @@ serde_json = "=1.0.145"
 serde = { version = "=1.0.229", features = ["derive"] }
 sha2 = "=0.9.9"
 sha3 = "=0.9.1"
-# k256 (as in lp4-execution) replaces the unmaintained libsecp256k1 0.5.0 behind the shared hashes.rs (secp_backend, audit 2026-10-22).
-k256 = { version = "=0.13.4", features = ["ecdsa"] }
+# Shared corrected signing/recovery stack (local EVM compatibility patches below).
+k256 = { version = "=0.14.0", features = ["ecdsa"] }
 # C-1 storage program (D-1, owner approved): the spec's store (storage.md:63-73). Its only runtime
 # dependency, libc, is already in the lock; every other dependency it lists is dev-only.
 redb = "=2.6.4"
@@ -53,3 +53,8 @@ io-fault = []
 
 [profile.release]
 debug = 1
+
+[patch.crates-io]
+alloy-primitives = { path = "../third-party/evm-crypto/alloy-primitives-0.8.26" }
+alloy-eip7702 = { path = "../third-party/evm-crypto/alloy-eip7702-0.5.1" }
+revm-precompile = { path = "../third-party/evm-crypto/revm-precompile-16.2.0" }

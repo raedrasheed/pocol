@@ -33,6 +33,19 @@ fn main() {
         files.push(root.join(krate).join("Cargo.toml"));
         sources(&root.join(krate).join("src"), &mut files);
     }
+    // Path patches have no registry checksum in Cargo.lock. Bind their actual
+    // manifests and Rust sources into the same release identity as the node.
+    // Keep names relative to prototypes so existing safe-path guards apply.
+    for krate in [
+        "alloy-primitives-0.8.26",
+        "alloy-eip7702-0.5.1",
+        "revm-precompile-16.2.0",
+    ] {
+        let directory = root.join("third-party/evm-crypto").join(krate);
+        files.push(directory.join("Cargo.toml"));
+        files.push(directory.join("README.md"));
+        sources(&directory.join("src"), &mut files);
+    }
     // Sort the exact normalized relative names that enter the digest. Absolute host paths
     // can use different separator spellings on Windows, even within one Cargo build.
     let mut files: Vec<(String, PathBuf)> = files

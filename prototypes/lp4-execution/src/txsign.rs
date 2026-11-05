@@ -1,8 +1,7 @@
 //! Transaction and header signing shared by devnet accounts and independent key files.
 //! RFC6979 deterministic, low-s. Private operations use the corrected RustCrypto stack;
-//! public recovery retains its accepted backend and signature policy.
-use k256::ecdsa::VerifyingKey;
-use k256_signer::ecdsa::SigningKey;
+//! public recovery retains its signature policy on the same corrected backend.
+use k256::ecdsa::{SigningKey,VerifyingKey};
 use revm::primitives::{keccak256,Address,B256,Bytes,U256};
 use crate::rlp;
 
@@ -30,13 +29,13 @@ impl Key{
     }
 }
 pub fn address_of(vk:&VerifyingKey)->Address{
-    let p=vk.to_encoded_point(false);Address::from_slice(&keccak256(&p.as_bytes()[1..])[12..])
+    let p=vk.to_sec1_point(false);Address::from_slice(&keccak256(&p.as_bytes()[1..])[12..])
 }
 /// Recovers the signer of a 65-byte r||s||v signature (v in {0,1}); rejects high-s.
 pub fn recover(hash:&B256,sig:&[u8])->Option<Address>{
     if sig.len()!=65||sig[64]>1{return None}
     let s=k256::ecdsa::Signature::from_slice(&sig[..64]).ok()?;
-    if s.normalize_s().is_some(){return None}
+    if s.normalize_s()!=s{return None}
     let rec=k256::ecdsa::RecoveryId::from_byte(sig[64])?;
     VerifyingKey::recover_from_prehash(hash.as_slice(),&s,rec).ok().map(|vk|address_of(&vk))
 }

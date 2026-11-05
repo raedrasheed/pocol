@@ -1,0 +1,26 @@
+{
+  "exit": 0,
+  "seconds": 213.34,
+  "argv": [
+    "/workspace/.pocol-cargo/bin/cargo",
+    "+nightly-2026-11-04",
+    "fuzz",
+    "run",
+    "--fuzz-dir",
+    "development/security-audit-2026-11-04/fuzz",
+    "--target-dir",
+    "/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-target",
+    "-j",
+    "2",
+    "parsers",
+    "/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-corpus",
+    "--",
+    "-max_total_time=60",
+    "-max_len=16384",
+    "-rss_limit_mb=2048",
+    "-timeout=3",
+    "-seed=777900",
+    "-artifact_prefix=/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/fuzz-artifacts/"
+  ],
+  "artifacts": []
+}

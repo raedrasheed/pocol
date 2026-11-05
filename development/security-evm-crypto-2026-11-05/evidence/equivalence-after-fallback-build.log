@@ -1,0 +1,8 @@
+    Blocking waiting for file lock on build directory
+   Compiling alloy-primitives v0.8.26+pocol.crypto.1 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/third-party/evm-crypto/alloy-primitives-0.8.26)
+   Compiling alloy-eip2930 v0.1.0
+   Compiling alloy-eip7702 v0.5.1+pocol.crypto.1 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/third-party/evm-crypto/alloy-eip7702-0.5.1)
+   Compiling revm-primitives v15.2.0
+   Compiling revm-precompile v16.2.0+pocol.crypto.1 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/third-party/evm-crypto/revm-precompile-16.2.0)
+   Compiling pocol-fallback-equivalence v0.0.0 (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/equivalence-final/after-fallback)
+    Finished `release` profile [optimized] target(s) in 32.01s

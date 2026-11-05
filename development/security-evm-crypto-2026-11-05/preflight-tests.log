@@ -1,0 +1,19 @@
+test_active_version_must_match_schedule_at_observed_head (test_preflight.PreflightTests.test_active_version_must_match_schedule_at_observed_head) ... ok
+test_activity_and_history_failures_remain_explicit (test_preflight.PreflightTests.test_activity_and_history_failures_remain_explicit) ... ok
+test_corrupt_bundle_and_unexpected_key_file_fail_without_reading_key (test_preflight.PreflightTests.test_corrupt_bundle_and_unexpected_key_file_fail_without_reading_key) ... ok
+test_full_state_binding_must_exactly_match_operator_launch_identity (test_preflight.PreflightTests.test_full_state_binding_must_exactly_match_operator_launch_identity) ... ok
+test_hash_change_during_capture_is_not_reported_as_stable (test_preflight.PreflightTests.test_hash_change_during_capture_is_not_reported_as_stable) ... ok
+test_live_status_name_and_miner_must_match_installed_node (test_preflight.PreflightTests.test_live_status_name_and_miner_must_match_installed_node) ... ok
+test_observer_null_miner_matches_exactly_and_is_not_zero_address (test_preflight.PreflightTests.test_observer_null_miner_matches_exactly_and_is_not_zero_address) ... ok
+test_reorg_during_comparison_read_does_not_publish_comparison (test_preflight.PreflightTests.test_reorg_during_comparison_read_does_not_publish_comparison) ... ok
+test_rpc_endpoint_accepts_only_explicit_loopback_http (test_preflight.PreflightTests.test_rpc_endpoint_accepts_only_explicit_loopback_http) ... ok
+test_schedule_is_precise_and_malformed_shapes_are_refused (test_preflight.PreflightTests.test_schedule_is_precise_and_malformed_shapes_are_refused) ... ok
+test_service_probe_requests_no_environment_commands_or_credentials (test_preflight.PreflightTests.test_service_probe_requests_no_environment_commands_or_credentials) ... ok
+test_shared_comparison_height_preserves_full_hashes_and_roots (test_preflight.PreflightTests.test_shared_comparison_height_preserves_full_hashes_and_roots) ... ok
+test_success_reports_public_identity_and_never_selects_activation (test_preflight.PreflightTests.test_success_reports_public_identity_and_never_selects_activation) ... ok
+test_wrong_chain_running_source_or_state_binding_is_refused (test_preflight.PreflightTests.test_wrong_chain_running_source_or_state_binding_is_refused) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.038s
+
+OK

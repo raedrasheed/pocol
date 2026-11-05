@@ -1,0 +1,13 @@
+{
+  "executions": 13521486,
+  "coverage_counters": 2521,
+  "features": 6218,
+  "oom": 0,
+  "timeout": 0,
+  "crash": 0,
+  "fuzz_seconds": 64,
+  "workers": 2,
+  "input_limit": 16384,
+  "rss_mib_per_worker": 2048,
+  "unique_inputs_or_full_coverage_claimed": false
+}

@@ -1,0 +1,14 @@
+test_build_inventory_binds_local_crypto_dependencies (test_launcher.Launcher.test_build_inventory_binds_local_crypto_dependencies) ... FAIL
+
+======================================================================
+FAIL: test_build_inventory_binds_local_crypto_dependencies (test_launcher.Launcher.test_build_inventory_binds_local_crypto_dependencies)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/deploy/standalone/test_launcher.py", line 97, in test_build_inventory_binds_local_crypto_dependencies
+    self.assertTrue(required <= info['sourceSha256'].keys(),
+AssertionError: False is not true : Local dependency code must be bound to the native compatibility identity
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)

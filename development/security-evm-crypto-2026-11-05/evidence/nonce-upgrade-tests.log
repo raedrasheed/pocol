@@ -1,0 +1,17 @@
+test_activation_must_follow_every_branch_and_uncommitted_complete_frame (test_nonce_upgrade.SeedUpgradeTests.test_activation_must_follow_every_branch_and_uncommitted_complete_frame) ... ok
+test_bad_manifest_wrong_node_or_changed_genesis_are_rejected (test_nonce_upgrade.SeedUpgradeTests.test_bad_manifest_wrong_node_or_changed_genesis_are_rejected) ... ok
+test_build_validation_rejects_changed_local_crypto_dependency (test_nonce_upgrade.SeedUpgradeTests.test_build_validation_rejects_changed_local_crypto_dependency) ... ok
+test_corrupt_torn_or_wrong_version_journal_and_commit_are_not_repaired (test_nonce_upgrade.SeedUpgradeTests.test_corrupt_torn_or_wrong_version_journal_and_commit_are_not_repaired) ... ok
+test_fork_metadata_rejects_boolean_versions_downgrades_and_other_changes (test_nonce_upgrade.SeedUpgradeTests.test_fork_metadata_rejects_boolean_versions_downgrades_and_other_changes) ... ok
+test_hardlinked_upgrade_temp_is_not_truncated (test_nonce_upgrade.SeedUpgradeTests.test_hardlinked_upgrade_temp_is_not_truncated) ... ok
+test_interrupted_binding_write_resumes_only_the_same_plan (test_nonce_upgrade.SeedUpgradeTests.test_interrupted_binding_write_resumes_only_the_same_plan) ... ok
+test_locks_prevent_migration_while_either_owner_is_running (test_nonce_upgrade.SeedUpgradeTests.test_locks_prevent_migration_while_either_owner_is_running) ... ok
+test_migration_preserves_all_chain_bytes_and_binding_ownership (test_nonce_upgrade.SeedUpgradeTests.test_migration_preserves_all_chain_bytes_and_binding_ownership) ... ok
+test_new_binary_must_match_verified_build_metadata (test_nonce_upgrade.SeedUpgradeTests.test_new_binary_must_match_verified_build_metadata) ... ok
+test_prepare_preserves_node_service_and_network_inputs (test_nonce_upgrade.SeedUpgradeTests.test_prepare_preserves_node_service_and_network_inputs) ... ok
+test_symlinks_and_unexpected_binding_backup_are_preserved (test_nonce_upgrade.SeedUpgradeTests.test_symlinks_and_unexpected_binding_backup_are_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.192s
+
+OK

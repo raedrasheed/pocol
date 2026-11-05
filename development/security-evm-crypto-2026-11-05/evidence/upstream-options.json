@@ -1,0 +1,85 @@
+[
+  {
+    "package": "alloy-primitives-1.7.3",
+    "relevant": [
+      {
+        "id": 36051425,
+        "version_id": 3207005,
+        "crate_id": "k256",
+        "req": "^0.13",
+        "optional": true,
+        "default_features": false,
+        "features": [
+          "ecdsa"
+        ],
+        "target": null,
+        "kind": "normal",
+        "downloads": 0
+      }
+    ]
+  },
+  {
+    "package": "alloy-eip7702-0.6.3",
+    "relevant": [
+      {
+        "id": 18483940,
+        "version_id": 1809168,
+        "crate_id": "alloy-primitives",
+        "req": "^1.4",
+        "optional": false,
+        "default_features": false,
+        "features": [
+          "rlp"
+        ],
+        "target": null,
+        "kind": "normal",
+        "downloads": 0
+      },
+      {
+        "id": 18483944,
+        "version_id": 1809168,
+        "crate_id": "k256",
+        "req": "^0.13",
+        "optional": true,
+        "default_features": false,
+        "features": [
+          "ecdsa"
+        ],
+        "target": null,
+        "kind": "normal",
+        "downloads": 0
+      }
+    ]
+  },
+  {
+    "package": "revm-precompile-43.0.3",
+    "relevant": [
+      {
+        "id": 37333079,
+        "version_id": 3311946,
+        "crate_id": "k256",
+        "req": "^0.13.4",
+        "optional": false,
+        "default_features": false,
+        "features": [
+          "ecdsa"
+        ],
+        "target": null,
+        "kind": "normal",
+        "downloads": 0
+      },
+      {
+        "id": 37333081,
+        "version_id": 3311946,
+        "crate_id": "revm-primitives",
+        "req": "^43.0.0",
+        "optional": false,
+        "default_features": false,
+        "features": [],
+        "target": null,
+        "kind": "normal",
+        "downloads": 0
+      }
+    ]
+  }
+]

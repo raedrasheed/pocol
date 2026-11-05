@@ -1,0 +1,8 @@
+{
+  "generator_source_sha256": "c549677f76f880fc0788d5e76c46bdff974c181732d9e8bdef2972ef0d3ae75f",
+  "fixture_sha256": "c260e6c1fe384168f2f785b73e013d738b3fa6f8fbd0b7454c93c5e1e3df1ddb",
+  "vectors": 56,
+  "public_synthetic_inputs_only": true,
+  "old_crypto_dependency_location": "Scratch generator outside product and fuzz lockfiles",
+  "generator_lockfile_sha256": "cad7d508afb2f701b64bb03102e8407e010fd5a8703836e4fb18349a8c016047"
+}

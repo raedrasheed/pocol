@@ -1,0 +1,30 @@
+{
+  "apk_sha256": "6d2034f0912895896ff16e8966b676de3b9ed5f6dbbe0a0f3e42fb16debb19dd",
+  "apk_bytes": 60407210,
+  "unsigned": true,
+  "zipalign_16k": true,
+  "libraries": {
+    "libpocold.so": {
+      "bytes": 59738768,
+      "sha256": "86d6619a4cb26e8e799cd43a44b0ab9171114192b95046aa7327f45e97dad543",
+      "load_alignment": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "packaged_bytes_match": true
+    },
+    "libpocol_bridge.so": {
+      "bytes": 11504,
+      "sha256": "63401832fe9584fd3593866b5b46ec82c6d2cf35035d90a0589ad6148b523080",
+      "load_alignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "packaged_bytes_match": true
+    }
+  },
+  "physical_device_tested": false
+}

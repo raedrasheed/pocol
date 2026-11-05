@@ -1,8 +1,7 @@
 //! Public synthetic inputs only. Compare private signing with an independent
-//! RFC6979 oracle, retain legacy bytes below the order, and test low-s recovery.
-use k256::ecdsa::SigningKey as LegacySigningKey;
-use pocol_lp4_execution::txsign::{address_of, recover, Key};
-use revm::primitives::{keccak256, B256};
+//! RFC6979 oracle and historical fixed vectors, and test low-s recovery.
+use pocol_lp4_execution::txsign::{recover, Key};
+use revm::primitives::{keccak256, Address, B256};
 
 const ORDER: [u8; 32] = [
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe,
@@ -59,17 +58,14 @@ fn private_signer_preserves_rfc6979_addresses_and_low_s_at_edges() {
     ];
     digests.extend((0..8).map(|n| synthetic(b"pocol-public-signing-fixture-message", n)));
 
-    let (mut legacy_equal, mut corrected_edges) = (0, 0);
     for (key_index, secret) in secrets.iter().enumerate() {
-        let legacy = LegacySigningKey::from_slice(secret).unwrap();
         let fixed = Key::from_secret(secret).unwrap();
         let oracle_key = secp256k1::SecretKey::from_slice(secret).unwrap();
-        let address = address_of(legacy.verifying_key());
+        let public = secp256k1::PublicKey::from_secret_key(&oracle, &oracle_key);
+        let address = Address::from_slice(&keccak256(&public.serialize_uncompressed()[1..])[12..]);
         assert_eq!(fixed.address(), address, "address at key {key_index}");
         assert_eq!(fixed.secret(), *secret, "key serialization at {key_index}");
         for (digest_index, digest) in digests.iter().enumerate() {
-            let (signature, recovery_id) = legacy.sign_prehash_recoverable(digest).unwrap();
-            assert!(signature.normalize_s().is_none());
             let actual = fixed.sign_hash(&B256::from(*digest));
             let (oracle_id, oracle_signature) = oracle
                 .sign_ecdsa_recoverable(&secp256k1::Message::from_digest(*digest), &oracle_key)
@@ -80,31 +76,11 @@ fn private_signer_preserves_rfc6979_addresses_and_low_s_at_edges() {
                 "RFC6979 oracle at {key_index}/{digest_index}"
             );
             assert_eq!(actual[64], oracle_id.to_i32() as u8);
-            if digest < &ORDER {
-                assert_eq!(
-                    &actual[..64],
-                    &signature.to_bytes()[..],
-                    "legacy signature at {key_index}/{digest_index}"
-                );
-                assert_eq!(actual[64], recovery_id.to_byte());
-                legacy_equal += 1;
-            } else {
-                // The old backend failed to apply RFC6979 bits2octets at/above n.
-                // Preserve validity of old signatures, not that nonstandard nonce.
-                let mut old = [0u8; 65];
-                old[..64].copy_from_slice(&signature.to_bytes());
-                old[64] = recovery_id.to_byte();
-                assert_eq!(recover(&B256::from(*digest), &old), Some(address));
-                if actual != old {
-                    corrected_edges += 1;
-                }
-            }
             assert_eq!(recover(&B256::from(*digest), &actual), Some(address));
             assert_eq!(fixed.sign_hash(&B256::from(*digest)), actual, "determinism");
         }
     }
-    assert!(legacy_equal > 0 && corrected_edges > 0);
-    println!("RFC6979 oracle pairs: {}; legacy-identical pairs: {legacy_equal}; corrected digest edges: {corrected_edges}", secrets.len() * digests.len());
+    println!("RFC6979 oracle pairs: {}", secrets.len() * digests.len());
 }
 
 #[test]
@@ -113,7 +89,40 @@ fn private_signer_refuses_invalid_secret_scalars() {
     after_order[31] += 1;
     for secret in [[0; 32], ORDER, after_order, [0xff; 32]] {
         assert!(Key::from_secret(&secret).is_err());
-        assert!(LegacySigningKey::from_slice(&secret).is_err());
+    }
+}
+
+fn unhex(text: &str) -> Vec<u8> {
+    assert_eq!(text.len() % 2, 0);
+    (0..text.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).unwrap())
+        .collect()
+}
+
+#[test]
+fn historical_signatures_and_high_digest_edges_remain_accepted() {
+    // Frozen bytes keep the legacy oracle independent without retaining the
+    // affected old crypto stack in any product or fuzz-harness lockfile.
+    let document: serde_json::Value =
+        serde_json::from_str(include_str!("data/signing-legacy-compat.json")).unwrap();
+    let rows = document["vectors"].as_array().unwrap();
+    assert_eq!(rows.len(), 56);
+    for row in rows {
+        let secret: [u8; 32] = unhex(row["public_synthetic_secret"].as_str().unwrap())
+            .try_into()
+            .unwrap();
+        let digest = B256::from_slice(&unhex(row["digest"].as_str().unwrap()));
+        let signature = unhex(row["legacy_signature"].as_str().unwrap());
+        let address = Address::from_slice(&unhex(row["address"].as_str().unwrap()));
+        assert_eq!(recover(&digest, &signature), Some(address));
+        let key = Key::from_secret(&secret).unwrap();
+        assert_eq!(key.address(), address);
+        if row["new_signature_expected_identical"].as_bool().unwrap() {
+            assert_eq!(key.sign_hash(&digest).as_slice(), signature);
+        } else {
+            assert_ne!(key.sign_hash(&digest).as_slice(), signature);
+        }
     }
 }
 

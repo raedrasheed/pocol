@@ -1,0 +1,138 @@
+--- upstream/alloy-primitives-0.8.26/Cargo.toml
++++ local/alloy-primitives-0.8.26/Cargo.toml
+@@ -11,9 +11,9 @@
+ 
+ [package]
+ edition = "2021"
+-rust-version = "1.81"
++rust-version = "1.87"
+ name = "alloy-primitives"
+-version = "0.8.26"
++version = "0.8.26+pocol.crypto.1"
+ authors = ["Alloy Contributors"]
+ build = false
+ exclude = ["tests"]
+@@ -225,7 +225,7 @@
+ version = "1"
+ 
+ [dependencies.k256]
+-version = "0.13"
++version = "=0.14.0"
+ features = ["ecdsa"]
+ optional = true
+ default-features = false
+--- upstream/alloy-primitives-0.8.26/src/bits/address.rs
++++ local/alloy-primitives-0.8.26/src/bits/address.rs
+@@ -465,9 +465,7 @@
+     #[cfg(feature = "k256")]
+     #[doc(alias = "from_verifying_key")]
+     pub fn from_public_key(pubkey: &k256::ecdsa::VerifyingKey) -> Self {
+-        use k256::elliptic_curve::sec1::ToEncodedPoint;
+-        let affine: &k256::AffinePoint = pubkey.as_ref();
+-        let encoded = affine.to_encoded_point(false);
++        let encoded = pubkey.to_sec1_point(false);
+         Self::from_raw_public_key(&encoded.as_bytes()[1..])
+     }
+ 
+--- upstream/alloy-eip7702-0.5.1/Cargo.toml
++++ local/alloy-eip7702-0.5.1/Cargo.toml
+@@ -11,9 +11,9 @@
+ 
+ [package]
+ edition = "2021"
+-rust-version = "1.81"
++rust-version = "1.87"
+ name = "alloy-eip7702"
+-version = "0.5.1"
++version = "0.5.1+pocol.crypto.1"
+ authors = ["Alloy Contributors"]
+ build = false
+ autolib = false
+@@ -79,7 +79,7 @@
+ optional = true
+ 
+ [dependencies.k256]
+-version = "0.13"
++version = "=0.14.0"
+ features = ["ecdsa"]
+ optional = true
+ default-features = false
+--- upstream/alloy-eip7702-0.5.1/src/auth_list.rs
++++ local/alloy-eip7702-0.5.1/src/auth_list.rs
+@@ -274,21 +274,26 @@
+ #[cfg(all(any(test, feature = "arbitrary"), feature = "k256"))]
+ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
+     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+-        use k256::{
+-            ecdsa::{signature::hazmat::PrehashSigner, SigningKey},
+-            NonZeroScalar,
+-        };
+-        use rand::{rngs::StdRng, SeedableRng};
++        use k256::ecdsa::SigningKey;
++        use rand::{rngs::StdRng, RngCore, SeedableRng};
+ 
+         let rng_seed = u.arbitrary::<[u8; 32]>()?;
+         let mut rand_gen = StdRng::from_seed(rng_seed);
+-        let signing_key: SigningKey = NonZeroScalar::random(&mut rand_gen).into();
++        // Test/arbitrary-only adapter: rand 0.8 does not implement the newer
++        // rand_core traits used by k256 0.14. Keep inputs on this seeded RNG.
++        let signing_key = loop {
++            let mut secret = [0u8; 32];
++            rand_gen.fill_bytes(&mut secret);
++            if let Ok(key) = SigningKey::from_slice(&secret) {
++                break key;
++            }
++        };
+ 
+         let inner = u.arbitrary::<Authorization>()?;
+         let signature_hash = inner.signature_hash();
+ 
+         let (recoverable_sig, recovery_id) =
+-            signing_key.sign_prehash(signature_hash.as_ref()).unwrap();
++            signing_key.sign_prehash_recoverable(signature_hash.as_ref());
+         let signature =
+             PrimitiveSignature::from_signature_and_parity(recoverable_sig, recovery_id.is_y_odd());
+ 
+--- upstream/revm-precompile-16.2.0/Cargo.toml
++++ local/revm-precompile-16.2.0/Cargo.toml
+@@ -11,8 +11,9 @@
+ 
+ [package]
+ edition = "2021"
++rust-version = "1.87"
+ name = "revm-precompile"
+-version = "16.2.0"
++version = "16.2.0+pocol.crypto.1"
+ authors = ["Dragan Rakita <dragan0rakita@gmail.com>"]
+ build = false
+ autolib = false
+@@ -116,7 +117,7 @@
+ default-features = false
+ 
+ [dependencies.k256]
+-version = "0.13.3"
++version = "=0.14.0"
+ features = ["ecdsa"]
+ default-features = false
+ 
+--- upstream/revm-precompile-16.2.0/src/secp256k1.rs
++++ local/revm-precompile-16.2.0/src/secp256k1.rs
+@@ -19,7 +19,8 @@
+         let mut sig = Signature::from_slice(sig.as_slice())?;
+ 
+         // normalize signature and flip recovery id if needed.
+-        if let Some(sig_normalized) = sig.normalize_s() {
++        let sig_normalized = sig.normalize_s();
++        if sig_normalized != sig {
+             sig = sig_normalized;
+             recid ^= 1;
+         }
+@@ -30,7 +31,7 @@
+         // hash it
+         let mut hash = keccak256(
+             &recovered_key
+-                .to_encoded_point(/* compress = */ false)
++                .to_sec1_point(/* compress = */ false)
+                 .as_bytes()[1..],
+         );
+ 

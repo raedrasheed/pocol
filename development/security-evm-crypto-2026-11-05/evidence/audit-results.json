@@ -1,0 +1,29 @@
+{
+  "rustsec_database_commit": "26fd2d43f7280a1fb925a3743ec463017afe7119",
+  "results": [
+    {
+      "graph": "execution",
+      "exit": 0,
+      "vulnerabilities": 0,
+      "warning_kinds": {
+        "unmaintained": 2
+      }
+    },
+    {
+      "graph": "node",
+      "exit": 0,
+      "vulnerabilities": 0,
+      "warning_kinds": {
+        "unmaintained": 2
+      }
+    },
+    {
+      "graph": "fuzz",
+      "exit": 0,
+      "vulnerabilities": 0,
+      "warning_kinds": {
+        "unmaintained": 2
+      }
+    }
+  ]
+}

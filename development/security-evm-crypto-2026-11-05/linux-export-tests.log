@@ -1,0 +1,10 @@
+test_actual_extension_importer_preserves_key_and_address (test_linux_export.LinuxExportTests.test_actual_extension_importer_preserves_key_and_address) ... ok
+test_invalid_size_and_secp256k1_scalars (test_linux_export.LinuxExportTests.test_invalid_size_and_secp256k1_scalars) ... ok
+test_output_never_overwrites_and_fsyncs (test_linux_export.LinuxExportTests.test_output_never_overwrites_and_fsyncs) ... ok
+test_password_must_be_hidden_interactive_and_confirmed (test_linux_export.LinuxExportTests.test_password_must_be_hidden_interactive_and_confirmed) ... ok
+test_source_guards_and_read_only_mode (test_linux_export.LinuxExportTests.test_source_guards_and_read_only_mode) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.100s
+
+OK

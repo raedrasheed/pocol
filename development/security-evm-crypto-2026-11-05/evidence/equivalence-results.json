@@ -1,0 +1,265 @@
+{
+  "source_sha256": {
+    "equivalence.rs": "b036a3e7cf9c1aa006dcc0f2dd83445d17268f4669c430acdcb9496c9cd1ab39",
+    "fallback_equivalence.rs": "778b6a877ef17de7a6ba759790ce609a49c307efd9f136d723865720ac1c70e9",
+    "run_equivalence.py": "257cac6d1d355868af639f237f2f525bb830851b5d6223ab84d2bc6399ad9d54"
+  },
+  "runs": {
+    "before-crypto": {
+      "exit": 0,
+      "cases": 56376,
+      "sha256": "72390b19fe5214bf1bbef0c9157b2c9609592b1b7780d9fc5eb8e611a790c6c9",
+      "graph": [
+        {
+          "name": "alloy-eip7702",
+          "version": "0.5.1",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "alloy-primitives",
+          "version": "0.8.26",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "crypto-bigint",
+          "version": "0.5.5",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "crypto-bigint",
+          "version": "0.7.10",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "k256",
+          "version": "0.13.4",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "k256",
+          "version": "0.14.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm",
+          "version": "19.7.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm-precompile",
+          "version": "16.2.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "binary_sha256": "2ed3bf194f3882fe9594e95b709fdc22f73feb78357a1c4564af927e4d3c08ea"
+    },
+    "before-evm": {
+      "exit": 0,
+      "cases": 4096,
+      "sha256": "0020841535ab058c6e6e7841b49e6da51e798e92f6b78ebdeb6be38304681fda",
+      "graph": [
+        {
+          "name": "alloy-eip7702",
+          "version": "0.5.1",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "alloy-primitives",
+          "version": "0.8.26",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "crypto-bigint",
+          "version": "0.5.5",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "crypto-bigint",
+          "version": "0.7.10",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "k256",
+          "version": "0.13.4",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "k256",
+          "version": "0.14.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm",
+          "version": "19.7.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm-precompile",
+          "version": "16.2.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "binary_sha256": "2ed3bf194f3882fe9594e95b709fdc22f73feb78357a1c4564af927e4d3c08ea"
+    },
+    "before-fallback": {
+      "exit": 0,
+      "cases": 56376,
+      "sha256": "8e0586cfb99d418b61be953e5d75fe015b31ec0b957b6d2853369113bcb12b84",
+      "graph": [
+        {
+          "name": "alloy-eip7702",
+          "version": "0.5.1",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "alloy-primitives",
+          "version": "0.8.26",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "crypto-bigint",
+          "version": "0.5.5",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "k256",
+          "version": "0.13.4",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm-precompile",
+          "version": "16.2.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "binary_sha256": "43181d3a0b05fd50f7e71c09a9da6734e2f2a291c7c438b85deb48af7b4bd24e"
+    },
+    "after-crypto": {
+      "exit": 0,
+      "cases": 56376,
+      "sha256": "72390b19fe5214bf1bbef0c9157b2c9609592b1b7780d9fc5eb8e611a790c6c9",
+      "graph": [
+        {
+          "name": "alloy-eip7702",
+          "version": "0.5.1+pocol.crypto.1",
+          "source": null
+        },
+        {
+          "name": "alloy-primitives",
+          "version": "0.8.26+pocol.crypto.1",
+          "source": null
+        },
+        {
+          "name": "crypto-bigint",
+          "version": "0.7.10",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "k256",
+          "version": "0.14.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm",
+          "version": "19.7.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm-precompile",
+          "version": "16.2.0+pocol.crypto.1",
+          "source": null
+        }
+      ],
+      "binary_sha256": "7da2fd674e36452fe28c82f9cd9d1a846720dc20e30884bc8a446ddbd1f1eb27"
+    },
+    "after-evm": {
+      "exit": 0,
+      "cases": 4096,
+      "sha256": "0020841535ab058c6e6e7841b49e6da51e798e92f6b78ebdeb6be38304681fda",
+      "graph": [
+        {
+          "name": "alloy-eip7702",
+          "version": "0.5.1+pocol.crypto.1",
+          "source": null
+        },
+        {
+          "name": "alloy-primitives",
+          "version": "0.8.26+pocol.crypto.1",
+          "source": null
+        },
+        {
+          "name": "crypto-bigint",
+          "version": "0.7.10",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "k256",
+          "version": "0.14.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm",
+          "version": "19.7.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm-precompile",
+          "version": "16.2.0+pocol.crypto.1",
+          "source": null
+        }
+      ],
+      "binary_sha256": "7da2fd674e36452fe28c82f9cd9d1a846720dc20e30884bc8a446ddbd1f1eb27"
+    },
+    "after-fallback": {
+      "exit": 0,
+      "cases": 56376,
+      "sha256": "8e0586cfb99d418b61be953e5d75fe015b31ec0b957b6d2853369113bcb12b84",
+      "graph": [
+        {
+          "name": "alloy-eip7702",
+          "version": "0.5.1+pocol.crypto.1",
+          "source": null
+        },
+        {
+          "name": "alloy-primitives",
+          "version": "0.8.26+pocol.crypto.1",
+          "source": null
+        },
+        {
+          "name": "crypto-bigint",
+          "version": "0.7.10",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "k256",
+          "version": "0.14.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index"
+        },
+        {
+          "name": "revm-precompile",
+          "version": "16.2.0+pocol.crypto.1",
+          "source": null
+        }
+      ],
+      "binary_sha256": "ba03b032345f8e26f572175ddec938d89efd0967227feeba11898e2fcae59890"
+    }
+  },
+  "comparisons": {
+    "crypto": {
+      "identical": true,
+      "before_sha256": "72390b19fe5214bf1bbef0c9157b2c9609592b1b7780d9fc5eb8e611a790c6c9",
+      "after_sha256": "72390b19fe5214bf1bbef0c9157b2c9609592b1b7780d9fc5eb8e611a790c6c9"
+    },
+    "evm": {
+      "identical": true,
+      "before_sha256": "0020841535ab058c6e6e7841b49e6da51e798e92f6b78ebdeb6be38304681fda",
+      "after_sha256": "0020841535ab058c6e6e7841b49e6da51e798e92f6b78ebdeb6be38304681fda"
+    },
+    "fallback": {
+      "identical": true,
+      "before_sha256": "8e0586cfb99d418b61be953e5d75fe015b31ec0b957b6d2853369113bcb12b84",
+      "after_sha256": "8e0586cfb99d418b61be953e5d75fe015b31ec0b957b6d2853369113bcb12b84"
+    }
+  },
+  "ok": true
+}

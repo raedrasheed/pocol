@@ -1,0 +1,44 @@
+[
+  {
+    "version": "upstream",
+    "exit": 101,
+    "seconds": 11.77,
+    "argv": [
+      "/workspace/.pocol-cargo/bin/cargo",
+      "+1.99.1",
+      "test",
+      "--release",
+      "--offline",
+      "--manifest-path",
+      "/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/vendor-unit-baseline/Cargo.toml",
+      "--no-fail-fast",
+      "--workspace",
+      "--lib",
+      "--features",
+      "alloy-primitives/k256,alloy-primitives/serde,alloy-primitives/rlp,alloy-eip7702/k256,alloy-eip7702/serde,alloy-eip7702/arbitrary",
+      "--",
+      "--test-threads=1"
+    ]
+  },
+  {
+    "version": "patched",
+    "exit": 101,
+    "seconds": 0.22,
+    "argv": [
+      "/workspace/.pocol-cargo/bin/cargo",
+      "+1.99.1",
+      "test",
+      "--release",
+      "--offline",
+      "--manifest-path",
+      "/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/vendor-unit-workspace/Cargo.toml",
+      "--no-fail-fast",
+      "--workspace",
+      "--lib",
+      "--features",
+      "alloy-primitives/k256,alloy-primitives/serde,alloy-primitives/rlp,alloy-eip7702/k256,alloy-eip7702/serde,alloy-eip7702/arbitrary",
+      "--",
+      "--test-threads=1"
+    ]
+  }
+]

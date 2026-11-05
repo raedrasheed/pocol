@@ -1,0 +1,9 @@
+
+running 1 test
+test cancun_signed_edges_and_zero_divisors_match_the_evm_specification ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/prototypes/lp4-execution)
+    Finished `release` profile [optimized] target(s) in 0.34s
+     Running tests/evm_numeric_edges.rs (/workspace/pocol-crypto-timing-review-2026-11-05-t6f8i98w/target/release/deps/evm_numeric_edges-da0f4170854e522c)

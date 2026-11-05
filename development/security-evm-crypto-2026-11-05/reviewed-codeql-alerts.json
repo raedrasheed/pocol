@@ -1,0 +1,2769 @@
+{
+  "repository": "palcertcom/pocol",
+  "review_source_commit": "46d688b701e165211c36a5a1447fb029a3199302",
+  "scope": "Approved source-reviewed decisions; apply only when every live open instance still matches reviewed source and location",
+  "counts": {
+    "false positive": 193,
+    "used in tests": 4
+  },
+  "alerts": [
+    {
+      "number": 1,
+      "rule": "js/incomplete-url-substring-sanitization",
+      "location": {
+        "path": "prototypes/pocol-extension/tests/e2e_browser.mjs",
+        "start_line": 346,
+        "end_line": 346,
+        "start_column": 62,
+        "end_column": 99
+      },
+      "reason": "false positive",
+      "comment": "hist مصفوفة من روابط CDP ناتجة عن entries.map(e=>e.url). Array.includes يتحقق من عنصر URL كامل، وليس substring داخل رابط؛ هذا تحقق اختبار وليس تنقية عنوان في المنتج.",
+      "source_sha256": "abd7051a89dbac5c4f42c0393ce17d82d0c408797516af4adc2258942657ef60"
+    },
+    {
+      "number": 2,
+      "rule": "js/functionality-from-untrusted-source",
+      "location": {
+        "path": "prototypes/pocol-extension/tests/e2e_browser.mjs",
+        "start_line": 154,
+        "end_line": 154,
+        "start_column": 87,
+        "end_column": 96
+      },
+      "reason": "used in tests",
+      "comment": "طلب HTTP إلى canary محلي داخل probeNetwork لاختبار أن sandbox يمنع iframe والاتصالات. هو مدخل هجومي مقصود في اختبار أمني، وليس تحميل مورد غير موثوق في واجهة الإنتاج.",
+      "source_sha256": "abd7051a89dbac5c4f42c0393ce17d82d0c408797516af4adc2258942657ef60"
+    },
+    {
+      "number": 3,
+      "rule": "py/clear-text-storage-sensitive-data",
+      "location": {
+        "path": "prototypes/pocol-extension/tests/test_linux_export.py",
+        "start_line": 36,
+        "end_line": 36,
+        "start_column": 30,
+        "end_column": 46
+      },
+      "reason": "used in tests",
+      "comment": "بيانات اختبار مصطنعة في TemporaryDirectory: مفتاح fixture معلن أو sentinel ثابت، لا أسرار مستخدمين. تختبر الحماية والتشفير ومنع قراءة/تسريب المفاتيح؛ نجحت الاختبارات ذات الصلة.",
+      "source_sha256": "7f17aa529a3fab9284a956010d7e7c3d708de891b261610f0adb7381b2b75b93"
+    },
+    {
+      "number": 4,
+      "rule": "py/clear-text-storage-sensitive-data",
+      "location": {
+        "path": "deploy/mainnet/test_preflight.py",
+        "start_line": 35,
+        "end_line": 35,
+        "start_column": 55,
+        "end_column": 66
+      },
+      "reason": "used in tests",
+      "comment": "بيانات اختبار مصطنعة في TemporaryDirectory: مفتاح fixture معلن أو sentinel ثابت، لا أسرار مستخدمين. تختبر الحماية والتشفير ومنع قراءة/تسريب المفاتيح؛ نجحت الاختبارات ذات الصلة.",
+      "source_sha256": "0ba4e58e3a96810a209ed6193d2802fa9b643f5358bb0ebfb797ff79b2c4d58f"
+    },
+    {
+      "number": 5,
+      "rule": "py/clear-text-storage-sensitive-data",
+      "location": {
+        "path": "deploy/mainnet/test_preflight.py",
+        "start_line": 176,
+        "end_line": 176,
+        "start_column": 66,
+        "end_column": 77
+      },
+      "reason": "used in tests",
+      "comment": "بيانات اختبار مصطنعة في TemporaryDirectory: مفتاح fixture معلن أو sentinel ثابت، لا أسرار مستخدمين. تختبر الحماية والتشفير ومنع قراءة/تسريب المفاتيح؛ نجحت الاختبارات ذات الصلة.",
+      "source_sha256": "0ba4e58e3a96810a209ed6193d2802fa9b643f5358bb0ebfb797ff79b2c4d58f"
+    },
+    {
+      "number": 6,
+      "rule": "py/bind-socket-all-network-interfaces",
+      "location": {
+        "path": "deploy/private-testnet/rehearse.py",
+        "start_line": 35,
+        "end_line": 35,
+        "start_column": 20,
+        "end_column": 25
+      },
+      "reason": "false positive",
+      "comment": "جميع مستدعي available_port يمررون عناوين loopback ثابتة 127.0.0.1–4. socket مؤقت لا يستدعي listen/accept ويغلق فور اختيار المنفذ؛ لا يوجد ربط فعلي على عنوان فارغ في هذا المسار.",
+      "source_sha256": "fd6eb9393c45c41c692b399eab27835cf0b3f22298a1e2473b1b5e0e7521f104"
+    },
+    {
+      "number": 8,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp1-node/tests/assignment.rs",
+        "start_line": 104,
+        "end_line": 104,
+        "start_column": 31,
+        "end_column": 39
+      },
+      "reason": "false positive",
+      "comment": "الثوابت مدخلات اختبار حدود Assignment.owner لمجالات nonce التعدين العامة؛ هذه الدالة بحث ملكية مجال وليست عملية تشفير أو توقيع.",
+      "source_sha256": "85276b210433378f8c67db546662394f076b3064aa0d47792d531dc02eff4527"
+    },
+    {
+      "number": 9,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 147,
+        "end_line": 147,
+        "start_column": 42,
+        "end_column": 50
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 10,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 154,
+        "end_line": 154,
+        "start_column": 38,
+        "end_column": 46
+      },
+      "reason": "false positive",
+      "comment": "الثوابت مدخلات اختبار حدود Assignment.owner لمجالات nonce التعدين العامة؛ هذه الدالة بحث ملكية مجال وليست عملية تشفير أو توقيع.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 11,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 290,
+        "end_line": 290,
+        "start_column": 41,
+        "end_column": 49
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 12,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 294,
+        "end_line": 294,
+        "start_column": 41,
+        "end_column": 49
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 13,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp1-node/src/assignment.rs",
+        "start_line": 10,
+        "end_line": 10,
+        "start_column": 31,
+        "end_column": 42
+      },
+      "reason": "false positive",
+      "comment": "NONCE_SPACE = 2^64 حد حصري لمجال التعدين العام. هو حجم مجال يستخدمه nonce_max والتحقق من الملكية، وليس nonce سريًا للتشفير.",
+      "source_sha256": "33b1000b87761ae54c39bf2e54ecaf69e20209d58270d29042e12e258dfe273b"
+    },
+    {
+      "number": 14,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 155,
+        "end_line": 155,
+        "start_column": 61,
+        "end_column": 81
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 15,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "development/lp4/p2-runtime/codex-r19/tests/forced_surplus.rs",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 48,
+        "end_column": 49
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "ac029fa9d97736239395f896e4ba801c3c9e11ab4a660ee7e0fd256ed0901017"
+    },
+    {
+      "number": 16,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "development/lp4/p2-runtime/codex-r19/tests/support/surplus_registry.rs",
+        "start_line": 33,
+        "end_line": 33,
+        "start_column": 119,
+        "end_column": 120
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "ca0fb908987a94e316b34aa16fad16f0752b4bca325b9af278bfd201b1a75e5a"
+    },
+    {
+      "number": 17,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "development/lp4/p2-runtime/codex-r19/tests/support/surplus_registry.rs",
+        "start_line": 34,
+        "end_line": 34,
+        "start_column": 74,
+        "end_column": 75
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "ca0fb908987a94e316b34aa16fad16f0752b4bca325b9af278bfd201b1a75e5a"
+    },
+    {
+      "number": 18,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "development/lp4/p2-runtime/codex-r19/tests/support/surplus_registry.rs",
+        "start_line": 35,
+        "end_line": 35,
+        "start_column": 140,
+        "end_column": 141
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "ca0fb908987a94e316b34aa16fad16f0752b4bca325b9af278bfd201b1a75e5a"
+    },
+    {
+      "number": 19,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp1-node/src/fixed.rs",
+        "start_line": 199,
+        "end_line": 199,
+        "start_column": 31,
+        "end_column": 32
+      },
+      "reason": "false positive",
+      "comment": "الصفر يهيئ carry في ضرب U256*u64؛ الناتج يعتمد على المدخلات ويستخدم في حسابات العمل وحدود التعدين. ليست هذه تهيئة nonce سري للتشفير.",
+      "source_sha256": "6164497f6a75fa0ea4cf4192d3ad377beea45f767e6e7b9db54b72b4daef9be3"
+    },
+    {
+      "number": 20,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp1-node/src/hashes.rs",
+        "start_line": 160,
+        "end_line": 160,
+        "start_column": 40,
+        "end_column": 46
+      },
+      "reason": "false positive",
+      "comment": "0x0102 متجه علني لاختبار ترتيب بايتات رسالة التعدين win_msg_preimage، وليس nonce سريًا لتوقيع ECDSA.",
+      "source_sha256": "afddb441713dfddf2c82fedf41a7be3d420fbf646e6d13e3e4de666abb43647e"
+    },
+    {
+      "number": 21,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp1-node/tests/assignment.rs",
+        "start_line": 87,
+        "end_line": 87,
+        "start_column": 26,
+        "end_column": 27
+      },
+      "reason": "false positive",
+      "comment": "الثوابت مدخلات اختبار حدود Assignment.owner لمجالات nonce التعدين العامة؛ هذه الدالة بحث ملكية مجال وليست عملية تشفير أو توقيع.",
+      "source_sha256": "85276b210433378f8c67db546662394f076b3064aa0d47792d531dc02eff4527"
+    },
+    {
+      "number": 22,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp1-node/tests/assignment.rs",
+        "start_line": 88,
+        "end_line": 88,
+        "start_column": 26,
+        "end_column": 27
+      },
+      "reason": "false positive",
+      "comment": "الثوابت مدخلات اختبار حدود Assignment.owner لمجالات nonce التعدين العامة؛ هذه الدالة بحث ملكية مجال وليست عملية تشفير أو توقيع.",
+      "source_sha256": "85276b210433378f8c67db546662394f076b3064aa0d47792d531dc02eff4527"
+    },
+    {
+      "number": 23,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp1-node/tests/assignment.rs",
+        "start_line": 109,
+        "end_line": 109,
+        "start_column": 34,
+        "end_column": 35
+      },
+      "reason": "false positive",
+      "comment": "الثوابت مدخلات اختبار حدود Assignment.owner لمجالات nonce التعدين العامة؛ هذه الدالة بحث ملكية مجال وليست عملية تشفير أو توقيع.",
+      "source_sha256": "85276b210433378f8c67db546662394f076b3064aa0d47792d531dc02eff4527"
+    },
+    {
+      "number": 24,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 249,
+        "end_line": 249,
+        "start_column": 33,
+        "end_column": 34
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 25,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 257,
+        "end_line": 257,
+        "start_column": 49,
+        "end_column": 50
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 26,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 262,
+        "end_line": 262,
+        "start_column": 36,
+        "end_column": 37
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 27,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 267,
+        "end_line": 267,
+        "start_column": 21,
+        "end_column": 22
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 28,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 267,
+        "end_line": 267,
+        "start_column": 64,
+        "end_column": 65
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 29,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 267,
+        "end_line": 267,
+        "start_column": 107,
+        "end_column": 108
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 30,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 279,
+        "end_line": 279,
+        "start_column": 29,
+        "end_column": 30
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 31,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 288,
+        "end_line": 288,
+        "start_column": 30,
+        "end_column": 31
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 32,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 294,
+        "end_line": 294,
+        "start_column": 37,
+        "end_column": 38
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 33,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 300,
+        "end_line": 300,
+        "start_column": 39,
+        "end_column": 40
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 34,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 304,
+        "end_line": 304,
+        "start_column": 40,
+        "end_column": 41
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 35,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 311,
+        "end_line": 311,
+        "start_column": 29,
+        "end_column": 30
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 36,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 386,
+        "end_line": 386,
+        "start_column": 63,
+        "end_column": 64
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 37,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 409,
+        "end_line": 409,
+        "start_column": 39,
+        "end_column": 40
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 38,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 411,
+        "end_line": 411,
+        "start_column": 40,
+        "end_column": 41
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc"
+    },
+    {
+      "number": 39,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 54,
+        "end_column": 55
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 40,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 15,
+        "end_line": 15,
+        "start_column": 24,
+        "end_column": 25
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 41,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 17,
+        "end_line": 17,
+        "start_column": 21,
+        "end_column": 22
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 42,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 34,
+        "end_line": 34,
+        "start_column": 92,
+        "end_column": 93
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 43,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 89,
+        "end_line": 89,
+        "start_column": 83,
+        "end_column": 84
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 44,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 89,
+        "end_line": 89,
+        "start_column": 76,
+        "end_column": 77
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 45,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 98,
+        "end_line": 98,
+        "start_column": 25,
+        "end_column": 26
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 46,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 108,
+        "end_line": 108,
+        "start_column": 115,
+        "end_column": 116
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 47,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 51,
+        "end_line": 51,
+        "start_column": 43,
+        "end_column": 44
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f"
+    },
+    {
+      "number": 48,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 53,
+        "end_line": 53,
+        "start_column": 40,
+        "end_column": 41
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f"
+    },
+    {
+      "number": 49,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 62,
+        "end_line": 62,
+        "start_column": 37,
+        "end_column": 38
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f"
+    },
+    {
+      "number": 50,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_contracts.rs",
+        "start_line": 40,
+        "end_line": 40,
+        "start_column": 44,
+        "end_column": 45
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "1c99f4a25c0e0e80e48bdb02e0310adec40b063c631a884a3e213b067cb68f02"
+    },
+    {
+      "number": 51,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_contracts.rs",
+        "start_line": 41,
+        "end_line": 41,
+        "start_column": 144,
+        "end_column": 145
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "1c99f4a25c0e0e80e48bdb02e0310adec40b063c631a884a3e213b067cb68f02"
+    },
+    {
+      "number": 52,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 70,
+        "end_line": 70,
+        "start_column": 62,
+        "end_column": 63
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f"
+    },
+    {
+      "number": 53,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_contracts.rs",
+        "start_line": 47,
+        "end_line": 47,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "1c99f4a25c0e0e80e48bdb02e0310adec40b063c631a884a3e213b067cb68f02"
+    },
+    {
+      "number": 54,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 128,
+        "end_line": 128,
+        "start_column": 92,
+        "end_column": 93
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598"
+    },
+    {
+      "number": 55,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_contracts.rs",
+        "start_line": 51,
+        "end_line": 51,
+        "start_column": 60,
+        "end_column": 61
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "1c99f4a25c0e0e80e48bdb02e0310adec40b063c631a884a3e213b067cb68f02"
+    },
+    {
+      "number": 56,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_contracts.rs",
+        "start_line": 60,
+        "end_line": 60,
+        "start_column": 129,
+        "end_column": 130
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "1c99f4a25c0e0e80e48bdb02e0310adec40b063c631a884a3e213b067cb68f02"
+    },
+    {
+      "number": 57,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 138,
+        "end_line": 138,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f"
+    },
+    {
+      "number": 58,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 190,
+        "end_line": 190,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f"
+    },
+    {
+      "number": 59,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 219,
+        "end_line": 219,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f"
+    },
+    {
+      "number": 60,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+        "start_line": 32,
+        "end_line": 32,
+        "start_column": 119,
+        "end_column": 120
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325"
+    },
+    {
+      "number": 61,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+        "start_line": 33,
+        "end_line": 33,
+        "start_column": 74,
+        "end_column": 75
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325"
+    },
+    {
+      "number": 62,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+        "start_line": 34,
+        "end_line": 34,
+        "start_column": 140,
+        "end_column": 141
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325"
+    },
+    {
+      "number": 63,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+        "start_line": 105,
+        "end_line": 105,
+        "start_column": 51,
+        "end_column": 52
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325"
+    },
+    {
+      "number": 64,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+        "start_line": 105,
+        "end_line": 105,
+        "start_column": 81,
+        "end_column": 82
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325"
+    },
+    {
+      "number": 65,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+        "start_line": 105,
+        "end_line": 105,
+        "start_column": 111,
+        "end_column": 112
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325"
+    },
+    {
+      "number": 66,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/registry_payment.rs",
+        "start_line": 105,
+        "end_line": 105,
+        "start_column": 140,
+        "end_column": 141
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "d3c32d6d7f2ce036378977b1f82ef6092732263a9fe378e082edcf0d4b029325"
+    },
+    {
+      "number": 67,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/src/node.rs",
+        "start_line": 1505,
+        "end_line": 1505,
+        "start_column": 24,
+        "end_column": 25
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55"
+    },
+    {
+      "number": 68,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/src/node.rs",
+        "start_line": 1509,
+        "end_line": 1509,
+        "start_column": 55,
+        "end_column": 56
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55"
+    },
+    {
+      "number": 69,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/src/node.rs",
+        "start_line": 1510,
+        "end_line": 1510,
+        "start_column": 24,
+        "end_column": 25
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55"
+    },
+    {
+      "number": 70,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 24,
+        "end_line": 24,
+        "start_column": 68,
+        "end_column": 72
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 71,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/src/node.rs",
+        "start_line": 1553,
+        "end_line": 1553,
+        "start_column": 59,
+        "end_column": 60
+      },
+      "reason": "false positive",
+      "comment": "salt في selfsigned يغيّر بايتات ut_raw لصنع قوالب مختلفة ضمن اختبار equivocation تحت cfg(test)، ولا يدخل اشتقاق مفتاح أو تشفير بيانات.",
+      "source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55"
+    },
+    {
+      "number": 72,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/src/node.rs",
+        "start_line": 1554,
+        "end_line": 1554,
+        "start_column": 59,
+        "end_column": 60
+      },
+      "reason": "false positive",
+      "comment": "salt في selfsigned يغيّر بايتات ut_raw لصنع قوالب مختلفة ضمن اختبار equivocation تحت cfg(test)، ولا يدخل اشتقاق مفتاح أو تشفير بيانات.",
+      "source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55"
+    },
+    {
+      "number": 73,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/src/node.rs",
+        "start_line": 1557,
+        "end_line": 1557,
+        "start_column": 65,
+        "end_column": 66
+      },
+      "reason": "false positive",
+      "comment": "salt في selfsigned يغيّر بايتات ut_raw لصنع قوالب مختلفة ضمن اختبار equivocation تحت cfg(test)، ولا يدخل اشتقاق مفتاح أو تشفير بيانات.",
+      "source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55"
+    },
+    {
+      "number": 74,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/src/node.rs",
+        "start_line": 1559,
+        "end_line": 1559,
+        "start_column": 65,
+        "end_column": 67
+      },
+      "reason": "false positive",
+      "comment": "salt في selfsigned يغيّر بايتات ut_raw لصنع قوالب مختلفة ضمن اختبار equivocation تحت cfg(test)، ولا يدخل اشتقاق مفتاح أو تشفير بيانات.",
+      "source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55"
+    },
+    {
+      "number": 75,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/src/node.rs",
+        "start_line": 1560,
+        "end_line": 1560,
+        "start_column": 64,
+        "end_column": 66
+      },
+      "reason": "false positive",
+      "comment": "salt في selfsigned يغيّر بايتات ut_raw لصنع قوالب مختلفة ضمن اختبار equivocation تحت cfg(test)، ولا يدخل اشتقاق مفتاح أو تشفير بيانات.",
+      "source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55"
+    },
+    {
+      "number": 76,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 81,
+        "end_line": 81,
+        "start_column": 32,
+        "end_column": 33
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 77,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 81,
+        "end_line": 81,
+        "start_column": 48,
+        "end_column": 49
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 78,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 81,
+        "end_line": 81,
+        "start_column": 66,
+        "end_column": 67
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 79,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 81,
+        "end_line": 81,
+        "start_column": 97,
+        "end_column": 98
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 80,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 81,
+        "end_line": 81,
+        "start_column": 111,
+        "end_column": 112
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 81,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 81,
+        "end_line": 81,
+        "start_column": 125,
+        "end_column": 126
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 82,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 100,
+        "end_line": 100,
+        "start_column": 106,
+        "end_column": 107
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 83,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 100,
+        "end_line": 100,
+        "start_column": 120,
+        "end_column": 121
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 84,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 100,
+        "end_line": 100,
+        "start_column": 134,
+        "end_column": 135
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 85,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 39,
+        "end_line": 39,
+        "start_column": 118,
+        "end_column": 119
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 86,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 44,
+        "end_line": 44,
+        "start_column": 52,
+        "end_column": 53
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 87,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 181,
+        "end_line": 181,
+        "start_column": 132,
+        "end_column": 133
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 88,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 50,
+        "end_line": 50,
+        "start_column": 27,
+        "end_column": 28
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 89,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 199,
+        "end_line": 199,
+        "start_column": 103,
+        "end_column": 104
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 90,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 199,
+        "end_line": 199,
+        "start_column": 119,
+        "end_column": 120
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 91,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 199,
+        "end_line": 199,
+        "start_column": 135,
+        "end_column": 136
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 92,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 266,
+        "end_line": 266,
+        "start_column": 45,
+        "end_column": 46
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 93,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 281,
+        "end_line": 281,
+        "start_column": 25,
+        "end_column": 26
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 94,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/caps.rs",
+        "start_line": 283,
+        "end_line": 283,
+        "start_column": 22,
+        "end_column": 23
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "76ac1db59843d59b891525e3348594b328838c096761b68eac4a26e8bdf1b0e9"
+    },
+    {
+      "number": 95,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 198,
+        "end_line": 198,
+        "start_column": 55,
+        "end_column": 56
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 96,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 213,
+        "end_line": 213,
+        "start_column": 73,
+        "end_column": 74
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 97,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/cutover.rs",
+        "start_line": 39,
+        "end_line": 39,
+        "start_column": 52,
+        "end_column": 56
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "43867dec75cb013d6b3b64fb319dcd432187da394aef042210abecb9f965d5c8"
+    },
+    {
+      "number": 98,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 40,
+        "end_line": 40,
+        "start_column": 128,
+        "end_column": 129
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 99,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 48,
+        "end_line": 48,
+        "start_column": 64,
+        "end_column": 65
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 100,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 122,
+        "end_line": 122,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 101,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 134,
+        "end_line": 134,
+        "start_column": 67,
+        "end_column": 68
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 102,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 171,
+        "end_line": 171,
+        "start_column": 59,
+        "end_column": 60
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 103,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 205,
+        "end_line": 205,
+        "start_column": 52,
+        "end_column": 53
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 104,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 211,
+        "end_line": 211,
+        "start_column": 52,
+        "end_column": 53
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 105,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 218,
+        "end_line": 218,
+        "start_column": 43,
+        "end_column": 44
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 106,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 245,
+        "end_line": 245,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 107,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/full_nonce.rs",
+        "start_line": 298,
+        "end_line": 298,
+        "start_column": 41,
+        "end_column": 42
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "328d0541bef736e46cd58597609347cf8a0d1ea97cc2f558cbe6b1d758d6e477"
+    },
+    {
+      "number": 108,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 240,
+        "end_line": 240,
+        "start_column": 46,
+        "end_column": 47
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 109,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 240,
+        "end_line": 240,
+        "start_column": 68,
+        "end_column": 69
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 110,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 241,
+        "end_line": 241,
+        "start_column": 65,
+        "end_column": 66
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 111,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 241,
+        "end_line": 241,
+        "start_column": 90,
+        "end_column": 91
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 112,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 456,
+        "end_line": 456,
+        "start_column": 26,
+        "end_column": 27
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 113,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap.rs",
+        "start_line": 18,
+        "end_line": 18,
+        "start_column": 68,
+        "end_column": 72
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "5aafb243d44fd30b9b1ad5138402fa45a6f67255562c5609a1a4f8d1747936b4"
+    },
+    {
+      "number": 114,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 473,
+        "end_line": 473,
+        "start_column": 51,
+        "end_column": 53
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 115,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 294,
+        "end_line": 294,
+        "start_column": 65,
+        "end_column": 66
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 116,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 297,
+        "end_line": 297,
+        "start_column": 49,
+        "end_column": 50
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 117,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 297,
+        "end_line": 297,
+        "start_column": 72,
+        "end_column": 73
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 118,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 298,
+        "end_line": 298,
+        "start_column": 84,
+        "end_column": 85
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 119,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 298,
+        "end_line": 298,
+        "start_column": 110,
+        "end_column": 111
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 120,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 299,
+        "end_line": 299,
+        "start_column": 63,
+        "end_column": 64
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 121,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 299,
+        "end_line": 299,
+        "start_column": 86,
+        "end_column": 87
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 122,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 301,
+        "end_line": 301,
+        "start_column": 68,
+        "end_column": 69
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 123,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 304,
+        "end_line": 304,
+        "start_column": 68,
+        "end_column": 69
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 124,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 304,
+        "end_line": 304,
+        "start_column": 102,
+        "end_column": 103
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 125,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap.rs",
+        "start_line": 49,
+        "end_line": 49,
+        "start_column": 84,
+        "end_column": 85
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "5aafb243d44fd30b9b1ad5138402fa45a6f67255562c5609a1a4f8d1747936b4"
+    },
+    {
+      "number": 126,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap_scope.rs",
+        "start_line": 18,
+        "end_line": 18,
+        "start_column": 68,
+        "end_column": 72
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "f4b07d5fcedcffd66e65313b71771f7866fbda0b8800f8027f57484672573f45"
+    },
+    {
+      "number": 127,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 528,
+        "end_line": 528,
+        "start_column": 30,
+        "end_column": 31
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 128,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 528,
+        "end_line": 528,
+        "start_column": 49,
+        "end_column": 50
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 129,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 537,
+        "end_line": 537,
+        "start_column": 28,
+        "end_column": 29
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 130,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap_scope.rs",
+        "start_line": 41,
+        "end_line": 41,
+        "start_column": 49,
+        "end_column": 50
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "f4b07d5fcedcffd66e65313b71771f7866fbda0b8800f8027f57484672573f45"
+    },
+    {
+      "number": 131,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap_scope.rs",
+        "start_line": 44,
+        "end_line": 44,
+        "start_column": 16,
+        "end_column": 20
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "f4b07d5fcedcffd66e65313b71771f7866fbda0b8800f8027f57484672573f45"
+    },
+    {
+      "number": 132,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 549,
+        "end_line": 549,
+        "start_column": 34,
+        "end_column": 35
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 133,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 549,
+        "end_line": 549,
+        "start_column": 94,
+        "end_column": 95
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 134,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap_scope.rs",
+        "start_line": 55,
+        "end_line": 55,
+        "start_column": 39,
+        "end_column": 40
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "f4b07d5fcedcffd66e65313b71771f7866fbda0b8800f8027f57484672573f45"
+    },
+    {
+      "number": 135,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 559,
+        "end_line": 559,
+        "start_column": 26,
+        "end_column": 27
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 136,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 384,
+        "end_line": 384,
+        "start_column": 62,
+        "end_column": 66
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 137,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap_scope.rs",
+        "start_line": 63,
+        "end_line": 63,
+        "start_column": 44,
+        "end_column": 45
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "f4b07d5fcedcffd66e65313b71771f7866fbda0b8800f8027f57484672573f45"
+    },
+    {
+      "number": 138,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 577,
+        "end_line": 577,
+        "start_column": 33,
+        "end_column": 34
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 139,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 577,
+        "end_line": 577,
+        "start_column": 57,
+        "end_column": 58
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 140,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 580,
+        "end_line": 580,
+        "start_column": 37,
+        "end_column": 38
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 141,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 580,
+        "end_line": 580,
+        "start_column": 59,
+        "end_column": 60
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 142,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 580,
+        "end_line": 580,
+        "start_column": 81,
+        "end_column": 82
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 143,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 580,
+        "end_line": 580,
+        "start_column": 109,
+        "end_column": 110
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 144,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 580,
+        "end_line": 580,
+        "start_column": 137,
+        "end_column": 138
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 145,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 623,
+        "end_line": 623,
+        "start_column": 32,
+        "end_column": 33
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 146,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 623,
+        "end_line": 623,
+        "start_column": 48,
+        "end_column": 49
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 147,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 623,
+        "end_line": 623,
+        "start_column": 62,
+        "end_column": 63
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 148,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 458,
+        "end_line": 458,
+        "start_column": 58,
+        "end_column": 62
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 149,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 655,
+        "end_line": 655,
+        "start_column": 75,
+        "end_column": 76
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 150,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 685,
+        "end_line": 685,
+        "start_column": 24,
+        "end_column": 25
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 151,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 550,
+        "end_line": 550,
+        "start_column": 33,
+        "end_column": 37
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 152,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 752,
+        "end_line": 752,
+        "start_column": 158,
+        "end_column": 159
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 153,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 757,
+        "end_line": 757,
+        "start_column": 78,
+        "end_column": 79
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 154,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 762,
+        "end_line": 762,
+        "start_column": 62,
+        "end_column": 63
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 155,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 777,
+        "end_line": 777,
+        "start_column": 32,
+        "end_column": 33
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 156,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 777,
+        "end_line": 777,
+        "start_column": 48,
+        "end_column": 49
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 157,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 777,
+        "end_line": 777,
+        "start_column": 62,
+        "end_column": 63
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 158,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 778,
+        "end_line": 778,
+        "start_column": 29,
+        "end_column": 30
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 159,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 613,
+        "end_line": 613,
+        "start_column": 97,
+        "end_column": 98
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 160,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 616,
+        "end_line": 616,
+        "start_column": 49,
+        "end_column": 53
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 161,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 816,
+        "end_line": 816,
+        "start_column": 62,
+        "end_column": 63
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 162,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 622,
+        "end_line": 622,
+        "start_column": 97,
+        "end_column": 98
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 163,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 835,
+        "end_line": 835,
+        "start_column": 68,
+        "end_column": 69
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 164,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 835,
+        "end_line": 835,
+        "start_column": 84,
+        "end_column": 85
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 165,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 847,
+        "end_line": 847,
+        "start_column": 74,
+        "end_column": 75
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 166,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 682,
+        "end_line": 682,
+        "start_column": 63,
+        "end_column": 64
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 167,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 714,
+        "end_line": 714,
+        "start_column": 78,
+        "end_column": 82
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 168,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 776,
+        "end_line": 776,
+        "start_column": 124,
+        "end_column": 128
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 169,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 835,
+        "end_line": 835,
+        "start_column": 74,
+        "end_column": 78
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 170,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1023,
+        "end_line": 1023,
+        "start_column": 26,
+        "end_column": 27
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 171,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1023,
+        "end_line": 1023,
+        "start_column": 52,
+        "end_column": 53
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 172,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1023,
+        "end_line": 1023,
+        "start_column": 66,
+        "end_column": 67
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 173,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 900,
+        "end_line": 900,
+        "start_column": 78,
+        "end_column": 82
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 174,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 1021,
+        "end_line": 1021,
+        "start_column": 74,
+        "end_column": 78
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 175,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 1074,
+        "end_line": 1074,
+        "start_column": 74,
+        "end_column": 78
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 176,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 1112,
+        "end_line": 1112,
+        "start_column": 74,
+        "end_column": 78
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 177,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 1169,
+        "end_line": 1169,
+        "start_column": 74,
+        "end_column": 78
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 178,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 1282,
+        "end_line": 1282,
+        "start_column": 49,
+        "end_column": 53
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 179,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1452,
+        "end_line": 1452,
+        "start_column": 74,
+        "end_column": 75
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 180,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1550,
+        "end_line": 1550,
+        "start_column": 85,
+        "end_column": 86
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 181,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1571,
+        "end_line": 1571,
+        "start_column": 51,
+        "end_column": 52
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 182,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1595,
+        "end_line": 1595,
+        "start_column": 68,
+        "end_column": 69
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 183,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 1389,
+        "end_line": 1389,
+        "start_column": 109,
+        "end_column": 110
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 184,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 1501,
+        "end_line": 1501,
+        "start_column": 63,
+        "end_column": 64
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5"
+    },
+    {
+      "number": 185,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1714,
+        "end_line": 1714,
+        "start_column": 56,
+        "end_column": 58
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 186,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1833,
+        "end_line": 1833,
+        "start_column": 50,
+        "end_column": 54
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 187,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1839,
+        "end_line": 1839,
+        "start_column": 70,
+        "end_column": 71
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 188,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1906,
+        "end_line": 1906,
+        "start_column": 50,
+        "end_column": 54
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 189,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1911,
+        "end_line": 1911,
+        "start_column": 70,
+        "end_column": 71
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 190,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1983,
+        "end_line": 1983,
+        "start_column": 91,
+        "end_column": 92
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 191,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2015,
+        "end_line": 2015,
+        "start_column": 62,
+        "end_column": 63
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 192,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2079,
+        "end_line": 2079,
+        "start_column": 62,
+        "end_column": 63
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 193,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2185,
+        "end_line": 2185,
+        "start_column": 43,
+        "end_column": 44
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 194,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2207,
+        "end_line": 2207,
+        "start_column": 95,
+        "end_column": 96
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 195,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2209,
+        "end_line": 2209,
+        "start_column": 28,
+        "end_column": 32
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 196,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2224,
+        "end_line": 2224,
+        "start_column": 98,
+        "end_column": 99
+      },
+      "reason": "false positive",
+      "comment": "المواضع تخص بدايات وحدود بحث nonce التعدين أو اختبارات رفضه/إلغائه. هذه قيمة عامة في إثبات العمل وتتغير أثناء البحث، وليست nonce سريًا للتشفير. راجع المصدر عند 46d688b.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 197,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2244,
+        "end_line": 2244,
+        "start_column": 101,
+        "end_column": 102
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    },
+    {
+      "number": 198,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2292,
+        "end_line": 2292,
+        "start_column": 68,
+        "end_column": 69
+      },
+      "reason": "false positive",
+      "comment": "القيم المبلغ عنها عدادات معاملات/حسابات EVM مصطنعة، وتصل إلى Tx.nonce أو AccountInfo.nonce. روجعت المواضع وتعريفات المساعدات عند 46d688b؛ لا تختار هذه القيم nonce السري لتوقيع ECDSA.",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9"
+    }
+  ]
+}
