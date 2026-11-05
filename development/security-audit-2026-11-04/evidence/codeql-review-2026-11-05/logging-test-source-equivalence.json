@@ -1,0 +1,19 @@
+{
+  "main_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "checkout_sha": "fd29d3399e90015172465687beb6f81d60501d55",
+  "byte_identical_scopes": [
+    "prototypes/pocold/src",
+    "prototypes/lp4-execution/src",
+    "prototypes/lp1-node/src",
+    "prototypes/pocold/tests/state_store.rs",
+    "prototypes/pocold/tests/consensus.rs",
+    "prototypes/pocold/tests/support",
+    "prototypes/pocold/build.rs",
+    "prototypes/lp4-execution/build.rs",
+    "prototypes/pocold/Cargo.toml",
+    "prototypes/pocold/Cargo.lock",
+    "prototypes/lp4-execution/Cargo.toml",
+    "prototypes/lp4-execution/Cargo.lock"
+  ],
+  "file_identity_verified_before_testing": true
+}

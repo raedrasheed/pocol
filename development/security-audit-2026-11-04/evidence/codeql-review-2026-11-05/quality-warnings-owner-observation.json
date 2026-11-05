@@ -1,0 +1,42 @@
+{
+  "recorded_at_utc": "2026-11-05T12:10:14.286779+00:00",
+  "provenance": "Owner screenshots; the original images were not saved as files.",
+  "scan_commit_prefix_visible": "46d688b7",
+  "source_review_commit": "46d688b701e165211c36a5a1447fb029a3199302",
+  "csharp": {
+    "status": "1 warning and 1 suggestion",
+    "warning": "Low C# analysis quality",
+    "calls_with_target_percent": 59,
+    "expressions_with_known_type_percent": 71,
+    "threshold_percent": 85,
+    "build_mode": "none",
+    "affected_sources": [
+      "prototypes/pocol-windows/Wallet.cs",
+      "prototypes/pocol-windows/WalletUiTests.cs"
+    ],
+    "known_build_recipe": "deploy/standalone/build-windows-wallet.ps1",
+    "runtime": "Windows .NET Framework WPF",
+    "metrics_after_change_verified": false
+  },
+  "go": {
+    "warning": "Some packages could not be found",
+    "missing_packages_count": 9,
+    "affected_source": "prototypes/lp4-execution/tests/gst_signed_geth.go",
+    "purpose": "External test-only Geth Cancun signed-admission comparison; not linked into PoCol runtime.",
+    "expected_geth_version_from_source": "v1.14.12",
+    "missing_dependency_imports": [
+      "github.com/ethereum/go-ethereum/common",
+      "github.com/ethereum/go-ethereum/consensus/misc/eip4844",
+      "github.com/ethereum/go-ethereum/core",
+      "github.com/ethereum/go-ethereum/core/state",
+      "github.com/ethereum/go-ethereum/core/tracing",
+      "github.com/ethereum/go-ethereum/core/types",
+      "github.com/ethereum/go-ethereum/core/vm",
+      "github.com/ethereum/go-ethereum/params",
+      "github.com/holiman/uint256"
+    ],
+    "helper_sha256": "110480e8f698056a0b4de7253bf11219decca2039950c69f92dd7db856b4f029"
+  },
+  "github_configuration_changed": false,
+  "runtime_credentials_changed": false
+}

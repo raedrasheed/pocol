@@ -1,0 +1,22 @@
+{
+  "recorded_at_utc": "2026-11-05T12:22:47.772114+00:00",
+  "main_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "tested_windows_sha": "fd29d3399e90015172465687beb6f81d60501d55",
+  "windows_workflow_run": 42025519955,
+  "windows_workflow_url": "https://github.com/palcertcom/pocol/actions/runs/42025519955",
+  "windows_ci_conclusion": "success",
+  "windows_compiler_and_wpf_regression_step": "success",
+  "windows_inputs_identical_to_main": 8,
+  "windows_raw_artifact_downloaded": false,
+  "windows_raw_artifact_blocked_host": "productionresultssa6.blob.core.windows.net",
+  "go_sdk_verified_version": "go1.27.3",
+  "go_module_resolution": "failed: HTTP Forbidden while following Go proxy redirect",
+  "go_blocked_host": "storage.googleapis.com",
+  "go_build_executed": false,
+  "go_fixture_tests_executed": false,
+  "codeql_rerun_with_build_context": false,
+  "codeql_quality_metrics_improved_verified": false,
+  "repository_source_changed": false,
+  "github_codeql_configuration_changed": false,
+  "cloud_environment_draft_changed": false
+}

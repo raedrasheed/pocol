@@ -1,0 +1,10 @@
+{
+  "rule_source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+  "public_codeql_commit": "1be292a1e54696ca543b4ad0f9b4537b9687caa7",
+  "public_commit_message": "Merge pull request #22943 from github/release-prep/2.27.4\n\nRelease preparation for version 2.27.4",
+  "qlpack_name": "codeql/rust-queries",
+  "qlpack_version": "0.1.46",
+  "hardcoded_model_identical_to_previously_reviewed_bytes": true,
+  "previous_model_review_path": "/workspace/pocol-codeql-alert200-2026-11-05-tdg8lzpm/official-HardcodedCryptographicValueExtensions.qll",
+  "exact_cli_version_from_csv_verified": false
+}

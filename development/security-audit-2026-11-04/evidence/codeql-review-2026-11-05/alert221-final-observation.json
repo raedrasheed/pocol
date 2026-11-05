@@ -1,0 +1,71 @@
+{
+  "recorded_at_utc": "2026-11-05T13:50:02.373556+00:00",
+  "alert": 221,
+  "rule": "rust/cleartext-logging",
+  "state_last_observed": "Open",
+  "evidence": "Two owner-provided screenshots showing all four steps; raw image files were not saved locally.",
+  "path_step_count": 4,
+  "observed_steps": [
+    {
+      "step": 1,
+      "label": "Source",
+      "path": "prototypes/pocold/tests/state_store.rs",
+      "line": 34,
+      "expression": "&db.accounts"
+    },
+    {
+      "step": 2,
+      "label": "MacroExpr",
+      "path": "prototypes/pocold/tests/state_store.rs",
+      "line": 41,
+      "expression": "assert_eq!(t.slot(a,k),*v,\"{ctx}: {a} slot {k}\")"
+    },
+    {
+      "step": 3,
+      "label": "...::Some(...) [Some]",
+      "path": "prototypes/pocold/tests/state_store.rs",
+      "line": 41
+    },
+    {
+      "step": 4,
+      "label": "Sink",
+      "path": "prototypes/pocold/tests/state_store.rs",
+      "line": 41,
+      "highlighted_diagnostic": "{ctx}: {a} slot {k}"
+    }
+  ],
+  "source_review_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "source_file_sha256": "04a53bf514284aa95dac97f54c1f1460c6056aaca388c4f78f25462e202b7dd4",
+  "query_pack": "codeql/rust-queries 0.1.46",
+  "codeql_source_commit": "1be292a1e54696ca543b4ad0f9b4537b9687caa7",
+  "classification": "False positive for alert #221 and the provided source/sink path",
+  "reason": "Synthetic EVM accounts and slot identifiers in a closed integration-test fixture, matched by a generic account-information naming heuristic; assertion failure diagnostics do not disclose real-user secrets in this context.",
+  "test_previously_run": {
+    "target": "state_store",
+    "test": "stored_versions_have_their_roots_and_states_and_survive_reopen",
+    "argv": [
+      "/workspace/.pocol-cargo/bin/cargo",
+      "+1.99.1",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "prototypes/pocold/Cargo.toml",
+      "--test",
+      "state_store",
+      "stored_versions_have_their_roots_and_states_and_survive_reopen",
+      "--",
+      "--exact",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 19.29,
+    "network": "offline",
+    "test_threads": 1,
+    "build_jobs": 2
+  },
+  "tests_rerun_this_step": false,
+  "github_alert_updated_by_assistant": false,
+  "remaining_logging_alerts_individually_classified": false
+}

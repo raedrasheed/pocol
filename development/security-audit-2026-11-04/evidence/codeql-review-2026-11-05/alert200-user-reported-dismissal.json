@@ -1,0 +1,12 @@
+{
+  "recorded_at_utc": "2026-11-05T11:08:30.955959+00:00",
+  "alert": 200,
+  "classification": "False positive for the reviewed path",
+  "user_message": "تم",
+  "interpretation": "User reports completing the instructed individual dismissal as False positive.",
+  "verification_source": "User confirmation in this conversation; no screenshot of dismissed status or code-scanning API response obtained.",
+  "independent_api_status_verified": false,
+  "open_alert_count_after_action_verified": false,
+  "reviewed_commit": "46d688b701e165211c36a5a1447fb029a3199302",
+  "remaining_alerts": "Not automatically classified or dismissed."
+}
