@@ -10,6 +10,7 @@ and [compiler tool dependency repair](../security-dependency-followup-2026-11-05
 - [Reviewed local compatibility patches](../../prototypes/third-party/evm-crypto/README.md)
 - [Historical review of the owner's 197 CodeQL alerts](CODEQL-197-REVIEW-AR.md)
 - [Review and guarded owner helper for the 11 new PR29 findings](CODEQL-PR29-REVIEW-AR.md)
+- [Final source CI: 26 successful jobs; CodeQL alert gate remains blocked](CI-PR29-AR.md)
 - [Evidence index](evidence/provenance.json), [tested source hashes](evidence/tested-inputs.json)
 
 The evidence records local verification before delivery. It does not certify a
