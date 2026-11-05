@@ -8,8 +8,18 @@ license = "Apache-2.0"
 [dependencies]
 revm = { version = "=19.7.0", features = ["serde"] }
 serde_json = "=1.0.145"
+# Keep public recovery on its accepted backend; never use this version for private keys.
 k256 = { version = "=0.13.4", features = ["ecdsa"] }
+# RUSTSEC-2026-0387: private-key operations need the corrected crypto-bigint stack.
+k256-signer = { package = "k256", version = "=0.14.0", features = ["ecdsa"] }
+# Security floor: 0.14.3 requires crypto-bigint >=0.7.8, including the timing fixes.
+# The committed locks select the non-yanked 0.7.10 release.
+elliptic-curve = { version = "=0.14.3", default-features = false }
 sha2 = "=0.10.9"
+
+[dev-dependencies]
+# Independent RFC6979 oracle, already locked through revm's public precompile.
+secp256k1 = { version = "=0.29.1", features = ["recovery"] }
 
 [features]
 # validation.md:2065: the caps-test build constant LOG_CAP=2^24 (simnet only, absent from the release).

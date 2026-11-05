@@ -1,0 +1,15 @@
+   Compiling secp256k1 v0.29.1
+   Compiling revm-precompile v16.2.0
+   Compiling revm v19.7.0
+   Compiling pocol-lp4-execution v0.1.0 (/workspace/pocol-crypto-timing-2026-11-05-4_byny3i/prototypes/lp4-execution)
+    Finished `release` profile [optimized] target(s) in 21.21s
+     Running tests/signing_compat.rs (/workspace/pocol-crypto-timing-review-2026-11-05-t6f8i98w/target/release/deps/signing_compat-5384f82f3296ba99)
+
+running 3 tests
+test private_signer_preserves_rfc6979_addresses_and_low_s_at_edges ... RFC6979 oracle pairs: 57400; legacy-identical pairs: 45100; corrected digest edges: 12300
+ok
+test private_signer_refuses_invalid_secret_scalars ... ok
+test recovery_policy_still_rejects_high_s_bad_id_and_bad_length ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.67s
+

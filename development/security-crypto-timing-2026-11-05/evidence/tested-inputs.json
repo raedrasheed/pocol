@@ -1,0 +1,12 @@
+{
+  "schema": "pocol-private-signer-tested-inputs-v1",
+  "base_commit": "840accc5f4f839edb7c439f612fe35539f0056c7",
+  "sha256": {
+    "prototypes/lp4-execution/Cargo.toml": "ababeebe8e4298770569794b4de47b445ccafff1e58293122e2e33727177aea2",
+    "prototypes/lp4-execution/src/txsign.rs": "7f6f04d0ecabd0dbeaaa63796fce3ed750f0ad70682292396b5ce7be578db950",
+    "prototypes/lp4-execution/tests/signing_compat.rs": "2226f6b9e49779f660d97f7dfa7532313132faa5a1c239aa60b4e8f78e785c78",
+    "prototypes/lp4-execution/Cargo.lock": "67f939bbba453ce494dd3a11ad5a4cedd4e2bb90d45a92e26be279bb98b76381",
+    "prototypes/pocold/Cargo.lock": "7cf99afff7ba530cf3d430ea29044c0f6153cc8ca2fafdc25a49b27985947049",
+    "development/security-audit-2026-11-04/fuzz/Cargo.lock": "9b9c6ab40aefb3987f0c7824f0a4e2d8ade5c598b6838d62d4d6180b74982dc8"
+  }
+}

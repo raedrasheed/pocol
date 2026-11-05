@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "private_dependency_name": "k256_signer",
+  "private_signer_stack": [
+    {
+      "name": "crypto-bigint",
+      "version": "0.7.10"
+    },
+    {
+      "name": "ctutils",
+      "version": "0.4.8"
+    },
+    {
+      "name": "ecdsa",
+      "version": "0.17.0"
+    },
+    {
+      "name": "elliptic-curve",
+      "version": "0.14.3"
+    },
+    {
+      "name": "k256",
+      "version": "0.14.0"
+    }
+  ],
+  "private_closure_packages": 50,
+  "legacy_crypto_bigint_elsewhere": [
+    "0.5.5"
+  ],
+  "problems": [],
+  "scope": "Private signer routing and version floors only; legacy audit findings remain visible"
+}
