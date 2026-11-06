@@ -99,8 +99,8 @@ Use the separate [source review](CODEQL-PR29-REVIEW-AR.md) and helper for these
 new locations. The historical 197-alert batch does not include them.
 
 ```text
-python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify.json
-python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify-v2.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply-v2.json
 ```
 
 The operator needs normal code-scanning permission. The helper discovers server
@@ -114,4 +114,8 @@ python3 -m unittest discover \
   -s development/security-evm-crypto-2026-11-05 -p 'test_apply*codeql.py' -v
 ```
 
-This runs 27 mocked tests (13 historical-batch and 14 PR29), with no real writes.
+This runs 30 mocked tests (13 historical-batch and 17 PR29), with no real writes.
+The PR29 helper now uses the actual default-setup analysis ref
+`refs/pull/29/head`; see the [correction evidence](CODEQL-PR29-REF-FIX-AR.md).
+Update an existing owner checkout with `git pull --ff-only` before retrying.
+Use the new output filenames above to preserve the first stopped run.

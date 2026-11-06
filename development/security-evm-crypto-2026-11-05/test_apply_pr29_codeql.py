@@ -2,8 +2,10 @@
 import base64
 import copy
 import hashlib
+import json
 from pathlib import Path
 import unittest
+from urllib.parse import parse_qs, urlsplit
 
 import apply_pr29_codeql as tool
 
@@ -48,6 +50,22 @@ class Fake:
 
     def instances(self, number):
         return self.rows
+
+
+class DynamicHeadFake(Fake):
+    """Model the observed service ref without deriving it from the helper."""
+    def __init__(self):
+        super().__init__()
+        evidence = Path(__file__).with_name('evidence') / 'codeql-pr29-run-ref.json'
+        self.service_ref = json.loads(evidence.read_text())['head_branch']
+        self.rows[0]['ref'] = self.service_ref
+
+    def request(self, endpoint, payload=None):
+        if '/alerts?' in endpoint:
+            requested = parse_qs(urlsplit(endpoint).query).get('ref')
+            if requested != [self.service_ref]:
+                return []
+        return super().request(endpoint, payload)
 
 
 class ApplyPRTests(unittest.TestCase):
@@ -114,6 +132,24 @@ class ApplyPRTests(unittest.TestCase):
         client = Fake(); client.listed = []
         with self.assertRaises(tool.Blocked): tool.discover(client, [ROW])
         self.assertEqual(client.writes, [])
+
+    def test_discovery_uses_the_observed_dynamic_head_ref(self):
+        client = DynamicHeadFake()
+        self.assertEqual(client.service_ref, 'refs/pull/29/head')
+        self.assertEqual(tool.discover(client, [ROW]),
+                         {tool.key(ROW['rule'], LOCATION): 401})
+        self.assertEqual(client.writes, [])
+
+    def test_verification_accepts_the_observed_dynamic_head_instance(self):
+        client = DynamicHeadFake()
+        self.assertEqual(tool.verify(client, ROW, 401, (HEAD, PR_HEAD), False, {})['result'],
+                         'verified; no write')
+        self.assertEqual(client.writes, [])
+
+    def test_merge_ref_alone_does_not_match_the_reviewed_head_analysis(self):
+        client = DynamicHeadFake()
+        client.rows[0]['ref'] = 'refs/pull/29/merge'
+        self.blocked(client)
 
     def test_pinned_review_matches_all_11_actual_source_locations(self):
         rows = tool.load_plan()

@@ -18,7 +18,9 @@ from urllib.parse import quote
 from apply_reviewed_codeql import Blocked, GitHub, REPOSITORY
 
 PLAN_SHA256 = '2caff84219b7b409206b1c1adc43b9ec33f95e4385ce77ececddceb47c41e33c'
-REF = 'refs/pull/29/merge'
+# GitHub's dynamic default-setup run analyzes this PR head, not its merge ref.
+# Evidence: evidence/codeql-pr29-run-ref.json (run 42125256600).
+REF = 'refs/pull/29/head'
 FIELDS = ['path', 'start_line', 'end_line', 'start_column', 'end_column']
 
 
@@ -80,7 +82,8 @@ def discover(client, rows):
         else:
             raise Blocked('Too many alerts to validate safely')
     if set(found) != wanted:
-        raise Blocked('Not all 11 reviewed locations were found; inspect the current PR findings')
+        raise Blocked(f'Not all {len(wanted)} reviewed locations were found on {REF} '
+                      f'({len(found)} matched); inspect the current PR findings')
     return found
 
 
