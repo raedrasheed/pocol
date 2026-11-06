@@ -58,6 +58,11 @@ The upstream comparison logs retain three identical baseline test failures.
 
 ## Owner's reviewed CodeQL batch
 
+Current evidence: the owner's complete report verifies 190 open findings and
+380 exact reviewed instances, with seven already closed. See
+[the current main batch review](CODEQL-MAIN-APPLY-AR.md). Actual application is
+still pending the owner's run; local replay used no live API writes.
+
 Run these from the repository root on a computer where `gh` already has normal
 code-scanning access to `palcertcom/pocol`. The cloud integration's 403 is not
 resolved by this helper. It never requests tokens or starts a login flow.
@@ -75,11 +80,13 @@ Apply the pinned, previously reviewed decisions with fresh validation:
 python development/security-evm-crypto-2026-11-05/apply_reviewed_codeql.py --apply --out codeql-reviewed-apply.json
 ```
 
-Already closed alerts are skipped. Changed rule/location/source on any open ref,
-missing immutable source, a moving main branch or insufficient permission stops
-the batch and saves the result. Inspect that report before resuming. The current
-source may have advanced since the historical review; a stopped row needs a new
-source review, not a weakened guard or blanket dismissal.
+The complete batch passes preflight before the first PATCH. Already closed
+alerts are skipped after their identities are checked. Unknown or nullable
+instance states, changed metadata/location/source, missing immutable source,
+changed current main source, a moving main branch or insufficient permission
+stop the batch and save its phase and active alert. Live instances are re-read
+before every dismissal. An unconfirmed PATCH is recorded as sent and halts
+further writes. Inspect that report before resuming; changed source needs review.
 
 ```bash
 python3 -m unittest discover \
@@ -87,7 +94,7 @@ python3 -m unittest discover \
   -p test_apply_reviewed_codeql.py -v
 ```
 
-These are 13 mocked API tests and perform no real alert writes. The separate
+These are 24 mocked main-batch tests and perform no real alert writes. The separate
 `CodeQL built CSharp and Go diagnostics` workflow performs compiler-traced
 extraction and preserves quality diagnostics with SARIF upload disabled. Existing
 default setup remains authoritative until an owner-managed, all-language

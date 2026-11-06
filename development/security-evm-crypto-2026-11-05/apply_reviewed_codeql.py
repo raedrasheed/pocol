@@ -3,6 +3,8 @@
 
 Default is read-only. --apply can dismiss a reviewed alert only if every open
 instance, across all refs, still matches its reviewed source hash and location.
+The complete batch is checked before its first PATCH. The current main source
+is also verified, and live metadata/instances are re-read before each dismissal.
 No credentials are read or requested. Existing gh authentication is preserved.
 """
 import argparse
@@ -21,6 +23,14 @@ PLAN_SHA256 = 'ae3aab68e25a51b0331f46947dca2cb4ff75acf79e11c68b6852654cde2c43fe'
 
 class Blocked(Exception):
     pass
+
+
+class UnconfirmedMainDismissal(Blocked):
+    def __init__(self, number, response):
+        self.details = {'number': number, 'patch_sent': True,
+                        'response_state': response.get('state') if isinstance(response, dict) else None,
+                        'state_present': isinstance(response, dict) and 'state' in response}
+        super().__init__(f'PATCH sent for #{number}, but dismissal was not confirmed; inspect unconfirmed_patch')
 
 
 def load_plan(path):
@@ -75,43 +85,99 @@ class GitHub:
         raise Blocked('Too many instances to validate safely')
 
 
+def source_sha256(client, commit, path, cache):
+    key = (commit, path)
+    if key not in cache:
+        content = client.request(f'repos/{REPOSITORY}/contents/{quote(path, safe="/")}?ref={commit}')
+        if (not isinstance(content, dict) or content.get('type') != 'file'
+                or content.get('encoding') != 'base64' or not isinstance(content.get('content'), str)):
+            raise Blocked('Reviewed source is unavailable as a regular file')
+        data = base64.b64decode(''.join(content['content'].split()), validate=True)
+        cache[key] = hashlib.sha256(data).hexdigest()
+    return cache[key]
+
+
 def verify_and_apply(client, row, expected_head, apply, source_cache):
     endpoint = f'repos/{REPOSITORY}/code-scanning/alerts/{row["number"]}'
     alert = client.request(endpoint)
+    if not isinstance(alert, dict):
+        raise Blocked(f'Unexpected metadata response for #{row["number"]}')
+    rule, engine = alert.get('rule'), alert.get('tool')
+    if (type(alert.get('number')) is not int or alert['number'] != row['number']
+            or not isinstance(rule, dict) or rule.get('id') != row['rule']
+            or not isinstance(engine, dict) or engine.get('name') != 'CodeQL'
+            or alert.get('state') not in ['open', 'fixed', 'dismissed']):
+        raise Blocked(f'Alert #{row["number"]}: number, state, tool or rule no longer matches the review')
     if alert['state'] in ['fixed', 'dismissed']:
         return {'number': row['number'], 'result': 'already closed'}
-    if alert['state'] != 'open' or alert['rule']['id'] != row['rule'] or alert['tool']['name'] != 'CodeQL':
-        raise Blocked('Alert state, tool or rule no longer matches the review')
-    instances = [item for item in client.instances(row['number']) if item.get('state') == 'open']
+    all_instances = client.instances(row['number'])
+    if any(not isinstance(item, dict) or item.get('state') not in ['open', 'fixed', 'dismissed']
+           for item in all_instances):
+        # A nullable or missing state is not evidence of inactivity. This main
+        # batch requires explicitly known states; it does not guess PR-only state.
+        raise Blocked(f'Alert #{row["number"]}: an instance has a missing or unknown state')
+    instances = [item for item in all_instances if item['state'] == 'open']
     if not instances or not any(item.get('ref') == 'refs/heads/main' for item in instances):
         raise Blocked('No reviewed open main instance remains')
     for instance in instances:
         location = instance.get('location', {})
+        ref = instance.get('ref')
+        if not isinstance(ref, str) or not ref.startswith('refs/') or not isinstance(location, dict):
+            raise Blocked(f'Missing ref or source location for #{row["number"]}')
         if any(location.get(key) != row['location'].get(key) for key in
                ['path', 'start_line', 'end_line', 'start_column', 'end_column']):
             raise Blocked('An open instance has a different location; review it separately')
         commit = instance.get('commit_sha', '')
         path = location.get('path', '')
-        if not re.fullmatch(r'[0-9a-f]{40}', commit) or not path or path.startswith('/') or '..' in path.split('/'):
+        if (not isinstance(commit, str) or not re.fullmatch(r'[0-9a-f]{40}', commit)
+                or not isinstance(path, str) or not path or path.startswith('/')
+                or '\\' in path or '..' in path.split('/')):
             raise Blocked('Unsafe or missing source identity')
-        key = (commit, path)
-        if key not in source_cache:
-            content = client.request(f'repos/{REPOSITORY}/contents/{quote(path, safe="/")}?ref={commit}')
-            if content.get('type') != 'file' or content.get('encoding') != 'base64':
-                raise Blocked('Reviewed source is unavailable as a regular file')
-            data = base64.b64decode(content['content'])
-            source_cache[key] = hashlib.sha256(data).hexdigest()
-        if source_cache[key] != row['source_sha256']:
+        if source_sha256(client, commit, path, source_cache) != row['source_sha256']:
             raise Blocked('An open instance uses changed source; review it separately')
+    # Analysis may lag behind a push. A reviewed old instance alone cannot
+    # authorize dismissing changed, not-yet-analyzed code on current main.
+    if source_sha256(client, expected_head, row['location']['path'], source_cache) != row['source_sha256']:
+        raise Blocked(f'Current main source changed for #{row["number"]}; review it separately')
     if client.head() != expected_head:
         raise Blocked('Main advanced during the run; restart source validation')
     if not apply:
         return {'number': row['number'], 'result': 'verified; no write', 'open_instances': len(instances)}
     response = client.request(endpoint, {'state': 'dismissed', 'dismissed_reason': row['reason'],
                                          'dismissed_comment': row['comment']})
-    if response.get('state') != 'dismissed':
-        raise Blocked('GitHub did not confirm dismissal; inspect the server policy')
+    if not isinstance(response, dict) or response.get('state') != 'dismissed':
+        raise UnconfirmedMainDismissal(row['number'], response)
     return {'number': row['number'], 'result': 'dismissed', 'reason': row['reason']}
+
+
+def run_batch(client, rows, apply, report, checkpoint):
+    head = client.head()
+    report.update(validated_main_head=head, phase='preflight', preflight=[], decisions=[])
+    cache = {}
+    for row in rows:
+        report['active_alert'] = row['number']
+        decision = verify_and_apply(client, row, head, False, cache)
+        report['preflight'].append(decision)
+        if not apply:
+            report['decisions'].append(decision)
+        checkpoint()
+        print(f'Preflight #{row["number"]}: {decision["result"]}', flush=True)
+    if client.head() != head:
+        raise Blocked('Main advanced during preflight; no writes were performed')
+    if apply:
+        report['phase'] = 'apply'
+        for row in rows:
+            report['active_alert'] = row['number']
+            # Cache only immutable source bytes. Re-read live alert metadata and
+            # all instance states, and check HEAD immediately before each PATCH.
+            decision = verify_and_apply(client, row, head, True, cache)
+            report['decisions'].append(decision)
+            checkpoint()
+            print(f'#{row["number"]}: {decision["result"]}', flush=True)
+    if client.head() != head:
+        raise Blocked('Main advanced before final confirmation; inspect the saved decisions')
+    report['phase'] = 'complete'
+    report.pop('active_alert', None)
 
 
 def main():
@@ -124,23 +190,20 @@ def main():
     if not args.out.parent.is_dir():
         parser.error('--out parent directory must already exist')
     report = {'repository': REPOSITORY, 'apply': args.apply, 'decisions': []}
+    def checkpoint():
+        args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     code = 0
     try:
         plan = load_plan(Path(__file__).with_name('reviewed-codeql-alerts.json'))
         client = GitHub()
-        head = client.head()
-        report['validated_main_head'] = head
-        cache = {}
-        for row in plan['alerts']:
-            decision = verify_and_apply(client, row, head, args.apply, cache)
-            report['decisions'].append(decision)
-            args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-            print(f'#{row["number"]}: {decision["result"]}', flush=True)
+        run_batch(client, plan['alerts'], args.apply, report, checkpoint)
     except (Blocked, OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as error:
         report['blocked'] = str(error)
+        if isinstance(error, UnconfirmedMainDismissal):
+            report['unconfirmed_patch'] = error.details
         print('Stopped: ' + str(error), file=sys.stderr)
         code = 1
-    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    checkpoint()
     return code
 
 

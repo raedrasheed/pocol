@@ -1,0 +1,80 @@
+{
+  "schema": "pocol-reviewed-main-codeql-preflight-v1",
+  "evidence_origin": "Owner-uploaded read-only report; replay uses actual immutable local Git bytes and simulated GitHub responses",
+  "source_report_sha256": "cf0d762182fb17967dc50587212d88c73fca6c071018c74fd36b2f0c26bff72d",
+  "report_main_head": "9352df0de5aefe3b2131743c310a0888e4347f5d",
+  "report_phase": "complete",
+  "stable_main_snapshot": true,
+  "historical_review_source_commit": "46d688b701e165211c36a5a1447fb029a3199302",
+  "historical_plan_sha256": "ae3aab68e25a51b0331f46947dca2cb4ff75acf79e11c68b6852654cde2c43fe",
+  "alerts_in_scope": 197,
+  "matching_open_alerts": 190,
+  "already_closed_alerts": 7,
+  "already_closed_ids": [
+    47,
+    48,
+    49,
+    52,
+    57,
+    58,
+    59
+  ],
+  "open_instances": 380,
+  "refs": {
+    "refs/heads/main": 190,
+    "refs/pull/29/head": 190
+  },
+  "all_open_instances_match_their_exact_historical_row": true,
+  "nullable_or_unknown_states_observed": 0,
+  "expected_dismissal_reasons": {
+    "false positive": 186,
+    "used in tests": 4
+  },
+  "replays": [
+    {
+      "apply_simulation": false,
+      "network_requests": 0,
+      "real_writes": 0,
+      "preflight": {
+        "verified; no write": 190,
+        "already closed": 7
+      },
+      "decisions": {
+        "verified; no write": 190,
+        "already closed": 7
+      },
+      "simulated_patches": 0,
+      "immutable_git_source_files_verified": 44
+    },
+    {
+      "apply_simulation": true,
+      "network_requests": 0,
+      "real_writes": 0,
+      "preflight": {
+        "verified; no write": 190,
+        "already closed": 7
+      },
+      "decisions": {
+        "dismissed": 190,
+        "already closed": 7
+      },
+      "simulated_patches": 190,
+      "immutable_git_source_files_verified": 44
+    }
+  ],
+  "helper_tests_passed": 61,
+  "new_batch_guard_tests": 11,
+  "owner_apply_execution": "pending; cloud integration has no protected CodeQL write access",
+  "android_jni_art_milestone": {
+    "owner_report_sha256": "7de872073acdebdfaa0df4e97a840214861491db437cb3b67623a0659a87095f",
+    "passed": 9,
+    "failed": 0,
+    "android_version": "16",
+    "sdk": 36,
+    "model": "SM-S918B",
+    "page_size": 4096,
+    "temporary_directory_removed": true,
+    "runtime_16k_pages_tested": false,
+    "ui_background_signed_update_validation_pending": true
+  }
+}

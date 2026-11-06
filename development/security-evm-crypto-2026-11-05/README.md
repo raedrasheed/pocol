@@ -12,6 +12,7 @@ and [compiler tool dependency repair](../security-dependency-followup-2026-11-05
 - [Reproduction and owner CodeQL commands](COMMANDS.md)
 - [Reviewed local compatibility patches](../../prototypes/third-party/evm-crypto/README.md)
 - [Historical review of the owner's 197 CodeQL alerts](CODEQL-197-REVIEW-AR.md)
+- [Current owner evidence and full-batch main application guard](CODEQL-MAIN-APPLY-AR.md)
 - [Review and guarded owner helper for the 11 new PR29 findings](CODEQL-PR29-REVIEW-AR.md)
 - [Final source CI: 26 successful jobs; CodeQL alert gate remains blocked](CI-PR29-AR.md)
 - [PR29 helper ref correction, 2026-11-06](CODEQL-PR29-REF-FIX-AR.md)
@@ -28,7 +29,11 @@ the results. `SHA256SUMS` binds this directory's review tools and evidence;
 
 The CodeQL helper defaults to read-only operation. The explicit `--apply` mode
 uses the operator's existing GitHub CLI session and only the 197 pinned decisions;
-it stops on changed source, locations, other open refs, permissions or main HEAD.
+it preflights the whole batch before its first write and checks current main
+source as well as every open ref. Changed metadata, unknown instance states,
+locations, source, permissions or main HEAD stop the run. Live metadata and
+instances are read again before each PATCH. An unconfirmed write is recorded
+explicitly and stops subsequent writes.
 No alert was changed by the local verification recorded here.
 
 Delivery update: [PR29](https://github.com/palcertcom/pocol/pull/29) merged at

@@ -42,6 +42,11 @@ jobs:
         run: |
           python -m unittest test_device_probe.DeviceGuards -v
           if ($LASTEXITCODE -ne 0) { throw 'Windows device guard tests failed' }
+      - name: Test reviewed main CodeQL batch without GitHub writes
+        shell: powershell
+        run: |
+          python -m unittest discover -s development/security-evm-crypto-2026-11-05 -p test_apply_reviewed_codeql.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Windows main batch tests failed' }
   tools:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
