@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-06",
+  "observed_run": 42125256600,
+  "actual_ref": "refs/pull/29/head",
+  "old_helper_ref": "refs/pull/29/merge",
+  "before_fix": {
+    "pr29_tests_run": 17,
+    "passed": 14,
+    "errors": 2,
+    "failures": 1,
+    "new_regressions": [
+      "test_discovery_uses_the_observed_dynamic_head_ref",
+      "test_verification_accepts_the_observed_dynamic_head_instance",
+      "test_merge_ref_alone_does_not_match_the_reviewed_head_analysis"
+    ]
+  },
+  "after_fix": {
+    "tests_passed": 30,
+    "tests_failed": 0,
+    "pr29": 17,
+    "historical_main": 13
+  },
+  "real_alert_writes": 0,
+  "source_hash_and_all_open_refs_checks": "unchanged"
+}

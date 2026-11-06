@@ -1,0 +1,114 @@
+{
+  "provenance": "Owner pasted the complete apply-v4 result in chat, 2026-11-06",
+  "repository": "palcertcom/pocol",
+  "pull_request": 29,
+  "apply": true,
+  "phase": "complete",
+  "preflight": [
+    {
+      "number": 47,
+      "result": "verified; no write"
+    },
+    {
+      "number": 48,
+      "result": "verified; no write"
+    },
+    {
+      "number": 49,
+      "result": "verified; no write"
+    },
+    {
+      "number": 52,
+      "result": "verified; no write"
+    },
+    {
+      "number": 243,
+      "result": "verified; no write"
+    },
+    {
+      "number": 245,
+      "result": "verified; no write"
+    },
+    {
+      "number": 58,
+      "result": "verified; no write"
+    },
+    {
+      "number": 246,
+      "result": "verified; no write"
+    },
+    {
+      "number": 247,
+      "result": "verified; no write"
+    },
+    {
+      "number": 248,
+      "result": "verified; no write"
+    },
+    {
+      "number": 260,
+      "result": "verified; no write"
+    }
+  ],
+  "decisions": [
+    {
+      "number": 47,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 48,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 49,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 52,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 243,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 245,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 58,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 246,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 247,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 248,
+      "result": "dismissed",
+      "reason": "false positive"
+    },
+    {
+      "number": 260,
+      "result": "dismissed",
+      "reason": "false positive"
+    }
+  ],
+  "validated_main_and_pr_heads": [
+    "46d688b701e165211c36a5a1447fb029a3199302",
+    "1355b12a8b03e7fda32138cda2ee479ad39ddc21"
+  ]
+}

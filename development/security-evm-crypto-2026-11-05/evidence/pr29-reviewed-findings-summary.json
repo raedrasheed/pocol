@@ -1,0 +1,15 @@
+{
+  "source_head": "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+  "new_findings": 11,
+  "reviewed_false_positives": 11,
+  "public_evm_counters": 10,
+  "public_cardinality_logging": 1,
+  "helper_tests": {
+    "passed": 27,
+    "real_api_writes": 0
+  },
+  "head_or_main_change_blocks_writes": true,
+  "all_open_refs_source_hash_required": true,
+  "default_protected_endpoint_status": "403",
+  "merged": false
+}

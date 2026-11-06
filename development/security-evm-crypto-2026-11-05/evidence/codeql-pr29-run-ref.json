@@ -1,0 +1,8 @@
+{
+  "event": "dynamic",
+  "head_branch": "refs/pull/29/head",
+  "head_sha": "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+  "html_url": "https://github.com/palcertcom/pocol/actions/runs/42125256600",
+  "id": 42125256600,
+  "path": "dynamic/github-code-scanning/codeql"
+}

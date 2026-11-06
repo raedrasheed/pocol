@@ -1,0 +1,27 @@
+{
+  "pull_request": 29,
+  "url": "https://github.com/palcertcom/pocol/pull/29",
+  "merged": true,
+  "merged_at": "2026-11-06T11:10:13Z",
+  "merge_commit": "03190bed86aacc8e9fdaa895c5be349031bcceb5",
+  "parents": [
+    "46d688b701e165211c36a5a1447fb029a3199302",
+    "1355b12a8b03e7fda32138cda2ee479ad39ddc21"
+  ],
+  "tree": "72a59721537934fc398f3703e51d259111a04cd9",
+  "tree_identical_to_tested_head": "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+  "owner_dismissed_alerts": [
+    47,
+    48,
+    49,
+    52,
+    243,
+    245,
+    58,
+    246,
+    247,
+    248,
+    260
+  ],
+  "source_checks_successful": 27
+}

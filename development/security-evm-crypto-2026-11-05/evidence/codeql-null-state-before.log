@@ -1,0 +1,86 @@
+test_actual_null_global_state_uses_explicit_open_pr_instance (test_apply_pr29_codeql.ApplyPRTests.test_actual_null_global_state_uses_explicit_open_pr_instance) ... ERROR
+test_apply_revalidates_after_all_alerts_pass_preflight (test_apply_pr29_codeql.ApplyPRTests.test_apply_revalidates_after_all_alerts_pass_preflight) ... ok
+test_changed_older_source_is_rejected_despite_a_reviewed_location (test_apply_pr29_codeql.ApplyPRTests.test_changed_older_source_is_rejected_despite_a_reviewed_location) ... ok
+test_changed_rule_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_changed_rule_blocks_write) ... ok
+test_closed_alert_is_skipped (test_apply_pr29_codeql.ApplyPRTests.test_closed_alert_is_skipped) ... ok
+test_current_and_reviewed_older_source_allow_only_the_reviewed_payload (test_apply_pr29_codeql.ApplyPRTests.test_current_and_reviewed_older_source_allow_only_the_reviewed_payload) ... ok
+test_discovery_requires_exact_unambiguous_matches (test_apply_pr29_codeql.ApplyPRTests.test_discovery_requires_exact_unambiguous_matches) ... ok
+test_discovery_uses_the_observed_dynamic_head_ref (test_apply_pr29_codeql.ApplyPRTests.test_discovery_uses_the_observed_dynamic_head_ref) ... ok
+test_explicit_apply_payload_is_limited_to_reviewed_decision (test_apply_pr29_codeql.ApplyPRTests.test_explicit_apply_payload_is_limited_to_reviewed_decision) ... ok
+test_full_batch_preflight_blocks_all_writes_if_a_later_alert_is_unreviewed (test_apply_pr29_codeql.ApplyPRTests.test_full_batch_preflight_blocks_all_writes_if_a_later_alert_is_unreviewed) ... ok
+test_main_movement_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_main_movement_blocks_write) ... ok
+test_merge_ref_alone_does_not_match_the_reviewed_head_analysis (test_apply_pr29_codeql.ApplyPRTests.test_merge_ref_alone_does_not_match_the_reviewed_head_analysis) ... ok
+test_missing_commit_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_missing_commit_blocks_write) ... ok
+test_missing_pr_instance_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_missing_pr_instance_blocks_write) ... ok
+test_missing_reviewed_match_stops_discovery (test_apply_pr29_codeql.ApplyPRTests.test_missing_reviewed_match_stops_discovery) ... ok
+test_null_global_does_not_make_an_unknown_pr_instance_open (test_apply_pr29_codeql.ApplyPRTests.test_null_global_does_not_make_an_unknown_pr_instance_open) ... ok
+test_null_global_with_closed_pr_instance_is_idempotent (test_apply_pr29_codeql.ApplyPRTests.test_null_global_with_closed_pr_instance_is_idempotent) ... ERROR
+test_null_patch_reply_cannot_be_confirmed_by_missing_instances (test_apply_pr29_codeql.ApplyPRTests.test_null_patch_reply_cannot_be_confirmed_by_missing_instances) ... FAIL
+test_null_patch_reply_needs_fresh_confirmation_of_all_dismissed_instances (test_apply_pr29_codeql.ApplyPRTests.test_null_patch_reply_needs_fresh_confirmation_of_all_dismissed_instances) ... ERROR
+test_null_patch_reply_with_still_open_instances_is_not_reported_closed (test_apply_pr29_codeql.ApplyPRTests.test_null_patch_reply_with_still_open_instances_is_not_reported_closed) ... FAIL
+test_null_state_on_another_ref_does_not_skip_source_validation (test_apply_pr29_codeql.ApplyPRTests.test_null_state_on_another_ref_does_not_skip_source_validation) ... ok
+test_other_ref_with_changed_source_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_other_ref_with_changed_source_blocks_write) ... ok
+test_pinned_review_matches_all_11_actual_source_locations (test_apply_pr29_codeql.ApplyPRTests.test_pinned_review_matches_all_11_actual_source_locations) ... ok
+test_pr_movement_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_pr_movement_blocks_write) ... ok
+test_pr_target_must_match_its_own_reviewed_location (test_apply_pr29_codeql.ApplyPRTests.test_pr_target_must_match_its_own_reviewed_location) ... ok
+test_read_only_batch_never_enters_apply_phase (test_apply_pr29_codeql.ApplyPRTests.test_read_only_batch_never_enters_apply_phase) ... ok
+test_read_only_never_writes (test_apply_pr29_codeql.ApplyPRTests.test_read_only_never_writes) ... ok
+test_reviewed_older_main_location_is_accepted_with_its_full_source_hash (test_apply_pr29_codeql.ApplyPRTests.test_reviewed_older_main_location_is_accepted_with_its_full_source_hash) ... ok
+test_source_content_change_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_source_content_change_blocks_write) ... ok
+test_unreviewed_older_location_is_rejected_despite_a_known_file_hash (test_apply_pr29_codeql.ApplyPRTests.test_unreviewed_older_location_is_rejected_despite_a_known_file_hash) ... ok
+test_verification_accepts_the_observed_dynamic_head_instance (test_apply_pr29_codeql.ApplyPRTests.test_verification_accepts_the_observed_dynamic_head_instance) ... ok
+test_wrong_source_repository_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_wrong_source_repository_blocks_write) ... ok
+
+======================================================================
+ERROR: test_actual_null_global_state_uses_explicit_open_pr_instance (test_apply_pr29_codeql.ApplyPRTests.test_actual_null_global_state_uses_explicit_open_pr_instance)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/test_apply_pr29_codeql.py", line 281, in test_actual_null_global_state_uses_explicit_open_pr_instance
+    result = tool.verify(client, client.reviewed, 243, tool.heads(client), False, {})
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py", line 124, in verify
+    raise Blocked('Rule, tool or state changed')
+apply_reviewed_codeql.Blocked: Rule, tool or state changed
+
+======================================================================
+ERROR: test_null_global_with_closed_pr_instance_is_idempotent (test_apply_pr29_codeql.ApplyPRTests.test_null_global_with_closed_pr_instance_is_idempotent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/test_apply_pr29_codeql.py", line 294, in test_null_global_with_closed_pr_instance_is_idempotent
+    result = tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py", line 124, in verify
+    raise Blocked('Rule, tool or state changed')
+apply_reviewed_codeql.Blocked: Rule, tool or state changed
+
+======================================================================
+ERROR: test_null_patch_reply_needs_fresh_confirmation_of_all_dismissed_instances (test_apply_pr29_codeql.ApplyPRTests.test_null_patch_reply_needs_fresh_confirmation_of_all_dismissed_instances)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/test_apply_pr29_codeql.py", line 287, in test_null_patch_reply_needs_fresh_confirmation_of_all_dismissed_instances
+    result = tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py", line 124, in verify
+    raise Blocked('Rule, tool or state changed')
+apply_reviewed_codeql.Blocked: Rule, tool or state changed
+
+======================================================================
+FAIL: test_null_patch_reply_cannot_be_confirmed_by_missing_instances (test_apply_pr29_codeql.ApplyPRTests.test_null_patch_reply_cannot_be_confirmed_by_missing_instances)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/test_apply_pr29_codeql.py", line 328, in test_null_patch_reply_cannot_be_confirmed_by_missing_instances
+    self.assertEqual(len(client.writes), 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_null_patch_reply_with_still_open_instances_is_not_reported_closed (test_apply_pr29_codeql.ApplyPRTests.test_null_patch_reply_with_still_open_instances_is_not_reported_closed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/test_apply_pr29_codeql.py", line 317, in test_null_patch_reply_with_still_open_instances_is_not_reported_closed
+    self.assertEqual(len(client.writes), 1)
+AssertionError: 0 != 1
+
+----------------------------------------------------------------------
+Ran 32 tests in 0.012s
+
+FAILED (failures=2, errors=3)

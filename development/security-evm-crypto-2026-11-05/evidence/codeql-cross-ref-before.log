@@ -1,0 +1,48 @@
+test_changed_older_source_is_rejected_despite_a_reviewed_location (test_apply_pr29_codeql.ApplyPRTests.test_changed_older_source_is_rejected_despite_a_reviewed_location) ... ok
+test_changed_rule_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_changed_rule_blocks_write) ... ok
+test_closed_alert_is_skipped (test_apply_pr29_codeql.ApplyPRTests.test_closed_alert_is_skipped) ... ok
+test_current_and_reviewed_older_source_allow_only_the_reviewed_payload (test_apply_pr29_codeql.ApplyPRTests.test_current_and_reviewed_older_source_allow_only_the_reviewed_payload) ... ERROR
+test_discovery_requires_exact_unambiguous_matches (test_apply_pr29_codeql.ApplyPRTests.test_discovery_requires_exact_unambiguous_matches) ... ok
+test_discovery_uses_the_observed_dynamic_head_ref (test_apply_pr29_codeql.ApplyPRTests.test_discovery_uses_the_observed_dynamic_head_ref) ... ok
+test_explicit_apply_payload_is_limited_to_reviewed_decision (test_apply_pr29_codeql.ApplyPRTests.test_explicit_apply_payload_is_limited_to_reviewed_decision) ... ok
+test_main_movement_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_main_movement_blocks_write) ... ok
+test_merge_ref_alone_does_not_match_the_reviewed_head_analysis (test_apply_pr29_codeql.ApplyPRTests.test_merge_ref_alone_does_not_match_the_reviewed_head_analysis) ... ok
+test_missing_commit_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_missing_commit_blocks_write) ... ok
+test_missing_pr_instance_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_missing_pr_instance_blocks_write) ... ok
+test_missing_reviewed_match_stops_discovery (test_apply_pr29_codeql.ApplyPRTests.test_missing_reviewed_match_stops_discovery) ... ok
+test_other_ref_with_changed_source_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_other_ref_with_changed_source_blocks_write) ... ok
+test_pinned_review_matches_all_11_actual_source_locations (test_apply_pr29_codeql.ApplyPRTests.test_pinned_review_matches_all_11_actual_source_locations) ... ok
+test_pr_movement_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_pr_movement_blocks_write) ... ok
+test_pr_target_must_match_its_own_reviewed_location (test_apply_pr29_codeql.ApplyPRTests.test_pr_target_must_match_its_own_reviewed_location) ... ok
+test_read_only_never_writes (test_apply_pr29_codeql.ApplyPRTests.test_read_only_never_writes) ... ok
+test_reviewed_older_main_location_is_accepted_with_its_full_source_hash (test_apply_pr29_codeql.ApplyPRTests.test_reviewed_older_main_location_is_accepted_with_its_full_source_hash) ... ERROR
+test_source_content_change_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_source_content_change_blocks_write) ... ok
+test_unreviewed_older_location_is_rejected_despite_a_known_file_hash (test_apply_pr29_codeql.ApplyPRTests.test_unreviewed_older_location_is_rejected_despite_a_known_file_hash) ... ok
+test_verification_accepts_the_observed_dynamic_head_instance (test_apply_pr29_codeql.ApplyPRTests.test_verification_accepts_the_observed_dynamic_head_instance) ... ok
+test_wrong_source_repository_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_wrong_source_repository_blocks_write) ... ok
+
+======================================================================
+ERROR: test_current_and_reviewed_older_source_allow_only_the_reviewed_payload (test_apply_pr29_codeql.ApplyPRTests.test_current_and_reviewed_older_source_allow_only_the_reviewed_payload)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/test_apply_pr29_codeql.py", line 187, in test_current_and_reviewed_older_source_allow_only_the_reviewed_payload
+    tool.verify(client, client.reviewed, 401, (HEAD, PR_HEAD), True, {})
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py", line 103, in verify
+    raise Blocked('Another open ref has a different location')
+apply_reviewed_codeql.Blocked: Another open ref has a different location
+
+======================================================================
+ERROR: test_reviewed_older_main_location_is_accepted_with_its_full_source_hash (test_apply_pr29_codeql.ApplyPRTests.test_reviewed_older_main_location_is_accepted_with_its_full_source_hash)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/test_apply_pr29_codeql.py", line 181, in test_reviewed_older_main_location_is_accepted_with_its_full_source_hash
+    result = tool.verify(client, client.reviewed, 401, (HEAD, PR_HEAD), False, {})
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/pocol-evm-crypto-2026-11-05-whp4rt0p/development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py", line 103, in verify
+    raise Blocked('Another open ref has a different location')
+apply_reviewed_codeql.Blocked: Another open ref has a different location
+
+----------------------------------------------------------------------
+Ran 22 tests in 0.011s
+
+FAILED (errors=2)

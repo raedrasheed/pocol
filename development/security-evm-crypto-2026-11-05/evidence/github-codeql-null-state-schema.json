@@ -1,0 +1,142 @@
+{
+  "source": "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json",
+  "sha256": "02e621ca680e6b45acfb0088d9b7e1648b7c332c6778d18dee8762bb5ccbeb9f",
+  "schemas": {
+    "code-scanning-alert-state": {
+      "type": "string",
+      "description": "State of a code scanning alert.",
+      "nullable": true,
+      "enum": [
+        "open",
+        "dismissed",
+        "fixed"
+      ]
+    },
+    "code-scanning-alert": {
+      "description": null,
+      "required": [
+        "number",
+        "created_at",
+        "url",
+        "html_url",
+        "instances_url",
+        "state",
+        "dismissed_by",
+        "dismissed_at",
+        "dismissed_reason",
+        "rule",
+        "tool",
+        "most_recent_instance"
+      ],
+      "type": "object",
+      "properties": {
+        "instances_url": {
+          "$ref": "#/components/schemas/alert-instances-url"
+        },
+        "state": {
+          "$ref": "#/components/schemas/code-scanning-alert-state"
+        },
+        "dismissed_at": {
+          "$ref": "#/components/schemas/alert-dismissed-at"
+        },
+        "dismissed_reason": {
+          "$ref": "#/components/schemas/code-scanning-alert-dismissed-reason"
+        },
+        "most_recent_instance": {
+          "$ref": "#/components/schemas/code-scanning-alert-instance"
+        }
+      }
+    },
+    "code-scanning-alert-items": {
+      "description": null,
+      "required": [
+        "number",
+        "created_at",
+        "url",
+        "html_url",
+        "instances_url",
+        "state",
+        "dismissed_by",
+        "dismissed_at",
+        "dismissed_reason",
+        "rule",
+        "tool",
+        "most_recent_instance"
+      ],
+      "type": "object",
+      "properties": {
+        "instances_url": {
+          "$ref": "#/components/schemas/alert-instances-url"
+        },
+        "state": {
+          "$ref": "#/components/schemas/code-scanning-alert-state"
+        },
+        "dismissed_at": {
+          "$ref": "#/components/schemas/alert-dismissed-at"
+        },
+        "dismissed_reason": {
+          "$ref": "#/components/schemas/code-scanning-alert-dismissed-reason"
+        },
+        "most_recent_instance": {
+          "$ref": "#/components/schemas/code-scanning-alert-instance"
+        }
+      }
+    },
+    "code-scanning-alert-instance": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "$ref": "#/components/schemas/code-scanning-ref"
+        },
+        "analysis_key": {
+          "$ref": "#/components/schemas/code-scanning-analysis-analysis-key"
+        },
+        "environment": {
+          "$ref": "#/components/schemas/code-scanning-alert-environment"
+        },
+        "category": {
+          "$ref": "#/components/schemas/code-scanning-analysis-category"
+        },
+        "state": {
+          "$ref": "#/components/schemas/code-scanning-alert-state"
+        },
+        "commit_sha": {
+          "type": "string"
+        },
+        "message": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "markdown": {
+              "type": "string",
+              "description": "The message text as GitHub-flavored Markdown, with placeholder links for related locations replaced by links to the relevant code. Only populated when related locations are available for the alert instance."
+            }
+          }
+        },
+        "location": {
+          "$ref": "#/components/schemas/code-scanning-alert-location"
+        },
+        "html_url": {
+          "type": "string"
+        },
+        "classifications": {
+          "type": "array",
+          "description": "Classifications that have been applied to the file that triggered the alert.\nFor example identifying it as documentation, or a generated file.",
+          "items": {
+            "$ref": "#/components/schemas/code-scanning-alert-classification"
+          }
+        }
+      }
+    },
+    "code-scanning-alert-set-state": {
+      "description": "Sets the state of the code scanning alert. You must provide `dismissed_reason` when you set the state to `dismissed`.",
+      "type": "string",
+      "enum": [
+        "open",
+        "dismissed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "go",
+  "id": 127587689995,
+  "status": "completed",
+  "conclusion": "success",
+  "title": null,
+  "summary": null,
+  "annotations_count": 2,
+  "annotations": [
+    {
+      "path": ".github",
+      "blob_href": "https://github.com/palcertcom/pocol/blob/1355b12a8b03e7fda32138cda2ee479ad39ddc21/.github",
+      "start_line": 117,
+      "start_column": null,
+      "end_line": 117,
+      "end_column": null,
+      "annotation_level": "warning",
+      "title": "",
+      "message": "Cannot retrieve the full diff because there are too many (300) changed files in the pull request.",
+      "raw_details": ""
+    },
+    {
+      "path": ".github",
+      "blob_href": "https://github.com/palcertcom/pocol/blob/1355b12a8b03e7fda32138cda2ee479ad39ddc21/.github",
+      "start_line": 84,
+      "start_column": null,
+      "end_line": 84,
+      "end_column": null,
+      "annotation_level": "warning",
+      "title": "",
+      "message": "1 issue was detected with this workflow: Please specify an on.push hook to analyze and see code scanning alerts from the default branch on the Security tab.",
+      "raw_details": ""
+    }
+  ]
+}

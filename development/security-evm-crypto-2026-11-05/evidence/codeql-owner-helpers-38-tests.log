@@ -1,0 +1,43 @@
+test_apply_revalidates_after_all_alerts_pass_preflight (test_apply_pr29_codeql.ApplyPRTests.test_apply_revalidates_after_all_alerts_pass_preflight) ... ok
+test_changed_older_source_is_rejected_despite_a_reviewed_location (test_apply_pr29_codeql.ApplyPRTests.test_changed_older_source_is_rejected_despite_a_reviewed_location) ... ok
+test_changed_rule_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_changed_rule_blocks_write) ... ok
+test_closed_alert_is_skipped (test_apply_pr29_codeql.ApplyPRTests.test_closed_alert_is_skipped) ... ok
+test_current_and_reviewed_older_source_allow_only_the_reviewed_payload (test_apply_pr29_codeql.ApplyPRTests.test_current_and_reviewed_older_source_allow_only_the_reviewed_payload) ... ok
+test_discovery_requires_exact_unambiguous_matches (test_apply_pr29_codeql.ApplyPRTests.test_discovery_requires_exact_unambiguous_matches) ... ok
+test_discovery_uses_the_observed_dynamic_head_ref (test_apply_pr29_codeql.ApplyPRTests.test_discovery_uses_the_observed_dynamic_head_ref) ... ok
+test_explicit_apply_payload_is_limited_to_reviewed_decision (test_apply_pr29_codeql.ApplyPRTests.test_explicit_apply_payload_is_limited_to_reviewed_decision) ... ok
+test_full_batch_preflight_blocks_all_writes_if_a_later_alert_is_unreviewed (test_apply_pr29_codeql.ApplyPRTests.test_full_batch_preflight_blocks_all_writes_if_a_later_alert_is_unreviewed) ... ok
+test_main_movement_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_main_movement_blocks_write) ... ok
+test_merge_ref_alone_does_not_match_the_reviewed_head_analysis (test_apply_pr29_codeql.ApplyPRTests.test_merge_ref_alone_does_not_match_the_reviewed_head_analysis) ... ok
+test_missing_commit_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_missing_commit_blocks_write) ... ok
+test_missing_pr_instance_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_missing_pr_instance_blocks_write) ... ok
+test_missing_reviewed_match_stops_discovery (test_apply_pr29_codeql.ApplyPRTests.test_missing_reviewed_match_stops_discovery) ... ok
+test_other_ref_with_changed_source_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_other_ref_with_changed_source_blocks_write) ... ok
+test_pinned_review_matches_all_11_actual_source_locations (test_apply_pr29_codeql.ApplyPRTests.test_pinned_review_matches_all_11_actual_source_locations) ... ok
+test_pr_movement_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_pr_movement_blocks_write) ... ok
+test_pr_target_must_match_its_own_reviewed_location (test_apply_pr29_codeql.ApplyPRTests.test_pr_target_must_match_its_own_reviewed_location) ... ok
+test_read_only_batch_never_enters_apply_phase (test_apply_pr29_codeql.ApplyPRTests.test_read_only_batch_never_enters_apply_phase) ... ok
+test_read_only_never_writes (test_apply_pr29_codeql.ApplyPRTests.test_read_only_never_writes) ... ok
+test_reviewed_older_main_location_is_accepted_with_its_full_source_hash (test_apply_pr29_codeql.ApplyPRTests.test_reviewed_older_main_location_is_accepted_with_its_full_source_hash) ... ok
+test_source_content_change_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_source_content_change_blocks_write) ... ok
+test_unreviewed_older_location_is_rejected_despite_a_known_file_hash (test_apply_pr29_codeql.ApplyPRTests.test_unreviewed_older_location_is_rejected_despite_a_known_file_hash) ... ok
+test_verification_accepts_the_observed_dynamic_head_instance (test_apply_pr29_codeql.ApplyPRTests.test_verification_accepts_the_observed_dynamic_head_instance) ... ok
+test_wrong_source_repository_blocks_write (test_apply_pr29_codeql.ApplyPRTests.test_wrong_source_repository_blocks_write) ... ok
+test_changed_location_blocks_write (test_apply_reviewed_codeql.ApplyTests.test_changed_location_blocks_write) ... ok
+test_changed_rule_blocks_write (test_apply_reviewed_codeql.ApplyTests.test_changed_rule_blocks_write) ... ok
+test_changed_source_blocks_write (test_apply_reviewed_codeql.ApplyTests.test_changed_source_blocks_write) ... ok
+test_closed_alert_is_idempotent (test_apply_reviewed_codeql.ApplyTests.test_closed_alert_is_idempotent) ... ok
+test_concurrent_main_change_blocks_write (test_apply_reviewed_codeql.ApplyTests.test_concurrent_main_change_blocks_write) ... ok
+test_denied_api_is_reported_without_writes_or_credentials (test_apply_reviewed_codeql.ApplyTests.test_denied_api_is_reported_without_writes_or_credentials) ... ok
+test_dry_run_never_writes (test_apply_reviewed_codeql.ApplyTests.test_dry_run_never_writes) ... ok
+test_every_open_ref_must_match (test_apply_reviewed_codeql.ApplyTests.test_every_open_ref_must_match) ... ok
+test_explicit_apply_uses_only_the_reviewed_fields (test_apply_reviewed_codeql.ApplyTests.test_explicit_apply_uses_only_the_reviewed_fields) ... ok
+test_missing_commit_blocks_write (test_apply_reviewed_codeql.ApplyTests.test_missing_commit_blocks_write) ... ok
+test_no_main_instance_blocks_write (test_apply_reviewed_codeql.ApplyTests.test_no_main_instance_blocks_write) ... ok
+test_plan_tampering_is_rejected (test_apply_reviewed_codeql.ApplyTests.test_plan_tampering_is_rejected) ... ok
+test_repository_plan_hash_and_scope_are_valid (test_apply_reviewed_codeql.ApplyTests.test_repository_plan_hash_and_scope_are_valid) ... ok
+
+----------------------------------------------------------------------
+Ran 38 tests in 0.010s
+
+OK

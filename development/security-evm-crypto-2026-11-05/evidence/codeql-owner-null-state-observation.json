@@ -1,0 +1,131 @@
+{
+  "provenance": "Owner-provided read-only gh output, 2026-11-06; no alert writes",
+  "alert_metadata": [
+    {
+      "requested": 47,
+      "returned": 47,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": "open"
+    },
+    {
+      "requested": 48,
+      "returned": 48,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": "open"
+    },
+    {
+      "requested": 49,
+      "returned": 49,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": "open"
+    },
+    {
+      "requested": 52,
+      "returned": 52,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": "open"
+    },
+    {
+      "requested": 243,
+      "returned": 243,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": null
+    },
+    {
+      "requested": 245,
+      "returned": 245,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": null
+    },
+    {
+      "requested": 58,
+      "returned": 58,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": "open"
+    },
+    {
+      "requested": 246,
+      "returned": 246,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": null
+    },
+    {
+      "requested": 247,
+      "returned": 247,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": null
+    },
+    {
+      "requested": 248,
+      "returned": 248,
+      "expected_rule": "rust/hard-coded-cryptographic-value",
+      "actual_rule": "rust/hard-coded-cryptographic-value",
+      "tool": "CodeQL",
+      "state": null
+    },
+    {
+      "requested": 260,
+      "returned": 260,
+      "expected_rule": "rust/cleartext-logging",
+      "actual_rule": "rust/cleartext-logging",
+      "tool": "CodeQL",
+      "state": null
+    }
+  ],
+  "alert_243": {
+    "number": 243,
+    "state": null,
+    "dismissed_at": null,
+    "dismissed_reason": null,
+    "most_recent_instance": {
+      "analysis_key": "dynamic/github-code-scanning/codeql:analyze",
+      "category": "/language:rust",
+      "commit_sha": "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+      "environment": "{\"build-mode\":\"none\",\"category\":\"/language:rust\",\"language\":\"rust\",\"runner\":\"[\\\"ubuntu-latest\\\"]\"}",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 126,
+        "end_line": 126,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "ref": "refs/pull/29/head",
+      "state": "open"
+    }
+  },
+  "instances_243": [
+    {
+      "analysis_key": "dynamic/github-code-scanning/codeql:analyze",
+      "category": "/language:rust",
+      "commit_sha": "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+      "environment": "{\"build-mode\":\"none\",\"category\":\"/language:rust\",\"language\":\"rust\",\"runner\":\"[\\\"ubuntu-latest\\\"]\"}",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 126,
+        "end_line": 126,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "ref": "refs/pull/29/head",
+      "state": "open"
+    }
+  ]
+}

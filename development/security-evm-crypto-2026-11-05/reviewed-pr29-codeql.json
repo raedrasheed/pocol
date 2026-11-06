@@ -1,0 +1,163 @@
+{
+  "repository": "palcertcom/pocol",
+  "pull_request": 29,
+  "reviewed_source_commit": "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+  "count": 11,
+  "reason": "false positive",
+  "alerts": [
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 39,
+        "end_line": 39,
+        "start_column": 43,
+        "end_column": 44
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    insert(&mut db, system(), U256::ZERO, 1, Bytecode::default());"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 41,
+        "end_line": 41,
+        "start_column": 40,
+        "end_column": 41
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "        insert(&mut db, a, U256::ZERO, 1, program(n));"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 50,
+        "end_line": 50,
+        "start_column": 37,
+        "end_column": 38
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    insert(&mut db, m0, U256::ZERO, 1, Bytecode::default());"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 58,
+        "end_line": 58,
+        "start_column": 62,
+        "end_column": 63
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    for a in extra_durable { insert(&mut db, *a, U256::ZERO, 1, Bytecode::default()); }"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 126,
+        "end_line": 126,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    insert(&mut db, attacker, U256::from(1000 * PCOL), 0, Bytecode::default());"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 127,
+        "end_line": 127,
+        "start_column": 29,
+        "end_column": 30
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    let x = attacker.create(0);"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 150,
+        "end_line": 150,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    insert(&mut db, attacker, U256::from(1000 * PCOL), 0, Bytecode::default());"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 151,
+        "end_line": 151,
+        "start_column": 29,
+        "end_column": 30
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    let x = attacker.create(0);"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 177,
+        "end_line": 177,
+        "start_column": 56,
+        "end_column": 57
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    insert(&mut db, attacker, U256::from(1000 * PCOL), 0, Bytecode::default());"
+    },
+    {
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+        "start_line": 178,
+        "end_line": 178,
+        "start_column": 29,
+        "end_column": 30
+      },
+      "source_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: this is a public EVM account/CREATE transaction counter in a synthetic InMemoryDB regression, not an ECDSA signing nonce or secret. Constants are required to reproduce genesis and contract addresses.",
+      "source_line": "    let x = attacker.create(0);"
+    },
+    {
+      "rule": "rust/cleartext-logging",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/signing_compat.rs",
+        "start_line": 83,
+        "end_line": 83,
+        "start_column": 14,
+        "end_column": 71
+      },
+      "source_sha256": "12b55253be0ccd3289ece9794c05a9f9356de0216a0ad77848657faa46c1ee7a",
+      "reason": "false positive",
+      "comment": "Reviewed PR29: the println argument is only secrets.len() * digests.len(), a public test-case count. No key bytes, signatures or secret-dependent value are logged. All fixture keys are synthetic public data.",
+      "source_line": "    println!(\"RFC6979 oracle pairs: {}\", secrets.len() * digests.len());"
+    }
+  ]
+}
