@@ -1,0 +1,116 @@
+name: Security owner evidence tools and Android probe
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'development/security-codeql-main-2026-11-06/**'
+      - 'development/security-evm-crypto-2026-11-05/apply*codeql.py'
+      - 'development/security-evm-crypto-2026-11-05/reviewed*codeql*.json'
+      - '.github/workflows/security-owner-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: security-owner-evidence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-collector:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      PYTHONUTF8: '1'
+    steps:
+      - name: Preserve reviewed source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Test the owner collector on Windows without calling GitHub
+        shell: powershell
+        run: |
+          if ((git rev-parse HEAD) -ne $env:EXPECTED_COMMIT) { throw 'Unexpected source commit' }
+          python -m unittest discover -s development/security-codeql-main-2026-11-06 -p test_collect_main_codeql.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Windows collector tests failed' }
+  tools:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify read-only CodeQL collection and device harness safeguards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          export POCOL_TEST_JAVA_HOME="$JAVA_HOME_17_X64"
+          python3 -m unittest discover -s development/security-codeql-main-2026-11-06 -p 'test_*.py' -v
+          python3 -m unittest discover -s development/security-evm-crypto-2026-11-05 -p 'test_apply*codeql.py' -v
+          python3 deploy/standalone/test_android_jni.py -v
+      - name: Obtain only the pinned successful main Android build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/palcertcom/pocol/actions/runs/42208222279 > "$RUNNER_TEMP/native-run.json"
+          gh api repos/palcertcom/pocol/actions/artifacts/13497272552 > "$RUNNER_TEMP/native-artifact.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          temp = Path(os.environ['RUNNER_TEMP'])
+          run = json.loads((temp/'native-run.json').read_text())
+          artifact = json.loads((temp/'native-artifact.json').read_text())
+          commit = '03190bed86aacc8e9fdaa895c5be349031bcceb5'
+          assert run['id'] == 42208222279 and run['head_sha'] == commit
+          assert run['head_branch'] == 'main' and run['conclusion'] == 'success'
+          assert run['repository']['full_name'] == 'palcertcom/pocol'
+          assert artifact['id'] == 13497272552 and not artifact['expired']
+          assert artifact['workflow_run']['id'] == run['id']
+          assert artifact['workflow_run']['head_sha'] == commit
+          assert artifact['name'] == 'PoCol-Mainnet-0.4.0-Android-arm64-UNSIGNED-' + commit
+          PY
+          gh api repos/palcertcom/pocol/actions/artifacts/13497272552/zip > "$RUNNER_TEMP/native-android.zip"
+          python3 - <<'PY'
+          import os, zipfile
+          from pathlib import Path
+          temp = Path(os.environ['RUNNER_TEMP'])
+          out = temp/'native-android'; out.mkdir()
+          with zipfile.ZipFile(temp/'native-android.zip') as archive:
+              for name in ['PoCol-Mainnet-0.4.0-arm64-unsigned.apk', 'build-info.json', 'source-commit.txt']:
+                  assert archive.namelist().count(name) == 1
+                  (out/name).write_bytes(archive.read(name))
+          assert (out/'source-commit.txt').read_text().strip() == '03190bed86aacc8e9fdaa895c5be349031bcceb5'
+          PY
+      - name: Compile Android DEX and bundle the real ARM64 Rust and JNI libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
+          python3 development/security-codeql-main-2026-11-06/build_device_probe.py \
+            --apk "$RUNNER_TEMP/native-android/PoCol-Mainnet-0.4.0-arm64-unsigned.apk" \
+            --build-info "$RUNNER_TEMP/native-android/build-info.json" \
+            --out "$RUNNER_TEMP/android-device-probe"
+          python3 - <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'development/security-codeql-main-2026-11-06')
+          from run_device_probe import verify_bundle
+          verify_bundle(Path(os.environ['RUNNER_TEMP'])/'android-device-probe')
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pocol-android-art-probe-${{ env.EXPECTED_COMMIT }}
+          path: ${{ runner.temp }}/android-device-probe/
+          retention-days: 14
+          if-no-files-found: error
