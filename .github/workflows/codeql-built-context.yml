@@ -1,0 +1,113 @@
+name: CodeQL built CSharp and Go diagnostics
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'prototypes/pocol-windows/**'
+      - 'prototypes/lp4-execution/tests/gst_signed_geth.go'
+      - 'development/security-evm-crypto-2026-11-05/geth-reference.mod'
+      - '.github/workflows/codeql-built-context.yml'
+permissions:
+  contents: read
+  security-events: write
+concurrency:
+  group: codeql-built-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  csharp:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Preserve native source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Initialize compiler-traced CSharp extraction
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
+        with:
+          languages: csharp
+          build-mode: manual
+      - name: Build the real WPF wallet with framework references and UI tests
+        shell: powershell
+        run: |
+          if ((git rev-parse HEAD) -ne $env:EXPECTED_COMMIT) { throw 'Unexpected source commit' }
+          ./deploy/standalone/build-windows-wallet.ps1
+      - name: Analyze the built CSharp database
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
+        with:
+          category: /language:csharp/built-diagnostic
+          output: ${{ runner.temp }}/codeql-csharp
+          # Default setup is still enabled. Keep independent evidence until its
+          # owner transitions the reviewed configuration through the GitHub UI/API.
+          upload: false
+      - name: Preserve quality diagnostics
+        shell: powershell
+        run: python development/security-evm-crypto-2026-11-05/collect_codeql_quality.py --sarif-dir "$env:RUNNER_TEMP/codeql-csharp" --out "$env:RUNNER_TEMP/codeql-csharp/quality.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: codeql-csharp-built-${{ env.EXPECTED_COMMIT }}
+          path: ${{ runner.temp }}/codeql-csharp/
+          retention-days: 14
+  go:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Resolve the pinned, separate Geth test reference
+        working-directory: prototypes/lp4-execution/tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          cp ../../../development/security-evm-crypto-2026-11-05/geth-reference.mod go.mod
+          go mod tidy
+          go mod verify
+          go list -deps ./... > "$RUNNER_TEMP/go-resolved-packages.txt"
+      - name: Initialize compiler-traced Go extraction
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
+        with:
+          languages: go
+          build-mode: manual
+      - name: Build and smoke-test the unchanged Geth reference
+        working-directory: prototypes/lp4-execution/tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          go build -mod=readonly -trimpath -o "$RUNNER_TEMP/gst-signed-geth" .
+          printf '%s\n' '{"raw":"0x","pre":{},"env":{}}' | "$RUNNER_TEMP/gst-signed-geth" > "$RUNNER_TEMP/geth-smoke.json"
+          python -c 'import json,os; p=os.path.join(os.environ["RUNNER_TEMP"],"geth-smoke.json"); r=json.load(open(p)); assert r["accepted"] is False and r["stage"] == "wire"'
+      - name: Analyze the built Go database
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
+        with:
+          category: /language:go/built-diagnostic
+          output: ${{ runner.temp }}/codeql-go
+          upload: false
+      - name: Preserve quality diagnostics
+        run: python development/security-evm-crypto-2026-11-05/collect_codeql_quality.py --sarif-dir "$RUNNER_TEMP/codeql-go" --out "$RUNNER_TEMP/codeql-go/quality.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: codeql-go-built-${{ env.EXPECTED_COMMIT }}
+          path: |
+            ${{ runner.temp }}/codeql-go/
+            ${{ runner.temp }}/go-resolved-packages.txt
+            ${{ runner.temp }}/geth-smoke.json
+            prototypes/lp4-execution/tests/go.mod
+            prototypes/lp4-execution/tests/go.sum
+          retention-days: 14

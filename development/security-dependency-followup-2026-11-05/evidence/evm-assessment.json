@@ -1,0 +1,156 @@
+{
+  "scope": "Compatibility assessment; no EVM upgrade, fork, vendor patch, or audit ignore applied",
+  "advisory": "RUSTSEC-2026-0387",
+  "private_signer_fixed_at": "e3d6ae4ae15554e0ed60446e13d1b71585edde44",
+  "legacy_dependency_constraints": [
+    {
+      "package": "revm-precompile-16.2.0",
+      "normalized_registry_manifest_sha256": "c1f59ba12db2baeaf499fc7ee6dc2aeddd37dc1a4cad4f57b6ceeb0dd691be73",
+      "relevant_dependencies": {
+        "k256": {
+          "version": "0.13.3",
+          "features": [
+            "ecdsa"
+          ],
+          "default-features": false
+        }
+      }
+    },
+    {
+      "package": "revm-primitives-15.2.0",
+      "normalized_registry_manifest_sha256": "2b8c2b97d107d80e026d109e9c2acde9d429de96c0a5f469d21785c05aea9d87",
+      "relevant_dependencies": {
+        "alloy-eip7702": {
+          "version": "0.5",
+          "features": [
+            "k256"
+          ],
+          "default-features": false
+        }
+      }
+    },
+    {
+      "package": "alloy-eip7702-0.5.1",
+      "normalized_registry_manifest_sha256": "0494c86271fd8dc9d1bedadaee57f97e00d13027c58046c3a5513fd559290671",
+      "relevant_dependencies": {
+        "k256": {
+          "version": "0.13",
+          "features": [
+            "ecdsa"
+          ],
+          "optional": true,
+          "default-features": false
+        }
+      }
+    },
+    {
+      "package": "alloy-primitives-0.8.26",
+      "normalized_registry_manifest_sha256": "208bc9df7342b0fd928502fca41a53ce93eec43ee2275b6a499fb1d6fe8ccdb9",
+      "relevant_dependencies": {
+        "k256": {
+          "version": "0.13",
+          "features": [
+            "ecdsa"
+          ],
+          "optional": true,
+          "default-features": false
+        }
+      }
+    },
+    {
+      "package": "k256-0.13.4",
+      "normalized_registry_manifest_sha256": "c66662150f07eb8766599c1bcfbe725894ba6da041740412a13dc6f48eb1f940",
+      "relevant_dependencies": {
+        "elliptic-curve": {
+          "version": "0.13.8",
+          "features": [
+            "hazmat",
+            "sec1"
+          ],
+          "default-features": false
+        }
+      }
+    },
+    {
+      "package": "elliptic-curve-0.13.8",
+      "normalized_registry_manifest_sha256": "ae28aa3db758a5b18bf9e4b1253082b2503067f41be65e0bf3dc89917fda3f76",
+      "relevant_dependencies": {
+        "crypto-bigint": {
+          "version": "0.5",
+          "features": [
+            "rand_core",
+            "generic-array",
+            "zeroize"
+          ],
+          "default-features": false
+        }
+      }
+    }
+  ],
+  "release_summary": [
+    {
+      "package": "alloy-primitives",
+      "latest_stable": "1.7.3",
+      "current_family": [
+        "0.8.26",
+        "0.8.25",
+        "0.8.24",
+        "0.8.23",
+        "0.8.22",
+        "0.8.21",
+        "0.8.20",
+        "0.8.19"
+      ]
+    },
+    {
+      "package": "alloy-eip7702",
+      "latest_stable": "0.6.3",
+      "current_family": [
+        "0.5.1",
+        "0.5.0"
+      ]
+    },
+    {
+      "package": "revm-precompile",
+      "latest_stable": "43.0.3",
+      "current_family": [
+        "16.2.0",
+        "16.1.0",
+        "16.0.0"
+      ]
+    },
+    {
+      "package": "tmp",
+      "dist_tags": {
+        "latest": "0.2.7"
+      },
+      "latest_dependencies": {}
+    },
+    {
+      "package": "solc",
+      "dist_tags": {
+        "series0.4": "0.4.26",
+        "series0.5": "0.5.17",
+        "latest": "0.8.38"
+      },
+      "latest_dependencies": {
+        "tmp": "0.2.6",
+        "semver": "^5.5.0",
+        "js-sha3": "0.8.0",
+        "commander": "^8.1.0",
+        "memorystream": "^0.3.1",
+        "command-exists": "^1.2.8",
+        "follow-redirects": "^1.12.1"
+      }
+    }
+  ],
+  "conclusion": "No compatible patch release of current public recovery/EVM dependencies removes the legacy k256 0.13 -> elliptic-curve 0.13 -> crypto-bigint 0.5 chain. Removing direct old k256 alone does not remove it. Major EVM/alloy migration or an explicitly maintained source fork needs separate semantic equivalence work.",
+  "next_migration_validation": [
+    "EVM Cancun execution, gas, return values, errors, logs and state/receipt roots",
+    "Public recovery verdicts on valid/invalid/low-s/high-s/range/id/length edge vectors",
+    "EIP-7702 feature handling and fork gating",
+    "System fixture bytes and PAY boundary hooks",
+    "Native builds and source compatibility identity"
+  ],
+  "rust_input_changes": false
+}

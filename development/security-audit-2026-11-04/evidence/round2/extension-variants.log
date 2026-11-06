@@ -1,0 +1,42 @@
+[
+  {
+    "variant": "release",
+    "javascriptFiles": 34,
+    "syntax": "PASS"
+  },
+  {
+    "variant": "noDnr",
+    "javascriptFiles": 34,
+    "syntax": "PASS"
+  },
+  {
+    "variant": "cspOpen",
+    "javascriptFiles": 34,
+    "syntax": "PASS"
+  },
+  {
+    "variant": "cspOpenNoDnr",
+    "javascriptFiles": 34,
+    "syntax": "PASS"
+  },
+  {
+    "variant": "noRtc",
+    "javascriptFiles": 34,
+    "syntax": "PASS"
+  },
+  {
+    "variant": "allowAll",
+    "javascriptFiles": 34,
+    "syntax": "PASS"
+  },
+  {
+    "variant": "noRefill",
+    "javascriptFiles": 34,
+    "syntax": "PASS"
+  },
+  {
+    "variant": "quotaNoSubtract",
+    "javascriptFiles": 34,
+    "syntax": "PASS"
+  }
+]

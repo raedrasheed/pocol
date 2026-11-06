@@ -1,0 +1,52 @@
+{
+  "review_date": "2026-11-05",
+  "display_timezone": "Asia/Hebron",
+  "branch": "security/crypto-timing-2026-11-05",
+  "base_commit": "840accc5f4f839edb7c439f612fe35539f0056c7",
+  "main_reference": "46d688b701e165211c36a5a1447fb029a3199302",
+  "advisory_database_commit": "26fd2d43f7280a1fb925a3743ec463017afe7119",
+  "advisory_count": 1409,
+  "advisory_url": "https://rustsec.org/advisories/RUSTSEC-2026-0387.html",
+  "upstream_fix_pr": "https://github.com/RustCrypto/crypto-bigint/pull/1365",
+  "upstream_fix_merge_commit": "c34044b8a1479ef32bec0a9030cf2f07b06506d9",
+  "toolchain": "rustc/cargo 1.99.1",
+  "audit_exit_status": {
+    "execution": 1,
+    "node": 1
+  },
+  "audit_remaining_advisory": "RUSTSEC-2026-0387: crypto-bigint 0.5.5 on legacy public recovery/EVM graph",
+  "audit_warning_packages": [
+    "derivative 2.2.0",
+    "paste 1.0.15"
+  ],
+  "tests": {
+    "execution": {
+      "passed": 224,
+      "failed": 0,
+      "ignored": 1
+    },
+    "node": {
+      "passed": 319,
+      "failed": 0,
+      "ignored": 30
+    },
+    "signing_oracle_pairs": 57400,
+    "legacy_identical_pairs": 45100,
+    "corrected_high_digest_pairs": 12300
+  },
+  "builds": [
+    {
+      "target": "linux",
+      "compatibilitySha256": "57cc150e7d57023f750b94f8cfd8d5a1552f3297079f9dba3f8db6ceb54796e8",
+      "features": []
+    },
+    {
+      "target": "android",
+      "compatibilitySha256": "57cc150e7d57023f750b94f8cfd8d5a1552f3297079f9dba3f8db6ceb54796e8",
+      "features": []
+    }
+  ],
+  "published": false,
+  "merged_into_main": false,
+  "real_keys_or_funds_used": false
+}

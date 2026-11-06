@@ -1,0 +1,13 @@
+{
+  "recorded_at_utc": "2026-11-05T10:28:25.989397+00:00",
+  "source": "Two screenshots attached by the repository owner in the latest user message; alert status observed in screenshots, not obtained through the restricted code-scanning API.",
+  "alert_url": "https://github.com/palcertcom/pocol/security/code-scanning/7",
+  "alert_number": 7,
+  "rule": "py/insecure-protocol",
+  "state_observed": "Fixed",
+  "affected_branch": "main",
+  "fixed_via_pull_request": 24,
+  "fix_commit_prefix_visible": "46d688b",
+  "fix_commit_independently_verified_via_git_and_pr_api": "46d688b701e165211c36a5a1447fb029a3199302",
+  "screenshot_raw_files_saved": false
+}

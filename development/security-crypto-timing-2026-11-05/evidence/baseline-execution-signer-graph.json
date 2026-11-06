@@ -1,0 +1,32 @@
+{
+  "ok": false,
+  "private_dependency_name": "k256",
+  "private_signer_stack": [
+    {
+      "name": "crypto-bigint",
+      "version": "0.5.5"
+    },
+    {
+      "name": "ecdsa",
+      "version": "0.16.9"
+    },
+    {
+      "name": "elliptic-curve",
+      "version": "0.13.8"
+    },
+    {
+      "name": "k256",
+      "version": "0.13.4"
+    }
+  ],
+  "private_closure_packages": 37,
+  "legacy_crypto_bigint_elsewhere": [
+    "0.5.5"
+  ],
+  "problems": [
+    "Private signing reaches an uncorrected crypto-bigint stack",
+    "Private signing lacks the corrected ctutils stack",
+    "Private signing still resolves to the legacy k256 backend"
+  ],
+  "scope": "Private signer routing and version floors only; legacy audit findings remain visible"
+}

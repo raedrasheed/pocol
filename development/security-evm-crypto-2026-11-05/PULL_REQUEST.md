@@ -1,0 +1,19 @@
+Concurrent extension wallet creation could overwrite a newly created seed or finish unlocking after an explicit lock. The faucet also admitted unbounded workers and could misreport concurrent claims, and Android JNI passed modified UTF-8 to a standard UTF-8 boundary. This change reserves and fences asynchronous wallet operations, bounds faucet admission/deadlines with explicit uncertain-delivery state, and validates/converts JNI arguments.
+
+Private signing and public recovery now share the corrected RustCrypto stack (`k256 0.14.0`, `elliptic-curve 0.14.3`, `crypto-bigint 0.7.10`, `ctutils 0.4.8`). Three application-local compatibility patches retain revm 19.7.0 and its execution rules; upstream still requires the older stack. Their original sources, six-file diff and licenses are pinned, and their active sources are bound to native compatibility identity. Direct public Rust helper types now expose k256 0.14 types. Existing upgrade guards therefore require coordinated native upgrades.
+
+Contract tooling updates follow-redirects and tmp while retaining solc 0.8.28 and all 13 byte-identical compiler outputs. The PR also includes dated audit evidence and a source-guarded owner CLI for the 197 previously reviewed CodeQL decisions. New C#/Go compiler-traced CodeQL diagnostics retain SARIF artifacts with upload disabled, preserving the existing default all-language setup. Native CI verifies the local patches and resolved crypto graph.
+
+Validation of the current crypto/application sources:
+
+- Rust application suites: 545 passed, 31 ignored (225 execution + 319 node + one subsequent four-control EVM numeric test).
+- Independent signing: 57,400 C-oracle pairs and 56 frozen historical signature vectors pass.
+- Before/after differential: 56,376 public recovery cases, 4,096 Cancun execution cases and the pure-Rust ECRECOVER fallback at five gas points per case produce byte-identical results.
+- ASan: 13,521,486 bounded decoder executions, no reported crash/OOM/timeout. Five local node processes and restart/identity checks pass.
+- Official Android arm64 build, ELF/ZIP 16KiB checks, launcher/wallet/upgrade/package checks pass; APK remains unsigned and has not been tested on a physical device.
+- cargo-audit: zero recorded vulnerabilities in the node, execution and fuzz graphs; derivative/paste maintenance warnings remain. Vendor verification, actionlint and 13 mocked CodeQL-CLI tests pass.
+- Earlier focused regressions retained in the branch: three extension lifecycle witnesses, 15 faucet tests, eight checked-JVM JNI tests, PHP/site and compiler checks; their dated evidence is linked from the reports.
+
+Limits that remain visible: vendor library unit tests have the same three failures on untouched upstream and the patched copies (137 pass/3 fail each), with no suppression or arithmetic rewrite. Current Windows, browser and C#/Go CI must be evaluated on this PR head. Existing CodeQL quality warnings and alert states are not claimed fixed: protected endpoints return integration 403, and the CLI has made no real alert writes. Historical prototypes/locks, physical Android/ART, multi-host behavior and broader audit coverage gaps remain separately documented. No production release or deployment is part of this PR.
+
+Review the [current report and evidence](development/security-evm-crypto-2026-11-05/REPORT-AR.md), [local patch manifest](prototypes/third-party/evm-crypto/MANIFEST.json), and [reproduction/owner commands](development/security-evm-crypto-2026-11-05/COMMANDS.md). The original [round-one](development/security-audit-2026-11-04/REPORT-AR.md) and [round-two](development/security-audit-2026-11-04/ROUND2-AR.md) reports retain their historical observations. Main's TLS fix from PR24 is already included.

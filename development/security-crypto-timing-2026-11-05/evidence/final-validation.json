@@ -1,0 +1,26 @@
+{
+  "rustfmt_new_test": "passed",
+  "markdown_local_links": "passed",
+  "source_hashes_match_tested_inputs": true,
+  "default_linux_and_android_source_manifests_match": true,
+  "legacy_package_versions_and_checksums_preserved_in_all_three_locks": true,
+  "dependency_checker_before_expected_failure": true,
+  "dependency_checker_after_all_three_graphs_pass": true,
+  "original_worktrees_clean_and_heads_unchanged": true,
+  "full_tests_not_repeated_for_documentation_only": true,
+  "git_staged_source_and_documentation_diff_check": "passed (raw evidence excluded)",
+  "git_full_staged_diff_check": {
+    "exit_status": 2,
+    "exceptions": "Original raw log/license whitespace preserved byte-for-byte",
+    "files": [
+      "development/security-crypto-timing-2026-11-05/evidence/RUSTSEC-CC-BY-4.0.txt",
+      "development/security-crypto-timing-2026-11-05/evidence/android-official-build.log",
+      "development/security-crypto-timing-2026-11-05/evidence/execution-full-tests.log",
+      "development/security-crypto-timing-2026-11-05/evidence/first-candidate-edge-mismatch.log",
+      "development/security-crypto-timing-2026-11-05/evidence/libpocol_bridge.so-elf.log",
+      "development/security-crypto-timing-2026-11-05/evidence/libpocold.so-elf.log",
+      "development/security-crypto-timing-2026-11-05/evidence/node-full-tests.log",
+      "development/security-crypto-timing-2026-11-05/evidence/signing-compat-large.log"
+    ]
+  }
+}

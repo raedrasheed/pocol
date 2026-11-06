@@ -1,0 +1,79 @@
+[
+  {
+    "run": "wide",
+    "findings": 637,
+    "errors": 26,
+    "errorTypes": {
+      "Syntax error": 4,
+      "Internal matching error": 14,
+      "Timeout": 1,
+      "PartialParsing": 7
+    },
+    "targetsReported": 735,
+    "toolSeverity": {
+      "INFO": 227,
+      "ERROR": 308,
+      "WARNING": 102
+    }
+  },
+  {
+    "run": "formatted",
+    "findings": 20,
+    "errors": 57,
+    "errorTypes": {
+      "Timeout": 56,
+      "PartialParsing": 1
+    },
+    "targetsReported": 5,
+    "toolSeverity": {
+      "ERROR": 4,
+      "WARNING": 15,
+      "INFO": 1
+    }
+  },
+  {
+    "run": "workflows",
+    "findings": 3,
+    "errors": 20,
+    "errorTypes": {
+      "Internal matching error": 14,
+      "PartialParsing": 6
+    },
+    "targetsReported": 13,
+    "toolSeverity": {
+      "WARNING": 3
+    }
+  },
+  {
+    "run": "changed-main",
+    "findings": 2,
+    "errors": 1,
+    "errorTypes": {
+      "PartialParsing": 1
+    },
+    "targetsReported": 2,
+    "toolSeverity": {
+      "WARNING": 1,
+      "ERROR": 1
+    }
+  },
+  {
+    "run": "final-patch",
+    "findings": 8,
+    "errors": 1,
+    "errorTypes": {
+      "PartialParsing": 1
+    },
+    "targetsReported": 10,
+    "toolSeverity": {
+      "WARNING": 3,
+      "ERROR": 5
+    }
+  },
+  {
+    "run": "faucet-snapshot",
+    "findings": 2,
+    "errors": 0,
+    "targetsReported": 2
+  }
+]

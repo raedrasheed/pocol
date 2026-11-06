@@ -1,0 +1,7 @@
+test_android_packages_only_unsigned_release_without_old_signer_or_invitation (__main__.ReleasePackageTests.test_android_packages_only_unsigned_release_without_old_signer_or_invitation) ... ok
+test_native_complete_packages_preserve_modes_and_exclude_old_network (__main__.ReleasePackageTests.test_native_complete_packages_preserve_modes_and_exclude_old_network) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.011s
+
+OK

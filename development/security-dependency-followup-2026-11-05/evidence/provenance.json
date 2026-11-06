@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-05",
+  "base_commit": "e3d6ae4ae15554e0ed60446e13d1b71585edde44",
+  "branch": "security/dependency-followup-2026-11-05",
+  "node": "v24.22.1",
+  "npm": "11.9.0",
+  "registry_metadata_source": "Official npm and crates.io registries via inherited proxy",
+  "compiler": "0.8.28+commit.7893614a.Emscripten.clang",
+  "compiler_sha256": "9ef37cc1d2597ed6d2f706a960f449e33eb9eee920936cea77b11e6f43861970",
+  "rust_source_compatibility_sha256_unchanged": "57cc150e7d57023f750b94f8cfd8d5a1552f3297079f9dba3f8db6ceb54796e8",
+  "compiler_outputs_identical_to_before_and_prior_accepted_hashes": 13,
+  "security_regression": {
+    "before": {
+      "passed": 2,
+      "failed": 5
+    },
+    "after": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "npm_audit_exit": {
+    "before": 1,
+    "after": 0
+  },
+  "main_modified": false,
+  "pushed": false,
+  "real_keys_or_funds_used": false,
+  "rust_test_suites_rerun": false,
+  "reason": "No Rust sources/manifests/locks or tracked compiler fixtures changed; their existing build source manifest still matches all current input bytes."
+}

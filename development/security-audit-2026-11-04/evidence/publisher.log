@@ -1,0 +1,54 @@
+
+> pocol-extension@0.4.1 test:publisher
+> node --test tests/publisher_test.mjs
+
+✔ canonical manifest and chunks are accepted by existing independent viewer (10.555371ms)
+✔ manifest is independent of upload file order (2.437687ms)
+✔ fixed canonical publication vector (1.663222ms)
+✔ byte-for-byte parity with independent M1 draft 0.2 pos-minimal vector (0.708429ms)
+✔ rejects empty (0.404709ms)
+✔ rejects traversal (0.136512ms)
+✔ rejects unicode path (0.22272ms)
+✔ rejects duplicate (0.541712ms)
+✔ rejects oversize (0.142521ms)
+✔ rejects bad extension (0.375856ms)
+✔ rejects missing entry (0.286214ms)
+✔ rejects wrong bytes (0.092177ms)
+✔ rejects too many (0.201668ms)
+✔ site total limit is validated before hashing oversized final input (1309.802596ms)
+✔ input byte arrays are copied and plan mutations detected (0.814075ms)
+✔ identical file contents reuse a single storage chunk (0.504877ms)
+✔ successful complete publication is fetched and verified (87.631386ms)
+✔ source chunks already on chain skip transactions and verify content (50.024591ms)
+✔ corrupt existing chunk is rejected before signing (1.711423ms)
+✔ wrong network cannot trigger a signature (1.437618ms)
+✔ insufficient approved fee cannot trigger a signature (1.115982ms)
+✔ checkpoint persistence failure prevents broadcast (2.228878ms)
+✔ checkpoint failure after signing still prevents broadcast (5.769398ms)
+✔ signer cannot substitute another transaction (2.692765ms)
+✔ wrong signing key is rejected (6.301756ms)
+✔ ambiguous submission resumes the SAME raw without another signature (76.092073ms)
+✔ lost submit response reconciles chain receipt without duplicate signing (41.505033ms)
+✔ receipt timeout preserves pending transaction and resumes without re-signing (108.037635ms)
+✔ completed checkpoint is idempotent (195.877108ms)
+✔ checkpoint cannot be reused for a different document or allowance (80.223923ms)
+✔ checkpoint fee ledger tampering is rejected (105.540364ms)
+✔ existing site requires publisher authorization before uploading (46.674414ms)
+✔ existing site requires exact supported contract runtime (10.539918ms)
+✔ update keeps site address and creates next version (106.721502ms)
+✔ reverted receipt stops publication with structured terminal error and remains recorded (12.660537ms)
+✔ pause leaves checkpoint without extra transaction (2.211182ms)
+✔ matching version published concurrently does not send redundant publish (96.940672ms)
+✔ version must contain the exact prepared manifest chunk addresses (58.045501ms)
+✔ per-account concurrent publication is refused while first is pending (139.930794ms)
+✔ orphan cached receipts cause exact raw rebroadcast without new signatures (209.507932ms)
+✔ receipt from a noncanonical block is not accepted as confirmation (25.331347ms)
+✔ concurrently stored chunk still reconciles its unresolved signed transaction before advancing nonce (116.653896ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 42
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3127.206748

@@ -1,0 +1,24 @@
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 4 files tracked by git with 40 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin   Rules                                                                   
+ ─────────────────────────────        ────────────────                                                                  
+  js               39       4          Custom      40                                                                   
+  <multilang>       1       4                                                                                           
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 57 (57 blocking)
+ • Rules run: 40
+ • Targets scanned: 4
+ • Parsed lines: ~100.0%
+ • No ignore information available
+Ran 40 rules on 4 files: 57 findings.

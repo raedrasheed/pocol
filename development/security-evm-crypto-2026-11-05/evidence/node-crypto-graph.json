@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "cryptographic_versions": {
+    "crypto-bigint": [
+      "0.7.10"
+    ],
+    "ctutils": [
+      "0.4.8"
+    ],
+    "k256": [
+      "0.14.0"
+    ],
+    "elliptic-curve": [
+      "0.14.3"
+    ]
+  },
+  "local_patches_selected": {
+    "alloy-primitives": true,
+    "alloy-eip7702": true,
+    "revm-precompile": true
+  },
+  "engine": [
+    "19.7.0"
+  ],
+  "problems": [],
+  "scope": "Complete active metadata graph; unrelated historical tools and prototypes are separate"
+}

@@ -1,0 +1,27 @@
+Configuration,Rule Source,Sarif Identifier,Alerts
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/access-invalid-pointer,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/cleartext-logging,21
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/cleartext-storage-database,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/cleartext-transmission,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/command-line-injection,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/disabled-certificate-check,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/hard-coded-cryptographic-value,193
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/insecure-cookie,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/non-https-url,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/path-injection,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/regex-injection,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/request-forgery,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/sql-injection,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/summary/lines-of-code,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/summary/lines-of-user-code,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/summary/nodes-at-type-path-length-limit,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/summary/number-of-files-extracted-with-errors,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/summary/number-of-successfully-extracted-files,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/summary/query-sink-counts,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/summary/reduced-summary-statistics,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/summary/summary-statistics,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/telemetry/extraction-information,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/uncontrolled-allocation-size,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/weak-cryptographic-algorithm,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/weak-sensitive-data-hashing,0
+/language:rust,codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7),rust/xss,0

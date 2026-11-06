@@ -1,0 +1,46 @@
+{
+  "current_main_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "tested_branch_sha": "fd29d3399e90015172465687beb6f81d60501d55",
+  "files": [
+    {
+      "path": "prototypes/pocol-windows/Assets/pocol-icon.ico",
+      "sha256": "9d95f6d5468e13607296bedf502e52239c9784568f21284071b1c245493b93b2",
+      "byte_identical": true
+    },
+    {
+      "path": "prototypes/pocol-windows/Assets/pocol-icon.png",
+      "sha256": "5abc663f45034e82a28a2ec37d73eb14eeeb6d61241e2cedde5aabe4b512de5d",
+      "byte_identical": true
+    },
+    {
+      "path": "prototypes/pocol-windows/Assets/pocol-logo.png",
+      "sha256": "f2777bf71a8c25a61cdbd937e608b3cf47a92c81cb41418750ca1ccb20007902",
+      "byte_identical": true
+    },
+    {
+      "path": "prototypes/pocol-windows/Wallet.cs",
+      "sha256": "2520acf5f654bc7f0c108e517969179cec49b36da1b28bb088ae5fac6234a7ce",
+      "byte_identical": true
+    },
+    {
+      "path": "prototypes/pocol-windows/Wallet.xaml",
+      "sha256": "41375a35a87ec9d40fe03a50f558e6aed46b7197b6da55dc2252753be89e08d6",
+      "byte_identical": true
+    },
+    {
+      "path": "prototypes/pocol-windows/WalletUiTests.cs",
+      "sha256": "adfb7419d22f7fc5e884347adb283abcac2ed3617e309ffb25b4fbacfb8b0b5a",
+      "byte_identical": true
+    },
+    {
+      "path": "deploy/standalone/build-windows-wallet.ps1",
+      "sha256": "8853ff3edb40476b37365bafb51ba1f7051b2783317917e848a51620bd5c7fa0",
+      "byte_identical": true
+    },
+    {
+      "path": ".github/workflows/windows-wallet-ui.yml",
+      "sha256": "30e7a991e8883c5f95e47ad4d0864623fefc31d78278cff6c6eda38f57bba40f",
+      "byte_identical": true
+    }
+  ]
+}

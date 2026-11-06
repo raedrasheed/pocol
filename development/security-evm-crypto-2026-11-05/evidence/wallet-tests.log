@@ -1,0 +1,1 @@
+{"result": "PASS", "scope": "five local native processes, continuous genesis, real wallet transfer/registration/mining/restart", "physicalDevicesTested": false, "transfer": "0x4d912a7badddd661049c44343b40b5dcc5658dfa40aa6cdc47bbba47d0f261dc", "height": 16}

@@ -1,0 +1,20 @@
+[
+  {
+    "phase": "before",
+    "exit": 1,
+    "expected_exit": 1,
+    "tests": 7,
+    "pass": 2,
+    "fail": 5,
+    "skipped": 0
+  },
+  {
+    "phase": "after",
+    "exit": 0,
+    "expected_exit": 0,
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "skipped": 0
+  }
+]

@@ -1,12 +1,13 @@
-//! Local devnet transaction signing (EIP-155 legacy and EIP-1559). Disposable
-//! keys only; never used with funded keys. RFC6979 deterministic, low-s.
+//! Transaction and header signing shared by devnet accounts and independent key files.
+//! RFC6979 deterministic, low-s. Private operations use the corrected RustCrypto stack;
+//! public recovery retains its signature policy on the same corrected backend.
 use k256::ecdsa::{SigningKey,VerifyingKey};
 use revm::primitives::{keccak256,Address,B256,Bytes,U256};
 use crate::rlp;
 
 pub struct Key{sk:SigningKey}
 impl Key{
-    pub fn from_secret(secret:&[u8;32])->Result<Self,String>{SigningKey::from_bytes(secret.into()).map(|sk|Self{sk}).map_err(|e|e.to_string())}
+    pub fn from_secret(secret:&[u8;32])->Result<Self,String>{SigningKey::from_slice(secret).map(|sk|Self{sk}).map_err(|e|e.to_string())}
     /// Deterministic disposable devnet key: secret = keccak256("pocol-devnet-key" || label).
     pub fn devnet(label:&str)->Self{
         let mut i=0u32;loop{
@@ -15,22 +16,26 @@ impl Key{
         }
     }
     pub fn secret(&self)->[u8;32]{self.sk.to_bytes().into()}
-    pub fn address(&self)->Address{address_of(self.sk.verifying_key())}
+    pub fn address(&self)->Address{
+        let p=self.sk.verifying_key().to_sec1_point(false);
+        Address::from_slice(&keccak256(&p.as_bytes()[1..])[12..])
+    }
     /// 65-byte r||s||v (v in {0,1}), low-s, over a 32-byte prehash.
     pub fn sign_hash(&self,hash:&B256)->[u8;65]{
-        let (sig,rec)=self.sk.sign_prehash_recoverable(hash.as_slice()).expect("prehash signing");
-        let (sig,rec)=match sig.normalize_s(){Some(n)=>(n,k256::ecdsa::RecoveryId::new(!rec.is_y_odd(),rec.is_x_reduced())),None=>(sig,rec)};
+        // k256 0.14 sets EcdsaCurve::NORMALIZE_S: normalization and recovery-id
+        // adjustment happen inside its signing primitive without a secret-dependent branch.
+        let (sig,rec)=self.sk.sign_prehash_recoverable(hash.as_slice());
         let mut out=[0u8;65];out[..64].copy_from_slice(&sig.to_bytes());out[64]=rec.to_byte();out
     }
 }
 pub fn address_of(vk:&VerifyingKey)->Address{
-    let p=vk.to_encoded_point(false);Address::from_slice(&keccak256(&p.as_bytes()[1..])[12..])
+    let p=vk.to_sec1_point(false);Address::from_slice(&keccak256(&p.as_bytes()[1..])[12..])
 }
 /// Recovers the signer of a 65-byte r||s||v signature (v in {0,1}); rejects high-s.
 pub fn recover(hash:&B256,sig:&[u8])->Option<Address>{
     if sig.len()!=65||sig[64]>1{return None}
     let s=k256::ecdsa::Signature::from_slice(&sig[..64]).ok()?;
-    if s.normalize_s().is_some(){return None}
+    if s.normalize_s()!=s{return None}
     let rec=k256::ecdsa::RecoveryId::from_byte(sig[64])?;
     VerifyingKey::recover_from_prehash(hash.as_slice(),&s,rec).ok().map(|vk|address_of(&vk))
 }

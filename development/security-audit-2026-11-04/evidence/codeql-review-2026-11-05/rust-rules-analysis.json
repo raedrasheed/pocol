@@ -1,0 +1,206 @@
+{
+  "source_sha256": "8eaef882694aebbbf80ab620c7ee6095204de1343a4669ef576de11f1679759a",
+  "bytes": 3101,
+  "configurations": [
+    "/language:rust"
+  ],
+  "rule_sources": [
+    "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)"
+  ],
+  "total_rows": 26,
+  "security_rules": 17,
+  "metric_rules": 9,
+  "nonzero_rules": [
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/cleartext-logging",
+      "Alerts": 21
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/hard-coded-cryptographic-value",
+      "Alerts": 193
+    }
+  ],
+  "zero_security_rules": [
+    "rust/access-invalid-pointer",
+    "rust/cleartext-storage-database",
+    "rust/cleartext-transmission",
+    "rust/command-line-injection",
+    "rust/disabled-certificate-check",
+    "rust/insecure-cookie",
+    "rust/non-https-url",
+    "rust/path-injection",
+    "rust/regex-injection",
+    "rust/request-forgery",
+    "rust/sql-injection",
+    "rust/uncontrolled-allocation-size",
+    "rust/weak-cryptographic-algorithm",
+    "rust/weak-sensitive-data-hashing",
+    "rust/xss"
+  ],
+  "reported_alert_sum": 214,
+  "has_per_alert_location": false,
+  "has_alert_state": false,
+  "has_pocol_commit_sha": false,
+  "rules": [
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/access-invalid-pointer",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/cleartext-logging",
+      "Alerts": 21
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/cleartext-storage-database",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/cleartext-transmission",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/command-line-injection",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/disabled-certificate-check",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/hard-coded-cryptographic-value",
+      "Alerts": 193
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/insecure-cookie",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/non-https-url",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/path-injection",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/regex-injection",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/request-forgery",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/sql-injection",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/summary/lines-of-code",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/summary/lines-of-user-code",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/summary/nodes-at-type-path-length-limit",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/summary/number-of-files-extracted-with-errors",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/summary/number-of-successfully-extracted-files",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/summary/query-sink-counts",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/summary/reduced-summary-statistics",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/summary/summary-statistics",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/telemetry/extraction-information",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/uncontrolled-allocation-size",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/weak-cryptographic-algorithm",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/weak-sensitive-data-hashing",
+      "Alerts": 0
+    },
+    {
+      "Configuration": "/language:rust",
+      "Rule Source": "codeql/rust-queries (0.1.46+1be292a1e54696ca543b4ad0f9b4537b9687caa7)",
+      "Sarif Identifier": "rust/xss",
+      "Alerts": 0
+    }
+  ]
+}

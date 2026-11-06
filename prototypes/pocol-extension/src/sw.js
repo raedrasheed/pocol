@@ -28,6 +28,7 @@ const admission = new StoreAdmission();
 const sessions = new Map(); // sessionId -> SiteSession (D99)
 let globalPending = 0;
 let unlocked = null; // {seed, until}
+let walletCreating = false;
 const RPC_TIMEOUT_MS = 10000, LOGS_TIMEOUT_MS = 30000, LOG_RANGE_MAX = 1024;
 const WALLET_PER_MIN = 5;
 const IDENTITY_CHECK_MS = 30000; // browser.md: identity at open, every 30 s and at signing
@@ -562,9 +563,25 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         // wallet unless the caller passes replace:true (a bare wallet.create cannot silently destroy the
         // current key, which the viewer wallet can never recover).
         if (typeof msg.password !== 'string' || msg.password.length < WALLET_PW_MIN) throw new Error(`password must be at least ${WALLET_PW_MIN} characters`);
-        if ((await store.get('wallet')).wallet && msg.replace !== true) throw new Error('a wallet already exists; pass replace:true to overwrite it (this permanently discards the current key)');
-        const seed = msg.seedHex ? fromHex(msg.seedHex) : crypto.getRandomValues(new Uint8Array(32)); if (seed.length !== 32) throw new Error('seed');
-        lockWallet('wallet replaced'); await store.set({ wallet: await encryptSeed(seed, msg.password) }); walletChanged('wallet replaced'); unlocked = { seed, until: Date.now() + LOCK_MS }; return { ok: true }; }
+        // Reserve synchronously: two settings tabs must not both observe an absent wallet
+        // and silently replace each other's seed after the asynchronous encryption.
+        if (walletCreating) throw new Error('wallet creation already in progress');
+        walletCreating = true;
+        try {
+          const before = walletEpoch;
+          if ((await store.get('wallet')).wallet && msg.replace !== true) throw new Error('a wallet already exists; pass replace:true to overwrite it (this permanently discards the current key)');
+          if (walletEpoch !== before) throw new Error('wallet changed during creation');
+          const seed = msg.seedHex ? fromHex(msg.seedHex) : crypto.getRandomValues(new Uint8Array(32)); if (seed.length !== 32) throw new Error('seed');
+          lockWallet('wallet replaced'); const epoch = walletEpoch;
+          const box = await encryptSeed(seed, msg.password);
+          if (walletEpoch !== epoch) throw new Error('wallet changed during creation');
+          await store.set({ wallet: box });
+          // A lock cannot undo a storage write already in flight. Keep the persisted
+          // wallet locked, and invalidate an unlock of the previous stored seed too.
+          if (walletEpoch !== epoch) { lockWallet('wallet changed during creation'); throw new Error('wallet changed during creation; saved wallet remains locked'); }
+          walletChanged('wallet replaced'); unlocked = { seed, until: Date.now() + LOCK_MS }; return { ok: true };
+        } finally { walletCreating = false; }
+      }
       case 'wallet.unlock': { const e0 = walletEpoch; const w = (await store.get('wallet')).wallet; if (!w) return { ok: false, error: 'no wallet' }; const seed = await decryptSeed(w, msg.password);
         // A wallet.create (or lock) during the decryption wins: the old seed is never reinstated.
         if (walletEpoch !== e0) return { ok: false, error: 'wallet changed during unlock' };

@@ -1,0 +1,44 @@
+{
+  "captured_at_utc": "2026-11-05T09:39:12.795845+00:00",
+  "repository": "palcertcom/pocol",
+  "read_only": true,
+  "artifacts": [
+    {
+      "label": "osv",
+      "run_id": 41875907642,
+      "artifact_id": 13345977967,
+      "run_sha": "04a7e0d4c0259251aff136b23bf27abf3717cb61",
+      "name": "OSV Scanner SARIF file",
+      "archive_bytes": 16438,
+      "archive_sha256": "3dc96f2ff2d8b883d01249f64a57466f82c0ad7e844fb2a738eae8c0b9fdb300",
+      "files": [
+        "results.sarif"
+      ]
+    },
+    {
+      "label": "semgrep",
+      "run_id": 41889848835,
+      "artifact_id": 13351764891,
+      "run_sha": "01e88dac124e9c865c0d90b5396ed9c052bfa209",
+      "name": "semgrep-pocol-findings",
+      "archive_bytes": 29527,
+      "archive_sha256": "e165aa022f4540335499beead40fd02d6b0a0966fdc20073d6ef0a0924972fa0",
+      "files": [
+        "semgrep-results.json"
+      ]
+    }
+  ],
+  "reviewed_branch_head": "fd29d3399e90015172465687beb6f81d60501d55",
+  "main_sha": "0dda5056d2a78b2e135defb803df480e80422f8f",
+  "semgrep_original_count": 67,
+  "osv_raw_count": 14,
+  "osv_distinct_records": 12,
+  "codeql_alert_7": {
+    "http_status": 403,
+    "message": "Resource not accessible by integration",
+    "state_verified": false
+  },
+  "environment_settings_modified": false,
+  "environment_published": false,
+  "source_code_changed": false
+}

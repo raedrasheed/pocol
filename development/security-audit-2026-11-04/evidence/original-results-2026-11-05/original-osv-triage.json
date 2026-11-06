@@ -1,0 +1,193 @@
+{
+  "original_scan_commit": "04a7e0d4c0259251aff136b23bf27abf3717cb61",
+  "reviewed_branch_head": "fd29d3399e90015172465687beb6f81d60501d55",
+  "main_sha": "0dda5056d2a78b2e135defb803df480e80422f8f",
+  "raw_results": 14,
+  "distinct_advisory_package_version_file_records": 12,
+  "distinct_advisory_ids": 9,
+  "distinct_packages": 8,
+  "records": [
+    {
+      "original_record": 1,
+      "advisory": "RUSTSEC-2026-0012",
+      "package": "keccak",
+      "version": "0.1.0",
+      "files": [
+        "prototypes/lp1-node/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2026-0012: Unsoundness in opt-in ARMv8 assembly backend for `keccak`",
+      "status": "precondition-not-enabled-in-reviewed-build",
+      "reason_ar": "التنبيه يخص ARMv8 asm اختياريًا. featureغير مفعلة في LP1 المفحوص، والعقدة/التنفيذ يقفلان0.1.6 المصحح؛ لا تعميم على target/features أخرى."
+    },
+    {
+      "original_record": 2,
+      "advisory": "CVE-2025-54798",
+      "package": "tmp",
+      "version": "0.0.33",
+      "files": [
+        "prototypes/lp4-execution/tools/package-lock.json"
+      ],
+      "duplicate_of_record": null,
+      "title": "CVE-2025-54798: tmp allows arbitrary temporary file / directory write via symbolic link `dir` parameter",
+      "status": "affected-version-retained-exploitability-not-established",
+      "reason_ar": "0.0.33 باق عبرsolc0.8.28. الاستعمال المرصود fileSync بلاحقة ثابتة .smt2، دون dir/prefix/postfix من طالب المشروع في fixtures؛ لا إعلان أمان عام، ولم يرق المترجم لتصفير التنبيه."
+    },
+    {
+      "original_record": 3,
+      "advisory": "RUSTSEC-2026-0097",
+      "package": "rand",
+      "version": "0.7.3",
+      "files": [
+        "prototypes/lp1-node/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2026-0097: Rand is unsound with a custom logger using `rand::rng()`",
+      "status": "precondition-not-established-in-reviewed-build",
+      "reason_ar": "يلزم logger يعيد الدخول أثناء reseeding مع log؛ شجرة ميزات LP1 المفحوصة لا تفعل log ولم يثبت logger كهذا. ليس تعميمًا على كل استعمال لـrand0.7.3."
+    },
+    {
+      "original_record": 4,
+      "advisory": "CVE-2026-116689",
+      "package": "follow-redirects",
+      "version": "1.16.1",
+      "files": [
+        "prototypes/lp4-execution/tools/package-lock.json"
+      ],
+      "duplicate_of_record": null,
+      "title": "CVE-2026-116689: follow-redirects: Cross-realm sensitiveHeaders arrays are discarded and custom credentials can follow redirects",
+      "status": "patched-on-security-branch-not-main",
+      "reason_ar": "القفل الحالي على الفرع1.16.2، والإصدار الأصلي/main1.16.1. التحديث67d4b12 رقعي ومخرجات13fixture متطابقة؛ لا إثبات استغلال في compile المحلي المثبت."
+    },
+    {
+      "original_record": 5,
+      "advisory": "CVE-2026-44705",
+      "package": "tmp",
+      "version": "0.0.33",
+      "files": [
+        "prototypes/lp4-execution/tools/package-lock.json"
+      ],
+      "duplicate_of_record": null,
+      "title": "CVE-2026-44705: tmp has Path Traversal via unsanitized prefix/postfix that enables directory escape",
+      "status": "affected-version-retained-exploitability-not-established",
+      "reason_ar": "0.0.33 باق عبرsolc0.8.28. الاستعمال المرصود fileSync بلاحقة ثابتة .smt2، دون dir/prefix/postfix من طالب المشروع في fixtures؛ لا إعلان أمان عام، ولم يرق المترجم لتصفير التنبيه."
+    },
+    {
+      "original_record": 6,
+      "advisory": "RUSTSEC-2024-0388",
+      "package": "derivative",
+      "version": "2.2.0",
+      "files": [
+        "prototypes/lp4-execution/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2024-0388: `derivative` is unmaintained; consider using an alternative",
+      "status": "unmaintained-dependency-debt",
+      "reason_ar": "التنبيه توقف صيانة؛ لا يثبت وحده مسار استغلال. بقي دون suppression أو ترقية تشفير كبرى. libsecp256k1 يخصprototypeLP1 بينماpocold يستعملk256."
+    },
+    {
+      "original_record": 7,
+      "advisory": "RUSTSEC-2024-0388",
+      "package": "derivative",
+      "version": "2.2.0",
+      "files": [
+        "prototypes/pocold/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2024-0388: `derivative` is unmaintained; consider using an alternative",
+      "status": "unmaintained-dependency-debt",
+      "reason_ar": "التنبيه توقف صيانة؛ لا يثبت وحده مسار استغلال. بقي دون suppression أو ترقية تشفير كبرى. libsecp256k1 يخصprototypeLP1 بينماpocold يستعملk256."
+    },
+    {
+      "original_record": 8,
+      "advisory": "RUSTSEC-2024-0436",
+      "package": "paste",
+      "version": "1.0.15",
+      "files": [
+        "prototypes/lp4-execution/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2024-0436: paste - no longer maintained",
+      "status": "unmaintained-dependency-debt",
+      "reason_ar": "التنبيه توقف صيانة؛ لا يثبت وحده مسار استغلال. بقي دون suppression أو ترقية تشفير كبرى. libsecp256k1 يخصprototypeLP1 بينماpocold يستعملk256."
+    },
+    {
+      "original_record": 9,
+      "advisory": "RUSTSEC-2024-0436",
+      "package": "paste",
+      "version": "1.0.15",
+      "files": [
+        "prototypes/pocold/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2024-0436: paste - no longer maintained",
+      "status": "unmaintained-dependency-debt",
+      "reason_ar": "التنبيه توقف صيانة؛ لا يثبت وحده مسار استغلال. بقي دون suppression أو ترقية تشفير كبرى. libsecp256k1 يخصprototypeLP1 بينماpocold يستعملk256."
+    },
+    {
+      "original_record": 10,
+      "advisory": "RUSTSEC-2025-0161",
+      "package": "libsecp256k1",
+      "version": "0.5.0",
+      "files": [
+        "prototypes/lp1-node/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2025-0161: libsecp256k1 is unmaintained",
+      "status": "unmaintained-dependency-debt",
+      "reason_ar": "التنبيه توقف صيانة؛ لا يثبت وحده مسار استغلال. بقي دون suppression أو ترقية تشفير كبرى. libsecp256k1 يخصprototypeLP1 بينماpocold يستعملk256."
+    },
+    {
+      "original_record": 11,
+      "advisory": "RUSTSEC-2026-0012",
+      "package": "keccak",
+      "version": "0.1.0",
+      "files": [
+        "prototypes/lp1-node/Cargo.lock"
+      ],
+      "duplicate_of_record": 1,
+      "title": "RUSTSEC-2026-0012: Unsoundness in opt-in ARMv8 assembly backend for `keccak`",
+      "status": "precondition-not-enabled-in-reviewed-build",
+      "reason_ar": "التنبيه يخص ARMv8 asm اختياريًا. featureغير مفعلة في LP1 المفحوص، والعقدة/التنفيذ يقفلان0.1.6 المصحح؛ لا تعميم على target/features أخرى."
+    },
+    {
+      "original_record": 12,
+      "advisory": "RUSTSEC-2026-0097",
+      "package": "rand",
+      "version": "0.7.3",
+      "files": [
+        "prototypes/lp1-node/Cargo.lock"
+      ],
+      "duplicate_of_record": 3,
+      "title": "RUSTSEC-2026-0097: Rand is unsound with a custom logger using `rand::rng()`",
+      "status": "precondition-not-established-in-reviewed-build",
+      "reason_ar": "يلزم logger يعيد الدخول أثناء reseeding مع log؛ شجرة ميزات LP1 المفحوصة لا تفعل log ولم يثبت logger كهذا. ليس تعميمًا على كل استعمال لـrand0.7.3."
+    },
+    {
+      "original_record": 13,
+      "advisory": "RUSTSEC-2026-0387",
+      "package": "crypto-bigint",
+      "version": "0.5.5",
+      "files": [
+        "prototypes/lp4-execution/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2026-0387: Multiple timing variability issues in operations intended to be constant-time",
+      "status": "open-timing-risk-signing-reachable",
+      "reason_ar": "0.5.5 باق عبرk256 0.13.4؛ Key::from_secret وsign_hash فيtxsign.rs يستعملانSigningKey وsign_prehash_recoverable، والمفتاح يأتي منkeyfile فيpocold. يشمل التطبيق عمليات أسرار؛ لم تثبت قابلية استغلال فعلية ولم يثبت عدم الانطباق. يلزم إصلاح/ترقية متوافقة واختبار compiler/CPU دون ترقية كبرى عمياء."
+    },
+    {
+      "original_record": 14,
+      "advisory": "RUSTSEC-2026-0387",
+      "package": "crypto-bigint",
+      "version": "0.5.5",
+      "files": [
+        "prototypes/pocold/Cargo.lock"
+      ],
+      "duplicate_of_record": null,
+      "title": "RUSTSEC-2026-0387: Multiple timing variability issues in operations intended to be constant-time",
+      "status": "open-timing-risk-signing-reachable",
+      "reason_ar": "0.5.5 باق عبرk256 0.13.4؛ Key::from_secret وsign_hash فيtxsign.rs يستعملانSigningKey وsign_prehash_recoverable، والمفتاح يأتي منkeyfile فيpocold. يشمل التطبيق عمليات أسرار؛ لم تثبت قابلية استغلال فعلية ولم يثبت عدم الانطباق. يلزم إصلاح/ترقية متوافقة واختبار compiler/CPU دون ترقية كبرى عمياء."
+    }
+  ]
+}

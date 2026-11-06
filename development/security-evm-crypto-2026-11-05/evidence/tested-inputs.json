@@ -1,0 +1,23 @@
+{
+  "base_commit": "d2c92a7dd1b88d65a636240ba10f948cd92fc419",
+  "sha256": {
+    ".github/workflows/five-device-build.yml": "fbba9f6f7b9e22d1ef9960bd299d1aa43bb706469ea1c193d4409e4f138a9668",
+    "deploy/public-testnet/test_nonce_upgrade.py": "81f17e45f448a8b7e3b0f722b70c305fdf9b16324b267e07d7c43d0aa926d1b2",
+    "deploy/standalone/package.py": "be4f59d91e278f2bce5327838306fc5c47b6a5a6cb912c3af385f4021ad065d8",
+    "deploy/standalone/test_launcher.py": "35f945dafb3728c043ee941b46d006621f8245b3b268f7bac89505c05197ce10",
+    "deploy/standalone/test_release_package.py": "83a76a045b1c394ee96f8173adc76845593673e49fa2849a7f9aab0de04dd6a1",
+    "development/security-audit-2026-11-04/fuzz/Cargo.lock": "aefc4f893f47137ea67c83fbc2928a8deeb57aed1ab7746f69e552f99db12c2e",
+    "development/security-audit-2026-11-04/fuzz/Cargo.toml": "889d7b714b133083a17de755a202011ada3284c0bb96e1067d09a3094cc0ed98",
+    "prototypes/lp4-execution/Cargo.lock": "2c29eb9221b864b5fe499a94e1c7205ad33d13cd2bb2051b9185230a449f78be",
+    "prototypes/lp4-execution/Cargo.toml": "12a99a38e144bad0b3448a7edcfc627c88acf6665e6a1e4c1fbead0b390f28c1",
+    "prototypes/lp4-execution/src/txsign.rs": "027798a614299c63efdd338c91b657dbb79a88212fc67b70bc54416c3a6709eb",
+    "prototypes/lp4-execution/tests/signing_compat.rs": "12b55253be0ccd3289ece9794c05a9f9356de0216a0ad77848657faa46c1ee7a",
+    "prototypes/pocold/Cargo.lock": "10fc99393a454531ddc50b41045bf36fd4eca2b714aeb9f700c32e18d64b23e8",
+    "prototypes/pocold/Cargo.toml": "f39bde64afd02e24fbc9a6f01c60d1728c10e1731682474f402a4a9851ad2977",
+    "prototypes/pocold/build.rs": "a40562a69b445d0ba8f63a9e91e997330ddfc65b663d1a69943da6960e58d2ff",
+    "prototypes/pocold/src/secp_backend.rs": "8be7eec8c6742dc07402d471d0cfeac31474057615ab61866b81511abfb0b5ab",
+    "prototypes/lp4-execution/tests/data/signing-legacy-compat.json": "c260e6c1fe384168f2f785b73e013d738b3fa6f8fbd0b7454c93c5e1e3df1ddb",
+    "prototypes/lp4-execution/tests/evm_numeric_edges.rs": "11ae084118ee2d552381ba671cc7305d2e2eb4d1f9d5bf500d5b0bf130de25fb"
+  },
+  "vendor_manifest_sha256": "9e3f4486312dd53d70b39a9e88a7550080c6cfd33467cc8d1eac007fdaf88812"
+}

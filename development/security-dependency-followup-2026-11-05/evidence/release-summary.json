@@ -1,0 +1,57 @@
+[
+  {
+    "package": "alloy-primitives",
+    "latest_stable": "1.7.3",
+    "current_family": [
+      "0.8.26",
+      "0.8.25",
+      "0.8.24",
+      "0.8.23",
+      "0.8.22",
+      "0.8.21",
+      "0.8.20",
+      "0.8.19"
+    ]
+  },
+  {
+    "package": "alloy-eip7702",
+    "latest_stable": "0.6.3",
+    "current_family": [
+      "0.5.1",
+      "0.5.0"
+    ]
+  },
+  {
+    "package": "revm-precompile",
+    "latest_stable": "43.0.3",
+    "current_family": [
+      "16.2.0",
+      "16.1.0",
+      "16.0.0"
+    ]
+  },
+  {
+    "package": "tmp",
+    "dist_tags": {
+      "latest": "0.2.7"
+    },
+    "latest_dependencies": {}
+  },
+  {
+    "package": "solc",
+    "dist_tags": {
+      "series0.4": "0.4.26",
+      "series0.5": "0.5.17",
+      "latest": "0.8.38"
+    },
+    "latest_dependencies": {
+      "tmp": "0.2.6",
+      "semver": "^5.5.0",
+      "js-sha3": "0.8.0",
+      "commander": "^8.1.0",
+      "memorystream": "^0.3.1",
+      "command-exists": "^1.2.8",
+      "follow-redirects": "^1.12.1"
+    }
+  }
+]

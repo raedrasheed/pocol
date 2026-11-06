@@ -1,0 +1,52 @@
+[
+  {
+    "target": "state_store",
+    "test": "stored_versions_have_their_roots_and_states_and_survive_reopen",
+    "argv": [
+      "/workspace/.pocol-cargo/bin/cargo",
+      "+1.99.1",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "prototypes/pocold/Cargo.toml",
+      "--test",
+      "state_store",
+      "stored_versions_have_their_roots_and_states_and_survive_reopen",
+      "--",
+      "--exact",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 19.29,
+    "network": "offline",
+    "test_threads": 1,
+    "build_jobs": 2
+  },
+  {
+    "target": "consensus",
+    "test": "e3_pending_answers_are_the_pool_layer",
+    "argv": [
+      "/workspace/.pocol-cargo/bin/cargo",
+      "+1.99.1",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "prototypes/pocold/Cargo.toml",
+      "--test",
+      "consensus",
+      "e3_pending_answers_are_the_pool_layer",
+      "--",
+      "--exact",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 9.99,
+    "network": "offline",
+    "test_threads": 1,
+    "build_jobs": 2
+  }
+]

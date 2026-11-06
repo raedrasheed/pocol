@@ -1,0 +1,1366 @@
+{
+  "original_scan_commit": "01e88dac124e9c865c0d90b5396ed9c052bfa209",
+  "reviewed_branch_head": "fd29d3399e90015172465687beb6f81d60501d55",
+  "main_sha": "0dda5056d2a78b2e135defb803df480e80422f8f",
+  "count": 67,
+  "tool_version": "1.168.0",
+  "tool_severity_counts": {
+    "WARNING": 11,
+    "INFO": 56
+  },
+  "parser_errors": [
+    {
+      "code": 3,
+      "level": "warn",
+      "type": [
+        "PartialParsing",
+        [
+          {
+            "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+            "start": {
+              "line": 17,
+              "col": 11,
+              "offset": 0
+            },
+            "end": {
+              "line": 17,
+              "col": 26,
+              "offset": 15
+            }
+          },
+          {
+            "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+            "start": {
+              "line": 25,
+              "col": 11,
+              "offset": 0
+            },
+            "end": {
+              "line": 25,
+              "col": 26,
+              "offset": 15
+            }
+          },
+          {
+            "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+            "start": {
+              "line": 36,
+              "col": 11,
+              "offset": 0
+            },
+            "end": {
+              "line": 36,
+              "col": 26,
+              "offset": 15
+            }
+          },
+          {
+            "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+            "start": {
+              "line": 44,
+              "col": 11,
+              "offset": 0
+            },
+            "end": {
+              "line": 44,
+              "col": 26,
+              "offset": 15
+            }
+          },
+          {
+            "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+            "start": {
+              "line": 52,
+              "col": 11,
+              "offset": 0
+            },
+            "end": {
+              "line": 52,
+              "col": 26,
+              "offset": 15
+            }
+          },
+          {
+            "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+            "start": {
+              "line": 63,
+              "col": 11,
+              "offset": 0
+            },
+            "end": {
+              "line": 63,
+              "col": 26,
+              "offset": 15
+            }
+          },
+          {
+            "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+            "start": {
+              "line": 64,
+              "col": 11,
+              "offset": 0
+            },
+            "end": {
+              "line": 64,
+              "col": 23,
+              "offset": 12
+            }
+          },
+          {
+            "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+            "start": {
+              "line": 65,
+              "col": 11,
+              "offset": 0
+            },
+            "end": {
+              "line": 65,
+              "col": 26,
+              "offset": 15
+            }
+          }
+        ]
+      ],
+      "message": "Syntax error at line prototypes/pocol-android/app/src/main/cpp/bridge.c:17:\n `jstring JNICALL` was unexpected",
+      "path": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+      "spans": [
+        {
+          "file": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+          "start": {
+            "line": 17,
+            "col": 11,
+            "offset": 0
+          },
+          "end": {
+            "line": 17,
+            "col": 26,
+            "offset": 15
+          }
+        },
+        {
+          "file": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+          "start": {
+            "line": 25,
+            "col": 11,
+            "offset": 0
+          },
+          "end": {
+            "line": 25,
+            "col": 26,
+            "offset": 15
+          }
+        },
+        {
+          "file": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+          "start": {
+            "line": 36,
+            "col": 11,
+            "offset": 0
+          },
+          "end": {
+            "line": 36,
+            "col": 26,
+            "offset": 15
+          }
+        },
+        {
+          "file": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+          "start": {
+            "line": 44,
+            "col": 11,
+            "offset": 0
+          },
+          "end": {
+            "line": 44,
+            "col": 26,
+            "offset": 15
+          }
+        },
+        {
+          "file": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+          "start": {
+            "line": 52,
+            "col": 11,
+            "offset": 0
+          },
+          "end": {
+            "line": 52,
+            "col": 26,
+            "offset": 15
+          }
+        },
+        {
+          "file": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+          "start": {
+            "line": 63,
+            "col": 11,
+            "offset": 0
+          },
+          "end": {
+            "line": 63,
+            "col": 26,
+            "offset": 15
+          }
+        },
+        {
+          "file": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+          "start": {
+            "line": 64,
+            "col": 11,
+            "offset": 0
+          },
+          "end": {
+            "line": 64,
+            "col": 23,
+            "offset": 12
+          }
+        },
+        {
+          "file": "prototypes/pocol-android/app/src/main/cpp/bridge.c",
+          "start": {
+            "line": 65,
+            "col": 11,
+            "offset": 0
+          },
+          "end": {
+            "line": 65,
+            "col": 26,
+            "offset": 15
+          }
+        }
+      ]
+    }
+  ],
+  "warning_ar": "كل صف مرتبط بنتيجة أصلية. تصنيف سياق ليس إثبات سلامة شاملة أو إغلاق CodeQL؛ الحالات ذات تحقق منصة/تدفق ناقص باقية كذلك.",
+  "results": [
+    {
+      "id": "original-semgrep-01",
+      "rule_id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "deploy/faucet/pocol_faucet.py",
+      "original_line": 84,
+      "original_column": 14,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "baf85aa07ac92ead31c9c78636f6bfa24044752355c162d38d3dc033c6f50119",
+        "current_source_sha256": "e88cbc109620e66d922f44eb7506f5c4caa0a2f9e6cb56c515573adb44c4cc36",
+        "unchanged": false
+      },
+      "review_basis": "original-warning-mapped-to-unchanged-rpc-function",
+      "prior_review_id": "local-001",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "عنوان RPC من إعداد المشغل، ولا يسمح POST /claim باختيار URL. دالة _rpc مطابقة AST للأصل رغم انتقال السطر بعد إصلاح الموارد. إصلاحات الصنبور لا تزيل هذا التنبيه ولا تثبت أن URL صار مدخلًا شبكيًا.",
+      "rpc_function_ast_unchanged": true,
+      "current_rpc_line": 85
+    },
+    {
+      "id": "original-semgrep-02",
+      "rule_id": "python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+      "path": "deploy/public-testnet/test_gateway.py",
+      "original_line": 50,
+      "original_column": 20,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "fd2b97c4424b82b1138aee7815865438dbc400408bd3a390a43ad46b8a0b5636",
+        "current_source_sha256": "fd2b97c4424b82b1138aee7815865438dbc400408bd3a390a43ad46b8a0b5636",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-030",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "create_default_context مع تحقق الشهادة/الاسم؛ موضع Studio لديه تقوية TLS صريحة في PR24 فقط، وحالة CodeQL غير متاحة."
+    },
+    {
+      "id": "original-semgrep-03",
+      "rule_id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "deploy/standalone/test_launcher.py",
+      "original_line": 103,
+      "original_column": 14,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "e313b4a4ac581695225f66de17ebe38213917ea80b1719af82a6caea7ef10ef2",
+        "current_source_sha256": "e313b4a4ac581695225f66de17ebe38213917ea80b1719af82a6caea7ef10ef2",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-041",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "URL من إعداد المشغّل أو منفذ loopback اختبار؛ لم يثبت أن طالب faucet يتحكم بعنوان RPC."
+    },
+    {
+      "id": "original-semgrep-04",
+      "rule_id": "python.lang.security.audit.httpsconnection-detected.httpsconnection-detected",
+      "path": "deploy/studio/install_studio_gateway.py",
+      "original_line": 126,
+      "original_column": 12,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "909c4fbf0d1269d8239d90040cca79f922343ff59f36e1c1972aae7aa37ed4d2",
+        "current_source_sha256": "909c4fbf0d1269d8239d90040cca79f922343ff59f36e1c1972aae7aa37ed4d2",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-054",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "create_default_context مع تحقق الشهادة/الاسم؛ موضع Studio لديه تقوية TLS صريحة في PR24 فقط، وحالة CodeQL غير متاحة."
+    },
+    {
+      "id": "original-semgrep-05",
+      "rule_id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "development/audit-2026-10-22/tools/measure_rss.py",
+      "original_line": 29,
+      "original_column": 14,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "f3ec343034e7b11f7198fa9a8c25813de97f0e33938319367b9d32ef5ad7b71c",
+        "current_source_sha256": "f3ec343034e7b11f7198fa9a8c25813de97f0e33938319367b9d32ef5ad7b71c",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "local-benchmark-transport",
+      "reason_ar": "عنوان الطلب مبني صراحة على http://127.0.0.1 ومنفذ قياس؛ لا مسار endpoint يتيح لطالب خارجي اختيار URL. لم يُعد تشغيل benchmark القديم."
+    },
+    {
+      "id": "original-semgrep-06",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "development/audit-2026-10-22/tools/secp-equiv/src/main.rs",
+      "original_line": 38,
+      "original_column": 24,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "6cfd6fb601c69d65473786f8e9390792c1219dc77e180f60412c7a98d1bb1023",
+        "current_source_sha256": "6cfd6fb601c69d65473786f8e9390792c1219dc77e180f60412c7a98d1bb1023",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "local-cli-parameter",
+      "reason_ar": "الوسيط عدد عينات مقارنة توقيع يختاره مشغل أداة محلية؛ ليس توقيع مفتاح إنتاج من جهة شبكية. لم تُعد كل عينات هذا الشاهد التاريخي."
+    },
+    {
+      "id": "original-semgrep-07",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "development/lp3/s7-evidence/codex-r1/bench.rs",
+      "original_line": 4,
+      "original_column": 78,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1ad29f6a057d4879717fca38d9aa400d1deade6a45dc270e096e3537396077be",
+        "current_source_sha256": "1ad29f6a057d4879717fca38d9aa400d1deade6a45dc270e096e3537396077be",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "benchmark-pointer-context-reviewed",
+      "reason_ar": "read_volatile يقرأ مرجع عنصر input في مصفوفة ثابتة أو مرجع u64 من ناتج محلي حي؛ الموضع لا يثبت خطأ ذاكرة، وليس معالج مدخلات شبكة. ليس هذا تشغيلًا جديدًا لمقياس الزمن."
+    },
+    {
+      "id": "original-semgrep-08",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "development/lp3/s7-evidence/codex-r1/bench.rs",
+      "original_line": 5,
+      "original_column": 89,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1ad29f6a057d4879717fca38d9aa400d1deade6a45dc270e096e3537396077be",
+        "current_source_sha256": "1ad29f6a057d4879717fca38d9aa400d1deade6a45dc270e096e3537396077be",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "benchmark-pointer-context-reviewed",
+      "reason_ar": "read_volatile يقرأ مرجع عنصر input في مصفوفة ثابتة أو مرجع u64 من ناتج محلي حي؛ الموضع لا يثبت خطأ ذاكرة، وليس معالج مدخلات شبكة. ليس هذا تشغيلًا جديدًا لمقياس الزمن."
+    },
+    {
+      "id": "original-semgrep-09",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "development/lp3/s7-evidence/codex-r1/bench.rs",
+      "original_line": 5,
+      "original_column": 185,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1ad29f6a057d4879717fca38d9aa400d1deade6a45dc270e096e3537396077be",
+        "current_source_sha256": "1ad29f6a057d4879717fca38d9aa400d1deade6a45dc270e096e3537396077be",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "benchmark-pointer-context-reviewed",
+      "reason_ar": "read_volatile يقرأ مرجع عنصر input في مصفوفة ثابتة أو مرجع u64 من ناتج محلي حي؛ الموضع لا يثبت خطأ ذاكرة، وليس معالج مدخلات شبكة. ليس هذا تشغيلًا جديدًا لمقياس الزمن."
+    },
+    {
+      "id": "original-semgrep-10",
+      "rule_id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "development/lp4/p2-runtime/codex-r17/verify-npm-sources.py",
+      "original_line": 7,
+      "original_column": 7,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "37bee3c89876138fc6fb80f4c74ebdefd0e3e9dd623a6492f5391b6cbbf2dd63",
+        "current_source_sha256": "37bee3c89876138fc6fb80f4c74ebdefd0e3e9dd623a6492f5391b6cbbf2dd63",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "registry-integrity-tool-context",
+      "reason_ar": "URL من lockfile المشغل، محروس ببادئة registry.npmjs.org وتحقق integrity. أداة تاريخية وليست RPC؛ checks مكتوبة assert وتعتمد وضع Python المعتاد، ولا تُعد تنفيذًا إنتاجيًا محصنًا لكل بيئة."
+    },
+    {
+      "id": "original-semgrep-11",
+      "rule_id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "development/lp4/p2-runtime/codex-r17/verify-python-wheels.py",
+      "original_line": 9,
+      "original_column": 17,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "b1ca6d5a7c0857432fe92fe28e7bd331883b3795de0b64dac08995044b77d400",
+        "current_source_sha256": "b1ca6d5a7c0857432fe92fe28e7bd331883b3795de0b64dac08995044b77d400",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "registry-integrity-tool-context",
+      "reason_ar": "اسم الحزمة والإصدار يقتبسان بـURL quote لطلب pypi.org metadata. أداة تاريخية محلية؛ لم تثبت SSRF من طلب شبكي. assert ليست تحققًا مع تشغيل Python المحسن."
+    },
+    {
+      "id": "original-semgrep-12",
+      "rule_id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "development/lp4/p2-runtime/codex-r17/verify-python-wheels.py",
+      "original_line": 17,
+      "original_column": 8,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "b1ca6d5a7c0857432fe92fe28e7bd331883b3795de0b64dac08995044b77d400",
+        "current_source_sha256": "b1ca6d5a7c0857432fe92fe28e7bd331883b3795de0b64dac08995044b77d400",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "registry-integrity-tool-context",
+      "reason_ar": "URL عجلة من metadata محروس ببادئة files.pythonhosted.org ومقارنة SHA-256. أداة تاريخية محلية؛ لم تثبت SSRF من طلب شبكي. assert ليست تحققًا مع تشغيل Python المحسن."
+    },
+    {
+      "id": "original-semgrep-13",
+      "rule_id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "development/lp4/p2-runtime/codex-r17/verify-rust-archives.py",
+      "original_line": 7,
+      "original_column": 8,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "4e6c70494533ab919ea1c9d85cd261ed173aea106eacdaecaaa858208de58628",
+        "current_source_sha256": "4e6c70494533ab919ea1c9d85cd261ed173aea106eacdaecaaa858208de58628",
+        "unchanged": true
+      },
+      "review_basis": "source-context-read",
+      "status": "registry-integrity-tool-context",
+      "reason_ar": "URL من manifest مثبت مع بادئة static.rust-lang.org/dist/2026-10-15 وتحقق لاحق من الأرشيف. أداة تاريخية محلية، وليس URL يمرره عميل إلى خدمة؛ لم يُعد تشغيلها في هذه الجولة."
+    },
+    {
+      "id": "original-semgrep-14",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/lp1-node/src/main.rs",
+      "original_line": 68,
+      "original_column": 18,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "dece5e5db4da8fc33f4d030fe67d499f7607b9363a7d7abb556c774952783165",
+        "current_source_sha256": "dece5e5db4da8fc33f4d030fe67d499f7607b9363a7d7abb556c774952783165",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-100",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-15",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/lp1-node/src/main.rs",
+      "original_line": 325,
+      "original_column": 29,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "dece5e5db4da8fc33f4d030fe67d499f7607b9363a7d7abb556c774952783165",
+        "current_source_sha256": "dece5e5db4da8fc33f4d030fe67d499f7607b9363a7d7abb556c774952783165",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-101",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-16",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/lp4-execution/examples/receipt_roots.rs",
+      "original_line": 5,
+      "original_column": 20,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "3f5af4cf4302010049a9ad5ed2b097bce191842d4e218c9de005d838b74db56b",
+        "current_source_sha256": "3f5af4cf4302010049a9ad5ed2b097bce191842d4e218c9de005d838b74db56b",
+        "unchanged": true
+      },
+      "review_basis": "source-context-reviewed-with-prior-expanded-scan",
+      "status": "local-fixture-cli-parameter",
+      "reason_ar": "وسيط أداة استخراج fixture/receipt roots محلية؛ وجود env::args ليس ثغرة بحد ذاته ولا مسار توقيع غير مخول."
+    },
+    {
+      "id": "original-semgrep-17",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/lp4-execution/src/bin/code_caps_control.rs",
+      "original_line": 65,
+      "original_column": 14,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "3e56cfa596ed593a9c87980d804b48df8ffee07ffcc1c6a1ea469aed345cd8c7",
+        "current_source_sha256": "3e56cfa596ed593a9c87980d804b48df8ffee07ffcc1c6a1ea469aed345cd8c7",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-202",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-18",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/lp4-execution/src/resources/tests.rs",
+      "original_line": 105,
+      "original_column": 56,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "e7dc6be412be9fe4b29185d726ef9d80f2b1d137b0e14a005356d9b0e85bf6c7",
+        "current_source_sha256": "e7dc6be412be9fe4b29185d726ef9d80f2b1d137b0e14a005356d9b0e85bf6c7",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-203",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-19",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/lp4-execution/src/resources/tests.rs",
+      "original_line": 106,
+      "original_column": 53,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "e7dc6be412be9fe4b29185d726ef9d80f2b1d137b0e14a005356d9b0e85bf6c7",
+        "current_source_sha256": "e7dc6be412be9fe4b29185d726ef9d80f2b1d137b0e14a005356d9b0e85bf6c7",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-204",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-20",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/lp4-execution/src/resources/tests.rs",
+      "original_line": 107,
+      "original_column": 76,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "e7dc6be412be9fe4b29185d726ef9d80f2b1d137b0e14a005356d9b0e85bf6c7",
+        "current_source_sha256": "e7dc6be412be9fe4b29185d726ef9d80f2b1d137b0e14a005356d9b0e85bf6c7",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-205",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-21",
+      "rule_id": "javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag",
+      "path": "prototypes/pocol-extension/build.mjs",
+      "original_line": 48,
+      "original_column": 86,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "94bb09672856ce9e9601a0f2dfe52caff80ed9008c196755f70df683a27a7373",
+        "current_source_sha256": "94bb09672856ce9e9601a0f2dfe52caff80ed9008c196755f70df683a27a7373",
+        "unchanged": true
+      },
+      "review_basis": "source-context-and-prior-build-evidence",
+      "status": "trusted-build-source",
+      "reason_ar": "sandbox-loader.js مصدر مستودع يقرأه البناء، ثم يثبت hash له في CSP؛ ليس محتوى موقع من الشبكة يُدرج في صفحة الإضافة. أعيد بناء release و7بدائل وفحص272وحدةJS سابقًا؛ اختبار عزل الإضافة بالمتصفح الكامل لا يزال منفصلًا."
+    },
+    {
+      "id": "original-semgrep-22",
+      "rule_id": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "prototypes/pocold/scripts/devnet.py",
+      "original_line": 22,
+      "original_column": 10,
+      "tool_severity": "WARNING",
+      "source_proof": {
+        "scan_source_sha256": "124b353a7fc9f51690075b95596f9bf3cf69bf2fecdad46f97657c08d4c85664",
+        "current_source_sha256": "124b353a7fc9f51690075b95596f9bf3cf69bf2fecdad46f97657c08d4c85664",
+        "unchanged": true
+      },
+      "review_basis": "source-context-and-prior-devnet-evidence",
+      "status": "local-devnet-transport",
+      "reason_ar": "URL loopback/منفذ عقدة محلية من إعداد devnet؛ لم يظهر مدخل URL من طالب شبكة عام. اختبار devnet السابق44تحققًا لا يثبت أمان أي استعمال مستقبلي لعنوان مشغل آخر."
+    },
+    {
+      "id": "original-semgrep-23",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/pocold/src/bin/pocol-key.rs",
+      "original_line": 4,
+      "original_column": 26,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "eb8ca175ffaed47ce12067c4cf695b8d361508822069df443fdb8e74ba86534c",
+        "current_source_sha256": "eb8ca175ffaed47ce12067c4cf695b8d361508822069df443fdb8e74ba86534c",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-210",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-24",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/pocold/src/bin/pocol-sign.rs",
+      "original_line": 7,
+      "original_column": 23,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "62c67731e905af8a2ab951d8ca00fd51a407c285d0ab727e2f5aa1e846238d55",
+        "current_source_sha256": "62c67731e905af8a2ab951d8ca00fd51a407c285d0ab727e2f5aa1e846238d55",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-211",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-25",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/pocold/src/bin/pocol-site.rs",
+      "original_line": 38,
+      "original_column": 23,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "212890366a41b9814cf50f3be0b85632a5e7edac45dbe091df7716c9edfc1617",
+        "current_source_sha256": "212890366a41b9814cf50f3be0b85632a5e7edac45dbe091df7716c9edfc1617",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-212",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-26",
+      "rule_id": "rust.lang.security.temp-dir.temp-dir",
+      "path": "prototypes/pocold/src/bin/pocol-site.rs",
+      "original_line": 71,
+      "original_column": 18,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "212890366a41b9814cf50f3be0b85632a5e7edac45dbe091df7716c9edfc1617",
+        "current_source_sha256": "212890366a41b9814cf50f3be0b85632a5e7edac45dbe091df7716c9edfc1617",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-213",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق."
+    },
+    {
+      "id": "original-semgrep-27",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/bin/pocol.rs",
+      "original_line": 27,
+      "original_column": 5,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "288bafe5835f864234afc54618cb2dd1f5e1c30395a86027369ae42d9f7a4763",
+        "current_source_sha256": "288bafe5835f864234afc54618cb2dd1f5e1c30395a86027369ae42d9f7a4763",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-214",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-28",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/bin/pocol.rs",
+      "original_line": 32,
+      "original_column": 5,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "288bafe5835f864234afc54618cb2dd1f5e1c30395a86027369ae42d9f7a4763",
+        "current_source_sha256": "288bafe5835f864234afc54618cb2dd1f5e1c30395a86027369ae42d9f7a4763",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-215",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-29",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/pocold/src/bin/pocol.rs",
+      "original_line": 47,
+      "original_column": 29,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "288bafe5835f864234afc54618cb2dd1f5e1c30395a86027369ae42d9f7a4763",
+        "current_source_sha256": "288bafe5835f864234afc54618cb2dd1f5e1c30395a86027369ae42d9f7a4763",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-216",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-30",
+      "rule_id": "rust.lang.security.current-exe.current-exe",
+      "path": "prototypes/pocold/src/bin/pocol.rs",
+      "original_line": 111,
+      "original_column": 20,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "288bafe5835f864234afc54618cb2dd1f5e1c30395a86027369ae42d9f7a4763",
+        "current_source_sha256": "288bafe5835f864234afc54618cb2dd1f5e1c30395a86027369ae42d9f7a4763",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-217",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-31",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/keyfile.rs",
+      "original_line": 20,
+      "original_column": 26,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "03af3f9cdce9af73fe65e372d713ed304a929028f6ebeacad63d3719f5f3abcb",
+        "current_source_sha256": "03af3f9cdce9af73fe65e372d713ed304a929028f6ebeacad63d3719f5f3abcb",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-218",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-32",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/keyfile/windows.rs",
+      "original_line": 27,
+      "original_column": 42,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "current_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-219",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-33",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/keyfile/windows.rs",
+      "original_line": 29,
+      "original_column": 14,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "current_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-220",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-34",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/keyfile/windows.rs",
+      "original_line": 59,
+      "original_column": 13,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "current_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-221",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-35",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/keyfile/windows.rs",
+      "original_line": 65,
+      "original_column": 13,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "current_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-222",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-36",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/keyfile/windows.rs",
+      "original_line": 69,
+      "original_column": 9,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "current_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-223",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-37",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/keyfile/windows.rs",
+      "original_line": 76,
+      "original_column": 48,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "current_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-224",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-38",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/keyfile/windows.rs",
+      "original_line": 77,
+      "original_column": 8,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "current_source_sha256": "6e12320bd076c93788fdc767859b2c04f2bd2b6cced8aac740e487ca5805a1e6",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-225",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-39",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/launcher.rs",
+      "original_line": 310,
+      "original_column": 30,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "f13856a0088ff3c97a7ea53c4e6d4dd52c7494a3842c302839f26af6b399cac3",
+        "current_source_sha256": "f13856a0088ff3c97a7ea53c4e6d4dd52c7494a3842c302839f26af6b399cac3",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-226",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-40",
+      "rule_id": "rust.lang.security.temp-dir.temp-dir",
+      "path": "prototypes/pocold/src/launcher.rs",
+      "original_line": 546,
+      "original_column": 21,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "f13856a0088ff3c97a7ea53c4e6d4dd52c7494a3842c302839f26af6b399cac3",
+        "current_source_sha256": "f13856a0088ff3c97a7ea53c4e6d4dd52c7494a3842c302839f26af6b399cac3",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-227",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق."
+    },
+    {
+      "id": "original-semgrep-41",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/lib.rs",
+      "original_line": 122,
+      "original_column": 56,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "80bf0d18ab78a6a48313678205541f73e07fedcb6a65feba08145643ce38a779",
+        "current_source_sha256": "80bf0d18ab78a6a48313678205541f73e07fedcb6a65feba08145643ce38a779",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-228",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-42",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/lib.rs",
+      "original_line": 123,
+      "original_column": 53,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "80bf0d18ab78a6a48313678205541f73e07fedcb6a65feba08145643ce38a779",
+        "current_source_sha256": "80bf0d18ab78a6a48313678205541f73e07fedcb6a65feba08145643ce38a779",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-229",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-43",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/lib.rs",
+      "original_line": 124,
+      "original_column": 76,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "80bf0d18ab78a6a48313678205541f73e07fedcb6a65feba08145643ce38a779",
+        "current_source_sha256": "80bf0d18ab78a6a48313678205541f73e07fedcb6a65feba08145643ce38a779",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-230",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-44",
+      "rule_id": "rust.lang.security.args-os.args-os",
+      "path": "prototypes/pocold/src/main.rs",
+      "original_line": 15,
+      "original_column": 20,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "ede77f6167a17689f2ea0ab5b50309ab81f01dd4e5475992a79d8c396f32cdbd",
+        "current_source_sha256": "ede77f6167a17689f2ea0ab5b50309ab81f01dd4e5475992a79d8c396f32cdbd",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-231",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-45",
+      "rule_id": "rust.lang.security.args.args",
+      "path": "prototypes/pocold/src/main.rs",
+      "original_line": 16,
+      "original_column": 26,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "ede77f6167a17689f2ea0ab5b50309ab81f01dd4e5475992a79d8c396f32cdbd",
+        "current_source_sha256": "ede77f6167a17689f2ea0ab5b50309ab81f01dd4e5475992a79d8c396f32cdbd",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-232",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد."
+    },
+    {
+      "id": "original-semgrep-46",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 28,
+      "original_column": 5,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-233",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-47",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 35,
+      "original_column": 41,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-234",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-48",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 46,
+      "original_column": 58,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-235",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-49",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 47,
+      "original_column": 37,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-236",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-50",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 58,
+      "original_column": 54,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-237",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-51",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 66,
+      "original_column": 30,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-238",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-52",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 68,
+      "original_column": 54,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-239",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-53",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 75,
+      "original_column": 20,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-240",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-54",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 105,
+      "original_column": 21,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-241",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-55",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 130,
+      "original_column": 14,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-242",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-56",
+      "rule_id": "rust.lang.security.temp-dir.temp-dir",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 139,
+      "original_column": 20,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-243",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق."
+    },
+    {
+      "id": "original-semgrep-57",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 143,
+      "original_column": 9,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-244",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-58",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/mobile.rs",
+      "original_line": 153,
+      "original_column": 9,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "current_source_sha256": "11d9ffd6fabc22ecd7255d1d4ba0927ceefdee585ede64edcbf5db86ccd7d08e",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-245",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-59",
+      "rule_id": "rust.lang.security.temp-dir.temp-dir",
+      "path": "prototypes/pocold/src/node.rs",
+      "original_line": 1500,
+      "original_column": 17,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55",
+        "current_source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-246",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق."
+    },
+    {
+      "id": "original-semgrep-60",
+      "rule_id": "rust.lang.security.temp-dir.temp-dir",
+      "path": "prototypes/pocold/src/node.rs",
+      "original_line": 1531,
+      "original_column": 17,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55",
+        "current_source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-247",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق."
+    },
+    {
+      "id": "original-semgrep-61",
+      "rule_id": "rust.lang.security.temp-dir.temp-dir",
+      "path": "prototypes/pocold/src/node.rs",
+      "original_line": 1597,
+      "original_column": 17,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55",
+        "current_source_sha256": "2e077d203bfec8a08520e34372d68e7111ddcc4d92562b2943b099082bcf4c55",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-248",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق."
+    },
+    {
+      "id": "original-semgrep-62",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/rpc.rs",
+      "original_line": 122,
+      "original_column": 15,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "current_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-249",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-63",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/rpc.rs",
+      "original_line": 127,
+      "original_column": 15,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "current_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-250",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-64",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/rpc.rs",
+      "original_line": 132,
+      "original_column": 15,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "current_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-251",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-65",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/rpc.rs",
+      "original_line": 137,
+      "original_column": 15,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "current_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-252",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-66",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/rpc.rs",
+      "original_line": 154,
+      "original_column": 15,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "current_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-253",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    },
+    {
+      "id": "original-semgrep-67",
+      "rule_id": "rust.lang.security.unsafe-usage.unsafe-usage",
+      "path": "prototypes/pocold/src/rpc.rs",
+      "original_line": 159,
+      "original_column": 15,
+      "tool_severity": "INFO",
+      "source_proof": {
+        "scan_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "current_source_sha256": "1cf3731f71e5da21deeb3678bf1022af3c4862b607c2f3bbf34aa51472478e0a",
+        "unchanged": true
+      },
+      "review_basis": "prior-context-review-linked-to-original-record",
+      "prior_review_id": "local-254",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ."
+    }
+  ]
+}

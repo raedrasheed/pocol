@@ -1,0 +1,12 @@
+[
+  {
+    "phase": "fuzz-check",
+    "exit": 0,
+    "seconds": 21.25
+  },
+  {
+    "phase": "android-official-build",
+    "exit": 0,
+    "seconds": 80.24
+  }
+]

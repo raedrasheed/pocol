@@ -1,0 +1,22 @@
+info: syncing channel updates for 1.99.1-x86_64-unknown-linux-gnu
+
+  1.99.1-x86_64-unknown-linux-gnu unchanged - rustc 1.99.1 (58cf8f9c3 2026-10-13)
+
+info: checking for self-update (current version: 1.29.3)
+
+added 12 packages in 828ms
+
+added 3 packages in 445ms
+
+added 9 packages in 388ms
+   Compiling pocold v0.1.0 (/workspace/pocol/prototypes/pocold)
+    Finished `release` profile [optimized + debuginfo] target(s) in 17.92s
+
+> pocol-extension@0.4.1 build
+> node build.mjs
+
+{
+ "dist": "/workspace/pocol/prototypes/pocol-extension/dist",
+ "loaderSha256": "+WxiCc3fMUmIYGyO+I+Kle60GrqtjrFxaAm0B1GXU+U=",
+ "csp": "sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-+WxiCc3fMUmIYGyO+I+Kle60GrqtjrFxaAm0B1GXU+U=' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+}

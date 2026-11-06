@@ -1,0 +1,19 @@
+{
+  "source_commit_for_log": "aaa8d9b37e2ac6782a094bec3d05a33fec270f96",
+  "compared_main": "46d688b701e165211c36a5a1447fb029a3199302",
+  "unchanged_source_scopes": [
+    "prototypes/lp4-execution/src",
+    "prototypes/lp4-execution/Cargo.toml",
+    "prototypes/lp4-execution/Cargo.lock",
+    "prototypes/lp4-execution/build.rs",
+    "prototypes/lp1-node/src"
+  ],
+  "log_path": "development/security-audit-2026-11-04/evidence/round2/execution.log",
+  "log_sha256": "d6e21cb01b322373dbd5b3ae63242d4a875b8706bd7be8ebbe6851f7b25eff9e",
+  "passing_tests_relevant_to_alerts": [
+    "apply::tests::e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state",
+    "view::tests::a_layer_without_its_code_copies_reads_and_merges_as_before",
+    "view::tests::an_overlay_reads_and_merges_as_the_copy_it_replaces"
+  ],
+  "tests_rerun": false
+}

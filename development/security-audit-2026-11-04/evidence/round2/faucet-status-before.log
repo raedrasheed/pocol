@@ -1,0 +1,14 @@
+test_status_count_has_a_stable_snapshot_during_a_claim (test_faucet_security.FaucetSecurity.test_status_count_has_a_stable_snapshot_during_a_claim) ... FAIL
+
+======================================================================
+FAIL: test_status_count_has_a_stable_snapshot_during_a_claim (test_faucet_security.FaucetSecurity.test_status_count_has_a_stable_snapshot_during_a_claim)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/pocol/deploy/faucet/test_faucet_security.py", line 177, in test_status_count_has_a_stable_snapshot_during_a_claim
+    self.assertFalse(errors, repr(errors))
+AssertionError: [RuntimeError('dictionary changed size during iteration')] is not false : [RuntimeError('dictionary changed size during iteration')]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.007s
+
+FAILED (failures=1)

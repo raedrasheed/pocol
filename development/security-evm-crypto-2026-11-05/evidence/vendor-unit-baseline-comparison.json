@@ -1,0 +1,56 @@
+{
+  "upstream": {
+    "passed": 137,
+    "failed": 3,
+    "ignored": 0,
+    "failed_tests": [
+      "signed::int::tests::div_euclid_overflow",
+      "signed::int::tests::from_dec_str",
+      "signed::int::tests::mod_by_zero"
+    ],
+    "suite_results": [
+      [
+        4,
+        0,
+        0
+      ],
+      [
+        121,
+        3,
+        0
+      ],
+      [
+        12,
+        0,
+        0
+      ]
+    ]
+  },
+  "patched": {
+    "passed": 137,
+    "failed": 3,
+    "ignored": 0,
+    "failed_tests": [
+      "signed::int::tests::div_euclid_overflow",
+      "signed::int::tests::from_dec_str",
+      "signed::int::tests::mod_by_zero"
+    ],
+    "suite_results": [
+      [
+        4,
+        0,
+        0
+      ],
+      [
+        121,
+        3,
+        0
+      ],
+      [
+        12,
+        0,
+        0
+      ]
+    ]
+  }
+}

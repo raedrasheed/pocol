@@ -1,0 +1,28 @@
+{
+  "recordedAtUTC": "2026-11-04T20:44:08.180791+00:00",
+  "mainSHA": "0dda5056d2a78b2e135defb803df480e80422f8f",
+  "implementationHead": "cdff9fb125a7ad8eefbfd75ec84f62c85e5d741f",
+  "branch": "security/audit-2026-11-04",
+  "semgrepVersion": "1.183.0",
+  "semgrepRulesCommit": "16b9e6d45f10649f6a531ec4838ed9924372c3bc",
+  "semgrepWideSourcePaths": 767,
+  "semgrepWideUniqueSnapshots": 735,
+  "currentCodePaths": 772,
+  "testLimits": {
+    "fuzzSeconds": 180,
+    "fuzzInputBytesMax": 16384,
+    "fuzzWorkers": 4,
+    "fuzzRSSLimitMiBPerWorker": 2048,
+    "cappedFaucetTestConnections": 2,
+    "faucetTrickleTestSeconds": 0.15
+  },
+  "androidBuild": "assembleRelease unsigned, no device or emulator",
+  "androidAPK_SHA256": "b10211cb117b4702d757b0aba3ec1d02783e8dafa5b49daa800215fe80a7f658",
+  "jniSO_SHA256": "63401832fe9584fd3593866b5b46ec82c6d2cf35035d90a0589ad6148b523080",
+  "plainWebsiteBrowserChecks": 20,
+  "originalActionsArtifactsRetrieved": false,
+  "githubAPIAccess": "Blocked by enforced runtime network policy; draft additions not applied",
+  "testRunsUseRealKeysFundsOrLiveChain": false,
+  "finalFaucetTestsPassed": 15,
+  "additionalStatusRaceBaseline": "985a5dc"
+}

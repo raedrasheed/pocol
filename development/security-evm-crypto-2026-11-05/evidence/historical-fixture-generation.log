@@ -1,0 +1,33 @@
+     Locking 4 packages to highest compatible versions
+ Downgrading block-buffer v0.12.1 -> v0.9.0
+      Adding block-padding v0.2.1
+      Adding opaque-debug v0.3.1
+ Downgrading sha3 v0.10.9 -> v0.9.1 (available: v0.10.9)
+   Compiling typenum v1.20.1
+   Compiling subtle v2.6.1
+   Compiling ff v0.13.1
+   Compiling group v0.13.0
+   Compiling serde_core v1.0.229
+   Compiling block-padding v0.2.1
+   Compiling generic-array v0.14.9
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.6
+   Compiling digest v0.10.7
+   Compiling hmac v0.12.1
+   Compiling crypto-bigint v0.5.5
+   Compiling sec1 v0.7.3
+   Compiling elliptic-curve v0.13.8
+   Compiling rfc6979 v0.4.0
+   Compiling signature v2.2.0
+   Compiling ecdsa v0.16.9
+   Compiling sha2 v0.10.9
+   Compiling digest v0.9.0
+   Compiling block-buffer v0.9.0
+   Compiling opaque-debug v0.3.1
+   Compiling keccak v0.1.6
+   Compiling sha3 v0.9.1
+   Compiling serde_json v1.0.145
+   Compiling k256 v0.13.4
+   Compiling pocol-historical-signature-fixtures v0.0.0 (/workspace/pocol-evm-crypto-review-2026-11-05-6feulq32/legacy-fixture-generator)
+    Finished `release` profile [optimized] target(s) in 4.63s
+     Running `pocol-crypto-timing-review-2026-11-05-t6f8i98w/target/release/pocol-historical-signature-fixtures`

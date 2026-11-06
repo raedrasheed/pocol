@@ -1,0 +1,25 @@
+
+> pocol-extension@0.4.1 test:contract-ui
+> node --test tests/contract_ui_test.mjs
+
+✔ unsigned reload discards a stored review and never signs automatically (5.556814ms)
+✔ confirmation requires unlock, an explicit fresh review and consent; expiry disables it (70.449278ms)
+✔ locking while decryption is pending discards and zeroizes the recovered key (3.119116ms)
+✔ pagehide during decryption prevents later key adoption, including BFCache suspension (1.475313ms)
+✔ signed resume restores the original review despite expiry and keeps exact checkpoint (8.904268ms)
+✔ another unresolved Studio transaction blocks the same wallet (1.857109ms)
+✔ terminal status from another tab is not overwritten by a stale confirmation (1.562292ms)
+✔ wallet lock zeroizes private bytes and invalidates an unsigned review (2.737431ms)
+✔ failed signed checkpoint storage is not advertised as saved and blocks further actions (2.890257ms)
+✔ an error after durable signing persists the known hash as a pending result (3.089443ms)
+✔ automatic pending receipt completion is read-only and needs no unlocked wallet (2.822167ms)
+✔ receipt checks leave pending state intact on transient errors and skip held locks (1.712715ms)
+✔ a prior canonical IDE receipt is reconciled before checking account availability (2.268758ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 239.681379

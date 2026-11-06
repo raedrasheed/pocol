@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "properties": {
+    "state": {
+      "$ref": "#/components/schemas/code-scanning-alert-set-state"
+    },
+    "dismissed_reason": {
+      "$ref": "#/components/schemas/code-scanning-alert-dismissed-reason"
+    },
+    "dismissed_comment": {
+      "$ref": "#/components/schemas/code-scanning-alert-dismissed-comment"
+    },
+    "create_request": {
+      "$ref": "#/components/schemas/code-scanning-alert-create-request"
+    },
+    "assignees": {
+      "$ref": "#/components/schemas/code-scanning-alert-assignees"
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "state"
+      ]
+    },
+    {
+      "required": [
+        "assignees"
+      ]
+    }
+  ]
+}

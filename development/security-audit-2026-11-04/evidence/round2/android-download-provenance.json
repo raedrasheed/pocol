@@ -1,0 +1,27 @@
+[
+  {
+    "path": "ndk;27.2.12479018",
+    "url": "android-ndk-r27c-linux.zip",
+    "checksum": "090e8083a715fdb1a3e402d0763c388abb03fb4e",
+    "size": 663987688,
+    "verifiedSha256": "59c2f6dc96743b5daf5d1626684640b20a6bd2b1d85b13156b90333741bad5cc"
+  },
+  {
+    "path": "build-tools;35.0.0",
+    "url": "build-tools_r35_linux.zip",
+    "checksum": "2cfaa0bbb2336e9ec18ed3ecea84fa2e2af607bc",
+    "size": 61958799,
+    "verifiedSha256": "bd3a4966912eb8b30ed0d00b0cda6b6543b949d5ffe00bea54c04c81e1561d88"
+  },
+  {
+    "path": "cmdline-tools;latest",
+    "url": "commandlinetools-linux-16111833_latest.zip",
+    "checksum": "e025545c62a8e64c7559119566a569fb1dec5f60",
+    "size": 181052239,
+    "verifiedSha256": "0877a1d048fe4a24efe2eff536ca4223f7adeb58648bb81909d33c446918cfa8"
+  },
+  {
+    "path": "gradle-8.11.1",
+    "verifiedSha256": "f397b287023acdba1e9f6fc5ea72d22dd63669d59ed4a289a29b1a76eee151c6"
+  }
+]

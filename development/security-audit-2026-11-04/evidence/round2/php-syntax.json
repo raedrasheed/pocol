@@ -1,0 +1,30 @@
+[
+  {
+    "file": "deploy/websites/explorer.pocol.net/api/health.php",
+    "exit": 0
+  },
+  {
+    "file": "deploy/websites/explorer.pocol.net/api/lib.php",
+    "exit": 0
+  },
+  {
+    "file": "deploy/websites/explorer.pocol.net/api/miner-locations.php",
+    "exit": 0
+  },
+  {
+    "file": "deploy/websites/explorer.pocol.net/api/rpc.php",
+    "exit": 0
+  },
+  {
+    "file": "deploy/websites/explorer.pocol.net/api/transactions.php",
+    "exit": 0
+  },
+  {
+    "file": "deploy/websites/pocol.net/api/network.php",
+    "exit": 0
+  },
+  {
+    "file": "deploy/websites/pocol.net/api/reward.php",
+    "exit": 0
+  }
+]

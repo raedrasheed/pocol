@@ -1,0 +1,89 @@
+{
+  "recorded_at_utc": "2026-11-05T14:42:29.835206+00:00",
+  "main_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "source": "Owner screenshot of filtered list plus pinned source review; original screenshots not saved locally.",
+  "visible_rule_open": 14,
+  "visible_rule_closed": 7,
+  "visible_overall_open": 212,
+  "alerts": [
+    {
+      "alert": 214,
+      "path": "prototypes/pocold/tests/consensus.rs",
+      "line": 1032,
+      "function": "e3_pending_answers_are_the_pool_layer",
+      "context": "nonce لحسابي devnet عبر RPC داخل العملية",
+      "source_line": "            assert_eq!(q(rpc_local(&mut n,\"eth_getTransactionCount\",json!([s,tag]))),U256::from(acc.map(|x|x.info.nonce).unwrap_or(0)),\"{tag} nonce of {s}\");",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "classification": "False positive for the reported diagnostic in a closed synthetic test fixture",
+      "individual_original_codeql_path_exported": false
+    },
+    {
+      "alert": 213,
+      "path": "prototypes/pocold/tests/consensus.rs",
+      "line": 1031,
+      "function": "e3_pending_answers_are_the_pool_layer",
+      "context": "رصيد حسابات devnet المصطنعة",
+      "source_line": "            assert_eq!(q(rpc_local(&mut n,\"eth_getBalance\",json!([s,tag]))),acc.map(|x|x.info.balance).unwrap_or_default(),\"{tag} balance of {s}\");",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "classification": "False positive for the reported diagnostic in a closed synthetic test fixture",
+      "individual_original_codeql_path_exported": false
+    },
+    {
+      "alert": 212,
+      "path": "prototypes/lp4-execution/src/view/tests.rs",
+      "line": 102,
+      "function": "a_layer_without_its_code_copies_reads_and_merges_as_before",
+      "context": "bytecode مولد بواسطة Rng بعد دمج overlay",
+      "source_line": "        for (a,u) in &m1.accounts{assert_eq!(u.info.code.as_ref().map(|c|c.original_bytes()),m2.accounts[a].info.code.as_ref().map(|c|c.original_bytes()),\"case {case}: merged code of {a}\");}",
+      "source_sha256": "f4bb3fb70304f4aef1ed334fa5ee9e02c30b32801334eb81c5c490d86c390169",
+      "classification": "False positive for the reported diagnostic in a closed synthetic test fixture",
+      "individual_original_codeql_path_exported": false
+    },
+    {
+      "alert": 211,
+      "path": "prototypes/lp4-execution/src/view/tests.rs",
+      "line": 39,
+      "function": "same_state",
+      "context": "nonce ورصيد وstorage وحالة حساب من مولد تغييرات اختبارية",
+      "source_line": "    for (k,v) in &b.accounts{let u=&a.accounts[k];assert_eq!((&u.info.nonce,&u.info.balance,&u.info.code_hash,&u.account_state,&u.storage),(&v.info.nonce,&v.info.balance,&v.info.code_hash,&v.account_state,&v.storage),\"{ctx}: account {k}\");}",
+      "source_sha256": "f4bb3fb70304f4aef1ed334fa5ee9e02c30b32801334eb81c5c490d86c390169",
+      "classification": "False positive for the reported diagnostic in a closed synthetic test fixture",
+      "individual_original_codeql_path_exported": false
+    },
+    {
+      "alert": 210,
+      "path": "prototypes/lp4-execution/src/apply/tests.rs",
+      "line": 504,
+      "function": "e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state",
+      "context": "قوائم slots في حالة devnet بعد كتل مصطنعة",
+      "source_line": "                assert_eq!(got_slots,want_slots,\"h={h}: slots of {a}\");",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc",
+      "classification": "False positive for the reported diagnostic in a closed synthetic test fixture",
+      "individual_original_codeql_path_exported": false
+    },
+    {
+      "alert": 209,
+      "path": "prototypes/lp4-execution/src/apply/tests.rs",
+      "line": 501,
+      "function": "e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state",
+      "context": "قيم slots كتبها عقد fixture",
+      "source_line": "                for (k,v) in &x.storage{assert_eq!(ts.slot(a,k),*v,\"h={h}: {a} slot {k}\");if *v!=U256::ZERO{n_slots+=1}}",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc",
+      "classification": "False positive for the reported diagnostic in a closed synthetic test fixture",
+      "individual_original_codeql_path_exported": false
+    },
+    {
+      "alert": 208,
+      "path": "prototypes/lp4-execution/src/apply/tests.rs",
+      "line": 500,
+      "function": "e4_a_node_trie_kept_from_the_write_sets_reads_as_every_block_state",
+      "context": "بايتات عقد fixture المنشأ داخل الاختبار",
+      "source_line": "                assert_eq!(g.info.code.map(|c|c.original_bytes()),want,\"h={h}: code of {a}\");",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc",
+      "classification": "False positive for the reported diagnostic in a closed synthetic test fixture",
+      "individual_original_codeql_path_exported": false
+    }
+  ],
+  "alerts_mutated_by_assistant": false,
+  "remaining_7_alert_locations_not_obtained": true
+}

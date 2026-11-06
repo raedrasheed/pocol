@@ -1,0 +1,41 @@
+{
+  "recorded_at_utc": "2026-11-05T10:56:22.293768+00:00",
+  "source": "Owner screenshots supplied in this conversation; original image files and CodeQL SARIF were not downloaded.",
+  "alert": 200,
+  "rule": "rust/hard-coded-cryptographic-value",
+  "reported_path_steps": 28,
+  "observed_source": {
+    "file": "prototypes/lp1-node/src/fixed.rs",
+    "line": 198,
+    "expression": "[0u64; 8]"
+  },
+  "observed_intermediate_steps": "Screenshots show propagation through mul_u256_u64, nonce_max and Assignment::new. Steps 17–26 were not provided as screenshots; source code was reviewed to connect storage and getter of nonce_max.",
+  "observed_sink": {
+    "step": 28,
+    "file": "prototypes/lp1-node/tests/assignment.rs",
+    "line": 175,
+    "expression": "map.nonce_max() as u64",
+    "call": "map.owner(map.nonce_max() as u64)",
+    "assertion": "assert_eq!(map.owner(map.nonce_max() as u64), None)"
+  },
+  "callee": {
+    "file": "prototypes/lp1-node/src/assignment.rs",
+    "line": 206,
+    "function": "Assignment::owner",
+    "parameter": "nonce: u64",
+    "behavior": "Public mining-range bounds check and owner lookup, no cryptographic nonce construction."
+  },
+  "disposition": "False positive for the reported path",
+  "github_status_last_observed": "Open",
+  "github_status_mutated_by_assistant": false,
+  "verified_main_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "tested_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "test": "seeded_partition_properties_and_permutation_invariance",
+  "test_result": "1 passed, 0 failed, 0 ignored, 8 filtered out",
+  "source_sha256": {
+    "prototypes/lp1-node/src/fixed.rs": "6164497f6a75fa0ea4cf4192d3ad377beea45f767e6e7b9db54b72b4daef9be3",
+    "prototypes/lp1-node/src/assignment.rs": "33b1000b87761ae54c39bf2e54ecaf69e20209d58270d29042e12e258dfe273b",
+    "prototypes/lp1-node/tests/assignment.rs": "85276b210433378f8c67db546662394f076b3064aa0d47792d531dc02eff4527",
+    "prototypes/lp1-node/Cargo.lock": "8027f41eab992004a3ee31aede4e5103a88908e2c2a30250d4c89a01eef71a84"
+  }
+}

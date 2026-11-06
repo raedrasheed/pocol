@@ -1,0 +1,20 @@
+test_a_busy_signer_does_not_queue_another_claim (test_faucet_security.FaucetSecurity.test_a_busy_signer_does_not_queue_another_claim) ... ok
+test_an_unanswered_send_never_claims_that_nothing_was_sent (test_faucet_security.FaucetSecurity.test_an_unanswered_send_never_claims_that_nothing_was_sent) ... ok
+test_connections_are_capped_before_spawning_another_worker (test_faucet_security.FaucetSecurity.test_connections_are_capped_before_spawning_another_worker) ... ok
+test_duplicate_length_is_rejected_before_any_claim (test_faucet_security.FaucetSecurity.test_duplicate_length_is_rejected_before_any_claim) ... ok
+test_header_trickling_cannot_extend_the_absolute_read_deadline (test_faucet_security.FaucetSecurity.test_header_trickling_cannot_extend_the_absolute_read_deadline) ... ok
+test_status_count_has_a_stable_snapshot_during_a_claim (test_faucet_security.FaucetSecurity.test_status_count_has_a_stable_snapshot_during_a_claim) ... ok
+test_truncated_body_is_rejected_before_signing (test_faucet_security.FaucetSecurity.test_truncated_body_is_rejected_before_signing) ... ok
+test_configuration_is_checked (test_pocol_faucet.FaucetRules.test_configuration_is_checked) ... ok
+test_daily_and_per_client_limits (test_pocol_faucet.FaucetRules.test_daily_and_per_client_limits) ... ok
+test_http_surface (test_pocol_faucet.FaucetRules.test_http_surface) ... ok
+test_ledger_is_durable_before_the_send (test_pocol_faucet.FaucetRules.test_ledger_is_durable_before_the_send) ... ok
+test_new_account_gets_the_amount_once (test_pocol_faucet.FaucetRules.test_new_account_gets_the_amount_once) ... ok
+test_only_new_ordinary_accounts (test_pocol_faucet.FaucetRules.test_only_new_ordinary_accounts) ... ok
+test_send_refused_rolls_back_but_unanswered_send_keeps_the_claim (test_pocol_faucet.FaucetRules.test_send_refused_rolls_back_but_unanswered_send_keeps_the_claim) ... ok
+test_wrong_chain_or_empty_faucet_stops (test_pocol_faucet.FaucetRules.test_wrong_chain_or_empty_faucet_stops) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.793s
+
+OK

@@ -1,0 +1,52 @@
+TAP version 13
+# Subtest: SMT-style temporary file can be written and manually removed
+ok 1 - SMT-style temporary file can be written and manually removed
+  ---
+  duration_ms: 2.393777
+  type: 'test'
+  ...
+# Subtest: rejects string traversal in prefix
+ok 2 - rejects string traversal in prefix
+  ---
+  duration_ms: 0.703841
+  type: 'test'
+  ...
+# Subtest: rejects string traversal in postfix
+ok 3 - rejects string traversal in postfix
+  ---
+  duration_ms: 0.97693
+  type: 'test'
+  ...
+# Subtest: rejects array traversal in prefix
+ok 4 - rejects array traversal in prefix
+  ---
+  duration_ms: 0.296733
+  type: 'test'
+  ...
+# Subtest: rejects array traversal in postfix
+ok 5 - rejects array traversal in postfix
+  ---
+  duration_ms: 0.331084
+  type: 'test'
+  ...
+# Subtest: rejects a dir symlink leading outside the selected temporary root
+ok 6 - rejects a dir symlink leading outside the selected temporary root
+  ---
+  duration_ms: 0.873415
+  type: 'test'
+  ...
+# Subtest: solc SMT helper keeps its file API and cleans up after a local solver fixture
+ok 7 - solc SMT helper keeps its file API and cleans up after a local solver fixture
+  ---
+  duration_ms: 25.906675
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 76.808901

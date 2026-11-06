@@ -1,0 +1,91 @@
+{
+  "reviewed_at_utc": "2026-11-05T14:13:56.913951+00:00",
+  "main_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "prior_validated_source_sha": "46d688b701e165211c36a5a1447fb029a3199302",
+  "source_unchanged_since_two_selected_tests": true,
+  "visible_open_logging_count": 20,
+  "visible_closed_logging_count": 1,
+  "visible_overall_open_count": 218,
+  "alert221_dismissal_provenance": "User confirmed False positive action; later filtered list shows 20 Open and 1 Closed and #221 absent. The individual dismissal reason was not read through API.",
+  "new_alerts_dismissed_by_assistant": false,
+  "alerts": [
+    {
+      "alert": 220,
+      "path": "prototypes/pocold/tests/state_store.rs",
+      "line": 40,
+      "function": "same",
+      "source_sha256": "04a53bf514284aa95dac97f54c1f1460c6056aaca388c4f78f25462e202b7dd4",
+      "line_text": "        t.each_slot(a,&mut |k,v|s2.push((*k,*v)));s1.sort();s2.sort();assert_eq!(s1,s2,\"{ctx}: slots of {a}\");",
+      "data_context": "قوائم slots وقيمها بين الذاكرة وtrie، من state/mutate الاختباريين",
+      "disposition": "False positive for the reported sink in this closed synthetic test fixture",
+      "basis": "Individual sink source review and controlled fixture origins, not title or Test label alone",
+      "individual_original_codeql_path_exported": false,
+      "inherited_source_path_reference": "#221 confirms &db.accounts source and assert diagnostics in the same same() helper; other individual paths were not claimed to be obtained."
+    },
+    {
+      "alert": 219,
+      "path": "prototypes/pocold/tests/state_store.rs",
+      "line": 38,
+      "function": "same",
+      "source_sha256": "04a53bf514284aa95dac97f54c1f1460c6056aaca388c4f78f25462e202b7dd4",
+      "line_text": "        assert_eq!(g.info.code.map(|c|c.original_bytes()),x.info.code.clone().map(|c|c.original_bytes()),\"{ctx}: code of {a}\");",
+      "data_context": "بايتات عقود ثابتة أنشأتها codes() داخل الاختبار",
+      "disposition": "False positive for the reported sink in this closed synthetic test fixture",
+      "basis": "Individual sink source review and controlled fixture origins, not title or Test label alone",
+      "individual_original_codeql_path_exported": false,
+      "inherited_source_path_reference": "#221 confirms &db.accounts source and assert diagnostics in the same same() helper; other individual paths were not claimed to be obtained."
+    },
+    {
+      "alert": 218,
+      "path": "prototypes/pocold/tests/state_store.rs",
+      "line": 37,
+      "function": "same",
+      "source_sha256": "04a53bf514284aa95dac97f54c1f1460c6056aaca388c4f78f25462e202b7dd4",
+      "line_text": "        assert_eq!((g.info.nonce,g.info.balance,g.info.code_hash),(x.info.nonce,x.info.balance,x.info.code_hash),\"{ctx}: {a}\");",
+      "data_context": "nonce ورصيد وcode_hash لحسابات مولدة من Rng",
+      "disposition": "False positive for the reported sink in this closed synthetic test fixture",
+      "basis": "Individual sink source review and controlled fixture origins, not title or Test label alone",
+      "individual_original_codeql_path_exported": false,
+      "inherited_source_path_reference": "#221 confirms &db.accounts source and assert diagnostics in the same same() helper; other individual paths were not claimed to be obtained."
+    },
+    {
+      "alert": 217,
+      "path": "prototypes/pocold/tests/state_store.rs",
+      "line": 35,
+      "function": "same",
+      "source_sha256": "04a53bf514284aa95dac97f54c1f1460c6056aaca388c4f78f25462e202b7dd4",
+      "line_text": "        let exists=!matches!(x.account_state,AccountState::NotExisting);let g=t.account(a);assert_eq!(g.is_some(),exists,\"{ctx}: {a}\");",
+      "data_context": "وجود حساب اختباري وعنوانه المولد محليًا",
+      "disposition": "False positive for the reported sink in this closed synthetic test fixture",
+      "basis": "Individual sink source review and controlled fixture origins, not title or Test label alone",
+      "individual_original_codeql_path_exported": false,
+      "inherited_source_path_reference": "#221 confirms &db.accounts source and assert diagnostics in the same same() helper; other individual paths were not claimed to be obtained."
+    },
+    {
+      "alert": 216,
+      "path": "prototypes/pocold/tests/consensus.rs",
+      "line": 1035,
+      "function": "e3_pending_answers_are_the_pool_layer",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "line_text": "            for k in 0..5u64{assert_eq!(q(rpc_local(&mut n,\"eth_getStorageAt\",json!([s,format!(\"{k:#x}\"),tag]))),st.accounts.get(a).and_then(|x|x.storage.get(&U256::from(k)).copied()).unwrap_or_default(),\"{tag} slot {k} of {s}\");}",
+      "data_context": "قيم slots لحسابي devnet وعقد fixture عبر RPC داخل العملية",
+      "disposition": "False positive for the reported sink in this closed synthetic test fixture",
+      "basis": "Individual sink source review and controlled fixture origins, not title or Test label alone",
+      "individual_original_codeql_path_exported": false,
+      "inherited_source_path_reference": "#221 confirms &db.accounts source and assert diagnostics in the same same() helper; other individual paths were not claimed to be obtained."
+    },
+    {
+      "alert": 215,
+      "path": "prototypes/pocold/tests/consensus.rs",
+      "line": 1034,
+      "function": "e3_pending_answers_are_the_pool_layer",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "line_text": "            assert_eq!(rpc_local(&mut n,\"eth_getCode\",json!([s,tag])),json!(format!(\"0x{}\",code.iter().map(|b|format!(\"{b:02x}\")).collect::<String>())),\"{tag} code of {s}\");",
+      "data_context": "بايتات عقد fixture مولد في الاختبار، عند pending/latest",
+      "disposition": "False positive for the reported sink in this closed synthetic test fixture",
+      "basis": "Individual sink source review and controlled fixture origins, not title or Test label alone",
+      "individual_original_codeql_path_exported": false,
+      "inherited_source_path_reference": "#221 confirms &db.accounts source and assert diagnostics in the same same() helper; other individual paths were not claimed to be obtained."
+    }
+  ]
+}

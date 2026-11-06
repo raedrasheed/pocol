@@ -1,0 +1,21 @@
+{
+  "baseSha": "0dda5056d2a78b2e135defb803df480e80422f8f",
+  "implementationCommit": "401b8e376334990061948c3948ffaeedf84485c0",
+  "semgrepVersion": "1.183.0",
+  "rulesCommit": "16b9e6d45f10649f6a531ec4838ed9924372c3bc",
+  "rustsecDatabaseCommit": "965bf9ad083b58e6340d65829d85217b18be9290",
+  "sourceSha256": {
+    "prototypes/pocol-extension/src/sw.js": "4908647dcf3d15a784ad40439630ddfe671af76e3a2e0962f80804fe9827fc24",
+    "prototypes/pocol-extension/tests/wallet_lifecycle_test.mjs": "3a1424553fe67f77748ba6d1020f98810643ddfbd11f09e835ffb461a25cd201",
+    "prototypes/pocold/tests/unhex_invitation_panic.rs": "5f59d316c470756faa456b2aa7db75a0267a3f9f648545efc2e6524a0b36812c",
+    "prototypes/lp4-execution/tests/earnin_halt_proof.rs": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3",
+    "prototypes/pocold/tests/wire_mutation.rs": "343f496b1b23ee8d365f2639a6524f6269807ad2959edc873768af66cd7faafd",
+    "prototypes/lp4-execution/tools/package-lock.json": "b886a6eaa3cca1065fc0a481464223fabad40f47529696e49b5c392611de5c66"
+  },
+  "studioCopyMap": {
+    "/tmp/pocol-studio-scan/zip.js": "prototypes/pocol-studio/dist/zip.js",
+    "/tmp/pocol-studio-scan/model.js": "prototypes/pocol-studio/dist/model.js",
+    "/tmp/pocol-studio-scan/preview.js": "prototypes/pocol-studio/dist/preview.js",
+    "/tmp/pocol-studio-scan/app.js": "prototypes/pocol-studio/dist/app.js"
+  }
+}

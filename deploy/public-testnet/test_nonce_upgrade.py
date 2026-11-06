@@ -237,6 +237,28 @@ class SeedUpgradeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'outside'):
             upgrade.prepare_bundle(self.old, self.new / 'bin', network, self.old / 'nested')
 
+    def test_build_validation_rejects_changed_local_crypto_dependency(self):
+        source = self.root / 'source-vendor'
+        vendor = 'third-party/evm-crypto/alloy-primitives-0.8.26/src/bits/address.rs'
+        sources = {'pocold/src/chain.rs': b'consensus fixture',
+                   'lp1-node/src/profile.rs': b'profile fixture', vendor: b'public recovery fixture'}
+        digest = hashlib.sha256(b'pocol-testnet-source-compatibility-v1\0')
+        for name, content in sorted(sources.items()):
+            path = source / 'prototypes' / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+            encoded = name.encode()
+            digest.update(len(encoded).to_bytes(8, 'big')); digest.update(encoded)
+            digest.update(len(content).to_bytes(8, 'big')); digest.update(content)
+        build = {**self.build, 'compatibilitySha256': digest.hexdigest(),
+                 'sourceSha256': {name: hashlib.sha256(content).hexdigest()
+                                  for name, content in sources.items()}}
+        with patch.object(upgrade, 'ROOT', source):
+            upgrade.validate_build(build)
+            (source / 'prototypes' / vendor).write_bytes(b'changed recovery code')
+            with self.assertRaisesRegex(ValueError, 'Rebuild stale native release: third-party/'):
+                upgrade.validate_build(build)
+
 
 if __name__ == '__main__':
     unittest.main()

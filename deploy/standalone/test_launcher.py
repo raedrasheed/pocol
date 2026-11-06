@@ -87,6 +87,15 @@ class Launcher(unittest.TestCase):
             h.update(len(data).to_bytes(8,'big')); h.update(data)
         h.update(','.join(info['features']).encode('utf-8'))
         self.assertEqual(h.hexdigest(),info['compatibilitySha256'])
+    def test_build_inventory_binds_local_crypto_dependencies(self):
+        info = json.loads(call('pocold', 'build-info').stdout)
+        required = {
+            f'third-party/evm-crypto/{crate}/{name}'
+            for crate in ('alloy-primitives-0.8.26', 'alloy-eip7702-0.5.1', 'revm-precompile-16.2.0')
+            for name in ('Cargo.toml', 'src/lib.rs')
+        }
+        self.assertTrue(required <= info['sourceSha256'].keys(),
+                        'Local dependency code must be bound to the native compatibility identity')
     def test_cli_rejects_ambiguous_options(self):
         for args in [('identity', '--home'), ('identity', '--unknown', 'x'), ('identity', '--home', 'a', '--home', 'b')]:
             self.assertNotEqual(call('pocol', *args, ok=False).returncode, 0)

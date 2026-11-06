@@ -114,12 +114,16 @@ class FaucetRules(unittest.TestCase):
 
     def test_http_surface(self):
         f = self.faucet(allowOrigin='https://pocol.net')
-        server = pf.http.server.ThreadingHTTPServer(('127.0.0.1', 0), pf.handler(f)); port = server.server_address[1]
-        threading.Thread(target=server.serve_forever, daemon=True).start(); self.addCleanup(server.shutdown)
+        server = pf.Server(('127.0.0.1', 0), pf.handler(f)); port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        def stop(): server.shutdown(); server.server_close(); thread.join(2)
+        self.addCleanup(stop)
         def call(method, path, body=None, headers=None):
             c = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
-            c.request(method, path, body=body, headers=headers or {'Content-Type': 'application/json'}); r = c.getresponse()
-            return r.status, json.loads(r.read() or b'null'), r.getheader('Access-Control-Allow-Origin')
+            try:
+                c.request(method, path, body=body, headers=headers or {'Content-Type': 'application/json'}); r = c.getresponse()
+                return r.status, json.loads(r.read() or b'null'), r.getheader('Access-Control-Allow-Origin')
+            finally: c.close()
         self.assertEqual(call('GET', '/status')[1]['chainId'], CHAIN)
         status, value, origin = call('POST', '/claim', json.dumps({'address': NEW}))
         self.assertEqual((status, value['to'], origin), (200, NEW, 'https://pocol.net'))

@@ -1,0 +1,3155 @@
+{
+  "warning": "هذه 315 نتيجة محلية تشمل أربع نتائج استُدركت من Explorer؛ ليست نتائج artifact السابق البالغ 67. الحالات غير المكتملة ليست مغلقة.",
+  "results": [
+    {
+      "id": "local-001",
+      "rule": "dynamic-urllib-use-detected",
+      "file": "deploy/faucet/pocol_faucet.py",
+      "line": 84,
+      "toolSeverity": "WARNING",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "URL من إعداد المشغّل أو منفذ loopback اختبار؛ لم يثبت أن طالب faucet يتحكم بعنوان RPC.",
+      "column": 14
+    },
+    {
+      "id": "local-002",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/faucet/pocol_faucet.py",
+      "line": 90,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 13
+    },
+    {
+      "id": "local-003",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/mainnet/rehearse_cutover.py",
+      "line": 56,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 13
+    },
+    {
+      "id": "local-004",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/mainnet/rehearse_cutover.py",
+      "line": 99,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 27
+    },
+    {
+      "id": "local-005",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/mainnet/rehearse_cutover.py",
+      "line": 127,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 11
+    },
+    {
+      "id": "local-006",
+      "rule": "insecure-file-permissions",
+      "file": "deploy/mainnet/rehearse_cutover.py",
+      "line": 203,
+      "toolSeverity": "WARNING",
+      "status": "not-applicable-in-context",
+      "reason_ar": "0700 يخص دليل مفاتيح في اختبار محلي؛ صلاحية التنفيذ مطلوبة لعبور الدليل ولا تمنح قراءة للمجموعة أو الآخرين.",
+      "column": 32
+    },
+    {
+      "id": "local-007",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/mainnet/test_rehearse_cutover.py",
+      "line": 22,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 20
+    },
+    {
+      "id": "local-008",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/mainnet/test_rehearse_cutover.py",
+      "line": 36,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 37
+    },
+    {
+      "id": "local-009",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/private-testnet/private_testnet.py",
+      "line": 137,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 14
+    },
+    {
+      "id": "local-010",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 57,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 5
+    },
+    {
+      "id": "local-011",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 57,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 20
+    },
+    {
+      "id": "local-012",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 71,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 27
+    },
+    {
+      "id": "local-013",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 103,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 21
+    },
+    {
+      "id": "local-014",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 103,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 36
+    },
+    {
+      "id": "local-015",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 109,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 15
+    },
+    {
+      "id": "local-016",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 109,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 39
+    },
+    {
+      "id": "local-017",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 135,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 9
+    },
+    {
+      "id": "local-018",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 135,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 24
+    },
+    {
+      "id": "local-019",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 146,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 19
+    },
+    {
+      "id": "local-020",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/private-testnet/rehearse.py",
+      "line": 146,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 34
+    },
+    {
+      "id": "local-021",
+      "rule": "dangerous-os-exec-audit",
+      "file": "deploy/private-testnet/runtime.py",
+      "line": 64,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 5
+    },
+    {
+      "id": "local-022",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/node_operator.py",
+      "line": 128,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 19
+    },
+    {
+      "id": "local-023",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/node_operator.py",
+      "line": 132,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 25
+    },
+    {
+      "id": "local-024",
+      "rule": "dangerous-os-exec-audit",
+      "file": "deploy/public-testnet/node_operator.py",
+      "line": 150,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 9
+    },
+    {
+      "id": "local-025",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/nonce_upgrade.py",
+      "line": 112,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 24
+    },
+    {
+      "id": "local-026",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/nonce_upgrade.py",
+      "line": 332,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 31
+    },
+    {
+      "id": "local-027",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/prepare.py",
+      "line": 188,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 24
+    },
+    {
+      "id": "local-028",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/test_gateway.py",
+      "line": 46,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 9
+    },
+    {
+      "id": "local-029",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/test_gateway.py",
+      "line": 47,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 16
+    },
+    {
+      "id": "local-030",
+      "rule": "httpsconnection-detected",
+      "file": "deploy/public-testnet/test_gateway.py",
+      "line": 50,
+      "toolSeverity": "WARNING",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "create_default_context مع تحقق الشهادة/الاسم؛ موضع Studio لديه تقوية TLS صريحة في PR24 فقط، وحالة CodeQL غير متاحة.",
+      "column": 20
+    },
+    {
+      "id": "local-031",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/test_operations.py",
+      "line": 82,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 27
+    },
+    {
+      "id": "local-032",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/test_remote_listener.py",
+      "line": 43,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 24
+    },
+    {
+      "id": "local-033",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/public-testnet/test_remote_listener.py",
+      "line": 43,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 48
+    },
+    {
+      "id": "local-034",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/test_remote_listener.py",
+      "line": 51,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 20
+    },
+    {
+      "id": "local-035",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/public-testnet/test_remote_listener.py",
+      "line": 51,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 37
+    },
+    {
+      "id": "local-036",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/public-testnet/test_service.py",
+      "line": 26,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 12
+    },
+    {
+      "id": "local-037",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/rewards/test_gateway_rewards.py",
+      "line": 89,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 22
+    },
+    {
+      "id": "local-038",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/package.py",
+      "line": 22,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 10
+    },
+    {
+      "id": "local-039",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_launcher.py",
+      "line": 20,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 9
+    },
+    {
+      "id": "local-040",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/standalone/test_launcher.py",
+      "line": 20,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 24
+    },
+    {
+      "id": "local-041",
+      "rule": "dynamic-urllib-use-detected",
+      "file": "deploy/standalone/test_launcher.py",
+      "line": 103,
+      "toolSeverity": "WARNING",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "URL من إعداد المشغّل أو منفذ loopback اختبار؛ لم يثبت أن طالب faucet يتحكم بعنوان RPC.",
+      "column": 14
+    },
+    {
+      "id": "local-042",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_launcher.py",
+      "line": 124,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 20
+    },
+    {
+      "id": "local-043",
+      "rule": "dangerous-subprocess-use-tainted-env-args",
+      "file": "deploy/standalone/test_launcher.py",
+      "line": 124,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 37
+    },
+    {
+      "id": "local-044",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_upgrade.py",
+      "line": 76,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 23
+    },
+    {
+      "id": "local-045",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_upgrade.py",
+      "line": 127,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 19
+    },
+    {
+      "id": "local-046",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_upgrade.py",
+      "line": 301,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 13
+    },
+    {
+      "id": "local-047",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_wallet.py",
+      "line": 10,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 16
+    },
+    {
+      "id": "local-048",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_wallet.py",
+      "line": 50,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 34
+    },
+    {
+      "id": "local-049",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_wallet_earnin.py",
+      "line": 43,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 34
+    },
+    {
+      "id": "local-050",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_wallet_earnin.py",
+      "line": 55,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 30
+    },
+    {
+      "id": "local-051",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_wallet_earnin.py",
+      "line": 89,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 19
+    },
+    {
+      "id": "local-052",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/standalone/test_wallet_rejoin.py",
+      "line": 31,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 34
+    },
+    {
+      "id": "local-053",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/studio/install_studio_gateway.py",
+      "line": 72,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 12
+    },
+    {
+      "id": "local-054",
+      "rule": "httpsconnection-detected",
+      "file": "deploy/studio/install_studio_gateway.py",
+      "line": 126,
+      "toolSeverity": "WARNING",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "create_default_context مع تحقق الشهادة/الاسم؛ موضع Studio لديه تقوية TLS صريحة في PR24 فقط، وحالة CodeQL غير متاحة.",
+      "column": 12
+    },
+    {
+      "id": "local-055",
+      "rule": "dangerous-subprocess-use-audit",
+      "file": "deploy/studio/test_studio_gateway.py",
+      "line": 197,
+      "toolSeverity": "ERROR",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الموضع يستعمل قائمة argv أو execv أو mock/استثناء اختبار؛ لم يظهر shell=True. لم يثبت مسار حقن من مدخل شبكي.",
+      "column": 27
+    },
+    {
+      "id": "local-056",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 45,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-057",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 45,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-058",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 45,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 30
+    },
+    {
+      "id": "local-059",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 57,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 56
+    },
+    {
+      "id": "local-060",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 58,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-061",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 58,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-062",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 58,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 63
+    },
+    {
+      "id": "local-063",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 59,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-064",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 59,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-065",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 59,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 60
+    },
+    {
+      "id": "local-066",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 60,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-067",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 60,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-068",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 60,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 56
+    },
+    {
+      "id": "local-069",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 61,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 52
+    },
+    {
+      "id": "local-070",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 61,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 176
+    },
+    {
+      "id": "local-071",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 61,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 234
+    },
+    {
+      "id": "local-072",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 61,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 264
+    },
+    {
+      "id": "local-073",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 61,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 334
+    },
+    {
+      "id": "local-074",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 61,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 379
+    },
+    {
+      "id": "local-075",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 62,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-076",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 62,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-077",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 62,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 25
+    },
+    {
+      "id": "local-078",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 62,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 317
+    },
+    {
+      "id": "local-079",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 62,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 441
+    },
+    {
+      "id": "local-080",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 64,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-081",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 64,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-082",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 64,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 31
+    },
+    {
+      "id": "local-083",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 64,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 112
+    },
+    {
+      "id": "local-084",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 64,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 223
+    },
+    {
+      "id": "local-085",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 67,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-086",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 67,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-087",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 67,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 128
+    },
+    {
+      "id": "local-088",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 72,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-089",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 72,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 5
+    },
+    {
+      "id": "local-090",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 72,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 40
+    },
+    {
+      "id": "local-091",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 72,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 111
+    },
+    {
+      "id": "local-092",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 72,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 191
+    },
+    {
+      "id": "local-093",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 86,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 12
+    },
+    {
+      "id": "local-094",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 86,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 702
+    },
+    {
+      "id": "local-095",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 95,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 7
+    },
+    {
+      "id": "local-096",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 95,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 7
+    },
+    {
+      "id": "local-097",
+      "rule": "html-in-template-string",
+      "file": "deploy/websites/pocol.net/about.js",
+      "line": 97,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 16
+    },
+    {
+      "id": "local-098",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/pocol.net/app.js",
+      "line": 84,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 37
+    },
+    {
+      "id": "local-099",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/pocol.net/app.js",
+      "line": 84,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 37
+    },
+    {
+      "id": "local-100",
+      "rule": "args",
+      "file": "prototypes/lp1-node/src/main.rs",
+      "line": 68,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 18
+    },
+    {
+      "id": "local-101",
+      "rule": "args",
+      "file": "prototypes/lp1-node/src/main.rs",
+      "line": 325,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 29
+    },
+    {
+      "id": "local-102",
+      "rule": "use-custom-error-not-require",
+      "file": "prototypes/lp4-execution/contracts/PayBoundaryHarness.sol",
+      "line": 31,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-103",
+      "rule": "use-custom-error-not-require",
+      "file": "prototypes/lp4-execution/contracts/PayBoundaryHarness.sol",
+      "line": 32,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-104",
+      "rule": "delegatecall-to-arbitrary-address",
+      "file": "prototypes/lp4-execution/contracts/PayBoundaryHarness.sol",
+      "line": 35,
+      "toolSeverity": "ERROR",
+      "status": "intentional-test-harness",
+      "reason_ar": "PayBoundaryHarness عقد اختبار حدود PAY؛ ليس عقد النظام المنشور. اختبارات التفويض والعزل ضمن مجموعة التنفيذ.",
+      "column": 9
+    },
+    {
+      "id": "local-105",
+      "rule": "use-custom-error-not-require",
+      "file": "prototypes/lp4-execution/contracts/PayBoundaryHarness.sol",
+      "line": 39,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 35
+    },
+    {
+      "id": "local-106",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/PendingEscrow.sol",
+      "line": 24,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-107",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 102,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-108",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 106,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 35
+    },
+    {
+      "id": "local-109",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 142,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 54
+    },
+    {
+      "id": "local-110",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 148,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 58
+    },
+    {
+      "id": "local-111",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 148,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 58
+    },
+    {
+      "id": "local-112",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 150,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 13
+    },
+    {
+      "id": "local-113",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 151,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 18
+    },
+    {
+      "id": "local-114",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 152,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 40
+    },
+    {
+      "id": "local-115",
+      "rule": "use-prefix-decrement-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 152,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 50
+    },
+    {
+      "id": "local-116",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 152,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 60
+    },
+    {
+      "id": "local-117",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 159,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-118",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/RegistryPayment.sol",
+      "line": 162,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 25
+    },
+    {
+      "id": "local-119",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 64,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 37
+    },
+    {
+      "id": "local-120",
+      "rule": "basic-arithmetic-underflow",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 74,
+      "toolSeverity": "INFO",
+      "status": "not-applicable-in-context",
+      "reason_ar": "height-1 محروس بقصر التقييم عند height<2، والمترجم 0.8.28 يفحص الحساب.",
+      "column": 56
+    },
+    {
+      "id": "local-121",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 77,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-122",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 77,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-123",
+      "rule": "state-variable-read-in-a-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 81,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 23
+    },
+    {
+      "id": "local-124",
+      "rule": "state-variable-read-in-a-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 83,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 13
+    },
+    {
+      "id": "local-125",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 100,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-126",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 100,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-127",
+      "rule": "state-variable-read-in-a-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 101,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 42
+    },
+    {
+      "id": "local-128",
+      "rule": "state-variable-read-in-a-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 103,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 28
+    },
+    {
+      "id": "local-129",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 131,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-130",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 135,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-131",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 158,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-132",
+      "rule": "array-length-outside-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 216,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 25
+    },
+    {
+      "id": "local-133",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 216,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 37
+    },
+    {
+      "id": "local-134",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 216,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 37
+    },
+    {
+      "id": "local-135",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 222,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 13
+    },
+    {
+      "id": "local-136",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 235,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-137",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 286,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 36
+    },
+    {
+      "id": "local-138",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 286,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 36
+    },
+    {
+      "id": "local-139",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 286,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 80
+    },
+    {
+      "id": "local-140",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 322,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-141",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 326,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 35
+    },
+    {
+      "id": "local-142",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 333,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 13
+    },
+    {
+      "id": "local-143",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 335,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 13
+    },
+    {
+      "id": "local-144",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 336,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 13
+    },
+    {
+      "id": "local-145",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 347,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 17
+    },
+    {
+      "id": "local-146",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 358,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 17
+    },
+    {
+      "id": "local-147",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 376,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-148",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 378,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-149",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 379,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-150",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 403,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 54
+    },
+    {
+      "id": "local-151",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 409,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 58
+    },
+    {
+      "id": "local-152",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 409,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 58
+    },
+    {
+      "id": "local-153",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 411,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 68
+    },
+    {
+      "id": "local-154",
+      "rule": "use-prefix-decrement-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 411,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 78
+    },
+    {
+      "id": "local-155",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 411,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 88
+    },
+    {
+      "id": "local-156",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 418,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-157",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 421,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 25
+    },
+    {
+      "id": "local-158",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 435,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-159",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 435,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-160",
+      "rule": "array-length-outside-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 441,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 25
+    },
+    {
+      "id": "local-161",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 441,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 39
+    },
+    {
+      "id": "local-162",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemEarnIn.sol",
+      "line": 441,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 39
+    },
+    {
+      "id": "local-163",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 62,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 37
+    },
+    {
+      "id": "local-164",
+      "rule": "basic-arithmetic-underflow",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 72,
+      "toolSeverity": "INFO",
+      "status": "not-applicable-in-context",
+      "reason_ar": "height-1 محروس بقصر التقييم عند height<2، والمترجم 0.8.28 يفحص الحساب.",
+      "column": 56
+    },
+    {
+      "id": "local-165",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 75,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-166",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 75,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-167",
+      "rule": "state-variable-read-in-a-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 79,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 23
+    },
+    {
+      "id": "local-168",
+      "rule": "state-variable-read-in-a-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 81,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 13
+    },
+    {
+      "id": "local-169",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 98,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-170",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 98,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-171",
+      "rule": "state-variable-read-in-a-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 99,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 42
+    },
+    {
+      "id": "local-172",
+      "rule": "state-variable-read-in-a-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 101,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 28
+    },
+    {
+      "id": "local-173",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 151,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-174",
+      "rule": "array-length-outside-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 209,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 25
+    },
+    {
+      "id": "local-175",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 209,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 37
+    },
+    {
+      "id": "local-176",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 209,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 37
+    },
+    {
+      "id": "local-177",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 261,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 36
+    },
+    {
+      "id": "local-178",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 261,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 36
+    },
+    {
+      "id": "local-179",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 261,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 80
+    },
+    {
+      "id": "local-180",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 285,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-181",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 289,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 35
+    },
+    {
+      "id": "local-182",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 325,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 54
+    },
+    {
+      "id": "local-183",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 331,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 58
+    },
+    {
+      "id": "local-184",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 331,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 58
+    },
+    {
+      "id": "local-185",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 333,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 13
+    },
+    {
+      "id": "local-186",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 334,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 18
+    },
+    {
+      "id": "local-187",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 335,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 40
+    },
+    {
+      "id": "local-188",
+      "rule": "use-prefix-decrement-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 335,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 50
+    },
+    {
+      "id": "local-189",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 335,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 60
+    },
+    {
+      "id": "local-190",
+      "rule": "use-nested-if",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 342,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 9
+    },
+    {
+      "id": "local-191",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 345,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 25
+    },
+    {
+      "id": "local-192",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 359,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-193",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 359,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 27
+    },
+    {
+      "id": "local-194",
+      "rule": "array-length-outside-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 365,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 25
+    },
+    {
+      "id": "local-195",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 365,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 39
+    },
+    {
+      "id": "local-196",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/system/PoColSystemV1.sol",
+      "line": 365,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 39
+    },
+    {
+      "id": "local-197",
+      "rule": "non-payable-constructor",
+      "file": "prototypes/lp4-execution/contracts/web/Website.sol",
+      "line": 24,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 5
+    },
+    {
+      "id": "local-198",
+      "rule": "unnecessary-checked-arithmetic-in-loop",
+      "file": "prototypes/lp4-execution/contracts/web/Website.sol",
+      "line": 36,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 39
+    },
+    {
+      "id": "local-199",
+      "rule": "use-prefix-increment-not-postfix",
+      "file": "prototypes/lp4-execution/contracts/web/Website.sol",
+      "line": 36,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 39
+    },
+    {
+      "id": "local-200",
+      "rule": "array-length-outside-loop",
+      "file": "prototypes/lp4-execution/contracts/web/Website.sol",
+      "line": 37,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 46
+    },
+    {
+      "id": "local-201",
+      "rule": "inefficient-state-variable-increment",
+      "file": "prototypes/lp4-execution/contracts/web/Website.sol",
+      "line": 64,
+      "toolSeverity": "INFO",
+      "status": "performance-advice-no-consensus-change",
+      "reason_ar": "اقتراح صياغة/غاز؛ لم تُغيّر عقود الإجماع أو مخرجات المترجم لأجل ملاحظة أداء.",
+      "column": 167
+    },
+    {
+      "id": "local-202",
+      "rule": "args",
+      "file": "prototypes/lp4-execution/src/bin/code_caps_control.rs",
+      "line": 65,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 14
+    },
+    {
+      "id": "local-203",
+      "rule": "unsafe-usage",
+      "file": "prototypes/lp4-execution/src/resources/tests.rs",
+      "line": 105,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 56
+    },
+    {
+      "id": "local-204",
+      "rule": "unsafe-usage",
+      "file": "prototypes/lp4-execution/src/resources/tests.rs",
+      "line": 106,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 53
+    },
+    {
+      "id": "local-205",
+      "rule": "unsafe-usage",
+      "file": "prototypes/lp4-execution/src/resources/tests.rs",
+      "line": 107,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 76
+    },
+    {
+      "id": "local-206",
+      "rule": "insecure-document-method",
+      "file": "prototypes/pocol-extension/src/sandbox-loader.js",
+      "line": 66,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 96
+    },
+    {
+      "id": "local-207",
+      "rule": "insecure-innerhtml",
+      "file": "prototypes/pocol-extension/src/sandbox-loader.js",
+      "line": 66,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 96
+    },
+    {
+      "id": "local-208",
+      "rule": "unsafe-dynamic-method",
+      "file": "prototypes/pocol-extension/src/sandbox-loader.js",
+      "line": 203,
+      "toolSeverity": "WARNING",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الاستدعاءات الفعلية _fire تستعمل أسماء أحداث ثابتة error/load/loadend؛ لم يثبت وصول اسم خاصية من مدخل خارجي.",
+      "column": 93
+    },
+    {
+      "id": "local-209",
+      "rule": "wildcard-postmessage-configuration",
+      "file": "prototypes/pocol-extension/src/viewer.js",
+      "line": 100,
+      "toolSeverity": "WARNING",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "الهدف iframe sandbox ذو origin معتم مع نقل MessagePort. يلزم استكمال اختبار العزل بالمتصفح؛ التشغيل الحالي محجوب.",
+      "column": 5
+    },
+    {
+      "id": "local-210",
+      "rule": "args",
+      "file": "prototypes/pocold/src/bin/pocol-key.rs",
+      "line": 4,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 26
+    },
+    {
+      "id": "local-211",
+      "rule": "args",
+      "file": "prototypes/pocold/src/bin/pocol-sign.rs",
+      "line": 7,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 23
+    },
+    {
+      "id": "local-212",
+      "rule": "args",
+      "file": "prototypes/pocold/src/bin/pocol-site.rs",
+      "line": 38,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 23
+    },
+    {
+      "id": "local-213",
+      "rule": "temp-dir",
+      "file": "prototypes/pocold/src/bin/pocol-site.rs",
+      "line": 71,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق.",
+      "column": 18
+    },
+    {
+      "id": "local-214",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/bin/pocol.rs",
+      "line": 27,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 5
+    },
+    {
+      "id": "local-215",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/bin/pocol.rs",
+      "line": 32,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 5
+    },
+    {
+      "id": "local-216",
+      "rule": "args",
+      "file": "prototypes/pocold/src/bin/pocol.rs",
+      "line": 47,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 29
+    },
+    {
+      "id": "local-217",
+      "rule": "current-exe",
+      "file": "prototypes/pocold/src/bin/pocol.rs",
+      "line": 111,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 20
+    },
+    {
+      "id": "local-218",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/keyfile.rs",
+      "line": 20,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 26
+    },
+    {
+      "id": "local-219",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/keyfile/windows.rs",
+      "line": 27,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 42
+    },
+    {
+      "id": "local-220",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/keyfile/windows.rs",
+      "line": 29,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 14
+    },
+    {
+      "id": "local-221",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/keyfile/windows.rs",
+      "line": 59,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 13
+    },
+    {
+      "id": "local-222",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/keyfile/windows.rs",
+      "line": 65,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 13
+    },
+    {
+      "id": "local-223",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/keyfile/windows.rs",
+      "line": 69,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 9
+    },
+    {
+      "id": "local-224",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/keyfile/windows.rs",
+      "line": 76,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 48
+    },
+    {
+      "id": "local-225",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/keyfile/windows.rs",
+      "line": 77,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 8
+    },
+    {
+      "id": "local-226",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/launcher.rs",
+      "line": 310,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 30
+    },
+    {
+      "id": "local-227",
+      "rule": "temp-dir",
+      "file": "prototypes/pocold/src/launcher.rs",
+      "line": 546,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق.",
+      "column": 21
+    },
+    {
+      "id": "local-228",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/lib.rs",
+      "line": 122,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 56
+    },
+    {
+      "id": "local-229",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/lib.rs",
+      "line": 123,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 53
+    },
+    {
+      "id": "local-230",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/lib.rs",
+      "line": 124,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 76
+    },
+    {
+      "id": "local-231",
+      "rule": "args-os",
+      "file": "prototypes/pocold/src/main.rs",
+      "line": 15,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 20
+    },
+    {
+      "id": "local-232",
+      "rule": "args",
+      "file": "prototypes/pocold/src/main.rs",
+      "line": 16,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "حد واجهة أوامر محلية/اختيار الملف المجاور؛ لا يثبت مصدر بيانات شبكي أو تنفيذ أوامر عن بعد.",
+      "column": 26
+    },
+    {
+      "id": "local-233",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 28,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 5
+    },
+    {
+      "id": "local-234",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 35,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 41
+    },
+    {
+      "id": "local-235",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 46,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 58
+    },
+    {
+      "id": "local-236",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 47,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 37
+    },
+    {
+      "id": "local-237",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 58,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 54
+    },
+    {
+      "id": "local-238",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 66,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 30
+    },
+    {
+      "id": "local-239",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 68,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 54
+    },
+    {
+      "id": "local-240",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 75,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 20
+    },
+    {
+      "id": "local-241",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 105,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 21
+    },
+    {
+      "id": "local-242",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 130,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 14
+    },
+    {
+      "id": "local-243",
+      "rule": "temp-dir",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 139,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق.",
+      "column": 20
+    },
+    {
+      "id": "local-244",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 143,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 9
+    },
+    {
+      "id": "local-245",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/mobile.rs",
+      "line": 153,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 9
+    },
+    {
+      "id": "local-246",
+      "rule": "temp-dir",
+      "file": "prototypes/pocold/src/node.rs",
+      "line": 1500,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق.",
+      "column": 17
+    },
+    {
+      "id": "local-247",
+      "rule": "temp-dir",
+      "file": "prototypes/pocold/src/node.rs",
+      "line": 1531,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق.",
+      "column": 17
+    },
+    {
+      "id": "local-248",
+      "rule": "temp-dir",
+      "file": "prototypes/pocold/src/node.rs",
+      "line": 1597,
+      "toolSeverity": "INFO",
+      "status": "context-reviewed-no-exploit-established",
+      "reason_ar": "المواضع في كود الاختبار المحلي؛ تبقى اختبارات صلاحيات الدليل المضيف خارج هذا التحقق.",
+      "column": 17
+    },
+    {
+      "id": "local-249",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/rpc.rs",
+      "line": 122,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 15
+    },
+    {
+      "id": "local-250",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/rpc.rs",
+      "line": 127,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 15
+    },
+    {
+      "id": "local-251",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/rpc.rs",
+      "line": 132,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 15
+    },
+    {
+      "id": "local-252",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/rpc.rs",
+      "line": 137,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 15
+    },
+    {
+      "id": "local-253",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/rpc.rs",
+      "line": 154,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 15
+    },
+    {
+      "id": "local-254",
+      "rule": "unsafe-usage",
+      "file": "prototypes/pocold/src/rpc.rs",
+      "line": 159,
+      "toolSeverity": "INFO",
+      "status": "ffi-or-test-code-platform-validation-incomplete",
+      "reason_ar": "استعمال unsafe ليس إثبات فساد ذاكرة. تمت معاينة الموضع؛ التحقق الديناميكي الخاص بويندوز/أندرويد غير منفذ.",
+      "column": 15
+    },
+    {
+      "id": "studio-001",
+      "rule": "insecure-document-method",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 21,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 318
+    },
+    {
+      "id": "studio-002",
+      "rule": "insecure-innerhtml",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 21,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 318
+    },
+    {
+      "id": "studio-003",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 21,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 365
+    },
+    {
+      "id": "studio-004",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 22,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 164
+    },
+    {
+      "id": "studio-005",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 22,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 297
+    },
+    {
+      "id": "studio-006",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 22,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 431
+    },
+    {
+      "id": "studio-007",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 23,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 55
+    },
+    {
+      "id": "studio-008",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 24,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 28
+    },
+    {
+      "id": "studio-009",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 24,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 226
+    },
+    {
+      "id": "studio-010",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 25,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 12
+    },
+    {
+      "id": "studio-011",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 25,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 418
+    },
+    {
+      "id": "studio-012",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 25,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 636
+    },
+    {
+      "id": "studio-013",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 25,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 1370
+    },
+    {
+      "id": "studio-014",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 25,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 1920
+    },
+    {
+      "id": "studio-015",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 25,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 2331
+    },
+    {
+      "id": "studio-016",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 26,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 7
+    },
+    {
+      "id": "studio-017",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 26,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 91
+    },
+    {
+      "id": "studio-018",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 26,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 222
+    },
+    {
+      "id": "studio-019",
+      "rule": "insecure-document-method",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 26,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 523
+    },
+    {
+      "id": "studio-020",
+      "rule": "insecure-innerhtml",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 26,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 523
+    },
+    {
+      "id": "studio-021",
+      "rule": "insecure-document-method",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 30,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 64
+    },
+    {
+      "id": "studio-022",
+      "rule": "insecure-innerhtml",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 30,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 64
+    },
+    {
+      "id": "studio-023",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 30,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 107
+    },
+    {
+      "id": "studio-024",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 30,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 352
+    },
+    {
+      "id": "studio-025",
+      "rule": "insecure-document-method",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 31,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 68
+    },
+    {
+      "id": "studio-026",
+      "rule": "insecure-innerhtml",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 31,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 68
+    },
+    {
+      "id": "studio-027",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 31,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 121
+    },
+    {
+      "id": "studio-028",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 31,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 745
+    },
+    {
+      "id": "studio-029",
+      "rule": "insecure-document-method",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 34,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 75
+    },
+    {
+      "id": "studio-030",
+      "rule": "insecure-innerhtml",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 34,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 75
+    },
+    {
+      "id": "studio-031",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 36,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 42
+    },
+    {
+      "id": "studio-032",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 36,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 161
+    },
+    {
+      "id": "studio-033",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 37,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 130
+    },
+    {
+      "id": "studio-034",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 37,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 200
+    },
+    {
+      "id": "studio-035",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 42,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 38
+    },
+    {
+      "id": "studio-036",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 42,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 81
+    },
+    {
+      "id": "studio-037",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 43,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 44
+    },
+    {
+      "id": "studio-038",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 43,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 134
+    },
+    {
+      "id": "studio-039",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 47,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 233
+    },
+    {
+      "id": "studio-040",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 47,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 606
+    },
+    {
+      "id": "studio-041",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 48,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 59
+    },
+    {
+      "id": "studio-042",
+      "rule": "insecure-document-method",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 49,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 589
+    },
+    {
+      "id": "studio-043",
+      "rule": "insecure-innerhtml",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 49,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 589
+    },
+    {
+      "id": "studio-044",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 49,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 616
+    },
+    {
+      "id": "studio-045",
+      "rule": "insecure-document-method",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 49,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 1290
+    },
+    {
+      "id": "studio-046",
+      "rule": "insecure-innerhtml",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 49,
+      "toolSeverity": "ERROR",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 1290
+    },
+    {
+      "id": "studio-047",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 49,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 1317
+    },
+    {
+      "id": "studio-048",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 54,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 94
+    },
+    {
+      "id": "studio-049",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 54,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 227
+    },
+    {
+      "id": "studio-050",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 54,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 398
+    },
+    {
+      "id": "studio-051",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/app.js",
+      "line": 61,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 45
+    },
+    {
+      "id": "studio-052",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/model.js",
+      "line": 46,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 20
+    },
+    {
+      "id": "studio-053",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/model.js",
+      "line": 47,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 39
+    },
+    {
+      "id": "studio-054",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/model.js",
+      "line": 47,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 203
+    },
+    {
+      "id": "studio-055",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/model.js",
+      "line": 47,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 337
+    },
+    {
+      "id": "studio-056",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/model.js",
+      "line": 47,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 489
+    },
+    {
+      "id": "studio-057",
+      "rule": "html-in-template-string",
+      "file": "prototypes/pocol-studio/dist/model.js",
+      "line": 48,
+      "toolSeverity": "WARNING",
+      "status": "dataflow-browser-validation-incomplete",
+      "reason_ar": "عوينت القوالب ومساعدات escaping/قوائم القيم أو template خامل في sandbox. لا تعادل المعاينة برهان غياب XSS؛ اختبار DOM/العزل بالمتصفح غير مكتمل.",
+      "column": 8
+    },
+    {
+      "id": "recovered-001",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/explorer.pocol.net/assets/index-Cj8htKRO.js",
+      "line": 9,
+      "column": 1782,
+      "toolSeverity": "ERROR",
+      "status": "framework-dom-sink-caller-dataflow-unverified",
+      "reason_ar": "موضع React المضمّن الذي ينفذ dangerouslySetInnerHTML. وجود sink داخل المكتبة لا يثبت أن التطبيق يمرر بيانات غير موثوقة؛ مراجعة المستدعين والتحقق بالمتصفح غير مكتملين. استُدرك بعد اختلاف المهلات بين التشغيلين، وليس ثغرة أزالتها إصلاحات المحفظة."
+    },
+    {
+      "id": "recovered-002",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/explorer.pocol.net/assets/index-Cj8htKRO.js",
+      "line": 9,
+      "column": 1782,
+      "toolSeverity": "ERROR",
+      "status": "framework-dom-sink-caller-dataflow-unverified",
+      "reason_ar": "موضع React المضمّن الذي ينفذ dangerouslySetInnerHTML. وجود sink داخل المكتبة لا يثبت أن التطبيق يمرر بيانات غير موثوقة؛ مراجعة المستدعين والتحقق بالمتصفح غير مكتملين. استُدرك بعد اختلاف المهلات بين التشغيلين، وليس ثغرة أزالتها إصلاحات المحفظة."
+    },
+    {
+      "id": "recovered-003",
+      "rule": "insecure-document-method",
+      "file": "deploy/websites/explorer.pocol.net/assets/index-Cj8htKRO.js",
+      "line": 9,
+      "column": 4649,
+      "toolSeverity": "ERROR",
+      "status": "framework-dom-sink-caller-dataflow-unverified",
+      "reason_ar": "موضع React المضمّن الذي ينفذ dangerouslySetInnerHTML. وجود sink داخل المكتبة لا يثبت أن التطبيق يمرر بيانات غير موثوقة؛ مراجعة المستدعين والتحقق بالمتصفح غير مكتملين. استُدرك بعد اختلاف المهلات بين التشغيلين، وليس ثغرة أزالتها إصلاحات المحفظة."
+    },
+    {
+      "id": "recovered-004",
+      "rule": "insecure-innerhtml",
+      "file": "deploy/websites/explorer.pocol.net/assets/index-Cj8htKRO.js",
+      "line": 9,
+      "column": 4649,
+      "toolSeverity": "ERROR",
+      "status": "framework-dom-sink-caller-dataflow-unverified",
+      "reason_ar": "موضع React المضمّن الذي ينفذ dangerouslySetInnerHTML. وجود sink داخل المكتبة لا يثبت أن التطبيق يمرر بيانات غير موثوقة؛ مراجعة المستدعين والتحقق بالمتصفح غير مكتملين. استُدرك بعد اختلاف المهلات بين التشغيلين، وليس ثغرة أزالتها إصلاحات المحفظة."
+    }
+  ]
+}

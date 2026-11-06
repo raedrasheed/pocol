@@ -1,0 +1,39 @@
+
+> pocol-extension@0.4.1 test:studio
+> node tests/studio_test.mjs
+
+PASS pinned genesis preimage proves chain and genesis hash
+PASS HTTPS only exact pinned RN endpoint
+PASS remote endpoint cannot claim local verification or unsupported RP
+PASS loopback preserved and RN rejected on loopback
+PASS wallet AES-GCM export roundtrip preserves exact desktop key address
+PASS Windows encrypted export interoperates with independent Node crypto
+PASS DPAPI binary rejected with one-time Windows export instruction
+PASS invalid scalar, short password and oversized keyfile rejected
+PASS file broker validates exact bytes and strips unknown fields
+PASS file broker accepts complete 4 MiB site, rejects overflow and per-file overflow
+PASS duplicate, traversal, missing entry, malformed address and noncanonical base64 rejected
+PASS open target forbids URL traversal and arbitrary links
+PASS manifest grants only fixed origins, publisher in package, unlimited checkpoint storage
+PASS public bridge status exposes capability and network without wallet
+PASS built-in public profile cannot be shadowed by an imported custom profile
+PASS content script cannot call generic wallet/profile operations
+PASS lookalike origin and iframe cannot call broker
+PASS publish request opens trusted page and stores only bounded public files, no signature
+PASS job results are origin and tab bound
+PASS status history survives page reload and is scoped to original tab
+PASS old signed checkpoint survives cleanup, old unsigned draft removed
+PASS cleanup preserves an expired job while its publisher holds the job lock
+PASS cleanup rereads a new signed checkpoint instead of deleting its stale unsigned snapshot
+PASS openSite uses only pinned network viewer, no arbitrary tab URL
+PASS content bridge accepts only same window and exact origin, replies no secrets
+PASS built-in public schedule defaults to v1 and only top-frame extension settings can change it
+PASS settings preserve exact u64 height, pinned network and existing encrypted wallet data
+PASS settings reject missing, unsafe numeric, out-of-range and unknown-version schedules without replacing the saved value
+PASS aligning a trusted public schedule clears custom-profile conflicts without changing either network key
+PASS changing the built-in schedule revokes its Viewer session and pending approval; RPC metadata cannot override it
+PASS failed schedule storage keeps the prior configuration and reports failure
+PASS corrupt saved public schedule fails closed and explicit settings can repair or reset it
+PASS the built-in profile keys its wallet with the fixed salt; a custom profile keys it with its netKey
+PASS after the pinned identity changes, the built-in profile keeps its wallet address, also for a site, and custom profiles keep theirs
+{"result":"PASS","passed":34}

@@ -1,0 +1,7 @@
+{
+  "exit": 1,
+  "seconds": 0.23,
+  "module_proxy": "https://goproxy.io",
+  "checksum_database": "sum.golang.org",
+  "inherited_http_proxy_preserved": true
+}

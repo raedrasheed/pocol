@@ -1,0 +1,42 @@
+PASS ordinary explorer read accepted
+PASS privileged method refused: eth_sendRawTransaction
+PASS privileged method refused: eth_sendTransaction
+PASS privileged method refused: personal_unlockAccount
+PASS privileged method refused: admin_peers
+PASS privileged method refused: debug_traceTransaction
+PASS privileged method refused: pocol_submitShare
+PASS duplicate request IDs refused
+PASS empty batch refused
+PASS batch above twenty refused
+PASS account shape refused
+PASS state overrides refused
+PASS response IDs may be reordered
+PASS duplicate response IDs refused
+PASS foreign response ID refused
+PASS response cannot contain both result and error
+PASS untyped error refused
+PASS batch results mapped to request order
+PASS summary wrong protocol refused
+PASS summary unsafe quantity refused
+PASS summary identity and branch-consistent metrics
+PASS summary mixed branch refused
+PASS valid exact reward arithmetic
+PASS uint256 maximum accepted as decimal string
+PASS uint256 overflow refused
+PASS noncanonical reward amount refused
+PASS noncanonical reward amount refused
+PASS noncanonical reward amount refused
+PASS noncanonical reward amount refused
+PASS noncanonical reward amount refused
+PASS wrong reward chain refused
+PASS unbalanced reward accounting refused
+PASS duplicate beneficiary refused
+PASS stale reward refused
+PASS private summary cache loads
+PASS fresh summary cache reuses snapshot
+PASS shared-writable summary cache refused
+PASS shared-writable reward cache refused
+PASS symlink cache directory refused
+PASS symlink refresh lock refused
+PASS symlink target was not created
+{"result":"PASS","checks":41,"networkRequests":0}

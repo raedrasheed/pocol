@@ -1,0 +1,239 @@
+{
+  "cases": [
+    {
+      "fixture": "compile_budget_witness.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.71,
+          "sha256": "c858c9c5f743e68f8e6f553877e59c8bee064da8404e8cac188e0bc5909f5a98",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.48,
+          "sha256": "c858c9c5f743e68f8e6f553877e59c8bee064da8404e8cac188e0bc5909f5a98",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_chunk.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.7,
+          "sha256": "7e65ce014bb902dd2fbf4d3c93970c317eed4b351a936b06aa60aeed633fa1b4",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.5,
+          "sha256": "7e65ce014bb902dd2fbf4d3c93970c317eed4b351a936b06aa60aeed633fa1b4",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_code_caps.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.45,
+          "sha256": "18728035350360f94b340d459c4f8139d729371bf07371959170456d5ff488fa",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.45,
+          "sha256": "18728035350360f94b340d459c4f8139d729371bf07371959170456d5ff488fa",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_contracts.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.49,
+          "sha256": "b324c129adcaf8ca91133d84b33af3f0d1ab6656d3f5004704e1a864935c6f15",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.49,
+          "sha256": "b324c129adcaf8ca91133d84b33af3f0d1ab6656d3f5004704e1a864935c6f15",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_durability.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.4,
+          "sha256": "c5aba9fa19ded72a527bb17cad422ef2d2b7c5212ec64d8dd87b279ed8a50b53",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.38,
+          "sha256": "c5aba9fa19ded72a527bb17cad422ef2d2b7c5212ec64d8dd87b279ed8a50b53",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_pending.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.85,
+          "sha256": "f62ee86bae9b83344dd08f0af52edd3663df2e7f798318558c893015dabe59dc",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.84,
+          "sha256": "f62ee86bae9b83344dd08f0af52edd3663df2e7f798318558c893015dabe59dc",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_registry.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.62,
+          "sha256": "0186c9b0c722e272081163e6e0782cd1e95d19cbcd6e96634770bab94cfc58df",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.65,
+          "sha256": "0186c9b0c722e272081163e6e0782cd1e95d19cbcd6e96634770bab94cfc58df",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_system_boundary.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.44,
+          "sha256": "36b2064cde89f9c4116a975a88956cdefc5e371a4cc0ed750f6b43a008b99b2b",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.41,
+          "sha256": "36b2064cde89f9c4116a975a88956cdefc5e371a4cc0ed750f6b43a008b99b2b",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_system_earnin.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 1.34,
+          "sha256": "148f0a5895bab4ec70c2f4fd9b6c5625718c2f0c8097c5657f846a36a1da331e",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 1.35,
+          "sha256": "148f0a5895bab4ec70c2f4fd9b6c5625718c2f0c8097c5657f846a36a1da331e",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_system_epoch.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.36,
+          "sha256": "a14925d17bb458c10e5f336fbb99c90d9ca223c7e3d67bde95ae86099560d3df",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.33,
+          "sha256": "a14925d17bb458c10e5f336fbb99c90d9ca223c7e3d67bde95ae86099560d3df",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_system_v1.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 1.17,
+          "sha256": "931086b0598354ddd07700b429c3ebec580e567ca1775e6e02980e9bed0c3ab0",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 1.21,
+          "sha256": "931086b0598354ddd07700b429c3ebec580e567ca1775e6e02980e9bed0c3ab0",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "compile_website.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 0.51,
+          "sha256": "b2dc52e3325f9964e792df7e38869e88b051656e89509b7df6c0f179fc62125d",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 0.51,
+          "sha256": "b2dc52e3325f9964e792df7e38869e88b051656e89509b7df6c0f179fc62125d",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    },
+    {
+      "fixture": "continuous.json",
+      "runs": {
+        "before": {
+          "exit": 0,
+          "seconds": 1.2,
+          "sha256": "76a852f7842d6f926ef36231a57041b8041d5c0a7851b52c576bd9e2572ceef6",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        },
+        "after": {
+          "exit": 0,
+          "seconds": 1.2,
+          "sha256": "76a852f7842d6f926ef36231a57041b8041d5c0a7851b52c576bd9e2572ceef6",
+          "compiler": "0.8.28+commit.7893614a.Emscripten.clang"
+        }
+      },
+      "identical": true
+    }
+  ],
+  "all_identical": true
+}

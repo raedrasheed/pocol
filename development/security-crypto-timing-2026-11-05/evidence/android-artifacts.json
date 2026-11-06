@@ -1,0 +1,31 @@
+{
+  "apk": "/workspace/pocol-crypto-timing-2026-11-05-4_byny3i/prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk",
+  "bytes": 62091762,
+  "sha256": "ff9dfef7db8403e918d0c20e86bdb2c3aa76f5ec83f49beffe08c2a7ea641312",
+  "unsigned_confirmed": true,
+  "zipalign_16k_passed": true,
+  "native_libraries": {
+    "libpocold.so": {
+      "bytes": 61423320,
+      "sha256": "b896c998d0f4b6bfdc8c3d2dc09a6717155a9e1584f89d03b7bae0aa410a4a90",
+      "load_alignment": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "packaged_bytes_match": true
+    },
+    "libpocol_bridge.so": {
+      "bytes": 11504,
+      "sha256": "63401832fe9584fd3593866b5b46ec82c6d2cf35035d90a0589ad6148b523080",
+      "load_alignment": [
+        16384,
+        16384,
+        16384
+      ],
+      "packaged_bytes_match": true
+    }
+  },
+  "device_runtime_tested": false
+}

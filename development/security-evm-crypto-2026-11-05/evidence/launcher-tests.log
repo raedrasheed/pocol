@@ -1,0 +1,10 @@
+test_build_digest_is_canonical_across_platforms (__main__.Launcher.test_build_digest_is_canonical_across_platforms) ... ok
+test_build_inventory_binds_local_crypto_dependencies (__main__.Launcher.test_build_inventory_binds_local_crypto_dependencies) ... ok
+test_cli_rejects_ambiguous_options (__main__.Launcher.test_cli_rejects_ambiguous_options) ... ok
+test_identity_is_stable_distinct_and_never_replaces_bad_key (__main__.Launcher.test_identity_is_stable_distinct_and_never_replaces_bad_key) ... ok
+test_invitation_rejects_other_build_extra_paths_and_bad_seeds (__main__.Launcher.test_invitation_rejects_other_build_extra_paths_and_bad_seeds) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.122s
+
+OK

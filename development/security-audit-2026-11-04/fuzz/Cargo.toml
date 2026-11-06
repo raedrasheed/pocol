@@ -1,0 +1,28 @@
+[package]
+name = "pocol-security-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+pocold = { path = "../../../prototypes/pocold" }
+pocol-lp4-execution = { path = "../../../prototypes/lp4-execution" }
+
+[[bin]]
+name = "parsers"
+path = "fuzz_targets/parsers.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
+
+[patch.crates-io]
+alloy-primitives = { path = "../../../prototypes/third-party/evm-crypto/alloy-primitives-0.8.26" }
+alloy-eip7702 = { path = "../../../prototypes/third-party/evm-crypto/alloy-eip7702-0.5.1" }
+revm-precompile = { path = "../../../prototypes/third-party/evm-crypto/revm-precompile-16.2.0" }

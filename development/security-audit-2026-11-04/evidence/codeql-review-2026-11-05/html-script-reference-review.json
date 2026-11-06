@@ -1,0 +1,1183 @@
+[
+  {
+    "path": "deploy/websites/explorer.pocol.net/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "/assets/index-Cj8htKRO.js",
+        "type": "module",
+        "body_chars": 0,
+        "target_path": "deploy/websites/explorer.pocol.net/assets/index-Cj8htKRO.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/ide.pocol.net/index.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "/assets/index-extension041-02af63944c2b.js",
+        "type": "module",
+        "body_chars": 0,
+        "target_path": "deploy/websites/ide.pocol.net/assets/index-extension041-02af63944c2b.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/about.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "guide-content.js?v=98eb7307e1fc",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/guide-content.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "about.js?v=b95a4478c129",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/chrome-extension.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "guide-content.js?v=98eb7307e1fc",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/guide-content.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "about.js?v=b95a4478c129",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/collaborative-mining.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "guide-content.js?v=98eb7307e1fc",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/guide-content.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "about.js?v=b95a4478c129",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/how-pocol-works.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "guide-content.js?v=98eb7307e1fc",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/guide-content.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "about.js?v=b95a4478c129",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/index.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "wallet-downloads.js?v=281003dbba52",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/wallet-downloads.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "network.js?v=67ffacb1f10d",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/network.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "reward.js?v=579bd20b26ad",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/reward.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/onchain-websites.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "guide-content.js?v=98eb7307e1fc",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/guide-content.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "about.js?v=b95a4478c129",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/pocol-status.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "guide-content.js?v=98eb7307e1fc",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/guide-content.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "about.js?v=b95a4478c129",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/pocol-tools.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "guide-content.js?v=98eb7307e1fc",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/guide-content.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "about.js?v=b95a4478c129",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "deploy/websites/pocol.net/smart-contracts.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "locales.js?v=fe8e44a8285e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/locales.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-locales.js?v=0c02b0b08444",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-locales.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "language-picker.js?v=b4db8fa6ddb8",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/language-picker.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "app.js?v=b4106ec66d6e",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "about-nav.js?v=3b98c008b477",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about-nav.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": "guide-content.js?v=98eb7307e1fc",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/guide-content.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      },
+      {
+        "src": "about.js?v=b95a4478c129",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "deploy/websites/pocol.net/about.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/siteA1/about.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/siteA1/docs/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/siteA1/index.html",
+    "in_csv": true,
+    "inline_script_chars": 52,
+    "event_or_javascript_attributes": 2,
+    "scripts": [
+      {
+        "src": "app.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/siteA1/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": null,
+        "type": null,
+        "body_chars": 52
+      },
+      {
+        "src": "http://127.0.0.1:8601/evil.js",
+        "type": null,
+        "body_chars": 0,
+        "reference_kind": "external"
+      }
+    ]
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/siteB/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/siteA1/about.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/siteA1/docs/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/siteA1/index.html",
+    "in_csv": true,
+    "inline_script_chars": 52,
+    "event_or_javascript_attributes": 2,
+    "scripts": [
+      {
+        "src": "app.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/siteA1/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": null,
+        "type": null,
+        "body_chars": 52
+      },
+      {
+        "src": "http://127.0.0.1:8601/evil.js",
+        "type": null,
+        "body_chars": 0,
+        "reference_kind": "external"
+      }
+    ]
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/siteB/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA1/about.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA1/docs/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA1/index.html",
+    "in_csv": true,
+    "inline_script_chars": 52,
+    "event_or_javascript_attributes": 2,
+    "scripts": [
+      {
+        "src": "app.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA1/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": null,
+        "type": null,
+        "body_chars": 52
+      },
+      {
+        "src": "http://127.0.0.1:8601/evil.js",
+        "type": null,
+        "body_chars": 0,
+        "reference_kind": "external"
+      }
+    ]
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA2/about.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA2/docs/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA2/index.html",
+    "in_csv": true,
+    "inline_script_chars": 52,
+    "event_or_javascript_attributes": 2,
+    "scripts": [
+      {
+        "src": "app.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteA2/app.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      },
+      {
+        "src": null,
+        "type": null,
+        "body_chars": 52
+      },
+      {
+        "src": "http://127.0.0.1:8601/evil.js",
+        "type": null,
+        "body_chars": 0,
+        "reference_kind": "external"
+      }
+    ]
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/siteB/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/s1/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "a.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/s1/a.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/s2/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "a.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/s2/a.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/s1/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "a.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/s1/a.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/s2/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "a.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/s2/a.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.2/vectors/draft01-repro/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C1/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.23/pages/C1/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C2/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.23/pages/C2/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C3/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.23/pages/C3/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C4/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.23/pages/C4/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C5/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.23/pages/C5/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C6/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.23/pages/C6/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C7/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.23/pages/C7/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.23/pages/C8/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.23/pages/C8/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P1/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P1/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P2/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P2/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P3/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P3/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P4/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P4/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P5/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "main.js",
+        "type": null,
+        "body_chars": 0,
+        "target_path": "development/m1/m1-draft-0.24/pages-supplemental/C7-P5/main.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "development/m1/m1-draft-0.33/coordinator/files/public/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "/app.js",
+        "type": null,
+        "body_chars": 0,
+        "reference_kind": "root-relative-unresolved"
+      }
+    ]
+  },
+  {
+    "path": "development/m1/vectors/index.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": []
+  },
+  {
+    "path": "prototypes/pocol-extension/src/contract.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "contract-ui.js",
+        "type": "module",
+        "body_chars": 0,
+        "target_path": "prototypes/pocol-extension/src/contract-ui.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "prototypes/pocol-extension/src/options.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "options.js",
+        "type": "module",
+        "body_chars": 0,
+        "target_path": "prototypes/pocol-extension/src/options.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "prototypes/pocol-extension/src/publisher.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "publisher-ui.js",
+        "type": "module",
+        "body_chars": 0,
+        "target_path": "prototypes/pocol-extension/src/publisher-ui.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "prototypes/pocol-extension/src/viewer.html",
+    "in_csv": true,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "viewer.js",
+        "type": "module",
+        "body_chars": 0,
+        "target_path": "prototypes/pocol-extension/src/viewer.js",
+        "target_tracked": true,
+        "target_in_csv": true
+      }
+    ]
+  },
+  {
+    "path": "prototypes/pocol-studio/dist/index.html",
+    "in_csv": false,
+    "inline_script_chars": 0,
+    "event_or_javascript_attributes": 0,
+    "scripts": [
+      {
+        "src": "app.js?v=d2b18a6be20a",
+        "type": "module",
+        "body_chars": 0,
+        "target_path": "prototypes/pocol-studio/dist/app.js",
+        "target_tracked": true,
+        "target_in_csv": false
+      }
+    ]
+  }
+]

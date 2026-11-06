@@ -1,0 +1,90 @@
+{
+  "removed": [
+    {
+      "name": "alloy-eip7702",
+      "version": "0.5.1"
+    },
+    {
+      "name": "alloy-primitives",
+      "version": "0.8.26"
+    },
+    {
+      "name": "base16ct",
+      "version": "0.2.0"
+    },
+    {
+      "name": "const-oid",
+      "version": "0.9.6"
+    },
+    {
+      "name": "crypto-bigint",
+      "version": "0.5.5"
+    },
+    {
+      "name": "der",
+      "version": "0.7.10"
+    },
+    {
+      "name": "ecdsa",
+      "version": "0.16.9"
+    },
+    {
+      "name": "elliptic-curve",
+      "version": "0.13.8"
+    },
+    {
+      "name": "ff",
+      "version": "0.13.1"
+    },
+    {
+      "name": "group",
+      "version": "0.13.0"
+    },
+    {
+      "name": "hmac",
+      "version": "0.12.1"
+    },
+    {
+      "name": "k256",
+      "version": "0.13.4"
+    },
+    {
+      "name": "pkcs8",
+      "version": "0.10.2"
+    },
+    {
+      "name": "revm-precompile",
+      "version": "16.2.0"
+    },
+    {
+      "name": "rfc6979",
+      "version": "0.4.0"
+    },
+    {
+      "name": "sec1",
+      "version": "0.7.3"
+    },
+    {
+      "name": "signature",
+      "version": "2.2.0"
+    },
+    {
+      "name": "spki",
+      "version": "0.7.3"
+    }
+  ],
+  "added": [
+    {
+      "name": "alloy-eip7702",
+      "version": "0.5.1+pocol.crypto.1"
+    },
+    {
+      "name": "alloy-primitives",
+      "version": "0.8.26+pocol.crypto.1"
+    },
+    {
+      "name": "revm-precompile",
+      "version": "16.2.0+pocol.crypto.1"
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+TAP version 13
+# {"unsafe_options_accepted":true,"relative":"../escape-prefix-88203OY6Y023g9rKB.tmp"}
+# {"unsafe_options_accepted":true,"relative":"../escape-postfix.smt2"}
+# {"unsafe_options_accepted":true,"relative":"../escape-array-prefix-882032H7NVokjbNMY.tmp"}
+# {"unsafe_options_accepted":true,"relative":"../escape-array-postfix.smt2"}
+# {"unsafe_options_accepted":true,"relative":"../outside/tmp-88203mEoJppOnI1Cw.smt2"}
+# Subtest: SMT-style temporary file can be written and manually removed
+ok 1 - SMT-style temporary file can be written and manually removed
+  ---
+  duration_ms: 2.12798
+  type: 'test'
+  ...
+# Subtest: rejects string traversal in prefix
+not ok 2 - rejects string traversal in prefix
+  ---
+  duration_ms: 1.270789
+  type: 'test'
+  location: '/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:61:3'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    rejectsUnsafeOptions (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:27:12)
+    TestContext.<anonymous> (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:63:5)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: rejects string traversal in postfix
+not ok 3 - rejects string traversal in postfix
+  ---
+  duration_ms: 1.045212
+  type: 'test'
+  location: '/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:61:3'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    rejectsUnsafeOptions (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:27:12)
+    TestContext.<anonymous> (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:63:5)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: rejects array traversal in prefix
+not ok 4 - rejects array traversal in prefix
+  ---
+  duration_ms: 0.475781
+  type: 'test'
+  location: '/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:61:3'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    rejectsUnsafeOptions (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:27:12)
+    TestContext.<anonymous> (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:63:5)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: rejects array traversal in postfix
+not ok 5 - rejects array traversal in postfix
+  ---
+  duration_ms: 0.503052
+  type: 'test'
+  location: '/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:61:3'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    rejectsUnsafeOptions (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:27:12)
+    TestContext.<anonymous> (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:63:5)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: rejects a dir symlink leading outside the selected temporary root
+not ok 6 - rejects a dir symlink leading outside the selected temporary root
+  ---
+  duration_ms: 0.624443
+  type: 'test'
+  location: '/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:71:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    rejectsUnsafeOptions (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:27:12)
+    TestContext.<anonymous> (/workspace/pocol-dependency-followup-2026-11-05-4sjyywox/prototypes/lp4-execution/tools/test_tmp_security.cjs:77:3)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1402:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    Test.postRun (node:internal/test_runner/test:1542:19)
+    Test.run (node:internal/test_runner/test:1467:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+# Subtest: solc SMT helper keeps its file API and cleans up after a local solver fixture
+ok 7 - solc SMT helper keeps its file API and cleans up after a local solver fixture
+  ---
+  duration_ms: 29.013628
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 2
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 85.25384

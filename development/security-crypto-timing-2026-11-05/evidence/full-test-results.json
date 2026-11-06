@@ -1,0 +1,36 @@
+[
+  {
+    "suite": "execution",
+    "exit": 0,
+    "seconds": 89.27,
+    "argv": [
+      "/workspace/.pocol-cargo/bin/cargo",
+      "+1.99.1",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "/workspace/pocol-crypto-timing-2026-11-05-4_byny3i/prototypes/lp4-execution/Cargo.toml",
+      "--",
+      "--test-threads=1"
+    ]
+  },
+  {
+    "suite": "node",
+    "exit": 0,
+    "seconds": 362.64,
+    "argv": [
+      "/workspace/.pocol-cargo/bin/cargo",
+      "+1.99.1",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "/workspace/pocol-crypto-timing-2026-11-05-4_byny3i/prototypes/pocold/Cargo.toml",
+      "--",
+      "--test-threads=1"
+    ]
+  }
+]
