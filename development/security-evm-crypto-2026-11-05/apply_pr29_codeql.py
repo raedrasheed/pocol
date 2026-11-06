@@ -7,6 +7,7 @@ The older main-branch batch and its guard remain unchanged.
 """
 import argparse
 import base64
+from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
@@ -15,13 +16,40 @@ import subprocess
 import sys
 from urllib.parse import quote
 
-from apply_reviewed_codeql import Blocked, GitHub, REPOSITORY
+from apply_reviewed_codeql import Blocked, GitHub, REPOSITORY, load_plan as load_historical_plan
 
 PLAN_SHA256 = '2caff84219b7b409206b1c1adc43b9ec33f95e4385ce77ececddceb47c41e33c'
 # GitHub's dynamic default-setup run analyzes this PR head, not its merge ref.
 # Evidence: evidence/codeql-pr29-run-ref.json (run 42125256600).
 REF = 'refs/pull/29/head'
 FIELDS = ['path', 'start_line', 'end_line', 'start_column', 'end_column']
+
+
+class InstanceBlocked(Blocked):
+    def __init__(self, message, number, instance, source_sha256=None):
+        self.details = {'number': number, 'ref': instance.get('ref'),
+                        'commit_sha': instance.get('commit_sha'),
+                        'location': instance.get('location'), 'source_sha256': source_sha256}
+        super().__init__(f'{message}: alert #{number}, ref {instance.get("ref")}, '
+                         f'location {json.dumps(instance.get("location"), sort_keys=True)}')
+
+
+@lru_cache(maxsize=1)
+def historical_rows():
+    # The previous review has its own fixed SHA256 and scope validation.
+    # Its data is evidence for exact older source versions, not an ID allowlist.
+    path = Path(__file__).with_name('reviewed-codeql-alerts.json')
+    return tuple(load_historical_plan(path)['alerts'])
+
+
+def reviewed_variants(row, instance):
+    # The PR target itself must match its exact current review. Other refs can
+    # have an older, independently reviewed location in a known source version.
+    if instance.get('ref') == REF:
+        return [row]
+    return [row] + [old for old in historical_rows()
+                    if old['rule'] == row['rule'] and old['reason'] == row['reason']
+                    and old['location']['path'] == row['location']['path']]
 
 
 def key(rule, location):
@@ -99,19 +127,23 @@ def verify(client, row, number, expected_heads, apply, cache):
         raise Blocked('No reviewed open PR29 instance remains')
     for instance in instances:
         location = instance.get('location', {})
-        if any(location.get(field) != row['location'].get(field) for field in FIELDS):
-            raise Blocked('Another open ref has a different location')
         commit, path = instance.get('commit_sha', ''), location.get('path', '')
         if not re.fullmatch(r'[0-9a-f]{40}', commit) or not path or path.startswith('/') or '..' in path.split('/'):
-            raise Blocked('Unsafe or missing immutable source identity')
+            raise InstanceBlocked('Unsafe or missing immutable source identity', number, instance)
+        if path != row['location']['path']:
+            raise InstanceBlocked('Unreviewed source path on an open ref', number, instance)
         identity = (commit, path)
         if identity not in cache:
             content = client.request(f'repos/{REPOSITORY}/contents/{quote(path, safe="/")}?ref={commit}')
             if content.get('type') != 'file' or content.get('encoding') != 'base64':
                 raise Blocked('Reviewed source is not an available regular file')
             cache[identity] = hashlib.sha256(base64.b64decode(content['content'])).hexdigest()
-        if cache[identity] != row['source_sha256']:
-            raise Blocked('Source on an open ref differs from the review')
+        candidates = [variant for variant in reviewed_variants(row, instance)
+                      if all(location.get(field) == variant['location'].get(field) for field in FIELDS)]
+        if not candidates:
+            raise InstanceBlocked('Unreviewed location on an open ref', number, instance, cache[identity])
+        if not any(cache[identity] == variant['source_sha256'] for variant in candidates):
+            raise InstanceBlocked('Unreviewed source version on an open ref', number, instance, cache[identity])
     if heads(client) != expected_heads:
         raise Blocked('Main or the PR advanced during the batch; restart validation')
     if not apply:
@@ -130,20 +162,36 @@ def main():
     args = parser.parse_args()
     if args.out.exists() or not args.out.parent.is_dir():
         parser.error('--out must be new and its parent directory must exist')
-    report = {'repository': REPOSITORY, 'pull_request': 29, 'apply': args.apply, 'decisions': []}
+    report = {'repository': REPOSITORY, 'pull_request': 29, 'apply': args.apply,
+              'phase': 'preflight', 'preflight': [], 'decisions': []}
     code = 0
     try:
         rows, client = load_plan(), GitHub()
+        historical_rows()
         expected = heads(client)
         report['validated_main_and_pr_heads'] = list(expected)
         matches, cache = discover(client, rows), {}
         for row in rows:
-            decision = verify(client, row, matches[key(row['rule'], row['location'])], expected, args.apply, cache)
-            report['decisions'].append(decision)
+            decision = verify(client, row, matches[key(row['rule'], row['location'])], expected, False, cache)
+            report['preflight'].append(decision)
+            if not args.apply:
+                report['decisions'].append(decision)
             args.out.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
-            print(f'#{decision["number"]}: {decision["result"]}', flush=True)
+            print(f'Preflight #{decision["number"]}: {decision["result"]}', flush=True)
+        if args.apply:
+            report['phase'] = 'apply'
+            for row in rows:
+                # Re-read each live instance and the heads immediately before
+                # its PATCH; only immutable source-file hashes are cached.
+                decision = verify(client, row, matches[key(row['rule'], row['location'])], expected, True, cache)
+                report['decisions'].append(decision)
+                args.out.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+                print(f'#{decision["number"]}: {decision["result"]}', flush=True)
+        report['phase'] = 'complete'
     except (Blocked, OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as error:
         report['blocked'] = str(error)
+        if isinstance(error, InstanceBlocked):
+            report['blocked_instance'] = error.details
         print('Stopped: ' + str(error), file=sys.stderr)
         code = 1
     args.out.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')

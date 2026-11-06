@@ -2,6 +2,8 @@
 
 > صُحّح مرجع أداة المالك في 6 نوفمبر 2026 إلى `refs/pull/29/head` المطابق
 > لتشغيل GitHub الفعلي. [سبب التوقف واختبارات التصحيح](CODEQL-PR29-REF-FIX-AR.md).
+> تدعم المتابعة الأحدث [كل نسخة مصدر سبق أن روجعت بموقعها وSHA256 الخاصين](CODEQL-PR29-CROSS-REF-AR.md)،
+> مع فحص الدفعة قبل أي إغلاق، وبقاء رفض النسخ غير المراجعة.
 
 بعد رفع المصدر `1355b12a8b03e7fda32138cda2ee479ad39ddc21`، أنهى CodeQL
 تحليل اللغات الثماني وأبلغ فحص الطلب عن **11 تنبيهًا جديدًا: 10 critical و1 high**.
@@ -40,8 +42,8 @@ CodeQL. لا تتطلب معالجة هذه النتائج تعديل كود ا�
 من جذر هذا الفرع على جهاز يملك جلسة `gh` العادية بصلاحية code-scanning:
 
 ```text
-python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify-v2.json
-python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply-v2.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify-v3.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply-v3.json
 ```
 
 يلزم أن يكون اسما النتيجتين جديدين. الحالات المغلقة تُتخطى. بعد التطبيق يلزم

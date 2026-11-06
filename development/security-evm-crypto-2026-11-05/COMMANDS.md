@@ -99,23 +99,29 @@ Use the separate [source review](CODEQL-PR29-REVIEW-AR.md) and helper for these
 new locations. The historical 197-alert batch does not include them.
 
 ```text
-python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify-v2.json
-python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply-v2.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify-v3.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply-v3.json
 ```
 
 The operator needs normal code-scanning permission. The helper discovers server
-IDs by exact reviewed PR/rule/location matches, validates every open ref against
-the complete source hash, and stops if main or the PR changes during the batch.
-Missing or ambiguous matches stop before writes. It leaves the failed CheckRun
-unchanged; verify GitHub's subsequent gate result before merging.
+IDs by exact reviewed PR/rule/location matches and validates every open ref
+against an exact reviewed location and whole-file hash for that source version.
+The PR target must match its current review; other refs may use an independently
+reviewed older version from the separately hash-pinned historical plan, with the
+same rule/path/decision. An unreviewed version or location still stops writes.
+The entire batch must pass preflight before any PATCH; instances and heads are
+then revalidated before each write. It leaves the failed CheckRun unchanged;
+verify GitHub's subsequent gate result before merging.
 
 ```bash
 python3 -m unittest discover \
   -s development/security-evm-crypto-2026-11-05 -p 'test_apply*codeql.py' -v
 ```
 
-This runs 30 mocked tests (13 historical-batch and 17 PR29), with no real writes.
+This runs 38 mocked tests (13 historical-batch and 25 PR29), with no real writes.
 The PR29 helper now uses the actual default-setup analysis ref
 `refs/pull/29/head`; see the [correction evidence](CODEQL-PR29-REF-FIX-AR.md).
 Update an existing owner checkout with `git pull --ff-only` before retrying.
 Use the new output filenames above to preserve the first stopped run.
+If blocked, the JSON includes the failed phase and the alert/ref/location/source
+hash where available. See the [cross-ref source review](CODEQL-PR29-CROSS-REF-AR.md).

@@ -1,10 +1,14 @@
 """Safety regressions for the PR29 owner helper; no network or real API writes."""
 import base64
 import copy
+from contextlib import redirect_stderr, redirect_stdout
 import hashlib
+import io
 import json
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 import apply_pr29_codeql as tool
@@ -66,6 +70,61 @@ class DynamicHeadFake(Fake):
             if requested != [self.service_ref]:
                 return []
         return super().request(endpoint, payload)
+
+
+class ReviewedOlderSourceFake(DynamicHeadFake):
+    """Current PR source plus the actual independently reviewed older file."""
+    def __init__(self):
+        super().__init__()
+        folder = Path(__file__).resolve().parent
+        evidence = json.loads((folder / 'evidence/pr29-reviewed-older-source.json').read_text())
+        self.reviewed = tool.load_plan()[0]
+        self.alert['rule']['id'] = self.reviewed['rule']
+        self.rows[0]['location'] = copy.deepcopy(self.reviewed['location'])
+        self.older_commit = evidence['source_commit']
+        self.rows.append({'state': 'open', 'ref': 'refs/heads/main',
+                          'commit_sha': self.older_commit,
+                          'location': {**self.reviewed['location'], 'start_line': 51, 'end_line': 51}})
+        self.older_content = evidence['content'].encode()
+        self.content = (folder.parents[1] / self.reviewed['location']['path']).read_bytes()
+
+    def request(self, endpoint, payload=None):
+        if '/contents/' in endpoint and payload is None:
+            query = parse_qs(urlsplit(endpoint).query)
+            data = self.older_content if query.get('ref') == [self.older_commit] else self.content
+            return {'type': 'file', 'encoding': 'base64',
+                    'content': base64.b64encode(data).decode()}
+        return super().request(endpoint, payload)
+
+
+class BatchFake(Fake):
+    def __init__(self):
+        super().__init__()
+        second = copy.deepcopy(ROW)
+        second['location']['start_line'] = second['location']['end_line'] = 9
+        self.reviewed = [copy.deepcopy(ROW), second]
+        self.alerts = {}
+        self.all_instances = {}
+        self.events = []
+        for number, row in zip([401, 402], self.reviewed):
+            alert = copy.deepcopy(self.alert)
+            alert['number'] = number
+            alert['most_recent_instance']['location'] = copy.deepcopy(row['location'])
+            self.alerts[number] = alert
+            self.all_instances[number] = [{**self.rows[0], 'location': copy.deepcopy(row['location'])}]
+        self.listed = list(self.alerts.values())
+
+    def request(self, endpoint, payload=None):
+        if '/alerts/' in endpoint:
+            number = int(endpoint.rsplit('/', 1)[-1])
+            if payload is None:
+                return self.alerts[number]
+            self.events.append(('write', number))
+        return super().request(endpoint, payload)
+
+    def instances(self, number):
+        self.events.append(('read_instances', number))
+        return self.all_instances[number]
 
 
 class ApplyPRTests(unittest.TestCase):
@@ -150,6 +209,86 @@ class ApplyPRTests(unittest.TestCase):
         client = DynamicHeadFake()
         client.rows[0]['ref'] = 'refs/pull/29/merge'
         self.blocked(client)
+
+    def test_reviewed_older_main_location_is_accepted_with_its_full_source_hash(self):
+        client = ReviewedOlderSourceFake()
+        result = tool.verify(client, client.reviewed, 401, (HEAD, PR_HEAD), False, {})
+        self.assertEqual(result['result'], 'verified; no write')
+        self.assertEqual(client.writes, [])
+
+    def test_current_and_reviewed_older_source_allow_only_the_reviewed_payload(self):
+        client = ReviewedOlderSourceFake()
+        tool.verify(client, client.reviewed, 401, (HEAD, PR_HEAD), True, {})
+        self.assertEqual(client.writes, [{'state': 'dismissed',
+                                         'dismissed_reason': client.reviewed['reason'],
+                                         'dismissed_comment': client.reviewed['comment']}])
+
+    def test_changed_older_source_is_rejected_despite_a_reviewed_location(self):
+        client = ReviewedOlderSourceFake(); client.older_content += b'changed'
+        with self.assertRaises(tool.Blocked):
+            tool.verify(client, client.reviewed, 401, (HEAD, PR_HEAD), True, {})
+        self.assertEqual(client.writes, [])
+
+    def test_unreviewed_older_location_is_rejected_despite_a_known_file_hash(self):
+        client = ReviewedOlderSourceFake()
+        client.rows[-1]['location']['start_line'] += 1
+        client.rows[-1]['location']['end_line'] += 1
+        with self.assertRaises(tool.Blocked):
+            tool.verify(client, client.reviewed, 401, (HEAD, PR_HEAD), True, {})
+        self.assertEqual(client.writes, [])
+
+    def test_pr_target_must_match_its_own_reviewed_location(self):
+        client = ReviewedOlderSourceFake()
+        client.rows[0]['location'] = copy.deepcopy(client.rows[-1]['location'])
+        client.rows[0]['commit_sha'] = client.older_commit
+        with self.assertRaises(tool.Blocked):
+            tool.verify(client, client.reviewed, 401, (HEAD, PR_HEAD), True, {})
+        self.assertEqual(client.writes, [])
+
+    def run_batch(self, client, apply):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / 'result.json'
+            argv = ['apply_pr29_codeql.py', '--out', str(output)] + (['--apply'] if apply else [])
+            with patch.object(tool, 'GitHub', return_value=client), \
+                    patch.object(tool, 'load_plan', return_value=client.reviewed), \
+                    patch('sys.argv', argv), redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                code = tool.main()
+            return code, json.loads(output.read_text())
+
+    def test_full_batch_preflight_blocks_all_writes_if_a_later_alert_is_unreviewed(self):
+        client = BatchFake()
+        client.all_instances[402][0]['location']['start_line'] += 1
+        code, report = self.run_batch(client, True)
+        self.assertEqual(code, 1)
+        self.assertEqual(client.writes, [])
+        self.assertEqual(report['phase'], 'preflight')
+        self.assertEqual(report['decisions'], [])
+        self.assertEqual(len(report['preflight']), 1)
+        self.assertEqual(report['blocked_instance']['number'], 402)
+        self.assertEqual(report['blocked_instance']['ref'], tool.REF)
+        self.assertEqual(report['blocked_instance']['source_sha256'], ROW['source_sha256'])
+
+    def test_apply_revalidates_after_all_alerts_pass_preflight(self):
+        client = BatchFake()
+        code, report = self.run_batch(client, True)
+        self.assertEqual(code, 0)
+        self.assertEqual(report['phase'], 'complete')
+        self.assertEqual(len(report['preflight']), 2)
+        self.assertEqual(len(report['decisions']), 2)
+        self.assertEqual(len(client.writes), 2)
+        first_write = client.events.index(('write', 401))
+        self.assertIn(('read_instances', 402), client.events[:first_write])
+        self.assertEqual(client.events.count(('read_instances', 401)), 2)
+        self.assertEqual(client.events.count(('read_instances', 402)), 2)
+
+    def test_read_only_batch_never_enters_apply_phase(self):
+        client = BatchFake()
+        code, report = self.run_batch(client, False)
+        self.assertEqual(code, 0)
+        self.assertEqual(client.writes, [])
+        self.assertEqual(report['phase'], 'complete')
+        self.assertEqual(len(report['decisions']), 2)
+        self.assertTrue(all(row['result'] == 'verified; no write' for row in report['decisions']))
 
     def test_pinned_review_matches_all_11_actual_source_locations(self):
         rows = tool.load_plan()

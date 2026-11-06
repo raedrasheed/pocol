@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-06",
+  "before_fix": {
+    "pr29_tests_run": 22,
+    "errors": 2,
+    "expected_reviewed_older_source_rejected": true
+  },
+  "after_fix": {
+    "tests_passed": 38,
+    "pr29": 25,
+    "historical_main": 13
+  },
+  "historical_review_locations_for_target_file": 7,
+  "pr_targets": 11,
+  "other_ref_policy": "exact independently reviewed rule/path/decision/location/whole-file hash",
+  "target_ref_policy": "exact current PR29 review",
+  "batch_preflight_before_first_patch": true,
+  "revalidation_before_each_patch": true,
+  "unreviewed_sources_or_locations": "blocked",
+  "real_api_writes_by_tests": 0
+}
