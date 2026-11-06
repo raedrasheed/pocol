@@ -13,6 +13,7 @@ and [compiler tool dependency repair](../security-dependency-followup-2026-11-05
 - [Final source CI: 26 successful jobs; CodeQL alert gate remains blocked](CI-PR29-AR.md)
 - [PR29 helper ref correction, 2026-11-06](CODEQL-PR29-REF-FIX-AR.md)
 - [PR29 reviewed source versions and batch preflight](CODEQL-PR29-CROSS-REF-AR.md)
+- [PR29 nullable global state and instance confirmation](CODEQL-PR29-NULL-STATE-AR.md)
 - [Evidence index](evidence/provenance.json), [tested source hashes](evidence/tested-inputs.json)
 
 The evidence records local verification before delivery. It does not certify a

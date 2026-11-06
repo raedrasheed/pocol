@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-06",
+  "observed_target_ids": [
+    47,
+    48,
+    49,
+    52,
+    243,
+    245,
+    58,
+    246,
+    247,
+    248,
+    260
+  ],
+  "observed_global_open": 5,
+  "observed_global_null": 6,
+  "observed_243_pr_state": "open",
+  "official_schema_allows_null": true,
+  "before_fix": {
+    "pr29_tests_run": 32,
+    "errors": 3,
+    "failures": 2
+  },
+  "after_fix": {
+    "passed": 50,
+    "pr29": 37,
+    "historical_main": 13
+  },
+  "full_metadata_batch_replay": "11 preflight + 11 modeled dismissals; retry adds no modeled writes",
+  "test_provenance": "Owner IDs/global states and #243 instance captured; other branch instances and PATCH responses modeled",
+  "unknown_or_absent_states": "never assumed open",
+  "nullable_patch_confirmation": "fresh explicit dismissed instances for every verified active snapshot",
+  "unconfirmed_patch_reports_sent_flag": true,
+  "real_api_writes_by_tests": 0
+}

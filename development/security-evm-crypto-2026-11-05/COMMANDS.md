@@ -99,8 +99,8 @@ Use the separate [source review](CODEQL-PR29-REVIEW-AR.md) and helper for these
 new locations. The historical 197-alert batch does not include them.
 
 ```text
-python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify-v3.json
-python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply-v3.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --out codeql-pr29-verify-v4.json
+python development/security-evm-crypto-2026-11-05/apply_pr29_codeql.py --apply --out codeql-pr29-apply-v4.json
 ```
 
 The operator needs normal code-scanning permission. The helper discovers server
@@ -118,10 +118,16 @@ python3 -m unittest discover \
   -s development/security-evm-crypto-2026-11-05 -p 'test_apply*codeql.py' -v
 ```
 
-This runs 38 mocked tests (13 historical-batch and 25 PR29), with no real writes.
+This runs 50 mocked tests (13 historical-batch and 37 PR29), with no real writes.
 The PR29 helper now uses the actual default-setup analysis ref
 `refs/pull/29/head`; see the [correction evidence](CODEQL-PR29-REF-FIX-AR.md).
 Update an existing owner checkout with `git pull --ff-only` before retrying.
 Use the new output filenames above to preserve the first stopped run.
 If blocked, the JSON includes the failed phase and the alert/ref/location/source
 hash where available. See the [cross-ref source review](CODEQL-PR29-CROSS-REF-AR.md).
+GitHub permits a null global alert state. An explicitly open PR instance is
+required before treating that finding as active; nullable states on other refs
+still undergo source validation. A null PATCH response is confirmed by fresh,
+explicitly dismissed instances for every verified active snapshot. An
+`unconfirmed_patch` records `patch_sent: true` if that confirmation fails.
+See the [owner data and nullable-state regression](CODEQL-PR29-NULL-STATE-AR.md).

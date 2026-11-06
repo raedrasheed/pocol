@@ -97,6 +97,37 @@ class ReviewedOlderSourceFake(DynamicHeadFake):
         return super().request(endpoint, payload)
 
 
+class ObservedNullStateFake(DynamicHeadFake):
+    """Use the owner's actual #243 metadata/instance; PATCH replies are modeled."""
+    def __init__(self):
+        super().__init__()
+        folder = Path(__file__).resolve().parent
+        fixture = json.loads((folder / 'evidence/codeql-owner-null-state-observation.json').read_text())
+        self.reviewed = tool.load_plan()[4]
+        self.alert = copy.deepcopy(fixture['alert_243'])
+        self.alert['rule'] = {'id': self.reviewed['rule']}
+        self.alert['tool'] = {'name': 'CodeQL'}
+        self.rows = copy.deepcopy(fixture['instances_243'])
+        self.pr['head']['sha'] = self.rows[0]['commit_sha']
+        self.content = (folder.parents[1] / self.reviewed['location']['path']).read_bytes()
+        self.response_state = None
+        self.confirm_after_patch = True
+        self.instance_reads = 0
+
+    def instances(self, number):
+        self.instance_reads += 1
+        return copy.deepcopy(self.rows)
+
+    def request(self, endpoint, payload=None):
+        if payload is not None:
+            self.writes.append(payload)
+            if self.confirm_after_patch:
+                for instance in self.rows:
+                    instance['state'] = 'dismissed'
+            return {'state': self.response_state}
+        return super().request(endpoint, payload)
+
+
 class BatchFake(Fake):
     def __init__(self):
         super().__init__()
@@ -125,6 +156,67 @@ class BatchFake(Fake):
     def instances(self, number):
         self.events.append(('read_instances', number))
         return self.all_instances[number]
+
+
+class ObservedBatchFake(BatchFake):
+    """Replay actual owner IDs/global states; model other branch instances.
+
+    #243's PR instance is captured. Other target locations and the older main
+    source are modeled from the two pinned source reviews, not claimed captured.
+    """
+    def __init__(self):
+        super().__init__()
+        folder = Path(__file__).resolve().parent
+        captured = json.loads((folder / 'evidence/codeql-owner-null-state-observation.json').read_text())
+        older = json.loads((folder / 'evidence/pr29-reviewed-older-source.json').read_text())
+        self.reviewed = tool.load_plan()
+        self.main = older['source_commit']
+        self.pr['head']['sha'] = captured['instances_243'][0]['commit_sha']
+        history = {row['number']: row for row in tool.historical_rows()}
+        self.alerts, self.all_instances, self.sources = {}, {}, {}
+        self.unconfirmed_number = None
+        for row, metadata in zip(self.reviewed, captured['alert_metadata']):
+            number = metadata['requested']
+            assert metadata['actual_rule'] == row['rule']
+            instance = {**copy.deepcopy(captured['instances_243'][0]),
+                        'location': copy.deepcopy(row['location'])}
+            self.all_instances[number] = [instance]
+            self.sources[(self.pr['head']['sha'], row['location']['path'])] = (
+                folder.parents[1] / row['location']['path']).read_bytes()
+            if number in history and history[number]['location']['path'] == row['location']['path']:
+                self.all_instances[number].append({**copy.deepcopy(instance), 'ref': 'refs/heads/main',
+                    'commit_sha': self.main, 'location': copy.deepcopy(history[number]['location'])})
+                self.sources[(self.main, older['path'])] = older['content'].encode()
+            self.alerts[number] = {'number': number, 'state': metadata['state'],
+                'rule': {'id': metadata['actual_rule']}, 'tool': {'name': metadata['tool']},
+                'most_recent_instance': instance}
+
+    def request(self, endpoint, payload=None):
+        if '/alerts?' in endpoint:
+            state = parse_qs(urlsplit(endpoint).query)['state'][0]
+            return [alert for number, alert in self.alerts.items()
+                    if self.all_instances[number][0]['state'] == state]
+        if '/alerts/' in endpoint:
+            number = int(endpoint.rsplit('/', 1)[-1])
+            if payload is None:
+                return self.alerts[number]
+            self.writes.append(payload); self.events.append(('write', number))
+            if number != self.unconfirmed_number:
+                for instance in self.all_instances[number]:
+                    instance['state'] = 'dismissed'
+                if self.alerts[number]['state'] is not None:
+                    self.alerts[number]['state'] = 'dismissed'
+            return {'state': self.alerts[number]['state']}
+        if '/contents/' in endpoint:
+            url = urlsplit(endpoint)
+            path = url.path.split('/contents/', 1)[1]
+            content = self.sources[(parse_qs(url.query)['ref'][0], path)]
+            return {'type': 'file', 'encoding': 'base64',
+                    'content': base64.b64encode(content).decode()}
+        return Fake.request(self, endpoint, payload)
+
+    def instances(self, number):
+        return copy.deepcopy(super().instances(number))
 
 
 class ApplyPRTests(unittest.TestCase):
@@ -244,6 +336,110 @@ class ApplyPRTests(unittest.TestCase):
         with self.assertRaises(tool.Blocked):
             tool.verify(client, client.reviewed, 401, (HEAD, PR_HEAD), True, {})
         self.assertEqual(client.writes, [])
+
+    def test_actual_null_global_state_uses_explicit_open_pr_instance(self):
+        client = ObservedNullStateFake()
+        result = tool.verify(client, client.reviewed, 243, tool.heads(client), False, {})
+        self.assertEqual(result['result'], 'verified; no write')
+        self.assertEqual(client.writes, [])
+
+    def test_null_patch_reply_needs_fresh_confirmation_of_all_dismissed_instances(self):
+        client = ObservedNullStateFake()
+        result = tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+        self.assertEqual(result['result'], 'dismissed')
+        self.assertEqual(len(client.writes), 1)
+        self.assertEqual(client.instance_reads, 2)
+
+    def test_null_global_with_closed_pr_instance_is_idempotent(self):
+        client = ObservedNullStateFake(); client.rows[0]['state'] = 'dismissed'
+        result = tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+        self.assertEqual(result['result'], 'already closed on reviewed PR')
+        self.assertEqual(client.writes, [])
+
+    def test_null_global_does_not_make_an_unknown_pr_instance_open(self):
+        client = ObservedNullStateFake(); client.rows[0]['state'] = None
+        with self.assertRaises(tool.Blocked):
+            tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+        self.assertEqual(client.writes, [])
+
+    def test_null_state_on_another_ref_does_not_skip_source_validation(self):
+        client = ObservedNullStateFake()
+        other = copy.deepcopy(client.rows[0]); other['ref'] = 'refs/heads/other'
+        other['state'] = None; other['location']['start_line'] += 1
+        client.rows.append(other)
+        with self.assertRaises(tool.Blocked):
+            tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+        self.assertEqual(client.writes, [])
+
+    def test_null_patch_reply_with_still_open_instances_is_not_reported_closed(self):
+        client = ObservedNullStateFake(); client.confirm_after_patch = False
+        with self.assertRaises(tool.Blocked):
+            tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+        self.assertEqual(len(client.writes), 1)
+
+    def test_null_patch_reply_cannot_be_confirmed_by_missing_instances(self):
+        for incomplete in ['missing_instance', 'missing_location']:
+            with self.subTest(incomplete=incomplete):
+                client = ObservedNullStateFake()
+                original = client.instances
+                def read(number):
+                    result = original(number)
+                    if client.instance_reads > 1:
+                        if incomplete == 'missing_instance':
+                            return []
+                        result[0]['location'] = None
+                    return result
+                client.instances = read
+                with self.assertRaises(tool.DismissalUnconfirmed):
+                    tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+                self.assertEqual(len(client.writes), 1)
+
+    def test_unknown_global_state_remains_blocked_with_metadata_details(self):
+        client = ObservedNullStateFake(); client.alert['state'] = 'pending'
+        with self.assertRaises(tool.AlertBlocked) as error:
+            tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+        self.assertEqual(error.exception.details['observed']['state'], 'pending')
+        self.assertEqual(error.exception.details['number'], 243)
+        self.assertEqual(client.writes, [])
+
+    def test_absent_state_is_not_the_same_as_an_explicit_null_state(self):
+        client = ObservedNullStateFake(); del client.alert['state']
+        with self.assertRaises(tool.AlertBlocked) as error:
+            tool.verify(client, client.reviewed, 243, tool.heads(client), True, {})
+        self.assertFalse(error.exception.details['observed']['state_present'])
+        self.assertEqual(client.writes, [])
+
+    def test_all_11_actual_metadata_rows_pass_preflight_and_apply_in_the_service_model(self):
+        client = ObservedBatchFake()
+        code, report = self.run_batch(client, True)
+        self.assertEqual(code, 0)
+        self.assertEqual(report['phase'], 'complete')
+        self.assertEqual(len(report['preflight']), 11)
+        self.assertEqual(len(report['decisions']), 11)
+        self.assertEqual(len(client.writes), 11)
+        self.assertEqual([r['number'] for r in report['decisions']],
+                         [47, 48, 49, 52, 243, 245, 58, 246, 247, 248, 260])
+        first_write = next(i for i, event in enumerate(client.events) if event[0] == 'write')
+        self.assertIn(('read_instances', 260), client.events[:first_write])
+
+    def test_all_11_are_idempotent_even_when_six_global_states_remain_null(self):
+        client = ObservedBatchFake()
+        self.assertEqual(self.run_batch(client, True)[0], 0)
+        code, report = self.run_batch(client, True)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(client.writes), 11)
+        self.assertTrue(all(row['result'].startswith('already closed') for row in report['decisions']))
+
+    def test_unconfirmed_patch_is_recorded_as_sent_and_stops_later_writes(self):
+        client = ObservedBatchFake(); client.unconfirmed_number = 243
+        code, report = self.run_batch(client, True)
+        self.assertEqual(code, 1)
+        self.assertEqual(report['phase'], 'apply')
+        self.assertEqual(len(report['preflight']), 11)
+        self.assertEqual(len(report['decisions']), 4)
+        self.assertEqual(len(client.writes), 5)
+        self.assertEqual(report['unconfirmed_patch']['number'], 243)
+        self.assertTrue(report['unconfirmed_patch']['patch_sent'])
 
     def run_batch(self, client, apply):
         with tempfile.TemporaryDirectory() as temporary:

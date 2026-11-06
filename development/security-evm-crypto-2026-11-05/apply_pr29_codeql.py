@@ -29,9 +29,43 @@ class InstanceBlocked(Blocked):
     def __init__(self, message, number, instance, source_sha256=None):
         self.details = {'number': number, 'ref': instance.get('ref'),
                         'commit_sha': instance.get('commit_sha'),
-                        'location': instance.get('location'), 'source_sha256': source_sha256}
+                        'location': instance.get('location'), 'state': instance.get('state'),
+                        'source_sha256': source_sha256}
         super().__init__(f'{message}: alert #{number}, ref {instance.get("ref")}, '
                          f'location {json.dumps(instance.get("location"), sort_keys=True)}')
+
+
+class AlertBlocked(Blocked):
+    def __init__(self, number, row, alert):
+        self.details = {'number': number,
+                        'expected': {'number': number, 'rule': row['rule'], 'tool': 'CodeQL'},
+                        'observed': {'number': alert.get('number'), 'state': alert.get('state'),
+                                     'state_present': 'state' in alert,
+                                     'rule': alert.get('rule', {}).get('id'),
+                                     'tool': alert.get('tool', {}).get('name')}}
+        super().__init__(f'Alert metadata changed for #{number}: '
+                         f'{json.dumps(self.details["observed"], sort_keys=True)}')
+
+
+class DismissalUnconfirmed(Blocked):
+    def __init__(self, number, response, instances):
+        self.details = {'number': number, 'patch_sent': True,
+                        'response_state': response.get('state'),
+                        'response_state_present': 'state' in response,
+                        'observed_instances': [{field: instance.get(field) for field in
+                                                ['ref', 'state', 'commit_sha', 'location']}
+                                               for instance in instances]}
+        super().__init__(f'PATCH sent for #{number}, but GitHub did not confirm dismissal '
+                         'of all previously active instances; inspect unconfirmed_patch')
+
+
+def instance_identity(instance):
+    # Preserve the exact verified analysis/source snapshot when the global
+    # response state is null and confirmation must come from instance states.
+    fields = ['ref', 'analysis_key', 'environment', 'category', 'commit_sha']
+    value = {field: instance.get(field) for field in fields}
+    value['location'] = {field: (instance.get('location') or {}).get(field) for field in FIELDS}
+    return json.dumps(value, sort_keys=True)
 
 
 @lru_cache(maxsize=1)
@@ -118,15 +152,27 @@ def discover(client, rows):
 def verify(client, row, number, expected_heads, apply, cache):
     endpoint = f'repos/{REPOSITORY}/code-scanning/alerts/{number}'
     alert = client.request(endpoint)
+    if ('state' not in alert or alert['state'] not in ['open', 'fixed', 'dismissed', None]
+            or alert.get('number') != number or alert.get('rule', {}).get('id') != row['rule']
+            or alert.get('tool', {}).get('name') != 'CodeQL'):
+        raise AlertBlocked(number, row, alert)
     if alert['state'] in ['fixed', 'dismissed']:
         return {'number': number, 'result': 'already closed'}
-    if alert['state'] != 'open' or alert['rule']['id'] != row['rule'] or alert['tool']['name'] != 'CodeQL':
-        raise Blocked('Rule, tool or state changed')
-    instances = [r for r in client.instances(number) if r.get('state') == 'open']
-    if not any(r.get('ref') == REF for r in instances):
-        raise Blocked('No reviewed open PR29 instance remains')
+    all_instances = client.instances(number)
+    for instance in all_instances:
+        if instance.get('state') not in ['open', 'fixed', 'dismissed', None]:
+            raise InstanceBlocked('Unknown instance state', number, instance)
+    target = [instance for instance in all_instances if instance.get('ref') == REF]
+    if alert['state'] is None and target and all(r.get('state') in ['fixed', 'dismissed'] for r in target):
+        return {'number': number, 'result': 'already closed on reviewed PR'}
+    # Null is allowed by GitHub's schema; it does not itself establish openness.
+    if not any(r.get('state') == 'open' for r in target):
+        raise Blocked(f'No explicitly open reviewed PR29 instance remains for #{number}')
+    # A nullable state on another ref is not evidence that it is inactive:
+    # validate its source too before any global dismissal.
+    instances = [r for r in all_instances if r.get('state') not in ['fixed', 'dismissed']]
     for instance in instances:
-        location = instance.get('location', {})
+        location = instance.get('location') or {}
         commit, path = instance.get('commit_sha', ''), location.get('path', '')
         if not re.fullmatch(r'[0-9a-f]{40}', commit) or not path or path.startswith('/') or '..' in path.split('/'):
             raise InstanceBlocked('Unsafe or missing immutable source identity', number, instance)
@@ -148,10 +194,15 @@ def verify(client, row, number, expected_heads, apply, cache):
         raise Blocked('Main or the PR advanced during the batch; restart validation')
     if not apply:
         return {'number': number, 'result': 'verified; no write'}
+    required_instances = {instance_identity(instance) for instance in instances}
     response = client.request(endpoint, {'state': 'dismissed', 'dismissed_reason': row['reason'],
                                          'dismissed_comment': row['comment']})
     if response.get('state') != 'dismissed':
-        raise Blocked('GitHub did not confirm dismissal')
+        after = client.instances(number) if 'state' in response and response['state'] is None else []
+        dismissed = {instance_identity(instance) for instance in after if instance.get('state') == 'dismissed'}
+        if (not required_instances <= dismissed
+                or any(instance.get('state') not in ['dismissed', 'fixed'] for instance in after)):
+            raise DismissalUnconfirmed(number, response, after)
     return {'number': number, 'result': 'dismissed', 'reason': row['reason']}
 
 
@@ -192,6 +243,10 @@ def main():
         report['blocked'] = str(error)
         if isinstance(error, InstanceBlocked):
             report['blocked_instance'] = error.details
+        elif isinstance(error, AlertBlocked):
+            report['blocked_alert'] = error.details
+        elif isinstance(error, DismissalUnconfirmed):
+            report['unconfirmed_patch'] = error.details
         print('Stopped: ' + str(error), file=sys.stderr)
         code = 1
     args.out.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
