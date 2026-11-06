@@ -1,0 +1,27 @@
+{
+  "base_main": "6f47a110dc21469f08b59948597722e7c2160f9d",
+  "observed_problem": "Two authorized wireless ADB entries; default selection stopped before probe execution",
+  "fix": "Explicit --wireless plus --serial select one already connected device; no adb pairing or connection commands",
+  "local_regressions": {
+    "followup_tests_passed": 34,
+    "new_wireless_regressions": 6,
+    "real_device_execution": false,
+    "adb_routing_uses_simulation": true,
+    "host_jni_rehearsal_uses_fake_rust_abi": true
+  },
+  "unchanged_usb_default": true,
+  "emulator_guard_retained": true,
+  "bundle_and_transfer_hash_guards_retained": true,
+  "isolated_remote_directory_guard_retained": true,
+  "original_bundle_revalidated": {
+    "probe_source_commit": "b5602e17881fa737f2736fb71244bbf68cdf075f",
+    "native_source_commit": "03190bed86aacc8e9fdaa895c5be349031bcceb5",
+    "compatibility_sha256": "116dda56f203c46bb31e84ab3022254160db2ee486e21f209ec1de2df81a9973",
+    "original_artifact_id": 13506175435
+  },
+  "java_probe_and_builder_byte_identical_to_original_bundle_source": true,
+  "requires_bundle_redownload": false,
+  "actionlint_passed": true,
+  "owner_device_report_pending": true,
+  "owner_current_codeql_report_pending": true
+}

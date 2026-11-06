@@ -3,7 +3,9 @@
 
 Requires an explicitly supplied bundle and a fresh report path. Uses only a
 random /data/local/tmp directory. Does not install an APK, access wallet data,
-start consensus, create a key, change device settings or collect logcat.
+start consensus, create a wallet key, change device settings or collect logcat.
+Wireless ADB must already be connected and explicitly selected with both
+--wireless and --serial; this tool never pairs, connects or disconnects devices.
 """
 import argparse
 from datetime import datetime, timezone
@@ -54,7 +56,13 @@ def verify_bundle(bundle):
     return value
 
 
-def selected_device(output, wanted):
+def is_wireless(serial):
+    return ':' in serial or serial.rstrip('.').lower().endswith('._tcp')
+
+
+def selected_device(output, wanted, wireless=False):
+    if wireless and not wanted:
+        raise ValueError('Wireless ADB requires an explicit --serial')
     devices = []
     for line in output.splitlines()[1:]:
         fields = line.split()
@@ -68,8 +76,10 @@ def selected_device(output, wanted):
         raise ValueError('Connect and authorize one device, or choose --serial explicitly')
     else:
         selected = devices[0]
-    if selected.startswith('emulator-') or ':' in selected or selected.endswith('._tcp'):
-        raise ValueError('This physical-device procedure requires a local USB device')
+    if selected.startswith('emulator-'):
+        raise ValueError('This procedure requires a physical Android device')
+    if is_wireless(selected) and not wireless:
+        raise ValueError('An already connected wireless device requires --wireless and --serial')
     return selected
 
 
@@ -110,7 +120,7 @@ def run(adb, serial, bundle, manifest, report):
             or not properties['ro.build.version.sdk'].isdigit()
             or int(properties['ro.build.version.sdk']) < 26
             or any(properties[name] == '1' for name in ('ro.kernel.qemu', 'ro.boot.qemu'))):
-        raise ValueError('An ARM64 Android 8+ physical USB device is required')
+        raise ValueError('An ARM64 Android 8+ physical device is required')
     path = safe_remote(REMOTE + uuid.uuid4().hex)
     report['remote_directory'] = path
     try:
@@ -155,7 +165,11 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--adb', default=shutil.which('adb'))
     parser.add_argument('--serial')
+    parser.add_argument('--wireless', action='store_true',
+                        help='Use an already connected wireless device; requires --serial')
     args = parser.parse_args()
+    if args.wireless and not args.serial:
+        parser.error('--wireless requires an explicit --serial')
     if args.out.exists() or not args.out.parent.is_dir():
         parser.error('--out must be new and its parent directory must exist')
     if not args.adb:
@@ -173,7 +187,8 @@ def main():
         report['bundle'] = manifest
         devices = subprocess.run([args.adb, 'devices'], capture_output=True, text=True,
                                  encoding='utf-8', errors='replace', timeout=30, check=True)
-        serial = selected_device(devices.stdout, args.serial)
+        serial = selected_device(devices.stdout, args.serial, args.wireless)
+        report['adb_transport'] = 'wireless' if is_wireless(serial) else 'USB'
         report['phase'] = 'device probe'
         run(args.adb, serial, args.bundle, manifest, report)
         report['phase'] = 'complete'

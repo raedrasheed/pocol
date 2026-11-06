@@ -36,6 +36,12 @@ jobs:
           if ((git rev-parse HEAD) -ne $env:EXPECTED_COMMIT) { throw 'Unexpected source commit' }
           python -m unittest discover -s development/security-codeql-main-2026-11-06 -p test_collect_main_codeql.py -v
           if ($LASTEXITCODE -ne 0) { throw 'Windows collector tests failed' }
+      - name: Test USB and explicit wireless device selection without a phone
+        working-directory: development/security-codeql-main-2026-11-06
+        shell: powershell
+        run: |
+          python -m unittest test_device_probe.DeviceGuards -v
+          if ($LASTEXITCODE -ne 0) { throw 'Windows device guard tests failed' }
   tools:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
