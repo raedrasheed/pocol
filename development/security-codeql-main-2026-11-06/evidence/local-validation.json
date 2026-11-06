@@ -1,0 +1,81 @@
+{
+  "scope": "Local evidence only; no live CodeQL requests or Android device execution",
+  "base_main": "9f17845ee728e567fdd9e0f560a86fda51146441",
+  "historical_review_rows": 197,
+  "current_files_identical_to_review": 190,
+  "changed_rows": [
+    {
+      "number": 47,
+      "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+      "reviewed_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f",
+      "current_file_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3"
+    },
+    {
+      "number": 48,
+      "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+      "reviewed_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f",
+      "current_file_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3"
+    },
+    {
+      "number": 49,
+      "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+      "reviewed_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f",
+      "current_file_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3"
+    },
+    {
+      "number": 52,
+      "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+      "reviewed_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f",
+      "current_file_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3"
+    },
+    {
+      "number": 57,
+      "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+      "reviewed_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f",
+      "current_file_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3"
+    },
+    {
+      "number": 58,
+      "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+      "reviewed_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f",
+      "current_file_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3"
+    },
+    {
+      "number": 59,
+      "path": "prototypes/lp4-execution/tests/earnin_halt_proof.rs",
+      "reviewed_sha256": "91ff0afc5975ddcda0b6976f39b71986f8d297e15225f6f7e0ab10f1f447468f",
+      "current_file_sha256": "ba8ed99a0a84260cd4be3553902df3c4bfb5e9f2453b7b441396a23f0c7ebea3"
+    }
+  ],
+  "checks": {
+    "new_tests": {
+      "passed": 28,
+      "network": false,
+      "android_art": false
+    },
+    "existing_codeql_helper_tests": {
+      "passed": 50,
+      "mock_api_only": true
+    },
+    "existing_host_jni_tests": {
+      "passed": 8,
+      "real_bridge_fake_rust_abi": true
+    },
+    "actionlint": {
+      "version": "1.7.12",
+      "passed": true
+    },
+    "android_dex_and_native_bundle": {
+      "local_build_passed": true,
+      "actual_device_execution": false,
+      "local_apk_sha256": "6d2034f0912895896ff16e8966b676de3b9ed5f6dbbe0a0f3e42fb16debb19dd",
+      "ci_native_run": 42208222279,
+      "ci_native_artifact_id": 13497272552
+    }
+  },
+  "pending": [
+    "Owner read-only current CodeQL evidence (integration access is 403)",
+    "Android ART/JNI report from a physical USB device",
+    "Android UI/background/release signer and multi-host network validation remain separately scoped"
+  ]
+}
