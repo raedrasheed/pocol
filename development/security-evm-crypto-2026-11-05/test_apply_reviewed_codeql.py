@@ -2,6 +2,8 @@
 import base64
 import copy
 import hashlib
+import contextlib
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -20,7 +22,7 @@ ROW = {'number': 12, 'rule': 'rust/hard-coded-cryptographic-value', 'location': 
 
 class Fake:
     def __init__(self):
-        self.alert = {'state': 'open', 'rule': {'id': ROW['rule']}, 'tool': {'name': 'CodeQL'}}
+        self.alert = {'number': ROW['number'], 'state': 'open', 'rule': {'id': ROW['rule']}, 'tool': {'name': 'CodeQL'}}
         self.rows = [{'state': 'open', 'ref': 'refs/heads/main', 'commit_sha': HEAD,
                       'location': copy.deepcopy(LOCATION)}]
         self.content = CONTENT
@@ -44,6 +46,48 @@ class Fake:
 
 
 class ApplyTests(unittest.TestCase):
+    def test_wrong_returned_number_blocks_even_a_closed_alert(self):
+        client = Fake(); client.alert.update(number=13, state='dismissed'); self.blocked(client)
+
+    def test_unknown_or_nullable_global_state_blocks(self):
+        for state in [None, 'unexpected']:
+            client = Fake(); client.alert['state'] = state; self.blocked(client)
+
+    def test_nullable_or_missing_state_on_other_ref_cannot_be_ignored(self):
+        for missing in [True, False]:
+            client = Fake(); other = copy.deepcopy(client.rows[0]); other['ref'] = 'refs/pull/9/head'
+            if missing: del other['state']
+            else: other['state'] = None
+            client.rows.append(other); self.blocked(client)
+
+    def test_missing_ref_blocks_before_write(self):
+        client = Fake(); other = copy.deepcopy(client.rows[0]); del other['ref']
+        client.rows.append(other); self.blocked(client)
+
+    def test_changed_current_main_blocks_when_analysis_still_uses_reviewed_old_commit(self):
+        class LaggingAnalysis(Fake):
+            def request(self, endpoint, payload=None):
+                if '/contents/' in endpoint and endpoint.endswith('ref=' + HEAD):
+                    return {'type': 'file', 'encoding': 'base64',
+                            'content': base64.b64encode(b'unreviewed current main').decode()}
+                return super().request(endpoint, payload)
+        client = LaggingAnalysis(); client.rows[0]['commit_sha'] = 'b' * 40
+        self.blocked(client)
+
+    def test_unconfirmed_patch_is_identified_as_a_write_that_needs_inspection(self):
+        class Unconfirmed(Fake):
+            def request(self, endpoint, payload=None):
+                if payload is not None:
+                    self.writes.append(payload)
+                    return {'state': None}
+                return super().request(endpoint, payload)
+        client = Unconfirmed()
+        with self.assertRaises(tool.UnconfirmedMainDismissal) as error:
+            tool.verify_and_apply(client, ROW, HEAD, True, {})
+        self.assertTrue(error.exception.details['patch_sent'])
+        self.assertEqual(error.exception.details['number'], ROW['number'])
+        self.assertEqual(len(client.writes), 1)
+
     def test_dry_run_never_writes(self):
         client = Fake()
         self.assertEqual(tool.verify_and_apply(client, ROW, HEAD, False, {})['result'], 'verified; no write')
@@ -103,6 +147,69 @@ class ApplyTests(unittest.TestCase):
             with self.assertRaisesRegex(tool.Blocked, '403 Resource not accessible'):
                 tool.GitHub().request('repos/palcertcom/pocol/code-scanning/alerts/12')
             self.assertNotIn('PATCH', run.call_args.args[0])
+
+
+class BatchFake(Fake):
+    def __init__(self):
+        super().__init__()
+        self.alerts = {number: {**copy.deepcopy(self.alert), 'number': number} for number in [12, 13]}
+        self.instances_by_number = {number: copy.deepcopy(self.rows) for number in self.alerts}
+        self.write_numbers = []
+
+    def request(self, endpoint, payload=None):
+        if '/code-scanning/alerts/' in endpoint:
+            number = int(endpoint.rsplit('/', 1)[1])
+            if payload is not None: self.write_numbers.append(number)
+            else: return self.alerts[number]
+        return super().request(endpoint, payload)
+
+    def instances(self, number):
+        return self.instances_by_number[number]
+
+
+class BatchTests(unittest.TestCase):
+    def run_batch(self, client, apply=True, checkpoint=None):
+        rows = [copy.deepcopy(ROW), {**copy.deepcopy(ROW), 'number': 13}]
+        self.report = {}
+        with contextlib.redirect_stdout(io.StringIO()):
+            tool.run_batch(client, rows, apply, self.report, checkpoint or (lambda: None))
+
+    def test_later_preflight_failure_prevents_every_write(self):
+        client = BatchFake(); client.instances_by_number[13][0]['location']['start_line'] += 1
+        with self.assertRaises(tool.Blocked): self.run_batch(client)
+        self.assertEqual(client.writes, [])
+        self.assertEqual(self.report['phase'], 'preflight')
+        self.assertEqual(self.report['active_alert'], 13)
+        self.assertEqual(len(self.report['preflight']), 1)
+
+    def test_only_a_complete_preflight_can_start_dismissals(self):
+        client = BatchFake(); observed = []
+        self.run_batch(client, checkpoint=lambda: observed.append((len(self.report['preflight']), len(client.writes))))
+        self.assertEqual(observed[:2], [(1, 0), (2, 0)])
+        self.assertEqual(client.write_numbers, [12, 13])
+        self.assertEqual(self.report['phase'], 'complete')
+
+    def test_dry_run_keeps_the_complete_batch_read_only(self):
+        client = BatchFake(); self.run_batch(client, apply=False)
+        self.assertEqual(client.writes, [])
+        self.assertEqual(len(self.report['decisions']), 2)
+        self.assertEqual(self.report['phase'], 'complete')
+
+    def test_main_change_at_preflight_barrier_prevents_all_writes(self):
+        client = BatchFake()
+        def checkpoint():
+            if len(self.report['preflight']) == 2: client.current_head = 'b' * 40
+        with self.assertRaises(tool.Blocked): self.run_batch(client, checkpoint=checkpoint)
+        self.assertEqual(client.writes, [])
+
+    def test_live_metadata_is_rechecked_after_preflight(self):
+        client = BatchFake()
+        def checkpoint():
+            if len(client.writes) == 1: client.alerts[13]['rule']['id'] = 'changed/rule'
+        with self.assertRaises(tool.Blocked): self.run_batch(client, checkpoint=checkpoint)
+        self.assertEqual(client.write_numbers, [12])
+        self.assertEqual(self.report['phase'], 'apply')
+        self.assertEqual(self.report['active_alert'], 13)
 
 
 if __name__ == '__main__':
