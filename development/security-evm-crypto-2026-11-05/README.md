@@ -1,5 +1,8 @@
 # EVM cryptography follow-up, 2026-11-05
 
+Latest delivery: [PR29 merged after all 27 checks succeeded and the owner
+completed the 11 reviewed dismissals](DELIVERY-2026-11-06-AR.md).
+
 This application-specific port removes the affected older RustCrypto graph from
 the node, execution library and security fuzz harness while keeping revm 19.7.0.
 It follows the [private signing repair](../security-crypto-timing-2026-11-05/REPORT-AR.md)
@@ -28,8 +31,9 @@ uses the operator's existing GitHub CLI session and only the 197 pinned decision
 it stops on changed source, locations, other open refs, permissions or main HEAD.
 No alert was changed by the local verification recorded here.
 
-Delivery update: [PR29](https://github.com/palcertcom/pocol/pull/29) is open.
-Windows/Linux/Android and browser CI evidence is evaluated separately from the
-original local snapshot. CodeQL reported 11 new findings; their source review
-is linked above. Its failed gate remains in place until an authorized owner
-applies the reviewed decisions and GitHub confirms the result.
+Delivery update: [PR29](https://github.com/palcertcom/pocol/pull/29) merged at
+`03190bed86aacc8e9fdaa895c5be349031bcceb5`. Windows/Linux/Android and browser CI,
+all eight default CodeQL analyses and the aggregate alert gate succeeded on the
+exact tested source. The owner completed all 11 reviewed dismissals; the receipt
+and independent gate verification are linked in the delivery report. The local
+snapshot and earlier stopped-run evidence retain their historical meanings.

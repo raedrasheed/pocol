@@ -95,6 +95,13 @@ configuration transition has actually been verified.
 
 ## New PR29 gate: 11 separately reviewed findings
 
+Completed on 2026-11-06: the owner applied all 11 decisions, GitHub confirmed the
+aggregate gate successful, and PR29 merged. The commands below preserve the
+pre-merge procedure; the PR-specific guard intentionally stops after the PR is
+closed. See the [delivery receipt](DELIVERY-2026-11-06-AR.md). The historical
+197-decision main batch is a separate scope and its current state is not inferred
+from completion of these 11 decisions.
+
 Use the separate [source review](CODEQL-PR29-REVIEW-AR.md) and helper for these
 new locations. The historical 197-alert batch does not include them.
 
