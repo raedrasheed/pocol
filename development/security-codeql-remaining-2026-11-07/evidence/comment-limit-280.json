@@ -1,0 +1,33 @@
+{
+  "source": "Owner-uploaded partial application report",
+  "source_report_sha256": "1784f13cb97a9655525a0457a32eb591bd78dc095e9339d9f6536b16552e2638",
+  "validated_main_head": "0893a8033c129eb01036c485f902e63bbe78d7c4",
+  "phase": "apply",
+  "confirmed_closed_ids": [
+    236
+  ],
+  "active_rejected_alert": 237,
+  "remaining_not_confirmed_count": 18,
+  "observed_api_error": "422 Invalid request.\n\nOnly 280 characters are allowed; 287 were supplied.",
+  "original_plan_sha256": "ca1b955599030c44e0cf3b55f8f4ba75651a857baa58407e9e7a7c66ec066210",
+  "corrected_plan_sha256": "9badea929b55e5185d243361671969465443e9ba294529c4913cd09f9280c46f",
+  "github_comment_limit_characters": 280,
+  "previous_guard_limit_characters": 512,
+  "changed_comment_id": 237,
+  "old_comment_characters": 287,
+  "corrected_comment_characters": 212,
+  "maximum_corrected_comment_characters": 276,
+  "source_locations_ids_reasons_and_hashes_unchanged": true,
+  "historical_197_and_pr29_plan_bytes_unchanged": true,
+  "regressions": {
+    "shared_helper_tests_passed": 68,
+    "remaining_helper_tests_passed": 20,
+    "accepts_exactly_280": true,
+    "rejects_281_before_transport": true,
+    "validates_entire_batch_before_any_network": true,
+    "resume_model_skips_236_and_dismisses_18": true,
+    "post_inventory_model_reports_zero": true,
+    "real_cloud_codeql_mutations": 0
+  },
+  "owner_resume_report_pending": true
+}

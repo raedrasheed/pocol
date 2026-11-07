@@ -16,7 +16,8 @@ import subprocess
 import sys
 from urllib.parse import quote
 
-from apply_reviewed_codeql import Blocked, GitHub, REPOSITORY, load_plan as load_historical_plan
+from apply_reviewed_codeql import (Blocked, GitHub, REPOSITORY,
+                                   load_plan as load_historical_plan, validate_dismissed_comment)
 
 PLAN_SHA256 = '2caff84219b7b409206b1c1adc43b9ec33f95e4385ce77ececddceb47c41e33c'
 # GitHub's dynamic default-setup run analyzes this PR head, not its merge ref.
@@ -99,9 +100,10 @@ def load_plan():
     rows = plan['alerts']
     if (plan['repository'] != REPOSITORY or plan['pull_request'] != 29
             or len(rows) != 11 or len({key(r['rule'], r['location']) for r in rows}) != 11
-            or any(r['reason'] != 'false positive' or not r['comment']
-                   or len(r['comment']) > 512 for r in rows)):
+            or any(r['reason'] != 'false positive' for r in rows)):
         raise Blocked('Unexpected reviewed PR29 scope')
+    for row in rows:
+        validate_dismissed_comment(row['comment'])
     return rows
 
 
@@ -150,6 +152,7 @@ def discover(client, rows):
 
 
 def verify(client, row, number, expected_heads, apply, cache):
+    validate_dismissed_comment(row['comment'])
     endpoint = f'repos/{REPOSITORY}/code-scanning/alerts/{number}'
     alert = client.request(endpoint)
     if ('state' not in alert or alert['state'] not in ['open', 'fixed', 'dismissed', None]

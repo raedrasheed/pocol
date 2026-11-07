@@ -63,6 +63,9 @@ class Fake:
                     for n, a in self.alerts.items() if a['state'] == 'open'] + copy.deepcopy(self.extra)
         number = int(endpoint.rsplit('/', 1)[1])
         if payload is not None:
+            # Independent service contract observed in the owner's HTTP 422.
+            if len(payload.get('dismissed_comment', '')) > 280:
+                raise tool.Blocked('422: only 280 comment characters are allowed')
             self.writes.append((number, payload))
             self.alerts[number]['state'] = 'dismissed'
             for instance in self.instances_by_id[number]: instance['state'] = 'dismissed'
@@ -106,6 +109,32 @@ class RemainingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'plan.json'; path.write_text('{}')
             with self.assertRaises(tool.Blocked): tool.load_plan(path)
+
+    def test_every_remaining_comment_fits_the_real_280_character_limit(self):
+        rows = tool.load_plan()['alerts']
+        self.assertTrue(all(len(row['comment']) <= 280 for row in rows))
+        example = next(row for row in rows if row['number'] == 237)
+        self.assertEqual(len(example['comment']), 212)
+
+    def test_old_287_character_comment_cannot_produce_partial_application(self):
+        client = Fake()
+        next(row for row in client.rows if row['number'] == 237)['comment'] = 'x' * 287
+        with self.assertRaisesRegex(tool.Blocked, '280'): self.execute(client)
+        self.assertEqual(client.calls, [])
+        self.assertEqual(client.writes, [])
+        self.assertEqual(self.report['phase'], 'preflight')
+        self.assertEqual(self.report['active_alert'], 237)
+
+    def test_resume_from_actual_partial_state_skips_236_and_dismisses_only_18(self):
+        client = Fake(); client.alerts[236]['state'] = 'dismissed'
+        for instance in client.instances_by_id[236]: instance['state'] = 'dismissed'
+        self.execute(client)
+        self.assertEqual(len(client.writes), 18)
+        self.assertNotIn(236, {number for number, _ in client.writes})
+        self.assertEqual(self.report['decisions'][0], {'number': 236, 'result': 'already closed'})
+        self.assertTrue(all(len(payload['dismissed_comment']) <= 280 for _, payload in client.writes))
+        self.assertEqual(self.report['remaining_open_main_count'], 0)
+        self.assertTrue(self.report['main_clear_at_postcheck'])
 
     def test_dry_run_keeps_every_alert_open_and_counts_the_inventory(self):
         client = Fake(); self.execute(client, apply=False)

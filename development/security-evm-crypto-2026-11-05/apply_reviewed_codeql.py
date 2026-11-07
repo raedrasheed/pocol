@@ -19,10 +19,18 @@ from urllib.parse import quote
 
 REPOSITORY = 'palcertcom/pocol'
 PLAN_SHA256 = 'ae3aab68e25a51b0331f46947dca2cb4ff75acf79e11c68b6852654cde2c43fe'
+MAX_DISMISSED_COMMENT_CHARS = 280
 
 
 class Blocked(Exception):
     pass
+
+
+def validate_dismissed_comment(comment):
+    if not isinstance(comment, str) or not comment or len(comment) > MAX_DISMISSED_COMMENT_CHARS:
+        length = len(comment) if isinstance(comment, str) else 'invalid type'
+        raise Blocked(f'Dismissal comment must contain 1..{MAX_DISMISSED_COMMENT_CHARS} characters '
+                      f'(received {length}); no truncation is performed')
 
 
 class UnconfirmedMainDismissal(Blocked):
@@ -44,13 +52,16 @@ def load_plan(path):
     if len(set(ids)) != 197 or any(type(number) is not int or number <= 0 for number in ids):
         raise Blocked('Invalid reviewed alert identifiers')
     for row in plan['alerts']:
-        if row['reason'] not in ['false positive', 'used in tests'] or not row['comment'] or len(row['comment']) > 512:
+        if row['reason'] not in ['false positive', 'used in tests']:
             raise Blocked('Invalid approved dismissal decision')
+        validate_dismissed_comment(row['comment'])
     return plan
 
 
 class GitHub:
     def request(self, endpoint, payload=None):
+        if payload is not None and 'dismissed_comment' in payload:
+            validate_dismissed_comment(payload['dismissed_comment'])
         command = ['gh', 'api', '-H', 'Accept: application/vnd.github+json',
                    '--method', 'PATCH' if payload is not None else 'GET', endpoint]
         if payload is not None:
@@ -98,6 +109,7 @@ def source_sha256(client, commit, path, cache):
 
 
 def verify_and_apply(client, row, expected_head, apply, source_cache):
+    validate_dismissed_comment(row['comment'])
     endpoint = f'repos/{REPOSITORY}/code-scanning/alerts/{row["number"]}'
     alert = client.request(endpoint)
     if not isinstance(alert, dict):
@@ -151,8 +163,15 @@ def verify_and_apply(client, row, expected_head, apply, source_cache):
 
 
 def run_batch(client, rows, apply, report, checkpoint):
+    report.update(phase='preflight', preflight=[], decisions=[])
+    # Validate every API payload before any network request. A later oversized
+    # comment must not produce a partially applied batch, even for direct callers.
+    for row in rows:
+        report['active_alert'] = row['number']
+        validate_dismissed_comment(row['comment'])
+    report.pop('active_alert', None)
     head = client.head()
-    report.update(validated_main_head=head, phase='preflight', preflight=[], decisions=[])
+    report['validated_main_head'] = head
     cache = {}
     for row in rows:
         report['active_alert'] = row['number']

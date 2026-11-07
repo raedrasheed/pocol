@@ -16,9 +16,10 @@ import sys
 
 REVIEW = Path(__file__).resolve().parents[1] / 'security-evm-crypto-2026-11-05'
 sys.path.insert(0, str(REVIEW))
-from apply_reviewed_codeql import Blocked, GitHub, REPOSITORY, UnconfirmedMainDismissal, run_batch
+from apply_reviewed_codeql import (Blocked, GitHub, REPOSITORY, UnconfirmedMainDismissal,
+                                   run_batch, validate_dismissed_comment)
 
-PLAN_SHA256 = 'ca1b955599030c44e0cf3b55f8f4ba75651a857baa58407e9e7a7c66ec066210'
+PLAN_SHA256 = '9badea929b55e5185d243361671969465443e9ba294529c4913cd09f9280c46f'
 EXPECTED_IDS = {236, 237, 238, 239, 240, 241, 242, 244, 249, 250, 251, 252,
                 253, 254, 255, 256, 257, 258, 259}
 MAIN = 'refs/heads/main'
@@ -35,9 +36,10 @@ def load_plan(path=None):
             or {row['number'] for row in rows} != EXPECTED_IDS
             or any(type(row['number']) is not int
                    or row['rule'] != 'rust/hard-coded-cryptographic-value'
-                   or row['reason'] != 'false positive' or not row['comment']
-                   or len(row['comment']) > 512 for row in rows)):
+                   or row['reason'] != 'false positive' for row in rows)):
         raise Blocked('Unexpected remaining-19 review scope or decision')
+    for row in rows:
+        validate_dismissed_comment(row['comment'])
     return value
 
 
