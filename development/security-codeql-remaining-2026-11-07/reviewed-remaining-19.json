@@ -1,0 +1,315 @@
+{
+  "repository": "palcertcom/pocol",
+  "review_source_commit": "274ea3e51892301b921db862633f2c46e225575a",
+  "inventory_source_sha256": "87965fa89140dff54672886984c1c6d5d06f24b5f1ea1fd956bf16e134117c93",
+  "scope": "19 source-reviewed open main findings outside the completed historical 197-ID plan",
+  "counts": {
+    "false positive": 19
+  },
+  "alerts": [
+    {
+      "number": 236,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 107,
+        "end_line": 107,
+        "start_column": 63,
+        "end_column": 71
+      },
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV. The u64::MAX/1 branches test account-counter overflow and call-depth ordering.",
+      "source_line": "  let (mut db,_,_)=setup(false,0,false);let nonce=if depth==0{u64::MAX}else{1};",
+      "reviewed_literal": "u64::MAX"
+    },
+    {
+      "number": 237,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/examples/lifecycle_vectors.rs",
+        "start_line": 12,
+        "end_line": 12,
+        "start_column": 40,
+        "end_column": 41
+      },
+      "source_sha256": "19035444b26d035ce64ef5b130a20542069ec70030e3631903bcd7e73dcc2c35",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV. The lifecycle example derives a public expected child address in an InMemoryDB execution.",
+      "source_line": "  let reward=registry_address().create(1);",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 238,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 469,
+        "end_line": 469,
+        "start_column": 82,
+        "end_column": 83
+      },
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "        let txs:Vec<Vec<u8>>=match h%3{0=>{nonce+=1;vec![tx(nonce-1,Some(created(1)),vec![],60_000)]},1=>{nonce+=2;vec![tx(nonce-2,Some(bob),vec![],21000),tx(nonce-1,None,init.clone(),200_000)]},_=>{nonce+=1;vec![tx(nonce-1,Some(bob),vec![],21000)]}};",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 239,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/src/apply/tests.rs",
+        "start_line": 513,
+        "end_line": 513,
+        "start_column": 40,
+        "end_column": 41
+      },
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    let created=alice.address().create(1);assert_ne!(state.slot(&created,&U256::from(0)),U256::ZERO,\"positive control: the created contract's runtime wrote a slot\");",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 240,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 16,
+        "end_line": 16,
+        "start_column": 117,
+        "end_column": 118
+      },
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": " let target=if create2{factory().create2_from_code(U256::from(7).to_be_bytes::<32>(),&init())}else{factory().create(1)};",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 241,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 34,
+        "end_line": 34,
+        "start_column": 70,
+        "end_column": 71
+      },
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": " let (mut db,_,mut tx)=setup(false,0,false);let target=user().create(1);put(&mut db,target,0,10,&[]);",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 242,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 107,
+        "end_line": 107,
+        "start_column": 77,
+        "end_column": 78
+      },
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV. The u64::MAX/1 branches test account-counter overflow and call-depth ordering.",
+      "source_line": "  let (mut db,_,_)=setup(false,0,false);let nonce=if depth==0{u64::MAX}else{1};",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 244,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/create_collision.rs",
+        "start_line": 128,
+        "end_line": 128,
+        "start_column": 70,
+        "end_column": 71
+      },
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": " let (mut db,_,mut tx)=setup(false,0,false);let target=user().create(1);put(&mut db,target,0,10,&[]);",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 249,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/earnin_refund_fix.rs",
+        "start_line": 148,
+        "end_line": 148,
+        "start_column": 39,
+        "end_column": 40
+      },
+      "source_sha256": "7db32cb3da0118198439b22faeab232099e25d6b45d6e16364b939d20cecad37",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    let x = attacker.address().create(0); // the contract this CREATE tx deploys",
+      "reviewed_literal": "0"
+    },
+    {
+      "number": 250,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/lp4-execution/tests/reward_durability.rs",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 39,
+        "end_column": 40
+      },
+      "source_sha256": "7dcdb19c0d068c674c5f39d6e8887a989f245468f216217c5318b3d3f0ca856a",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": " let reward=registry_address().create(1);",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 251,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap.rs",
+        "start_line": 49,
+        "end_line": 49,
+        "start_column": 37,
+        "end_column": 38
+      },
+      "source_sha256": "5aafb243d44fd30b9b1ad5138402fa45a6f67255562c5609a1a4f8d1747936b4",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    let logn=alice.address().create(0);let b=signed(&n,n.chain.head,vec![tx(&alice,0,None,deploy(LOGN),200_000,0)]);let mut e=import(&mut n,&b);blocks.push(b);",
+      "reviewed_literal": "0"
+    },
+    {
+      "number": 252,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/log_cap_scope.rs",
+        "start_line": 40,
+        "end_line": 40,
+        "start_column": 111,
+        "end_column": 112
+      },
+      "source_sha256": "f4b07d5fcedcffd66e65313b71771f7866fbda0b8800f8027f57484672573f45",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    let (alice,bob)=(devnet::account_key(\"alice\"),devnet::account_key(\"bob\"));let logn=alice.address().create(0);",
+      "reviewed_literal": "0"
+    },
+    {
+      "number": 253,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/journal_measure.rs",
+        "start_line": 613,
+        "end_line": 613,
+        "start_column": 39,
+        "end_column": 40
+      },
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    let helper=alice.address().create(0);let p1=signed(&n,p0.hash(),Body{txs:vec![deploy(&alice,0,200_000,0,MEM_HELPER.to_vec())],evidence:vec![]});import(&mut n,&p1);",
+      "reviewed_literal": "0"
+    },
+    {
+      "number": 254,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1026,
+        "end_line": 1026,
+        "start_column": 85,
+        "end_column": 86
+      },
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    let accounts:Vec<Address>=[alice.address(),bob.address(),alice.address().create(1),Address::ZERO,Address::repeat_byte(0x77)].into();",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 255,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1041,
+        "end_line": 1041,
+        "start_column": 100,
+        "end_column": 101
+      },
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    assert_eq!(q(rpc_local(&mut n,\"eth_getStorageAt\",json!([format!(\"{:#x}\",alice.address().create(1)),\"0x3\",\"pending\"]))),U256::from(4),\"the created contract's slot\");",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 256,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1080,
+        "end_line": 1080,
+        "start_column": 49,
+        "end_column": 50
+      },
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    let (head_c,pool_c)=(alice.address().create(0),alice.address().create(2));",
+      "reviewed_literal": "0"
+    },
+    {
+      "number": 257,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 1080,
+        "end_line": 1080,
+        "start_column": 75,
+        "end_column": 76
+      },
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "    let (head_c,pool_c)=(alice.address().create(0),alice.address().create(2));",
+      "reviewed_literal": "2"
+    },
+    {
+      "number": 258,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2028,
+        "end_line": 2028,
+        "start_column": 82,
+        "end_column": 83
+      },
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "            v.push(full(n,\"eth_call\",json!([{\"to\":format!(\"{:#x}\",alice_a.create(1)),\"data\":\"0x\"},t])));}",
+      "reviewed_literal": "1"
+    },
+    {
+      "number": 259,
+      "rule": "rust/hard-coded-cryptographic-value",
+      "location": {
+        "path": "prototypes/pocold/tests/consensus.rs",
+        "start_line": 2092,
+        "end_line": 2092,
+        "start_column": 80,
+        "end_column": 81
+      },
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "reason": "false positive",
+      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV.",
+      "source_line": "            v.push(full(n,\"eth_call\",json!([{\"to\":format!(\"{:#x}\",alice.create(1)),\"data\":\"0x\"},t])));}",
+      "reviewed_literal": "1"
+    }
+  ]
+}

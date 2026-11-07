@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'development/security-codeql-main-2026-11-06/**'
+      - 'development/security-codeql-remaining-2026-11-07/**'
       - 'development/security-evm-crypto-2026-11-05/apply*codeql.py'
       - 'development/security-evm-crypto-2026-11-05/reviewed*codeql*.json'
       - '.github/workflows/security-owner-evidence.yml'
@@ -47,6 +48,11 @@ jobs:
         run: |
           python -m unittest discover -s development/security-evm-crypto-2026-11-05 -p test_apply_reviewed_codeql.py -v
           if ($LASTEXITCODE -ne 0) { throw 'Windows main batch tests failed' }
+      - name: Test remaining 19 findings and final inventory without GitHub writes
+        shell: powershell
+        run: |
+          python -m unittest discover -s development/security-codeql-remaining-2026-11-07 -p 'test_*.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'Windows remaining findings tests failed' }
   tools:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -66,6 +72,7 @@ jobs:
           export POCOL_TEST_JAVA_HOME="$JAVA_HOME_17_X64"
           python3 -m unittest discover -s development/security-codeql-main-2026-11-06 -p 'test_*.py' -v
           python3 -m unittest discover -s development/security-evm-crypto-2026-11-05 -p 'test_apply*codeql.py' -v
+          python3 -m unittest discover -s development/security-codeql-remaining-2026-11-07 -p 'test_*.py' -v
           python3 deploy/standalone/test_android_jni.py -v
       - name: Obtain only the pinned successful main Android build
         env:

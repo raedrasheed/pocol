@@ -1,0 +1,139 @@
+{
+  "review_date": "2026-11-07",
+  "owner_inventory_source_sha256": "87965fa89140dff54672886984c1c6d5d06f24b5f1ea1fd956bf16e134117c93",
+  "owner_inventory_open_main_count": 19,
+  "source_commit": "274ea3e51892301b921db862633f2c46e225575a",
+  "reviewed_ids": [
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    244,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259
+  ],
+  "rule": "rust/hard-coded-cryptographic-value",
+  "decision": "false positive",
+  "semantic_reason": "All flagged values feed public EVM CREATE address derivation or its account-counter overflow test; Address::create hashes RLP(sender, nonce), while ECDSA signing derives its own RFC6979 nonce",
+  "test_classification_count": 18,
+  "unclassified_example_count": 1,
+  "source_files": [
+    {
+      "path": "prototypes/lp4-execution/examples/lifecycle_vectors.rs",
+      "source_sha256": "19035444b26d035ce64ef5b130a20542069ec70030e3631903bcd7e73dcc2c35",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    },
+    {
+      "path": "prototypes/lp4-execution/src/apply/tests.rs",
+      "source_sha256": "28c681e3e9831fc69fb40955d3dcdaa8db0af49eb9b982db187294fee66d53bc",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/create_collision.rs",
+      "source_sha256": "91123b49026971020ce05ac9a14090d44e1bb7c25fbfb87befd553af28e1b598",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/earnin_refund_fix.rs",
+      "source_sha256": "7db32cb3da0118198439b22faeab232099e25d6b45d6e16364b939d20cecad37",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    },
+    {
+      "path": "prototypes/lp4-execution/tests/reward_durability.rs",
+      "source_sha256": "7dcdb19c0d068c674c5f39d6e8887a989f245468f216217c5318b3d3f0ca856a",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    },
+    {
+      "path": "prototypes/pocold/tests/consensus.rs",
+      "source_sha256": "4c139ada822b8b49d4ca2c42694ee9f40ddf3c64084589b1d9ef4ade23aa9ee9",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    },
+    {
+      "path": "prototypes/pocold/tests/journal_measure.rs",
+      "source_sha256": "fde80c83635ee23b1863be69e3e1068a06c7448e43c90537b0704f07a02a71b5",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    },
+    {
+      "path": "prototypes/pocold/tests/log_cap.rs",
+      "source_sha256": "5aafb243d44fd30b9b1ad5138402fa45a6f67255562c5609a1a4f8d1747936b4",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    },
+    {
+      "path": "prototypes/pocold/tests/log_cap_scope.rs",
+      "source_sha256": "f4b07d5fcedcffd66e65313b71771f7866fbda0b8800f8027f57484672573f45",
+      "identical_at_commits": [
+        "46d688b701e165211c36a5a1447fb029a3199302",
+        "1355b12a8b03e7fda32138cda2ee479ad39ddc21",
+        "274ea3e51892301b921db862633f2c46e225575a"
+      ]
+    }
+  ],
+  "address_create_review": {
+    "path": "prototypes/third-party/evm-crypto/alloy-primitives-0.8.26/src/bits/address.rs",
+    "line": 350,
+    "source_sha256": "81bde39ad7089caad9e4e7d0859cf507806376d2165627701643ff088639e004"
+  },
+  "signing_boundary_review": {
+    "path": "prototypes/lp4-execution/src/txsign.rs",
+    "source_sha256": "027798a614299c63efdd338c91b657dbb79a88212fc67b70bc54416c3a6709eb",
+    "transaction_nonce_in_public_rlp_fields": true,
+    "ecdsa_nonce_derived_by_signing_backend": true
+  },
+  "local_guard_tests_passed": 17,
+  "live_codeql_mutations_in_cloud": 0,
+  "owner_remaining_apply_report_pending": true,
+  "historical_batch_actual_owner_completion": {
+    "scope": 197,
+    "dismissed": 190,
+    "already_closed": 7,
+    "false_positive": 186,
+    "used_in_tests": 4,
+    "owner_report_sha256": "3afe1f3cc511c165f5a2a061bf413fe4a26c83c35d8590b017c94bb3a047fa88"
+  },
+  "original_197_plan_unchanged": true,
+  "product_source_changed": false
+}
