@@ -58,9 +58,11 @@ class StandaloneTests(unittest.TestCase):
         self.miner = '0x' + '11' * 20
         for directory in (self.bundle, self.home):
             (directory / 'identity.address').write_text(self.miner + '\n')
-        self.secret = 'DO_NOT_READ_A_PRIVATE_KEY_OR_CONFIGURATION'
-        (self.home / 'identity.pocol-key').write_text(self.secret)
-        (self.bundle / 'operator-private.env').write_text(self.secret)
+        # Empty private-path sentinels: no key/password value is ever written.
+        # The open guard below proves the inventory does not inspect them.
+        (self.home / 'identity.pocol-key').touch()
+        (self.bundle / 'operator-private.env').touch()
+        self.marker = 'UNREQUESTED_PUBLIC_TEST_MARKER'
         for name in tool.LEGACY_BINARIES:
             (self.bundle / name).write_bytes(('public test fixture ' + name).encode())
         shutil.copyfile(Path(sys.executable).resolve(), self.bundle / 'pocol')
@@ -88,7 +90,8 @@ class StandaloneTests(unittest.TestCase):
                        'forkSchedule': [[1, 0], [2, 15000]], 'activeVersion': 2}
         self.status = {**self.params, 'name': 'pocol', 'miner': self.miner, 'stateStore': True,
                        'head': {'height': 77346, 'hash': '0x' + '22' * 32},
-                       'compatiblePeers': 6, 'stats': {'historyDamaged': False}}
+                       'compatiblePeers': 6, 'stats': {'historyDamaged': False},
+                       'unrequestedField': self.marker}
         self.block = {'number': hex(77346), 'hash': self.status['head']['hash'],
                       'stateRoot': '0x' + '33' * 32, 'receiptsRoot': '0x' + '44' * 32}
 
@@ -127,7 +130,7 @@ class StandaloneTests(unittest.TestCase):
         self.assertEqual(result['bindingEvidence']['openStateFilesVerified'], ['LOCK', 'state.redb'])
         self.assertEqual(result['bindingEvidence']['mainPID'], self.child.pid)
         self.assertFalse(result['deploymentPerformed']); self.assertFalse(result['activationHeightSelected'])
-        self.assertNotIn(self.secret, json.dumps(result))
+        self.assertNotIn(self.marker, json.dumps(result))
         self.assertEqual({p: p.read_bytes() for p in self.home.rglob('*') if p.is_file()}, before)
         self.assertNotIn(self.home / 'state/state.redb', opened)  # Only stat/fd metadata, no DB read.
 
@@ -190,14 +193,16 @@ class StandaloneTests(unittest.TestCase):
             self.assertFalse(self.collect()['checks']['stateBinding'])
 
     def test_public_symlink_hardlink_and_fifo_are_refused_before_reading(self):
-        path, secret = self.home / 'identity.address', self.home / 'identity.pocol-key'
+        path, private_path = self.home / 'identity.address', self.home / 'identity.pocol-key'
         for kind in ('symlink', 'hardlink', 'fifo'):
             with self.subTest(kind=kind):
                 path.unlink()
-                if kind == 'symlink': path.symlink_to(secret)
-                elif kind == 'hardlink': os.link(secret, path)
+                if kind == 'symlink': path.symlink_to(private_path)
+                elif kind == 'hardlink': os.link(private_path, path)
                 else: os.mkfifo(path)
-                self.assertFalse(self.collect()['checks']['bundle'])
+                with patch.object(tool.os, 'open', wraps=os.open) as opened:
+                    self.assertFalse(self.collect()['checks']['bundle'])
+                    self.assertNotIn(path, [call.args[0] for call in opened.call_args_list])
                 path.unlink(); path.write_text(self.miner)
 
     def test_symlinked_parent_of_public_files_is_not_followed(self):

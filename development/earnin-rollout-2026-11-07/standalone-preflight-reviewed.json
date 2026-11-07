@@ -31,7 +31,8 @@
     "mainnet_tests": 100,
     "public_wrapper_fits_windows_command_line": true,
     "legacy_archive_and_five_native_hashes_verified": true,
-    "real_proc_fixture": "Disposable copied Python interpreter with test-only binary hashes and held LOCK/state.redb descriptors; no real node, key or service"
+    "real_proc_fixture": "Disposable copied Python interpreter with test-only binary hashes and held LOCK/state.redb descriptors; no real node, key or service",
+    "private_path_sentinels": "Empty files with explicit no-open assertions; no key or password value is written"
   },
   "remaining": "Run the revised collector on the owner workstation to identify and verify the live installation, compare a common old block and confirm progress before copied-state rehearsal"
 }
