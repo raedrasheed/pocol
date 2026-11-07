@@ -9,6 +9,8 @@ on:
       - 'development/security-evm-crypto-2026-11-05/reviewed*codeql*.json'
       - 'deploy/mainnet/collect_seeds.py'
       - 'deploy/mainnet/test_collect_seeds.py'
+      - 'deploy/mainnet/ssh_terminal.py'
+      - 'deploy/mainnet/test_ssh_terminal.py'
       - 'deploy/mainnet/preflight.py'
       - '.github/workflows/security-owner-evidence.yml'
   workflow_dispatch:
@@ -61,6 +63,8 @@ jobs:
         run: |
           python -m unittest discover -s deploy/mainnet -p test_collect_seeds.py -v
           if ($LASTEXITCODE -ne 0) { throw 'Windows three-seed collector tests failed' }
+          python -m unittest discover -s deploy/mainnet -p test_ssh_terminal.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Windows SSH terminal tests failed' }
   tools:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -82,6 +86,7 @@ jobs:
           python3 -m unittest discover -s development/security-evm-crypto-2026-11-05 -p 'test_apply*codeql.py' -v
           python3 -m unittest discover -s development/security-codeql-remaining-2026-11-07 -p 'test_*.py' -v
           python3 -m unittest discover -s deploy/mainnet -p test_collect_seeds.py -v
+          python3 -m unittest discover -s deploy/mainnet -p test_ssh_terminal.py -v
           python3 deploy/standalone/test_android_jni.py -v
       - name: Obtain only the pinned successful main Android build
         env:
