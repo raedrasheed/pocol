@@ -89,6 +89,8 @@ changed current main source, a moving main branch or insufficient permission
 stop the batch and save its phase and active alert. Live instances are re-read
 before every dismissal. An unconfirmed PATCH is recorded as sent and halts
 further writes. Inspect that report before resuming; changed source needs review.
+All dismissal comments must fit GitHub's 280-character limit. They are checked
+across the complete plan before any batch request, and at the HTTP client boundary.
 
 ```bash
 python3 -m unittest discover \
@@ -96,7 +98,7 @@ python3 -m unittest discover \
   -p test_apply_reviewed_codeql.py -v
 ```
 
-These are 24 mocked main-batch tests and perform no real alert writes. The separate
+These are 30 mocked main-batch tests and perform no real alert writes. The separate
 `CodeQL built CSharp and Go diagnostics` workflow performs compiler-traced
 extraction and preserves quality diagnostics with SARIF upload disabled. Existing
 default setup remains authoritative until an owner-managed, all-language

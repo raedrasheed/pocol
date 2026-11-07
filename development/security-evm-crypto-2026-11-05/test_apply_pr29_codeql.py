@@ -56,6 +56,16 @@ class Fake:
         return self.rows
 
 
+class CommentContractTests(unittest.TestCase):
+    def test_pr29_rejects_oversized_comment_before_network(self):
+        client = Fake(); row = {**copy.deepcopy(ROW), 'comment': 'x' * 281}
+        with patch.object(client, 'request', wraps=client.request) as request:
+            with self.assertRaisesRegex(tool.Blocked, '280'):
+                tool.verify(client, row, 401, (HEAD, PR_HEAD), True, {})
+            request.assert_not_called()
+        self.assertEqual(client.writes, [])
+
+
 class DynamicHeadFake(Fake):
     """Model the observed service ref without deriving it from the helper."""
     def __init__(self):

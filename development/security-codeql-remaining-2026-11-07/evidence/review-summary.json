@@ -135,5 +135,12 @@
     "owner_report_sha256": "3afe1f3cc511c165f5a2a061bf413fe4a26c83c35d8590b017c94bb3a047fa88"
   },
   "original_197_plan_unchanged": true,
-  "product_source_changed": false
+  "product_source_changed": false,
+  "comment_limit_correction": {
+    "evidence": "comment-limit-280.json",
+    "confirmed_closed_before_resume": 1,
+    "remaining_before_resume": 18,
+    "limit_characters": 280,
+    "scope_and_source_decisions_unchanged": true
+  }
 }

@@ -35,7 +35,7 @@
       },
       "source_sha256": "19035444b26d035ce64ef5b130a20542069ec70030e3631903bcd7e73dcc2c35",
       "reason": "false positive",
-      "comment": "Reviewed 2026-11-07: public EVM account/CREATE transaction counter used in deterministic contract-address derivation (keccak256 of RLP(sender, nonce)), not an ECDSA signing nonce, key or cipher IV. The lifecycle example derives a public expected child address in an InMemoryDB execution.",
+      "comment": "Reviewed 2026-11-07: this example derives a public Ethereum CREATE address from the registry account counter 1 using RLP(sender, nonce) and Keccak. The value is an account counter, not a signing nonce, key or IV.",
       "source_line": "  let reward=registry_address().create(1);",
       "reviewed_literal": "1"
     },

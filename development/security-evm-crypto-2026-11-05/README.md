@@ -6,6 +6,10 @@ completed the 11 reviewed dismissals](DELIVERY-2026-11-06-AR.md).
 2026-11-07 update: the owner completed the historical batch (190 confirmed
 dismissals and seven already closed). A subsequent full main inventory found
 [19 additional findings outside that plan, now independently source-reviewed](../security-codeql-remaining-2026-11-07/README-AR.md).
+The first remaining finding was dismissed before GitHub rejected an oversized
+comment. The shared API limit is now 280 characters, checked for every payload
+before batch networking and again at the transport boundary. The remaining
+helper resumes closed findings safely; no comment is silently truncated.
 
 This application-specific port removes the affected older RustCrypto graph from
 the node, execution library and security fuzz harness while keeping revm 19.7.0.

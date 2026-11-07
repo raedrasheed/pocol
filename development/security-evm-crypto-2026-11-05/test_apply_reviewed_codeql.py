@@ -46,6 +46,38 @@ class Fake:
 
 
 class ApplyTests(unittest.TestCase):
+    def test_comment_limit_matches_observed_github_contract(self):
+        self.assertEqual(tool.MAX_DISMISSED_COMMENT_CHARS, 280)
+
+    def test_exact_280_character_comment_is_accepted(self):
+        client = Fake(); row = {**ROW, 'comment': 'x' * 280}
+        self.assertEqual(tool.verify_and_apply(client, row, HEAD, True, {})['result'], 'dismissed')
+        self.assertEqual(client.writes[0]['dismissed_comment'], 'x' * 280)
+
+    def test_281_character_comment_is_rejected_before_metadata_requests(self):
+        client = Fake(); row = {**ROW, 'comment': 'x' * 281}
+        with patch.object(client, 'request', wraps=client.request) as request:
+            with self.assertRaisesRegex(tool.Blocked, '280'):
+                tool.verify_and_apply(client, row, HEAD, True, {})
+            request.assert_not_called()
+        self.assertEqual(client.writes, [])
+
+    def test_transport_blocks_oversized_comment_without_invoking_gh(self):
+        with patch.object(tool.subprocess, 'run') as request:
+            with self.assertRaisesRegex(tool.Blocked, '280'):
+                tool.GitHub().request('repos/palcertcom/pocol/code-scanning/alerts/237',
+                                      {'state': 'dismissed', 'dismissed_comment': 'x' * 281})
+            request.assert_not_called()
+
+    def test_transport_preserves_a_280_character_unicode_comment_without_truncation(self):
+        comment = '\u0645' * 280
+        response = type('Response', (), {'returncode': 0, 'stdout': b'{"state":"dismissed"}'})()
+        with patch.object(tool.subprocess, 'run', return_value=response) as request:
+            tool.GitHub().request('repos/palcertcom/pocol/code-scanning/alerts/237',
+                                  {'state': 'dismissed', 'dismissed_comment': comment})
+            payload = json.loads(request.call_args.kwargs['input'].decode('utf-8'))
+            self.assertEqual(payload['dismissed_comment'], comment)
+
     def test_wrong_returned_number_blocks_even_a_closed_alert(self):
         client = Fake(); client.alert.update(number=13, state='dismissed'); self.blocked(client)
 
@@ -168,11 +200,22 @@ class BatchFake(Fake):
 
 
 class BatchTests(unittest.TestCase):
-    def run_batch(self, client, apply=True, checkpoint=None):
-        rows = [copy.deepcopy(ROW), {**copy.deepcopy(ROW), 'number': 13}]
+    def run_batch(self, client, apply=True, checkpoint=None, rows=None):
+        rows = rows or [copy.deepcopy(ROW), {**copy.deepcopy(ROW), 'number': 13}]
         self.report = {}
         with contextlib.redirect_stdout(io.StringIO()):
             tool.run_batch(client, rows, apply, self.report, checkpoint or (lambda: None))
+
+    def test_later_oversized_comment_blocks_all_network_and_writes(self):
+        client = BatchFake(); rows = [copy.deepcopy(ROW), {**copy.deepcopy(ROW), 'number': 13, 'comment': 'x' * 281}]
+        with patch.object(client, 'request', wraps=client.request) as request, \
+             patch.object(client, 'head', wraps=client.head) as head:
+            with self.assertRaisesRegex(tool.Blocked, '280'): self.run_batch(client, rows=rows)
+            request.assert_not_called(); head.assert_not_called()
+        self.assertEqual(client.writes, [])
+        self.assertEqual(self.report['phase'], 'preflight')
+        self.assertEqual(self.report['active_alert'], 13)
+        self.assertEqual(self.report['preflight'], [])
 
     def test_later_preflight_failure_prevents_every_write(self):
         client = BatchFake(); client.instances_by_number[13][0]['location']['start_line'] += 1
