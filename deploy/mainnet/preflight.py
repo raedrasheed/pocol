@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only, local seed inventory for a same-chain PoCol Mainnet rollout.
+"""Read-only, local seed inventory before the PoCol Earn-in transition.
 
 Reads public bundle metadata, the public state binding, and loopback node RPC.
 Never reads keys, service environments, process command lines, or wallet balances.
@@ -28,6 +28,21 @@ PUBLIC_FILES = {'manifest.json', 'node.json', 'build-info.json', 'node_operator.
 REQUIRED_FILES = {'manifest.json', 'node.json', 'build-info.json', 'node_operator.py',
                   'pocol-testnet.service', 'net/genesis.spec.hex', 'net/devnet.json', 'net/alloc.json',
                   'bin/pocold', 'bin/pocol-key', 'bin/pocol-sign', 'bin/pocol-site'}
+# The published handoff-2026-11-01 Linux package, not hashes learned from a host.
+# Its fresh installer copies only these binaries and identity.address into /opt.
+LEGACY_SOURCE = '6cf38a14aa01ca3d824b0309564942cc926ca7232e2a5b2672a17e8c99e35476'
+LEGACY_BINARIES = {
+    'pocol': '26ad2761d19137542cc642369416289b8d2ddd56ac52c225ccd0cfd1c6cd0364',
+    'pocold': '82d95f4511345848b4a318368ec5c266e2ccf91d0a44fd9bd0aff7359e0b1cb6',
+    'pocol-key': '0f80b3e989a5919196ef6420d5221af21697d19c05ad70f6506d52a5e3434f09',
+    'pocol-sign': 'ea1c4e66c03398a625f128dd9fe2d33fb73dca6d8453c50a6e44a2b888e3a4ad',
+    'pocol-site': 'c13b285d431b1e4bb88c8f957a86869ef8b0bee14e1f8dc2ec5f45e54acffca8',
+}
+LEGACY_SPEC_SHA256 = '2aa7c71b0aab924002281bfb05f2cda6c06998999ebe4511774a219932668725'
+LAYOUTS = {
+    'manifest': (Path('/opt/pocol-testnet'), Path('/var/lib/pocol-testnet'), 'pocol-testnet.service'),
+    'standalone': (Path('/opt/pocol-standalone'), Path('/var/lib/pocol-standalone'), 'pocol-standalone.service'),
+}
 
 
 class PreflightError(ValueError):
@@ -46,10 +61,37 @@ def unique(pairs):
     return result
 
 
-def read_json(path):
+def real_path(path, directory=False):
+    require(path.is_absolute() and '..' not in path.parts, 'public path must be absolute without parent traversal')
+    for parent in (path, *path.parents):
+        require(not parent.is_symlink(), 'public path contains a symbolic link')
+    if directory: require(path.is_dir(), 'public directory is unavailable')
+
+
+def open_public(path, limit=None):
+    """Open a known public file only; refuse links and nonregular files before reading."""
+    real_path(path)
     metadata = path.lstat()
     require(stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1, 'metadata must be a regular single-link file')
-    with path.open('rb') as stream: raw = stream.read(512 * 1024 + 1)
+    if limit is not None: require(metadata.st_size <= limit, 'public file exceeds size limit')
+    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))
+    try:
+        opened = os.fstat(fd)
+        require(stat.S_ISREG(opened.st_mode) and opened.st_nlink == 1
+                and os.path.samestat(metadata, opened), 'public file changed during inspection')
+        return os.fdopen(fd, 'rb')
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def public_bytes(path, limit=512 * 1024):
+    with open_public(path, limit) as stream: raw = stream.read(limit + 1)
+    require(len(raw) <= limit, 'public file exceeds size limit')
+    return raw
+
+
+def json_object(raw):
     require(len(raw) <= 512 * 1024, 'metadata exceeds size limit')
     try: value = json.loads(raw, object_pairs_hook=unique)
     except (UnicodeError, json.JSONDecodeError): raise PreflightError('invalid JSON metadata') from None
@@ -57,10 +99,13 @@ def read_json(path):
     return value
 
 
+def read_json(path):
+    return json_object(public_bytes(path))
+
+
 def digest(path):
-    require(path.stat().st_size <= 256 * 1024 * 1024, 'public bundle file exceeds size limit')
     result = hashlib.sha256()
-    with path.open('rb') as stream:
+    with open_public(path, 256 * 1024 * 1024) as stream:
         for content in iter(lambda: stream.read(1024 * 1024), b''): result.update(content)
     return result.hexdigest()
 
@@ -174,7 +219,7 @@ def bundle_report(bundle):
 
 def service_report(name):
     require(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.@-]{0,120}\.service', name), 'invalid service unit name')
-    fields = ('Id', 'LoadState', 'ActiveState', 'SubState', 'FragmentPath', 'WorkingDirectory', 'User')
+    fields = ('Id', 'LoadState', 'ActiveState', 'SubState', 'FragmentPath', 'WorkingDirectory', 'StateDirectory', 'User', 'MainPID')
     try:
         result = subprocess.run(['systemctl', 'show', name, '--no-pager', '--property=' + ','.join(fields)],
                                 capture_output=True, text=True, timeout=5, check=False)
@@ -194,10 +239,109 @@ def service_report(name):
             report[key[0].lower() + key[1:]] = value
     user = values.get('User', '')
     if re.fullmatch(r'[A-Za-z0-9_-]{1,64}', user): report['user'] = user
+    state = values.get('StateDirectory', '')
+    if re.fullmatch(r'[A-Za-z0-9_.-]{1,128}', state): report['stateDirectory'] = state
+    pid = values.get('MainPID', '')
+    if re.fullmatch(r'[0-9]{1,10}', pid): report['mainPID'] = int(pid)
     return report
 
 
-def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=None, check_height=None):
+def additional_node_units():
+    """Return bounded unit names only, so an unknown installation remains diagnosable."""
+    try:
+        result = subprocess.run(['systemctl', 'list-units', '--all', '--type=service', '--no-legend',
+                                 '--plain', 'pocol*.service'], capture_output=True, text=True, timeout=5, check=False)
+        if result.returncode or len(result.stdout) > 32768: return []
+        names = [line.split()[0] for line in result.stdout.splitlines() if line.split()]
+        if len(names) > 24: return []
+        return [name for name in names if re.fullmatch(r'pocol[A-Za-z0-9_.@-]{0,114}\.service', name)]
+    except (OSError, subprocess.SubprocessError): return []
+
+
+def choose_layout(layout, bundle, data, main_service, services):
+    require(layout in (*LAYOUTS, 'auto'), 'unsupported installation layout')
+    if layout != 'auto': return layout, bundle, data, main_service
+    require((bundle, data, main_service) == LAYOUTS['manifest'], 'automatic discovery requires the default paths and service')
+    active = [kind for kind, (_, _, unit) in LAYOUTS.items()
+              if any(s.get('unit') == unit and s.get('activeState') == 'active' for s in services)]
+    require(len(active) == 1, 'expected exactly one active known node service; inspect the service metadata')
+    kind = active[0]
+    return (kind, *LAYOUTS[kind])
+
+
+def standalone_report(bundle, home):
+    """Check only the legacy installer's public allowlist; never enumerate the home."""
+    for directory in (bundle, home, home / 'network', home / 'state'): real_path(directory, directory=True)
+    for name, expected in LEGACY_BINARIES.items():
+        require(digest(bundle / name) == expected, 'standalone binary differs from the published legacy release')
+    installed, saved = (read_json(path / 'network.pocol.json') for path in (bundle, home))
+    require(installed == saved, 'installed and saved standalone invitations differ')
+    require(set(saved) == {'schema', 'compatibilitySha256', 'seeds', 'files'}
+            and saved['schema'] == 'pocol-network-v1' and saved['compatibilitySha256'] == LEGACY_SOURCE,
+            'unsupported standalone invitation or source')
+    files = saved['files']
+    require(isinstance(files, dict) and set(files) == {'alloc.json', 'devnet.json', 'genesis.spec.hex'}
+            and all(isinstance(v, str) for v in files.values()), 'invalid standalone public file inventory')
+    # The old genesis is pinned independently of both the RPC and the host's metadata.
+    require(hashlib.sha256(files['genesis.spec.hex'].encode()).hexdigest() == LEGACY_SPEC_SHA256,
+            'standalone GenesisSpec differs from the published old network')
+    for name, content in files.items():
+        require(public_bytes(home / 'network' / name) == content.encode(), 'standalone public network file differs from its invitation')
+    network = json_object(files['devnet.json'])
+    json_object(files['alloc.json'])
+    public = identity({**network, 'compatibilitySha256': LEGACY_SOURCE})
+    require((public['chainId'], public['genesisHash']) == (CHAIN_ID, GENESIS)
+            and network.get('keyMode') == 'independent-key-files', 'standalone network identity or key mode differs')
+    require(saved['seeds'] == [f'{host}:30300' for host in ('108.165.128.89', '108.165.128.90', '108.165.128.91')],
+            'standalone seed addresses differ from the reviewed network')
+    addresses = [public_bytes(path / 'identity.address', 128).decode('ascii').strip() for path in (bundle, home)]
+    require(addresses[0] == addresses[1] and re.fullmatch(r'0x[0-9a-f]{40}', addresses[0]),
+            'standalone public miner addresses disagree or are invalid')
+    binding = binding_identity({**public, 'protocolVersion': 2, 'stateStore': True, 'node': 'pocol', 'miner': addresses[0]})
+    schedule = forks(network.get('forks', [[1, 0]]))
+    return {**public, 'binding': binding, 'nodeName': 'pocol', 'release': 'handoff-2026-11-01',
+            'binarySha256': dict(LEGACY_BINARIES), 'invitationSha256': digest(home / 'network.pocol.json'),
+            'forkSchedule': [[v, str(h)] for v, h in schedule], 'filesVerified': 12}
+
+
+def standalone_state(home, bundle, main):
+    """Bind live storage to the known executable without opening a key or database."""
+    state = home / 'state'
+    require(main.get('activeState') == 'active', 'standalone service is not active')
+    with open_public(state / 'blocks.journal') as stream: header = stream.read(40)
+    require(header == b'POCOLJ2\n' + bytes.fromhex(GENESIS[2:]), 'standalone journal genesis or version differs')
+    require(main.get('user') == 'pocol-standalone' and main.get('stateDirectory') == 'pocol-standalone',
+            'standalone service account or StateDirectory differs from the installer')
+    pid = main.get('mainPID')
+    require(type(pid) is int and pid > 1, 'standalone service has no running main process')
+    process = Path('/proc') / str(pid)
+    image = os.readlink(process / 'exe')
+    require(image in (str(bundle / 'pocol'), str(bundle / 'pocold')), 'standalone main process uses another executable')
+    require(os.path.samestat((process / 'exe').stat(), Path(image).stat())
+            and home.stat().st_uid > 0 and process.stat().st_uid == home.stat().st_uid,
+            'standalone process image or storage ownership differs')
+    wanted = {str(state / name): name for name in ('LOCK', 'state.redb')}
+    for path in wanted:
+        real_path(Path(path))
+        meta = Path(path).lstat()
+        require(stat.S_ISREG(meta.st_mode) and meta.st_nlink == 1, 'standalone storage must use regular single-link files')
+    opened = set()
+    for count, fd in enumerate((process / 'fd').iterdir(), 1):
+        require(count <= 4096, 'standalone process descriptor inventory exceeds the limit')
+        try:
+            target = os.readlink(fd)
+            if target in wanted and os.path.samestat(fd.stat(), Path(target).stat()): opened.add(wanted[target])
+        except FileNotFoundError: continue  # Unrelated sockets may close during the read.
+    require(opened == set(wanted.values()), 'standalone main process is not holding the selected state and lock files')
+    confirmed = service_report(main['unit'])
+    require(confirmed.get('activeState') == 'active' and confirmed.get('mainPID') == pid
+            and os.readlink(process / 'exe') == image, 'standalone process changed during inspection; collect again')
+    return {'kind': 'standalone-public-invitation-journal-runtime', 'journalGenesisVerified': True,
+            'mainPID': pid, 'executable': image, 'openStateFilesVerified': sorted(opened)}
+
+
+def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=None, check_height=None, layout='manifest'):
+    bundle, data = bundle.absolute(), data.absolute()
     report = {'schema': 'pocol-mainnet-preflight-v1',
               'capturedAt': datetime.now(timezone.utc).isoformat(timespec='seconds'),
               'requestedNetworkName': 'PoCol Mainnet',
@@ -207,6 +351,18 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
               'publicLaunchReady': False, 'checks': {}, 'issues': []}
     def fail(stage, message):
         report['checks'][stage] = False; report['issues'].append({'stage': stage, 'reason': message})
+    units = [main_service, 'pocol-standalone.service', 'pocol-explorer-gateway.service',
+             'pocol-studio-gateway.service', 'nginx.service', 'caddy.service']
+    if services is None: units += additional_node_units()
+    report['services'] = services if services is not None else [service_report(unit) for unit in dict.fromkeys(units)]
+    try:
+        layout, bundle, data, main_service = choose_layout(layout, bundle, data, main_service, report['services'])
+        report['layout'] = layout
+        report['paths'] = {'bundle': str(bundle), 'state': str(data / 'state' if layout == 'standalone' else data),
+                           'service': main_service}
+        if layout == 'standalone': report['paths'].update(home=str(data), network=str(data / 'network'))
+        report['checks']['layout'] = True
+    except PreflightError as error: fail('layout', str(error))
     try:
         params, status = rpc('pocol_getParams', []), rpc('pocol_status', [])
         require(isinstance(params, dict) and isinstance(status, dict), 'invalid node metadata')
@@ -262,7 +418,8 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
     except PreflightError as error: fail('node', str(error))
     except (OSError, ValueError, TypeError, http.client.HTTPException): fail('node', 'local RPC could not be read safely')
     try:
-        report['bundle'] = bundle_report(bundle)
+        require(report['checks'].get('layout'), 'installation layout was not identified')
+        report['bundle'] = standalone_report(bundle, data) if layout == 'standalone' else bundle_report(bundle)
         report['checks']['bundle'] = True
         if 'node' in report:
             require(identity(report['bundle']) == identity(report['node']), 'running source differs from the installed public bundle')
@@ -272,17 +429,21 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
     except (OSError, ValueError, KeyError, TypeError): fail('bundle', 'public bundle could not be verified')
     try:
         require(data.is_dir() and not data.is_symlink(), 'state directory is unavailable')
-        saved = read_json(data / 'network-binding.json')
-        binding = binding_identity(saved)
+        require(report['checks'].get('layout'), 'installation layout was not identified')
+        if layout == 'standalone':
+            require('bundle' in report and report['checks'].get('bundle'), 'standalone release and public invitation were not verified')
+            main = next((s for s in report['services'] if s.get('unit') == main_service), {})
+            report['bindingEvidence'] = standalone_state(data, bundle, main)
+            binding = report['bundle']['binding']
+        else:
+            binding = binding_identity(read_json(data / 'network-binding.json'))
         report['stateBinding'] = binding
         require('bundle' in report and binding == report['bundle']['binding'], 'state release binding differs from the bundle')
-        space = os.statvfs(data)
+        space = os.statvfs(data / 'state' if layout == 'standalone' else data)
         report['storage'] = {'availableBytes': str(space.f_bavail * space.f_frsize)}
         report['checks']['stateBinding'] = True
     except PreflightError as error: fail('stateBinding', str(error))
     except (OSError, ValueError, KeyError, TypeError): fail('stateBinding', 'public state binding could not be read')
-    units = [main_service, 'pocol-explorer-gateway.service', 'pocol-studio-gateway.service', 'nginx.service', 'caddy.service']
-    report['services'] = services if services is not None else [service_report(unit) for unit in units]
     main = next((service for service in report['services'] if service.get('unit') == main_service), {})
     if main.get('activeState') != 'active': fail('service', 'the selected node service is not observed active')
     else: report['checks']['service'] = True
@@ -296,11 +457,16 @@ def main():
     parser.add_argument('--bundle', type=Path, default=Path('/opt/pocol-testnet'))
     parser.add_argument('--data', type=Path, default=Path('/var/lib/pocol-testnet'))
     parser.add_argument('--service', default='pocol-testnet.service')
+    parser.add_argument('--layout', choices=['manifest', 'standalone', 'auto'], default='manifest',
+                        help='auto selects exactly one active known installer; no arbitrary filesystem discovery')
     parser.add_argument('--check-height', type=int, help='Read the same canonical block height on every seed for comparison; this is not an activation height')
     parser.add_argument('--out', type=Path, help='Create a new sanitized report file; existing files are never replaced')
     args = parser.parse_args()
     try:
-        report = collect(LocalRpc(args.rpc), args.bundle, args.data, args.service, check_height=args.check_height)
+        if args.layout == 'standalone' and (args.bundle, args.data, args.service) == LAYOUTS['manifest']:
+            args.bundle, args.data, args.service = LAYOUTS['standalone']
+        report = collect(LocalRpc(args.rpc), args.bundle, args.data, args.service,
+                         check_height=args.check_height, layout=args.layout)
         text = json.dumps(report, indent=2) + '\n'
         if args.out:
             with args.out.open('x', encoding='utf-8') as stream: stream.write(text)

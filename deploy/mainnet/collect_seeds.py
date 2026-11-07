@@ -21,7 +21,7 @@ import ssh_terminal
 
 HOSTS = ('108.165.128.89', '108.165.128.90', '108.165.128.91')
 USER = 'pocol-admin'
-PREFLIGHT_SHA256 = '2150ce8e9c55b7559fc9995fae0067f8021fba751e887767651904f24aad651d'
+PREFLIGHT_SHA256 = 'af8a566627150d720cf5af8d3479c4813d2ec723c6a7702715e1babd38bc0ac1'
 CHAIN_ID = 1599846715
 GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 
@@ -72,9 +72,7 @@ class SSH:
             raise Blocked('SSH destination is outside the three reviewed seeds')
         if height is not None and (type(height) is not int or height < 0):
             raise Blocked('Invalid historical comparison height')
-        arguments = ['--rpc', 'http://127.0.0.1:8545',
-                  '--bundle', '/opt/pocol-testnet', '--data', '/var/lib/pocol-testnet',
-                  '--service', 'pocol-testnet.service']
+        arguments = ['--rpc', 'http://127.0.0.1:8545', '--layout', 'auto']
         if height is not None:
             arguments += ['--check-height', str(height)]
         if self.interactive_sudo:
@@ -122,7 +120,7 @@ class SSH:
 def same_network(rows):
     if len(rows) != 3:
         raise Blocked('All three seeds must return an inventory')
-    identities, names, miners = set(), set(), set()
+    identities, miners = set(), set()
     for row in rows:
         validate_report(row)
         if row['result'] != 'PASS':
@@ -138,14 +136,16 @@ def same_network(rows):
         name, miner = binding['node'], binding['miner']
         if not isinstance(name, str) or not name or not isinstance(miner, str) or not re.fullmatch(r'0x[0-9a-fA-F]{40}', miner):
             raise Blocked('Expected three independent miner identities')
-        names.add(name); miners.add(miner.lower())
+        # The standalone launcher calls every node "pocol". Miner keys, rather
+        # than this display name, establish independence between the seeds.
+        miners.add(miner.lower())
         value = node['head']['height']
         if not isinstance(value, str) or not re.fullmatch(r'0|[1-9][0-9]*', value) or int(value) >= 2**64:
             raise Blocked('Invalid observed head height')
     if len(identities) != 1:
         raise Blocked('The seeds disagree on running source or fork schedule')
-    if len(names) != 3 or len(miners) != 3:
-        raise Blocked('Seed names and miner identities must be independent')
+    if len(miners) != 3:
+        raise Blocked('Seed miner identities must be independent')
     return next(iter(identities))
 
 
@@ -159,8 +159,22 @@ def execute(client, report, checkpoint, pause=time.sleep, wait_seconds=15):
             report['rounds'][name].append({'host': host, 'report': value})
             checkpoint()
             print(f'{name} {host}: {value["result"]}', flush=True)
+            if value['result'] == 'FAIL':
+                # Print only fixed stage labels, never remote diagnostic text.
+                failed = [stage for stage in ('layout', 'node', 'peers', 'bundle', 'stateBinding', 'service')
+                          if value.get('checks', {}).get(stage) is False]
+                if failed: print('  failed checks: ' + ', '.join(failed), flush=True)
             values.append(value)
         return values
+    def installation(row):
+        release = row.get('bundle', {})
+        return (row.get('layout'), json.dumps(row.get('paths', {}), sort_keys=True),
+                release.get('manifestSha256'), release.get('invitationSha256'))
+    def unchanged(first, current):
+        if first['node']['binding'] != current['node']['binding']:
+            raise Blocked('A seed identity changed during collection')
+        if installation(first) != installation(current):
+            raise Blocked('A seed installation or public invitation changed during collection')
     initial = collect_round('initial')
     network = same_network(initial)
     common_height = min(int(row['node']['head']['height']) for row in initial) - 60
@@ -170,9 +184,7 @@ def execute(client, report, checkpoint, pause=time.sleep, wait_seconds=15):
     common = collect_round('common', common_height)
     if same_network(common) != network:
         raise Blocked('The running source or schedule changed during collection')
-    if any(first['node']['binding'] != current['node']['binding']
-           for first, current in zip(initial, common)):
-        raise Blocked('A seed identity changed during common-block comparison')
+    for first, current in zip(initial, common): unchanged(first, current)
     blocks = []
     for row in common:
         block = row['comparisonBlock']
@@ -194,8 +206,7 @@ def execute(client, report, checkpoint, pause=time.sleep, wait_seconds=15):
            for first, last in zip(initial, progress)):
         raise Blocked('A seed did not advance; inspect the observations before any cutover')
     for first, last in zip(initial, progress):
-        if first['node']['binding'] != last['node']['binding']:
-            raise Blocked('A seed identity changed during collection')
+        unchanged(first, last)
     report.update(phase='complete', result='PASS', common_block=blocks[0], all_three_heads_advanced=True,
                   captured_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
     report.pop('active_host', None)

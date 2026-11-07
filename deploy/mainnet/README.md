@@ -40,6 +40,21 @@ or unavailable prerequisite must be resolved. A report is still produced for
 normal observation failures. A `PASS` is an inventory result, not a deployment or
 an independent production-readiness assessment.
 
+For the original standalone installer, use `--layout standalone` (the default
+standalone service, installation directory and home are selected together), or
+`--layout auto` to select exactly one active known installer. The owner-side
+[three-seed collector](EARN-IN-PREPARATION-AR.md) uses automatic selection. Unknown
+or ambiguous layouts fail with sanitized service metadata; directories are never
+created or migrated to fit an assumption. Keep the existing service and data.
+
+The legacy standalone installer has no installed manifest or `network-binding.json`.
+Its inventory instead checks the five binary hashes from the published
+`handoff-2026-11-01` package, matching public invitations/network files and address,
+the independently pinned old GenesisSpec, and the journal's 40-byte genesis header.
+Read-only `/proc` image and descriptor metadata binds the service process to the
+selected state/lock files; database and key contents are never read. The common
+display name `pocol` is valid; three distinct miner addresses remain required.
+
 The manifest check establishes bundle consistency, not publisher authentication;
 verify the release checksum through the operator's trusted release channel. Run
 against a controlled public bundle with no concurrent local file changes. The

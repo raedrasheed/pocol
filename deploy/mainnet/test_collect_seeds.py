@@ -82,11 +82,23 @@ class CollectionTests(unittest.TestCase):
                 with self.assertRaises(tool.Blocked): self.run_collection(client)
                 self.assertEqual(len(client.calls), 3)
 
-    def test_duplicate_miner_or_node_names_are_refused(self):
-        for field in ['node', 'miner']:
-            client = Fake()
-            client.mutate = lambda value, number: value['node']['binding'].update({field: sample(0)['node']['binding'][field]}) if number == 1 else None
-            with self.assertRaises(tool.Blocked): self.run_collection(client)
+    def test_standalone_shared_display_name_does_not_replace_miner_independence(self):
+        client = Fake()
+        client.mutate = lambda value, number: value['node']['binding'].update(node='pocol')
+        self.run_collection(client)
+        self.assertEqual(self.report['result'], 'PASS')
+        client = Fake()
+        client.mutate = lambda value, number: value['node']['binding'].update(miner=sample(0)['node']['binding']['miner']) if number == 1 else None
+        with self.assertRaises(tool.Blocked): self.run_collection(client)
+
+    def test_installation_path_layout_or_invitation_cannot_change_between_rounds(self):
+        for field, change in [('paths', {'state': '/a/different/state'}), ('layout', 'standalone'),
+                              ('bundle', {'invitationSha256': 'b' * 64})]:
+            with self.subTest(field=field):
+                client = Fake()
+                client.mutate = lambda value, number: value.update({field: change}) if number == 3 else None
+                with self.assertRaisesRegex(tool.Blocked, 'installation or public invitation'): self.run_collection(client)
+                self.assertEqual(len(client.calls), 6)
 
     def test_stalled_head_is_not_claimed_as_progress(self):
         client = Fake()
@@ -136,7 +148,7 @@ class TransportTests(unittest.TestCase):
         self.assertIn('BatchMode=yes', command)
         self.assertIn('IdentitiesOnly=yes', command)
         self.assertEqual(command[-2], 'pocol-admin@108.165.128.89')
-        self.assertEqual(command[-1], 'sudo -n python3 -B - --rpc http://127.0.0.1:8545 --bundle /opt/pocol-testnet --data /var/lib/pocol-testnet --service pocol-testnet.service --check-height 140')
+        self.assertEqual(command[-1], 'sudo -n python3 -B - --rpc http://127.0.0.1:8545 --layout auto --check-height 140')
         self.assertEqual(options['input'], tool.load_program())
         self.assertNotIn(b'never read key contents', options['input'])
         self.assertNotIn('shell', options)

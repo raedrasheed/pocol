@@ -12,6 +12,7 @@ on:
       - 'deploy/mainnet/ssh_terminal.py'
       - 'deploy/mainnet/test_ssh_terminal.py'
       - 'deploy/mainnet/preflight.py'
+      - 'deploy/mainnet/test_standalone_preflight.py'
       - '.github/workflows/security-owner-evidence.yml'
   workflow_dispatch:
 permissions:
@@ -65,6 +66,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows three-seed collector tests failed' }
           python -m unittest discover -s deploy/mainnet -p test_ssh_terminal.py -v
           if ($LASTEXITCODE -ne 0) { throw 'Windows SSH terminal tests failed' }
+          python -m unittest discover -s deploy/mainnet -p test_standalone_preflight.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Windows layout selection tests failed' }
   tools:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -87,6 +90,7 @@ jobs:
           python3 -m unittest discover -s development/security-codeql-remaining-2026-11-07 -p 'test_*.py' -v
           python3 -m unittest discover -s deploy/mainnet -p test_collect_seeds.py -v
           python3 -m unittest discover -s deploy/mainnet -p test_ssh_terminal.py -v
+          python3 -m unittest discover -s deploy/mainnet -p test_standalone_preflight.py -v
           python3 deploy/standalone/test_android_jni.py -v
       - name: Obtain only the pinned successful main Android build
         env:
