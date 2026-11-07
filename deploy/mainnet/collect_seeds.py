@@ -17,6 +17,8 @@ import subprocess
 import sys
 import time
 
+import ssh_terminal
+
 HOSTS = ('108.165.128.89', '108.165.128.90', '108.165.128.91')
 USER = 'pocol-admin'
 PREFLIGHT_SHA256 = '2150ce8e9c55b7559fc9995fae0067f8021fba751e887767651904f24aad651d'
@@ -57,29 +59,43 @@ def validate_report(value):
 
 
 class SSH:
-    def __init__(self, key, runner=subprocess.run):
+    def __init__(self, key, runner=subprocess.run, interactive_sudo=False):
         self.program = load_program()
         self.key = Path(key).expanduser()
         if not self.key.is_file():
             raise Blocked('Existing SSH identity file was not found; select it with --ssh-key')
         self.runner = runner
+        self.interactive_sudo = interactive_sudo
 
     def collect(self, host, height=None):
         if host not in HOSTS:
             raise Blocked('SSH destination is outside the three reviewed seeds')
         if height is not None and (type(height) is not int or height < 0):
             raise Blocked('Invalid historical comparison height')
-        remote = ['sudo', '-n', 'python3', '-B', '-', '--rpc', 'http://127.0.0.1:8545',
+        arguments = ['--rpc', 'http://127.0.0.1:8545',
                   '--bundle', '/opt/pocol-testnet', '--data', '/var/lib/pocol-testnet',
                   '--service', 'pocol-testnet.service']
         if height is not None:
-            remote += ['--check-height', str(height)]
-        command = ['ssh', '-F', 'none', '-T', '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes',
+            arguments += ['--check-height', str(height)]
+        if self.interactive_sudo:
+            wrapper, begin, end = ssh_terminal.command_program(self.program, ssh_terminal.markers())
+            remote = ['sudo', '-p', 'PoCol inventory password for %u on %h: ',
+                      'python3', '-B', '-c', wrapper, *arguments]
+        else:
+            remote = ['sudo', '-n', 'python3', '-B', '-', *arguments]
+        command = ['ssh', '-F', 'none', '-tt' if self.interactive_sudo else '-T',
+                   '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes',
                    '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=15',
                    '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3',
                    '-i', str(self.key), f'{USER}@{host}', shlex.join(remote)]
         try:
-            response = self.runner(command, input=self.program, capture_output=True, timeout=180)
+            if self.interactive_sudo:
+                print(f'{host}: enter the server account sudo password in this terminal when prompted.', flush=True)
+                response = ssh_terminal.run(command, begin, end, timeout=180)
+            else:
+                response = self.runner(command, input=self.program, capture_output=True, timeout=180)
+        except ssh_terminal.TerminalError as error:
+            raise Blocked(f'{host}: {error}') from None
         except subprocess.TimeoutExpired:
             raise Blocked(f'SSH inventory timed out for {host}; no remote state was changed') from None
         if response.returncode not in (0, 2):
@@ -190,14 +206,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, required=True, help='A fresh local JSON report filename')
     parser.add_argument('--ssh-key', type=Path, default=Path.home() / '.ssh/id_ed25519_pocol')
+    parser.add_argument('--interactive-sudo', action='store_true',
+                        help='Use the local SSH terminal for sudo password entry; never store passwords')
     parser.add_argument('--wait-seconds', type=int, default=15, help='Progress observation interval, 1..60 seconds')
     args = parser.parse_args(argv)
+    if args.interactive_sudo and not sys.stdin.isatty():
+        parser.error('--interactive-sudo requires an interactive terminal for local password entry')
     if not 1 <= args.wait_seconds <= 60:
         parser.error('--wait-seconds must be between 1 and 60')
     if args.out.exists() or not args.out.parent.is_dir():
         parser.error('--out must be a new file in an existing directory')
     report = {'schema': 'pocol-three-seed-preparation-v1', 'read_only': True, 'deployment_performed': False,
               'freeze_height_selected': False, 'new_genesis_selected': False, 'hosts': list(HOSTS),
+              'sudo_mode': 'interactive-terminal' if args.interactive_sudo else 'noninteractive',
               'preflight_program_sha256': PREFLIGHT_SHA256, 'phase': 'preflight'}
     def checkpoint():
         args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
@@ -208,7 +229,7 @@ def main(argv=None):
         parser.error('Unable to create the fresh report file')
     code = 0
     try:
-        execute(SSH(args.ssh_key), report, checkpoint, wait_seconds=args.wait_seconds)
+        execute(SSH(args.ssh_key, interactive_sudo=args.interactive_sudo), report, checkpoint, wait_seconds=args.wait_seconds)
     except (Blocked, OSError, KeyError, TypeError, ValueError) as error:
         report.update(result='BLOCKED', blocked=str(error))
         print('Stopped: ' + str(error), file=sys.stderr)

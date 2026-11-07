@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import shlex
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -146,6 +147,39 @@ class TransportTests(unittest.TestCase):
         for host, height in [('other.example', None), (tool.HOSTS[0], True), (tool.HOSTS[0], -1)]:
             with self.assertRaises(tool.Blocked): client.collect(host, height)
         self.assertEqual(calls, [])
+
+    def test_interactive_sudo_preserves_ssh_guards_and_uses_no_password_pipe(self):
+        client = self.client(lambda *args, **kwargs: self.fail('Noninteractive runner must not run'))
+        client.interactive_sudo = True
+        with patch.object(tool.ssh_terminal, 'run', return_value=subprocess.CompletedProcess([], 0, json.dumps(sample(0)).encode(), b'')) as run, \
+             contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(client.collect(tool.HOSTS[0], 140)['result'], 'PASS')
+        command, begin, end = run.call_args.args
+        self.assertIn('-tt', command); self.assertNotIn('-T', command)
+        for guard in ['BatchMode=yes','IdentitiesOnly=yes','StrictHostKeyChecking=yes']:
+            self.assertIn(guard, command)
+        remote = shlex.split(command[-1])
+        self.assertEqual(remote[:2], ['sudo','-p'])
+        self.assertNotIn('-S', remote); self.assertNotIn('-n', remote)
+        self.assertIn('--check-height', remote)
+        self.assertEqual(remote[-1], '140')
+        self.assertNotEqual(begin, end)
+
+    def test_interactive_sudo_error_is_checkpoint_safe_and_never_contains_terminal_data(self):
+        client = self.client(lambda *args, **kwargs: None); client.interactive_sudo = True
+        with patch.object(tool.ssh_terminal, 'run', side_effect=tool.ssh_terminal.TerminalError('No complete public report')), \
+             contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(tool.Blocked, 'No complete public report'):
+                client.collect(tool.HOSTS[0])
+
+    def test_interactive_mode_requires_owner_terminal_before_any_ssh_or_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'report.json'
+            with patch.object(tool.sys.stdin, 'isatty', return_value=False), patch.object(tool, 'SSH') as ssh, \
+                 contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit): tool.main(['--interactive-sudo','--out',str(output)])
+                ssh.assert_not_called()
+            self.assertFalse(output.exists())
 
     def test_raw_ssh_diagnostic_is_not_copied_to_the_error(self):
         client = self.client(lambda *args, **kwargs: subprocess.CompletedProcess([], 255, b'', b'PRIVATE STDERR MATERIAL'))
