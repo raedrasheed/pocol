@@ -100,7 +100,7 @@ class RemainingTests(unittest.TestCase):
             self.assertEqual(line[row['location']['start_column'] - 1:row['location']['end_column'] - 1],
                              row['reviewed_literal'])
         self.assertEqual(len(paths), 9)
-        self.assertTrue(any('/examples/' in str(path) for path in paths))
+        self.assertTrue(any('examples' in path.parts for path in paths))
 
     def test_changed_plan_cannot_expand_mutation_scope(self):
         with tempfile.TemporaryDirectory() as directory:
