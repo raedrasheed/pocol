@@ -88,6 +88,7 @@ KEPT = {
     'deploy/mainnet/network_identity.py': 'the identity it replaces',
     'deploy/mainnet/test_network_identity.py': "this guard's detector",
     'deploy/mainnet/new_network_config.py': 'refuses the old chain ID for the new network',
+    'deploy/mainnet/collect_seeds.py': 'read-only evidence for the old network before cutover; its source pin refuses a switched preflight',
     'deploy/mainnet/test_new_network_config.py': 'an old devnet.json fixture',
     'deploy/faucet/test_pocol_faucet.py': 'the faucet refuses the old chain',
     'deploy/mainnet/h15000/network.pocol.json': "the old network's invitation (and its published GenesisSpec)",

@@ -3,6 +3,8 @@
 
 Run on the Windows workstation holding the existing SSH identity. No remote
 file upload, service change, key read, cutover or consensus write is performed.
+This historical collector stays bound to the old network. After the client
+identity switch its pinned preflight source changes, so it refuses to run.
 """
 import argparse
 from datetime import datetime, timezone
