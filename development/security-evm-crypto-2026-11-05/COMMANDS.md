@@ -59,9 +59,11 @@ The upstream comparison logs retain three identical baseline test failures.
 ## Owner's reviewed CodeQL batch
 
 Current evidence: the owner's complete report verifies 190 open findings and
-380 exact reviewed instances, with seven already closed. See
-[the current main batch review](CODEQL-MAIN-APPLY-AR.md). Actual application is
-still pending the owner's run; local replay used no live API writes.
+380 exact reviewed instances, with seven already closed. The owner subsequently
+confirmed 190 dismissals and seven skips. See [the main batch review](CODEQL-MAIN-APPLY-AR.md).
+The full remaining inventory is handled by a separate
+[19-finding review and application helper](../security-codeql-remaining-2026-11-07/README-AR.md).
+Local replay evidence remains simulated; the owner completion receipt is separate.
 
 Run these from the repository root on a computer where `gh` already has normal
 code-scanning access to `palcertcom/pocol`. The cloud integration's 403 is not
