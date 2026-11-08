@@ -25,8 +25,10 @@ def rlp(data):
 def hello(info, build):
     integer = lambda n: n.to_bytes((n.bit_length()+7)//8,'big')
     genesis = bytes.fromhex(info['genesisHash'][2:])
+    # The last two items, listenPort and nonce (VA-SPEC §1a), are none: this control advertises nothing.
     payload = b''.join(rlp(x) for x in [b'', integer(info['chainId']), genesis, genesis, b'', bytes(32),
-        b'non-loopback-control', integer(build['protocolVersion']), bytes.fromhex(build['compatibilitySha256'])])
+        b'non-loopback-control', integer(build['protocolVersion']), bytes.fromhex(build['compatibilitySha256']),
+        b'', bytes(8)])
     size = len(payload).to_bytes((len(payload).bit_length()+7)//8,'big')
     encoded = bytes([247+len(size)]) + size + payload
     return len(encoded).to_bytes(4,'big') + encoded

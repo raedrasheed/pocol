@@ -685,7 +685,7 @@ impl Node{
     }
     /// Φ = 2φ from the admitted local parameters (future-timestamp slack).
     fn capital_phi(&self)->u64{u64::from(self.chain.spec.local().capital_phi())}
-    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries())}}
+    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries()),listen_port:0,nonce:0}}
     fn broadcast(&self,m:&Msg,except:Option<PeerId>){for (id,p) in &self.peers{if Some(*id)!=except&&self.peer_status.contains_key(id){p.send(m);}}}
 
     // ---------------- import ----------------
@@ -1300,7 +1300,7 @@ impl Node{
         if !self.peers.contains_key(&from){return}
         if !matches!(&m,Msg::Hello{..})&&!self.peer_status.contains_key(&from){return}
         match m{
-            Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility}=>{
+            Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility,..}=>{
                 if chain_id!=self.chain.spec.chain_id()||genesis!=self.chain.spec.genesis_hash()||!crate::identity::matches_for(protocol,&compatibility,self.chain.spec.profile().forks().entries()){
                     self.log(&format!("peer {node}: incompatible network or implementation; closing"));
                     self.peer_status.remove(&from);
@@ -1377,6 +1377,8 @@ impl Node{
                 for hgt in start..start.saturating_add(count.min(512)){match self.chain.canonical_at(hgt).filter(|e|e.height>0).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
             }
             Msg::Tx{raw}=>self.relay_tx(raw),
+            // Peer discovery (VA-SPEC §1a.2, §1a.5): this node neither answers GetAddr nor learns from Addr yet.
+            Msg::GetAddr|Msg::Addr{..}=>{}
         }
     }
 }

@@ -10,8 +10,8 @@
 //! - at most `per_group_max` (default 4, half of `peers_max`) inbound connections per public address
 //!   group (`group_of`: IPv4 /16, IPv6 /32, a tunnelled IPv4 address as that address), so one public
 //!   /16 or /32 never holds more than half of the inbound slots. A connection past it is refused even
-//!   while slots are free: nodes behind one NAT or one provider range share these places until peer
-//!   discovery and eviction exist. Groups are counted per address, so one host that reaches the node
+//!   while slots are free: nodes behind one NAT or one provider range share these places until inbound
+//!   eviction exists. Groups are counted per address, so one host that reaches the node
 //!   from several groups (an IPv4 /16 and an IPv6 /32, say) holds a full set of places in each. Addresses
 //!   that are not globally reachable (loopback, private, link-local, ...) and the node's configured
 //!   peers, by their exact address (`Net::protect`), are not grouped;
@@ -158,8 +158,11 @@ impl Net{
 
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub enum Msg{
-    /// Status (network.md:7): chainId, genesisHash, headHash, height, totalWork (32 B big-endian), name.
-    Hello{chain_id:u64,genesis:[u8;32],head:[u8;32],height:u64,work:[u8;32],node:String,protocol:u64,compatibility:[u8;32]},
+    /// Status (network.md:7): chainId, genesisHash, headHash, height, totalWork (32 B big-endian), name,
+    /// protocolVersion and the compatibility digest; then peer discovery's two fields (VA-SPEC §1a.1, §2): the
+    /// port the sender's listener accepts peers on and the sender's per-process self-connection nonce (8 bytes),
+    /// each 0 for none.
+    Hello{chain_id:u64,genesis:[u8;32],head:[u8;32],height:u64,work:[u8;32],node:String,protocol:u64,compatibility:[u8;32],listen_port:u16,nonce:u64},
     Block{header:Vec<u8>,body:Vec<u8>},
     Template{shell:Vec<u8>,body:Vec<u8>},
     Share{tid:[u8;32],nonce:u64},
@@ -169,15 +172,26 @@ pub enum Msg{
     /// GetHeaders-like range by locator (network.md:8: locator <= 32, count <= 512): the answer is the
     /// responder's canonical blocks after the highest locator hash on its canonical chain.
     GetFrom{locator:Vec<[u8;32]>,count:u64},
+    /// Peer discovery (VA-SPEC §1a.5): asks a peer for addresses. No fields.
+    GetAddr,
+    /// The answer to GetAddr: at most ADDR_MAX addresses, sent as one byte string of ADDR_RECORD-byte records
+    /// (a 16-byte IPv6 address, IPv4 as ::ffff:a.b.c.d, then a nonzero big-endian port). Decoding loses
+    /// nothing: a mapped address is read as IPv4, any other as IPv6 with flowinfo and scope 0. Duplicates and
+    /// addresses that are not globally reachable are no decode error; the receiver filters them.
+    Addr{addrs:Vec<SocketAddr>},
 }
 /// Locator hashes per GetFrom (network.md:8).
 pub const LOCATOR_MAX:usize=32;
+/// Addr (VA-SPEC §1a.5): the bytes of one record (a 16-byte IPv6 address and a u16 port) and the records of one
+/// answer. The largest Addr frame is 1,159 B.
+pub const ADDR_RECORD:usize=18;pub const ADDR_MAX:usize=64;
 fn u64b(v:u64,o:&mut Vec<u8>){let b=v.to_be_bytes();let f=b.iter().position(|x|*x!=0).unwrap_or(8);rlp::encode_bytes(&b[f..],o)}
 impl Msg{
     pub fn encode(&self)->Vec<u8>{
         let mut p=Vec::new();
         match self{
-            Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility}=>{u64b(0,&mut p);u64b(*chain_id,&mut p);rlp::encode_bytes(genesis,&mut p);rlp::encode_bytes(head,&mut p);u64b(*height,&mut p);rlp::encode_bytes(work,&mut p);rlp::encode_bytes(node.as_bytes(),&mut p);u64b(*protocol,&mut p);rlp::encode_bytes(compatibility,&mut p);}
+            Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility,listen_port,nonce}=>{u64b(0,&mut p);u64b(*chain_id,&mut p);rlp::encode_bytes(genesis,&mut p);rlp::encode_bytes(head,&mut p);u64b(*height,&mut p);rlp::encode_bytes(work,&mut p);rlp::encode_bytes(node.as_bytes(),&mut p);u64b(*protocol,&mut p);rlp::encode_bytes(compatibility,&mut p);
+                u64b(u64::from(*listen_port),&mut p);rlp::encode_bytes(&nonce.to_be_bytes(),&mut p);}
             Msg::Block{header,body}=>{u64b(1,&mut p);rlp::encode_bytes(header,&mut p);rlp::encode_bytes(body,&mut p);}
             Msg::Template{shell,body}=>{u64b(2,&mut p);rlp::encode_bytes(shell,&mut p);rlp::encode_bytes(body,&mut p);}
             Msg::Share{tid,nonce}=>{u64b(3,&mut p);rlp::encode_bytes(tid,&mut p);rlp::encode_bytes(&nonce.to_be_bytes(),&mut p);}
@@ -185,6 +199,10 @@ impl Msg{
             Msg::GetRange{start,count}=>{u64b(5,&mut p);u64b(*start,&mut p);u64b(*count,&mut p);}
             Msg::Tx{raw}=>{u64b(6,&mut p);rlp::encode_bytes(raw,&mut p);}
             Msg::GetFrom{locator,count}=>{u64b(7,&mut p);rlp::encode_bytes(&locator.concat(),&mut p);u64b(*count,&mut p);}
+            Msg::GetAddr=>u64b(8,&mut p),
+            Msg::Addr{addrs}=>{u64b(9,&mut p);let mut r=Vec::with_capacity(addrs.len()*ADDR_RECORD);
+                for a in addrs{let ip=match a.ip(){IpAddr::V4(v4)=>v4.to_ipv6_mapped(),IpAddr::V6(v6)=>v6};r.extend(ip.octets());r.extend(a.port().to_be_bytes());}
+                rlp::encode_bytes(&r,&mut p);}
         }
         let mut o=Vec::new();rlp::encode_list_payload(&p,&mut o);o
     }
@@ -195,8 +213,10 @@ impl Msg{
         let h32=|i:usize|->Result<[u8;32],String>{bytes(i)?.try_into().map_err(|_|"hash".to_string())};
         let n=|k:usize|->Result<(),String>{if f.len()==k{Ok(())}else{Err("arity".into())}};
         let m=match num(0)?{
-            0=>{n(9)?;let name=bytes(6)?;if name.is_empty()||name.len()>NODE_NAME_MAX||!name.iter().all(|b|b.is_ascii_graphic()){return Err("node name".into())}
-                Msg::Hello{chain_id:num(1)?,genesis:h32(2)?,head:h32(3)?,height:num(4)?,work:h32(5)?,node:String::from_utf8(name).map_err(|_|"utf8")?,protocol:num(7)?,compatibility:h32(8)?}}
+            0=>{n(11)?;let name=bytes(6)?;if name.is_empty()||name.len()>NODE_NAME_MAX||!name.iter().all(|b|b.is_ascii_graphic()){return Err("node name".into())}
+                let nb=bytes(10)?;if nb.len()!=8{return Err("nonce".into())}
+                Msg::Hello{chain_id:num(1)?,genesis:h32(2)?,head:h32(3)?,height:num(4)?,work:h32(5)?,node:String::from_utf8(name).map_err(|_|"utf8")?,protocol:num(7)?,compatibility:h32(8)?,
+                    listen_port:u16::try_from(num(9)?).map_err(|_|"port")?,nonce:u64::from_be_bytes(nb.try_into().unwrap())}}
             1=>{n(3)?;Msg::Block{header:bytes(1)?,body:bytes(2)?}}
             2=>{n(3)?;Msg::Template{shell:bytes(1)?,body:bytes(2)?}}
             3=>{n(3)?;let nb=bytes(2)?;if nb.len()!=8{return Err("nonce".into())}Msg::Share{tid:h32(1)?,nonce:u64::from_be_bytes(nb.try_into().unwrap())}}
@@ -205,6 +225,12 @@ impl Msg{
             6=>{n(2)?;Msg::Tx{raw:bytes(1)?}}
             7=>{n(3)?;let l=bytes(1)?;if l.is_empty()||l.len()%32!=0||l.len()>32*LOCATOR_MAX{return Err("locator".into())}
                 Msg::GetFrom{locator:l.chunks(32).map(|c|c.try_into().unwrap()).collect(),count:num(2)?}}
+            8=>{n(1)?;Msg::GetAddr}
+            9=>{n(2)?;let r=bytes(1)?;if r.len()%ADDR_RECORD!=0||r.len()>ADDR_RECORD*ADDR_MAX{return Err("addr".into())}
+                let mut addrs=Vec::with_capacity(r.len()/ADDR_RECORD);
+                for c in r.chunks_exact(ADDR_RECORD){let port=u16::from_be_bytes([c[16],c[17]]);if port==0{return Err("addr".into())}
+                    let ip=std::net::Ipv6Addr::from(<[u8;16]>::try_from(&c[..16]).unwrap());addrs.push(SocketAddr::new(ip.to_ipv4_mapped().map_or(IpAddr::V6(ip),IpAddr::V4),port));}
+                Msg::Addr{addrs}}
             _=>return Err("type".into())
         };
         if m.encode()!=b{return Err("noncanonical".into())}
@@ -390,7 +416,7 @@ mod tests{
     /// D-REORG-REDB wire: Status carries the 32-byte totalWork, GetFrom a locator of 1..=32 hashes;
     /// both round-trip, and a locator that is empty, ragged or longer than 32 hashes is refused.
     #[test] fn status_work_and_locator_requests_round_trip_within_bounds(){
-        let h=Msg::Hello{chain_id:7,genesis:[1;32],head:[2;32],height:9,work:[3;32],node:"n".into(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility()};assert_eq!(Msg::decode(&h.encode()).unwrap(),h);
+        let h=Msg::Hello{chain_id:7,genesis:[1;32],head:[2;32],height:9,work:[3;32],node:"n".into(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility(),listen_port:0,nonce:0};assert_eq!(Msg::decode(&h.encode()).unwrap(),h);
         let g=Msg::GetFrom{locator:vec![[4;32],[5;32]],count:512};assert_eq!(Msg::decode(&g.encode()).unwrap(),g);
         let full=Msg::GetFrom{locator:vec![[6;32];LOCATOR_MAX],count:1};assert_eq!(Msg::decode(&full.encode()).unwrap(),full);
         let raw=|loc:Vec<u8>|{let mut p=Vec::new();u64b(7,&mut p);rlp::encode_bytes(&loc,&mut p);u64b(1,&mut p);let mut o=Vec::new();rlp::encode_list_payload(&p,&mut o);o};
@@ -398,6 +424,51 @@ mod tests{
         // The previous Hello (no work field) is refused by arity, never read with a default work.
         let mut p=Vec::new();u64b(0,&mut p);u64b(7,&mut p);rlp::encode_bytes(&[1;32],&mut p);rlp::encode_bytes(&[2;32],&mut p);u64b(9,&mut p);rlp::encode_bytes(b"n",&mut p);
         let mut o=Vec::new();rlp::encode_list_payload(&p,&mut o);assert!(Msg::decode(&o).is_err());
+    }
+    /// Peer discovery (VA-SPEC §1a.1, §2): Hello ends with listenPort, a minimal integer of at most 65535, and an
+    /// 8-byte nonce, each 0 for none; both round-trip. A port above 65535 or not minimal, a nonce of another length
+    /// and the previous 9-item Hello are refused, each for its own reason (the re-encoding check alone would refuse
+    /// a truncated port too, as noncanonical). The largest Hello fits the pre-handshake bound HELLO_MAX.
+    #[test] fn hello_carries_listen_port_and_nonce_and_the_previous_hello_is_refused(){
+        let hello=|listen_port,nonce|Msg::Hello{chain_id:7,genesis:[1;32],head:[2;32],height:9,work:[3;32],node:"n".into(),protocol:2,compatibility:[4;32],listen_port,nonce};
+        for (port,nonce) in [(30300,0x0102030405060708),(0,0),(u16::MAX,u64::MAX)]{let h=hello(port,nonce);assert_eq!(Msg::decode(&h.encode()),Ok(h));}
+        // The nine items of the previous Hello, then the items a case appends.
+        let int=|v:u64|{let mut o=Vec::new();u64b(v,&mut o);o};let bin=|b:&[u8]|{let mut o=Vec::new();rlp::encode_bytes(b,&mut o);o};
+        let raw=|tail:&[Vec<u8>]|{let head=[int(0),int(7),bin(&[1;32]),bin(&[2;32]),int(9),bin(&[3;32]),bin(b"n"),int(2),bin(&[4;32])];
+            let mut o=Vec::new();rlp::encode_list_payload(&[&head[..],tail].concat().concat(),&mut o);o};
+        assert_eq!(Msg::decode(&raw(&[int(30300),bin(&[5;8])])),Ok(hello(30300,0x0505050505050505)),"the eleven items");
+        assert_eq!(Msg::decode(&raw(&[int(65536),bin(&[5;8])])),Err("port".into()),"a port above 65535");
+        assert_eq!(Msg::decode(&raw(&[bin(&[0,1]),bin(&[5;8])])),Err("int".into()),"a port with a leading zero");
+        for len in [0,7,9]{assert_eq!(Msg::decode(&raw(&[int(1),bin(&vec![5;len])])),Err("nonce".into()),"a {len}-byte nonce");}
+        assert_eq!(Msg::decode(&raw(&[])),Err("arity".into()),"the previous 9-item Hello");
+        assert_eq!(Msg::decode(&raw(&[int(1),bin(&[5;8]),int(1)])),Err("arity".into()),"a 12-item Hello");
+        let largest=Msg::Hello{chain_id:u64::MAX,genesis:[0xff;32],head:[0xff;32],height:u64::MAX,work:[0xff;32],node:"n".repeat(NODE_NAME_MAX),protocol:u64::MAX,compatibility:[0xff;32],listen_port:u16::MAX,nonce:u64::MAX};
+        assert!(largest.encode().len()<=HELLO_MAX,"the largest Hello is {} B",largest.encode().len());assert_eq!(Msg::decode(&largest.encode()),Ok(largest));
+    }
+    /// Peer discovery (VA-SPEC §1a.5): GetAddr has no fields; Addr carries 0..=ADDR_MAX records of ADDR_RECORD bytes in
+    /// one byte string. Mixed IPv4 and IPv6 records round-trip, IPv4 travels mapped and a mapped record is read back as
+    /// IPv4. More than ADDR_MAX records, a string that is not whole records, a record with port 0 and a list in place
+    /// of the string are refused, each for its own reason (a ragged string read by whole records alone would only fail
+    /// the re-encoding check).
+    #[test] fn getaddr_and_addr_round_trip_within_bounds(){
+        let int=|v:u64|{let mut o=Vec::new();u64b(v,&mut o);o};let bin=|b:&[u8]|{let mut o=Vec::new();rlp::encode_bytes(b,&mut o);o};
+        let raw=|items:&[Vec<u8>]|{let mut o=Vec::new();rlp::encode_list_payload(&items.concat(),&mut o);o};
+        assert_eq!(Msg::GetAddr.encode(),raw(&[int(8)]));assert_eq!(Msg::decode(&raw(&[int(8)])),Ok(Msg::GetAddr));
+        assert_eq!(Msg::decode(&raw(&[int(8),int(1)])),Err("arity".into()),"GetAddr carries no field");
+        let addr=|i:usize|if i%2==0{SocketAddr::new(IpAddr::from([81,2,69,i as u8]),30300)}else{SocketAddr::new(IpAddr::from([0x2606,0x4700,0,0,0,0,0,i as u16]),1024+i as u16)};
+        for n in [0,1,2,ADDR_MAX]{let m=Msg::Addr{addrs:(0..n).map(addr).collect()};assert_eq!(Msg::decode(&m.encode()),Ok(m),"{n} records");}
+        assert_eq!(Msg::Addr{addrs:(0..ADDR_MAX).map(addr).collect()}.encode().len(),1159,"the largest Addr frame");
+        let record=|ip:&str,port:u16|{let mut r=ip.parse::<std::net::Ipv6Addr>().unwrap().octets().to_vec();r.extend(port.to_be_bytes());r};
+        let mapped=raw(&[int(9),bin(&record("::ffff:81.2.69.7",30300))]);let v4:SocketAddr="81.2.69.7:30300".parse().unwrap();
+        assert_eq!(Msg::Addr{addrs:vec![v4]}.encode(),mapped,"IPv4 travels mapped");
+        assert_eq!(Msg::decode(&mapped),Ok(Msg::Addr{addrs:vec![v4]}),"a mapped record is read as IPv4");
+        let records=|n:usize|(0..n).flat_map(|i|record("2606:4700::1",1024+i as u16)).collect::<Vec<u8>>();
+        assert!(matches!(Msg::decode(&raw(&[int(9),bin(&records(ADDR_MAX))])),Ok(Msg::Addr{addrs}) if addrs.len()==ADDR_MAX));
+        assert_eq!(Msg::decode(&raw(&[int(9),bin(&records(ADDR_MAX+1))])),Err("addr".into()),"more than ADDR_MAX records");
+        for len in [17,19,35]{assert_eq!(Msg::decode(&raw(&[int(9),bin(&vec![1;len])])),Err("addr".into()),"a {len}-byte string");}
+        assert_eq!(Msg::decode(&raw(&[int(9),bin(&[records(1),record("2606:4700::2",0)].concat())])),Err("addr".into()),"a record with port 0");
+        let list={let mut l=Vec::new();rlp::encode_list_payload(&bin(&records(1)),&mut l);l};
+        assert_eq!(Msg::decode(&raw(&[int(9),list])),Err("field".into()),"a list in place of the string");
     }
     /// D-7 re-insertion relays with `offer`: once half the queue is in use an offer is refused and the peer is
     /// kept, while gossip (`send`) past the whole queue drops the peer as slow. No writer thread: the queue
@@ -529,7 +600,7 @@ mod tests{
         let shaking=||c.handshaking.load(Ordering::SeqCst);
         let until=|f:&dyn Fn()->bool|{let t=Instant::now();while !f()&&t.elapsed()<Duration::from_secs(10){std::thread::sleep(Duration::from_millis(5));}f()};
         let closed=|s:&mut TcpStream|{s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();let mut b=[0u8;1];matches!(s.read(&mut b),Ok(0)|Err(_))};
-        let hello=||{let m=Msg::Hello{chain_id:7,genesis:[1;32],head:[1;32],height:0,work:[0;32],node:"g".into(),protocol:1,compatibility:[0;32]}.encode();
+        let hello=||{let m=Msg::Hello{chain_id:7,genesis:[1;32],head:[1;32],height:0,work:[0;32],node:"g".into(),protocol:1,compatibility:[0;32],listen_port:0,nonce:0}.encode();
             let mut f=(m.len() as u32).to_be_bytes().to_vec();f.extend(m);f};
         let mut a=TcpStream::connect(addr).unwrap();a.write_all(&hello()).unwrap();
         let mut b=TcpStream::connect(addr).unwrap();b.write_all(&hello()).unwrap();

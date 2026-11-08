@@ -1,6 +1,7 @@
 //! Bounded deterministic parser mutation smoke test. No sockets or chain state.
 //! This supplements, rather than replaces, coverage-guided fuzzing.
-use pocold::net::Msg;
+use pocold::net::{Msg, ADDR_MAX};
+use std::net::{IpAddr, SocketAddr};
 
 fn check(bytes: &[u8]) {
     // A panic fails the test. Accepted frames must have exactly one canonical encoding.
@@ -12,10 +13,15 @@ fn check(bytes: &[u8]) {
 
 #[test]
 fn bounded_wire_parser_mutations_do_not_panic_or_accept_noncanonical_frames() {
+    // Peer discovery: the 11-item Hello, GetAddr, and a full Addr mixing IPv4 (sent mapped) and IPv6 records.
+    let addr = |i: usize| if i % 2 == 0 { SocketAddr::new(IpAddr::from([81, 2, 69, i as u8]), 30300) }
+        else { SocketAddr::new(IpAddr::from([0x2606, 0x4700, 0, 0, 0, 0, 0, i as u16]), 1024 + i as u16) };
     let seeds = [
         Msg::Hello { chain_id: 777900, genesis: [1; 32], head: [2; 32],
             height: 1, work: [3; 32], node: "local-test".into(), protocol: 2,
-            compatibility: [4; 32] },
+            compatibility: [4; 32], listen_port: 30300, nonce: 0x0102030405060708 },
+        Msg::GetAddr,
+        Msg::Addr { addrs: (0..ADDR_MAX).map(addr).collect() },
         Msg::Block { header: vec![0xc0], body: vec![0xc0] },
         Msg::Template { shell: vec![0xc0], body: vec![0xc0] },
         Msg::Share { tid: [5; 32], nonce: u64::MAX },
