@@ -253,8 +253,9 @@ impl Origin{
     pub fn dialed(self)->Option<SocketAddr>{match self{Origin::Inbound=>None,Origin::Configured(a)|Origin::Slot(_,a)=>Some(a)}}
 }
 
-/// Outbound frames of one peer: bytes queued, closed flag; the writer thread drains it.
-struct Outbox{q:Mutex<(VecDeque<Vec<u8>>,usize)>,cv:Condvar,closed:AtomicBool,max:usize}
+/// Outbound frames of one peer: bytes queued, closed flag; the writer thread drains it. `finish`: the writer closes
+/// the peer once it has drained the queue (`Peer::finish`).
+struct Outbox{q:Mutex<(VecDeque<Vec<u8>>,usize)>,cv:Condvar,closed:AtomicBool,finish:AtomicBool,max:usize}
 /// A connection handed to the node. `remote` is the address its socket reports (None if `peer_addr` failed, a
 /// reset right after connect, say) and `addr` is that address as text ("" then); `outbound` is
 /// `origin != Origin::Inbound`.
@@ -278,18 +279,23 @@ impl Peer{
     pub fn offer(&self,m:&Msg)->bool{self.enqueue(m,self.out.max/2).is_ok()}
     pub fn queued_bytes(&self)->usize{self.out.q.lock().map(|q|q.1).unwrap_or(0)}
     pub fn close(&self){close_outbox(&self.out);let _=self.sock.shutdown(std::net::Shutdown::Both);}
+    /// Closes the connection once the frames queued so far are written (the writer closes it), where `close` drops
+    /// them: a self-connection's inbound end (VA-SPEC §2) must still deliver this node's Hello, whose nonce tells the
+    /// dialing end, the only one that knows the address to stop dialing. Set under the queue lock, as `closed` is.
+    pub fn finish(&self){{let _q=self.out.q.lock();self.out.finish.store(true,Ordering::SeqCst);}self.out.cv.notify_all();}
 }
 
 /// The flag is set under the queue lock: the writer tests it under that lock before waiting, so
 /// a close between its test and its wait cannot lose the wakeup (the reader joins the writer).
 fn close_outbox(out:&Outbox){{let _q=out.q.lock();out.closed.store(true,Ordering::SeqCst);}out.cv.notify_all();}
-/// The writer's wait for its next frame; None once the peer is closed. `between` runs after the
-/// closed test and before the wait, with the lock held (a test hook; a no-op in the node).
+/// The writer's wait for its next frame; None once the peer is closed, or finished and drained. `between` runs after
+/// the closed test and before the wait, with the lock held (a test hook; a no-op in the node).
 fn next_frame(out:&Outbox,between:&dyn Fn())->Option<Vec<u8>>{
     let Ok(mut q)=out.q.lock() else{return None};
     loop{
         if out.closed.load(Ordering::SeqCst){return None}
         if let Some(f)=q.0.pop_front(){q.1-=f.len();return Some(f)}
+        if out.finish.load(Ordering::SeqCst){return None}
         between();
         q=match out.cv.wait(q){Ok(q)=>q,Err(_)=>return None};
     }
@@ -334,14 +340,15 @@ fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net
     let _=stream.set_nodelay(true);let remote=stream.peer_addr().ok();let addr=remote.map(|a|a.to_string()).unwrap_or_default();
     let id=NEXT.fetch_add(1,Ordering::SeqCst);
     let (Ok(reader),Ok(writer))=(stream.try_clone(),stream.try_clone()) else{release(&net,true);return (false,None)};
-    let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),max:net.limits.queue_bytes_max});
+    let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),finish:AtomicBool::new(false),max:net.limits.queue_bytes_max});
     let peer=Peer{id,addr,outbound,origin,remote,out:out.clone(),sock:Arc::new(stream),counters:net.counters.clone()};
     let write_deadline=net.limits.write_deadline;
     let wpeer=peer.clone();
     let writer=crate::threads::spawn(format!("peer-{id}-w"),crate::threads::IO_STACK,move||{
         let mut w=writer;let _=w.set_write_timeout(Some(write_deadline));
         loop{
-            let Some(frame)=next_frame(&out,&||{}) else{return};
+            // None: closed already, or finished and drained (closed here).
+            let Some(frame)=next_frame(&out,&||{}) else{wpeer.close();return};
             if let Err(e)=w.write_all(&frame){
                 // A write that cannot finish within write_deadline: the peer stopped reading.
                 if matches!(e.kind(),std::io::ErrorKind::WouldBlock|std::io::ErrorKind::TimedOut){wpeer.counters.dropped_slow.fetch_add(1,Ordering::SeqCst);}
@@ -422,7 +429,7 @@ pub fn dial(addr:SocketAddr,events:SyncSender<NetEvent>,connected:Arc<Mutex<std:
 #[cfg(test)]
 pub(crate) fn test_peer(id:PeerId,max:usize)->(Peer,TcpStream){
     let l=TcpListener::bind("127.0.0.1:0").unwrap();let s=TcpStream::connect(l.local_addr().unwrap()).unwrap();let (r,_)=l.accept().unwrap();
-    let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),max});
+    let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),finish:AtomicBool::new(false),max});
     (Peer{id,addr:"test".into(),outbound:false,origin:Origin::Inbound,remote:None,out,sock:Arc::new(s),counters:Arc::new(Counters::default())},r)
 }
 /// Unit tests only: `test_peer` as a connection of this `origin` whose socket reported `remote`; `addr` and
@@ -430,6 +437,13 @@ pub(crate) fn test_peer(id:PeerId,max:usize)->(Peer,TcpStream){
 #[cfg(test)]
 pub(crate) fn test_peer_as(id:PeerId,max:usize,origin:Origin,remote:Option<SocketAddr>)->(Peer,TcpStream){
     let (mut p,r)=test_peer(id,max);p.origin=origin;p.remote=remote;p.outbound=origin!=Origin::Inbound;p.addr=remote.map(|a|a.to_string()).unwrap_or_default();(p,r)
+}
+/// Unit tests only: the messages waiting in a `test_peer`'s queue, oldest first (it has no writer thread), and whether
+/// it was closed or finished.
+#[cfg(test)]
+impl Peer{
+    pub(crate) fn queued(&self)->Vec<Msg>{self.out.q.lock().unwrap().0.iter().map(|f|Msg::decode(&f[4..]).unwrap()).collect()}
+    pub(crate) fn ended(&self)->(bool,bool){(self.out.closed.load(Ordering::SeqCst),self.out.finish.load(Ordering::SeqCst))}
 }
 #[cfg(test)]
 mod tests{
@@ -497,7 +511,7 @@ mod tests{
     /// only fills.
     #[test] fn an_offer_past_half_the_queue_is_refused_and_keeps_the_peer(){
         let l=TcpListener::bind("127.0.0.1:0").unwrap();let s=TcpStream::connect(l.local_addr().unwrap()).unwrap();let _r=l.accept().unwrap();
-        let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),max:4096});
+        let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),finish:AtomicBool::new(false),max:4096});
         let p=Peer{id:1,addr:"t".into(),outbound:false,origin:Origin::Inbound,remote:None,out:out.clone(),sock:Arc::new(s),counters:Arc::new(Counters::default())};
         let m=Msg::Tx{raw:vec![7u8;400]};let f=m.encode().len()+4;
         let mut offered=0;while p.offer(&m){offered+=1;}
@@ -526,7 +540,7 @@ mod tests{
     /// is issued only once the writer is at the hook, and the hook is released only after the close
     /// has either completed (a close that ignores the lock) or blocked on the lock for 200 ms.
     #[test] fn a_close_between_the_writers_test_and_its_wait_wakes_it(){
-        let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),max:1<<20});
+        let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),finish:AtomicBool::new(false),max:1<<20});
         let (at_tx,at_rx)=mpsc::channel::<()>();let (go_tx,go_rx)=mpsc::channel::<()>();let (done_tx,done_rx)=mpsc::channel();
         let o=out.clone();let go=Mutex::new(go_rx);let at=Mutex::new(at_tx);
         std::thread::spawn(move||{let hook=||{let _=at.lock().unwrap().send(());let _=go.lock().unwrap().recv();};let _=done_tx.send(next_frame(&o,&hook));});
@@ -539,6 +553,24 @@ mod tests{
         assert!(matches!(r,Ok(None)),"the writer was not woken by the close (close completed before the wait: {closed_first}): {r:?}");
         assert!(!closed_first,"the close must wait for the writer to release the queue lock");
         closed_rx.recv_timeout(Duration::from_secs(5)).expect("the close completes once the writer waits");
+    }
+    /// `Peer::finish` (a self-connection's inbound end, VA-SPEC §2): every frame queued before it is written, then the
+    /// writer closes the connection and its reader ends; `close` would have dropped them. A writer waiting for frames
+    /// stays open until the finish wakes it. (The reader's Hello deadline is far away: only the writer ends these.)
+    #[test] fn a_finished_peer_writes_what_was_queued_then_closes(){
+        let pair=||{let l=TcpListener::bind("127.0.0.1:0").unwrap();let a=l.local_addr().unwrap();let c=TcpStream::connect(a).unwrap();let (s,_)=l.accept().unwrap();
+            let net=Net::new(Limits{hello_deadline:Duration::from_secs(120),..Limits::default()});
+            let (tx,rx)=mpsc::sync_channel(NET_EVENT_QUEUE);assert!(spawn_peer(s,Origin::Configured(a),tx,net,None).0);
+            let Ok(NetEvent::Connected(_,p))=rx.recv_timeout(Duration::from_secs(5)) else{panic!("handed to the node")};(p,c,rx)};
+        let m=Msg::GetBlock{hash:[7;32]};let f={let b=m.encode();let mut f=(b.len() as u32).to_be_bytes().to_vec();f.extend(b);f};
+        let (p,mut c,rx)=pair();for _ in 0..3{assert!(p.send(&m));}p.finish();
+        c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();let mut got=Vec::new();c.read_to_end(&mut got).unwrap();
+        assert_eq!(got,f.repeat(3),"the frames queued before the finish, then the end of the stream");
+        assert!(matches!(rx.recv_timeout(Duration::from_secs(5)),Ok(NetEvent::Closed(_))),"its reader ends");
+        let (p,mut c,_rx)=pair();assert!(p.send(&m));c.set_read_timeout(Some(Duration::from_millis(300))).unwrap();
+        let mut one=vec![0u8;f.len()];c.read_exact(&mut one).unwrap();assert_eq!(one,f);
+        let mut b=[0u8;1];assert!(matches!(c.read(&mut b),Err(e) if matches!(e.kind(),std::io::ErrorKind::WouldBlock|std::io::ErrorKind::TimedOut)),"open while its writer waits");
+        p.finish();c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();assert_eq!(c.read(&mut b).unwrap(),0,"the finish wakes the writer, which closes it");
     }
     /// Inbound address groups: a public IPv4 peer is grouped by /16 and a public IPv6 peer by /32; an IPv6
     /// address that carries an IPv4 address is grouped as that address; addresses that are not globally
