@@ -1314,10 +1314,13 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // + r_keep) × 76 B, -> 3,234,220,320 B; the R6 churn correction below, +7,720,160 B, -> 3,241,940,480 B;
     // P2P gossip: the relayed TemplateIDs (RELAYED_MAX + 1 at 304 B, + 512), the inbound address groups
     // (peers_max + 1 at 160 B) and the configured peers (dials + 1 at 96 B), + 1,024 B of slack,
-    // +81,392 B, -> 3,242,021,872 B). Some terms are type
+    // +81,392 B, -> 3,242,021,872 B; PR2a discovery: the address book (BOOK_MAX entries at 152 B, + 512), the
+    // per-connection links (the live and stale-link high-water, 237, at 2 × 590 B, + 512), the transient
+    // scratch (2·BOOK_MAX at 76 B, 2·CACHE_MAX addresses, 25 × 64 B, + 1,024) and the file buffers (the 1 MiB
+    // read + 1 and FILE_LINE_MAX × 1,029 lines), +1,914,797 B, -> 3,243,936,669 B). Some terms are type
     // sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on; every
     // target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_242_021_872,"the A13 model total changed");}
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_243_936_669,"the A13 model total changed");}
     // R6 churn correction: eviction=3982768, protect delta=1967104,
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);

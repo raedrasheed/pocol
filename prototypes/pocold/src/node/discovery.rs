@@ -67,6 +67,8 @@ impl DiscoveryTimes{
 /// the GetAddr sent on a connection this node dialed and not yet answered or expired; `answered`: an inbound
 /// connection's GetAddr was taken (at most one per connection).
 struct Link{origin:Origin,remote:Option<SocketAddr>,advertised:Option<SocketAddr>,compatible:bool,consent:bool,asked_ms:Option<u64>,answered:bool}
+/// A13 (resources.rs, `queues/discovery: per-connection links`): one entry of the links table, its key and Link.
+pub const LINK_BYTES:usize=std::mem::size_of::<(PeerId,Link)>();
 /// Shown in `pocol_status` as `discovery.counters`. GetAddr messages: sent, answered, ignored (on a connection this
 /// node dialed, a second one, or discovery off), expired unanswered, and answers not queued because the requester's
 /// queue was past half. Addr messages: taken as the answer to this node's GetAddr, and ignored. The records of the

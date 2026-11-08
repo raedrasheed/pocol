@@ -289,6 +289,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("open-replay-transient","Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound. C-1 E4.4 adds to it, at open only: every record's offset and rolling hash, a decoded checkpoint snapshot and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, which holds the accounts and slots that differ, one block's writes at most, as an import's write set, the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),
     ("store-inventory","store mode (C-1 E4): BATCHES (1) and stored_versions are inventories by code inspection, not enforced by a counter; the node cache is bounded by its resident-byte count (state_store::CACHE_ENTRY, Node::resident_bytes), checked by a test"),
     ("revm-loading","the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION §2d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested"),
+    ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; by inspection"),
     ("store-file-factor","the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
@@ -510,7 +511,31 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let q=[("queues/transaction pool",pool),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
         ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
         ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip)];
-    let queues=add(&q.map(|x|x.1))?;items.extend(q);
+    let mut queues=add(&q.map(|x|x.1))?;items.extend(q);
+    // Peer discovery (VA-SPEC §1a, node::discovery), with discovery on only (off, the book reserves nothing and no
+    // link is kept):
+    // - the address book, its BOOK_MAX entries reserved once (addrbook::Book::new, never grown); Node::open builds
+    //   it and the network's start drops it before it parses the file's, so one is held at a time;
+    // - each connection's Link, in a HashMap<PeerId,Link> from its Connected to its Closed: the live peers, plus one
+    //   stale link per Closed still queued (in the main queue or a forwarder's, with the one it is blocked
+    //   sending), at the churn rule of hash32_churn_bytes (< 32/7 buckets per high-water entry, a control byte each,
+    //   two allocations), + 512;
+    // - transient scratch on the consensus thread (CONDITIONS discovery-transient): two index or key lists over the
+    //   book (the answer list's rebuild, two lists of entry indices; the status's distinct keys), the answer list
+    //   and one answer, the own addresses and anchors, + 1,024;
+    // - the file's buffers: the bounded read (launcher::read_bounded, MAX_INVITATION + 1) and the encoded book
+    //   (Book::encode's capacity, FILE_LINE_MAX per line).
+    if limits.discovery.enabled{
+        use crate::addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX};
+        let high=add(&[l.peers_max as u128,dials as u128,node::EVENT_QUEUE as u128,mul((1+dials) as u128,net::NET_EVENT_QUEUE as u128+1)?])?;
+        let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);
+        let d=[("queues/discovery: address book (BOOK_MAX, reserved once)",add(&[mul(BOOK_MAX as u128,size_of::<ab::Entry>() as u128)?,512])?),
+            ("queues/discovery: per-connection links (churn)",add(&[mul(mul(high,2)?,link)?,512])?),
+            ("queues/discovery: selection, answer and self scratch",add(&[mul(2*BOOK_MAX as u128,(size_of::<ab::Source>()+size_of::<ab::Key>()+8) as u128)?,
+                mul(2*CACHE_MAX as u128,size_of::<std::net::SocketAddr>() as u128)?,mul((SELF_MAX+ANCHORS_MAX+7) as u128,64)?,1024])?),
+            ("queues/discovery: address-book file buffers",add(&[crate::launcher::MAX_INVITATION as u128+1,mul(FILE_LINE_MAX as u128,(BOOK_MAX+ANCHORS_MAX+3) as u128)?])?)];
+        queues=add(&[queues,add(&d.map(|x|x.1))?])?;items.extend(d);
+    }
     // RPC (rpc::conn): per connection its header buffer (HEAD_MAX+READ_CHUNK, and its lossy UTF-8
     // copy, up to 3 bytes per input byte) and a body of exactly Content-Length <= REQ_BUF bytes. Answers held
     // by connections are within the response pools (rpc::answer: light (conn_max+1) x
