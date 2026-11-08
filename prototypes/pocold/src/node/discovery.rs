@@ -219,12 +219,19 @@ impl Node{
     /// verification of a consenting connection this node dialed, the advertisement of an inbound one), so that a
     /// long-lived connection stays within the relay window. Once the book is loaded it is saved when due: save_first_ms
     /// after the network's start, then every save_every_ms, each time after its terrible entries are dropped
-    /// (`Book::purge`, as at load), so that no dead entry keeps a place in a quota while the node runs.
+    /// (`Book::purge`, as at load), so that no dead entry keeps a place in a quota while the node runs. The deadlines
+    /// are wall-clock times (`disc_now`): after the clock steps back by more than a tick, the tick runs at once and no
+    /// other deadline is left more than its period ahead, so saves, refreshes and expiries go on, and a GetAddr asked
+    /// more than a tick in the future expires, so that its Addr is not taken late.
     pub(super) fn disc_tick(&mut self,now:u64){
         let d=&mut self.disc;
-        if !d.on||now<d.next_tick_ms{return}
-        d.next_tick_ms=now.saturating_add(d.times.tick_ms);
-        for l in d.links.values_mut(){if l.asked_ms.is_some_and(|t|now.saturating_sub(t)>d.times.getaddr_timeout_ms){l.asked_ms=None;d.counters.get_addr_timeouts+=1;}}
+        if !d.on{return}
+        let t=d.times;let ahead=|deadline:&mut u64,period:u64|*deadline=(*deadline).min(now.saturating_add(period));
+        if d.next_tick_ms>now.saturating_add(t.tick_ms){d.next_tick_ms=now}
+        ahead(&mut d.next_refresh_ms,t.refresh_ms);ahead(&mut d.next_save_ms,t.save_first_ms.max(t.save_every_ms));
+        if now<d.next_tick_ms{return}
+        d.next_tick_ms=now.saturating_add(t.tick_ms);
+        for l in d.links.values_mut(){if l.asked_ms.is_some_and(|a|a>now.saturating_add(t.tick_ms)||now.saturating_sub(a)>t.getaddr_timeout_ms){l.asked_ms=None;d.counters.get_addr_timeouts+=1;}}
         if now>=d.next_refresh_ms{d.next_refresh_ms=now.saturating_add(d.times.refresh_ms);
             for l in d.links.values(){match (l.origin.dialed(),l.advertised){(Some(a),_) if l.compatible&&l.consent=>d.book.touch(a,false,now),(None,Some(a))=>d.book.touch(a,true,now),_=>{}}}}
         if d.loaded&&now>=d.next_save_ms{d.next_save_ms=now.saturating_add(d.times.save_every_ms);d.book.purge(now);self.disc_save();}
@@ -611,6 +618,26 @@ mod tests{
         n.disc_tick(T0+60_000);assert_eq!((n.disc.book.entries().len(),n.disc.counters.book_saves),(3,1));
         n.disc_tick(T0+30*DAY+1);
         assert!(n.disc.book.entries().len()==1&&n.disc.book.get(sa("81.5.0.3:30300")).is_some()&&n.disc.counters.book_saves==2,"the two quiet entries are dropped, and the book saved");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// The deadlines follow the wall clock back: after a step back of an hour the save that is due still comes 15 minutes
+    /// later, so do the hourly refreshes of live connections, and a GetAddr asked before the step expires at the next
+    /// tick, so that its Addr is not taken late (a small step, within a tick, changes nothing).
+    #[test] fn a_clock_step_back_pauses_no_save_refresh_or_expiry(){
+        const M:u64=60_000;const Q:u64=900_000;const H:u64=3_600_000;
+        let (mut n,dir)=open("clock");n.disc_load(T0);
+        let _i=connect(&mut n,1,Origin::Inbound,Some(sa("81.5.0.1:51000")));greet(&mut n,1,30300,0);
+        n.disc_tick(T0+M);assert_eq!(n.disc.counters.book_saves,1);
+        n.disc.test_now=Some(T0+M);let c=sa("81.2.69.9:30300");let _c=connect(&mut n,2,Origin::Configured(c),Some(c));greet(&mut n,2,30300,0);
+        n.disc_tick(T0+M-300);assert_eq!(n.disc.counters.get_addr_timeouts,0,"a step back within a tick expires nothing");
+        let back=T0+M-H;n.disc_tick(back);
+        assert_eq!(n.disc.counters.get_addr_timeouts,1,"the GetAddr asked an hour ahead expires");
+        n.disc.test_now=Some(back+1);msg(&mut n,2,Msg::Addr{addrs:vec![sa("81.6.0.1:30300")]});
+        assert!(n.disc.book.get(sa("81.6.0.1:30300")).is_none()&&n.disc.counters.addr_unsolicited==1,"and its late Addr is not taken");
+        let _j=connect(&mut n,3,Origin::Inbound,Some(sa("81.7.0.1:51000")));greet(&mut n,3,30300,0);
+        n.disc_tick(back+Q-500);assert_eq!(n.disc.counters.book_saves,1);
+        n.disc_tick(back+Q);assert_eq!(n.disc.counters.book_saves,2,"the save due comes 15 minutes after the step");
+        n.disc_tick(back+H);assert_eq!(n.disc.book.get(sa("81.5.0.1:30300")).unwrap().direct_ms,back+H,"and the hourly refresh an hour after it");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// `--no-discovery` (VA-SPEC §1a, the escape hatch): Hello announces no port, no GetAddr is sent, a GetAddr is not

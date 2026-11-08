@@ -81,7 +81,9 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    is below half (§4). A node sends GetAddr once per connection it dialed (not feelers).
 6. Persistence: `<data dir>/addrbook`, bound to chainId and genesis and checksummed, written atomically 60 s
    after start, every 15 min, when the anchors change and at a clean stop, read with a 1 MiB bound. Every
-   entry read passes 3 and 4 again; a damaged, foreign or oversized file is ignored (empty book).
+   entry read passes 3 and 4 again; a damaged, foreign or oversized file is ignored (empty book). These
+   periods, the refresh of live entries and the 120 s of 2(c) run on the wall clock: when it steps back, no
+   deadline stays more than its period ahead, and a GetAddr sent "in the future" expires.
 7. Automatic outbound, default off (`--outbound N`, 0..8; 0 until inbound eviction exists): N slots, one
    connection each, at most one per address group, never to a configured peer, a seed, this node or an
    address already connected. Choice: verified or unverified entries 50/50 when both exist; verified by
