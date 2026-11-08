@@ -56,6 +56,95 @@ precompile cancellation or complete RpcGuard memory accounting. Monitoring check
 compatible peers, healthy history, finite-lifetime proximity and common confirmed
 hash/state/receipt roots while all nodes advance.
 
+## Peer discovery
+
+A node learns peer addresses by asking, never by being told (VA-SPEC §1a; local
+policy, which never changes validity, chain state or admission). Hello now has 11
+items: `listenPort` and an 8-byte `nonce` follow the compatibility digest.
+`PROTOCOL_VERSION` stays 2, so the compatibility digest changes and a 9-item Hello
+fails closed. A node sends GetAddr (type 8) once on each connection it dialed, and
+answers the first GetAddr of each inbound connection with one Addr (type 9) of at
+most 64 addresses. It learns only the addresses it dialed and verified, the source
+IP and `listenPort` of its inbound peers, and the answer to its own GetAddr. Nothing
+is relayed further, and no peer is banned. This release makes no new connections:
+it dials only its configured peers, as before.
+
+| Setting | `pocold run` | Launcher (`pocol start`) |
+|---|---|---|
+| Discovery on (default) or off | `--no-discovery`; `POCOL_DISCOVERY=0` or `1` | `POCOL_DISCOVERY` |
+| Local mode (off by default) | `--discover-local`; `POCOL_DISCOVER_LOCAL=0` or `1` | `POCOL_DISCOVER_LOCAL` |
+
+A flag wins over its variable, and an empty value counts as unset. Any other value
+stops the command before the node starts (status 1), naming the variable. Local
+mode also learns loopback and private addresses, but only from peers that have no
+public address either. It is meant for single-host and LAN rehearsals.
+`pocold status` reads the flags and ignores the variables.
+
+**Escape hatch.** `POCOL_DISCOVERY=0` (or `--no-discovery`) turns discovery off. The
+node then sends `listenPort` 0, asks nothing, answers nothing, and neither reads nor
+writes the address book. A listening node that comes back this way withdraws its
+advertisement: at its next connection, a peer forgets the self-advertised address at
+its IP, unless another live connection from that IP still advertises it. Two protections stay on: the self-connection nonce check,
+and clearing a configured peer's redial by the address that was dialed.
+
+**The address book.** The book is the file `addrbook` in the node's data directory
+(`pocold run --data DIR`, which is `/var/lib/pocol-testnet` for the Linux service,
+or the launcher home's `state/`). It is bound to the chain id and genesis, and it is
+checksummed. The node reads it when the network starts and writes it atomically 60
+s after the start, every 15 minutes, and at a clean stop, each time only if it
+changed. `pocold run` has no signal handler, so a killed node keeps its last save.
+The file is advisory: deleting it only makes the node start with an empty book. It
+may be backed up with the rest of the data directory. In local mode, never copy it
+to another node, because its local addresses mean something only on the host or LAN
+where they were learned. A damaged, foreign or oversized file is ignored: the node
+starts with an empty book, logs the reason, and shows it as
+`discovery.book.file: "ignored: <reason>"`.
+
+**Monitoring.** `pocol_status` gains:
+- `outboundPeers`: live connections this node dialed;
+- `discovery`: the settings, `listenPort`, and `selfDetection` (the node listens, so
+  it sends a nonce);
+- `discovery.book`: the size of the book (entries, verified, relayable, address
+  groups, the maximum, and `file`), never its contents;
+- `discovery.self`: this node's own addresses (at most 16);
+- `discovery.counters`.
+
+`compatiblePeers` no longer counts a connection to the node itself. A seed whose
+only peer is itself therefore shows 0, and monitor.py and preflight.py can see that
+it is isolated. Watch `compatiblePeers`, `discovery.self`, the `selfConnections`
+counter and `bookSaveErrors`. The automatic-outbound keys (`discovery.outbound`:
+`healthy`, `stalled`, `seeds[].state`) arrive with automatic outbound connections.
+
+**Privacy.** Only a listening node is advertised, and only by its own consent: a
+non-zero `listenPort` in its Hello. A node that does not listen sends `listenPort` 0
+and nonce 0, so nothing in its Hello names it or links it across addresses. A node
+listening on loopback (`--listen 127.0.0.1:P`) sends both only to loopback peers, so
+a remote seed it dials does not record its public IP as a listener; one listening on
+a specific address sends them only on connections that use that address. An
+inbound peer is recorded under its connection's source IP, never under an address it
+claims. A peer that dials this node may receive up to 64 addresses that the node
+verified or was advertised within the last 7 days. It receives at most 2 per address
+group, never addresses the node only heard of, and never timestamps.
+
+**Automatic outbound connections.** Dialing learned addresses (`--outbound`,
+`--seed`, the feeler and anchors) is not part of this release. When it is added, its
+default stays 0 until inbound eviction exists (PR3). Until then, a peer that fills
+the inbound slots could turn automatic dialing into an eclipse.
+
+**Upgrades (G2, G3).** This release changes the compatibility digest, so seeds and
+users must upgrade together. Launcher homes cannot take a release that changes only
+the digest: `upgrade_transition` (launcher.rs) accepts nothing but appending one v2
+fork. Before this release reaches launcher homes, either issue a new invitation or
+merge a separate change that accepts a transition where only `compatibility_sha256`
+differs.
+
+**Seeds behind NAT.** A seed that dials its own public address detects itself by its
+nonce and stops dialing that address. This needs NAT hairpinning. A seed behind a NAT
+without hairpinning cannot reach itself, so it cannot detect itself. Its dialer keeps
+retrying its own address, as before this release, which costs nothing but a failed
+connect. Once `pocol start --peer` exists (with automatic outbound), such a seed
+should list the other seeds with it instead (standalone README).
+
 ## Evidence and limits
 
 Local runs (evidence under `evidence/operations/`):

@@ -217,3 +217,30 @@ fn print(tag:&str,b:&pocold::resources::Bound){
     assert!(o2>=o1);
 }
 fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution::admission::NodeLocal{delta:5,phi:5,t_exec:3,delta_rel:26,gamma:30,k_hist:32,retention_stress:false,..pocold::single_host_local()}}
+
+/// PR2a (plan §9): peer discovery's four queue terms are counted only with discovery on, each at its formula: the
+/// book's BOOK_MAX entries reserved once; the links table at its churn high-water (the live peers and one stale link
+/// per Closed still queued); the transient scratch; the file's read and save buffers. Off, no term is counted and the
+/// total is the on-total less exactly their sum. Local mode changes nothing.
+#[test] fn a13_discovery_terms_are_counted_only_when_enabled(){
+    use pocold::{addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX},node::{self,Discovery,Limits},net,resources::derive};use std::mem::size_of;
+    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let disc=|b:&pocold::resources::Bound|b.items.iter().filter(|x|x.0.starts_with("queues/discovery")).cloned().collect::<Vec<_>>();
+    let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);
+    for (peers_max,dials) in [(net::Limits::default().peers_max,2usize),(16,5),(1,0)]{
+        let at=|d:Discovery|derive(&cp,32,l.side_max,&Limits{net:net::Limits{peers_max,..Default::default()},discovery:d,..Default::default()},dials).unwrap();
+        let (on,off,local)=(at(Discovery::default()),at(Discovery{enabled:false,..Default::default()}),at(Discovery{allow_local:true,..Default::default()}));
+        assert!(disc(&off).is_empty(),"off: {:?}",disc(&off));
+        let high=(peers_max+dials+node::EVENT_QUEUE+(1+dials)*(net::NET_EVENT_QUEUE+1)) as u128;
+        let want=[("queues/discovery: address book (BOOK_MAX, reserved once)",BOOK_MAX as u128*size_of::<ab::Entry>() as u128+512),
+            ("queues/discovery: per-connection links (churn)",high*2*link+512),
+            ("queues/discovery: selection, answer and self scratch",(2*BOOK_MAX*(size_of::<ab::Source>()+size_of::<ab::Key>()+8)+2*CACHE_MAX*size_of::<std::net::SocketAddr>()+(SELF_MAX+ANCHORS_MAX+7)*64+1024) as u128),
+            ("queues/discovery: address-book file buffers",(pocold::launcher::MAX_INVITATION+1+FILE_LINE_MAX*(BOOK_MAX+ANCHORS_MAX+3)) as u128)];
+        assert_eq!(disc(&on),want,"peers_max {peers_max}, dials {dials}");
+        let sum:u128=want.iter().map(|x|x.1).sum();
+        assert_eq!((on.total-sum,on.queues-sum),(off.total,off.queues),"off is on less exactly the discovery terms");
+        assert_eq!(local,on,"local mode costs nothing more");
+    }
+    assert_eq!(BOOK_MAX,1024);
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,128),"the type sizes the pinned total was derived with");}
+}

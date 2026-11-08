@@ -31,7 +31,7 @@ jobs:
           git rev-parse HEAD > evidence/commit.txt
           rustup toolchain install 1.99.1 --profile minimal
           cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml 2>&1 | tee evidence/build.log
-          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test net --test relay 2>&1 | tee evidence/rust.log
+          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test net --test relay --test discovery 2>&1 | tee evidence/rust.log
           cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --test consensus --test caps -- --test-threads=1 2>&1 | tee evidence/consensus.log
           python3 -B deploy/public-testnet/test_operations.py -v 2>&1 | tee evidence/operations.log
           python3 -B prototypes/pocold/tests/independent_keys.py -v 2>&1 | tee evidence/keys.log

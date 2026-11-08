@@ -680,7 +680,7 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     let mut n=Node::open(Config{dir:dir.clone(),name:"offer".into(),miner:None,listen:Some(format!("127.0.0.1:{port}").parse().unwrap()),peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},spec).unwrap();
     n.start_network().unwrap();
     let mut s=std::net::TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(std::time::Duration::from_millis(50))).unwrap();
-    let hello=Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"peer".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility()}.encode();
+    let hello=Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"peer".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0}.encode();
     let mut f=(hello.len() as u32).to_be_bytes().to_vec();f.extend(hello);s.write_all(&f).unwrap();
     let mut buf=Vec::new();let mut sent=frames_from(&mut n,&mut s,&mut buf,1500);
     assert_eq!(n.status_json()["peers"].as_array().unwrap().len(),1,"the peer is connected");
@@ -1314,10 +1314,13 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // + r_keep) × 76 B, -> 3,234,220,320 B; the R6 churn correction below, +7,720,160 B, -> 3,241,940,480 B;
     // P2P gossip: the relayed TemplateIDs (RELAYED_MAX + 1 at 304 B, + 512), the inbound address groups
     // (peers_max + 1 at 160 B) and the configured peers (dials + 1 at 96 B), + 1,024 B of slack,
-    // +81,392 B, -> 3,242,021,872 B). Some terms are type
+    // +81,392 B, -> 3,242,021,872 B; PR2a discovery: the address book (BOOK_MAX entries at 152 B, + 512), the
+    // per-connection links (the live and stale-link high-water, 237, at 2 × 590 B, + 512), the transient
+    // scratch (2·BOOK_MAX at 76 B, 2·CACHE_MAX addresses, 25 × 64 B, + 1,024) and the file buffers (the 1 MiB
+    // read + 1 and FILE_LINE_MAX × 1,029 lines), +1,914,797 B, -> 3,243,936,669 B). Some terms are type
     // sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on; every
     // target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_242_021_872,"the A13 model total changed");}
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_243_936_669,"the A13 model total changed");}
     // R6 churn correction: eviction=3982768, protect delta=1967104,
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);
@@ -2465,7 +2468,7 @@ fn wait_for(secs:u64,f:&dyn Fn()->bool)->bool{let t=std::time::Instant::now();wh
     std::thread::spawn(move||{let mut buf=[0u8;65536];while xr.read(&mut buf).map_or(false,|n|n>0){}});
     let copies:Vec<Vec<u8>>=ours.iter().map(|y|frame(&Msg::Block{header:y.header.encoded.clone(),body:y.body.encode()})).collect();
     std::thread::spawn(move||{let mut k=0u64;loop{
-        if k%20==0{let head=[(k/20) as u8;32];if x.write_all(&frame(&Msg::Hello{chain_id,genesis,head,height:1_000_000,work:[0xff;32],node:"x".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility()})).is_err(){break}}
+        if k%20==0{let head=[(k/20) as u8;32];if x.write_all(&frame(&Msg::Hello{chain_id,genesis,head,height:1_000_000,work:[0xff;32],node:"x".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0})).is_err(){break}}
         if x.write_all(&copies[(k as usize)%copies.len()]).is_err(){break}k+=1;std::thread::sleep(std::time::Duration::from_millis(50));}});
     let head=|p:u16|rpc_tcp(p,"eth_getBlockByNumber",json!(["latest",false]))["hash"].clone();
     assert!(wait_for(20,&||rpc_tcp(ra,"pocol_status",json!([]))["stats"]["syncSessions"].as_u64().unwrap_or(0)>=1),"the false peer's first Hello starts a session");
