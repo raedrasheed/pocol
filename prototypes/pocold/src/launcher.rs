@@ -225,13 +225,18 @@ pub fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
     if !file.metadata().map_err(|e| e.to_string())?.is_file() {
         return Err("expected a regular file".into());
     }
-    let mut bytes = Vec::new();
-    file.take((MAX_INVITATION + 1) as u64)
-        .read_to_end(&mut bytes)
-        .map_err(|e| e.to_string())?;
+    let bytes = read_capped(file).map_err(|e| e.to_string())?;
     if bytes.len() > MAX_INVITATION {
         return Err("file exceeds 1 MiB".into());
     }
+    Ok(bytes)
+}
+/// At most MAX_INVITATION + 1 bytes of `r`, into a buffer reserved at exactly that size, so the read never grows it
+/// (A13 counts MAX_INVITATION + 1 for the address book's read, `resources::derive`): `Take` gives `read_to_end` no
+/// size hint, and a buffer grown by doubling reaches 2 MiB for any file of 1 MiB or more.
+fn read_capped(r: impl Read) -> std::io::Result<Vec<u8>> {
+    let mut bytes = Vec::with_capacity(MAX_INVITATION + 1);
+    r.take((MAX_INVITATION + 1) as u64).read_to_end(&mut bytes)?;
     Ok(bytes)
 }
 pub fn pack(network: &Path, seeds: Vec<SocketAddr>, out: &Path) -> Result<(), String> {
@@ -612,6 +617,18 @@ mod upgrade_tests {
             fs::write(&path, &changed).unwrap();
             assert!(stored_max_height(&t.0, &invitation()).is_err());
             assert_eq!(fs::read(&path).unwrap(), changed);
+        }
+    }
+    /// A13 (`queues/discovery: address-book file buffers`): the read's buffer stays within the MAX_INVITATION + 1
+    /// counted for it, also for a file of exactly 1 MiB, one byte more and one far larger.
+    #[test]
+    fn a_bounded_read_never_grows_its_buffer_past_the_counted_bound() {
+        let t = Scratch::new(); let path = t.0.join("file");
+        for len in [0, 240_000, MAX_INVITATION, MAX_INVITATION + 1, 3 * MAX_INVITATION] {
+            fs::write(&path, vec![b'x'; len]).unwrap();
+            let bytes = read_capped(File::open(&path).unwrap()).unwrap();
+            assert!(bytes.len() == len.min(MAX_INVITATION + 1) && bytes.capacity() <= MAX_INVITATION + 1, "{len} B: capacity {}", bytes.capacity());
+            assert_eq!(read_bounded(&path).ok().map(|b| b.len()), (len <= MAX_INVITATION).then_some(len), "{len} B");
         }
     }
     #[test]

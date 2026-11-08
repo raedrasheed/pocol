@@ -523,8 +523,8 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // - transient scratch on the consensus thread (CONDITIONS discovery-transient): two index or key lists over the
     //   book (the answer list's rebuild, two lists of entry indices; the status's distinct keys), the answer list
     //   and one answer, the own addresses and anchors, + 1,024;
-    // - the file's buffers: the bounded read (launcher::read_bounded, MAX_INVITATION + 1) and the encoded book
-    //   (Book::encode's capacity, FILE_LINE_MAX per line).
+    // - the file's buffers: the bounded read (launcher::read_bounded, MAX_INVITATION + 1, reserved at that size and
+    //   never grown) and the encoded book (Book::encode's capacity, FILE_LINE_MAX per line).
     if limits.discovery.enabled{
         use crate::addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX};
         let high=add(&[l.peers_max as u128,dials as u128,node::EVENT_QUEUE as u128,mul((1+dials) as u128,net::NET_EVENT_QUEUE as u128+1)?])?;
