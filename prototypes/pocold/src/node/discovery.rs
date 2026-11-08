@@ -10,6 +10,9 @@
 //!   with 0); then the one Addr that answers this node's GetAddr on a connection it dialed, within
 //!   `getaddr_timeout_ms`. Nothing else is learned, and learned addresses never enter `Net::protect`.
 //! - Answering (VA-SPEC §1a.5): the first GetAddr of an inbound connection, through `Peer::offer`.
+//! - Persistence (VA-SPEC §1a.6): the book is read when the network starts, and written a minute later, every 15
+//!   minutes and at a clean stop, each time only if it changed. Nothing is read or written with discovery off, or
+//!   without the network's start (`pocold status`).
 //!
 //! Every other discovery message is ignored and counted; nothing here closes or penalizes a peer (a malformed frame
 //! still closes its connection in the reader, VA-SPEC §1).
@@ -18,6 +21,8 @@ use std::net::SocketAddr;
 use crate::addrbook::{self,Book,Kind,Outcome,Source};
 use crate::net::{self,Msg,Origin,PeerId};
 use super::{Node,now_ms};
+/// The book's file in the data directory (VA-SPEC §1a.6), and the temporary file a save writes first.
+const FILE:&str="addrbook";const FILE_TMP:&str="addrbook.tmp";
 
 /// Peer discovery's local settings (`node::Limits::discovery`, VA-SPEC §1a). `enabled`: learn, answer and advertise
 /// the listener's port (off: `--no-discovery`, the escape hatch; the nonce check and the H2 fix still apply);
@@ -53,26 +58,28 @@ struct Link{origin:Origin,remote:Option<SocketAddr>,advertised:Option<SocketAddr
 /// queue was past half. Addr messages: taken as the answer to this node's GetAddr, and ignored. The records of the
 /// answers taken: new entries (added, or in place of another), entries refreshed, and records dropped (not learnable,
 /// no room under the quotas, or a repeat within the answer). Self-advertisements received, and connections closed
-/// as self-connections (each end of one counts).
+/// as self-connections (each end of one counts). The book's saves, and the saves that failed.
 #[derive(Default)]
 struct Counters{get_addr_sent:u64,get_addr_answered:u64,get_addr_ignored:u64,get_addr_timeouts:u64,answer_skipped_queue:u64,
-    addr_received:u64,addr_unsolicited:u64,addr_accepted:u64,addr_refreshed:u64,addr_dropped:u64,self_ads:u64,self_connections:u64}
+    addr_received:u64,addr_unsolicited:u64,addr_accepted:u64,addr_refreshed:u64,addr_dropped:u64,self_ads:u64,self_connections:u64,book_saves:u64,book_save_errors:u64}
 /// The node's discovery state. `listening`: it has a listener (`cfg.listen`), so it sends `nonce` (nonzero, drawn once
 /// per process); `listen_port`: the bound listener's port, read when the network starts with discovery on; `rng`:
-/// the book's shuffles (seeded from the OS, or `Discovery::rng_seed`); `links`: each connection's state.
+/// the book's shuffles (seeded from the OS, or `Discovery::rng_seed`); `links`: each connection's state; `file`: what
+/// the network's start found in the book's file; `loaded`: the network started with discovery on, so the book is saved.
 pub(super) struct Disc{on:bool,allow_local:bool,listening:bool,nonce:u64,listen_port:u16,book:Book,rng:addrbook::Rng,links:HashMap<PeerId,Link>,
-    times:DiscoveryTimes,next_tick_ms:u64,next_refresh_ms:u64,counters:Counters,
+    times:DiscoveryTimes,file:String,loaded:bool,next_tick_ms:u64,next_refresh_ms:u64,next_save_ms:u64,counters:Counters,
     /// Tests: the clock the hooks read (`Node::disc_now`).
     #[cfg(test)] test_now:Option<u64>}
 impl Disc{
     /// At `Node::open`: the nonce and the generator's seed from the OS (`Err` without OS randomness), and an empty book,
-    /// which reserves its BOOK_MAX entries only with discovery on.
+    /// which reserves its BOOK_MAX entries only with discovery on (the network's start replaces it with the file's).
     pub(super) fn open(s:&Discovery,listening:bool)->Result<Self,String>{
         let mut r=[0u8;16];getrandom::getrandom(&mut r).map_err(|_|"OS randomness unavailable")?;
         let [nonce,seed]=[0,8].map(|i|u64::from_be_bytes(r[i..i+8].try_into().unwrap()));
         let mut book=if s.enabled{Book::new(s.allow_local)}else{Book::disabled()};book.set_times(s.times.book());
         Ok(Self{on:s.enabled,allow_local:s.allow_local,listening,nonce:nonce.max(1),listen_port:0,book,rng:addrbook::Rng::new(s.rng_seed.unwrap_or(seed)),
-            links:HashMap::new(),times:s.times,next_tick_ms:0,next_refresh_ms:0,counters:Counters::default(),#[cfg(test)]test_now:None})
+            links:HashMap::new(),times:s.times,file:"not loaded".into(),loaded:false,next_tick_ms:0,next_refresh_ms:0,next_save_ms:0,counters:Counters::default(),
+            #[cfg(test)]test_now:None})
     }
     /// The network started with this listener port (`start_network`): advertised only with discovery on.
     pub(super) fn bound(&mut self,port:u16){if self.on{self.listen_port=port}}
@@ -172,7 +179,8 @@ impl Node{
     /// From `tick`, at most every `tick_ms`: an outstanding GetAddr expires after `getaddr_timeout_ms` (its Addr would
     /// be ignored from then on), and every `refresh_ms` the live connections refresh their entries (`Book::touch`: the
     /// verification of a consenting connection this node dialed, the advertisement of an inbound one), so that a
-    /// long-lived connection stays within the relay window.
+    /// long-lived connection stays within the relay window. Once the book is loaded it is saved when due: save_first_ms
+    /// after the network's start, then every save_every_ms.
     pub(super) fn disc_tick(&mut self,now:u64){
         let d=&mut self.disc;
         if !d.on||now<d.next_tick_ms{return}
@@ -180,6 +188,38 @@ impl Node{
         for l in d.links.values_mut(){if l.asked_ms.is_some_and(|t|now.saturating_sub(t)>d.times.getaddr_timeout_ms){l.asked_ms=None;d.counters.get_addr_timeouts+=1;}}
         if now>=d.next_refresh_ms{d.next_refresh_ms=now.saturating_add(d.times.refresh_ms);
             for l in d.links.values(){match (l.origin.dialed(),l.advertised){(Some(a),_) if l.compatible&&l.consent=>d.book.touch(a,false,now),(None,Some(a))=>d.book.touch(a,true,now),_=>{}}}}
+        if d.loaded&&now>=d.next_save_ms{d.next_save_ms=now.saturating_add(d.times.save_every_ms);self.disc_save();}
+    }
+    /// VA-SPEC §1a.6, when the network starts with discovery on: the book is read from the data directory with a 1 MiB
+    /// bound (`launcher::read_bounded`), each entry passing the filter and the quotas again (`addrbook::parse`). Without
+    /// a file the book starts empty; a file that cannot be read, or that is damaged, foreign or oversized, is ignored:
+    /// the book starts empty, the reason is logged and shown (`discovery.book.file`), and the node runs. The book
+    /// reserved at open is dropped before the file's is built, so two are never held at once. The first save is due
+    /// save_first_ms later.
+    pub(super) fn disc_load(&mut self,now:u64){
+        if !self.disc.on{return}
+        let path=self.cfg.dir.join(FILE);
+        let read=match std::fs::metadata(&path){Err(e) if e.kind()==std::io::ErrorKind::NotFound=>None,_=>Some(crate::launcher::read_bounded(&path))};
+        let (chain_id,genesis)=(self.chain.spec.chain_id(),self.chain.spec.genesis_hash());let d=&mut self.disc;
+        d.file=match read{None=>"absent".into(),Some(r)=>{d.book=Book::disabled();
+            match r.and_then(|b|addrbook::parse(&b,chain_id,&genesis,d.allow_local,now)){Ok((book,_anchors))=>{d.book=book;"loaded".into()}
+                Err(e)=>{d.book=Book::new(d.allow_local);format!("ignored: {e}")}}}};
+        d.book.set_times(d.times.book());d.loaded=true;d.next_save_ms=now.saturating_add(d.times.save_first_ms);
+        self.log(&format!("address book: {}, {} entries",self.disc.file,self.disc.book.entries().len()));
+    }
+    /// VA-SPEC §1a.6: the book, once loaded and if it changed since, is written atomically, as `persist_signed_a0` writes
+    /// its record: the temporary file written and synced, renamed over the file, then the directory synced (Unix only:
+    /// Windows cannot open a directory). A failure is logged and counted, never fatal: the book stays changed, and the
+    /// next save writes it.
+    pub(super) fn disc_save(&mut self){
+        use std::io::Write;
+        if !self.disc.loaded||!self.disc.book.dirty(){return}
+        let bytes=self.disc.book.encode(self.chain.spec.chain_id(),&self.chain.spec.genesis_hash(),&[]);let dir=&self.cfg.dir;
+        let r=(||->std::io::Result<()>{
+            {let mut f=std::fs::File::create(dir.join(FILE_TMP))?;f.write_all(&bytes)?;f.sync_all()?;}
+            std::fs::rename(dir.join(FILE_TMP),dir.join(FILE))?;if cfg!(unix){std::fs::File::open(dir)?.sync_all()?;}Ok(())})();
+        match r{Ok(())=>{self.disc.book.saved();self.disc.counters.book_saves+=1;}
+            Err(e)=>{self.disc.counters.book_save_errors+=1;self.log(&format!("address book: the save failed: {e}"));}}
     }
     /// `pocol_status.discovery` (plan §8): the settings, the book's size (never its contents), this node's own
     /// addresses (at most addrbook::SELF_MAX) and the counters.
@@ -189,11 +229,11 @@ impl Node{
         let c=&d.counters;
         serde_json::json!({"enabled":d.on,"allowLocal":d.allow_local,"listenPort":d.listen_port(),"selfDetection":d.wire_nonce()!=0,
             "book":{"entries":e.len(),"verified":e.iter().filter(|x|x.verified_ms>0).count(),"relayable":e.iter().filter(|x|d.book.relayable(x,now)).count(),"keys":keys.len(),
-                "max":if d.on{addrbook::BOOK_MAX}else{0}},
+                "max":if d.on{addrbook::BOOK_MAX}else{0},"file":d.file},
             "self":d.book.selfs().iter().map(|a|a.to_string()).collect::<Vec<_>>(),
             "counters":{"getAddrSent":c.get_addr_sent,"getAddrAnswered":c.get_addr_answered,"getAddrIgnored":c.get_addr_ignored,"getAddrTimeouts":c.get_addr_timeouts,
                 "answerSkippedQueue":c.answer_skipped_queue,"addrReceived":c.addr_received,"addrUnsolicited":c.addr_unsolicited,"addrAccepted":c.addr_accepted,
-                "addrRefreshed":c.addr_refreshed,"addrDropped":c.addr_dropped,"selfAds":c.self_ads,"selfConnections":c.self_connections}})
+                "addrRefreshed":c.addr_refreshed,"addrDropped":c.addr_dropped,"selfAds":c.self_ads,"selfConnections":c.self_connections,"bookSaves":c.book_saves,"bookSaveErrors":c.book_save_errors}})
     }
 }
 
@@ -447,6 +487,39 @@ mod tests{
         assert!(n.disc.links.is_empty(),"no link outlives its connection");
         n.disc_tick(T0+2*H);assert_eq!(times(&n),(T0+H+5,T0+H),"an ended connection refreshes nothing");
         drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// VA-SPEC §1a.6: nothing is written before the network starts (`pocold status`). From its start the book is saved
+    /// once save_first_ms (60 s) has passed and then every save_every_ms (15 min), each time only if it changed, and at a
+    /// clean stop; a save that fails is counted and made at the next one. With discovery off the network's start reads
+    /// nothing, not even a valid file; a damaged file is ignored, and the empty book it leaves learns as before.
+    #[test] fn the_book_is_saved_a_minute_after_the_start_then_every_15_minutes_while_it_changes(){
+        const M:u64=60_000;const Q:u64=900_000;
+        let (mut n,dir)=open("save");let file=dir.join(super::FILE);
+        let mut id=0;let mut learn=|n:&mut Node|{id+=1;let _i=connect(n,id,Origin::Inbound,Some(SocketAddr::new([81,5,0,id as u8].into(),51000)));greet(n,id,30300,0);};
+        let saves=|n:&Node|(n.disc.counters.book_saves,n.disc.counters.book_save_errors);let status=|n:&Node|n.status_json()["discovery"]["book"]["file"].clone();
+        learn(&mut n);n.disc_save();n.run_controlled(|_|true);
+        assert!(!file.exists()&&status(&n)=="not loaded"&&n.disc.book.dirty(),"nothing is written before the network starts");
+        n.disc_load(T0);assert_eq!(status(&n),"absent");
+        n.disc_tick(T0+M-500);assert!(!file.exists(),"not within the first minute");
+        n.disc_tick(T0+M);assert!(file.exists()&&saves(&n)==(1,0),"saved a minute after the start");
+        let (saved,_)=crate::addrbook::parse(&std::fs::read(&file).unwrap(),n.chain.spec.chain_id(),&n.chain.spec.genesis_hash(),false,T0+M).unwrap();
+        assert!(saved.entries()==n.disc.book.entries()&&saved.entries().len()==1,"the book as it is");
+        n.disc_tick(T0+M+Q);assert_eq!(saves(&n),(1,0),"unchanged: not written again");
+        learn(&mut n);n.disc_tick(T0+M+2*Q-500);assert_eq!(saves(&n),(1,0),"changed, not yet due");
+        n.disc_tick(T0+M+2*Q);assert_eq!(saves(&n),(2,0),"saved 15 minutes after the last time due");
+        // A directory where the temporary file goes: the save fails, and the book is saved at the next time due.
+        std::fs::create_dir(dir.join(super::FILE_TMP)).unwrap();learn(&mut n);
+        n.disc_tick(T0+M+3*Q);assert!(saves(&n)==(2,1)&&n.disc.book.dirty(),"a failed save leaves the book to be saved");
+        std::fs::remove_dir(dir.join(super::FILE_TMP)).unwrap();n.disc_tick(T0+M+4*Q);assert_eq!(saves(&n),(3,1));
+        learn(&mut n);n.run_controlled(|_|true);assert_eq!(saves(&n),(4,1),"a clean stop saves the changed book");
+        let (mut q,qdir)=open_with("save-off",false,Discovery{enabled:false,..Discovery::default()});
+        std::fs::copy(&file,qdir.join(super::FILE)).unwrap();q.disc_load(T0);q.disc_tick(T0+M);q.disc_save();
+        assert_eq!((status(&q),q.disc.book.entries().len(),saves(&q)),(serde_json::json!("not loaded"),0,(0,0)),"discovery off: nothing read or written");
+        // A damaged file is ignored: the book starts empty, and learns as before.
+        let (mut r,rdir)=open("save-damaged");let mut b=std::fs::read(&file).unwrap();b[40]^=1;std::fs::write(rdir.join(super::FILE),&b).unwrap();
+        r.disc_load(T0);assert!(status(&r).as_str().is_some_and(|s|s.starts_with("ignored: "))&&r.disc.book.entries().is_empty(),"{}",status(&r));
+        let _i=connect(&mut r,1,Origin::Inbound,Some(sa("81.6.0.1:51000")));greet(&mut r,1,30300,0);assert_eq!(r.disc.book.entries().len(),1,"it still learns");
+        drop((n,q,r));for d in [dir,qdir,rdir]{let _=std::fs::remove_dir_all(&d);}
     }
     /// `--no-discovery` (VA-SPEC §1a, the escape hatch): Hello announces no port, no GetAddr is sent, a GetAddr is not
     /// answered, an Addr not taken, a self-advertisement not stored and no link state is kept; the nonce check still

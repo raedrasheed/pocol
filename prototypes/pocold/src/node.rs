@@ -609,6 +609,8 @@ impl Node{
         // The configured peers (for example the other seeds, which also dial this node) are never refused
         // for sharing a public address group with each other (net::Limits::per_group_max).
         self.net.protect(self.cfg.peers.iter().map(|a|a.ip()));
+        // VA-SPEC §1a.6: the address book is read before any connection is accepted or dialed.
+        self.disc_load(self.disc_now());
         if let Some(a)=self.cfg.listen{let l=std::net::TcpListener::bind(a).map_err(|e|format!("listen {a}: {e}"))?;
             // Hello.listenPort (VA-SPEC §1a.1): the port actually bound (an ephemeral one for port 0).
             self.disc.bound(l.local_addr().map_err(|e|format!("listen {a}: {e}"))?.port());
@@ -637,6 +639,9 @@ impl Node{
             self.drain_light();self.handle(ev);
             if self.background_pending(){self.background_step();}
         }
+        // VA-SPEC §1a.6: a clean stop saves the address book (`pocold run` has no signal handler: a node that is
+        // killed keeps its last save).
+        self.disc_save();
         if let Some(p)=&self.prod{if let Some(m)=&p.miner{m.stop();}}
     }
     /// Local UI control, never exposed through public RPC. Validation and P2P continue.
