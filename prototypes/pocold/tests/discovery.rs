@@ -22,6 +22,15 @@ fn read(s:&mut TcpStream,wait:Duration)->Option<Msg>{
     let mut b=vec![0u8;u32::from_be_bytes(len) as usize];s.read_exact(&mut b).ok()?;Msg::decode(&b).ok()
 }
 fn wait_until(ms:u64,f:impl Fn()->bool)->bool{let t=Instant::now();while t.elapsed()<Duration::from_millis(ms){if f(){return true}std::thread::sleep(Duration::from_millis(20));}f()}
+/// `f`'s value once it has stayed the same for `quiet_ms` (polled every 20 ms), or None if it still moved after `ms`.
+fn settled<T:PartialEq>(ms:u64,quiet_ms:u64,f:impl Fn()->T)->Option<T>{
+    let t=Instant::now();let (mut v,mut since)=(f(),Instant::now());
+    while t.elapsed()<Duration::from_millis(ms){
+        if since.elapsed()>=Duration::from_millis(quiet_ms){return Some(v)}
+        std::thread::sleep(Duration::from_millis(20));let w=f();if w!=v{(v,since)=(w,Instant::now());}
+    }
+    None
+}
 /// The node's pocol_status over its RPC port.
 fn status(rpc:SocketAddr)->serde_json::Value{
     let body=r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#;
@@ -120,8 +129,11 @@ fn ask_and_answer(n:&Running,r:&TcpListener)->(serde_json::Value,Vec<SocketAddr>
     let own=serde_json::json!([n.p2p.to_string()]);
     assert!(wait_until(10_000,||n.status()["discovery"]["self"]==own),"{}",n.status()["discovery"]);
     let ended=||n.net.counters.live.load(Ordering::SeqCst)==0&&n.net.counters.outbound.load(Ordering::SeqCst)==0;
-    assert!(wait_until(10_000,ended),"both ends of the connection closed");
-    let once=n.counter("selfConnections");
+    assert!(wait_until(10_000,||ended()&&n.status()["peers"].as_array().is_some_and(|p|p.is_empty())),"both ends of the connection closed, and left the node");
+    // The readers end before their last events reach the node loop (a forwarder carries them, and pocol_status is not
+    // ordered with them): the count is read once the node has taken both ends (each leaves `peers` by its Hello or its
+    // Closed, which follow its Connected and Message) and it has stopped moving.
+    let once=settled(10_000,500,||n.counter("selfConnections")).expect("the count settles");
     assert!((1..=2).contains(&once),"one connection, counted at each end that read the other's Hello: {once}");
     // The dialer retries a lost connection within 300 ms (net::dial): ten times that, nothing.
     std::thread::sleep(Duration::from_secs(3));
@@ -132,7 +144,7 @@ fn ask_and_answer(n:&Running,r:&TcpListener)->(serde_json::Value,Vec<SocketAddr>
 
 /// VA-SPEC §1a.6: a clean stop (`run_controlled` stopped by its host) saves the book, and the next start of the network
 /// loads it: the same entries, verified, relayable and keys. A file with one changed digit fails its checksum: it is
-/// ignored, the book starts empty, the reason is shown, and the node runs.
+/// ignored, the book starts empty, the reason is shown, and the node runs: it answers and learns as before.
 #[test] fn the_address_book_survives_a_clean_restart_and_a_damaged_file_is_ignored(){
     let dir=std::env::temp_dir().join(format!("pocold-disc-book-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);let file=dir.join("addrbook");
     // Local mode; the first save an hour away, so that the file can come only from the stop.
@@ -140,7 +152,8 @@ fn ask_and_answer(n:&Running,r:&TcpListener)->(serde_json::Value,Vec<SocketAddr>
     let config=|listen:Option<SocketAddr>,peers:Vec<SocketAddr>,rpc:Option<SocketAddr>|Config{dir:dir.clone(),name:"book".into(),miner:None,listen,peers,rpc,stop_at:None,log:false,limits:limits()};
     let r=TcpListener::bind("127.0.0.1:0").unwrap();let ra=r.local_addr().unwrap();
     // The node's ports stay held until it binds them (tests/relay.rs).
-    let held=[TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()];let [p2p,rpc]=held.each_ref().map(|l|l.local_addr().unwrap());
+    let hold=||{let held=[TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()];let a=held.each_ref().map(|l|l.local_addr().unwrap());(held,a)};
+    let (held,[p2p,rpc])=hold();
     let first=spec();let (chain_id,genesis)=(first.chain_id(),first.genesis_hash());
     let hello=|listen_port:u16|frame(&Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"raw".into(),protocol:pocold::identity::PROTOCOL_VERSION,
         compatibility:pocold::identity::compatibility(),listen_port,nonce:0});
@@ -172,9 +185,18 @@ fn ask_and_answer(n:&Running,r:&TcpListener)->(serde_json::Value,Vec<SocketAddr>
     // One digit of the `g` line changed: still a well-formed file, so only the checksum can refuse it.
     let mut b=std::fs::read(&file).unwrap();let g=b.windows(3).position(|w|w==b"\ng ").unwrap()+1;let end=g+b[g..].iter().position(|x|*x==b'\n').unwrap();b[end-1]^=1;
     std::fs::write(&file,&b).unwrap();
-    let mut n=reopen();let st=book(n.status_json());
+    // It runs, and its discovery works: reopened with a listener, it answers an inbound peer's Hello and GetAddr (an
+    // empty Addr: the book is empty but for the peer's own advertisement, which is never answered to it) and learns
+    // that advertisement.
+    let (held,[p2p,rpc])=hold();
+    let mut n=Node::open(config(Some(p2p),vec![],Some(rpc)),spec()).unwrap();drop(held);n.start_network().unwrap();let st=book(n.status_json());
     assert_eq!((st["entries"].as_u64(),st["file"].as_str()),(Some(0),Some("ignored: checksum")),"{st}");
-    // It runs: its loop takes events (three, from its tick thread) until its host stops it.
-    let mut checks=0;n.run_controlled(|_|{checks+=1;checks>3});assert_eq!(checks,4,"the node ran");
+    let stop=Arc::new(AtomicBool::new(false));let s=stop.clone();let run=std::thread::spawn(move||n.run_controlled(|_|s.load(Ordering::SeqCst)));
+    let mut i=TcpStream::connect(p2p).unwrap();
+    assert!(matches!(read(&mut i,Duration::from_secs(5)),Some(Msg::Hello{..})),"it greets an inbound peer");
+    i.write_all(&hello(40005)).unwrap();i.write_all(&frame(&Msg::GetAddr)).unwrap();
+    assert_eq!(read(&mut i,Duration::from_secs(5)),Some(Msg::Addr{addrs:vec![]}),"and answers its GetAddr");
+    assert!(wait_until(10_000,||book(status(rpc))["entries"]==1),"and learns its advertisement: {}",book(status(rpc)));
+    stop.store(true,Ordering::SeqCst);run.join().unwrap();
     let _=std::fs::remove_dir_all(&dir);
 }
