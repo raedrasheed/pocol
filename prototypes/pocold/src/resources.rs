@@ -507,9 +507,15 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     //   filled once, never shrunk): two allocations at <= 16/7 buckets per entry, 96 B;
     // plus 512 B of control and alignment slack for each of the two small tables.
     let gossip=add(&[hash32_churn_bytes(node::RELAYED_MAX as u128+1)?,mul(l.peers_max as u128+1,160)?,mul(dials as u128+1,96)?,1024])?;
+    // PR4: the post-state verdicts per seal(TemplateID,nonce) (chain::COSTLY_MAX + 1 at the insert before the
+    // FIFO trims): a HashMap<[u8;32],Costly> at < 32/7 buckets per key of (key, value) + 1 control byte, two
+    // whole allocations at growth; its VecDeque<[u8;32]> (< 64 B/key, two allocations, 128 B); an Invalid
+    // reason's Box<str> (<= REASON_MAX) and its allocation (16 B); plus 1,024 B of slack.
+    let ck=((32*(size_of::<([u8;32],chain::Costly)>() as u128+1)).div_ceil(7)).div_ceil(8)*8;
+    let costly=add(&[mul(chain::COSTLY_MAX as u128+1,add(&[mul(2,ck)?,128,REASON_MAX,16])?)?,1024])?;
     let q=[("queues/transaction pool",pool),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
         ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
-        ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip)];
+        ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)",costly)];
     let queues=add(&q.map(|x|x.1))?;items.extend(q);
     // RPC (rpc::conn): per connection its header buffer (HEAD_MAX+READ_CHUNK, and its lossy UTF-8
     // copy, up to 3 bytes per input byte) and a body of exactly Content-Length <= REQ_BUF bytes. Answers held

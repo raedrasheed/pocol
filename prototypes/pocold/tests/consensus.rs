@@ -669,6 +669,98 @@ fn diff_held_net()->(Net,[u8;32]){
     n.chain.retain();assert!(n.chain.prune_holds()&&held(&n)<=bound);
 }
 
+/// The k_hist_retention_and_trie_rebuild_for_deep_fork fixture of the Step 5 tests: k_hist=4, 12 fallbacks
+/// retained, P=hashes[3] pruned, and a mirror `m` holding hashes[1..=3] (P its head).
+fn deep_fork_nets()->(Net,Net,[u8;32]){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..12{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let p=hashes[3];assert!(n.chain.blocks[&p].pruned,"positive control: the parent is pruned");
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    (n,m,p)
+}
+/// `b` with another share list (one more valid share, or one fewer when it is full) and its winnerSig signed by
+/// `key`: the same TemplateID and nonce (seal), another blockHash.
+fn share_variant(m:&Net,b:&Block,key:&Key)->Block{
+    let p=m.chain.full_entry(&b.header.parent_hash).unwrap();let ctx=m.chain.child_ctx(&p,b.header.a).unwrap();
+    let tid=template_id(&b.header.ut_raw);let mut h=b.header.clone();
+    if h.shares.len()<usize::from(m.chain.spec.cp().S_max){
+        let x=(0u64..).find(|x|*x!=h.nonce&&!h.shares.contains(x)&&le_target(&pow_hash(&tid,*x),&ctx.t_share)).unwrap();
+        assert!((x as u128)<ctx.assignment.nonce_max());h.shares.push(x);h.shares.sort_unstable();
+    }else{h.shares.pop();}
+    reseal(&mut h);h.winner_sig=key.sign_hash(&B256::from(hashes::win_msg(&tid,h.nonce,&share_root(&h))));reseal(&mut h);
+    let v=Block{header:h,body:b.body.clone()};assert_ne!(v.hash(),b.hash(),"a share variant is another blockHash");
+    assert_eq!(seal(&tid,v.header.nonce),seal(&template_id(&b.header.ut_raw),b.header.nonce),"and the same seal");v
+}
+/// `b` with its winnerSig signed by `key` (the blockHash does not commit winnerSig: the same block, another copy).
+fn win_copy(b:&Block,key:&Key)->Block{
+    let tid=template_id(&b.header.ut_raw);let mut h=b.header.clone();
+    h.winner_sig=key.sign_hash(&B256::from(hashes::win_msg(&tid,h.nonce,&share_root(&h))));reseal(&mut h);Block{header:h,body:b.body.clone()}
+}
+/// PR4 (I-2, fallback-replay finding): a non-owner copy of a PoW-valid child of a pruned parent crosses the
+/// state gate once; its item-13 verdict is kept per seal(TemplateID,nonce) as owner(nonce), so a copy with a
+/// fresh winnerSig or another share list is refused (envReject) without a second TrieRebuild, and the
+/// owner's copy is still accepted.
+#[test] fn pr4_replayed_and_share_varied_non_owner_copies_rebuild_once(){
+    let (mut n,m,p)=deep_fork_nets();let child=fallback(&m,p,1);
+    let ctx=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),child.header.a).unwrap();
+    let owner=addr(&ctx.assignment.owner(child.header.nonce).unwrap());
+    let other=*m.keys.keys().find(|k|**k!=owner).unwrap();let atk=devnet::account_key("zzz-pr4");
+    let env13=|r:Result<_,Reject>|matches!(r,Err(Reject::Envelope(s)) if s.starts_with("13 "));
+    // Copy 1 (a member's winnerSig that is not the owner's): one rebuild, then item 13.
+    let c1=win_copy(&child,&m.keys[&other]);assert_eq!(c1.hash(),child.hash());
+    assert_eq!(n.chain.validate(&c1,None,0).err(),Some(Reject::NeedsRebuild(p)));
+    n.chain.ensure_state(&p).unwrap();assert!(env13(n.chain.validate(&c1,None,0)),"positive control: item 13 after the rebuild");
+    n.chain.reprune();assert!(n.chain.blocks[&p].pruned,"positive control: the next retain prunes P again");
+    let rb=n.chain.rebuilds;
+    // Copy 2 (a fresh winnerSig by a non-member) and a share variant: refused at the seal, no rebuild.
+    let c2=win_copy(&child,&atk);assert_eq!(c2.hash(),child.hash());
+    assert!(env13(n.chain.validate(&c2,None,0)),"FAIL-ON-ORIGINAL: a fresh-winnerSig copy needed a second rebuild");
+    let v=share_variant(&m,&child,&atk);
+    assert!(env13(n.chain.validate(&v,None,0)),"FAIL-ON-ORIGINAL: a share-list variant needed a second rebuild (a blockHash key misses it)");
+    assert!(n.chain.rebuilds==rb&&n.chain.blocks[&p].pruned,"no state made for a known seal");
+    // Positive control: the owner's copy (owner(nonce) is what was kept, not the refused signer) is accepted.
+    assert_eq!(n.chain.validate(&child,None,0).err(),Some(Reject::NeedsRebuild(p)));
+    n.chain.ensure_state(&p).unwrap();let (e,_)=n.chain.validate(&child,None,0).expect("the owner's copy is valid");n.chain.insert(e);
+}
+/// PR4 (I-2): a block verdict reached after the state gate (item 12, a proposer that is not Draw(h,0)) is kept per
+/// seal: a share variant (another blockHash) gets it without a rebuild, and so does the block itself once the
+/// invalid-hash cache has forgotten it.
+#[test] fn pr4_a_costly_block_verdict_covers_share_variants_and_survives_an_invalid_flush(){
+    let (mut n,m,p)=deep_fork_nets();
+    let drawn=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),0).unwrap().proposer;let other=*m.keys.keys().find(|k|**k!=drawn).unwrap();
+    let mut h=signed(&m,p,Body::default(),0).header;h.proposer=other.to_vec();reseal(&mut h);let b=remine_signed(&m,h,other);
+    let known=|r:Result<_,Reject>|matches!(r,Err(Reject::Block(s)) if s.contains("known invalid template and nonce")&&s.contains("12 proposer"));
+    assert_eq!(n.chain.validate(&b,None,0).err(),Some(Reject::NeedsRebuild(p)));
+    n.chain.ensure_state(&p).unwrap();
+    let why=match n.chain.validate(&b,None,0){Err(Reject::Block(s)) if s.starts_with("12 proposer")=>s,r=>panic!("positive control: item 12 after the rebuild: {:?}",r.err())};
+    n.chain.mark_invalid(b.hash(),why);n.chain.reprune();assert!(n.chain.blocks[&p].pruned);
+    let rb=n.chain.rebuilds;
+    let ctx=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),0).unwrap();let owner=addr(&ctx.assignment.owner(b.header.nonce).unwrap());
+    let v=share_variant(&m,&b,&m.keys[&owner]);
+    assert!(known(n.chain.validate(&v,None,0)),"FAIL-ON-ORIGINAL: a share variant of a known-invalid block needed a rebuild");
+    // The invalid-hash cache (INVALID_MAX, FIFO) forgets the block; the seal's verdict holds.
+    for i in 0..=pocold::chain::INVALID_MAX as u64{n.chain.mark_invalid(hashes::keccak256(&i.to_be_bytes()),"junk".into());}
+    assert!(!n.chain.invalid.contains_key(&b.hash()),"positive control: the hash was flushed");
+    assert!(known(n.chain.validate(&b,None,0)),"FAIL-ON-ORIGINAL: a flushed invalid block needed a rebuild");
+    assert!(n.chain.rebuilds==rb&&n.chain.blocks[&p].pruned,"no state made for a known seal");
+}
+/// PR4 (A13): the post-state verdicts are at most COSTLY_MAX seals, the oldest forgotten first.
+#[test] fn pr4_costly_is_bounded(){
+    use pocold::chain::COSTLY_MAX;
+    let mut n=net();for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);}
+    let p=n.chain.head;let drawn=n.chain.child_ctx(&n.chain.full_entry(&p).unwrap(),0).unwrap().proposer;let other=*n.keys.keys().find(|k|**k!=drawn).unwrap();
+    let base=signed(&n,p,Body::default(),0).header;
+    // COSTLY_MAX + 1 distinct seals (distinct TemplateIDs), each PoW-valid and refused at item 12 with the state
+    // (a template whose nonce space holds no solution, probability ~e^-c, is skipped).
+    let bad:Vec<Block>=(0u16..).filter_map(|i|{let mut h=base.clone();h.proposer=other.to_vec();h.state_root[..2].copy_from_slice(&i.to_be_bytes());h.nonce=0;h.shares=vec![];reseal(&mut h);
+        h.sig=n.keys[&other].sign_hash(&B256::from(hashes::sig_msg(&template_id(&h.ut_raw)))).to_vec();reseal(&mut h);try_seal(&n,h,Body::default(),0,0)}).take(COSTLY_MAX+1).collect();
+    for b in &bad{assert!(matches!(n.chain.validate(b,None,0),Err(Reject::Block(s)) if s.starts_with("12 proposer")));}
+    assert_eq!(n.chain.costly_len(),COSTLY_MAX,"FIFO bound");
+    assert!(matches!(n.chain.validate(&bad[0],None,0),Err(Reject::Block(s)) if s.starts_with("12 proposer")),"the oldest seal was forgotten (only re-validated)");
+    assert!(matches!(n.chain.validate(&bad[COSTLY_MAX],None,0),Err(Reject::Block(s)) if s.contains("known invalid template and nonce")),"the newest is kept");
+    assert_eq!(n.chain.costly_len(),COSTLY_MAX);
+}
+
 #[test] fn a_valid_header_with_a_foreign_body_rejects_only_that_copy(){
     // Review finding (HIGH): a peer relaying a real header with a mismatched body must not get the
     // block marked invalid; the correct body is accepted afterwards.
@@ -1580,10 +1672,15 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // + r_keep) × 76 B, -> 3,234,220,320 B; the R6 churn correction below, +7,720,160 B, -> 3,241,940,480 B;
     // P2P gossip: the relayed TemplateIDs (RELAYED_MAX + 1 at 304 B, + 512), the inbound address groups
     // (peers_max + 1 at 160 B) and the configured peers (dials + 1 at 96 B), + 1,024 B of slack,
-    // +81,392 B, -> 3,242,021,872 B). Some terms are type
+    // +81,392 B, -> 3,242,021,872 B; PR4: post-state verdicts per TemplateID and nonce (COSTLY_MAX + 1 at 928 B,
+    // + 1,024), +239,520 B, -> 3,242,261,392 B). Some terms are type
     // sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on; every
     // target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_242_021_872,"the A13 model total changed");}
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_242_261_392,"the A13 model total changed");
+        // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
+        // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
+        assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
+        assert_eq!(d.items.iter().find(|x|x.0.starts_with("queues/post-state verdicts")).unwrap().1,239_520);}
     // R6 churn correction: eviction=3982768, protect delta=1967104,
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);

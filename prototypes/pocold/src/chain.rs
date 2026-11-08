@@ -26,6 +26,20 @@ pub const SIDE_BLOCKS_MAX:usize=R_KEEP as usize;
 pub const EVICTED_MAX:usize=1024;
 /// Bound of the invalid-block cache (A05). A forgotten entry is only re-validated.
 pub const INVALID_MAX:usize=4096;
+/// PR4 (I-2): verdicts reached with a parent's state, kept per seal(TemplateID,nonce) (FIFO); a cache only,
+/// never a validity input. Every copy of one template and nonce (another winnerSig, sig, body or share list)
+/// shares the seal, so a copy refused once after the state gate does not buy another rebuild or execution
+/// while its verdict is resident. A cost reducer, not a rebuild bound (PR4 plan I-2; the bound is I-5).
+pub const COSTLY_MAX:usize=256;
+/// A post-state verdict for one seal(TemplateID,nonce): a function of the template, the nonce and the
+/// parent's state the TemplateID commits, never of the copy that reached it (no poisoning).
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub enum Costly{
+    /// A blockReject of H-full (items 12, 13-owner, 15, 16, 17, apply, parent-state context), never item 14.
+    Invalid(Box<str>),
+    /// owner(nonce) under the parent's assignment: a copy whose winnerSig signer differs is envReject (item 13).
+    Owner([u8;20]),
+}
 /// C-1 E1: the most diffs a parent's trie is derived through from the head's. A parent further away (a
 /// deep side branch, an old rebuild root) has its root computed from the whole state, as before E1: the
 /// derivation would cost more than that, and its distinct nodes are bounded by this many blocks' writes.
@@ -333,6 +347,9 @@ pub struct Chain{
     pub invalid:HashMap<[u8;32],String>,
     /// Insertion order of `invalid`; a cache only (never a validity input), at most INVALID_MAX.
     invalid_order:std::collections::VecDeque<[u8;32]>,
+    /// PR4: post-state verdicts per seal (COSTLY_MAX, FIFO). Interior-mutable because `validate` takes &self
+    /// (as `materializations`); only the consensus thread uses it.
+    costly:std::sync::Mutex<(HashMap<[u8;32],Costly>,std::collections::VecDeque<[u8;32]>)>,
     /// tid -> (proposer, parent, h) for equivocation detection (evidence type 1).
     pub seen_templates:BTreeMap<(u64,[u8;32]),Vec<(Vec<u8>,Vec<u8>)>>,
     /// Side blocks removed by retention (EVICTED_MAX, FIFO) and how many were removed in all.
@@ -368,7 +385,7 @@ impl Chain{
             summary:Some(Box::new(pocol_lp4_execution::state_summary::Summary::scan(spec.genesis().state(),cp.B_code_max))),stored:None};
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
-        Self{spec,blocks,head:gh,canonical:vec![gh],next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
+        Self{spec,blocks,head:gh,canonical:vec![gh],next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
             r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh]}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
@@ -594,7 +611,13 @@ impl Chain{
         if b.body.evidence.len()>usize::from(cp.E_max)||b.body.evidence.iter().any(|e|e.len()>cp.EVID_BYTES_MAX as usize){return blk("1 evidence bounds")}
         // 12 (committed, no state): a fallback commits to the empty body 0xc2c0c0.
         if !signed&&b.body.encode()!=EMPTY_BODY{return blk("12 fallback body")}
-        // Step 5 inserts the costly-cache lookup here (keyed by seal(tid,nonce)).
+        // PR4 (I-2): a verdict this seal already reached with the parent's state is returned without it.
+        let sk=seal(&tid,x.nonce);
+        match self.costly_of(&sk){
+            Some(Costly::Invalid(r))=>return blk(format!("known invalid template and nonce: {r}")),
+            Some(Costly::Owner(o)) if o!=winner=>return Err(Reject::Envelope("13 winnerSig signer is not owner(nonce)".into())),
+            _=>{}
+        }
         // The state gate (was above item 2): a copy that passed every check above needs its parent's state.
         if pe.pruned||pe.slim{return Err(Reject::NeedsRebuild(x.parent_hash))}
         // C-1 S3a: a retained parent state that is not held full is materialized through the diffs.
@@ -602,10 +625,24 @@ impl Chain{
         let p:&Entry=if pe.full{pe}else{
             materialized=self.full_entry(&x.parent_hash).ok_or(Reject::NeedsRebuild(x.parent_hash))?;
             self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);&materialized};
-        self.h_full(b,p,&tid,signed,winner,hash)
+        match self.h_full(b,p,signed,winner,hash,sk){
+            // Item 14 depends on the share list, which the seal does not commit (unreachable once 6 and 9 hold:
+            // the ranges partition [0,nMax), assignment.rs:192).
+            Err(Reject::Block(w)) if !w.starts_with("14 ")=>{self.note_costly(sk,Costly::Invalid(truncate(&w).into_boxed_str()));Err(Reject::Block(w))}
+            r=>r,
+        }
     }
-    /// H-full 12-17 of a copy that passed H-pre, on its parent's state `p`.
-    fn h_full(&self,b:&Block,p:&Entry,tid:&[u8;32],signed:bool,winner:[u8;20],hash:[u8;32])->Result<(Entry,ChildCtx),Reject>{
+    fn costly_of(&self,k:&[u8;32])->Option<Costly>{self.costly.lock().unwrap_or_else(|e|e.into_inner()).0.get(k).cloned()}
+    /// Records `v` for seal `k`, the oldest seal going first beyond COSTLY_MAX. An Owner note is replaced by an
+    /// Invalid one (the owner's copy then failed H-full).
+    fn note_costly(&self,k:[u8;32],v:Costly){
+        let mut g=self.costly.lock().unwrap_or_else(|e|e.into_inner());let (map,order)=&mut *g;
+        if !map.contains_key(&k){while order.len()>=COSTLY_MAX{if let Some(old)=order.pop_front(){map.remove(&old);}}order.push_back(k);}
+        map.insert(k,v);
+    }
+    pub fn costly_len(&self)->usize{self.costly.lock().unwrap_or_else(|e|e.into_inner()).0.len()}
+    /// H-full 12-17 of a copy that passed H-pre, on its parent's state `p`; `sk` is seal(TemplateID,nonce).
+    fn h_full(&self,b:&Block,p:&Entry,signed:bool,winner:[u8;20],hash:[u8;32],sk:[u8;32])->Result<(Entry,ChildCtx),Reject>{
         let x=&b.header;
         let ctx=self.child_ctx(p,x.a)?;
         // 12. exclusive form: a signed template's proposer is Draw(h,0).
@@ -615,7 +652,7 @@ impl Chain{
         // first, so one PoW for the public Build_fb template bought an execution per fresh-winnerSig copy
         // (PR4 fallback-replay finding).
         let owner=ctx.assignment.owner(x.nonce).ok_or_else(||Reject::Block("13 owner".into()))?;
-        if owner!=winner{return Err(Reject::Envelope("13 winnerSig signer is not owner(nonce)".into()))}
+        if owner!=winner{self.note_costly(sk,Costly::Owner(owner));return Err(Reject::Envelope("13 winnerSig signer is not owner(nonce)".into()))}
         let mut shares=Vec::new();for n in &x.shares{shares.push((*n,addr(&ctx.assignment.owner(*n).ok_or_else(||Reject::Block("14 share owner".into()))?)));}
         // 12 (fallback): UT byte-equal to Build_fb (needs apply), for an owner-signed copy only.
         let fb_out=if signed{None}else{
@@ -634,7 +671,7 @@ impl Chain{
         let (is_final,log_bytes)=(out.is_final(),out.log_bytes());
         let c=self.child_state(p,out)?;
         let entry=Entry{hash,header:x.clone(),body:b.body.clone(),height:x.h,parent:Some(p.hash),total_work:p.total_work.saturating_add(work(&x.target)),
-            import_seq:0,signed,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:seal(tid,x.nonce),state:c.state,is_final,full:true,diff:c.diff,slim:false,
+            import_seq:0,signed,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:sk,state:c.state,is_final,full:true,diff:c.diff,slim:false,
             result:Some(ParentResult{block_hash:B256::from(hash),winner:addr(&owner),shares}),receipts:c.receipts,tx_hashes,
             cum_txs:if self.spec.cp().H_END==0{b.body.txs.len() as u64}else{p.cum_txs+b.body.txs.len() as u64},cum_tx_bytes:if self.spec.cp().H_END==0{tx_bytes}else{p.cum_tx_bytes+tx_bytes},cum_log_bytes:if self.spec.cp().H_END==0{log_bytes}else{p.cum_log_bytes+log_bytes},pruned:false,drawn:ctx.proposer,
             ranges:ctx.assignment.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect(),body_off:None,offloaded:false,trie:c.trie,summary:Some(Box::new(c.summary)),stored:c.stored};
