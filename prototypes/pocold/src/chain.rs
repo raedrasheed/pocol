@@ -253,6 +253,10 @@ pub struct ChildCtx{
     pub parent_result:Option<ParentResult>,
     pub ancestors:Vec<(u64,B256)>,
 }
+/// PR4: the part of a child context read from the parent's header metadata only (ts, height, base_fee,
+/// gas_used, header.gas_limit). Pruning (retain_unsettled), slimming (`slim`), offloading (`offload`) and a
+/// checkpoint restore keep all of them, so a pruned, slim or diff-held parent gives what a full one gives.
+pub struct ChildPre{pub window:AttemptWindow,pub target:Fixed,pub nonce_max:u128,pub t_share:Fixed,pub base_fee:U256}
 
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub enum Reject{
@@ -432,17 +436,25 @@ impl Chain{
         while let Some(e)=cur{ if p.height+1-e.height>256{break} out.push((e.height,B256::from(e.hash))); cur=e.parent.and_then(|x|self.get(&x)); }
         out
     }
-    pub fn child_ctx(&self,p:&Entry,attempt:u32)->Result<ChildCtx,Reject>{
+    /// PR4: the window, ASERT target, nMax, T_share and base fee of a child of `p` at `attempt`, from p's
+    /// header metadata only (no state: H-pre items 4-6, 9 and 11 run on it before any rebuild). Each value is
+    /// what `child_ctx` gives on p's state; `nonce_max` is the one `Assignment::new` computes (assignment.rs).
+    pub fn child_pre(&self,p:&Entry,attempt:u32)->Result<ChildPre,Reject>{
         let cp=self.spec.cp();let h=p.height+1;
         let window=AttemptWindow::new(p.ts,attempt,cp.D_att).map_err(|e|Reject::Block(format!("window {e:?}")))?;
-        let membership=self.membership(p,h)?;
         let target=self.target_for_child(p)?;
-        let mode=self.spec.effective_nonce_mode(h);
-        let assignment=Assignment::new(&membership,attempt,&target,mode,cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
-        let ts_share=from_fixed(&target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX);
-        let proposer=self.draw(p,&membership,h)?;
+        let nonce_max=assignment::nonce_max(&target,self.spec.effective_nonce_mode(h),cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
+        let t_share=to_fixed(from_fixed(&target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
         let base_fee=if h==1{from_fixed_lp4(&cp.baseFee0)}else{fees::next_base_fee(p.base_fee,p.gas_used,p.header.gas_limit).map_err(|e|Reject::Block(format!("baseFee {e:?}")))?};
-        Ok(ChildCtx{height:h,attempt,window,membership,assignment,target,t_share:to_fixed(ts_share),proposer,base_fee,prevrandao:prevrandao(&p.seal),
+        Ok(ChildPre{window,target,nonce_max,t_share,base_fee})
+    }
+    pub fn child_ctx(&self,p:&Entry,attempt:u32)->Result<ChildCtx,Reject>{
+        let cp=self.spec.cp();let h=p.height+1;
+        let ChildPre{window,target,t_share,base_fee,..}=self.child_pre(p,attempt)?;
+        let membership=self.membership(p,h)?;
+        let assignment=Assignment::new(&membership,attempt,&target,self.spec.effective_nonce_mode(h),cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
+        let proposer=self.draw(p,&membership,h)?;
+        Ok(ChildCtx{height:h,attempt,window,membership,assignment,target,t_share,proposer,base_fee,prevrandao:prevrandao(&p.seal),
             parent_result:p.result.clone(),ancestors:self.ancestors(p)})
     }
 

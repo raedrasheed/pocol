@@ -495,6 +495,43 @@ fn send_template(node:&mut pocold::node::Node,peer:pocold::net::PeerId,t:&lp1hdr
     assert_eq!(node.chain.materializations.load(Relaxed),mat+1,"FAIL-ON-ORIGINAL: observe_template materialized the parent a second time");
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR4 soundness lemma for the hoisted H-pre checks (an oracle, not a regression test): child_pre of a pruned
+/// or slim parent, read before any state is made, equals the child_ctx of the same parent once its state is
+/// rebuilt or restored, at every attempt a fallback search reaches (16).
+#[test] fn pr4_child_pre_of_a_pruned_or_slim_parent_equals_child_ctx_after_rebuild(){
+    use pocold::{chain::ChildPre,node::{Config,Limits,Node}};
+    let same=|pre:&ChildPre,ctx:&pocold::chain::ChildCtx,fb_wait:u32,what:&str|{
+        assert_eq!((pre.target,pre.nonce_max,pre.t_share,pre.base_fee),(ctx.target,ctx.assignment.nonce_max(),ctx.t_share,ctx.base_fee),"{what}: target, nMax, T_share, baseFee");
+        assert_eq!(pre.window,ctx.window,"{what}: window");
+        assert_eq!(pre.window.fallback_timestamp(fb_wait).ok(),ctx.window.fallback_timestamp(fb_wait).ok(),"{what}: fallback timestamp");
+    };
+    // An oracle independent of child_pre (which child_ctx now reads): the canonical fallback child, validated
+    // before PR4, commits to the target, base fee and fallback timestamp of its attempt.
+    let committed=|pres:&[ChildPre],c:&pocold::chain::Entry,fb_wait:u32|{let pre=&pres[c.header.a as usize];
+        assert_eq!((pre.target,pre.base_fee,pre.window.fallback_timestamp(fb_wait).ok()),(c.header.target,from_fixed(&c.header.base_fee),Some(c.header.ts)),"the committed child at a={}",c.header.a);};
+    // Pruned: the k_hist_retention_and_trie_rebuild_for_deep_fork fixture.
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..12{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let fb_wait=n.chain.spec.cp().dFbWait;let p=hashes[3];
+    assert!(n.chain.blocks[&p].pruned,"positive control: the parent is pruned");
+    let pres:Vec<ChildPre>=(0..16).map(|a|n.chain.child_pre(&n.chain.blocks[&p],a).unwrap()).collect();
+    let rb=n.chain.rebuilds;n.chain.ensure_state(&p).unwrap();assert!(n.chain.rebuilds>rb,"positive control: the state was rebuilt");
+    let full=n.chain.full_entry(&p).unwrap();
+    for (a,pre) in pres.iter().enumerate(){same(pre,&n.chain.child_ctx(&full,a as u32).unwrap(),fb_wait,&format!("pruned a={a}"));}
+    committed(&pres,&n.chain.blocks[&hashes[4]],fb_wait);
+    // Slim: a node slimming at depth 8; its canonical entry 12 below the head is slim (and not pruned).
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-pre-slim-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"s".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{slim_depth:Some(8),..Default::default()}},admitted(&cfg(&["a","b","c"]))).unwrap();
+    let mut m=net();for _ in 0..20{let h=m.chain.head;let b=fallback(&m,h,0);import(&mut m,&b);node.import(b,None).unwrap();}
+    let s=node.chain.canonical_at(node.chain.head().height-12).unwrap().hash;
+    assert!(node.chain.blocks[&s].slim&&!node.chain.blocks[&s].pruned,"positive control: the parent is slim");
+    let pres:Vec<ChildPre>=(0..16).map(|a|node.chain.child_pre(&node.chain.blocks[&s],a).unwrap()).collect();
+    node.ensure_state(&s).unwrap();assert!(!node.chain.blocks[&s].slim,"positive control: the parent was restored");
+    let full=node.chain.full_entry(&s).unwrap();
+    for (a,pre) in pres.iter().enumerate(){same(pre,&node.chain.child_ctx(&full,a as u32).unwrap(),fb_wait,&format!("slim a={a}"));}
+    committed(&pres,&m.chain.blocks[&node.chain.canonical[full.height as usize+1]],fb_wait);
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
 
 #[test] fn a_valid_header_with_a_foreign_body_rejects_only_that_copy(){
     // Review finding (HIGH): a peer relaying a real header with a mismatched body must not get the
