@@ -28,6 +28,18 @@ impl chain::BlockBytes for Src<'_>{
 /// NeedsRebuild retries of one block: its parent, and (C-1 S4) each slimmed evidence ancestor restored in
 /// turn (only after the head fell back more than R_keep). Beyond them the block is refused, never accepted.
 const REBUILD_TRIES:usize=17;
+/// PR4 (I-5): deep TrieRebuilds (import_with's NeedsRebuild path) an unsolicited flood may drive. Token bucket:
+/// capacity REBUILD_BURST, one token back every REBUILD_REFILL_MS. The seal cache (chain::COSTLY_MAX) only
+/// reduces cost: COSTLY_MAX+1 PoW-valid seals cycled evict each other (PR4 plan §7 finding B). A real heavier
+/// branch dropped here is re-fetched by the sync session its peer's Status starts (network.md D38), so no
+/// block honest peers accept is lost.
+pub const REBUILD_BURST:u32=8;
+pub const REBUILD_REFILL_MS:u128=1000;
+/// Deep rebuilds one sync session may drive before it is ended as not-reached. An honest adoption within
+/// R_keep needs one (the fork point); the rest extend resident state. This bounds a peer whose lying Hello
+/// makes its blocks solicited (PR4 plan §7 finding C) to SESSION_REBUILD_MAX per session, and sessions are
+/// gated by SESSION_GAP_MS and the round-robin among claimants.
+pub const SESSION_REBUILD_MAX:u32=4;
 
 pub struct Config{
     pub dir:PathBuf,
@@ -115,7 +127,9 @@ pub struct Session{pub peer:PeerId,pub tip:Option<[u8;32]>,pub asked_ms:u128,pub
     /// Highest height the session has delivered a stored block at: a copy of a block already stored
     /// counts as progress only above it and inside the R_keep window, so replayed or junk blocks cannot
     /// keep a session alive (`last_ms` is the time of the last progress).
-    pub best_h:u64}
+    pub best_h:u64,
+    /// PR4 (I-5): deep rebuilds its blocks drove (at most SESSION_REBUILD_MAX).
+    pub rebuilds:u32}
 
 /// Rpc: a request for the consensus thread (rpc::Request).
 /// Wake: light RPC requests are waiting in the light lane (at most one Wake is pending).
@@ -261,6 +275,9 @@ pub struct Node{
     state_store:Option<Arc<crate::state_store::StateStore>>,ckpt:Ckpt,
     /// D-6: with both pending, the next background step is a release step (they alternate with pool slices).
     release_turn:bool,
+    /// PR4 (I-5): the unsolicited deep-rebuild bucket: tokens left (<= REBUILD_BURST) and when tokens were last
+    /// given back (0: not yet). Two scalars, no A13 term.
+    pub rebuild_tokens:u32,pub rebuild_refill_ms:u128,
 }
 #[derive(Default)]
 struct Ckpt{every:u64,last:u64,roll:[u8;32]}
@@ -565,7 +582,7 @@ impl Node{
         let mut node=Self{cfg,chain,net,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
-            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false};
+            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
         if rec.torn_tail{node.log("recovered torn journal tail into a new journal");}
@@ -691,6 +708,15 @@ impl Node{
     // ---------------- import ----------------
     /// Validates, journals (fsync) and inserts a block. Returns Ok(true) if new head.
     pub fn import(&mut self,b:Block,from:Option<PeerId>)->Result<bool,Reject>{self.import_with(b,from,false)}
+    /// PR4 (I-5): takes an unsolicited deep-rebuild token, giving back one per REBUILD_REFILL_MS elapsed (at most
+    /// REBUILD_BURST held); false when none is left.
+    fn rebuild_token(&mut self)->bool{
+        let now=now_ms();
+        if self.rebuild_refill_ms==0{self.rebuild_refill_ms=now;}
+        let gained=now.saturating_sub(self.rebuild_refill_ms)/REBUILD_REFILL_MS;
+        if gained>0{self.rebuild_tokens=u32::try_from(gained).unwrap_or(u32::MAX).saturating_add(self.rebuild_tokens).min(REBUILD_BURST);self.rebuild_refill_ms=now;}
+        if self.rebuild_tokens>0{self.rebuild_tokens-=1;true}else{false}
+    }
     /// As `import`; `solicited` marks a block a sync session asked for (D-REORG-REDB re-fetch). An
     /// unsolicited block retention removed is not validated, journaled or requested again
     /// (chain::EVICTED_MAX, a churn guard); a solicited one is taken again (consensus.md §10: a branch
@@ -714,11 +740,23 @@ impl Node{
         if !self.chain.blocks.contains_key(&hash)&&b.header.h.saturating_add(self.chain.r_keep)<=self.chain.head().height{return Err(Reject::Evicted)}
         let mut res=self.chain.validate(&b,Some(now_s()),self.capital_phi());
         let mut tries=0;
-        while let Err(Reject::NeedsRebuild(p))=&res{let p=*p;if tries==REBUILD_TRIES{break}tries+=1;
+        while let Err(Reject::NeedsRebuild(p))=&res{let p=*p;if tries==REBUILD_TRIES{break}
+            // PR4 (I-5): deep rebuilds are rate-bounded. A solicited block draws on its session's allowance (an
+            // honest adoption needs about one), an unsolicited one on the node's bucket. Exhaustion drops the
+            // block as a NON-VERDICT (Evicted): not marked invalid, not journaled, no penalty; a real branch
+            // returns through a sync session (network.md D38). A session out of allowance is ended as not
+            // reached, its peer's claim set aside until its next Hello. A solicited block outliving its session
+            // (an orphan child taken after it ended) draws on the bucket.
+            if solicited&&self.session.is_some(){
+                if self.session.as_ref().is_some_and(|s|s.rebuilds>=SESSION_REBUILD_MAX){self.log("sync session: deep-rebuild allowance reached; claim set aside");self.end_session(false);res=Err(Reject::Evicted);break}
+                if let Some(s)=&mut self.session{s.rebuilds+=1;}
+            }else if !self.rebuild_token(){self.log("deep-rebuild budget spent; an unsolicited block dropped (a real branch returns by sync)");res=Err(Reject::Evicted);break}
+            tries+=1;
             if self.chain.get(&p).map_or(false,|e|e.slim){self.stats.unslims+=1;}else{self.log("TrieRebuild for a fork below the K_hist window");}
             let src=Src{journal:&self.journal,history:&self.history};
             if let Err(e)=self.chain.ensure_state_with(&p,Some(&src)){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}res=self.chain.validate(&b,Some(now_s()),self.capital_phi());}
-        // PR4 (A13 MATERIALIZED): a block refused after its parent's state was rebuilt leaves none of it behind.
+        // PR4 (A13 MATERIALIZED): a block refused after its parent's state was rebuilt (or dropped at the budget
+        // after an earlier rebuild of its retries) leaves none of it behind.
         if tries>0&&res.is_err(){self.chain.reprune();}
         let (mut entry,_)=match res{
             Ok(v)=>v,
@@ -1221,7 +1259,7 @@ impl Node{
     fn start_session(&mut self,peer:PeerId,now:u128){
         let Some(p)=self.peers.get(&peer) else{return};
         p.send(&Msg::GetFrom{locator:self.locator(None),count:SYNC_COUNT});
-        self.session=Some(Session{peer,tip:None,asked_ms:now,last_ms:now,got:0,got_round:0,rounds:1,best_h:0});self.sync_ask_ms=now;
+        self.session=Some(Session{peer,tip:None,asked_ms:now,last_ms:now,got:0,got_round:0,rounds:1,best_h:0,rebuilds:0});self.sync_ask_ms=now;
         self.stats.sync_sessions+=1;self.stats.sync_rounds+=1;
     }
     /// Ends the session; its blocks lose their protection (adopted ones are canonical by now). A session

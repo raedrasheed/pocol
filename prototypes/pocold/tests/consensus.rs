@@ -761,6 +761,94 @@ fn win_copy(b:&Block,key:&Key)->Block{
     assert_eq!(n.chain.costly_len(),COSTLY_MAX);
 }
 
+/// The Step 6 fixture: a node with 70 fallbacks retained (heights 1..=38 pruned), the blocks' hashes, and a
+/// mirror holding hashes[1..=depth] with whole states.
+fn deep_node(tag:&str,depth:usize)->(pocold::node::Node,std::path::PathBuf,Net,Vec<[u8;32]>){
+    use pocold::node::{Config,Node};
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&cfg(&["a","b","c"]))).unwrap();
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    node.chain.retain();
+    let mut m=net();for h in &hashes[1..=depth]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    for h in &hashes[1..=depth]{assert!(node.chain.blocks[h].pruned,"positive control: a deep pruned parent");}
+    (node,dir,m,hashes)
+}
+/// A PoW-valid child of `p` that is invalid only with the parent's state: a validly signed template by a member
+/// that is not Draw(h,0) (item 12). One seal per parent.
+fn post_gate_invalid(m:&Net,p:[u8;32])->Block{
+    let e=m.chain.full_entry(&p).unwrap();let ctx=m.chain.child_ctx(&e,0).unwrap();let other=*m.keys.keys().find(|k|**k!=ctx.proposer).unwrap();
+    for off in 0..u64::from(m.chain.spec.cp().D_att){
+        let (mut h,_,_)=m.chain.build_signed(&e,&m.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();
+        h.proposer=other.to_vec();reseal(&mut h);h.sig=m.keys[&other].sign_hash(&B256::from(hashes::sig_msg(&template_id(&h.ut_raw)))).to_vec();reseal(&mut h);
+        if let Some(b)=try_seal(m,h,Body::default(),0,0){return b}
+    }
+    panic!("no solution")
+}
+/// PR4 (I-5, plan §7 finding B): unsolicited deep TrieRebuilds are bounded by a token bucket, whatever number of
+/// distinct PoW-valid seals a peer banked: REBUILD_BURST at once, then one per REBUILD_REFILL_MS. A block over the
+/// budget is dropped without a verdict (Evicted: not marked invalid, not journaled) and its parent stays pruned.
+#[test] fn pr4_unsolicited_cycled_seals_are_rebuild_bounded(){
+    use pocold::node::{REBUILD_BURST,REBUILD_REFILL_MS};
+    let k=REBUILD_BURST as usize+4;let (mut node,dir,m,hashes)=deep_node("bucket",k+1);
+    let bad:Vec<Block>=(2..k+2).map(|i|post_gate_invalid(&m,hashes[i])).collect();
+    // The bucket's clock is held still (an ordering barrier, not a timing assumption): no token comes back.
+    node.rebuild_refill_ms=u128::MAX;
+    let rec=node.journal_records();let mut rebuilt=0;
+    for (i,b) in bad.iter().enumerate(){
+        let rb=node.chain.rebuilds;let r=node.import(b.clone(),None);
+        if i<REBUILD_BURST as usize{
+            assert!(matches!(&r,Err(Reject::Block(s)) if s.starts_with("12 proposer")),"block {i}: a verdict within the burst: {r:?}");
+            assert!(node.chain.rebuilds>rb,"positive control: block {i} rebuilt its parent");rebuilt+=1;
+        }else{
+            assert_eq!(r,Err(Reject::Evicted),"FAIL-ON-ORIGINAL: block {i} over the budget was rebuilt (rebuilt so far {rebuilt})");
+            assert_eq!(node.chain.rebuilds,rb,"no rebuild over the budget");
+            assert!(!node.chain.invalid.contains_key(&b.hash()),"a non-verdict: not marked invalid");
+        }
+        assert!(node.chain.blocks[&b.header.parent_hash].pruned,"block {i}: its parent is pruned again");
+    }
+    assert_eq!(node.journal_records(),rec,"nothing journaled");
+    // One REBUILD_REFILL_MS later one token is back: an honest deep child takes it and is imported; the budget is
+    // then spent again.
+    node.rebuild_refill_ms=pocold::node::now_ms()-REBUILD_REFILL_MS;
+    let honest=fallback(&m,hashes[3],1);let rb=node.chain.rebuilds;
+    node.import(honest,None).expect("the refilled token rebuilds for an honest deep child");assert!(node.chain.rebuilds>rb);
+    node.rebuild_refill_ms=u128::MAX;
+    let rb=node.chain.rebuilds;assert_eq!(node.import(bad[k-1].clone(),None),Err(Reject::Evicted));assert_eq!(node.chain.rebuilds,rb);
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR4 (I-5, plan §7 finding C): a peer whose lying Hello makes its blocks solicited drives at most
+/// SESSION_REBUILD_MAX deep rebuilds per sync session, on the session's own allowance (not the unsolicited
+/// bucket); the next one ends the session as not reached (claim set aside) and is dropped without a verdict.
+#[test] fn pr4_a_sync_session_is_deep_rebuild_capped(){
+    use pocold::{node::{Event,SESSION_REBUILD_MAX},net::{Msg,NetEvent}};
+    let k=SESSION_REBUILD_MAX as usize+2;let (mut node,dir,m,hashes)=deep_node("session",k+1);
+    let bad:Vec<Block>=(2..k+2).map(|i|post_gate_invalid(&m,hashes[i])).collect();
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    // A Status claiming far more work and an unknown head: the next tick starts a session with this peer.
+    let lie=Msg::Hello{chain_id:node.chain.spec.chain_id(),genesis:node.chain.spec.genesis_hash(),head:[0xab;32],height:1_000_000,work:[0xff;32],node:"liar".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility()};
+    node.handle(Event::Net(NetEvent::Message(peer,lie)));node.handle(Event::Tick);
+    assert!(node.session.as_ref().is_some_and(|s|s.peer==peer),"positive control: a session with the lying peer");
+    // The unsolicited bucket is empty and held still: every rebuild below is the session's.
+    node.rebuild_tokens=0;node.rebuild_refill_ms=u128::MAX;
+    let rec=node.journal_records();
+    for (i,b) in bad.iter().enumerate(){
+        let rb=node.chain.rebuilds;
+        node.handle(Event::Net(NetEvent::Message(peer,Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()})));
+        if i<SESSION_REBUILD_MAX as usize{
+            assert!(node.chain.rebuilds>rb&&node.chain.invalid.contains_key(&b.hash()),"block {i}: rebuilt on the session's allowance, then a verdict");
+            assert!(node.session.is_some(),"block {i}: the session goes on");
+        }else{
+            assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: solicited block {i} beyond the session's allowance was rebuilt");
+            assert!(!node.chain.invalid.contains_key(&b.hash()),"block {i}: a non-verdict");
+            assert!(node.session.is_none()&&node.peer_status[&peer].stale,"block {i}: the session was ended and the claim set aside");
+        }
+        assert!(node.chain.blocks[&b.header.parent_hash].pruned,"block {i}: its parent is pruned again");
+    }
+    assert_eq!(node.journal_records(),rec,"nothing journaled");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+
 #[test] fn a_valid_header_with_a_foreign_body_rejects_only_that_copy(){
     // Review finding (HIGH): a peer relaying a real header with a mismatched body must not get the
     // block marked invalid; the correct body is accepted afterwards.
