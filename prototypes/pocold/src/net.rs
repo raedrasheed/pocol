@@ -5,8 +5,9 @@
 //! Resource bounds (A05, local and not consensus; `Limits`):
 //! - at most `peers_max` inbound connections, of which at most `handshaking_max` have not
 //!   yet delivered their Hello; excess connections are closed on accept, before any thread is
-//!   spawned. Outbound connections are separate (one per configured peer, `dial`), so inbound
-//!   connections can never take the slots the node needs to reach its own peers;
+//!   spawned. Outbound connections are separate (one per configured peer, `dial`; each carries the
+//!   address it was dialed at, its `Origin`), so inbound connections can never take the slots the node
+//!   needs to reach its own peers;
 //! - at most `per_group_max` (default 4, half of `peers_max`) inbound connections per public address
 //!   group (`group_of`: IPv4 /16, IPv6 /32, a tunnelled IPv4 address as that address), so one public
 //!   /16 or /32 never holds more than half of the inbound slots. A connection past it is refused even
@@ -241,11 +242,23 @@ impl Msg{
 pub type PeerId=u64;
 #[derive(Debug)]
 pub enum NetEvent{Connected(PeerId,Peer),Message(PeerId,Msg),Closed(PeerId)}
+/// How a connection came about: accepted by the listener, or dialed by this node for a configured peer (`dial`)
+/// or by an automatic outbound slot (VA-SPEC §1a.7). A dialed connection keeps the address it was dialed at, and
+/// the node's outbound bookkeeping is keyed by that address, never by the one the socket reports (H2).
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum Origin{Inbound,Configured(SocketAddr),Slot(u8,SocketAddr)}
+impl Origin{
+    /// The address this node dialed; None for an inbound connection.
+    pub fn dialed(self)->Option<SocketAddr>{match self{Origin::Inbound=>None,Origin::Configured(a)|Origin::Slot(_,a)=>Some(a)}}
+}
 
 /// Outbound frames of one peer: bytes queued, closed flag; the writer thread drains it.
 struct Outbox{q:Mutex<(VecDeque<Vec<u8>>,usize)>,cv:Condvar,closed:AtomicBool,max:usize}
+/// A connection handed to the node. `remote` is the address its socket reports (None if `peer_addr` failed, a
+/// reset right after connect, say) and `addr` is that address as text ("" then); `outbound` is
+/// `origin != Origin::Inbound`.
 #[derive(Clone)]
-pub struct Peer{pub id:PeerId,pub addr:String,pub outbound:bool,out:Arc<Outbox>,sock:Arc<TcpStream>,counters:Arc<Counters>}
+pub struct Peer{pub id:PeerId,pub addr:String,pub outbound:bool,pub origin:Origin,pub remote:Option<SocketAddr>,out:Arc<Outbox>,sock:Arc<TcpStream>,counters:Arc<Counters>}
 impl std::fmt::Debug for Peer{fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{write!(f,"Peer({} {})",self.id,self.addr)}}
 impl Peer{
     fn enqueue(&self,m:&Msg,limit:usize)->Result<(),bool>{
@@ -307,19 +320,21 @@ fn read_by(r:&mut TcpStream,buf:&mut [u8],deadline:Instant,closed:&AtomicBool)->
 /// releases the slot, so a released slot never has a thread behind it that can still block (a
 /// full event queue keeps the slot taken instead). The listener and the dialer join the reader
 /// before its place is used again, so exiting readers are counted too.
-/// `group`: the address group an inbound connection holds a place in (`Net::admit`), given back with
+/// `origin`: how the connection came about; a dialed one is counted in `Counters::outbound`, not in the inbound
+/// slots. `group`: the address group an inbound connection holds a place in (`Net::admit`), given back with
 /// its slot, by the same single release.
-fn spawn_peer(stream:TcpStream,outbound:bool,events:SyncSender<NetEvent>,net:Net,group:Option<Group>)->(bool,Option<std::thread::JoinHandle<()>>){
+fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net,group:Option<Group>)->(bool,Option<std::thread::JoinHandle<()>>){
+    let outbound=origin!=Origin::Inbound;
     let release=move|net:&Net,handshaking:bool|{
         if outbound{net.counters.outbound.fetch_sub(1,Ordering::SeqCst);}
         else{net.counters.live.fetch_sub(1,Ordering::SeqCst);if handshaking{net.counters.handshaking.fetch_sub(1,Ordering::SeqCst);}net.release_group(group);}
     };
     if outbound{net.counters.outbound.fetch_add(1,Ordering::SeqCst);}
-    let _=stream.set_nodelay(true);let addr=stream.peer_addr().map(|a|a.to_string()).unwrap_or_default();
+    let _=stream.set_nodelay(true);let remote=stream.peer_addr().ok();let addr=remote.map(|a|a.to_string()).unwrap_or_default();
     let id=NEXT.fetch_add(1,Ordering::SeqCst);
     let (Ok(reader),Ok(writer))=(stream.try_clone(),stream.try_clone()) else{release(&net,true);return (false,None)};
     let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),max:net.limits.queue_bytes_max});
-    let peer=Peer{id,addr,outbound,out:out.clone(),sock:Arc::new(stream),counters:net.counters.clone()};
+    let peer=Peer{id,addr,outbound,origin,remote,out:out.clone(),sock:Arc::new(stream),counters:net.counters.clone()};
     let write_deadline=net.limits.write_deadline;
     let wpeer=peer.clone();
     let writer=crate::threads::spawn(format!("peer-{id}-w"),crate::threads::IO_STACK,move||{
@@ -375,7 +390,7 @@ pub fn listen(listener:TcpListener,events:SyncSender<NetEvent>,net:Net){
             crate::threads::reap(&mut readers);
             let room=readers.len()<net.limits.peers_max;if !room{net.counters.refused.fetch_add(1,Ordering::SeqCst);}
             let group=s.peer_addr().ok().and_then(|a|net.inbound_group(a.ip()));
-            if room&&net.admit(group){if let (_,Some(h))=spawn_peer(s,false,events.clone(),net.clone(),group){readers.push(h);}}else{let _=s.shutdown(std::net::Shutdown::Both);}
+            if room&&net.admit(group){if let (_,Some(h))=spawn_peer(s,Origin::Inbound,events.clone(),net.clone(),group){readers.push(h);}}else{let _=s.shutdown(std::net::Shutdown::Both);}
         }
     }).expect("spawn listener");
 }
@@ -392,7 +407,7 @@ pub fn dial(addr:SocketAddr,events:SyncSender<NetEvent>,connected:Arc<Mutex<std:
                 if let Ok(s)=TcpStream::connect_timeout(&addr,Duration::from_millis(500)){
                     if let Ok(mut set)=connected.lock(){set.insert(addr.to_string());}
                     // Not handed to the node (no Closed will follow): dial again later.
-                    let (handed,h)=spawn_peer(s,true,events.clone(),net.clone(),None);reader=h;
+                    let (handed,h)=spawn_peer(s,Origin::Configured(addr),events.clone(),net.clone(),None);reader=h;
                     if !handed{if let Ok(mut set)=connected.lock(){set.remove(&addr.to_string());}}
                 }
             }
@@ -407,7 +422,13 @@ pub fn dial(addr:SocketAddr,events:SyncSender<NetEvent>,connected:Arc<Mutex<std:
 pub(crate) fn test_peer(id:PeerId,max:usize)->(Peer,TcpStream){
     let l=TcpListener::bind("127.0.0.1:0").unwrap();let s=TcpStream::connect(l.local_addr().unwrap()).unwrap();let (r,_)=l.accept().unwrap();
     let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),max});
-    (Peer{id,addr:"test".into(),outbound:false,out,sock:Arc::new(s),counters:Arc::new(Counters::default())},r)
+    (Peer{id,addr:"test".into(),outbound:false,origin:Origin::Inbound,remote:None,out,sock:Arc::new(s),counters:Arc::new(Counters::default())},r)
+}
+/// Unit tests only: `test_peer` as a connection of this `origin` whose socket reported `remote`; `addr` and
+/// `outbound` follow from them as in `spawn_peer` (`addr` is "" when `remote` is None).
+#[cfg(test)]
+pub(crate) fn test_peer_as(id:PeerId,max:usize,origin:Origin,remote:Option<SocketAddr>)->(Peer,TcpStream){
+    let (mut p,r)=test_peer(id,max);p.origin=origin;p.remote=remote;p.outbound=origin!=Origin::Inbound;p.addr=remote.map(|a|a.to_string()).unwrap_or_default();(p,r)
 }
 #[cfg(test)]
 mod tests{
@@ -476,7 +497,7 @@ mod tests{
     #[test] fn an_offer_past_half_the_queue_is_refused_and_keeps_the_peer(){
         let l=TcpListener::bind("127.0.0.1:0").unwrap();let s=TcpStream::connect(l.local_addr().unwrap()).unwrap();let _r=l.accept().unwrap();
         let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),max:4096});
-        let p=Peer{id:1,addr:"t".into(),outbound:false,out:out.clone(),sock:Arc::new(s),counters:Arc::new(Counters::default())};
+        let p=Peer{id:1,addr:"t".into(),outbound:false,origin:Origin::Inbound,remote:None,out:out.clone(),sock:Arc::new(s),counters:Arc::new(Counters::default())};
         let m=Msg::Tx{raw:vec![7u8;400]};let f=m.encode().len()+4;
         let mut offered=0;while p.offer(&m){offered+=1;}
         assert_eq!(offered,2048/f,"offers fill half the queue");assert!(!out.closed.load(Ordering::SeqCst),"a refused offer keeps the peer");

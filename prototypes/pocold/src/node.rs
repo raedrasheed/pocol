@@ -10,6 +10,7 @@ use crate::{hashes,header::Header};
 use pocol_lp4_execution::{apply::ParentResult,txsign::Key,wire,native::{self,NativeBlockContext},user_phase::{self,PoolMeter}};
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId},store::{self,Journal},types::*};
+mod discovery;
 
 /// D-REORG-REDB: the journal is the off-heap block store. `record_at` reads a block record back by
 /// its frame offset for on-demand body fetch (fork choice and retention stay on resident metadata).
@@ -679,10 +680,15 @@ impl Node{
             }
             Event::Net(NetEvent::Connected(id,peer))=>{let hello=self.hello();peer.send(&hello);self.peers.insert(id,peer);}
             Event::Net(NetEvent::Closed(id))=>{self.peer_status.remove(&id);if self.session.as_ref().map_or(false,|s|s.peer==id){self.end_session(false);}
-                if let Some(p)=self.peers.remove(&id){if p.outbound{if let Ok(mut s)=self.outbound.lock(){s.remove(&p.addr);}}}}
+                if let Some(p)=self.peers.remove(&id){self.allow_redial(p.origin);}}
             Event::Net(NetEvent::Message(id,m))=>self.on_msg(id,m),
         }
     }
+    /// H2: a configured peer's dialer (`net::dial`) dials again once the address it dialed has left the outbound
+    /// set, so an ended connection clears the set by that address (`Origin::Configured`), never by the address
+    /// its socket reported: that is empty when `peer_addr` failed (a reset right after connect), and clearing by
+    /// it would stall the dialer for good.
+    fn allow_redial(&self,origin:net::Origin){if let net::Origin::Configured(a)=origin{if let Ok(mut s)=self.outbound.lock(){s.remove(&a.to_string());}}}
     /// Φ = 2φ from the admitted local parameters (future-timestamp slack).
     fn capital_phi(&self)->u64{u64::from(self.chain.spec.local().capital_phi())}
     fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries()),listen_port:0,nonce:0}}
@@ -1305,7 +1311,7 @@ impl Node{
                     self.log(&format!("peer {node}: incompatible network or implementation; closing"));
                     self.peer_status.remove(&from);
                     if self.session.as_ref().is_some_and(|s|s.peer==from){self.end_session(false);}
-                    if let Some(p)=self.peers.remove(&from){p.close();if p.outbound{if let Ok(mut s)=self.outbound.lock(){s.remove(&p.addr);}}}
+                    if let Some(p)=self.peers.remove(&from){p.close();self.allow_redial(p.origin);}
                     return;
                 }
                 // Only a peer's first Hello may start a session at once; later Status updates wait for
