@@ -57,8 +57,9 @@ impl Default for Limits{
     fn default()->Self{Self{peers_max:8,handshaking_max:8,per_group_max:4,hello_deadline:Duration::from_secs(5),frame_deadline:Duration::from_secs(30),
         idle_deadline:Duration::from_secs(300),queue_bytes_max:2*1024*1024,write_deadline:Duration::from_secs(10)}}
 }
-/// An inbound address group: a public peer's IPv4 /16 or IPv6 /32 (`group_of`).
-#[derive(Clone,Copy,Debug,PartialEq,Eq,Hash)]
+/// An address group: a public peer's IPv4 /16 or IPv6 /32 (`group_of`), for the inbound cap and the address book's
+/// keys (`addrbook::Key`, ordered for a deterministic iteration).
+#[derive(Clone,Copy,Debug,PartialEq,Eq,Hash,PartialOrd,Ord)]
 pub enum Group{V4([u8;2]),V6([u8;4])}
 /// The address group of a public peer: its IPv4 /16 or IPv6 /32, Bitcoin Core's netgroup granularity
 /// (Bitcoin Core uses netgroups to choose whom to evict and to spread its outbound connections; this node

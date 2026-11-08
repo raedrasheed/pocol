@@ -36,8 +36,13 @@ def message(*items):
 
 def uint(n): return n.to_bytes((n.bit_length() + 7) // 8, 'big')
 
+def addrbook(lines):
+    """An address-book file for selector 8 (chain 777900, genesis zero): header, g line, the lines, end line."""
+    body = ('pocol-addrbook 1 777900 ' + '00' * 32 + '\ng 1\n' + ''.join(line + '\n' for line in lines)).encode()
+    return b'\x08' + body + b'end %d %s\n' % (body.count(b'\n'), hashlib.sha256(body).hexdigest().encode())
+
 walk(json.loads((ROOT / 'prototypes/lp4-execution/tests/data/wire-envelopes.json').read_text()))
-for kind in range(8):
+for kind in range(9):
     for data in (b'', b'\x80', b'\xc0', b'\xc1\x80'):
         seed(bytes([kind]) + data)
 # Peer discovery: the 11-item Hello (listenPort, nonce), GetAddr, and Addr with 0, 1 and 64 records of
@@ -49,4 +54,10 @@ records = [bytes(10) + b'\xff\xff' + bytes([81, 2, 69, i]) + (30300).to_bytes(2,
     else bytes.fromhex('26064700') + bytes(11) + bytes([i]) + (1024 + i).to_bytes(2, 'big') for i in range(64)]
 for n in (0, 1, 64):
     seed(message(uint(9), b''.join(records[:n])))
+# The address-book file: empty, and with an entry of every source kind (address group v4 and v6, configured,
+# self-advertised, local) and an anchor.
+seed(addrbook([]))
+seed(addrbook(['e 81.2.69.1:30300 p4:81.2 0 0 1800000000000 0 0 0 0 0', 'e [2606:4700::1]:30300 i 0 1800000000000 0 0 0 0 0 0',
+    'e 81.3.0.1:30300 p6:26064700 1800000000000 0 0 0 0 0 1 0', 'e 81.4.0.1:30300 c:81.2.69.1:30300 1800000000000 0 0 0 0 0 0 0',
+    'e 127.0.0.1:40001 pl:127.0.0.1:40002 1800000000000 0 0 0 0 0 0 0', 'a 81.2.69.1:30300 1800000000000']))
 print(f'{len(list(out.iterdir()))} corpus entries in {out}')
