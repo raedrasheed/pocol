@@ -523,6 +523,12 @@ impl Home {
             limits: node::Limits {
                 state_store: true,
                 mem_budget: std::env::var("POCOL_MEMORY_BUDGET_BYTES").ok().map(|s|s.parse::<u64>().map_err(|_|"Invalid POCOL_MEMORY_BUDGET_BYTES")).transpose()?.unwrap_or(node::MEM_BUDGET),
+                // Local P2P policy (net::Limits::per_group_max): inbound peers per public address group.
+                net: crate::net::Limits {
+                    // An empty value counts as unset.
+                    per_group_max: std::env::var("POCOL_PER_GROUP_MAX").ok().filter(|s|!s.trim().is_empty()).map(|s|s.trim().parse::<usize>().map_err(|_|"Invalid POCOL_PER_GROUP_MAX")).transpose()?.unwrap_or(crate::net::Limits::default().per_group_max),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         };

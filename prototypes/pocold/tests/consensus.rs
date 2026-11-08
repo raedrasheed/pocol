@@ -313,6 +313,71 @@ fn remine_signed(n:&Net,mut h:lp1hdr::Header,signer:Address)->Block{
     let mut b=node("good");send(&mut b,&good);assert_eq!(b.stats.template_penalties,0,"positive control: a valid template is not punished");
     let mut other=bad.clone();other.parent_hash[0]^=1;reseal(&mut other);
     let mut e=node("other");send(&mut e,&other);assert_eq!(e.stats.template_penalties,0,"a template for another parent does not apply here");
+    // Malformed evidence (item 15) is a verdict on the block too: the drawn proposer's template is punished.
+    let ev=Body{txs:vec![],evidence:vec![vec![0x01]]};
+    let (evt,_,_)=net2.chain.build_signed(&p,&net2.keys[&ctx.proposer],ctx.window.lower(),ev.clone(),vec![]).unwrap();
+    let mut f=node("evidence");let (peer,_socket)=auth_peer::connect(&mut f);
+    f.handle(Event::Net(NetEvent::Message(peer,Msg::Template{shell:evt.encoded.clone(),body:ev.encode()})));
+    assert_eq!(f.stats.template_penalties,1,"a template whose evidence is invalid punishes its peer");
+    assert!(f.status_json()["production"].as_str().unwrap().starts_with("wait a=0"),"and does not lock");
+}
+
+/// Gossip (review DEC-04): a TemplateID is relayed at most once, even when this node locks it a second time
+/// (production restarted for the same parent at a=0, as a mining-key change does). The positive controls
+/// make sure the second lock really happened, so the test cannot pass on the WAIT gate alone.
+#[test] fn a_template_id_that_locks_again_is_not_relayed_again(){
+    use pocold::{node::{Config,Event,Node},net::{Msg,NetEvent}};
+    let c=cfg(&["a","b","c"]);let d=devnet::build(&c).unwrap();
+    let keys:HashMap<Address,Key>=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
+    let dir=std::env::temp_dir().join(format!("pocold-relay-once-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut n=Node::open(Config{dir,name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
+    let net2=Net{chain:Chain::new(admitted(&c)),keys};
+    let g=net2.chain.head;let p=net2.chain.full_entry(&g).unwrap();let ctx=net2.chain.child_ctx(&p,0).unwrap();
+    let (t,_,_)=net2.chain.build_signed(&p,&net2.keys[&ctx.proposer],ctx.window.lower(),Body::default(),vec![]).unwrap();
+    let m=Msg::Template{shell:t.encoded.clone(),body:Body::default().encode()};
+    let (a,_sa)=auth_peer::connect(&mut n);let (b,_sb)=auth_peer::connect(&mut n);let (_c,_sc)=auth_peer::connect(&mut n);
+    let mode=|n:&Node|n.status_json()["production"].as_str().unwrap().to_string();
+    // Production starts last, so its WAIT deadline (Δrel = 5 s from now) is not spent on the setup above.
+    n.start_production();
+    n.handle(Event::Net(NetEvent::Message(a,m.clone())));
+    assert!(mode(&n).starts_with("PROP h=1 a=0"),"locked: {}",mode(&n));
+    assert_eq!(n.stats.relayed_templates,1,"locked and relayed");
+    n.start_production();
+    assert!(mode(&n).starts_with("wait a=0"),"back in WAIT for the same parent: {}",mode(&n));
+    n.handle(Event::Net(NetEvent::Message(b,m)));
+    assert!(mode(&n).starts_with("PROP h=1 a=0"),"the same TemplateID locked a second time: {}",mode(&n));
+    assert_eq!(n.stats.relayed_templates,1,"a TemplateID is relayed once");
+}
+
+/// Review (gossip): when a second template from the drawn proposer switches a node from its locked template
+/// to the sticky fallback (type-1 evidence), the abandoned template's shares are dropped: they do not meet
+/// the fallback's share target and would make its block invalid (item 9). Relayed copies of the other
+/// template then arrive once per neighbour; a node already on the fallback keeps it (no re-lock).
+#[test] fn an_equivocation_switch_drops_the_abandoned_templates_shares_and_locks_the_fallback_once(){
+    use pocold::{node::{Config,Event,Node},net::{Msg,NetEvent}};
+    let c=cfg(&["a","b","c"]);let d=devnet::build(&c).unwrap();
+    let keys:HashMap<Address,Key>=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
+    let dir=std::env::temp_dir().join(format!("pocold-equiv-switch-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut n=Node::open(Config{dir,name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
+    let net2=Net{chain:Chain::new(admitted(&c)),keys};
+    let g=net2.chain.head;let p=net2.chain.full_entry(&g).unwrap();let ctx=net2.chain.child_ctx(&p,0).unwrap();
+    let mk=|off:u64|{let (h,_,_)=net2.chain.build_signed(&p,&net2.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();h};
+    let (t1,t2)=(mk(0),mk(1));let tid1=template_id(&t1.ut_raw);
+    let tmsg=|t:&lp1hdr::Header|Msg::Template{shell:t.encoded.clone(),body:Body::default().encode()};
+    let share=(0u64..).find(|v|(*v as u128)<ctx.assignment.nonce_max()&&le_target(&pow_hash(&tid1,*v),&ctx.t_share)).unwrap();
+    let (a,_sa)=auth_peer::connect(&mut n);let (b,_sb)=auth_peer::connect(&mut n);let (x,_sx)=auth_peer::connect(&mut n);
+    let mode=|n:&Node|n.status_json()["production"].as_str().unwrap().to_string();
+    // Production starts last, so its WAIT deadline (Δrel = 5 s from now) is not spent on the setup above.
+    n.start_production();
+    n.handle(Event::Net(NetEvent::Message(a,tmsg(&t1))));
+    n.handle(Event::Net(NetEvent::Message(a,Msg::Share{tid:tid1,nonce:share})));
+    assert!(mode(&n).starts_with("PROP h=1 a=0 shares=1"),"locked on T1 with one T1 share: {}",mode(&n));
+    n.handle(Event::Net(NetEvent::Message(b,tmsg(&t2))));
+    assert_eq!(n.evidence_pool.len(),1,"type-1 evidence");
+    assert!(mode(&n).starts_with("FB h=1 a=0 shares=0"),"the sticky fallback carries no T1 share: {}",mode(&n));
+    assert_eq!(n.stats.fallback_templates,1);
+    n.handle(Event::Net(NetEvent::Message(x,tmsg(&t2))));
+    assert_eq!((n.stats.fallback_templates,n.evidence_pool.len()),(1,1),"a relayed copy of T2 neither re-locks the fallback nor adds evidence");
 }
 
 #[test] fn journal_replay_rebuilds_pruned_state_for_a_journaled_fork(){
@@ -1246,10 +1311,13 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // -> 3,287,955,262 B; 2026-10-27: the chain's entries boxed in their map, each counted as its slot at the
     // table's growth peak and the Entry once, -> 3,233,597,728 B; 2026-10-28: each side entry's slot in the chain's
     // side set, 32 + 16 B, -> 3,233,892,640 B; the independent review's F-C, the set as its own term: (side entries
-    // + r_keep) × 76 B, -> 3,234,220,320 B). Some terms are type
+    // + r_keep) × 76 B, -> 3,234,220,320 B; the R6 churn correction below, +7,720,160 B, -> 3,241,940,480 B;
+    // P2P gossip: the relayed TemplateIDs (RELAYED_MAX + 1 at 304 B, + 512), the inbound address groups
+    // (peers_max + 1 at 160 B) and the configured peers (dials + 1 at 96 B), + 1,024 B of slack,
+    // +81,392 B, -> 3,242,021,872 B). Some terms are type
     // sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on; every
     // target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_241_940_480,"the A13 model total changed");}
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_242_021_872,"the A13 model total changed");}
     // R6 churn correction: eviction=3982768, protect delta=1967104,
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);
@@ -2450,7 +2518,7 @@ fn journal_read_fault_child(){
 /// test fails for a node that takes the lighter branch, that never reorganizes, or that never syncs.
 fn d133_heal(winner_is_c:bool)->serde_json::Value{
     use pocold::node::{Config,Limits,Node};
-    let port=||std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let port=||std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let addr=|p:u16|->std::net::SocketAddr{format!("127.0.0.1:{p}").parse().unwrap()};
     let c=cfg(&["a","b","c"]);let mut hw=net();let g=hw.chain.head;let prefix=branch(&mut hw,g,4,&[]);
     let fork=prefix.last().unwrap().hash();let mut hl=net();for x in &prefix{import(&mut hl,x);}
@@ -2462,7 +2530,12 @@ fn d133_heal(winner_is_c:bool)->serde_json::Value{
     let (ww,wh)=(hw.chain.get(&q).unwrap().total_work,hw.chain.get(&q).unwrap().height);
     assert!(ww>lw&&wh<lh,"positive control: the winning branch is heavier ({ww} > {lw}) and shorter ({wh} < {lh})");
     let (ab_blocks,c_blocks)=if winner_is_c{(&lose,&win)}else{(&win,&lose)};
-    let (pa,pb,pc,ra,rb,rc)=(port(),port(),port(),port(),port(),port());let tag=format!("{}-{}",if winner_is_c{"c"}else{"ab"},std::process::id());
+    // Each node's two ports stay held by a listener until that node binds them (start_network, below): the
+    // node opens and imports take seconds, and tests in parallel (RPC polls, dialers) take ephemeral ports
+    // meanwhile, so a port only probed free earlier can be gone by then (EADDRINUSE).
+    let held=[[port(),port()],[port(),port()],[port(),port()]];
+    let [[pa,ra],[pb,rb],[pc,rc]]=held.each_ref().map(|h|h.each_ref().map(|l|l.local_addr().unwrap().port()));
+    let tag=format!("{}-{}",if winner_is_c{"c"}else{"ab"},std::process::id());
     let dir=|x:&str|{let d=std::env::temp_dir().join(format!("pocold-heal-{x}-{tag}"));let _=std::fs::remove_dir_all(&d);d};
     let conf=|name:&str,listen:u16,peers:Vec<std::net::SocketAddr>,rpc:u16|Config{dir:dir(name),name:name.into(),miner:None,listen:Some(addr(listen)),peers,rpc:Some(addr(rpc)),stop_at:None,log:false,limits:Limits::default()};
     // The partition: each side's blocks imported while its nodes are apart; then each head is measured.
@@ -2475,7 +2548,7 @@ fn d133_heal(winner_is_c:bool)->serde_json::Value{
     assert!(measured[0]==measured[1]&&measured[0].0!=measured[2].0,"positive control: a and b agree, c differs");
     assert_eq!(tip,(q,ww,wh),"positive control: the winning side's head is the winning branch's tip");
     // The heal. No node has a miner, so no block is made after the measurement.
-    for n in [&mut na,&mut nb,&mut nc]{n.start_network().unwrap();}
+    for (n,h) in [&mut na,&mut nb,&mut nc].into_iter().zip(held){drop(h);n.start_network().unwrap();}
     for n in [na,nb,nc]{std::thread::Builder::new().stack_size(64<<20).spawn(move||{let mut n=n;n.run()}).unwrap();}
     let status=|r:u16|rpc_tcp(r,"pocol_status",json!([]));let want=json!(hex(&tip.0));
     let converged=wait_for(120,&||[ra,rb,rc].iter().all(|r|status(*r)["head"]["hash"]==want));

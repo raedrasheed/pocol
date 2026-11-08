@@ -86,6 +86,9 @@ pub const MEM_BUDGET:u64=6<<30;
 /// Blocks waiting for their timestamp, buffered templates, equivocation observations,
 /// status rejects and evidence awaiting inclusion (A13 accounting).
 pub const FUTURE_MAX:usize=64;pub const TEMPLATES_MAX:usize=64;pub const SEEN_MAX:usize=4096;pub const REJECTS_MAX:usize=256;pub const EVIDENCE_POOL_MAX:usize=64;
+/// Gossip: TemplateIDs already relayed (each is relayed at most once), and the shares relayed per locked
+/// template, as a multiple of S_max (a block carries at most S_max shares; more only cost bandwidth).
+pub const RELAYED_MAX:usize=256;pub const SHARE_RELAY_PER_S_MAX:usize=4;
 /// F7: hard cap on the persisted attempt-0 signing record (a backstop beyond the reorg-window prune).
 pub const SIGNED_A0_MAX:usize=4096;
 /// Events waiting for the consensus thread (all sources); senders block when it is full.
@@ -234,6 +237,8 @@ pub struct Node{
     /// Own sealed blocks waiting in `future` for their timestamp (Φ=2φ may be 0 on one host).
     own_future:HashSet<[u8;32]>,
     templates:HashMap<[u8;32],(Header,Body,u128,PeerId)>,
+    /// Gossip: TemplateIDs this node sent or relayed (at most RELAYED_MAX), so each is relayed once.
+    relayed:HashSet<[u8;32]>,
     received:HashMap<[u8;32],u128>,
     pub pool:Pool,
     pub rejects:VecDeque<(String,String)>,
@@ -278,6 +283,9 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     pub unslims:u64,
     /// Peers whose template from Draw(h,0) for this node's parent failed its checks (consensus.md:101).
     pub template_penalties:u64,
+    /// Gossip (network.md:13,15): signed templates of other proposers this node relayed after locking on
+    /// them, valid shares it relayed, and valid new shares it received from peers.
+    pub relayed_templates:u64,pub relayed_shares:u64,pub peer_shares:u64,
     /// D-7: pool revalidation slices run and the longest one (ms); offers to peers of transactions
     /// returned from abandoned blocks, and those a peer's queue had no room for.
     pub pool_slices:u64,pub pool_slice_max_ms:u64,pub reinserted_offered:u64,pub reinserted_unoffered:u64,
@@ -555,7 +563,7 @@ impl Node{
         let net=net::Net::new(cfg.limits.net.clone());
         let signed_a0=load_signed_a0(&cfg.dir); // F7: resume the attempt-0 signing record across restarts
         let mut node=Self{cfg,chain,net,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
-            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),received:HashMap::new(),
+            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
@@ -590,6 +598,9 @@ impl Node{
     fn fatal(&self,why:&str)->!{eprintln!("[{}] FATAL local storage: {why}",self.cfg.name);std::process::exit(70)}
 
     pub fn start_network(&mut self)->Result<(),String>{
+        // The configured peers (for example the other seeds, which also dial this node) are never refused
+        // for sharing a public address group with each other (net::Limits::per_group_max).
+        self.net.protect(self.cfg.peers.iter().map(|a|a.ip()));
         if let Some(a)=self.cfg.listen{let l=std::net::TcpListener::bind(a).map_err(|e|format!("listen {a}: {e}"))?;
             let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn("listen-fwd",crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::listen(l,ntx,self.net.clone());}
@@ -1015,6 +1026,7 @@ impl Node{
                     if let Some((hdr,body))=self.signed_a0_mem.get(&hk).cloned(){
                         if let (Ok(h),Ok(b))=(decode_header(&hdr),Body::decode(&body,self.chain.spec.cp().BODY_MAX as usize)){
                             self.log(&format!("F7: re-broadcasting the template already signed for h={}",ctx.height));
+                            self.mark_relayed(template_id(&h.ut_raw));
                             self.broadcast(&Msg::Template{shell:hdr,body},None);self.lock(h,b,false);return;
                         }
                     }
@@ -1027,7 +1039,7 @@ impl Node{
                         // Persist the signing record (fsync) BEFORE broadcasting, so a crash can never
                         // leave us free to sign a different template for this (parent,height).
                         self.record_signed_a0(p.hash,ctx.height,template_id(&t.0.ut_raw),t.0.encoded.clone(),t.1.encode());
-                        self.stats.signed_templates+=1;
+                        self.stats.signed_templates+=1;self.mark_relayed(template_id(&t.0.ut_raw));
                         let shell=t.0.encoded.clone();self.broadcast(&Msg::Template{shell,body:t.1.encode()},None);
                         self.lock(t.0,t.1,false);return;
                     }
@@ -1111,7 +1123,13 @@ impl Node{
         let tid=template_id(&header.ut_raw);
         self.log(&format!("lock h={} a={} {} tid={}",header.h,header.a,if fallback{"FB"}else{"PROP"},&hex(&tid)[..12]));
         // The previous miner is stopped and joined before the next starts: one miner thread at a time.
-        if let Some(pr)=&mut self.prod{pr.miner=None;}
+        if let Some(pr)=&mut self.prod{
+            pr.miner=None;
+            // Shares and `solved` belong to one TemplateID. A switch within an attempt (a locked template to
+            // the sticky fallback after a type-1 equivocation) must not carry the abandoned template's shares
+            // into the new header: they do not meet its share target, and its block would be invalid (item 9).
+            if !matches!(&pr.mode,Mode::Locked(l) if l.tid==tid){pr.shares.clear();pr.solved=false;}
+        }
         let miner=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address())).map(|(s,e)|
             miner::start(tid,s,e,ctx.target,ctx.t_share,usize::from(self.chain.spec.cp().S_max),self.miner_tx.clone()));
         if let Some(pr)=&mut self.prod{pr.mode=Mode::Locked(Box::new(Locked{header,body,tid,ctx,fallback}));pr.miner=miner;}
@@ -1124,7 +1142,11 @@ impl Node{
     /// outside the window or in the future) is ignored. One that the drawn proposer signed for this
     /// parent but whose block would be invalid (item 16, its evidence, or a rebuild that differs) is "as if
     /// absent, and the peer is punished" (consensus.md:101, review R1-5): its sender's connection is
-    /// closed, a local penalty. Templates are not relayed, so the sender is the peer that made it fail.
+    /// closed, a local penalty; a check this node cannot complete is no verdict (`template_error`).
+    /// A template that locks is then relayed (`relay_template`); the checks that
+    /// punish are deterministic on the parent state, and a node relays only a template that passed them,
+    /// so an honest relay is never the cause of a punished template: the sender is still the peer that
+    /// made it fail.
     fn try_lock_signed(&mut self,shell:Header,body:Body,from:PeerId)->bool{
         let parent=match &self.prod{Some(p)=>p.parent,None=>return false};
         if shell.parent_hash!=parent||shell.a!=0||shell.proposer.len()!=20{return false}
@@ -1135,9 +1157,39 @@ impl Node{
         if !ok_sig||shell.proposer[..]!=ctx.proposer[..]||!ctx.window.contains(shell.ts)||crate::timing::is_future(shell.ts,now_s(),self.capital_phi()){return false}
         // consensus.md:101, §4(a): a template whose block would fail item 16 is as if absent (no lock).
         if !self.chain.within_caps(&p,&body.txs){return self.punish_template(from,"over a cap (item 16)")}
-        let Ok(effects)=self.chain.evidence_effects(&p,&body,shell.h) else{return self.punish_template(from,"invalid evidence")};
+        let effects=match self.chain.evidence_effects(&p,&body,shell.h){Ok(e)=>e,Err(e)=>return self.template_error(from,"invalid evidence",e)};
         let rebuilt=self.chain.rebuild_signed(&p,&ctx,shell.ts,Address::from_slice(&shell.proposer),&body,effects);
-        match rebuilt{Ok(ut) if ut==shell.ut_raw=>{self.lock(shell,body,false);true},_=>self.punish_template(from,"its rebuild differs")}
+        match rebuilt{
+            Ok(ut) if ut==shell.ut_raw=>{
+                let m=Msg::Template{shell:shell.encoded.clone(),body:body.encode()};
+                self.lock(shell,body,false);self.relay_template(tid,&m,from);true}
+            Ok(_)=>self.punish_template(from,"its rebuild differs"),
+            Err(e)=>self.template_error(from,"its rebuild fails",e),
+        }
+    }
+    /// An error checking a template from Draw(h,0). Only a verdict on its block (`Reject::Block`) punishes
+    /// the sender. The node's own storage failing (`Reject::Local`) stops it, as on every production path,
+    /// and a state it does not hold now (`NeedsRebuild`) is no verdict either: no lock and no penalty. So a
+    /// local fault never closes an honest proposer or an honest relay.
+    fn template_error(&mut self,from:PeerId,what:&str,e:Reject)->bool{
+        match e{
+            Reject::Block(why)=>self.punish_template(from,&format!("{what}: {why}")),
+            Reject::Local(why)=>self.fatal(&why),
+            e=>{self.log(&format!("signed template not checked here ({what}: {e:?}): no lock, no penalty"));false}
+        }
+    }
+    /// Records a TemplateID as sent; false when it already was. Bounded: past RELAYED_MAX the set is
+    /// cleared (an old TemplateID can no longer lock anywhere, so relaying it again would be harmless).
+    fn mark_relayed(&mut self,tid:[u8;32])->bool{
+        if self.relayed.len()>=RELAYED_MAX{self.relayed.clear();}
+        self.relayed.insert(tid)
+    }
+    /// Gossip (network.md:13): a signed template that locked here goes to every other peer, once per
+    /// TemplateID, never back to its sender. Without it a miner reached only through another node never
+    /// sees the drawn proposer's template and mines an empty fallback instead (review DEC-04).
+    fn relay_template(&mut self,tid:[u8;32],m:&Msg,from:PeerId){
+        if !self.mark_relayed(tid){return}
+        self.broadcast(m,Some(from));self.stats.relayed_templates+=1;
     }
     fn punish_template(&mut self,from:PeerId,why:&str)->bool{
         self.stats.template_penalties+=1;self.log(&format!("invalid template from Draw(h,0) ({why}): closing its peer"));
@@ -1289,18 +1341,27 @@ impl Node{
                 let equivocated=self.observe_template(&h);
                 let waiting=matches!(&self.prod,Some(p) if p.parent==h.parent_hash&&p.attempt==0&&matches!(p.mode,Mode::Wait{deadline_ms} if arrival<=deadline_ms));
                 if equivocated{
-                    // Second template from the same proposer: evidence type 1, then sticky FB.
-                    if matches!(&self.prod,Some(p) if p.parent==h.parent_hash&&p.attempt==0){let p=self.chain.get(&h.parent_hash).unwrap().clone();self.lock_fallback(&p,0);}
+                    // Second template from the same proposer: evidence type 1, then sticky FB. A node already on
+                    // that fallback keeps mining it: relayed copies of the other template arrive once per
+                    // neighbour that locked it, and each would otherwise restart the miner from its range start.
+                    if matches!(&self.prod,Some(p) if p.parent==h.parent_hash&&p.attempt==0&&!matches!(&p.mode,Mode::Locked(l) if l.fallback)){
+                        let p=self.chain.get(&h.parent_hash).unwrap().clone();self.lock_fallback(&p,0);}
                 }else if waiting{self.try_lock_signed(h,b,from);}
                 else if !self.chain.blocks.contains_key(&h.parent_hash)||self.prod.as_ref().map(|p|p.parent!=h.parent_hash).unwrap_or(true){
                     if self.templates.len()>TEMPLATES_MAX{self.templates.clear();}self.templates.insert(h.parent_hash,(h,b,now_ms(),from));
                 }
             }
             Msg::Share{tid,nonce}=>{
-                let Some(pr)=&mut self.prod else{return};let Mode::Locked(l)=&pr.mode else{return};
-                if tid!=l.tid||(nonce as u128)>=l.ctx.assignment.nonce_max()||pr.shares.contains(&nonce){return}
-                if !le_target(&pow_hash(&tid,nonce),&l.ctx.t_share){return}
-                pr.shares.insert(nonce);self.stats.shares_seen+=1;
+                let relay_max=SHARE_RELAY_PER_S_MAX*usize::from(self.chain.spec.cp().S_max);
+                let relay={let Some(pr)=&mut self.prod else{return};let Mode::Locked(l)=&pr.mode else{return};
+                    if tid!=l.tid||(nonce as u128)>=l.ctx.assignment.nonce_max()||pr.shares.contains(&nonce){return}
+                    if !le_target(&pow_hash(&tid,nonce),&l.ctx.t_share){return}
+                    pr.shares.insert(nonce);pr.shares.len()<=relay_max};
+                self.stats.shares_seen+=1;self.stats.peer_shares+=1;
+                // Gossip (network.md:15): a valid new share for the locked template goes to every other
+                // peer, never back to its sender; a duplicate or an invalid one was dropped above. Without it
+                // a share reaches only its miner's neighbours, and a winner elsewhere cannot credit it.
+                if relay{self.broadcast(&Msg::Share{tid,nonce},Some(from));self.stats.relayed_shares+=1;}
             }
             Msg::GetBlock{hash}=>{if let Some(m)=self.block_msg(&hash){if let Some(p)=self.peers.get(&from){p.send(&m);}}}
             Msg::GetFrom{locator,count}=>{
@@ -1417,6 +1478,11 @@ impl Node{
         status["protocolVersion"]=serde_json::json!(crate::identity::PROTOCOL_VERSION);
         status["compatibilitySha256"]=serde_json::json!(crate::identity::COMPATIBILITY_HEX);
         status["compatiblePeers"]=serde_json::json!(self.peer_status.len());
+        // Gossip and inbound grouping (net::Limits::per_group_max).
+        status["stats"]["relayedTemplates"]=serde_json::json!(self.stats.relayed_templates);
+        status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
+        status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
+        status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));
         status["lifetime"]=if self.chain.spec.cp().H_END==0{serde_json::json!({"continuous":true,"closingHeight":null,"finalHeight":null,"closingTime":null,"finalTime":null})}else{serde_json::json!({"continuous":false,"closingHeight":self.chain.spec.cp().H_CLOSE,"finalHeight":self.chain.spec.cp().H_END})};
         status["resourceProjectionRecords"]=serde_json::json!(self.cfg.limits.continuous_history);
         status["unlimitedResourceProof"]=serde_json::json!(false);
@@ -1512,6 +1578,29 @@ mod relay_tests{
         assert_eq!((n.stats.reinserted_offered,n.stats.reinserted_unoffered),(1,1));
         assert!(p.send(&Msg::Tx{raw:vec![1u8;8]}),"the peer is kept");
         assert_eq!(n.pool.txs.len(),2,"both are pooled");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod template_error_tests{
+    //! Gossip review: only a verdict on a template (`Reject::Block`) punishes its sender. A check this node
+    //! cannot complete (a state it does not hold, retention, ...) is no verdict, so an honest proposer or an
+    //! honest relay is never closed for it. (`Reject::Local` stops the node, `fatal`: not testable in process.)
+    use super::*;
+    use pocol_lp4_execution::devnet::{self,DevnetConfig};
+    #[test] fn only_a_block_verdict_punishes_the_sender_of_a_template(){
+        let c=DevnetConfig::new(777916,1_700_000_000,&["a","b","c"]);
+        let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
+        let dir=std::env::temp_dir().join(format!("pocold-tplerr-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let cfg=Config{dir:dir.clone(),name:"tplerr".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
+        let mut n=Node::open(cfg,spec).unwrap();
+        for e in [Reject::NeedsRebuild([7;32]),Reject::Evicted,Reject::Envelope("sig".into()),Reject::UnknownParent,Reject::Future,Reject::Duplicate]{
+            assert!(!n.template_error(1,"check",e.clone()),"{e:?}: no lock");
+            assert_eq!(n.stats.template_penalties,0,"{e:?} is no verdict on the template: no penalty");
+        }
+        assert!(!n.template_error(1,"check",Reject::Block("15 evidence kind".into())),"a verdict: no lock");
+        assert_eq!(n.stats.template_penalties,1,"a Block verdict punishes the sender");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
 }

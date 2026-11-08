@@ -80,7 +80,7 @@ fn rpc(port:u16,body:&str,origin:bool)->(u16,String){
 fn unread_client(port:u16)->TcpStream{let s=TcpStream::connect(("127.0.0.1",port)).unwrap();let _=s.set_nodelay(true);s}
 fn small()->Limits{
     let mut l=Limits::default();
-    l.net=net::Limits{peers_max:6,handshaking_max:3,hello_deadline:Duration::from_millis(500),frame_deadline:Duration::from_millis(500),
+    l.net=net::Limits{peers_max:6,handshaking_max:3,per_group_max:2,hello_deadline:Duration::from_millis(500),frame_deadline:Duration::from_millis(500),
         idle_deadline:Duration::from_secs(60),queue_bytes_max:512*1024,write_deadline:Duration::from_millis(500)};
     l
 }

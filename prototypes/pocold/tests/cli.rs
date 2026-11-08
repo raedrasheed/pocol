@@ -93,3 +93,24 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
         assert_eq!(o.status.code(),Some(0),"{}",text(&o.stderr));assert!(o.stderr.is_empty(),"{}",text(&o.stderr));
     }
 }
+
+/// The inbound per-address-group limit is a local P2P setting: `--per-group-max N`, or for `run` (the only
+/// command that opens the network) POCOL_PER_GROUP_MAX when the flag is absent, so a service changes it in
+/// its environment. A bad value fails the command (status 1) before anything runs; the flag wins over the
+/// environment; an empty value counts as unset; other commands do not read the environment.
+#[test] fn per_group_max_comes_from_the_flag_or_the_environment(){
+    let run=|args:&[&str],env:Option<&str>|{let mut c=Command::new(env!("CARGO_BIN_EXE_pocold"));c.args(args);
+        match env{Some(v)=>{c.env("POCOL_PER_GROUP_MAX",v);}None=>{c.env_remove("POCOL_PER_GROUP_MAX");}}c.output().unwrap()};
+    for (args,env,want) in [(&["run","--per-group-max","x"][..],None,"--per-group-max x:"),(&["run"][..],Some("y"),"POCOL_PER_GROUP_MAX y:"),
+        (&["run","--per-group-max","-1"][..],Some("2"),"--per-group-max -1:"),(&["status","--per-group-max","z"][..],None,"--per-group-max z:")]{
+        let o=run(args,env);let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains(want),"{args:?} {env:?}: {err}");
+    }
+    // A valid, empty or (outside run) ignored value passes the limits; the command fails later, on the missing --network.
+    for (args,env) in [(&["run"][..],"0"),(&["run"][..],""),(&["run"][..],"  "),(&["run","--per-group-max","3"][..],"bad"),(&["status"][..],"bad")]{
+        let o=run(args,Some(env));let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(!err.contains("per-group-max")&&!err.contains("PER_GROUP_MAX"),"{args:?} {env:?}: {err}");
+    }
+}
