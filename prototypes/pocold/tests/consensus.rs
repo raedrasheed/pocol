@@ -623,6 +623,51 @@ fn diff_held_net()->(Net,[u8;32]){
     node.import(child,None).expect("live import rebuilds the pruned parent");assert!(node.chain.rebuilds>rb);
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR4 (A13 MATERIALIZED, I-3): a PoW-valid child of a pruned parent refused after the TrieRebuild (item 12,
+/// a proposer that is not Draw(h,0)) leaves the parent pruned (no whole state, no stored pin) and the prune
+/// invariant whole, at once rather than at the next import's retain; an honest child still rebuilds and imports.
+/// Whole-state and store mode.
+#[test] fn pr4_a_refused_rebuild_leaves_the_parent_pruned(){
+    use pocold::node::Limits;
+    let mut n=net();let mut blocks=vec![];let mut hashes=vec![n.chain.head];
+    for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);blocks.push(b);hashes.push(n.chain.head);}
+    let p=hashes[3];
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let drawn=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),0).unwrap().proposer;let other=*m.keys.keys().find(|k|**k!=drawn).unwrap();
+    let mut h=signed(&m,p,Body::default(),0).header;h.proposer=other.to_vec();reseal(&mut h);let bad=remine_signed(&m,h,other);
+    let honest=fallback(&m,p,1);
+    for (tag,store) in [("whole",false),("store",true)]{
+        let (node,dir)=gas_node(&format!("pr4-reprune-{tag}"),Limits{state_store:store,..Default::default()});let mut node=node.unwrap();
+        for b in &blocks{node.import(b.clone(),None).unwrap();}node.chain.retain();
+        assert!(node.chain.blocks[&p].pruned&&node.chain.blocks[&p].stored.is_none(),"{tag}: positive control: the parent is below the K_hist window");
+        let rb=node.chain.rebuilds;
+        assert!(matches!(node.import(bad.clone(),None),Err(Reject::Block(s)) if s.contains("12 proposer")),"{tag}: a block verdict after the rebuild");
+        assert!(node.chain.rebuilds>rb,"{tag}: positive control: the parent was rebuilt");
+        let e=&node.chain.blocks[&p];
+        assert!(e.pruned&&!e.full&&e.stored.is_none()&&e.diff.is_none(),"FAIL-ON-ORIGINAL: {tag}: the refused rebuild left P's state resident");
+        assert!(node.chain.prune_holds()&&node.chain.prune_cursor>node.chain.blocks[&p].height,"{tag}: the prune window is whole again");
+        node.import(honest.clone(),None).unwrap_or_else(|e|panic!("{tag}: the honest child rebuilds its parent and imports: {e:?}"));
+        drop(node);let _=std::fs::remove_dir_all(&dir);
+    }
+}
+/// PR4 (A13 diffs_held, plan §7 finding D): a TrieRebuild from genesis gives a diff back only to the blocks the
+/// next retain keeps one for, so at its peak the chain holds at most diffs_held (+1) diffs, not one per
+/// re-executed block; the rebuilt state and the window's diff-held states are what they were.
+#[test] fn pr4_a_deep_rebuild_holds_at_most_diffs_held_diffs(){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..40{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let bound=pocold::resources::diffs_held(4,n.chain.spec.local().side_max) as usize+1;
+    let held=|n:&Net|n.chain.blocks.values().filter(|e|e.diff.is_some()).count();
+    let deep=hashes[30];assert!(n.chain.blocks[&deep].pruned&&held(&n)<=bound,"positive control: the parent is pruned, the diffs within the bound");
+    let rb=n.chain.rebuilds;n.chain.ensure_state(&deep).unwrap();
+    assert!(n.chain.rebuilds-rb>=30&&30>bound,"positive control: a rebuild from genesis, deeper than the bound");
+    assert!(held(&n)<=bound,"FAIL-ON-ORIGINAL: a deep rebuild held {} diffs (diffs_held+1 = {bound})",held(&n));
+    let root=|n:&Net,h:&[u8;32]|apply::state_root(&n.chain.full_entry(h).unwrap().state).unwrap().0;
+    assert_eq!(root(&n,&deep),n.chain.blocks[&deep].header.state_root,"the rebuilt state");
+    let w=hashes[38];assert!(!n.chain.blocks[&w].full&&!n.chain.blocks[&w].pruned,"positive control: a diff-held window state");
+    assert_eq!(root(&n,&w),n.chain.blocks[&w].header.state_root,"the window's diff-held state still materializes");
+    n.chain.retain();assert!(n.chain.prune_holds()&&held(&n)<=bound);
+}
 
 #[test] fn a_valid_header_with_a_foreign_body_rejects_only_that_copy(){
     // Review finding (HIGH): a peer relaying a real header with a mismatched body must not get the

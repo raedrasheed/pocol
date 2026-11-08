@@ -768,17 +768,11 @@ impl Chain{
     /// (`restore_canonical`) in between, while the side states and diffs that lead to the fork point
     /// are still there (C-1 S3a).
     pub fn retain_unsettled(&mut self){
-        let head_h=self.head().height;let cut=head_h.saturating_sub(self.k_hist);
         // R21 is the canonical trie window; non-canonical states are bounded by side_max below. (Pruning
         // a side block below the window made each block of a deep competing branch rebuild its parent
         // from genesis: quadratic work for an R_keep-deep adoption.)
-        // Heights 1..=cut, each once (`prune_cursor`); what has a block there was pruned before the cut moved.
-        // With the invariant holding (checked in debug builds), the old walk over 1..=cut changed nothing below it.
-        debug_assert!(self.prune_holds(),"prune_cursor {}: a canonical block below it is not pruned",self.prune_cursor);
-        while self.prune_cursor<=cut{
-            if let Some(h)=self.canonical.get(self.prune_cursor as usize).copied(){if let Some(e)=self.blocks.get_mut(&h){if !e.pruned{e.state=empty_state();e.pruned=true;}e.stored=None;e.full=false;e.diff=None;}}
-            self.prune_cursor+=1;
-        }
+        self.prune_window();
+        let head_h=self.head().height;
         // The side blocks: nothing below makes a block canonical, and orphans and evicted blocks are side
         // blocks (a canonical block's parent is canonical), so what is left is this list less what was removed.
         debug_assert!(self.side==self.side_scan(),"the side set is the non-canonical entries");
@@ -842,6 +836,22 @@ impl Chain{
             }
         }
     }
+    /// R21: canonical heights 1..=head-K_hist hold no state, pin, full state or diff. Heights 1..=cut, each
+    /// once (`prune_cursor`); what has a block there was pruned before the cut moved. With the invariant
+    /// holding (checked in debug builds), the old walk over 1..=cut changed nothing below it.
+    fn prune_window(&mut self){
+        let cut=self.head().height.saturating_sub(self.k_hist);
+        debug_assert!(self.prune_holds(),"prune_cursor {}: a canonical block below it is not pruned",self.prune_cursor);
+        while self.prune_cursor<=cut{
+            if let Some(h)=self.canonical.get(self.prune_cursor as usize).copied(){if let Some(e)=self.blocks.get_mut(&h){if !e.pruned{e.state=empty_state();e.pruned=true;}e.stored=None;e.full=false;e.diff=None;}}
+            self.prune_cursor+=1;
+        }
+    }
+    /// PR4 (A13 `resources::MATERIALIZED`): what a TrieRebuild or restore gave back for a block that
+    /// was then refused is dropped at once, as the next import's retain would drop it (`prune_window`, then
+    /// `settle`); before, every refused rebuild until that import kept one more whole state (or stored pin)
+    /// and the re-executed blocks' diffs. No block, protection or side-cap eviction is touched.
+    pub fn reprune(&mut self){self.prune_window();self.settle();}
     /// The end of `retain`: at most side_max non-canonical blocks keep a state (unprotected and lowest-work
     /// first are pruned); then the C-1 S3a shedding of full states.
     pub fn settle(&mut self){
@@ -1096,6 +1106,7 @@ impl Chain{
         // A13: rolling re-execution. Only the block being extended holds a state; intermediate
         // states are dropped, so a rebuild of any depth keeps at most two snapshots alive.
         let mut p=root.meta_clone();p.state=root_state;p.stored=root_stored;
+        let cut=self.head().height.saturating_sub(self.k_hist);
         for h in path.into_iter().rev(){
             // A slimmed block on the path is re-executed from its restored fields (not kept).
             let e=self.meta_restored(&h,src)?;
@@ -1103,8 +1114,16 @@ impl Chain{
             let body=self.body_of(&e,src)?;
             let out=self.reexec(&p,&e,&body)?;
             // C-1 S3a: the re-executed block gets its diff back (pruned blocks had none); C-1 E3: from the write
-            // set when it ran on an overlay.
-            if let Executed::Mem(o)=&out{if self.blocks[&h].diff.is_none(){let d=std::sync::Arc::new(crate::statediff::StateDiff::of_output(&p.state,o));self.blocks.get_mut(&h).unwrap().diff=Some(d);}}
+            // set when it ran on an overlay. PR4 (A13 diffs_held): only a block the next retain keeps one for — a
+            // side block, or a canonical block above the K_hist cut. A canonical diff below the cut is cleared by
+            // the very next `prune_window` (the import's retain, or `reprune` on a refusal) and nothing reads it
+            // before then: the rolling re-execution reads `p`, the validated child reads the target's whole
+            // state, and what a materialize or trie derivation reaches in between (the head's window, the side
+            // states) is reached from the head or a full state without one. A deep rebuild from genesis kept
+            // O(height) diffs at its peak, past diffs_held (PR4 plan §7 finding D). (Store mode: Executed::Stored,
+            // no diff.)
+            let keep_diff=!self.is_canonical(&h)||e.height>cut;
+            if let Executed::Mem(o)=&out{if keep_diff&&self.blocks[&h].diff.is_none(){let d=std::sync::Arc::new(crate::statediff::StateDiff::of_output(&p.state,o));self.blocks.get_mut(&h).unwrap().diff=Some(d);}}
             if !self.blocks[&h].slim&&self.blocks[&h].summary.is_none(){self.blocks.get_mut(&h).unwrap().summary=Some(Box::new(out.summary()));}
             let mut next=self.rolled(e,out)?;next.pruned=false;p=next;self.rebuilds+=1;
         }

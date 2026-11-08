@@ -717,7 +717,9 @@ impl Node{
         while let Err(Reject::NeedsRebuild(p))=&res{let p=*p;if tries==REBUILD_TRIES{break}tries+=1;
             if self.chain.get(&p).map_or(false,|e|e.slim){self.stats.unslims+=1;}else{self.log("TrieRebuild for a fork below the K_hist window");}
             let src=Src{journal:&self.journal,history:&self.history};
-            if let Err(e)=self.chain.ensure_state_with(&p,Some(&src)){if let Reject::Local(w)=&e{self.fatal(w)}return Err(e)}res=self.chain.validate(&b,Some(now_s()),self.capital_phi());}
+            if let Err(e)=self.chain.ensure_state_with(&p,Some(&src)){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}res=self.chain.validate(&b,Some(now_s()),self.capital_phi());}
+        // PR4 (A13 MATERIALIZED): a block refused after its parent's state was rebuilt leaves none of it behind.
+        if tries>0&&res.is_err(){self.chain.reprune();}
         let (mut entry,_)=match res{
             Ok(v)=>v,
             Err(Reject::UnknownParent)=>{
