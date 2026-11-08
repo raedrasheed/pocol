@@ -403,6 +403,99 @@ fn remine_signed(n:&Net,mut h:lp1hdr::Header,signer:Address)->Block{
     let _=std::fs::remove_dir_all(&dir);
 }
 
+// ---------------- PR4: no state work before the pre-auth checks ----------------
+/// `t` signed again by `key` as its proposer, on `parent`: a template shell either key could gossip.
+fn resigned(t:&lp1hdr::Header,key:&Key,parent:[u8;32])->lp1hdr::Header{
+    let mut h=t.clone();h.parent_hash=parent;h.proposer=key.address().as_slice().to_vec();reseal(&mut h);
+    h.sig=key.sign_hash(&B256::from(hashes::sig_msg(&template_id(&h.ut_raw)))).to_vec();reseal(&mut h);h
+}
+fn send_template(node:&mut pocold::node::Node,peer:pocold::net::PeerId,t:&lp1hdr::Header){
+    use pocold::{node::Event,net::{Msg,NetEvent}};
+    node.handle(Event::Net(NetEvent::Message(peer,Msg::Template{shell:t.encoded.clone(),body:Body::default().encode()})));
+}
+/// PR4 (NODE-02): a gossiped template never rebuilds or materializes its parent's state. A self-signed shell
+/// naming a pruned canonical parent costs the node nothing; the drawn proposer's equivocation there is still
+/// recorded, Draw(h,0) being read from the canonical block's `drawn`.
+#[test] fn pr4_a_template_for_a_pruned_parent_makes_no_state(){
+    use pocold::node::{Config,Node};use std::sync::atomic::Ordering::Relaxed;
+    let c=cfg(&["a","b","c"]);
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-pruned-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    node.chain.retain();
+    assert!(node.chain.blocks[&hashes[3]].pruned,"positive control: the parent is below the K_hist window");
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let p=m.chain.full_entry(&hashes[3]).unwrap();let ctx=m.chain.child_ctx(&p,0).unwrap();
+    assert_eq!(node.chain.blocks[&hashes[4]].drawn,ctx.proposer,"the canonical block at h=4 carries Draw(4,0)");
+    let mk=|off:u64|{let (h,_,_)=m.chain.build_signed(&p,&m.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();h};
+    let (t1,t2)=(mk(0),mk(1));
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    let (rb,mat)=(node.chain.rebuilds,node.chain.materializations.load(Relaxed));
+    // Attacker half: two templates for (hashes[3], 4) signed by a key that is not drawn.
+    let atk=devnet::account_key("zzz-pr4");
+    for t in [&t1,&t2]{send_template(&mut node,peer,&resigned(t,&atk,hashes[3]));}
+    assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: a gossiped template rebuilt a pruned parent");
+    assert_eq!(node.chain.materializations.load(Relaxed),mat,"no state materialized for a gossiped template");
+    assert!(node.evidence_pool.is_empty()&&node.stats.template_penalties==0,"a non-drawn signer gives no evidence and no penalty");
+    assert!(node.chain.blocks[&hashes[3]].pruned,"the parent is still pruned");
+    // Drawn half (positive control): the drawn proposer's two templates are type-1 evidence, still without state.
+    for t in [&t1,&t2]{send_template(&mut node,peer,t);}
+    assert_eq!(node.evidence_pool.len(),1,"the drawn proposer's equivocation is recorded");
+    assert_eq!((node.chain.rebuilds,node.chain.materializations.load(Relaxed)),(rb,mat),"FAIL-ON-ORIGINAL: the drawn proposer's template rebuilt a pruned parent");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR4 plan §7 finding A: evidence_type1 takes a pair on a SIDE parent signed by the proposer drawn at that
+/// height on the canonical branch (it reads the carrier's `drawn`, never the templates' parent). The node
+/// records such a pair on a pruned side parent without rebuilding it, and the evidence is includable.
+#[test] fn pr4_side_parent_equivocation_is_recorded_without_state(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (mut node,dir,_)=retention_node("pr4-side");
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    // Competitors of the canonical block at h=3: side_max (2) of them keep a state, the rest are pruned.
+    let mut side=vec![];let mut a=1u32;
+    while side.len()<3{let b=fallback(&n,hashes[2],a);a+=1;if node.chain.blocks.contains_key(&b.hash()){continue}
+        assert!(!node.import(b.clone(),None).unwrap(),"a lighter competitor stays on the side");side.push(b.hash());}
+    let s=*side.iter().find(|h|node.chain.blocks[*h].pruned).expect("positive control: a pruned side parent at h=3");
+    assert!(!node.chain.is_canonical(&s));
+    let p=n.chain.full_entry(&hashes[3]).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();let drawn=ctx.proposer;
+    assert_eq!(node.chain.canonical_at(4).unwrap().drawn,drawn,"the canonical block at h=4 carries Draw(4,0)");
+    let mk=|off:u64|{let (h,_,_)=n.chain.build_signed(&p,&n.keys[&drawn],ctx.window.lower()+off,Body::default(),vec![]).unwrap();resigned(&h,&n.keys[&drawn],s)};
+    let (t1,t2)=(mk(0),mk(1));
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    let (rb,mat)=(node.chain.rebuilds,node.chain.materializations.load(Relaxed));
+    for t in [&t1,&t2]{send_template(&mut node,peer,t);}
+    assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: a gossiped template rebuilt a pruned side parent");
+    assert_eq!(node.chain.materializations.load(Relaxed),mat,"FAIL-ON-ORIGINAL: a gossiped template materialized state");
+    assert!(node.chain.blocks[&s].pruned,"the side parent is still pruned");
+    assert_eq!(node.evidence_pool.len(),1,"the side-parent equivocation by the canonically drawn proposer is recorded");
+    // The evidence is includable on the canonical branch (h=6 on hashes[5]).
+    let head=n.chain.full_entry(&hashes[5]).unwrap();
+    let eff=n.chain.evidence_effects(&head,&Body{txs:vec![],evidence:node.evidence_pool.clone()},6).unwrap();
+    assert_eq!(eff,vec![apply::EvidenceEffect::Punish{accused:drawn}],"valid type-1 evidence");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR4: an imported signed block's template is recorded without reading its parent's state. Two signed
+/// children of a parent that is diff-held once the first is the head: the second is validated on one
+/// materialization (validate's), and its template is not materialized a second time to be recorded.
+#[test] fn pr4_an_imported_equivocation_on_a_diff_held_parent_is_recorded(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (mut node,dir,_)=retention_node("pr4-import");
+    let mut n=net();for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();}
+    let p=n.chain.head;let lower=n.chain.child_ctx(&n.chain.full_entry(&p).unwrap(),0).unwrap().window.lower();
+    let b1=signed(&n,p,Body::default(),0);let b2=signed(&n,p,Body::default(),b1.header.ts-lower+1);
+    assert_ne!(template_id(&b1.header.ut_raw),template_id(&b2.header.ut_raw),"two templates by Draw(4,0)");
+    assert!(node.import(b1.clone(),None).unwrap(),"the first is the head");
+    assert!(!node.chain.blocks[&p].full&&!node.chain.blocks[&p].pruned,"positive control: the parent is diff-held");
+    let mat=node.chain.materializations.load(Relaxed);
+    assert!(!node.import(b2.clone(),None).unwrap(),"the second is a side block");
+    assert!(node.chain.blocks.contains_key(&b2.hash())&&node.chain.head==b1.hash());
+    assert_eq!(node.evidence_pool.len(),1,"the imported equivocation is recorded");
+    assert_eq!(node.chain.materializations.load(Relaxed),mat+1,"FAIL-ON-ORIGINAL: observe_template materialized the parent a second time");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+
 #[test] fn a_valid_header_with_a_foreign_body_rejects_only_that_copy(){
     // Review finding (HIGH): a peer relaying a real header with a mismatched body must not get the
     // block marked invalid; the correct body is accepted afterwards.

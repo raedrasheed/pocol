@@ -734,7 +734,11 @@ impl Node{
             Err(e)=>{if let Reject::Envelope(w)=&e{self.reject(hash,w);}return Err(e)}
         };
         crate::crash_point("state-commit");
-        self.observe_template(&b.header);self.observe_win(&b.header);
+        // PR4: a validated signed block passed items 1, 2, 3 and 12 (20-byte proposer, a=0, h=p.h+1, sig by the
+        // proposer, proposer=Draw(h,0)), every check observe_template makes, so its template is recorded without
+        // reading the parent's state (observe_template's full_entry had materialized a diff-held parent in
+        // place — an A13 MATERIALIZED excess).
+        if entry.signed{self.record_template(&b.header);}self.observe_win(&b.header);
         // C-1 S1 (invariant I3): the receipts and transaction index are durable before the journal record.
         // A write that fails (a disk error, or a store marked damaged) stops the node as a failed journal
         // append does; the next open sets a damaged store aside and replay rebuilds it.
@@ -1495,23 +1499,49 @@ impl Node{
 }
 impl Node{
     fn st_bytes(h:&Header)->Vec<u8>{let mut p=h.ut_raw.clone();crate::rlp::encode_bytes(&h.sig,&mut p);let mut o=Vec::new();crate::rlp::encode_list_payload(&p,&mut o);o}
-    /// Records a signed template; returns true when it equivocates (evidence type 1 created).
+    /// Records a gossiped signed template; returns true when it equivocates (evidence type 1 created). It
+    /// never rebuilds or materializes state (PR4, NODE-02).
     fn observe_template(&mut self,h:&Header)->bool{
         if h.proposer.len()!=20||h.sig.len()!=65||h.a!=0{return false}
         // F5/F6: a template counts only if its signer is the DRAWN proposer Draw(parent,0) at the drawn
         // height. The `proposer` field and the signing key are both chosen by the sender, so a signature
         // that merely recovers to the named `proposer` proves nothing — any peer could self-sign two
         // templates for a (parent,h) it picks and forge "equivocation" to force sticky fallback on every
-        // node (F5). Verify the draw exactly as try_lock_signed does, after cheap parent/height filters,
-        // before recording a template or flagging equivocation. Unknown parent / wrong height / any other
-        // signer: ignore (no record, no evidence, no fallback).
-        let parent_height=match self.chain.get(&h.parent_hash){Some(e)=>e.height,None=>return false};
-        if h.h!=parent_height+1{return false}
-        let Some(par)=self.full_entry(&h.parent_hash) else{return false};
-        let Ok(ctx)=self.chain.child_ctx(&par,0) else{return false};
-        if h.proposer[..]!=ctx.proposer[..]{return false}
+        // node (F5). Verify the signature and the draw, after cheap parent/height filters, before recording
+        // a template or flagging equivocation. Unknown parent / wrong height / any other signer: ignore (no
+        // record, no evidence, no fallback).
+        // NODE-02 (PR4): Draw(h,0) is read without making any state. full_entry rebuilt a pruned parent
+        // from genesis (or materialized a diff-held one in place) for every gossiped template, before the
+        // draw and signature checks. The drawn proposer for height h on the CANONICAL branch is the signer
+        // that evidence_type1 (chain.rs:680-681) accepts for a type-1 pair at that height — it reads
+        // ancestor_at(carrier,h).drawn, never tying the templates' parent to the carrier. So:
+        //   - a template for a height already produced: the canonical block at h carries Draw(.,h) in
+        //     `drawn`, kept through prune, slim and offload (chain.rs:749,213,230 never touch `drawn`), the
+        //     same source evidence_type1 uses. This also records equivocation on a SIDE parent whose child's
+        //     signer equals the canonically drawn proposer — valid, includable evidence an honest node keeps
+        //     (PR4 plan §7 finding A). State cost: zero.
+        //   - a template for the tip (h>head, no canonical block yet): only a parent whose state is already
+        //     resident is read (child_ctx on it; ensure_state_with would return at once).
+        //   - anything else: dropped (no record, no evidence, no penalty).
+        // Evidence is an incentive item, not a validity rule; the authenticated half (an imported block's
+        // template) is recorded by import_with.
+        let Some(pe)=self.chain.get(&h.parent_hash) else{return false};
+        if h.h!=pe.height+1{return false}
+        // The signature is cheap; it runs before the draw (PR4 plan §7 finding E2: a junk self-signed shell no
+        // longer pays the membership+draw of child_ctx). Either order returns false for a bad signature.
         let tid=template_id(&h.ut_raw);
         if !matches!(hashes::recover_address(&hashes::sig_msg(&tid),&h.sig),Ok(a) if a[..]==h.proposer[..]){return false}
+        let drawn=match self.chain.canonical_at(h.h){
+            Some(c)=>c.drawn,
+            None if pe.full&&!pe.pruned&&!pe.slim=>match self.chain.child_ctx(pe,0){Ok(c)=>c.proposer,Err(_)=>return false},
+            None=>return false,
+        };
+        if h.proposer[..]!=drawn[..]{return false}
+        self.record_template(h)
+    }
+    /// Records a template signed by Draw(h,0); true when it equivocates (type-1 evidence created). The
+    /// caller has checked the shape (20-byte proposer, 65-byte sig, a=0), the signature and the draw.
+    fn record_template(&mut self,h:&Header)->bool{
         let key=(h.parent_hash,h.h);let st=Self::st_bytes(h);
         match self.seen_templates.get(&key){
             None=>{if self.seen_templates.len()>SEEN_MAX{self.seen_templates.clear();}self.seen_templates.insert(key,(h.ut_raw.clone(),st,h.proposer.clone()));false}
