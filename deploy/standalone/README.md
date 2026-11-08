@@ -42,6 +42,10 @@ journal records plus 2048 records of headroom, rechecks as records grow, and ref
 inadequate local capacity without marking valid blocks invalid. It does not claim
 an infinite-history resource bound. `POCOL_MEMORY_BUDGET_BYTES` can set the launcher's
 local declared budget after provisioning resources; it does not change consensus.
+`POCOL_PER_GROUP_MAX` (or `pocold run --per-group-max N`) sets how many of the 8
+inbound peer connections one public address range (an IPv4 /16 or IPv6 /32) may hold;
+the default 4 keeps any one range to half of them, and `0` turns the limit off. It is
+local P2P policy and does not change consensus.
 The default model uses 6 GiB; a 4 GiB server with a 3 GiB service cgroup remains a
 small pilot, not a worst-case capacity proof. Disk sizing, compaction and long-term
 load qualification remain operational work. Numeric heights retain the format's

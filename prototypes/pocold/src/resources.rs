@@ -498,8 +498,18 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let peers=mul(l.peers_max as u128+dials as u128,add(&[l.queue_bytes_max as u128,2*frame,4096])?)?;
     // Each forwarder also holds the one event it is blocked sending (+1).
     let (main_events,net_events)=(mul(node::EVENT_QUEUE as u128,frame+256)?,mul((1+dials) as u128,mul(net::NET_EVENT_QUEUE as u128+1,frame+256)?)?);
+    // Gossip and inbound grouping:
+    // - the relayed TemplateIDs (node::RELAYED_MAX, cleared when full): a HashSet<[u8;32]> with churn;
+    // - one place count per public address group (net::Counters::groups, a HashMap<Group,usize> of 17-B
+    //   buckets whose entries come and go with inbound peers, at most one group per admitted inbound peer):
+    //   the churn rule of hash32_churn_bytes, < 32/7 buckets per high-water entry and two allocations, 160 B;
+    // - the configured peers' canonical addresses (net::Net::protect, a HashSet<IpAddr> of 18-B buckets,
+    //   filled once, never shrunk): two allocations at <= 16/7 buckets per entry, 96 B;
+    // plus 512 B of control and alignment slack for each of the two small tables.
+    let gossip=add(&[hash32_churn_bytes(node::RELAYED_MAX as u128+1)?,mul(l.peers_max as u128+1,160)?,mul(dials as u128+1,96)?,1024])?;
     let q=[("queues/transaction pool",pool),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
-        ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events)];
+        ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
+        ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip)];
     let queues=add(&q.map(|x|x.1))?;items.extend(q);
     // RPC (rpc::conn): per connection its header buffer (HEAD_MAX+READ_CHUNK, and its lossy UTF-8
     // copy, up to 3 bytes per input byte) and a body of exactly Content-Length <= REQ_BUF bytes. Answers held

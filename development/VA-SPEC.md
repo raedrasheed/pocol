@@ -1,13 +1,28 @@
-# VA-spec v1 — PoCol peer validation and synchronization (local devnet)
+# VA-spec v1 — PoCol peer validation and synchronization (experimental TCP transport)
 
 Status: specification for LP6 written before/with the peer code in
 `prototypes/pocold/src/net.rs` and `node.rs`; reviewed against consensus.md
-§4, §8 (envelope classes D129–D140), §9 (D133) and §10 (D118). Local devnet
-transport only (loopback); it is not a production P2P design.
+§4, §8 (envelope classes D129–D140), §9 (D133) and §10 (D118). An experimental
+TCP transport (devnets and testnets, loopback or remote peers); it is not the
+production P2P design of network.md (libp2p, Noise, gossipsub).
 
 ## 1. Transport and framing
-- TCP, loopback addresses only (inbound non-loopback peers are dropped).
-- Frame = `u32 BE length || RLP([type, ...fields])`, `1 <= length <= 8 MiB`.
+- TCP on the operator-selected listener: a loopback bind stays local; a private or public bind
+  accepts remote peers, each of which must pass the Hello identity check (§2). Outbound connections
+  go to the configured peers only (no peer discovery yet).
+- Inbound limits (local policy, `net::Limits`): at most `peers_max` connections, and at most
+  `per_group_max` (default 4, half of `peers_max`; `--per-group-max`, or `POCOL_PER_GROUP_MAX` for
+  `run`; 0 off) per public address group: IPv4 /16, IPv6 /32, an IPv6 address carrying an IPv4
+  address (6to4, Teredo, NAT64, mapped) counting as that address, and Yggdrasil 200::/7 (key-derived)
+  as one group. So one public /16 or /32 never holds more than half of the inbound slots. A
+  connection past the limit is refused even while other slots are free: nodes behind one NAT or one
+  provider range share these places until peer discovery and eviction exist. Groups are counted per
+  address, so one host that reaches the node from several groups (an IPv4 /16 and an IPv6 /32, say)
+  holds a full set of places in each. Addresses that are not globally reachable (`net::group_of`:
+  loopback, private, link-local, shared 100.64/10, benchmarking, documentation, reserved,
+  unique-local fc00::/7 including cjdns, ...) are not grouped, and neither are the node's configured
+  peers, by their exact address.
+- Frame = `u32 BE length || RLP([type, ...fields])`, `1 <= length <= MAX_FRAME` (256 KiB).
 - Decoding is strict: canonical RLP, exact arity, minimal integers, fixed
   32-byte hashes, 8-byte nonces; re-encoding must equal the received bytes.
 - Any malformed frame closes the connection. Malformed input never reaches
@@ -15,7 +30,7 @@ transport only (loopback); it is not a production P2P design.
 
 | type | message | fields |
 |---|---|---|
-| 0 | Hello | chainId, genesisHash, headHash, headHeight, totalWork (32 B), nodeName |
+| 0 | Hello | chainId, genesisHash, headHash, headHeight, totalWork (32 B), nodeName, protocolVersion, compatibility (32 B) |
 | 1 | Block | headerBytes, bodyBytes |
 | 2 | Template | signed-template shell (header encoding with nonce 0), body |
 | 3 | Share | TemplateID, nonce (8 bytes) |
@@ -25,8 +40,10 @@ transport only (loopback); it is not a production P2P design.
 | 7 | GetFrom | locator (1..32 concatenated 32-byte hashes), count (<= 512) |
 
 ## 2. Network identity
-`Hello.chainId` and `Hello.genesisHash` must equal cfg; otherwise the peer is
-closed (wrong network). activeVersion is checked per header (H-pre 1b).
+`Hello.chainId` and `Hello.genesisHash` must equal cfg, and `Hello.protocolVersion` and
+`Hello.compatibility` must match this build for the profile's fork schedule
+(`identity::matches_for`); otherwise the peer is closed (wrong network or implementation).
+activeVersion is checked per header (H-pre 1b).
 
 ## 3. Block import pipeline (H-pre, H-full, envelope classes)
 1. Decode header (strict, <= 3067 B) and body (<= BODY_MAX, canonical).
@@ -74,12 +91,25 @@ closed (wrong network). activeVersion is checked per header (H-pre 1b).
   (<= 64) for a parent not yet imported.
 - Share: accepted only for the locked TemplateID, `nonce < nMax`,
   `SHA256(TemplateID||be64(n)) <= T_share`; ownership follows from the range.
+- Gossip (network.md:13, :15): a template is relayed to every peer except its
+  sender, once per TemplateID, and only after it locked here (every check above
+  passed). Those checks are deterministic on the parent state, so an honest relay
+  never forwards a template that would be punished, and a punished sender is the
+  peer that sent an invalid one. A new valid share for the locked template is
+  relayed the same way, at most 4·S_max per template; an invalid, duplicate or
+  unlocked one is dropped and never relayed. Fallback templates are built locally
+  and never sent. A node that sees a second template from the same proposer
+  (type-1 evidence, then the sticky fallback) relays neither that template nor the
+  evidence yet, so each of an equivocator's templates spreads through the region
+  that locked it, and only nodes that receive both switch to the fallback (evidence
+  gossip, network.md, is future work).
 - Shares and templates never change validity rules; they only feed the
   honest builder (shareList) and the proposer flow.
 
 ## 6. Bounds (local service policy)
-Frame 8 MiB; orphans 16/parent; future 64; held templates 64; GetRange 512;
-rejects log 256; pool 64 MiB raw; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
+Frame 256 KiB; inbound peers 8, at most 4 per public address group; relayed TemplateIDs
+remembered 256; relayed shares 4·S_max per template; orphans 16/parent; future 64; held templates 64; GetRange 512;
+rejects log 256; pool 32 MiB raw and <= 4096 transactions; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
 canonical blocks are kept whole; non-canonical blocks are metadata only (bytes in the journal),
 at most R_keep unprotected plus 2·R_keep session-protected, none R_keep or more below the head;
 states for K_hist canonical blocks and side_max side blocks.
