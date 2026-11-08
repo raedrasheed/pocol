@@ -31,6 +31,20 @@ const FILE:&str="addrbook";const FILE_TMP:&str="addrbook.tmp";
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct Discovery{pub enabled:bool,pub allow_local:bool,pub rng_seed:Option<u64>,pub times:DiscoveryTimes}
 impl Default for Discovery{fn default()->Self{Self{enabled:true,allow_local:false,rng_seed:None,times:DiscoveryTimes::default()}}}
+impl Discovery{
+    /// The operator's switches in the environment (plan §7), read by `pocold run` and the launcher, the commands that
+    /// open the network: POCOL_DISCOVERY (0 turns discovery off, 1 on) unless `--no-discovery` was given, and
+    /// POCOL_DISCOVER_LOCAL (1 turns local mode on, 0 off) unless `--discover-local` was given; a flag wins over its
+    /// variable. A value is 0 or 1 (spaces around it ignored); an empty one counts as unset, and any other is an error
+    /// naming the variable, so a service with a mistyped value does not start.
+    pub fn env(&mut self,no_discovery:bool,discover_local:bool)->Result<(),String>{
+        let switch=|k:&str|match std::env::var(k).ok().filter(|v|!v.trim().is_empty()){None=>Ok(None),
+            Some(v)=>match v.trim(){"0"=>Ok(Some(false)),"1"=>Ok(Some(true)),_=>Err(format!("{k} {v}: expected 0 or 1"))}};
+        if !no_discovery{if let Some(b)=switch("POCOL_DISCOVERY")?{self.enabled=b}}
+        if !discover_local{if let Some(b)=switch("POCOL_DISCOVER_LOCAL")?{self.allow_local=b}}
+        Ok(())
+    }
+}
 /// Discovery's timings, in milliseconds: the period of its tick; the book's (`addrbook::Times`: the relay window, the
 /// horizon after which an entry is terrible, the failure window, the release hold and its cap, the answer list's
 /// age); how long an outstanding GetAddr waits for its Addr; the first save after the network's start and the period

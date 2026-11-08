@@ -114,3 +114,59 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
         assert!(!err.contains("per-group-max")&&!err.contains("PER_GROUP_MAX"),"{args:?} {env:?}: {err}");
     }
 }
+
+/// Peer discovery's switches (VA-SPEC §1a, plan §7): `--no-discovery` and `--discover-local`, or for `run` (the only
+/// command that opens the network) POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL, each 0 or 1, when the flag is absent. A
+/// bad value fails `run` (status 1) before anything runs, naming the variable; a flag wins over its variable; an empty
+/// value counts as unset; `status` does not read the environment. The settings a running node took are read back from
+/// its pocol_status.
+#[test] fn discovery_settings_come_from_flags_or_the_environment(){
+    const VARS:[&str;2]=["POCOL_DISCOVERY","POCOL_DISCOVER_LOCAL"];
+    let cmd=|args:&[&str],env:[Option<&str>;2]|{let mut c=Command::new(env!("CARGO_BIN_EXE_pocold"));c.args(args);
+        for (k,v) in VARS.iter().zip(env){match v{Some(v)=>{c.env(k,v);}None=>{c.env_remove(k);}}}c};
+    for (args,env,want) in [(&["run"][..],[Some("x"),None],"POCOL_DISCOVERY x: expected 0 or 1"),(&["run"][..],[None,Some("2")],"POCOL_DISCOVER_LOCAL 2: expected 0 or 1"),
+        (&["run"][..],[Some("true"),Some("0")],"POCOL_DISCOVERY true:"),(&["run","--no-discovery"][..],[Some("0"),Some("yes")],"POCOL_DISCOVER_LOCAL yes:")]{
+        let o=cmd(args,env).output().unwrap();let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains(want),"{args:?} {env:?}: {err}");
+    }
+    // A flag, an empty value or (outside run) any value leaves the variable unread; the command fails later, on the missing --network.
+    for (args,env) in [(&["run","--no-discovery","--discover-local"][..],[Some("x"),Some("2")]),(&["run"][..],[Some(""),Some("  ")]),(&["run"][..],[Some(" 1 "),Some("0")]),(&["status"][..],[Some("x"),Some("2")])]{
+        let o=cmd(args,env).output().unwrap();let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains("--network")&&!err.contains("POCOL_DISCOVER"),"{args:?} {env:?}: {err}");
+    }
+    // What a node took: `run` from its flags and environment, `status` from its flags only.
+    let d=tmp("discovery");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let path=|p:PathBuf|p.to_str().unwrap().to_string();
+    let took=|v:&serde_json::Value|(v["discovery"]["enabled"].as_bool(),v["discovery"]["allowLocal"].as_bool());
+    for (i,(flags,env,want)) in [(&[][..],[None,None],(true,false)),(&[],[Some("0"),Some("1")],(false,true)),(&[],[Some(" 1 "),Some("  ")],(true,false)),
+        (&["--no-discovery","--discover-local"],[Some("1"),Some("0")],(false,true))].into_iter().enumerate(){
+        let data=path(d.join(format!("data{i}")));
+        let st=cmd(&[&["status","--network",&path(net.clone()),"--data",&data][..],flags].concat(),[Some("0"),Some("1")]).output().unwrap();
+        assert_eq!(st.status.code(),Some(0),"{}",text(&st.stderr));
+        let flags_only=(!flags.contains(&"--no-discovery"),flags.contains(&"--discover-local"));
+        assert_eq!(took(&serde_json::from_slice(&st.stdout).unwrap()),(Some(flags_only.0),Some(flags_only.1)),"status {flags:?} reads its flags, never the environment");
+        let rpc={let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();l.local_addr().unwrap()};
+        let mut c=cmd(&[&["run","--network",&path(net.clone()),"--data",&data,"--rpc",&rpc.to_string()][..],flags].concat(),env).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::piped()).spawn().unwrap();
+        let t=std::time::Instant::now();let mut seen=None;
+        while seen.is_none()&&t.elapsed()<std::time::Duration::from_secs(60){
+            if let Some(s)=c.try_wait().unwrap(){panic!("run {flags:?} {env:?} exited with {s}")}
+            seen=rpc_status(rpc);if seen.is_none(){std::thread::sleep(std::time::Duration::from_millis(50));}
+        }
+        let _=c.kill();let _=c.wait();
+        let v=seen.unwrap_or_else(||panic!("run {flags:?} {env:?}: no pocol_status within 60 s"));
+        assert_eq!(took(&v),(Some(want.0),Some(want.1)),"run {flags:?} {env:?}");
+    }
+    let _=std::fs::remove_dir_all(&d);
+}
+/// pocol_status from a node's RPC port, None until it answers.
+fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
+    use std::io::{Read,Write};
+    let body=r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#;
+    let mut s=std::net::TcpStream::connect(rpc).ok()?;s.set_read_timeout(Some(std::time::Duration::from_secs(5))).ok()?;
+    s.write_all(format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).as_bytes()).ok()?;
+    let mut out=String::new();let _=s.read_to_string(&mut out);
+    let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();v.is_object().then_some(v)
+}

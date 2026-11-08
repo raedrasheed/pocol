@@ -529,6 +529,8 @@ impl Home {
                     per_group_max: std::env::var("POCOL_PER_GROUP_MAX").ok().filter(|s|!s.trim().is_empty()).map(|s|s.trim().parse::<usize>().map_err(|_|"Invalid POCOL_PER_GROUP_MAX")).transpose()?.unwrap_or(crate::net::Limits::default().per_group_max),
                     ..Default::default()
                 },
+                // Peer discovery (VA-SPEC §1a): POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL, as for `pocold run`.
+                discovery: { let mut d = node::Discovery::default(); d.env(false, false)?; d },
                 ..Default::default()
             },
         };
