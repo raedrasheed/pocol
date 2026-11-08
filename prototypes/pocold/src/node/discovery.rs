@@ -196,7 +196,8 @@ impl Node{
     /// be ignored from then on), and every `refresh_ms` the live connections refresh their entries (`Book::touch`: the
     /// verification of a consenting connection this node dialed, the advertisement of an inbound one), so that a
     /// long-lived connection stays within the relay window. Once the book is loaded it is saved when due: save_first_ms
-    /// after the network's start, then every save_every_ms.
+    /// after the network's start, then every save_every_ms, each time after its terrible entries are dropped
+    /// (`Book::purge`, as at load), so that no dead entry keeps a place in a quota while the node runs.
     pub(super) fn disc_tick(&mut self,now:u64){
         let d=&mut self.disc;
         if !d.on||now<d.next_tick_ms{return}
@@ -204,7 +205,7 @@ impl Node{
         for l in d.links.values_mut(){if l.asked_ms.is_some_and(|t|now.saturating_sub(t)>d.times.getaddr_timeout_ms){l.asked_ms=None;d.counters.get_addr_timeouts+=1;}}
         if now>=d.next_refresh_ms{d.next_refresh_ms=now.saturating_add(d.times.refresh_ms);
             for l in d.links.values(){match (l.origin.dialed(),l.advertised){(Some(a),_) if l.compatible&&l.consent=>d.book.touch(a,false,now),(None,Some(a))=>d.book.touch(a,true,now),_=>{}}}}
-        if d.loaded&&now>=d.next_save_ms{d.next_save_ms=now.saturating_add(d.times.save_every_ms);self.disc_save();}
+        if d.loaded&&now>=d.next_save_ms{d.next_save_ms=now.saturating_add(d.times.save_every_ms);d.book.purge(now);self.disc_save();}
     }
     /// VA-SPEC §1a.6, when the network starts with discovery on: the book is read from the data directory with a 1 MiB
     /// bound (`launcher::read_bounded`), each entry passing the filter and the quotas again (`addrbook::parse`). Without
@@ -536,6 +537,19 @@ mod tests{
         r.disc_load(T0);assert!(status(&r).as_str().is_some_and(|s|s.starts_with("ignored: "))&&r.disc.book.entries().is_empty(),"{}",status(&r));
         let _i=connect(&mut r,1,Origin::Inbound,Some(sa("81.6.0.1:51000")));greet(&mut r,1,30300,0);assert_eq!(r.disc.book.entries().len(),1,"it still learns");
         drop((n,q,r));for d in [dir,qdir,rdir]{let _=std::fs::remove_dir_all(&d);}
+    }
+    /// VA-SPEC §1a.4: each save drops the terrible entries first (`Book::purge`), so that an entry nothing was heard
+    /// from for 30 days keeps no place in a quota while the node runs, and the file holds the book as it is.
+    #[test] fn the_save_tick_drops_terrible_entries(){
+        const DAY:u64=86_400_000;
+        let (mut n,dir)=open("purge");n.disc_load(T0);
+        let learn=|n:&mut Node,id:PeerId,now:u64|{n.disc.test_now=Some(now);let _i=connect(n,id,Origin::Inbound,Some(SocketAddr::new([81,5,0,id as u8].into(),51000)));
+            greet(n,id,30300,0);n.handle(Event::Net(NetEvent::Closed(id)));};
+        learn(&mut n,1,T0);learn(&mut n,2,T0);learn(&mut n,3,T0+20*DAY);
+        n.disc_tick(T0+60_000);assert_eq!((n.disc.book.entries().len(),n.disc.counters.book_saves),(3,1));
+        n.disc_tick(T0+30*DAY+1);
+        assert!(n.disc.book.entries().len()==1&&n.disc.book.get(sa("81.5.0.3:30300")).is_some()&&n.disc.counters.book_saves==2,"the two quiet entries are dropped, and the book saved");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// `--no-discovery` (VA-SPEC §1a, the escape hatch): Hello announces no port, no GetAddr is sent, a GetAddr is not
     /// answered, an Addr not taken, a self-advertisement not stored and no link state is kept; the nonce check still

@@ -59,12 +59,16 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    addresses. Learned addresses are never exempt from the inbound group limit.
 4. Address book: at most 1024 entries, 8 per address group (local mode: each local endpoint is its own
    group), 2 ports per IP, 64 unverified per answering peer and 256 self-advertised. A newcomer replaces only
-   an entry that is terrible, except that a peer's newcomer may replace that peer's oldest unverified entry
-   and a verified newcomer an unverified one; a verified entry is never replaced. Terrible: never verified
-   and 3 counted failures; 10 failures and no verification for 7 days; or nothing heard, advertised or
-   verified for 30 days. A failure counts only if some dialed connection was verified since the entry's last
-   counted failure. Closed before any Hello (a full listener, say) is no failure. Another release holds an
-   entry back min(10 min · 2^(n-1), 6 h); another chain or genesis removes it.
+   an entry that is terrible, except that a peer's newcomer may replace that peer's oldest unverified entry,
+   a self-advertisement one of the most crowded group's, and a verified newcomer an unverified one; a
+   verified entry, and a live entry of a full IP, are never replaced. Most crowded (netgroup-largest): among
+   the unverified self-advertisements, by address group when the 256 or the book is full, by subnet (IPv4
+   address, IPv6 /64) inside the newcomer's full group; that group gives up its entry advertised longest ago
+   if it holds at least 2 more than the newcomer's. Terrible: never verified and 3 counted failures; 10
+   failures and no verification for 7 days; or nothing heard, advertised or verified for 30 days; terrible
+   entries are dropped at load and at each save. A failure counts only if some dialed connection was verified
+   since the entry's last counted failure. Closed before any Hello (a full listener, say) is no failure.
+   Another release holds an entry back min(10 min · 2^(n-1), 6 h); another chain or genesis removes it.
 5. Answers: GetAddr is answered once per inbound connection and never on a connection this node dialed, with
    an Addr of at most 64 entries (possibly none): entries verified or self-advertised within 7 days, verified
    first, at most 2 per address group, never the requester's own advertised address, local entries only to a

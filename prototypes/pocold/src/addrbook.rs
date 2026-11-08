@@ -6,10 +6,14 @@
 //!   endpoint. `learnable` decides what may be stored at all.
 //! - Quotas: GROUP_MAX entries per key, IP_PORTS_MAX ports per IP, SOURCE_MAX unverified entries per answering peer
 //!   and SELFADS_MAX self-advertisements. A newcomer takes the place of a terrible entry only, except that an
-//!   answering peer at its quota replaces its own oldest entry and a verified newcomer an unverified one; a verified
-//!   entry is never replaced. No volume of hearsay or self-advertisements, from any number of sources, therefore
-//!   displaces another source's entry or one this node verified (Heilman et al., USENIX Security 2015,
-//!   countermeasure 1: overwrite only terrible entries), and no test-before-evict is needed.
+//!   answering peer at its quota replaces its own oldest entry, a self-advertisement one of the most crowded group's
+//!   (netgroup-largest, `crowded`) and a verified newcomer an unverified one; a verified entry is never replaced. No
+//!   volume of hearsay or self-advertisements, from any number of sources, therefore displaces another source's entry
+//!   or one this node verified (Heilman et al., USENIX Security 2015, countermeasure 1: overwrite only terrible
+//!   entries), and no test-before-evict is needed. The quotas are not hashed with a secret, so they can be targeted:
+//!   self-advertisements rotate out of the most crowded group, so that an attacker spread over few groups cannot
+//!   keep the Inbound quota or a whole key from newcomers of other groups, and only displaces itself. Terrible entries
+//!   are dropped at each save (`purge`), as at load.
 //! - Answers carry verified and self-advertised entries only, never hearsay, so an address nobody verified travels
 //!   one hop at most; no timestamp leaves the node.
 use std::net::{IpAddr,SocketAddr};
@@ -88,6 +92,10 @@ fn canonical(a:SocketAddr)->SocketAddr{SocketAddr::new(a.ip().to_canonical(),a.p
 fn canonical_source(s:Source)->Source{match s{Source::Cfg(a)=>Source::Cfg(canonical(a)),Source::Peer(Key::Local(a))=>Source::Peer(Key::Local(canonical(a))),s=>s}}
 /// The latest time anything was heard from, advertised by or verified at an entry.
 fn freshness(e:&Entry)->u64{e.heard_ms.max(e.direct_ms).max(e.verified_ms)}
+/// `Book::terrible` under these timings.
+fn terrible(t:&Times,e:&Entry,now:u64)->bool{
+    (e.verified_ms==0&&e.attempts>=3)||(e.attempts>=10&&now.saturating_sub(e.verified_ms)>t.fail_recent_ms)||now.saturating_sub(freshness(e))>t.horizon_ms
+}
 /// The addresses local mode may store: loopback, private (10/8, 172.16/12, 192.168/16), shared 100.64/10 and
 /// unique-local fc00::/7. Link-local, unspecified, multicast, broadcast and reserved ranges are never stored.
 fn local_ip(ip:IpAddr)->bool{
@@ -158,10 +166,10 @@ impl Book{
     /// ports (IP_PORTS_MAX, address-group keys only), its source (unverified newcomers only: SOURCE_MAX, or SELFADS_MAX
     /// for `Inbound`) and the book (BOOK_MAX). With none full it is added. Otherwise it may only take the place of an
     /// entry inside every full quota (its key, its IP, its source's unverified entries): a terrible one, or for a
-    /// verified newcomer an unverified one, terrible first, then the oldest freshness, then the lowest address. An
-    /// unverified newcomer whose IP is full is always dropped; one whose source alone is full (`Peer`, `Cfg`) may
-    /// replace that source's unverified entry heard longest ago, so a source rotates only its own share. A verified
-    /// entry is never replaced.
+    /// verified newcomer an unverified one, terrible first, then the oldest freshness, then the lowest address. Failing
+    /// that, an unverified newcomer whose IP is not full may still rotate an entry of its own source: an answering peer
+    /// (`Peer`, `Cfg`) whose quota alone is full its unverified entry heard longest ago, a self-advertisement one of the
+    /// most crowded group's (`crowded`). A full IP's live entries, and a verified entry, are never replaced.
     fn place(&mut self,n:Entry,now:u64)->Outcome{
         let verified=n.verified_ms>0;
         let (mut keys,mut ips,mut srcs)=(0,0,0);
@@ -170,14 +178,44 @@ impl Book{
         let src_full=!verified&&srcs>=if n.source==Source::Inbound{SELFADS_MAX}else{SOURCE_MAX};
         if !(key_full||ip_full||src_full||self.entries.len()>=BOOK_MAX){self.entries.push(n);self.dirty=true;return Outcome::Added}
         let why=if ip_full{Why::Ports}else if key_full{Why::Group}else if src_full{Why::Source}else{Why::Full};
-        if ip_full&&!verified{return Outcome::Dropped(why)}
         let inside=|e:&Entry|(!key_full||e.key==n.key)&&(!ip_full||e.addr.ip()==n.addr.ip())&&(!src_full||(e.verified_ms==0&&e.source==n.source));
         let mut victim=self.entries.iter().enumerate().filter(|(_,e)|inside(e))
             .filter_map(|(i,e)|{let t=self.terrible(e,now);(t||(verified&&e.verified_ms==0)).then_some((!t,freshness(e),e.addr,i))}).min().map(|v|v.3);
-        if victim.is_none()&&src_full&&!key_full&&n.source!=Source::Inbound{
-            victim=self.entries.iter().enumerate().filter(|(_,e)|inside(e)).min_by_key(|(_,e)|(e.heard_ms,e.addr)).map(|(i,_)|i);
+        if victim.is_none()&&!verified&&!ip_full{
+            if n.source==Source::Inbound{victim=self.crowded(&n,key_full)}
+            else if src_full&&!key_full{victim=self.entries.iter().enumerate().filter(|(_,e)|inside(e)).min_by_key(|(_,e)|(e.heard_ms,e.addr)).map(|(i,_)|i);}
         }
         match victim{Some(i)=>{self.entries[i]=n;self.dirty=true;Outcome::Replaced}None=>Outcome::Dropped(why)}
+    }
+    /// Netgroup-largest rotation of the self-advertisements (VA-SPEC §1a.4; Bitcoin Core evicts inbound connections
+    /// so), for an unverified self-advertised newcomer `n` that found no terrible entry to replace and whose IP is not
+    /// full. Only unverified `Inbound` entries count and move. Their groups are their keys (the Inbound quota or the
+    /// book is full) or, inside `n`'s full key (`in_key`), their subnets (an IPv4 address, an IPv6 /64). The most crowded
+    /// group (the lowest of equals) gives up its entry advertised longest ago (then the lowest address) when it holds at
+    /// least 2 more than `n`'s group, so a group never ends up below the newcomer's: an attacker spread over few groups
+    /// only displaces itself, a newcomer from an unrepresented group always finds a place, and one /64 cannot close its
+    /// /32 (nor one IPv4 address its /16) to the others. The group list is scratch of at most SELFADS_MAX entries.
+    fn crowded(&self,n:&Entry,in_key:bool)->Option<usize>{
+        // A13 (`queues/discovery: selection, answer and self scratch`): the group list fits the scratch counted for
+        // the book's index and key lists, and is never held with them.
+        const _:()=assert!(SELFADS_MAX*std::mem::size_of::<(Key,IpAddr)>()<=2*BOOK_MAX*(std::mem::size_of::<Source>()+std::mem::size_of::<Key>()+8));
+        let subnet=|ip:IpAddr|match ip{IpAddr::V6(a)=>IpAddr::V6((u128::from(a)&!(u128::from(u64::MAX))).into()),v4=>v4};
+        let group=|e:&Entry|(e.key,if in_key{subnet(e.addr.ip())}else{IpAddr::from([0u8;4])});
+        let ours=|e:&Entry|e.verified_ms==0&&e.source==Source::Inbound&&(!in_key||e.key==n.key);
+        let mut groups:Vec<(Key,IpAddr)>=Vec::with_capacity(SELFADS_MAX);groups.extend(self.entries.iter().filter(|e|ours(e)).map(group));groups.sort_unstable();
+        let (mine,mut top,mut mine_n,mut run)=(group(n),None,0,0);
+        for (i,g) in groups.iter().enumerate(){
+            run=if i>0&&groups[i-1]==*g{run+1}else{1};
+            if top.map_or(true,|(c,_)|run>c){top=Some((run,*g))}if *g==mine{mine_n=run}
+        }
+        let (most,g)=top?;if most<mine_n+2{return None}
+        self.entries.iter().enumerate().filter(|(_,e)|ours(e)&&group(e)==g).min_by_key(|(_,e)|(e.direct_ms,e.addr)).map(|(i,_)|i)
+    }
+    /// VA-SPEC §1a.4: drops the terrible entries, as `parse` does at load (the node calls it at each save), so that no
+    /// dead entry holds a place in a quota; the answer list is rebuilt at the next answer. The number dropped.
+    pub fn purge(&mut self,now:u64)->usize{
+        let before=self.entries.len();let t=self.times;self.entries.retain(|e|!terrible(&t,e,now));
+        let gone=before-self.entries.len();if gone>0{self.dirty=true;self.cache_ms=None;}gone
     }
     fn update(&mut self,a:SocketAddr,f:impl FnOnce(&mut Entry)){let a=canonical(a);if let Some(e)=self.entries.iter_mut().find(|e|e.addr==a){f(e);self.dirty=true;}}
     /// A dial starts (automatic outbound).
@@ -210,9 +248,7 @@ impl Book{
     /// VA-SPEC §1a.4: never verified with 3 counted failures; 10 failures and no verification within `fail_recent_ms`;
     /// or nothing heard, advertised or verified within `horizon_ms`. A terrible entry is replaced first and never
     /// answered; `parse` drops it. All time arithmetic saturates.
-    pub fn terrible(&self,e:&Entry,now:u64)->bool{
-        (e.verified_ms==0&&e.attempts>=3)||(e.attempts>=10&&now.saturating_sub(e.verified_ms)>self.times.fail_recent_ms)||now.saturating_sub(freshness(e))>self.times.horizon_ms
-    }
+    pub fn terrible(&self,e:&Entry,now:u64)->bool{terrible(&self.times,e,now)}
     /// VA-SPEC §1a.5: neither terrible nor held, and verified or self-advertised within `relay_window_ms`.
     pub fn relayable(&self,e:&Entry,now:u64)->bool{!self.terrible(e,now)&&e.hold_until_ms<=now&&(self.recent(e.verified_ms,now)||self.recent(e.direct_ms,now))}
     fn recent(&self,ms:u64,now:u64)->bool{ms!=0&&now.saturating_sub(ms)<=self.times.relay_window_ms}
@@ -387,11 +423,21 @@ mod tests{
         for p in [30300,30301]{assert_eq!(b.insert_unverified(SocketAddr::new([81,2,69,1].into(),p),peer(p.into()),Kind::Heard,false,T0),Outcome::Added);}
         assert_eq!(b.insert_unverified(sa("81.2.69.1:30302"),peer(3),Kind::Heard,false,T0),Outcome::Dropped(Why::Ports));
         for p in 40001..=40003{assert_eq!(b.insert_unverified(SocketAddr::new([127,0,0,1].into(),p),Source::Inbound,Kind::Direct,true,T0),Outcome::Added);}
-        // A terrible port of a full IP: an unverified newcomer on that IP is still dropped; a verified one takes its place.
+        // A terrible port of a full IP: a newcomer on that IP, an unverified one too, takes its place and the live port
+        // stays. With no terrible port left an unverified newcomer is dropped, a self-advertisement too (a full IP never
+        // rotates a live port), and a verified one takes the place of an unverified port.
         let mut now=T0;for _ in 0..3{now+=2;b.good(sa("81.9.0.1:30300"),false,false,now);b.failed(sa("81.2.69.1:30300"),now+1);}
         assert!(b.terrible(b.get(sa("81.2.69.1:30300")).unwrap(),now+2));
-        assert_eq!(b.insert_unverified(sa("81.2.69.1:30302"),peer(3),Kind::Heard,false,now+2),Outcome::Dropped(Why::Ports));
-        assert_eq!(b.good(sa("81.2.69.1:30302"),false,false,now+2),Outcome::Replaced);assert!(b.get(sa("81.2.69.1:30300")).is_none());
+        assert_eq!(b.insert_unverified(sa("81.2.69.1:30302"),peer(3),Kind::Heard,false,now+2),Outcome::Replaced);
+        assert!(b.get(sa("81.2.69.1:30300")).is_none()&&b.get(sa("81.2.69.1:30301")).is_some());
+        assert_eq!(b.insert_unverified(sa("81.2.69.1:30303"),peer(4),Kind::Heard,false,now+2),Outcome::Dropped(Why::Ports));
+        assert_eq!(b.insert_unverified(sa("81.2.69.1:30303"),Source::Inbound,Kind::Direct,false,now+2),Outcome::Dropped(Why::Ports));
+        assert_eq!(b.good(sa("81.2.69.1:30303"),false,false,now+2),Outcome::Replaced);assert!(b.get(sa("81.2.69.1:30301")).is_none());
+        // A source at its quota rotates nothing on a full IP: with 2 of its entries there, its third port is dropped.
+        let mut b=Book::new(false);
+        for k in 0..SOURCE_MAX-2{b.insert_unverified(v4(k,1),peer(1),Kind::Heard,false,T0);}
+        for p in [30300,30301]{assert_eq!(b.insert_unverified(SocketAddr::new([81,2,69,1].into(),p),peer(1),Kind::Heard,false,T0),Outcome::Added);}
+        assert_eq!(b.insert_unverified(sa("81.2.69.1:30302"),peer(1),Kind::Heard,false,T0+DAY),Outcome::Dropped(Why::Ports));
         // 64 unverified per answering peer, a slot's or a configured one's: the 65th replaces that source's entry heard
         // longest ago (here the one with the highest address), never another source's older one.
         for src in [peer(1),Source::Cfg(sa("81.2.69.9:30300"))]{
@@ -402,7 +448,8 @@ mod tests{
             assert!(b.get(v4(SOURCE_MAX-1,1)).is_none()&&b.get(v4(0,1)).is_some()&&b.get(sa("81.3.0.1:30300")).is_some(),"{src} rotated its own oldest entry");
             assert_eq!(count(&b,|e|e.source==src),SOURCE_MAX);
         }
-        // 256 self-advertisements in all, which never rotate: the 257th is dropped.
+        // 256 self-advertisements in all, one per key: the 257th, from a new key, is dropped, since no key holds 2 more
+        // than its own (they rotate out of the most crowded group only: self_advertisements_rotate_out_of_the_most_crowded_group).
         let mut b=Book::new(false);
         for k in 0..SELFADS_MAX{assert_eq!(b.insert_unverified(v4(k,1),Source::Inbound,Kind::Direct,false,T0+k as u64),Outcome::Added,"self-advertisement {k}");}
         assert_eq!(b.insert_unverified(v4(SELFADS_MAX,1),Source::Inbound,Kind::Direct,false,T0+DAY),Outcome::Dropped(Why::Source));
@@ -440,6 +487,60 @@ mod tests{
         for s in 0..=20{assert!(count(&b,|e|e.source==attacker(s))<=SOURCE_MAX,"attacker source {s}");}
         assert_eq!(count(&b,|e|e.key==k32),GROUP_MAX,"the /32");assert_eq!(count(&b,|e|e.source==Source::Inbound),0,"its self-advertisements found no place");
         assert_eq!((b.entries().len(),b.entries.capacity()),(BOOK_MAX,BOOK_MAX));
+    }
+    /// VA-SPEC §1a.4, netgroup-largest rotation of the self-advertisements (`Book::crowded`). An attacker holding the
+    /// whole Inbound quota (256 self-advertisements from 32 /16s, 4 IPs of 2 ports each, refreshed daily for 60 days, so
+    /// that none is terrible) keeps no newcomer of another group out: an honest self-advertisement from a new /16 takes
+    /// the place of one of the attacker's, survives the file and is in the next answer list, and the attacker's later
+    /// self-advertisements, from its own keys or from 100 new ones, displace only its own. Inside a full key the same
+    /// holds per subnet: one IPv6 /64 filling its /32 leaves room for another /64's newcomer, and 4 IPv4 addresses
+    /// filling their /16 for another address's; 8 addresses of one port each give way to none.
+    #[test] fn self_advertisements_rotate_out_of_the_most_crowded_group(){
+        const CHAIN:u64=777900;let genesis=[7u8;32];
+        let selfad=|b:&mut Book,a:SocketAddr,now:u64|b.insert_unverified(a,Source::Inbound,Kind::Direct,false,now);
+        let mut b=Book::new(false);let mut now=T0;
+        let attacker:Vec<SocketAddr>=(0..32).flat_map(|k|(1..=4).flat_map(move|h|[30300,30301].map(|p|SocketAddr::new(v4(k,h).ip(),p)))).collect();
+        assert_eq!(attacker.len(),SELFADS_MAX);
+        for a in &attacker{assert_eq!(selfad(&mut b,*a,now),Outcome::Added);}
+        for _ in 0..60{now+=DAY;for a in &attacker{assert_eq!(selfad(&mut b,*a,now),Outcome::Refreshed);}}
+        let honest=v4(100,1);
+        assert_eq!(selfad(&mut b,honest,now),Outcome::Replaced,"a self-advertisement from a new /16 finds a place");
+        assert!(b.get(attacker[0]).is_none()&&count(&b,|e|e.source==Source::Inbound)==SELFADS_MAX,"the lowest of the fullest keys gave up its lowest address");
+        let (back,_)=parse(&b.encode(CHAIN,&genesis,&[]),CHAIN,&genesis,false,now).unwrap();assert!(back.get(honest).is_some(),"kept in the file");
+        b.answer(false,None,&mut Rng::new(3),now);assert!(b.cache.contains(&honest),"and in the next answer list");
+        for k in 0..32{for h in 5..=8{selfad(&mut b,v4(k,h),now+1);}}
+        for k in 200..300{selfad(&mut b,v4(k,1),now+1);}
+        assert!(b.get(honest).is_some()&&count(&b,|e|e.source==Source::Inbound)==SELFADS_MAX,"the attacker's later self-advertisements displace only its own");
+        // One /64 fills its /32 (4 addresses of 2 ports): a newcomer from another /64 takes a place, and the /64's next
+        // self-advertisement is dropped rather than displace it.
+        let in64=|n:u16,i:u16,p:u16|SocketAddr::new(IpAddr::from([0x2606,0x4700,0,n,0,0,0,i]),p);
+        let mut b=Book::new(false);
+        for i in 1..=4{for p in [30300,30301]{assert_eq!(selfad(&mut b,in64(1,i,p),T0),Outcome::Added);}}
+        assert_eq!(selfad(&mut b,in64(2,1,30300),T0+DAY),Outcome::Replaced,"another /64 of the full /32");
+        assert_eq!(selfad(&mut b,in64(1,5,30300),T0+DAY),Outcome::Dropped(Why::Group),"the crowded /64 again");
+        assert!(b.get(in64(2,1,30300)).is_some()&&b.get(in64(1,1,30300)).is_none());
+        assert_eq!(selfad(&mut b,in64(3,1,30300),T0+DAY),Outcome::Replaced,"a third /64");
+        // IPv4: 4 addresses of 2 ports fill a /16, and a fifth address takes a place; 8 addresses of one port each give
+        // way to none.
+        let mut b=Book::new(false);
+        for h in 1..=4{for p in [30300,30301]{selfad(&mut b,SocketAddr::new([81,2,0,h].into(),p),T0);}}
+        assert_eq!(selfad(&mut b,sa("81.2.0.5:30300"),T0+DAY),Outcome::Replaced);assert!(b.get(sa("81.2.0.1:30300")).is_none());
+        let mut b=Book::new(false);
+        for h in 1..=8{selfad(&mut b,SocketAddr::new([81,2,0,h].into(),30300),T0);}
+        assert_eq!(selfad(&mut b,sa("81.2.0.9:30300"),T0+DAY),Outcome::Dropped(Why::Group));
+    }
+    /// VA-SPEC §1a.4: terrible entries are dropped at each save (`purge`), so none keeps a place in a quota: a full IP
+    /// whose two ports went quiet for 30 days takes a new port again, and the answer list is rebuilt without them.
+    #[test] fn purge_drops_terrible_entries_and_the_answer_list(){
+        let mut b=Book::new(false);let mut rng=Rng::new(5);
+        for p in [40000,40001]{b.insert_unverified(SocketAddr::new([81,2,69,1].into(),p),Source::Inbound,Kind::Direct,false,T0);}
+        b.insert_unverified(sa("81.3.0.1:30300"),Source::Inbound,Kind::Direct,false,T0+20*DAY);
+        b.answer(false,None,&mut rng,T0+20*DAY);assert_eq!(b.cache.len(),1);b.saved();
+        let now=T0+30*DAY+1;
+        assert_eq!(b.purge(now-2),0);assert!(!b.dirty()&&b.cache_ms.is_some(),"nothing terrible yet: nothing changes");
+        assert_eq!(b.purge(now),2);
+        assert!(b.entries().len()==1&&b.get(sa("81.3.0.1:30300")).is_some()&&b.dirty()&&b.cache_ms.is_none(),"the two quiet ports are gone");
+        assert_eq!(b.insert_unverified(sa("81.2.69.1:30300"),Source::Inbound,Kind::Direct,false,now),Outcome::Added);
     }
     /// VA-SPEC §1a.4: a verified newcomer may replace an unverified entry, however fresh, but never a verified one: not
     /// in a full key, not on a full IP, not in a full book.

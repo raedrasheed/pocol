@@ -521,8 +521,9 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     //   sending), at the churn rule of hash32_churn_bytes (< 32/7 buckets per high-water entry, a control byte each,
     //   two allocations), + 512;
     // - transient scratch on the consensus thread (CONDITIONS discovery-transient): two index or key lists over the
-    //   book (the answer list's rebuild, two lists of entry indices; the status's distinct keys), the answer list
-    //   and one answer, the own addresses and anchors, + 1,024;
+    //   book (the answer list's rebuild, two lists of entry indices; the status's distinct keys; a placement's groups
+    //   of at most SELFADS_MAX self-advertisements, Book::crowded), the answer list and one answer, the own addresses
+    //   and anchors, + 1,024;
     // - the file's buffers: the bounded read (launcher::read_bounded, MAX_INVITATION + 1, reserved at that size and
     //   never grown) and the encoded book (Book::encode's capacity, FILE_LINE_MAX per line).
     if limits.discovery.enabled{
