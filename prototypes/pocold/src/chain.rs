@@ -265,7 +265,7 @@ pub enum Reject{
     /// Committed-content violation (blockReject): the blockHash and descendants are invalid.
     Block(String),
     UnknownParent,
-    /// Parent state outside the K_hist window: TrieRebuild, then retry.
+    /// Parent state outside the K_hist window, for a copy that passed H-pre: TrieRebuild, then retry.
     NeedsRebuild([u8;32]),
     Future,
     Duplicate,
@@ -526,7 +526,8 @@ impl Chain{
     }
 
     // ---------------- validation ----------------
-    /// H-pre items 1-9 (stateless with the parent header) and H-full 10-17.
+    /// H-pre items 1-11, the body binding and limits and fallback item 12 (body) on the parent's header
+    /// metadata only, then (PR4) the parent's state, then H-full 12-17 (`h_full`).
     pub fn validate(&self,b:&Block,clock:Option<u64>,phi:u64)->Result<(Entry,ChildCtx),Reject>{
         let cp=self.spec.cp();let x=&b.header;let hash=b.hash();
         if self.blocks.contains_key(&hash){return Err(Reject::Duplicate)}
@@ -538,14 +539,14 @@ impl Chain{
         if x.protocol_version!=self.spec.active_version(x.h){return blk("netVersion")}
         if !self.blocks.contains_key(&x.parent_hash){return Err(Reject::UnknownParent)}
         if let Some(r)=self.invalid.get(&x.parent_hash){return blk(format!("ancestorInvalid {r}"))}
-        if self.blocks[&x.parent_hash].pruned||self.blocks[&x.parent_hash].slim{return Err(Reject::NeedsRebuild(x.parent_hash))}
-        // C-1 S3a: a retained parent state that is not held full is materialized through the diffs.
-        let materialized;
-        let p=if self.blocks[&x.parent_hash].full{&self.blocks[&x.parent_hash]}else{
-            materialized=self.full_entry(&x.parent_hash).ok_or(Reject::NeedsRebuild(x.parent_hash))?;
-            self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);&materialized};
+        // PR4 (CONS-9): H-pre runs on the parent's header metadata, which pruning, slimming, offloading and
+        // checkpoint restore keep. The parent's state is read/materialized/rebuilt (the gate below item 12)
+        // only for a copy that passed H-pre, its signatures, its body binding and its PoW at the parent's
+        // real ASERT target. Each moved check computes the value the rebuilt parent gives (child_pre), so no
+        // block's verdict changes; consensus.md:175 (D75): "Without parent state: items 10-17 notEvaluable".
+        let pe:&Entry=&self.blocks[&x.parent_hash];
         // 2. linkage and H_END.
-        if x.h!=p.height+1{return blk("2 height")}
+        if x.h!=pe.height+1{return blk("2 height")}
         if cp.H_END!=0&&x.h>cp.H_END{return blk("10a H_END")}
         if let Some(c)=clock{ if crate::timing::is_future(x.ts,c,phi){return Err(Reject::Future)} }
         // 3. template form. proposer and a are committed (blockReject); sig is not (envReject).
@@ -558,12 +559,12 @@ impl Chain{
             match hashes::recover_address(&hashes::sig_msg(&tid),&x.sig){Ok(a) if a[..]==x.proposer[..]=>{},_=>return Err(Reject::Envelope("3 template signature".into()))}
         }else if !x.sig.is_empty(){return Err(Reject::Envelope("3 signature without proposer".into()))}
         // 4. timing window and fallback timestamp.
-        let ctx=self.child_ctx(p,x.a)?;
-        if !ctx.window.contains(x.ts){return blk("4 window")}
-        if !signed{let fb=ctx.window.fallback_timestamp(cp.dFbWait).map_err(|_|Reject::Block("4 fb".into()))?;if x.ts!=fb{return blk("4 fallback timestamp")}}
+        let pre=self.child_pre(pe,x.a)?;
+        if !pre.window.contains(x.ts){return blk("4 window")}
+        if !signed{let fb=pre.window.fallback_timestamp(cp.dFbWait).map_err(|_|Reject::Block("4 fb".into()))?;if x.ts!=fb{return blk("4 fallback timestamp")}}
         // 5. ASERT target. 6/7 nonce and PoW.
-        if x.target!=ctx.target{return blk("5 target")}
-        if (x.nonce as u128)>=ctx.assignment.nonce_max(){return blk("6 nonce>=nMax")}
+        if x.target!=pre.target{return blk("5 target")}
+        if (x.nonce as u128)>=pre.nonce_max{return blk("6 nonce>=nMax")}
         if !le_target(&pow_hash(&tid,x.nonce),&x.target){return blk("7 pow")}
         // 8. winnerSig recoverable.
         let win=hashes::win_msg(&tid,x.nonce,&share_root(x));
@@ -572,13 +573,13 @@ impl Chain{
         if x.shares.len()>usize::from(cp.S_max){return blk("1 shareList size")}
         for w in x.shares.windows(2){if w[0]>=w[1]{return blk("9 shares not strictly ascending")}}
         for n in &x.shares{
-            if *n==x.nonce||(*n as u128)>=ctx.assignment.nonce_max(){return blk("9 share range")}
-            if !le_target(&pow_hash(&tid,*n),&ctx.t_share){return blk("9 share target")}
+            if *n==x.nonce||(*n as u128)>=pre.nonce_max{return blk("9 share range")}
+            if !le_target(&pow_hash(&tid,*n),&pre.t_share){return blk("9 share target")}
         }
         // 10. parent not final. 11. gas limit and base fee.
-        if p.is_final{return blk("10 final parent")}
+        if pe.is_final{return blk("10 final parent")}
         if x.gas_limit!=cp.GAS_LIMIT{return blk("11 gasLimit")}
-        if from_fixed(&x.base_fee)!=ctx.base_fee{return blk("11 baseFee")}
+        if from_fixed(&x.base_fee)!=pre.base_fee{return blk("11 baseFee")}
         // Body binding first (D129): the block hash commits the header only and the body through
         // tx_root/evidence_root. A body that does not match is another copy, not an invalid block:
         // envReject, never marked invalid. Body-content checks below run on the bound body only.
@@ -591,19 +592,36 @@ impl Chain{
         // checks it for blocks from peers (review finding: the raw item sum was checked here).
         if b.body.encode().len()>cp.BODY_MAX as usize{return blk("1 BODY_MAX")}
         if b.body.evidence.len()>usize::from(cp.E_max)||b.body.evidence.iter().any(|e|e.len()>cp.EVID_BYTES_MAX as usize){return blk("1 evidence bounds")}
-        // 12. exclusive form. Fallback: body 0xc2c0c0 and UT byte-equal to Build_fb (needs apply).
-        let mut fb_out=None;
-        if signed{ if x.proposer[..]!=ctx.proposer[..]{return blk("12 proposer is not Draw(h,0)")} }
-        else{
-            if b.body.encode()!=EMPTY_BODY{return blk("12 fallback body")}
-            let out=self.execute(p,&ctx,x.ts,Proposer::Fallback,&b.body,vec![])?;
-            if self.fill_ut(p,&ctx,x.ts,&out,&[]).ut_raw!=x.ut_raw{return blk("12 fallback UT differs from Build_fb")}
-            fb_out=Some(out);
-        }
-        // 13/14. ownership (winnerSig signer part is envReject).
+        // 12 (committed, no state): a fallback commits to the empty body 0xc2c0c0.
+        if !signed&&b.body.encode()!=EMPTY_BODY{return blk("12 fallback body")}
+        // Step 5 inserts the costly-cache lookup here (keyed by seal(tid,nonce)).
+        // The state gate (was above item 2): a copy that passed every check above needs its parent's state.
+        if pe.pruned||pe.slim{return Err(Reject::NeedsRebuild(x.parent_hash))}
+        // C-1 S3a: a retained parent state that is not held full is materialized through the diffs.
+        let materialized;
+        let p:&Entry=if pe.full{pe}else{
+            materialized=self.full_entry(&x.parent_hash).ok_or(Reject::NeedsRebuild(x.parent_hash))?;
+            self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);&materialized};
+        self.h_full(b,p,&tid,signed,winner,hash)
+    }
+    /// H-full 12-17 of a copy that passed H-pre, on its parent's state `p`.
+    fn h_full(&self,b:&Block,p:&Entry,tid:&[u8;32],signed:bool,winner:[u8;20],hash:[u8;32])->Result<(Entry,ChildCtx),Reject>{
+        let x=&b.header;
+        let ctx=self.child_ctx(p,x.a)?;
+        // 12. exclusive form: a signed template's proposer is Draw(h,0).
+        if signed&&x.proposer[..]!=ctx.proposer[..]{return blk("12 proposer is not Draw(h,0)")}
+        // 13/14. ownership (winnerSig signer part is envReject), before any execution: D130 envOwn ("parent
+        // state, no execution", consensus.md:192) precedes apply (:195). Before PR4 a fallback copy executed
+        // first, so one PoW for the public Build_fb template bought an execution per fresh-winnerSig copy
+        // (PR4 fallback-replay finding).
         let owner=ctx.assignment.owner(x.nonce).ok_or_else(||Reject::Block("13 owner".into()))?;
         if owner!=winner{return Err(Reject::Envelope("13 winnerSig signer is not owner(nonce)".into()))}
         let mut shares=Vec::new();for n in &x.shares{shares.push((*n,addr(&ctx.assignment.owner(*n).ok_or_else(||Reject::Block("14 share owner".into()))?)));}
+        // 12 (fallback): UT byte-equal to Build_fb (needs apply), for an owner-signed copy only.
+        let fb_out=if signed{None}else{
+            let out=self.execute(p,&ctx,x.ts,Proposer::Fallback,&b.body,vec![])?;
+            if self.fill_ut(p,&ctx,x.ts,&out,&[]).ut_raw!=x.ut_raw{return blk("12 fallback UT differs from Build_fb")}
+            Some(out)};
         // 15. evidence validity (roots were bound above). 16. cumulative caps.
         let effects=if signed{self.evidence_effects(p,&b.body,x.h)?}else{vec![]};
         let tx_bytes:u64=b.body.txs.iter().map(|t|t.len() as u64).sum();
@@ -616,7 +634,7 @@ impl Chain{
         let (is_final,log_bytes)=(out.is_final(),out.log_bytes());
         let c=self.child_state(p,out)?;
         let entry=Entry{hash,header:x.clone(),body:b.body.clone(),height:x.h,parent:Some(p.hash),total_work:p.total_work.saturating_add(work(&x.target)),
-            import_seq:0,signed,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:seal(&tid,x.nonce),state:c.state,is_final,full:true,diff:c.diff,slim:false,
+            import_seq:0,signed,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:seal(tid,x.nonce),state:c.state,is_final,full:true,diff:c.diff,slim:false,
             result:Some(ParentResult{block_hash:B256::from(hash),winner:addr(&owner),shares}),receipts:c.receipts,tx_hashes,
             cum_txs:if self.spec.cp().H_END==0{b.body.txs.len() as u64}else{p.cum_txs+b.body.txs.len() as u64},cum_tx_bytes:if self.spec.cp().H_END==0{tx_bytes}else{p.cum_tx_bytes+tx_bytes},cum_log_bytes:if self.spec.cp().H_END==0{log_bytes}else{p.cum_log_bytes+log_bytes},pruned:false,drawn:ctx.proposer,
             ranges:ctx.assignment.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect(),body_off:None,offloaded:false,trie:c.trie,summary:Some(Box::new(c.summary)),stored:c.stored};

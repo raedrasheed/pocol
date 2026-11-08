@@ -533,6 +533,97 @@ fn send_template(node:&mut pocold::node::Node,peer:pocold::net::PeerId,t:&lp1hdr
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
 
+/// `b` with its nonce replaced by one below nMax that is not a solution at its target (item 7 fails; the
+/// header is otherwise b's, so every earlier item passes).
+fn no_pow(b:&Block)->Block{
+    let tid=template_id(&b.header.ut_raw);let mut h=b.header.clone();
+    h.nonce=(0u64..).find(|x|*x!=b.header.nonce&&!le_target(&pow_hash(&tid,*x),&h.target)).unwrap();h.shares=vec![];reseal(&mut h);
+    Block{header:h,body:b.body.clone()}
+}
+/// PR4 (CONS-9, Block-path finding): every check that needs no parent state runs before the state gate. A
+/// copy naming a pruned parent that fails PoW, height linkage, the clock, the body binding or the fallback
+/// form gets its verdict without a TrieRebuild, and the parent stays pruned; an honest child still reaches
+/// NeedsRebuild and is accepted after the rebuild.
+#[test] fn pr4_h_pre_and_the_body_run_before_any_parent_state(){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..12{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let p=hashes[3];assert!(n.chain.blocks[&p].pruned,"positive control: the parent is pruned");
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let child=fallback(&m,p,1);let rb=n.chain.rebuilds;
+    let tx=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(10_000_000_000u64),gas:21000,to:Some(Address::ZERO),value:U256::ZERO,data:Default::default()}.sign_1559(&devnet::account_key("alice"));
+    let mut lying=child.header.clone();lying.h=n.chain.head().height;reseal(&mut lying);
+    let mut sig=child.header.clone();sig.sig=vec![1;65];reseal(&mut sig);
+    let cases:Vec<(&str,Block,Option<u64>,fn(&Reject)->bool)>=vec![
+        ("(a) no PoW",no_pow(&child),None,|r|matches!(r,Reject::Block(s) if s.contains("7 pow"))),
+        ("(b) lying height",Block{header:lying,body:Body::default()},None,|r|matches!(r,Reject::Block(s) if s.contains("2 height"))),
+        ("(c) future",child.clone(),Some(child.header.ts-1),|r|*r==Reject::Future),
+        ("(d) foreign body",Block{header:child.header.clone(),body:Body{txs:vec![tx],evidence:vec![]}},None,|r|matches!(r,Reject::Envelope(s) if s.contains("body does not match"))),
+        ("(e) sig on a fallback",Block{header:sig,body:Body::default()},None,|r|matches!(r,Reject::Envelope(s) if s.contains("3 signature without proposer"))),
+    ];
+    for (what,b,clock,want) in &cases{
+        let r=n.chain.validate(b,*clock,0).err().unwrap_or_else(||panic!("{what}: must reject"));
+        assert!(want(&r),"FAIL-ON-ORIGINAL: {what}: got {r:?} (NeedsRebuild before H-pre)");
+        assert!(n.chain.rebuilds==rb&&n.chain.blocks[&p].pruned,"{what}: no state made");
+    }
+    // Positive control: the honest child passes H-pre, needs the rebuild and is accepted after it.
+    assert_eq!(n.chain.validate(&child,None,0).err(),Some(Reject::NeedsRebuild(p)));
+    n.chain.ensure_state(&p).unwrap();assert!(n.chain.rebuilds>=3);
+    let (e,_)=n.chain.validate(&child,None,0).unwrap();n.chain.insert(e);
+}
+/// The whole-state fixture of T3.2/T3.3: 5 fallbacks retained; canonical_at(2) is diff-held.
+fn diff_held_net()->(Net,[u8;32]){
+    let mut n=net();for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();}
+    let q=n.chain.canonical_at(2).unwrap().hash;
+    assert!(!n.chain.blocks[&q].full&&!n.chain.blocks[&q].pruned,"positive control: canonical_at(2) is diff-held");(n,q)
+}
+/// PR4: a junk child of a diff-held parent is refused before the parent is materialized (C-1 S3a moved
+/// below H-pre).
+#[test] fn pr4_a_junk_child_of_a_diff_held_parent_is_not_materialized(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (n,q)=diff_held_net();let j=no_pow(&fallback(&n,q,1));
+    let mat=n.chain.materializations.load(Relaxed);
+    assert!(matches!(n.chain.validate(&j,None,0),Err(Reject::Block(s)) if s.contains("7 pow")));
+    assert_eq!(n.chain.materializations.load(Relaxed),mat,"FAIL-ON-ORIGINAL: the parent was materialized before item 7");
+}
+/// PR4 (fallback-replay finding, D130): a copy of a fallback block whose winnerSig is not the owner's is
+/// refused (envReject, item 13) without executing the block; the owner's copy executes once and is valid.
+#[test] fn pr4_a_non_owner_fallback_copy_is_not_executed(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (n,q)=diff_held_net();let f=fallback(&n,q,1);
+    let p=n.chain.full_entry(&q).unwrap();let ctx=n.chain.child_ctx(&p,f.header.a).unwrap();
+    let owner=addr(&ctx.assignment.owner(f.header.nonce).unwrap());let other=*n.keys.keys().find(|k|**k!=owner).unwrap();
+    let tid=template_id(&f.header.ut_raw);
+    let mut h=f.header.clone();h.winner_sig=n.keys[&other].sign_hash(&B256::from(hashes::win_msg(&tid,h.nonce,&share_root(&h))));reseal(&mut h);
+    let copy=Block{header:h,body:Body::default()};assert_eq!(copy.hash(),f.hash(),"winnerSig is not committed by blockHash");
+    let ex=||n.chain.trie_built.load(Relaxed)+n.chain.trie_derived.load(Relaxed);let e=ex();
+    assert!(matches!(n.chain.validate(&copy,None,0),Err(Reject::Envelope(s)) if s.starts_with("13 ")));
+    assert_eq!(ex(),e,"FAIL-ON-ORIGINAL: the non-owner copy was executed before item 13");
+    assert!(n.chain.validate(&f,None,0).is_ok(),"positive control: the owner's copy is valid");
+    assert_eq!(ex(),e+1,"positive control: and it was executed once");
+}
+/// PR4 (Block-path finding), node level: a block without PoW naming a pruned canonical parent is a block
+/// verdict (marked invalid, not journaled) without a TrieRebuild; an honest child still rebuilds and imports.
+#[test] fn pr4_a_node_refuses_a_deep_child_without_pow_without_rebuilding(){
+    use pocold::node::{Config,Node};
+    let c=cfg(&["a","b","c"]);
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-deep-nopow-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    node.chain.retain();
+    let p=hashes[3];assert!(node.chain.blocks[&p].pruned,"positive control: the parent is below the K_hist window");
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let child=fallback(&m,p,1);let bad=no_pow(&child);
+    let (rb,rec)=(node.chain.rebuilds,node.journal_records());
+    assert!(matches!(node.import(bad.clone(),None),Err(Reject::Block(s)) if s.contains("7 pow")),"a block verdict");
+    assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: a block without PoW rebuilt a pruned parent");
+    assert_eq!(node.journal_records(),rec,"not journaled");
+    assert!(node.chain.invalid.contains_key(&bad.hash()),"marked invalid");
+    // Positive control: the honest child rebuilds its parent and is imported.
+    node.import(child,None).expect("live import rebuilds the pruned parent");assert!(node.chain.rebuilds>rb);
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+
 #[test] fn a_valid_header_with_a_foreign_body_rejects_only_that_copy(){
     // Review finding (HIGH): a peer relaying a real header with a mismatched body must not get the
     // block marked invalid; the correct body is accepted afterwards.
