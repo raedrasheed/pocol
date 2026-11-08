@@ -51,7 +51,9 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    every connection for an unspecified bind, a loopback peer's for a loopback bind, otherwise a connection
    on the bound address; elsewhere both are 0. They are read from a connection's first Hello only.
 2. Learning. (a) An inbound connection's first compatible Hello with listenPort != 0: the address (the
-   connection's source IP, listenPort), never another IP, as a self-advertisement. (b) The first compatible
+   connection's source IP, listenPort), never another IP, as a self-advertisement; with listenPort 0 and a
+   nonzero nonce (a listening node that no longer advertises), the unverified self-advertisements at that
+   public source IP are forgotten, except those another live connection advertises. (b) The first compatible
    Hello of a connection this node dialed: the dialed address is verified when listenPort != 0 and forgotten
    when it is 0. (c) The one Addr that answers this node's GetAddr on a connection it dialed, within 120 s:
    at most 64 addresses, heard from that peer. Nothing else is learned.
@@ -74,7 +76,8 @@ connection (§1); any other discovery fault drops an entry or a message and is c
 5. Answers: GetAddr is answered once per inbound connection and never on a connection this node dialed, with
    an Addr of at most 64 entries (possibly none): entries verified or self-advertised within 7 days, verified
    first, at most 2 per address group, never the requester's own advertised address, local entries only to a
-   local requester, from a list rebuilt at most once a minute; it is queued only while the requester's queue
+   local requester, from a list rebuilt at most once a minute (an entry that leaves the book leaves the list
+   at once); it is queued only while the requester's queue
    is below half (§4). A node sends GetAddr once per connection it dialed (not feelers).
 6. Persistence: `<data dir>/addrbook`, bound to chainId and genesis and checksummed, written atomically 60 s
    after start, every 15 min, when the anchors change and at a clean stop, read with a 1 MiB bound. Every

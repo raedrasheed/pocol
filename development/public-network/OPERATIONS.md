@@ -82,7 +82,9 @@ public address either. It is meant for single-host and LAN rehearsals.
 
 **Escape hatch.** `POCOL_DISCOVERY=0` (or `--no-discovery`) turns discovery off. The
 node then sends `listenPort` 0, asks nothing, answers nothing, and neither reads nor
-writes the address book. Two protections stay on: the self-connection nonce check,
+writes the address book. A listening node that comes back this way withdraws its
+advertisement: at its next connection, a peer forgets the self-advertised address at
+its IP, unless another live connection from that IP still advertises it. Two protections stay on: the self-connection nonce check,
 and clearing a configured peer's redial by the address that was dialed.
 
 **The address book.** The book is the file `addrbook` in the node's data directory

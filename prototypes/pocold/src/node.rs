@@ -1342,7 +1342,7 @@ impl Node{
                 }
                 // VA-SPEC §1a.2: what a first compatible Hello teaches, and the GetAddr of a connection this node
                 // dialed, sent before a session's GetFrom so that its answer is not queued behind the blocks.
-                if first{self.disc_first_hello(from,listen_port,now);}
+                if first{self.disc_first_hello(from,listen_port,nonce,now);}
                 // Only a peer's first Hello may start a session at once; later Status updates wait for
                 // sync_tick's round-robin, so a peer re-announcing a false claim cannot hold the session
                 // slot. A claim set aside stays aside until the announced head changes.

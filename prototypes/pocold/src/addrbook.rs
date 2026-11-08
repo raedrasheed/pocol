@@ -104,7 +104,7 @@ fn local_ip(ip:IpAddr)->bool{
 
 /// The address book. `last_good_ms`: the last handshake this node dialed that verified an address (it starts at 1, so
 /// that an entry's first failure counts); `selfs`: this node's own addresses; `cache`: the answer list, built at
-/// `cache_ms`; `dirty`: changed since it was loaded or saved.
+/// `cache_ms`, less the entries that left the book since (`forget`); `dirty`: changed since it was loaded or saved.
 #[derive(Debug)]
 pub struct Book{on:bool,allow_local:bool,times:Times,entries:Vec<Entry>,last_good_ms:u64,selfs:Vec<SocketAddr>,cache:Vec<SocketAddr>,cache_ms:Option<u64>,dirty:bool}
 impl Book{
@@ -185,8 +185,11 @@ impl Book{
             if n.source==Source::Inbound{victim=self.crowded(&n,key_full)}
             else if src_full&&!key_full{victim=self.entries.iter().enumerate().filter(|(_,e)|inside(e)).min_by_key(|(_,e)|(e.heard_ms,e.addr)).map(|(i,_)|i);}
         }
-        match victim{Some(i)=>{self.entries[i]=n;self.dirty=true;Outcome::Replaced}None=>Outcome::Dropped(why)}
+        match victim{Some(i)=>{let gone=std::mem::replace(&mut self.entries[i],n).addr;self.forget(gone);self.dirty=true;Outcome::Replaced}None=>Outcome::Dropped(why)}
     }
+    /// An entry left the book (removed, withdrawn, replaced or purged): it leaves the answer list too, at once, while
+    /// the rest of the list stays as drawn (a rebuild here would let whoever can make entries leave draw new answers).
+    fn forget(&mut self,a:SocketAddr){self.cache.retain(|x|*x!=a)}
     /// Netgroup-largest rotation of the self-advertisements (VA-SPEC §1a.4; Bitcoin Core evicts inbound connections
     /// so), for an unverified self-advertised newcomer `n` that found no terrible entry to replace and whose IP is not
     /// full. Only unverified `Inbound` entries count and move. Their groups are their keys (the Inbound quota or the
@@ -212,10 +215,10 @@ impl Book{
         self.entries.iter().enumerate().filter(|(_,e)|ours(e)&&group(e)==g).min_by_key(|(_,e)|(e.direct_ms,e.addr)).map(|(i,_)|i)
     }
     /// VA-SPEC §1a.4: drops the terrible entries, as `parse` does at load (the node calls it at each save), so that no
-    /// dead entry holds a place in a quota; the answer list is rebuilt at the next answer. The number dropped.
+    /// dead entry holds a place in a quota, nor in the answer list. The number dropped.
     pub fn purge(&mut self,now:u64)->usize{
         let before=self.entries.len();let t=self.times;self.entries.retain(|e|!terrible(&t,e,now));
-        let gone=before-self.entries.len();if gone>0{self.dirty=true;self.cache_ms=None;}gone
+        let gone=before-self.entries.len();if gone>0{self.dirty=true;let entries=&self.entries;self.cache.retain(|a|entries.iter().any(|e|e.addr==*a));}gone
     }
     fn update(&mut self,a:SocketAddr,f:impl FnOnce(&mut Entry)){let a=canonical(a);if let Some(e)=self.entries.iter_mut().find(|e|e.addr==a){f(e);self.dirty=true;}}
     /// A dial starts (automatic outbound).
@@ -236,7 +239,17 @@ impl Book{
             e.hold_until_ms=now.saturating_add(t.hold_base_ms.saturating_mul(f).min(t.hold_max_ms));e.last_try_ms=now;})
     }
     /// Another chain or genesis, or a peer this node dialed that withdrew its consent (listenPort 0).
-    pub fn remove(&mut self,a:SocketAddr){let a=canonical(a);if let Some(i)=self.entries.iter().position(|e|e.addr==a){self.entries.remove(i);self.dirty=true;}}
+    pub fn remove(&mut self,a:SocketAddr){let a=canonical(a);if let Some(i)=self.entries.iter().position(|e|e.addr==a){self.entries.remove(i);self.forget(a);self.dirty=true;}}
+    /// VA-SPEC §1a.2a: a listening node at `ip` (an address-group IP) announced no listener (listenPort 0): its consent
+    /// is withdrawn, so the self-advertisements at that IP that were never verified leave the book and the answer list,
+    /// except those `kept` (another live connection from that IP still advertises them). The number withdrawn.
+    pub fn withdraw(&mut self,ip:IpAddr,kept:impl Fn(SocketAddr)->bool)->usize{
+        let ip=ip.to_canonical();if net::group_of(ip).is_none(){return 0}
+        let gone=|e:&Entry|e.addr.ip()==ip&&e.source==Source::Inbound&&e.verified_ms==0&&!kept(e.addr);
+        let n=self.entries.iter().filter(|e|gone(e)).count();if n==0{return 0}
+        let (cache,entries)=(&mut self.cache,&mut self.entries);cache.retain(|a|!(a.ip()==ip&&entries.iter().any(|e|e.addr==*a&&gone(e))));
+        entries.retain(|e|!gone(e));self.dirty=true;n
+    }
     /// This node's own address (a self-connection, VA-SPEC §2): removed, and refused from now on by this process.
     pub fn mark_self(&mut self,a:SocketAddr){
         if !self.on{return}let a=canonical(a);self.remove(a);
@@ -255,7 +268,8 @@ impl Book{
     /// The answer to an inbound GetAddr (VA-SPEC §1a.5): at most `net::ADDR_MAX` addresses of the answer list, without
     /// the requester's own advertised address (`requester`, compared by endpoint: on loopback every node is 127.0.0.1)
     /// and, unless the requester is itself local, without local entries. The list is rebuilt once it is `cache_ms` old
-    /// (or the clock went back), so asking again within that time reveals nothing new.
+    /// (or the clock went back), so asking again within that time reveals nothing new; an entry that leaves the book
+    /// leaves it at once (`forget`).
     pub fn answer(&mut self,requester_local:bool,requester:Option<SocketAddr>,rng:&mut Rng,now:u64)->Vec<SocketAddr>{
         if !self.on{return Vec::new()}
         if self.cache_ms.map_or(true,|t|now<t||now-t>=self.times.cache_ms){self.rebuild(rng,now)}
@@ -529,18 +543,47 @@ mod tests{
         for h in 1..=8{selfad(&mut b,SocketAddr::new([81,2,0,h].into(),30300),T0);}
         assert_eq!(selfad(&mut b,sa("81.2.0.9:30300"),T0+DAY),Outcome::Dropped(Why::Group));
     }
-    /// VA-SPEC §1a.4: terrible entries are dropped at each save (`purge`), so none keeps a place in a quota: a full IP
-    /// whose two ports went quiet for 30 days takes a new port again, and the answer list is rebuilt without them.
+    /// VA-SPEC §1a.4: terrible entries are dropped at each save (`purge`), so none keeps a place in a quota or in the
+    /// answer list: a full IP whose two ports went quiet for 30 days takes a new port again, and a listed entry that
+    /// became terrible leaves the list, which is not drawn again.
     #[test] fn purge_drops_terrible_entries_and_the_answer_list(){
-        let mut b=Book::new(false);let mut rng=Rng::new(5);
+        let mut b=Book::new(false);let mut rng=Rng::new(5);let (live,failing)=(sa("81.3.0.1:30300"),sa("81.4.0.1:30300"));
         for p in [40000,40001]{b.insert_unverified(SocketAddr::new([81,2,69,1].into(),p),Source::Inbound,Kind::Direct,false,T0);}
-        b.insert_unverified(sa("81.3.0.1:30300"),Source::Inbound,Kind::Direct,false,T0+20*DAY);
-        b.answer(false,None,&mut rng,T0+20*DAY);assert_eq!(b.cache.len(),1);b.saved();
+        for a in [live,failing]{b.insert_unverified(a,Source::Inbound,Kind::Direct,false,T0+20*DAY);}
+        b.answer(false,None,&mut rng,T0+20*DAY);assert_eq!(b.cache.len(),2);b.saved();
         let now=T0+30*DAY+1;
-        assert_eq!(b.purge(now-2),0);assert!(!b.dirty()&&b.cache_ms.is_some(),"nothing terrible yet: nothing changes");
-        assert_eq!(b.purge(now),2);
-        assert!(b.entries().len()==1&&b.get(sa("81.3.0.1:30300")).is_some()&&b.dirty()&&b.cache_ms.is_none(),"the two quiet ports are gone");
+        assert_eq!(b.purge(now-2),0);assert!(!b.dirty()&&b.cache.len()==2,"nothing terrible yet: nothing changes");
+        b.entries.iter_mut().find(|e|e.addr==failing).unwrap().attempts=3;
+        assert_eq!(b.purge(now),3);
+        assert!(b.entries().len()==1&&b.get(live).is_some()&&b.dirty(),"the two quiet ports and the failing entry are gone");
+        assert!(b.cache==[live]&&b.cache_ms==Some(T0+20*DAY),"the failing entry left the answer list, which was not drawn again");
         assert_eq!(b.insert_unverified(sa("81.2.69.1:30300"),Source::Inbound,Kind::Direct,false,now),Outcome::Added);
+    }
+    /// VA-SPEC §1a.5: an entry that leaves the book leaves the answer list at once, which is not drawn again: one
+    /// removed, one replaced, and the self-advertisements an IP withdraws (VA-SPEC §1a.2a: unverified ones only, and
+    /// not those kept); an IP without an address group withdraws nothing (in local mode every node may be 127.0.0.1).
+    #[test] fn an_entry_that_leaves_the_book_leaves_the_answer_list_at_once(){
+        let mut b=Book::new(true);let mut rng=Rng::new(9);
+        let k=|h:u8|SocketAddr::new([81,2,0,h].into(),30300);
+        for h in 1..=8{b.insert_unverified(k(h),Source::Inbound,Kind::Direct,false,T0);}
+        let (x,y,v)=(sa("81.5.0.1:30300"),sa("81.5.0.1:30301"),sa("81.6.0.1:30300"));
+        for a in [x,y]{b.insert_unverified(a,Source::Inbound,Kind::Direct,false,T0);}b.good(v,false,false,T0);
+        let local=sa("127.0.0.1:40001");b.insert_unverified(local,Source::Inbound,Kind::Direct,true,T0);
+        b.answer(true,None,&mut rng,T0);let list=b.cache.clone();assert_eq!(list.len(),2+2+1+1);
+        let mine=|b:&Book|list.iter().copied().filter(|a|b.get(*a).is_some()).collect::<Vec<_>>();
+        // A verified newcomer in the full /16 replaces its unverified entry with the oldest news: make it a listed one.
+        let listed=*list.iter().find(|a|a.ip().to_string().starts_with("81.2.")).unwrap();
+        for h in 1..=8{if k(h)!=listed{b.insert_unverified(k(h),Source::Inbound,Kind::Direct,false,T0+1);}}
+        assert_eq!(b.good(k(9),false,false,T0+1),Outcome::Replaced);assert!(b.get(listed).is_none());
+        b.answer(true,None,&mut rng,T0+2);assert_eq!(b.cache,mine(&b),"replaced: gone from the list, the rest as drawn");
+        b.remove(v);b.answer(true,None,&mut rng,T0+3);assert!(!b.cache.contains(&v)&&b.cache==mine(&b),"removed");
+        b.good(y,false,false,T0+3);
+        assert_eq!(b.withdraw(x.ip(),|_|false),1,"the unverified self-advertisement at that IP, not the verified one");
+        assert!(b.get(x).is_none()&&b.get(y).is_some());b.answer(true,None,&mut rng,T0+4);assert_eq!(b.cache,mine(&b));
+        let kept=(1..=8).map(k).find(|a|b.get(*a).is_some()).unwrap();
+        assert!(b.withdraw(kept.ip(),|a|a==kept)==0&&b.get(kept).is_some(),"one another connection still advertises is kept");
+        assert_eq!(b.withdraw(local.ip(),|_|false),0);assert!(b.get(local).is_some());
+        assert!(b.cache_ms==Some(T0),"never drawn again within the minute");
     }
     /// VA-SPEC §1a.4: a verified newcomer may replace an unverified entry, however fresh, but never a verified one: not
     /// in a full key, not on a full IP, not in a full book.
@@ -635,7 +678,7 @@ mod tests{
         let requester=first[0];let again=b.answer(false,Some(requester),&mut rng,now+1);
         assert!(!again.contains(&requester)&&again.len()==net::ADDR_MAX&&again[..net::ADDR_MAX-1]==first[1..],"the same answer without the requester");
         let gone=list[1];b.remove(gone);
-        b.answer(false,None,&mut rng,now+59_999);assert_eq!(b.cache,list,"the same list within 60 s, although an entry left");
+        b.answer(false,None,&mut rng,now+59_999);assert_eq!(b.cache,list.iter().copied().filter(|a|*a!=gone).collect::<Vec<_>>(),"the same list within 60 s, less the entry that left");
         b.answer(false,None,&mut rng,now+60_000);
         assert!(b.cache.len()==CACHE_MAX&&!b.cache.contains(&gone),"rebuilt after 60 s");
         let kept:Vec<SocketAddr>=b.cache.iter().copied().filter(|a|list.contains(a)).collect();

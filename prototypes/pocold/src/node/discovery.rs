@@ -7,8 +7,9 @@
 //!   this node's own nonce is a self-connection: it is closed before any Status is kept and the address dialed for it
 //!   is not dialed again (H1: a seed among its own configured peers held a connection to itself).
 //! - Learning (VA-SPEC §1a.2), from a connection's first compatible Hello only: an inbound connection's source IP with
-//!   its listenPort (a self-advertisement), and the address this node dialed (verified with listenPort != 0, forgotten
-//!   with 0); then the one Addr that answers this node's GetAddr on a connection it dialed, within
+//!   its listenPort (a self-advertisement; with listenPort 0 from a listening node, its nonce, the self-advertisements
+//!   at that IP are withdrawn), and the address this node dialed (verified with listenPort != 0, forgotten with 0);
+//!   then the one Addr that answers this node's GetAddr on a connection it dialed, within
 //!   `getaddr_timeout_ms`. Nothing else is learned, and learned addresses never enter `Net::protect`.
 //! - Answering (VA-SPEC §1a.5): the first GetAddr of an inbound connection, through `Peer::offer`.
 //! - Persistence (VA-SPEC §1a.6): the book is read when the network starts, and written a minute later, every 15
@@ -158,18 +159,24 @@ impl Node{
         if network{self.disc.book.remove(a)}else{self.disc.book.held(a,now)}
     }
     /// VA-SPEC §1a.2: a connection's first compatible Hello. Inbound with listenPort != 0: its source IP with that port
-    /// is a self-advertisement, never another IP. Dialed by this node: the dialed address (never the port the Hello
-    /// claims) is verified when listenPort != 0 and forgotten when it is 0 (consent withdrawn); then the peer is asked
-    /// for addresses, once (VA-SPEC §1a.5).
-    pub(super) fn disc_first_hello(&mut self,from:PeerId,port:u16,now:u64){
+    /// is a self-advertisement, never another IP. Inbound with listenPort 0 and a nonzero nonce: a listening node that
+    /// advertises no listener (discovery off) withdrew its consent, so the unverified self-advertisements at its source
+    /// IP are forgotten, but for those another live connection still advertises (another node behind the same NAT);
+    /// a node that does not listen sends nonce 0 and withdraws nothing, so that a client sharing a listener's IP does
+    /// not erase it. Dialed by this node: the dialed address (never the port the Hello claims) is verified when
+    /// listenPort != 0 and forgotten when it is 0 (consent withdrawn); then the peer is asked for addresses, once
+    /// (VA-SPEC §1a.5).
+    pub(super) fn disc_first_hello(&mut self,from:PeerId,port:u16,nonce:u64,now:u64){
         if !self.disc.on{return}
         let d=&mut self.disc;let Some(l)=d.links.get_mut(&from) else{return};
         l.compatible=true;
         match l.origin.dialed(){
             None=>{
-                let Some(r)=l.remote.filter(|_|port!=0) else{return};
-                let a=SocketAddr::new(r.ip().to_canonical(),port);l.advertised=Some(a);d.counters.self_ads+=1;
-                d.book.insert_unverified(a,Source::Inbound,Kind::Direct,net::group_of(a.ip()).is_none(),now);
+                let Some(r)=l.remote else{return};
+                if port!=0{
+                    let a=SocketAddr::new(r.ip().to_canonical(),port);l.advertised=Some(a);d.counters.self_ads+=1;
+                    d.book.insert_unverified(a,Source::Inbound,Kind::Direct,net::group_of(a.ip()).is_none(),now);
+                }else if nonce!=0{let links=&d.links;d.book.withdraw(r.ip(),|a|links.values().any(|x|x.advertised==Some(a)));}
             }
             Some(a)=>{
                 if port!=0{l.consent=true;d.book.good(a,matches!(l.origin,Origin::Configured(_)),net::group_of(a.ip()).is_none(),now);}else{d.book.remove(a);}
@@ -351,6 +358,26 @@ mod tests{
         assert!(entry(&n,"81.3.0.9:40000").is_none()&&n.disc.book.entries().len()==2&&n.disc.counters.self_ads==1,"the port a dialed peer claims is not stored");
         n.handle(Event::Net(NetEvent::Closed(3)));let _o=connect(&mut n,4,Origin::Configured(d),Some(d));greet(&mut n,4,0,0);
         assert!(entry(&n,"81.3.0.9:30300").is_none(),"a dialed peer that announces no listener withdrew its consent: forgotten");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// VA-SPEC §1a.2a: a listening node that connects again with listenPort 0 (discovery off; its nonce shows that it
+    /// listens) withdraws its self-advertisement: the entry at its source IP leaves the book and the answers at once.
+    /// One that another live connection from the same IP still advertises stays, and a node that does not listen
+    /// (nonce 0) withdraws nothing, so that a client behind a listener's NAT does not erase it.
+    #[test] fn a_listener_that_stops_advertising_is_forgotten(){
+        let (mut n,dir)=open("withdraw");let (x,y)=(sa("81.2.69.7:30300"),sa("81.2.69.8:30300"));
+        let ask=|n:&mut Node,id:PeerId|{let _q=connect(n,id,Origin::Inbound,Some(SocketAddr::new([81,9,0,id as u8].into(),51000)));greet(n,id,0,0);msg(n,id,Msg::GetAddr);
+            let mut a=answers(n,id).concat();a.sort();a};
+        let _x=connect(&mut n,1,Origin::Inbound,Some(sa("81.2.69.7:51000")));greet(&mut n,1,30300,0);n.handle(Event::Net(NetEvent::Closed(1)));
+        let _y=connect(&mut n,2,Origin::Inbound,Some(sa("81.2.69.8:51000")));greet(&mut n,2,30300,0);
+        assert_eq!(ask(&mut n,10),[x,y]);
+        let _c=connect(&mut n,3,Origin::Inbound,Some(sa("81.2.69.7:52000")));greet(&mut n,3,0,0);
+        assert!(n.disc.book.get(x).is_some(),"a node that does not listen withdraws nothing");
+        let _w=connect(&mut n,4,Origin::Inbound,Some(sa("81.2.69.7:53000")));greet(&mut n,4,0,0x77);
+        assert!(n.disc.book.get(x).is_none(),"the listener that stopped advertising is forgotten");
+        assert_eq!(ask(&mut n,11),[y],"and no longer answered, within the minute too");
+        let _v=connect(&mut n,5,Origin::Inbound,Some(sa("81.2.69.8:52000")));greet(&mut n,5,0,0x78);
+        assert!(n.disc.book.get(y).is_some()&&n.disc.book.entries().len()==1,"an entry a live connection advertises stays");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// VA-SPEC §1a.5: an inbound connection's first GetAddr is answered, with an Addr of what the book relays (none from
