@@ -1,0 +1,82 @@
+# PR4 suite on 35c0543 (Linux x86_64, release). Commands run from prototypes/pocold.
+## cargo test --release --locked --no-fail-fast (0 warnings)
+     Running unittests src/lib.rs (target/release/deps/pocold-d7bbd08cd9475422)
+test result: ok. 79 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.73s
+     Running unittests src/bin/pocol.rs (target/release/deps/pocol-5a4475eeabf0f774)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/pocol-key.rs (target/release/deps/pocol_key-405993a555652dc2)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/pocol-sign.rs (target/release/deps/pocol_sign-54300c91830f5bbc)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/pocol-site.rs (target/release/deps/pocol_site-7b54767b1247f317)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/release/deps/pocold-f32a132358e6a4bd)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/admission.rs (target/release/deps/admission-cd07ed59b9164c61)
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+     Running tests/caps.rs (target/release/deps/caps-6fbed2680df2c38c)
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.31s
+     Running tests/checkpoint_source.rs (target/release/deps/checkpoint_source-96c976ba1b7efad5)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+     Running tests/cli.rs (target/release/deps/cli-b5dcc19b349ba757)
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+     Running tests/consensus.rs (target/release/deps/consensus-9daa0091e01f507a)
+test result: ok. 112 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 101.14s
+     Running tests/cutover.rs (target/release/deps/cutover-5b2834dfbf5b1a11)
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.26s
+     Running tests/decoder_reference.rs (target/release/deps/decoder_reference-98bc6ea1cf745b01)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/earnin.rs (target/release/deps/earnin-4bbd3fa960fcad97)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+     Running tests/eviction_memory.rs (target/release/deps/eviction_memory-9d33b0f375f36b85)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+     Running tests/fork_configuration.rs (target/release/deps/fork_configuration-6de86691b3fd9a95)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/full_nonce.rs (target/release/deps/full_nonce-32625be5cdf3d244)
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+     Running tests/journal_measure.rs (target/release/deps/journal_measure-ff4f4b0577c42821)
+test result: ok. 2 passed; 0 failed; 22 ignored; 0 measured; 0 filtered out; finished in 1.47s
+     Running tests/launch_delay_asert.rs (target/release/deps/launch_delay_asert-6d607890e3e9571e)
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+     Running tests/log_cap.rs (target/release/deps/log_cap-3af4d5f828d2f98a)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/log_cap_scope.rs (target/release/deps/log_cap_scope-b290602c10e651e8)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/net.rs (target/release/deps/net-cd320cbd9381059b)
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 242.00s
+     Running tests/network_budget.rs (target/release/deps/network_budget-faaa4427289fae4c)
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+     Running tests/rejoin.rs (target/release/deps/rejoin-ebe14b34c5671e7e)
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
+     Running tests/relay.rs (target/release/deps/relay-92b4f93190c14858)
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.38s
+     Running tests/secp_fixture.rs (target/release/deps/secp_fixture-0c51f7086e94e3b3)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/site.rs (target/release/deps/site-65739a1944fa9af5)
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/state_store.rs (target/release/deps/state_store-0b240f28c392c5b5)
+test result: ok. 14 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.93s
+     Running tests/store.rs (target/release/deps/store-fc7759531d76beb2)
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+     Running tests/unhex_fix.rs (target/release/deps/unhex_fix-522756154526fb7f)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+     Running tests/unhex_invitation_panic.rs (target/release/deps/unhex_invitation_panic-c6d67e77645c0fe1)
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+     Running tests/wire_mutation.rs (target/release/deps/wire_mutation-7f8152ccbeaf8600)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+## total: 346 passed, 0 failed, 30 ignored
+## cargo test --release --locked --test consensus --test caps -- --test-threads=1
+     Running tests/caps.rs (target/release/deps/caps-6fbed2680df2c38c)
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 22.66s
+     Running tests/consensus.rs (target/release/deps/consensus-9daa0091e01f507a)
+test result: ok. 112 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 278.38s
+## cargo test --release --locked --test consensus -- --ignored --test-threads=1 (the spec-depth and deep-reorg tests)
+test a11_deep_reorg_restores_the_oldest_detached_transaction ... ok
+test adoption_at_the_spec_depth_2048_and_not_at_2049 ... ok
+test d133_tie_break_at_depth_400_holds_through_eviction_and_refetch ... ok
+test e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 115 filtered out; finished in 332.67s
+real	6m7.856s
+## python3 -B prototypes/pocold/tests/e2e_devnet.py (from the repository root)
+{"result": "PASS", "checks": 44, "elapsed_s": 309, "work": "/tmp/pocol-e2e-d7wget59"}
