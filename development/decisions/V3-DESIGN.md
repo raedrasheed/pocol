@@ -590,11 +590,18 @@ register reverts today and succeeds under v3; the spammer's seat is evictable. *
 
 **Change.**
 - (1) reactivate draws from its own per-block budget R_react (a new CP field), not from R_max.
-- (2) reactivation requires height ≥ exitHeight + max(W_act, U).
+- (2) each identity may reactivate at most once per C_react blocks (a new CP field, C_react ≥ U), counted from
+  its previous reactivation in a new per-record clock. Reactivation itself stays inside today's window, after the
+  W_act cooldown and before the refund sweep erases the record at exitHeight + U
+  (`PoColSystemEarnIn.sol:374-376`, run by beginBlock before user transactions). ParamGate requires
+  U ≥ W_act + 2 so that this window always holds at least one block. (Review fix: an earlier draft required
+  height ≥ exitHeight + U, which is exactly the height at which the sweep erases the record, so a refundable
+  member could never reactivate.)
 - (3) R_max 1 → 4. In continuous mode R_max adds nothing to the A13 identity bound:
   `M_max + R_max·H_END` with H_END=0 (`resources.rs:441`).
 
-**Effect.** To hold the register slot the attacker must now register k new identities per block, each locked
+**Effect.** Reactivations come from their own budget and each identity reactivates at most once per C_react,
+so to hold the register slot the attacker must now register k new identities per block, each locked
 for ≥ U blocks before refund. That needs about R_max·U identities: 4·400·20 = 32,000 PCOL at the V3-18
 recommendation. Zero-bond probation registrations are additionally capped by P_MAX in flight.
 
@@ -620,6 +627,11 @@ hashrate (`chain.rs:592`).
   countPrev), updated in recordShares and recordLate. A global total per epoch is kept as well.
 - `registerContest(reward, victim)` is allowed only when active == M_max. The victim must be live and active,
   past grace, and satisfy `countPrev(victim) < E − 3·sqrt(E)`, where `E = θ·Tprev/active` and θ = 1/8.
+- The victim must also have been active for the whole measured epoch: its registration or last reactivation
+  height must be at or before the first block of the previous epoch. A member that joined during the previous
+  or current epoch cannot be contested, so a zero or partial-day count never makes a productive newcomer a
+  victim. (Review fix: without this, a newcomer past its short grace has countPrev = 0 and could be evicted
+  repeatedly by a persistent contestant.)
 - The victim goes to exiting with a normal refund after U (no burn). Then a normal register follows.
 - V3-02 is a hard prerequisite, so omission cannot manufacture a victim. Each contest is O(1) storage reads.
 - At T_blk=30 and active=256: E = 45 and the threshold is about 25 shares per day.
@@ -633,7 +645,7 @@ hashrate (`chain.rs:592`).
 
 **Deployment:** B (program). **Tests:**
 - full set with victim below threshold → success and refund after U;
-- victim above threshold, in grace, or set not full → revert;
+- victim above threshold, in grace, set not full, or joined after the start of the previous epoch → revert;
 - SimNet eviction rate of honest 0.1–1% members under a persistent prober and an omitting cartel.
 
 **Effort:** M. **Risk:** medium.
@@ -986,7 +998,15 @@ fork; a restart test. **Effort:** S. **Risk:** low.
 - **NODE-LOCAL parts:**
   - a builder flag that includes no user transactions after S, so nothing is voided;
   - publish old-chain data and rebuild instructions;
-  - an Android key-export/migration build signed with the owner's new key.
+  - an Android key-export/migration path. Android installs an update only if it is signed by the installed
+    app's signer or an authorized signing-key lineage (`deploy/standalone/RELEASE-UPGRADE.md:81-105`), so an
+    export build signed only with the owner's new key cannot reach existing wallets. (Review fix.) In order:
+    (1) if the key that signed the installed APKs can be recovered (for a debug-signed build, the debug
+    keystore of the machine that built it), ship the export build signed with it, or with a v3 signing lineage
+    from it to the new key; (2) otherwise, existing users move their funds before S with the installed app's
+    Send action to an address of the new app (new key, new applicationId so both apps can be installed at the
+    same time), and member identities deregister first. The cutover waits until this has been announced for
+    long enough.
 - **Policy part:** owner question O-33.
 
 ### V3-34 Fork machinery and verifier hygiene
