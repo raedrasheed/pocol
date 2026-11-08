@@ -495,6 +495,31 @@ fn send_template(node:&mut pocold::node::Node,peer:pocold::net::PeerId,t:&lp1hdr
     assert_eq!(node.chain.materializations.load(Relaxed),mat+1,"FAIL-ON-ORIGINAL: observe_template materialized the parent a second time");
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR4 step 1b: an imported signed block passed items 2, 3 and 12, so its template is recorded as validated,
+/// not re-derived from the canonical draw as a gossiped one is. Two signed children of a SIDE block S, by
+/// Draw(S,0), which differs from the proposer drawn at that height on the canonical branch: the equivocation
+/// is recorded (it is includable once S's branch carries it). Calling observe_template from import (plan §6
+/// M9) reads the canonical block's `drawn`, records neither and loses it.
+#[test] fn pr4_an_imported_side_branch_equivocation_is_recorded(){
+    let (mut node,dir,_)=retention_node("pr4-import-side");
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    let canon=node.chain.canonical_at(4).unwrap().drawn;
+    // S: a competitor of the canonical block at h=3 whose child's drawn proposer is not the canonical one.
+    let mut a=1u32;let (s,d)=loop{assert!(a<64,"positive control: a side parent with another drawn proposer");
+        let b=fallback(&n,hashes[2],a);a=b.header.a+1;if n.chain.blocks.contains_key(&b.hash()){continue}
+        import(&mut n,&b);let d=n.chain.child_ctx(&n.chain.full_entry(&b.hash()).unwrap(),0).unwrap().proposer;
+        if d!=canon{break (b,d)}};
+    assert!(!node.import(s.clone(),None).unwrap(),"S stays on the side");
+    let lower=n.chain.child_ctx(&n.chain.full_entry(&s.hash()).unwrap(),0).unwrap().window.lower();
+    let b1=signed(&n,s.hash(),Body::default(),0);let b2=signed(&n,s.hash(),Body::default(),b1.header.ts-lower+1);
+    assert_ne!(template_id(&b1.header.ut_raw),template_id(&b2.header.ut_raw),"two templates by Draw(S,0)");
+    assert!(b1.header.proposer[..]==d[..]&&b2.header.proposer[..]==d[..]);
+    for b in [&b1,&b2]{assert!(!node.import(b.clone(),None).unwrap(),"a side block");assert!(node.chain.blocks.contains_key(&b.hash()));}
+    assert_eq!(node.chain.canonical_at(4).unwrap().drawn,canon,"the canonical branch is unchanged");
+    assert_eq!(node.evidence_pool.len(),1,"the imported side-branch equivocation is recorded (lost if import re-derives the draw from the canonical block)");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
 /// PR4 soundness lemma for the hoisted H-pre checks (an oracle, not a regression test): child_pre of a pruned
 /// or slim parent, read before any state is made, equals the child_ctx of the same parent once its state is
 /// rebuilt or restored, at every attempt a fallback search reaches (16).
