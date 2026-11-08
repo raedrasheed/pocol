@@ -569,7 +569,7 @@ impl Node{
         let head_state=chain::StateHandle::of(chain.head());let (meter,pool_code)=pool_start(chain.head(),&chain.spec);
         let net=net::Net::new(cfg.limits.net.clone());
         let signed_a0=load_signed_a0(&cfg.dir); // F7: resume the attempt-0 signing record across restarts
-        let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen.is_some())?;
+        let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let mut node=Self{cfg,chain,net,disc,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
@@ -612,8 +612,8 @@ impl Node{
         // VA-SPEC §1a.6: the address book is read before any connection is accepted or dialed.
         self.disc_load(self.disc_now());
         if let Some(a)=self.cfg.listen{let l=std::net::TcpListener::bind(a).map_err(|e|format!("listen {a}: {e}"))?;
-            // Hello.listenPort (VA-SPEC §1a.1): the port actually bound (an ephemeral one for port 0).
-            self.disc.bound(l.local_addr().map_err(|e|format!("listen {a}: {e}"))?.port());
+            // Hello.listenPort (VA-SPEC §1a.1): the address actually bound (an ephemeral port for port 0).
+            self.disc.bound(l.local_addr().map_err(|e|format!("listen {a}: {e}"))?);
             let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn("listen-fwd",crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::listen(l,ntx,self.net.clone());}
         for a in self.cfg.peers.clone(){let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn(format!("dial-fwd-{a}"),crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
@@ -692,7 +692,7 @@ impl Node{
                 if std::time::Instant::now()>=q.deadline{crate::rpc::COUNTERS.expired.fetch_add(1,std::sync::atomic::Ordering::SeqCst);}
                 else{let r=crate::rpc::answer(self,&q);let _=q.reply.send(r);}
             }
-            Event::Net(NetEvent::Connected(id,peer))=>{self.disc_connected(id,&peer);let hello=self.hello();peer.send(&hello);self.peers.insert(id,peer);}
+            Event::Net(NetEvent::Connected(id,peer))=>{self.disc_connected(id,&peer);let hello=self.hello_to(&peer,self.hello());peer.send(&hello);self.peers.insert(id,peer);}
             Event::Net(NetEvent::Closed(id))=>{self.disc_closed(id,self.disc_now());self.peer_status.remove(&id);if self.session.as_ref().map_or(false,|s|s.peer==id){self.end_session(false);}
                 if let Some(p)=self.peers.remove(&id){self.allow_redial(p.origin);}}
             Event::Net(NetEvent::Message(id,m))=>self.on_msg(id,m),
@@ -705,6 +705,11 @@ impl Node{
     fn allow_redial(&self,origin:net::Origin){if let net::Origin::Configured(a)=origin{if let Ok(mut s)=self.outbound.lock(){s.remove(&a.to_string());}}}
     /// Φ = 2φ from the admitted local parameters (future-timestamp slack).
     fn capital_phi(&self)->u64{u64::from(self.chain.spec.local().capital_phi())}
+    /// `hello` as sent to `p`: without listenPort and nonce when its connection cannot reach the listener
+    /// (`Disc::reaches`, VA-SPEC §1a.1).
+    fn hello_to(&self,p:&Peer,mut hello:Msg)->Msg{
+        if !self.disc.reaches(p.local(),p.remote){if let Msg::Hello{listen_port,nonce,..}=&mut hello{(*listen_port,*nonce)=(0,0);}}hello
+    }
     fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries()),listen_port:self.disc.listen_port(),nonce:self.disc.wire_nonce()}}
     fn broadcast(&self,m:&Msg,except:Option<PeerId>){for (id,p) in &self.peers{if Some(*id)!=except&&self.peer_status.contains_key(id){p.send(m);}}}
 
@@ -790,7 +795,8 @@ impl Node{
             self.log(&format!("head h={} {} signed={} txs={}",self.chain.head().height,&hex(&hash)[..14],self.chain.head().signed,b.body.txs.len()));
             self.on_new_head(detached);
             // Status refresh (network.md:7): peers learn the new head and its cumulative work.
-            let hello=self.hello();self.broadcast(&hello,None);
+            let hello=self.hello();
+            for (id,p) in &self.peers{if self.peer_status.contains_key(id){p.send(&self.hello_to(p,hello.clone()));}}
         }
         // Orphans waiting for this block.
         // A copy whose body does not match its header is only an envelope fault: ask the peers for

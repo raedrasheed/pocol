@@ -115,7 +115,10 @@ counter and `bookSaveErrors`. The automatic-outbound keys (`discovery.outbound`:
 
 **Privacy.** Only a listening node is advertised, and only by its own consent: a
 non-zero `listenPort` in its Hello. A node that does not listen sends `listenPort` 0
-and nonce 0, so nothing in its Hello names it or links it across addresses. An
+and nonce 0, so nothing in its Hello names it or links it across addresses. A node
+listening on loopback (`--listen 127.0.0.1:P`) sends both only to loopback peers, so
+a remote seed it dials does not record its public IP as a listener; one listening on
+a specific address sends them only on connections that use that address. An
 inbound peer is recorded under its connection's source IP, never under an address it
 claims. A peer that dials this node may receive up to 64 addresses that the node
 verified or was advertised within the last 7 days. It receives at most 2 per address

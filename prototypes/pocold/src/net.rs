@@ -270,6 +270,8 @@ impl Peer{
         if q.1+b.len()+4>limit{return Err(true)}
         q.1+=b.len()+4;let mut f=(b.len() as u32).to_be_bytes().to_vec();f.extend(b);q.0.push_back(f);drop(q);self.out.cv.notify_one();Ok(())
     }
+    /// The address of this end of the connection (None if `local_addr` fails).
+    pub fn local(&self)->Option<SocketAddr>{self.sock.local_addr().ok()}
     /// Gossip: never blocks. A peer whose queue is full stops reading; it is dropped.
     pub fn send(&self,m:&Msg)->bool{
         match self.enqueue(m,self.out.max){Ok(())=>true,Err(full)=>{if full{self.counters.dropped_slow.fetch_add(1,Ordering::SeqCst);self.close();}false}}

@@ -2,7 +2,8 @@
 //! node tells its connections apart by `net::Origin`: one it dialed is known by the address it dialed (the outbound set
 //! of `net::dial`, H2), never by the address its socket reports.
 //! - Advertising (VA-SPEC §1a.1, §2): a listening node with discovery on sends its listener's port in Hello.listenPort,
-//!   and every listening node sends its per-process nonce, whatever the setting. A connection's first Hello carrying
+//!   and every listening node sends its per-process nonce, whatever the setting, but only on a connection that can
+//!   reach the listener (`Disc::reaches`): a node listening on loopback that dials a remote seed sends 0 for both. A connection's first Hello carrying
 //!   this node's own nonce is a self-connection: it is closed before any Status is kept and the address dialed for it
 //!   is not dialed again (H1: a seed among its own configured peers held a connection to itself).
 //! - Learning (VA-SPEC §1a.2), from a connection's first compatible Hello only: an inbound connection's source IP with
@@ -79,31 +80,45 @@ pub const LINK_BYTES:usize=std::mem::size_of::<(PeerId,Link)>();
 struct Counters{get_addr_sent:u64,get_addr_answered:u64,get_addr_ignored:u64,get_addr_timeouts:u64,answer_skipped_queue:u64,
     addr_received:u64,addr_unsolicited:u64,addr_accepted:u64,addr_refreshed:u64,addr_dropped:u64,self_ads:u64,self_connections:u64,book_saves:u64,book_save_errors:u64}
 /// The node's discovery state. `listening`: it has a listener (`cfg.listen`), so it sends `nonce` (nonzero, drawn once
-/// per process); `listen_port`: the bound listener's port, read when the network starts with discovery on; `rng`:
+/// per process); `listen_ip`: the listener's IP (canonical), which decides the connections that can reach it;
+/// `listen_port`: the bound listener's port, read when the network starts with discovery on; `rng`:
 /// the book's shuffles (seeded from the OS, or `Discovery::rng_seed`); `links`: each connection's state; `file`: what
 /// the network's start found in the book's file; `loaded`: the network started with discovery on, so the book is saved.
-pub(super) struct Disc{on:bool,allow_local:bool,listening:bool,nonce:u64,listen_port:u16,book:Book,rng:addrbook::Rng,links:HashMap<PeerId,Link>,
+pub(super) struct Disc{on:bool,allow_local:bool,listening:bool,nonce:u64,listen_ip:Option<std::net::IpAddr>,listen_port:u16,book:Book,rng:addrbook::Rng,links:HashMap<PeerId,Link>,
     times:DiscoveryTimes,file:String,loaded:bool,next_tick_ms:u64,next_refresh_ms:u64,next_save_ms:u64,counters:Counters,
     /// Tests: the clock the hooks read (`Node::disc_now`).
     #[cfg(test)] test_now:Option<u64>}
 impl Disc{
-    /// At `Node::open`: the nonce and the generator's seed from the OS (`Err` without OS randomness), and an empty book,
-    /// which reserves its BOOK_MAX entries only with discovery on (the network's start replaces it with the file's).
-    pub(super) fn open(s:&Discovery,listening:bool)->Result<Self,String>{
+    /// At `Node::open`, with the listener's address if any (`cfg.listen`): the nonce and the generator's seed from the
+    /// OS (`Err` without OS randomness), and an empty book, which reserves its BOOK_MAX entries only with discovery on
+    /// (the network's start replaces it with the file's).
+    pub(super) fn open(s:&Discovery,listen:Option<SocketAddr>)->Result<Self,String>{
         let mut r=[0u8;16];getrandom::getrandom(&mut r).map_err(|_|"OS randomness unavailable")?;
         let [nonce,seed]=[0,8].map(|i|u64::from_be_bytes(r[i..i+8].try_into().unwrap()));
         let mut book=if s.enabled{Book::new(s.allow_local)}else{Book::disabled()};book.set_times(s.times.book());
-        Ok(Self{on:s.enabled,allow_local:s.allow_local,listening,nonce:nonce.max(1),listen_port:0,book,rng:addrbook::Rng::new(s.rng_seed.unwrap_or(seed)),
+        Ok(Self{on:s.enabled,allow_local:s.allow_local,listening:listen.is_some(),nonce:nonce.max(1),listen_ip:listen.map(|a|a.ip().to_canonical()),listen_port:0,book,rng:addrbook::Rng::new(s.rng_seed.unwrap_or(seed)),
             links:HashMap::new(),times:s.times,file:"not loaded".into(),loaded:false,next_tick_ms:0,next_refresh_ms:0,next_save_ms:0,counters:Counters::default(),
             #[cfg(test)]test_now:None})
     }
-    /// The network started with this listener port (`start_network`): advertised only with discovery on.
-    pub(super) fn bound(&mut self,port:u16){if self.on{self.listen_port=port}}
+    /// The network started with this listener (`start_network`): its port is advertised only with discovery on.
+    pub(super) fn bound(&mut self,a:SocketAddr){self.listen_ip=Some(a.ip().to_canonical());if self.on{self.listen_port=a.port()}}
     /// Hello.listenPort (VA-SPEC §1a.1): the listener's port with discovery on, else 0.
     pub(super) fn listen_port(&self)->u16{if self.on{self.listen_port}else{0}}
     /// Hello.nonce (VA-SPEC §2): this process's nonce on a listening node, else 0 (a node that does not listen cannot
     /// be dialed by itself, and sends nothing that would link it across addresses).
     pub(super) fn wire_nonce(&self)->u64{if self.listening{self.nonce}else{0}}
+    /// VA-SPEC §1a.1: whether a connection with this socket's `local` and `remote` addresses can reach the listener, so
+    /// that its Hellos may announce it (listenPort with discovery on, and the nonce). A listener on the unspecified
+    /// address is reached through every connection, one on loopback only by a loopback peer, any other only through a
+    /// connection on its own address. Elsewhere the Hellos carry 0 for both: a node listening on 127.0.0.1 that dials a
+    /// seed is not recorded under its public IP as a listener nobody can reach, and sends nothing that links it across
+    /// addresses (it cannot be dialed through that connection's addresses, so no self-connection is missed).
+    pub(super) fn reaches(&self,local:Option<SocketAddr>,remote:Option<SocketAddr>)->bool{reaches(self.listen_ip,local,remote)}
+}
+/// `Disc::reaches` for a listener on `listen` (canonical).
+fn reaches(listen:Option<std::net::IpAddr>,local:Option<SocketAddr>,remote:Option<SocketAddr>)->bool{
+    let Some(ip)=listen else{return false};let canonical=|a:SocketAddr|a.ip().to_canonical();
+    if ip.is_unspecified(){true}else if ip.is_loopback(){remote.is_some_and(|r|canonical(r).is_loopback())}else{local.is_some_and(|l|canonical(l)==ip)}
 }
 
 impl Node{
@@ -423,6 +438,26 @@ mod tests{
         for (id,nonce) in [(1,0),(2,q.disc.nonce)]{let z=SocketAddr::new([81,3,0,id as u8].into(),30300);let _z=connect(&mut q,id,Origin::Configured(z),Some(z));
             greet(&mut q,id,30300,nonce);assert!(q.peer_status.contains_key(&id),"nonce {nonce:#x} is another node's");}
         assert_eq!(q.disc.counters.self_connections,0);
+        drop((n,q));let _=std::fs::remove_dir_all(&dir);let _=std::fs::remove_dir_all(&qdir);
+    }
+    /// VA-SPEC §1a.1: a Hello announces the listener (listenPort, and the nonce) only on a connection that can reach it.
+    /// A node listening on 127.0.0.1 that dials a public seed sends 0 for both, so the seed records no unreachable
+    /// listener under the node's public IP; a loopback peer still gets both, so loopback devnets find each other. A
+    /// listener on the unspecified address is reached through every connection, one on another address only through
+    /// a connection on that address.
+    #[test] fn a_listener_is_announced_only_where_it_can_be_reached(){
+        let (mut n,dir)=open_with("reach",true,Discovery::default());n.disc.listen_port=30300;let ours=n.disc.wire_nonce();
+        let first=|n:&Node,id:PeerId|match n.peers[&id].queued().first(){Some(Msg::Hello{listen_port,nonce,..})=>(*listen_port,*nonce),m=>panic!("{m:?}")};
+        let (public,local)=(sa("81.2.69.9:30300"),sa("127.0.0.1:40000"));
+        let _p=connect(&mut n,1,Origin::Configured(public),Some(public));assert_eq!(first(&n,1),(0,0),"a public seed: no port, no nonce");
+        let _l=connect(&mut n,2,Origin::Configured(local),Some(local));assert_eq!(first(&n,2),(30300,ours),"a loopback peer: both");
+        let _i=connect(&mut n,3,Origin::Inbound,Some(sa("127.0.0.1:51000")));assert_eq!(first(&n,3),(30300,ours));
+        let (l4,l6)=(Some(sa("192.0.2.7:51000")),Some(sa("[2001:db8::7]:51000")));
+        let reaches=|ip:&str,local:Option<SocketAddr>,remote:Option<SocketAddr>|super::reaches(Some(ip.parse().unwrap()),local,remote);
+        assert!(reaches("0.0.0.0",l4,Some(public))&&reaches("::",l6,Some(public)),"the unspecified address: every connection");
+        assert!(!reaches("127.0.0.1",l4,Some(public))&&!reaches("127.0.0.1",Some(local),None)&&reaches("::1",Some(local),Some(sa("[::ffff:127.0.0.1]:40000"))),"loopback: loopback peers only");
+        assert!(reaches("192.0.2.7",l4,Some(public))&&reaches("192.0.2.7",Some(sa("[::ffff:192.0.2.7]:51000")),Some(public))&&!reaches("192.0.2.8",l4,Some(public))&&!reaches("192.0.2.7",None,Some(public)),"another address: its own connections");
+        let (q,qdir)=open("reach-quiet");assert!(!q.disc.reaches(Some(local),Some(local)),"no listener: nothing to reach");
         drop((n,q));let _=std::fs::remove_dir_all(&dir);let _=std::fs::remove_dir_all(&qdir);
     }
     /// Judge 1's adversarial case: a peer this node dialed that replays this node's nonce (it saw it in a Hello) closes

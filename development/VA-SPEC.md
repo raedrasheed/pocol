@@ -47,7 +47,9 @@ Local node policy (`node::Limits::discovery`): it never changes validity, chain 
 GetAddr and Addr are not gossip (NodeLocal.gossip and R15 do not cover them). A malformed frame closes the
 connection (§1); any other discovery fault drops an entry or a message and is counted. No peer is banned.
 1. Advertising. A listening node with discovery on sends its listener's port in `Hello.listenPort` (0
-   otherwise). listenPort and nonce are read from a connection's first Hello only.
+   otherwise). listenPort and the nonce (§2) are sent only on a connection that can reach the listener:
+   every connection for an unspecified bind, a loopback peer's for a loopback bind, otherwise a connection
+   on the bound address; elsewhere both are 0. They are read from a connection's first Hello only.
 2. Learning. (a) An inbound connection's first compatible Hello with listenPort != 0: the address (the
    connection's source IP, listenPort), never another IP, as a self-advertisement. (b) The first compatible
    Hello of a connection this node dialed: the dialed address is verified when listenPort != 0 and forgotten
@@ -102,7 +104,8 @@ connection (§1); any other discovery fault drops an entry or a message and is c
 (`identity::matches_for`); otherwise the peer is closed (wrong network or implementation).
 activeVersion is checked per header (H-pre 1b).
 
-A listening node draws a random nonzero 64-bit nonce per process and sends it in every Hello (others send 0). A
+A listening node draws a random nonzero 64-bit nonce per process and sends it in every Hello on a connection that
+can reach its listener (§1a.1; others send 0). A
 first Hello carrying the receiver's own nonce is a self-connection: it is closed before any Status is kept, and
 an address the receiver dialed for it is not dialed again by that process.
 
