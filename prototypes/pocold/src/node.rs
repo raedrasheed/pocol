@@ -9,7 +9,7 @@ use std::time::{Duration,Instant,SystemTime,UNIX_EPOCH};
 use crate::{hashes,header::Header};
 use pocol_lp4_execution::{apply::ParentResult,txsign::Key,wire,native::{self,NativeBlockContext},user_phase::{self,PoolMeter}};
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
-use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId},store::{self,Journal},types::*};
+use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId,Useful},store::{self,Journal},types::*};
 mod discovery;
 pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES};
 
@@ -298,6 +298,9 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// Gossip (network.md:13,15): signed templates of other proposers this node relayed after locking on
     /// them, valid shares it relayed, and valid new shares it received from peers.
     pub relayed_templates:u64,pub relayed_shares:u64,pub peer_shares:u64,
+    /// Inbound eviction's protection (`Node::credit`, net::Useful order): a peer's first delivery of a new block, a
+    /// template that locked, a transaction that entered the pool at once and a valid new share.
+    pub credits:[u64;4],
     /// D-7: pool revalidation slices run and the longest one (ms); offers to peers of transactions
     /// returned from abandoned blocks, and those a peer's queue had no room for.
     pub pool_slices:u64,pub pool_slice_max_ms:u64,pub reinserted_offered:u64,pub reinserted_unoffered:u64,
@@ -786,6 +789,8 @@ impl Node{
         if self.received.len()>RECEIVED_MAX{let keep=self.chain.head().height.saturating_sub(8);let blocks=&self.chain.blocks;self.received.retain(|h,_|blocks.get(h).map_or(false,|e|e.height>=keep));}
         let old_head=self.chain.head;
         let new_head=self.chain.insert(entry);self.stats.imported+=1;
+        // Only a block new here gets this far (a duplicate, an orphan or an invalid block returned above).
+        if let Some(id)=from{self.credit(id,Useful::Block);}
         // A session's block is protected from the side cap while it is non-canonical (before retain()).
         if solicited&&!self.chain.is_canonical(&hash){self.protect(hash);}
         // A11: the abandoned blocks' journal offsets are taken before retain() may evict them; their
@@ -864,10 +869,12 @@ impl Node{
             None=>self.pool_settle()}}
         self.admit_tx(raw,if relay{Relay::Gossip}else{Relay::No},by)
     }
-    /// A transaction from a peer: admitted now, or queued behind the backlog (D-7) and relayed once
-    /// admitted. A queued one is held within POOL_MAX_BYTES with the pool.
-    fn relay_tx(&mut self,raw:Vec<u8>){
-        if !self.pool_pending(){let _=self.submit_tx(raw,true);return}
+    /// A transaction from peer `from`: admitted now, or queued behind the backlog (D-7) and relayed once
+    /// admitted. A queued one is held within POOL_MAX_BYTES with the pool. Only one admitted now credits `from`
+    /// (`credit`): a duplicate is answered Ok without entering the pool, so the pool must grow; a queued one earns
+    /// nothing, since the backlog does not record its sender (that would change PoolItem's A13 cost).
+    fn relay_tx(&mut self,raw:Vec<u8>,from:PeerId){
+        if !self.pool_pending(){let n=self.pool.txs.len();let _=self.submit_tx(raw,true);if self.pool.txs.len()>n{self.credit(from,Useful::Tx);}return}
         if self.pool.bytes+self.pool.backlog_bytes+raw.len()>POOL_MAX_BYTES{return}
         self.pool.backlog_bytes+=raw.len();self.pool.backlog.push_back(PoolItem::Tx(raw,Relay::Gossip));
     }
@@ -1199,7 +1206,7 @@ impl Node{
         match rebuilt{
             Ok(ut) if ut==shell.ut_raw=>{
                 let m=Msg::Template{shell:shell.encoded.clone(),body:body.encode()};
-                self.lock(shell,body,false);self.relay_template(tid,&m,from);true}
+                self.lock(shell,body,false);self.credit(from,Useful::Template);self.relay_template(tid,&m,from);true}
             Ok(_)=>self.punish_template(from,"its rebuild differs"),
             Err(e)=>self.template_error(from,"its rebuild fails",e),
         }
@@ -1228,6 +1235,9 @@ impl Node{
         if !self.mark_relayed(tid){return}
         self.broadcast(m,Some(from));self.stats.relayed_templates+=1;
     }
+    /// Records that peer `id` delivered something of kind `u` first (inbound eviction protects the latest deliverers of
+    /// each kind, net::Net::establish), and counts it (`Stats::credits`). A peer already gone earns nothing.
+    fn credit(&mut self,id:PeerId,u:Useful){if let Some(p)=self.peers.get(&id){p.credit(u);self.stats.credits[u as usize]+=1;}}
     fn punish_template(&mut self,from:PeerId,why:&str)->bool{
         self.stats.template_penalties+=1;self.log(&format!("invalid template from Draw(h,0) ({why}): closing its peer"));
         if let Some(p)=self.peers.get(&from){p.close();}
@@ -1403,7 +1413,7 @@ impl Node{
                     if tid!=l.tid||(nonce as u128)>=l.ctx.assignment.nonce_max()||pr.shares.contains(&nonce){return}
                     if !le_target(&pow_hash(&tid,nonce),&l.ctx.t_share){return}
                     pr.shares.insert(nonce);pr.shares.len()<=relay_max};
-                self.stats.shares_seen+=1;self.stats.peer_shares+=1;
+                self.stats.shares_seen+=1;self.stats.peer_shares+=1;self.credit(from,Useful::Share);
                 // Gossip (network.md:15): a valid new share for the locked template goes to every other
                 // peer, never back to its sender; a duplicate or an invalid one was dropped above. Without it
                 // a share reaches only its miner's neighbours, and a winner elsewhere cannot credit it.
@@ -1422,7 +1432,7 @@ impl Node{
                 // Responses stop when the peer's queue is half full (offer); the peer asks again.
                 for hgt in start..start.saturating_add(count.min(512)){match self.chain.canonical_at(hgt).filter(|e|e.height>0).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
             }
-            Msg::Tx{raw}=>self.relay_tx(raw),
+            Msg::Tx{raw}=>self.relay_tx(raw,from),
             // Peer discovery (VA-SPEC §1a.2, §1a.5): answers to inbound peers, and what this node asked for.
             Msg::GetAddr=>self.disc_getaddr(from,self.disc_now()),
             Msg::Addr{addrs}=>self.disc_addr(from,addrs,self.disc_now()),
@@ -1537,6 +1547,9 @@ impl Node{
         {let c=&self.net.counters;let n=|a:&std::sync::atomic::AtomicUsize|serde_json::json!(a.load(std::sync::atomic::Ordering::SeqCst));
             status["stats"]["inboundEvicted"]=n(&c.evicted);status["stats"]["inboundEvictedInGroup"]=n(&c.evicted_in_group);
             status["stats"]["inboundRefusedFull"]=n(&c.refused_full);status["stats"]["inboundRefusedRate"]=n(&c.refused_rate);}
+        // What peers delivered first (`Node::credit`), per kind.
+        for (k,u) in ["creditsBlock","creditsTemplate","creditsTx","creditsShare"].into_iter().zip([Useful::Block,Useful::Template,Useful::Tx,Useful::Share]){
+            status["stats"][k]=serde_json::json!(self.stats.credits[u as usize]);}
         status["inboundEstablished"]=serde_json::json!(self.net.established());
         status["inboundMax"]=serde_json::json!(self.net.limits.peers_max);
         // Peer discovery (VA-SPEC §1a): the live connections this node dialed, and discovery's state.

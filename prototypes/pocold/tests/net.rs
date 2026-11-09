@@ -388,6 +388,21 @@ fn newcomer(r:&Running,tag:&str)->Option<TcpStream>{
     assert_eq!(evict_stat(&r,"inboundEvicted"),1);assert_eq!(status(&r)["inboundEstablished"],6);
     stop.store(true,Ordering::SeqCst);let _=busy.join();
 }
+/// N2: a peer whose transaction entered the pool is credited (`Useful::Tx`) and kept among the latest deliverers when a
+/// newcomer evicts: a1 wins the lottery, a6 delivered the transaction, a2 and a3 are the older half of the other four,
+/// so a5 goes instead of a6, the youngest.
+#[test] fn a_peer_that_delivered_a_new_transaction_is_kept_when_inbound_is_full(){let _g=serial();
+    let r=start("evict-tx",small());let mut a=established(&r,6,"a");
+    let alice=devnet::account_key("alice");
+    let tx=Tx{chain_id:r.chain_id,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(10_000_000_000u64),gas:21_000,to:Some(alice.address()),value:U256::ZERO,data:vec![].into()}.sign_1559(&alice);
+    a[5].write_all(&frame(&Msg::Tx{raw:tx})).unwrap();
+    assert!(wait_until(2000,||status(&r)["pool"]==1),"a6's transaction is pooled");assert_eq!(evict_stat(&r,"creditsTx"),1);
+    let mut n=connect(&r);n.write_all(&hello(&r,"newcomer")).unwrap();
+    assert!(matches!(read_msg(&mut n),Some(Msg::Hello{..})),"the newcomer is answered");
+    a[4].set_read_timeout(Some(Duration::from_millis(1000))).unwrap();assert!(closed(&mut a[4]),"a5 reaches the end of its stream within 1 s");
+    assert!(a[..4].iter_mut().all(open)&&open(&mut a[5])&&open(&mut n),"a1..a4, a6 and the newcomer stay");
+    assert_eq!(evict_stat(&r,"inboundEvicted"),1);
+}
 /// N3 (attack finding A3): a configured address exempts only as many inbound connections as it has configured peers.
 /// Two configured peers at 127.0.0.1: of six established loopback connections the first two are exempt and never
 /// evicted; the newcomers are not exempt, so they evict ordinary connections and never exceed the cap.
