@@ -326,6 +326,15 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
 pub struct OpenTiming{pub journal_ms:u64,pub history_open_ms:u64,pub store_open_ms:u64,pub release_ms:u64,pub checkpoints_ms:u64,pub reset_pins_ms:u64,pub restore_ms:u64,
     pub replay_ms:u64,pub replay_records:u64,pub replay_validate_ms:u64,pub replay_history_ms:u64,pub replay_retain_ms:u64,pub replay_checkpoint_ms:u64,pub total_ms:u64}
 fn ms(t:Instant)->u64{t.elapsed().as_millis() as u64}
+/// The process's task limit: pids.max of its cgroup v2 (the `0::<path>` line of /proc/self/cgroup under
+/// /sys/fs/cgroup, which systemd sets from TasksMax). None when either file cannot be read (another OS, cgroup v1, the
+/// root cgroup, which has no pids.max).
+fn pids_max()->Option<String>{
+    if !cfg!(target_os="linux"){return None}
+    let cg=std::fs::read_to_string("/proc/self/cgroup").ok()?;
+    let path=cg.lines().find_map(|l|l.strip_prefix("0::"))?.trim().trim_end_matches('/');
+    std::fs::read_to_string(format!("/sys/fs/cgroup{path}/pids.max")).ok()
+}
 
 fn orphan_size(b:&Block)->usize{b.header.encoded.len()+b.body.txs.iter().chain(b.body.evidence.iter()).map(|x|x.len()).sum::<usize>()}
 fn result_bytes(r:&Option<ParentResult>)->Vec<u8>{
@@ -614,6 +623,12 @@ impl Node{
     fn fatal(&self,why:&str)->!{eprintln!("[{}] FATAL local storage: {why}",self.cfg.name);std::process::exit(70)}
 
     pub fn start_network(&mut self)->Result<(),String>{
+        // R2 (PR3): the service must hold the whole A13 thread inventory, or a thread spawn would fail while the node
+        // runs (a miner's is not fatal, a peer's closes it); a task limit that cannot be read is not checked.
+        if let Some(m)=pids_max(){
+            let need=crate::resources::tasks_needed(&self.cfg.limits.net,self.cfg.peers.len(),self.cfg.limits.rpc.conn_max).unwrap_or(u128::MAX);
+            crate::resources::tasks_fit(need,&m)?;
+        }
         // The configured peers (for example the other seeds, which also dial this node) are never refused
         // for sharing a public address group with each other (net::Limits::per_group_max), and as many inbound
         // connections from an address as it has configured peers are never evicted: every configured address is
@@ -1174,7 +1189,8 @@ impl Node{
             // into the new header: they do not meet its share target, and its block would be invalid (item 9).
             if !matches!(&pr.mode,Mode::Locked(l) if l.tid==tid){pr.shares.clear();pr.solved=false;}
         }
-        let miner=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address())).map(|(s,e)|
+        // A miner that cannot be spawned (the task limit reached) leaves this node idle for the template, not stopped.
+        let miner=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address())).and_then(|(s,e)|
             miner::start(tid,s,e,ctx.target,ctx.t_share,usize::from(self.chain.spec.cp().S_max),self.miner_tx.clone()));
         if let Some(pr)=&mut self.prod{pr.mode=Mode::Locked(Box::new(Locked{header,body,tid,ctx,fallback}));pr.miner=miner;}
     }

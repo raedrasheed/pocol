@@ -26,9 +26,11 @@ fn advance_progress(hashes:&mut u64,stop_check:&mut u16){
     *stop_check=(*stop_check+1)&4095;
 }
 
-pub fn start(tid:[u8;32],start:u64,end:u64,target:Fixed,t_share:Fixed,max_shares:usize,events:Sender<MinerEvent>)->MinerHandle{
+/// Starts the miner on its own thread. None, logged, when the thread cannot be spawned (the service's task limit
+/// reached, R2): the node stays up without a miner for this template (it called this on the consensus thread, which a
+/// panic here would stop).
+pub fn start(tid:[u8;32],start:u64,end:u64,target:Fixed,t_share:Fixed,max_shares:usize,events:Sender<MinerEvent>)->Option<MinerHandle>{
     let stop=Arc::new(AtomicBool::new(false));let flag=stop.clone();
-    PEAK.fetch_max(LIVE.fetch_add(1,Ordering::SeqCst)+1,Ordering::SeqCst);STARTS.fetch_add(1,Ordering::SeqCst);
     let thread=crate::threads::spawn("miner",crate::threads::IO_STACK,move||{
         let mut n=start;let mut hashes=0u64;let mut shares=0usize;let mut stop_check=0u16;
         loop{
@@ -42,8 +44,11 @@ pub fn start(tid:[u8;32],start:u64,end:u64,target:Fixed,t_share:Fixed,max_shares
             if n==end{let _=events.send(MinerEvent::Exhausted{tid,hashes});return}
             n+=1;
         }
-    }).expect("spawn miner");
-    MinerHandle{stop,tid,thread:Some(thread)}
+    });
+    let thread=match thread{Ok(t)=>t,Err(e)=>{eprintln!("miner: spawn failed: {e}; no miner for this template");return None}};
+    // Counted once the thread exists: only a handle's Drop gives LIVE back.
+    PEAK.fetch_max(LIVE.fetch_add(1,Ordering::SeqCst)+1,Ordering::SeqCst);STARTS.fetch_add(1,Ordering::SeqCst);
+    Some(MinerHandle{stop,tid,thread:Some(thread)})
 }
 
 #[cfg(test)]

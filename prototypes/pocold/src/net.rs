@@ -3,7 +3,7 @@
 //! or a wrong network identity close the connection; they never touch block state.
 //!
 //! Resource bounds (A05, local and not consensus; `Limits`):
-//! - at most `peers_max` established inbound connections (their Hello accepted, `Net::establish`) and, counted
+//! - at most `peers_max` (default 32) established inbound connections (their Hello accepted, `Net::establish`) and, counted
 //!   apart, at most `handshaking_max` still waiting for their Hello, so at most `inbound_max` (their sum) inbound
 //!   connections exist at once; excess connections are closed on accept, before any thread is spawned. Outbound
 //!   connections are separate (one per configured peer, `dial`; each carries the address it was dialed at, its
@@ -55,6 +55,7 @@ pub const NODE_NAME_MAX:usize=64;
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct Limits{
     /// Established inbound connections (their Hello accepted, `Net::establish`); past it a newcomer evicts or is closed.
+    /// Default 32; `pocold run --peers-max N`, or POCOL_PEERS_MAX (1..=PEERS_MAX_LIMIT).
     pub peers_max:usize,
     /// Inbound connections still waiting for their Hello, counted apart from `peers_max` (`inbound_max`).
     pub handshaking_max:usize,
@@ -67,15 +68,27 @@ pub struct Limits{
     pub evict:EvictLimits,
 }
 impl Default for Limits{
-    // D-A13-BUDGET: peers_max 32 -> 8 inbound (network.md: <= 50 peers); a devnet node has two.
-    // per_group_max 4: a public /16 (IPv4) or /32 (IPv6) holds at most 4 inbound places.
-    fn default()->Self{Self{peers_max:8,handshaking_max:8,per_group_max:4,hello_deadline:Duration::from_secs(5),frame_deadline:Duration::from_secs(30),
+    // PR3: 32 established inbound, 8 waiting for a Hello (A13 3.42 MB per place); a public /16 or /32 holds at most 4.
+    // (D-A13-BUDGET had cut peers_max 32 -> 8 while every place, a handshake's included, counted in it; network.md:
+    // <= 50 peers by default: 32 + 8 inbound and at most 7 outbound.)
+    fn default()->Self{Self{peers_max:32,handshaking_max:8,per_group_max:4,hello_deadline:Duration::from_secs(5),frame_deadline:Duration::from_secs(30),
         idle_deadline:Duration::from_secs(300),queue_bytes_max:2*1024*1024,write_deadline:Duration::from_secs(10),evict:EvictLimits::default()}}
 }
 impl Limits{
     /// The physical inbound bound: the established places and the places waiting for a Hello (`Net::admit`, `listen`).
     /// A13 counts every one of them.
     pub fn inbound_max(&self)->usize{self.peers_max.saturating_add(self.handshaking_max)}
+}
+/// The largest `peers_max` an operator may set (`--peers-max`, POCOL_PEERS_MAX): A13 counts every place at about 3.73
+/// MiB of budget, and the thread inventory (`resources::tasks_needed`: 2·inbound_max + 4·dials + 40 tasks with 32 RPC
+/// connections) is 340 at 128 with 7 peers, within the 512 tasks a seed's unit allows (`Node::start_network` refuses to
+/// boot past the service's pids.max, `resources::tasks_fit`).
+pub const PEERS_MAX_LIMIT:usize=128;
+/// `--peers-max N` / POCOL_PEERS_MAX: a decimal integer in 1..=PEERS_MAX_LIMIT, surrounding white space ignored. 0 is
+/// refused: a node that listens with no established place would evict at every Hello or refuse every peer.
+pub fn parse_peers_max(s:&str)->Result<usize,String>{
+    let n:usize=s.trim().parse().map_err(|e|format!("{e}"))?;
+    if !(1..=PEERS_MAX_LIMIT).contains(&n){return Err(format!("must be 1..={PEERS_MAX_LIMIT}"))}Ok(n)
 }
 /// Inbound eviction's grace and budget (local policy, `Net::establish`, VA-SPEC §1b):
 /// - `grace`: a peer established less than this ago is never a victim, so a flood of newcomers cannot evict the
@@ -872,6 +885,7 @@ mod tests{
     /// listener reports IPv4 as ::ffff:a.b.c.d); per_group_max 0 disables it.
     #[test] fn a_public_group_holds_at_most_per_group_max_inbound_places(){
         let d=Limits::default();assert_eq!(d.per_group_max,4,"by default one group holds at most 4 inbound places");
+        assert_eq!((d.peers_max,d.handshaking_max,d.per_group_max),(32,8,4),"32 established, 8 waiting for a Hello, 4 per group");
         assert_eq!(d.inbound_max(),d.peers_max+d.handshaking_max,"the physical bound counts the places waiting for a Hello apart");
         let net=Net::new(Limits{peers_max:8,handshaking_max:8,per_group_max:3,..Limits::default()});
         let (ga,gb)=(group_of("81.2.69.1".parse().unwrap()),group_of("81.3.1.1".parse().unwrap()));

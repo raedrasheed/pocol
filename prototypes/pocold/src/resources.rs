@@ -92,6 +92,18 @@ const _:()=assert!(size_of::<(net::PeerId,net::Peer)>()<=node::PEER_ENTRY_BYTES&
 /// acceptor, the P2P listener and each dialer join a finished thread before its place is used
 /// again (threads::reap), and a reader joins its writer.
 pub fn io_threads(inbound:usize,dials:usize,conn_max:usize)->Option<u128>{add(&[mul(2,inbound as u128)?,mul(4,dials as u128)?,conn_max as u128,6])}
+/// The tasks the A13 thread inventory needs at its peak: the I/O threads (`io_threads` at every physical inbound place,
+/// `net::Limits::inbound_max`) and the consensus and main threads. 128 at the defaults (32 + 8 inbound, 2 configured
+/// peers, 32 RPC connections), 340 at PEERS_MAX_LIMIT with 7 configured peers.
+pub fn tasks_needed(l:&net::Limits,dials:usize,conn_max:usize)->Option<u128>{io_threads(l.inbound_max(),dials,conn_max)?.checked_add(2)}
+/// Boot check against the service's task limit (systemd TasksMax, the cgroup's pids.max, read by `Node::start_network`):
+/// a node whose thread inventory does not fit would fail a thread spawn while it runs, so it refuses to start. "max",
+/// or a value that does not parse, counts as no limit.
+pub fn tasks_fit(need:u128,pids_max:&str)->Result<(),String>{
+    match pids_max.trim().parse::<u128>(){
+        Ok(m) if need>m=>Err(format!("the A13 thread inventory needs {need} tasks; this service allows {m} (raise TasksMax or lower --peers-max)")),
+        _=>Ok(())}
+}
 /// Smallest valid transaction encoding (a signed legacy transfer exceeds it).
 pub const MIN_TX_BYTES:u128=85;
 /// Intrinsic gas of every transaction. A block's transactions reserve their gas limits against
@@ -617,4 +629,19 @@ pub fn check(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:us
     let need=budget_required(b.total).ok_or_else(||"A13 memory bound: arithmetic overflow".to_string())?;
     if need>u128::from(limits.mem_budget){return Err(format!("A13 memory bound {} B with its 1/8 reserve needs {need} B, which exceeds the node memory budget {} B ({b:?})",b.total,limits.mem_budget))}
     Ok(b)
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    /// U11: only a numeric pids.max limits the node, and it must hold the whole inventory: "max", an empty or unreadable
+    /// value is no limit; 127 against 128 refuses with the counts and the remedy; the defaults need 128 tasks.
+    #[test] fn tasks_fit_reads_pids_max(){
+        for v in ["max","max\n","","garbage","-1"]{assert_eq!(tasks_fit(128,v),Ok(()),"{v:?} is no limit");}
+        assert_eq!(tasks_fit(128,"128\n"),Ok(()));
+        let e=tasks_fit(128,"127").unwrap_err();
+        assert_eq!(e,"the A13 thread inventory needs 128 tasks; this service allows 127 (raise TasksMax or lower --peers-max)");
+        assert_eq!(tasks_needed(&net::Limits::default(),2,32),Some(128),"the defaults at 2 configured peers");
+        assert_eq!(tasks_needed(&net::Limits{peers_max:net::PEERS_MAX_LIMIT,..Default::default()},7,32),Some(340),"the largest setting at 7");
+    }
 }

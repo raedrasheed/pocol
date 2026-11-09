@@ -19,7 +19,7 @@ fn main(){
         Ok(Ok(code))=>code,Ok(Err(_))=>101,Err(e)=>{eprintln!("error: spawn consensus thread: {e}");1}};
     std::process::exit(code);
 }
-const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--per-group-max N] (--state-store is experimental; open a data directory in the mode it was made in; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
+const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--peers-max N] [--per-group-max N] (--state-store is experimental; open a data directory in the mode it was made in; --peers-max: established inbound peers, default 32, 1..128; run also reads POCOL_PEERS_MAX; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
 /// Runs one command and returns the process exit status. `help` (also `--help`, `-h`) prints the
 /// usage on stdout and exits 0. No command, or a command this build does not have, prints the
 /// usage on stderr and exits 2, so a script never takes a command that did not run for success.
@@ -45,9 +45,12 @@ fn command(args:&[String])->i32{
 /// - `--state-store` (C-1 E4, experimental: states kept as trie versions in state.redb; the default stays
 ///   whole-state until store mode is accepted). A data directory must be opened in the mode it was made in;
 ///   `--checkpoint-every N` sets store mode's checkpoint interval in journal records (0: none);
-/// - `--per-group-max N` (local P2P policy, `net::Limits::per_group_max`, default 4, half of the inbound
-///   slots): the inbound connections one public address group (IPv4 /16, IPv6 /32) may hold; 0 turns
-///   grouping off. `run` also reads POCOL_PER_GROUP_MAX when the flag is absent (`p2p_env`);
+/// - `--peers-max N` (local P2P policy, `net::Limits::peers_max`, default 32, 1..=PEERS_MAX_LIMIT): the established
+///   inbound peers; past it a newcomer evicts one or is closed. A13 counts every place, so a larger value needs a
+///   larger memory budget and task limit. `run` also reads POCOL_PEERS_MAX when the flag is absent (`p2p_env`);
+/// - `--per-group-max N` (local P2P policy, `net::Limits::per_group_max`, default 4): the inbound connections one
+///   public address group (IPv4 /16, IPv6 /32) may hold, plus one spare place that must evict within the group; 0
+///   turns grouping off. `run` also reads POCOL_PER_GROUP_MAX when the flag is absent (`p2p_env`);
 /// - `--no-discovery` and `--discover-local` (VA-SPEC §1a, local policy, `node::Limits::discovery`): peer discovery
 ///   off (the escape hatch: no listenPort, GetAddr, answers or address book), and local mode on (loopback and
 ///   private addresses learned from peers that have them). `run` also reads POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL
@@ -55,6 +58,7 @@ fn command(args:&[String])->i32{
 fn limits(args:&[String])->Result<node::Limits,String>{
     let mut l=node::Limits::default();
     if let Some(g)=arg(args,"--pool-gas-max"){l.pool_gas_max=Some(g.parse().map_err(|e|format!("--pool-gas-max {g}: {e}"))?);}
+    if let Some(v)=arg(args,"--peers-max"){l.net.peers_max=pocold::net::parse_peers_max(&v).map_err(|e|format!("--peers-max {v}: {e}"))?;}
     if let Some(v)=arg(args,"--per-group-max"){l.net.per_group_max=v.parse().map_err(|e|format!("--per-group-max {v}: {e}"))?;}
     l.discovery.enabled=!flag(args,"--no-discovery");l.discovery.allow_local=flag(args,"--discover-local");
     l.state_store=args.iter().any(|a|a=="--state-store");
@@ -101,9 +105,14 @@ fn init(args:&[String])->Result<(),String>{
     println!("{}",serde_json::to_string_pretty(&info).unwrap());Ok(())
 }
 /// Local P2P settings a service may give in its environment instead of its command line (only `run` opens
-/// the network): POCOL_PER_GROUP_MAX when `--per-group-max` is absent, and POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL
+/// the network): POCOL_PEERS_MAX and POCOL_PER_GROUP_MAX when `--peers-max` and `--per-group-max` are absent, and POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL
 /// when `--no-discovery` and `--discover-local` are (`Discovery::env`). An empty value counts as unset.
 fn p2p_env(args:&[String],l:&mut node::Limits)->Result<(),String>{
+    if arg(args,"--peers-max").is_none(){
+        if let Some(v)=std::env::var("POCOL_PEERS_MAX").ok().filter(|v|!v.trim().is_empty()){
+            l.net.peers_max=pocold::net::parse_peers_max(&v).map_err(|e|format!("POCOL_PEERS_MAX {v}: {e}"))?;
+        }
+    }
     if arg(args,"--per-group-max").is_none(){
         if let Some(v)=std::env::var("POCOL_PER_GROUP_MAX").ok().filter(|v|!v.trim().is_empty()){
             l.net.per_group_max=v.trim().parse().map_err(|e|format!("POCOL_PER_GROUP_MAX {v}: {e}"))?;

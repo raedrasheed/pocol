@@ -267,12 +267,23 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         let mut lo=hi/2;while hi-lo>1{let mid=lo+(hi-lo)/2;if passes(peers_max,dials,mid){lo=mid}else{hi=mid}}lo
     };
     let mut got=Vec::new();
-    for (p,d) in [(8usize,2usize),(8,7)]{let r=halt(p,d);got.push(r);
+    for (p,d) in [(8usize,2usize),(8,7),(32,2),(32,7),(64,2),(64,7)]{let r=halt(p,d);got.push(r);
         println!("A13-LIVE-HALT {}",serde_json::json!({"peersMax":p,"dials":d,"records":r,"days":r as f64/8640.0}));}
     // At main b83b584: 1,170,090 and 1,145,444 records (135.4 and 132.6 days). PR3 R10, the node's per-connection maps:
     // 1,169,815 and 1,144,973 (-275, -471). PR3 inbound eviction, every physical inbound place counted (8 established and
     // 8 waiting for a Hello) and the eviction registry: 1,159,059 and 1,134,438 (-10,756, -10,535).
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(got,[1_159_059,1_134_438],"the live chain's halt moved (record it in the PR)");}
+    // PR3 commit 5, the default of 32 established (40 places): 1,127,267 at 2 dials and 1,102,420 at 7 (130.5 and 127.6
+    // days; -42,548 and -42,553 against R10's (8, d) halts, within the week of records, 60,480, the plan's rule allows).
+    // A seed at 64 established: 1,084,727 at 2 dials and 1,059,880 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
+    // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){
+        assert_eq!(got,[1_159_059,1_134_438,1_127_267,1_102_420,1_084_727,1_059_880],"the live chain's halt moved (record it in the PR)");
+        // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
+        // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
+        const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_815,1_144_973];
+        assert!(R10[0]-got[2]<=WEEK,"the default of 32 moves the halt by more than a week: ask the owner");
+        assert!(R10[1]-got[5]>WEEK,"a seed at 64 now moves the halt by at most a week: the seeds may take POCOL_PEERS_MAX=64 (deploy/public-testnet/prepare.py)");
+    }
 }
 
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and

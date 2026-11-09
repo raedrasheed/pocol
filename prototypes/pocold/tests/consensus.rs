@@ -1322,10 +1322,11 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // +645,190 B, -> 3,244,581,859 B; PR3 inbound eviction: every physical inbound place, inbound_max = peers_max +
     // handshaking_max (8 more places at 3,421,500 B: queue and frames, two threads, an exiting one, links and a group
     // entry), the maps' 8 more high entries, and the eviction registry (16 × 192 + 245 × 64 + 2,048 + 1,024),
-    // +27,415,568 B, -> 3,271,997,427 B). Some terms are type
+    // +27,415,568 B, -> 3,271,997,427 B; PR3 commit 5: 32 established inbound by default, 24 more places at 3,421,500 B,
+    // the maps' 24 more high entries at 2,718 B and the registry's at 192 + 64 B, +82,187,376 B, -> 3,354,184,803 B). Some terms are type
     // sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on; every
     // target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_271_997_427,"the A13 model total changed");}
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_354_184_803,"the A13 model total changed");}
     // R6 churn correction: eviction=3982768, protect delta=1967104,
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);

@@ -287,15 +287,15 @@ fn persisted_checkpoint_reopens_across_activation_and_refuses_rewriting_history(
 #[test]
 fn miner_handles_the_maximum_nonce_and_full_range_cancellation() {
     let (send, receive) = mpsc::channel();
-    let handle = miner::start([11; 32], u64::MAX, u64::MAX, Fixed::MAX, Fixed::MAX, 256, send);
+    let handle = miner::start([11; 32], u64::MAX, u64::MAX, Fixed::MAX, Fixed::MAX, 256, send).expect("spawn miner");
     assert!(matches!(receive.recv_timeout(Duration::from_secs(2)).unwrap(), MinerEvent::Solution { nonce: u64::MAX, .. }));
     drop(handle);
     let (send, receive) = mpsc::channel();
-    let handle = miner::start([12; 32], u64::MAX, u64::MAX, Fixed::ZERO, Fixed::ZERO, 0, send);
+    let handle = miner::start([12; 32], u64::MAX, u64::MAX, Fixed::ZERO, Fixed::ZERO, 0, send).expect("spawn miner");
     assert!(matches!(receive.recv_timeout(Duration::from_secs(2)).unwrap(), MinerEvent::Exhausted { hashes: 1, .. }));
     drop(handle);
     let (send, receive) = mpsc::channel();
-    let handle = miner::start([13; 32], 0, u64::MAX, Fixed::ZERO, Fixed::ZERO, 0, send);
+    let handle = miner::start([13; 32], 0, u64::MAX, Fixed::ZERO, Fixed::ZERO, 0, send).expect("spawn miner");
     handle.stop();
     assert!(matches!(receive.recv_timeout(Duration::from_secs(2)), Err(mpsc::RecvTimeoutError::Disconnected)));
     drop(handle);

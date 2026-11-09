@@ -127,6 +127,18 @@ class Operations(unittest.TestCase):
                     'https://user:password@example.test', 'https://example.test/redirect', 'https://example.test/?key=secret'):
             with self.subTest(url=url), self.assertRaises(ValueError): monitor.rpc(url, 'pocol_status')
 
+    def test_service_units_hold_the_thread_inventory_at_the_default_inbound_settings(self):
+        # PR3: 512 tasks hold pocold's thread inventory up to --peers-max 128 with 7 peers (340); seeds stay at the
+        # default 32 established inbound (the live-chain halt rule), so neither a seed's nor a joining node's unit sets
+        # the inbound settings.
+        seed = inventory()['nodes'][0]
+        join = dict(seed, seeds=['127.0.0.8:30300'])
+        for name, node in (('seed', seed), ('join', join)):
+            unit = prepare.service(node)
+            with self.subTest(name):
+                self.assertEqual([l for l in unit.splitlines() if l.startswith('TasksMax=')], ['TasksMax=512'])
+                self.assertNotIn('POCOL_PEERS_MAX', unit); self.assertNotIn('POCOL_PER_GROUP_MAX', unit)
+
     def test_duplicate_json_keys_are_refused(self):
         path = self.root / 'bad.json'; path.write_text('{"chainId":1,"chainId":2}')
         with self.assertRaises(ValueError): op.read_json(path)
