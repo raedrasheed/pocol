@@ -676,24 +676,49 @@ pub fn listen(listener:TcpListener,events:SyncSender<NetEvent>,net:Net){
         }
     }).expect("spawn listener");
 }
-/// Keeps an outbound connection to `addr`, reconnecting after loss. The node
+/// The dialer's poll, and its redial delay after a connection that lasted (`redial_delay`).
+pub const DIAL_RETRY:Duration=Duration::from_millis(300);
+/// A connection that lasted at least this long resets the redial delay to DIAL_RETRY.
+pub const DIAL_STABLE:Duration=Duration::from_secs(60);
+/// The longest redial delay.
+pub const DIAL_BACKOFF_MAX:Duration=Duration::from_secs(30);
+/// The wait before a configured peer is dialed again, from the previous wait and how long the last connection lasted:
+/// - `None` (the connect failed, or the connection was not handed to the node): the previous wait;
+/// - at least DIAL_STABLE: DIAL_RETRY;
+/// - shorter: twice the previous wait, at most DIAL_BACKOFF_MAX.
+///
+/// So a peer that closes at once (a full node that evicts or refuses this one, inbound eviction) is redialed after 0.6 s,
+/// 1.2 s, ... 30 s, not every 300 ms, and the evictions a redial would cause there settle down; a stable peer that is
+/// lost is redialed at once.
+pub fn redial_delay(prev:Duration,lasted:Option<Duration>)->Duration{
+    match lasted{None=>prev,Some(l) if l>=DIAL_STABLE=>DIAL_RETRY,Some(_)=>prev.saturating_mul(2).min(DIAL_BACKOFF_MAX)}
+}
+/// Keeps an outbound connection to `addr`, reconnecting after loss with `redial_delay`'s backoff. The node
 /// maintains `connected` from Connected/Closed events (outbound peer addresses).
 pub fn dial(addr:SocketAddr,events:SyncSender<NetEvent>,connected:Arc<Mutex<std::collections::HashSet<String>>>,net:Net){
     crate::threads::spawn(format!("dial-{addr}"),crate::threads::IO_STACK,move||{
         let mut reader:Option<std::thread::JoinHandle<()>>=None;
+        // `since`: when the live connection was handed to the node; `next`: the earliest time to dial again.
+        let (mut since,mut delay,mut next):(Option<Instant>,Duration,Instant)=(None,DIAL_RETRY,Instant::now());
         loop{
             let live=connected.lock().map(|s|s.contains(&addr.to_string())).unwrap_or(false);
             if !live{
                 // The node has seen Closed, which the previous reader sends just before it ends.
                 if let Some(h)=reader.take(){let _=h.join();}
-                if let Ok(s)=TcpStream::connect_timeout(&addr,Duration::from_millis(500)){
-                    if let Ok(mut set)=connected.lock(){set.insert(addr.to_string());}
-                    // Not handed to the node (no Closed will follow): dial again later.
-                    let (handed,h)=spawn_peer(s,Origin::Configured(addr),events.clone(),net.clone(),None,false);reader=h;
-                    if !handed{if let Ok(mut set)=connected.lock(){set.remove(&addr.to_string());}}
+                if let Some(t)=since.take(){delay=redial_delay(delay,Some(t.elapsed()));next=Instant::now()+delay;}
+                if Instant::now()>=next{
+                    let handed=match TcpStream::connect_timeout(&addr,Duration::from_millis(500)){
+                        Ok(s)=>{
+                            if let Ok(mut set)=connected.lock(){set.insert(addr.to_string());}
+                            // Not handed to the node (no Closed will follow): dial again later.
+                            let (handed,h)=spawn_peer(s,Origin::Configured(addr),events.clone(),net.clone(),None,false);reader=h;
+                            if !handed{if let Ok(mut set)=connected.lock(){set.remove(&addr.to_string());}}
+                            handed}
+                        Err(_)=>false};
+                    if handed{since=Some(Instant::now());}else{delay=redial_delay(delay,None);next=Instant::now()+delay;}
                 }
             }
-            std::thread::sleep(Duration::from_millis(300));
+            std::thread::sleep(DIAL_RETRY);
         }
     }).expect("spawn dialer");
 }
@@ -1218,5 +1243,17 @@ mod tests{
         assert!(std::thread::spawn(move||{let _held=release;panic!("a reader bug")}).join().is_err());
         let load=|a:&AtomicUsize|a.load(Ordering::SeqCst);
         assert_eq!((load(&c.live),load(&c.handshaking),c.groups.lock().unwrap().get(&G).copied(),net.registry().slots.len()),(0,0,None,0));
+    }
+    /// U10: a configured peer whose connections end quickly is redialed after 0.6 s, 1.2 s, ... at most 30 s; a connection
+    /// that lasted DIAL_STABLE resets the wait to 300 ms; a failed connect keeps it.
+    #[test] fn redial_delay_doubles_after_short_connections_and_resets_after_a_stable_one(){
+        let ms=Duration::from_millis;let short=Some(Duration::ZERO);
+        let mut d=DIAL_RETRY;let mut seen=vec![];for _ in 0..10{d=redial_delay(d,short);seen.push(d.as_millis());}
+        assert_eq!(seen,[600,1200,2400,4800,9600,19200,30000,30000,30000,30000],"doubling from 300 ms, capped at 30 s");
+        assert_eq!(redial_delay(ms(1200),Some(DIAL_STABLE-ms(1))),ms(2400),"just short of DIAL_STABLE is short");
+        assert_eq!(redial_delay(DIAL_BACKOFF_MAX,Some(DIAL_STABLE)),DIAL_RETRY,"a stable connection resets the wait");
+        assert_eq!((redial_delay(ms(4800),None),redial_delay(DIAL_RETRY,None)),(ms(4800),DIAL_RETRY),"a failed connect keeps the wait");
+        assert_eq!(redial_delay(Duration::MAX,short),DIAL_BACKOFF_MAX,"no overflow");
+        assert_eq!((DIAL_RETRY,DIAL_STABLE,DIAL_BACKOFF_MAX),(ms(300),Duration::from_secs(60),Duration::from_secs(30)));
     }
 }

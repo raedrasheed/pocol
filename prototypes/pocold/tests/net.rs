@@ -1432,3 +1432,18 @@ fn blake_then(rounds:u32,tail:&str)->String{
     assert!(hello_after*3<batch_took,"the Hello came {hello_after:?} into a {batch_took:?} batch: it waited for the batch");
     println!("BATCH-P2P {}",serde_json::json!({"helloMs":hello_after.as_millis() as u64,"batchMs":batch_took.as_millis() as u64}));
 }
+
+/// N6 (PR3 §3.6): a configured peer that closes every connection at once (a full peer that evicts or refuses this node)
+/// is redialed after 0.6 s, 1.2 s, ... (`net::redial_delay`), not every 300 ms: within 3 s of its first accept it sees
+/// 2 or 3 connections (at most 5 under scheduling delays), where the fixed 300 ms redial gave about 10.
+#[test] fn a_configured_peer_that_closes_at_once_is_redialed_with_backoff(){let _g=serial();
+    let l=TcpListener::bind("127.0.0.1:0").unwrap();let addr=l.local_addr().unwrap();
+    let accepts=Arc::new(std::sync::Mutex::new(Vec::<Instant>::new()));let seen=accepts.clone();
+    std::thread::spawn(move||{for s in l.incoming(){let Ok(s)=s else{continue};seen.lock().unwrap().push(Instant::now());drop(s);}});
+    let _r=start_with("redial",small(),vec![addr]);
+    assert!(wait_until(3000,||!accepts.lock().unwrap().is_empty()),"the node dials its configured peer");
+    let first=accepts.lock().unwrap()[0];std::thread::sleep(Duration::from_secs(3).saturating_sub(first.elapsed()));
+    let n=accepts.lock().unwrap().iter().filter(|t|t.duration_since(first)<Duration::from_secs(3)).count();
+    println!("REDIAL {}",serde_json::json!({"acceptsIn3s":n}));
+    assert!((2..=5).contains(&n),"accepts within 3 s of the first: {n}");
+}
