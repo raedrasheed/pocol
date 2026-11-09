@@ -373,7 +373,7 @@ impl Net{
     /// is not charged, and may exceed the cap by at most min(configured peers, handshaking_max/2) when no victim exists,
     /// so at least half of the handshake places remain. A newcomer in its group's spare place (`Admit::over`) whose
     /// group still holds more than per_group_max places evicts within that group (`victim_in`, the same budget and
-    /// grace), which also frees a place in the set, or is refused by group; one whose group has shrunk meanwhile is an
+    /// grace, among the connections that hold a place in it), which also frees a place in the set, or is refused by group; one whose group has shrunk meanwhile is an
     /// ordinary newcomer. The victim keeps its live and group places until its own release, so physical connections
     /// stay within inbound_max. Lock order: the registry, then a victim's outbox or the group counts; no path takes the
     /// registry while it holds either.
@@ -392,7 +392,10 @@ impl Net{
         if group.is_some()||held>=l.peers_max{
             if !exempt&&!r.allows(key,now,&l.evict){c.refused_rate.fetch_add(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
             let grace=ms(l.evict.grace);r.scratch.clear();
-            r.scratch.extend(r.slots.iter().filter(|s|s.id!=id&&open(s)&&!s.exempt).map(|s|Cand{id:s.id,key:s.key,rank:self.rank.hash_one(s.key),last:s.act.get(),free:now.saturating_sub(s.at)>=grace,prot:false}));
+            // In the group path only the slots that hold a place in that group are candidates: a configured address's
+            // further connections share its key but hold no place (`inbound_group`), so evicting one would leave the
+            // group past its cap with the spare place taken, refusing every later newcomer of it at accept.
+            r.scratch.extend(r.slots.iter().filter(|s|s.id!=id&&open(s)&&!s.exempt&&(group.is_none()||s.group==group)).map(|s|Cand{id:s.id,key:s.key,rank:self.rank.hash_one(s.key),last:s.act.get(),free:now.saturating_sub(s.at)>=grace,prot:false}));
             let v=match group{Some(g)=>victim_in(&r.scratch,EvictKey::Net(g)),None=>victim(&mut r.scratch,&Policy::of(l))};
             match v{
                 Some(v)=>{if let Some(s)=r.slots.iter().find(|s|s.id==v){shut(&s.out,&s.sock);}c.evicted.fetch_add(1,Ordering::SeqCst);
@@ -1009,7 +1012,8 @@ mod tests{
     /// evicts the youngest free member of its own group (`evicted_in_group`), even while the set has room, and never the
     /// group's oldest member, its latest block or template source, a member in grace, or a member of another group; with
     /// nothing to evict in its group it is refused by group. One whose group shrank back to the cap before its Hello is
-    /// an ordinary newcomer and evicts nobody.
+    /// an ordinary newcomer and evicts nobody. A configured address in the group's range shares its key but holds no
+    /// place in it, so its further connections are never the group's victim and the group returns to its cap.
     #[test] fn a_full_group_evicts_within_itself(){
         const G:Group=Group::V4([81,2]);const H:Group=Group::V4([81,3]);
         fn two(ip:IpAddr)->Option<Group>{match ip{IpAddr::V4(a) if a.octets()[1]==2=>Some(G),_=>Some(H)}}
@@ -1039,6 +1043,22 @@ mod tests{
         // Grace: a member established within the grace period is never chosen.
         let n3=net(1,Duration::from_secs(60));let (m,_)=join(&n3,20,G);assert!(n3.establish(20));
         let (_w,over)=join(&n3,21,G);assert!(over);assert!(!n3.establish(21),"a member in grace is never chosen");assert!(!m.ended().0);
+        // A configured address in the group's /16 shares its key but holds no place in it: its connections past its
+        // configured count are never chosen in the group, so the victim frees a place and the spare one works again.
+        let n4=net(4,Duration::ZERO);let cfg=SocketAddr::from(([81,2,0,200],1));n4.protect([cfg.ip()]);
+        assert_eq!(n4.inbound_group(cfg.ip()),None);
+        let m:Vec<Peer>=(30..=33).map(|id|join(&n4,id,G).0).collect();
+        let mut socks=Vec::new();let c:Vec<Peer>=(34..=36).map(|id|{assert!(n4.admit(None).is_some());let (p,s)=test_peer_as(id,1<<16,Origin::Inbound,Some(cfg));
+            n4.enlist(&p,None,false);socks.push(s);p}).collect();
+        assert!((30..=36).all(|id|n4.establish(id)),"within the cap; 34 exempt, 35 and 36 ordinary");
+        let (_v,over)=join(&n4,37,G);assert!(over,"the fifth place holder takes the spare place");
+        assert!(n4.establish(37));
+        assert_eq!((m.iter().map(|p|p.ended().0).collect::<Vec<_>>(),c.iter().map(|p|p.ended().0).collect::<Vec<_>>()),
+            (vec![false,false,false,true],vec![false,false,false]),"the group's youngest place holder goes, not the configured address's youngest connection");
+        let places=||n4.counters.groups.lock().unwrap().get(&G).copied();
+        release(&n4,33);assert_eq!(places(),Some(4),"its release brings the group back to its cap");
+        // The node ends each handshake at its Hello (`test_peer` connections hold theirs).
+        n4.counters.handshaking.store(0,Ordering::SeqCst);assert_eq!(n4.admit(Some(G)),Some(Admit{over:true}),"and the spare place can be taken again");
     }
     fn key(i:u16)->EvictKey{EvictKey::Net(Group::V4(i.to_be_bytes()))}
     /// A free candidate with no credit; `rank` is its key's lottery hash.

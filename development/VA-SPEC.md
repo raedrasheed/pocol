@@ -147,7 +147,8 @@ admission, and no message or wire field is added.
    new share. Each is the time of the connection's last delivery of that kind; a peer already gone earns
    nothing.
 6. A full group (`net::victim_in`): the newcomer in the spare place evicts within its own group only: among
-   that group's connections past their grace, the oldest and the latest deliverers of a new block and of a
+   the connections that hold a place in that group (not a configured address's further connections, which
+   share its key but hold none) past their grace, the oldest and the latest deliverers of a new block and of a
    locked template are kept, and the youngest of the rest goes. Other groups are untouched. With none, the
    newcomer is refused by group.
 7. Budget. A newcomer's eviction key evicts at most once per `key_interval` (30 s; a ring of the latest 64
