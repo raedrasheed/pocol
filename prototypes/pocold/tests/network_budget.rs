@@ -244,3 +244,32 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     assert_eq!(BOOK_MAX,1024);
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,128),"the type sizes the pinned total was derived with");}
 }
+
+/// R1 (PR3): the live continuous chain (deploy/mainnet/h15000, T_blk 10 s) has no finite lifetime, so A13 projects
+/// from its journal and the node stops once the journal holds more records than the budget admits (node.rs re-runs
+/// `resources::check` every 256 records). The largest admitted record count R, found by binary search for each
+/// (peers_max, dials), as the seeds boot: store mode with checkpoints every 128 records, discovery on, node_operator.py's
+/// LOCAL_ARGS. The bundle's files are written out and loaded with `load_spec_for` (`Invitation::parse` refuses another
+/// build's digest). Pinned for the target the evidence is produced on, so a term that moves the halt is seen.
+#[test] fn a13_live_chain_halt_records(){
+    use pocold::{net,node::Limits};
+    let bundle:serde_json::Value=serde_json::from_slice(&std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
+    let dir=std::env::temp_dir().join(format!("pocold-live-halt-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);std::fs::create_dir_all(&dir).unwrap();
+    for (name,text) in bundle["files"].as_object().unwrap(){std::fs::write(dir.join(name),text.as_str().unwrap()).unwrap();}
+    let local=pocol_lp4_execution::admission::NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..pocold::single_host_local()};
+    let spec=pocold::load_spec_for(&dir,&local,None).expect("the live bundle loads");let _=std::fs::remove_dir_all(&dir);
+    let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the live chain is continuous");
+    let passes=|peers_max:usize,dials:usize,r:u64|pocold::resources::check(cp,k,side,&Limits{state_store:true,checkpoint_every:128,continuous_history:Some(r),
+        net:net::Limits{peers_max,..Default::default()},..Default::default()},dials).is_ok();
+    let halt=|peers_max:usize,dials:usize|->u64{
+        assert!(passes(peers_max,dials,0),"an empty journal boots at peers_max {peers_max}, dials {dials}");
+        let mut hi=1u64;while passes(peers_max,dials,hi){hi*=2;assert!(hi<1<<40,"no halt below 2^40 records");}
+        let mut lo=hi/2;while hi-lo>1{let mid=lo+(hi-lo)/2;if passes(peers_max,dials,mid){lo=mid}else{hi=mid}}lo
+    };
+    let mut got=Vec::new();
+    for (p,d) in [(8usize,2usize),(8,7)]{let r=halt(p,d);got.push(r);
+        println!("A13-LIVE-HALT {}",serde_json::json!({"peersMax":p,"dials":d,"records":r,"days":r as f64/8640.0}));}
+    // At main b83b584: 1,170,090 and 1,145,444 records (135.4 and 132.6 days). PR3 R10, the node's per-connection maps:
+    // 1,169,815 and 1,144,973 (-275, -471).
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(got,[1_169_815,1_144_973],"the live chain's halt moved (record it in the PR)");}
+}

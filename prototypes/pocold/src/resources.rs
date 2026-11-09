@@ -80,6 +80,8 @@ pub const MAIN_STACK_RESIDENT:u128=1<<20;
 /// admission timing all run on the consensus thread, one at a time.
 pub const EXECUTIONS:u128=1;
 const _:()=assert!(crate::rpc::CALL_GAS_MAX<=pocol_lp4_execution::apply::PER_CALL_GAS,"eth_call gas exceeds the execution model");
+// R10: the node's per-connection map entries fit the bytes "queues/node peer and status maps" counts for them.
+const _:()=assert!(size_of::<(net::PeerId,net::Peer)>()<=node::PEER_ENTRY_BYTES&&size_of::<(net::PeerId,node::PeerStatus)>()<=node::STATUS_ENTRY_BYTES,"a node map entry exceeds its A13 bytes");
 /// Threads alive at once, every one created by `threads::spawn` with its reservation: per
 /// inbound peer a reader and a writer (`net::spawn_peer`: the reader joins the writer and
 /// releases the slot as its last action); per configured peer a dialer, an event forwarder,
@@ -508,9 +510,17 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     //   filled once, never shrunk): two allocations at <= 16/7 buckets per entry, 96 B;
     // plus 512 B of control and alignment slack for each of the two small tables.
     let gossip=add(&[hash32_churn_bytes(node::RELAYED_MAX as u128+1)?,mul(l.peers_max as u128+1,160)?,mul(dials as u128+1,96)?,1024])?;
+    // The connections the node can know at once (its Connected not yet followed by its Closed): the live peers,
+    // plus one per Closed still queued (in the main queue or a forwarder's, with the one it is blocked sending).
+    let high=add(&[l.peers_max as u128,dials as u128,node::EVENT_QUEUE as u128,mul((1+dials) as u128,net::NET_EVENT_QUEUE as u128+1)?])?;
+    // R10: the node's per-connection maps (node.rs `peers` and `peer_status`, from Connected to Closed), each a
+    // HashMap at the churn rule of hash32_churn_bytes (< 32/7 buckets per high-water entry, a control byte each, two
+    // allocations: c(x) = ⌈(x+1)·32/7⌉), and each peer's address text (`Peer::addr`), + 1,024.
+    let churn=|x:usize|((x as u128+1)*32).div_ceil(7);
+    let maps=add(&[mul(high,add(&[mul(2,churn(node::PEER_ENTRY_BYTES)+churn(node::STATUS_ENTRY_BYTES))?,node::ADDR_TEXT_BYTES as u128])?)?,1024])?;
     let q=[("queues/transaction pool",pool),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
         ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
-        ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip)];
+        ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/node peer and status maps (churn)",maps)];
     let mut queues=add(&q.map(|x|x.1))?;items.extend(q);
     // Peer discovery (VA-SPEC §1a, node::discovery), with discovery on only (off, the book reserves nothing and no
     // link is kept):
@@ -528,7 +538,6 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     //   never grown) and the encoded book (Book::encode's capacity, FILE_LINE_MAX per line).
     if limits.discovery.enabled{
         use crate::addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX};
-        let high=add(&[l.peers_max as u128,dials as u128,node::EVENT_QUEUE as u128,mul((1+dials) as u128,net::NET_EVENT_QUEUE as u128+1)?])?;
         let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);
         let d=[("queues/discovery: address book (BOOK_MAX, reserved once)",add(&[mul(BOOK_MAX as u128,size_of::<ab::Entry>() as u128)?,512])?),
             ("queues/discovery: per-connection links (churn)",add(&[mul(mul(high,2)?,link)?,512])?),

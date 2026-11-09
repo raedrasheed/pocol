@@ -98,6 +98,11 @@ pub const SIGNED_A0_MAX:usize=4096;
 /// Events waiting for the consensus thread (all sources); senders block when it is full.
 /// D-A13-BUDGET: 256 -> 128 (network.md: queue <= 256); a full queue blocks its senders.
 pub const EVENT_QUEUE:usize=128;
+/// A13 (resources, "queues/node peer and status maps"): the bytes counted for one entry of `peers` (a
+/// `(PeerId,Peer)` bucket), one of `peer_status` (a `(PeerId,PeerStatus)` bucket) and one peer's address text
+/// (`Peer::addr`, at most 58 characters, `[v6%scope]:port`). Fixed, so the pinned total does not follow rustc's
+/// layout; resources.rs asserts that the types fit.
+pub const PEER_ENTRY_BYTES:usize=192;pub const STATUS_ENTRY_BYTES:usize=96;pub const ADDR_TEXT_BYTES:usize=64;
 /// Orphans (blocks whose parent is unknown): parent keys, blocks per parent and bytes, all peers together.
 pub const ORPHAN_PARENTS_MAX:usize=64;pub const ORPHANS_PER_PARENT:usize=16;pub const ORPHAN_BYTES_MAX:usize=16*1024*1024;
 /// Receipt times kept for production (only recent parents matter).
