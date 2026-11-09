@@ -30,14 +30,15 @@ impl chain::BlockBytes for Src<'_>{
 /// NeedsRebuild retries of one block: its parent, and (C-1 S4) each slimmed evidence ancestor restored in
 /// turn (only after the head fell back more than R_keep). Beyond them the block is refused, never accepted.
 const REBUILD_TRIES:usize=17;
-/// PR4 (I-5): deep TrieRebuilds (import_with's NeedsRebuild path) an unsolicited flood may drive. Token bucket:
+/// PR4 (I-5): deep TrieRebuilds (import_with's NeedsRebuild path for a missing parent state; a C-1 S4 slim
+/// restore, header and ranges only, is not charged) an unsolicited flood may drive. Token bucket:
 /// capacity REBUILD_BURST, one token back every REBUILD_REFILL_MS. The seal cache (chain::COSTLY_MAX) only
 /// reduces cost: COSTLY_MAX+1 PoW-valid seals cycled evict each other (PR4 plan §7 finding B). A real heavier
 /// branch dropped here is re-fetched by the sync session its peer's Status starts (network.md D38), so no
 /// block honest peers accept is lost.
 pub const REBUILD_BURST:u32=8;
 pub const REBUILD_REFILL_MS:u128=1000;
-/// Deep rebuilds one sync session may drive before it is ended as not-reached. An honest adoption within
+/// Deep rebuilds (not slim restores) one sync session may drive before it is ended as not-reached. An honest adoption within
 /// R_keep needs one (the fork point); the rest extend resident state. Only blocks on the session's branch
 /// draw on it (`on_session_branch`): a side block the session's peer relays is unsolicited for the budget, so
 /// relayed side traffic cannot end an honest heal session. This bounds a peer whose lying Hello makes its blocks
@@ -775,6 +776,16 @@ impl Node{
         let mut tries=0;
         let on_branch=solicited&&self.session.as_ref().is_some_and(|s|self.on_session_branch(s,&b.header.parent_hash));
         while let Err(Reject::NeedsRebuild(p))=&res{let p=*p;if tries==REBUILD_TRIES{break}
+            // C-1 S4: a slimmed entry (the parent, or an ancestor the evidence walk reads) gets its header,
+            // ParentResult and nonce ranges back from the journal and history.redb: two record reads, no state
+            // work, at most REBUILD_TRIES per block (each one clears a slim flag), so neither budget below is
+            // charged for it. A pruned parent still needs its state: it goes on, in the same try, to the deep
+            // rebuild below, which is charged.
+            if self.chain.get(&p).map_or(false,|e|e.slim){self.stats.unslims+=1;
+                let src=Src{journal:&self.journal,history:&self.history};
+                if let Err(e)=self.chain.unslim(&p,&src){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}
+                if !(p==b.header.parent_hash&&self.chain.get(&p).is_some_and(|e|e.pruned)){tries+=1;res=self.chain.validate(&b,Some(now_s()),self.capital_phi());continue}
+            }
             // PR4 (I-5): deep rebuilds are rate-bounded. A solicited block on the session's branch draws on its
             // session's allowance (an honest adoption needs about one), any other one on the node's bucket (a side
             // block the session's peer relays included: it neither spends the allowance nor ends the session).
@@ -786,8 +797,7 @@ impl Node{
                 if self.session.as_ref().is_some_and(|s|s.rebuilds>=SESSION_REBUILD_MAX){self.log("sync session: deep-rebuild allowance reached; claim set aside");self.end_session(false);res=Err(Reject::Evicted);break}
                 if let Some(s)=&mut self.session{s.rebuilds+=1;}
             }else if !self.rebuild_token(){self.log("deep-rebuild budget spent; an unsolicited block dropped (a real branch returns by sync)");res=Err(Reject::Evicted);break}
-            tries+=1;
-            if self.chain.get(&p).map_or(false,|e|e.slim){self.stats.unslims+=1;}else{self.log("TrieRebuild for a fork below the K_hist window");}
+            tries+=1;self.log("TrieRebuild for a fork below the K_hist window");
             let src=Src{journal:&self.journal,history:&self.history};
             if let Err(e)=self.chain.ensure_state_with(&p,Some(&src)){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}res=self.chain.validate(&b,Some(now_s()),self.capital_phi());}
         // PR4 (A13 MATERIALIZED): a block refused after its parent's state was rebuilt (or dropped at the budget

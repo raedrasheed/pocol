@@ -827,7 +827,9 @@ resident. The cache reduces cost and bounds nothing; the bound is a rate (I-5): 
 draws on a token bucket (`node::REBUILD_BURST` = 8, one token back per `REBUILD_REFILL_MS` = 1 s), a
 solicited one on the session's branch (its parent the session's last block, a block it delivered, or a
 hash of the round's locator) on its session's allowance (`SESSION_REBUILD_MAX` = 4, then the session ends as
-not reached; a side block the session's peer relays draws on the bucket and never ends the session), and exhaustion drops the block without a verdict. A block refused after a rebuild leaves no
+not reached; a side block the session's peer relays draws on the bucket and never ends the session), and exhaustion drops the block without a verdict. Only a rebuild of a missing parent state is charged: a C-1 S4
+slim restore (an entry's header, ParentResult and ranges read back for the type-2 evidence walk, at most
+`REBUILD_TRIES` per block) costs two record reads and draws on neither. A block refused after a rebuild leaves no
 rebuilt state behind (`Chain::reprune`). This witness's solicited re-import cycle is therefore capped at
 four rebuilds per session. The per-rebuild cost is unchanged (O(fork-point height), no reverse diffs,
 §5.1), and so are the §8 obligations: they stay **OPEN** until rebuilds start within R_keep (follow-up

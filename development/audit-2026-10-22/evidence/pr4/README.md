@@ -8,12 +8,12 @@ Branch `claude/preauth-dos-checks`, base `53a9e87`. Linux x86_64, release builds
 - `a13-breakdown-merge.log` — the same test after merging main (PR #3, pull-only discovery, `b83b584`):
   total 3,244,176,189 B = 3,243,936,669 B (main's total with discovery) + the same 239,520 B term.
 - `mutants.json`, `mutants.log` — the mutation controls of the PR4 plan §6 (M1–M21, plus M20b and M22),
-  and M23–M28 for the review fixes, produced by `mutants.py` (`python3 -I mutants.py <worktree> <outdir> [ID ...]`).
+  and M23–M29 for the review fixes, produced by `mutants.py` (`python3 -I mutants.py <worktree> <outdir> [ID ...]`).
   Each mutant is a text edit of `prototypes/pocold/src/{chain,node}.rs`, listed with its exact replacement in
   each pass's log header; the sources are restored with `git checkout` after each run. Test set: the lib
   `f5f6_tests`, the PR4 and neighbouring tests of `tests/consensus.rs` (the plan's "unchanged, must pass" list,
-  the D133 heal tests and `a13_bound_breakdown`) and `tests/relay.rs`. Pass 3 is the current evidence; passes 1
-  and 2 are kept as the history of M6 and M9.
+  the D133 heal tests and `a13_bound_breakdown`) and `tests/relay.rs`. Pass 3 is the current evidence for M1–M28
+  and pass 4 for M29; passes 1 and 2 are kept as the history of M6 and M9.
   - pass 1 (`e32a574`): every mutant KILLED except M6 (the mutant did not compile; corrected), M9
     (survived) and M17 (equivalent: item 14 is unreachable once items 6 and 9 hold, so no `14 ` verdict
     reaches the cache).
@@ -35,6 +35,14 @@ Branch `claude/preauth-dos-checks`, base `53a9e87`. Linux x86_64, release builds
     so every check `observe_template` makes holds for it (`m9-probe.log`: true for all 1,064 signed imports
     of the suite). The only difference is a pair older than E_win, which the mutant drops and the original
     records although `evidence_type1` refuses it as too old; no test asserts that.
+  - pass 4 (M29 only, after the review fix that charges the rebuild budgets for deep rebuilds only): M29
+    charges C-1 S4 slim restores (the evidence walk's header and ranges read-backs) to the session allowance
+    and the unsolicited bucket again, as before the fix; KILLED by
+    `pr4_slim_restores_draw_on_no_rebuild_budget` (the S4 evidence block, whose walk restores more slimmed
+    ancestors than SESSION_REBUILD_MAX, is dropped and the session ended). Run tree `d9e3272`, an unpushed
+    commit whose `prototypes/pocold/src` is that of the commit adding M29. The same commit's sources pass the
+    full pocold suite (388 passed, 0 failed, 30 ignored, `--no-fail-fast`) and the consensus tests on one
+    thread (118 passed, 0 failed, 7 ignored).
 - `m9-probe.log` — the probe behind M9's pass-3 verdict (a temporary print in `import_with`, not committed).
 - `suite.log` — on `35c0543`: the full pocold suite (346 passed, 0 failed, 30 ignored), the consensus and
   caps tests on one thread, the `--ignored` spec-depth and deep-reorg tests (a11, adoption at 2048/2049, the

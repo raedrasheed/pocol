@@ -526,5 +526,15 @@
    ],
    "note": "review fix 00fba86 (d): only blocks on the session's branch draw on its allowance"
   }
+ ],
+ "pass4_d9e3272": [
+  {
+   "mutant": "M29 slim restores charged to the session allowance and the bucket again (the uncharged unslim branch removed)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_slim_restores_draw_on_no_rebuild_budget"
+   ],
+   "note": "review fix (Codex on PR #4, node.rs import_with): C-1 S4 slim restores draw on neither rebuild budget; run on tree d9e3272, whose prototypes/pocold/src is the commit that adds M29"
+  }
  ]
 }

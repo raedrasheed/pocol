@@ -139,3 +139,8 @@
 {"mutant": "M26 seen_templates keyed by (parent, h) again, not per signer", "status": "KILLED", "failed": ["pr4_one_signers_template_hides_no_other_signers_pair"]}
 {"mutant": "M27 rebuild_token without the backward-clock clamp", "status": "KILLED", "failed": ["pr4_the_rebuild_bucket_refills_after_a_clock_step_back"]}
 {"mutant": "M28 every block from the session's peer charged to the session allowance (on_session_branch bypassed)", "status": "KILLED", "failed": ["pr4_side_blocks_the_session_peer_relays_do_not_end_the_session"]}
+# PR4 mutation controls (plan §6), tree d9e3272; each mutant's sources restored with git checkout after its run.
+# Test set: cargo test --release --locked --lib -- f5f6_tests ; cargo test --release --locked --test consensus -- --test-threads=2 pr4_ every_validity_item_rejects_its_mutation template_form_classes_follow_d129 a01_ a_valid_header_with_a_foreign_body k_hist_retention journal_replay store_mode_imports_on_the_head e4_store_node_rebuilds node_detects_template_equivocation an_equivocation_switch an_invalid_template_from_the_drawn_proposer d133_heal a13_bound_breakdown a_sync_session_refetches_an_evicted_branch ; cargo test --release --locked --test relay
+# M29 slim restores charged to the session allowance and the bucket again (the uncharged unslim branch removed): src/node.rs: replace 'if !(p==b.header.parent_hash&&self.chain.get(&p).is_some_and(|e|e.pruned)){tries+=1;res=self.chain.validate(&b,Some(now_s()),self.capital_phi());continue}' with ''
+## pass (d9e3272)
+{"mutant": "M29 slim restores charged to the session allowance and the bucket again (the uncharged unslim branch removed)", "status": "KILLED", "failed": ["pr4_slim_restores_draw_on_no_rebuild_budget"]}

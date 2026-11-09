@@ -80,6 +80,9 @@ MUTANTS = [
     ("M28", "every block from the session's peer charged to the session allowance (on_session_branch bypassed)",
      [(N, "let on_branch=solicited&&self.session.as_ref().is_some_and(|s|self.on_session_branch(s,&b.header.parent_hash));",
           "let on_branch=solicited&&self.session.is_some();")]),
+    # Review fix after pass 3: only deep rebuilds of a missing parent state are charged, not C-1 S4 slim restores.
+    ("M29", "slim restores charged to the session allowance and the bucket again (the uncharged unslim branch removed)",
+     [(N, "                if !(p==b.header.parent_hash&&self.chain.get(&p).is_some_and(|e|e.pruned)){tries+=1;res=self.chain.validate(&b,Some(now_s()),self.capital_phi());continue}\n", "")]),
 ]
 
 CONS = ["pr4_", "every_validity_item_rejects_its_mutation", "template_form_classes_follow_d129", "a01_",

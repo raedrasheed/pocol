@@ -2872,7 +2872,27 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
 /// at depth 3 restores that ancestor for the evidence walk and accepts the block with the same effect
 /// (the winner tombstoned) as a node that never slims.
 #[test] fn s4_evidence_against_a_slimmed_ancestor_restores_it_first(){
+    let (seq,winner,b4)=s4_evidence_chain();
+    let (mut a,da)=s4_node("slim",3);let (mut b,db)=s4_node("ref",u64::MAX);
+    for x in &seq[..seq.len()-1]{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
+    assert!(a.chain.get(&b4.hash()).unwrap().slim,"positive control: the evidence's ancestor is slimmed");
+    let before=a.stats.unslims;let last=seq.last().unwrap().clone();
+    a.import(last.clone(),None).unwrap();b.import(last.clone(),None).unwrap();
+    assert!(a.stats.unslims>before,"the slimmed ancestor was restored for the evidence walk");
+    assert_eq!(a.chain.head,b.chain.head);assert_eq!(a.chain.head,last.hash());
+    let r=apply::miner_record(&a.chain.head().state,winner).unwrap();assert!(r.tomb,"the equivocating winner is tombstoned");
+    assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
+    for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
+}
+/// A node slimming at `depth` (u64::MAX: never), for the S4 evidence chain.
+fn s4_node(tag:&str,depth:u64)->(pocold::node::Node,std::path::PathBuf){
     use pocold::node::{Config,Limits,Node};
+    let dir=std::env::temp_dir().join(format!("pocold-s4ev-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    (Node::open(Config{dir:dir.clone(),name:tag.into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{slim_depth:Some(depth),..Default::default()}},admitted(&cfg(&["a","b","c"]))).unwrap(),dir)
+}
+/// The S4 evidence chain: blocks from genesis whose last one carries type-2 evidence against b4's winner (an
+/// equivocation at height 4, included 8 or more blocks later). Returns the blocks, the winner and b4.
+fn s4_evidence_chain()->(Vec<Block>,Address,Block){
     let mut n=net();for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);}
     let mut seq:Vec<Block>=n.chain.canonical.iter().skip(1).map(|h|{let e=&n.chain.blocks[h];Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let head=n.chain.head;let b4=fallback(&n,head,0);import(&mut n,&b4);seq.push(b4.clone());
@@ -2890,18 +2910,34 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
             let (hd,_,_)=n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower(),body.clone(),effects).unwrap();
             let x=seal_block(&n,hd,body,0,0);import(&mut n,&x);seq.push(x);break}
         assert!(p.height<4+16,"no eligible proposer within E_win");let x=fallback(&n,h,0);import(&mut n,&x);seq.push(x);}
-    let mk=|tag:&str,depth:u64|{let dir=std::env::temp_dir().join(format!("pocold-s4ev-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-        (Node::open(Config{dir:dir.clone(),name:tag.into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{slim_depth:Some(depth),..Default::default()}},admitted(&cfg(&["a","b","c"]))).unwrap(),dir)};
-    let (mut a,da)=mk("slim",3);let (mut b,db)=mk("ref",u64::MAX);
-    for x in &seq[..seq.len()-1]{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
-    assert!(a.chain.get(&b4.hash()).unwrap().slim,"positive control: the evidence's ancestor is slimmed");
-    let before=a.stats.unslims;let last=seq.last().unwrap().clone();
-    a.import(last.clone(),None).unwrap();b.import(last.clone(),None).unwrap();
-    assert!(a.stats.unslims>before,"the slimmed ancestor was restored for the evidence walk");
-    assert_eq!(a.chain.head,b.chain.head);assert_eq!(a.chain.head,last.hash());
-    let r=apply::miner_record(&a.chain.head().state,winner).unwrap();assert!(r.tomb,"the equivocating winner is tombstoned");
-    assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
-    for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
+    (seq,winner,b4)
+}
+/// Review (PR4, Codex): the rebuild budgets charge deep rebuilds of a missing parent state only. The S4 evidence
+/// block, its walk restoring more slimmed ancestors than a session's whole allowance, is accepted (a) delivered by
+/// a sync session, which goes on with its allowance untouched, and (b) unsolicited with the bucket empty.
+#[test] fn pr4_slim_restores_draw_on_no_rebuild_budget(){
+    use pocold::node::SESSION_REBUILD_MAX;
+    let (seq,winner,b4)=s4_evidence_chain();let last=seq.last().unwrap().clone();
+    let (mut a,da)=s4_node("budget-session",3);let (mut c,dc)=s4_node("budget-bucket",3);
+    for x in &seq[..seq.len()-1]{a.import(x.clone(),None).unwrap();c.import(x.clone(),None).unwrap();}
+    assert!(a.chain.get(&b4.hash()).unwrap().slim&&c.chain.get(&b4.hash()).unwrap().slim,"positive control: the evidence's ancestor is slimmed");
+    // (a) Through a sync session, the unsolicited bucket empty and held still.
+    let (peer,_socket)=auth_peer::connect(&mut a);lying_session(&mut a,peer);
+    a.rebuild_tokens=0;a.rebuild_clock=Some(pocold::node::now_ms());
+    let (before,rb)=(a.stats.unslims,a.chain.rebuilds);
+    send_block(&mut a,peer,&last);
+    assert_eq!(a.chain.head,last.hash(),"FAIL-ON-ORIGINAL: the evidence block delivered by the session was dropped");
+    assert!(a.session.as_ref().is_some_and(|s|s.peer==peer&&s.rebuilds==0)&&!a.peer_status[&peer].stale,"FAIL-ON-ORIGINAL: slim restores spent the session's allowance or ended it");
+    assert!(a.stats.unslims-before>u64::from(SESSION_REBUILD_MAX),"positive control: more slim restores ({}) than the session's allowance",a.stats.unslims-before);
+    assert_eq!(a.chain.rebuilds,rb,"no deep rebuild");
+    assert!(apply::miner_record(&a.chain.head().state,winner).unwrap().tomb,"the equivocating winner is tombstoned");
+    // (b) Unsolicited, the bucket empty and held still.
+    c.rebuild_tokens=0;c.rebuild_clock=Some(pocold::node::now_ms());
+    let before=c.stats.unslims;
+    c.import(last.clone(),None).expect("FAIL-ON-ORIGINAL: slim restores drew on the empty unsolicited bucket");
+    assert!(c.stats.unslims>before&&c.rebuild_tokens==0,"positive control: restored with no token");
+    assert_eq!(c.chain.head,last.hash());assert!(apply::miner_record(&c.chain.head().state,winner).unwrap().tomb);
+    drop(a);drop(c);for d in [da,dc]{let _=std::fs::remove_dir_all(&d);}
 }
 
 /// The S1 scenario chain: A1 (with a transaction) abandoned for the heavier B1, B2 from genesis, then 96
