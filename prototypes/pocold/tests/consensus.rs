@@ -565,6 +565,65 @@ fn send_template(node:&mut pocold::node::Node,peer:pocold::net::PeerId,t:&lp1hdr
     assert_eq!(node.evidence_pool.len(),1,"the imported side-branch equivocation is recorded (lost if import re-derives the draw from the canonical block)");
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
+/// Competitors of the canonical block at h=3 (hashes[2]'s children, imported into `n` and onto the node as side blocks)
+/// whose child's drawn proposer is not the canonical one at h=4, each with that proposer.
+fn other_draw_sides(node:&mut pocold::node::Node,n:&mut Net,hashes:&[[u8;32]],count:usize)->Vec<(Block,Address)>{
+    let canon=node.chain.canonical_at(4).unwrap().drawn;let mut out=vec![];let mut a=1u32;
+    while out.len()<count{assert!(a<128,"positive control: side parents with another drawn proposer");
+        let b=fallback(n,hashes[2],a);a=b.header.a+1;if n.chain.blocks.contains_key(&b.hash()){continue}
+        import(n,&b);let d=n.chain.child_ctx(&n.chain.full_entry(&b.hash()).unwrap(),0).unwrap().proposer;
+        if d!=canon{assert!(!node.import(b.clone(),None).unwrap(),"a side block");out.push((b,d));}}
+    out
+}
+/// A template on `parent` signed by `signer` (Draw(parent,0) or another key), built in `n` (`off` varies the TemplateID).
+fn side_template(n:&Net,parent:[u8;32],signer:Address,off:u64)->lp1hdr::Header{
+    let p=n.chain.full_entry(&parent).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
+    let (h,_,_)=n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();
+    if h.proposer[..]==signer[..]{h}else{resigned(&h,&n.keys[&signer],parent)}
+}
+/// Review: two gossiped templates by Draw(S,0) on a side parent S whose state is resident are recorded although the
+/// canonical branch has a block at that height drawn to someone else (the pair is includable on S's branch if it
+/// wins), and reading Draw(S,0) makes no state.
+#[test] fn pr4_a_gossiped_equivocation_by_a_side_parents_draw_is_recorded(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (mut node,dir,_)=retention_node("pr4-side-draw");
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    let (s,y)=other_draw_sides(&mut node,&mut n,&hashes,1).remove(0);
+    let e=&node.chain.blocks[&s.hash()];assert!(e.full&&!e.pruned&&!e.slim,"positive control: S's state is resident");
+    let (t1,t2)=(side_template(&n,s.hash(),y,0),side_template(&n,s.hash(),y,1));
+    assert_ne!(template_id(&t1.ut_raw),template_id(&t2.ut_raw));
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    let (rb,mat)=(node.chain.rebuilds,node.chain.materializations.load(Relaxed));
+    for t in [&t1,&t2]{send_template(&mut node,peer,t);}
+    assert_eq!(node.evidence_pool.len(),1,"FAIL-ON-ORIGINAL: Draw(S,0)'s gossiped pair on a side parent was dropped");
+    assert_eq!((node.chain.rebuilds,node.chain.materializations.load(Relaxed)),(rb,mat),"no state made");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// Review: the two signers a side parent S can take at h (X, drawn there on the canonical branch, and Y = Draw(S,0))
+/// each have their own seen_templates slot. X's one gossiped template on S does not hide Y's imported pair on S, and
+/// Y's one imported block on another side parent does not hide X's gossiped pair there.
+#[test] fn pr4_one_signers_template_hides_no_other_signers_pair(){
+    let (mut node,dir,_)=retention_node("pr4-two-signers");
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    let x=node.chain.canonical_at(4).unwrap().drawn;
+    let sides=other_draw_sides(&mut node,&mut n,&hashes,2);let ((s1,y1),(s2,_y2))=(sides[0].clone(),sides[1].clone());
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    // S1: X's template first, then Y1's two signed blocks.
+    send_template(&mut node,peer,&side_template(&n,s1.hash(),x,0));
+    assert!(node.evidence_pool.is_empty());
+    let lower=n.chain.child_ctx(&n.chain.full_entry(&s1.hash()).unwrap(),0).unwrap().window.lower();
+    let b1=signed(&n,s1.hash(),Body::default(),0);let b2=signed(&n,s1.hash(),Body::default(),b1.header.ts-lower+1);
+    assert!(b1.header.proposer[..]==y1[..]&&b2.header.proposer[..]==y1[..]&&template_id(&b1.header.ut_raw)!=template_id(&b2.header.ut_raw));
+    for b in [&b1,&b2]{assert!(!node.import(b.clone(),None).unwrap(),"a side block");}
+    assert_eq!(node.evidence_pool.len(),1,"FAIL-ON-ORIGINAL: X's template on S1 hid Y1's imported pair");
+    // S2: one of Y2's signed blocks first, then X's two templates.
+    let b3=signed(&n,s2.hash(),Body::default(),0);assert!(!node.import(b3,None).unwrap());
+    for off in [0,1]{send_template(&mut node,peer,&side_template(&n,s2.hash(),x,off));}
+    assert_eq!(node.evidence_pool.len(),2,"FAIL-ON-ORIGINAL: Y2's block on S2 hid X's gossiped pair");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
 /// PR4 soundness lemma for the hoisted H-pre checks (an oracle, not a regression test): child_pre of a pruned
 /// or slim parent, read before any state is made, equals the child_ctx of the same parent once its state is
 /// rebuilt or restored, at every attempt a fallback search reaches (16).

@@ -1602,7 +1602,8 @@ impl Node{
         //     same source evidence_type1 uses. This also records equivocation on a SIDE parent whose child's
         //     signer equals the canonically drawn proposer — valid, includable evidence an honest node keeps
         //     (PR4 plan §7 finding A). State cost: zero.
-        //   - a template for the tip (h>head, no canonical block yet): only a parent whose state is already
+        //   - a template for the tip (h>head, no canonical block yet), or one on a SIDE parent signed by that
+        //     parent's own Draw (includable on its branch if it wins): only a parent whose state is already
         //     resident is read (child_ctx on it; ensure_state_with would return at once).
         //   - anything else: dropped (no record, no evidence, no penalty).
         // Evidence is an incentive item, not a validity rule; the authenticated half (an imported block's
@@ -1617,18 +1618,23 @@ impl Node{
         // longer pays the membership+draw of child_ctx). Either order returns false for a bad signature.
         let tid=template_id(&h.ut_raw);
         if !matches!(hashes::recover_address(&hashes::sig_msg(&tid),&h.sig),Ok(a) if a[..]==h.proposer[..]){return false}
-        let drawn=match self.chain.canonical_at(h.h){
-            Some(c)=>c.drawn,
-            None if pe.full&&!pe.pruned&&!pe.slim=>match self.chain.child_ctx(pe,0){Ok(c)=>c.proposer,Err(_)=>return false},
-            None=>return false,
-        };
-        if h.proposer[..]!=drawn[..]{return false}
-        self.record_template(h)
+        // The canonically drawn proposer, or Draw(parent,0) of a parent whose state is resident: the tip, or a SIDE
+        // parent at a height already produced (a pair by Draw(S,0) is includable on S's branch if it wins, and the
+        // nodes that build there may not see it again). A canonical parent's Draw is the canonical block's `drawn`.
+        let canon=self.chain.canonical_at(h.h).map(|c|c.drawn);
+        let drawn=canon.is_some_and(|d|h.proposer[..]==d[..])||
+            ((canon.is_none()||!self.chain.is_canonical(&h.parent_hash))&&pe.full&&!pe.pruned&&!pe.slim
+                &&self.chain.child_ctx(pe,0).is_ok_and(|c|h.proposer[..]==c.proposer[..]));
+        drawn&&self.record_template(h)
     }
+    /// The seen_templates key: (parent, signer) folded into one digest, and the height. Each of the two signers a
+    /// (parent, h) can take (the canonically drawn proposer and Draw(parent,0)) has its own slot, so one's template
+    /// never hides the other's pair; the key keeps its size (A13 `seen`).
+    fn seen_key(h:&Header)->([u8;32],u64){let mut p=h.parent_hash.to_vec();p.extend_from_slice(&h.proposer);(hashes::keccak256(&p),h.h)}
     /// Records a template signed by Draw(h,0); true when it equivocates (type-1 evidence created). The
     /// caller has checked the shape (20-byte proposer, 65-byte sig, a=0), the signature and the draw.
     fn record_template(&mut self,h:&Header)->bool{
-        let key=(h.parent_hash,h.h);let st=Self::st_bytes(h);
+        let key=Self::seen_key(h);let st=Self::st_bytes(h);
         match self.seen_templates.get(&key){
             None=>{if self.seen_templates.len()>SEEN_MAX{self.evict_seen_templates();}self.seen_templates.insert(key,(h.ut_raw.clone(),st,h.proposer.clone()));false}
             Some((ut,first,prop)) if *ut!=h.ut_raw&&*prop==h.proposer=>{
