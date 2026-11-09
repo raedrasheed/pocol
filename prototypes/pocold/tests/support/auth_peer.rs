@@ -17,7 +17,8 @@ pub fn connect(node: &mut Node) -> (PeerId, Connection) {
     node.handle(Event::Net(connected));
     let hello = Msg::Hello { chain_id: node.chain.spec.chain_id(), genesis: node.chain.spec.genesis_hash(),
         head: node.chain.spec.genesis_hash(), height: 0, work: [0; 32], node: "test-peer".into(),
-        protocol: pocold::identity::PROTOCOL_VERSION, compatibility: pocold::identity::compatibility() }.encode();
+        protocol: pocold::identity::PROTOCOL_VERSION, compatibility: pocold::identity::compatibility(),
+        listen_port: 0, nonce: 0 }.encode();
     socket.write_all(&(hello.len() as u32).to_be_bytes()).unwrap(); socket.write_all(&hello).unwrap();
     let accepted = rx.recv_timeout(Duration::from_secs(5)).unwrap();
     assert!(matches!(&accepted, NetEvent::Message(i, Msg::Hello { .. }) if *i == id));

@@ -10,6 +10,8 @@ use crate::{hashes,header::Header};
 use pocol_lp4_execution::{apply::ParentResult,txsign::Key,wire,native::{self,NativeBlockContext},user_phase::{self,PoolMeter}};
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId},store::{self,Journal},types::*};
+mod discovery;
+pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES};
 
 /// D-REORG-REDB: the journal is the off-heap block store. `record_at` reads a block record back by
 /// its frame offset for on-demand body fetch (fork choice and retention stay on resident metadata).
@@ -81,8 +83,10 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// behaviour before E4 and a test reference).
     pub state_store:bool,
     /// C-1 E4.4 (D-6): journal records between two local checkpoints of a store-mode node (0: none).
-    pub checkpoint_every:u64}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY}}}
+    pub checkpoint_every:u64,
+    /// Peer discovery (VA-SPEC §1a; local policy, never validity): on by default, local mode off.
+    pub discovery:Discovery}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,discovery:Discovery::default()}}}
 /// C-1 S1: replay refills history.redb with non-durable commits and makes them durable every this many blocks.
 const HISTORY_SYNC:u64=256;
 /// D-7: one slice of pool revalidation. The consensus thread is held for at most this, plus the
@@ -278,6 +282,9 @@ pub struct Node{
     /// PR4 (I-5): the unsolicited deep-rebuild bucket: tokens left (<= REBUILD_BURST) and when tokens were last
     /// given back (0: not yet). Two scalars, no A13 term.
     pub rebuild_tokens:u32,pub rebuild_refill_ms:u128,
+    /// Peer discovery (VA-SPEC §1a, `node::discovery`): the self-connection nonce, the address book and each
+    /// connection's discovery state.
+    disc:discovery::Disc,
 }
 #[derive(Default)]
 struct Ckpt{every:u64,last:u64,roll:[u8;32]}
@@ -579,7 +586,8 @@ impl Node{
         let head_state=chain::StateHandle::of(chain.head());let (meter,pool_code)=pool_start(chain.head(),&chain.spec);
         let net=net::Net::new(cfg.limits.net.clone());
         let signed_a0=load_signed_a0(&cfg.dir); // F7: resume the attempt-0 signing record across restarts
-        let mut node=Self{cfg,chain,net,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
+        let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
+        let mut node=Self{cfg,chain,net,disc,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0};
@@ -618,7 +626,11 @@ impl Node{
         // The configured peers (for example the other seeds, which also dial this node) are never refused
         // for sharing a public address group with each other (net::Limits::per_group_max).
         self.net.protect(self.cfg.peers.iter().map(|a|a.ip()));
+        // VA-SPEC §1a.6: the address book is read before any connection is accepted or dialed.
+        self.disc_load(self.disc_now());
         if let Some(a)=self.cfg.listen{let l=std::net::TcpListener::bind(a).map_err(|e|format!("listen {a}: {e}"))?;
+            // Hello.listenPort (VA-SPEC §1a.1): the address actually bound (an ephemeral port for port 0).
+            self.disc.bound(l.local_addr().map_err(|e|format!("listen {a}: {e}"))?);
             let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn("listen-fwd",crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::listen(l,ntx,self.net.clone());}
         for a in self.cfg.peers.clone(){let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn(format!("dial-fwd-{a}"),crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
@@ -644,6 +656,9 @@ impl Node{
             self.drain_light();self.handle(ev);
             if self.background_pending(){self.background_step();}
         }
+        // VA-SPEC §1a.6: a clean stop saves the address book (`pocold run` has no signal handler: a node that is
+        // killed keeps its last save).
+        self.disc_save();
         if let Some(p)=&self.prod{if let Some(m)=&p.miner{m.stop();}}
     }
     /// Local UI control, never exposed through public RPC. Validation and P2P continue.
@@ -694,15 +709,25 @@ impl Node{
                 if std::time::Instant::now()>=q.deadline{crate::rpc::COUNTERS.expired.fetch_add(1,std::sync::atomic::Ordering::SeqCst);}
                 else{let r=crate::rpc::answer(self,&q);let _=q.reply.send(r);}
             }
-            Event::Net(NetEvent::Connected(id,peer))=>{let hello=self.hello();peer.send(&hello);self.peers.insert(id,peer);}
-            Event::Net(NetEvent::Closed(id))=>{self.peer_status.remove(&id);if self.session.as_ref().map_or(false,|s|s.peer==id){self.end_session(false);}
-                if let Some(p)=self.peers.remove(&id){if p.outbound{if let Ok(mut s)=self.outbound.lock(){s.remove(&p.addr);}}}}
+            Event::Net(NetEvent::Connected(id,peer))=>{self.disc_connected(id,&peer);let hello=self.hello_to(&peer,self.hello());peer.send(&hello);self.peers.insert(id,peer);}
+            Event::Net(NetEvent::Closed(id))=>{self.disc_closed(id,self.disc_now());self.peer_status.remove(&id);if self.session.as_ref().map_or(false,|s|s.peer==id){self.end_session(false);}
+                if let Some(p)=self.peers.remove(&id){self.allow_redial(p.origin);}}
             Event::Net(NetEvent::Message(id,m))=>self.on_msg(id,m),
         }
     }
+    /// H2: a configured peer's dialer (`net::dial`) dials again once the address it dialed has left the outbound
+    /// set, so an ended connection clears the set by that address (`Origin::Configured`), never by the address
+    /// its socket reported: that is empty when `peer_addr` failed (a reset right after connect), and clearing by
+    /// it would stall the dialer for good.
+    fn allow_redial(&self,origin:net::Origin){if let net::Origin::Configured(a)=origin{if let Ok(mut s)=self.outbound.lock(){s.remove(&a.to_string());}}}
     /// Φ = 2φ from the admitted local parameters (future-timestamp slack).
     fn capital_phi(&self)->u64{u64::from(self.chain.spec.local().capital_phi())}
-    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries())}}
+    /// `hello` as sent to `p`: without listenPort and nonce when its connection cannot reach the listener
+    /// (`Disc::reaches`, VA-SPEC §1a.1).
+    fn hello_to(&self,p:&Peer,mut hello:Msg)->Msg{
+        if !self.disc.reaches(p.local(),p.remote){if let Msg::Hello{listen_port,nonce,..}=&mut hello{(*listen_port,*nonce)=(0,0);}}hello
+    }
+    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries()),listen_port:self.disc.listen_port(),nonce:self.disc.wire_nonce()}}
     fn broadcast(&self,m:&Msg,except:Option<PeerId>){for (id,p) in &self.peers{if Some(*id)!=except&&self.peer_status.contains_key(id){p.send(m);}}}
 
     // ---------------- import ----------------
@@ -814,7 +839,8 @@ impl Node{
             self.log(&format!("head h={} {} signed={} txs={}",self.chain.head().height,&hex(&hash)[..14],self.chain.head().signed,b.body.txs.len()));
             self.on_new_head(detached);
             // Status refresh (network.md:7): peers learn the new head and its cumulative work.
-            let hello=self.hello();self.broadcast(&hello,None);
+            let hello=self.hello();
+            for (id,p) in &self.peers{if self.peer_status.contains_key(id){p.send(&self.hello_to(p,hello.clone()));}}
         }
         // Orphans waiting for this block.
         // A copy whose body does not match its header is only an envelope fault: ask the peers for
@@ -1294,7 +1320,7 @@ impl Node{
         self.start_session(id,now);
     }
     fn tick(&mut self){
-        self.sync_tick(now_ms());
+        self.sync_tick(now_ms());self.disc_tick(self.disc_now());
         // Retry future blocks.
         if !self.future.is_empty(){let f=std::mem::take(&mut self.future);for b in f{let h=b.hash();if self.import(b,None).is_ok()&&self.own_future.remove(&h){self.stats.mined+=1;}}
             let waiting:HashSet<[u8;32]>=self.future.iter().map(|b|b.hash()).collect();self.own_future.retain(|h|waiting.contains(h));}
@@ -1344,18 +1370,27 @@ impl Node{
         if !self.peers.contains_key(&from){return}
         if !matches!(&m,Msg::Hello{..})&&!self.peer_status.contains_key(&from){return}
         match m{
-            Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility}=>{
-                if chain_id!=self.chain.spec.chain_id()||genesis!=self.chain.spec.genesis_hash()||!crate::identity::matches_for(protocol,&compatibility,self.chain.spec.profile().forks().entries()){
+            Msg::Hello{chain_id,genesis,head,height,work,node,protocol,compatibility,listen_port,nonce}=>{
+                // VA-SPEC §2, §1a.1: listenPort and nonce are read from a connection's first Hello only, and a first
+                // Hello carrying this node's own nonce is a self-connection, closed before any Status is kept.
+                let first=!self.peer_status.contains_key(&from);let now=self.disc_now();
+                if first&&nonce!=0&&nonce==self.disc.wire_nonce(){self.disc_self_connection(from);return}
+                let network=chain_id!=self.chain.spec.chain_id()||genesis!=self.chain.spec.genesis_hash();
+                if network||!crate::identity::matches_for(protocol,&compatibility,self.chain.spec.profile().forks().entries()){
                     self.log(&format!("peer {node}: incompatible network or implementation; closing"));
+                    self.disc_incompatible(from,network,now);
                     self.peer_status.remove(&from);
                     if self.session.as_ref().is_some_and(|s|s.peer==from){self.end_session(false);}
-                    if let Some(p)=self.peers.remove(&from){p.close();if p.outbound{if let Ok(mut s)=self.outbound.lock(){s.remove(&p.addr);}}}
+                    if let Some(p)=self.peers.remove(&from){p.close();self.allow_redial(p.origin);}
                     return;
                 }
+                // VA-SPEC §1a.2: what a first compatible Hello teaches, and the GetAddr of a connection this node
+                // dialed, sent before a session's GetFrom so that its answer is not queued behind the blocks.
+                if first{self.disc_first_hello(from,listen_port,nonce,now);}
                 // Only a peer's first Hello may start a session at once; later Status updates wait for
                 // sync_tick's round-robin, so a peer re-announcing a false claim cannot hold the session
                 // slot. A claim set aside stays aside until the announced head changes.
-                let prev=self.peer_status.get(&from);let first=prev.is_none();
+                let prev=self.peer_status.get(&from);
                 let stale=prev.map_or(false,|p|p.stale&&p.head==head);
                 let st=PeerStatus{work:U256::from_be_bytes(work),head,height,stale};
                 let start=first&&self.session.is_none()&&height>0&&self.wants(&st);
@@ -1421,6 +1456,9 @@ impl Node{
                 for hgt in start..start.saturating_add(count.min(512)){match self.chain.canonical_at(hgt).filter(|e|e.height>0).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
             }
             Msg::Tx{raw}=>self.relay_tx(raw),
+            // Peer discovery (VA-SPEC §1a.2, §1a.5): answers to inbound peers, and what this node asked for.
+            Msg::GetAddr=>self.disc_getaddr(from,self.disc_now()),
+            Msg::Addr{addrs}=>self.disc_addr(from,addrs,self.disc_now()),
         }
     }
 }
@@ -1527,6 +1565,9 @@ impl Node{
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));
+        // Peer discovery (VA-SPEC §1a): the live connections this node dialed, and discovery's state.
+        status["outboundPeers"]=serde_json::json!(self.net.counters.outbound.load(std::sync::atomic::Ordering::SeqCst));
+        status["discovery"]=self.disc_status();
         status["lifetime"]=if self.chain.spec.cp().H_END==0{serde_json::json!({"continuous":true,"closingHeight":null,"finalHeight":null,"closingTime":null,"finalTime":null})}else{serde_json::json!({"continuous":false,"closingHeight":self.chain.spec.cp().H_CLOSE,"finalHeight":self.chain.spec.cp().H_END})};
         status["resourceProjectionRecords"]=serde_json::json!(self.cfg.limits.continuous_history);
         status["unlimitedResourceProof"]=serde_json::json!(false);

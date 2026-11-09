@@ -5,6 +5,8 @@ Branch `claude/preauth-dos-checks`, base `53a9e87`. Linux x86_64, release builds
 - `a13-breakdown.log` — `a13_bound_breakdown` on the PR4 tree: total 3,242,261,392 B, the new term
   `queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)` = 239,520 B
   (A13-DERIVATION §2b, PR4 row).
+- `a13-breakdown-merge.log` — the same test after merging main (PR #3, pull-only discovery, `b83b584`):
+  total 3,244,176,189 B = 3,243,936,669 B (main's total with discovery) + the same 239,520 B term.
 - `mutants.json`, `mutants.log` — the mutation controls of the PR4 plan §6 (M1–M21, plus M20b and M22),
   produced by `mutants.py` (`python3 -I mutants.py <worktree> <outdir> [ID ...]`). Each mutant is a text edit
   of `prototypes/pocold/src/{chain,node}.rs`, listed with its exact replacement in the log header; the

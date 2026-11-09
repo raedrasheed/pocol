@@ -7,16 +7,17 @@ TCP transport (devnets and testnets, loopback or remote peers); it is not the
 production P2P design of network.md (libp2p, Noise, gossipsub).
 
 ## 1. Transport and framing
-- TCP on the operator-selected listener: a loopback bind stays local; a private or public bind
-  accepts remote peers, each of which must pass the Hello identity check (§2). Outbound connections
-  go to the configured peers only (no peer discovery yet).
+- TCP on the operator-selected listener: a loopback bind stays local; a private or public bind accepts remote
+  peers, each of which must pass the Hello identity check (§2). Outbound connections go to the configured peers
+  (one dialer each; seeds among them follow §1a.8) and, with automatic outbound on (§1a.7; default off), to
+  learned addresses.
 - Inbound limits (local policy, `net::Limits`): at most `peers_max` connections, and at most
   `per_group_max` (default 4, half of `peers_max`; `--per-group-max`, or `POCOL_PER_GROUP_MAX` for
   `run`; 0 off) per public address group: IPv4 /16, IPv6 /32, an IPv6 address carrying an IPv4
   address (6to4, Teredo, NAT64, mapped) counting as that address, and Yggdrasil 200::/7 (key-derived)
   as one group. So one public /16 or /32 never holds more than half of the inbound slots. A
   connection past the limit is refused even while other slots are free: nodes behind one NAT or one
-  provider range share these places until peer discovery and eviction exist. Groups are counted per
+  provider range share these places until inbound eviction exists. Groups are counted per
   address, so one host that reaches the node from several groups (an IPv4 /16 and an IPv6 /32, say)
   holds a full set of places in each. Addresses that are not globally reachable (`net::group_of`:
   loopback, private, link-local, shared 100.64/10, benchmarking, documentation, reserved,
@@ -30,7 +31,7 @@ production P2P design of network.md (libp2p, Noise, gossipsub).
 
 | type | message | fields |
 |---|---|---|
-| 0 | Hello | chainId, genesisHash, headHash, headHeight, totalWork (32 B), nodeName, protocolVersion, compatibility (32 B) |
+| 0 | Hello | chainId, genesisHash, headHash, headHeight, totalWork (32 B), nodeName, protocolVersion, compatibility (32 B), listenPort (0..65535; 0: none), nonce (8 bytes; 0: none) |
 | 1 | Block | headerBytes, bodyBytes |
 | 2 | Template | signed-template shell (header encoding with nonce 0), body |
 | 3 | Share | TemplateID, nonce (8 bytes) |
@@ -38,12 +39,80 @@ production P2P design of network.md (libp2p, Noise, gossipsub).
 | 5 | GetRange | startHeight, count (<= 512) |
 | 6 | Tx | raw signed envelope |
 | 7 | GetFrom | locator (1..32 concatenated 32-byte hashes), count (<= 512) |
+| 8 | GetAddr | (no fields) |
+| 9 | Addr | records: one byte string of 0..64 records of 18 bytes, a 16-byte IPv6 address (IPv4 as `::ffff:a.b.c.d`) and a nonzero big-endian u16 port |
+
+## 1a. Peer discovery (local policy)
+Local node policy (`node::Limits::discovery`): it never changes validity, chain state, cfg or admission, and
+GetAddr and Addr are not gossip (NodeLocal.gossip and R15 do not cover them). A malformed frame closes the
+connection (§1); any other discovery fault drops an entry or a message and is counted. No peer is banned.
+1. Advertising. A listening node with discovery on sends its listener's port in `Hello.listenPort` (0
+   otherwise). listenPort and the nonce (§2) are sent only on a connection that can reach the listener:
+   every connection for an unspecified bind, a loopback peer's for a loopback bind, otherwise a connection
+   on the bound address; elsewhere both are 0. They are read from a connection's first Hello only.
+2. Learning. (a) An inbound connection's first compatible Hello with listenPort != 0: the address (the
+   connection's source IP, listenPort), never another IP, as a self-advertisement; with listenPort 0 and a
+   nonzero nonce (a listening node that no longer advertises), the unverified self-advertisements at that
+   public source IP are forgotten, except those another live connection advertises. (b) The first compatible
+   Hello of a connection this node dialed: the dialed address is verified when listenPort != 0 and forgotten
+   when it is 0. (c) The one Addr that answers this node's GetAddr on a connection it dialed, within 120 s:
+   at most 64 addresses, heard from that peer. Nothing else is learned.
+3. Never stored: ports below 1024 (configured addresses exempt); IPv6 outside 2000::/3; unspecified,
+   multicast, broadcast, link-local and reserved addresses; addresses without an address group (§1) unless
+   `--discover-local` is on and the address came from a peer that has none either; this node's own
+   addresses. Learned addresses are never exempt from the inbound group limit.
+4. Address book: at most 1024 entries, 8 per address group (local mode: each local endpoint is its own
+   group), 2 ports per IP, 64 unverified per answering peer and 256 self-advertised. A newcomer replaces only
+   an entry that is terrible, except that a peer's newcomer may replace that peer's oldest unverified entry,
+   a self-advertisement one of the most crowded group's, and a verified newcomer an unverified one; a
+   verified entry, and a live entry of a full IP, are never replaced. Most crowded (netgroup-largest): among
+   the unverified self-advertisements, by address group when the 256 or the book is full, by subnet (IPv4
+   address, IPv6 /64) inside the newcomer's full group; that group gives up its entry advertised longest ago
+   if it holds at least 2 more than the newcomer's. Terrible: never verified and 3 counted failures; 10
+   failures and no verification for 7 days; or nothing heard, advertised or verified for 30 days; terrible
+   entries are dropped at load and at each save. A failure counts only if some dialed connection was verified
+   since the entry's last counted failure. Closed before any Hello (a full listener, say) is no failure.
+   Another release holds an entry back min(10 min · 2^(n-1), 6 h); another chain or genesis removes it.
+5. Answers: GetAddr is answered once per inbound connection and never on a connection this node dialed, with
+   an Addr of at most 64 entries (possibly none): entries verified or self-advertised within 7 days, verified
+   first, at most 2 per address group, never the requester's own advertised address, local entries only to a
+   local requester, from a list rebuilt at most once a minute (an entry that leaves the book leaves the list
+   at once); it is queued only while the requester's queue
+   is below half (§4). A node sends GetAddr once per connection it dialed (not feelers).
+6. Persistence: `<data dir>/addrbook`, bound to chainId and genesis and checksummed, written atomically 60 s
+   after start, every 15 min, when the anchors change and at a clean stop, read with a 1 MiB bound. Every
+   entry read passes 3 and 4 again; a damaged, foreign or oversized file is ignored (empty book). These
+   periods, the refresh of live entries and the 120 s of 2(c) run on the wall clock: when it steps back, no
+   deadline stays more than its period ahead, and a GetAddr sent "in the future" expires.
+7. Automatic outbound, default off (`--outbound N`, 0..8; 0 until inbound eviction exists): N slots, one
+   connection each, at most one per address group, never to a configured peer, a seed, this node or an
+   address already connected. Choice: verified or unverified entries 50/50 when both exist; verified by
+   group, unverified by answering peer (all self-advertisements one source), then group; fewest failures
+   first. An address is retried 10 min after a failed or short (< 60 s) attempt; a slot waits
+   min(1 s · 2^k, 60 s) after k failures; an unreachable address family is skipped for 1 h. With all N slots
+   up, one feeler every 2 min (10 min if not listening) connects to an unverified entry, sends a Hello
+   announcing genesis, verifies the address and closes; it carries no gossip, sync or GetAddr. Up to 2
+   anchors (automatic peers connected 10 min that delivered a block, distinct groups) are dialed first after
+   a restart. Inbound + configured + automatic + feeler <= 50 (network.md:156), checked at boot.
+8. Seeds (automatic outbound, default off: `--seed`, the invitation's seeds, with N > 0): all are dialed for
+   the first minute. Then a node keeps one seed connection while it does not listen, has fewer than 2 useful
+   automatic peers, or is stalled; a listening node closes it after 2 useful peers have held 2 min. Useful:
+   an automatic peer outside every seed's address group that delivered a valid block at height >= head-2 or a
+   template that locked within W = max(120 s, 12·T_blk); stalled: no new head from a peer within W. A seed
+   not connected within 30 s, or held while stalled for W, is replaced by the next. A node that finds a seed
+   is itself (§2, or its exact `--listen` address) keeps all other seeds. With N = 0 seeds are configured
+   peers.
 
 ## 2. Network identity
 `Hello.chainId` and `Hello.genesisHash` must equal cfg, and `Hello.protocolVersion` and
 `Hello.compatibility` must match this build for the profile's fork schedule
 (`identity::matches_for`); otherwise the peer is closed (wrong network or implementation).
 activeVersion is checked per header (H-pre 1b).
+
+A listening node draws a random nonzero 64-bit nonce per process and sends it in every Hello on a connection that
+can reach its listener (§1a.1; others send 0). A
+first Hello carrying the receiver's own nonce is a self-connection: it is closed before any Status is kept, and
+an address the receiver dialed for it is not dialed again by that process.
 
 ## 3. Block import pipeline (H-pre, H-full, envelope classes)
 1. Decode header (strict, <= 3067 B) and body (<= BODY_MAX, canonical).
@@ -84,7 +153,8 @@ activeVersion is checked per header (H-pre 1b).
 ## 4. Synchronization
 (D-REORG-REDB revision; network.md D38: Status, locator <= 32, count <= 512, <= 4096 per branch.)
 - On connect, and on every new head, a node sends Hello (its Status, with the head's cumulative
-  work).
+  work). A feeler (§1a.7, automatic outbound, default off) sends one Hello announcing genesis
+  (height 0, work 0) and no refresh.
 - A peer announcing work >= ours with a head we do not store starts a sync session at its first Hello
   (one session at a time; later Hellos only update its Status, and claimants are asked in turn). `GetFrom(locator, 512)`: the locator is our head and the 9
   blocks below it, doubling steps, our canonical block at depth R_keep, and genesis. The responder
@@ -140,10 +210,17 @@ rejects log 256; post-state verdicts per TemplateID+nonce 256; deep-rebuild budg
 session cap 4); pool 32 MiB raw and <= 4096 transactions; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
 canonical blocks are kept whole; non-canonical blocks are metadata only (bytes in the journal),
 at most R_keep unprotected plus 2·R_keep session-protected, none R_keep or more below the head;
-states for K_hist canonical blocks and side_max side blocks.
+states for K_hist canonical blocks and side_max side blocks. Peer discovery (§1a): book 1024 (8 per group,
+2 ports per IP, 64 per answering peer, 256 self-advertised); Addr <= 64 records, one answer per inbound
+connection, one Addr accepted per GetAddr within 120 s; automatic outbound (default off) <= 8 plus 1 feeler;
+all connections <= 50.
 
 ## 7. Verified scenarios
 `prototypes/pocold/tests/e2e_devnet.py`: 3 processes, >= 100 H-full blocks,
 late join, partition/heavier branch/heal, SIGKILL crash/restart, garbage
 frames, wrong-network Hello, invalid block over P2P, RPC transactions,
 identical hash/stateRoot/receiptsRoot at every height, deterministic replay.
+
+`prototypes/pocold/tests/discovery.rs`, `prototypes/pocold/tests/e2e_discovery.py`: learning, answers,
+self-connections, the book across restarts, and (automatic outbound, default off) outbound slots, seed
+release and loss.

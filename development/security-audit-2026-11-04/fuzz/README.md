@@ -14,9 +14,12 @@ cargo +nightly-2026-11-04 fuzz run \
 ```
 
 The selector dispatches to P2P, RLP, headers, bodies, genesis, signed transactions,
-invitation JSON and hexadecimal decoding. Accepted canonical encodings must round-trip.
-An empty corpus also works; the generator supplies public signed test vectors and
-minimal structural inputs. It does not reproduce libFuzzer's exact evolving corpus.
+invitation JSON, hexadecimal decoding and the peer-discovery address-book file.
+Accepted canonical encodings must round-trip.
+An empty corpus also works; the generator supplies public signed test vectors, the
+peer-discovery frames (the 11-item Hello, GetAddr, Addr), address-book files and
+minimal structural inputs.
+It does not reproduce libFuzzer's exact evolving corpus.
 
 The initial run before moving this harness into the repository completed 25,050,824
 executions in 183 seconds, coverage counters 2,590 / features 6,061, and reported

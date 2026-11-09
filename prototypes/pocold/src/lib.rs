@@ -109,7 +109,7 @@ pub fn io_point(file:&std::path::Path,step:&str){io_fault::reached(file,step)}
 #[cfg(not(feature="io-fault"))]
 #[inline(always)]
 pub fn io_point(_file:&std::path::Path,_step:&str){}
-pub mod statediff;pub mod types;pub mod chain;pub mod store;pub mod miner;pub mod net;pub mod node;pub mod rpc;pub mod resources;
+pub mod statediff;pub mod types;pub mod chain;pub mod store;pub mod miner;pub mod net;pub mod addrbook;pub mod node;pub mod rpc;pub mod resources;
 /// Unit tests only: a counting allocator (per thread, while switched on) so tests can bound the
 /// heap a code path requests.
 #[cfg(test)]
