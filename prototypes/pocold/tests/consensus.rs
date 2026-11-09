@@ -415,34 +415,79 @@ fn send_template(node:&mut pocold::node::Node,peer:pocold::net::PeerId,t:&lp1hdr
 }
 /// PR4 (NODE-02): a gossiped template never rebuilds or materializes its parent's state. A self-signed shell
 /// naming a pruned canonical parent costs the node nothing; the drawn proposer's equivocation there is still
-/// recorded, Draw(h,0) being read from the canonical block's `drawn`.
+/// recorded, Draw(h,0) being read from the canonical block's `drawn`, while its evidence can still be included
+/// (E_win is raised above K_hist here, as on the network, so a pruned canonical parent is inside the window).
 #[test] fn pr4_a_template_for_a_pruned_parent_makes_no_state(){
     use pocold::node::{Config,Node};use std::sync::atomic::Ordering::Relaxed;
-    let c=cfg(&["a","b","c"]);
+    let mut c=cfg(&["a","b","c"]);c.e_win=48;c.u=56;
     let dir=std::env::temp_dir().join(format!("pocold-pr4-pruned-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
     let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
-    let mut n=net();let mut hashes=vec![n.chain.head];
+    let mut n=net_with(&c);let mut hashes=vec![n.chain.head];
     for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
     node.chain.retain();
-    assert!(node.chain.blocks[&hashes[3]].pruned,"positive control: the parent is below the K_hist window");
-    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
-    let p=m.chain.full_entry(&hashes[3]).unwrap();let ctx=m.chain.child_ctx(&p,0).unwrap();
-    assert_eq!(node.chain.blocks[&hashes[4]].drawn,ctx.proposer,"the canonical block at h=4 carries Draw(4,0)");
-    let mk=|off:u64|{let (h,_,_)=m.chain.build_signed(&p,&m.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();h};
-    let (t1,t2)=(mk(0),mk(1));
+    let e_win=u64::from(node.chain.spec.cp().E_win);let head=node.chain.head().height;
+    // Two pruned canonical parents: hashes[30] (its child's evidence includable: 31+E_win >= head+1) and hashes[3] (not).
+    let (fp,old)=(30usize,3usize);
+    assert!(fp as u64+1+e_win>head&&(old as u64)+1+e_win<head+1,"positive control: one parent inside E_win, one outside");
+    for i in [fp,old]{assert!(node.chain.blocks[&hashes[i]].pruned,"positive control: the parent is below the K_hist window");}
+    let mk=|i:usize,off:u64|{let p=n.chain.full_entry(&hashes[i]).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
+        assert_eq!(node.chain.blocks[&hashes[i+1]].drawn,ctx.proposer,"the canonical block at h={} carries Draw(.,0)",i+1);
+        n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap().0};
+    let (t1,t2)=(mk(fp,0),mk(fp,1));let (o1,o2)=(mk(old,0),mk(old,1));
     let (peer,_socket)=auth_peer::connect(&mut node);
     let (rb,mat)=(node.chain.rebuilds,node.chain.materializations.load(Relaxed));
-    // Attacker half: two templates for (hashes[3], 4) signed by a key that is not drawn.
+    // Attacker half: two templates for (hashes[30], 31) signed by a key that is not drawn.
     let atk=devnet::account_key("zzz-pr4");
-    for t in [&t1,&t2]{send_template(&mut node,peer,&resigned(t,&atk,hashes[3]));}
+    for t in [&t1,&t2]{send_template(&mut node,peer,&resigned(t,&atk,hashes[fp]));}
     assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: a gossiped template rebuilt a pruned parent");
     assert_eq!(node.chain.materializations.load(Relaxed),mat,"no state materialized for a gossiped template");
     assert!(node.evidence_pool.is_empty()&&node.stats.template_penalties==0,"a non-drawn signer gives no evidence and no penalty");
-    assert!(node.chain.blocks[&hashes[3]].pruned,"the parent is still pruned");
+    assert!(node.chain.blocks[&hashes[fp]].pruned,"the parent is still pruned");
+    // Too old: the drawn proposer's pair at h=4 gives no evidence (evidence_type1 would refuse it as too old).
+    for t in [&o1,&o2]{send_template(&mut node,peer,t);}
+    assert!(node.evidence_pool.is_empty(),"a pair whose evidence can no longer be included is not recorded");
     // Drawn half (positive control): the drawn proposer's two templates are type-1 evidence, still without state.
     for t in [&t1,&t2]{send_template(&mut node,peer,t);}
     assert_eq!(node.evidence_pool.len(),1,"the drawn proposer's equivocation is recorded");
     assert_eq!((node.chain.rebuilds,node.chain.materializations.load(Relaxed)),(rb,mat),"FAIL-ON-ORIGINAL: the drawn proposer's template rebuilt a pruned parent");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// Review (historic template flood): a template whose type-1 evidence could no longer be included (height + E_win <
+/// head + 1) is dropped, though it passes every other check (an old canonical block's template is public), and a
+/// seen_templates that overflows keeps the keys whose evidence can still be included and, at worst, the tip's: a
+/// flood between two templates of the tip's drawn proposer does not hide the equivocation. On this short chain no
+/// peer can make SEEN_MAX distinct keys, so the overflow is written into the map directly.
+#[test] fn pr4_a_template_flood_records_no_old_height_and_hides_no_live_equivocation(){
+    use pocold::node::{Config,Node,SEEN_MAX};
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-flood-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&cfg(&["a","b","c"]))).unwrap();
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..40{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    let head=node.chain.head().height;let e_win=u64::from(node.chain.spec.cp().E_win);assert!(head>e_win+4,"positive control: heights outside E_win");
+    // The drawn proposer's template on hashes[i] (height i+1); `off` varies the TemplateID.
+    let tpl=|i:u64,off:u64|{let p=n.chain.full_entry(&hashes[i as usize]).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
+        n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap().0};
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    let junk=|node:&mut Node,height:u64|{for j in 0..SEEN_MAX as u32{let mut k=[0xee;32];k[..4].copy_from_slice(&j.to_be_bytes());node.seen_templates.insert((k,height),(vec![],vec![],vec![]));}};
+    // 1) Too old for its evidence to be included: not recorded. In the window: recorded.
+    let old=head-e_win-1;assert!(old+1+e_win<head+1);
+    send_template(&mut node,peer,&tpl(old,0));
+    assert!(node.seen_templates.is_empty(),"FAIL-ON-ORIGINAL: a template at height {} (E_win {e_win}, head {head}) was recorded",old+1);
+    let inwin=head-2;send_template(&mut node,peer,&tpl(inwin,0));
+    assert_eq!(node.seen_templates.len(),1,"positive control: a historic template inside E_win is recorded");
+    // 2) Overflow with keys too old to matter: they go, the in-window key stays, T1 (the tip) is recorded.
+    let (t1,t2)=(tpl(head,0),tpl(head,1));
+    junk(&mut node,1);assert!(node.seen_templates.len()>SEEN_MAX);
+    send_template(&mut node,peer,&t1);
+    assert!(node.seen_templates.keys().any(|k|k.1==inwin+1),"FAIL-ON-ORIGINAL: the overflow dropped a key whose evidence can still be included");
+    assert_eq!(node.seen_templates.len(),2,"only the keys too old to matter were dropped");
+    // 3) Overflow with keys inside the window: the tip key survives a further insert, and T2 is an equivocation.
+    junk(&mut node,head);assert!(node.seen_templates.len()>SEEN_MAX);
+    send_template(&mut node,peer,&tpl(head-3,0));
+    assert!(node.seen_templates.len()<=SEEN_MAX+1,"the bound holds");
+    assert!(node.evidence_pool.is_empty());
+    send_template(&mut node,peer,&t2);
+    assert_eq!(node.evidence_pool.len(),1,"FAIL-ON-ORIGINAL: the overflow cleared T1, so T2 was recorded as a first template");
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
 /// PR4 plan §7 finding A: evidence_type1 takes a pair on a SIDE parent signed by the proposer drawn at that

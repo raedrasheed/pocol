@@ -183,9 +183,13 @@ an address the receiver dialed for it is not dialed again by that process.
   the canonical block at that height (its `drawn`, the source evidence type 1 is
   checked against; this includes a template on a side parent whose signer is the
   canonically drawn proposer), or from a parent whose state is resident for the
-  tip. Otherwise it is dropped (no record, no evidence, no penalty); observing a
-  template never rebuilds or materializes state. An imported signed block's
-  template is always recorded.
+  tip. It is observed only while its evidence can still be included (height +
+  E_win >= head + 1, as evidence type 1 requires). Otherwise it is dropped (no
+  record, no evidence, no penalty); observing a template never rebuilds or
+  materializes state. An imported signed block's template is always recorded.
+  The observations are bounded (4096 keys); an overflow drops first the keys
+  whose evidence can no longer be included, then all but the tip's (height above
+  the head), so a flood of templates cannot hide a live equivocation.
 - Share: accepted only for the locked TemplateID, `nonce < nMax`,
   `SHA256(TemplateID||be64(n)) <= T_share`; ownership follows from the range.
 - Gossip (network.md:13, :15): a template is relayed to every peer except its

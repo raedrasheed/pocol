@@ -262,8 +262,9 @@ pub struct Node{
     pub rejects:VecDeque<(String,String)>,
     pub stats:Stats,
     pub stopped:bool,
-    /// Equivocation observations and evidence awaiting inclusion (incentives.md Evidence).
-    seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
+    /// Equivocation observations and evidence awaiting inclusion (incentives.md Evidence). seen_templates holds at
+    /// most SEEN_MAX + 1 keys (`evict_seen_templates`).
+    pub seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
     seen_wins:HashMap<([u8;32],u64),([u8;32],[u8;65])>,
     pub evidence_pool:Vec<Vec<u8>>,
     /// F7 double-sign guard. `signed_a0` records, per (parent_hash, height), the template id this node
@@ -1608,6 +1609,10 @@ impl Node{
         // template) is recorded by import_with.
         let Some(pe)=self.chain.get(&h.parent_hash) else{return false};
         if h.h!=pe.height+1{return false}
+        // Only a height whose type-1 evidence can still be included (evidence_type1's "ev1 too old": h+E_win >=
+        // the inclusion height, at least head+1). Every older canonical template is public, so without this a peer
+        // could replay them at one signature recovery each and churn seen_templates (review: historic flood).
+        if h.h.saturating_add(u64::from(self.chain.spec.cp().E_win))<self.chain.head().height+1{return false}
         // The signature is cheap; it runs before the draw (PR4 plan §7 finding E2: a junk self-signed shell no
         // longer pays the membership+draw of child_ctx). Either order returns false for a bad signature.
         let tid=template_id(&h.ut_raw);
@@ -1625,12 +1630,23 @@ impl Node{
     fn record_template(&mut self,h:&Header)->bool{
         let key=(h.parent_hash,h.h);let st=Self::st_bytes(h);
         match self.seen_templates.get(&key){
-            None=>{if self.seen_templates.len()>SEEN_MAX{self.seen_templates.clear();}self.seen_templates.insert(key,(h.ut_raw.clone(),st,h.proposer.clone()));false}
+            None=>{if self.seen_templates.len()>SEEN_MAX{self.evict_seen_templates();}self.seen_templates.insert(key,(h.ut_raw.clone(),st,h.proposer.clone()));false}
             Some((ut,first,prop)) if *ut!=h.ut_raw&&*prop==h.proposer=>{
                 let mut p=Vec::new();crate::rlp::encode_bytes(&[1],&mut p);p.extend(first.clone());p.extend(st);let mut ev=Vec::new();crate::rlp::encode_list_payload(&p,&mut ev);
                 if !self.evidence_pool.contains(&ev)&&self.evidence_pool.len()<EVIDENCE_POOL_MAX{self.log(&format!("equivocation (type 1) by proposer of h={}",h.h));self.evidence_pool.push(ev);}true}
             _=>false,
         }
+    }
+    /// Makes room in a full seen_templates (more than SEEN_MAX keys) without forgetting the live tip: first the keys
+    /// whose evidence can no longer be included (height + E_win < head + 1), then, if it is still full, every key
+    /// but the tip's (height > head: the templates a sticky fallback acts on). The map is cleared whole only if the
+    /// tip keys alone fill it. Clearing it whole on every overflow let a flood of templates hide a live
+    /// equivocation (T1, flood, T2 was recorded as a first template).
+    fn evict_seen_templates(&mut self){
+        let head=self.chain.head().height;let lo=(head+1).saturating_sub(u64::from(self.chain.spec.cp().E_win));
+        self.seen_templates.retain(|k,_|k.1>=lo);
+        if self.seen_templates.len()>SEEN_MAX{self.seen_templates.retain(|k,_|k.1>head);}
+        if self.seen_templates.len()>SEEN_MAX{self.seen_templates.clear();}
     }
     /// Records winner signatures per (TemplateID, nonce); a second share root creates evidence type 2.
     fn observe_win(&mut self,h:&Header){
