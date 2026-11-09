@@ -127,9 +127,9 @@ verified or was advertised within the last 7 days. It receives at most 2 per add
 group, never addresses the node only heard of, and never timestamps.
 
 **Automatic outbound connections.** Dialing learned addresses (`--outbound`,
-`--seed`, the feeler and anchors) is not part of this release. When it is added, its
-default stays 0 until inbound eviction exists (PR3). Until then, a peer that fills
-the inbound slots could turn automatic dialing into an eclipse.
+`--seed`, the feeler and anchors) is not part of this release. Inbound eviction now
+exists (PR3, below), so a peer that fills the inbound places can no longer hold them
+against every newcomer; the automatic-outbound release sets its own default.
 
 **Upgrades (G2, G3).** This release changes the compatibility digest, so seeds and
 users must upgrade together. Launcher homes cannot take a release that changes only
@@ -144,6 +144,96 @@ without hairpinning cannot reach itself, so it cannot detect itself. Its dialer 
 retrying its own address, as before this release, which costs nothing but a failed
 connect. Once `pocol start --peer` exists (with automatic outbound), such a seed
 should list the other seeds with it instead (standalone README).
+
+## Inbound peers and eviction
+
+A node keeps up to 32 established inbound peers (their Hello accepted) and, counted
+apart, up to 8 connections still waiting for their Hello: at most 40 inbound
+connections at once, besides one outbound connection per configured peer. When the
+32 are full, the first Hello for this network and build from a newcomer evicts one
+inbound peer instead of bouncing off (VA-SPEC §1b; local policy, which never changes
+validity, chain state or admission). Protected are a keyed netgroup lottery, the
+latest deliverers of new blocks, locked templates, pooled transactions and shares
+(each kind its own quota), the longest connected, peers in their first 30 s, and as
+many connections from a configured peer's address as it has configured peers. The
+victim is the youngest of the rest in the address group with the most connections.
+Evictions are limited to one per newcomer group per 30 s, and to 8 at once then one
+per 2 s overall; past that, a newcomer is closed, as before. A public /16 or /32
+holds at most 4 places plus one spare, and the newcomer in the spare place evicts
+within its own group.
+
+| Setting | `pocold run` | Launcher (`pocol start`) |
+|---|---|---|
+| Established inbound peers (default 32, 1..128) | `--peers-max N`; `POCOL_PEERS_MAX` | `POCOL_PEERS_MAX` |
+| Inbound peers per public /16 or /32 (default 4, 0 off) | `--per-group-max N`; `POCOL_PER_GROUP_MAX` | `POCOL_PER_GROUP_MAX` |
+
+A flag wins over its variable, and an empty value counts as unset. For `pocold run`, a
+value outside 1..128 (0 included) stops the command before the node starts (status
+1), naming the flag or variable; the launcher refuses it as "Invalid
+POCOL_PEERS_MAX". The seed and join units that `deploy/public-testnet/prepare.py`
+writes set neither: **seeds run at the default 32** (see the halt figures below).
+
+**Memory.** A13 counts every inbound place, the 8 waiting for a Hello included: one
+more established place costs 3,424,474 B of model, about **3.73 MiB of budget** with
+the 1/8 reserve. The raise from 8 to 32 adds 110,248,134 B of model (about 126 MB of
+budget) to a node with 2 configured peers, on every profile, whether or not it
+listens. Under `pocol start`, an operator who lowers `POCOL_MEMORY_BUDGET_BYTES`
+(read only by the launcher) should lower `POCOL_PEERS_MAX` with it; `pocold run` has
+no budget setting and keeps the 6 GiB budget.
+
+**The live chain's halt.** The live continuous chain (deploy/mainnet/h15000) has no
+finite lifetime, so the node stops once its journal holds more records than the A13
+budget admits (`a13_live_chain_halt_records`, store mode as the seeds boot; T_blk
+10 s, so 8,640 records a day):
+
+| Node | Before PR3 (main `b83b584`) | After PR3 | Difference |
+|---|---:|---:|---:|
+| Default node, 2 configured peers | 1,170,090 records (135.4 days) | 1,127,267 records (130.5 days) | −42,823 records (−5.0 days) |
+| Seed, 7 configured peers, at the default 32 | 1,145,444 records (132.6 days) | 1,102,420 records (127.6 days) | −43,024 records (−5.0 days) |
+| Seed at `POCOL_PEERS_MAX=64` (not shipped) | — | 1,059,880 records (122.7 days) | −85,564 records (−9.9 days) |
+
+The plan allowed seeds 64 established places only if that moved their halt by at most
+a week of records (60,480) against the same code at 8; it moves it by 85,093, so seeds
+stay at the default. The halt is still finite (NODE-03 / SCALE-02).
+
+**Threads.** Every inbound place has a reader and a writer thread. The A13 thread
+inventory is 2·(peers_max + 8) + 4·(configured peers) + 40 tasks with 32 RPC
+connections: 128 at the defaults with 2 peers, 148 with 7, 340 at `--peers-max 128`
+with 7. The rule for a unit is `TasksMax` ≥ 2·(peers_max + 8) + 4·peers + 48 (8 tasks
+of margin). The public-testnet unit has `TasksMax=512`, the private testnet's and the
+standalone unit 256. On Linux with cgroup v2, `pocold run` reads its cgroup's
+`pids.max` when the network starts and refuses to start with "the A13 thread
+inventory needs N tasks; this service allows M (raise TasksMax or lower
+--peers-max)" when the inventory does not fit; when the limit cannot be read (the
+root cgroup, cgroup v1, another OS) nothing is checked. A miner thread that cannot be
+spawned is logged and skipped for that template instead of stopping the node.
+
+**Redial backoff.** A configured peer whose connection ends within 60 s (a full peer
+evicting or refusing this node, say) is redialed after 0.6 s, then 1.2 s, doubling to
+at most 30 s; a connection that lasted 60 s or more resets the delay to 300 ms, and a
+failed connect keeps the current delay. A stable peer that is lost is redialed at
+once; one that keeps closing quickly is redialed at most every 30 s.
+
+**Monitoring.** `pocol_status` gains:
+- `inboundEstablished` (established inbound peers still open) and `inboundMax` (the
+  setting, `peers_max`);
+- `stats.inboundEvicted` and `stats.inboundEvictedInGroup` (evictions, and those within
+  a newcomer's own full group);
+- `stats.inboundRefusedFull` (no peer could be evicted) and `stats.inboundRefusedRate`
+  (the eviction budget was spent), both also in the connection refusals;
+- `stats.creditsBlock`, `creditsTemplate`, `creditsTx` and `creditsShare`: first
+  deliveries from peers, which buy protection.
+
+A steadily rising `inboundRefusedRate` means newcomers are arriving faster than the
+budget lets them in, which is what a Hello flood looks like.
+
+**Remaining risks.** Connections that never send a Hello, renewed every 5 s, can
+still hold the 8 handshake places (and a group's spare place); with the group cap
+this needs at least 2 /16s. Peers that connect first after a restart win uptime
+protection for up to half of the unprotected places. Usefulness is cheap to forge,
+so it buys only capped protection. Within one /16, an attacker and honest members
+can evict each other's youngest members, at most once per 30 s per group, and the
+group's oldest member is always kept.
 
 ## Evidence and limits
 
