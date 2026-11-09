@@ -280,9 +280,10 @@ pub struct Node{
     state_store:Option<Arc<crate::state_store::StateStore>>,ckpt:Ckpt,
     /// D-6: with both pending, the next background step is a release step (they alternate with pool slices).
     release_turn:bool,
-    /// PR4 (I-5): the unsolicited deep-rebuild bucket: tokens left (<= REBUILD_BURST) and when tokens were last
-    /// given back (0: not yet). Two scalars, no A13 term.
-    pub rebuild_tokens:u32,pub rebuild_refill_ms:u128,
+    /// PR4 (I-5): the unsolicited deep-rebuild bucket: tokens left (<= REBUILD_BURST), when tokens were last
+    /// given back (0: not yet), and the clock it reads (None: the wall clock, `now_ms`; tests set it). Three
+    /// scalars, no A13 term.
+    pub rebuild_tokens:u32,pub rebuild_refill_ms:u128,pub rebuild_clock:Option<u128>,
     /// Peer discovery (VA-SPEC §1a, `node::discovery`): the self-connection nonce, the address book and each
     /// connection's discovery state.
     disc:discovery::Disc,
@@ -591,7 +592,7 @@ impl Node{
         let mut node=Self{cfg,chain,net,disc,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
-            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0};
+            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
         if rec.torn_tail{node.log("recovered torn journal tail into a new journal");}
@@ -735,10 +736,13 @@ impl Node{
     /// Validates, journals (fsync) and inserts a block. Returns Ok(true) if new head.
     pub fn import(&mut self,b:Block,from:Option<PeerId>)->Result<bool,Reject>{self.import_with(b,from,false)}
     /// PR4 (I-5): takes an unsolicited deep-rebuild token, giving back one per REBUILD_REFILL_MS elapsed (at most
-    /// REBUILD_BURST held); false when none is left.
+    /// REBUILD_BURST held); false when none is left. The clock is the wall clock: after it steps back (an NTP
+    /// correction, a VM restore) the refill time is moved back to now, so a step back costs at most one refill
+    /// interval, not its length (discovery's deadlines do the same, VA-SPEC §1a.6); a step forward gives back at
+    /// most REBUILD_BURST.
     fn rebuild_token(&mut self)->bool{
-        let now=now_ms();
-        if self.rebuild_refill_ms==0{self.rebuild_refill_ms=now;}
+        let now=self.rebuild_clock.unwrap_or_else(now_ms);
+        if self.rebuild_refill_ms==0||now<self.rebuild_refill_ms{self.rebuild_refill_ms=now;}
         let gained=now.saturating_sub(self.rebuild_refill_ms)/REBUILD_REFILL_MS;
         if gained>0{self.rebuild_tokens=u32::try_from(gained).unwrap_or(u32::MAX).saturating_add(self.rebuild_tokens).min(REBUILD_BURST);self.rebuild_refill_ms=now;}
         if self.rebuild_tokens>0{self.rebuild_tokens-=1;true}else{false}

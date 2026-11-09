@@ -921,8 +921,8 @@ fn post_gate_invalid(m:&Net,p:[u8;32])->Block{
     use pocold::node::{REBUILD_BURST,REBUILD_REFILL_MS};
     let k=REBUILD_BURST as usize+4;let (mut node,dir,m,hashes)=deep_node("bucket",k+1);
     let bad:Vec<Block>=(2..k+2).map(|i|post_gate_invalid(&m,hashes[i])).collect();
-    // The bucket's clock is held still (an ordering barrier, not a timing assumption): no token comes back.
-    node.rebuild_refill_ms=u128::MAX;
+    // The bucket's clock is held still (rebuild_clock, never the wall clock): no token comes back.
+    let t0=pocold::node::now_ms();node.rebuild_clock=Some(t0);
     let rec=node.journal_records();let mut rebuilt=0;
     for (i,b) in bad.iter().enumerate(){
         let rb=node.chain.rebuilds;let r=node.import(b.clone(),None);
@@ -937,13 +937,29 @@ fn post_gate_invalid(m:&Net,p:[u8;32])->Block{
         assert!(node.chain.blocks[&b.header.parent_hash].pruned,"block {i}: its parent is pruned again");
     }
     assert_eq!(node.journal_records(),rec,"nothing journaled");
-    // One REBUILD_REFILL_MS later one token is back: an honest deep child takes it and is imported; the budget is
-    // then spent again.
-    node.rebuild_refill_ms=pocold::node::now_ms()-REBUILD_REFILL_MS;
-    let honest=fallback(&m,hashes[3],1);let rb=node.chain.rebuilds;
+    // One REBUILD_REFILL_MS later exactly one token is back, however long building the block below takes (the clock
+    // moves only here): an honest deep child takes it and is imported; the budget is then spent again.
+    let honest=fallback(&m,hashes[3],1);assert_eq!(node.rebuild_tokens,0);
+    node.rebuild_clock=Some(t0+REBUILD_REFILL_MS);let rb=node.chain.rebuilds;
     node.import(honest,None).expect("the refilled token rebuilds for an honest deep child");assert!(node.chain.rebuilds>rb);
-    node.rebuild_refill_ms=u128::MAX;
     let rb=node.chain.rebuilds;assert_eq!(node.import(bad[k-1].clone(),None),Err(Reject::Evicted));assert_eq!(node.chain.rebuilds,rb);
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// Review: the bucket's refill survives a wall-clock step back. With the refill time an hour ahead of the clock (as
+/// after the clock stepped back an hour) and no token left, a token is back one REBUILD_REFILL_MS later, not an hour.
+#[test] fn pr4_the_rebuild_bucket_refills_after_a_clock_step_back(){
+    use pocold::node::{REBUILD_BURST,REBUILD_REFILL_MS};
+    let (mut node,dir,m,hashes)=deep_node("clock",4);
+    let t0=pocold::node::now_ms();node.rebuild_clock=Some(t0);
+    node.rebuild_tokens=0;node.rebuild_refill_ms=t0+3_600_000;
+    let b=post_gate_invalid(&m,hashes[2]);let rb=node.chain.rebuilds;
+    assert_eq!(node.import(b.clone(),None),Err(Reject::Evicted),"no token at the step");assert_eq!(node.chain.rebuilds,rb);
+    node.rebuild_clock=Some(t0+REBUILD_REFILL_MS);
+    assert!(matches!(node.import(b,None),Err(Reject::Block(s)) if s.starts_with("12 proposer")),"FAIL-ON-ORIGINAL: no token one refill interval after the step");
+    assert!(node.chain.rebuilds>rb&&node.rebuild_tokens==0);
+    // A step forward gives back at most the burst.
+    node.rebuild_clock=Some(t0+3_600_000_000);let c=post_gate_invalid(&m,hashes[3]);let _=node.import(c,None);
+    assert_eq!(node.rebuild_tokens,REBUILD_BURST-1);
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
 /// PR4 (I-5, plan §7 finding C): a peer whose lying Hello makes its blocks solicited drives at most
@@ -959,7 +975,7 @@ fn post_gate_invalid(m:&Net,p:[u8;32])->Block{
     node.handle(Event::Net(NetEvent::Message(peer,lie)));node.handle(Event::Tick);
     assert!(node.session.as_ref().is_some_and(|s|s.peer==peer),"positive control: a session with the lying peer");
     // The unsolicited bucket is empty and held still: every rebuild below is the session's.
-    node.rebuild_tokens=0;node.rebuild_refill_ms=u128::MAX;
+    node.rebuild_tokens=0;node.rebuild_clock=Some(pocold::node::now_ms());
     let rec=node.journal_records();
     for (i,b) in bad.iter().enumerate(){
         let rb=node.chain.rebuilds;
