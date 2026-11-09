@@ -1,0 +1,19 @@
+# M9 probe on 00fba86 (Linux x86_64, release): does an imported signed block's template ever fail a check that
+# observe_template makes? A temporary, uncommitted print in import_with, at `if entry.signed{self.record_template(..)}`,
+# evaluated observe_template's two state-free filters for the block before recording it (sources restored with
+# git checkout afterwards):
+#   drawn = canonical_at(h).drawn == proposer
+#           || ((no canonical block at h || parent not canonical) && parent full, not pruned, not slim
+#               && child_ctx(parent,0).proposer == proposer)
+#   win   = h + E_win >= head + 1
+# Command (prototypes/pocold): cargo test --release --locked --no-fail-fast -- --nocapture --test-threads=4
+# Every signed import of the whole suite, counted by outcome:
+   1040 M9PROBE drawn=true win=true full=true pruned=false canonparent=true
+     11 M9PROBE drawn=true win=true full=true pruned=false canonparent=false
+      8 M9PROBE drawn=true win=true full=false pruned=false canonparent=true
+      5 M9PROBE drawn=true win=false full=true pruned=false canonparent=true
+# drawn is true for every import: a validated block's parent is canonical (the canonical arm gives its Draw) or a
+# side block whose state validation has just made resident (full; side states are full or pruned, C-1 S3a, and a
+# pruned one is rebuilt full before validation). The only difference is the 5 imports outside E_win, whose pair
+# evidence_type1 refuses as too old (includable_evidence drops it). One net.rs test failed in that loaded run
+# (55 tests, --nocapture, 4 binaries in parallel) and passed when re-run with the probe in place.

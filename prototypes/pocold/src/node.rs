@@ -30,6 +30,21 @@ impl chain::BlockBytes for Src<'_>{
 /// NeedsRebuild retries of one block: its parent, and (C-1 S4) each slimmed evidence ancestor restored in
 /// turn (only after the head fell back more than R_keep). Beyond them the block is refused, never accepted.
 const REBUILD_TRIES:usize=17;
+/// PR4 (I-5): deep TrieRebuilds (import_with's NeedsRebuild path for a missing parent state; a C-1 S4 slim
+/// restore, header and ranges only, is not charged) an unsolicited flood may drive. Token bucket:
+/// capacity REBUILD_BURST, one token back every REBUILD_REFILL_MS. The seal cache (chain::COSTLY_MAX) only
+/// reduces cost: COSTLY_MAX+1 PoW-valid seals cycled evict each other (PR4 plan §7 finding B). A real heavier
+/// branch dropped here is re-fetched by the sync session its peer's Status starts (network.md D38), so no
+/// block honest peers accept is lost.
+pub const REBUILD_BURST:u32=8;
+pub const REBUILD_REFILL_MS:u128=1000;
+/// Deep rebuilds (not slim restores) one sync session may drive before it is ended as not-reached. An honest adoption within
+/// R_keep needs one (the fork point); the rest extend resident state. Only blocks on the session's branch
+/// draw on it (`on_session_branch`): a side block the session's peer relays is unsolicited for the budget, so
+/// relayed side traffic cannot end an honest heal session. This bounds a peer whose lying Hello makes its blocks
+/// solicited (PR4 plan §7 finding C) to SESSION_REBUILD_MAX per session, and sessions are gated by
+/// SESSION_GAP_MS and the round-robin among claimants.
+pub const SESSION_REBUILD_MAX:u32=4;
 
 pub struct Config{
     pub dir:PathBuf,
@@ -119,7 +134,10 @@ pub struct Session{pub peer:PeerId,pub tip:Option<[u8;32]>,pub asked_ms:u128,pub
     /// Highest height the session has delivered a stored block at: a copy of a block already stored
     /// counts as progress only above it and inside the R_keep window, so replayed or junk blocks cannot
     /// keep a session alive (`last_ms` is the time of the last progress).
-    pub best_h:u64}
+    pub best_h:u64,
+    /// PR4 (I-5): deep rebuilds its branch's blocks drove (at most SESSION_REBUILD_MAX), and the head height the
+    /// current round's locator was built at (`on_session_branch`).
+    pub rebuilds:u32,pub loc_head:u64}
 
 /// Rpc: a request for the consensus thread (rpc::Request).
 /// Wake: light RPC requests are waiting in the light lane (at most one Wake is pending).
@@ -248,8 +266,9 @@ pub struct Node{
     pub rejects:VecDeque<(String,String)>,
     pub stats:Stats,
     pub stopped:bool,
-    /// Equivocation observations and evidence awaiting inclusion (incentives.md Evidence).
-    seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
+    /// Equivocation observations and evidence awaiting inclusion (incentives.md Evidence). seen_templates holds at
+    /// most SEEN_MAX + 1 keys (`evict_seen_templates`).
+    pub seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
     seen_wins:HashMap<([u8;32],u64),([u8;32],[u8;65])>,
     pub evidence_pool:Vec<Vec<u8>>,
     /// F7 double-sign guard. `signed_a0` records, per (parent_hash, height), the template id this node
@@ -265,6 +284,10 @@ pub struct Node{
     state_store:Option<Arc<crate::state_store::StateStore>>,ckpt:Ckpt,
     /// D-6: with both pending, the next background step is a release step (they alternate with pool slices).
     release_turn:bool,
+    /// PR4 (I-5): the unsolicited deep-rebuild bucket: tokens left (<= REBUILD_BURST), when tokens were last
+    /// given back (0: not yet), and the clock it reads (None: the wall clock, `now_ms`; tests set it). Three
+    /// scalars, no A13 term.
+    pub rebuild_tokens:u32,pub rebuild_refill_ms:u128,pub rebuild_clock:Option<u128>,
     /// Peer discovery (VA-SPEC §1a, `node::discovery`): the self-connection nonce, the address book and each
     /// connection's discovery state.
     disc:discovery::Disc,
@@ -573,7 +596,7 @@ impl Node{
         let mut node=Self{cfg,chain,net,disc,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
-            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false};
+            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
         if rec.torn_tail{node.log("recovered torn journal tail into a new journal");}
@@ -716,6 +739,18 @@ impl Node{
     // ---------------- import ----------------
     /// Validates, journals (fsync) and inserts a block. Returns Ok(true) if new head.
     pub fn import(&mut self,b:Block,from:Option<PeerId>)->Result<bool,Reject>{self.import_with(b,from,false)}
+    /// PR4 (I-5): takes an unsolicited deep-rebuild token, giving back one per REBUILD_REFILL_MS elapsed (at most
+    /// REBUILD_BURST held); false when none is left. The clock is the wall clock: after it steps back (an NTP
+    /// correction, a VM restore) the refill time is moved back to now, so a step back costs at most one refill
+    /// interval, not its length (discovery's deadlines do the same, VA-SPEC §1a.6); a step forward gives back at
+    /// most REBUILD_BURST.
+    fn rebuild_token(&mut self)->bool{
+        let now=self.rebuild_clock.unwrap_or_else(now_ms);
+        if self.rebuild_refill_ms==0||now<self.rebuild_refill_ms{self.rebuild_refill_ms=now;}
+        let gained=now.saturating_sub(self.rebuild_refill_ms)/REBUILD_REFILL_MS;
+        if gained>0{self.rebuild_tokens=u32::try_from(gained).unwrap_or(u32::MAX).saturating_add(self.rebuild_tokens).min(REBUILD_BURST);self.rebuild_refill_ms=now;}
+        if self.rebuild_tokens>0{self.rebuild_tokens-=1;true}else{false}
+    }
     /// As `import`; `solicited` marks a block a sync session asked for (D-REORG-REDB re-fetch). An
     /// unsolicited block retention removed is not validated, journaled or requested again
     /// (chain::EVICTED_MAX, a churn guard); a solicited one is taken again (consensus.md §10: a branch
@@ -739,10 +774,35 @@ impl Node{
         if !self.chain.blocks.contains_key(&hash)&&b.header.h.saturating_add(self.chain.r_keep)<=self.chain.head().height{return Err(Reject::Evicted)}
         let mut res=self.chain.validate(&b,Some(now_s()),self.capital_phi());
         let mut tries=0;
-        while let Err(Reject::NeedsRebuild(p))=&res{let p=*p;if tries==REBUILD_TRIES{break}tries+=1;
-            if self.chain.get(&p).map_or(false,|e|e.slim){self.stats.unslims+=1;}else{self.log("TrieRebuild for a fork below the K_hist window");}
+        let on_branch=solicited&&self.session.as_ref().is_some_and(|s|self.on_session_branch(s,&b.header.parent_hash));
+        while let Err(Reject::NeedsRebuild(p))=&res{let p=*p;if tries==REBUILD_TRIES{break}
+            // C-1 S4: a slimmed entry (the parent, or an ancestor the evidence walk reads) gets its header,
+            // ParentResult and nonce ranges back from the journal and history.redb: two record reads, no state
+            // work, at most REBUILD_TRIES per block (each one clears a slim flag), so neither budget below is
+            // charged for it. A pruned parent still needs its state: it goes on, in the same try, to the deep
+            // rebuild below, which is charged.
+            if self.chain.get(&p).map_or(false,|e|e.slim){self.stats.unslims+=1;
+                let src=Src{journal:&self.journal,history:&self.history};
+                if let Err(e)=self.chain.unslim(&p,&src){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}
+                if !(p==b.header.parent_hash&&self.chain.get(&p).is_some_and(|e|e.pruned)){tries+=1;res=self.chain.validate(&b,Some(now_s()),self.capital_phi());continue}
+            }
+            // PR4 (I-5): deep rebuilds are rate-bounded. A solicited block on the session's branch draws on its
+            // session's allowance (an honest adoption needs about one), any other one on the node's bucket (a side
+            // block the session's peer relays included: it neither spends the allowance nor ends the session).
+            // Exhaustion drops the block as a NON-VERDICT (Evicted): not marked invalid, not journaled, no penalty; a real branch
+            // returns through a sync session (network.md D38). A session out of allowance is ended as not
+            // reached, its peer's claim set aside until its next Hello. A solicited block outliving its session
+            // (an orphan child taken after it ended) draws on the bucket.
+            if on_branch{
+                if self.session.as_ref().is_some_and(|s|s.rebuilds>=SESSION_REBUILD_MAX){self.log("sync session: deep-rebuild allowance reached; claim set aside");self.end_session(false);res=Err(Reject::Evicted);break}
+                if let Some(s)=&mut self.session{s.rebuilds+=1;}
+            }else if !self.rebuild_token(){self.log("deep-rebuild budget spent; an unsolicited block dropped (a real branch returns by sync)");res=Err(Reject::Evicted);break}
+            tries+=1;self.log("TrieRebuild for a fork below the K_hist window");
             let src=Src{journal:&self.journal,history:&self.history};
-            if let Err(e)=self.chain.ensure_state_with(&p,Some(&src)){if let Reject::Local(w)=&e{self.fatal(w)}return Err(e)}res=self.chain.validate(&b,Some(now_s()),self.capital_phi());}
+            if let Err(e)=self.chain.ensure_state_with(&p,Some(&src)){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}res=self.chain.validate(&b,Some(now_s()),self.capital_phi());}
+        // PR4 (A13 MATERIALIZED): a block refused after its parent's state was rebuilt (or dropped at the budget
+        // after an earlier rebuild of its retries) leaves none of it behind.
+        if tries>0&&res.is_err(){self.chain.reprune();}
         let (mut entry,_)=match res{
             Ok(v)=>v,
             Err(Reject::UnknownParent)=>{
@@ -759,7 +819,11 @@ impl Node{
             Err(e)=>{if let Reject::Envelope(w)=&e{self.reject(hash,w);}return Err(e)}
         };
         crate::crash_point("state-commit");
-        self.observe_template(&b.header);self.observe_win(&b.header);
+        // PR4: a validated signed block passed items 1, 2, 3 and 12 (20-byte proposer, a=0, h=p.h+1, sig by the
+        // proposer, proposer=Draw(h,0)), every check observe_template makes, so its template is recorded without
+        // reading the parent's state (observe_template's full_entry had materialized a diff-held parent in
+        // place — an A13 MATERIALIZED excess).
+        if entry.signed{self.record_template(&b.header);}self.observe_win(&b.header);
         // C-1 S1 (invariant I3): the receipts and transaction index are durable before the journal record.
         // A write that fails (a disk error, or a store marked damaged) stops the node as a failed journal
         // append does; the next open sets a damaged store aside and replay rebuilds it.
@@ -1227,12 +1291,22 @@ impl Node{
     /// doubling steps, the canonical block at depth R_keep (so a peer whose chain forks within R_keep
     /// always answers from a point within the window) and genesis.
     pub fn locator(&self,tip:Option<[u8;32]>)->Vec<[u8;32]>{
-        let head=self.chain.head().height;let mut hs=Vec::new();
-        let (mut h,mut step)=(head,1u64);
-        while hs.len()<net::LOCATOR_MAX-3{hs.push(h);if h==0{break}if hs.len()>=10{step=step.saturating_mul(2);}h=h.saturating_sub(step);}
-        hs.push(head.saturating_sub(self.chain.r_keep));hs.push(0);hs.sort_unstable_by(|a,b|b.cmp(a));hs.dedup();
         let mut out:Vec<[u8;32]>=tip.into_iter().collect();
-        out.extend(hs.into_iter().filter_map(|h|self.chain.canonical.get(h as usize).copied()));out.truncate(net::LOCATOR_MAX);out
+        out.extend(Self::locator_heights(self.chain.head().height,self.chain.r_keep).into_iter().filter_map(|h|self.chain.canonical.get(h as usize).copied()));out.truncate(net::LOCATOR_MAX);out
+    }
+    /// The canonical heights of a locator built at head height `head`, highest first.
+    fn locator_heights(head:u64,r_keep:u64)->Vec<u64>{
+        let mut hs=Vec::new();let (mut h,mut step)=(head,1u64);
+        while hs.len()<net::LOCATOR_MAX-3{hs.push(h);if h==0{break}if hs.len()>=10{step=step.saturating_mul(2);}h=h.saturating_sub(step);}
+        hs.push(head.saturating_sub(r_keep));hs.push(0);hs.sort_unstable_by(|a,b|b.cmp(a));hs.dedup();hs
+    }
+    /// PR4 (I-5): whether a block on `parent` from the session's peer is on the session's branch: its parent is the
+    /// last block the session delivered, a block it delivered that is not canonical (protected), or a canonical block
+    /// of the locator the round asked from, where the peer's answer starts (network.md D38). Only these draw on the
+    /// session's deep-rebuild allowance.
+    fn on_session_branch(&self,s:&Session,parent:&[u8;32])->bool{
+        s.tip==Some(*parent)||self.chain.protect.contains(parent)||
+            (self.chain.is_canonical(parent)&&self.chain.get(parent).is_some_and(|e|Self::locator_heights(s.loc_head,self.chain.r_keep).contains(&e.height)))
     }
     fn protect(&mut self,hash:[u8;32]){if self.chain.protect.len()<self.chain.protect_max(){self.chain.protect.insert(hash);}}
     /// Whether a peer's announced Status calls for a session: its head is not stored here and its
@@ -1241,7 +1315,7 @@ impl Node{
     fn start_session(&mut self,peer:PeerId,now:u128){
         let Some(p)=self.peers.get(&peer) else{return};
         p.send(&Msg::GetFrom{locator:self.locator(None),count:SYNC_COUNT});
-        self.session=Some(Session{peer,tip:None,asked_ms:now,last_ms:now,got:0,got_round:0,rounds:1,best_h:0});self.sync_ask_ms=now;
+        self.session=Some(Session{peer,tip:None,asked_ms:now,last_ms:now,got:0,got_round:0,rounds:1,best_h:0,rebuilds:0,loc_head:self.chain.head().height});self.sync_ask_ms=now;
         self.stats.sync_sessions+=1;self.stats.sync_rounds+=1;
     }
     /// Ends the session; its blocks lose their protection (adopted ones are canonical by now). A session
@@ -1265,7 +1339,8 @@ impl Node{
             if s.got_round>0&&now.saturating_sub(s.last_ms)>=ROUND_IDLE_MS{
                 let loc=self.locator(s.tip);
                 if let Some(p)=self.peers.get(&s.peer){p.send(&Msg::GetFrom{locator:loc,count:SYNC_COUNT});}
-                if let Some(x)=&mut self.session{x.got_round=0;x.asked_ms=now;x.last_ms=now;x.rounds+=1;}self.stats.sync_rounds+=1;
+                let loc_head=self.chain.head().height;
+                if let Some(x)=&mut self.session{x.got_round=0;x.asked_ms=now;x.last_ms=now;x.rounds+=1;x.loc_head=loc_head;}self.stats.sync_rounds+=1;
             }
             return
         }
@@ -1536,31 +1611,78 @@ impl Node{
 }
 impl Node{
     fn st_bytes(h:&Header)->Vec<u8>{let mut p=h.ut_raw.clone();crate::rlp::encode_bytes(&h.sig,&mut p);let mut o=Vec::new();crate::rlp::encode_list_payload(&p,&mut o);o}
-    /// Records a signed template; returns true when it equivocates (evidence type 1 created).
+    /// Records a gossiped signed template; returns true when it equivocates (evidence type 1 created). It
+    /// never rebuilds or materializes state (PR4, NODE-02).
     fn observe_template(&mut self,h:&Header)->bool{
         if h.proposer.len()!=20||h.sig.len()!=65||h.a!=0{return false}
         // F5/F6: a template counts only if its signer is the DRAWN proposer Draw(parent,0) at the drawn
         // height. The `proposer` field and the signing key are both chosen by the sender, so a signature
         // that merely recovers to the named `proposer` proves nothing — any peer could self-sign two
         // templates for a (parent,h) it picks and forge "equivocation" to force sticky fallback on every
-        // node (F5). Verify the draw exactly as try_lock_signed does, after cheap parent/height filters,
-        // before recording a template or flagging equivocation. Unknown parent / wrong height / any other
-        // signer: ignore (no record, no evidence, no fallback).
-        let parent_height=match self.chain.get(&h.parent_hash){Some(e)=>e.height,None=>return false};
-        if h.h!=parent_height+1{return false}
-        let Some(par)=self.full_entry(&h.parent_hash) else{return false};
-        let Ok(ctx)=self.chain.child_ctx(&par,0) else{return false};
-        if h.proposer[..]!=ctx.proposer[..]{return false}
+        // node (F5). Verify the signature and the draw, after cheap parent/height filters, before recording
+        // a template or flagging equivocation. Unknown parent / wrong height / any other signer: ignore (no
+        // record, no evidence, no fallback).
+        // NODE-02 (PR4): Draw(h,0) is read without making any state. full_entry rebuilt a pruned parent
+        // from genesis (or materialized a diff-held one in place) for every gossiped template, before the
+        // draw and signature checks. The drawn proposer for height h on the CANONICAL branch is the signer
+        // that evidence_type1 (chain.rs:680-681) accepts for a type-1 pair at that height — it reads
+        // ancestor_at(carrier,h).drawn, never tying the templates' parent to the carrier. So:
+        //   - a template for a height already produced: the canonical block at h carries Draw(.,h) in
+        //     `drawn`, kept through prune, slim and offload (chain.rs:749,213,230 never touch `drawn`), the
+        //     same source evidence_type1 uses. This also records equivocation on a SIDE parent whose child's
+        //     signer equals the canonically drawn proposer — valid, includable evidence an honest node keeps
+        //     (PR4 plan §7 finding A). State cost: zero.
+        //   - a template for the tip (h>head, no canonical block yet), or one on a SIDE parent signed by that
+        //     parent's own Draw (includable on its branch if it wins): only a parent whose state is already
+        //     resident is read (child_ctx on it; ensure_state_with would return at once).
+        //   - anything else: dropped (no record, no evidence, no penalty).
+        // Evidence is an incentive item, not a validity rule; the authenticated half (an imported block's
+        // template) is recorded by import_with.
+        let Some(pe)=self.chain.get(&h.parent_hash) else{return false};
+        if h.h!=pe.height+1{return false}
+        // Only a height whose type-1 evidence can still be included (evidence_type1's "ev1 too old": h+E_win >=
+        // the inclusion height, at least head+1). Every older canonical template is public, so without this a peer
+        // could replay them at one signature recovery each and churn seen_templates (review: historic flood).
+        if h.h.saturating_add(u64::from(self.chain.spec.cp().E_win))<self.chain.head().height+1{return false}
+        // The signature is cheap; it runs before the draw (PR4 plan §7 finding E2: a junk self-signed shell no
+        // longer pays the membership+draw of child_ctx). Either order returns false for a bad signature.
         let tid=template_id(&h.ut_raw);
         if !matches!(hashes::recover_address(&hashes::sig_msg(&tid),&h.sig),Ok(a) if a[..]==h.proposer[..]){return false}
-        let key=(h.parent_hash,h.h);let st=Self::st_bytes(h);
+        // The canonically drawn proposer, or Draw(parent,0) of a parent whose state is resident: the tip, or a SIDE
+        // parent at a height already produced (a pair by Draw(S,0) is includable on S's branch if it wins, and the
+        // nodes that build there may not see it again). A canonical parent's Draw is the canonical block's `drawn`.
+        let canon=self.chain.canonical_at(h.h).map(|c|c.drawn);
+        let drawn=canon.is_some_and(|d|h.proposer[..]==d[..])||
+            ((canon.is_none()||!self.chain.is_canonical(&h.parent_hash))&&pe.full&&!pe.pruned&&!pe.slim
+                &&self.chain.child_ctx(pe,0).is_ok_and(|c|h.proposer[..]==c.proposer[..]));
+        drawn&&self.record_template(h)
+    }
+    /// The seen_templates key: (parent, signer) folded into one digest, and the height. Each of the two signers a
+    /// (parent, h) can take (the canonically drawn proposer and Draw(parent,0)) has its own slot, so one's template
+    /// never hides the other's pair; the key keeps its size (A13 `seen`).
+    fn seen_key(h:&Header)->([u8;32],u64){let mut p=h.parent_hash.to_vec();p.extend_from_slice(&h.proposer);(hashes::keccak256(&p),h.h)}
+    /// Records a template signed by Draw(h,0); true when it equivocates (type-1 evidence created). The
+    /// caller has checked the shape (20-byte proposer, 65-byte sig, a=0), the signature and the draw.
+    fn record_template(&mut self,h:&Header)->bool{
+        let key=Self::seen_key(h);let st=Self::st_bytes(h);
         match self.seen_templates.get(&key){
-            None=>{if self.seen_templates.len()>SEEN_MAX{self.seen_templates.clear();}self.seen_templates.insert(key,(h.ut_raw.clone(),st,h.proposer.clone()));false}
+            None=>{if self.seen_templates.len()>SEEN_MAX{self.evict_seen_templates();}self.seen_templates.insert(key,(h.ut_raw.clone(),st,h.proposer.clone()));false}
             Some((ut,first,prop)) if *ut!=h.ut_raw&&*prop==h.proposer=>{
                 let mut p=Vec::new();crate::rlp::encode_bytes(&[1],&mut p);p.extend(first.clone());p.extend(st);let mut ev=Vec::new();crate::rlp::encode_list_payload(&p,&mut ev);
                 if !self.evidence_pool.contains(&ev)&&self.evidence_pool.len()<EVIDENCE_POOL_MAX{self.log(&format!("equivocation (type 1) by proposer of h={}",h.h));self.evidence_pool.push(ev);}true}
             _=>false,
         }
+    }
+    /// Makes room in a full seen_templates (more than SEEN_MAX keys) without forgetting the live tip: first the keys
+    /// whose evidence can no longer be included (height + E_win < head + 1), then, if it is still full, every key
+    /// but the tip's (height > head: the templates a sticky fallback acts on). The map is cleared whole only if the
+    /// tip keys alone fill it. Clearing it whole on every overflow let a flood of templates hide a live
+    /// equivocation (T1, flood, T2 was recorded as a first template).
+    fn evict_seen_templates(&mut self){
+        let head=self.chain.head().height;let lo=(head+1).saturating_sub(u64::from(self.chain.spec.cp().E_win));
+        self.seen_templates.retain(|k,_|k.1>=lo);
+        if self.seen_templates.len()>SEEN_MAX{self.seen_templates.retain(|k,_|k.1>head);}
+        if self.seen_templates.len()>SEEN_MAX{self.seen_templates.clear();}
     }
     /// Records winner signatures per (TemplateID, nonce); a second share root creates evidence type 2.
     fn observe_win(&mut self,h:&Header){

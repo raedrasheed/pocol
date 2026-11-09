@@ -26,6 +26,20 @@ pub const SIDE_BLOCKS_MAX:usize=R_KEEP as usize;
 pub const EVICTED_MAX:usize=1024;
 /// Bound of the invalid-block cache (A05). A forgotten entry is only re-validated.
 pub const INVALID_MAX:usize=4096;
+/// PR4 (I-2): verdicts reached with a parent's state, kept per seal(TemplateID,nonce) (FIFO); a cache only,
+/// never a validity input. Every copy of one template and nonce (another winnerSig, sig, body or share list)
+/// shares the seal, so a copy refused once after the state gate does not buy another rebuild or execution
+/// while its verdict is resident. A cost reducer, not a rebuild bound (PR4 plan I-2; the bound is I-5).
+pub const COSTLY_MAX:usize=256;
+/// A post-state verdict for one seal(TemplateID,nonce): a function of the template, the nonce and the
+/// parent's state the TemplateID commits, never of the copy that reached it (no poisoning).
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub enum Costly{
+    /// A blockReject of H-full (items 12, 13-owner, 15, 16, 17, apply, parent-state context), never item 14.
+    Invalid(Box<str>),
+    /// owner(nonce) under the parent's assignment: a copy whose winnerSig signer differs is envReject (item 13).
+    Owner([u8;20]),
+}
 /// C-1 E1: the most diffs a parent's trie is derived through from the head's. A parent further away (a
 /// deep side branch, an old rebuild root) has its root computed from the whole state, as before E1: the
 /// derivation would cost more than that, and its distinct nodes are bounded by this many blocks' writes.
@@ -253,6 +267,10 @@ pub struct ChildCtx{
     pub parent_result:Option<ParentResult>,
     pub ancestors:Vec<(u64,B256)>,
 }
+/// PR4: the part of a child context read from the parent's header metadata only (ts, height, base_fee,
+/// gas_used, header.gas_limit). Pruning (retain_unsettled), slimming (`slim`), offloading (`offload`) and a
+/// checkpoint restore keep all of them, so a pruned, slim or diff-held parent gives what a full one gives.
+pub struct ChildPre{pub window:AttemptWindow,pub target:Fixed,pub nonce_max:u128,pub t_share:Fixed,pub base_fee:U256}
 
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub enum Reject{
@@ -261,7 +279,7 @@ pub enum Reject{
     /// Committed-content violation (blockReject): the blockHash and descendants are invalid.
     Block(String),
     UnknownParent,
-    /// Parent state outside the K_hist window: TrieRebuild, then retry.
+    /// Parent state outside the K_hist window, for a copy that passed H-pre: TrieRebuild, then retry.
     NeedsRebuild([u8;32]),
     Future,
     Duplicate,
@@ -329,6 +347,9 @@ pub struct Chain{
     pub invalid:HashMap<[u8;32],String>,
     /// Insertion order of `invalid`; a cache only (never a validity input), at most INVALID_MAX.
     invalid_order:std::collections::VecDeque<[u8;32]>,
+    /// PR4: post-state verdicts per seal (COSTLY_MAX, FIFO). Interior-mutable because `validate` takes &self
+    /// (as `materializations`); only the consensus thread uses it.
+    costly:std::sync::Mutex<(HashMap<[u8;32],Costly>,std::collections::VecDeque<[u8;32]>)>,
     /// tid -> (proposer, parent, h) for equivocation detection (evidence type 1).
     pub seen_templates:BTreeMap<(u64,[u8;32]),Vec<(Vec<u8>,Vec<u8>)>>,
     /// Side blocks removed by retention (EVICTED_MAX, FIFO) and how many were removed in all.
@@ -364,7 +385,7 @@ impl Chain{
             summary:Some(Box::new(pocol_lp4_execution::state_summary::Summary::scan(spec.genesis().state(),cp.B_code_max))),stored:None};
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
-        Self{spec,blocks,head:gh,canonical:vec![gh],next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
+        Self{spec,blocks,head:gh,canonical:vec![gh],next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
             r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh]}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
@@ -432,17 +453,25 @@ impl Chain{
         while let Some(e)=cur{ if p.height+1-e.height>256{break} out.push((e.height,B256::from(e.hash))); cur=e.parent.and_then(|x|self.get(&x)); }
         out
     }
-    pub fn child_ctx(&self,p:&Entry,attempt:u32)->Result<ChildCtx,Reject>{
+    /// PR4: the window, ASERT target, nMax, T_share and base fee of a child of `p` at `attempt`, from p's
+    /// header metadata only (no state: H-pre items 4-6, 9 and 11 run on it before any rebuild). Each value is
+    /// what `child_ctx` gives on p's state; `nonce_max` is the one `Assignment::new` computes (assignment.rs).
+    pub fn child_pre(&self,p:&Entry,attempt:u32)->Result<ChildPre,Reject>{
         let cp=self.spec.cp();let h=p.height+1;
         let window=AttemptWindow::new(p.ts,attempt,cp.D_att).map_err(|e|Reject::Block(format!("window {e:?}")))?;
-        let membership=self.membership(p,h)?;
         let target=self.target_for_child(p)?;
-        let mode=self.spec.effective_nonce_mode(h);
-        let assignment=Assignment::new(&membership,attempt,&target,mode,cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
-        let ts_share=from_fixed(&target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX);
-        let proposer=self.draw(p,&membership,h)?;
+        let nonce_max=assignment::nonce_max(&target,self.spec.effective_nonce_mode(h),cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
+        let t_share=to_fixed(from_fixed(&target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
         let base_fee=if h==1{from_fixed_lp4(&cp.baseFee0)}else{fees::next_base_fee(p.base_fee,p.gas_used,p.header.gas_limit).map_err(|e|Reject::Block(format!("baseFee {e:?}")))?};
-        Ok(ChildCtx{height:h,attempt,window,membership,assignment,target,t_share:to_fixed(ts_share),proposer,base_fee,prevrandao:prevrandao(&p.seal),
+        Ok(ChildPre{window,target,nonce_max,t_share,base_fee})
+    }
+    pub fn child_ctx(&self,p:&Entry,attempt:u32)->Result<ChildCtx,Reject>{
+        let cp=self.spec.cp();let h=p.height+1;
+        let ChildPre{window,target,t_share,base_fee,..}=self.child_pre(p,attempt)?;
+        let membership=self.membership(p,h)?;
+        let assignment=Assignment::new(&membership,attempt,&target,self.spec.effective_nonce_mode(h),cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
+        let proposer=self.draw(p,&membership,h)?;
+        Ok(ChildCtx{height:h,attempt,window,membership,assignment,target,t_share,proposer,base_fee,prevrandao:prevrandao(&p.seal),
             parent_result:p.result.clone(),ancestors:self.ancestors(p)})
     }
 
@@ -514,7 +543,8 @@ impl Chain{
     }
 
     // ---------------- validation ----------------
-    /// H-pre items 1-9 (stateless with the parent header) and H-full 10-17.
+    /// H-pre items 1-11, the body binding and limits and fallback item 12 (body) on the parent's header
+    /// metadata only, then (PR4) the parent's state, then H-full 12-17 (`h_full`).
     pub fn validate(&self,b:&Block,clock:Option<u64>,phi:u64)->Result<(Entry,ChildCtx),Reject>{
         let cp=self.spec.cp();let x=&b.header;let hash=b.hash();
         if self.blocks.contains_key(&hash){return Err(Reject::Duplicate)}
@@ -526,14 +556,14 @@ impl Chain{
         if x.protocol_version!=self.spec.active_version(x.h){return blk("netVersion")}
         if !self.blocks.contains_key(&x.parent_hash){return Err(Reject::UnknownParent)}
         if let Some(r)=self.invalid.get(&x.parent_hash){return blk(format!("ancestorInvalid {r}"))}
-        if self.blocks[&x.parent_hash].pruned||self.blocks[&x.parent_hash].slim{return Err(Reject::NeedsRebuild(x.parent_hash))}
-        // C-1 S3a: a retained parent state that is not held full is materialized through the diffs.
-        let materialized;
-        let p=if self.blocks[&x.parent_hash].full{&self.blocks[&x.parent_hash]}else{
-            materialized=self.full_entry(&x.parent_hash).ok_or(Reject::NeedsRebuild(x.parent_hash))?;
-            self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);&materialized};
+        // PR4 (CONS-9): H-pre runs on the parent's header metadata, which pruning, slimming, offloading and
+        // checkpoint restore keep. The parent's state is read/materialized/rebuilt (the gate below item 12)
+        // only for a copy that passed H-pre, its signatures, its body binding and its PoW at the parent's
+        // real ASERT target. Each moved check computes the value the rebuilt parent gives (child_pre), so no
+        // block's verdict changes; consensus.md:175 (D75): "Without parent state: items 10-17 notEvaluable".
+        let pe:&Entry=&self.blocks[&x.parent_hash];
         // 2. linkage and H_END.
-        if x.h!=p.height+1{return blk("2 height")}
+        if x.h!=pe.height+1{return blk("2 height")}
         if cp.H_END!=0&&x.h>cp.H_END{return blk("10a H_END")}
         if let Some(c)=clock{ if crate::timing::is_future(x.ts,c,phi){return Err(Reject::Future)} }
         // 3. template form. proposer and a are committed (blockReject); sig is not (envReject).
@@ -546,12 +576,12 @@ impl Chain{
             match hashes::recover_address(&hashes::sig_msg(&tid),&x.sig){Ok(a) if a[..]==x.proposer[..]=>{},_=>return Err(Reject::Envelope("3 template signature".into()))}
         }else if !x.sig.is_empty(){return Err(Reject::Envelope("3 signature without proposer".into()))}
         // 4. timing window and fallback timestamp.
-        let ctx=self.child_ctx(p,x.a)?;
-        if !ctx.window.contains(x.ts){return blk("4 window")}
-        if !signed{let fb=ctx.window.fallback_timestamp(cp.dFbWait).map_err(|_|Reject::Block("4 fb".into()))?;if x.ts!=fb{return blk("4 fallback timestamp")}}
+        let pre=self.child_pre(pe,x.a)?;
+        if !pre.window.contains(x.ts){return blk("4 window")}
+        if !signed{let fb=pre.window.fallback_timestamp(cp.dFbWait).map_err(|_|Reject::Block("4 fb".into()))?;if x.ts!=fb{return blk("4 fallback timestamp")}}
         // 5. ASERT target. 6/7 nonce and PoW.
-        if x.target!=ctx.target{return blk("5 target")}
-        if (x.nonce as u128)>=ctx.assignment.nonce_max(){return blk("6 nonce>=nMax")}
+        if x.target!=pre.target{return blk("5 target")}
+        if (x.nonce as u128)>=pre.nonce_max{return blk("6 nonce>=nMax")}
         if !le_target(&pow_hash(&tid,x.nonce),&x.target){return blk("7 pow")}
         // 8. winnerSig recoverable.
         let win=hashes::win_msg(&tid,x.nonce,&share_root(x));
@@ -560,13 +590,13 @@ impl Chain{
         if x.shares.len()>usize::from(cp.S_max){return blk("1 shareList size")}
         for w in x.shares.windows(2){if w[0]>=w[1]{return blk("9 shares not strictly ascending")}}
         for n in &x.shares{
-            if *n==x.nonce||(*n as u128)>=ctx.assignment.nonce_max(){return blk("9 share range")}
-            if !le_target(&pow_hash(&tid,*n),&ctx.t_share){return blk("9 share target")}
+            if *n==x.nonce||(*n as u128)>=pre.nonce_max{return blk("9 share range")}
+            if !le_target(&pow_hash(&tid,*n),&pre.t_share){return blk("9 share target")}
         }
         // 10. parent not final. 11. gas limit and base fee.
-        if p.is_final{return blk("10 final parent")}
+        if pe.is_final{return blk("10 final parent")}
         if x.gas_limit!=cp.GAS_LIMIT{return blk("11 gasLimit")}
-        if from_fixed(&x.base_fee)!=ctx.base_fee{return blk("11 baseFee")}
+        if from_fixed(&x.base_fee)!=pre.base_fee{return blk("11 baseFee")}
         // Body binding first (D129): the block hash commits the header only and the body through
         // tx_root/evidence_root. A body that does not match is another copy, not an invalid block:
         // envReject, never marked invalid. Body-content checks below run on the bound body only.
@@ -579,19 +609,56 @@ impl Chain{
         // checks it for blocks from peers (review finding: the raw item sum was checked here).
         if b.body.encode().len()>cp.BODY_MAX as usize{return blk("1 BODY_MAX")}
         if b.body.evidence.len()>usize::from(cp.E_max)||b.body.evidence.iter().any(|e|e.len()>cp.EVID_BYTES_MAX as usize){return blk("1 evidence bounds")}
-        // 12. exclusive form. Fallback: body 0xc2c0c0 and UT byte-equal to Build_fb (needs apply).
-        let mut fb_out=None;
-        if signed{ if x.proposer[..]!=ctx.proposer[..]{return blk("12 proposer is not Draw(h,0)")} }
-        else{
-            if b.body.encode()!=EMPTY_BODY{return blk("12 fallback body")}
+        // 12 (committed, no state): a fallback commits to the empty body 0xc2c0c0.
+        if !signed&&b.body.encode()!=EMPTY_BODY{return blk("12 fallback body")}
+        // PR4 (I-2): a verdict this seal already reached with the parent's state is returned without it.
+        let sk=seal(&tid,x.nonce);
+        match self.costly_of(&sk){
+            Some(Costly::Invalid(r))=>return blk(format!("known invalid template and nonce: {r}")),
+            Some(Costly::Owner(o)) if o!=winner=>return Err(Reject::Envelope("13 winnerSig signer is not owner(nonce)".into())),
+            _=>{}
+        }
+        // The state gate (was above item 2): a copy that passed every check above needs its parent's state.
+        if pe.pruned||pe.slim{return Err(Reject::NeedsRebuild(x.parent_hash))}
+        // C-1 S3a: a retained parent state that is not held full is materialized through the diffs.
+        let materialized;
+        let p:&Entry=if pe.full{pe}else{
+            materialized=self.full_entry(&x.parent_hash).ok_or(Reject::NeedsRebuild(x.parent_hash))?;
+            self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);&materialized};
+        match self.h_full(b,p,signed,winner,hash,sk){
+            // Item 14 depends on the share list, which the seal does not commit (unreachable once 6 and 9 hold:
+            // the ranges partition [0,nMax), assignment.rs:192).
+            Err(Reject::Block(w)) if !w.starts_with("14 ")=>{self.note_costly(sk,Costly::Invalid(truncate(&w).into_boxed_str()));Err(Reject::Block(w))}
+            r=>r,
+        }
+    }
+    fn costly_of(&self,k:&[u8;32])->Option<Costly>{self.costly.lock().unwrap_or_else(|e|e.into_inner()).0.get(k).cloned()}
+    /// Records `v` for seal `k`, the oldest seal going first beyond COSTLY_MAX. An Owner note is replaced by an
+    /// Invalid one (the owner's copy then failed H-full).
+    fn note_costly(&self,k:[u8;32],v:Costly){
+        let mut g=self.costly.lock().unwrap_or_else(|e|e.into_inner());let (map,order)=&mut *g;
+        if !map.contains_key(&k){while order.len()>=COSTLY_MAX{if let Some(old)=order.pop_front(){map.remove(&old);}}order.push_back(k);}
+        map.insert(k,v);
+    }
+    pub fn costly_len(&self)->usize{self.costly.lock().unwrap_or_else(|e|e.into_inner()).0.len()}
+    /// H-full 12-17 of a copy that passed H-pre, on its parent's state `p`; `sk` is seal(TemplateID,nonce).
+    fn h_full(&self,b:&Block,p:&Entry,signed:bool,winner:[u8;20],hash:[u8;32],sk:[u8;32])->Result<(Entry,ChildCtx),Reject>{
+        let x=&b.header;
+        let ctx=self.child_ctx(p,x.a)?;
+        // 12. exclusive form: a signed template's proposer is Draw(h,0).
+        if signed&&x.proposer[..]!=ctx.proposer[..]{return blk("12 proposer is not Draw(h,0)")}
+        // 13/14. ownership (winnerSig signer part is envReject), before any execution: D130 envOwn ("parent
+        // state, no execution", consensus.md:192) precedes apply (:195). Before PR4 a fallback copy executed
+        // first, so one PoW for the public Build_fb template bought an execution per fresh-winnerSig copy
+        // (PR4 fallback-replay finding).
+        let owner=ctx.assignment.owner(x.nonce).ok_or_else(||Reject::Block("13 owner".into()))?;
+        if owner!=winner{self.note_costly(sk,Costly::Owner(owner));return Err(Reject::Envelope("13 winnerSig signer is not owner(nonce)".into()))}
+        let mut shares=Vec::new();for n in &x.shares{shares.push((*n,addr(&ctx.assignment.owner(*n).ok_or_else(||Reject::Block("14 share owner".into()))?)));}
+        // 12 (fallback): UT byte-equal to Build_fb (needs apply), for an owner-signed copy only.
+        let fb_out=if signed{None}else{
             let out=self.execute(p,&ctx,x.ts,Proposer::Fallback,&b.body,vec![])?;
             if self.fill_ut(p,&ctx,x.ts,&out,&[]).ut_raw!=x.ut_raw{return blk("12 fallback UT differs from Build_fb")}
-            fb_out=Some(out);
-        }
-        // 13/14. ownership (winnerSig signer part is envReject).
-        let owner=ctx.assignment.owner(x.nonce).ok_or_else(||Reject::Block("13 owner".into()))?;
-        if owner!=winner{return Err(Reject::Envelope("13 winnerSig signer is not owner(nonce)".into()))}
-        let mut shares=Vec::new();for n in &x.shares{shares.push((*n,addr(&ctx.assignment.owner(*n).ok_or_else(||Reject::Block("14 share owner".into()))?)));}
+            Some(out)};
         // 15. evidence validity (roots were bound above). 16. cumulative caps.
         let effects=if signed{self.evidence_effects(p,&b.body,x.h)?}else{vec![]};
         let tx_bytes:u64=b.body.txs.iter().map(|t|t.len() as u64).sum();
@@ -604,7 +671,7 @@ impl Chain{
         let (is_final,log_bytes)=(out.is_final(),out.log_bytes());
         let c=self.child_state(p,out)?;
         let entry=Entry{hash,header:x.clone(),body:b.body.clone(),height:x.h,parent:Some(p.hash),total_work:p.total_work.saturating_add(work(&x.target)),
-            import_seq:0,signed,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:seal(&tid,x.nonce),state:c.state,is_final,full:true,diff:c.diff,slim:false,
+            import_seq:0,signed,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:sk,state:c.state,is_final,full:true,diff:c.diff,slim:false,
             result:Some(ParentResult{block_hash:B256::from(hash),winner:addr(&owner),shares}),receipts:c.receipts,tx_hashes,
             cum_txs:if self.spec.cp().H_END==0{b.body.txs.len() as u64}else{p.cum_txs+b.body.txs.len() as u64},cum_tx_bytes:if self.spec.cp().H_END==0{tx_bytes}else{p.cum_tx_bytes+tx_bytes},cum_log_bytes:if self.spec.cp().H_END==0{log_bytes}else{p.cum_log_bytes+log_bytes},pruned:false,drawn:ctx.proposer,
             ranges:ctx.assignment.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect(),body_off:None,offloaded:false,trie:c.trie,summary:Some(Box::new(c.summary)),stored:c.stored};
@@ -738,17 +805,11 @@ impl Chain{
     /// (`restore_canonical`) in between, while the side states and diffs that lead to the fork point
     /// are still there (C-1 S3a).
     pub fn retain_unsettled(&mut self){
-        let head_h=self.head().height;let cut=head_h.saturating_sub(self.k_hist);
         // R21 is the canonical trie window; non-canonical states are bounded by side_max below. (Pruning
         // a side block below the window made each block of a deep competing branch rebuild its parent
         // from genesis: quadratic work for an R_keep-deep adoption.)
-        // Heights 1..=cut, each once (`prune_cursor`); what has a block there was pruned before the cut moved.
-        // With the invariant holding (checked in debug builds), the old walk over 1..=cut changed nothing below it.
-        debug_assert!(self.prune_holds(),"prune_cursor {}: a canonical block below it is not pruned",self.prune_cursor);
-        while self.prune_cursor<=cut{
-            if let Some(h)=self.canonical.get(self.prune_cursor as usize).copied(){if let Some(e)=self.blocks.get_mut(&h){if !e.pruned{e.state=empty_state();e.pruned=true;}e.stored=None;e.full=false;e.diff=None;}}
-            self.prune_cursor+=1;
-        }
+        self.prune_window();
+        let head_h=self.head().height;
         // The side blocks: nothing below makes a block canonical, and orphans and evicted blocks are side
         // blocks (a canonical block's parent is canonical), so what is left is this list less what was removed.
         debug_assert!(self.side==self.side_scan(),"the side set is the non-canonical entries");
@@ -812,6 +873,22 @@ impl Chain{
             }
         }
     }
+    /// R21: canonical heights 1..=head-K_hist hold no state, pin, full state or diff. Heights 1..=cut, each
+    /// once (`prune_cursor`); what has a block there was pruned before the cut moved. With the invariant
+    /// holding (checked in debug builds), the old walk over 1..=cut changed nothing below it.
+    fn prune_window(&mut self){
+        let cut=self.head().height.saturating_sub(self.k_hist);
+        debug_assert!(self.prune_holds(),"prune_cursor {}: a canonical block below it is not pruned",self.prune_cursor);
+        while self.prune_cursor<=cut{
+            if let Some(h)=self.canonical.get(self.prune_cursor as usize).copied(){if let Some(e)=self.blocks.get_mut(&h){if !e.pruned{e.state=empty_state();e.pruned=true;}e.stored=None;e.full=false;e.diff=None;}}
+            self.prune_cursor+=1;
+        }
+    }
+    /// PR4 (A13 `resources::MATERIALIZED`): what a TrieRebuild or restore gave back for a block that
+    /// was then refused is dropped at once, as the next import's retain would drop it (`prune_window`, then
+    /// `settle`); before, every refused rebuild until that import kept one more whole state (or stored pin)
+    /// and the re-executed blocks' diffs. No block, protection or side-cap eviction is touched.
+    pub fn reprune(&mut self){self.prune_window();self.settle();}
     /// The end of `retain`: at most side_max non-canonical blocks keep a state (unprotected and lowest-work
     /// first are pruned); then the C-1 S3a shedding of full states.
     pub fn settle(&mut self){
@@ -1066,6 +1143,7 @@ impl Chain{
         // A13: rolling re-execution. Only the block being extended holds a state; intermediate
         // states are dropped, so a rebuild of any depth keeps at most two snapshots alive.
         let mut p=root.meta_clone();p.state=root_state;p.stored=root_stored;
+        let cut=self.head().height.saturating_sub(self.k_hist);
         for h in path.into_iter().rev(){
             // A slimmed block on the path is re-executed from its restored fields (not kept).
             let e=self.meta_restored(&h,src)?;
@@ -1073,8 +1151,16 @@ impl Chain{
             let body=self.body_of(&e,src)?;
             let out=self.reexec(&p,&e,&body)?;
             // C-1 S3a: the re-executed block gets its diff back (pruned blocks had none); C-1 E3: from the write
-            // set when it ran on an overlay.
-            if let Executed::Mem(o)=&out{if self.blocks[&h].diff.is_none(){let d=std::sync::Arc::new(crate::statediff::StateDiff::of_output(&p.state,o));self.blocks.get_mut(&h).unwrap().diff=Some(d);}}
+            // set when it ran on an overlay. PR4 (A13 diffs_held): only a block the next retain keeps one for — a
+            // side block, or a canonical block above the K_hist cut. A canonical diff below the cut is cleared by
+            // the very next `prune_window` (the import's retain, or `reprune` on a refusal) and nothing reads it
+            // before then: the rolling re-execution reads `p`, the validated child reads the target's whole
+            // state, and what a materialize or trie derivation reaches in between (the head's window, the side
+            // states) is reached from the head or a full state without one. A deep rebuild from genesis kept
+            // O(height) diffs at its peak, past diffs_held (PR4 plan §7 finding D). (Store mode: Executed::Stored,
+            // no diff.)
+            let keep_diff=!self.is_canonical(&h)||e.height>cut;
+            if let Executed::Mem(o)=&out{if keep_diff&&self.blocks[&h].diff.is_none(){let d=std::sync::Arc::new(crate::statediff::StateDiff::of_output(&p.state,o));self.blocks.get_mut(&h).unwrap().diff=Some(d);}}
             if !self.blocks[&h].slim&&self.blocks[&h].summary.is_none(){self.blocks.get_mut(&h).unwrap().summary=Some(Box::new(out.summary()));}
             let mut next=self.rolled(e,out)?;next.pruned=false;p=next;self.rebuilds+=1;
         }
