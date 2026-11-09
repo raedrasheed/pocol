@@ -9,8 +9,10 @@
 //!   connections are separate (one per configured peer, `dial`; each carries the address it was dialed at, its
 //!   `Origin`), so inbound connections can never take the slots the node needs to reach its own peers;
 //! - at most `per_group_max` (default 4) inbound connections per public address group (`group_of`: IPv4 /16, IPv6
-//!   /32, a tunnelled IPv4 address as that address). A connection past it is refused even while places are free:
-//!   nodes behind one NAT or one provider range share these places. Groups are counted per address, so one host
+//!   /32, a tunnelled IPv4 address as that address), plus one spare place (`GROUP_SPARE`): a newcomer that takes it
+//!   must evict the youngest unprotected member of its own group at its first eligible Hello (`victim_in`), or it is
+//!   closed, so one idle host cannot lock the rest of its /16 out for good. Past the spare place a connection is
+//!   refused even while places are free: nodes behind one NAT or one provider range share these places. Groups are counted per address, so one host
 //!   that reaches the node from several groups (an IPv4 /16 and an IPv6 /32, say) holds a full set of places in
 //!   each. Addresses that are not globally reachable (loopback, private, link-local, ...) and the node's configured
 //!   peers, by their exact address (`Net::protect`), are not grouped;
@@ -56,8 +58,8 @@ pub struct Limits{
     pub peers_max:usize,
     /// Inbound connections still waiting for their Hello, counted apart from `peers_max` (`inbound_max`).
     pub handshaking_max:usize,
-    /// Inbound connections per public address group (`group_of`, `Net::admit`); 0 disables grouping.
-    /// `pocold run --per-group-max N`, or POCOL_PER_GROUP_MAX.
+    /// Inbound connections per public address group (`group_of`, `Net::admit`), plus `GROUP_SPARE` that must evict
+    /// within the group; 0 disables grouping. `pocold run --per-group-max N`, or POCOL_PER_GROUP_MAX.
     pub per_group_max:usize,
     pub hello_deadline:Duration,pub frame_deadline:Duration,pub idle_deadline:Duration,
     pub queue_bytes_max:usize,pub write_deadline:Duration,
@@ -147,12 +149,20 @@ pub struct Counters{pub live:AtomicUsize,pub handshaking:AtomicUsize,pub refused
     /// Outbound connections (not counted in `live`/`handshaking`).
     pub outbound:AtomicUsize,
     /// Live inbound connections per public address group, and the connections refused because their
-    /// group was full (also counted in `refused`).
+    /// group was full (also counted in `refused`): at accept past the spare place, or at the Hello of the one that took
+    /// it when no member of its group could be evicted (`Net::establish`).
     pub groups:Mutex<HashMap<Group,usize>>,pub refused_group:AtomicUsize,
     /// Inbound eviction (`Net::establish`): peers evicted for a newcomer (`evicted_in_group`: within the newcomer's own
     /// full group), and newcomers closed at their Hello because no peer could be evicted (`refused_full`) or the
     /// eviction budget was spent (`refused_rate`), both also counted in `refused`.
     pub evicted:AtomicUsize,pub evicted_in_group:AtomicUsize,pub refused_full:AtomicUsize,pub refused_rate:AtomicUsize}
+/// Places a full address group may take beyond `per_group_max` (`Net::admit`). A connection in one is `Admit::over`:
+/// at its first eligible Hello it evicts within its own group or is closed (`Net::establish`), so the group's
+/// established members stay within the cap. One, so a group holds at most per_group_max+1 places.
+pub const GROUP_SPARE:usize=1;
+/// An admitted inbound connection (`Net::admit`). `over`: it took its group's spare place (`GROUP_SPARE`).
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+struct Admit{over:bool}
 /// What an eligible Hello carries for this network and build (`Net::expect_hello`, `Net::eligible`): the same values
 /// the node checks on every Hello (node.rs, `identity::matches_for`) and its own self-connection nonce.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
@@ -193,8 +203,9 @@ pub fn mono_ms()->u64{static EPOCH:OnceLock<Instant>=OnceLock::new();u64::try_fr
 fn ms(d:Duration)->u64{u64::try_from(d.as_millis()).unwrap_or(u64::MAX)}
 /// One admitted inbound connection (`Net::enlist`, from its Connected until its release, `Net::forget`). `hello`: its
 /// first Hello was eligible and established (`Net::establish`); `exempt`: it is one of the connections a configured
-/// peer's address may hold (`Net::protect`); `at`: when it was established (`mono_ms`).
-struct Slot{id:PeerId,key:EvictKey,ip:Option<IpAddr>,hello:bool,exempt:bool,at:u64,act:Arc<Activity>,out:Arc<Outbox>,sock:Arc<TcpStream>}
+/// peer's address may hold (`Net::protect`); `at`: when it was established (`mono_ms`); `group`: the address group it
+/// holds a place in (`Net::admit`); `over`: that place is its group's spare one, until it is established.
+struct Slot{id:PeerId,key:EvictKey,ip:Option<IpAddr>,group:Option<Group>,hello:bool,exempt:bool,over:bool,at:u64,act:Arc<Activity>,out:Arc<Outbox>,sock:Arc<TcpStream>}
 /// An eviction candidate (`victim`): an open, established, non-exempt slot other than the newcomer's. `rank`: its key's
 /// keyed hash (the lottery); `last`: its `Activity`; `free`: past its grace period; `prot`: protected by a step so far.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
@@ -260,6 +271,19 @@ fn pick(c:&mut [Cand])->Option<PeerId>{
     }
     best.map(|b|b.1)
 }
+/// The peer to evict for a newcomer that took the spare place of its full address group (pure; `Net::establish`): among
+/// the entries of `c` in `key` that are past their grace period, the oldest, the latest deliverer of a new block and the
+/// latest deliverer of a locked template are kept (a deliverer only with a credit, last > 0), and the youngest of the
+/// rest goes; None if no entry is left. Every choice ends in the unique id, so the input order does not matter. A
+/// newcomer of a group can thus evict only within that group, never its oldest member or its latest block or template
+/// source, and other groups are untouched (A4).
+fn victim_in(c:&[Cand],key:EvictKey)->Option<PeerId>{
+    let g=||c.iter().filter(move|x|x.key==key&&x.free);
+    let oldest=g().map(|x|x.id).min();
+    let latest=|k:Useful|g().filter(|x|x.last[k as usize]>0).max_by_key(|x|(x.last[k as usize],x.id)).map(|x|x.id);
+    let kept=[oldest,latest(Useful::Block),latest(Useful::Template)];
+    g().map(|x|x.id).filter(|id|!kept.contains(&Some(*id))).max()
+}
 #[derive(Clone,Debug)]
 pub struct Net{pub limits:Limits,pub counters:Arc<Counters>,
     /// The node's configured peers' canonical addresses, each with the number of configured peers at it (`protect`).
@@ -290,16 +314,16 @@ impl Net{
         (self.grouper)(ip)
     }
     /// Reserves an inbound connection place (at most `inbound_max`), a handshake place (at most `handshaking_max`) and
-    /// a place in `group` (at most `per_group_max` per group, also while other places are free), or refuses.
-    fn admit(&self,group:Option<Group>)->bool{
-        let c=&self.counters;
-        if c.live.fetch_add(1,Ordering::SeqCst)>=self.limits.inbound_max(){c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
-        if c.handshaking.fetch_add(1,Ordering::SeqCst)>=self.limits.handshaking_max{c.handshaking.fetch_sub(1,Ordering::SeqCst);c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
-        if let Some(g)=group{
-            let placed=match c.groups.lock(){Ok(mut m)=>{let n=m.entry(g).or_insert(0);if *n<self.limits.per_group_max{*n+=1;true}else{false}}Err(_)=>false};
-            if !placed{c.handshaking.fetch_sub(1,Ordering::SeqCst);c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);c.refused_group.fetch_add(1,Ordering::SeqCst);return false}
-        }
-        true
+    /// a place in `group` (at most `per_group_max` per group, also while other places are free, then `GROUP_SPARE`
+    /// more, `Admit::over`), or refuses.
+    fn admit(&self,group:Option<Group>)->Option<Admit>{
+        let (c,l)=(&self.counters,&self.limits);
+        if c.live.fetch_add(1,Ordering::SeqCst)>=l.inbound_max(){c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return None}
+        if c.handshaking.fetch_add(1,Ordering::SeqCst)>=l.handshaking_max{c.handshaking.fetch_sub(1,Ordering::SeqCst);c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return None}
+        let Some(g)=group else{return Some(Admit{over:false})};
+        let placed=match c.groups.lock(){Ok(mut m)=>{let n=m.entry(g).or_insert(0);if *n<l.per_group_max.saturating_add(GROUP_SPARE){*n+=1;Some(Admit{over:*n>l.per_group_max})}else{None}}Err(_)=>None};
+        if placed.is_none(){c.handshaking.fetch_sub(1,Ordering::SeqCst);c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);c.refused_group.fetch_add(1,Ordering::SeqCst);}
+        placed
     }
     /// Gives back the place an admitted inbound connection held in its group.
     fn release_group(&self,group:Option<Group>){
@@ -318,11 +342,12 @@ impl Net{
         let Msg::Hello{chain_id,genesis,protocol,compatibility,nonce,..}=m else{return false};
         !(*nonce!=0&&*nonce==id.nonce)&&*chain_id==id.chain_id&&*genesis==id.genesis&&*protocol==crate::identity::PROTOCOL_VERSION&&*compatibility==id.compatibility
     }
-    /// Registers an admitted inbound connection (not yet established), right before the node learns of it.
-    fn enlist(&self,p:&Peer){
+    /// Registers an admitted inbound connection (not yet established) with the group place it holds and whether that
+    /// place is the spare one (`admit`), right before the node learns of it.
+    fn enlist(&self,p:&Peer,group:Option<Group>,over:bool){
         let ip=p.remote.map(|a|a.ip().to_canonical());let key=evict_key(self.grouper,ip);let mut r=self.registry();
         // Never grown: at most `live` <= inbound_max connections are enlisted (released ones are forgotten first).
-        if r.slots.len()<self.limits.inbound_max(){r.slots.push(Slot{id:p.id,key,ip,hello:false,exempt:false,at:0,act:p.act.clone(),out:p.out.clone(),sock:p.sock.clone()});}
+        if r.slots.len()<self.limits.inbound_max(){r.slots.push(Slot{id:p.id,key,ip,group,hello:false,exempt:false,over,at:0,act:p.act.clone(),out:p.out.clone(),sock:p.sock.clone()});}
     }
     /// Removes a released inbound connection from the registry.
     fn forget(&self,id:PeerId){let mut r=self.registry();if let Some(i)=r.slots.iter().position(|s|s.id==id){r.slots.swap_remove(i);}}
@@ -333,9 +358,12 @@ impl Net{
     /// `victim` among the others (open, established, not exempt), within the eviction budget; one that cannot is
     /// refused. A configured peer's connection is exempt (at most `protect`'s count per address): it is never a victim,
     /// is not charged, and may exceed the cap by at most min(configured peers, handshaking_max/2) when no victim exists,
-    /// so at least half of the handshake places remain. The victim keeps its live and group places until its own
-    /// release, so physical connections stay within inbound_max. Lock order: the registry, then a victim's outbox; no
-    /// path takes the registry while it holds an outbox lock.
+    /// so at least half of the handshake places remain. A newcomer in its group's spare place (`Admit::over`) whose
+    /// group still holds more than per_group_max places evicts within that group (`victim_in`, the same budget and
+    /// grace), which also frees a place in the set, or is refused by group; one whose group has shrunk meanwhile is an
+    /// ordinary newcomer. The victim keeps its live and group places until its own release, so physical connections
+    /// stay within inbound_max. Lock order: the registry, then a victim's outbox or the group counts; no path takes the
+    /// registry while it holds either.
     pub fn establish(&self,id:PeerId)->bool{
         let (l,c)=(&self.limits,&self.counters);
         // `now` is read once the lock is held, so the charges recorded under it never go back in time.
@@ -346,17 +374,21 @@ impl Net{
         let (allowed,configured)=self.protected.read().map(|p|(ip.and_then(|ip|p.get(&ip)).map_or(0,|n|usize::from(*n)),p.values().map(|n|usize::from(*n)).sum::<usize>())).unwrap_or((0,0));
         let exempt=allowed>0&&r.slots.iter().filter(|s|open(s)&&s.exempt&&s.ip==ip).count()<allowed;
         r.slots[me].exempt=exempt;
-        if held>=l.peers_max{
+        // The spare place's newcomer evicts within its group only while the group is still over its cap.
+        let group=r.slots[me].group.filter(|g|r.slots[me].over&&c.groups.lock().map_or(true,|m|m.get(g).copied().unwrap_or(0)>l.per_group_max));
+        if group.is_some()||held>=l.peers_max{
             if !exempt&&!r.allows(key,now,&l.evict){c.refused_rate.fetch_add(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
             let grace=ms(l.evict.grace);r.scratch.clear();
             r.scratch.extend(r.slots.iter().filter(|s|s.id!=id&&open(s)&&!s.exempt).map(|s|Cand{id:s.id,key:s.key,rank:self.rank.hash_one(s.key),last:s.act.get(),free:now.saturating_sub(s.at)>=grace,prot:false}));
-            match victim(&mut r.scratch,&Policy::of(l)){
-                Some(v)=>{if let Some(s)=r.slots.iter().find(|s|s.id==v){shut(&s.out,&s.sock);}c.evicted.fetch_add(1,Ordering::SeqCst);if !exempt{r.charge(key,now,&l.evict);}}
-                None if exempt&&held<l.peers_max.saturating_add(configured.min(l.handshaking_max/2))=>{}
-                None=>{c.refused_full.fetch_add(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
+            let v=match group{Some(g)=>victim_in(&r.scratch,EvictKey::Net(g)),None=>victim(&mut r.scratch,&Policy::of(l))};
+            match v{
+                Some(v)=>{if let Some(s)=r.slots.iter().find(|s|s.id==v){shut(&s.out,&s.sock);}c.evicted.fetch_add(1,Ordering::SeqCst);
+                    if group.is_some(){c.evicted_in_group.fetch_add(1,Ordering::SeqCst);}if !exempt{r.charge(key,now,&l.evict);}}
+                None if exempt&&group.is_none()&&held<l.peers_max.saturating_add(configured.min(l.handshaking_max/2))=>{}
+                None=>{if group.is_some(){c.refused_group.fetch_add(1,Ordering::SeqCst);}else{c.refused_full.fetch_add(1,Ordering::SeqCst);}c.refused.fetch_add(1,Ordering::SeqCst);return false}
             }
         }
-        let s=&mut r.slots[me];s.hello=true;s.at=now;true
+        let s=&mut r.slots[me];s.hello=true;s.at=now;s.over=false;true
     }
 }
 
@@ -550,10 +582,10 @@ impl Drop for Release{
 /// before its place is used again, so exiting readers are counted too.
 /// `origin`: how the connection came about; a dialed one is counted in `Counters::outbound`, not in the inbound
 /// slots. `group`: the address group an inbound connection holds a place in (`Net::admit`), given back with
-/// its slot, by the same single release (`Release`). An inbound connection is enlisted in the registry right before
+/// its slot, by the same single release (`Release`); `over`: that place is the group's spare one (`Admit::over`). An inbound connection is enlisted in the registry right before
 /// the node learns of it, and established at its first eligible Hello (`Net::establish`), which may evict another or
 /// refuse it: a refused connection ends before its Hello reaches the node.
-fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net,group:Option<Group>)->(bool,Option<std::thread::JoinHandle<()>>){
+fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net,group:Option<Group>,over:bool)->(bool,Option<std::thread::JoinHandle<()>>){
     let outbound=origin!=Origin::Inbound;
     if outbound{net.counters.outbound.fetch_add(1,Ordering::SeqCst);}
     let id=NEXT.fetch_add(1,Ordering::SeqCst);
@@ -577,7 +609,7 @@ fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net
         }
     });
     let Ok(writer)=writer else{drop(release);return (false,None)};
-    if !outbound{net.enlist(&peer);}
+    if !outbound{net.enlist(&peer,group,over);}
     if events.send(NetEvent::Connected(id,peer.clone())).is_err(){peer.close();let _=writer.join();drop(release);return (false,None)}
     let writer=Arc::new(Mutex::new(Some(writer)));let rwriter=writer.clone();
     let join=|w:&Mutex<Option<std::thread::JoinHandle<()>>>|{if let Some(h)=w.lock().ok().and_then(|mut g|g.take()){let _=h.join();}};
@@ -624,7 +656,10 @@ pub fn listen(listener:TcpListener,events:SyncSender<NetEvent>,net:Net){
             crate::threads::reap(&mut readers);
             let room=readers.len()<net.limits.inbound_max();if !room{net.counters.refused.fetch_add(1,Ordering::SeqCst);}
             let group=s.peer_addr().ok().and_then(|a|net.inbound_group(a.ip()));
-            if room&&net.admit(group){if let (_,Some(h))=spawn_peer(s,Origin::Inbound,events.clone(),net.clone(),group){readers.push(h);}}else{let _=s.shutdown(std::net::Shutdown::Both);}
+            match if room{net.admit(group)}else{None}{
+                Some(a)=>{if let (_,Some(h))=spawn_peer(s,Origin::Inbound,events.clone(),net.clone(),group,a.over){readers.push(h);}}
+                None=>{let _=s.shutdown(std::net::Shutdown::Both);}
+            }
         }
     }).expect("spawn listener");
 }
@@ -641,7 +676,7 @@ pub fn dial(addr:SocketAddr,events:SyncSender<NetEvent>,connected:Arc<Mutex<std:
                 if let Ok(s)=TcpStream::connect_timeout(&addr,Duration::from_millis(500)){
                     if let Ok(mut set)=connected.lock(){set.insert(addr.to_string());}
                     // Not handed to the node (no Closed will follow): dial again later.
-                    let (handed,h)=spawn_peer(s,Origin::Configured(addr),events.clone(),net.clone(),None);reader=h;
+                    let (handed,h)=spawn_peer(s,Origin::Configured(addr),events.clone(),net.clone(),None,false);reader=h;
                     if !handed{if let Ok(mut set)=connected.lock(){set.remove(&addr.to_string());}}
                 }
             }
@@ -786,7 +821,7 @@ mod tests{
     #[test] fn a_finished_peer_writes_what_was_queued_then_closes(){
         let pair=||{let l=TcpListener::bind("127.0.0.1:0").unwrap();let a=l.local_addr().unwrap();let c=TcpStream::connect(a).unwrap();let (s,_)=l.accept().unwrap();
             let net=Net::new(Limits{hello_deadline:Duration::from_secs(120),..Limits::default()});
-            let (tx,rx)=mpsc::sync_channel(NET_EVENT_QUEUE);assert!(spawn_peer(s,Origin::Configured(a),tx,net,None).0);
+            let (tx,rx)=mpsc::sync_channel(NET_EVENT_QUEUE);assert!(spawn_peer(s,Origin::Configured(a),tx,net,None,false).0);
             let Ok(NetEvent::Connected(_,p))=rx.recv_timeout(Duration::from_secs(5)) else{panic!("handed to the node")};(p,c,rx)};
         let m=Msg::GetBlock{hash:[7;32]};let f={let b=m.encode();let mut f=(b.len() as u32).to_be_bytes().to_vec();f.extend(b);f};
         let (p,mut c,rx)=pair();for _ in 0..3{assert!(p.send(&m));}p.finish();
@@ -831,10 +866,10 @@ mod tests{
         assert!(group_of(ip("172.32.0.1")).is_some()&&group_of(ip("198.20.0.1")).is_some()&&group_of(ip("223.255.255.1")).is_some(),"just outside 172.16/12, 198.18/15, 224/4");
         assert!(group_of(ip("2001:200::1")).is_some()&&group_of(ip("3fff:1000::1")).is_some(),"just outside 2001::/23 and 3fff::/20");
     }
-    /// Per-group admission: a group holds at most per_group_max inbound places (by default half of the
-    /// inbound slots), also while other slots are free; a refusal by group takes no slot; a released place can
-    /// be taken again; other groups and ungrouped peers are unaffected; a configured peer is exempt by its
-    /// canonical address (a dual-stack listener reports IPv4 as ::ffff:a.b.c.d); per_group_max 0 disables it.
+    /// Per-group admission: a group holds at most per_group_max inbound places and its spare one (by default 4 and 1),
+    /// also while other slots are free; a refusal by group takes no slot; a released place can be taken again; other
+    /// groups and ungrouped peers are unaffected; a configured peer is exempt by its canonical address (a dual-stack
+    /// listener reports IPv4 as ::ffff:a.b.c.d); per_group_max 0 disables it.
     #[test] fn a_public_group_holds_at_most_per_group_max_inbound_places(){
         let d=Limits::default();assert_eq!(d.per_group_max,4,"by default one group holds at most 4 inbound places");
         assert_eq!(d.inbound_max(),d.peers_max+d.handshaking_max,"the physical bound counts the places waiting for a Hello apart");
@@ -845,12 +880,13 @@ mod tests{
         let places=|g:Option<Group>|c.groups.lock().unwrap().get(&g.unwrap()).copied().unwrap_or(0);
         // What spawn_peer's single release does when a connection ends.
         let close=|g:Option<Group>|{c.live.fetch_sub(1,Ordering::SeqCst);c.handshaking.fetch_sub(1,Ordering::SeqCst);net.release_group(g);};
-        assert!(net.admit(ga)&&net.admit(ga)&&net.admit(ga),"per_group_max places in one group");
-        assert!(!net.admit(ga),"one more from that group is refused although 5 slots are free");
-        assert_eq!((load(&c.live),load(&c.handshaking),load(&c.refused),load(&c.refused_group)),(3,3,1,1),"a refusal by group takes no slot");
-        assert!(net.admit(gb)&&net.admit(None)&&net.admit(None),"another group and ungrouped peers are admitted");
-        close(ga);assert_eq!(places(ga),2);assert!(net.admit(ga),"a released place can be taken again");
-        assert_eq!((places(ga),places(gb)),(3,1));
+        let (cap,spare)=(Some(Admit{over:false}),Some(Admit{over:true}));
+        assert_eq!([net.admit(ga),net.admit(ga),net.admit(ga),net.admit(ga)],[cap,cap,cap,spare],"per_group_max places in one group, then its spare one");
+        assert_eq!(net.admit(ga),None,"one more from that group is refused although 4 slots are free");
+        assert_eq!((load(&c.live),load(&c.handshaking),load(&c.refused),load(&c.refused_group)),(4,4,1,1),"a refusal by group takes no slot");
+        assert!(net.admit(gb)==cap&&net.admit(None)==cap&&net.admit(None)==cap,"another group and ungrouped peers are admitted");
+        close(ga);assert_eq!(places(ga),3);assert_eq!(net.admit(ga),spare,"a released place can be taken again");
+        assert_eq!((places(ga),places(gb)),(4,1));
         close(gb);assert_eq!(c.groups.lock().unwrap().get(&gb.unwrap()),None,"an empty group is removed");
         // Configured peers are exempt by their exact canonical address, also as seen on a dual-stack listener.
         let mapped:IpAddr="::ffff:81.2.69.8".parse().unwrap();
@@ -867,12 +903,15 @@ mod tests{
     }
     /// End to end through `listen` and `spawn_peer` (every loopback source counted in one public group): an
     /// accepted connection takes its group's place at accept, a refused one takes none, and each connection
-    /// gives its place back exactly once, whether it closes after its Hello or never sends a Hello. The
-    /// connections that must stay send a Hello, so a slow runner cannot end them early at the Hello deadline.
+    /// gives its place back exactly once, whether it closes after its Hello, never sends a Hello or is evicted. A
+    /// connection to a full group takes the spare place: without a Hello it is closed at its deadline, with one it
+    /// evicts the group's youngest member and stays; while the spare place is taken, the next is closed at accept.
+    /// The connections that must stay send a Hello, so a slow runner cannot end them early at the Hello deadline.
     #[test] fn listen_takes_and_gives_back_one_group_place_per_inbound_connection(){
         const G:Group=Group::V4([81,2]);
         fn one_group(ip:IpAddr)->Option<Group>{if ip.is_loopback(){Some(G)}else{group_of(ip)}}
-        let net=Net::new(Limits{peers_max:4,handshaking_max:4,per_group_max:2,hello_deadline:Duration::from_millis(800),..Limits::default()}).with_grouper(one_group);
+        let net=Net::new(Limits{peers_max:4,handshaking_max:4,per_group_max:2,hello_deadline:Duration::from_millis(800),
+            evict:EvictLimits{grace:Duration::ZERO,..EvictLimits::default()},..Limits::default()}).with_grouper(one_group);
         let l=TcpListener::bind("127.0.0.1:0").unwrap();let addr=l.local_addr().unwrap();
         let (tx,rx)=mpsc::sync_channel(NET_EVENT_QUEUE);listen(l,tx,net.clone());
         std::thread::spawn(move||{for _ in rx{}});
@@ -886,20 +925,82 @@ mod tests{
         let mut a=TcpStream::connect(addr).unwrap();a.write_all(&hello()).unwrap();
         let mut b=TcpStream::connect(addr).unwrap();b.write_all(&hello()).unwrap();
         assert!(until(&||places()==2&&shaking()==0),"two connections take the group's places; their Hellos end their handshakes");
-        let mut x=TcpStream::connect(addr).unwrap();
-        assert!(closed(&mut x),"a third connection from the group is closed at accept although slots are free");
-        assert_eq!((c.refused_group.load(Ordering::SeqCst),places()),(1,2),"the refused connection took no place");
+        let load=|a:&AtomicUsize|a.load(Ordering::SeqCst);
+        let mut x=TcpStream::connect(addr).unwrap();assert!(until(&||places()==3),"a third connection from the full group takes the spare place");
+        assert!(closed(&mut x),"without a Hello it is closed at its deadline");
+        assert!(until(&||places()==2),"and gives back the spare place");
+        let mut y=TcpStream::connect(addr).unwrap();assert!(until(&||places()==3),"the spare place is taken again");
+        let mut z=TcpStream::connect(addr).unwrap();
+        assert!(closed(&mut z),"a fourth connection while the spare place is taken is closed at accept");
+        assert_eq!((load(&c.refused_group),places()),(1,3),"the refused connection took no place");
+        y.write_all(&hello()).unwrap();
+        assert!(closed(&mut b),"with a Hello the spare place's newcomer evicts the group's youngest member");
+        assert!(until(&||places()==2&&shaking()==0),"whose place is given back");
+        assert_eq!((load(&c.evicted),load(&c.evicted_in_group),load(&c.refused_group)),(1,1,1));
+        a.set_read_timeout(Some(Duration::from_millis(300))).unwrap();let mut one=[0u8;1];
+        assert!(matches!(a.read(&mut one),Err(e) if matches!(e.kind(),std::io::ErrorKind::WouldBlock|std::io::ErrorKind::TimedOut)),"the oldest member stays");
         drop(a);assert!(until(&||places()==1),"a closed connection gives back its place");
         std::thread::sleep(Duration::from_millis(500));
-        assert_eq!(places(),1,"exactly once: b still holds its place");
+        assert_eq!(places(),1,"exactly once: y still holds its place");
         let mut d=TcpStream::connect(addr).unwrap();assert!(until(&||places()==2),"the freed place is taken again");
         assert!(closed(&mut d),"a connection that never sends a Hello is closed at its deadline");
         assert!(until(&||places()==1),"and gives back its place");
-        drop(b);
+        drop(y);
         assert!(until(&||places()==0&&c.live.load(Ordering::SeqCst)==0&&shaking()==0),"all places and slots are back");
         assert!(c.groups.lock().unwrap().is_empty(),"no empty group is left behind");
     }
     // ---------------- PR3: inbound eviction ----------------
+    /// A full address group admits one spare place (`GROUP_SPARE`, `Admit::over`) and then refuses; every place, the
+    /// spare one included, is given back exactly once; per_group_max 0 has no groups and so no spare place.
+    #[test] fn a_full_group_admits_one_spare_place(){
+        const G:Group=Group::V4([81,2]);
+        let net=Net::new(Limits{peers_max:8,handshaking_max:8,per_group_max:2,..Limits::default()}).with_grouper(|_|Some(G));let c=net.counters.clone();
+        let load=|a:&AtomicUsize|a.load(Ordering::SeqCst);let places=||c.groups.lock().unwrap().get(&G).copied();
+        let got:Vec<Option<Admit>>=(0..4).map(|_|net.admit(Some(G))).collect();
+        assert_eq!(got,[Some(Admit{over:false}),Some(Admit{over:false}),Some(Admit{over:true}),None],"the cap, then the spare place, then a refusal");
+        assert_eq!((places(),load(&c.live),load(&c.refused_group)),(Some(3),3,1));
+        // Each connection's single release (`Release`).
+        let mut held=Vec::new();for id in 0..3{held.push(Release{net:net.clone(),id,group:Some(G),outbound:false,handshaking:true});}
+        drop(held.pop());assert_eq!(places(),Some(2));assert_eq!(net.admit(Some(G)),Some(Admit{over:true}),"a released spare place can be taken again");
+        held.push(Release{net:net.clone(),id:9,group:Some(G),outbound:false,handshaking:true});drop(held);
+        assert_eq!((places(),load(&c.live),load(&c.handshaking)),(None,0,0),"every place given back exactly once");
+        let off=Net::new(Limits{per_group_max:0,..Limits::default()});assert_eq!(off.inbound_group("81.2.69.1".parse().unwrap()),None);
+    }
+    /// A newcomer in its full group's spare place, through `Net::establish` on `test_peer` connections (no threads): it
+    /// evicts the youngest free member of its own group (`evicted_in_group`), even while the set has room, and never the
+    /// group's oldest member, its latest block or template source, a member in grace, or a member of another group; with
+    /// nothing to evict in its group it is refused by group. One whose group shrank back to the cap before its Hello is
+    /// an ordinary newcomer and evicts nobody.
+    #[test] fn a_full_group_evicts_within_itself(){
+        const G:Group=Group::V4([81,2]);const H:Group=Group::V4([81,3]);
+        fn two(ip:IpAddr)->Option<Group>{match ip{IpAddr::V4(a) if a.octets()[1]==2=>Some(G),_=>Some(H)}}
+        let net=|per_group_max,grace|Net::new(Limits{peers_max:16,handshaking_max:8,per_group_max,
+            evict:EvictLimits{grace,key_interval:Duration::ZERO,burst:1000,refill:Duration::ZERO},..Limits::default()}).with_grouper(two);
+        let load=|a:&AtomicUsize|a.load(Ordering::SeqCst);let mut keep=Vec::new();
+        // Admits and enlists connection `id` from group `g`, as `listen` and `spawn_peer` do; true in the spare place.
+        let mut join=|n:&Net,id:PeerId,g:Group|{let a=n.admit(Some(g)).unwrap();let ip=if g==G{[81,2,0,1]}else{[81,3,0,1]};
+            let (p,s)=test_peer_as(id,1<<16,Origin::Inbound,Some(SocketAddr::from((ip,id as u16))));n.enlist(&p,Some(g),a.over);keep.push(s);(p,a.over)};
+        let release=|n:&Net,id|drop(Release{net:n.clone(),id,group:Some(G),outbound:false,handshaking:false});
+        let n1=net(4,Duration::ZERO);
+        let g:Vec<Peer>=(1..=4).map(|id|join(&n1,id,G).0).collect();let (h,_)=join(&n1,5,H);
+        assert!((1..=5).all(|id|n1.establish(id)),"within the cap");
+        g[1].credit(Useful::Block);g[2].credit(Useful::Template);
+        let (x,over)=join(&n1,6,G);assert!(over,"the fifth of the group takes the spare place");
+        assert!(n1.establish(6),"and evicts although the set has room");
+        assert_eq!(g.iter().map(|p|p.ended().0).collect::<Vec<_>>(),[false,false,false,true],"the youngest free member goes; 1 oldest, 2 block, 3 template stay");
+        assert_eq!((h.ended().0,x.ended().0,load(&n1.counters.evicted),load(&n1.counters.evicted_in_group)),(false,false,1,1),"another group is untouched");
+        // The victim's release gives its place back; a spare newcomer whose group shrinks before its Hello evicts nobody.
+        release(&n1,4);let (y,over)=join(&n1,7,G);assert!(over);release(&n1,3);
+        assert!(n1.establish(7),"room in its group again");assert_eq!((load(&n1.counters.evicted),y.ended().0),(1,false));
+        // Nothing to evict: the oldest member and the latest block source are kept.
+        let n2=net(2,Duration::ZERO);let (o,_)=join(&n2,10,G);let (b,_)=join(&n2,11,G);assert!(n2.establish(10)&&n2.establish(11));
+        b.credit(Useful::Block);let (_z,over)=join(&n2,12,G);assert!(over);
+        assert!(!n2.establish(12),"nothing left to evict in the group");
+        assert_eq!((o.ended().0,b.ended().0,load(&n2.counters.refused_group),load(&n2.counters.refused_full),load(&n2.counters.refused)),(false,false,1,0,1),"refused by group");
+        // Grace: a member established within the grace period is never chosen.
+        let n3=net(1,Duration::from_secs(60));let (m,_)=join(&n3,20,G);assert!(n3.establish(20));
+        let (_w,over)=join(&n3,21,G);assert!(over);assert!(!n3.establish(21),"a member in grace is never chosen");assert!(!m.ended().0);
+    }
     fn key(i:u16)->EvictKey{EvictKey::Net(Group::V4(i.to_be_bytes()))}
     /// A free candidate with no credit; `rank` is its key's lottery hash.
     fn cand(id:PeerId,key:EvictKey,rank:u64)->Cand{Cand{id,key,rank,last:[0;4],free:true,prot:false}}
@@ -987,6 +1088,14 @@ mod tests{
         let (mut n,mut same)=(0,true);
         permutations(&mut v,7,&mut|c|{let mut c=c.to_vec();let got=(victim(&mut c,&p),prot(&c));n+=1;same&=got==want;});
         assert_eq!((n,same),(5040,true),"the victim {:?} for every order",want.0);
+        // `victim_in` on 7 entries of key 1 (and one of key 2): 2 and 3 delivered a block at the same time, so the tie
+        // breaks by id; the victim is the youngest left whatever the order.
+        let mut w=vec![cand(1,key(1),9),Cand{last:[4,0,0,0],..cand(2,key(1),9)},Cand{last:[4,0,0,0],..cand(3,key(1),9)},Cand{last:[0,6,0,0],..cand(4,key(1),9)},
+            cand(5,key(1),9),Cand{free:false,..cand(6,key(1),9)},cand(7,key(2),5)];
+        let want=victim_in(&w,key(1));assert_eq!(want,Some(5),"1 oldest, 3 the latest block (by id on a tie), 4 the latest template; 6 graced, 7 another key");
+        let (mut n,mut same)=(0,true);
+        permutations(&mut w,7,&mut|c|{n+=1;same&=victim_in(c,key(1))==want;});
+        assert_eq!((n,same),(5040,true),"victim_in {want:?} for every order");
     }
     /// `Net::establish` on a registry of `test_peer` connections (no threads), established 2 at most, 4 waiting places:
     /// - a newcomer past the cap evicts (the victim's outbox is closed, `evicted` counts it); a connection without its
@@ -999,7 +1108,7 @@ mod tests{
         let net=|peers_max,evict|Net::new(Limits{peers_max,handshaking_max:4,evict,..Limits::default()});
         let load=|a:&AtomicUsize|a.load(Ordering::SeqCst);
         let mut keep=Vec::new();
-        let mut enlist=|n:&Net,id:PeerId,remote:Option<SocketAddr>|{let (p,s)=test_peer_as(id,1<<16,Origin::Inbound,remote);n.enlist(&p);keep.push(s);p};
+        let mut enlist=|n:&Net,id:PeerId,remote:Option<SocketAddr>|{let (p,s)=test_peer_as(id,1<<16,Origin::Inbound,remote);n.enlist(&p,None,false);keep.push(s);p};
         // Eviction: a, b held; x never sends its Hello; newcomer n evicts b (a wins the lottery of the one key).
         let n1=net(2,free.clone());
         let (a,b,x,n)=(enlist(&n1,1,None),enlist(&n1,2,None),enlist(&n1,3,None),enlist(&n1,4,None));
@@ -1090,7 +1199,7 @@ mod tests{
     #[test] fn a_panicking_reader_still_releases_its_places(){
         const G:Group=Group::V4([81,2]);
         let net=Net::new(Limits::default()).with_grouper(|_|Some(G));let c=net.counters.clone();
-        assert!(net.admit(Some(G)));let (p,_s)=test_peer(77,1<<16);net.enlist(&p);
+        assert!(net.admit(Some(G)).is_some());let (p,_s)=test_peer(77,1<<16);net.enlist(&p,Some(G),false);
         let release=Release{net:net.clone(),id:77,group:Some(G),outbound:false,handshaking:true};
         assert!(std::thread::spawn(move||{let _held=release;panic!("a reader bug")}).join().is_err());
         let load=|a:&AtomicUsize|a.load(Ordering::SeqCst);
