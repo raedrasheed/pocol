@@ -18,11 +18,13 @@ FB = ("        // 12 (fallback): UT byte-equal to Build_fb (needs apply), for an
       "            if self.fill_ut(p,&ctx,x.ts,&out,&[]).ut_raw!=x.ut_raw{return blk(\"12 fallback UT differs from Build_fb\")}\n"
       "            Some(out)};\n")
 OWN = "        let owner=ctx.assignment.owner(x.nonce).ok_or_else(||Reject::Block(\"13 owner\".into()))?;\n"
-DRAWN = ("        let drawn=match self.chain.canonical_at(h.h){\n"
-         "            Some(c)=>c.drawn,\n"
-         "            None if pe.full&&!pe.pruned&&!pe.slim=>match self.chain.child_ctx(pe,0){Ok(c)=>c.proposer,Err(_)=>return false},\n"
-         "            None=>return false,\n"
-         "        };\n")
+CANON = "        let canon=self.chain.canonical_at(h.h).map(|c|c.drawn);\n"
+DRAWN = (CANON +
+         "        let drawn=canon.is_some_and(|d|h.proposer[..]==d[..])||\n"
+         "            ((canon.is_none()||!self.chain.is_canonical(&h.parent_hash))&&pe.full&&!pe.pruned&&!pe.slim\n"
+         "                &&self.chain.child_ctx(pe,0).is_ok_and(|c|h.proposer[..]==c.proposer[..]));\n")
+EWIN = "        if h.h.saturating_add(u64::from(self.chain.spec.cp().E_win))<self.chain.head().height+1{return false}\n"
+SEENKEY = "fn seen_key(h:&Header)->([u8;32],u64){let mut p=h.parent_hash.to_vec();p.extend_from_slice(&h.proposer);(hashes::keccak256(&p),h.h)}"
 
 MUTANTS = [
     ("M1", "the state gate back above item 2", [(C, PE, PE + GATE)]),
@@ -33,12 +35,11 @@ MUTANTS = [
     ("M5", "a fallback copy is executed before item 13", [(C, FB, ""), (C, OWN, FB + OWN)]),
     ("M6", "observe_template rebuilds the parent with full_entry again",
      [(N, DRAWN, "        let Some(par)=self.full_entry(&h.parent_hash) else{return false};\n"
-                 "        let drawn=match self.chain.child_ctx(&par,0){Ok(c)=>c.proposer,Err(_)=>return false};\n")]),
+                 "        let drawn=self.chain.child_ctx(&par,0).is_ok_and(|c|h.proposer[..]==c.proposer[..]);\n")]),
     ("M7", "the deep arm reads child_ctx on the parent, not canonical_at(h).drawn",
-     [(N, "            Some(c)=>c.drawn,\n", "            Some(_)=>match self.chain.child_ctx(pe,0){Ok(c)=>c.proposer,Err(_)=>return false},\n")]),
+     [(N, CANON, "        let canon=self.chain.canonical_at(h.h).and_then(|_|self.chain.child_ctx(pe,0).ok()).map(|c|c.proposer);\n")]),
     ("M8", "the side-parent arm removed (drawn needs c.parent==h.parent_hash)",
-     [(N, "            Some(c)=>c.drawn,\n", "            Some(c) if c.parent==Some(h.parent_hash)=>c.drawn,\n"),
-      (N, "            None=>return false,\n        };\n        if h.proposer[..]!=drawn[..]", "            _=>return false,\n        };\n        if h.proposer[..]!=drawn[..]")]),
+     [(N, CANON, "        let canon=self.chain.canonical_at(h.h).filter(|c|c.parent==Some(h.parent_hash)).map(|c|c.drawn);\n")]),
     ("M9", "import_with calls observe_template again",
      [(N, "if entry.signed{self.record_template(&b.header);}", "self.observe_template(&b.header);")]),
     ("M10", "reprune removed (both calls)",
@@ -63,9 +64,22 @@ MUTANTS = [
     ("M20b", "the session cap drops the block but end_session is not called",
      [(N, 'claim set aside");self.end_session(false);res=Err(Reject::Evicted);break}', 'claim set aside");res=Err(Reject::Evicted);break}')]),
     ("M21", "solicited blocks gated on the global bucket (no session allowance)",
-     [(N, "            if solicited&&self.session.is_some(){\n", "            if false&&solicited&&self.session.is_some(){\n")]),
+     [(N, "            if on_branch{\n", "            if false&&on_branch{\n")]),
     ("M22", "the costly FIFO never trims (no COSTLY_MAX bound)",
      [(C, "while order.len()>=COSTLY_MAX{if let Some(old)=order.pop_front(){map.remove(&old);}}", "")]),
+    # Review fixes after pass 2 (2060983, 34b533f, 36ef14b, 00fba86).
+    ("M23", "observe_template's E_win age filter removed (any past height observed)", [(N, EWIN, "")]),
+    ("M24", "an overflow of seen_templates clears the map whole again",
+     [(N, "if self.seen_templates.len()>SEEN_MAX{self.evict_seen_templates();}", "if self.seen_templates.len()>SEEN_MAX{self.seen_templates.clear();}")]),
+    ("M25", "the side parent's own Draw arm removed (child_ctx only for the tip)",
+     [(N, "            ((canon.is_none()||!self.chain.is_canonical(&h.parent_hash))&&pe.full", "            (canon.is_none()&&pe.full")]),
+    ("M26", "seen_templates keyed by (parent, h) again, not per signer",
+     [(N, SEENKEY, "fn seen_key(h:&Header)->([u8;32],u64){(h.parent_hash,h.h)}")]),
+    ("M27", "rebuild_token without the backward-clock clamp",
+     [(N, "if self.rebuild_refill_ms==0||now<self.rebuild_refill_ms{self.rebuild_refill_ms=now;}", "if self.rebuild_refill_ms==0{self.rebuild_refill_ms=now;}")]),
+    ("M28", "every block from the session's peer charged to the session allowance (on_session_branch bypassed)",
+     [(N, "let on_branch=solicited&&self.session.as_ref().is_some_and(|s|self.on_session_branch(s,&b.header.parent_hash));",
+          "let on_branch=solicited&&self.session.is_some();")]),
 ]
 
 CONS = ["pr4_", "every_validity_item_rejects_its_mutation", "template_form_classes_follow_d129", "a01_",

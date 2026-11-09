@@ -240,5 +240,291 @@
    ],
    "note": "pass 1: survived (the new observe_template no longer materializes, so T1.3 cannot see it); killed in pass 2 by the new pr4_an_imported_side_branch_equivocation_is_recorded"
   }
+ ],
+ "pass3_00fba86": [
+  {
+   "mutant": "BASE",
+   "status": "PASS",
+   "failed": []
+  },
+  {
+   "mutant": "M1 the state gate back above item 2",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_costly_block_verdict_covers_share_variants_and_survives_an_invalid_flush",
+    "pr4_a_node_refuses_a_deep_child_without_pow_without_rebuilding",
+    "pr4_h_pre_and_the_body_run_before_any_parent_state",
+    "pr4_replayed_and_share_varied_non_owner_copies_rebuild_once"
+   ]
+  },
+  {
+   "mutant": "M2 the materialization of a diff-held parent back above item 2",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_junk_child_of_a_diff_held_parent_is_not_materialized",
+    "pr4_an_imported_equivocation_on_a_diff_held_parent_is_recorded"
+   ]
+  },
+  {
+   "mutant": "M3 Future moved after the state gate",
+   "status": "KILLED",
+   "failed": [
+    "pr4_h_pre_and_the_body_run_before_any_parent_state"
+   ]
+  },
+  {
+   "mutant": "M4 the body binding moved after the state gate",
+   "status": "KILLED",
+   "failed": [
+    "a01_malformed_or_unbound_bodies_reject_only_the_copy",
+    "a_valid_header_with_a_foreign_body_rejects_only_that_copy",
+    "every_validity_item_rejects_its_mutation",
+    "pr4_h_pre_and_the_body_run_before_any_parent_state"
+   ]
+  },
+  {
+   "mutant": "M5 a fallback copy is executed before item 13",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_non_owner_fallback_copy_is_not_executed"
+   ]
+  },
+  {
+   "mutant": "M6 observe_template rebuilds the parent with full_entry again",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_template_for_a_pruned_parent_makes_no_state",
+    "pr4_one_signers_template_hides_no_other_signers_pair",
+    "pr4_side_parent_equivocation_is_recorded_without_state"
+   ],
+   "note": "pass 3: rewritten for 34b533f's observe_template (the drawn expression replaced by full_entry + child_ctx)"
+  },
+  {
+   "mutant": "M7 the deep arm reads child_ctx on the parent, not canonical_at(h).drawn",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_template_flood_records_no_old_height_and_hides_no_live_equivocation",
+    "pr4_a_template_for_a_pruned_parent_makes_no_state",
+    "pr4_one_signers_template_hides_no_other_signers_pair",
+    "pr4_side_parent_equivocation_is_recorded_without_state"
+   ],
+   "note": "pass 3: rewritten for 34b533f (canon read from child_ctx on the parent when the height is produced)"
+  },
+  {
+   "mutant": "M8 the side-parent arm removed (drawn needs c.parent==h.parent_hash)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_one_signers_template_hides_no_other_signers_pair",
+    "pr4_side_parent_equivocation_is_recorded_without_state"
+   ],
+   "note": "pass 3: rewritten for 34b533f (canon filtered to a canonical block whose parent is h.parent_hash)"
+  },
+  {
+   "mutant": "M9 import_with calls observe_template again",
+   "status": "PASS",
+   "failed": [],
+   "note": "pass 3: survives, equivalent since 34b533f. observe_template now also reads Draw(parent,0) of a resident side parent, and an imported block's parent is canonical or made resident by its validation, so every check observe_template makes holds for it (m9-probe.log: drawn=true for all 1064 signed imports of the suite). The only difference is a pair older than E_win, which M9 drops and the original records, though evidence_type1 refuses it as too old and includable_evidence drops it. A test that killed M9 would have to require recording evidence that cannot be included, so none was added; pr4_an_imported_side_branch_equivocation_is_recorded and pr4_an_imported_equivocation_on_a_diff_held_parent_is_recorded still check that imported pairs are recorded"
+  },
+  {
+   "mutant": "M10 reprune removed (both calls)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_refused_rebuild_leaves_the_parent_pruned",
+    "pr4_a_sync_session_is_deep_rebuild_capped",
+    "pr4_unsolicited_cycled_seals_are_rebuild_bounded"
+   ]
+  },
+  {
+   "mutant": "M11 4b keep_diff always true",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_deep_rebuild_holds_at_most_diffs_held_diffs"
+   ]
+  },
+  {
+   "mutant": "M12 the costly cache keyed by blockHash, not seal(TemplateID,nonce)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_costly_block_verdict_covers_share_variants_and_survives_an_invalid_flush",
+    "pr4_replayed_and_share_varied_non_owner_copies_rebuild_once"
+   ]
+  },
+  {
+   "mutant": "M13 no note_costly(Owner)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_replayed_and_share_varied_non_owner_copies_rebuild_once"
+   ]
+  },
+  {
+   "mutant": "M14 no note_costly(Invalid)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_costly_block_verdict_covers_share_variants_and_survives_an_invalid_flush",
+    "pr4_costly_is_bounded"
+   ]
+  },
+  {
+   "mutant": "M15 the Owner lookup refuses o==winner",
+   "status": "KILLED",
+   "failed": [
+    "every_validity_item_rejects_its_mutation",
+    "pr4_a_non_owner_fallback_copy_is_not_executed",
+    "pr4_replayed_and_share_varied_non_owner_copies_rebuild_once"
+   ]
+  },
+  {
+   "mutant": "M16 the costly lookup removed",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_costly_block_verdict_covers_share_variants_and_survives_an_invalid_flush",
+    "pr4_costly_is_bounded",
+    "pr4_replayed_and_share_varied_non_owner_copies_rebuild_once"
+   ]
+  },
+  {
+   "mutant": "M17 item 14 verdicts cached too (!w.starts_with(\"14 \") removed)",
+   "status": "PASS",
+   "failed": [],
+   "note": "equivalent: item 14 cannot fail once items 6 and 9 hold (the ranges partition [0,nMax), assignment.rs), so no '14 ' verdict reaches the cache"
+  },
+  {
+   "mutant": "M18 child_pre uses p.height+2",
+   "status": "KILLED",
+   "failed": [
+    "node::f5f6_tests::observe_template_ignores_non_drawn_proposer",
+    "a01_committed_invalid_body_is_still_a_block_rejection_and_cached",
+    "a01_malformed_or_unbound_bodies_reject_only_the_copy",
+    "a_sync_session_refetches_an_evicted_branch_and_serves_it",
+    "a_valid_header_with_a_foreign_body_rejects_only_that_copy",
+    "an_invalid_template_from_the_drawn_proposer_punishes_its_peer",
+    "d133_heal_a_and_b_reorganize_onto_the_heavier_c_branch",
+    "an_equivocation_switch_drops_the_abandoned_templates_shares_and_locks_the_fallback_once",
+    "d133_heal_c_reorganizes_onto_the_heavier_a_b_branch",
+    "e4_store_node_rebuilds_a_fork_below_k_hist_as_a_whole_state_node",
+    "every_validity_item_rejects_its_mutation",
+    "k_hist_retention_and_trie_rebuild_for_deep_fork",
+    "journal_replay_rebuilds_pruned_state_for_a_journaled_fork",
+    "pr4_a_costly_block_verdict_covers_share_variants_and_survives_an_invalid_flush",
+    "node_detects_template_equivocation_and_produces_valid_evidence",
+    "pr4_a_deep_rebuild_holds_at_most_diffs_held_diffs",
+    "pr4_a_junk_child_of_a_diff_held_parent_is_not_materialized",
+    "pr4_a_gossiped_equivocation_by_a_side_parents_draw_is_recorded",
+    "pr4_a_non_owner_fallback_copy_is_not_executed",
+    "pr4_a_refused_rebuild_leaves_the_parent_pruned",
+    "pr4_a_node_refuses_a_deep_child_without_pow_without_rebuilding",
+    "pr4_a_sync_session_is_deep_rebuild_capped",
+    "pr4_a_template_flood_records_no_old_height_and_hides_no_live_equivocation",
+    "pr4_a_template_for_a_pruned_parent_makes_no_state",
+    "pr4_an_imported_side_branch_equivocation_is_recorded",
+    "pr4_an_imported_equivocation_on_a_diff_held_parent_is_recorded",
+    "pr4_child_pre_of_a_pruned_or_slim_parent_equals_child_ctx_after_rebuild",
+    "pr4_costly_is_bounded",
+    "pr4_h_pre_and_the_body_run_before_any_parent_state",
+    "pr4_replayed_and_share_varied_non_owner_copies_rebuild_once",
+    "pr4_one_signers_template_hides_no_other_signers_pair",
+    "pr4_side_blocks_the_session_peer_relays_do_not_end_the_session",
+    "pr4_side_parent_equivocation_is_recorded_without_state",
+    "pr4_the_rebuild_bucket_refills_after_a_clock_step_back",
+    "pr4_unsolicited_cycled_seals_are_rebuild_bounded",
+    "store_mode_imports_on_the_head_execute_each_block_once",
+    "template_form_classes_follow_d129",
+    "a_locked_template_and_a_valid_share_are_relayed_once_and_never_back",
+    "a_template_with_a_foreign_signature_is_ignored_and_never_relayed",
+    "a_template_whose_rebuild_differs_punishes_its_sender_and_is_never_relayed",
+    "share_relay_stops_at_4_s_max_shares_per_template"
+   ]
+  },
+  {
+   "mutant": "M19 rebuild_token always true",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_sync_session_is_deep_rebuild_capped",
+    "pr4_side_blocks_the_session_peer_relays_do_not_end_the_session",
+    "pr4_the_rebuild_bucket_refills_after_a_clock_step_back",
+    "pr4_unsolicited_cycled_seals_are_rebuild_bounded"
+   ]
+  },
+  {
+   "mutant": "M20 the session deep-rebuild cap removed",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_sync_session_is_deep_rebuild_capped"
+   ]
+  },
+  {
+   "mutant": "M20b the session cap drops the block but end_session is not called",
+   "status": "KILLED",
+   "failed": [
+    "a_sync_session_refetches_an_evicted_branch_and_serves_it",
+    "pr4_a_sync_session_is_deep_rebuild_capped"
+   ]
+  },
+  {
+   "mutant": "M21 solicited blocks gated on the global bucket (no session allowance)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_sync_session_is_deep_rebuild_capped",
+    "pr4_side_blocks_the_session_peer_relays_do_not_end_the_session"
+   ],
+   "note": "pass 3: search text rewritten for 00fba86 (the arm is now 'if on_branch'); killed by T6.2 and pr4_side_blocks_the_session_peer_relays_do_not_end_the_session"
+  },
+  {
+   "mutant": "M22 the costly FIFO never trims (no COSTLY_MAX bound)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_costly_is_bounded"
+   ],
+   "note": "not in the plan's list: the FIFO bound of the costly cache (T5.3)"
+  },
+  {
+   "mutant": "M23 observe_template's E_win age filter removed (any past height observed)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_template_flood_records_no_old_height_and_hides_no_live_equivocation",
+    "pr4_a_template_for_a_pruned_parent_makes_no_state"
+   ],
+   "note": "review fix 2060983 (a): the E_win age filter in observe_template"
+  },
+  {
+   "mutant": "M24 an overflow of seen_templates clears the map whole again",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_template_flood_records_no_old_height_and_hides_no_live_equivocation"
+   ],
+   "note": "review fix 2060983 (b): evict_seen_templates replaced by a whole-map clear"
+  },
+  {
+   "mutant": "M25 the side parent's own Draw arm removed (child_ctx only for the tip)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_a_gossiped_equivocation_by_a_side_parents_draw_is_recorded"
+   ],
+   "note": "review fix 34b533f: the side parent's own Draw arm"
+  },
+  {
+   "mutant": "M26 seen_templates keyed by (parent, h) again, not per signer",
+   "status": "KILLED",
+   "failed": [
+    "pr4_one_signers_template_hides_no_other_signers_pair"
+   ],
+   "note": "review fix 34b533f: seen_templates keyed per signer"
+  },
+  {
+   "mutant": "M27 rebuild_token without the backward-clock clamp",
+   "status": "KILLED",
+   "failed": [
+    "pr4_the_rebuild_bucket_refills_after_a_clock_step_back"
+   ],
+   "note": "review fix 36ef14b (c): the backward-clock clamp in rebuild_token"
+  },
+  {
+   "mutant": "M28 every block from the session's peer charged to the session allowance (on_session_branch bypassed)",
+   "status": "KILLED",
+   "failed": [
+    "pr4_side_blocks_the_session_peer_relays_do_not_end_the_session"
+   ],
+   "note": "review fix 00fba86 (d): only blocks on the session's branch draw on its allowance"
+  }
  ]
 }

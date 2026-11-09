@@ -80,3 +80,7 @@ test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 115 filtered out; fi
 real	6m7.856s
 ## python3 -B prototypes/pocold/tests/e2e_devnet.py (from the repository root)
 {"result": "PASS", "checks": 44, "elapsed_s": 309, "work": "/tmp/pocol-e2e-d7wget59"}
+# 00fba86 (after the review fixes 2060983, 34b533f, 36ef14b, 00fba86): commands run from prototypes/pocold.
+## cargo build --release --locked --all-targets (0 warnings)
+## cargo test --release --locked --test consensus -- --test-threads=1
+test result: ok. 117 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 319.69s
