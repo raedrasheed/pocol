@@ -213,7 +213,7 @@ an address the receiver dialed for it is not dialed again by that process.
 Frame 256 KiB; inbound peers 8, at most 4 per public address group; relayed TemplateIDs
 remembered 256; relayed shares 4·S_max per template; orphans 16/parent; future 64; held templates 64; GetRange 512;
 rejects log 256; post-state verdicts per TemplateID+nonce 256; deep-rebuild budget (burst 8, one back per second, a
-wall-clock step back delaying a refill by at most one second / session cap 4); pool 32 MiB raw and <= 4096 transactions; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
+wall-clock step back delaying a refill by at most one second / session cap 4, for blocks on the session's branch); pool 32 MiB raw and <= 4096 transactions; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
 canonical blocks are kept whole; non-canonical blocks are metadata only (bytes in the journal),
 at most R_keep unprotected plus 2·R_keep session-protected, none R_keep or more below the head;
 states for K_hist canonical blocks and side_max side blocks. Peer discovery (§1a): book 1024 (8 per group,

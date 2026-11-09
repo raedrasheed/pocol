@@ -245,8 +245,8 @@ blocks' diffs until the next import's retain; a rebuild attaches a diff only to 
 canonical block above the K_hist cut, so the rebuild's peak stays within `diffs_held` (a rebuild from
 genesis held one per re-executed canonical block, O(height), a pre-existing undercount); and a gossiped
 template, or the template of an imported block, no longer materializes its parent's state in place. The
-deep-rebuild budget (`node::REBUILD_BURST`, `SESSION_REBUILD_MAX`) is four fixed scalars (the bucket's tokens, refill
-time and test clock, and the session's count), not a term.
+deep-rebuild budget (`node::REBUILD_BURST`, `SESSION_REBUILD_MAX`) is five fixed scalars (the bucket's tokens, refill
+time and test clock, and the session's count and locator height), not a term.
 
 Each row reconciles exactly: model + reserve + unused = 6,442,450,944 B. Stage A of RpcGuard printed an
 intermediate 5,577,577,052 B, which also counted a per-source token-bucket map (233,472 B) that round 2

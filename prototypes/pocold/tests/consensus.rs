@@ -905,14 +905,28 @@ fn deep_node(tag:&str,depth:usize)->(pocold::node::Node,std::path::PathBuf,Net,V
 }
 /// A PoW-valid child of `p` that is invalid only with the parent's state: a validly signed template by a member
 /// that is not Draw(h,0) (item 12). One seal per parent.
-fn post_gate_invalid(m:&Net,p:[u8;32])->Block{
+fn post_gate_invalid(m:&Net,p:[u8;32])->Block{post_gate_invalids(m,p,1).remove(0)}
+/// `count` such children of `p`, each a distinct seal (another template timestamp).
+fn post_gate_invalids(m:&Net,p:[u8;32],count:usize)->Vec<Block>{
     let e=m.chain.full_entry(&p).unwrap();let ctx=m.chain.child_ctx(&e,0).unwrap();let other=*m.keys.keys().find(|k|**k!=ctx.proposer).unwrap();
+    let mut out=vec![];
     for off in 0..u64::from(m.chain.spec.cp().D_att){
         let (mut h,_,_)=m.chain.build_signed(&e,&m.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();
         h.proposer=other.to_vec();reseal(&mut h);h.sig=m.keys[&other].sign_hash(&B256::from(hashes::sig_msg(&template_id(&h.ut_raw)))).to_vec();reseal(&mut h);
-        if let Some(b)=try_seal(m,h,Body::default(),0,0){return b}
+        if let Some(b)=try_seal(m,h,Body::default(),0,0){out.push(b);if out.len()==count{return out}}
     }
     panic!("no solution")
+}
+/// A Status claiming far more work and an unknown head from `peer`; the next tick starts a session with it.
+fn lying_session(node:&mut pocold::node::Node,peer:pocold::net::PeerId){
+    use pocold::{node::Event,net::{Msg,NetEvent}};
+    let lie=Msg::Hello{chain_id:node.chain.spec.chain_id(),genesis:node.chain.spec.genesis_hash(),head:[0xab;32],height:1_000_000,work:[0xff;32],node:"liar".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0};
+    node.handle(Event::Net(NetEvent::Message(peer,lie)));node.handle(Event::Tick);
+    assert!(node.session.as_ref().is_some_and(|s|s.peer==peer),"positive control: a session with the peer");
+}
+fn send_block(node:&mut pocold::node::Node,peer:pocold::net::PeerId,b:&Block){
+    use pocold::{node::Event,net::{Msg,NetEvent}};
+    node.handle(Event::Net(NetEvent::Message(peer,Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()})));
 }
 /// PR4 (I-5, plan §7 finding B): unsolicited deep TrieRebuilds are bounded by a token bucket, whatever number of
 /// distinct PoW-valid seals a peer banked: REBUILD_BURST at once, then one per REBUILD_REFILL_MS. A block over the
@@ -962,24 +976,25 @@ fn post_gate_invalid(m:&Net,p:[u8;32])->Block{
     assert_eq!(node.rebuild_tokens,REBUILD_BURST-1);
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
+/// The locator's deepest pruned canonical parent of deep_node (head 70; locator heights 70..61, 59, 55, 47, 31, 0).
+const LOCATOR_PRUNED:usize=31;
 /// PR4 (I-5, plan §7 finding C): a peer whose lying Hello makes its blocks solicited drives at most
 /// SESSION_REBUILD_MAX deep rebuilds per sync session, on the session's own allowance (not the unsolicited
 /// bucket); the next one ends the session as not reached (claim set aside) and is dropped without a verdict.
+/// The blocks are on the session's branch: their parent is a locator hash, where an answer starts.
 #[test] fn pr4_a_sync_session_is_deep_rebuild_capped(){
-    use pocold::{node::{Event,SESSION_REBUILD_MAX},net::{Msg,NetEvent}};
-    let k=SESSION_REBUILD_MAX as usize+2;let (mut node,dir,m,hashes)=deep_node("session",k+1);
-    let bad:Vec<Block>=(2..k+2).map(|i|post_gate_invalid(&m,hashes[i])).collect();
+    use pocold::node::SESSION_REBUILD_MAX;
+    let k=SESSION_REBUILD_MAX as usize+2;let (mut node,dir,m,hashes)=deep_node("session",LOCATOR_PRUNED);
+    let bad=post_gate_invalids(&m,hashes[LOCATOR_PRUNED],k);
     let (peer,_socket)=auth_peer::connect(&mut node);
-    // A Status claiming far more work and an unknown head: the next tick starts a session with this peer.
-    let lie=Msg::Hello{chain_id:node.chain.spec.chain_id(),genesis:node.chain.spec.genesis_hash(),head:[0xab;32],height:1_000_000,work:[0xff;32],node:"liar".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0};
-    node.handle(Event::Net(NetEvent::Message(peer,lie)));node.handle(Event::Tick);
-    assert!(node.session.as_ref().is_some_and(|s|s.peer==peer),"positive control: a session with the lying peer");
+    lying_session(&mut node,peer);
+    assert!(node.locator(None).contains(&hashes[LOCATOR_PRUNED]),"positive control: the parent is a locator hash");
     // The unsolicited bucket is empty and held still: every rebuild below is the session's.
     node.rebuild_tokens=0;node.rebuild_clock=Some(pocold::node::now_ms());
     let rec=node.journal_records();
     for (i,b) in bad.iter().enumerate(){
         let rb=node.chain.rebuilds;
-        node.handle(Event::Net(NetEvent::Message(peer,Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()})));
+        send_block(&mut node,peer,b);
         if i<SESSION_REBUILD_MAX as usize{
             assert!(node.chain.rebuilds>rb&&node.chain.invalid.contains_key(&b.hash()),"block {i}: rebuilt on the session's allowance, then a verdict");
             assert!(node.session.is_some(),"block {i}: the session goes on");
@@ -991,6 +1006,30 @@ fn post_gate_invalid(m:&Net,p:[u8;32])->Block{
         assert!(node.chain.blocks[&b.header.parent_hash].pruned,"block {i}: its parent is pruned again");
     }
     assert_eq!(node.journal_records(),rec,"nothing journaled");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+
+/// Review: side blocks the session's peer relays (its own imports, rebroadcast) are not on the session's branch, so
+/// they draw on the unsolicited bucket: with it empty they are dropped without a verdict, and SESSION_REBUILD_MAX + 1
+/// of them neither spend the session's allowance nor end the session. A block on the branch still gets it.
+#[test] fn pr4_side_blocks_the_session_peer_relays_do_not_end_the_session(){
+    use pocold::node::SESSION_REBUILD_MAX;
+    let (mut node,dir,m,hashes)=deep_node("relayed",LOCATOR_PRUNED);
+    let relayed:Vec<Block>=(2..SESSION_REBUILD_MAX as usize+3).map(|i|fallback(&m,hashes[i],1)).collect();
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    lying_session(&mut node,peer);
+    node.rebuild_tokens=0;node.rebuild_clock=Some(pocold::node::now_ms());
+    let rb=node.chain.rebuilds;
+    for (i,b) in relayed.iter().enumerate(){
+        send_block(&mut node,peer,b);
+        assert!(!node.chain.blocks.contains_key(&b.hash())&&!node.chain.invalid.contains_key(&b.hash()),"FAIL-ON-ORIGINAL: block {i} was rebuilt on the session's allowance and imported (it must be dropped without a verdict)");
+    }
+    assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: relayed side blocks were rebuilt on the session's allowance");
+    assert!(node.session.as_ref().is_some_and(|s|s.peer==peer&&s.rebuilds==0)&&!node.peer_status[&peer].stale,"FAIL-ON-ORIGINAL: relayed side blocks ended the session");
+    // The session's branch: a valid child of the locator's pruned parent is rebuilt on the allowance and imported.
+    let fork=fallback(&m,hashes[LOCATOR_PRUNED],1);send_block(&mut node,peer,&fork);
+    assert!(node.chain.blocks.contains_key(&fork.hash())&&node.chain.rebuilds>rb,"the branch's fork point is rebuilt and imported");
+    assert!(node.session.as_ref().is_some_and(|s|s.rebuilds==1),"on the session's allowance");
     drop(node);let _=std::fs::remove_dir_all(&dir);
 }
 

@@ -38,9 +38,11 @@ const REBUILD_TRIES:usize=17;
 pub const REBUILD_BURST:u32=8;
 pub const REBUILD_REFILL_MS:u128=1000;
 /// Deep rebuilds one sync session may drive before it is ended as not-reached. An honest adoption within
-/// R_keep needs one (the fork point); the rest extend resident state. This bounds a peer whose lying Hello
-/// makes its blocks solicited (PR4 plan §7 finding C) to SESSION_REBUILD_MAX per session, and sessions are
-/// gated by SESSION_GAP_MS and the round-robin among claimants.
+/// R_keep needs one (the fork point); the rest extend resident state. Only blocks on the session's branch
+/// draw on it (`on_session_branch`): a side block the session's peer relays is unsolicited for the budget, so
+/// relayed side traffic cannot end an honest heal session. This bounds a peer whose lying Hello makes its blocks
+/// solicited (PR4 plan §7 finding C) to SESSION_REBUILD_MAX per session, and sessions are gated by
+/// SESSION_GAP_MS and the round-robin among claimants.
 pub const SESSION_REBUILD_MAX:u32=4;
 
 pub struct Config{
@@ -132,8 +134,9 @@ pub struct Session{pub peer:PeerId,pub tip:Option<[u8;32]>,pub asked_ms:u128,pub
     /// counts as progress only above it and inside the R_keep window, so replayed or junk blocks cannot
     /// keep a session alive (`last_ms` is the time of the last progress).
     pub best_h:u64,
-    /// PR4 (I-5): deep rebuilds its blocks drove (at most SESSION_REBUILD_MAX).
-    pub rebuilds:u32}
+    /// PR4 (I-5): deep rebuilds its branch's blocks drove (at most SESSION_REBUILD_MAX), and the head height the
+    /// current round's locator was built at (`on_session_branch`).
+    pub rebuilds:u32,pub loc_head:u64}
 
 /// Rpc: a request for the consensus thread (rpc::Request).
 /// Wake: light RPC requests are waiting in the light lane (at most one Wake is pending).
@@ -770,14 +773,16 @@ impl Node{
         if !self.chain.blocks.contains_key(&hash)&&b.header.h.saturating_add(self.chain.r_keep)<=self.chain.head().height{return Err(Reject::Evicted)}
         let mut res=self.chain.validate(&b,Some(now_s()),self.capital_phi());
         let mut tries=0;
+        let on_branch=solicited&&self.session.as_ref().is_some_and(|s|self.on_session_branch(s,&b.header.parent_hash));
         while let Err(Reject::NeedsRebuild(p))=&res{let p=*p;if tries==REBUILD_TRIES{break}
-            // PR4 (I-5): deep rebuilds are rate-bounded. A solicited block draws on its session's allowance (an
-            // honest adoption needs about one), an unsolicited one on the node's bucket. Exhaustion drops the
-            // block as a NON-VERDICT (Evicted): not marked invalid, not journaled, no penalty; a real branch
+            // PR4 (I-5): deep rebuilds are rate-bounded. A solicited block on the session's branch draws on its
+            // session's allowance (an honest adoption needs about one), any other one on the node's bucket (a side
+            // block the session's peer relays included: it neither spends the allowance nor ends the session).
+            // Exhaustion drops the block as a NON-VERDICT (Evicted): not marked invalid, not journaled, no penalty; a real branch
             // returns through a sync session (network.md D38). A session out of allowance is ended as not
             // reached, its peer's claim set aside until its next Hello. A solicited block outliving its session
             // (an orphan child taken after it ended) draws on the bucket.
-            if solicited&&self.session.is_some(){
+            if on_branch{
                 if self.session.as_ref().is_some_and(|s|s.rebuilds>=SESSION_REBUILD_MAX){self.log("sync session: deep-rebuild allowance reached; claim set aside");self.end_session(false);res=Err(Reject::Evicted);break}
                 if let Some(s)=&mut self.session{s.rebuilds+=1;}
             }else if !self.rebuild_token(){self.log("deep-rebuild budget spent; an unsolicited block dropped (a real branch returns by sync)");res=Err(Reject::Evicted);break}
@@ -1276,12 +1281,22 @@ impl Node{
     /// doubling steps, the canonical block at depth R_keep (so a peer whose chain forks within R_keep
     /// always answers from a point within the window) and genesis.
     pub fn locator(&self,tip:Option<[u8;32]>)->Vec<[u8;32]>{
-        let head=self.chain.head().height;let mut hs=Vec::new();
-        let (mut h,mut step)=(head,1u64);
-        while hs.len()<net::LOCATOR_MAX-3{hs.push(h);if h==0{break}if hs.len()>=10{step=step.saturating_mul(2);}h=h.saturating_sub(step);}
-        hs.push(head.saturating_sub(self.chain.r_keep));hs.push(0);hs.sort_unstable_by(|a,b|b.cmp(a));hs.dedup();
         let mut out:Vec<[u8;32]>=tip.into_iter().collect();
-        out.extend(hs.into_iter().filter_map(|h|self.chain.canonical.get(h as usize).copied()));out.truncate(net::LOCATOR_MAX);out
+        out.extend(Self::locator_heights(self.chain.head().height,self.chain.r_keep).into_iter().filter_map(|h|self.chain.canonical.get(h as usize).copied()));out.truncate(net::LOCATOR_MAX);out
+    }
+    /// The canonical heights of a locator built at head height `head`, highest first.
+    fn locator_heights(head:u64,r_keep:u64)->Vec<u64>{
+        let mut hs=Vec::new();let (mut h,mut step)=(head,1u64);
+        while hs.len()<net::LOCATOR_MAX-3{hs.push(h);if h==0{break}if hs.len()>=10{step=step.saturating_mul(2);}h=h.saturating_sub(step);}
+        hs.push(head.saturating_sub(r_keep));hs.push(0);hs.sort_unstable_by(|a,b|b.cmp(a));hs.dedup();hs
+    }
+    /// PR4 (I-5): whether a block on `parent` from the session's peer is on the session's branch: its parent is the
+    /// last block the session delivered, a block it delivered that is not canonical (protected), or a canonical block
+    /// of the locator the round asked from, where the peer's answer starts (network.md D38). Only these draw on the
+    /// session's deep-rebuild allowance.
+    fn on_session_branch(&self,s:&Session,parent:&[u8;32])->bool{
+        s.tip==Some(*parent)||self.chain.protect.contains(parent)||
+            (self.chain.is_canonical(parent)&&self.chain.get(parent).is_some_and(|e|Self::locator_heights(s.loc_head,self.chain.r_keep).contains(&e.height)))
     }
     fn protect(&mut self,hash:[u8;32]){if self.chain.protect.len()<self.chain.protect_max(){self.chain.protect.insert(hash);}}
     /// Whether a peer's announced Status calls for a session: its head is not stored here and its
@@ -1290,7 +1305,7 @@ impl Node{
     fn start_session(&mut self,peer:PeerId,now:u128){
         let Some(p)=self.peers.get(&peer) else{return};
         p.send(&Msg::GetFrom{locator:self.locator(None),count:SYNC_COUNT});
-        self.session=Some(Session{peer,tip:None,asked_ms:now,last_ms:now,got:0,got_round:0,rounds:1,best_h:0,rebuilds:0});self.sync_ask_ms=now;
+        self.session=Some(Session{peer,tip:None,asked_ms:now,last_ms:now,got:0,got_round:0,rounds:1,best_h:0,rebuilds:0,loc_head:self.chain.head().height});self.sync_ask_ms=now;
         self.stats.sync_sessions+=1;self.stats.sync_rounds+=1;
     }
     /// Ends the session; its blocks lose their protection (adopted ones are canonical by now). A session
@@ -1314,7 +1329,8 @@ impl Node{
             if s.got_round>0&&now.saturating_sub(s.last_ms)>=ROUND_IDLE_MS{
                 let loc=self.locator(s.tip);
                 if let Some(p)=self.peers.get(&s.peer){p.send(&Msg::GetFrom{locator:loc,count:SYNC_COUNT});}
-                if let Some(x)=&mut self.session{x.got_round=0;x.asked_ms=now;x.last_ms=now;x.rounds+=1;}self.stats.sync_rounds+=1;
+                let loc_head=self.chain.head().height;
+                if let Some(x)=&mut self.session{x.got_round=0;x.asked_ms=now;x.last_ms=now;x.rounds+=1;x.loc_head=loc_head;}self.stats.sync_rounds+=1;
             }
             return
         }
