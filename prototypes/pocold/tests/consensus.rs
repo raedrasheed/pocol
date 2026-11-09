@@ -1319,10 +1319,13 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // scratch (2·BOOK_MAX at 76 B, 2·CACHE_MAX addresses, 25 × 64 B, + 1,024) and the file buffers (the 1 MiB
     // read + 1 and FILE_LINE_MAX × 1,029 lines), +1,914,797 B, -> 3,243,936,669 B; PR3 R10: the node's per-connection
     // maps, peers and peer_status at the churn rule and each peer's address text (high 237 × 2,718 B, + 1,024),
-    // +645,190 B, -> 3,244,581,859 B). Some terms are type
+    // +645,190 B, -> 3,244,581,859 B; PR3 inbound eviction: every physical inbound place, inbound_max = peers_max +
+    // handshaking_max (8 more places at 3,421,500 B: queue and frames, two threads, an exiting one, links and a group
+    // entry), the maps' 8 more high entries, and the eviction registry (16 × 192 + 245 × 64 + 2,048 + 1,024),
+    // +27,415,568 B, -> 3,271,997,427 B). Some terms are type
     // sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on; every
     // target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_244_581_859,"the A13 model total changed");}
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_271_997_427,"the A13 model total changed");}
     // R6 churn correction: eviction=3982768, protect delta=1967104,
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);

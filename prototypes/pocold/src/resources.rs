@@ -83,14 +83,15 @@ const _:()=assert!(crate::rpc::CALL_GAS_MAX<=pocol_lp4_execution::apply::PER_CAL
 // R10: the node's per-connection map entries fit the bytes "queues/node peer and status maps" counts for them.
 const _:()=assert!(size_of::<(net::PeerId,net::Peer)>()<=node::PEER_ENTRY_BYTES&&size_of::<(net::PeerId,node::PeerStatus)>()<=node::STATUS_ENTRY_BYTES,"a node map entry exceeds its A13 bytes");
 /// Threads alive at once, every one created by `threads::spawn` with its reservation: per
-/// inbound peer a reader and a writer (`net::spawn_peer`: the reader joins the writer and
-/// releases the slot as its last action); per configured peer a dialer, an event forwarder,
+/// inbound place (`inbound`, `net::Limits::inbound_max`: the established places and those waiting for a Hello) a
+/// reader and a writer (`net::spawn_peer`: the reader joins the writer and releases the slot as its last action;
+/// an evicted peer keeps its place until then); per configured peer a dialer, an event forwarder,
 /// a reader and a writer; conn_max RPC connection threads; the miner (joined before it is
 /// replaced), the miner and listener forwarders, the timer, the P2P listener and the RPC
 /// acceptor (6). Plus the consensus and main threads. Exiting threads are counted: the RPC
 /// acceptor, the P2P listener and each dialer join a finished thread before its place is used
 /// again (threads::reap), and a reader joins its writer.
-pub fn io_threads(peers_max:usize,dials:usize,conn_max:usize)->Option<u128>{add(&[mul(2,peers_max as u128)?,mul(4,dials as u128)?,conn_max as u128,6])}
+pub fn io_threads(inbound:usize,dials:usize,conn_max:usize)->Option<u128>{add(&[mul(2,inbound as u128)?,mul(4,dials as u128)?,conn_max as u128,6])}
 /// Smallest valid transaction encoding (a signed legacy transfer exceeds it).
 pub const MIN_TX_BYTES:u128=85;
 /// Intrinsic gas of every transaction. A block's transactions reserve their gas limits against
@@ -487,7 +488,9 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let side_blocks=add(&[side_meta,side_full,evicted,side_set])?;
     items.extend([("side/offloaded side-block metadata (side_cap + 2·r_keep entries)",side_meta),("side/one full block before offload or during restore",side_full),("side/evicted hash set and FIFO (batch high-water and growth overlap)",evicted),("side/the chain's side set (churn high-water and growth overlap)",side_set)]);
     // Queues and caches (node.rs, net.rs constants).
-    let frame=net::MAX_FRAME as u128;let block=size_of::<Block>() as u128;let l=&limits.net;
+    // Every physical inbound place is counted (net::Limits::inbound_max): the established ones and those waiting for a
+    // Hello; an evicted peer keeps its place until its reader releases it.
+    let frame=net::MAX_FRAME as u128;let block=size_of::<Block>() as u128;let l=&limits.net;let inbound=l.inbound_max() as u128;
     let pool=add(&[node::POOL_MAX_BYTES as u128,mul(node::POOL_MAX_BYTES as u128/MIN_TX_BYTES,32+24+24)?])?;
     // D-7: revalidation expands one abandoned block's body at a time into the backlog, beside the pool's bytes
     // (`Node::pool_step_until`; `Node::pool_audit` checks the sum).
@@ -497,8 +500,8 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let seen=add(&[mul(node::SEEN_MAX as u128+1,3*hdr+128)?,mul(node::SEEN_MAX as u128+1,192)?])?;
     let caches=add(&[mul(chain::INVALID_MAX as u128,32+REASON_MAX+64)?,mul(node::RECEIVED_MAX as u128+1,64)?,mul(node::REJECTS_MAX as u128+1,64+REASON_MAX+64)?,
         mul(node::EVIDENCE_POOL_MAX as u128,u128::from(cp.EVID_BYTES_MAX)+24)?,mul(node::FUTURE_MAX as u128,32)?])?;
-    // Inbound peers <= peers_max; outbound <= one per dialer (net::dial).
-    let peers=mul(l.peers_max as u128+dials as u128,add(&[l.queue_bytes_max as u128,2*frame,4096])?)?;
+    // Inbound peers <= inbound_max; outbound <= one per dialer (net::dial).
+    let peers=mul(inbound+dials as u128,add(&[l.queue_bytes_max as u128,2*frame,4096])?)?;
     // Each forwarder also holds the one event it is blocked sending (+1).
     let (main_events,net_events)=(mul(node::EVENT_QUEUE as u128,frame+256)?,mul((1+dials) as u128,mul(net::NET_EVENT_QUEUE as u128+1,frame+256)?)?);
     // Gossip and inbound grouping:
@@ -506,21 +509,26 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // - one place count per public address group (net::Counters::groups, a HashMap<Group,usize> of 17-B
     //   buckets whose entries come and go with inbound peers, at most one group per admitted inbound peer):
     //   the churn rule of hash32_churn_bytes, < 32/7 buckets per high-water entry and two allocations, 160 B;
-    // - the configured peers' canonical addresses (net::Net::protect, a HashSet<IpAddr> of 18-B buckets,
-    //   filled once, never shrunk): two allocations at <= 16/7 buckets per entry, 96 B;
+    // - the configured peers' canonical addresses with their counts (net::Net::protect, a HashMap<IpAddr,u8> of 18-B
+    //   buckets, filled once, never shrunk): two allocations at <= 16/7 buckets per entry, 96 B;
     // plus 512 B of control and alignment slack for each of the two small tables.
-    let gossip=add(&[hash32_churn_bytes(node::RELAYED_MAX as u128+1)?,mul(l.peers_max as u128+1,160)?,mul(dials as u128+1,96)?,1024])?;
+    let gossip=add(&[hash32_churn_bytes(node::RELAYED_MAX as u128+1)?,mul(inbound+1,160)?,mul(dials as u128+1,96)?,1024])?;
     // The connections the node can know at once (its Connected not yet followed by its Closed): the live peers,
     // plus one per Closed still queued (in the main queue or a forwarder's, with the one it is blocked sending).
-    let high=add(&[l.peers_max as u128,dials as u128,node::EVENT_QUEUE as u128,mul((1+dials) as u128,net::NET_EVENT_QUEUE as u128+1)?])?;
+    let high=add(&[inbound,dials as u128,node::EVENT_QUEUE as u128,mul((1+dials) as u128,net::NET_EVENT_QUEUE as u128+1)?])?;
     // R10: the node's per-connection maps (node.rs `peers` and `peer_status`, from Connected to Closed), each a
     // HashMap at the churn rule of hash32_churn_bytes (< 32/7 buckets per high-water entry, a control byte each, two
     // allocations: c(x) = ⌈(x+1)·32/7⌉), and each peer's address text (`Peer::addr`), + 1,024.
     let churn=|x:usize|((x as u128+1)*32).div_ceil(7);
     let maps=add(&[mul(high,add(&[mul(2,churn(node::PEER_ENTRY_BYTES)+churn(node::STATUS_ENTRY_BYTES))?,node::ADDR_TEXT_BYTES as u128])?)?,1024])?;
+    // Inbound eviction (net::Net::establish): the registry's slots and the selection scratch, each reserved for
+    // inbound_max entries once (net::Net::new) and never grown; each connection's activity record (net::Activity behind
+    // its Arc, shared by the node's Peer, so alive from Connected to Closed: high); the eviction ring; + 1,024.
+    let evict=add(&[mul(inbound,(net::SLOT_BYTES+net::CAND_BYTES) as u128)?,mul(high,net::ACTIVITY_BYTES as u128)?,(net::EVICT_RING*net::EVICT_ENTRY_BYTES) as u128,1024])?;
     let q=[("queues/transaction pool",pool),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
         ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
-        ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/node peer and status maps (churn)",maps)];
+        ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/node peer and status maps (churn)",maps),
+        ("queues/inbound eviction: registry, selection scratch, per-connection activity and eviction ring",evict)];
     let mut queues=add(&q.map(|x|x.1))?;items.extend(q);
     // Peer discovery (VA-SPEC §1a, node::discovery), with discovery on only (off, the book reserves nothing and no
     // link is kept):
@@ -572,14 +580,14 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let rpc=add(&rq.map(|x|x.1))?;items.extend(rq);
     // Threads: reserved stacks (an upper bound on their resident stack) and per-thread heap.
     use crate::threads::{IO_STACK,CONSENSUS_STACK};
-    let io=io_threads(l.peers_max,dials,r.conn_max)?;
+    let io=io_threads(l.inbound_max(),dials,r.conn_max)?;
     // Exiting-not-yet-joined threads (point 3): a reader/outbound-reader/RPC-conn thread can finish
-    // between its reaper's visits. Bound E = peers_max + dials + conn_max (writers are joined by
+    // between its reaper's visits. Bound E = inbound_max + dials + conn_max (writers are joined by
     // their reader synchronously; singletons never respawn). Measured ~25.8 KiB resident each (the
     // bulk of the stack returns to the exited-stack cache counted below); counted CONSERVATIVELY at a
     // full IO_STACK each, so the term is an upper bound, not the measured figure (evidence/thread-
     // inventory + threadmem). 
-    let exiting=(l.peers_max+dials+r.conn_max) as u128;
+    let exiting=(l.inbound_max()+dials+r.conn_max) as u128;
     let th=[("threads/I/O thread stacks and heap",mul(io,IO_STACK as u128+THREAD_HEAP)?),("threads/consensus stack",CONSENSUS_STACK as u128),
         ("threads/main stack and heap",MAIN_STACK_RESIDENT+2*THREAD_HEAP),("threads/exited-stack cache",STACK_CACHE),
         ("threads/exiting not-yet-joined (conservative)",mul(exiting,IO_STACK as u128)?)];

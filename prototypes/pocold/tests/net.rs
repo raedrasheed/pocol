@@ -81,7 +81,8 @@ fn unread_client(port:u16)->TcpStream{let s=TcpStream::connect(("127.0.0.1",port
 fn small()->Limits{
     let mut l=Limits::default();
     l.net=net::Limits{peers_max:6,handshaking_max:3,per_group_max:2,hello_deadline:Duration::from_millis(500),frame_deadline:Duration::from_millis(500),
-        idle_deadline:Duration::from_secs(60),queue_bytes_max:512*1024,write_deadline:Duration::from_millis(500)};
+        idle_deadline:Duration::from_secs(60),queue_bytes_max:512*1024,write_deadline:Duration::from_millis(500),
+        evict:net::EvictLimits{grace:Duration::ZERO,..Default::default()}};
     l
 }
 
@@ -315,11 +316,17 @@ fn small()->Limits{
 /// most one that has finished but is not yet joined (the acceptor joins it at the next accept); the
 /// A13 inventory counts conn_max RPC threads (and this test's own threads).
 #[test] fn peer_threads_stay_within_the_inventory_while_consensus_is_stalled(){let _g=serial();
-    let r=start("inventory",small());let base=threads();let k0=thread_kinds();let peers_max=6usize;
+    // PR3: few established places and an unlimited eviction budget, so six churners evict each other during the stall;
+    // a victim keeps its place until its reader has delivered Closed. The physical bound counts the places waiting for a
+    // Hello too: 2 threads per inbound place, inbound_max = peers_max + handshaking_max.
+    let mut l=small();l.net.peers_max=2;l.net.handshaking_max=2;
+    l.net.evict=net::EvictLimits{grace:Duration::ZERO,key_interval:Duration::ZERO,burst:1000,refill:Duration::ZERO};
+    let inbound_max=l.net.peers_max+l.net.handshaking_max;
+    let r=start("inventory",l);let base=threads();let k0=thread_kinds();
     let stop=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let heavy={let (port,stop)=(r.rpc,stop.clone());std::thread::spawn(move||{let mut n=0;while !stop.load(Ordering::SeqCst){
         let (code,_)=rpc(port,r#"{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"data":"0x5b600056","gas":"0x1c9c380"},"latest"]}"#,false);if code==200{n+=1}}n})};
-    let churn:Vec<_>=(0..3).map(|i|{let (port,stop,h)=(r.p2p,stop.clone(),hello(&r,&format!("churn{i}")));std::thread::spawn(move||{let mut k=0;while !stop.load(Ordering::SeqCst){
+    let churn:Vec<_>=(0..6).map(|i|{let (port,stop,h)=(r.p2p,stop.clone(),hello(&r,&format!("churn{i}")));std::thread::spawn(move||{let mut k=0;while !stop.load(Ordering::SeqCst){
         if let Ok(mut s)=TcpStream::connect(("127.0.0.1",port)){let _=s.set_write_timeout(Some(Duration::from_millis(200)));let _=s.write_all(&h);
             for _ in 0..100{if s.write_all(&frame(&Msg::GetRange{start:1,count:1})).is_err(){break}}k+=1;}
     }k})}).collect();
@@ -328,18 +335,114 @@ fn small()->Limits{
     // counts conn_max of them), and the rest must not grow. Operations run 41499486344 (attempt 1)
     // saw 15 threads in all against the old total bound 2*peers_max+2 (14), with no breakdown.
     // Each kind's largest excess over the start, over all samples (the test's own threads are other).
-    let own=1+3;let t=Instant::now();let (mut worst,mut peer,mut rpc,mut other)=(0usize,0usize,0usize,0usize);
-    while t.elapsed()<Duration::from_secs(6){let k=thread_kinds();
+    let own=1+6;let t=Instant::now();let (mut worst,mut peer,mut rpc,mut other,mut most)=(0usize,0usize,0usize,0usize,0usize);
+    while t.elapsed()<Duration::from_secs(6){let k=thread_kinds();most=most.max(live(&r));
         worst=worst.max((k.0+k.1+k.2).saturating_sub(k0.0+k0.1+k0.2+own));peer=peer.max(k.0.saturating_sub(k0.0));
         rpc=rpc.max(k.1.saturating_sub(k0.1));other=other.max(k.2.saturating_sub(k0.2+own));
         std::thread::sleep(Duration::from_millis(3));}
     stop.store(true,Ordering::SeqCst);let calls=heavy.join().unwrap();let conns:usize=churn.into_iter().map(|h|h.join().unwrap()).sum();
     assert!(calls>=2&&conns>=10,"the scenario ran: {calls} heavy calls, {conns} peer connections");
     let rpc_max=small().rpc.conn_max;
-    assert!(peer<=2*peers_max+1&&rpc<=rpc_max&&other==0,
-        "threads beyond the inventory: peer {peer} (bound {}), rpc {rpc} (bound {rpc_max}), other {other} (bound 0); {worst} extra in all",2*peers_max+1);
+    assert!(peer<=2*inbound_max+1&&rpc<=rpc_max&&other==0,
+        "threads beyond the inventory: peer {peer} (bound {}), rpc {rpc} (bound {rpc_max}), other {other} (bound 0); {worst} extra in all",2*inbound_max+1);
+    assert!(most<=inbound_max,"live {most} above inbound_max {inbound_max}");
+    assert!(evict_stat(&r,"inboundEvicted")>0,"evictions ran during the stall");
     assert!(wait_until(5000,||live(&r)==0&&threads()<=base+2),"live={} threads {} vs {base}",live(&r),threads());
-    println!("INVENTORY {}",serde_json::json!({"worstExtraThreads":worst,"peerThreads":peer,"rpcThreads":rpc,"otherThreads":other,"peerBound":2*peers_max+1,"heavyCalls":calls,"peerConnections":conns}));
+    println!("INVENTORY {}",serde_json::json!({"worstExtraThreads":worst,"peerThreads":peer,"rpcThreads":rpc,"otherThreads":other,"peerBound":2*inbound_max+1,"mostLive":most,"evicted":evict_stat(&r,"inboundEvicted"),"heavyCalls":calls,"peerConnections":conns}));
+}
+
+// ---------------- PR3: inbound eviction (net::Net::establish), read through pocol_status ----------------
+fn status(r:&Running)->serde_json::Value{let (c,b)=rpc(r.rpc,r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#,false);assert_eq!(c,200,"{b}");serde_json::from_str::<serde_json::Value>(&b).unwrap()["result"].clone()}
+/// A status counter of inbound eviction; 0 where the status has no such field.
+fn evict_stat(r:&Running,name:&str)->u64{status(r)["stats"][name].as_u64().unwrap_or(0)}
+/// `n` inbound connections, each sending its Hello and established before the next connects (so their ages are in this
+/// order); the node's Hello is left unread.
+fn established(r:&Running,n:usize,tag:&str)->Vec<TcpStream>{
+    (0..n).map(|i|{let base=live(r);let mut s=connect(r);s.write_all(&hello(r,&format!("{tag}{i}"))).unwrap();
+        assert!(wait_until(2000,||r.net.counters.handshaking.load(Ordering::SeqCst)==0&&live(r)==base+1),"{tag}{i} established: live {}",live(r));s}).collect()
+}
+/// Whether the node keeps `s` open: no end of stream within 300 ms (what it sent is read and dropped).
+fn open(s:&mut TcpStream)->bool{s.set_read_timeout(Some(Duration::from_millis(300))).unwrap();!closed(s)}
+/// The next frame on `s`, decoded.
+fn read_msg(s:&mut TcpStream)->Option<Msg>{let mut len=[0u8;4];s.read_exact(&mut len).ok()?;let mut b=vec![0u8;u32::from_be_bytes(len) as usize];s.read_exact(&mut b).ok()?;Msg::decode(&b).ok()}
+/// A newcomer sends its Hello while the established set is full; returns it if the node kept it (it evicted), None if
+/// the node refused it. Waits for that outcome through the counters, so the next newcomer meets the result.
+fn newcomer(r:&Running,tag:&str)->Option<TcpStream>{
+    let before=(evict_stat(r,"inboundEvicted"),r.net.counters.refused.load(Ordering::SeqCst));
+    let mut s=connect(r);s.write_all(&hello(r,tag)).unwrap();
+    assert!(wait_until(3000,||evict_stat(r,"inboundEvicted")>before.0||r.net.counters.refused.load(Ordering::SeqCst)>before.1),"{tag}: neither evicted nor refused");
+    if evict_stat(r,"inboundEvicted")>before.0{Some(s)}else{let _=s.shutdown(std::net::Shutdown::Both);None}
+}
+/// N1: with every established place taken, a newcomer's Hello evicts the youngest unprotected peer and is answered.
+/// On loopback all six share one eviction key: a1 wins the lottery and a2, a3 are the older half of the other five, so
+/// a6, the youngest, goes, although it keeps sending requests (which earn no credit).
+#[test] fn a_full_inbound_set_makes_room_by_evicting_the_youngest_unprotected_peer(){let _g=serial();
+    let r=start("evict",small());let mut a=established(&r,6,"a");
+    let stop=Arc::new(AtomicBool::new(false));
+    let busy={let (mut w,stop)=(a[5].try_clone().unwrap(),stop.clone());std::thread::spawn(move||{while !stop.load(Ordering::SeqCst){if w.write_all(&frame(&Msg::GetBlock{hash:[7;32]})).is_err(){break}std::thread::sleep(Duration::from_millis(100));}})};
+    std::thread::sleep(Duration::from_millis(300));
+    let mut n=connect(&r);n.write_all(&hello(&r,"newcomer")).unwrap();
+    assert!(matches!(read_msg(&mut n),Some(Msg::Hello{..})),"the newcomer is answered");
+    a[5].set_read_timeout(Some(Duration::from_millis(1000))).unwrap();assert!(closed(&mut a[5]),"a6 reaches the end of its stream within 1 s");
+    assert!(a[..5].iter_mut().all(open)&&open(&mut n),"a1..a5 and the newcomer stay");
+    assert_eq!(evict_stat(&r,"inboundEvicted"),1);assert_eq!(status(&r)["inboundEstablished"],6);
+    stop.store(true,Ordering::SeqCst);let _=busy.join();
+}
+/// N3 (attack finding A3): a configured address exempts only as many inbound connections as it has configured peers.
+/// Two configured peers at 127.0.0.1: of six established loopback connections the first two are exempt and never
+/// evicted; the newcomers are not exempt, so they evict ordinary connections and never exceed the cap.
+#[test] fn configured_addresses_exempt_only_as_many_connections_as_configured_peers(){let _g=serial();
+    let held=[TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()];
+    let mut l=small();l.net.evict.key_interval=Duration::ZERO;
+    let r=start_with("exempt",l,held.iter().map(|t|t.local_addr().unwrap()).collect());
+    let mut a=established(&r,6,"a");
+    let kept:Vec<TcpStream>=(0..3).filter_map(|i|newcomer(&r,&format!("n{i}"))).collect();
+    assert_eq!(kept.len(),3,"every newcomer evicts");assert_eq!(evict_stat(&r,"inboundEvicted"),3);
+    assert!(a[..2].iter_mut().all(open),"the two exempt connections stay");
+    assert!(!a[2..].iter_mut().all(open),"ordinary connections from the configured address are evicted");
+    assert_eq!(status(&r)["inboundEstablished"],6,"no newcomer went over the cap");
+}
+/// N4: connections waiting for their Hello have their own places beside the established ones: with six established,
+/// three idle connections are still admitted (inbound_max 9) and a fourth is refused; the six stay.
+#[test] fn connections_waiting_for_a_hello_do_not_take_established_places(){let _g=serial();
+    let mut l=small();l.net.hello_deadline=Duration::from_secs(10);let r=start("waiting",l);
+    let mut a=established(&r,6,"a");
+    let idle:Vec<TcpStream>=(0..3).map(|_|connect(&r)).collect();
+    assert!(wait_until(2000,||live(&r)==9&&r.net.counters.handshaking.load(Ordering::SeqCst)==3),"live {}",live(&r));
+    let refused=r.net.counters.refused.load(Ordering::SeqCst);let _fourth=connect(&r);
+    assert!(wait_until(2000,||r.net.counters.refused.load(Ordering::SeqCst)==refused+1),"a fourth idle connection is refused");
+    assert_eq!(live(&r),9);assert!(a.iter_mut().all(open),"the established six stay");drop(idle);
+}
+/// N5: a Hello for another build never evicts. The seventh connection reads the node's Hello first (a close would drop
+/// it), then sends a Hello with another compatibility digest: it is closed and the six stay.
+#[test] fn a_hello_for_another_build_never_evicts(){let _g=serial();
+    let r=start("otherbuild",small());let mut a=established(&r,6,"a");
+    let mut s=connect(&r);assert!(matches!(read_msg(&mut s),Some(Msg::Hello{..})),"the node's Hello");
+    s.write_all(&frame(&Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:"other".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:[9;32],listen_port:0,nonce:0})).unwrap();
+    assert!(closed(&mut s),"the other build is closed");
+    assert!(a.iter_mut().all(open),"the six stay");assert_eq!(evict_stat(&r,"inboundEvicted"),0);
+}
+/// N7 (attack finding A2): a flood of connect-and-Hello newcomers from one key evicts once per key_interval (a); all
+/// keys together evict at most `burst` at once (b); and a peer within its grace period is never evicted (c).
+#[test] fn a_hello_flood_is_rate_limited_and_spares_peers_in_grace(){let _g=serial();
+    // (a) The default key_interval (30 s): one eviction, every later newcomer refused by the budget.
+    let r=start("flood-key",small());let _a=established(&r,6,"a");
+    let kept:Vec<TcpStream>=(0..50).filter_map(|i|newcomer(&r,&format!("f{i}"))).collect();
+    assert_eq!((kept.len(),evict_stat(&r,"inboundEvicted")),(1,1),"one eviction per key and key_interval");
+    assert!(evict_stat(&r,"inboundRefusedRate")>=1);
+    // (b) No per-key interval, a burst of 2 and a refill of 60 s: two evictions.
+    let mut l=small();l.net.evict=net::EvictLimits{grace:Duration::ZERO,key_interval:Duration::ZERO,burst:2,refill:Duration::from_secs(60)};
+    let r=start("flood-burst",l);let _a=established(&r,6,"a");
+    let kept:Vec<TcpStream>=(0..10).filter_map(|i|newcomer(&r,&format!("f{i}"))).collect();
+    assert_eq!((kept.len(),evict_stat(&r,"inboundEvicted")),(2,2),"the burst");
+    // (c) A 5 s grace: h, established after five older peers, survives a flood that evicts every older peer it can.
+    let mut l=small();l.net.evict=net::EvictLimits{grace:Duration::from_secs(5),key_interval:Duration::ZERO,burst:1000,refill:Duration::ZERO};
+    let r=start("flood-grace",l);let _a=established(&r,5,"a");std::thread::sleep(Duration::from_millis(5200));
+    let mut h=established(&r,1,"h");let t=Instant::now();
+    let kept:Vec<TcpStream>=(0..20).filter_map(|i|newcomer(&r,&format!("f{i}"))).collect();
+    assert!(t.elapsed()<Duration::from_secs(4),"the flood ran within h's grace: {:?}",t.elapsed());
+    assert!(open(&mut h[0]),"h, in its grace period, stays");
+    assert_eq!(kept.len() as u64,evict_stat(&r,"inboundEvicted"));assert!(!kept.is_empty(),"older peers were evicted");
 }
 
 // ---------------- round 2: the RPC work deadline, tested on its own ----------------

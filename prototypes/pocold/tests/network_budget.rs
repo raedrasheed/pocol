@@ -231,7 +231,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         let at=|d:Discovery|derive(&cp,32,l.side_max,&Limits{net:net::Limits{peers_max,..Default::default()},discovery:d,..Default::default()},dials).unwrap();
         let (on,off,local)=(at(Discovery::default()),at(Discovery{enabled:false,..Default::default()}),at(Discovery{allow_local:true,..Default::default()}));
         assert!(disc(&off).is_empty(),"off: {:?}",disc(&off));
-        let high=(peers_max+dials+node::EVENT_QUEUE+(1+dials)*(net::NET_EVENT_QUEUE+1)) as u128;
+        let high=(net::Limits{peers_max,..Default::default()}.inbound_max()+dials+node::EVENT_QUEUE+(1+dials)*(net::NET_EVENT_QUEUE+1)) as u128;
         let want=[("queues/discovery: address book (BOOK_MAX, reserved once)",BOOK_MAX as u128*size_of::<ab::Entry>() as u128+512),
             ("queues/discovery: per-connection links (churn)",high*2*link+512),
             ("queues/discovery: selection, answer and self scratch",(2*BOOK_MAX*(size_of::<ab::Source>()+size_of::<ab::Key>()+8)+2*CACHE_MAX*size_of::<std::net::SocketAddr>()+(SELF_MAX+ANCHORS_MAX+7)*64+1024) as u128),
@@ -270,6 +270,43 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     for (p,d) in [(8usize,2usize),(8,7)]{let r=halt(p,d);got.push(r);
         println!("A13-LIVE-HALT {}",serde_json::json!({"peersMax":p,"dials":d,"records":r,"days":r as f64/8640.0}));}
     // At main b83b584: 1,170,090 and 1,145,444 records (135.4 and 132.6 days). PR3 R10, the node's per-connection maps:
-    // 1,169,815 and 1,144,973 (-275, -471).
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(got,[1_169_815,1_144_973],"the live chain's halt moved (record it in the PR)");}
+    // 1,169,815 and 1,144,973 (-275, -471). PR3 inbound eviction, every physical inbound place counted (8 established and
+    // 8 waiting for a Hello) and the eviction registry: 1,159,059 and 1,134,438 (-10,756, -10,535).
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(got,[1_159_059,1_134_438],"the live chain's halt moved (record it in the PR)");}
+}
+
+/// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and
+/// those waiting for a Hello; an evicted peer keeps its place until its reader releases it), in each per-place term: the
+/// send queues and frames, the group entries, the connection high-water (`high`, with the node's maps at 2,718 B an
+/// entry and each connection's activity record), the I/O threads and the exiting ones; and the eviction registry (a
+/// slot and a selection candidate per place, reserved once, and the ring). At the defaults one more established place
+/// costs 3,424,474 B of model.
+#[test] fn a13_inbound_terms_count_every_inbound_place_and_the_eviction_registry(){
+    use pocold::{net,node::{self,Limits},resources::derive,threads::IO_STACK};
+    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
+    let at=|peers_max:usize,handshaking_max:usize,dials:usize|derive(&cp,32,l.side_max,&Limits{net:net::Limits{peers_max,handshaking_max,..Default::default()},..Default::default()},dials).unwrap();
+    let conn_max=Limits::default().rpc.conn_max as u128;assert_eq!(conn_max,32,"the RPC connections the io and exiting terms were derived with");
+    let (q,f)=(net::Limits::default().queue_bytes_max as u128,net::MAX_FRAME as u128);
+    for (p,h,d) in [(8usize,8usize,2usize),(32,8,2),(64,8,7),(1,1,0)]{
+        let b=at(p,h,d);let (s,d)=((p+h) as u128,d as u128);
+        let high=s+d+node::EVENT_QUEUE as u128+(1+d)*(net::NET_EVENT_QUEUE as u128+1);
+        assert_eq!(item(&b,"queues/inbound eviction"),s*192+high*64+3072,"the registry at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"queues/node peer and status maps"),high*2718+1024,"the maps at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"queues/peer send queues and frames"),(s+d)*(q+2*f+4096),"the queues at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"threads/I/O thread stacks and heap"),(2*s+4*d+conn_max+6)*(IO_STACK as u128+4096),"the io threads at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"threads/exiting not-yet-joined"),(s+d+conn_max)*IO_STACK as u128,"the exiting threads at ({p}, {h}, {d})");
+    }
+    let d=net::Limits::default();assert_eq!(at(d.peers_max+1,d.handshaking_max,2).total-at(d.peers_max,d.handshaking_max,2).total,3_424_474,"one more established place");
+    assert_eq!((net::SLOT_BYTES,net::CAND_BYTES,net::ACTIVITY_BYTES,net::EVICT_RING,net::EVICT_ENTRY_BYTES),(96,96,64,64,32),"the constants the pinned totals were derived with");
+}
+/// PR3 A2: the devnet profile pocold boots passes the A13 gate at a seed's settings (64 established, 8 waiting for a
+/// Hello, 7 configured peers) and at the largest established count (128), in both modes.
+#[test] fn a13_admits_seed_inbound_settings_at_the_devnet_profile(){
+    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    for peers_max in [64usize,128]{for state_store in [false,true]{
+        let lim=pocold::node::Limits{state_store,net:pocold::net::Limits{peers_max,handshaking_max:8,..Default::default()},..Default::default()};
+        let b=pocold::resources::check(&cp,l.k_hist,l.side_max,&lim,7).unwrap_or_else(|e|panic!("peers_max {peers_max}, store {state_store}: {e}"));
+        println!("A13-DEVNET-INBOUND {}",serde_json::json!({"peersMax":peers_max,"stateStore":state_store,"total":b.total.to_string()}));
+    }}
 }

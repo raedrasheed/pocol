@@ -3,19 +3,25 @@
 //! or a wrong network identity close the connection; they never touch block state.
 //!
 //! Resource bounds (A05, local and not consensus; `Limits`):
-//! - at most `peers_max` inbound connections, of which at most `handshaking_max` have not
-//!   yet delivered their Hello; excess connections are closed on accept, before any thread is
-//!   spawned. Outbound connections are separate (one per configured peer, `dial`; each carries the
-//!   address it was dialed at, its `Origin`), so inbound connections can never take the slots the node
-//!   needs to reach its own peers;
-//! - at most `per_group_max` (default 4, half of `peers_max`) inbound connections per public address
-//!   group (`group_of`: IPv4 /16, IPv6 /32, a tunnelled IPv4 address as that address), so one public
-//!   /16 or /32 never holds more than half of the inbound slots. A connection past it is refused even
-//!   while slots are free: nodes behind one NAT or one provider range share these places until inbound
-//!   eviction exists. Groups are counted per address, so one host that reaches the node
-//!   from several groups (an IPv4 /16 and an IPv6 /32, say) holds a full set of places in each. Addresses
-//!   that are not globally reachable (loopback, private, link-local, ...) and the node's configured
+//! - at most `peers_max` established inbound connections (their Hello accepted, `Net::establish`) and, counted
+//!   apart, at most `handshaking_max` still waiting for their Hello, so at most `inbound_max` (their sum) inbound
+//!   connections exist at once; excess connections are closed on accept, before any thread is spawned. Outbound
+//!   connections are separate (one per configured peer, `dial`; each carries the address it was dialed at, its
+//!   `Origin`), so inbound connections can never take the slots the node needs to reach its own peers;
+//! - at most `per_group_max` (default 4) inbound connections per public address group (`group_of`: IPv4 /16, IPv6
+//!   /32, a tunnelled IPv4 address as that address). A connection past it is refused even while places are free:
+//!   nodes behind one NAT or one provider range share these places. Groups are counted per address, so one host
+//!   that reaches the node from several groups (an IPv4 /16 and an IPv6 /32, say) holds a full set of places in
+//!   each. Addresses that are not globally reachable (loopback, private, link-local, ...) and the node's configured
 //!   peers, by their exact address (`Net::protect`), are not grouped;
+//! - inbound eviction (local policy, as Bitcoin Core's): while `peers_max` connections are established, the first
+//!   Hello for this network and build (`Net::eligible`) from a newcomer evicts one established inbound peer, or the
+//!   newcomer is closed. Protected are a keyed netgroup lottery, the latest deliverers of new blocks, templates,
+//!   transactions and shares (each kind its own quota), the longest connected, peers within their grace period,
+//!   and as many connections from a configured peer's address as it has configured peers; the victim is the
+//!   youngest of the rest in the eviction key (`EvictKey`) with the most established connections (`victim`), so
+//!   one host, one /16 or one flood cannot hold the places. Evictions are rate-limited per newcomer key and in
+//!   all (`EvictLimits`). A victim keeps its places until its reader releases them;
 //! - the first frame must be a Hello and must arrive within `hello_deadline`; a frame
 //!   whose length has arrived must complete within `frame_deadline`; an established peer
 //!   silent for `idle_deadline` is closed;
@@ -23,11 +29,13 @@
 //!   the consensus thread only enqueues. Gossip to a full queue drops that peer (a peer
 //!   that stops reading never blocks consensus); range responses stop at half the queue;
 //! - inbound frames wait in a bounded event queue (backpressure stops the reader), so
-//!   frame memory is at most (peers_max + NET_EVENT_QUEUE) · MAX_FRAME.
-use std::collections::{HashMap,HashSet,VecDeque};
+//!   frame memory is at most (inbound_max + NET_EVENT_QUEUE) · MAX_FRAME.
+use std::collections::{HashMap,VecDeque};
+use std::cmp::Reverse;
+use std::hash::BuildHasher;
 use std::io::{Read,Write};
 use std::net::{IpAddr,TcpListener,TcpStream,SocketAddr};
-use std::sync::{Arc,Condvar,Mutex,atomic::{AtomicBool,AtomicUsize,Ordering}};
+use std::sync::{Arc,Condvar,Mutex,MutexGuard,OnceLock,atomic::{AtomicBool,AtomicU64,AtomicUsize,Ordering}};
 use std::sync::mpsc::SyncSender;
 use std::time::{Duration,Instant};
 use crate::rlp;
@@ -44,26 +52,48 @@ pub const NODE_NAME_MAX:usize=64;
 
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct Limits{
-    pub peers_max:usize,pub handshaking_max:usize,
+    /// Established inbound connections (their Hello accepted, `Net::establish`); past it a newcomer evicts or is closed.
+    pub peers_max:usize,
+    /// Inbound connections still waiting for their Hello, counted apart from `peers_max` (`inbound_max`).
+    pub handshaking_max:usize,
     /// Inbound connections per public address group (`group_of`, `Net::admit`); 0 disables grouping.
     /// `pocold run --per-group-max N`, or POCOL_PER_GROUP_MAX.
     pub per_group_max:usize,
     pub hello_deadline:Duration,pub frame_deadline:Duration,pub idle_deadline:Duration,
     pub queue_bytes_max:usize,pub write_deadline:Duration,
+    /// Inbound eviction's grace and budget (`Net::establish`).
+    pub evict:EvictLimits,
 }
 impl Default for Limits{
     // D-A13-BUDGET: peers_max 32 -> 8 inbound (network.md: <= 50 peers); a devnet node has two.
-    // per_group_max 4: a public /16 (IPv4) or /32 (IPv6) holds at most half of the inbound slots (4 of 8).
+    // per_group_max 4: a public /16 (IPv4) or /32 (IPv6) holds at most 4 inbound places.
     fn default()->Self{Self{peers_max:8,handshaking_max:8,per_group_max:4,hello_deadline:Duration::from_secs(5),frame_deadline:Duration::from_secs(30),
-        idle_deadline:Duration::from_secs(300),queue_bytes_max:2*1024*1024,write_deadline:Duration::from_secs(10)}}
+        idle_deadline:Duration::from_secs(300),queue_bytes_max:2*1024*1024,write_deadline:Duration::from_secs(10),evict:EvictLimits::default()}}
 }
+impl Limits{
+    /// The physical inbound bound: the established places and the places waiting for a Hello (`Net::admit`, `listen`).
+    /// A13 counts every one of them.
+    pub fn inbound_max(&self)->usize{self.peers_max.saturating_add(self.handshaking_max)}
+}
+/// Inbound eviction's grace and budget (local policy, `Net::establish`, VA-SPEC §1b):
+/// - `grace`: a peer established less than this ago is never a victim, so a flood of newcomers cannot evict the
+///   honest peers that joined just before it;
+/// - `key_interval`: one newcomer eviction key (`EvictKey`) evicts at most once per interval;
+/// - `burst`, `refill`: all newcomers together evict at most `burst` peers at once, then one per `refill` (GCRA).
+///
+/// A configured (exempt) newcomer is not charged. A newcomer the budget refuses is closed, as it was before eviction
+/// existed, so a spent budget fails safe.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct EvictLimits{pub grace:Duration,pub key_interval:Duration,pub burst:u32,pub refill:Duration}
+impl Default for EvictLimits{fn default()->Self{Self{grace:Duration::from_secs(30),key_interval:Duration::from_secs(30),burst:8,refill:Duration::from_secs(2)}}}
 /// An address group: a public peer's IPv4 /16 or IPv6 /32 (`group_of`), for the inbound cap and the address book's
 /// keys (`addrbook::Key`, ordered for a deterministic iteration).
 #[derive(Clone,Copy,Debug,PartialEq,Eq,Hash,PartialOrd,Ord)]
 pub enum Group{V4([u8;2]),V6([u8;4])}
 /// The address group of a public peer: its IPv4 /16 or IPv6 /32, Bitcoin Core's netgroup granularity
-/// (Bitcoin Core uses netgroups to choose whom to evict and to spread its outbound connections; this node
-/// has no eviction yet and caps the inbound places of a group instead, `Net::admit`).
+/// (Bitcoin Core uses netgroups to choose whom to evict and to spread its outbound connections; this node caps a
+/// group's inbound places, `Net::admit`, and evicts from the eviction key with the most established places, `EvictKey`,
+/// `victim`).
 /// - An IPv6 address that carries an IPv4 address is grouped as that IPv4 address, so a tunnel is no
 ///   second way into the same /16: IPv4-mapped ::ffff:0:0/96 (a dual-stack socket's IPv4 peer), SIIT
 ///   ::ffff:0:0:0/96, NAT64 64:ff9b::/96, 6to4 2002::/16 and Teredo 2001::/32 (its client address,
@@ -118,32 +148,152 @@ pub struct Counters{pub live:AtomicUsize,pub handshaking:AtomicUsize,pub refused
     pub outbound:AtomicUsize,
     /// Live inbound connections per public address group, and the connections refused because their
     /// group was full (also counted in `refused`).
-    pub groups:Mutex<HashMap<Group,usize>>,pub refused_group:AtomicUsize}
+    pub groups:Mutex<HashMap<Group,usize>>,pub refused_group:AtomicUsize,
+    /// Inbound eviction (`Net::establish`): peers evicted for a newcomer (`evicted_in_group`: within the newcomer's own
+    /// full group), and newcomers closed at their Hello because no peer could be evicted (`refused_full`) or the
+    /// eviction budget was spent (`refused_rate`), both also counted in `refused`.
+    pub evicted:AtomicUsize,pub evicted_in_group:AtomicUsize,pub refused_full:AtomicUsize,pub refused_rate:AtomicUsize}
+/// What an eligible Hello carries for this network and build (`Net::expect_hello`, `Net::eligible`): the same values
+/// the node checks on every Hello (node.rs, `identity::matches_for`) and its own self-connection nonce.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct HelloId{pub chain_id:u64,pub genesis:[u8;32],pub compatibility:[u8;32],pub nonce:u64}
+/// The key inbound eviction groups connections by (`victim`), from the canonical address:
+/// - `Net`: its address group (`group_of`, also with per_group_max 0);
+/// - `Ula`: all of fc00::/7, where cjdns and ULA overlays mint addresses cheaply;
+/// - `V6Local`: another IPv6 address that is not grouped (loopback, link-local, ...), by its /32;
+/// - `Host`: an IPv4 address that is not grouped (LAN, loopback), by itself; :: when the socket reported no address.
+///
+/// Only eviction uses it; the per-group cap stays on `Group`.
+#[derive(Clone,Copy,Debug,PartialEq,Eq,Hash,PartialOrd,Ord)]
+pub enum EvictKey{Net(Group),Host(IpAddr),Ula,V6Local([u8;4])}
+/// `EvictKey` of a peer at `ip` under `grouper` (`group_of` in the node).
+pub fn evict_key(grouper:fn(IpAddr)->Option<Group>,ip:Option<IpAddr>)->EvictKey{
+    let Some(ip)=ip.map(|ip|ip.to_canonical()) else{return EvictKey::Host(IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED))};
+    if let Some(g)=grouper(ip){return EvictKey::Net(g)}
+    match ip{IpAddr::V6(a)=>{let o=a.octets();if (o[0]&0xfe)==0xfc{EvictKey::Ula}else{EvictKey::V6Local([o[0],o[1],o[2],o[3]])}}IpAddr::V4(_)=>EvictKey::Host(ip)}
+}
+/// A13 ("queues/inbound eviction"): the bytes counted per registry slot (`Slot`), per selection candidate (`Cand`),
+/// per connection's activity record behind its Arc (`Activity`, with the 16-byte Arc header), and the eviction ring's
+/// entries and bytes per entry. Fixed, so the pinned total does not follow rustc's layout; the types are asserted to
+/// fit. EVICT_RING exceeds the evictions one key_interval allows at the defaults (burst 8, then one per 2 s for 30 s: 23),
+/// so the ring still holds every key that evicted within the interval.
+pub const SLOT_BYTES:usize=96;pub const CAND_BYTES:usize=96;pub const ACTIVITY_BYTES:usize=64;pub const EVICT_RING:usize=64;pub const EVICT_ENTRY_BYTES:usize=32;
+const _:()=assert!(std::mem::size_of::<Slot>()<=SLOT_BYTES&&std::mem::size_of::<Cand>()<=CAND_BYTES&&std::mem::size_of::<Activity>()+16<=ACTIVITY_BYTES
+    &&std::mem::size_of::<(EvictKey,u64)>()<=EVICT_ENTRY_BYTES,"an eviction type exceeds its A13 bytes");
+/// What a connection delivered first (`Peer::credit`): a new block, a template that locked, a transaction that
+/// entered the pool, a valid new share. Each kind has its own protection quota (`victim`).
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum Useful{Block,Template,Tx,Share}
+/// Per connection, the time (`mono_ms`) of its last credited delivery of each `Useful` kind; 0 = never.
+#[derive(Debug,Default)]
+pub struct Activity{last:[AtomicU64;4]}
+impl Activity{fn get(&self)->[u64;4]{std::array::from_fn(|k|self.last[k].load(Ordering::SeqCst))}}
+/// Milliseconds since the first call in this process, plus 1, so that 0 can mean "never". Monotonic.
+pub fn mono_ms()->u64{static EPOCH:OnceLock<Instant>=OnceLock::new();u64::try_from(EPOCH.get_or_init(Instant::now).elapsed().as_millis()).unwrap_or(u64::MAX).saturating_add(1)}
+fn ms(d:Duration)->u64{u64::try_from(d.as_millis()).unwrap_or(u64::MAX)}
+/// One admitted inbound connection (`Net::enlist`, from its Connected until its release, `Net::forget`). `hello`: its
+/// first Hello was eligible and established (`Net::establish`); `exempt`: it is one of the connections a configured
+/// peer's address may hold (`Net::protect`); `at`: when it was established (`mono_ms`).
+struct Slot{id:PeerId,key:EvictKey,ip:Option<IpAddr>,hello:bool,exempt:bool,at:u64,act:Arc<Activity>,out:Arc<Outbox>,sock:Arc<TcpStream>}
+/// An eviction candidate (`victim`): an open, established, non-exempt slot other than the newcomer's. `rank`: its key's
+/// keyed hash (the lottery); `last`: its `Activity`; `free`: past its grace period; `prot`: protected by a step so far.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+struct Cand{id:PeerId,key:EvictKey,rank:u64,last:[u64;4],free:bool,prot:bool}
+/// The inbound registry: the admitted inbound connections, the selection scratch (both reserved for `inbound_max`
+/// entries in `Net::new` and never grown: slots.len() <= live <= inbound_max), and the eviction budget's state, a ring
+/// of the latest charges (key, time; time 0 = empty) and the GCRA's theoretical arrival time `tat`.
+struct Registry{slots:Vec<Slot>,scratch:Vec<Cand>,ring:[(EvictKey,u64);EVICT_RING],ring_next:usize,tat:u64}
+impl std::fmt::Debug for Registry{fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{write!(f,"Registry({} slots)",self.slots.len())}}
+impl Registry{
+    fn new(cap:usize)->Self{Self{slots:Vec::with_capacity(cap),scratch:Vec::with_capacity(cap),ring:[(EvictKey::Ula,0);EVICT_RING],ring_next:0,tat:0}}
+    /// Whether a newcomer of `key` may evict at `now`: its key did not evict within `key_interval`, and the GCRA allows
+    /// it (`tat <= now + (burst-1)·refill`). A time after `now` counts as within the interval (saturating).
+    fn allows(&self,key:EvictKey,now:u64,e:&EvictLimits)->bool{
+        if self.ring.iter().any(|(k,t)|*t!=0&&*k==key&&now.saturating_sub(*t)<ms(e.key_interval)){return false}
+        self.tat<=now.saturating_add(u64::from(e.burst.saturating_sub(1)).saturating_mul(ms(e.refill)))
+    }
+    /// Records an eviction by a newcomer of `key` at `now`.
+    fn charge(&mut self,key:EvictKey,now:u64,e:&EvictLimits){self.ring[self.ring_next]=(key,now);self.ring_next=(self.ring_next+1)%EVICT_RING;self.tat=self.tat.max(now).saturating_add(ms(e.refill));}
+}
+fn open(s:&Slot)->bool{s.hello&&!s.out.closed.load(Ordering::SeqCst)}
+/// `victim`'s protection quotas: the lottery's distinct keys, and per `Useful` kind the latest deliverers.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+struct Policy{protect_groups:usize,protect_recent:usize}
+impl Policy{fn of(l:&Limits)->Self{Self{protect_groups:4,protect_recent:(l.peers_max/16).max(4)}}}
+/// The peer to evict for a newcomer, or None (pure; Bitcoin Core's SelectNodeToEvict without its latency and
+/// relay-type steps). `c` is every open, established, non-exempt connection but the newcomer's; it is sorted in place
+/// and its `prot` marks set, so nothing is allocated. A candidate is a `free && !prot` entry. Every sort key ends in
+/// the unique id, so the result does not depend on the input order.
+/// 1. The lottery: over the candidates by (Reverse(rank), key, id), the first (oldest) of each of the first
+///    `protect_groups` distinct keys. An attacker cannot know which keys this process favours.
+/// 2. Per `Useful` kind, the `protect_recent` latest deliverers (last > 0): each kind has its own quota, so cheap
+///    shares cannot crowd out a template relayer.
+/// 3. The older half of the candidates (by id, rounded down).
+/// 4. With no candidate left, None.
+/// 5. The key with the most entries of `c`, protected and graced ones included (credits cannot shrink a group's
+///    apparent size), among the keys that still have a candidate, ties to the youngest candidate; its youngest
+///    candidate.
+fn victim(c:&mut [Cand],p:&Policy)->Option<PeerId>{lottery(c,p.protect_groups);recent(c,p.protect_recent);older_half(c);pick(c)}
+fn candidate(x:&Cand)->bool{x.free&&!x.prot}
+/// `victim` step 1.
+fn lottery(c:&mut [Cand],groups:usize){
+    c.sort_unstable_by_key(|x|(Reverse(x.rank),x.key,x.id));let (mut keys,mut prev)=(0,None);
+    for x in c.iter_mut(){if keys==groups{break}if !candidate(x)||prev==Some(x.key){continue}prev=Some(x.key);keys+=1;x.prot=true;}
+}
+/// `victim` step 2.
+fn recent(c:&mut [Cand],quota:usize){
+    for k in 0..4{
+        c.sort_unstable_by_key(|x|(Reverse(x.last[k]),x.id));let mut n=0;
+        for x in c.iter_mut(){if n==quota||x.last[k]==0{break}if candidate(x){x.prot=true;n+=1;}}
+    }
+}
+/// `victim` step 3.
+fn older_half(c:&mut [Cand]){
+    c.sort_unstable_by_key(|x|x.id);let half=c.iter().filter(|x|candidate(x)).count()/2;
+    for x in c.iter_mut().filter(|x|candidate(x)).take(half){x.prot=true;}
+}
+/// `victim` steps 4 and 5.
+fn pick(c:&mut [Cand])->Option<PeerId>{
+    c.sort_unstable_by_key(|x|(x.key,x.id));let mut best:Option<(usize,PeerId)>=None;
+    for run in c.chunk_by(|a,b|a.key==b.key){
+        if let Some(y)=run.iter().filter(|x|candidate(x)).map(|x|x.id).max(){if best.is_none_or(|b|(run.len(),y)>b){best=Some((run.len(),y));}}
+    }
+    best.map(|b|b.1)
+}
 #[derive(Clone,Debug)]
 pub struct Net{pub limits:Limits,pub counters:Arc<Counters>,
-    /// Addresses exempt from the per-group limit, canonical: the node's configured peers (`protect`).
-    protected:Arc<std::sync::RwLock<HashSet<IpAddr>>>,
+    /// The node's configured peers' canonical addresses, each with the number of configured peers at it (`protect`).
+    protected:Arc<std::sync::RwLock<HashMap<IpAddr,u8>>>,
     /// The address grouping, `group_of` (unit tests group loopback sources to drive `listen` end to end).
-    grouper:fn(IpAddr)->Option<Group>}
+    grouper:fn(IpAddr)->Option<Group>,
+    /// The admitted inbound connections and the eviction budget (`enlist`, `establish`, `forget`).
+    inbound:Arc<Mutex<Registry>>,
+    /// The lottery's keyed hash (Bitcoin Core's nKeyedNetGroup), random per node.
+    rank:std::hash::RandomState,
+    /// What an eligible Hello carries (`expect_hello`); unset, every Hello is eligible.
+    hello_id:Arc<OnceLock<HelloId>>}
 impl Net{
-    pub fn new(limits:Limits)->Self{Self{limits,counters:Arc::new(Counters::default()),protected:Arc::default(),grouper:group_of}}
+    pub fn new(limits:Limits)->Self{let inbound=Arc::new(Mutex::new(Registry::new(limits.inbound_max())));
+        Self{limits,counters:Arc::new(Counters::default()),protected:Arc::default(),grouper:group_of,inbound,rank:Default::default(),hello_id:Arc::default()}}
     #[cfg(test)]
     fn with_grouper(mut self,grouper:fn(IpAddr)->Option<Group>)->Self{self.grouper=grouper;self}
-    /// Exempts these exact addresses from the per-group inbound limit. A node's configured peers (for
-    /// example the other seeds, which dial it) are never refused for sharing an address group. Stored
-    /// canonical: a dual-stack listener reports an IPv4 peer as ::ffff:a.b.c.d.
-    pub fn protect(&self,ips:impl IntoIterator<Item=IpAddr>){if let Ok(mut p)=self.protected.write(){p.extend(ips.into_iter().map(|ip|ip.to_canonical()));}}
+    /// Exempts these exact addresses from the per-group inbound limit, and counts each one's configured peers: a node's
+    /// configured peers (for example the other seeds, which dial it) are never refused for sharing an address group,
+    /// and as many connections from an address as it has configured peers are never evicted (`establish`). Pass every
+    /// configured peer's address, duplicates included. Stored canonical: a dual-stack listener reports an IPv4 peer as
+    /// ::ffff:a.b.c.d.
+    pub fn protect(&self,ips:impl IntoIterator<Item=IpAddr>){if let Ok(mut p)=self.protected.write(){for ip in ips{let n=p.entry(ip.to_canonical()).or_insert(0);*n=n.saturating_add(1);}}}
     /// The group an inbound connection from `ip` is counted in, or None when it is not limited by group.
     pub fn inbound_group(&self,ip:IpAddr)->Option<Group>{
         let ip=ip.to_canonical();
-        if self.limits.per_group_max==0||self.protected.read().map_or(false,|p|p.contains(&ip)){return None}
+        if self.limits.per_group_max==0||self.protected.read().map_or(false,|p|p.contains_key(&ip)){return None}
         (self.grouper)(ip)
     }
-    /// Reserves an inbound connection slot, a handshake slot and a place in `group` (at most
-    /// `per_group_max` per group, also while other slots are free), or refuses.
+    /// Reserves an inbound connection place (at most `inbound_max`), a handshake place (at most `handshaking_max`) and
+    /// a place in `group` (at most `per_group_max` per group, also while other places are free), or refuses.
     fn admit(&self,group:Option<Group>)->bool{
         let c=&self.counters;
-        if c.live.fetch_add(1,Ordering::SeqCst)>=self.limits.peers_max{c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
+        if c.live.fetch_add(1,Ordering::SeqCst)>=self.limits.inbound_max(){c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
         if c.handshaking.fetch_add(1,Ordering::SeqCst)>=self.limits.handshaking_max{c.handshaking.fetch_sub(1,Ordering::SeqCst);c.live.fetch_sub(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
         if let Some(g)=group{
             let placed=match c.groups.lock(){Ok(mut m)=>{let n=m.entry(g).or_insert(0);if *n<self.limits.per_group_max{*n+=1;true}else{false}}Err(_)=>false};
@@ -155,6 +305,58 @@ impl Net{
     fn release_group(&self,group:Option<Group>){
         let Some(g)=group else{return};
         if let Ok(mut m)=self.counters.groups.lock(){if let Some(n)=m.get_mut(&g){*n=n.saturating_sub(1);if *n==0{m.remove(&g);}}}
+    }
+    /// A poisoned lock is recovered: the code under it is pure and leaves the registry consistent.
+    fn registry(&self)->MutexGuard<'_,Registry>{self.inbound.lock().unwrap_or_else(|e|e.into_inner())}
+    /// Sets what an eligible Hello carries. The node calls it once its nonce is final and before it listens.
+    pub fn expect_hello(&self,id:HelloId){let _=self.hello_id.set(id);}
+    /// Whether `m` is a Hello the node would keep (node.rs: the network, `identity::matches_for`, and not the node's
+    /// own nonce): only such a Hello is established, so a Hello for another network or build, or a self-connection,
+    /// never evicts or counts as held. True while `expect_hello` was not called (unit tests, a node without a network).
+    pub fn eligible(&self,m:&Msg)->bool{
+        let Some(id)=self.hello_id.get() else{return true};
+        let Msg::Hello{chain_id,genesis,protocol,compatibility,nonce,..}=m else{return false};
+        !(*nonce!=0&&*nonce==id.nonce)&&*chain_id==id.chain_id&&*genesis==id.genesis&&*protocol==crate::identity::PROTOCOL_VERSION&&*compatibility==id.compatibility
+    }
+    /// Registers an admitted inbound connection (not yet established), right before the node learns of it.
+    fn enlist(&self,p:&Peer){
+        let ip=p.remote.map(|a|a.ip().to_canonical());let key=evict_key(self.grouper,ip);let mut r=self.registry();
+        // Never grown: at most `live` <= inbound_max connections are enlisted (released ones are forgotten first).
+        if r.slots.len()<self.limits.inbound_max(){r.slots.push(Slot{id:p.id,key,ip,hello:false,exempt:false,at:0,act:p.act.clone(),out:p.out.clone(),sock:p.sock.clone()});}
+    }
+    /// Removes a released inbound connection from the registry.
+    fn forget(&self,id:PeerId){let mut r=self.registry();if let Some(i)=r.slots.iter().position(|s|s.id==id){r.slots.swap_remove(i);}}
+    /// The inbound connections established and still open.
+    pub fn established(&self)->usize{self.registry().slots.iter().filter(|s|open(s)).count()}
+    /// An inbound connection's first eligible Hello: true once it is established, false if it must be closed. While
+    /// `peers_max` are held (established and open; a victim already closed no longer counts), a newcomer evicts the
+    /// `victim` among the others (open, established, not exempt), within the eviction budget; one that cannot is
+    /// refused. A configured peer's connection is exempt (at most `protect`'s count per address): it is never a victim,
+    /// is not charged, and may exceed the cap by at most min(configured peers, handshaking_max/2) when no victim exists,
+    /// so at least half of the handshake places remain. The victim keeps its live and group places until its own
+    /// release, so physical connections stay within inbound_max. Lock order: the registry, then a victim's outbox; no
+    /// path takes the registry while it holds an outbox lock.
+    pub fn establish(&self,id:PeerId)->bool{
+        let (l,c)=(&self.limits,&self.counters);
+        // `now` is read once the lock is held, so the charges recorded under it never go back in time.
+        let mut g=self.registry();let now=mono_ms();let r=&mut *g;
+        let Some(me)=r.slots.iter().position(|s|s.id==id) else{return true};
+        let held=r.slots.iter().filter(|s|open(s)).count();
+        let (ip,key)=(r.slots[me].ip,r.slots[me].key);
+        let (allowed,configured)=self.protected.read().map(|p|(ip.and_then(|ip|p.get(&ip)).map_or(0,|n|usize::from(*n)),p.values().map(|n|usize::from(*n)).sum::<usize>())).unwrap_or((0,0));
+        let exempt=allowed>0&&r.slots.iter().filter(|s|open(s)&&s.exempt&&s.ip==ip).count()<allowed;
+        r.slots[me].exempt=exempt;
+        if held>=l.peers_max{
+            if !exempt&&!r.allows(key,now,&l.evict){c.refused_rate.fetch_add(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
+            let grace=ms(l.evict.grace);r.scratch.clear();
+            r.scratch.extend(r.slots.iter().filter(|s|s.id!=id&&open(s)&&!s.exempt).map(|s|Cand{id:s.id,key:s.key,rank:self.rank.hash_one(s.key),last:s.act.get(),free:now.saturating_sub(s.at)>=grace,prot:false}));
+            match victim(&mut r.scratch,&Policy::of(l)){
+                Some(v)=>{if let Some(s)=r.slots.iter().find(|s|s.id==v){shut(&s.out,&s.sock);}c.evicted.fetch_add(1,Ordering::SeqCst);if !exempt{r.charge(key,now,&l.evict);}}
+                None if exempt&&held<l.peers_max.saturating_add(configured.min(l.handshaking_max/2))=>{}
+                None=>{c.refused_full.fetch_add(1,Ordering::SeqCst);c.refused.fetch_add(1,Ordering::SeqCst);return false}
+            }
+        }
+        let s=&mut r.slots[me];s.hello=true;s.at=now;true
     }
 }
 
@@ -258,9 +460,9 @@ impl Origin{
 struct Outbox{q:Mutex<(VecDeque<Vec<u8>>,usize)>,cv:Condvar,closed:AtomicBool,finish:AtomicBool,max:usize}
 /// A connection handed to the node. `remote` is the address its socket reports (None if `peer_addr` failed, a
 /// reset right after connect, say) and `addr` is that address as text ("" then); `outbound` is
-/// `origin != Origin::Inbound`.
+/// `origin != Origin::Inbound`. `act`: what it delivered first, and when (`credit`; inbound eviction reads it).
 #[derive(Clone)]
-pub struct Peer{pub id:PeerId,pub addr:String,pub outbound:bool,pub origin:Origin,pub remote:Option<SocketAddr>,out:Arc<Outbox>,sock:Arc<TcpStream>,counters:Arc<Counters>}
+pub struct Peer{pub id:PeerId,pub addr:String,pub outbound:bool,pub origin:Origin,pub remote:Option<SocketAddr>,out:Arc<Outbox>,sock:Arc<TcpStream>,counters:Arc<Counters>,act:Arc<Activity>}
 impl std::fmt::Debug for Peer{fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{write!(f,"Peer({} {})",self.id,self.addr)}}
 impl Peer{
     fn enqueue(&self,m:&Msg,limit:usize)->Result<(),bool>{
@@ -280,7 +482,11 @@ impl Peer{
     /// the peer is kept and asks again.
     pub fn offer(&self,m:&Msg)->bool{self.enqueue(m,self.out.max/2).is_ok()}
     pub fn queued_bytes(&self)->usize{self.out.q.lock().map(|q|q.1).unwrap_or(0)}
-    pub fn close(&self){close_outbox(&self.out);let _=self.sock.shutdown(std::net::Shutdown::Both);}
+    pub fn close(&self){shut(&self.out,&self.sock)}
+    /// Records that this connection delivered something of kind `u` first, now (inbound eviction's protection).
+    pub fn credit(&self,u:Useful){self.act.last[u as usize].store(mono_ms(),Ordering::SeqCst);}
+    /// The time (`mono_ms`) of its last credited delivery of each `Useful` kind, in their order; 0 = never.
+    pub fn activity(&self)->[u64;4]{self.act.get()}
     /// Closes the connection once the frames queued so far are written (the writer closes it), where `close` drops
     /// them: a self-connection's inbound end (VA-SPEC §2) must still deliver this node's Hello, whose nonce tells the
     /// dialing end, the only one that knows the address to stop dialing. Set under the queue lock, as `closed` is.
@@ -290,6 +496,9 @@ impl Peer{
 /// The flag is set under the queue lock: the writer tests it under that lock before waiting, so
 /// a close between its test and its wait cannot lose the wakeup (the reader joins the writer).
 fn close_outbox(out:&Outbox){{let _q=out.q.lock();out.closed.store(true,Ordering::SeqCst);}out.cv.notify_all();}
+/// Closes a connection: its outbox (queued frames are dropped, the writer ends) and its socket, which wakes its reader
+/// (`Peer::close`, and an eviction's victim, `Net::establish`).
+fn shut(out:&Outbox,sock:&TcpStream){close_outbox(out);let _=sock.shutdown(std::net::Shutdown::Both);}
 /// The writer's wait for its next frame; None once the peer is closed, or finished and drained. `between` runs after
 /// the closed test and before the wait, with the lock held (a test hook; a no-op in the node).
 fn next_frame(out:&Outbox,between:&dyn Fn())->Option<Vec<u8>>{
@@ -322,6 +531,16 @@ fn read_by(r:&mut TcpStream,buf:&mut [u8],deadline:Instant,closed:&AtomicBool)->
     }
     true
 }
+/// The places an admitted connection holds, given back once by `Drop`: an outbound connection's count, or an inbound
+/// one's registry slot (`Net::forget`, first), live place, handshake place while `handshaking` and group place. A Drop
+/// guard, so a reader that panics still gives them back.
+struct Release{net:Net,id:PeerId,group:Option<Group>,outbound:bool,handshaking:bool}
+impl Drop for Release{
+    fn drop(&mut self){let c=&self.net.counters;
+        if self.outbound{c.outbound.fetch_sub(1,Ordering::SeqCst);}
+        else{self.net.forget(self.id);c.live.fetch_sub(1,Ordering::SeqCst);if self.handshaking{c.handshaking.fetch_sub(1,Ordering::SeqCst);}self.net.release_group(self.group);}
+    }
+}
 /// Starts reader and writer threads for an admitted connection (inbound: slot already reserved).
 /// Returns whether the connection was handed to the node (every later end sends Closed), and
 /// the reader's handle.
@@ -331,19 +550,18 @@ fn read_by(r:&mut TcpStream,buf:&mut [u8],deadline:Instant,closed:&AtomicBool)->
 /// before its place is used again, so exiting readers are counted too.
 /// `origin`: how the connection came about; a dialed one is counted in `Counters::outbound`, not in the inbound
 /// slots. `group`: the address group an inbound connection holds a place in (`Net::admit`), given back with
-/// its slot, by the same single release.
+/// its slot, by the same single release (`Release`). An inbound connection is enlisted in the registry right before
+/// the node learns of it, and established at its first eligible Hello (`Net::establish`), which may evict another or
+/// refuse it: a refused connection ends before its Hello reaches the node.
 fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net,group:Option<Group>)->(bool,Option<std::thread::JoinHandle<()>>){
     let outbound=origin!=Origin::Inbound;
-    let release=move|net:&Net,handshaking:bool|{
-        if outbound{net.counters.outbound.fetch_sub(1,Ordering::SeqCst);}
-        else{net.counters.live.fetch_sub(1,Ordering::SeqCst);if handshaking{net.counters.handshaking.fetch_sub(1,Ordering::SeqCst);}net.release_group(group);}
-    };
     if outbound{net.counters.outbound.fetch_add(1,Ordering::SeqCst);}
-    let _=stream.set_nodelay(true);let remote=stream.peer_addr().ok();let addr=remote.map(|a|a.to_string()).unwrap_or_default();
     let id=NEXT.fetch_add(1,Ordering::SeqCst);
-    let (Ok(reader),Ok(writer))=(stream.try_clone(),stream.try_clone()) else{release(&net,true);return (false,None)};
+    let release=Release{net:net.clone(),id,group,outbound,handshaking:true};
+    let _=stream.set_nodelay(true);let remote=stream.peer_addr().ok();let addr=remote.map(|a|a.to_string()).unwrap_or_default();
+    let (Ok(reader),Ok(writer))=(stream.try_clone(),stream.try_clone()) else{drop(release);return (false,None)};
     let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),finish:AtomicBool::new(false),max:net.limits.queue_bytes_max});
-    let peer=Peer{id,addr,outbound,origin,remote,out:out.clone(),sock:Arc::new(stream),counters:net.counters.clone()};
+    let peer=Peer{id,addr,outbound,origin,remote,out:out.clone(),sock:Arc::new(stream),counters:net.counters.clone(),act:Arc::default()};
     let write_deadline=net.limits.write_deadline;
     let wpeer=peer.clone();
     let writer=crate::threads::spawn(format!("peer-{id}-w"),crate::threads::IO_STACK,move||{
@@ -358,13 +576,17 @@ fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net
             }
         }
     });
-    let Ok(writer)=writer else{release(&net,true);return (false,None)};
-    if events.send(NetEvent::Connected(id,peer.clone())).is_err(){peer.close();let _=writer.join();release(&net,true);return (false,None)}
+    let Ok(writer)=writer else{drop(release);return (false,None)};
+    if !outbound{net.enlist(&peer);}
+    if events.send(NetEvent::Connected(id,peer.clone())).is_err(){peer.close();let _=writer.join();drop(release);return (false,None)}
     let writer=Arc::new(Mutex::new(Some(writer)));let rwriter=writer.clone();
     let join=|w:&Mutex<Option<std::thread::JoinHandle<()>>>|{if let Some(h)=w.lock().ok().and_then(|mut g|g.take()){let _=h.join();}};
     let rpeer=peer.clone();let rnet=net.clone();
     let tev=events.clone();
+    // The reader takes the guard when it starts; a spawn that fails leaves it here, given back after Closed.
+    let guard=Arc::new(Mutex::new(Some(release)));let rguard=guard.clone();
     let spawned=crate::threads::spawn(format!("peer-{id}"),crate::threads::IO_STACK,move||{let net=rnet;let events=tev;
+        let Some(mut release)=rguard.lock().unwrap_or_else(|e|e.into_inner()).take() else{return};drop(rguard);
         let mut r=reader;let l=net.limits.clone();let mut hello=false;let mut last=Instant::now();let started=Instant::now();
         loop{
             let wait=if hello{last+l.idle_deadline}else{started+l.hello_deadline};
@@ -378,15 +600,17 @@ fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net
             if !hello{
                 // Nothing but a Hello is accepted before the handshake.
                 if !matches!(m,Msg::Hello{..}){break}
-                hello=true;if !outbound{net.counters.handshaking.fetch_sub(1,Ordering::SeqCst);}
+                hello=true;release.handshaking=false;
+                // An ineligible Hello reaches the node unestablished (never held, never a candidate), which closes it.
+                if !outbound{net.counters.handshaking.fetch_sub(1,Ordering::SeqCst);if net.eligible(&m)&&!net.establish(id){break}}
             }
             last=Instant::now();
             if events.send(NetEvent::Message(id,m)).is_err(){break}
         }
-        rpeer.close();join(&rwriter);let _=events.send(NetEvent::Closed(id));release(&net,!hello);
+        rpeer.close();join(&rwriter);let _=events.send(NetEvent::Closed(id));drop(release);
     });
     // The node already knows this peer: it must also learn that it is gone.
-    match spawned{Ok(h)=>(true,Some(h)),Err(_)=>{peer.close();join(&writer);let _=events.send(NetEvent::Closed(id));release(&net,true);(true,None)}}
+    match spawned{Ok(h)=>(true,Some(h)),Err(_)=>{peer.close();join(&writer);let _=events.send(NetEvent::Closed(id));drop(guard);(true,None)}}
 }
 /// Accepts inbound peers on the operator-selected listener, within the connection limits.
 /// A loopback bind remains local; a private/public bind accepts remote peers. RPC separately
@@ -398,7 +622,7 @@ pub fn listen(listener:TcpListener,events:SyncSender<NetEvent>,net:Net){
             let Ok(s)=s else{continue};
             // A reader that released its slot but is not yet joined still counts.
             crate::threads::reap(&mut readers);
-            let room=readers.len()<net.limits.peers_max;if !room{net.counters.refused.fetch_add(1,Ordering::SeqCst);}
+            let room=readers.len()<net.limits.inbound_max();if !room{net.counters.refused.fetch_add(1,Ordering::SeqCst);}
             let group=s.peer_addr().ok().and_then(|a|net.inbound_group(a.ip()));
             if room&&net.admit(group){if let (_,Some(h))=spawn_peer(s,Origin::Inbound,events.clone(),net.clone(),group){readers.push(h);}}else{let _=s.shutdown(std::net::Shutdown::Both);}
         }
@@ -432,7 +656,7 @@ pub fn dial(addr:SocketAddr,events:SyncSender<NetEvent>,connected:Arc<Mutex<std:
 pub(crate) fn test_peer(id:PeerId,max:usize)->(Peer,TcpStream){
     let l=TcpListener::bind("127.0.0.1:0").unwrap();let s=TcpStream::connect(l.local_addr().unwrap()).unwrap();let (r,_)=l.accept().unwrap();
     let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),finish:AtomicBool::new(false),max});
-    (Peer{id,addr:"test".into(),outbound:false,origin:Origin::Inbound,remote:None,out,sock:Arc::new(s),counters:Arc::new(Counters::default())},r)
+    (Peer{id,addr:"test".into(),outbound:false,origin:Origin::Inbound,remote:None,out,sock:Arc::new(s),counters:Arc::new(Counters::default()),act:Arc::default()},r)
 }
 /// Unit tests only: `test_peer` as a connection of this `origin` whose socket reported `remote`; `addr` and
 /// `outbound` follow from them as in `spawn_peer` (`addr` is "" when `remote` is None).
@@ -514,7 +738,7 @@ mod tests{
     #[test] fn an_offer_past_half_the_queue_is_refused_and_keeps_the_peer(){
         let l=TcpListener::bind("127.0.0.1:0").unwrap();let s=TcpStream::connect(l.local_addr().unwrap()).unwrap();let _r=l.accept().unwrap();
         let out=Arc::new(Outbox{q:Mutex::new((VecDeque::new(),0)),cv:Condvar::new(),closed:AtomicBool::new(false),finish:AtomicBool::new(false),max:4096});
-        let p=Peer{id:1,addr:"t".into(),outbound:false,origin:Origin::Inbound,remote:None,out:out.clone(),sock:Arc::new(s),counters:Arc::new(Counters::default())};
+        let p=Peer{id:1,addr:"t".into(),outbound:false,origin:Origin::Inbound,remote:None,out:out.clone(),sock:Arc::new(s),counters:Arc::new(Counters::default()),act:Arc::default()};
         let m=Msg::Tx{raw:vec![7u8;400]};let f=m.encode().len()+4;
         let mut offered=0;while p.offer(&m){offered+=1;}
         assert_eq!(offered,2048/f,"offers fill half the queue");assert!(!out.closed.load(Ordering::SeqCst),"a refused offer keeps the peer");
@@ -612,7 +836,8 @@ mod tests{
     /// be taken again; other groups and ungrouped peers are unaffected; a configured peer is exempt by its
     /// canonical address (a dual-stack listener reports IPv4 as ::ffff:a.b.c.d); per_group_max 0 disables it.
     #[test] fn a_public_group_holds_at_most_per_group_max_inbound_places(){
-        let d=Limits::default();assert_eq!(d.per_group_max,d.peers_max/2,"by default one group holds at most half of the inbound slots");
+        let d=Limits::default();assert_eq!(d.per_group_max,4,"by default one group holds at most 4 inbound places");
+        assert_eq!(d.inbound_max(),d.peers_max+d.handshaking_max,"the physical bound counts the places waiting for a Hello apart");
         let net=Net::new(Limits{peers_max:8,handshaking_max:8,per_group_max:3,..Limits::default()});
         let (ga,gb)=(group_of("81.2.69.1".parse().unwrap()),group_of("81.3.1.1".parse().unwrap()));
         assert!(ga.is_some()&&gb.is_some()&&ga!=gb);
@@ -673,5 +898,202 @@ mod tests{
         drop(b);
         assert!(until(&||places()==0&&c.live.load(Ordering::SeqCst)==0&&shaking()==0),"all places and slots are back");
         assert!(c.groups.lock().unwrap().is_empty(),"no empty group is left behind");
+    }
+    // ---------------- PR3: inbound eviction ----------------
+    fn key(i:u16)->EvictKey{EvictKey::Net(Group::V4(i.to_be_bytes()))}
+    /// A free candidate with no credit; `rank` is its key's lottery hash.
+    fn cand(id:PeerId,key:EvictKey,rank:u64)->Cand{Cand{id,key,rank,last:[0;4],free:true,prot:false}}
+    fn prot(c:&[Cand])->Vec<PeerId>{let mut v:Vec<PeerId>=c.iter().filter(|x|x.prot).map(|x|x.id).collect();v.sort();v}
+    /// No lottery and the minimum per-kind quota, so step 5 shows on its own beside the older half.
+    const NO_LOTTERY:Policy=Policy{protect_groups:0,protect_recent:4};
+    /// Step 5: the key with the most established members, protected and graced ones included, gives the victim, its
+    /// youngest candidate; a tie goes to the key whose youngest candidate is younger, in both orders. A group of 4 with 2
+    /// credited (protected) members still loses to an honest group of 3, and credited singletons do not make an idle
+    /// honest group of 3 the largest: usefulness buys protection, never a smaller apparent group. No candidate, no victim.
+    #[test] fn the_victim_is_the_youngest_of_the_largest_group_by_full_membership(){
+        let (a,b,c)=(key(1),key(2),key(3));
+        // A {1,3,5}, B {2,4,6}, C {7}: the older half (1, 2, 3) is protected; B's 6 beats A's 5, and C is smaller.
+        let mut v=vec![cand(1,a,0),cand(3,a,0),cand(5,a,0),cand(2,b,0),cand(4,b,0),cand(6,b,0),cand(7,c,0)];
+        assert_eq!(victim(&mut v,&NO_LOTTERY),Some(6),"the tie goes to B, whose youngest candidate is younger; C is smaller although younger");
+        let mut v=vec![cand(2,a,0),cand(4,a,0),cand(6,a,0),cand(1,b,0),cand(3,b,0),cand(5,b,0),cand(7,c,0)];
+        assert_eq!(victim(&mut v,&NO_LOTTERY),Some(6),"the other tie order goes to A");
+        // Attacker X {1,3,5,7}, 5 and 7 credited; honest H {2,4,6}: X keeps its full size of 4.
+        let credited=|mut x:Cand,k:usize,t:u64|{x.last[k]=t;x};
+        let (x,h)=(key(10),key(11));
+        let mut v=vec![cand(1,x,0),cand(3,x,0),credited(cand(5,x,0),0,50),credited(cand(7,x,0),0,70),cand(2,h,0),cand(4,h,0),cand(6,h,0)];
+        assert_eq!(victim(&mut v,&NO_LOTTERY),Some(3),"the attacker group of 4 loses its youngest unprotected member");
+        assert_eq!(prot(&v),vec![1,2,5,7],"its credited members and the older half are protected");
+        // X {2,4,6,8}, 8 credited; idle honest H {1,3,5}; credited singletons 9, 10, 11 (each its own key).
+        let mut v=vec![cand(2,x,0),cand(4,x,0),cand(6,x,0),credited(cand(8,x,0),0,80),cand(1,h,0),cand(3,h,0),cand(5,h,0),
+            credited(cand(9,key(20),0),2,90),credited(cand(10,key(21),0),2,91),credited(cand(11,key(22),0),2,92)];
+        assert_eq!(victim(&mut v,&NO_LOTTERY),Some(6),"the idle honest group of 3 is not the largest");
+        assert_eq!(victim(&mut [],&Policy{protect_groups:4,protect_recent:4}),None,"no connection, no victim");
+        let mut all=vec![credited(cand(1,a,0),1,5),credited(cand(2,a,0),1,6)];
+        assert_eq!(victim(&mut all,&NO_LOTTERY),None,"every connection protected, no victim");
+        let mut one=vec![cand(1,a,0)];assert_eq!(victim(&mut one,&Policy{protect_groups:4,protect_recent:4}),None,"a lone connection wins the lottery");
+    }
+    /// Steps 1-3 on 24 candidates in 6 keys of 4: the lottery protects the oldest member of each of the protect_groups keys
+    /// with the highest rank; each kind protects its protect_recent latest deliverers, Share credits never take Template
+    /// places, and a kind never credited protects nobody; then the older half of what is left, rounded down. The quota
+    /// is max(4, peers_max/16).
+    #[test] fn lottery_recent_per_kind_and_older_half_are_protected(){
+        // Key j (0..6) holds ids j+1, j+7, j+13, j+19 and ranks j·10: the lottery favours keys 5, 4, 3, 2.
+        let set=||->Vec<Cand>{(0..24u64).map(|i|cand(i+1,key((i%6) as u16),(i%6)*10)).collect()};
+        let mut c=set();lottery(&mut c,4);assert_eq!(prot(&c),vec![3,4,5,6],"the oldest of each of the four highest-ranked keys");
+        let mut c=set();lottery(&mut c,0);assert!(prot(&c).is_empty());
+        // Templates from 1..=6 (the latest 3, 4, 5, 6), shares from 7..=20, blocks from 21 and 22 only, no transactions.
+        let credited=||{let mut c=set();for x in c.iter_mut(){
+            if x.id<=6{x.last[Useful::Template as usize]=x.id;}else if x.id<=20{x.last[Useful::Share as usize]=100+x.id;}else if x.id<=22{x.last[Useful::Block as usize]=x.id;}}c};
+        let mut c=credited();recent(&mut c,4);
+        assert_eq!(prot(&c),vec![3,4,5,6,17,18,19,20,21,22],"4 latest templates, 4 latest shares, the 2 blocks, no transaction");
+        // A connection already protected does not use up a kind's quota: with templates' 3..=6 protected first, the next
+        // latest template deliverers take the quota.
+        let mut c=credited();for x in c.iter_mut(){if (3..=6).contains(&x.id){x.prot=true;}}recent(&mut c,4);
+        assert_eq!(prot(&c),vec![1,2,3,4,5,6,17,18,19,20,21,22]);
+        // The older half: 24 - 12 = 12 candidates left, the oldest 6 of them protected.
+        older_half(&mut c);assert_eq!(prot(&c),vec![1,2,3,4,5,6,7,8,9,10,11,12,17,18,19,20,21,22],"6 more: 7..=12");
+        let mut odd:Vec<Cand>=(1..=5).map(|i|cand(i,key(1),0)).collect();older_half(&mut odd);assert_eq!(prot(&odd),vec![1,2],"5 candidates: 2 protected");
+        // All three steps together, as `victim` runs them, before it picks: with the default quotas the lottery, the
+        // kinds and the older half all apply.
+        // Left: 13..=16, 23, 24, one in each key of 4; the tie goes to the youngest.
+        let mut c=credited();assert_eq!(victim(&mut c,&Policy{protect_groups:4,protect_recent:4}),Some(24),"the youngest left of the largest key");
+        assert_eq!(prot(&c),vec![1,2,3,4,5,6,7,8,9,10,11,12,17,18,19,20,21,22],"lottery 3..=6, templates 1, 2, shares and blocks, then half of 12: 7..=12");
+        let quota=|p:usize|Policy::of(&Limits{peers_max:p,..Limits::default()}).protect_recent;
+        assert_eq!((quota(8),quota(32),quota(64),quota(128)),(4,4,4,8),"max(4, peers_max/16)");
+        assert_eq!(Policy::of(&Limits::default()).protect_groups,4);
+    }
+    /// A connection in its grace period (`free` false) counts in its key's size but is never returned; with only graced
+    /// connections left there is no victim. (Exempt connections are not candidates at all: `Net::establish` leaves them
+    /// out, see `establish_takes_a_victims_place_or_refuses`.)
+    #[test] fn graced_peers_are_counted_but_never_chosen(){
+        let (x,h)=(key(1),key(2));let graced=|mut c:Cand|{c.free=false;c};
+        let mut v=vec![cand(4,x,0),cand(5,x,0),graced(cand(6,x,0)),graced(cand(7,x,0)),cand(1,h,0),cand(2,h,0),cand(3,h,0)];
+        assert_eq!(victim(&mut v,&NO_LOTTERY),Some(5),"X counts its 2 graced members (4 > 3) and loses its youngest free one");
+        let mut v=vec![graced(cand(1,x,0)),graced(cand(2,x,0)),graced(cand(3,h,0))];
+        assert_eq!(victim(&mut v,&Policy{protect_groups:4,protect_recent:4}),None,"only graced connections left");
+    }
+    /// Heap's algorithm: every permutation of `v`, each handed to `f`.
+    fn permutations(v:&mut Vec<Cand>,k:usize,f:&mut dyn FnMut(&[Cand])){
+        if k<=1{f(v);return}
+        for i in 0..k{permutations(v,k-1,f);if k%2==0{v.swap(i,k-1);}else{v.swap(0,k-1);}}
+    }
+    /// Every sort key ends in the unique id, so the victim does not depend on the order of the candidates: all 5,040
+    /// orders of 7 mixed candidates (three keys, credits, a graced one) give the same victim and protect the same set.
+    #[test] fn the_victim_does_not_depend_on_candidate_order(){
+        let mut v=vec![cand(1,key(1),9),cand(2,key(2),5),cand(3,key(1),9),Cand{last:[0,0,7,0],..cand(4,key(3),1)},cand(5,key(2),5),
+            Cand{free:false,..cand(6,key(1),9)},cand(7,key(2),5)];
+        let p=Policy{protect_groups:1,protect_recent:4};
+        let mut first=v.clone();let want=(victim(&mut first,&p),prot(&first));assert!(want.0.is_some());
+        let (mut n,mut same)=(0,true);
+        permutations(&mut v,7,&mut|c|{let mut c=c.to_vec();let got=(victim(&mut c,&p),prot(&c));n+=1;same&=got==want;});
+        assert_eq!((n,same),(5040,true),"the victim {:?} for every order",want.0);
+    }
+    /// `Net::establish` on a registry of `test_peer` connections (no threads), established 2 at most, 4 waiting places:
+    /// - a newcomer past the cap evicts (the victim's outbox is closed, `evicted` counts it); a connection without its
+    ///   Hello, a closed one, an exempt one and the newcomer itself are never chosen, and a closed one is not held;
+    /// - with no victim the newcomer is refused (`refused_full`), and with the key's budget spent too (`refused_rate`);
+    /// - a configured address's connections are exempt only up to its count (`protect`), the rest are ordinary; an exempt
+    ///   newcomer is not charged and exceeds the cap only within peers_max + min(configured peers, handshaking_max/2).
+    #[test] fn establish_takes_a_victims_place_or_refuses(){
+        let free=EvictLimits{grace:Duration::ZERO,key_interval:Duration::ZERO,burst:1000,refill:Duration::ZERO};
+        let net=|peers_max,evict|Net::new(Limits{peers_max,handshaking_max:4,evict,..Limits::default()});
+        let load=|a:&AtomicUsize|a.load(Ordering::SeqCst);
+        let mut keep=Vec::new();
+        let mut enlist=|n:&Net,id:PeerId,remote:Option<SocketAddr>|{let (p,s)=test_peer_as(id,1<<16,Origin::Inbound,remote);n.enlist(&p);keep.push(s);p};
+        // Eviction: a, b held; x never sends its Hello; newcomer n evicts b (a wins the lottery of the one key).
+        let n1=net(2,free.clone());
+        let (a,b,x,n)=(enlist(&n1,1,None),enlist(&n1,2,None),enlist(&n1,3,None),enlist(&n1,4,None));
+        assert!(n1.establish(1)&&n1.establish(2),"within the cap");assert_eq!(n1.established(),2);
+        assert!(n1.establish(4),"the newcomer takes the victim's place");
+        assert_eq!((a.ended().0,b.ended().0,x.ended().0,n.ended().0),(false,true,false,false),"b, the youngest held, is evicted; never x, n or the lottery's a");
+        assert_eq!((load(&n1.counters.evicted),n1.established()),(1,2));
+        // A closed connection that is not yet released is not held: the next newcomer finds a place without evicting.
+        a.close();let m=enlist(&n1,5,None);assert!(n1.establish(5));
+        assert_eq!((load(&n1.counters.evicted),n1.established(),m.ended().0),(1,2,false),"closed a is not held");
+        n1.forget(2);n1.forget(1);assert_eq!(n1.registry().slots.len(),3,"released connections leave the registry");
+        // No victim: a lone other connection wins the lottery.
+        let n2=net(1,free.clone());let (o,_)=(enlist(&n2,10,None),enlist(&n2,11,None));
+        assert!(n2.establish(10));assert!(!n2.establish(11),"no victim, the newcomer is refused");
+        assert_eq!((load(&n2.counters.refused_full),load(&n2.counters.refused),load(&n2.counters.evicted),o.ended().0),(1,1,0,false));
+        // The budget: one key evicts once per key_interval.
+        let n3=net(2,EvictLimits{key_interval:Duration::from_secs(60),..free.clone()});for id in 20..24{enlist(&n3,id,None);}
+        assert!(n3.establish(20)&&n3.establish(21)&&n3.establish(22),"the first eviction");
+        assert!(!n3.establish(23),"the second within key_interval is refused");
+        assert_eq!((load(&n3.counters.evicted),load(&n3.counters.refused_rate),load(&n3.counters.refused)),(1,1,1));
+        // Exemption: a configured address with 4 configured peers, 4 waiting places: at most 2 over the cap of 2.
+        let ip:IpAddr="81.2.69.8".parse().unwrap();let at=|port|Some(SocketAddr::new(ip,port));
+        let n4=net(2,EvictLimits{key_interval:Duration::from_secs(60),..free.clone()});n4.protect([ip;4]);
+        let (o1,o2)=(enlist(&n4,30,None),enlist(&n4,31,None));assert!(n4.establish(30)&&n4.establish(31));
+        let e:Vec<Peer>=(32..37).map(|id|enlist(&n4,id,at(id as u16))).collect();
+        assert!(n4.establish(32),"an exempt newcomer evicts");assert_eq!((o1.ended().0,o2.ended().0),(false,true));
+        assert_eq!(n4.registry().tat,0,"and is not charged");
+        assert!(n4.establish(33)&&n4.establish(34),"exempt newcomers with no victim exceed the cap by min(4, 4/2)");assert_eq!(n4.established(),4);
+        assert!(!n4.establish(35),"the fourth exempt newcomer finds no room within the over-cap bound");
+        assert_eq!(load(&n4.counters.refused_full),1);
+        // A configured address with 2 configured peers: its first 2 connections are exempt, the rest ordinary candidates.
+        let n5=net(4,free.clone());n5.protect([ip;2]);
+        let f:Vec<Peer>=(40..44).map(|id|enlist(&n5,id,at(id as u16))).collect();
+        assert!((40..44).all(|id|n5.establish(id)),"within the cap");
+        assert_eq!(n5.registry().slots.iter().map(|s|s.exempt).collect::<Vec<_>>(),[true,true,false,false],"exactly protect's count is exempt");
+        enlist(&n5,45,None);assert!(n5.establish(45));
+        assert_eq!(f.iter().map(|p|p.ended().0).collect::<Vec<_>>(),[false,false,false,true],"the youngest ordinary connection from the configured address goes");
+        let n6=net(2,free);n6.protect([ip;2]);for id in 50..53{enlist(&n6,id,at(id as u16));}
+        assert!(n6.establish(50)&&n6.establish(51));assert!(!n6.establish(52),"exempt connections are never victims");
+        drop(e);
+    }
+    /// Only a Hello the node would keep is established (and so may evict): with `expect_hello` unset, every Hello; then the
+    /// network (chain id, genesis), the protocol version and the compatibility digest must match, and a nonzero nonce must
+    /// not be the node's own (a self-connection). Nonce 0 (a node that does not listen) is eligible.
+    #[test] fn only_a_hello_for_this_network_and_build_is_eligible(){
+        let digest=crate::identity::compatibility();
+        let hello=|chain_id,genesis,protocol,compatibility,nonce|Msg::Hello{chain_id,genesis,head:[0;32],height:0,work:[0;32],node:"n".into(),protocol,compatibility,listen_port:0,nonce};
+        let v=crate::identity::PROTOCOL_VERSION;let good=hello(7,[1;32],v,digest,5);
+        let n=Net::new(Limits::default());assert!(n.eligible(&hello(8,[9;32],0,[0;32],5)),"unset: every Hello");
+        n.expect_hello(HelloId{chain_id:7,genesis:[1;32],compatibility:digest,nonce:42});
+        assert!(n.eligible(&good)&&n.eligible(&hello(7,[1;32],v,digest,0)),"this network and build; nonce 0");
+        for (bad,why) in [(hello(8,[1;32],v,digest,5),"chain"),(hello(7,[2;32],v,digest,5),"genesis"),(hello(7,[1;32],v+1,digest,5),"protocol"),
+            (hello(7,[1;32],v,[0;32],5),"digest"),(hello(7,[1;32],v,digest,42),"own nonce")]{assert!(!n.eligible(&bad),"{why}");}
+        assert!(!n.eligible(&Msg::GetAddr),"not a Hello");
+    }
+    /// The eviction budget: the GCRA allows `burst` evictions at once and then one per `refill`; one key evicts at most
+    /// once per `key_interval`; the ring keeps the latest EVICT_RING charges and wraps; a charge stamped after `now`
+    /// counts as within the interval.
+    #[test] fn the_eviction_budget_limits_per_key_and_globally(){
+        let e=EvictLimits{grace:Duration::ZERO,key_interval:Duration::from_secs(30),burst:3,refill:Duration::from_secs(2)};
+        let mut r=Registry::new(4);
+        for i in 0..3{assert!(r.allows(key(i),1000,&e),"burst {i}");r.charge(key(i),1000,&e);}
+        assert!(!r.allows(key(3),1000,&e),"the burst is spent");assert!(!r.allows(key(3),2999,&e));
+        assert!(r.allows(key(3),3000,&e),"one more after refill");r.charge(key(3),3000,&e);
+        assert!(!r.allows(key(4),3000,&e)&&!r.allows(key(4),4999,&e)&&r.allows(key(4),5000,&e),"then one per refill");
+        assert!(!r.allows(key(0),30_999,&e),"key 0 evicted at 1000: not again within key_interval");assert!(r.allows(key(0),31_000,&e));
+        assert!(!r.allows(key(0),500,&e),"a charge after now saturates to within the interval");
+        let free=EvictLimits{key_interval:Duration::from_secs(3600),burst:1000,refill:Duration::ZERO,..e};let mut r=Registry::new(4);
+        for i in 0..EVICT_RING as u16{r.charge(key(i),10,&free);}assert_eq!(r.ring_next,0,"the ring wraps");
+        assert!(!r.allows(key(0),20,&free));r.charge(key(999),20,&free);
+        assert!(r.allows(key(0),20,&free),"the oldest charge is overwritten");assert!(!r.allows(key(1),20,&free)&&!r.allows(key(999),20,&free));
+        assert_eq!(r.ring_next,1);
+    }
+    /// Eviction keys: fc00::/7 (cjdns, ULA overlays) is one key, other ungrouped IPv6 is keyed by its /32, a public
+    /// address by its group, and ungrouped IPv4 by its exact address (a mapped one as IPv4); no address is ::.
+    #[test] fn evict_keys_lump_overlay_ipv6(){
+        let k=|s:&str|evict_key(group_of,Some(s.parse().unwrap()));
+        assert_eq!((k("fc00::1"),k("fc12:3456::9"),k("fd00::1"),k("fdff:1::2")),(EvictKey::Ula,EvictKey::Ula,EvictKey::Ula,EvictKey::Ula),"all of fc00::/7 is one key");
+        assert_eq!((k("::1"),k("fe80::1"),k("fe80::2")),(EvictKey::V6Local([0;4]),EvictKey::V6Local([0xfe,0x80,0,0]),EvictKey::V6Local([0xfe,0x80,0,0])),"other ungrouped IPv6 by /32");
+        assert_eq!(k("8.8.4.4"),EvictKey::Net(Group::V4([8,8])),"a public address by its /16");
+        assert_eq!(k("2606:4700::1"),EvictKey::Net(Group::V6([0x26,0x06,0x47,0x00])));
+        assert_ne!(k("10.0.0.1"),k("10.0.0.2"),"private IPv4 hosts are separate keys");
+        assert_eq!(k("::ffff:10.0.0.1"),EvictKey::Host("10.0.0.1".parse().unwrap()),"a mapped address as IPv4");
+        assert_eq!(evict_key(group_of,None),EvictKey::Host("::".parse().unwrap()));
+    }
+    /// A reader that panics still gives back what its connection held: dropping its `Release` frees the registry slot, the
+    /// live place, the handshake place and the group place, once.
+    #[test] fn a_panicking_reader_still_releases_its_places(){
+        const G:Group=Group::V4([81,2]);
+        let net=Net::new(Limits::default()).with_grouper(|_|Some(G));let c=net.counters.clone();
+        assert!(net.admit(Some(G)));let (p,_s)=test_peer(77,1<<16);net.enlist(&p);
+        let release=Release{net:net.clone(),id:77,group:Some(G),outbound:false,handshaking:true};
+        assert!(std::thread::spawn(move||{let _held=release;panic!("a reader bug")}).join().is_err());
+        let load=|a:&AtomicUsize|a.load(Ordering::SeqCst);
+        assert_eq!((load(&c.live),load(&c.handshaking),c.groups.lock().unwrap().get(&G).copied(),net.registry().slots.len()),(0,0,None,0));
     }
 }

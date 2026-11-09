@@ -612,13 +612,19 @@ impl Node{
 
     pub fn start_network(&mut self)->Result<(),String>{
         // The configured peers (for example the other seeds, which also dial this node) are never refused
-        // for sharing a public address group with each other (net::Limits::per_group_max).
+        // for sharing a public address group with each other (net::Limits::per_group_max), and as many inbound
+        // connections from an address as it has configured peers are never evicted: every configured address is
+        // passed, duplicates included (net::Net::protect counts them).
         self.net.protect(self.cfg.peers.iter().map(|a|a.ip()));
         // VA-SPEC §1a.6: the address book is read before any connection is accepted or dialed.
         self.disc_load(self.disc_now());
         if let Some(a)=self.cfg.listen{let l=std::net::TcpListener::bind(a).map_err(|e|format!("listen {a}: {e}"))?;
             // Hello.listenPort (VA-SPEC §1a.1): the address actually bound (an ephemeral port for port 0).
             self.disc.bound(l.local_addr().map_err(|e|format!("listen {a}: {e}"))?);
+            // Inbound eviction counts only a Hello this node would keep (on_msg's Hello checks), so the nonce is final
+            // here and the listener does not run yet.
+            self.net.expect_hello(net::HelloId{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),
+                compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries()),nonce:self.disc.wire_nonce()});
             let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn("listen-fwd",crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::listen(l,ntx,self.net.clone());}
         for a in self.cfg.peers.clone(){let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn(format!("dial-fwd-{a}"),crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
@@ -1526,6 +1532,13 @@ impl Node{
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));
+        // Inbound eviction (net::Net::establish): the established and physical bounds, the evictions and the newcomers
+        // refused at their Hello because no peer could be evicted or the eviction budget was spent.
+        {let c=&self.net.counters;let n=|a:&std::sync::atomic::AtomicUsize|serde_json::json!(a.load(std::sync::atomic::Ordering::SeqCst));
+            status["stats"]["inboundEvicted"]=n(&c.evicted);status["stats"]["inboundEvictedInGroup"]=n(&c.evicted_in_group);
+            status["stats"]["inboundRefusedFull"]=n(&c.refused_full);status["stats"]["inboundRefusedRate"]=n(&c.refused_rate);}
+        status["inboundEstablished"]=serde_json::json!(self.net.established());
+        status["inboundMax"]=serde_json::json!(self.net.limits.peers_max);
         // Peer discovery (VA-SPEC §1a): the live connections this node dialed, and discovery's state.
         status["outboundPeers"]=serde_json::json!(self.net.counters.outbound.load(std::sync::atomic::Ordering::SeqCst));
         status["discovery"]=self.disc_status();
