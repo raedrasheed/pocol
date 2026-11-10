@@ -120,3 +120,5 @@ impl Index{
     /// The file's size (0 when it cannot be read).
     pub fn file_bytes(&self)->u64{std::fs::metadata(self.dir.join(FILE)).map_or(0,|m|m.len())}
 }
+/// What a checkpoint restore reads (`checkpoint::Source::canonical`): the row, checked.
+impl checkpoint::CanonIndex for Index{fn at(&self,h:u64)->Result<Option<Rec>,String>{Index::at(self,h)}}

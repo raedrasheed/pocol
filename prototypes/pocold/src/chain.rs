@@ -421,6 +421,11 @@ pub struct Chain{
     /// PR7 (A1-7): restored copies of slimmed entries a rebuild re-executes past (`ensure_state_with`), read
     /// first by `get`, the newest `shadow_keep()` kept in `shadow_order`. Empty except while a rebuild runs.
     shadow:HashMap<[u8;32],Box<Entry>>,shadow_order:std::collections::VecDeque<[u8;32]>,
+    /// C-1 S5 (PR7): canonical entries more than this below the head leave memory for the node's canonical index
+    /// (None: never, a bare chain). `anchor_step`: the spacing of the store-mode rebuild anchors (None: none), and
+    /// `anchor_cursor` the highest height the forward prune has passed since they were taken. All three are
+    /// checkpoint parameters or fields (`checkpoint::Params`, `Snapshot`).
+    pub evict_depth:Option<u64>,pub anchor_step:Option<u64>,pub(crate) anchor_cursor:u64,
 }
 
 /// C-1 E5: the state of an entry that holds none (pruned, stored, or a metadata copy): one shared empty
@@ -442,7 +447,7 @@ impl Chain{
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
         Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
-            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default()}
+            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
     /// C-1 E4: keeps states in `store` from now on, starting with genesis's (Node::open calls it on a chain
@@ -879,7 +884,8 @@ impl Chain{
         if !gone.is_empty()||self.orphan_check{self.orphan_check=false;
             loop{let orphaned:Vec<[u8;32]>=self.side.iter().filter(|h|self.blocks[*h].parent.map_or(false,|p|!self.blocks.contains_key(&p))).copied().collect();
                 if orphaned.is_empty(){break}for h in orphaned{self.blocks.remove(&h);self.side.remove(&h);gone.push(h);}}}
-        debug_assert!(self.blocks.values().all(|e|e.parent.map_or(true,|p|self.blocks.contains_key(&p))),"an orphan was left");
+        // C-1 S5: the window's lowest canonical block is the one whose parent is below the window, in the index.
+        debug_assert!(self.blocks.values().all(|e|e.parent.map_or(true,|p|self.blocks.contains_key(&p))||(e.height==self.canonical.base()&&self.is_canonical(&e.hash))),"an orphan was left");
         let side_now:Vec<[u8;32]>=side.into_iter().filter(|h|self.blocks.contains_key(h)).collect();
         let unprotected=side_now.iter().filter(|h|!self.protect.contains(*h)).count();
         // Live: unprotected <= side_cap (a session holds <= protect_max more). Replay: all <= their sum.
@@ -1278,10 +1284,11 @@ impl Chain{
         // the chain below that block is unchanged, and only the new branch is walked (2026-10-28: the walk from
         // the head to genesis at every insert made an import O(H) and a replay from genesis O(H²); at H_END an
         // empty block's import took 165 ms, evidence/r4). The canonical vector is always a parent-linked path.
+        // C-1 S5: the walk also stops below the window's lowest canonical block, whose parent is in the index, not here.
         let mut path=Vec::new();let mut cur=Some(self.head);
         let fork=loop{
             let Some(h)=cur else{break 0};
-            let e=&self.blocks[&h];
+            let Some(e)=self.blocks.get(&h) else{break self.canonical.base()};
             if self.canonical.get(e.height as usize)==Some(&h){break e.height+1}
             path.push(h);cur=e.parent;
         };
@@ -1289,20 +1296,22 @@ impl Chain{
         for h in self.canonical.drain_from(fork as usize){if self.blocks.contains_key(&h){self.side.insert(h);}}
         for h in &path{self.side.remove(h);}
         self.canonical.extend(path);
-        debug_assert!({let mut full=Vec::new();let mut c=Some(self.head);while let Some(h)=c{full.push(h);c=self.blocks[&h].parent;}full.reverse();full.iter().eq(self.canonical.iter())},"the canonical path is the head's");
+        debug_assert!({let mut full=Vec::new();let mut c=Some(self.head);while let Some(h)=c{if !self.blocks.contains_key(&h){break}full.push(h);c=self.blocks[&h].parent;}full.reverse();
+            full.iter().eq(self.canonical.iter_from(self.canonical.base() as usize))},"the canonical path is the head's");
         // The first height whose canonical block changed: the prune below it still holds.
         self.unprune(fork);
     }
     /// Canonical heights from `h` up may hold what the R21 prune drops (`prune_cursor`).
-    pub(crate) fn unprune(&mut self,h:u64){self.prune_cursor=self.prune_cursor.min(h.max(1));}
+    /// C-1 S5: never below the window (nothing is held there to prune, and the next prune would walk those heights).
+    pub(crate) fn unprune(&mut self,h:u64){self.prune_cursor=self.prune_cursor.min(h.max(self.canonical.base()).max(1));}
     /// A chain whose entries were replaced (a checkpoint's): the next `retain_unsettled` prunes and looks
     /// for orphans from the start.
-    pub(crate) fn retention_reset(&mut self){self.prune_cursor=1;self.orphan_check=true;self.side=self.side_scan();}
+    pub(crate) fn retention_reset(&mut self){self.prune_cursor=self.canonical.base().max(1);self.orphan_check=true;self.side=self.side_scan();}
     /// The non-canonical entries by a walk over every entry (what `side` holds).
     fn side_scan(&self)->std::collections::HashSet<[u8;32]>{self.blocks.values().filter(|e|e.height>0&&!self.is_canonical(&e.hash)).map(|e|e.hash).collect()}
     /// `prune_cursor`'s invariant: every canonical block at a height in 1..prune_cursor is pruned.
     pub fn prune_holds(&self)->bool{
-        (1..self.prune_cursor).all(|h|self.canonical.get(h as usize).and_then(|x|self.blocks.get(x)).map_or(true,|e|e.pruned&&e.stored.is_none()&&!e.full&&e.diff.is_none()))
+        (self.canonical.base().max(1)..self.prune_cursor).all(|h|self.canonical.get(h as usize).and_then(|x|self.blocks.get(x)).map_or(true,|e|e.pruned&&e.stored.is_none()&&!e.full&&e.diff.is_none()))
     }
     /// Whether `hash` is on the current canonical chain.
     pub fn is_canonical(&self,hash:&[u8;32])->bool{self.blocks.get(hash).map(|e|self.canonical.get(e.height as usize)==Some(hash)).unwrap_or(false)}

@@ -515,7 +515,7 @@ impl Node{
                             let protect:std::collections::HashSet<[u8;32]>=s.entries.iter().filter(|e|events.get(&e.hash).and_then(|q|q.iter().find(|x|x.0>=k)).map_or(false,|x|x.1)).map(|e|e.hash).collect();
                             let r=if k>n_rec||offs[k]!=b.end||rolls[k]!=b.hash{Err("it is not bound to this journal's records".to_string())}
                                 else if s.protect.as_ref().map_or(false,|p|p.len()!=protect.len()||p.iter().any(|h|!protect.contains(h))){Err("its protect set is not the one replay had after its last record".to_string())}
-                                else{crate::checkpoint::restore(&mut chain,&s,&crate::checkpoint::JournalSource{offsets:&offs[..n_rec],journal:&rec.journal,records:k,history:&history},&dyn_st)};
+                                else{crate::checkpoint::restore(&mut chain,&s,&crate::checkpoint::JournalSource{offsets:&offs[..n_rec],journal:&rec.journal,records:k,history:&history,canon:&canon},&dyn_st)};
                             // 2026-10-28 (independent review F1, F2): a restore that failed because the journal or
                             // state.redb could not be read is the node's own storage failing, not the checkpoint: open
                             // stops, and nothing is dropped, set aside or rebuilt for it.

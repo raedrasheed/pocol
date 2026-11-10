@@ -3932,8 +3932,8 @@ fn e4_checkpoint_kill_child(){
 #[test] fn a_snapshot_of_minimal_entries_reads_back(){
     use pocold::checkpoint::*;
     let rec=|i:u64|Rec{hash:{let mut h=[0u8;32];h[..8].copy_from_slice(&(i+1).to_be_bytes());h},body_off:None,import_seq:i,total_work:U256::from(i),flags:0,cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,drawn:Address::ZERO,summary:None,root:None};
-    let snap=|n:u64|Snapshot{genesis:[7;32],params:Params{r_keep:2048,side_cap:256,k_hist:32,side_max:2,history_window:Some(32),slim_depth:Some(100),keep_full:false},
-        binding:Binding{records:n,end:1,hash:[2;32]},head:rec(n.max(1)-1).hash,next_seq:n,slim_cursor:1,history_cursor:1,evicted_total:0,unslimmed:vec![],evicted_order:vec![],protect:None,entries:(0..n).map(rec).collect()};
+    let snap=|n:u64|Snapshot{genesis:[7;32],params:Params{r_keep:2048,side_cap:256,k_hist:32,side_max:2,history_window:Some(32),slim_depth:Some(100),keep_full:false,evict_depth:None,anchor_step:None},
+        binding:Binding{records:n,end:1,hash:[2;32]},head:rec(n.max(1)-1).hash,next_seq:n,slim_cursor:1,history_cursor:1,evicted_total:0,canon_base:0,base_parent:[0;32],base_parent_work:U256::ZERO,anchor_cursor:0,v1:false,unslimmed:vec![],evicted_order:vec![],protect:None,entries:(0..n).map(rec).collect()};
     let s=snap(1000);let b=encode_snapshot(&s);
     assert_eq!((b.len()-encode_snapshot(&snap(0)).len())/1000,126,"the smallest record is 126 bytes");
     assert_eq!(decode(&b).unwrap(),s,"a snapshot of minimal entries reads back");

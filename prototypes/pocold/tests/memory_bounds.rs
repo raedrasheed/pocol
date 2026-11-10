@@ -1,7 +1,33 @@
 //! PR7 (C-1 S5): resident memory and per-block work that stay O(window), not O(height). The pieces the
 //! eviction is built from, each checked on its own: the canonical window type and the checkpoint record
 //! codec it shares with the node's canonical index, and that index (canon.redb).
-use pocold::chain::Canon;
+use pocold::chain::{Canon,Chain,Spec};
+use pocold::types::*;
+use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::Key};
+use revm::primitives::{Address,B256};
+use std::collections::HashMap;
+
+// ---------------- chain helpers (as tests/consensus.rs) ----------------
+struct Net{chain:Chain,keys:HashMap<Address,Key>}
+fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+fn admitted()->Spec{let d=devnet::build(&cfg()).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
+fn net()->Net{let d=devnet::build(&cfg()).unwrap();let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();Net{chain:Chain::new(admitted()),keys}}
+fn try_seal(n:&Net,mut h:pocold::header::Header,body:Body,attempt:u32)->Option<Block>{
+    let p=n.chain.full_entry(&h.parent_hash).unwrap();let ctx=n.chain.child_ctx(&p,attempt).unwrap();
+    let tid=template_id(&h.ut_raw);let mut shares=vec![];let mut x=0u64;
+    loop{if (x as u128)>=ctx.assignment.nonce_max(){return None}let ph=pow_hash(&tid,x);if le_target(&ph,&ctx.t_share){if le_target(&ph,&ctx.target){break}shares.push(x);}x+=1;}
+    let owner=addr(&ctx.assignment.owner(x).unwrap());
+    h.nonce=x;shares.truncate(256);h.shares=shares;reseal(&mut h);
+    h.winner_sig=n.keys[&owner].sign_hash(&B256::from(pocold::hashes::win_msg(&tid,x,&share_root(&h))));reseal(&mut h);
+    Some(Block{header:h,body})
+}
+/// A fallback block on `parent` at attempt `a` (or the next attempt with a solution).
+fn fallback(n:&Net,parent:[u8;32],a:u32)->Block{let p=n.chain.full_entry(&parent).unwrap();
+    for a in a..a+16{let (h,_,_)=n.chain.build_fallback(&p,a).unwrap();if let Some(b)=try_seal(n,h,Body::default(),a){return b}}panic!("no fallback solution")}
+fn import(n:&mut Net,b:&Block){let (e,_)=n.chain.validate(b,None,0).unwrap_or_else(|e|panic!("h={} {e:?}",b.header.h));n.chain.insert(e);n.chain.retain();}
+/// `count` fallback blocks on the head.
+fn extend(n:&mut Net,count:usize)->Vec<Block>{(0..count).map(|_|{let p=n.chain.head;let b=fallback(n,p,0);import(n,&b);b}).collect()}
+fn temp(tag:&str)->std::path::PathBuf{let d=std::env::temp_dir().join(format!("pocold-pr7-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&d);d}
 
 fn hash(i:u64)->[u8;32]{let mut h=[0u8;32];h[..8].copy_from_slice(&(i+1).to_be_bytes());h[31]=0xc5;h}
 /// Genesis and heights 1..=n.
@@ -83,4 +109,59 @@ fn indexing_a_height_below_the_window_panics(){let mut c=window(5);c.pop_low();c
     std::fs::write(dir.join(FILE),b"not a redb file").unwrap();
     {let ix=Index::open(&dir,&g).unwrap();assert!(ix.rebuilt,"a file that is not a redb file is set aside");ix.put(&[(1,rec(1,0))]).unwrap();}
     let _=std::fs::remove_dir_all(&dir);
+}
+
+/// A test-only format-1 encoder: the snapshot layout before C-1 S5 (no eviction or anchor parameters, no window
+/// fields), sealed as before.
+fn encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
+    let mut w=Vec::new();let u=|w:&mut Vec<u8>,x:u64|w.extend_from_slice(&x.to_be_bytes());let o=|w:&mut Vec<u8>,x:Option<u64>|match x{Some(v)=>{w.push(1);w.extend_from_slice(&v.to_be_bytes())}None=>w.push(0)};
+    let hs=|w:&mut Vec<u8>,v:&[[u8;32]]|{w.extend_from_slice(&(v.len() as u64).to_be_bytes());for h in v{w.extend_from_slice(h)}};
+    w.extend_from_slice(b"POCKPT01");w.extend_from_slice(&s.genesis);let p=&s.params;
+    for x in [p.r_keep,p.side_cap,p.k_hist,p.side_max]{u(&mut w,x)}o(&mut w,p.history_window);o(&mut w,p.slim_depth);w.push(u8::from(p.keep_full));
+    u(&mut w,s.binding.records);u(&mut w,s.binding.end);w.extend_from_slice(&s.binding.hash);
+    w.extend_from_slice(&s.head);for x in [s.next_seq,s.slim_cursor,s.history_cursor,s.evicted_total]{u(&mut w,x)}
+    hs(&mut w,&s.unslimmed);hs(&mut w,&s.evicted_order);match &s.protect{Some(v)=>{w.push(1);hs(&mut w,v)}None=>w.push(0)}u(&mut w,s.entries.len() as u64);
+    for r in &s.entries{w.extend_from_slice(&pocold::checkpoint::rec_bytes(r))}
+    let seal=revm::primitives::keccak256(&w);w.extend_from_slice(&seal.0);w
+}
+/// One row of a canonical index (what the node's would hold below a window base).
+struct OneRow(u64,pocold::checkpoint::Rec);
+impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option<pocold::checkpoint::Rec>,String>{Ok((h==self.0).then(||self.1.clone()))}}
+
+/// Checkpoint format 2 (C-1 S5): a snapshot of a store-mode chain with its entries below height `base` left out (as
+/// they are once evicted) restores at that window base, from the block below it that the canonical index holds; the
+/// restored chain's snapshot is the one restored. An index without that block, or with another one, and entries
+/// that do not start at the base are refused, leaving the chain as it was. A format-1 snapshot (every entry, no
+/// window fields) still reads back and restores under the new parameters (the one-time migration).
+#[test] fn a_snapshot_restores_at_its_window_base_from_the_block_the_index_holds_below_it(){
+    use pocold::checkpoint::*;use pocold::node::{Config,Limits,Node};
+    // The base is below the K_hist cut (38), as an eviction base always is: no stored version at or near it.
+    let mut h=net();let blocks=extend(&mut h,70);let dir=temp("v2");let base=20u64;
+    let conf=Config{dir:dir.clone(),name:"v2".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{state_store:true,checkpoint_every:0,..Default::default()}};
+    let mut n=Node::open(conf,admitted()).unwrap();for b in &blocks{n.import(b.clone(),None).unwrap();}
+    let full=fingerprint(&n.chain).unwrap();let below=rec_of_meta(n.chain.canonical_at(base-1).unwrap());
+    let canon:Vec<[u8;32]>=n.chain.canonical.iter().copied().collect();let height:HashMap<[u8;32],u64>=n.chain.blocks.values().map(|e|(e.hash,e.height)).collect();
+    drop(n);
+    let mut s=full.clone();s.entries.retain(|r|height[&r.hash]==0||height[&r.hash]>=base);(s.canon_base,s.base_parent,s.base_parent_work)=(base,below.hash,below.total_work);
+    assert_eq!(decode(&encode_snapshot(&s)).unwrap(),s,"format 2 reads back");
+    let v1=decode(&encode_v1(&full)).unwrap();
+    assert_eq!(v1,Snapshot{v1:true,params:Params{evict_depth:None,anchor_step:None,..full.params},..full.clone()},"format 1 reads back, without the new fields");
+    let spec=admitted();let gh=spec.genesis_hash();
+    let rec=pocold::store::open(&dir,&gh).unwrap();let history=pocold::history::History::open(&dir).unwrap();
+    let st:std::sync::Arc<dyn pocol_lp4_execution::node_trie::TrieStore>=std::sync::Arc::new(pocold::state_store::StateStore::open(&dir).unwrap());
+    let fresh=||{let mut c=Chain::new(admitted());let p=&full.params;(c.r_keep,c.side_cap,c.history_window,c.slim_depth,c.keep_full_states)=(p.r_keep,p.side_cap as usize,p.history_window,p.slim_depth,p.keep_full);
+        c.enable_store(st.clone()).unwrap();c};
+    let go=|c:&mut Chain,s:&Snapshot,ix:&dyn CanonIndex|restore(c,s,&JournalSource{offsets:&rec.offsets,journal:&rec.journal,records:rec.offsets.len(),history:&history,canon:ix},&st);
+    let mut c=fresh();
+    for (ix,want) in [(&NoIndex as &dyn CanonIndex,"does not reach"),(&OneRow(base-1,Rec{total_work:below.total_work+revm::primitives::U256::from(1u64),..below.clone()}),"does not reach")]{
+        let e=go(&mut c,&s,ix).unwrap_err();assert!(e.contains(want),"{e}");assert_eq!((c.blocks.len(),c.canonical.len()),(1,1),"refused: the chain is as it was");}
+    let mut cut=s.clone();cut.entries.retain(|r|height[&r.hash]!=base);
+    let e=go(&mut c,&cut,&OneRow(base-1,below.clone())).unwrap_err();assert!(e.contains("parent not restored"),"{e}");
+    go(&mut c,&s,&OneRow(base-1,below.clone())).unwrap();
+    assert_eq!((c.canonical.base(),c.head,c.canonical.len()),(base,full.head,canon.len()));
+    assert!((1..base as usize).all(|h|c.canonical.get(h).is_none())&&(base as usize..canon.len()).all(|h|c.canonical[h]==canon[h]),"the window from its base, the heights below it not held");
+    assert_eq!(fingerprint(&c).unwrap(),s,"the restored chain's snapshot is the one restored");
+    drop(c);let mut m=fresh();m.evict_depth=Some(1000);
+    go(&mut m,&v1,&NoIndex).unwrap();assert_eq!((m.canonical.base(),m.head,m.blocks.len()),(0,full.head,full.entries.len()),"a format-1 snapshot restores whole under the new parameters");
+    drop(m);drop(rec);let _=std::fs::remove_dir_all(&dir);
 }

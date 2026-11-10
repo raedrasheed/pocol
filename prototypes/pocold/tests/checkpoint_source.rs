@@ -29,6 +29,7 @@ fn verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal() {
         journal: &recovered.journal,
         records: 1,
         history: &history,
+        canon: &pocold::checkpoint::NoIndex,
     };
     assert_eq!(source.payload_at(off).unwrap(), Some(payload));
     assert_eq!(
@@ -41,6 +42,7 @@ fn verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal() {
         journal: &recovered.journal,
         records: 0,
         history: &history,
+        canon: &pocold::checkpoint::NoIndex,
     };
     assert_eq!(outside_prefix.payload_at(off).unwrap(), None);
     let path = dir.join("blocks.journal");
