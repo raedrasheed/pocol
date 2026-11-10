@@ -3,6 +3,11 @@
 //! sources, Cargo inputs and embedded production artifacts must match. Coordinated
 //! upgrades are required; no automatic downgrade to the legacy handshake is allowed.
 pub const PROTOCOL_VERSION: u64 = 2;
+/// The lowest wire version a peer may declare (VA-SPEC §2.2). Reported in build-info; used by the handshake from PR5 commit 3.
+pub const PROTOCOL_VERSION_MIN: u64 = 2;
+/// The consensus rules revision (VA-SPEC §2.3). Raised only by a `bump` history line in consensus-sources.lock,
+/// and only together with a new genesis; the consensus guard checks the lock agrees.
+pub const CONSENSUS_RULES_VERSION: u32 = 1;
 pub const COMPATIBILITY_HEX: &str = env!("POCOL_COMPATIBILITY_SHA256");
 pub const BUILD_INFO: &str = include_str!(concat!(env!("OUT_DIR"), "/build-info.json"));
 

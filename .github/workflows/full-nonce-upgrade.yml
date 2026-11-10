@@ -23,15 +23,24 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+          # origin/main for the consensus lock's append-only check.
+          fetch-depth: 0
       - name: Install pinned Rust
         run: rustup toolchain install 1.99.1 --profile minimal
+      - name: Consensus lock is append-only against main
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B -m unittest discover -s deploy/ci -v
+          python3 -B deploy/ci/check_lock_append_only.py --base origin/main
       - name: Test profiles, activation, persistence and native binaries
         shell: bash
         run: |
           set -euo pipefail
           cargo +1.99.1 test --locked --manifest-path prototypes/lp1-node/Cargo.toml --test profile --test gate --test assignment
           cargo +1.99.1 test --locked --manifest-path prototypes/lp4-execution/Cargo.toml --test profile_execution
-          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test full_nonce --test fork_configuration
+          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test full_nonce --test fork_configuration --test consensus_guard
           cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml
           python deploy/standalone/test_launcher.py -v
           python deploy/standalone/test_upgrade.py -v
@@ -41,6 +50,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
+          # T9: lp4's caps-test without pocold's own feature must not compile (identity flag source, A1-3).
+          if cargo +1.99.1 check --locked --release --lib --manifest-path prototypes/pocold/Cargo.toml --features pocol-lp4-execution/caps-test 2> "$RUNNER_TEMP/caps-only.log"; then
+            echo 'pocol-lp4-execution/caps-test alone must fail to compile' >&2; exit 1
+          fi
+          grep -F "enable caps-test through pocold's feature" "$RUNNER_TEMP/caps-only.log"
           python3 -B -m unittest discover -s deploy/public-testnet -p test_nonce_upgrade.py -v
           python3 -B -m unittest discover -s deploy/mainnet -p 'test_*.py' -v
           # The cutover on a local Mainnet-shaped network, 60+ blocks below the stopped head as in the runbook.

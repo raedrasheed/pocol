@@ -30,6 +30,15 @@ jobs:
         with:
           ref: ${{ env.EXPECTED_COMMIT }}
           persist-credentials: false
+          # origin/main for the consensus lock's append-only check.
+          fetch-depth: 0
+      - name: Consensus lock is append-only against main
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B -m unittest discover -s deploy/ci -v
+          python3 -B deploy/ci/check_lock_append_only.py --base origin/main
       - name: Validate Windows setup script syntax without accessing any server
         if: runner.os == 'Windows'
         shell: powershell
@@ -47,6 +56,9 @@ jobs:
         run: ./deploy/standalone/build-windows-wallet.ps1
       - name: Build native binaries
         shell: bash
+        env:
+          # Release packaging: build.rs refuses a tree whose consensus sources are not pinned (plan §1.5).
+          POCOL_RELEASE: '1'
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
@@ -56,7 +68,14 @@ jobs:
           cargo +1.99.1 metadata --locked --format-version 1 --manifest-path prototypes/pocold/Cargo.toml > "$RUNNER_TEMP/pocol-crypto-metadata.json"
           python development/security-evm-crypto-2026-11-05/verify_crypto_graph.py --metadata "$RUNNER_TEMP/pocol-crypto-metadata.json"
           cargo +1.99.1 test --locked --release --test signing_compat --test evm_numeric_edges --manifest-path prototypes/lp4-execution/Cargo.toml
-          cargo +1.99.1 test --locked --release --lib --test net --test cli --test cutover --test discovery --manifest-path prototypes/pocold/Cargo.toml
+          cargo +1.99.1 test --locked --release --lib --test net --test cli --test cutover --test discovery --test consensus_guard --manifest-path prototypes/pocold/Cargo.toml
+          if [ "$RUNNER_OS" = Linux ]; then
+            # T9: lp4's caps-test without pocold's own feature must not compile (identity flag source, A1-3).
+            if cargo +1.99.1 check --locked --release --lib --manifest-path prototypes/pocold/Cargo.toml --features pocol-lp4-execution/caps-test 2> "$RUNNER_TEMP/caps-only.log"; then
+              echo 'pocol-lp4-execution/caps-test alone must fail to compile' >&2; exit 1
+            fi
+            grep -F "enable caps-test through pocold's feature" "$RUNNER_TEMP/caps-only.log"
+          fi
           python deploy/standalone/test_launcher.py -v
           python deploy/standalone/test_upgrade.py -v
           python deploy/standalone/test_launcher.py --integration

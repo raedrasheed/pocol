@@ -1,0 +1,82 @@
+# Consensus boundary (VA-SPEC §2.4): the sources whose bytes the consensus identity pins through
+# consensus-sources.lock. Paths are relative to prototypes/. Line kinds:
+#   +dir/ +file      include (a directory recursively; `{a,b}` expands one group)
+#   -path -*suffix   exclude (a `-*suffix` file only when its parent declares it #[cfg(test)], guard check 7)
+#   =crate::module   a reviewed node-local crate-root module (crate pocold or lp4)
+#   ~crate::module   an allowed reference from a + file into a = or - module, with the reason
+#   root crate       a root of the Cargo.lock dependency closure (every package of that name)
+#   vector dir/      a pinned vector directory (changes need kind=neutral-vector, presumed bump)
+# Changing this file changes the manifest, so it needs a history line like any other boundary file.
+
+# LP4 execution: default include, so new modules are covered.
++lp4-execution/src/
+-lp4-execution/src/pool.rs
+-lp4-execution/src/rpc_pool.rs
+-lp4-execution/src/rpc_http.rs
+-lp4-execution/src/bin/
+-lp4-execution/src/resources.rs
+-lp4-execution/src/resources/
+-*tests.rs
+
+# Pinned vectors and embedded artifacts (system-*.json are the system programs).
++lp4-execution/tests/data/
+-lp4-execution/tests/data/website.json
+vector lp4-execution/tests/data/
++lp1-node/tests/data/
+vector lp1-node/tests/data/
+
+# Path patches of the EVM crypto stack: no registry checksum, so their bytes are pinned here.
++third-party/evm-crypto/
+
+# LP1 sources shared byte-for-byte (pocold and lp4 load them with #[path]; profile, trie and json are the
+# originals of lp4's p1_* copies, kept equal by CI cmp).
++lp1-node/src/{fixed,rlp,hex,hashes,decimal,genesis,genesis_spec,header,asert,assignment,timing,profile,trie,json}.rs
+
+# pocold consensus: validation, state, restored state and history that feed validation, signature recovery
+# behind hashes.rs, the crate root (configured_forks, load_spec_for, #[path] wiring, io/crash hooks) and the
+# identity that decides who peers.
++pocold/src/{chain,types,statediff,state_store,checkpoint,history,store,secp_backend,lib,identity}.rs
+
+# The enforcement point and its inputs.
++pocold/build.rs
++pocold/consensus_boundary.rs
++pocold/consensus-boundary.txt
++pocold/Cargo.toml
++lp4-execution/Cargo.toml
++lp1-node/Cargo.toml
++pocold/rust-toolchain.toml
++lp4-execution/rust-toolchain.toml
+
+# Cargo.lock is not hashed whole: the dependency closure of these roots becomes `dep` lines.
+root pocol-lp4-execution
+root k256
+root sha2
+root sha3
+
+# Node-local crate-root modules of pocold (reviewed: they cannot change a validity verdict).
+=pocold::net
+=pocold::addrbook
+=pocold::node
+=pocold::rpc
+=pocold::miner
+=pocold::launcher
+=pocold::mobile
+=pocold::wallet
+=pocold::keyfile
+=pocold::site
+=pocold::network_display
+# testnet and cutover build genesis files; their outputs are committed by the genesis hash.
+=pocold::testnet
+=pocold::cutover
+=pocold::resources
+# LP1 boot-admission evaluators loaded by lp4 (boot policy, not validity).
+=lp4::param_gate
+=lp4::gate
+
+# Reviewed references from + files into = or - modules (guard check 6). Each reason says why no verdict depends on it.
+~lp4::gate boot admission evaluator (gate::check, FactClass) and devnet calibration_target at genesis construction, whose output the genesis hash commits; admit or refuse boot only
+~lp4::param_gate RpcLimits arithmetic for boot admission R26; admit or refuse boot only
+~lp4::resources R18/R21 resource derivations for boot admission; admit or refuse boot only
+~pocold::net single_host_local reads net::MAX_FRAME, a node-local admission fact
+~pocold::rpc rpc_facts reads the RPC limits, node-local admission facts
+~pocold::testnet testnet_allowed re-exports the allocation address filter for tools; validation never calls it
