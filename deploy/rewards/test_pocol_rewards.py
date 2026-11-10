@@ -248,6 +248,23 @@ class RewardTests(unittest.TestCase):
                     rewards.snapshot(node, fork_schedule=schedule)
                 self.assertEqual(node.calls, [])
 
+    def test_full_nonce_range_holds_from_version_two_onwards(self):
+        for version, mode, full in ((3, 0, True), (7, 0, True), (2, 0, True), (1, 1, True), (1, 0, False)):
+            with self.subTest(version=version, mode=mode):
+                self.assertIs(rewards.full_nonce_rule(version, mode), full)
+
+    def test_generic_schedule_rule_accepts_later_versions_only_under_a_higher_bound(self):
+        three = ((1, 0), (2, 10), (3, 20))
+        self.assertEqual(rewards.validated_fork_schedule(three, 3), three)
+        self.assertEqual(rewards.active_version(25, three), 3)
+        self.assertEqual(rewards.active_version(19, three), 2)
+        self.assertEqual(rewards.MAX_FORK_VERSION, 2)
+        for schedule, bound in ((three, 2), ([(1, 0), (3, 20)], 3), ([(1, 0), (2, 10), (3, 10)], 3),
+                                ([(1, 0), (2, 10), (3, 9)], 3), ([(1, 0)] * 17, 3)):
+            with self.subTest(schedule=schedule, bound=bound):
+                with self.assertRaises(rewards.RewardUnavailable):
+                    rewards.validated_fork_schedule(schedule, bound)
+
     def test_liveness_uses_32_block_window_not_6_second_fallback_wait(self):
         node = Node(height=70)
         # This participant last became active 20 blocks ago: inside W_act=32,

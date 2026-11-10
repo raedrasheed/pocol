@@ -11,7 +11,8 @@ fn trusted_local_schedule_is_explicit_and_fails_closed() {
     for value in [json!(null), json!([]), json!([[2, 0]]), json!([[1, 0], [2, 0]]),
         json!([[1, 0], [3, 20]]), json!([[1, 0], [2, 20], [1, 30]]),
         json!([[1, 0], [2, "20"]]), json!([[1, 0], [2, -1]]),
-        json!([[1, 0], [1, 10]]), json!([[1, 0], [1, 10], [2, 20]])] {
+        json!([[1, 0], [1, 10]]), json!([[1, 0], [1, 10], [2, 20]]),
+        json!([[1, 0], [2, 10], [3, 20]])] {
         assert!(configured_forks(&json!({"forks": value})).is_err());
     }
 }

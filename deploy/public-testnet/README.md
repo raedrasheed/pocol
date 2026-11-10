@@ -97,8 +97,9 @@ more published seeds. A `null` minerAddress produces an observer with no key inp
 An independent miner can start before registration but earns no mining membership
 until its ordinary registry transaction succeeds. Follow the registration/bond
 commands in `development/public-network/KEYS.md`; the reward account must be durable.
-There is no allowlist of miner addresses in P2P. A source fingerprint is a compatibility
-check, not identity authentication or Sybil resistance.
+There is no allowlist of miner addresses in P2P. The consensus identity peers are
+checked against (VA-SPEC §2) is a self-declared compatibility check, not identity
+authentication or Sybil resistance; the source fingerprint is informational.
 
 ## 4. Monitoring
 
@@ -110,8 +111,10 @@ python3 -B deploy/public-testnet/monitor.py --release /tmp/pocol-release/release
   --rpc seed-3=http://127.0.0.1:38540 --observe 180 --out observation-001.json
 ```
 
-The checker requires matching genesis/build identity, compatible peers, healthy
-history, advancement on every node, and identical confirmed hash/state/receipt roots.
+The checker requires matching chain, genesis and `consensusIdentity`, overlapping
+wire ranges, compatible peers, healthy history, advancement on every node, and
+identical confirmed hash/state/receipt roots. Nodes with the same identity and
+different `compatibilitySha256` (builds of the same rules) pass with a warning.
 It refuses redirects and oversized responses. The 180-second window covers three
 60-second mining attempts; it does not promise ten-second block latency. It writes
 immutable JSON and Prometheus text. Alert on checker failure, an observation older
@@ -142,10 +145,16 @@ only the command is insufficient. Reload systemd, start the restored instance, a
 compare confirmed roots through RPC. Keep the original directory until the recovery
 drill passes, and keep the original unit for rollback. Never run both instances.
 
-Wire v2 refuses old handshakes or any different compatibility fingerprint. A code
-change therefore needs a coordinated testnet upgrade and an explicit state migration
-decision; these scripts do not rewrite state bindings to make an upgrade appear
-compatible. For a failed same-release deployment, stop the service and restore its
+Wire v2 refuses old handshakes and any different consensus identity (rules, chain,
+genesis or fork schedule). A release that keeps the rules and the schedule needs no
+coordination: `node_operator.py` compares the state marker on chain, genesis,
+`consensusIdentity`, state store, node and miner, so a digest-only bundle swap starts
+without a migration. A new fork entry needs a coordinated upgrade with
+`nonce_upgrade.py`, which appends future entries only (none: a rebind) and keeps each
+previous binding as `network-binding.before-<16 hex of the marker's SHA-256>.json`. A
+0.4.0 marker (no `consensusIdentity`) is accepted only through a certified legacy entry;
+none is certified, so it is refused. These scripts do not rewrite state bindings to
+make an upgrade appear compatible. For a failed same-release deployment, stop the service and restore its
 matching prior snapshot and binaries. Never run two copies of one miner key at once.
 
 ## Lifetime and unresolved work

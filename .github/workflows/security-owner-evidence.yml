@@ -13,6 +13,11 @@ on:
       - 'deploy/mainnet/test_ssh_terminal.py'
       - 'deploy/mainnet/preflight.py'
       - 'deploy/mainnet/test_standalone_preflight.py'
+      # The JNI boundary and the wallet texts it shares with the Windows wallet (deploy/standalone/test_android_jni.py).
+      - 'deploy/standalone/test_android_jni.py'
+      - 'prototypes/pocol-android/app/src/main/cpp/**'
+      - 'prototypes/pocol-android/app/src/main/java/**'
+      - 'prototypes/pocol-windows/Wallet.cs'
       - '.github/workflows/security-owner-evidence.yml'
   workflow_dispatch:
 permissions:
@@ -36,6 +41,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_COMMIT }}
+          # The collector test reads the reviewed rows' blobs at the pinned historical commits.
+          fetch-depth: 0
           persist-credentials: false
       - name: Test the owner collector on Windows without calling GitHub
         shell: powershell
@@ -92,7 +99,11 @@ jobs:
           python3 -m unittest discover -s deploy/mainnet -p test_ssh_terminal.py -v
           python3 -m unittest discover -s deploy/mainnet -p test_standalone_preflight.py -v
           python3 deploy/standalone/test_android_jni.py -v
+      # The probe bundle is built from the pinned 0.4.0 Android artifact of run 42208222279, which exists only in
+      # palcertcom/pocol (that account is suspended). In this repository the three steps below are skipped; a new
+      # probe bundle has to be built from a release of this repository before the device evidence can be redone.
       - name: Obtain only the pinned successful main Android build
+        if: github.repository == 'palcertcom/pocol'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -128,6 +139,7 @@ jobs:
           assert (out/'source-commit.txt').read_text().strip() == '03190bed86aacc8e9fdaa895c5be349031bcceb5'
           PY
       - name: Compile Android DEX and bundle the real ARM64 Rust and JNI libraries
+        if: github.repository == 'palcertcom/pocol'
         shell: bash
         run: |
           set -euo pipefail
@@ -145,6 +157,7 @@ jobs:
           verify_bundle(Path(os.environ['RUNNER_TEMP'])/'android-device-probe')
           PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: github.repository == 'palcertcom/pocol'
         with:
           name: pocol-android-art-probe-${{ env.EXPECTED_COMMIT }}
           path: ${{ runner.temp }}/android-device-probe/

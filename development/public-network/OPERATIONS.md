@@ -8,28 +8,41 @@ obligations are still open in [PLAN.md](PLAN.md); servers alone would not close 
 
 ## Compatibility and hostile input
 
-Experimental wire v2 appends `protocolVersion` and a 32-byte compatibility digest to
-the seven-field Hello, making nine fields. Old handshakes and different versions or
-digests fail closed, on first contact and later status updates. A rejected connection
-is removed immediately; already queued frames and a second valid-looking Hello
-cannot reauthorize it. Only admitted peers receive gossip. The first frame is limited
-to 512 bytes; peer names are 1..64 printable ASCII bytes without spaces/control codes.
+Wire v2 carries `protocolVersion` (the sender's maximum wire version) and a 32-byte
+**consensus identity** in the Hello (VA-SPEC §2). Two nodes peer only when they run the
+same consensus rules on the same chain with the same fork schedule: the identity is
+SHA-256 over the chain id, genesis hash, `CONSENSUS_RULES_VERSION`, the caps-test and
+unpinned flags and the full fork schedule, so anyone can compute it from devnet.json
+(`deploy/public-testnet/pocol_identity.py`). A peer is accepted iff its chain and
+genesis are equal, its maximum wire version is at least `PROTOCOL_VERSION_MIN` (2),
+and its identity is equal. Old 9-item handshakes, other wire ranges and other
+identities fail closed, on first contact and later status updates. A rejected
+connection is removed immediately; already queued frames and a second valid-looking
+Hello cannot reauthorize it. Only admitted peers receive gossip. The first frame is
+limited to 512 bytes; peer names are 1..64 printable ASCII bytes without spaces or
+control codes.
 
-`pocold build-info` exposes a reproducible source fingerprint, and `pocol_status` /
-`pocol_getParams` expose it with protocolVersion. The fingerprint commits to the UTF-8
-path and raw bytes of all Rust source files in the three crates, their Cargo manifests,
-the pocold lockfile/build script, embedded system/website artifacts and the caps/crash/
-I/O-fault feature flags. Paths use bytewise lexical order with 64-bit big-endian
-lengths, SHA-256 and domain `pocol-testnet-source-compatibility-v1\0`. It excludes Git
-commit metadata, absolute build paths, timestamps and secrets. Raw text requires a
-release checkout with preserved line endings.
+`pocold build-info` still exposes a reproducible source fingerprint
+(`compatibilitySha256`), and `pocol_status` / `pocol_getParams` expose it. It is now
+**informational**: install-integrity status for operators, never a peering condition.
+It commits to the UTF-8 path and raw bytes of all Rust source files in the three
+crates, their Cargo manifests, the pocold lockfile/build script, embedded
+system/website artifacts and the caps/crash/I/O-fault feature flags, in bytewise path
+order with 64-bit big-endian lengths, SHA-256 and domain
+`pocol-testnet-source-compatibility-v1\0`. It excludes Git commit metadata, absolute
+build paths, timestamps and secrets. Raw text requires a release checkout with
+preserved line endings.
 
-This conservative identity intentionally changes even for some non-consensus edits.
-It is not the unresolved D-5 normative constants digest, a binary reproducibility
-proof, peer authentication or remote attestation. A malicious peer can advertise any
-digest. Strict coordination is required for upgrades; no implicit wire downgrade or
-state-binding rewrite is provided. Block validity, economics, H_END and the existing
-production-admission refusals are unchanged.
+The consensus-critical sources are pinned instead by `pocold/consensus-sources.lock`
+(VA-SPEC §2.4). A change to one of them needs a reviewed, labelled history line; a
+build of a tree that differs from the lock is **unpinned**: its identity carries the
+tree's source aggregate, so it peers only with byte-identical trees, and a
+`POCOL_RELEASE=1` (packaging) build of it fails. Build-info reports `consensusPinned`,
+`consensusSourcesSha256`, `consensusRulesVersion`, `protocolVersionMin` and
+`maxForkVersion`. The identity is self-declared: it is not peer authentication or
+remote attestation, and a malicious peer can advertise any value. Block validity,
+economics, H_END and the existing production-admission refusals are unchanged; block
+validation stays authoritative.
 
 Inspection also found an unconditional loopback-source filter in the P2P listener.
 It prevented the older private-server package from accepting inter-host connections;
@@ -60,9 +73,9 @@ hash/state/receipt roots while all nodes advance.
 
 A node learns peer addresses by asking, never by being told (VA-SPEC §1a; local
 policy, which never changes validity, chain state or admission). Hello now has 11
-items: `listenPort` and an 8-byte `nonce` follow the compatibility digest.
-`PROTOCOL_VERSION` stays 2, so the compatibility digest changes and a 9-item Hello
-fails closed. A node sends GetAddr (type 8) once on each connection it dialed, and
+items: `listenPort` and an 8-byte `nonce` follow the consensus identity (originally
+the compatibility digest, VA-SPEC §2.2). `PROTOCOL_VERSION` stays 2, and a 9-item
+Hello fails closed. A node sends GetAddr (type 8) once on each connection it dialed, and
 answers the first GetAddr of each inbound connection with one Addr (type 9) of at
 most 64 addresses. It learns only the addresses it dialed and verified, the source
 IP and `listenPort` of its inbound peers, and the answer to its own GetAddr. Nothing
@@ -131,12 +144,58 @@ group, never addresses the node only heard of, and never timestamps.
 exists (PR3, below), so a peer that fills the inbound places can no longer hold them
 against every newcomer; the automatic-outbound release sets its own default.
 
-**Upgrades (G2, G3).** This release changes the compatibility digest, so seeds and
-users must upgrade together. Launcher homes cannot take a release that changes only
-the digest: `upgrade_transition` (launcher.rs) accepts nothing but appending one v2
-fork. Before this release reaches launcher homes, either issue a new invitation or
-merge a separate change that accepts a transition where only `compatibility_sha256`
-differs.
+**Upgrades (G2, G3).** G2 is closed: peering no longer depends on the build digest,
+so a release that changes only the digest (no consensus rule, no schedule) interoperates
+with the previous one, and seeds and wallets may take it in any order (staggered
+rollouts). Launcher homes take it too: `pocol network` writes `pocol-network-v2`
+invitations bound to `consensusRulesVersion`, not to a build digest, so their
+fingerprint is stable across such releases, and `pocol upgrade` appends future fork
+entries of any supported version (append-only, future-only) or rebinds to an
+equivalent v2 file. `pocol inspect-upgrade` shows the effect first and writes nothing.
+G3 (a fork activation) still needs a coordinated release: a node without the new
+schedule entry is refused by the others with an explicit reason.
+
+**The last coordinated switch.** Deployed 0.4.0 sends a 9-item Hello; every later
+build sends 11 items, so the two peer sets are disjoint (a partition, not a rule
+divergence). The first release with the consensus identity (R1) therefore needs one
+last coordinated switch. The recommended path (owner decision D1, Option B, which this
+code implements by default) rides the held earn-in re-genesis: freeze a height, stop
+**all** seeds before any restarts, replay offline, publish a v2 invitation for the new
+genesis, start the seeds together and publish packages once they report the same
+`consensusIdentity` and head. Old launcher homes then get "This network was replaced
+by a new genesis. Follow the release notes to move the old network files aside; keep
+your wallet key." (RELEASE-UPGRADE.md, "Resync a launcher home"). Option A (run R1 on
+the live H15000 chain) needs a certified replay first (see
+`development/decisions/LEGACY-CERTIFICATION-0.4.0.md`); until then the shipped legacy
+entry is uncertified and every H15000 home is refused. Deployment is held.
+
+**Reading the status fields.** `pocol_status` (and wallet status) report:
+- `consensusIdentity`, `consensusRulesVersion`, `maxForkVersion`, `protocolVersion`
+  (maximum), `protocolVersionMin` and `consensusPinned` (false: a development build
+  that peers only with byte-identical trees);
+- `incompatiblePeers{network, wire, consensus}`: refused Hellos by reason. `network`
+  is another chain or genesis (the address is forgotten); `wire` a wire version below
+  the minimum; `consensus` another identity (both hold the address);
+- `lastIncompatibleReason`: the last refusal, `peer <name>: <reason>`, at most 160
+  characters, for example "peer has not scheduled activation (2,H): it must apply the
+  published network upgrade" or "peer runs consensus rules 2; this node runs rules 1";
+- `legacyHellos`: first frames that were a 0.4.0 handshake. During the switch this is
+  the progress metric: it falls to 0 once no 0.4.0 node dials in.
+`compatibilitySha256` stays for install integrity: `monitor.py` and `collect_seeds.py`
+group nodes by `consensusIdentity` (and fork schedule) and warn about mixed digests
+(`collect_seeds.py` still refuses a digest set that changes between its two rounds);
+`preflight.py` still checks that each seed runs the source it installed, and adds
+"running consensus identity differs".
+
+**Owner decisions (PR5).** D1–D5 are pending; the code implements their recommended
+defaults and keeps every consensus-relevant path fail-closed:
+- D1, Option B: `launcher::SWITCH = B` selects the refusal text above, and the H15000
+  `LEGACY_BUILDS` entry (with its Python mirror) ships uncertified;
+- D2, "merged to main counts as released": gate values are spent on merge (VA-SPEC §2.3);
+- D3, the runtime schedule shape still refuses a skipped version;
+- D4, no further legacy build is certified;
+- D5, the activation-window identity (CONS-10) and a data-directory rules record are
+  deferred.
 
 **Seeds behind NAT.** A seed that dials its own public address detects itself by its
 nonce and stops dialing that address. This needs NAT hairpinning. A seed behind a NAT

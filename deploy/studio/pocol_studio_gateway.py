@@ -133,7 +133,9 @@ def sanitize(method, value):
     keys = ('chainId', 'genesisHash', 'head', 'pool', 'protocolVersion', 'compatibilitySha256',
             'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'activeVersion',
             'forkSchedule', 'effectiveNonceMode', 'nextBlockNonceMode', 'consensusCompatibilitySha256',
-            'networkName', 'networkEnvironment')
+            'networkName', 'networkEnvironment',
+            # The public consensus identity and wire range (VA-SPEC §2; A2-10).
+            'consensusIdentity', 'consensusRulesVersion', 'protocolVersionMin', 'maxForkVersion')
     return {k: value[k] for k in keys if k in value}
 
 

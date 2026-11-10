@@ -19,6 +19,36 @@ LOCATION = {'path': 'tests/public.rs', 'start_line': 4, 'end_line': 4,
 ROW = {'number': 12, 'rule': 'rust/hard-coded-cryptographic-value', 'location': LOCATION,
        'reason': 'false positive', 'comment': 'Reviewed public account counter.',
        'source_sha256': hashlib.sha256(CONTENT).hexdigest()}
+ROOT = Path(tool.__file__).resolve().parents[2]
+# `main` while the owner collected the evidence report (CODEQL-MAIN-APPLY-AR.md): 190 rows matched
+# there; the seven earnin_halt_proof.rs rows had changed and were already closed (README-AR.md).
+EVIDENCE_MAIN = '9352df0de5aefe3b2131743c310a0888e4347f5d'
+CHANGED_AT_EVIDENCE_MAIN = {47, 48, 49, 52, 57, 58, 59}
+
+
+def local_commit(original):
+    """This checkout's commit for a commit id of the original palcertcom/pocol history.
+
+    The migration to this repository rewrote every commit and recorded the old id in an
+    `Original-Commit: palcertcom/pocol@<id>` line; in a clone of the original history the id
+    resolves as it is. Needs the full history (fetch-depth: 0), never a working-tree fallback.
+    """
+    def git(*args):
+        return subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True, text=True)
+    if git('cat-file', '-e', original + '^{commit}').returncode == 0:
+        return original
+    found = git('log', '--format=%H', f'--grep=^Original-Commit: palcertcom/pocol@{original}$',
+                'HEAD').stdout.split()
+    if len(found) != 1:
+        raise AssertionError(f'{original} is not in this checkout\'s history (needs fetch-depth: 0)')
+    return found[0]
+
+
+def blob_sha256(commit, path, cache):
+    if (commit, path) not in cache:
+        shown = subprocess.run(['git', '-C', str(ROOT), 'show', f'{commit}:{path}'], capture_output=True)
+        cache[commit, path] = hashlib.sha256(shown.stdout).hexdigest() if not shown.returncode else None
+    return cache[commit, path]
 
 
 class Fake:
@@ -174,14 +204,22 @@ class CollectorTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertFalse(output.exists())
 
-    def test_repository_reviews_are_pinned_and_current_files_match_190_rows(self):
+    def test_repository_reviews_are_pinned_and_190_rows_match_the_collected_main(self):
+        # The historical batch is closed: compare it with the pinned commits' Git blobs, not with
+        # working-tree files that later work legitimately changes.
         plan, variants = tool.load_reviews()
         self.assertEqual(len(plan['alerts']), 197)
         self.assertEqual(len(variants), 208)
-        root = Path(tool.__file__).resolve().parents[2]
-        identical = [row for row in plan['alerts'] if hashlib.sha256(
-            (root / row['location']['path']).read_bytes()).hexdigest() == row['source_sha256']]
-        self.assertEqual(len(identical), 190)
+        cache = {}
+        def changed(original):
+            commit = local_commit(original)
+            return {row['number'] for row in plan['alerts'] if blob_sha256(
+                commit, row['location']['path'], cache) != row['source_sha256']}
+        self.assertEqual(changed(plan['review_source_commit']), set())
+        self.assertEqual(changed(EVIDENCE_MAIN), CHANGED_AT_EVIDENCE_MAIN)
+        self.assertEqual({row['location']['path'] for row in plan['alerts']
+                          if row['number'] in CHANGED_AT_EVIDENCE_MAIN},
+                         {'prototypes/lp4-execution/tests/earnin_halt_proof.rs'})
 
 
 if __name__ == '__main__':

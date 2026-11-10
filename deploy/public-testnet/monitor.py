@@ -30,12 +30,19 @@ def rpc(url, method, params=None):
     return value['result']
 
 
-def snapshot(release, urls):
+def snapshot(release, urls, warnings=None):
+    """Nodes must share the chain, genesis and consensus identity (VA-SPEC §2.1) and overlapping wire ranges. The
+    build digest is informational: a digest-only release may be rolled out node by node, so a mixed digest only warns."""
     values = {}
     for name, url in urls.items():
         s = rpc(url, 'pocol_status')
-        for field in ['chainId', 'genesisHash', 'protocolVersion', 'compatibilitySha256']:
+        for field in ['chainId', 'genesisHash', 'consensusIdentity']:
             if s[field] != release[field]: raise ValueError('Wrong ' + field + ' on ' + name)
+        ints = [s['protocolVersion'], s['protocolVersionMin'], release['protocolVersion'], release['protocolVersionMin']]
+        if not all(type(v) is int for v in ints) or s['protocolVersion'] < release['protocolVersionMin'] or release['protocolVersion'] < s['protocolVersionMin']:
+            raise ValueError('Wire protocol range outside the release on ' + name)
+        if s['compatibilitySha256'] != release['compatibilitySha256'] and warnings is not None:
+            warnings.append(name + ' runs another build of the same consensus rules (compatibilitySha256 differs)')
         if s['name'] != name or not s['stateStore'] or s['admission']['scope'] != 'experimental-devnet':
             raise ValueError('Unexpected node mode or name on ' + name)
         if s['compatiblePeers'] < 1: raise ValueError('No compatible peers on ' + name)
@@ -50,10 +57,11 @@ def check(release, urls, observe=180):
     if not 180 <= observe <= 3600: raise ValueError('Observe 180..3600 seconds (three mining-attempt durations minimum)')
     if set(urls) != set(release['bundleManifestSha256']) or len(set(urls.values())) != len(urls):
         raise ValueError('Provide one distinct endpoint for every release node')
+    warnings = []
     before = snapshot(release, urls)
     until = time.monotonic() + observe
     while time.monotonic() < until: time.sleep(min(1, max(0, until - time.monotonic())))
-    after = snapshot(release, urls)
+    after = snapshot(release, urls, warnings)
     if any(after[n]['head']['height'] <= before[n]['head']['height'] for n in urls): raise ValueError('A node stopped advancing')
     height = min(s['head']['height'] for s in after.values()) - 6
     if height < 1: raise ValueError('Not enough confirmed blocks')
@@ -63,7 +71,7 @@ def check(release, urls, observe=180):
     if any(rpc(u, 'eth_getBlockByNumber', [hex(height), False])['hash'] != blocks[0]['hash'] for u in urls.values()):
         raise ValueError('Reorganization during observation; retry a fresh sample')
     return {'result': 'PASS', 'observedSeconds': observe, 'checkedAtUnix': int(time.time()),
-            'commonHeight': height, 'commonHash': blocks[0]['hash'], 'publicLaunchReady': False,
+            'commonHeight': height, 'commonHash': blocks[0]['hash'], 'publicLaunchReady': False, 'warnings': warnings,
             'nodes': {n: {'height': s['head']['height'], 'compatiblePeers': s['compatiblePeers']} for n, s in after.items()}}
 
 

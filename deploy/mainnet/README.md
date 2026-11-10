@@ -93,8 +93,20 @@ for a continuous network.
 
 Use the merged release revision and its successful checks for all native binaries.
 Collect `pocol build-info` from the resulting Linux and Windows packages and verify
-matching compatibility hashes. Keep existing Android application signing identity;
-an unrelated signing key cannot update an installed application.
+matching compatibility hashes (install integrity; peering depends on the consensus
+identity, VA-SPEC §2). Keep existing Android application signing identity; an
+unrelated signing key cannot update an installed application.
+
+Release checklist (`deploy/standalone/RELEASE-UPGRADE.md`):
+- the consensus guard is green and every package's `build-info.json` reports
+  `consensusPinned: true` (packaging builds set `POCOL_RELEASE=1`; `package.py`
+  refuses an unpinned build);
+- the H15000 replay is rerun for every release that re-pinned
+  `prototypes/pocold/consensus-sources.lock`;
+- a certified `LEGACY_BUILDS` entry's `sources` equals the build's
+  `consensusSourcesSha256` (`package.py` refuses otherwise; none is certified today);
+- the R1 hashes are pinned in `preflight.py` (`R1_BINARIES`, `R1_SOURCE`) and in
+  `collect_seeds.PREFLIGHT_SHA256`; until then the R1 preflight profile fails closed.
 
 Only after collecting fresh seed reports, agree one future activation height `H`
 that leaves time for the coordinated rollout. No height is preselected by this
@@ -104,13 +116,15 @@ source change. Prepare the reviewed invitation using the existing helper:
 python3 -B deploy/standalone/prepare_nonce_upgrade.py \
   --network CURRENT_NETWORK_JSON \
   --build-info NEW_BUILD_INFO_JSON \
-  --activation-height H \
+  --append 2:H \
   --observed-head CURRENT_CANONICAL_HEAD \
   --out-dir full-nonce-plan
 ```
 
-The resulting invitation keeps the genesis and allocation bytes unchanged. It adds
-`[[1,0],[2,H]]` to the trusted schedule and binds the new native release. The output
+The resulting invitation (`pocol-network-v2`) keeps the genesis and allocation bytes
+unchanged. It appends `[2,H]` to the trusted schedule (`--append V:H` may be repeated;
+`--activation-height H` is the deprecated shorthand for `--append 2:H`) and is bound to
+the release's `consensusRulesVersion`, not to its build digest. The output
 also includes a browser schedule with decimal-string heights and a checksum report.
 
 ## 3. Stage each seed without changing its live installation

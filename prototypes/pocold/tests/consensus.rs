@@ -6,6 +6,7 @@ use pocold::{chain::{Chain,Reject,Spec},types::*,hashes,rlp};
 use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},txsign::{Key,Tx}};
 use revm::primitives::{Address,B256,U256};
 #[path="support/auth_peer.rs"] mod auth_peer;
+#[path="support/hello.rs"] mod support;
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 /// Gate-valid test profile (A02): about 2^12 hashes per block (target 2^244-1 at T_blk=4),
@@ -920,7 +921,7 @@ fn post_gate_invalids(m:&Net,p:[u8;32],count:usize)->Vec<Block>{
 /// A Status claiming far more work and an unknown head from `peer`; the next tick starts a session with it.
 fn lying_session(node:&mut pocold::node::Node,peer:pocold::net::PeerId){
     use pocold::{node::Event,net::{Msg,NetEvent}};
-    let lie=Msg::Hello{chain_id:node.chain.spec.chain_id(),genesis:node.chain.spec.genesis_hash(),head:[0xab;32],height:1_000_000,work:[0xff;32],node:"liar".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0};
+    let lie=Msg::Hello{chain_id:node.chain.spec.chain_id(),genesis:node.chain.spec.genesis_hash(),head:[0xab;32],height:1_000_000,work:[0xff;32],node:"liar".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:node.consensus.id,listen_port:0,nonce:0};
     node.handle(Event::Net(NetEvent::Message(peer,lie)));node.handle(Event::Tick);
     assert!(node.session.as_ref().is_some_and(|s|s.peer==peer),"positive control: a session with the peer");
 }
@@ -1306,11 +1307,11 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     use pocold::{net::Msg,node::{Config,Node}};use std::io::Write;
     let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
     let dir=std::env::temp_dir().join(format!("pocold-poolgas-offer-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    let spec=admitted(&cfg(&["a","b","c"]));let (chain_id,genesis)=(spec.chain_id(),spec.genesis_hash());
+    let spec=admitted(&cfg(&["a","b","c"]));let (chain_id,genesis,identity)=(spec.chain_id(),spec.genesis_hash(),support::hello_identity(&spec));
     let mut n=Node::open(Config{dir:dir.clone(),name:"offer".into(),miner:None,listen:Some(format!("127.0.0.1:{port}").parse().unwrap()),peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},spec).unwrap();
     n.start_network().unwrap();
     let mut s=std::net::TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(std::time::Duration::from_millis(50))).unwrap();
-    let hello=Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"peer".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0}.encode();
+    let hello=Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"peer".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:identity,listen_port:0,nonce:0}.encode();
     let mut f=(hello.len() as u32).to_be_bytes().to_vec();f.extend(hello);s.write_all(&f).unwrap();
     let mut buf=Vec::new();let mut sent=frames_from(&mut n,&mut s,&mut buf,1500);
     assert_eq!(n.status_json()["peers"].as_array().unwrap().len(),1,"the peer is connected");
@@ -3137,7 +3138,7 @@ fn wait_for(secs:u64,f:&dyn Fn()->bool)->bool{let t=std::time::Instant::now();wh
     let addr=|p:u16|->std::net::SocketAddr{format!("127.0.0.1:{p}").parse().unwrap()};
     let mut na=Node::open(Config{dir:dir("a"),name:"a".into(),miner:None,listen:Some(addr(pa)),peers:vec![],rpc:Some(addr(ra)),stop_at:None,log:false,limits:lim.clone()},admitted(&c)).unwrap();
     for x in &ours{na.import(x.clone(),None).unwrap();}
-    let (chain_id,genesis)=(na.chain.spec.chain_id(),na.chain.spec.genesis_hash());
+    let (chain_id,genesis,identity)=(na.chain.spec.chain_id(),na.chain.spec.genesis_hash(),na.consensus.id);
     na.start_network().unwrap();std::thread::spawn(move||na.run());
     // The false peer: Hello with maximal work and an unknown head, then copies of A's own blocks forever.
     let frame=|m:&Msg|{let e=m.encode();let mut o=(e.len() as u32).to_be_bytes().to_vec();o.extend(e);o};
@@ -3145,7 +3146,7 @@ fn wait_for(secs:u64,f:&dyn Fn()->bool)->bool{let t=std::time::Instant::now();wh
     std::thread::spawn(move||{let mut buf=[0u8;65536];while xr.read(&mut buf).map_or(false,|n|n>0){}});
     let copies:Vec<Vec<u8>>=ours.iter().map(|y|frame(&Msg::Block{header:y.header.encoded.clone(),body:y.body.encode()})).collect();
     std::thread::spawn(move||{let mut k=0u64;loop{
-        if k%20==0{let head=[(k/20) as u8;32];if x.write_all(&frame(&Msg::Hello{chain_id,genesis,head,height:1_000_000,work:[0xff;32],node:"x".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0})).is_err(){break}}
+        if k%20==0{let head=[(k/20) as u8;32];if x.write_all(&frame(&Msg::Hello{chain_id,genesis,head,height:1_000_000,work:[0xff;32],node:"x".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:identity,listen_port:0,nonce:0})).is_err(){break}}
         if x.write_all(&copies[(k as usize)%copies.len()]).is_err(){break}k+=1;std::thread::sleep(std::time::Duration::from_millis(50));}});
     let head=|p:u16|rpc_tcp(p,"eth_getBlockByNumber",json!(["latest",false]))["hash"].clone();
     assert!(wait_for(20,&||rpc_tcp(ra,"pocol_status",json!([]))["stats"]["syncSessions"].as_u64().unwrap_or(0)>=1),"the false peer's first Hello starts a session");

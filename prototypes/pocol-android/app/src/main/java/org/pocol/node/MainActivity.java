@@ -128,7 +128,9 @@ public final class MainActivity extends Activity {
         quoteDialog=new AlertDialog.Builder(this).setTitle(registration?"Review registration":"Review transfer").setView(scrollBody(body)).setNegativeButton("Cancel",(d,w)->command(object("method","cancel"))).setPositiveButton("Confirm & sign",(d,w)->command(object("method","confirm","quote_id",id))).setOnCancelListener(d->command(object("method","cancel"))).create();quoteDialog.show();styleDialog(quoteDialog);
     }
     private void update(String raw){try{JSONObject v=new JSONObject(raw);if(v.has("address")){snapshot=v;showSnapshot();long id=v.optLong("responseId");if(id>responseId){responseId=id;JSONObject r=v.optJSONObject("response");if(r!=null){requestPending=false;String type=r.optString("type");if(type.equals("quote"))review(r);else if(type.equals("error"))notice(r.optString("message"));else if(type.equals("submitted"))new AlertDialog.Builder(this).setTitle("Transaction submitted").setMessage("Waiting for network inclusion.\n\n"+r.optString("hash")).setPositiveButton("Done",null).show();}}}else if(v.has("error")){headerStatus.setText(v.optString("error"));}else headerStatus.setText("Preparing local validation…");}catch(JSONException ignored){}}
-    private void showSnapshot(){if(headerStatus==null)return;if(networkBadge!=null)networkBadge.setText(snapshot.optString("networkName","PoCol network"));if(service==null){headerStatus.setText("Wallet offline · balances unavailable");return;}if(!snapshot.has("balance"))return;if(tab.equals("Activity")){content.removeAllViews();activity();}headerStatus.setText(snapshot.optInt("peers")+" peers · Block "+snapshot.optLong("height"));if(balance!=null)balance.setText(snapshot.optString("balance","—"));if(connectionStatus!=null)connectionStatus.setText(snapshot.optInt("peers")>0?"Your device is validating blocks. Mining is "+(snapshot.optBoolean("miningEnabled")?"on.":"off."):"Looking for peers. Your balance may be out of date.");if(miningSwitch!=null){updating=true;miningSwitch.setChecked(snapshot.optBoolean("miningEnabled"));miningSwitch.setEnabled(snapshot.optBoolean("miningEligible")||snapshot.optBoolean("miningEnabled"));updating=false;}if(miningStatus!=null)miningStatus.setText(snapshot.optString("miningState")+"\nAccepted blocks this session: "+snapshot.optLong("blocksMined")+"\nRegistration bond: "+snapshot.optString("bond")+" PCOL");}
+    private void showSnapshot(){if(headerStatus==null)return;if(networkBadge!=null)networkBadge.setText(snapshot.optString("networkName","PoCol network"));if(service==null){headerStatus.setText("Wallet offline · balances unavailable");return;}if(!snapshot.has("balance"))return;if(tab.equals("Activity")){content.removeAllViews();activity();}headerStatus.setText(snapshot.optInt("peers")+" peers · Block "+snapshot.optLong("height"));if(balance!=null)balance.setText(snapshot.optString("balance","—"));if(connectionStatus!=null)connectionStatus.setText(snapshot.optInt("peers")>0?"Your device is validating blocks. Mining is "+(snapshot.optBoolean("miningEnabled")?"on.":"off."):peerNote());if(miningSwitch!=null){updating=true;miningSwitch.setChecked(snapshot.optBoolean("miningEnabled"));miningSwitch.setEnabled(snapshot.optBoolean("miningEligible")||snapshot.optBoolean("miningEnabled"));updating=false;}if(miningStatus!=null)miningStatus.setText(snapshot.optString("miningState")+"\nAccepted blocks this session: "+snapshot.optLong("blocksMined")+"\nRegistration bond: "+snapshot.optString("bond")+" PCOL");}
+    /** Why no peer is connected (VA-SPEC §2.5): the wallet status carries the node's refusal counts and last reason. */
+    private String peerNote(){JSONObject refused=snapshot.optJSONObject("incompatiblePeers");return WalletText.peerNote(refused==null?0:refused.optLong("consensus"),snapshot.optLong("legacyHellos"),snapshot.isNull("lastIncompatibleReason")?"":snapshot.optString("lastIncompatibleReason"));}
     private void startNode(){if(!new File(home,"network.pocol.json").isFile()){notice("Import the shared network file in Settings first.");tab="Settings";render();return;}if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},2);try{startForegroundService(new Intent(this,NodeService.class));attach();headerStatus.setText("Starting local validation…");}catch(RuntimeException e){notice("Cannot start: "+e.getMessage());}}
     private void command(JSONObject command){if(service==null){notice("Connect your wallet first.");return;}if(requestPending){notice("Please wait for the previous request.");return;}Message m=Message.obtain(null,3);Bundle b=new Bundle();b.putString("command",command.toString());m.setData(b);m.replyTo=receiver;try{service.send(m);requestPending=true;main.postDelayed(()->requestPending=false,10000);}catch(RemoteException e){notice("Wallet service unavailable");}}
     private static JSONObject object(Object... pairs){JSONObject j=new JSONObject();try{for(int i=0;i<pairs.length;i+=2)j.put((String)pairs[i],pairs[i+1]);}catch(JSONException ignored){}return j;}
@@ -151,12 +153,15 @@ public final class MainActivity extends Activity {
     }
     private void reviewNetworkUpgrade(File incoming,JSONObject preview){
         if(isFinishing()||isDestroyed()){incoming.delete();networkActionPending=false;return;}
-        LinearLayout body=dialogBody();body.addView(chip("REVIEW NETWORK UPGRADE",BLUE),new LinearLayout.LayoutParams(-2,-2));gap(body,12);
+        // The dry run (`inspect-upgrade`) said what applying the file changes: a rebind or appended fork entries.
+        final String change=preview.optString("change");
+        LinearLayout body=dialogBody();body.addView(chip(change.equals("rebind")?"REVIEW RELEASE UPDATE":"REVIEW NETWORK UPGRADE",BLUE),new LinearLayout.LayoutParams(-2,-2));gap(body,12);
         reviewRow(body,"Network",preview.optString("networkName","PoCol network"),false);
         reviewRow(body,"Chain ID",preview.optString("chainId"),false);
-        reviewRow(body,"Activation block",preview.optString("fullNonceActivationHeight"),false);
+        JSONArray appended=preview.optJSONArray("appended");
+        if(appended!=null)for(int i=0;i<appended.length();i++){JSONArray entry=appended.optJSONArray(i);if(entry!=null&&entry.length()==2)body.addView(text(WalletText.activation(entry.opt(0).toString(),entry.opt(1).toString()),16,INK,true));}
         reviewRow(body,"Genesis hash",preview.optString("genesisHash"),true);
-        body.addView(text("Use the shared upgrade file supplied for this PoCol network. The full mining range starts at the activation block. Your account, private key and stored chain stay on this device.",14,MUTED,false));
+        body.addView(text(change.equals("rebind")?"This release runs the same consensus rules and fork schedule. Saving the new file changes no rule. Your account, private key and stored chain stay on this device.":"Use the shared upgrade file supplied for this PoCol network. The new rules start at the blocks shown. Your account, private key and stored chain stay on this device.",14,MUTED,false));
         body.addView(text("The wallet must be disconnected. The native node checks the file against your existing network before applying it.",13,MUTED,false));
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Upgrade existing network?").setView(scrollBody(body))
             .setNegativeButton("Cancel",(d,w)->{incoming.delete();networkActionPending=false;})
@@ -166,7 +171,7 @@ public final class MainActivity extends Activity {
                 new Thread(()->{
                     try{
                         JSONObject result=new JSONObject(Native.upgradeNetwork(home,incoming.getAbsolutePath()));
-                        main.post(()->{networkActionPending=false;if(result.has("error"))notice(result.optString("error"));else{snapshot=new JSONObject();notice("Network upgrade saved. Connect your wallet when the coordinated release is ready.");tab="Settings";render();}});
+                        main.post(()->{networkActionPending=false;if(result.has("error"))notice(result.optString("error"));else{snapshot=new JSONObject();notice(WalletText.outcome(change));tab="Settings";render();}});
                     }catch(Exception e){main.post(()->{networkActionPending=false;notice("Upgrade failed: "+e.getMessage());});}
                     finally{incoming.delete();}
                 },"network-upgrade").start();
@@ -184,10 +189,11 @@ public final class MainActivity extends Activity {
                 incoming=File.createTempFile("pocol-network-",".json",getCacheDir());
                 try(FileOutputStream out=new FileOutputStream(incoming)){out.write(readLimited(in));out.getFD().sync();}
                 if(request==UPGRADE_NETWORK){
-                    JSONObject preview=new JSONObject(Native.inspectNetwork(incoming.getAbsolutePath()));
+                    // A read-only dry run against this home: none, a rebind, or the fork entries it appends.
+                    JSONObject preview=new JSONObject(Native.inspectUpgrade(home,incoming.getAbsolutePath()));
                     if(preview.has("error"))throw new IOException(preview.optString("error"));
-                    if(preview.isNull("fullNonceActivationHeight")||preview.optString("fullNonceActivationHeight").isEmpty())throw new IOException("Select a network file with a full-range activation block.");
-                    final File selected=incoming;reviewing=true;main.post(()->reviewNetworkUpgrade(selected,preview));
+                    if(preview.optString("change").equals("none"))main.post(()->{networkActionPending=false;notice(WalletText.outcome("none"));});
+                    else{final File selected=incoming;reviewing=true;main.post(()->reviewNetworkUpgrade(selected,preview));}
                 }else{
                     JSONObject imported=new JSONObject(Native.importNetwork(home,incoming.getAbsolutePath()));
                     main.post(()->{networkActionPending=false;if(imported.has("error"))notice(imported.optString("error"));else{notice("Network imported");startNode();}});

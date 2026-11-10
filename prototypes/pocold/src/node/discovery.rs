@@ -151,9 +151,9 @@ impl Node{
         self.disc.counters.self_connections+=1;
         self.log(&format!("peer {}: a connection to this node itself (its nonce); closing",p.addr));
     }
-    /// VA-SPEC §1a.4: a connection this node dialed whose Hello names another chain or genesis (`network`) forgets the
-    /// dialed address; another release (protocol version or compatibility digest) holds it back for a while, since
-    /// after an upgrade the network is split until its nodes have upgraded.
+    /// VA-SPEC §1a.4, §2: a connection this node dialed whose Hello names another chain or genesis (`network`) forgets the
+    /// dialed address; a wire version below the minimum or another consensus identity (rules or fork schedule) holds it
+    /// back for a while, since until every node has applied a network upgrade the network is split.
     pub(super) fn disc_incompatible(&mut self,from:PeerId,network:bool,now:u64){
         let Some(a)=self.peers.get(&from).and_then(|p|p.origin.dialed()) else{return};
         if network{self.disc.book.remove(a)}else{self.disc.book.held(a,now)}
@@ -509,8 +509,8 @@ mod tests{
         assert!(n.peer_status.contains_key(&1)&&n.disc.book.selfs()==[p],"a later Hello is a Status refresh: its nonce is not read");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
-    /// VA-SPEC §1a.4: a connection this node dialed that turns out to run another release (compatibility digest or
-    /// protocol version) holds its entry back, min(10 min · 2^(n-1), 6 h); one on another chain or genesis removes it.
+    /// VA-SPEC §1a.4: a connection this node dialed that turns out to run other consensus (identity) or a wire version
+    /// below PROTOCOL_VERSION_MIN holds its entry back, min(10 min · 2^(n-1), 6 h); one on another chain or genesis removes it.
     /// An inbound connection's mismatch changes nothing.
     #[test] fn incompatible_and_wrong_network_hellos_update_the_book(){
         let (mut n,dir)=open("mismatch");let a=sa("81.2.69.9:30300");let mut id=0;
@@ -518,14 +518,78 @@ mod tests{
             n.handle(Event::Net(NetEvent::Closed(id)));};
         let entry=|n:&Node|n.disc.book.get(a).map(|e|(e.verified_ms,e.holds,e.hold_until_ms));
         dial(&mut n,&|_|{});assert_eq!(entry(&n),Some((T0,0,0)),"verified");
-        dial(&mut n,&|h|if let Msg::Hello{compatibility,..}=h{compatibility[0]^=1});assert_eq!(entry(&n),Some((T0,1,T0+600_000)),"another compatibility digest: held");
-        dial(&mut n,&|h|if let Msg::Hello{protocol,..}=h{*protocol+=1});assert_eq!(entry(&n),Some((T0,2,T0+1_200_000)),"another protocol version: held twice as long");
+        dial(&mut n,&|h|if let Msg::Hello{compatibility,..}=h{compatibility[0]^=1});assert_eq!(entry(&n),Some((T0,1,T0+600_000)),"another consensus identity: held");
+        dial(&mut n,&|h|if let Msg::Hello{protocol,..}=h{*protocol=crate::identity::PROTOCOL_VERSION_MIN-1});assert_eq!(entry(&n),Some((T0,2,T0+1_200_000)),"a wire version below MIN: held twice as long");
         let _i=connect(&mut n,50,Origin::Inbound,Some(a));let mut g=hello(&n,30300,0);if let Msg::Hello{genesis,..}=&mut g{genesis[0]^=1}msg(&mut n,50,g);
         assert_eq!(entry(&n),Some((T0,2,T0+1_200_000)),"an inbound mismatch changes nothing, even from that very address");
         dial(&mut n,&|h|if let Msg::Hello{genesis,..}=h{genesis[0]^=1});assert_eq!(entry(&n),None,"another genesis: forgotten");
         dial(&mut n,&|_|{});assert_eq!(entry(&n),Some((T0,0,0)),"verified again, with no hold");
         dial(&mut n,&|h|if let Msg::Hello{chain_id,..}=h{*chain_id+=1});assert_eq!(entry(&n),None,"another chain: forgotten");
         drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// T13 (VA-SPEC §2.2): Hello item 7 is the sender's maximum wire version, so any maximum from PROTOCOL_VERSION_MIN
+    /// up is accepted with the right identity (the session runs at the lower of the two); one below MIN is refused as
+    /// Wire, counted, explained and its dialed address held.
+    #[test] fn the_wire_range_accepts_newer_maxima_and_holds_older_ones(){
+        use crate::identity::{PROTOCOL_VERSION as V,PROTOCOL_VERSION_MIN as MIN};
+        let (mut n,dir)=open("wire-range");let a=sa("81.2.69.9:30300");
+        for (id,protocol) in [(1,V+1),(2,MIN),(3,u64::MAX)]{let _c=connect(&mut n,id,Origin::Configured(a),Some(a));let mut h=hello(&n,30300,0);
+            if let Msg::Hello{protocol:p,..}=&mut h{*p=protocol}msg(&mut n,id,h);assert!(n.peer_status.contains_key(&id),"wire maximum {protocol} accepted");
+            n.handle(Event::Net(NetEvent::Closed(id)));}
+        let _c=connect(&mut n,4,Origin::Configured(a),Some(a));let mut h=hello(&n,30300,0);if let Msg::Hello{protocol,..}=&mut h{*protocol=MIN-1}msg(&mut n,4,h);
+        assert!(!n.peers.contains_key(&4)&&!n.peer_status.contains_key(&4),"below MIN: closed");
+        assert_eq!(n.disc.book.get(a).map(|e|e.holds),Some(1),"and the address held, not forgotten");
+        let s=n.status_json();
+        assert_eq!(s["incompatiblePeers"],serde_json::json!({"network":0,"wire":1,"consensus":0}));
+        assert_eq!(s["lastIncompatibleReason"],format!("peer wire-range: wire protocol {} < {MIN}",MIN-1));
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// T14 (VA-SPEC §2.1, §2.5): every consensus difference is refused, held and explained: another rules revision,
+    /// another activation height, a peer that has not scheduled our activation (a prefix of our schedule), the reverse
+    /// (this node is behind: the generic text with the instruction), a caps-test peer and an unpinned peer with its
+    /// aggregate. Another chain id forgets the address. The reason reaches node and wallet status, bounded.
+    #[test] fn consensus_mismatch_refused(){
+        use crate::identity::{Consensus,FLAG_CAPS_TEST,FLAG_UNPINNED};
+        let (mut n,dir)=open("consensus-mismatch");
+        // This node's schedule is the devnet's [(1,0)]: rebuild its identity on a v2 schedule so prefixes can be told,
+        // as a pinned build (an unpinned one explains every refusal by its own unpinned tree; identity::tests cover that).
+        let h=1_000;let ours=Consensus::new(n.consensus.chain_id,n.consensus.genesis,&[(1,0),(2,h)],n.consensus.rules,n.consensus.flags&!FLAG_UNPINNED,None);
+        n.consensus=ours.clone();
+        let other=|forks:&[(u16,u64)],rules,flags,sources|Consensus::new(ours.chain_id,ours.genesis,forks,rules,flags,sources).id;
+        let cases:[([u8;32],&str);6]=[
+            (other(&ours.forks,2,ours.flags,ours.sources),"peer runs consensus rules 2; this node runs rules 1"),
+            (other(&[(1,0),(2,h+1)],1,ours.flags,ours.sources),"different consensus rules, fork schedule or test build"),
+            (other(&[(1,0)],1,ours.flags,ours.sources),"peer has not scheduled activation (2,1000): it must apply the published network upgrade"),
+            (other(&[(1,0),(2,h)],1,ours.flags^FLAG_CAPS_TEST,ours.sources),if ours.flags&FLAG_CAPS_TEST==0{"peer runs a caps-test build"}else{"this node runs a caps-test build"}),
+            (other(&[(1,0),(2,h)],1,ours.flags|FLAG_UNPINNED,Some([0x5a;32])),"different consensus rules, fork schedule or test build"),
+            (other(&[(1,0),(2,h),(3,h+5)],1,ours.flags,ours.sources),"different consensus rules, fork schedule or test build"),
+        ];
+        let a=sa("81.2.69.9:30300");let mut holds=0;
+        let _v=connect(&mut n,9,Origin::Configured(a),Some(a));greet(&mut n,9,30300,0);n.handle(Event::Net(NetEvent::Closed(9)));
+        assert!(n.disc.book.get(a).is_some_and(|e|e.holds==0),"our own identity: verified");
+        for (i,(id,want)) in cases.iter().enumerate(){let pid=10+i as u64;
+            let _c=connect(&mut n,pid,Origin::Configured(a),Some(a));let mut m=hello(&n,30300,0);if let Msg::Hello{compatibility,..}=&mut m{*compatibility=*id}msg(&mut n,pid,m);
+            assert!(!n.peers.contains_key(&pid)&&!n.peer_status.contains_key(&pid),"case {i}: closed");holds+=1;
+            assert_eq!(n.disc.book.get(a).map(|e|e.holds),Some(holds),"case {i}: held");
+            let why=n.status_json()["lastIncompatibleReason"].as_str().unwrap().to_string();
+            assert!(why.starts_with(&format!("peer consensus-mismatch: {want}")),"case {i}: {why}");
+            assert!(why.chars().count()<=INCOMPATIBLE_REASON_MAX);
+        }
+        let generic=n.status_json()["lastIncompatibleReason"].as_str().unwrap().to_string();
+        assert!(generic.contains("ours ")&&generic.contains("theirs "),"the generic text names both identities: {generic}");
+        // The reverse of a missing activation: this node lacks the peer's (2,h), so it is told to apply the upgrade.
+        let behind=Consensus::new(ours.chain_id,ours.genesis,&[(1,0)],1,ours.flags,ours.sources);
+        let reverse=crate::identity::explain(&behind,&ours.id);
+        assert!(reverse.contains("apply it (Settings → Upgrade or `pocol upgrade`) or update PoCol"),"{reverse}");
+        let _c=connect(&mut n,30,Origin::Configured(a),Some(a));let mut m=hello(&n,30300,0);if let Msg::Hello{chain_id,..}=&mut m{*chain_id+=1}msg(&mut n,30,m);
+        assert!(n.disc.book.get(a).is_none(),"another chain id: forgotten");
+        let s=n.status_json();
+        assert_eq!(s["incompatiblePeers"],serde_json::json!({"network":1,"wire":0,"consensus":6}));
+        assert_eq!(s["lastIncompatibleReason"],"peer consensus-mismatch: another network (chain id or genesis)");
+        assert_eq!(s["consensusIdentity"],ours.hex());
+        let home=crate::launcher::Home::open(&dir.join("home")).unwrap();let w=crate::wallet::Wallet::new(&home).unwrap();let ws=w.status(&n);
+        assert_eq!((&ws["incompatiblePeers"],&ws["lastIncompatibleReason"],&ws["legacyHellos"]),(&s["incompatiblePeers"],&s["lastIncompatibleReason"],&serde_json::json!(0)),"wallet status");
+        drop(w);drop(home);drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// Learned addresses never enter `Net::protect`, which exempts only the configured peers from the inbound group cap
     /// (net::Limits::per_group_max): an address learned from a self-advertisement or from hearsay is grouped as before.

@@ -37,9 +37,17 @@ def require(ok, message):
         raise RewardUnavailable(message)
 
 
-def validated_fork_schedule(value):
-    """Operator configuration, never an activation height learned from RPC."""
-    require(isinstance(value, (tuple, list)) and 1 <= len(value) <= 2,
+# The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION).
+MAX_FORK_VERSION = 2
+
+
+def validated_fork_schedule(value, max_version=MAX_FORK_VERSION):
+    """Operator configuration, never an activation height learned from RPC.
+
+    The generic runtime shape of pocold's configured_forks: (1, 0) first, then
+    versions 2, 3, ... in order up to max_version at strictly increasing heights.
+    max_version exists for tests of later versions; callers use the default."""
+    require(isinstance(value, (tuple, list)) and 1 <= len(value) <= 16,
             'Invalid trusted fork schedule')
     entries = []
     for entry in value:
@@ -50,9 +58,16 @@ def validated_fork_schedule(value):
                 0 <= height < 1 << 64, 'Invalid trusted fork values')
         entries.append((version, height))
     require(entries[0] == (1, 0) and
-            (len(entries) == 1 or entries[1][0] == 2 and entries[1][1] > 0),
+            all(v == i + 1 and v <= max_version for i, (v, _) in enumerate(entries)) and
+            all(a[1] < b[1] for a, b in zip(entries, entries[1:])),
             'Unsupported trusted fork schedule')
     return tuple(entries)
+
+
+def full_nonce_rule(version, nonce_mode):
+    """pocold chain::full_nonce_rule: v2 introduced the full u64 nonce domain and
+    every later version keeps it, so the test is >= 2, not == 2."""
+    return version >= 2 or nonce_mode == 1
 
 
 def active_version(height, fork_schedule):
@@ -274,7 +289,8 @@ def reconstruct_owners(query, header, cp, fork_schedule=DEFAULT_FORK_SCHEDULE):
     seed = hashlib.sha256(b'PoColNonce'+parent_seal+h.to_bytes(8, 'big')+header['attempt'].to_bytes(4, 'big')).digest()
     tickets = sorted((hashlib.sha256(seed+bytes.fromhex(m[2:])).digest(), m) for m in members)
     require(len(set(t[0] for t in tickets)) == len(tickets), 'Nonce ticket collision')
-    full_range = header['protocolVersion'] == 2 or cp[4] == 1
+    # protocolVersion here is the header's fork version (item 6), not the wire version.
+    full_range = full_nonce_rule(header['protocolVersion'], cp[4])
     maximum = 1 << 64 if full_range else min(1 << 64, ((1 << 256)//(header['target']+1))*cp[5])
     require(maximum > 0, 'Empty nonce space')
     owners = []

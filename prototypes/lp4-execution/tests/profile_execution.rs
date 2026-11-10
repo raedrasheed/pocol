@@ -1,5 +1,5 @@
 #[path="support/admission.rs"] mod f;
-use pocol_lp4_execution::{profile::{ForkSchedule,ProfileError,ProfileIdentity,ProfileKind,NodeKind},pool::Pool,user_phase};
+use pocol_lp4_execution::{profile::{ForkSchedule,ProfileError,ProfileIdentity,ProfileKind,NodeKind,MAX_FORK_VERSION},pool::Pool,user_phase};
 
 #[test]
 fn full_nonce_profile_keeps_genesis_and_requires_an_explicit_valid_schedule() {
@@ -32,4 +32,63 @@ fn full_nonce_profile_keeps_genesis_and_requires_an_explicit_valid_schedule() {
  assert_eq!(c.state_root(3,1).unwrap().as_slice(),f::raw(row["stateRoot"].as_str().unwrap()));assert_eq!(c.receipts(),&[f::raw(row["receipt"].as_str().unwrap())]);assert_eq!(c.commitments().gas_used,row["gasUsed"].as_u64().unwrap());
  let mut pool=Pool::new(profile);let hash=pool.submit(&bytes,&db,&block).unwrap();assert_eq!(hash.as_slice(),f::raw(row["hash"].as_str().unwrap()));assert_eq!(format!("{db:?}"),before);
  }
+}
+
+/// ForkSchedule::new as of main 9c502ff (p1_profile.rs:221-243), verbatim, as the reference verdict.
+fn head_verdict(entries: &[(u16, u64)]) -> Result<(), ProfileError> {
+    if entries.first() != Some(&(1, 0)) {
+        return Err(ProfileError::ForkStart);
+    }
+    let mut previous = None;
+    let mut activated_v2 = false;
+    for &(version, height) in entries {
+        if previous.map_or(false, |h| height <= h) {
+            return Err(ProfileError::ForkHeight);
+        }
+        if version != 1 && version != 2 {
+            return Err(ProfileError::UnsupportedVersion(version));
+        }
+        if activated_v2 {
+            return Err(ProfileError::ForkVersionOrder);
+        }
+        activated_v2 = version == 2;
+        previous = Some(height);
+    }
+    Ok(())
+}
+
+#[test]
+fn generic_schedule_rule_gives_the_historical_verdict_for_every_small_schedule() {
+    let cells: Vec<(u16, u64)> = (0..=3u16).flat_map(|v| (0..=3u64).map(move |h| (v, h))).collect();
+    let (mut checked, mut accepted) = (0, 0);
+    let mut entries = Vec::new();
+    fn walk(cells: &[(u16, u64)], entries: &mut Vec<(u16, u64)>, checked: &mut u32, accepted: &mut u32) {
+        let got = ForkSchedule::new(entries).map(|f| assert_eq!(f.entries(), &entries[..]));
+        assert_eq!(got, head_verdict(entries), "{entries:?}");
+        *checked += 1;
+        *accepted += got.is_ok() as u32;
+        if entries.len() < 4 {
+            for &c in cells {
+                entries.push(c);
+                walk(cells, entries, checked, accepted);
+                entries.pop();
+            }
+        }
+    }
+    walk(&cells, &mut entries, &mut checked, &mut accepted);
+    assert_eq!(checked, 1 + 16 + 256 + 4096 + 65536);
+    assert!(accepted > 1, "the enumeration reaches accepted schedules");
+}
+
+#[test]
+fn a_higher_bound_accepts_later_versions_without_changing_the_default() {
+    let f = ForkSchedule::new_bounded(&[(1, 0), (2, 10), (3, 20)], 3).unwrap();
+    assert_eq!([f.active_version(9), f.active_version(10), f.active_version(19), f.active_version(25)], [1, 2, 2, 3]);
+    assert_eq!(ForkSchedule::new(&[(1, 0), (2, 10), (3, 20)]), Err(ProfileError::UnsupportedVersion(3)));
+    assert_eq!(MAX_FORK_VERSION, 2);
+    // Skipping a version is a profile-level question left to the v3 PR (D3); the runtime shape refuses it.
+    assert_eq!(ForkSchedule::new_bounded(&[(1, 0), (3, 5)], 3).unwrap().active_version(5), 3);
+    assert_eq!(ForkSchedule::new_bounded(&[(1, 0), (3, 5), (2, 9)], 3), Err(ProfileError::ForkVersionOrder));
+    assert_eq!(ForkSchedule::new_bounded(&[(1, 0), (3, 5), (3, 9)], 3), Err(ProfileError::ForkVersionOrder));
+    assert_eq!(ForkSchedule::new_bounded(&[(1, 0), (4, 5)], 3), Err(ProfileError::UnsupportedVersion(4)));
 }

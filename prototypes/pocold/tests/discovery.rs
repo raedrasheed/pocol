@@ -6,6 +6,7 @@ use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
 use std::time::{Duration,Instant};
 use pocold::{chain::Spec,net::Msg,node::{Config,Discovery,DiscoveryTimes,Limits,Node}};
 use pocol_lp4_execution::devnet::{self,DevnetConfig};
+#[path="support/hello.rs"] mod support;
 
 /// One devnet per test binary: its genesis is now and its timing is measured once (as in tests/net.rs).
 fn spec()->Spec{
@@ -43,7 +44,7 @@ fn status(rpc:SocketAddr)->serde_json::Value{
 /// A raw peer's Hello for the test network at genesis (so it starts no sync session), announcing `listen_port`.
 fn raw_hello(listen_port:u16)->Vec<u8>{let s=spec();let genesis=s.genesis_hash();
     frame(&Msg::Hello{chain_id:s.chain_id(),genesis,head:genesis,height:0,work:[0;32],node:"raw".into(),protocol:pocold::identity::PROTOCOL_VERSION,
-        compatibility:pocold::identity::compatibility(),listen_port,nonce:0})}
+        compatibility:support::hello_identity(&s),listen_port,nonce:0})}
 /// A node listening on loopback and running on its own thread (`run_controlled`) until dropped, in local mode or not,
 /// with the configured peers `peers` gives for its listener's address. Its network counters stay readable.
 struct Running{p2p:SocketAddr,rpc:SocketAddr,net:pocold::net::Net,stop:Arc<AtomicBool>,run:Option<std::thread::JoinHandle<()>>}
@@ -154,9 +155,9 @@ fn ask_and_answer(n:&Running,r:&TcpListener)->(serde_json::Value,Vec<SocketAddr>
     // The node's ports stay held until it binds them (tests/relay.rs).
     let hold=||{let held=[TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()];let a=held.each_ref().map(|l|l.local_addr().unwrap());(held,a)};
     let (held,[p2p,rpc])=hold();
-    let first=spec();let (chain_id,genesis)=(first.chain_id(),first.genesis_hash());
+    let first=spec();let (chain_id,genesis,identity)=(first.chain_id(),first.genesis_hash(),support::hello_identity(&first));
     let hello=|listen_port:u16|frame(&Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"raw".into(),protocol:pocold::identity::PROTOCOL_VERSION,
-        compatibility:pocold::identity::compatibility(),listen_port,nonce:0});
+        compatibility:identity,listen_port,nonce:0});
     let mut n=Node::open(config(Some(p2p),vec![ra],Some(rpc)),first).unwrap();drop(held);n.start_network().unwrap();
     let stop=Arc::new(AtomicBool::new(false));let s=stop.clone();
     let run=std::thread::spawn(move||{n.run_controlled(|_|s.load(Ordering::SeqCst));n});

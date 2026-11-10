@@ -180,8 +180,9 @@ Mainnet القديمة. ولا تكتب الأداة شيئًا إلا إذا ن
 الشجرة بعد التحويل، ويفشل إن ثبّت أي ملف متتبَّع آخر الهوية القديمة.
 
 وفي طلب الدمج نفسه غيّر ما لا تغيّره الأداة، لأنه يُشحن مع الحزم:
-- استبدل `deploy/standalone/RELEASE-UPGRADE.md`، وهي ملاحظات تحديث 0.4.0 للشبكة القديمة، بملاحظات الشبكة
-  الجديدة. يجب أن تذكر معرّف السلسلة `261597237` وتجزئة التكوين الجديدة، اللذين يتحقق منهما المستخدمون،
+- استبدل قسم 0.4.0 المرجعي في `deploy/standalone/RELEASE-UPGRADE.md`، وهو ملاحظات تحديث الشبكة القديمة،
+  بملاحظات الشبكة الجديدة (وأبقِ أقسام تحديث الإصدارات: القواعد نفسها، وتفعيل الترقية، والانتقال، وإعادة
+  المزامنة، وقائمة التحقق). يجب أن تذكر معرّف السلسلة `261597237` وتجزئة التكوين الجديدة، اللذين يتحقق منهما المستخدمون،
   ويجوز أن تذكر الشبكة القديمة تاريخًا. ويجب أن تشرح للمحافظ الحالية طريق انتقالها، لأن الاستيراد والترقية
   يرفضان مجلد محفظة مرتبطًا بالتكوين القديم، ولأن مجلدًا جديدًا يُنشئ عنوانًا جديدًا فارغًا:
   ١. أغلق المحفظة، أو أوقف الخدمة بمستخدمها؛
@@ -191,13 +192,15 @@ Mainnet القديمة. ولا تكتب الأداة شيئًا إلا إذا ن
   ٣. في مجلد المحفظة (على Windows هو `%LOCALAPPDATA%\PoCol`، وتستخدم خدمة Linux المستقلة
      `/var/lib/pocol-standalone`) أنشئ مجلدًا مثل `old-network` وانقل إليه `network.pocol.json` و`network`
      و`state` و`wallet-activity.json`، ثم `network-upgrade.pending.json` و`network.pocol.json.before-full-nonce`
-     إن وُجدا. لا تحذف شيئًا؛
+     وأي نسخة احتياطية `network.pocol.json.before-<16 hex>` كتبها إصدار لاحق، إن وُجدت. لا تحذف شيئًا؛
   ٤. أبقِ `identity.pocol-key` و`identity.address` في مكانهما؛
   ٥. افتح المحفظة، أو شغّل الخدمة: تستورد الدعوة الجديدة التي بجانبها (ويفعل Settings → Import، أو
      `pocol import --home <home> --network network.pocol.json`، الشيء نفسه). يبقى العنوان كما هو.
 
   ويشغّل `deploy/standalone/test_upgrade.py` (`NewGenesisRejoin`) هذه الخطوات، ويُظهر أن دعوة قديمة متروكة
-  بجانب البرنامج تعيد ربط المجلد بالتكوين القديم؛
+  بجانب البرنامج تعيد ربط المجلد بالتكوين القديم. والإصدار المبني من هذا المستودع بعد PR5 يرفض مجلد H15000 لم
+  تُنقل ملفاته بالرسالة "This network was replaced by a new genesis. Follow the release notes to move the old
+  network files aside; keep your wallet key." (قرار المالك D1، الخيار B) ولا يكتب شيئًا؛
 - أعطِ الحزم أرقام إصدار جديدة: `deploy/standalone/package.py` و`deploy/standalone/test_release_package.py`؛
   وأرقام الإصدار في `Wallet.cs` ونص الإصدار في `Wallet.xaml` لمحفظة Windows؛ والملفات في
   `deploy/standalone/linux-desktop`؛ و`package.json` و`package-lock.json` في الإضافة؛ و`package.json` في
@@ -309,8 +312,10 @@ Mainnet القديمة. ولا تكتب الأداة شيئًا إلا إذا ن
      و`guide-content.js` و`pocol-tools.html` و`chrome-extension.html` و`smart-contracts.html` في pocol.net، ورابط
      الإضافة في حزمة IDE وفي `DEPLOY-README-AR.txt`.
   ٥. استبدل `pocol.net/downloads/network.pocol.json` بدعوة الشبكة الجديدة. ابنها خارج اللقطة بـ `pocol` من
-     الإصدار الجديد وبالبذور الثلاث في الدعوة القديمة، `--seed` لكل منها. يكتب `pocol network` الملف
-     بالصلاحية 600 ويرفض ملفًا موجودًا، فانسخه إلى مكانه بالصلاحية 644:
+     الإصدار الجديد وبالبذور الثلاث في الدعوة القديمة، `--seed` لكل منها. يكتب `pocol network` ملفًا بالمخطط
+     `pocol-network-v2` مربوطًا بـ `consensusRulesVersion` للإصدار لا ببصمة بنائه، فتقبله الإصدارات اللاحقة ذات
+     القواعد نفسها كما هو (لا حاجة إلى دعوة جديدة لإصدار يغيّر البصمة فقط). ويكتب الملف بالصلاحية 600 ويرفض
+     ملفًا موجودًا، فانسخه إلى مكانه بالصلاحية 644:
      ```
      pocol network --from /var/tmp/pocol-earnin-net --seed <بذرة 1> --seed <بذرة 2> --seed <بذرة 3> \
          --out /var/tmp/network.pocol.json

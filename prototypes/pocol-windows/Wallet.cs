@@ -57,7 +57,7 @@ internal sealed class Wallet {
  async Task Stop(){if(engine==null||engine.HasExited)return;Process current=engine;try{current.StandardInput.WriteLine("{\"method\":\"stop\"}");current.StandardInput.Flush();if(await Task.WhenAny(Task.Run(()=>current.WaitForExit()),Task.Delay(10000))!=null&&!current.HasExited)current.Kill();}catch(Exception e){Message(e.Message);}}
  void Command(Dictionary<string,object> command){if(engine==null||engine.HasExited){Message("Connect your wallet first.");return;}if(pending){Message("Please wait for the previous request.");return;}try{engine.StandardInput.WriteLine(json.Serialize(command));engine.StandardInput.Flush();pending=true;}catch(Exception e){pending=false;Message(e.Message);}}
  void Response(string raw){try{var d=json.Deserialize<Dictionary<string,object>>(raw);string type=Text(d,"type");if(type=="status"||type=="mining"){if(type=="mining")pending=false;state=d;Update();return;}if(type=="")return;pending=false;if(type=="error")Message(Text(d,"message"));else if(type=="quote")Review(d);else if(type=="rejoin")Message(Text(d,"message"));else if(type=="submitted"){Message("Transaction submitted. Waiting for inclusion: "+Text(d,"hash"));lastSubmitted=Text(d,"hash");if(!Flag(d,"historySaved"))MessageBox.Show(window,"The transaction was relayed, but its local history could not be saved. Keep this hash: "+Text(d,"hash"),"History not saved");}else Message(type);}catch(Exception){Message("Could not read a wallet response.");}}
- void Update(){address=Text(state,"address");Get<TextBox>("Address").Text=address;Get<TextBlock>("Balance").Text=Text(state,"balance");Get<TextBlock>("Connection").Text=Text(state,"peers")+" direct peers · Block "+Text(state,"height")+" · Network "+Text(state,"chainId");Get<TextBlock>("WalletNote").Text=Text(state,"peers")=="0"?"Looking for peers. Your balance may be out of date.":"Your device is validating blocks. Mining is "+(Flag(state,"miningEnabled")?"on.":"off.");Get<TextBlock>("MiningState").Text=Text(state,"miningState");Get<TextBlock>("Mined").Text="Accepted blocks this session: "+Text(state,"blocksMined")+"\nRegistration bond: "+Text(state,"bond")+" PCOL";updating=true;Get<CheckBox>("MiningToggle").IsChecked=Flag(state,"miningEnabled");Get<CheckBox>("MiningToggle").IsEnabled=Flag(state,"miningEligible")||Flag(state,"miningEnabled");updating=false;Get<Button>("Rejoin").Visibility=Flag(state,"rejoinAvailable")?Visibility.Visible:Visibility.Collapsed;Get<Button>("TopUp").Visibility=Flag(state,"topUpAvailable")?Visibility.Visible:Visibility.Collapsed;
+ void Update(){address=Text(state,"address");Get<TextBox>("Address").Text=address;Get<TextBlock>("Balance").Text=Text(state,"balance");Get<TextBlock>("Connection").Text=Text(state,"peers")+" direct peers · Block "+Text(state,"height")+" · Network "+Text(state,"chainId");Get<TextBlock>("WalletNote").Text=Text(state,"peers")=="0"?PeerNote(state):"Your device is validating blocks. Mining is "+(Flag(state,"miningEnabled")?"on.":"off.");Get<TextBlock>("MiningState").Text=Text(state,"miningState");Get<TextBlock>("Mined").Text="Accepted blocks this session: "+Text(state,"blocksMined")+"\nRegistration bond: "+Text(state,"bond")+" PCOL";updating=true;Get<CheckBox>("MiningToggle").IsChecked=Flag(state,"miningEnabled");Get<CheckBox>("MiningToggle").IsEnabled=Flag(state,"miningEligible")||Flag(state,"miningEnabled");updating=false;Get<Button>("Rejoin").Visibility=Flag(state,"rejoinAvailable")?Visibility.Visible:Visibility.Collapsed;Get<Button>("TopUp").Visibility=Flag(state,"topUpAvailable")?Visibility.Visible:Visibility.Collapsed;
   ShowNetwork(state);
   object lifetime;if(state.TryGetValue("lifetime",out lifetime)&&lifetime is Dictionary<string,object>){var life=(Dictionary<string,object>)lifetime;Get<TextBlock>("Lifetime").Text=Flag(life,"continuous")?"Continuous network · no scheduled closing block or expiry date":"Final block: "+Text(life,"finalHeight");}
   var list=Get<StackPanel>("ActivityList");list.Children.Clear();
@@ -78,6 +78,21 @@ internal sealed class Wallet {
   }
   if(list.Children.Count==0){list.Children.Add(Label("A fresh start",24));list.Children.Add(Label("Your transfers and registrations will appear here.",14));}
  }
+ // While no peer is connected, say why peers were refused (VA-SPEC §2.5, plan §5); the Android wallet shows the same texts.
+ static string PeerNote(Dictionary<string,object> s){
+  object value;var refused=s.TryGetValue("incompatiblePeers",out value)?value as Dictionary<string,object>:null;
+  long consensus,legacy;long.TryParse(refused==null?"":Text(refused,"consensus"),out consensus);long.TryParse(Text(s,"legacyHellos"),out legacy);
+  if(consensus>0){string why=Text(s,"lastIncompatibleReason");return "Peers use a different network configuration: apply the published network upgrade file (Settings → Upgrade) or update PoCol."+(why.Length==0?"":"\n"+why);}
+  return legacy>0?"Seeds still run PoCol 0.4.0; wait for the announced switch.":"Looking for peers. Your balance may be out of date.";
+ }
+ // One line per fork entry an inspected upgrade file appends (`pocol inspect-upgrade`).
+ static List<string> UpgradeLines(Dictionary<string,object> preview){
+  var lines=new List<string>();object value;if(!preview.TryGetValue("appended",out value))return lines;var entries=value as IList;if(entries==null)return lines;
+  foreach(object entry in entries){var pair=entry as IList;if(pair==null||pair.Count!=2)continue;string v=Convert.ToString(pair[0],System.Globalization.CultureInfo.InvariantCulture),h=Convert.ToString(pair[1],System.Globalization.CultureInfo.InvariantCulture);lines.Add(v=="2"?"Full mining range at block "+h:"Consensus version "+v+" at block "+h);}
+  return lines;
+ }
+ // The notice for a file already applied (none), or after a saved rebind or activation. Only an activation needs the coordinated release.
+ static string UpgradeOutcome(string change){return change=="none"?"Already applied":change=="rebind"?"Release update: consensus rules and schedule unchanged — saved; you can connect now":"Network upgrade saved. Connect your wallet when the coordinated release is ready.";}
  void ShowNetwork(Dictionary<string,object> info){string name=Text(info,"networkName");Get<TextBlock>("NetworkName").Text="●  "+(name.Length==0?"PoCol network":name);}
  // JavaScriptSerializer's untyped nested JSON arrays can be ArrayList, not object[].
  static IEnumerable<Dictionary<string,object>> Activities(Dictionary<string,object> snapshot){
@@ -113,17 +128,18 @@ internal sealed class Wallet {
     var buffer=new byte[8192];int count,total=0;while((count=source.Read(buffer,0,buffer.Length))!=0){total+=count;if(total>1048576)throw new InvalidOperationException("Network file exceeds 1 MiB.");target.Write(buffer,0,count);}target.Flush(true);
    }
    string networkArg=" --network \""+incoming+"\"";
-   var preview=json.Deserialize<Dictionary<string,object>>(await Run("inspect"+networkArg));
-   string activation=Text(preview,"fullNonceActivationHeight");if(activation.Length==0)throw new InvalidOperationException("Select a network file with a full-range activation block.");
-   var body=new StackPanel();body.Children.Add(Label("Upgrade existing network",26));
+   // A read-only dry run against this home: none, a rebind to a new release of the same rules, or appended fork entries.
+   var preview=json.Deserialize<Dictionary<string,object>>(await Run("inspect-upgrade"+HomeArgs()+networkArg));
+   string change=Text(preview,"change");if(change=="none"){Message(UpgradeOutcome(change));return;}
+   var body=new StackPanel();body.Children.Add(Label(change=="rebind"?"Release update":"Upgrade existing network",26));
    string name=Text(preview,"networkName");body.Children.Add(Label(name.Length==0?"PoCol network":name,19));
-   body.Children.Add(Label("Chain ID: "+Text(preview,"chainId"),14));body.Children.Add(Label("Full mining range at block "+activation,18));
+   body.Children.Add(Label("Chain ID: "+Text(preview,"chainId"),14));foreach(string line in UpgradeLines(preview))body.Children.Add(Label(line,18));
    body.Children.Add(Label("Genesis hash",13));body.Children.Add(new TextBox{Text=Text(preview,"genesisHash"),IsReadOnly=true,FontSize=12,TextWrapping=TextWrapping.Wrap});
-   body.Children.Add(Label("Use the shared upgrade file supplied for this network. The node checks it against your existing network and stored blocks. Your account, encrypted key and stored chain stay in the same Windows profile.",14));
+   body.Children.Add(Label(change=="rebind"?"This release runs the same consensus rules and fork schedule. Saving the new file changes no rule. Your account, encrypted key and stored chain stay in the same Windows profile.":"Use the shared upgrade file supplied for this network. The node checks it against your existing network and stored blocks. Your account, encrypted key and stored chain stay in the same Windows profile.",14));
    bool confirmed=false;var confirm=Btn("Confirm network upgrade");body.Children.Add(confirm);var cancel=Btn("Cancel");body.Children.Add(cancel);var dialog=Dialog("Review network upgrade",body);
    confirm.Click+=(s,e)=>{confirmed=true;dialog.Close();};cancel.Click+=(s,e)=>dialog.Close();dialog.ShowDialog();if(!confirmed)return;
    var result=json.Deserialize<Dictionary<string,object>>(await Run("upgrade"+HomeArgs()+networkArg));ShowNetwork(result);
-   Message("Network upgrade saved. Connect your wallet when the coordinated release is ready.");
+   Message(UpgradeOutcome(change));
   }catch(Exception e){Message(e.Message);}
   finally{if(incoming!=null)try{File.Delete(incoming);}catch(IOException){}catch(UnauthorizedAccessException){}networkActionPending=false;Get<Button>("Connect").IsEnabled=true;}
  }
