@@ -298,13 +298,63 @@ pub enum Reject{
 }
 fn blk<T>(s:impl Into<String>)->Result<T,Reject>{Err(Reject::Block(s.into()))}
 
+/// C-1 S5: the canonical hashes by height. `v[i]` is height `base + i`, and height 0 is always genesis.
+/// Heights 1..base are not held here: they are in the node's canonical index below the in-memory window.
+/// `base` is 0 (nothing below the window, `v[0]` is genesis) or at least 2: a window that starts at height
+/// 1 is kept as base 0, so two chains that hold the same heights are equal whatever moved them there.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct Canon{genesis:[u8;32],base:u64,v:std::collections::VecDeque<[u8;32]>}
+impl Canon{
+    /// Genesis alone.
+    pub fn new(g:[u8;32])->Self{Self{genesis:g,base:0,v:std::collections::VecDeque::from([g])}}
+    /// Genesis, and nothing held from height `b` up yet (a restore extends it from `b`).
+    pub fn at_base(g:[u8;32],b:u64)->Self{if b<=1{Self::new(g)}else{Self{genesis:g,base:b,v:Default::default()}}}
+    /// The lowest height held other than genesis (0: every height is held).
+    pub fn base(&self)->u64{self.base}
+    pub fn genesis(&self)->&[u8;32]{&self.genesis}
+    /// One past the highest canonical height (the heights below `base` count, though they are not held).
+    pub fn len(&self)->usize{self.base as usize+self.v.len()}
+    /// The canonical hash at height `h`; None above the head and for the heights 1..base.
+    pub fn get(&self,h:usize)->Option<&[u8;32]>{if h==0{return Some(&self.genesis)}let b=self.base as usize;if h<b{return None}self.v.get(h-b)}
+    /// The held heights from `h` up, in height order (genesis first when `h` is 0).
+    pub fn iter_from(&self,h:usize)->impl Iterator<Item=&[u8;32]>+'_{
+        let b=self.base as usize;(h==0&&b>0).then_some(&self.genesis).into_iter().chain(self.v.iter().skip(h.saturating_sub(b)))
+    }
+    /// Every held height: genesis, then the window.
+    pub fn iter(&self)->impl Iterator<Item=&[u8;32]>+'_{self.iter_from(0)}
+    /// Removes the heights from `h` up and returns them in height order. Genesis and the heights below the
+    /// window are never removed: a fork is above both.
+    pub fn drain_from(&mut self,h:usize)->Vec<[u8;32]>{
+        let b=self.base as usize;debug_assert!(h>=b.max(1),"a fork at {h} below the window (base {b})");
+        let i=(h.max(1).max(b)-b).min(self.v.len());self.v.drain(i..).collect()
+    }
+    pub fn extend(&mut self,path:impl IntoIterator<Item=[u8;32]>){self.v.extend(path)}
+    /// Takes the lowest held height above genesis out of the window and returns its hash (None when the window
+    /// holds nothing above genesis). From base 0 the genesis slot goes first, so the next base is 2.
+    pub fn pop_low(&mut self)->Option<[u8;32]>{
+        if self.base==0{if self.v.len()<2{return None}self.v.pop_front();self.base=1;}
+        let h=self.v.pop_front()?;self.base+=1;Some(h)
+    }
+    /// Puts height `base - 1` back into the window (a reload); `hash` is that height's block. Back at height
+    /// 1 the window is kept as base 0 again.
+    pub fn push_low(&mut self,hash:[u8;32]){
+        assert!(self.base>=2,"no height below the window to put back");
+        self.v.push_front(hash);self.base-=1;if self.base==1{self.v.push_front(self.genesis);self.base=0;}
+    }
+    pub fn shrink_to_fit(&mut self){self.v.shrink_to_fit()}
+}
+/// `canonical[h]`: the hash at a held height; panics for one that is not held.
+impl std::ops::Index<usize> for Canon{type Output=[u8;32];
+    fn index(&self,h:usize)->&[u8;32]{self.get(h).unwrap_or_else(||panic!("canonical height {h} is not held (base {})",self.base))}}
+
 pub struct Chain{
     pub spec:Spec,
     /// Boxed (A13): a table keeps spare buckets, up to 24/7 per entry while it grows, and an entry inline
     /// would make each a whole Entry.
     pub blocks:HashMap<[u8;32],Box<Entry>>,
     pub head:[u8;32],
-    pub canonical:Vec<[u8;32]>,
+    /// The canonical chain by height (C-1 S5: `Canon`, a window above the node's canonical index).
+    pub canonical:Canon,
     pub(crate) next_seq:u64,
     /// R21 window: full states kept for heights > head-K_hist (and genesis).
     pub k_hist:u64,
@@ -388,7 +438,7 @@ impl Chain{
             summary:Some(Box::new(pocol_lp4_execution::state_summary::Summary::scan(spec.genesis().state(),cp.B_code_max))),stored:None};
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
-        Self{spec,blocks,head:gh,canonical:vec![gh],next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
+        Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
             r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh]}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
@@ -929,13 +979,13 @@ impl Chain{
         debug_assert!(self.prune_holds(),"shed starts at prune_cursor: every canonical block below it is pruned");
         let head=self.head;
         // Canonical blocks below prune_cursor are pruned (`prune_holds`): none is full.
-        let canon:Vec<[u8;32]>=self.canonical.iter().skip(self.prune_cursor.max(1) as usize).copied().filter(|h|*h!=head).collect();
+        let canon:Vec<[u8;32]>=self.canonical.iter_from(self.prune_cursor.max(1) as usize).copied().filter(|h|*h!=head).collect();
         for h in canon{if let Some(e)=self.blocks.get_mut(&h){if e.full&&!e.pruned{
             if e.diff.is_some(){e.state=empty_state();e.full=false;}else{e.state=empty_state();e.full=false;e.pruned=true;}}}}
         if self.blocks.get(&head).map_or(false,|e|!e.full&&!e.pruned){if let Some(s)=self.materialize(&head){let e=self.blocks.get_mut(&head).unwrap();e.state=s.into();e.full=true;self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);}}
         // A state held as a diff: a canonical block from prune_cursor up. No side block is one here: `settle` has
         // just pruned each side state it dropped and made each one it kept full.
-        let open:Vec<[u8;32]>=self.canonical.iter().skip(self.prune_cursor.max(1) as usize).filter(|h|self.blocks.get(*h).map_or(false,|e|!e.pruned&&!e.full)).copied().collect();
+        let open:Vec<[u8;32]>=self.canonical.iter_from(self.prune_cursor.max(1) as usize).filter(|h|self.blocks.get(*h).map_or(false,|e|!e.pruned&&!e.full)).copied().collect();
         debug_assert!({let mut a=open.clone();a.sort();let mut b:Vec<[u8;32]>=self.blocks.values().filter(|e|!e.pruned&&!e.full).map(|e|e.hash).collect();b.sort();a==b},"the diff-held states are found");
         for h in open{if self.state_path(&h).is_none(){let side=!self.is_canonical(&h);let e=self.blocks.get_mut(&h).unwrap();e.pruned=true;if side{e.diff=None;}}}
     }
@@ -1001,14 +1051,14 @@ impl Chain{
     }
     /// Head = the D133 maximum over every stored block (D133: independent of the scan order).
     fn recompute_head(&mut self){
-        let all:Vec<[u8;32]>=self.blocks.keys().copied().collect();let mut best=self.canonical[0];
+        let all:Vec<[u8;32]>=self.blocks.keys().copied().collect();let mut best=*self.canonical.genesis();
         for h in all{if self.better(&h,&best){best=h;}}
         self.head=best;self.rebuild_canonical();
     }
     /// Whether every canonical block holds its bytes (D-REORG-REDB invariant after an import or open).
     /// Every canonical block inside the resident window is resident (all of them for a bare chain).
     pub fn canonical_resident(&self)->bool{let head_h=self.head().height;let start=self.history_window.map_or(0,|w|head_h.saturating_sub(w)+1);
-        self.canonical.iter().skip(start as usize).all(|h|!self.blocks[h].offloaded)}
+        self.canonical.iter_from(start as usize).all(|h|!self.blocks[h].offloaded)}
     /// A block's committed body: resident, or read back from the journal when offloaded.
     pub fn body_of(&self,e:&Entry,src:Option<&dyn BlockBytes>)->Result<Body,Reject>{
         if !e.offloaded{return Ok(e.body.clone())}
@@ -1054,7 +1104,7 @@ impl Chain{
         let ph=self.canonical[first as usize-1];let (was_pruned,was_full)=(self.blocks[&ph].pruned,self.blocks[&ph].full);self.unprune(first-1);
         self.ensure_state_with(&ph,Some(src))?;
         let mut p=self.blocks[&ph].meta_clone();p.state=self.blocks[&ph].state.clone();p.stored=self.blocks[&ph].stored.clone();
-        if (was_pruned||!was_full)&&ph!=self.canonical[0]{let x=self.blocks.get_mut(&ph).unwrap();x.state=empty_state();x.stored=None;x.full=false;x.pruned=was_pruned;}
+        if (was_pruned||!was_full)&&ph!=*self.canonical.genesis(){let x=self.blocks.get_mut(&ph).unwrap();x.state=empty_state();x.stored=None;x.full=false;x.pruned=was_pruned;}
         let mut n=0;
         for hgt in first..=last{
             let hash=self.canonical[hgt as usize];let er=self.meta_restored(&hash,Some(src))?;let e=&er;
@@ -1198,10 +1248,10 @@ impl Chain{
             path.push(h);cur=e.parent;
         };
         path.reverse();
-        for h in self.canonical.drain((fork as usize).min(self.canonical.len())..){if self.blocks.contains_key(&h){self.side.insert(h);}}
+        for h in self.canonical.drain_from(fork as usize){if self.blocks.contains_key(&h){self.side.insert(h);}}
         for h in &path{self.side.remove(h);}
         self.canonical.extend(path);
-        debug_assert!({let mut full=Vec::new();let mut c=Some(self.head);while let Some(h)=c{full.push(h);c=self.blocks[&h].parent;}full.reverse();full==self.canonical},"the canonical path is the head's");
+        debug_assert!({let mut full=Vec::new();let mut c=Some(self.head);while let Some(h)=c{full.push(h);c=self.blocks[&h].parent;}full.reverse();full.iter().eq(self.canonical.iter())},"the canonical path is the head's");
         // The first height whose canonical block changed: the prune below it still holds.
         self.unprune(fork);
     }

@@ -271,7 +271,7 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
     let evicted:std::collections::HashSet<[u8;32]>=s.evicted_order.iter().copied().collect();
     if evicted.len()!=s.evicted_order.len(){return Err("evicted hashes repeat".into())}
     if s.unslimmed.iter().chain(&s.evicted_order).any(|h|*h==[0u8;32]){return Err("a zero hash".into())}
-    c.blocks=blocks;c.head=s.head;c.canonical.clear();c.rebuild_canonical();c.retention_reset();c.next_seq=s.next_seq;c.slim_cursor=s.slim_cursor;c.history_cursor=s.history_cursor;c.evicted_total=s.evicted_total;
+    c.blocks=blocks;c.head=s.head;c.canonical=crate::chain::Canon::new(gh);c.rebuild_canonical();c.retention_reset();c.next_seq=s.next_seq;c.slim_cursor=s.slim_cursor;c.history_cursor=s.history_cursor;c.evicted_total=s.evicted_total;
     c.unslimmed=s.unslimmed.clone();c.evicted_order=s.evicted_order.iter().copied().collect();c.evicted=evicted;
     Ok(read)
 }
