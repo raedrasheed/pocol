@@ -1266,7 +1266,11 @@ change what the journal stores, or which blocks are valid. The derivation is A13
   migration, a head drop beyond the anchors) the rebuild walks from genesis, one journal read and one
   history.redb read per height. Each block is checked against its parent link, height and work, and only the last
   `max(257, E_win + 1)` restored entries are held (`Chain::shadow`). That is O(height) CPU as before (§5.1), with
-  O(window) memory.
+  O(window) memory. A restore reads each anchor's version, and the lowest one above the cut when its parent holds
+  none, whole and streamed (about 17 s each at the network's state caps, so up to about 85 s at the defaults' 4
+  anchors); only a version whose parent's was read is read through the diff, one block's writes. A diff from the
+  anchor below would hold up to R_keep blocks' writes at once (from genesis in a format-1 migration, every write of
+  the chain up to the state caps), which no open-time term counts (review 2026-11, finding 3).
 - **When open still replays from genesis:** a lost or damaged canon.redb, history.redb or state.redb (every
   checkpoint based above height 1 needs the index); whole-state mode (no checkpoints, as before); a journal migrated
   from format 1 (every checkpoint fails its binding); a format-1 checkpoint that does not fit the headroom check.

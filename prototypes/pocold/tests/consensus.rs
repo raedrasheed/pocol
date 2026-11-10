@@ -4463,6 +4463,25 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     drop(s);drop(a);let _=std::fs::remove_dir_all(&da);
 }
 
+/// Review 2026-11 (finding 3): a restore reads a stored version through its diff only from its parent's version (one
+/// block's write set, which A13 counts); every other version, the anchors R_keep apart and the lowest entry above the
+/// K_hist cut among them, is read whole. FAIL-ON-ORIGINAL: the nearest read ancestor was the diff's base, so only
+/// genesis and the lowest anchor were read whole and each other anchor held a diff of R_keep blocks' writes.
+#[test] fn a_restore_diffs_a_stored_version_only_against_its_parent(){
+    let l=pr7_limits(64,true,7,None);let blocks=pr7_chain(pr7_depth(&l) as usize+60);let a=e44_dir("pr7-diff-parent");
+    let (want,stored,anchors)={let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}n.checkpoint_now().unwrap();
+        let c=&n.chain;let held:Vec<&pocold::chain::Entry>=c.blocks.values().filter(|e|e.stored.is_some()).map(|e|&**e).collect();
+        let whole=held.iter().filter(|e|e.parent.and_then(|p|c.blocks.get(&p)).map_or(true,|p|p.stored.is_none())).count() as u64;
+        (whole,held.len() as u64,c.anchors().len())};
+    println!("PR7-DIFF-PARENT {anchors} anchors, {stored} versions, {want} without a parent version");
+    assert!(anchors>=1&&want>anchors as u64+1,"positive control: an anchor, and a version above it whose parent holds none ({anchors} anchors, {want})");
+    let x=reopen(&pr7_conf(&a,l.clone()));let v=x.stats.versions_read;
+    assert!(x.stats.resumed_from.is_some(),"positive control: resumed from the checkpoint");
+    assert_eq!((v.whole,v.by_diff),(want,stored-want),"every version whose parent holds none is read whole ({anchors} anchors, {stored} versions)");
+    assert!(v.whole>anchors as u64+1,"each anchor is read whole, genesis, and a version above the anchors");
+    drop(x);let _=std::fs::remove_dir_all(&a);
+}
+
 /// A test-only format-1 encoder: the checkpoint layout before C-1 S5 (no eviction or anchor parameters, no window
 /// fields), sealed as before.
 fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
