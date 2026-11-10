@@ -4118,7 +4118,7 @@ fn pr7_conf(dir:&std::path::Path,l:pocold::node::Limits)->impl Fn()->pocold::nod
     let d=dir.to_path_buf();move||pocold::node::Config{dir:d.clone(),name:"pr7".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:l.clone()}
 }
 /// The eviction depth a node with these limits uses (`resources::evict_depth_of`, as Node::open computes it).
-fn pr7_depth(l:&pocold::node::Limits)->u64{pocold::resources::evict_depth_of(admitted(&cfg(&["a","b","c"])).cp(),l,l.r_keep).unwrap().unwrap()}
+fn pr7_depth(l:&pocold::node::Limits)->u64{let s=admitted(&cfg(&["a","b","c"]));pocold::resources::evict_depth_of(s.cp(),s.local().k_hist,l,l.r_keep).unwrap().unwrap()}
 /// Two whole-state chains are the same where both hold entries: each entry the evicting one holds is the
 /// reference's, field by field as a record (`rec_of_meta`), with the same flags.
 fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
@@ -4130,12 +4130,13 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
 /// 2,000: the chain holds at most E + 2 entries besides its side blocks, the window at most E + 1 heights, it has
 /// reached its floor and nothing stalled it; and (store mode) a checkpoint at 2,000 blocks is the size of one at
 /// 1,000. E is the default depth for R_keep 8 and slim depth 20 (E_min, 2·R_keep + E_win + 258 or the anchor
-/// term). Before PR7 every canonical entry stayed, and a checkpoint held them all.
+/// term, max(2·R_keep + 2, K_hist) + R_keep + 257). Before PR7 every canonical entry stayed, and a checkpoint held
+/// them all.
 #[test] fn canonical_entries_are_evicted_below_the_window_and_a_checkpoint_stays_the_same_size(){
     let blocks=pr7_chain(2000);let e_win=u64::from(net().chain.spec.cp().E_win);
     for store in [false,true]{
         let dir=e44_dir(&format!("pr7-t1-{store}"));let l=pr7_limits(8,store,0,None);let mut n=reopen(&pr7_conf(&dir,l));
-        let e=n.cfg.limits.evict_depth.unwrap();assert_eq!(e,(2*8+e_win+258).max(if store{3*8+2+257u64.max(e_win+1)}else{0}),"the default depth is E_min");
+        let (e,k_hist)=(n.cfg.limits.evict_depth.unwrap(),n.chain.k_hist);assert_eq!(e,(2*8+e_win+258).max(if store{(2*8+2u64).max(k_hist)+8+257u64.max(e_win+1)}else{0}),"the default depth is E_min");
         let mut sizes=vec![];
         for (i,b) in blocks.iter().enumerate(){n.import(b.clone(),None).unwrap();
             if (i+1)%100==0{let c=&n.chain;let side=c.side_counts().0 as u64;
@@ -4215,10 +4216,11 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
 /// from genesis out of the canonical index and journal (`disk_walk`), through a block carrying type-2 evidence (its
 /// evidence walk and BLOCKHASH window read the walk's whole copies), then up the window. The child is accepted with
 /// the state a node that never evicts reaches, every height up to the fork is re-executed once, and the rebuild's
-/// copies are gone afterwards. Whole-state and store mode.
+/// copies are gone afterwards. Whole-state mode (in store mode the rebuild starts at an anchor:
+/// `a_deep_fork_rebuild_starts_at_an_anchor`; it walks the disk only when none is held).
 #[test] fn deep_rebuild_through_evicted_heights_reaches_the_reference_state(){
     let (seq,_,_)=s4_evidence_chain();let ev_h=seq.len() as u64;
-    for store in [false,true]{
+    {let store=false;
         let l=pr7_limits(64,store,0,None);let e=pr7_depth(&l);
         let mut h=net();for x in &seq{import(&mut h,x);h.chain.retain();}
         let mut blocks=seq.clone();let tip=h.chain.head;blocks.extend(grow(&mut h,tip,e as usize+60,&|n,p|fallback(n,p,0)));
@@ -4237,6 +4239,69 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
         pr7_same_entries(&a.chain,&r.chain,&format!("({store}) after the rebuild"));
         drop(a);drop(r);for d in [da,dr]{let _=std::fs::remove_dir_all(&d);}
     }
+}
+
+/// PR7 (T9, §2.4): in store mode a fork child on a block 40 below the head (below K_hist, within R_keep 64) has its
+/// parent rebuilt from the newest anchor below it, at most lag + R_keep re-executions (lag = 2·R_keep + 2), where a
+/// node without anchors walks every canonical height up to the fork from genesis. The anchors are the canonical
+/// entries at multiples of R_keep at or below the K_hist cut that keep their stored version (pruned otherwise), at
+/// most `anchors_max` of them and the ones a node that never evicts holds; the rebuilt parent's version is the
+/// reference's; and the node that reopens from a checkpoint after the child holds the live node's chain fields and
+/// anchors.
+#[test] fn a_deep_fork_rebuild_starts_at_an_anchor(){
+    let rk=64u64;let l=pr7_limits(rk,true,7,None);let e=pr7_depth(&l);
+    let blocks=pr7_chain(e as usize+60);let mut h=pr7_builder(&blocks);
+    let fork_h=h.chain.head().height-40;let fork=h.chain.canonical_at(fork_h).unwrap().hash;h.chain.ensure_state(&fork).unwrap();let child=fallback(&h,fork,1);
+    let (da,dr)=(e44_dir("pr7-t9"),e44_dir("pr7-t9-ref"));
+    let mut a=reopen(&pr7_conf(&da,l.clone()));let mut r=reopen(&pr7_conf(&dr,pr7_limits(rk,true,0,Some(u64::MAX))));
+    for x in &blocks{a.import(x.clone(),None).unwrap();r.import(x.clone(),None).unwrap();}
+    assert!(a.chain.canonical.base()>1&&a.chain.canonical_at(fork_h).unwrap().pruned,"positive control: a window above height 1, the fork point pruned");
+    let ra=a.chain.rebuilds;a.import(child.clone(),None).unwrap();r.import(child.clone(),None).unwrap();
+    let (n,lag)=(a.chain.rebuilds-ra,2*rk+2);
+    assert!(n>0&&n<=lag+rk,"FAIL-ON-ORIGINAL: {n} re-executions for the fork at {fork_h} (lag + R_keep = {})",lag+rk);
+    let c=&a.chain;let cut=c.head().height-c.k_hist;let anchors=c.anchors().to_vec();
+    assert!(!anchors.is_empty()&&anchors.len() as u64<=c.anchors_max(),"anchors {anchors:?} (at most {})",c.anchors_max());
+    for (x,hh) in &anchors{let e=c.get(hh).unwrap();assert!(x%rk==0&&*x<=cut&&c.canonical.get(*x as usize)==Some(hh)&&e.stored.is_some()&&e.pruned&&!e.full,"the anchor at {x}");}
+    let root=anchors.iter().map(|a|a.0).filter(|x|*x<fork_h).max().unwrap();assert_eq!(n,fork_h-root,"the rebuild starts at the newest anchor below the fork");
+    assert_eq!(anchors,r.chain.anchors(),"the anchors of a node that never evicts");
+    assert!(c.prune_holds()&&c.get(&fork).unwrap().stored.is_none(),"the rebuilt fork point is pruned again by the import's retain");
+    let world=|n:&pocold::node::Node|n.chain.get(&child.hash()).unwrap().stored.as_ref().map(|p|p.trie.world);
+    assert!(world(&a).is_some()&&world(&a)==world(&r),"the child's state is the reference's");assert_eq!(a.chain.head,r.chain.head);
+    pr7_same_entries(&a.chain,&r.chain,"after the rebuild");
+    let live=pocold::checkpoint::fingerprint(&a.chain).unwrap();drop(a);
+    let x=reopen(&pr7_conf(&da,l));assert!(x.stats.resumed_from.is_some(),"positive control: resumed from a checkpoint");
+    assert_eq!(x.chain.anchors(),&anchors[..],"a restore holds the anchors");assert_eq!(pocold::checkpoint::fingerprint(&x.chain).unwrap(),live,"the reopened node's chain fields");
+    drop(x);drop(r);for d in [da,dr]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// PR7 (T7 variant, A1-3): a block refused after the TrieRebuild of its parent, a rebuild only the live node makes (the
+/// block is never journaled), when that parent is an anchor (a multiple of R_keep below the K_hist cut). The rebuild
+/// returns at once (the anchor's version is the root), and the refusal leaves the anchor as it was: pruned, holding
+/// its version, listed once. After 20 more blocks the live node, a reopen from its checkpoint and a replay from genesis
+/// hold the same chain fields and anchors, at most `anchors_max`.
+#[test] fn a_refused_rebuild_at_an_anchor_leaves_the_anchors_replay_takes(){
+    let rk=64u64;let l=pr7_limits(rk,true,7,None);let e=pr7_depth(&l);
+    let blocks=pr7_chain(e as usize+60);let top=blocks.len() as u64;let ph=(top-33)/rk*rk;assert!(ph+rk>top,"positive control: the parent at {ph} is within R_keep of {top}");
+    let p=blocks[ph as usize-1].hash();let m=pr7_builder(&blocks[..ph as usize]);
+    let drawn=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),0).unwrap().proposer;let other=*m.keys.keys().find(|k|**k!=drawn).unwrap();
+    let mut hd=signed(&m,p,Body::default(),0).header;hd.proposer=other.to_vec();reseal(&mut hd);let bad=remine_signed(&m,hd,other);
+    let a=e44_dir("pr7-t7-anchor");let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}
+    assert!(n.chain.anchors().contains(&(ph,p))&&n.chain.get(&p).unwrap().pruned,"positive control: the parent at {ph} is an anchor, pruned");
+    let (before,rb)=(n.chain.anchors().to_vec(),n.chain.rebuilds);
+    assert!(matches!(n.import(bad.clone(),None),Err(Reject::Block(s)) if s.contains("12 proposer")),"a block verdict after the rebuild");
+    assert!(n.chain.invalid.contains_key(&bad.hash())&&n.chain.rebuilds==rb,"the anchor's version is the rebuild's root: nothing re-executed");
+    let x=n.chain.get(&p).unwrap();assert!(x.pruned&&!x.full&&x.stored.is_some()&&n.chain.prune_holds(),"the anchor is as it was");
+    assert_eq!(n.chain.anchors(),&before[..],"the refusal leaves the anchors as they were");
+    let mut h=pr7_builder(&blocks);let tip=h.chain.head;for b in grow(&mut h,tip,20,&|n,p|fallback(n,p,0)){n.import(b,None).unwrap();}
+    let (live,anchors)=(pocold::checkpoint::fingerprint(&n.chain).unwrap(),n.chain.anchors().to_vec());drop(n);
+    let mut seen=anchors.clone();seen.dedup();assert!(seen==anchors&&anchors.contains(&(ph,p)),"each anchor once: {anchors:?}");
+    let g=e44_dir("pr7-t7-anchor-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
+    let x=reopen(&pr7_conf(&a,l.clone()));let y=reopen(&pr7_conf(&g,pr7_limits(rk,true,0,None)));
+    assert!(x.stats.resumed_from.is_some()&&y.stats.resumed_from.is_none(),"positive control: (a) a checkpoint, (b) genesis");
+    for (z,what) in [(&x,"from a checkpoint"),(&y,"from genesis")]{
+        assert_eq!(z.chain.anchors(),&anchors[..],"{what}: the anchors");assert!(anchors.len() as u64<=z.chain.anchors_max());
+        assert_eq!(pocold::checkpoint::fingerprint(&z.chain).unwrap(),live,"{what}: the live node's chain fields");}
+    drop(x);drop(y);for d in [a,g]{let _=std::fs::remove_dir_all(&d);}
 }
 
 /// PR7 (T3): every RPC answer about a block below the window is the one a node that never evicts gives: blocks by

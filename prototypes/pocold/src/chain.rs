@@ -438,6 +438,11 @@ pub struct Chain{
     /// `anchor_cursor` the highest height the forward prune has passed since they were taken. All three are
     /// checkpoint parameters or fields (`checkpoint::Params`, `Snapshot`).
     pub evict_depth:Option<u64>,pub anchor_step:Option<u64>,pub(crate) anchor_cursor:u64,
+    /// C-1 S5 (PR7 §2.4, store mode): the rebuild anchors, (height, hash) in height order: canonical entries below the
+    /// K_hist cut that keep their stored version (pruned otherwise), so a rebuild below the cut starts at most
+    /// `anchor_step` plus `2·anchor_step + 2` blocks down instead of at genesis. A rebuild cache only: no verdict, root
+    /// or fork choice reads one (`prune_window` takes them, `retain_anchors` releases them).
+    pub(crate) anchors:Vec<(u64,[u8;32])>,
     /// C-1 S5: the most entries one `window` call evicts (the head rises by at most side_cap + 2·r_keep + 1 in one
     /// import); the evicted entries, normalized, for the node to write to its index (`window`); and the entries an
     /// eviction could not take (none can be: a test and status counter, never a validity input).
@@ -466,7 +471,7 @@ impl Chain{
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
         Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
-            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new()}
+            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,anchors:Vec::new(),evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new()}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
     /// C-1 E4: keeps states in `store` from now on, starting with genesis's (Node::open calls it on a chain
@@ -956,6 +961,7 @@ impl Chain{
                 self.history_cursor+=1;
             }
         }
+        self.retain_anchors();
     }
     /// C-1 S5 (PR7): the in-memory window. With `evict_depth` E set, the canonical entries below `floor = max(1,
     /// head − E)` leave memory for the node's canonical index, and entries the window needs again come back from it.
@@ -995,14 +1001,17 @@ impl Chain{
         normalize(&mut e);let h=e.hash;self.blocks.insert(h,Box::new(e));self.canonical.push_low(h);Ok(())
     }
     /// Evicts the canonical entries from the base up to `floor` (at most `evict_batch`): each is taken out, normalized
-    /// and put in `evicted_out`. Only genesis, never in range, could not be taken; a canonical height whose entry is
-    /// missing is counted in `evict_stalls` (none is: the chain holds every canonical entry of its window). The prune,
+    /// and put in `evicted_out`. Only genesis, never in range, and an anchor could not be taken; an anchor, or a
+    /// canonical height whose entry is missing, is counted in `evict_stalls` (neither is there: anchors below the floor
+    /// are released first, and the chain holds every canonical entry of its window). The prune,
     /// slim and history cursors move up to the new base (nothing below it is held to prune, slim or offload).
     fn evict_below(&mut self,floor:u64){
         let mut gone=std::collections::HashSet::new();
         while (gone.len() as u64)<self.evict_batch{
             let low=self.canonical.base().max(1);if low>=floor{break}
             let Some(h)=self.canonical.get(low as usize).copied() else{break};
+            // An anchor keeps its version, so it cannot leave; none is below the floor (`retain_anchors` released it).
+            if self.is_anchor(&h){self.evict_stalls+=1;debug_assert!(false,"an anchor at height {low} below the floor");break}
             let Some(mut e)=self.blocks.remove(&h) else{self.evict_stalls+=1;debug_assert!(false,"the canonical entry at height {low} is not held");break};
             normalize(&mut e);self.canonical.pop_low();gone.insert(h);self.evicted_out.push(e);
         }
@@ -1022,14 +1031,48 @@ impl Chain{
     /// R21: canonical heights 1..=head-K_hist hold no state, pin, full state or diff. Heights 1..=cut, each
     /// once (`prune_cursor`); what has a block there was pruned before the cut moved. With the invariant
     /// holding (checked in debug builds), the old walk over 1..=cut changed nothing below it.
+    /// C-1 S5 (PR7 §2.4, store mode): the first time the cut passes a canonical height that is a multiple of
+    /// `anchor_step` (above `anchor_cursor`), the entry there keeps its stored version as an anchor. Only that forward
+    /// pass takes one: a height walked again after a rebuild lowered the cursor (a refused block's, a cutover's, an RPC
+    /// state's, which a replay of the journal does not make) never becomes one, so live import and replay take the same
+    /// anchors; an anchor walked again keeps its version.
     fn prune_window(&mut self){
         let cut=self.head().height.saturating_sub(self.k_hist);
         debug_assert!(self.prune_holds(),"prune_cursor {}: a canonical block below it is not pruned",self.prune_cursor);
         while self.prune_cursor<=cut{
-            if let Some(h)=self.canonical.get(self.prune_cursor as usize).copied(){if let Some(e)=self.blocks.get_mut(&h){if !e.pruned{e.state=empty_state();e.pruned=true;}e.stored=None;e.full=false;e.diff=None;}}
+            let at=self.prune_cursor;
+            if let Some(h)=self.canonical.get(at as usize).copied(){if let Some(e)=self.blocks.get_mut(&h){
+                let take=self.anchor_step.is_some_and(|s|at>self.anchor_cursor&&at%s==0&&e.stored.is_some());
+                let keep=take||self.anchors.contains(&(at,h));
+                if !e.pruned{e.state=empty_state();e.pruned=true;}if !keep{e.stored=None;}e.full=false;e.diff=None;
+                if take&&!self.anchors.contains(&(at,h)){self.anchors.push((at,h));}}}
+            if self.anchor_step.is_some(){self.anchor_cursor=self.anchor_cursor.max(at);}
             self.prune_cursor+=1;
         }
     }
+    /// C-1 S5 (PR7 §2.4): the end of `retain_unsettled`. An anchor no longer canonical is dropped, and its version
+    /// released; so is every anchor below `floor + max(257, E_win + 1)` (its BLOCKHASH or evidence window would reach
+    /// below the window's floor, and it would block the eviction there), and every anchor below the newest one at least
+    /// `lag = 2·anchor_step + 2` below the head. A fork is within R_keep <= anchor_step of the head, and one head that
+    /// falls back falls less than R_keep, so a rebuild's target is above that newest one: it is the root, and the walk to
+    /// it is at most lag + anchor_step blocks. At most `anchors_max()` are held.
+    fn retain_anchors(&mut self){
+        let Some(step)=self.anchor_step else{return};if self.anchors.is_empty(){return}
+        let head_h=self.head().height;let lag=step.saturating_mul(2).saturating_add(2);
+        let low=self.evict_floor().map(|f|f.saturating_add(self.shadow_keep() as u64));
+        let mut all=std::mem::take(&mut self.anchors);
+        let gone=|c:&Chain,a:&(u64,[u8;32])|c.canonical.get(a.0 as usize)!=Some(&a.1)||low.is_some_and(|l|a.0<l);
+        let newest=all.iter().filter(|a|!gone(self,a)&&a.0.saturating_add(lag)<=head_h).map(|a|a.0).max();
+        let (keep,drop):(Vec<_>,Vec<_>)=all.drain(..).partition(|a|!gone(self,a)&&newest.map_or(true,|n|a.0>=n));
+        for (_,h) in drop{if let Some(e)=self.blocks.get_mut(&h){e.stored=None;}}
+        self.anchors=keep;
+    }
+    /// The rebuild anchors held, (height, hash) in height order (status and tests).
+    pub fn anchors(&self)->&[(u64,[u8;32])]{&self.anchors}
+    /// The most anchors `retain_anchors` keeps: those from the newest one at least lag below the head up to the cut
+    /// (head − K_hist), one every `anchor_step`, ⌈(lag − K_hist) / anchor_step⌉ + 2 (0 without anchors).
+    pub fn anchors_max(&self)->u64{self.anchor_step.map_or(0,|s|(s.saturating_mul(2).saturating_add(2)).saturating_sub(self.k_hist).div_ceil(s.max(1))+2)}
+    fn is_anchor(&self,h:&[u8;32])->bool{self.anchors.iter().any(|a|a.1==*h)}
     /// PR4 (A13 `resources::MATERIALIZED`): what a TrieRebuild or restore gave back for a block that
     /// was then refused is dropped at once, as the next import's retain would drop it (`prune_window`, then
     /// `settle`); before, every refused rebuild until that import kept one more whole state (or stored pin)
@@ -1197,7 +1240,8 @@ impl Chain{
         let ph=self.canonical[first as usize-1];let (was_pruned,was_full)=(self.blocks[&ph].pruned,self.blocks[&ph].full);self.unprune(first-1);
         self.ensure_state_with(&ph,Some(src))?;
         let mut p=self.blocks[&ph].meta_clone();p.state=self.blocks[&ph].state.clone();p.stored=self.blocks[&ph].stored.clone();
-        if (was_pruned||!was_full)&&ph!=*self.canonical.genesis(){let x=self.blocks.get_mut(&ph).unwrap();x.state=empty_state();x.stored=None;x.full=false;x.pruned=was_pruned;}
+        // C-1 S5: an anchor keeps its version (the next rebuild starts there).
+        if (was_pruned||!was_full)&&ph!=*self.canonical.genesis(){let anchor=self.is_anchor(&ph);let x=self.blocks.get_mut(&ph).unwrap();x.state=empty_state();if !anchor{x.stored=None;}x.full=false;x.pruned=was_pruned;}
         let mut n=0;
         for hgt in first..=last{
             let hash=self.canonical[hgt as usize];let er=self.meta_restored(&hash,Some(src))?;let e=&er;
@@ -1328,8 +1372,10 @@ impl Chain{
             while let Some(h)=c{let Some(e)=self.blocks.get(&h) else{break};if e.height<lo{break}if e.slim{below.push(h)}c=e.parent;}
             for h in below.into_iter().rev(){let x=self.restored(&self.blocks[&h],Some(src))?.into_owned();self.shadow_push(x);}
         }
-        // The blocks above the root get diffs and the target a state (`prune_cursor`).
-        self.unprune(root.height+1);
+        // The blocks above the root get diffs and the target a state (`prune_cursor`). C-1 S5: an anchor that is the
+        // target itself (its version is the root) is walked again by the next prune too, which keeps its version and
+        // prunes the rest, as a replay that never rebuilt it holds it.
+        self.unprune(if path.is_empty()&&self.is_anchor(hash){root.height}else{root.height+1});
         // A13: rolling re-execution. Only the block being extended holds a state; intermediate
         // states are dropped, so a rebuild of any depth keeps at most two snapshots alive.
         let mut p=root.meta_clone();p.state=root_state;p.stored=root_stored;
@@ -1423,9 +1469,10 @@ impl Chain{
     pub(crate) fn retention_reset(&mut self){self.prune_cursor=self.canonical.base().max(1);self.orphan_check=true;self.side=self.side_scan();}
     /// The non-canonical entries by a walk over every entry (what `side` holds).
     fn side_scan(&self)->std::collections::HashSet<[u8;32]>{self.blocks.values().filter(|e|e.height>0&&!self.is_canonical(&e.hash)).map(|e|e.hash).collect()}
-    /// `prune_cursor`'s invariant: every canonical block at a height in 1..prune_cursor is pruned.
+    /// `prune_cursor`'s invariant: every canonical block at a height in 1..prune_cursor is pruned (an anchor keeps
+    /// its stored version, and nothing else).
     pub fn prune_holds(&self)->bool{
-        (self.canonical.base().max(1)..self.prune_cursor).all(|h|self.canonical.get(h as usize).and_then(|x|self.blocks.get(x)).map_or(true,|e|e.pruned&&e.stored.is_none()&&!e.full&&e.diff.is_none()))
+        (self.canonical.base().max(1)..self.prune_cursor).all(|h|self.canonical.get(h as usize).and_then(|x|self.blocks.get(x)).map_or(true,|e|e.pruned&&(e.stored.is_none()||self.is_anchor(&e.hash))&&!e.full&&e.diff.is_none()))
     }
     /// Whether `hash` is on the current canonical chain.
     pub fn is_canonical(&self,hash:&[u8;32])->bool{self.blocks.get(hash).map(|e|self.canonical.get(e.height as usize)==Some(hash)).unwrap_or(false)}

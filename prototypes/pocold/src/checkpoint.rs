@@ -14,8 +14,8 @@
 //! entry's block hash, the parent must be restored, the total work must follow from it); every stored
 //! version's root against the block's committed stateRoot; and every node of every stored version read, each
 //! checked against its id, with each version's summary recomputed and compared with the sealed one. A version
-//! whose parent's version was read is read through what differs from it (`NodeTrie::diff`, about one block's
-//! writes); the others whole. Every state served afterwards is read through hash-checked nodes from a root the
+//! with an ancestor whose version was read is read through what differs from the nearest one (`NodeTrie::diff`:
+//! about one block's writes from the parent, a few blocks' from a rebuild anchor); the others whole. Every state served afterwards is read through hash-checked nodes from a root the
 //! consensus committed.
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -289,15 +289,19 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
         if (e.height,e.hash)<=last&&i>0{return Err(why("entries out of order"))}last=(e.height,e.hash);
         let mut e=e;e.pruned=r.flags&F_PRUNED!=0;e.full=r.flags&F_FULL!=0;e.import_seq=r.import_seq;e.cum_txs=r.cum_txs;e.cum_tx_bytes=r.cum_tx_bytes;e.cum_log_bytes=r.cum_log_bytes;e.drawn=r.drawn;e.is_final=r.flags&F_FINAL!=0;
         // Every node of every stored version is read: each is checked against its id as it is read, a node that
-        // is missing marks the store damaged, and the summary must be the sealed one. A version whose parent's
-        // version was read here is read through what differs from it (2026-10-27: reading each whole took about
-        // 17 s a version at the network's state caps, evidence/memory-r14/scale-d30dc71): the nodes the diff does not
-        // read are the parent's, read already, and `Summary::moved` carries the parent's summary through the
-        // accounts and slots that differ, as an import does. The oldest version, and any whose parent's was not
-        // read, is read whole. A slimmed entry may still hold its version (a slim depth below K_hist): it keeps no
-        // summary, which execution then computes from the version (`Chain::execute`); the version is still read.
+        // is missing marks the store damaged, and the summary must be the sealed one. A version with an ancestor
+        // whose version was read here is read through what differs from the nearest such one (2026-10-27: reading
+        // each whole took about 17 s a version at the network's state caps, evidence/memory-r14/scale-d30dc71): the
+        // nodes the diff does not read are that ancestor's, read already, and `Summary::moved` carries its summary
+        // through the accounts and slots that differ (`NodeTrie::diff` lists exactly those between any two versions,
+        // so this holds across several blocks: C-1 S5, from an anchor to the window above the K_hist cut, or from
+        // genesis). The oldest version, and any with no read ancestor among the entries (the lowest anchor of a
+        // window above height 1), is read whole. A slimmed entry may still hold its version (a slim depth below
+        // K_hist): it keeps no summary, which execution then computes from the version (`Chain::execute`); the
+        // version is still read.
         if let Some(pin)=&e.stored{
-            let base=e.parent.and_then(|h|blocks.get(&h)).and_then(|p|Some((p.stored.clone()?,*read_sums.get(&p.hash)?)));
+            let mut a=e.parent.and_then(|h|blocks.get(&h));while let Some(p)=a{if p.stored.is_some()&&read_sums.contains_key(&p.hash){break}a=p.parent.and_then(|h|blocks.get(&h));}
+            let base=a.and_then(|p|Some((p.stored.clone()?,*read_sums.get(&p.hash)?)));
             let got=std::panic::catch_unwind(std::panic::AssertUnwindSafe(||match &base{
                 Some((p,sum))=>sum.moved(&p.view(),&pin.view(),&p.trie.diff(&**store,&pin.trie)),
                 None=>Summary::scan_view(&pin.view(),code_max)})).map_err(|_|why("the stored version could not be read"))?;
@@ -319,7 +323,13 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
     }
     // Every entry but the window's lowest follows from a restored parent, so the head's path ends at genesis or there.
     c.blocks=blocks;c.head=s.head;c.canonical=crate::chain::Canon::at_base(gh,s.canon_base);c.rebuild_canonical();
-    c.retention_reset();c.next_seq=s.next_seq;c.slim_cursor=s.slim_cursor;c.history_cursor=s.history_cursor;c.evicted_total=s.evicted_total;c.anchor_cursor=s.anchor_cursor;
+    // C-1 S5: the anchors are the canonical entries at or below the K_hist cut that hold a stored version at a height
+    // the anchor step divides (what `prune_window` leaves at a checkpoint); none holds one below the cut otherwise.
+    let cut=c.head().height.saturating_sub(c.k_hist);
+    c.anchors=c.anchor_step.map_or_else(Vec::new,|st|c.canonical.iter_from(c.canonical.base().max(1) as usize).filter_map(|h|c.blocks.get(h)).take_while(|e|e.height<=cut)
+        .filter(|e|e.stored.is_some()&&e.height%st==0).map(|e|(e.height,e.hash)).collect());
+    let top=c.anchors.last().map_or(0,|a|a.0);
+    c.retention_reset();c.next_seq=s.next_seq;c.slim_cursor=s.slim_cursor;c.history_cursor=s.history_cursor;c.evicted_total=s.evicted_total;c.anchor_cursor=s.anchor_cursor.max(top);
     c.unslimmed=s.unslimmed.clone();c.evicted_order=s.evicted_order.iter().copied().collect();c.evicted=evicted;
     Ok(read)
 }

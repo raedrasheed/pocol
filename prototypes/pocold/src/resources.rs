@@ -631,15 +631,16 @@ pub fn slim_entry_bytes()->Option<u128>{add(&[entry_bytes()?,64])}
 /// C-1 S5 (PR7 §2.1): the eviction depth E of a node whose replay uses R_keep `rk_replay`: Ok(None) when it is off
 /// (`Limits::evict_depth` Some(0)). E must keep every entry a verdict, a rebuild's evidence walk or an anchor's
 /// BLOCKHASH window reads above the floor (A13-DERIVATION §2g): it is at least E_min, the largest of the slim depth,
-/// 2·R_keep + E_win + 258 and, in store mode (rebuild anchors every R_keep heights, kept for 2·R_keep + 2 blocks),
-/// 2·R_keep + 2 + R_keep + max(257, E_win + 1). The default is max(slim depth + R_keep, E_min); a configured depth
-/// below E_min is refused, naming the term it fails.
-pub fn evict_depth_of(cp:&ConsensusParams,limits:&Limits,rk_replay:u64)->Result<Option<u64>,String>{
+/// 2·R_keep + E_win + 258 and, in store mode (rebuild anchors every R_keep heights at or below the K_hist cut, the
+/// newest one at least lag = 2·R_keep + 2 below the head kept: `Chain::retain_anchors`), max(lag, K_hist) + R_keep +
+/// max(257, E_win + 1), so that newest anchor's BLOCKHASH and evidence windows stay above the floor. The default is
+/// max(slim depth + R_keep, E_min); a configured depth below E_min is refused, naming the term it fails.
+pub fn evict_depth_of(cp:&ConsensusParams,k_hist:u32,limits:&Limits,rk_replay:u64)->Result<Option<u64>,String>{
     let rk=rk_replay.max(limits.r_keep);let e_win=u64::from(cp.E_win);
     let depth=limits.slim_depth.unwrap_or(rk.saturating_mul(2).saturating_add(e_win).saturating_add(257));
-    let keep=257u64.max(e_win+1);
+    let keep=257u64.max(e_win+1);let lag=rk.saturating_mul(2).saturating_add(2);
     let mut terms=vec![("the slim depth",depth),("2·R_keep + E_win + 258",rk.saturating_mul(2).saturating_add(e_win).saturating_add(258))];
-    if limits.state_store{terms.push(("the store-mode anchor lag 2·R_keep + 2 + R_keep + max(257, E_win + 1)",rk.saturating_mul(3).saturating_add(2).saturating_add(keep)));}
+    if limits.state_store{terms.push(("the store-mode anchor reach max(2·R_keep + 2, K_hist) + R_keep + max(257, E_win + 1)",lag.max(u64::from(k_hist)).saturating_add(rk).saturating_add(keep)));}
     let (name,e_min)=terms.iter().copied().max_by_key(|t|t.1).unwrap();
     match limits.evict_depth{
         Some(0)=>Ok(None),

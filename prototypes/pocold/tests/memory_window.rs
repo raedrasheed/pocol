@@ -40,7 +40,7 @@ impl BlockBytes for NoIndex{fn record_at(&self,_:u64)->Result<(Vec<u8>,Vec<u8>,V
 #[test] fn long_chain_heap_is_flat(){
     let d=devnet::build(&cfg()).unwrap();let keys:HashMap<Address,Key>=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
     let limits=pocold::node::Limits{r_keep:8,side_cap:8,slim_depth:Some(20),..Default::default()};
-    let e=pocold::resources::evict_depth_of(admitted().cp(),&limits,8).unwrap().unwrap();let n=e as usize+2000;
+    let e=pocold::resources::evict_depth_of(admitted().cp(),admitted().local().k_hist,&limits,8).unwrap().unwrap();let n=e as usize+2000;
     let blocks={let mut b=Chain::new(admitted());let mut v=Vec::with_capacity(n);
         for _ in 0..n{let x=next(&b,&keys);let (en,_)=b.validate(&x,None,0).unwrap();b.insert(en);b.retain();v.push(x);}v};
     let mut c=Chain::new(admitted());c.r_keep=8;c.side_cap=8;c.slim_depth=Some(20);c.history_window=Some(32);c.evict_depth=Some(e);c.evict_batch=8+2*8+2;

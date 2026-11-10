@@ -145,11 +145,12 @@ impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option
     let mut s=full.clone();s.entries.retain(|r|height[&r.hash]==0||height[&r.hash]>=base);(s.canon_base,s.base_parent,s.base_parent_work)=(base,below.hash,below.total_work);
     assert_eq!(decode(&encode_snapshot(&s)).unwrap(),s,"format 2 reads back");
     let v1=decode(&encode_v1(&full)).unwrap();
-    assert_eq!(v1,Snapshot{v1:true,params:Params{evict_depth:None,anchor_step:None,..full.params},..full.clone()},"format 1 reads back, without the new fields");
+    assert!(full.anchor_cursor>0,"positive control: the forward prune moved the anchor cursor");
+    assert_eq!(v1,Snapshot{v1:true,params:Params{evict_depth:None,anchor_step:None,..full.params},anchor_cursor:0,..full.clone()},"format 1 reads back, without the new fields");
     let spec=admitted();let gh=spec.genesis_hash();
     let rec=pocold::store::open(&dir,&gh).unwrap();let history=pocold::history::History::open(&dir).unwrap();
     let st:std::sync::Arc<dyn pocol_lp4_execution::node_trie::TrieStore>=std::sync::Arc::new(pocold::state_store::StateStore::open(&dir).unwrap());
-    let fresh=||{let mut c=Chain::new(admitted());let p=&full.params;(c.r_keep,c.side_cap,c.history_window,c.slim_depth,c.keep_full_states,c.evict_depth)=(p.r_keep,p.side_cap as usize,p.history_window,p.slim_depth,p.keep_full,p.evict_depth);
+    let fresh=||{let mut c=Chain::new(admitted());let p=&full.params;(c.r_keep,c.side_cap,c.history_window,c.slim_depth,c.keep_full_states,c.evict_depth,c.anchor_step)=(p.r_keep,p.side_cap as usize,p.history_window,p.slim_depth,p.keep_full,p.evict_depth,p.anchor_step);
         c.enable_store(st.clone()).unwrap();c};
     let go=|c:&mut Chain,s:&Snapshot,ix:&dyn CanonIndex|restore(c,s,&JournalSource{offsets:&rec.offsets,journal:&rec.journal,records:rec.offsets.len(),history:&history,canon:ix},&st);
     let mut c=fresh();

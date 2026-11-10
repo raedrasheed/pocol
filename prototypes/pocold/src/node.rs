@@ -466,7 +466,7 @@ impl Node{
         std::fs::create_dir_all(&cfg.dir).map_err(|e|format!("data directory: {e}"))?;
         let rk_replay=retention_rkeep(&cfg.dir,cfg.limits.r_keep).map_err(|e|format!("retention.rkeep: {e}"))?;
         // C-1 S5: the eviction depth, from that R_keep, set once in the limits so that A13 and the chain use one value.
-        let evict=crate::resources::evict_depth_of(spec.cp(),&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
+        let evict=crate::resources::evict_depth_of(spec.cp(),spec.local().k_hist,&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
@@ -494,7 +494,9 @@ impl Node{
         let t=Instant::now();let history=crate::history::History::open(&cfg.dir).map_err(|e|format!("history: {}",e.0))?;timing.history_open_ms=ms(t);
         // C-1 S5: an index created now holds nothing a snapshot based above height 1 needs (replay refills it).
         let canon_kept=cfg.dir.join(canon::FILE).exists();let mut canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;
-        chain.evict_depth=evict;chain.evict_batch=(cfg.limits.side_cap as u64).saturating_add(2*rk_replay.max(cfg.limits.r_keep)).saturating_add(2);chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
+        // C-1 S5 (PR7 §2.4): in store mode a rebuild anchor every R_keep heights below the K_hist cut.
+        let rk=rk_replay.max(cfg.limits.r_keep);
+        chain.evict_depth=evict;chain.evict_batch=(cfg.limits.side_cap as u64).saturating_add(2*rk).saturating_add(2);chain.anchor_step=cfg.limits.state_store.then_some(rk);chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
         // C-1 S4: deeper than any fork (R_keep), a head that fell back by R_keep, the evidence window and
         // the 256-ancestor window: no validation reads a slimmed entry unless the head fell back further.
         chain.slim_depth=Some(cfg.limits.slim_depth.unwrap_or(2*rk_replay.max(cfg.limits.r_keep)+u64::from(chain.spec.cp().E_win)+257));
