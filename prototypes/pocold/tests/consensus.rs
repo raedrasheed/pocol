@@ -4503,3 +4503,31 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert_eq!(n.status_json()["stats"]["parkedEvicted"].as_u64(),Some(2));
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR6 second review (parked relay): a parked transaction is neither executed nor paid, and a full set lets a
+/// newcomer declaring less evict an entry whose sender may park again at the same nonce, so relaying every parked
+/// transaction made the relays per head unbounded and free. Now a transaction is relayed when parked only if it
+/// evicted nothing and fewer than `parked_max` were relayed when parked since the last head; any other one is
+/// relayed when it is admitted at a later head. With a set of three: ivy's run and bob's transfer are relayed (three);
+/// hank's evicts ivy's run and is not relayed; jill's enters a free slot past the three and is not relayed. After a
+/// head the count starts again. Before the fix all five were relayed.
+#[test] fn parked_relays_are_bounded_per_head(){
+    use pocold::node::POOL_PARKED;
+    let mut c=cfg_funded();for l in ["hank","ivy","jill"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+    let mut h=net_with(&c);let g=h.chain.head;
+    let (mut n,dir)=gas_node_cfg("park-relay",Default::default(),&c,None);
+    let relayed=|n:&pocold::node::Node|n.status_json()["stats"]["parkedRelayed"].as_u64().unwrap();
+    let big:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    n.set_pool_parked_max(3);let ivy=key("ivy");
+    for t in [pay_gas(&ivy,0,1,1_000_000),pay(&ivy,1,1),pay(&key("bob"),0,1)]{assert_eq!(n.submit_tx(t,true).unwrap_err(),POOL_PARKED);}
+    assert_eq!(relayed(&n),3,"three relayed when parked");
+    let hk=pay_gas(&key("hank"),0,1,500_000);assert_eq!(n.submit_tx(hk.clone(),true).unwrap_err(),POOL_PARKED);
+    assert_eq!((n.pool_parked().len(),relayed(&n)),(2,3),"hank's evicted ivy's run and is not relayed");
+    let jl=pay(&key("jill"),0,1);assert_eq!(n.submit_tx(jl.clone(),true).unwrap_err(),POOL_PARKED);
+    assert_eq!((n.pool_parked().len(),relayed(&n)),(3,3),"jill's is parked past the head's relays and is not relayed");n.pool_audit().unwrap();
+    let x=branch(&mut h,g,1,&[Body{txs:vec![big[0].clone()],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();
+    let p=pool(&mut n);assert!(p.contains(&hk)&&p.contains(&jl),"admitted at the head (and relayed then)");n.pool_audit().unwrap();
+    assert_eq!(n.submit_tx(pay_gas(&key("carol"),1,1,GL),true).unwrap_err(),POOL_PARKED);
+    assert_eq!(relayed(&n),4,"a new head starts the count again");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}

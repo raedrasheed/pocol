@@ -425,7 +425,10 @@ three terms: one up and two down. It also withdraws one projection.
      transaction is never included or paid; and at equal declared gas a newcomer that would be its sender's first
      parked one evicts the last entry of the longest run, so a run of cheap transactions cannot set the eviction
      floor for many slots (filling the set at 21,000 takes one funded sender per slot, each entry valid and
-     included and paid unless its sender pays to invalidate it). A parked transaction is relayed when parked and is a template
+     included and paid unless its sender pays to invalidate it). A parked transaction is relayed when parked (PR6
+     second review: only one that evicted nothing, at most POOL_PARKED_MAX since the last head, offered so a busy
+     peer is kept; any other is relayed when admitted at a later head, so eviction churn cannot make the relays per
+     head unbounded and unpaid) and is a template
      candidate (after the pooled ones, before the backlog), so cheap transactions that hold the declared-gas
      bound right after a head delay no valid transaction past the next block, and do not limit a sender to one
      transaction per block;

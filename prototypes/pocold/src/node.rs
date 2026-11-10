@@ -167,7 +167,8 @@ pub const POOL_FULL_GAS:&str="-32016 pool full (gas)";
 /// (PR6 P1, `pool_sender_gas_bound`).
 pub const POOL_FULL_SENDER:&str="-32016 pool full (sender gas)";
 /// `admit_tx`'s answer for a valid transaction refused only by the pool's gas bound and held (parked) to be
-/// admitted at the next head, ahead of later arrivals (PR6 P2). It is neither executed nor relayed yet.
+/// admitted at the next head, ahead of later arrivals (PR6 P2). It is not executed; it is relayed now only within
+/// `park`'s bound (PR6 second review), else when admitted.
 pub const POOL_PARKED:&str="-32016 pool full (gas): held for the next block";
 
 pub fn now_ms()->u128{SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()}
@@ -221,8 +222,10 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
     /// PR6 P2: transactions refused only by the gas bound and held for the next head (at most `parked_max`
     /// <= POOL_PARKED_MAX; per sender a run of its next nonces, in arrival order); their bytes share POOL_MAX_BYTES
     /// with `txs` and the backlog; and the arrival counter that orders them. PR6 review: they are template
-    /// candidates and are relayed when parked.
-    parked:Vec<Parked>,parked_bytes:usize,park_seq:u64,parked_max:usize}
+    /// candidates and are relayed when parked (PR6 second review: within `parked_relays`).
+    parked:Vec<Parked>,parked_bytes:usize,park_seq:u64,parked_max:usize,
+    /// PR6 second review: the transactions relayed when parked since the last head (at most `parked_max`).
+    parked_relays:usize}
 /// A parked transaction (PR6 P2): its declared gas, nonce, arrival, its sender's run (the declared gas and arrival
 /// of the sender's first parked one, which orders the run at the next head), sender, hash, its cost at its fee cap
 /// (gas_limit × fee cap + value), how it is relayed once admitted, and its bytes.
@@ -746,7 +749,7 @@ impl Node{
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let mut node=Self{cfg,chain,net,disc,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
@@ -1209,7 +1212,8 @@ impl Node{
     /// room, at equal declared gas, for its sender's first one). Refused before parking: what the engine refuses
     /// before execution (`pre_execution`, in `admit_tx`). A parked transaction is a template candidate
     /// (`template_selection`) and is relayed now (PR6 review): the drawn proposer can take it in the next block
-    /// even while the gas bound is held. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
+    /// even while the gas bound is held; PR6 second review: only one that evicted nothing, at most `parked_max` per
+    /// head, offered; another is relayed when admitted at a later head. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
     fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay)->&'static str{
         use pocol_lp4_execution::view::View;
         let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
@@ -1219,7 +1223,9 @@ impl Node{
         let cost=U256::from(tx.gas_limit).checked_mul(tx.gas_price).and_then(|c|c.checked_add(tx.value));
         let total=cost.and_then(|c|spent.and_then(|s|s.checked_add(c)));
         if tx.nonce!=Some(next)||total.is_none_or(|c|acct.balance<c)||tx.gas_price<self.next_block_ctx().base_fee{return POOL_FULL_GAS}
+        let mut evicted=false;
         while self.pool.parked.len()>=self.pool.parked_max||self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{
+            evicted=true;
             let Some(i)=(0..self.pool.parked.len()).max_by_key(|&i|(self.pool.parked[i].gas,self.pool.parked[i].seq)) else{return POOL_FULL_GAS};
             let (s,k)=(self.pool.parked[i].sender,self.pool.parked[i].nonce);
             if self.pool.parked[i].gas>tx.gas_limit&&s!=tx.caller{
@@ -1238,7 +1244,13 @@ impl Node{
             let x=self.pool.parked.remove(j);self.pool.parked_bytes-=x.raw.len();self.stats.parked_evicted+=1;
         }
         self.pool.parked_bytes+=raw.len();self.pool.park_seq+=1;let seq=self.pool.park_seq;
-        let relay=if relay==Relay::Gossip{self.broadcast(&Msg::Tx{raw:raw.clone()},None);self.stats.parked_relayed+=1;Relay::No}else{relay};
+        // PR6 second review: relayed now only when it evicted nothing and fewer than `parked_max` were relayed when
+        // parked since the last head, and offered (a peer with half its queue in use does not get it and is kept):
+        // eviction lets a sender park again at the same nonce, so relaying every parked one let the relays per head
+        // grow without bound and unpaid. Any other one keeps its relay and is relayed when admitted at a later head.
+        let relay=if relay==Relay::Gossip&&!evicted&&self.pool.parked_relays<self.pool.parked_max{
+            let m=Msg::Tx{raw:raw.clone()};for p in self.peers.values(){let _=p.offer(&m);}
+            self.pool.parked_relays+=1;self.stats.parked_relayed+=1;Relay::No}else{relay};
         self.pool.parked.push(Parked{gas:tx.gas_limit,nonce:next,seq,run:run.unwrap_or((tx.gas_limit,seq)),sender:tx.caller,hash,cost:cost.unwrap_or_default(),relay,raw});
         POOL_PARKED
     }
@@ -1277,7 +1289,7 @@ impl Node{
         // re-admitted after the waiting small ones, so they cannot hold the gas bound against them across heads.
         // One refused for the gas bound here is parked again when eligible (`park`), not dropped.
         let old=std::mem::take(&mut self.pool.txs);let meta=std::mem::take(&mut self.pool.meta);let rest=std::mem::take(&mut self.pool.backlog);
-        let mut parked=std::mem::take(&mut self.pool.parked);self.pool.backlog_bytes+=std::mem::take(&mut self.pool.parked_bytes);
+        let mut parked=std::mem::take(&mut self.pool.parked);self.pool.backlog_bytes+=std::mem::take(&mut self.pool.parked_bytes);self.pool.parked_relays=0;
         parked.sort_by_key(|x|(x.run,x.nonce));
         self.pool.bytes=0;self.pool.gas=0;self.pool.pending=Default::default();self.pool.pending_base=chain::StateHandle::of(self.chain.head());
         let (meter,code)=pool_start(self.chain.head(),&self.chain.spec);self.pool.code_total=code;self.pool.meter=meter;
