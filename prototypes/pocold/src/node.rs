@@ -220,6 +220,24 @@ pub const POOL_MAX_BYTES:usize=32*1024*1024;
 /// Local limit on pooled transactions (about ten blocks of plain transfers): every new head
 /// re-executes the pool, so its length bounds that work.
 pub const POOL_MAX_TXS:usize=4096;
+/// PR6 B3: the most pool and backlog candidates one template selection decodes (each decode recovers a
+/// signature). A backlog flooded during revalidation can hold POOL_MAX_BYTES/MIN_TX_BYTES transactions.
+pub const BUILD_VISIT_MAX:usize=POOL_MAX_TXS;
+/// The smallest gas a transaction can use and the smallest raw transaction (resources::TX_GAS_MIN,
+/// resources::MIN_TX_BYTES): the selection stops once less than either is left.
+const TX_GAS_MIN:u64=crate::resources::TX_GAS_MIN as u64;const MIN_TX_BYTES:u64=crate::resources::MIN_TX_BYTES as u64;
+/// Encoded body item length (RLP string header included); the three list headers take <= 12 bytes.
+fn enc(n:usize)->usize{n+1+if n<56{0}else if n<256{1}else if n<65536{2}else{3}}
+/// A pool transaction the selection left out only because it did not fit by gas (PR6 B2), or a later one of
+/// its sender; `build_signed_template`'s append round (B5) may add it within the room the real build left.
+#[derive(Clone,Debug)]
+pub struct Cand{pub sender:Address,pub gas_limit:u64,pub raw:Vec<u8>}
+/// A template selection (`Node::template_selection`): the transactions in block order, the candidates kept
+/// for the append round (`rest`, in pool order, at most BODY_MAX bytes and the TX_CAP room), the gas counted
+/// for `txs` (gas used, or declared gas where `fallback`), and whether declared gas was counted (no checked
+/// parent state).
+#[derive(Clone,Debug,Default)]
+pub struct Selection{pub txs:Vec<Vec<u8>>,pub rest:Vec<Cand>,pub counted:u64,pub fallback:bool}
 /// Decision D-7 (approved 2026-10-25, local pool policy): by default the pooled transactions' declared gas
 /// limits sum to at most this many GAS_LIMITs. It bounds the gas a new head re-executes and what the
 /// pending layer can hold; it bounds no execution time (gas is not time), which the slices do.
@@ -337,7 +355,9 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// worked off before reading a checkpoint.
     pub release_steps:u64,pub release_step_max_ms:u64,pub released_rows:u64,pub released_at_open:u64,
     /// Where the last open spent its time (`OpenTiming`).
-    pub open:OpenTiming}
+    pub open:OpenTiming,
+    /// PR6: template selections that counted declared gas (no checked parent state; never in production).
+    pub template_gas_fallbacks:u64}
 /// 2026-10-28: the time (ms) each step of `Node::open` took, so an open's cost can be attributed: reading the
 /// journal (every record's payload, its frame offsets and rolling hashes), opening history.redb and state.redb
 /// (redb's full integrity check of every page included), the release at open, reading and checking the
@@ -1076,48 +1096,107 @@ impl Node{
         q.extend(rest);self.pool.backlog=q;
         self.pool_step();
     }
-    /// Pool transactions that still execute in order (for a signed template on `p`). execution.md:83: a
+    /// Pool transactions that still execute in order (for a signed template on `p`), as selected now:
+    /// `template_selection(p, now_s()).txs`.
+    pub fn template_txs(&self,p:&Entry)->Vec<Vec<u8>>{self.template_selection(p,now_s()).txs}
+    /// The execution context of a child of `p` exactly as `build_signed` at `clock` gives it (PR6 B1): its
+    /// base fee, prevrandao, proposer timestamp and BLOCKHASH window. None when p has no draw context (the
+    /// selection then uses `child_block_ctx`).
+    fn template_ctx(&self,p:&Entry,clock:u64)->Option<(NativeBlockContext,Vec<(u64,B256)>)>{
+        let ctx=self.chain.child_ctx(p,0).ok()?;let ts=ctx.window.proposer_timestamp(clock).ok()?;
+        Some((NativeBlockContext{height:U256::from(p.height+1),timestamp:U256::from(ts),gas_limit:U256::from(self.chain.spec.cp().GAS_LIMIT),base_fee:ctx.base_fee,prevrandao:ctx.prevrandao},ctx.ancestors))
+    }
+    /// Pool transactions for a signed template on `p` built at `clock` (PR6). execution.md:83: a
     /// transaction that would pass TX_CAP or TXBYTES_CAP on p's branch (item 16, the accounting of
     /// `Chain::within_caps`) is skipped, and so are its sender's later ones (their nonces follow it).
-    pub fn template_txs(&self,p:&Entry)->Vec<Vec<u8>>{
-        let cp=self.chain.spec.cp();let mut out=Vec::new();let mut gas=0u64;let mut bytes=0usize;
-        let (mut room_txs,mut room_bytes)=self.chain.caps_room(p);let mut skipped=HashSet::new();
-        // Encoded item length (RLP string header included); the three list headers take <= 12 bytes.
-        let enc=|n:usize|n+1+if n<56{0}else if n<256{1}else if n<65536{2}else{3};
+    ///
+    /// Gas (PR6 B2): each candidate is executed on p's state in the block's own context (B1) and counted at
+    /// the gas it uses (post-refund, as `user_phase.rs:318`). It fits when its declared gas limit is at most
+    /// GAS_LIMIT minus the gas used so far, the consensus rule (`user_phase.rs:288`); one that does not fit
+    /// is skipped with its sender's later ones (kept in `rest` for the append round,
+    /// `build_signed_template`), and the selection goes on. Without a checked parent state (`sim` None: an
+    /// entry without its full state, tests only) declared gas is counted instead (`fallback`), valid by
+    /// construction. A transaction whose logs or state effects would pass a block cap (B4) is skipped: it
+    /// would halt in the block and be charged all its gas.
+    pub fn template_selection(&self,p:&Entry,clock:u64)->Selection{
+        let cp=self.chain.spec.cp();let mut sel=Selection::default();let mut used=0u64;let mut bytes=0usize;
+        let (room_txs0,room_bytes0)=self.chain.caps_room(p);let (mut room_txs,mut room_bytes)=(room_txs0,room_bytes0);
+        let mut skipped=HashSet::new();let mut gas_skipped=HashSet::new();let mut rest_bytes=0usize;
+        let body_room=cp.BODY_MAX as usize-12;
         // PR #27 review R1-1: a skipped transaction (no room, or not executable) can be what a later
         // transaction of another sender depends on, for example the transfer that funds it. Each candidate
         // is therefore executed, in order, on a running copy of the parent state, and one that fails
         // validation there is skipped with the rest of its sender's transactions, so the selection stays
         // executable and an independent transaction is not starved. (The block's SYSTEM phases run before
         // its USER phase; a transaction depending on them may still be dropped by build_signed_template's
-        // retry.) Without a checked parent state the selection is made as before.
-        let profile=self.chain.spec.profile();let ctx=self.child_block_ctx(p);
+        // retry.)
+        let profile=self.chain.spec.profile();
         // C-1 E3: on an overlay over p's state, not a copy of it.
         let handle=chain::StateHandle::of(p);
         let mut sim=if p.pruned||!p.full{None}else{summary_code_total(p,&self.chain.spec).map(|t|(pocol_lp4_execution::view::Overlay::new(&handle),t))};
+        // B1: the block's context, and on the simulation the BLOCKHASH window the block's overlay gets
+        // (`Job::run`). Pool admission keeps `next_block_ctx` (a validity pre-check that counts no gas).
+        let ctx=match sim.as_mut().and_then(|(st,_)|self.template_ctx(p,clock).map(|(c,anc)|{pocol_lp4_execution::view::WorkState::set_block_hashes(st,&anc);c})){Some(c)=>c,None=>self.child_block_ctx(p)};
+        // B4: the block caps a candidate's logs and state effects could reach (the pool's meter for
+        // SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX; logs exactly). Dirty keys and accounts are not modelled.
+        let mut meter=sim.as_ref().map(|_|pool_start(p,&self.chain.spec).0);let (mut log_count,mut log_bytes)=(0u64,0u64);
         // D-7: candidates are the admitted transactions, then the backlog's (each is executed here on p's
-        // state anyway); an abandoned block not yet expanded is not a candidate.
+        // state anyway); an abandoned block not yet expanded is not a candidate. B3: at most BUILD_VISIT_MAX
+        // are decoded (each decode recovers a signature).
         let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)=>Some(r),PoolItem::Block(_)=>None});
-        for raw in self.pool.txs.iter().map(|(_,r)|r).chain(backlog){
-            let Ok(env)=wire::decode_for_profile(raw,profile) else{continue};let tx=env.tx_env();
+        let cands:Vec<(revm::primitives::TxEnv,&Vec<u8>)>=self.pool.txs.iter().map(|(_,r)|r).chain(backlog).take(BUILD_VISIT_MAX)
+            .filter_map(|raw|wire::decode_for_profile(raw,profile).ok().map(|env|(env.tx_env().clone(),raw))).collect();
+        // B6: the oldest candidate declaring more than half a block, first in its sender's queue, is tried
+        // first (it always fits an empty block), so a transaction that needs most of a block waits a bounded
+        // time behind the small ones. If it fails here (for example it depends on another sender's
+        // transaction), the in-order pass meets it again.
+        let mut first_seen=HashSet::new();
+        let big=(0..cands.len()).find(|&i|first_seen.insert(cands[i].0.caller)&&cands[i].0.gas_limit>cp.GAS_LIMIT/2);
+        let mut big_in=false;
+        for (slot,i) in big.into_iter().map(|i|(true,i)).chain((0..cands.len()).map(|i|(false,i))){
+            let (tx,raw)=(&cands[i].0,cands[i].1);
+            if !slot&&big_in&&big==Some(i){continue}
+            // B3: nothing fits any more and nothing more can be kept for the append round.
+            if room_txs==0||room_bytes<MIN_TX_BYTES||bytes+enc(MIN_TX_BYTES as usize)>body_room{break}
+            let rest_full=rest_bytes>=cp.BODY_MAX as usize||sel.rest.len() as u64>=room_txs0;
+            if cp.GAS_LIMIT-used<TX_GAS_MIN&&rest_full{break}
             if skipped.contains(&tx.caller){continue}
-            if room_txs==0||raw.len() as u64>room_bytes{skipped.insert(tx.caller);continue}
-            if gas+tx.gas_limit>cp.GAS_LIMIT||bytes+enc(raw.len())>cp.BODY_MAX as usize-12{break}
-            if let Some((st,total))=&mut sim{
-                match native::execute_on_validated(&*st,*total,tx.clone(),&ctx,profile){
+            // `rest` (B5): a candidate skipped only because it did not fit by gas, and its sender's later ones.
+            let gas_skip=gas_skipped.contains(&tx.caller)||tx.gas_limit>cp.GAS_LIMIT-used;
+            if gas_skip&&!slot{
+                gas_skipped.insert(tx.caller);
+                if !rest_full{rest_bytes+=raw.len();sel.rest.push(Cand{sender:tx.caller,gas_limit:tx.gas_limit,raw:raw.clone()});}
+                continue}
+            // Other reasons skip the sender (its later nonces follow it); the big-first slot (B6) marks nothing.
+            let mut skip=|slot:bool|if !slot{skipped.insert(tx.caller);};
+            if gas_skip||raw.len() as u64>room_bytes||bytes+enc(raw.len())>body_room{skip(slot);continue}
+            let gas=match &mut sim{
+                Some((st,total))=>match native::execute_on_validated(&*st,*total,tx.clone(),&ctx,profile){
                     Ok(r)=>{
+                        // B4: a transaction that would halt on a block cap is left out.
+                        let logs=r.result.logs();let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));
+                        let log_cap=cp.H_END!=0&&p.cum_log_bytes.saturating_add(log_bytes+c)>user_phase::caps::LOG_CAP;
+                        if log_count+n>user_phase::caps::LOG_COUNT_MAX||log_bytes+c>user_phase::caps::LOG_BLOCK_MAX||log_cap{skip(slot);continue}
+                        if let Some(m)=&mut meter{let mut m2=*m;if m2.admit(&*st,&r.state).is_err(){skip(slot);continue}*m=m2;}
+                        log_count+=n;log_bytes+=c;let gas=r.result.gas_used();
                         let touched:Vec<Address>=r.state.keys().copied().collect();let before=pocol_lp4_execution::code_caps::code_of(&*st,&touched);
                         user_phase::commit_tx_on(st,r.state,true);
+                        // An arithmetic failure (unreachable for an engine result) ends the simulation: declared
+                        // gas is counted from here on.
                         match(before,pocol_lp4_execution::code_caps::code_of(&*st,&touched)){
-                            (Ok(b),Ok(a))=>match total.checked_sub(b).and_then(|t|t.checked_add(a)){Some(t)=>*total=t,None=>sim=None},_=>sim=None}
+                            (Ok(b),Ok(a))=>match total.checked_sub(b).and_then(|t|t.checked_add(a)){Some(t)=>*total=t,None=>{sim=None;sel.fallback=true}},_=>{sim=None;sel.fallback=true}}
+                        gas
                     }
-                    Err(_)=>{skipped.insert(tx.caller);continue}
-                }
-            }
-            gas+=tx.gas_limit;bytes+=enc(raw.len());room_txs-=1;room_bytes-=raw.len() as u64;out.push(raw.clone());
+                    // Pre-execution validation (nonce, balance, fee): no execution work, only this sender.
+                    Err(_)=>{skip(slot);continue}
+                },
+                None=>{sel.fallback=true;tx.gas_limit}
+            };
+            used+=gas;bytes+=enc(raw.len());room_txs-=1;room_bytes-=raw.len() as u64;sel.txs.push(raw.clone());
+            if slot{big_in=true;}
         }
-        debug_assert!(self.chain.within_caps(p,&out));
-        out
+        debug_assert!(self.chain.within_caps(p,&sel.txs));
+        sel.counted=used;sel
     }
 
     // ---------------- production (consensus §4) ----------------
@@ -1157,8 +1236,10 @@ impl Node{
                 }else{
                     let phi=self.capital_phi();
                     if now_s().saturating_add(phi)<ctx.window.lower(){if let Some(pr)=&mut self.prod{pr.mode=Mode::Propose{at_s:ctx.window.lower()-phi};}return;}
-                    let txs=self.template_txs(&p);
-                    if let Some(t)=self.build_signed_template(&p,txs){
+                    // B1: one clock for the selection and every build (one timestamp).
+                    let clock=now_s();let sel=self.template_selection(&p,clock);
+                    if sel.fallback{self.stats.template_gas_fallbacks+=1;}
+                    if let Some(t)=self.build_signed_template(&p,sel,clock){
                         // Persist the signing record (fsync) BEFORE broadcasting, so a crash can never
                         // leave us free to sign a different template for this (parent,height).
                         self.record_signed_a0(p.hash,ctx.height,template_id(&t.0.ut_raw),t.0.encoded.clone(),t.1.encode());
@@ -1177,7 +1258,8 @@ impl Node{
             self.lock_fallback(&p,a);
         }
     }
-    fn build_signed_template(&mut self,p:&Entry,mut txs:Vec<Vec<u8>>)->Option<(Header,Body)>{
+    fn build_signed_template(&mut self,p:&Entry,sel:Selection,clock:u64)->Option<(Header,Body)>{
+        let mut txs=sel.txs;
         self.cfg.miner.as_ref()?;
         let evidence=self.includable_evidence(p);
         let key=self.cfg.miner.as_ref()?;
@@ -1189,7 +1271,7 @@ impl Node{
             while body.encode().len()>self.chain.spec.cp().BODY_MAX as usize&&!body.txs.is_empty(){body.txs.pop();}txs=body.txs.clone();
             // Evidence alone over BODY_MAX (not reachable with E_max·EVID_BYTES_MAX < BODY_MAX): build without it.
             let effects=if body.encode().len()>self.chain.spec.cp().BODY_MAX as usize{body.evidence.clear();vec![]}else{effects};
-            match self.chain.build_signed(p,key,now_s(),body.clone(),effects){
+            match self.chain.build_signed(p,key,clock,body.clone(),effects){
                 Ok((h,_,_))=>return Some((h,body)),
                 Err(Reject::Local(why))=>self.fatal(&why),
                 Err(Reject::Block(why))=>{
@@ -1630,6 +1712,8 @@ impl Node{
         status["compatiblePeers"]=serde_json::json!(self.peer_status.len());
         // Gossip and inbound grouping (net::Limits::per_group_max).
         status["stats"]["relayedTemplates"]=serde_json::json!(self.stats.relayed_templates);
+        // PR6: the builder (gas used) and the pool's sender quota and parking.
+        status["stats"]["templateGasFallbacks"]=serde_json::json!(self.stats.template_gas_fallbacks);
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));

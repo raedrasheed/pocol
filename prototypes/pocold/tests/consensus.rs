@@ -4043,3 +4043,115 @@ fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
     limits.continuous_history=Some(0);let small=pocold::resources::derive(cp,32,2,&limits,3).unwrap();
     limits.continuous_history=Some(50_000);let larger=pocold::resources::derive(cp,32,2,&limits,3).unwrap();assert!(larger.total>small.total);
 }
+
+// ---------------- PR6: the pool and the honest builder count gas used, not declared gas ----------------
+const GL:u64=8_000_000;
+fn key(label:&str)->Key{devnet::account_key(label)}
+/// The test profile with four more funded senders (carol, erin, frank, gina); the node and the block-building
+/// `Net` use the same config, hence the same genesis.
+fn cfg_funded()->DevnetConfig{let mut c=cfg(&["a","b","c"]);for l in ["carol","erin","frank","gina"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}c}
+/// `cfg_funded` with a genesis a few seconds ago, so a signed template built now is inside its window (the
+/// production path builds at the wall clock).
+fn cfg_now()->DevnetConfig{let mut c=cfg_funded();c.g_ts=pocold::node::now_s()-10;c}
+fn gas_node_cfg(tag:&str,limits:pocold::node::Limits,c:&DevnetConfig,miner:Option<Key>)->(pocold::node::Node,std::path::PathBuf){
+    use pocold::node::{Config,Node};
+    let dir=std::env::temp_dir().join(format!("pocold-pr6-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    (Node::open(Config{dir:dir.clone(),name:tag.into(),miner,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits},admitted(c)).unwrap(),dir)
+}
+/// A transaction from `key` to `to` that declares `gas` and carries `data` non-zero bytes (16 gas each).
+fn send_gas(key:&Key,nonce:u64,to:Address,gas:u64,data:usize)->Vec<u8>{Tx{chain_id:777910,nonce,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas,to:Some(to),value:U256::from(1u64),data:vec![0x5a;data].into()}.sign_1559(key)}
+/// A signed block on `parent` in `h` carrying `txs` at `clock`, sealed (it must build).
+fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::Header,Reject>{
+    let p=h.chain.full_entry(&parent).unwrap();let ctx=h.chain.child_ctx(&p,0).unwrap();
+    h.chain.build_signed(&p,&h.keys[&ctx.proposer],clock,Body{txs,evidence:vec![]},vec![]).map(|(x,_,_)|x)
+}
+/// PR6 B2: the builder counts the gas a transaction uses, checks fit with the consensus rule (declared gas at
+/// most GAS_LIMIT minus the gas used so far, user_phase.rs:288) and skips one that does not fit instead of
+/// stopping. Four senders each pool a transfer that declares GAS_LIMIT (about 21,000 used), then bob pools three
+/// plain transfers: the template holds the first big one and bob's three, and the block uses 84,000 gas. Before
+/// PR6 the builder stopped at the second big one. The exact rule: after 21,000 used, a transaction declaring
+/// GAS_LIMIT - 21,000 fits and one declaring one more gas does not, which the block's own check confirms.
+#[test] fn the_builder_skips_a_transaction_that_does_not_fit_and_counts_gas_used(){
+    let c=cfg_funded();let mut h=net_with(&c);let bob=key("bob");
+    let (mut n,dir)=gas_node_cfg("fit",pocold::node::Limits{pool_gas_max:Some(8*GL),..Default::default()},&c,None);
+    let big:Vec<Vec<u8>>=["alice","carol","erin","frank"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    let small:Vec<Vec<u8>>=(0..3).map(|k|pay(&bob,k,1)).collect();
+    for t in big.iter().chain(&small){n.submit_tx(t.clone(),false).unwrap();}
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,[vec![big[0].clone()],small.clone()].concat(),"the first big transfer and bob's three; the other big ones are skipped");
+    let b=signed(&h,head.hash,Body{txs,evidence:vec![]},0);assert_eq!(b.header.gas_used,4*21000);
+    assert!(import(&mut h,&b),"the block validates");assert!(n.import(b,None).unwrap(),"and the node takes it as its head");
+    // The exact rule. alice declares 5M (the oldest big one, tried first) and uses 21,000.
+    let alice5=pay_gas(&key("alice"),0,1,5_000_000);
+    for (extra,fits) in [(0u64,true),(1,false)]{
+        let (mut m,d)=gas_node_cfg(&format!("exact{extra}"),Default::default(),&c,None);
+        let carol=pay_gas(&key("carol"),0,1,GL-21000+extra);
+        for t in [&alice5,&carol]{m.submit_tx(t.clone(),false).unwrap();}
+        let g=m.chain.head().clone();let txs=m.template_txs(&g);
+        if fits{assert_eq!(txs,vec![alice5.clone(),carol.clone()],"GAS_LIMIT - 21,000 fits after 21,000 used");}
+        else{assert_eq!(txs,vec![alice5.clone()],"one gas more does not");
+            let w=h.chain.full_entry(&h.chain.blocks[&head.hash].hash).unwrap();let lower=h.chain.child_ctx(&w,0).unwrap().window.lower();
+            match signed_at(&h,head.hash,vec![alice5.clone(),carol.clone()],lower){Err(Reject::Block(s))=>assert!(s.contains("User(\"Gas\")"),"{s}"),r=>panic!("the consensus rule refuses it too: {:?}",r.map(|x|x.gas_used))}}
+        drop(m);let _=std::fs::remove_dir_all(&d);
+    }
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 B2: a transaction skipped for gas is skipped with its sender's later ones (their nonces follow it), and
+/// the selection goes on with the other senders. carol's transfer declares GAS_LIMIT and uses 981,000 (60,000
+/// non-zero data bytes); alice's second declares 7.5M, more than is left, so alice's third is left out with it
+/// and bob's is still taken. Before PR6 the builder stopped after carol's.
+#[test] fn the_builder_keeps_nonce_order_when_it_skips(){
+    let c=cfg_funded();let mut h=net_with(&c);let (alice,bob)=(key("alice"),key("bob").address());
+    let (mut n,dir)=gas_node_cfg("order",Default::default(),&c,None);
+    let carol=send_gas(&key("carol"),0,bob,GL,60_000);
+    let (a0,a1,a2)=(send_gas(&alice,0,bob,21000,0),send_gas(&alice,1,bob,GL-500_000,0),send_gas(&alice,2,bob,21000,0));let b0=pay(&key("bob"),0,1);
+    for t in [&carol,&a0,&a1,&a2,&b0]{n.submit_tx(t.clone(),false).unwrap();}
+    assert_eq!(n.pool.txs.len(),5);
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,vec![carol.clone(),a0.clone(),b0.clone()],"alice's second does not fit and her third follows it out; bob's is taken");
+    let b=signed(&h,head.hash,Body{txs,evidence:vec![]},0);assert_eq!(b.header.gas_used,981_000+2*21000);
+    assert!(import(&mut h,&b),"the block validates (nonce order kept)");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 B1/B2: the production path selects on the parent's own checked state (the drawn proposer's node signs a
+/// template on a normal pool): no declared-gas fallback, and the template carries exactly the selection.
+#[test] fn production_uses_the_simulation(){
+    let c=cfg_now();let h=net_with(&c);let g=h.chain.head;let gp=h.chain.full_entry(&g).unwrap();
+    let prop=h.chain.child_ctx(&gp,0).unwrap().proposer;let miner=Key::from_secret(&h.keys[&prop].secret()).unwrap();
+    let (mut n,dir)=gas_node_cfg("prod",Default::default(),&c,Some(miner));let (alice,bob)=(key("alice"),key("bob"));
+    let txs=vec![pay(&alice,0,1),pay_gas(&alice,1,1,1_000_000),pay(&bob,0,1),pay_gas(&key("carol"),0,1,GL)];
+    for t in &txs{n.submit_tx(t.clone(),false).unwrap();}
+    let expected=n.template_txs(&n.chain.head().clone());assert_eq!(expected.len(),4,"all fit by gas used");
+    n.start_production();
+    let st=n.status_json();assert_eq!(st["stats"]["signedTemplates"].as_u64(),Some(1),"the node signed its template: {}",st["production"]);
+    assert_eq!(st["stats"]["templateGasFallbacks"].as_u64(),Some(0),"selected on the simulation");
+    let t=decode_header(&unhex(n.template_json()["header"].as_str().unwrap()).unwrap()).unwrap();
+    let want=signed_at(&h,g,expected,t.ts).unwrap();
+    assert_eq!((t.tx_root,t.gas_used),(want.tx_root,want.gas_used),"the template carries the selection");
+    assert_eq!(t.gas_used,3*21000+21000);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 B1: the selection runs in the block's own context. A contract stores one word at a memory offset taken
+/// from PREVRANDAO + TIMESTAMP + BLOCKHASH(NUMBER-1), so the gas it uses depends on all three; the gas the
+/// selection counts equals the built block's gas used, at two timestamps that give different gas.
+#[test] fn the_simulation_context_is_the_blocks(){
+    let c=cfg(&["a","b","c"]);let mut h=net_with(&c);let g=h.chain.head;let alice=key("alice");
+    let (mut n,dir)=gas_node_cfg("ctx",Default::default(),&c,None);
+    // PREVRANDAO TIMESTAMP ADD PUSH1 1 NUMBER SUB BLOCKHASH ADD PUSH2 0x0fff AND PUSH1 5 SHL PUSH1 1 SWAP1 MSTORE STOP
+    let runtime=vec![0x44,0x42,0x01,0x60,0x01,0x43,0x03,0x40,0x01,0x61,0x0f,0xff,0x16,0x60,0x05,0x1b,0x60,0x01,0x90,0x52,0x00];
+    let mut init=vec![0x60,runtime.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(&runtime);
+    let deploy=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
+    let x=branch(&mut h,g,1,&[Body{txs:vec![deploy],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();
+    let contract=alice.address().create(0);assert!(!h.chain.head().state.accounts[&contract].info.is_empty_code_hash(),"deployed");
+    let call=Tx{chain_id:777910,nonce:1,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:300_000,to:Some(contract),value:U256::ZERO,data:Default::default()}.sign_1559(&alice);
+    n.submit_tx(call.clone(),false).unwrap();
+    let p=n.chain.head().clone();let lower=h.chain.child_ctx(&h.chain.full_entry(&p.hash).unwrap(),0).unwrap().window.lower();
+    let mut seen=std::collections::HashSet::new();
+    for clock in lower..lower+8{
+        let sel=n.template_selection(&p,clock);assert_eq!(sel.txs,vec![call.clone()]);assert!(!sel.fallback);
+        let b=signed_at(&h,p.hash,sel.txs.clone(),clock).unwrap();
+        assert_eq!(sel.counted,b.gas_used,"clock {clock}: the selection counts the block's gas");seen.insert(sel.counted);
+    }
+    assert!(seen.len()>1,"positive control: the gas depends on the context ({seen:?})");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
