@@ -69,7 +69,7 @@ jobs:
           cargo +1.99.1 metadata --locked --format-version 1 --manifest-path prototypes/pocold/Cargo.toml > "$RUNNER_TEMP/pocol-crypto-metadata.json"
           python development/security-evm-crypto-2026-11-05/verify_crypto_graph.py --metadata "$RUNNER_TEMP/pocol-crypto-metadata.json"
           cargo +1.99.1 test --locked --release --test signing_compat --test evm_numeric_edges --manifest-path prototypes/lp4-execution/Cargo.toml
-          cargo +1.99.1 test --locked --release --lib --test net --test cli --test cutover --test discovery --test consensus_guard --manifest-path prototypes/pocold/Cargo.toml
+          cargo +1.99.1 test --locked --release --lib --test net --test cli --test cutover --test discovery --test outbound_threads --test consensus_guard --manifest-path prototypes/pocold/Cargo.toml
           if [ "$RUNNER_OS" = Linux ]; then
             # T9: lp4's caps-test without pocold's own feature must not compile (identity flag source, A1-3).
             if cargo +1.99.1 check --locked --release --lib --manifest-path prototypes/pocold/Cargo.toml --features pocol-lp4-execution/caps-test 2> "$RUNNER_TEMP/caps-only.log"; then
