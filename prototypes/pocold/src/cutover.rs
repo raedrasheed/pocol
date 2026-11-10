@@ -112,7 +112,7 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     // C-1 S5: a state is rebuilt from the chain the node holds in memory (`rebuild_at`); below the window the
     // canonical entries are in the node's index only. The runbook cuts at about head - 60.
     let base=node.chain.canonical.base();
-    if height>0&&height<base{return Err(format!("height {height} is below the in-memory window (it starts at height {base}); cut within the window, near the head"))}
+    if height>0&&height<base{return Err(format!("height {height} is below the in-memory window (E = {}, it starts at height {base}); cut within E blocks of the head",node.chain.evict_depth.unwrap_or(0)))}
     let hash=node.chain.canonical_at(height).ok_or("no canonical block at that height")?.hash;
     let block=crate::types::hex(&hash);
     rebuild_at(&mut node,&hash,height)?;

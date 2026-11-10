@@ -435,7 +435,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // Entry and its allocation header (counted at 32), the canonical index, header heap (encoded, ut_raw,
     // bloom, proposer, sig, share nonces), ParentResult shares, nonce ranges (members <= M_max) and evidence
     // (E_max items <= EVID_BYTES_MAX); an empty state is shared (C-1 E5).
-    let entry=add(&[mul(size_of::<([u8;32],Box<Entry>)>() as u128+1,4)?,size_of::<Entry>() as u128,32])?;
+    let entry=entry_bytes()?;
     // C-1 E2: and its state summary (boxed; a slimmed entry drops it).
     let per_block=add(&[entry,64,size_of::<pocol_lp4_execution::state_summary::Summary>() as u128,mul(hdr,2)?,256+20+65+64,mul(8,s)?,mul(32,s+1)?,mul(64,m)?,
         mul(u128::from(cp.E_max),24)?])?;
@@ -472,7 +472,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // ParentResult and the nonce ranges are restored from the journal and history.redb on demand.
     let depth=u128::from(limits.slim_depth.unwrap_or(2*limits.r_keep+u64::from(cp.E_win)+257)).min(blocks);
     // C-1 E5: an entry without a state shares one empty state (chain::empty_state), counted once below.
-    let slim_entry=add(&[entry,64])?;
+    let slim_entry=slim_entry_bytes()?;
     let (full_old,slim_old)=(depth.saturating_sub(window),blocks-depth.max(window));
     let redb_alloc=mul(payload,HISTORY_FILE_FACTOR)?/4096;
     let hist=[("history/offloaded canonical block metadata (slim_depth − window entries)",mul(full_old,offloaded_entry)?),
@@ -622,6 +622,42 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     debug_assert_eq!(Some(total),add(&[snapshot_total,diffs,trie,code,store,history,side_blocks,queues,rpc,threads,execution]));
     let _=size_of::<Header>()+size_of::<Body>();
     Some(Bound{snapshots,snapshot_bytes,snapshot_total,diffs,trie,code,store,history,side_blocks,queues,rpc,threads,execution,total,items})
+}
+/// One block entry in memory: its map slot (key and box, a control byte, counted at 4 for growth), the Entry and its
+/// allocation header (`derive`'s per-block term starts from it).
+pub fn entry_bytes()->Option<u128>{add(&[mul(size_of::<([u8;32],Box<Entry>)>() as u128+1,4)?,size_of::<Entry>() as u128,32])}
+/// A slimmed entry (C-1 S4): the entry and its canonical-index slot, with the shared empty state.
+pub fn slim_entry_bytes()->Option<u128>{add(&[entry_bytes()?,64])}
+/// C-1 S5 (PR7 §2.1): the eviction depth E of a node whose replay uses R_keep `rk_replay`: Ok(None) when it is off
+/// (`Limits::evict_depth` Some(0)). E must keep every entry a verdict, a rebuild's evidence walk or an anchor's
+/// BLOCKHASH window reads above the floor (A13-DERIVATION §2g): it is at least E_min, the largest of the slim depth,
+/// 2·R_keep + E_win + 258 and, in store mode (rebuild anchors every R_keep heights, kept for 2·R_keep + 2 blocks),
+/// 2·R_keep + 2 + R_keep + max(257, E_win + 1). The default is max(slim depth + R_keep, E_min); a configured depth
+/// below E_min is refused, naming the term it fails.
+pub fn evict_depth_of(cp:&ConsensusParams,limits:&Limits,rk_replay:u64)->Result<Option<u64>,String>{
+    let rk=rk_replay.max(limits.r_keep);let e_win=u64::from(cp.E_win);
+    let depth=limits.slim_depth.unwrap_or(rk.saturating_mul(2).saturating_add(e_win).saturating_add(257));
+    let keep=257u64.max(e_win+1);
+    let mut terms=vec![("the slim depth",depth),("2·R_keep + E_win + 258",rk.saturating_mul(2).saturating_add(e_win).saturating_add(258))];
+    if limits.state_store{terms.push(("the store-mode anchor lag 2·R_keep + 2 + R_keep + max(257, E_win + 1)",rk.saturating_mul(3).saturating_add(2).saturating_add(keep)));}
+    let (name,e_min)=terms.iter().copied().max_by_key(|t|t.1).unwrap();
+    match limits.evict_depth{
+        Some(0)=>Ok(None),
+        None=>Ok(Some(depth.saturating_add(rk).max(e_min))),
+        Some(n) if n<e_min=>Err(format!("evict depth {n} is below {name} ({e_min}); it must be at least {e_min}, or 0 to turn eviction off")),
+        Some(n)=>Ok(Some(n)),
+    }
+}
+/// C-1 S5: whether a format-1 checkpoint (every entry of the chain, restored at once before the open's window
+/// evicts it, PR7 §4.4) fits the budget beside the model: each entry counted as a slimmed one and 80 bytes of the
+/// restore's own tables. Err names the bytes; open then replays from genesis, which holds only the window.
+pub fn migration_fits(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize,entries:u64)->Result<(),String>{
+    let over=||"A13 migration headroom: arithmetic overflow".to_string();
+    let b=derive(cp,k_hist,side_max,limits,dials).ok_or_else(over)?;
+    let total=mul(u128::from(entries),slim_entry_bytes().ok_or_else(over)?.checked_add(80).ok_or_else(over)?).and_then(|x|x.checked_add(b.total)).ok_or_else(over)?;
+    let need=budget_required(total).ok_or_else(over)?;
+    if need>u128::from(limits.mem_budget){return Err(format!("a format-1 checkpoint of {entries} entries needs {need} B with the model, which exceeds the node memory budget {} B; replaying from genesis",limits.mem_budget))}
+    Ok(())
 }
 /// The share of the budget kept outside the model (D-A13-BUDGET): allocator headers, size-class
 /// rounding and fragmentation are not modelled (CONDITIONS), so the model total must fit in

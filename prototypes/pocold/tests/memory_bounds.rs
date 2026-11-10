@@ -149,7 +149,7 @@ impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option
     let spec=admitted();let gh=spec.genesis_hash();
     let rec=pocold::store::open(&dir,&gh).unwrap();let history=pocold::history::History::open(&dir).unwrap();
     let st:std::sync::Arc<dyn pocol_lp4_execution::node_trie::TrieStore>=std::sync::Arc::new(pocold::state_store::StateStore::open(&dir).unwrap());
-    let fresh=||{let mut c=Chain::new(admitted());let p=&full.params;(c.r_keep,c.side_cap,c.history_window,c.slim_depth,c.keep_full_states)=(p.r_keep,p.side_cap as usize,p.history_window,p.slim_depth,p.keep_full);
+    let fresh=||{let mut c=Chain::new(admitted());let p=&full.params;(c.r_keep,c.side_cap,c.history_window,c.slim_depth,c.keep_full_states,c.evict_depth)=(p.r_keep,p.side_cap as usize,p.history_window,p.slim_depth,p.keep_full,p.evict_depth);
         c.enable_store(st.clone()).unwrap();c};
     let go=|c:&mut Chain,s:&Snapshot,ix:&dyn CanonIndex|restore(c,s,&JournalSource{offsets:&rec.offsets,journal:&rec.journal,records:rec.offsets.len(),history:&history,canon:ix},&st);
     let mut c=fresh();
@@ -161,7 +161,7 @@ impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option
     assert_eq!((c.canonical.base(),c.head,c.canonical.len()),(base,full.head,canon.len()));
     assert!((1..base as usize).all(|h|c.canonical.get(h).is_none())&&(base as usize..canon.len()).all(|h|c.canonical[h]==canon[h]),"the window from its base, the heights below it not held");
     assert_eq!(fingerprint(&c).unwrap(),s,"the restored chain's snapshot is the one restored");
-    drop(c);let mut m=fresh();m.evict_depth=Some(1000);
+    drop(c);let mut m=fresh();m.evict_depth=Some(1000);m.anchor_step=Some(7);
     go(&mut m,&v1,&NoIndex).unwrap();assert_eq!((m.canonical.base(),m.head,m.blocks.len()),(0,full.head,full.entries.len()),"a format-1 snapshot restores whole under the new parameters");
     drop(m);drop(rec);let _=std::fs::remove_dir_all(&dir);
 }

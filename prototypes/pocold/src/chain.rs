@@ -224,7 +224,14 @@ impl pocol_lp4_execution::view::View for StateView<'_>{
 /// (`read_at`); a bare chain passes `None` and never offloads, so it is never called there.
 pub trait BlockBytes{fn record_at(&self,off:u64)->Result<(Vec<u8>,Vec<u8>,Vec<u8>),Reject>;
     /// C-1 S4: a block's stored nonce ranges (history.redb), for restoring a slimmed entry.
-    fn ranges_of(&self,_hash:&[u8;32])->Result<Option<Vec<(Address,u128,u128)>>,Reject>{Ok(None)}}
+    fn ranges_of(&self,_hash:&[u8;32])->Result<Option<Vec<(Address,u128,u128)>>,Reject>{Ok(None)}
+    /// C-1 S5: the canonical entry at height `h` below the window, as it was evicted (`slim`: as the record says;
+    /// false: whole, its nonce ranges read too, for a rebuild that re-executes it), with its block's body: from the
+    /// node's canonical index, journal and history.redb, checked to hash to the row's block. Ok(None): no index (a
+    /// bare chain). Err(Local): the index or the journal could not be read or did not check.
+    fn canonical_entry(&self,_h:u64,_slim:bool)->Result<Option<(Entry,Body)>,Reject>{Ok(None)}
+    /// C-1 S5: the canonical hash at height `h` below the window (the index's row), as `canonical_entry`.
+    fn canonical_hash(&self,_h:u64)->Result<Option<[u8;32]>,Reject>{Ok(None)}}
 /// C-1 S4: drops what a slimmed entry does not keep: the header's heap fields, the ParentResult and the
 /// nonce ranges. Fork choice, contexts and evidence read only the rest at these depths.
 pub(crate) fn slim(e:&mut Entry){let h=&mut e.header;h.logs_bloom=Vec::new();h.proposer=Vec::new();h.sig=Vec::new();h.shares=Vec::new();h.ut_raw=Vec::new();
@@ -245,6 +252,11 @@ pub fn decode_result(rb:&[u8],hash:&[u8;32])->Result<Option<ParentResult>,Reject
 /// Drops a journaled block's bytes from memory (D-REORG-REDB): body, receipts, tx hashes and the
 /// encoded header. Fork choice, child contexts and evidence ancestry read only the metadata kept.
 pub(crate) fn offload(e:&mut Entry){e.body=Body::default();e.receipts=Vec::new();e.tx_hashes=Vec::new();e.header.encoded=Vec::new();e.offloaded=true;}
+/// C-1 S5: an entry as it leaves the window or comes back to it: offloaded, slimmed and pruned, without a pin, diff
+/// or trie. A function of the entry's identity only (what a non-evicting chain holds that deep), so live import and
+/// replay evict the same bytes, and a reload gives back exactly what was evicted. (Not a check: a canonical block a
+/// head that fell back made whole again below the history cursor would otherwise never be evictable, PR7 A1-1.)
+fn normalize(e:&mut Entry){if !e.offloaded{offload(e);}if !e.slim{slim(e);}e.state=empty_state();e.pruned=true;e.stored=None;e.full=false;e.diff=None;e.trie=None;}
 impl Entry{
     /// A copy without the executed state (an empty, pruned state), for rolling re-execution and views.
     pub fn meta_clone(&self)->Entry{
@@ -426,6 +438,13 @@ pub struct Chain{
     /// `anchor_cursor` the highest height the forward prune has passed since they were taken. All three are
     /// checkpoint parameters or fields (`checkpoint::Params`, `Snapshot`).
     pub evict_depth:Option<u64>,pub anchor_step:Option<u64>,pub(crate) anchor_cursor:u64,
+    /// C-1 S5: the most entries one `window` call evicts (the head rises by at most side_cap + 2·r_keep + 1 in one
+    /// import); the evicted entries, normalized, for the node to write to its index (`window`); and the entries an
+    /// eviction could not take (none can be: a test and status counter, never a validity input).
+    pub evict_batch:u64,pub evicted_out:Vec<Box<Entry>>,pub evict_stalls:u64,
+    /// C-1 S5 (old journals): blocks a replay without eviction would have inserted and the same retain removed, counted
+    /// by the next `retain_unsettled` as its own removals (`note_removed`).
+    removed_pending:Vec<[u8;32]>,
 }
 
 /// C-1 E5: the state of an entry that holds none (pruned, stored, or a metadata copy): one shared empty
@@ -447,7 +466,7 @@ impl Chain{
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
         Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
-            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0}
+            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new()}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
     /// C-1 E4: keeps states in `store` from now on, starting with genesis's (Node::open calls it on a chain
@@ -905,6 +924,7 @@ impl Chain{
                 if let Some(p)=parent{if let Some(c)=children.get_mut(&p){*c-=1;if *c==0&&evictable.contains(&p){children.remove(&p);leaves.push(key(self,&p));}}}
             }
         }
+        gone.extend(std::mem::take(&mut self.removed_pending));
         for h in gone{self.evicted_total+=1;if self.evicted.insert(h){self.evicted_order.push_back(h);}}
         while self.evicted_order.len()>EVICTED_MAX{if let Some(old)=self.evicted_order.pop_front(){self.evicted.remove(&old);}}
         // Live: protection is for non-canonical session blocks only (an adopted one no longer counts
@@ -937,6 +957,68 @@ impl Chain{
             }
         }
     }
+    /// C-1 S5 (PR7): the in-memory window. With `evict_depth` E set, the canonical entries below `floor = max(1,
+    /// head − E)` leave memory for the node's canonical index, and entries the window needs again come back from it.
+    /// Run after every `retain_unsettled` (live import, replay and open alike, so both evict the same entries):
+    /// 1. a head that fell back below the window reloads the heights from `base − 1` down to the floor, highest first,
+    ///    each checked to link to the window (`restore_low`). They are below the fork of that fall (one fall is less
+    ///    than R_keep < E), so they are still canonical;
+    /// 2. the canonical entries from the base up to the floor, at most `evict_batch` of them, are taken out and
+    ///    normalized (`normalize`) into `evicted_out`, which the node writes to its index.
+    /// No verdict reads an entry below the floor: validation reads the parent at or above head − R_keep (the node
+    /// refuses lower ones before validating), 256 ancestors and E_win evidence heights, and fork choice walks only
+    /// above head − R_keep; E >= 2·R_keep + E_win + 258 keeps all of them above the floor, and a fall within one
+    /// import is reloaded by that import's call, before the next verdict.
+    pub fn window(&mut self,src:&dyn BlockBytes)->Result<(),Reject>{
+        let Some(floor)=self.evict_floor() else{return Ok(())};
+        while self.canonical.base()>floor{
+            let h=self.canonical.base()-1;
+            let (e,_)=src.canonical_entry(h,true)?.ok_or_else(||Reject::Local(format!("canonical index: no entry at height {h} below the window")))?;
+            self.restore_low(e)?;
+        }
+        self.evict_below(floor);
+        // A table emptied by a fall and a rise keeps its buckets: give them back once it is a quarter used.
+        if self.blocks.capacity()>4*self.blocks.len().max(64){self.blocks.shrink_to_fit();}
+        Ok(())
+    }
+    /// The window's floor, `max(1, head − evict_depth)` (None: nothing is evicted).
+    pub fn evict_floor(&self)->Option<u64>{self.evict_depth.map(|d|self.head().height.saturating_sub(d).max(1))}
+    /// Whether every canonical entry below the floor other than genesis has been evicted.
+    pub fn window_done(&self)->bool{self.evict_floor().map_or(true,|f|self.canonical.base().max(1)>=f)}
+    /// Puts the entry of height `base − 1` back below the window's lowest block, which must be its child by hash,
+    /// height and total work (a reload: the index's row and the journal's record built it).
+    fn restore_low(&mut self,mut e:Entry)->Result<(),Reject>{
+        let b=self.canonical.base();
+        let child=self.canonical.get(b as usize).and_then(|h|self.blocks.get(h)).ok_or_else(||Reject::Local("the window's lowest canonical block is not held".into()))?;
+        if b<2||child.parent!=Some(e.hash)||e.height+1!=b||child.total_work!=e.total_work.saturating_add(work(&child.target)){
+            return Err(Reject::Local(format!("canonical index: the entry at height {} does not link to the window at {b}",e.height)))}
+        normalize(&mut e);let h=e.hash;self.blocks.insert(h,Box::new(e));self.canonical.push_low(h);Ok(())
+    }
+    /// Evicts the canonical entries from the base up to `floor` (at most `evict_batch`): each is taken out, normalized
+    /// and put in `evicted_out`. Only genesis, never in range, could not be taken; a canonical height whose entry is
+    /// missing is counted in `evict_stalls` (none is: the chain holds every canonical entry of its window). The prune,
+    /// slim and history cursors move up to the new base (nothing below it is held to prune, slim or offload).
+    fn evict_below(&mut self,floor:u64){
+        let mut gone=std::collections::HashSet::new();
+        while (gone.len() as u64)<self.evict_batch{
+            let low=self.canonical.base().max(1);if low>=floor{break}
+            let Some(h)=self.canonical.get(low as usize).copied() else{break};
+            let Some(mut e)=self.blocks.remove(&h) else{self.evict_stalls+=1;debug_assert!(false,"the canonical entry at height {low} is not held");break};
+            normalize(&mut e);self.canonical.pop_low();gone.insert(h);self.evicted_out.push(e);
+        }
+        if gone.is_empty(){return}
+        self.unslimmed.retain(|h|!gone.contains(h));self.protect.retain(|h|!gone.contains(h));
+        let b=self.canonical.base();self.prune_cursor=self.prune_cursor.max(b);self.slim_cursor=self.slim_cursor.max(b);self.history_cursor=self.history_cursor.max(b);
+    }
+    /// C-1 S5 (old journals, replay only): a record a replay without eviction inserts and the same retain removes (a
+    /// block on a canonical parent below the window, at or below head − R_keep). Its import sequence is taken and the
+    /// next `retain_unsettled` counts it as removed (`evicted_total` and the eviction FIFO), as that replay does.
+    pub fn note_removed(&mut self,h:[u8;32]){self.next_seq+=1;self.removed_pending.push(h);}
+    /// C-1 S5 (old journals, replay only): a record of a canonical block below the window again (a re-import, as
+    /// `reimport` gives it): the import sequence it takes, which the node writes to the block's index row.
+    pub fn note_reimported(&mut self)->u64{let s=self.next_seq;self.next_seq+=1;s}
+    /// Gives back what the tables keep beyond their entries (open, after the window first reaches its floor).
+    pub fn shrink(&mut self){self.blocks.shrink_to_fit();self.canonical.shrink_to_fit();self.side.shrink_to_fit();self.unslimmed.shrink_to_fit();self.protect.shrink_to_fit();self.evicted_out.shrink_to_fit();}
     /// R21: canonical heights 1..=head-K_hist hold no state, pin, full state or diff. Heights 1..=cut, each
     /// once (`prune_cursor`); what has a block there was pruned before the cut moved. With the invariant
     /// holding (checked in debug builds), the old walk over 1..=cut changed nothing below it.
@@ -1194,6 +1276,8 @@ impl Chain{
         if self.shadow.capacity()>0{self.shadow=HashMap::new();self.shadow_order=Default::default();}
         r
     }
+    /// The restored copies held for a rebuild (`shadow`): none once it has returned (tests and inspection).
+    pub fn rebuild_copies(&self)->usize{self.shadow.len()}
     /// The restored copies a rebuild keeps (`shadow`): every ancestor a re-executed block reads through `get`
     /// within its evidence window, and its BLOCKHASH window.
     fn shadow_keep(&self)->usize{257usize.max(self.spec.cp().E_win as usize+1)}
@@ -1214,22 +1298,32 @@ impl Chain{
             self.blocks.get_mut(hash).unwrap().pruned=true;}
         // TrieRebuild from the nearest ancestor that has a state (full, or materialized).
         let mut path=vec![];let mut cur=*hash;
-        let (root_state,root_stored)=loop{
-            let e=self.blocks.get(&cur).ok_or_else(||Reject::Block("rebuild root".into()))?;
+        let found=loop{
+            let Some(e)=self.blocks.get(&cur) else{
+                // C-1 S5: no state in the window: the walk went past its lowest canonical block (the path ends there),
+                // and the root is built below it from disk (`disk_walk`). Anything else has no root.
+                let b=self.canonical.base();
+                if b>1&&path.last()==self.canonical.get(b as usize){break None}
+                return Err(Reject::Block("rebuild root".into()))
+            };
             // C-1 E4: a stored root state is read in place (its pin is shared).
-            if let Some(pin)=&e.stored{break (empty_state(),Some(pin.clone()))}
+            if let Some(pin)=&e.stored{break Some((empty_state(),Some(pin.clone())))}
             // C-1 E3: a full root state is shared, not copied (the rolling re-execution only reads it).
-            if !e.pruned&&self.trie_store.is_none(){if e.full{break (e.state.clone(),None)}if let Some(st)=self.materialize(&cur){self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);break (std::sync::Arc::new(st),None)}}
+            if !e.pruned&&self.trie_store.is_none(){if e.full{break Some((e.state.clone(),None))}if let Some(st)=self.materialize(&cur){self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);break Some((std::sync::Arc::new(st),None))}}
             path.push(cur);cur=e.parent.ok_or_else(||Reject::Block("rebuild root".into()))?;
         };
-        let root=self.meta_restored(&cur,src)?;let root=&root;
+        let disk=found.is_none();
+        let (root,root_state,root_stored)=match found{Some((st,pin))=>(self.meta_restored(&cur,src)?,st,pin),
+            None=>{let p=self.disk_walk(src)?;let (st,pin)=(p.state.clone(),p.stored.clone());(p,st,pin)}};
+        let root=&root;
         // PR7 (A1-7): a re-executed block reads its ancestors through `get` (the BLOCKHASH window, and evidence
         // type 2 back E_win heights), and the evidence walk refuses a slimmed one (`evidence_type2`). The path's
         // first block reads the root and below it, so the slimmed ones of the root and its E_win ancestors are
         // read from restored copies, and each slimmed path block is too once it is re-executed. Before, a rebuild
         // whose path crossed a type-2 evidence block in the slim band failed with NeedsRebuild every time, and
         // the block that needed it was dropped as a non-verdict.
-        if let Some(src)=src{
+        // (C-1 S5: a disk walk's root is below the window; its walk kept whole copies of the blocks below it.)
+        if let (Some(src),false)=(src,disk){
             let lo=root.height.saturating_sub(u64::from(self.spec.cp().E_win));let (mut below,mut c)=(vec![],Some(cur));
             while let Some(h)=c{let Some(e)=self.blocks.get(&h) else{break};if e.height<lo{break}if e.slim{below.push(h)}c=e.parent;}
             for h in below.into_iter().rev(){let x=self.restored(&self.blocks[&h],Some(src))?.into_owned();self.shadow_push(x);}
@@ -1263,6 +1357,26 @@ impl Chain{
         }
         let x=self.blocks.get_mut(hash).ok_or_else(||Reject::Block("rebuild target".into()))?;x.state=p.state;x.stored=p.stored;x.pruned=false;x.full=true;
         Ok(())
+    }
+    /// C-1 S5 (PR7 §2.5): the root of a rebuild that found no state in the window, built below it: from genesis (its
+    /// pin in store mode, its full state in whole-state mode) every canonical height below the window is re-executed
+    /// in order from the canonical index and journal (`canonical_entry`, whole: header, ParentResult and nonce ranges),
+    /// each checked to follow from the one before (hash, height and total work) and against its committed roots. The
+    /// last `shadow_keep` of them are kept as metadata copies for the BLOCKHASH and evidence windows the next blocks
+    /// read (`shadow`); only the block being extended holds a state. Returns the rolled entry of height `base − 1`.
+    /// O(base) re-executions and O(window) memory, charged once under the node's rebuild limits.
+    fn disk_walk(&mut self,src:Option<&dyn BlockBytes>)->Result<Entry,Reject>{
+        let src=src.ok_or_else(||Reject::Block("rebuild root: below the window without a block source".into()))?;
+        let g=&self.blocks[self.canonical.genesis()];
+        if g.stored.is_none()&&(self.trie_store.is_some()||!g.full||g.pruned){return Err(Reject::Block("rebuild root: genesis holds no state".into()))}
+        let mut p=g.meta_clone();p.state=g.state.clone();p.stored=g.stored.clone();p.pruned=false;
+        for h in 1..self.canonical.base(){
+            let (e,body)=src.canonical_entry(h,false)?.ok_or_else(||Reject::Local(format!("canonical index: no entry at height {h} below the window")))?;
+            if e.parent!=Some(p.hash)||e.height!=h||e.total_work!=p.total_work.saturating_add(work(&e.target)){return Err(Reject::Local(format!("canonical index: the entry at height {h} does not follow from the one below it")))}
+            let out=self.reexec(&p,&e,&body)?;self.shadow_push(e.meta_clone());
+            let mut next=self.rolled(e,out)?;next.pruned=false;p=next;self.rebuilds+=1;
+        }
+        Ok(p)
     }
     fn key(&self,h:&[u8;32])->(u8,u64,[u8;32]){let e=&self.blocks[h];(if e.signed{0}else{1},e.import_seq,e.hash)}
     /// t1 ≻ t2: greater W, or equal W and smaller key at the children of the LCA.

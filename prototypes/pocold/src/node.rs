@@ -21,12 +21,34 @@ impl chain::BlockBytes for Journal{
         self.read_at(off).map_err(|e|Reject::Local(format!("journal read_at {off}: {e:?}")))
     }
 }
-/// The node's block source: journal records, and (C-1 S4) the nonce ranges in history.redb.
-struct Src<'a>{journal:&'a Journal,history:&'a crate::history::History}
+/// The node's block source: journal records, (C-1 S4) the nonce ranges in history.redb and (C-1 S5) the canonical
+/// entries below the window in the canonical index.
+struct Src<'a>{journal:&'a Journal,history:&'a crate::history::History,canon:&'a canon::Index}
 impl chain::BlockBytes for Src<'_>{
     fn record_at(&self,off:u64)->Result<(Vec<u8>,Vec<u8>,Vec<u8>),Reject>{chain::BlockBytes::record_at(self.journal,off)}
     /// A history.redb read that fails is a local failure (review F3), not "ranges unavailable".
     fn ranges_of(&self,hash:&[u8;32])->Result<Option<Vec<(Address,u128,u128)>>,Reject>{self.history.ranges(hash).map_err(|e|Reject::Local(format!("history: {}",e.0)))}
+    /// One index read and one journal read (header, body and ParentResult), and the nonce ranges when the entry is
+    /// wanted whole (`checkpoint::entry_of`, which checks that the record hashes to the row's block). A row that
+    /// does not check marks the index damaged; every failure is the node's own storage (exit 70; the next open rebuilds).
+    fn canonical_entry(&self,h:u64,slim:bool)->Result<Option<(Entry,Body)>,Reject>{
+        let r=self.canon.at(h).map_err(Reject::Local)?.ok_or_else(||Reject::Local(self.canon.mark_damaged(&format!("no row at height {h} below the window"))))?;
+        let off=r.body_off.ok_or_else(||Reject::Local(self.canon.mark_damaged(&format!("the row at height {h} names no journal record"))))?;
+        let payload=self.journal.payload_at(off).map_err(|e|Reject::Local(format!("journal read at {off}: {e:?}")))?;
+        let ranges=if slim{None}else{Some(match self.history.ranges(&r.hash){Ok(Some(x))=>x,Ok(None)=>return Err(Reject::Local(self.history.mark_damaged("nonce ranges missing for a journaled block").0)),
+            Err(e)=>return Err(Reject::Local(format!("history: {}",e.0)))})};
+        let why=|m:&str|format!("the row at height {h}: {m}");
+        let (e,body)=crate::checkpoint::entry_of(&r,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(ranges.clone()),store::MAX_RECORD,slim,&why).map_err(|m|Reject::Local(self.canon.mark_damaged(&m)))?;
+        if e.height!=h{return Err(Reject::Local(self.canon.mark_damaged(&format!("the row at height {h} names a block at height {}",e.height))))}
+        Ok(Some((e,body)))
+    }
+    fn canonical_hash(&self,h:u64)->Result<Option<[u8;32]>,Reject>{Ok(self.canon.at(h).map_err(Reject::Local)?.map(|r|r.hash))}
+}
+/// C-1 S5: writes the entries the window evicted (`Chain::evicted_out`) to the canonical index, one commit.
+fn flush_evicted(chain:&mut Chain,canon:&canon::Index)->Result<(),String>{
+    if chain.evicted_out.is_empty(){return Ok(())}
+    let rows:Vec<(u64,crate::checkpoint::Rec)>=chain.evicted_out.drain(..).map(|e|(e.height,crate::checkpoint::rec_of_meta(&e))).collect();
+    canon.put(&rows).map_err(|e|format!("canonical index: {e}"))?;crate::crash_point("canon");Ok(())
 }
 /// NeedsRebuild retries of one block: its parent, and (C-1 S4) each slimmed evidence ancestor restored in
 /// turn (only after the head fell back more than R_keep). Beyond them the block is refused, never accepted.
@@ -88,9 +110,14 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     pub state_store:bool,
     /// C-1 E4.4 (D-6): journal records between two local checkpoints of a store-mode node (0: none).
     pub checkpoint_every:u64,
+    /// C-1 S5 (PR7): canonical entries more than this many blocks below the head leave memory for the canonical
+    /// index (`Chain::window`). None: the default, `resources::evict_depth_of`; Some(0): off (every entry stays
+    /// resident, the behaviour before PR7); Some(u64::MAX): never evicts (a test reference). A value below the
+    /// smallest safe depth is refused at open. Node::open sets the value it uses here.
+    pub evict_depth:Option<u64>,
     /// Peer discovery (VA-SPEC §1a; local policy, never validity): on by default, local mode off.
     pub discovery:Discovery}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,discovery:Discovery::default()}}}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default()}}}
 /// C-1 S5 (PR7): what a view of a canonical block below the window reads besides its index row and journal
 /// record: its receipts (history.redb) only when asked.
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
@@ -423,7 +450,8 @@ fn load_signed_a0(dir:&std::path::Path)->HashMap<([u8;32],u64),[u8;32]>{
 }
 
 /// C-1 E5: a closing node leaves its entries' versions pinned (`StateStore::close`); the next open releases them.
-impl Drop for Node{fn drop(&mut self){if let Some(s)=&self.state_store{s.close();}}}
+/// C-1 S5: and the canonical index's last puts are made durable, if they can be (replay writes them again if not).
+impl Drop for Node{fn drop(&mut self){if let Some(s)=&self.state_store{s.close();}let _=self.canon.sync();}}
 impl Node{
     /// Opens the journal, replays and re-executes every committed block.
     pub fn open(mut cfg:Config,spec:Spec)->Result<Self,String>{
@@ -432,6 +460,13 @@ impl Node{
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
         let pool_gas_max=pool_gas_bound(spec.cp(),&cfg.limits)?;
+        // Replay must not use a smaller R_keep than live used for any record (it would drop a parent live
+        // kept); a larger one only keeps blocks that were below the head when imported. The largest value
+        // this data directory has used is kept durably beside the journal and replay uses it.
+        std::fs::create_dir_all(&cfg.dir).map_err(|e|format!("data directory: {e}"))?;
+        let rk_replay=retention_rkeep(&cfg.dir,cfg.limits.r_keep).map_err(|e|format!("retention.rkeep: {e}"))?;
+        // C-1 S5: the eviction depth, from that R_keep, set once in the limits so that A13 and the chain use one value.
+        let evict=crate::resources::evict_depth_of(spec.cp(),&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
@@ -452,16 +487,14 @@ impl Node{
         }).map_err(|e|format!("store: {e:?}"))?;timing.journal_ms=ms(t);
         if let Some(e)=bad{return Err(e)}
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(rec.journal.records);crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;}
-        // Replay must not use a smaller R_keep than live used for any record (it would drop a parent live
-        // kept); a larger one only keeps blocks that were below the head when imported. The largest value
-        // this data directory has used is kept durably beside the journal and replay uses it.
-        let rk_replay=retention_rkeep(&cfg.dir,cfg.limits.r_keep).map_err(|e|format!("retention.rkeep: {e}"))?;
         let mut chain=Chain::new(spec);chain.r_keep=rk_replay;chain.side_cap=cfg.limits.side_cap;chain.replaying=true;
         // C-1 S1: canonical history below the resident window lives off the heap (journal + history.redb).
         // C-1 E4.4: a history.redb created now holds nothing a checkpoint's entries need (replay refills it).
         let history_kept=cfg.dir.join(crate::history::FILE).exists();
         let t=Instant::now();let history=crate::history::History::open(&cfg.dir).map_err(|e|format!("history: {}",e.0))?;timing.history_open_ms=ms(t);
-        let canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
+        // C-1 S5: an index created now holds nothing a snapshot based above height 1 needs (replay refills it).
+        let canon_kept=cfg.dir.join(canon::FILE).exists();let mut canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;
+        chain.evict_depth=evict;chain.evict_batch=(cfg.limits.side_cap as u64).saturating_add(2*rk_replay.max(cfg.limits.r_keep)).saturating_add(2);chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
         // C-1 S4: deeper than any fork (R_keep), a head that fell back by R_keep, the evidence window and
         // the 256-ancestor window: no validation reads a slimmed entry unless the head fell back further.
         chain.slim_depth=Some(cfg.limits.slim_depth.unwrap_or(2*rk_replay.max(cfg.limits.r_keep)+u64::from(chain.spec.cp().E_win)+257));
@@ -514,6 +547,10 @@ impl Node{
                             // Replay's protect set after record k: the blocks whose next journal event is a child record.
                             let protect:std::collections::HashSet<[u8;32]>=s.entries.iter().filter(|e|events.get(&e.hash).and_then(|q|q.iter().find(|x|x.0>=k)).map_or(false,|x|x.1)).map(|e|e.hash).collect();
                             let r=if k>n_rec||offs[k]!=b.end||rolls[k]!=b.hash{Err("it is not bound to this journal's records".to_string())}
+                                // C-1 S5: a window based above height 1 needs the index rows below it; a format-1 snapshot needs
+                                // none, but restores every entry of the chain at once (the migration), which must fit.
+                                else if !s.v1&&s.canon_base>1&&(canon.rebuilt||!canon_kept){Err("the canonical index does not reach the snapshot's window (it was rebuilt or is new)".to_string())}
+                                else if let Some(e)=s.v1.then(||crate::resources::migration_fits(chain.spec.cp(),chain.spec.local().k_hist,chain.spec.local().side_max,&cfg.limits,cfg.peers.len(),s.entries.len() as u64).err()).flatten(){Err(e)}
                                 else if s.protect.as_ref().map_or(false,|p|p.len()!=protect.len()||p.iter().any(|h|!protect.contains(h))){Err("its protect set is not the one replay had after its last record".to_string())}
                                 else{crate::checkpoint::restore(&mut chain,&s,&crate::checkpoint::JournalSource{offsets:&offs[..n_rec],journal:&rec.journal,records:k,history:&history,canon:&canon},&dyn_st)};
                             // 2026-10-28 (independent review F1, F2): a restore that failed because the journal or
@@ -532,6 +569,8 @@ impl Node{
                 }
             }
             timing.restore_ms=ms(t);
+            // C-1 S5: an index a refused snapshot found damaged is set aside now, so replay can refill it (I1).
+            if canon.is_damaged(){drop(canon);canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;}
             match resumed{
                 Some(k)=>{start=k;state_store=Some(st);opened_release=released_at_open;}
                 None=>{
@@ -580,11 +619,23 @@ impl Node{
             let t=Instant::now();let validated=chain.validate(&block,None,0);timing.replay_validate_ms+=ms(t);
             match validated{
                 Err(Reject::Duplicate)=>chain.reimport(&hash,block.header.clone(),Some(this_off)),
-                // Unreachable by (1); counted (Stats::replay_skipped) rather than refusing to open.
-                Err(Reject::UnknownParent)=>{skipped+=1;}
+                // Unreachable by (1) for a block whose parent replay holds; counted (Stats::replay_skipped) rather than
+                // refusing to open. C-1 S5: a record of a journal written before live refused blocks at or below
+                // head - R_keep (import_with) can name a canonical block below the window, or build on one. Replay
+                // without eviction re-imports the first (a new importSeq, its record's copy) and inserts the second, which
+                // the same retain removes. Both are reproduced here without the entry: the row takes the new importSeq
+                // and offset, and the removal is counted as that retain's. (Only on UnknownParent: a rare record.)
+                Err(Reject::UnknownParent)=>{
+                    let base=chain.canonical.base();
+                    let deep=|x:&[u8;32]|->Result<Option<u64>,String>{if base<2{return Ok(None)}Ok(canon.height_of(x).map_err(|e|format!("record {i}: canonical index: {e}"))?.filter(|h|*h<base))};
+                    if let Some(h)=deep(&hash)?{
+                        let mut r=canon.at(h).map_err(|e|format!("record {i}: canonical index: {e}"))?.ok_or_else(||format!("record {i}: canonical index: no row at height {h}"))?;
+                        r.import_seq=chain.note_reimported();r.body_off=Some(this_off);canon.put(&[(h,r)]).map_err(|e|format!("record {i}: canonical index: {e}"))?;
+                    }else if deep(&parent)?.is_some(){chain.note_removed(hash);}else{skipped+=1;}
+                }
                 r=>{
                     let (mut entry,_)=match r{
-                        Err(Reject::NeedsRebuild(p))=>{let t=Instant::now();let src=Src{journal:&rec.journal,history:&history};let mut q=p;let mut tries=0;
+                        Err(Reject::NeedsRebuild(p))=>{let t=Instant::now();let src=Src{journal:&rec.journal,history:&history,canon:&canon};let mut q=p;let mut tries=0;
                             loop{chain.ensure_state_with(&q,Some(&src)).map_err(|e|format!("replay {i}: rebuild {e:?}"))?;tries+=1;
                                 match chain.validate(&block,None,0){Err(Reject::NeedsRebuild(n)) if tries<REBUILD_TRIES=>q=n,r=>{timing.replay_validate_ms+=ms(t);break r.map_err(|e|format!("replay {i}: {e:?}"))?}}}}
                         r=>r.map_err(|e|format!("replay {i}: {e:?}"))?,
@@ -608,11 +659,15 @@ impl Node{
             let fork_h=if chain.head!=old_head{chain.lca_height(&old_head,&chain.head).unwrap_or(0)}else{0};
             let adopted=chain.head!=old_head;let t=Instant::now();
             chain.retain_unsettled();
-            if adopted{restored+=chain.restore_canonical(fork_h,&Src{journal:&rec.journal,history:&history}).map_err(|e|format!("replay {i}: restore canonical {e:?}"))?;}
+            // C-1 S5: the window, as live import moves it after the same record.
+            chain.window(&Src{journal:&rec.journal,history:&history,canon:&canon}).map_err(|e|format!("replay {i}: the window: {e:?}"))?;flush_evicted(&mut chain,&canon).map_err(|e|format!("replay {i}: {e}"))?;
+            if adopted{restored+=chain.restore_canonical(fork_h,&Src{journal:&rec.journal,history:&history,canon:&canon}).map_err(|e|format!("replay {i}: restore canonical {e:?}"))?;}
             chain.settle();timing.replay_retain_ms+=ms(t);
             // C-1 E4.4: replay checkpoints too, after making its history.redb writes durable.
             if let Some(st)=&state_store{if ckpt_every>0&&(i as u64+1)-ckpt_last>=ckpt_every{let t=Instant::now();
                 history.sync().map_err(|e|format!("replay {i}: history {}",e.0))?;
+                // C-1 S5 (I5): the index is durable below the window the checkpoint describes.
+                canon.sync().map_err(|e|format!("replay {i}: canonical index: {e}"))?;
                 match write_checkpoint(&chain,st,&crate::checkpoint::Binding{records:i as u64+1,end:offs[i+1],hash:rolls[i+1]}){
                     Ok(_)=>{written+=1;ckpt_last=i as u64+1;}
                     Err(e) if st.io_failed()=>return Err(format!("replay {i}: state store: the checkpoint's write: {e}")),
@@ -621,8 +676,14 @@ impl Node{
         timing.replay_ms=ms(t_replay);
         if refilled>0{history.sync().map_err(|e|format!("replay: history {}",e.0))?;}
         drop(events);chain.protect.clear();chain.replaying=false;chain.r_keep=cfg.limits.r_keep;chain.retain_unsettled();
+        // C-1 S5: at open the window reaches its floor whatever was restored (a format-1 snapshot holds every entry):
+        // batch after batch, each made durable, then the tables give back what the evicted entries held.
+        {let src=Src{journal:&rec.journal,history:&history,canon:&canon};
+            loop{chain.window(&src).map_err(|e|format!("open: the window: {e:?}"))?;let more=!chain.evicted_out.is_empty();flush_evicted(&mut chain,&canon).map_err(|e|format!("open: {e}"))?;
+                if !more||chain.window_done(){break}canon.sync().map_err(|e|format!("open: canonical index: {e}"))?;}}
+        canon.sync().map_err(|e|format!("open: canonical index: {e}"))?;chain.shrink();
         // Every adoption was restored above, so this finds nothing unless replay skipped a record.
-        restored+=chain.restore_canonical(0,&Src{journal:&rec.journal,history:&history}).map_err(|e|format!("replay: restore canonical {e:?}"))?;chain.settle();
+        restored+=chain.restore_canonical(0,&Src{journal:&rec.journal,history:&history,canon:&canon}).map_err(|e|format!("replay: restore canonical {e:?}"))?;chain.settle();
         if let Some(st)=&state_store{st.set_deferred(false).map_err(|e|format!("state store: the late releases: {}",e.0))?;}
         let (tx,rx)=mpsc::sync_channel(EVENT_QUEUE);let (miner_tx,miner_rx)=mpsc::channel::<MinerEvent>();
         let (light,light_rx)=crate::rpc::LightLane::new(cfg.limits.rpc.light_queue);let resp=crate::rpc::RespPools::new(&cfg.limits.rpc);
@@ -647,6 +708,8 @@ impl Node{
     fn checkpoint_if_due(&mut self){
         let Some(st)=self.state_store.clone() else{return};
         if self.ckpt.every==0||self.journal.records-self.ckpt.last<self.ckpt.every{return}
+        // C-1 S5 (I5): the index is durable below the window the checkpoint describes.
+        if let Err(e)=self.canon.sync(){self.fatal(&format!("canonical index: {e}"))}crate::crash_point("canon-sync");
         let b=crate::checkpoint::Binding{records:self.journal.records,end:self.journal.end_offset(),hash:self.ckpt.roll};
         match write_checkpoint(&self.chain,&st,&b){Ok(_)=>{self.stats.checkpoints_written+=1;self.ckpt.last=b.records;}
             // 2026-10-28 (review F4): redb refuses the store after an I/O failure; a read before the next commit would
@@ -657,6 +720,7 @@ impl Node{
     /// C-1 E4.4: writes a checkpoint now (store mode; tests and a clean stop).
     pub fn checkpoint_now(&mut self)->Result<u64,String>{
         let st=self.state_store.clone().ok_or("no state store")?;
+        self.canon.sync().map_err(|e|format!("canonical index: {e}"))?;crate::crash_point("canon-sync");
         let b=crate::checkpoint::Binding{records:self.journal.records,end:self.journal.end_offset(),hash:self.ckpt.roll};
         let q=write_checkpoint(&self.chain,&st,&b)?;self.stats.checkpoints_written+=1;self.ckpt.last=b.records;Ok(q)
     }
@@ -810,7 +874,7 @@ impl Node{
     /// that becomes heavier is fetched by sync) and, while non-canonical, protected from the side cap.
     /// `h`'s state made available as an import's rebuild makes it (the journal and history.redb supplying the
     /// blocks' bytes). For tests and measurements that build blocks on an arbitrary parent.
-    pub fn ensure_state(&mut self,h:&[u8;32])->Result<(),Reject>{let src=Src{journal:&self.journal,history:&self.history};self.chain.ensure_state_with(h,Some(&src))}
+    pub fn ensure_state(&mut self,h:&[u8;32])->Result<(),Reject>{let src=Src{journal:&self.journal,history:&self.history,canon:&self.canon};self.chain.ensure_state_with(h,Some(&src))}
     pub fn import_with(&mut self,b:Block,from:Option<PeerId>,solicited:bool)->Result<bool,Reject>{
         if self.chain.spec.cp().H_END==0 && self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{
             self.cfg.limits.continuous_history=Some(self.journal.records);
@@ -835,7 +899,7 @@ impl Node{
             // charged for it. A pruned parent still needs its state: it goes on, in the same try, to the deep
             // rebuild below, which is charged.
             if self.chain.get(&p).map_or(false,|e|e.slim){self.stats.unslims+=1;
-                let src=Src{journal:&self.journal,history:&self.history};
+                let src=Src{journal:&self.journal,history:&self.history,canon:&self.canon};
                 if let Err(e)=self.chain.unslim(&p,&src){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}
                 if !(p==b.header.parent_hash&&self.chain.get(&p).is_some_and(|e|e.pruned)){tries+=1;res=self.chain.validate(&b,Some(now_s()),self.capital_phi());continue}
             }
@@ -851,7 +915,7 @@ impl Node{
                 if let Some(s)=&mut self.session{s.rebuilds+=1;}
             }else if !self.rebuild_token(){self.log("deep-rebuild budget spent; an unsolicited block dropped (a real branch returns by sync)");res=Err(Reject::Evicted);break}
             tries+=1;self.log("TrieRebuild for a fork below the K_hist window");
-            let src=Src{journal:&self.journal,history:&self.history};
+            let src=Src{journal:&self.journal,history:&self.history,canon:&self.canon};
             if let Err(e)=self.chain.ensure_state_with(&p,Some(&src)){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}res=self.chain.validate(&b,Some(now_s()),self.capital_phi());}
         // PR4 (A13 MATERIALIZED): a block refused after its parent's state was rebuilt (or dropped at the budget
         // after an earlier rebuild of its retries) leaves none of it behind.
@@ -901,10 +965,14 @@ impl Node{
         let detached=if new_head{self.detached_blocks(old_head)}else{vec![]};
         let fork_h=if new_head{self.chain.lca_height(&old_head,&self.chain.head).unwrap_or(0)}else{0};
         self.chain.retain_unsettled();
+        // C-1 S5: the window moves with the head; what it evicts is written to the canonical index (a failure of the
+        // node's own storage stops it, exit 70, and the next open rebuilds the index).
+        if let Err(e)=self.chain.window(&Src{journal:&self.journal,history:&self.history,canon:&self.canon}){self.fatal(&format!("the window: {e:?}"))}
+        if let Err(e)=flush_evicted(&mut self.chain,&self.canon){self.fatal(&e)}
         // D-REORG-REDB: the adopted blocks that were offloaded as non-canonical are made whole again
         // (after retain offloaded the abandoned branch, so the two are never resident together). C-1
         // S3a: before the side states are pruned (`settle`), so the fork point's state is reachable.
-        if new_head{match self.chain.restore_canonical(fork_h,&Src{journal:&self.journal,history:&self.history}){Ok(n)=>self.stats.restored+=n as u64,
+        if new_head{match self.chain.restore_canonical(fork_h,&Src{journal:&self.journal,history:&self.history,canon:&self.canon}){Ok(n)=>self.stats.restored+=n as u64,
             Err(e)=>{self.log(&format!("FATAL restore of the adopted branch: {e:?}"));std::process::exit(70);}}}
         self.chain.settle();
         self.checkpoint_if_due();
@@ -1691,19 +1759,19 @@ impl Node{
     /// C-1 S3a: a stored block with its full state (materialized through the diffs, or rebuilt), for
     /// production on it. None if it cannot be had.
     fn full_entry(&mut self,h:&[u8;32])->Option<Entry>{
-        if let Err(e)=self.chain.ensure_state_with(h,Some(&Src{journal:&self.journal,history:&self.history})){if let Reject::Local(w)=&e{self.fatal(w)}self.log(&format!("state for {}: {e:?}",&hex(h)[..14]));return None}
+        if let Err(e)=self.chain.ensure_state_with(h,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon})){if let Reject::Local(w)=&e{self.fatal(w)}self.log(&format!("state for {}: {e:?}",&hex(h)[..14]));return None}
         self.chain.get(h).cloned()
     }
     /// C-1 S4: a stored block with its slimmed fields restored (header, ParentResult, nonce ranges) from
     /// the journal and history.redb; itself when not slimmed. For inspection and tests.
     pub fn restored_entry(&self,h:&[u8;32])->Option<Entry>{
-        let e=self.chain.get(h)?;self.chain.restored(e,Some(&Src{journal:&self.journal,history:&self.history})).ok().map(|x|x.into_owned())
+        let e=self.chain.get(h)?;self.chain.restored(e,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon})).ok().map(|x|x.into_owned())
     }
     /// TrieRebuild of a stored block's state through the journal (offloaded bodies read back).
-    pub fn rebuild_state(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.ensure_state_with(hash,Some(&Src{journal:&self.journal,history:&self.history}))}
+    pub fn rebuild_state(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.ensure_state_with(hash,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon}))}
     /// C-1 S4: restores a slimmed entry's fields in place (header, ParentResult, nonce ranges) from the
     /// journal and history.redb, for a walk that reads the chain's own entries (the evidence walk).
-    pub fn unslim(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.unslim(hash,&Src{journal:&self.journal,history:&self.history})}
+    pub fn unslim(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.unslim(hash,&Src{journal:&self.journal,history:&self.history,canon:&self.canon})}
     /// A stored block's committed body (resident or from the journal).
     pub fn body_of(&self,hash:&[u8;32])->Result<Body,Reject>{let e=self.chain.get(hash).ok_or(Reject::UnknownParent)?;self.chain.body_of(e,Some(&self.journal))}
     /// The pending state as a whole state (the layer merged over its base; tests and inspection).
