@@ -417,6 +417,9 @@ three terms: one up and two down. It also withdraws one projection.
      held for the next block. At most POOL_PARKED_MAX (1024) are parked; when full, the one declaring the most
      gas makes room for one declaring strictly less;
   6. execution on the pending state;
+  6b. PR6 review, the log caps: -32000 logs would exceed a block cap. A transaction whose own logs pass
+     LOG_COUNT_MAX, LOG_BLOCK_MAX or (H_END != 0) LOG_CAP on the head would halt in every block; the builder
+     never takes it except as that halt, so the pool does not hold the gas bound with it;
   7. the cap meter.
 - **Replacement.** There is none. A second transaction with a pooled one's sender and nonce, whatever its
   fee, fails its execution on the pending state (-32000, NonceTooLow) and changes no counter. The pooled one
@@ -486,7 +489,11 @@ three terms: one up and two down. It also withdraws one projection.
   - it fits when its declared gas is at most GAS_LIMIT minus the gas used so far (the consensus rule,
     user_phase.rs:288); one that does not fit is skipped with its sender's later ones, and the selection goes
     on (before PR6 it stopped);
-  - a transaction that would halt on the log caps or on SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX is left out;
+  - a transaction that would halt on the log caps or on SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX is left out; but one
+    whose own logs pass a log cap halts in every block on that parent (its logs can follow the block's context,
+    for example PREVRANDAO, which admission does not have), so it is included as that halt and counted at its
+    declared gas, as the block charges it (before PR6 every such transaction was included and charged). A
+    transaction the selection never takes cannot stay pooled unpaid;
   - the oldest pooled transaction declaring more than GAS_LIMIT/2 (first of its sender) is tried first;
   - without a checked parent state (tests only) declared gas is counted (`templateGasFallbacks`);
   - the build (`build_signed_template`, at most TEMPLATE_BUILDS_MAX = 8 builds at one clock): a gas failure,

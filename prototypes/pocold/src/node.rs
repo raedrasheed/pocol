@@ -273,6 +273,26 @@ pub const TEMPLATE_BUILDS_MAX:usize=8;
 /// Whether a `build_signed` refusal is the USER phase's gas check (`apply User("Gas")`: a transaction's
 /// declared gas exceeded what the block had left). It carries no transaction index.
 pub fn is_user_gas(why:&str)->bool{why.ends_with("User(\"Gas\")")}
+/// PR6 review: the log cap a transaction's own logs pass in a child of a block whose chain charged `cum` log bytes,
+/// if any: the block meter's log checks (`user_phase.rs` BlockMeter::check) with nothing before it in the block,
+/// LOG_COUNT_MAX, LOG_BLOCK_MAX and, when H_END != 0, LOG_CAP. Such a transaction halts in every block built on
+/// that parent, wherever it is placed.
+pub fn own_logs_halt(cp:&pocol_lp4_execution::profile::ConsensusParams,cum:u64,logs:&[revm::primitives::Log])->Option<user_phase::Halt>{
+    use user_phase::{caps,Halt};let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));
+    if n>caps::LOG_COUNT_MAX{Some(Halt::LogCount)}else if c>caps::LOG_BLOCK_MAX{Some(Halt::LogBytes)}
+    else if cp.H_END!=0&&cum.saturating_add(c)>caps::LOG_CAP{Some(Halt::LogCap)}else{None}
+}
+/// PR6 review: an exceptional halt on the selection's overlay, as the block applies it (`user_phase.rs`
+/// apply_halt): the sender's nonce + 1, the sender pays gas_limit·price, the escrow receives gas_limit·tip; nothing
+/// else changes. None on an arithmetic failure (unreachable after the engine's balance check).
+fn sim_halt<S:pocol_lp4_execution::view::WorkState+?Sized>(st:&mut S,caller:Address,gas_limit:u64,price:U256,tip:U256)->Option<()>{
+    let fee=price.checked_mul(U256::from(gas_limit))?;let reward=tip.checked_mul(U256::from(gas_limit))?;
+    let mut s=st.account(&caller).and_then(|a|a.info()).unwrap_or_default();
+    s.nonce=s.nonce.checked_add(1)?;s.balance=s.balance.checked_sub(fee)?;st.insert_info(caller,s);
+    if reward!=U256::ZERO{let e=pocol_lp4_execution::pay::escrow_address();let mut c=st.account(&e).and_then(|a|a.info()).unwrap_or_default();
+        c.balance=c.balance.checked_add(reward)?;st.insert_info(e,c);}
+    Some(())
+}
 /// PR6 B5, the append round: indices into `rest` to add after a built block, within `gas` of room counting
 /// declared gas, the TX_CAP/TXBYTES room and the BODY room. The head of each sender's queue (pool order) is a
 /// candidate; the smallest declared gas goes first (ties in pool order); a head that does not fit stops its
@@ -1122,6 +1142,10 @@ impl Node{
         let r=match r{Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>return Err(SUBMIT_DEADLINE.into()),r=>r.map_err(|e|format!("-32000 {e:?}"))?};
         // A precompile runs to its end between two polls: the deadline is checked again before the commit.
         if by.is_some_and(|by|Instant::now()>=by){return Err(SUBMIT_DEADLINE.into())}
+        // PR6 review: one whose own logs pass a block's log caps would halt in every block on this head. The honest
+        // selection takes it only as such a halt (charged all its gas); the pool refuses it, as it refuses one past
+        // the meter's caps, so it cannot hold the gas bound unpaid.
+        if let Some(why)=own_logs_halt(self.chain.spec.cp(),self.chain.head().cum_log_bytes,r.result.logs()){return Err(format!("-32000 logs would exceed a block cap ({why:?})"))}
         // A13: the effects must stay within the caps a block enforces; then only live entries are kept.
         self.pool.meter.admit(&view,&r.state).map_err(|h|format!("-32000 pending state would exceed a cap ({h:?})"))?;
         // The same commit as a block's USER phase (EIP-161 cleanup, normalization), so the meter
@@ -1237,7 +1261,8 @@ impl Node{
     /// `build_signed_template`), and the selection goes on. Without a checked parent state (`sim` None: an
     /// entry without its full state, tests only) declared gas is counted instead (`fallback`), valid by
     /// construction. A transaction whose logs or state effects would pass a block cap (B4) is skipped: it
-    /// would halt in the block and be charged all its gas.
+    /// would halt in the block and be charged all its gas. One whose own logs pass a log cap halts in every
+    /// block on p (`own_logs_halt`): it is included, as that halt, counted at its declared gas.
     pub fn template_selection(&self,p:&Entry,clock:u64)->Selection{
         let cp=self.chain.spec.cp();let mut sel=Selection::default();let mut used=0u64;let mut bytes=0usize;
         let (room_txs0,room_bytes0)=self.chain.caps_room(p);let (mut room_txs,mut room_bytes)=(room_txs0,room_bytes0);
@@ -1296,7 +1321,17 @@ impl Node{
             let gas=match &mut sim{
                 Some((st,total))=>{
                     let tx=match env.take(){Some(t)=>t,None=>match decode(){Err(())=>break,Ok(None)=>{skip(slot);continue},Ok(Some(t))=>t}};
+                    let (gas_price,priority)=(tx.gas_price,tx.gas_priority_fee);
                     match native::execute_on_validated(&*st,*total,tx,&ctx,profile){
+                    // PR6 review: one whose own logs pass a log cap halts in every block on p (the pool refuses
+                    // it, but its logs can follow the context, for example PREVRANDAO, which admission does not
+                    // have). It is included as the block applies it, charged its declared gas as before PR6, so it
+                    // cannot stay pooled unpaid. The halt writes no logs.
+                    Ok(r) if own_logs_halt(cp,p.cum_log_bytes,r.result.logs()).is_some()=>{
+                        let Ok((price,tip))=pocol_lp4_execution::fees::effective_fees(ctx.base_fee,gas_price,priority) else{skip(slot);continue};
+                        if sim_halt(st,caller,gas_limit,price,tip).is_none(){skip(slot);continue}
+                        gas_limit
+                    }
                     Ok(r)=>{
                         // B4: a transaction that would halt on a block cap is left out.
                         let logs=r.result.logs();let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));

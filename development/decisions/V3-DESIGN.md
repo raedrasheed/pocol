@@ -884,7 +884,7 @@ never lowered, across it (`genesis_builder.rs:60`).
   - Raise RESP_MAX ≥ 2·LOG_BLOCK_MAX (R26) in lockstep.
   - NODE-LOCAL: model the log caps in PoolMeter/`template_txs` and in `eth_estimateGas`. PR6: the builder
     (`template_selection`) now models the log caps (count, block bytes, LOG_CAP) and SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX;
-    the pool and `eth_estimateGas` do not yet.
+    the pool refuses a transaction whose own logs pass a log cap; `eth_estimateGas` does not model them yet.
 - **Classification:** CONSENSUS-COMPLIANT. **Deployment:** B; later forks through A1.
 - **Tests:** fails on the original code: front-load 32 KiB of logs, then a later ERC-20 transfer halts today and
   succeeds under v3. Also an A13 boot test.

@@ -84,7 +84,8 @@ MinerRegistry layout:
 - Node-local (PR6, not a validity rule): the honest builder counts each transaction's gas used and skips one
   whose gas_limit exceeds GAS_LIMIT minus the gas used so far (the reservation rule above it in the USER
   phase), with its sender's later ones; it also leaves out a transaction that would halt on the log caps or on
-  SLOT_CAP/ACCT_CAP.
+  SLOT_CAP/ACCT_CAP, except one whose own logs pass a log cap, which halts in any block and is included as that
+  halt (the pool refuses such a transaction when admission sees it).
 - LOG_BLOCK_MAX together with the LG2-derived log-count bound (546) underpins lemmas P1 and P3 (D89).
 
 **System resources (D50, D54, D70)**

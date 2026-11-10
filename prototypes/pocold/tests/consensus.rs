@@ -4342,3 +4342,62 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     n.submit_tx(a[1].clone(),false).unwrap();n.pool_audit().unwrap();assert_eq!(n.pool.gas,GL,"alice's quota is free again");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR6 review (log caps): the honest selection leaves out a transaction whose logs would pass a block cap (B4),
+/// so the pool must not keep one that passes it alone: it would hold the gas bound without ever being included
+/// or charged. Four senders' CREATEs whose own logs pass LOG_BLOCK_MAX (one LOG0 of 32,769 bytes) or
+/// LOG_COUNT_MAX (547 LOG0) are refused at submission, with nothing pooled, so their follow-ups have a nonce gap
+/// and nothing holds the bound; 546 LOG0 (the limit) is pooled, and bob's transfer goes into the template.
+/// Before the fix each CREATE was pooled (4 × 2 × GAS_LIMIT/2 filled the default bound).
+#[test] fn a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){
+    let c=cfg_funded();let bob=key("bob");
+    let (mut n,dir)=gas_node_cfg("own-logs",Default::default(),&c,None);
+    let bytes=vec![0x61,0x80,0x01,0x5f,0xa0,0x00];// LOG0 with 32,769 bytes: 36 + 32,769 > LOG_BLOCK_MAX
+    let loop_of=|k:u16|{let mut v=vec![0x61,(k>>8) as u8,k as u8,0x5b];v.extend([0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x03,0x57,0x00]);v};// k LOG0, then STOP
+    let create=|l:&str,init:&Vec<u8>|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:GL/2,to:None,value:U256::ZERO,data:init.clone().into()}.sign_1559(&key(l));
+    let count=loop_of(547);
+    for (l,init,why) in [("alice",&bytes,"LogBytes"),("carol",&count,"LogCount"),("erin",&bytes,"LogBytes"),("frank",&count,"LogCount")]{
+        assert_eq!(n.submit_tx(create(l,init),false).err().as_deref(),Some(format!("-32000 logs would exceed a block cap ({why})").as_str()),"{l}");
+        let e=n.submit_tx(pay_gas(&key(l),1,1,GL/2),false).unwrap_err();assert!(e.starts_with("-32000")&&e.contains("Nonce"),"{l}'s follow-up has a nonce gap: {e}");
+    }
+    assert_eq!((n.pool.txs.len(),n.pool.gas),(0,0),"nothing holds the gas bound");n.pool_audit().unwrap();
+    let g0=create("gina",&loop_of(546));n.submit_tx(g0.clone(),false).unwrap();
+    let b0=pay(&bob,0,1);n.submit_tx(b0.clone(),false).unwrap();n.pool_audit().unwrap();
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![g0,b0],"546 logs is the limit, and bob's transfer is taken");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 review (log caps), the context: a transaction's logs can follow the block's context, which admission does
+/// not have (here PREVRANDAO, zero at admission). carol, erin, frank and gina pool two calls each declaring
+/// GAS_LIMIT/2 to a contract that runs 547 LOG0 when PREVRANDAO is not zero, which fills the default bound. In
+/// the block each call's own logs pass LOG_COUNT_MAX, so it halts wherever it is placed: the selection includes
+/// it as that halt, charged its declared gas, as before PR6. Each head takes one sender's two calls (a full block
+/// of charged gas), and bob's transfer, held behind them, is mined once they are gone. Before the fix the
+/// selection skipped them on every build: the templates stayed empty, the calls stayed pooled unpaid and bob's
+/// transfer was never taken.
+#[test] fn a_transaction_halting_on_its_own_logs_is_included_and_charged(){
+    let c=cfg_funded();let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("own-logs-ctx",Default::default(),&c,None);
+    // PREVRANDAO ISZERO PUSH1 21 JUMPI; PUSH2 547; loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 8 JUMPI; STOP; 21: JUMPDEST STOP
+    let rt=vec![0x44,0x15,0x60,0x15,0x57,0x61,0x02,0x23,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x08,0x57,0x00,0x5b,0x00];
+    let mut init=vec![0x60,rt.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(&rt);
+    let deploy=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
+    let x=branch(&mut h,g,1,&[Body{txs:vec![deploy],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();let ca=alice.address().create(0);
+    assert!(!n.chain.head().state.accounts[&ca].info.is_empty_code_hash(),"deployed");
+    let call=|l:&str,nonce:u64|Tx{chain_id:777910,nonce,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:GL/2,to:Some(ca),value:U256::ZERO,data:Default::default()}.sign_1559(&key(l));
+    let senders=["carol","erin","frank","gina"];
+    for l in senders{for k in 0..2{n.submit_tx(call(l,k),false).unwrap_or_else(|e|panic!("{l}'s call is pooled (no logs at admission): {e}"));}}
+    assert_eq!(n.pool.gas,4*GL,"the default bound is full");
+    let b0=pay(&bob,0,1);let _=n.submit_tx(b0.clone(),false);n.pool_audit().unwrap();
+    let mut mined=false;
+    for (i,l) in senders.iter().enumerate(){
+        let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+        let sel=n.template_selection(&head,clock);assert!(!sel.fallback,"the selection simulates on the parent's state");
+        assert_eq!(sel.txs,vec![call(l,0),call(l,1)],"head {i}: {l}'s two calls, each halting on its own logs");assert_eq!(sel.counted,GL,"counted at their declared gas");
+        let blk=signed(&h,head.hash,Body{txs:sel.txs,evidence:vec![]},0);assert_eq!(blk.header.gas_used,GL,"both halt and are charged all their gas");
+        assert!(import(&mut h,&blk),"valid");assert!(n.import(blk,None).unwrap());n.pool_settle();n.pool_audit().unwrap();
+        assert_eq!(n.chain.head().state.accounts[&key(l).address()].info.nonce,2,"{l} paid for both");
+    }
+    let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+    if n.template_selection(&head,clock).txs==vec![b0.clone()]{mined=true;}
+    assert!(mined,"bob's transfer is taken once the calls are gone");assert_eq!(n.pool.gas,21000);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
