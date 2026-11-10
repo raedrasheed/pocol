@@ -270,8 +270,8 @@ spawned is logged and skipped for that template instead of stopping the node.
 **Redial backoff.** A configured peer whose connection ends within 60 s (a full peer
 evicting or refusing this node, say) is redialed after 0.6 s, then 1.2 s, doubling to
 at most 30 s; a connection that lasted 60 s or more resets the delay to 300 ms, and a
-failed connect keeps the current delay. A stable peer that is lost is redialed at
-once; one that keeps closing quickly is redialed at most every 30 s.
+failed connect doubles it as well. A stable peer that is lost is redialed at once;
+one that keeps closing quickly, or is down, is redialed at most every 30 s.
 
 **Monitoring.** `pocol_status` gains:
 - `inboundEstablished` (established inbound peers still open) and `inboundMax` (the

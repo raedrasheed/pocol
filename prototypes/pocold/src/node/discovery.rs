@@ -136,6 +136,8 @@ impl Node{
         let Some(l)=self.disc.links.remove(&id) else{return};
         if let Some(a)=l.origin.dialed().filter(|_|l.compatible&&l.consent){self.disc.book.touch(a,false,now);}
     }
+    /// An automatic outbound slot's dial failed (`net::slot`, VA-SPEC §1a.7). No slot runs yet: nothing to account.
+    pub(super) fn disc_dial_failed(&mut self,_t:u8,_a:SocketAddr,_e:net::DialError,_now:u64){}
     /// VA-SPEC §2: a first Hello carrying this node's own nonce. The connection is closed and removed before any Status
     /// is kept, so `compatiblePeers` never counts it, and an address this node dialed for it is marked as its own
     /// (`Book::mark_self`). A configured address stays in the outbound set: its peer is gone from `peers` before its

@@ -896,6 +896,7 @@ impl Node{
             Event::Net(NetEvent::Closed(id))=>{self.disc_closed(id,self.disc_now());self.peer_status.remove(&id);if self.session.as_ref().map_or(false,|s|s.peer==id){self.end_session(false);}
                 if let Some(p)=self.peers.remove(&id){self.allow_redial(p.origin);}}
             Event::Net(NetEvent::Message(id,m))=>self.on_msg(id,m),
+            Event::Net(NetEvent::DialFailed(t,a,e))=>self.disc_dial_failed(t,a,e,self.disc_now()),
             // Its Closed follows; the 0.4.0 handshake is refused by arity, as before (plan §6).
             Event::Net(NetEvent::Legacy(id))=>{self.stats.legacy_hellos+=1;
                 let at=self.peers.get(&id).map(|p|p.addr.clone()).unwrap_or_default();self.log(&format!("peer {at} speaks the PoCol 0.4.0 handshake; closing"));}

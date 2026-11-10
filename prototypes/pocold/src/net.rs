@@ -6,8 +6,9 @@
 //! - at most `peers_max` (default 32) established inbound connections (their Hello accepted, `Net::establish`) and, counted
 //!   apart, at most `handshaking_max` still waiting for their Hello, so at most `inbound_max` (their sum) inbound
 //!   connections exist at once; excess connections are closed on accept, before any thread is spawned. Outbound
-//!   connections are separate (one per configured peer, `dial`; each carries the address it was dialed at, its
-//!   `Origin`), so inbound connections can never take the slots the node needs to reach its own peers;
+//!   connections are separate (one per configured peer, `dial`, and one per automatic outbound slot, `slot`; each
+//!   carries the address it was dialed at, its `Origin`), so inbound connections can never take the slots the node
+//!   needs to reach its own peers;
 //! - at most `per_group_max` (default 4) inbound connections per public address group (`group_of`: IPv4 /16, IPv6
 //!   /32, a tunnelled IPv4 address as that address), plus one spare place (`GROUP_SPARE`): a newcomer that takes it
 //!   must evict the youngest unprotected member of its own group at its first eligible Hello (`victim_in`), or it is
@@ -38,7 +39,7 @@ use std::hash::BuildHasher;
 use std::io::{Read,Write};
 use std::net::{IpAddr,TcpListener,TcpStream,SocketAddr};
 use std::sync::{Arc,Condvar,Mutex,MutexGuard,OnceLock,atomic::{AtomicBool,AtomicU64,AtomicUsize,Ordering}};
-use std::sync::mpsc::SyncSender;
+use std::sync::mpsc::{Receiver,SyncSender};
 use std::time::{Duration,Instant};
 use crate::rlp;
 
@@ -495,7 +496,8 @@ impl Msg{
 pub type PeerId=u64;
 #[derive(Debug)]
 /// `Legacy`: the connection's first frame was PoCol 0.4.0's 9-item Hello (`legacy_hello`); its Closed follows.
-pub enum NetEvent{Connected(PeerId,Peer),Message(PeerId,Msg),Closed(PeerId),Legacy(PeerId)}
+/// `DialFailed`: an automatic outbound slot's dial failed or its connection was not handed over (`slot`).
+pub enum NetEvent{Connected(PeerId,Peer),Message(PeerId,Msg),Closed(PeerId),Legacy(PeerId),DialFailed(u8,SocketAddr,DialError)}
 /// Whether `b` is a list whose first item is type 0 (Hello) with the nine items of the PoCol 0.4.0 Hello (no listenPort
 /// and nonce, VA-SPEC §1a.1). It is only counted and logged: such a peer is refused by arity as before.
 pub fn legacy_hello(b:&[u8])->bool{
@@ -696,7 +698,9 @@ pub const DIAL_STABLE:Duration=Duration::from_secs(60);
 /// The longest redial delay.
 pub const DIAL_BACKOFF_MAX:Duration=Duration::from_secs(30);
 /// The wait before a configured peer is dialed again, from the previous wait and how long the last connection lasted:
-/// - `None` (the connect failed, or the connection was not handed to the node): the previous wait;
+/// - `None` (a failed connect, or a connection not handed to the node): twice the previous wait, at most
+///   DIAL_BACKOFF_MAX, so a dead peer (a seed that was stopped, say) is dialed at most every 30 s, not every 0.3-0.8 s
+///   forever (D22, VA-SPEC §1);
 /// - at least DIAL_STABLE: DIAL_RETRY;
 /// - shorter: twice the previous wait, at most DIAL_BACKOFF_MAX.
 ///
@@ -704,7 +708,7 @@ pub const DIAL_BACKOFF_MAX:Duration=Duration::from_secs(30);
 /// 1.2 s, ... 30 s, not every 300 ms, and the evictions a redial would cause there settle down; a stable peer that is
 /// lost is redialed at once.
 pub fn redial_delay(prev:Duration,lasted:Option<Duration>)->Duration{
-    match lasted{None=>prev,Some(l) if l>=DIAL_STABLE=>DIAL_RETRY,Some(_)=>prev.saturating_mul(2).min(DIAL_BACKOFF_MAX)}
+    match lasted{Some(l) if l>=DIAL_STABLE=>DIAL_RETRY,_=>prev.saturating_mul(2).min(DIAL_BACKOFF_MAX)}
 }
 /// Keeps an outbound connection to `addr`, reconnecting after loss with `redial_delay`'s backoff. The node
 /// maintains `connected` from Connected/Closed events (outbound peer addresses).
@@ -734,6 +738,51 @@ pub fn dial(addr:SocketAddr,events:SyncSender<NetEvent>,connected:Arc<Mutex<std:
             std::thread::sleep(DIAL_RETRY);
         }
     }).expect("spawn dialer");
+}
+/// An automatic outbound slot's connect timeout (VA-SPEC §1a.7).
+pub const CONNECT_TIMEOUT:Duration=Duration::from_secs(5);
+/// Why a slot's dial failed (VA-SPEC §1a.4, §1a.7): refused or reset; timed out; unreachable from the network (an ICMP
+/// error a remote can cause, so an ordinary failure); no local route for the address (`route_ok` failed: this host's
+/// own state, which says nothing about the address); or connected but not handed to the node (a local spawn or queue
+/// failure, which says nothing about the remote either).
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum DialError{Refused,Timeout,Unreachable,NoRoute,NotHanded}
+/// Whether this host has a route to `a`: a UDP socket of its family connected to it, which sends no packet and fails
+/// only on this host's own state (no route, no address of that family).
+pub fn route_ok(a:SocketAddr)->bool{
+    let any:SocketAddr=if a.is_ipv4(){(std::net::Ipv4Addr::UNSPECIFIED,0).into()}else{(std::net::Ipv6Addr::UNSPECIFIED,0).into()};
+    std::net::UdpSocket::bind(any).and_then(|s|s.connect(a)).is_ok()
+}
+/// A connect error to `a` as a `DialError`. A network-unreachable, address-not-available or address-family error is
+/// local only if the route probe fails too: Linux also reports an ICMP net-unreachable received in SYN_SENT as
+/// ENETUNREACH, and a remote that can forge one must not turn this node's address family off (D18').
+pub fn classify(e:&std::io::Error,a:SocketAddr)->DialError{
+    use std::io::ErrorKind as K;
+    #[cfg(unix)] const AFNOSUPPORT:Option<i32>=Some(libc::EAFNOSUPPORT);
+    #[cfg(windows)] const AFNOSUPPORT:Option<i32>=Some(10047);
+    #[cfg(not(any(unix,windows)))] const AFNOSUPPORT:Option<i32>=None;
+    let local=matches!(e.kind(),K::NetworkUnreachable|K::AddrNotAvailable)||(AFNOSUPPORT.is_some()&&e.raw_os_error()==AFNOSUPPORT);
+    match e.kind(){
+        K::TimedOut|K::WouldBlock=>DialError::Timeout,
+        _ if local=>if route_ok(a){DialError::Unreachable}else{DialError::NoRoute},
+        K::HostUnreachable=>DialError::Unreachable,
+        _=>DialError::Refused}
+}
+/// An automatic outbound slot (VA-SPEC §1a.7), thread `out-{i}`: one connection at a time. For each address the node
+/// assigns (only after the previous connection's Closed or DialFailed) it joins that connection's reader (A13: no
+/// reader is left behind; THREAD-INVENTORY "peer reader (slot)"), then dials within CONNECT_TIMEOUT and hands the
+/// connection over as `Origin::Slot(i, addr)`, or reports `DialFailed`. It ends when the node drops its sender.
+pub fn slot(i:u8,assign:Receiver<SocketAddr>,events:SyncSender<NetEvent>,net:Net)->std::io::Result<()>{
+    crate::threads::spawn(format!("out-{i}"),crate::threads::IO_STACK,move||{
+        let mut reader:Option<std::thread::JoinHandle<()>>=None;
+        for addr in assign{
+            if let Some(h)=reader.take(){let _=h.join();}
+            let failed=match TcpStream::connect_timeout(&addr,CONNECT_TIMEOUT){
+                Ok(s)=>{let (handed,h)=spawn_peer(s,Origin::Slot(i,addr),events.clone(),net.clone(),None,false);reader=h;(!handed).then_some(DialError::NotHanded)}
+                Err(e)=>Some(classify(&e,addr))};
+            if let Some(e)=failed{if events.send(NetEvent::DialFailed(i,addr,e)).is_err(){return}}
+        }
+    }).map(|_|())
 }
 
 /// Unit tests only: a peer on a loopback pair whose outbox has no writer thread, so its queue only fills.
@@ -1288,16 +1337,43 @@ mod tests{
         assert_eq!((load(&c.live),load(&c.handshaking),c.groups.lock().unwrap().get(&G).copied(),net.registry().slots.len()),(0,0,None,0));
     }
     /// U10: a configured peer whose connections end quickly is redialed after 0.6 s, 1.2 s, ... at most 30 s; a connection
-    /// that lasted DIAL_STABLE resets the wait to 300 ms; a failed connect keeps it.
+    /// that lasted DIAL_STABLE resets the wait to 300 ms; a failed connect doubles it (D22).
     #[test] fn redial_delay_doubles_after_short_connections_and_resets_after_a_stable_one(){
         let ms=Duration::from_millis;let short=Some(Duration::ZERO);
         let mut d=DIAL_RETRY;let mut seen=vec![];for _ in 0..10{d=redial_delay(d,short);seen.push(d.as_millis());}
         assert_eq!(seen,[600,1200,2400,4800,9600,19200,30000,30000,30000,30000],"doubling from 300 ms, capped at 30 s");
         assert_eq!(redial_delay(ms(1200),Some(DIAL_STABLE-ms(1))),ms(2400),"just short of DIAL_STABLE is short");
         assert_eq!(redial_delay(DIAL_BACKOFF_MAX,Some(DIAL_STABLE)),DIAL_RETRY,"a stable connection resets the wait");
-        assert_eq!((redial_delay(ms(4800),None),redial_delay(DIAL_RETRY,None)),(ms(4800),DIAL_RETRY),"a failed connect keeps the wait");
+        assert_eq!((redial_delay(ms(4800),None),redial_delay(DIAL_RETRY,None)),(ms(9600),ms(600)),"a failed connect doubles the wait");
+        assert_eq!(redial_delay(DIAL_BACKOFF_MAX,None),DIAL_BACKOFF_MAX,"at most DIAL_BACKOFF_MAX");
         assert_eq!(redial_delay(Duration::MAX,short),DIAL_BACKOFF_MAX,"no overflow");
         assert_eq!((DIAL_RETRY,DIAL_STABLE,DIAL_BACKOFF_MAX),(ms(300),Duration::from_secs(60),Duration::from_secs(30)));
+    }
+    /// D22 (VA-SPEC §1): a configured peer that is down (a stopped seed, say) is dialed after 0.6 s, 1.2 s, ... and then
+    /// every 30 s, not every 0.3-0.8 s forever: each failed connect doubles the wait, and ten reach the cap and stay.
+    #[test] fn failed_connects_back_off(){
+        let mut d=DIAL_RETRY;let mut seen=vec![];for _ in 0..10{d=redial_delay(d,None);seen.push(d.as_millis());}
+        assert_eq!(seen,[600,1200,2400,4800,9600,19200,30000,30000,30000,30000]);
+        assert_eq!(redial_delay(d,None),DIAL_BACKOFF_MAX,"and stays there");
+    }
+    /// D18' (VA-SPEC §1a.7): a slot's connect errors. A timeout is Timeout; refused and reset are Refused; a host
+    /// unreachable is Unreachable. A network-unreachable or address-not-available error is NoRoute only when the local
+    /// probe has no route either (the IPv4 broadcast address: a UDP connect to it fails without SO_BROADCAST); to a
+    /// routable address (loopback) it came from the network, which a remote can forge, so it is Unreachable. An
+    /// address-family error for IPv6 is NoRoute on a host without IPv6 (checked only there).
+    #[test] fn connect_errors_are_classified(){
+        use std::io::{Error,ErrorKind as K};
+        let (lo,bc,v6)=("127.0.0.1:1".parse().unwrap(),"255.255.255.255:1".parse().unwrap(),"[::1]:1".parse().unwrap());
+        for (k,want) in [(K::TimedOut,DialError::Timeout),(K::WouldBlock,DialError::Timeout),(K::ConnectionRefused,DialError::Refused),
+            (K::ConnectionReset,DialError::Refused),(K::HostUnreachable,DialError::Unreachable),(K::NetworkUnreachable,DialError::Unreachable),(K::AddrNotAvailable,DialError::Unreachable)]{
+            assert_eq!(classify(&Error::from(k),lo),want,"{k:?} to a routable address");
+        }
+        assert!(route_ok(lo)&&!route_ok(bc),"the probe");
+        assert_eq!((classify(&Error::from(K::NetworkUnreachable),bc),classify(&Error::from(K::AddrNotAvailable),bc)),(DialError::NoRoute,DialError::NoRoute),"no local route");
+        assert_eq!(classify(&Error::from(K::HostUnreachable),bc),DialError::Unreachable,"a host unreachable is never probed");
+        #[cfg(unix)]{let af=Error::from_raw_os_error(libc::EAFNOSUPPORT);
+            assert_eq!(classify(&af,lo),DialError::Unreachable,"an address-family error with a route is the network's");
+            if !route_ok(v6){assert_eq!(classify(&af,v6),DialError::NoRoute,"this host has no IPv6")}else{eprintln!("IPV6-ROUTE: the NoRoute case for IPv6 is not checked");}}
     }
     /// Wire golden vectors (plan §1.6, VA-SPEC §2.2): now that a net.rs change no longer partitions the network, the
     /// frames same-rules nodes exchange are pinned. Each canonical message encodes to its pinned frame and decodes
