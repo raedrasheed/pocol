@@ -104,8 +104,12 @@ pub struct Config{
 pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// Node memory budget for the A13 resident bound (resources::check at open).
     pub mem_budget:u64,
-    /// Observed journal records for the continuous resource projection, never a consensus limit.
+    /// Observed journal records for the continuous resource projection with eviction off, never a consensus limit.
     pub continuous_history:Option<u64>,
+    /// C-1 S5 (PR7 §6.2): the observed sizes of history.redb, state.redb and canon.redb, which the continuous chain's
+    /// bound counts with eviction on (None: not observed, and that bound is None). Node::open observes them before
+    /// its checks and import_with every 256 records; a library caller passes them, as `continuous_history`.
+    pub disk:Option<crate::resources::DiskBytes>,
     /// Local retention (consensus.md:29, governance.md:15; never validity): R_keep and the cap on
     /// unprotected non-canonical metadata (chain::R_KEEP, chain::SIDE_BLOCKS_MAX). Live import and
     /// replay must use the same values; tests lower them to reach the boundaries quickly.
@@ -135,7 +139,7 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     pub evict_depth:Option<u64>,
     /// Peer discovery (VA-SPEC §1a; local policy, never validity): on by default, local mode off.
     pub discovery:Discovery}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default()}}}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,disk:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default()}}}
 /// C-1 S5 (PR7): what a view of a canonical block below the window reads besides its index row and journal
 /// record: its receipts (history.redb) only when asked.
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
@@ -328,6 +332,9 @@ pub struct Node{
     pub rejects:VecDeque<(String,String)>,
     pub stats:Stats,
     pub stopped:bool,
+    /// C-1 S5 (PR7 §4.4): the LOCAL CAPACITY warning was logged (the bound reached 15/16 of the budget); logged again
+    /// only after it fell below.
+    capacity_warned:bool,
     /// Equivocation observations and evidence awaiting inclusion (incentives.md Evidence). seen_templates holds at
     /// most SEEN_MAX + 1 keys (`evict_seen_templates`).
     pub seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
@@ -486,6 +493,8 @@ impl Node{
         // C-1 S5: the eviction depth, from that R_keep, set once in the limits so that A13 and the chain use one value.
         let evict=crate::resources::evict_depth_of(spec.cp(),spec.local().k_hist,&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
+        // PR7 §6.2 (A1-6): the files are observed before the first check (a missing one counts 0).
+        cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
         // One pass over the journal (2026-10-28: its payloads are not held, condition `open-replay-transient`):
@@ -507,6 +516,7 @@ impl Node{
         }).map_err(|e|format!("store: {e:?}"))?;timing.journal_ms=ms(t);
         if let Some(e)=bad{return Err(e)}
         evs.sort_unstable();
+        cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(rec.journal.records);crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;}
         // PR7 §7: the replay's own tables must fit beside the bound (they grow with the journal, not the window).
         crate::resources::check_open(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len(),rec.journal.records)?;
@@ -519,7 +529,7 @@ impl Node{
         let canon_kept=cfg.dir.join(canon::FILE).exists();let mut canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;
         // C-1 S5 (PR7 §2.4): in store mode a rebuild anchor every R_keep heights below the K_hist cut.
         let rk=rk_replay.max(cfg.limits.r_keep);
-        chain.evict_depth=evict;chain.evict_batch=(cfg.limits.side_cap as u64).saturating_add(2*rk).saturating_add(2);chain.anchor_step=cfg.limits.state_store.then_some(rk);chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
+        chain.evict_depth=evict;chain.evict_batch=(cfg.limits.side_cap as u64).saturating_add(2*rk).saturating_add(2);chain.anchor_step=(cfg.limits.state_store&&evict.is_some()).then_some(rk);chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
         // C-1 S4: deeper than any fork (R_keep), a head that fell back by R_keep, the evidence window and
         // the 256-ancestor window: no validation reads a slimmed entry unless the head fell back further.
         chain.slim_depth=Some(cfg.limits.slim_depth.unwrap_or(2*rk_replay.max(cfg.limits.r_keep)+u64::from(chain.spec.cp().E_win)+257));
@@ -723,7 +733,7 @@ impl Node{
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
@@ -903,13 +913,24 @@ impl Node{
     /// `h`'s state made available as an import's rebuild makes it (the journal and history.redb supplying the
     /// blocks' bytes). For tests and measurements that build blocks on an arbitrary parent.
     pub fn ensure_state(&mut self,h:&[u8;32])->Result<(),Reject>{let src=Src{journal:&self.journal,history:&self.history,canon:&self.canon};self.chain.ensure_state_with(h,Some(&src))}
-    pub fn import_with(&mut self,b:Block,from:Option<PeerId>,solicited:bool)->Result<bool,Reject>{
-        if self.chain.spec.cp().H_END==0 && self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{
-            self.cfg.limits.continuous_history=Some(self.journal.records);
-            if let Err(e)=crate::resources::check(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&self.cfg.limits,self.cfg.peers.len()){
-                self.log(&format!("LOCAL CAPACITY: {e}; increase local resources and memory budget to resume"));self.stopped=true;return Err(Reject::Local(e));
-            }
+    /// A13 recheck of the continuous chain every 256 journal records (import_with). With eviction on (PR7 §6) the
+    /// files are observed again and the bound counts them; with eviction off it projects from the record count (the
+    /// behaviour before PR7, which stops the node once the journal outgrows the budget). At or above 15/16 of the
+    /// budget a LOCAL CAPACITY warning is logged; past it the node stops (`stopped`), naming the override.
+    fn capacity_recheck(&mut self)->Result<(),Reject>{
+        self.cfg.limits.continuous_history=Some(self.journal.records);
+        self.cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&self.cfg.dir));
+        let (cp,local)=(self.chain.spec.cp(),self.chain.spec.local());
+        match crate::resources::check(cp,local.k_hist,local.side_max,&self.cfg.limits,self.cfg.peers.len()){
+            Err(e)=>{let e=format!("{e}; raise --memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES");self.log(&format!("LOCAL CAPACITY: {e}"));self.stopped=true;Err(Reject::Local(e))}
+            Ok(b)=>{
+                let need=crate::resources::budget_required(b.total).unwrap_or(u128::MAX);let high=need.saturating_mul(16)>=u128::from(self.cfg.limits.mem_budget).saturating_mul(15);
+                if high&&!self.capacity_warned{self.log(&format!("LOCAL CAPACITY warning: the A13 bound {} B needs {need} B with its 1/8 reserve, at least 15/16 of the node memory budget {} B; raise --memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES before it is reached",b.total,self.cfg.limits.mem_budget));}
+                self.capacity_warned=high;Ok(())}
         }
+    }
+    pub fn import_with(&mut self,b:Block,from:Option<PeerId>,solicited:bool)->Result<bool,Reject>{
+        if self.chain.spec.cp().H_END==0 && self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{self.capacity_recheck()?;}
         let hash=b.hash();
         let was_evicted=self.chain.was_evicted(&hash);
         if was_evicted&&!solicited{return Err(Reject::Evicted)}
@@ -1835,13 +1856,15 @@ impl Node{
     pub fn peer_count(&self)->usize{self.peers.len()}
     pub fn status_json(&self)->serde_json::Value{
         let h=self.chain.head();
+        // A13 (PR7 §6.2): the bound over the files as they are now.
+        let mut limits=self.cfg.limits.clone();let disk=Some(crate::resources::DiskBytes::observe(&self.cfg.dir));limits.disk=disk;
         let mode=match &self.prod{None=>"none".to_string(),Some(p)=>match &p.mode{Mode::Idle=>"idle".into(),Mode::Wait{..}=>format!("wait a={}",p.attempt),Mode::Propose{at_s}=>format!("propose at {at_s}"),
             Mode::Locked(l)=>format!("{} h={} a={} shares={} mining={}",if l.fallback{"FB"}else{"PROP"},p.height,p.attempt,p.shares.len(),p.miner.is_some())}};
         let mut status=serde_json::json!({"name":self.cfg.name,"chainId":self.chain.spec.chain_id(),"genesisHash":hex(&self.chain.spec.genesis_hash()),"head":{"height":h.height,"hash":hex(&h.hash),"ts":h.ts,"signed":h.signed,"final":h.is_final,"totalWork":format!("{:#x}",h.total_work)},
             "peers":self.peers.values().map(|p|p.addr.clone()).collect::<Vec<_>>(),"production":mode,"miner":self.cfg.miner.as_ref().map(|k|format!("{:#x}",k.address())),
             "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
             "admission":crate::admission_json(self.chain.spec.admission()),
-            "a13":crate::resources::derive(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&self.cfg.limits,self.cfg.peers.len()).map(|b|serde_json::json!({
+            "a13":crate::resources::derive(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&limits,self.cfg.peers.len()).map(|b|serde_json::json!({
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
             "stats":{"imported":self.stats.imported,"mined":self.stats.mined,"signedTemplates":self.stats.signed_templates,"fallbackTemplates":self.stats.fallback_templates,"sharesSeen":self.stats.shares_seen,"hashesInExhaustedRanges":self.stats.hashes,"reorgs":self.stats.reorgs,
                 "syncSessions":self.stats.sync_sessions,"syncRounds":self.stats.sync_rounds,"refetched":self.stats.refetched,"restored":self.stats.restored,"replaySkipped":self.stats.replay_skipped,"templatePenalties":self.stats.template_penalties,"poolSlices":self.stats.pool_slices,"poolSliceMaxMs":self.stats.pool_slice_max_ms,"reinsertedOffered":self.stats.reinserted_offered,"reinsertedUnoffered":self.stats.reinserted_unoffered,"poolBacklog":self.pool.backlog.len(),"historyRefilled":self.stats.history_refilled,"historyRebuilt":self.history.rebuilt,"historyDamaged":self.history.is_damaged()},
@@ -1872,7 +1895,13 @@ impl Node{
         status["outboundPeers"]=serde_json::json!(self.net.counters.outbound.load(std::sync::atomic::Ordering::SeqCst));
         status["discovery"]=self.disc_status();
         status["lifetime"]=if self.chain.spec.cp().H_END==0{serde_json::json!({"continuous":true,"closingHeight":null,"finalHeight":null,"closingTime":null,"finalTime":null})}else{serde_json::json!({"continuous":false,"closingHeight":self.chain.spec.cp().H_CLOSE,"finalHeight":self.chain.spec.cp().H_END})};
-        status["resourceProjectionRecords"]=serde_json::json!(self.cfg.limits.continuous_history);
+        // C-1 S5 (PR7 §4.4): the in-memory window and the canonical index below it, and the files the bound counts.
+        let windowed=self.chain.evict_depth.filter(|e|*e<u64::MAX).is_some();let base=self.chain.canonical.base();
+        status["canonicalBase"]=serde_json::json!(base);status["blocksIndexed"]=serde_json::json!(base.saturating_sub(1));
+        status["anchors"]=serde_json::json!(self.chain.anchors().len());status["evictStalls"]=serde_json::json!(self.chain.evict_stalls);status["evictDepth"]=serde_json::json!(self.chain.evict_depth);
+        status["diskObserved"]=serde_json::json!(disk.map(|d|serde_json::json!({"historyBytes":d.history,"stateBytes":d.state,"canonBytes":d.canon})));
+        // What the continuous chain's bound grows with: the observed files with eviction on, the journal's records off.
+        status["resourceDiskBytes"]=serde_json::json!((self.chain.spec.cp().H_END==0&&windowed).then(||disk.map(|d|d.history+d.state+d.canon)).flatten());
         status["unlimitedResourceProof"]=serde_json::json!(false);
         crate::network_display::annotate(status)
     }

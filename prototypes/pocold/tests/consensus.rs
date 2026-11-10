@@ -1956,9 +1956,16 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // exiting one, links and a group entry), the maps' 8 more high entries, and the eviction registry (16 × 192 +
     // 245 × 64 + 2,048 + 1,024), +27,415,568 B, -> 3,272,236,947 B; PR3 commit 5: 32 established inbound by default,
     // 24 more places at 3,421,500 B, the maps' 24 more high entries at 2,718 B and the registry's at 192 + 64 B,
-    // +82,187,376 B, -> 3,354,424,323 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
-    // the target the evidence is produced on; every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_354_424_323,"the A13 model total changed");
+    // +82,187,376 B, -> 3,354,424,323 B; PR7 (C-1 S5): canonical entries below head − E (E = 6,417) leave memory, so
+    // 6,419 entries are resident of the devnet's 20,001 (slimmed entries -18,308,536 B), and the window's own terms
+    // are counted: the Canon deque 410,880, the eviction batch 1,413,580, a head drop's reload 2,760,704, the rebuild
+    // shadow 5,783,785, two views below the window 859,954, canon.redb's cache 4,194,304 and allocator 531,840 B;
+    // -2,353,489 B, -> 3,352,070,834 B; with eviction off, `evict_depth` Some(0), the total is the one before).
+    // Some terms are type sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced
+    // on; every target checks that it boots within the budget with its reserve.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_352_070_834,"the A13 model total changed");
+        let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
+        assert_eq!(off.total,3_354_424_323,"eviction off is the model before PR7");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -1967,7 +1974,8 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);
     // C-1 S1: a window of the whole chain is the model before S1, plus history.redb's cache and allocator.
-    let all=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),..Default::default()},2).unwrap();
+    // (PR7: with eviction off, so that every height is resident.)
+    let all=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),evict_depth:Some(0),..Default::default()},2).unwrap();
     // (C-1 E5: and the one empty state entries share, which each entry counted before.)
     let redb:u128=all.items.iter().filter(|x|x.0.starts_with("history/history.redb")||x.0.starts_with("history/the one empty state")).map(|x|x.1).sum();
     // The one term that differs: the logs, now also bounded per block (LOG_BLOCK_MAX, enforced by the USER
@@ -4095,10 +4103,16 @@ fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
         let b=signed(&n,n.chain.head,Body{txs:vec![raw],evidence:vec![]},0);import(&mut n,&b);
     }
     assert_eq!(n.chain.head().state.accounts[&to].info.balance,U256::from(10u128.pow(24))+U256::from(4));
-    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits::default();limits.state_store=true;
+    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits{evict_depth:Some(0),..Default::default()};limits.state_store=true;
     assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unknown continuous history must not be treated as zero");
     limits.continuous_history=Some(0);let small=pocold::resources::derive(cp,32,2,&limits,3).unwrap();
     limits.continuous_history=Some(50_000);let larger=pocold::resources::derive(cp,32,2,&limits,3).unwrap();assert!(larger.total>small.total);
+    // PR7 (C-1 S5, §6.5): with eviction on, unknown file sizes are not zero either, and the bound does not grow with
+    // the records: equal at 0 and 10^9.
+    limits.evict_depth=None;assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unobserved files must not be treated as empty");
+    assert_eq!(pocold::resources::check(cp,32,2,&limits,3).unwrap_err(),"A13: disk sizes not observed");
+    limits.disk=Some(Default::default());let at=|r:u64|pocold::resources::derive(cp,32,2,&pocold::node::Limits{continuous_history:Some(r),..limits.clone()},3).unwrap().total;
+    assert_eq!(at(0),at(1_000_000_000));
 }
 
 // ---------------- PR7 (C-1 S5): canonical entries below the in-memory window ----------------
@@ -4145,6 +4159,7 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
             if store&&(i+1==1000||i+1==2000){sizes.push(pocold::checkpoint::encode(&n.chain,&pocold::checkpoint::Binding{records:0,end:0,hash:[0;32]}).unwrap().0.len());}
         }
         assert_eq!(n.chain.canonical.base(),2000-e,"the window starts at head - E");
+        {let c=n.canon();c.sync().unwrap();println!("PR7-CANON-BYTES {}",serde_json::json!({"store":store,"rows":2000-e-1,"fileBytes":c.file_bytes(),"bytesPerRow":c.file_bytes()/(2000-e-1)}));}
         if store{println!("PR7-CHECKPOINT-BYTES {sizes:?}");assert!(sizes[0].abs_diff(sizes[1])<=2*pocold::checkpoint::REC_MAX,"FAIL-ON-ORIGINAL: checkpoint bytes {sizes:?}");}
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
@@ -4390,35 +4405,38 @@ fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
 }
 /// PR7 (T11): a data directory of a node before PR7 (no eviction; its newest checkpoint in format 1, every entry of
 /// the chain) opens under the default eviction: it resumes from that checkpoint, the open's window reaches its
-/// floor (batch after batch) with nothing stalled, and the node is the one replay from genesis gives. Without
-/// canon.redb the format-1 checkpoint is still used (it needs no index); one whose entries do not fit the memory
-/// budget beside the model is refused, and the node replays from genesis.
+/// floor (batch after batch) with nothing stalled, and once the cut has passed the next anchor height the node is
+/// the one replay from genesis gives (a format-1 snapshot holds no anchor, and an anchor is only taken on the forward
+/// pass, so until then the migrated node lacks the anchors replay kept below the cut: a rebuild cache, never a
+/// verdict). Without canon.redb the format-1 checkpoint is still used (it needs no index); one whose entries do not
+/// fit the memory budget beside the model is refused, and the node replays from genesis.
 #[test] fn a_format_1_checkpoint_migrates_to_the_window_at_open(){
     use pocold::checkpoint::*;
-    let rk=8u64;let blocks=pr7_chain(420);let a=e44_dir("pr7-t11");
-    {let mut n=reopen(&pr7_conf(&a,pr7_limits(rk,true,50,Some(0))));for b in &blocks{n.import(b.clone(),None).unwrap();}assert_eq!(n.chain.canonical.base(),0);n.checkpoint_now().unwrap();}
+    let rk=8u64;let more=pr7_chain(450);let blocks=&more[..420];let a=e44_dir("pr7-t11");
+    {let mut n=reopen(&pr7_conf(&a,pr7_limits(rk,true,50,Some(0))));for b in blocks{n.import(b.clone(),None).unwrap();}assert_eq!(n.chain.canonical.base(),0);n.checkpoint_now().unwrap();}
     {let st=pocold::state_store::StateStore::open(&a).unwrap();let cps=st.checkpoints().unwrap();let (_,b,roots)=cps.iter().max_by_key(|c|c.0).unwrap().clone();
         let s=decode(&b).unwrap();assert_eq!((s.canon_base,s.params.evict_depth,s.entries.len()),(0,None,421),"positive control: a snapshot of every entry");
         st.write_checkpoint(&pr7_encode_v1(&s),&roots,KEPT).unwrap();st.close();}
     let l=pr7_limits(rk,true,50,None);
     let g=e44_dir("pr7-t11-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
     let mut y=reopen(&pr7_conf(&g,pr7_limits(rk,true,0,None)));assert_eq!(y.stats.resumed_from,None);
-    let budget={
-        let b=e44_dir("pr7-t11-mig");copy_dir(&a,&b);let mut x=reopen(&pr7_conf(&b,l.clone()));
-        assert_eq!(x.stats.resumed_from,Some(420),"the format-1 checkpoint is used");
-        assert!(x.chain.window_done()&&x.chain.evict_stalls==0&&x.chain.canonical.base()==420-x.cfg.limits.evict_depth.unwrap(),"the open's window reaches its floor");
-        e44_same(&mut x,&mut y,"migrated from format 1, and replayed from genesis");
-        // The bound and the open's replay tables fit; the format-1 entries beside them do not.
-        let c=x.chain.spec.cp().clone();let t=pocold::resources::derive(&c,x.chain.spec.local().k_hist,x.chain.spec.local().side_max,&x.cfg.limits,0).unwrap().total;
-        let t=t+pocold::resources::open_transient(&c,&x.cfg.limits,420).unwrap();
-        drop(x);let _=std::fs::remove_dir_all(&b);pocold::resources::budget_required(t).unwrap() as u64};
+    let b=e44_dir("pr7-t11-mig");copy_dir(&a,&b);let mut m=reopen(&pr7_conf(&b,l.clone()));
+    assert_eq!(m.stats.resumed_from,Some(420),"the format-1 checkpoint is used");
+    assert!(m.chain.window_done()&&m.chain.evict_stalls==0&&m.chain.canonical.base()==420-m.cfg.limits.evict_depth.unwrap(),"the open's window reaches its floor");
+    assert!(m.chain.anchors().is_empty()&&!y.chain.anchors().is_empty(),"positive control: replay kept anchors below the cut that the format-1 snapshot does not hold");
+    // The bound and the open's replay tables fit; the format-1 entries beside them do not.
+    let budget={let c=m.chain.spec.cp().clone();let t=pocold::resources::derive(&c,m.chain.spec.local().k_hist,m.chain.spec.local().side_max,&m.cfg.limits,0).unwrap().total;
+        let t=t+pocold::resources::open_transient(&c,&m.cfg.limits,420).unwrap();pocold::resources::budget_required(t).unwrap() as u64};
     let c=e44_dir("pr7-t11-noindex");copy_dir(&a,&c);std::fs::remove_file(c.join(pocold::node::canon::FILE)).unwrap();
     let x=reopen(&pr7_conf(&c,l.clone()));assert_eq!(x.stats.resumed_from,Some(420),"without canon.redb the format-1 checkpoint is still used");drop(x);
     let d=e44_dir("pr7-t11-budget");copy_dir(&a,&d);let mut tight=l.clone();tight.mem_budget=budget;
     let mut x=reopen(&pr7_conf(&d,tight));
     assert_eq!((x.stats.resumed_from,x.stats.checkpoints_refused>0),(None,true),"a format-1 checkpoint that does not fit beside the model is refused; the node replays from genesis");
-    e44_same(&mut x,&mut y,"replayed after the migration was refused");
-    drop(x);drop(y);for p in [a,g,c,d]{let _=std::fs::remove_dir_all(&p);}
+    e44_same(&mut x,&mut y,"replayed after the migration was refused");drop(x);
+    for b in &more[420..]{m.import(b.clone(),None).unwrap();y.import(b.clone(),None).unwrap();}
+    assert!(!m.chain.anchors().is_empty(),"the migrated node takes anchors as the cut moves");
+    e44_same(&mut m,&mut y,"migrated from format 1, and replayed from genesis, 30 blocks on");
+    drop(m);drop(y);for p in [a,b,g,c,d]{let _=std::fs::remove_dir_all(&p);}
 }
 
 /// PR7 (T13): a canonical index of another genesis, a missing one and one marked damaged are each set aside at open
@@ -4556,4 +4574,35 @@ fn pr7_kill_child(){
         drop(x);drop(g);for p in [d,gd]{let _=std::fs::remove_dir_all(&p);}let _=std::fs::remove_file(&file);
     }}
     println!("PR7-CRASH {log:?}");
+}
+
+/// PR7 (T20, A1-6): a fresh continuous node opens with the default limits (eviction on, its files observed before the
+/// first A13 check) and reports its bound and the window in its status.
+#[test] fn fresh_continuous_node_opens_with_default_limits(){
+    let mut c=cfg(&["a","b","c"]);c.h_end=0;c.h_close=0;let dir=e44_dir("pr7-t20");
+    let n=pocold::node::Node::open(pocold::node::Config{dir:dir.clone(),name:"t20".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).expect("a fresh continuous node opens");
+    let s=n.status_json();assert!(!s["a13"].is_null(),"the bound is reported: {}",s["a13"]);
+    assert!(s["evictDepth"].as_u64().is_some_and(|e|e>0)&&s["canonicalBase"]==0&&s["blocksIndexed"]==0&&s["evictStalls"]==0&&s["anchors"]==0,"{s}");
+    assert!(s["diskObserved"]["historyBytes"].is_u64()&&s["resourceDiskBytes"].is_u64()&&s.get("resourceProjectionRecords").is_none(),"{s}");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR7 (T15): a continuous chain no longer stops itself as its journal grows. Reopened with a budget only 64 KiB
+/// above what its bound at an empty journal requires, a node imports 600 blocks (two 256-record rechecks) and keeps
+/// running: with eviction on no term grows with records, and the files it observes move their allocator terms by
+/// bytes. Before PR7 the bound projected from the record count, about 2.5 KB more a record, so the recheck at 256
+/// records stopped the node (LOCAL CAPACITY).
+#[test] fn continuous_chain_does_not_halt_with_height(){
+    use pocold::node::{Config,Limits,Node};
+    let mut c=cfg(&["a","b","c"]);c.h_end=0;c.h_close=0;
+    let blocks={let mut h=net_with(&c);let g=h.chain.head;grow(&mut h,g,600,&|n,p|fallback(n,p,0))};
+    let dir=e44_dir("pr7-t15");
+    let conf=|mem_budget:u64|Config{dir:dir.clone(),name:"t15".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{mem_budget,..Default::default()}};
+    let bound=|n:&Node|n.status_json()["a13"]["boundBytes"].as_str().expect("the bound").parse::<u128>().unwrap();
+    let t=bound(&Node::open(conf(pocold::node::MEM_BUDGET),admitted(&c)).unwrap());
+    let budget=pocold::resources::budget_required(t).unwrap()+(64<<10);
+    let mut n=Node::open(conf(budget as u64),admitted(&c)).expect("a budget just above the bound boots");
+    for b in &blocks{n.import(b.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: block {}: {e:?}",b.header.h));}
+    assert!(!n.stopped&&n.chain.head().height==600&&n.journal_records()==600,"the node runs on");
+    let t2=bound(&n);assert!(pocold::resources::budget_required(t2).unwrap()<=budget&&t2.abs_diff(t)<(16<<10),"the bound moved by {} B",t2 as i128-t as i128);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
 }

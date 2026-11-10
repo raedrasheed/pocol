@@ -166,3 +166,32 @@ impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option
     go(&mut m,&v1,&NoIndex).unwrap();assert_eq!((m.canonical.base(),m.head,m.blocks.len()),(0,full.head,full.entries.len()),"a format-1 snapshot restores whole under the new parameters");
     drop(m);drop(rec);let _=std::fs::remove_dir_all(&dir);
 }
+
+/// PR7 (T16, §6.2): the continuous chain's A13 bound with eviction on. It is the same at 0 and 10^9 journal records
+/// for fixed observed files (before PR7 it projected from the records); 4 GiB more history.redb adds exactly 1 MiB
+/// once past one region's allocator (1 B per 4 KiB page); a small file takes the region rule (canon.redb's term is one
+/// whole region's allocator); and in store mode state.redb's term steps by one region's allocator per 4 GiB. With
+/// eviction off the record projection is kept, and it grows.
+#[test] fn a13_windowed_bound_is_flat(){
+    use pocold::{node::Limits,resources::{self as r,DiskBytes,derive}};
+    let mut c=cfg();c.h_end=0;c.h_close=0;let s=Spec::new(devnet::build(&c).unwrap().admit(&pocold::single_host_local()).unwrap().0);
+    let (cp,l)=(s.cp(),pocold::single_host_local());
+    let item=|b:&r::Bound,k:&str|b.items.iter().find(|x|x.0==k).unwrap_or_else(||panic!("{k}")).1;
+    let region=r::redb_region_allocator(r::REDB_REGION_PAGES).unwrap()+64;
+    for store in [false,true]{
+        let lim=|records:u64,disk:DiskBytes|Limits{state_store:store,continuous_history:Some(records),disk:Some(disk),..Default::default()};
+        let at=|records:u64,disk:DiskBytes|derive(cp,l.k_hist,l.side_max,&lim(records,disk),2).unwrap();
+        let none=DiskBytes::default();
+        assert_eq!(at(0,none).total,at(1_000_000_000,none).total,"FAIL-ON-ORIGINAL: the bound grows with records (store {store})");
+        let big=DiskBytes{history:100<<30,..none};
+        assert_eq!(at(0,DiskBytes{history:(100<<30)+(4<<30),..none}).total-at(0,big).total,1<<20,"4 GiB of history adds 1 MiB (store {store})");
+        assert_eq!(item(&at(0,none),"history/canon.redb allocator state"),region,"a small canon.redb takes the region rule");
+        assert_eq!(at(0,DiskBytes{canon:1<<30,..none}).total,at(0,none).total,"1 GiB more canon.redb stays within its region (store {store})");
+        if store{
+            let s0=item(&at(0,none),"store/state.redb allocator state (per-region bitmaps over the largest file)");
+            assert_eq!(item(&at(0,DiskBytes{state:4<<30,..none}),"store/state.redb allocator state (per-region bitmaps over the largest file)")-s0,region,"one more region per 4 GiB of state.redb");
+        }
+        let off=|records:u64|derive(cp,l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..lim(records,none)},2).unwrap().total;
+        assert!(off(1_000_000)>off(0),"eviction off keeps the record projection (store {store})");
+    }
+}
