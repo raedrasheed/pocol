@@ -150,8 +150,9 @@ fn small()->Limits{
 }
 #[test] fn a_peer_that_stops_reading_is_dropped_and_consensus_keeps_serving(){let _g=serial();
     // 120 relayed transactions that declare 2M gas each: the pool's gas bound (D-7, 4 × GAS_LIMIT by
-    // default) is raised to hold them, since this test is about the slow peer's outbound queue.
-    let mut l=small();l.pool_gas_max=Some(120*2_000_000);let r=start("slow",l);
+    // default) and its sender quota (PR6, GAS_LIMIT) are raised to hold them, since this test is about the
+    // slow peer's outbound queue.
+    let mut l=small();l.pool_gas_max=Some(120*2_000_000);l.pool_sender_gas_max=Some(120*2_000_000);let r=start("slow",l);
     // The slow peer completes the handshake and never reads again.
     let mut slow=connect(&r);slow.write_all(&hello(&r,"slow")).unwrap();assert!(wait_until(500,||live(&r)==1));
     // Large valid transactions are relayed to every peer (about 100 KiB each).

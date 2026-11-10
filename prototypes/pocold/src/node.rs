@@ -74,6 +74,10 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// transactions' summed declared gas limits (None: POOL_GAS_BLOCKS × GAS_LIMIT, approved 2026-10-25;
     /// a set value must be at least GAS_LIMIT, and A13 counts the pool at it: `pool_gas_bound`).
     pub pool_slice:Duration,pub pool_gas_max:Option<u64>,
+    /// PR6 (local pool policy, never validity): the most declared gas one sender's pooled transactions may sum to
+    /// (None: POOL_SENDER_GAS_BLOCKS × GAS_LIMIT; a set value must be at least GAS_LIMIT and at most the pool's
+    /// gas bound: `pool_sender_gas_bound`). Transactions returned from an abandoned block are not counted.
+    pub pool_sender_gas_max:Option<u64>,
     /// C-1 S1: how many canonical blocks below the head stay resident (None: K_hist). Older canonical
     /// history is served from the journal and history.redb. A test reference sets u64::MAX (none offloaded).
     pub history_window:Option<u64>,
@@ -89,7 +93,7 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     pub checkpoint_every:u64,
     /// Peer discovery (VA-SPEC §1a; local policy, never validity): on by default, local mode off.
     pub discovery:Discovery}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,discovery:Discovery::default()}}}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,discovery:Discovery::default()}}}
 /// C-1 S1: replay refills history.redb with non-durable commits and makes them durable every this many blocks.
 const HISTORY_SYNC:u64=256;
 /// D-7: one slice of pool revalidation. The consensus thread is held for at most this, plus the
@@ -159,6 +163,9 @@ pub const SUBMIT_DEADLINE:&str="-32020 compute deadline (not pooled)";
 pub const SUBMIT_BUSY:&str="-32021 pool revalidation in progress (not pooled)";
 /// `admit_tx`'s refusal of a transaction whose declared gas limit would take the pooled sum past the bound (D-7).
 pub const POOL_FULL_GAS:&str="-32016 pool full (gas)";
+/// `admit_tx`'s refusal of a transaction that would take its sender's pooled declared gas past the sender quota
+/// (PR6 P1, `pool_sender_gas_bound`).
+pub const POOL_FULL_SENDER:&str="-32016 pool full (sender gas)";
 
 pub fn now_ms()->u128{SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()}
 pub fn now_s()->u64{(now_ms()/1000) as u64}
@@ -204,7 +211,10 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
     /// state. `backlog_bytes` counts the transactions held here against POOL_MAX_BYTES.
     backlog:VecDeque<PoolItem>,backlog_bytes:usize,
     /// D-7: summed declared gas limits of `txs`, and their bound (`pool_gas_bound`).
-    pub gas:u64,pub gas_max:u64}
+    pub gas:u64,pub gas_max:u64,
+    /// PR6 P4: per pooled transaction (aligned with `txs`), its sender, declared gas limit and whether it is
+    /// exempt from the sender quota (returned from an abandoned block); and the quota (`pool_sender_gas_bound`).
+    meta:Vec<(Address,u64,bool)>,pub sender_gas_max:u64}
 /// One backlog entry: an abandoned block's journal offset, or a transaction and how to relay it once
 /// admitted (a P2P transaction that arrived during the backlog is relayed then, as it would have been).
 enum PoolItem{Block(u64),Tx(Vec<u8>,Relay)}
@@ -213,8 +223,10 @@ enum PoolItem{Block(u64),Tx(Vec<u8>,Relay)}
 /// may be the only one holding it, and a node that is not drawn never builds a block, so it is offered to
 /// each peer, and a peer with half its queue in use does not get it and is kept (one reorganization returns
 /// up to a whole pool at once).
+/// `Returned` is such a transaction of the previous pool at a later revalidation: not relayed again, and still
+/// exempt from the sender quota (PR6 P1).
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
-enum Relay{No,Gossip,Offer}
+enum Relay{No,Gossip,Offer,Returned}
 /// D-A13-BUDGET: 64 -> 32 MiB (network.md: pool <= 64 MiB); 256 transactions of TX_MAX.
 pub const POOL_MAX_BYTES:usize=32*1024*1024;
 /// Local limit on pooled transactions (about ten blocks of plain transfers): every new head
@@ -271,6 +283,18 @@ pub fn pool_gas_bound(cp:&pocol_lp4_execution::profile::ConsensusParams,limits:&
     let g=match limits.pool_gas_max{Some(g)=>g,None=>cp.GAS_LIMIT.checked_mul(POOL_GAS_BLOCKS).ok_or("pool gas bound: overflow")?};
     if g<cp.GAS_LIMIT{return Err(format!("pool_gas_max {g} is below GAS_LIMIT {}: a transaction a block can hold could never be pooled",cp.GAS_LIMIT))}
     Ok(g)
+}
+/// PR6 P1: by default one sender's pooled transactions declare at most this many GAS_LIMITs (a sender pays only
+/// for the gas it uses, so declared gas it holds in the pool must be bounded per sender).
+pub const POOL_SENDER_GAS_BLOCKS:u64=1;
+/// The sender quota: `Limits::pool_sender_gas_max`, or POOL_SENDER_GAS_BLOCKS × GAS_LIMIT. Refused below GAS_LIMIT
+/// (a transaction a block can hold must fit an empty quota) and above the pool's gas bound.
+pub fn pool_sender_gas_bound(cp:&pocol_lp4_execution::profile::ConsensusParams,limits:&Limits)->Result<u64,String>{
+    let q=match limits.pool_sender_gas_max{Some(q)=>q,None=>cp.GAS_LIMIT.checked_mul(POOL_SENDER_GAS_BLOCKS).ok_or("pool sender gas bound: overflow")?};
+    if q<cp.GAS_LIMIT{return Err(format!("pool_sender_gas_max {q} is below GAS_LIMIT {}: a transaction a block can hold could never be pooled",cp.GAS_LIMIT))}
+    let g=pool_gas_bound(cp,limits)?;
+    if q>g{return Err(format!("pool_sender_gas_max {q} is above the pool's gas bound {g}"))}
+    Ok(q)
 }
 
 pub struct Node{
@@ -382,7 +406,9 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// PR6: template selections that counted declared gas (no checked parent state; never in production), gas
     /// failures recovered with the declared-safe prefix, transactions the append round added to a signed
     /// template, and `build_signed` calls for signed templates.
-    pub template_gas_fallbacks:u64,pub template_gas_recoveries:u64,pub template_appended:u64,pub template_builds:u64}
+    pub template_gas_fallbacks:u64,pub template_gas_recoveries:u64,pub template_appended:u64,pub template_builds:u64,
+    /// PR6 P1: submissions refused by the sender quota.
+    pub sender_quota_refused:u64}
 /// 2026-10-28: the time (ms) each step of `Node::open` took, so an open's cost can be attributed: reading the
 /// journal (every record's payload, its frame offsets and rolling hashes), opening history.redb and state.redb
 /// (redb's full integrity check of every page included), the release at open, reading and checking the
@@ -455,7 +481,7 @@ impl Node{
         // A13: the resident bound of this profile with these limits must fit the budget (the pool counted at
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
-        let pool_gas_max=pool_gas_bound(spec.cp(),&cfg.limits)?;
+        let pool_gas_max=pool_gas_bound(spec.cp(),&cfg.limits)?;let pool_sender_max=pool_sender_gas_bound(spec.cp(),&cfg.limits)?;
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
@@ -657,7 +683,7 @@ impl Node{
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let mut node=Self{cfg,chain,net,disc,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
@@ -1058,7 +1084,14 @@ impl Node{
         if self.pool.txs.iter().any(|(h,_)|*h==hash){return Ok(hash)}
         if self.pool.bytes+self.pool.backlog_bytes+raw.len()>POOL_MAX_BYTES||self.pool.txs.len()>=POOL_MAX_TXS{return Err("-32016 pool full".into())}
         // D-7: refused before it is executed, with no state change; a new head recounts the sum.
-        let gas_limit=env.tx_env().gas_limit;
+        let (gas_limit,caller)=(env.tx_env().gas_limit,env.tx_env().caller);
+        // PR6 P1: the sender quota, before the pool's bound. A transaction returned from an abandoned block was in a
+        // sealed block and is not counted (a reorganization must not drop a sender's second block of them).
+        let exempt=matches!(relay,Relay::Offer|Relay::Returned);
+        if !exempt{
+            let held=self.pool.meta.iter().filter(|(s,_,x)|*s==caller&&!*x).fold(0u64,|n,(_,g,_)|n.saturating_add(*g));
+            if held.saturating_add(gas_limit)>self.pool.sender_gas_max{self.stats.sender_quota_refused+=1;return Err(POOL_FULL_SENDER.into())}
+        }
         if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max{return Err(POOL_FULL_GAS.into())}
         let ctx=self.next_block_ctx();
         let base=self.pool.pending_base.clone();let view=pocol_lp4_execution::view::LayerView{base:&base,layer:&self.pool.pending};
@@ -1084,11 +1117,11 @@ impl Node{
         // The running total follows the commit; any failure (unreachable for an engine result) falls back to full checks.
         self.pool.code_total=match(self.pool.code_total,before,after){
             (Some(t),Ok(b),Ok(a))=>t.checked_sub(b).and_then(|t|t.checked_add(a)),_=>None};
-        self.pool.bytes+=raw.len();self.pool.gas+=gas_limit;self.pool.txs.push((hash,raw.clone()));
+        self.pool.bytes+=raw.len();self.pool.gas+=gas_limit;self.pool.txs.push((hash,raw.clone()));self.pool.meta.push((caller,gas_limit,exempt));
         match relay{
             Relay::Gossip=>self.broadcast(&Msg::Tx{raw},None),
             Relay::Offer=>{let m=Msg::Tx{raw};for p in self.peers.values(){if p.offer(&m){self.stats.reinserted_offered+=1}else{self.stats.reinserted_unoffered+=1}}}
-            Relay::No=>{}}
+            Relay::No|Relay::Returned=>{}}
         Ok(hash)
     }
     /// Journal offsets of the blocks that left the canonical chain, from `old` back to the common
@@ -1113,11 +1146,11 @@ impl Node{
         // then its own backlog); each is re-executed on the new head (nonce, balance, fee), so one the
         // new branch includes is not taken again. One from an abandoned block that is admitted again is
         // offered to the peers (Relay::Offer); the previous pool's were relayed when first admitted.
-        let old=std::mem::take(&mut self.pool.txs);let rest=std::mem::take(&mut self.pool.backlog);
+        let old=std::mem::take(&mut self.pool.txs);let meta=std::mem::take(&mut self.pool.meta);let rest=std::mem::take(&mut self.pool.backlog);
         self.pool.bytes=0;self.pool.gas=0;self.pool.pending=Default::default();self.pool.pending_base=chain::StateHandle::of(self.chain.head());
         let (meter,code)=pool_start(self.chain.head(),&self.chain.spec);self.pool.code_total=code;self.pool.meter=meter;
         let mut q:VecDeque<PoolItem>=detached.into_iter().map(PoolItem::Block).collect();
-        for (_,raw) in old{self.pool.backlog_bytes+=raw.len();q.push_back(PoolItem::Tx(raw,Relay::No));}
+        for ((_,raw),(_,_,exempt)) in old.into_iter().zip(meta){self.pool.backlog_bytes+=raw.len();q.push_back(PoolItem::Tx(raw,if exempt{Relay::Returned}else{Relay::No}));}
         q.extend(rest);self.pool.backlog=q;
         self.pool_step();
     }
@@ -1745,10 +1778,15 @@ impl Node{
     /// it is revalidated (`pool_step_until` expands one at a time).
     pub fn pool_audit(&self)->Result<(),String>{
         let profile=self.chain.spec.profile();let (mut gas,mut bytes,mut seen)=(0u64,0usize,HashSet::new());
-        for (h,raw) in &self.pool.txs{
+        if self.pool.meta.len()!=self.pool.txs.len(){return Err(format!("{} meta entries for {} pooled transactions",self.pool.meta.len(),self.pool.txs.len()))}
+        let mut held:HashMap<Address,u64>=HashMap::new();
+        for ((h,raw),(sender,g,exempt)) in self.pool.txs.iter().zip(&self.pool.meta){
             let env=wire::decode_for_profile(raw,profile).map_err(|e|format!("a pooled transaction does not decode: {e:?}"))?;
             if env.hash()!=*h{return Err(format!("pooled under {h}, which is not its hash"))}
             if !seen.insert(*h){return Err(format!("{h} is pooled twice"))}
+            if (env.tx_env().caller,env.tx_env().gas_limit)!=(*sender,*g){return Err(format!("{h}: meta ({sender}, {g}) is not its sender and gas"))}
+            if !exempt{let s=held.entry(*sender).or_default();*s=s.checked_add(*g).ok_or("sender gas overflows")?;
+                if *s>self.pool.sender_gas_max{return Err(format!("{sender} holds {s} declared gas, past the sender quota {}",self.pool.sender_gas_max))}}
             gas=gas.checked_add(env.tx_env().gas_limit).ok_or("pooled gas overflows")?;bytes+=raw.len();
         }
         let backlog:usize=self.pool.backlog.iter().map(|i|match i{PoolItem::Tx(r,_)=>r.len(),PoolItem::Block(_)=>0}).sum();
@@ -1766,7 +1804,7 @@ impl Node{
             Mode::Locked(l)=>format!("{} h={} a={} shares={} mining={}",if l.fallback{"FB"}else{"PROP"},p.height,p.attempt,p.shares.len(),p.miner.is_some())}};
         let mut status=serde_json::json!({"name":self.cfg.name,"chainId":self.chain.spec.chain_id(),"genesisHash":hex(&self.chain.spec.genesis_hash()),"head":{"height":h.height,"hash":hex(&h.hash),"ts":h.ts,"signed":h.signed,"final":h.is_final,"totalWork":format!("{:#x}",h.total_work)},
             "peers":self.peers.values().map(|p|p.addr.clone()).collect::<Vec<_>>(),"production":mode,"miner":self.cfg.miner.as_ref().map(|k|format!("{:#x}",k.address())),
-            "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
+            "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"poolSenderGasMax":self.pool.sender_gas_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
             "admission":crate::admission_json(self.chain.spec.admission()),
             "a13":crate::resources::derive(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&self.cfg.limits,self.cfg.peers.len()).map(|b|serde_json::json!({
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
@@ -1783,6 +1821,7 @@ impl Node{
         status["stats"]["templateGasRecoveries"]=serde_json::json!(self.stats.template_gas_recoveries);
         status["stats"]["templateAppended"]=serde_json::json!(self.stats.template_appended);
         status["stats"]["templateBuilds"]=serde_json::json!(self.stats.template_builds);
+        status["stats"]["senderQuotaRefused"]=serde_json::json!(self.stats.sender_quota_refused);
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));
