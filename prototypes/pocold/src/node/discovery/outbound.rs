@@ -387,7 +387,7 @@ impl Node{
         let seeds:Vec<serde_json::Value>=o.seeds.iter().map(|s|serde_json::json!({"addr":s.addr.to_string(),"state":self.seed_state(s,now),"fails":s.fails})).collect();
         let head_age=now.saturating_sub(self.chain.head().ts.saturating_mul(1000))/1000;
         serde_json::json!({"automatic":o.k,"seedTarget":o.seeds.iter().filter(|s|s.wanted_ms.is_some()).count(),"healthy":self.healthy(now),"starved":self.starved(),"stalled":self.stalled(now),"quiet":self.quiet(now),
-            "headAgeSeconds":head_age,"peerHeadAgeSeconds":now.saturating_sub(o.last_peer_head_ms)/1000,"seedNode":o.seed_node,
+            "headAgeSeconds":head_age,"peerHeadAgeSeconds":now.saturating_sub(o.last_peer_head_ms)/1000,"seedNode":o.seed_node,"seedsRetired":self.cfg.limits.discovery.seeds_retired,
             "familyDown":{"v4":o.family_down[0].is_some(),"v6":o.family_down[1].is_some()},"windowSeconds":self.window_ms()/1000,
             "slots":slots,"seeds":seeds,"anchors":o.saved_anchors.iter().map(|a|a.0.to_string()).collect::<Vec<_>>(),"bootstrap":o.bootstrap.len()})
     }

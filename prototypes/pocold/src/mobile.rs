@@ -90,7 +90,7 @@ pub unsafe extern "C" fn pocol_mobile_run(home: *const c_char) -> *mut c_char {
             let mut wallet=crate::wallet::Wallet::new(&home)?;
             let mut response=serde_json::Value::Null;let mut response_id=0u64;
             let mut next = Instant::now();
-            home.run_mode(None, None, false, |node| {
+            home.run_mode(None, None, &[], false, |node| {
                 let command=COMMANDS.lock().ok().and_then(|mut q|q.pop_front());
                 if let Some(command)=command{response=wallet.handle(node,&command);response_id+=1;next=Instant::now();}
                 if Instant::now() >= next {

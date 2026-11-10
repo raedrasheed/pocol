@@ -46,12 +46,13 @@ pub enum Outbound{Auto,Count(u8)}
 /// from a source without one. `outbound`: the automatic outbound slots (`--outbound`, POCOL_OUTBOUND); `seeds`: the
 /// configured peers that are seeds (`--seed`, the invitation's), also in `Config::peers`, without this host's own;
 /// `is_seed`: this host is one of the seeds (`is_own_seed`), so it keeps the others; `bootstrap`: unverified addresses
-/// to try (`--bootstrap`, the invitation's). `rng_seed` and `times` are for tests only (plan D13: no flag or variable
+/// to try (`--bootstrap`, the invitation's); `seeds_retired`: the invitation retired its seeds (D23; the launcher then
+/// passes none), shown in the status. `rng_seed` and `times` are for tests only (plan D13: no flag or variable
 /// sets them).
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct Discovery{pub enabled:bool,pub allow_local:bool,pub outbound:Outbound,pub seeds:Vec<SocketAddr>,pub is_seed:bool,
-    pub bootstrap:Vec<SocketAddr>,pub rng_seed:Option<u64>,pub times:DiscoveryTimes}
-impl Default for Discovery{fn default()->Self{Self{enabled:true,allow_local:false,outbound:Outbound::Auto,seeds:Vec::new(),is_seed:false,bootstrap:Vec::new(),rng_seed:None,times:DiscoveryTimes::default()}}}
+    pub bootstrap:Vec<SocketAddr>,pub seeds_retired:bool,pub rng_seed:Option<u64>,pub times:DiscoveryTimes}
+impl Default for Discovery{fn default()->Self{Self{enabled:true,allow_local:false,outbound:Outbound::Auto,seeds:Vec::new(),is_seed:false,bootstrap:Vec::new(),seeds_retired:false,rng_seed:None,times:DiscoveryTimes::default()}}}
 impl Discovery{
     /// The automatic slots A13 counts (`resources::derive`): the resolved count, or before `resolve` the larger value
     /// `auto` can take; 0 with discovery off.

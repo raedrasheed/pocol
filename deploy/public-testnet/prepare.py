@@ -29,7 +29,8 @@ def validate_inventory(value, rehearsal=False, join=False):
         raise ValueError('Use 3..8 bootstrap nodes, or --join for one new node')
     names, endpoints, rpc_ports, miners, ips = set(), set(), set(), set(), set()
     for node in nodes:
-        if set(node) != {'name', 'ip', 'p2pPort', 'rpcPort', 'rpcHost', 'minerAddress', 'seeds'}:
+        # PR2b (D17, D23): optional `bootstrap` (community listeners, at most 16, never a seed) and `seedsRetired`.
+        if set(node) - {'bootstrap', 'seedsRetired'} != {'name', 'ip', 'p2pPort', 'rpcPort', 'rpcHost', 'minerAddress', 'seeds'}:
             raise ValueError('Invalid node fields')
         if not isinstance(node['name'], str) or not re.fullmatch(r'[a-z][a-z0-9-]{0,31}', node['name']) or node['name'] in names:
             raise ValueError('Node names must be unique safe labels')
@@ -60,6 +61,14 @@ def validate_inventory(value, rehearsal=False, join=False):
         if not isinstance(node['seeds'], list) or len(node['seeds']) > 7: raise ValueError('At most seven outbound seeds')
         if join and not node['seeds']: raise ValueError('A joining node needs a published seed')
         if len(set(node['seeds'])) != len(node['seeds']): raise ValueError('Duplicate seeds')
+        boot = node.get('bootstrap', [])
+        if not isinstance(boot, list) or len(boot) > 16 or len(set(boot)) != len(boot) or any(b in node['seeds'] for b in boot):
+            raise ValueError('At most 16 distinct bootstrap addresses, none a seed')
+        if type(node.get('seedsRetired', False)) is not bool: raise ValueError('seedsRetired is true or false')
+        for b in boot:
+            ip, _, port = b.rpartition(':')
+            if not allowed_ip(ipaddress.IPv4Address(ip), rehearsal) or not port.isdecimal() or str(int(port)) != port or not 1024 <= int(port) <= 65535:
+                raise ValueError('Invalid bootstrap endpoint')
         for seed in node['seeds']:
             ip, port = seed.split(':'); address = ipaddress.IPv4Address(ip)
             if not allowed_ip(address, rehearsal) or not port.isdecimal() or str(int(port)) != port or not 1024 <= int(port) <= 65535 or seed == endpoint:
@@ -70,8 +79,9 @@ def validate_inventory(value, rehearsal=False, join=False):
 
 
 def service(node):
-    # TasksMax holds pocold's A13 thread inventory, 2*(peers_max + 8) + 4*peers + 40 tasks (148 at the default 32
-    # established inbound and 7 peers, 340 at --peers-max 128); pocold refuses to boot past it. Seeds and joining
+    # TasksMax holds pocold's A13 thread inventory, 2*(peers_max + 8) + 4*peers + 3*S + 1 + 40 tasks with S = 5 automatic
+    # outbound slots (PR2b; 164 at the default 32 established inbound and 7 peers, 368 at --peers-max 128 with S = 9);
+    # pocold refuses to boot past it. Seeds and joining
     # nodes run with the default 32 established inbound: 64 at seeds would move the live chain's A13 halt by more
     # than a week of records (PR3 seed rule, tests/network_budget.rs a13_live_chain_halt_records), so no
     # POCOL_PEERS_MAX or POCOL_PER_GROUP_MAX line is written.
@@ -210,11 +220,14 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
         shutil.copytree(network, bundle / 'net'); (bundle / 'bin').mkdir()
         for name in BINARIES: shutil.copy2(bin_dir / name, bundle / 'bin' / name)
         for name in ('node_operator.py', 'pocol_identity.py', 'install.sh'): shutil.copy2(HERE / name, bundle / name)
-        peers = sorted(set(node['seeds'] + [f"{n['ip']}:{n['p2pPort']}" for n in nodes if n != node]))
+        # PR2b: the bootstrap (seed) nodes keep their static mesh; a joining node dials the published seeds as seeds
+        # (`--seed`: only to bootstrap and refill, VA-SPEC §1a.8), none once they are retired, and tries the bootstrap list.
+        peers = [] if join else sorted(set(node['seeds'] + [f"{n['ip']}:{n['p2pPort']}" for n in nodes if n != node]))
         if len(peers) > 7: raise ValueError('At most seven configured outbound peers in this release')
         config = {'name': node['name'], 'minerAddress': node['minerAddress'],
             'listen': f"{node['ip'] if rehearsal else '0.0.0.0'}:{node['p2pPort']}",
             'rpc': f"127.0.0.1:{node['rpcPort']}", 'peers': peers}
+        if join: config.update(seeds=[] if node.get('seedsRetired') else list(node['seeds']), bootstrap=list(node.get('bootstrap', [])))
         write_json(bundle / 'node.json', config); write_json(bundle / 'build-info.json', build)
         (bundle / 'pocol-testnet.service').write_text(service(node))
         (bundle / 'nginx.conf').write_text(nginx(node))

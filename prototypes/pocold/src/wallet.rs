@@ -430,7 +430,7 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
     }).map_err(|e|e.to_string())?;
     let mut wallet=Wallet::new(home)?;let mut next=Instant::now();
     let emit=|v:Value|{println!("{v}");let _=std::io::stdout().flush();};
-    home.run_mode(None,None,false,|n|{
+    home.run_mode(None,None,&[],false,|n|{
         match rx.try_recv(){Ok(command)=>emit(wallet.handle(n,&command)),Err(mpsc::TryRecvError::Disconnected)=>return true,Err(mpsc::TryRecvError::Empty)=>{}}
         if Instant::now()>=next{if let Some(event)=wallet.advance(n){emit(event)}emit(wallet.status(n));next=Instant::now()+Duration::from_secs(2)}
         wallet.stopped||stop()

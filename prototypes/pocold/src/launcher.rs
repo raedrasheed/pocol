@@ -66,6 +66,15 @@ pub struct Invitation {
     consensus_rules_version: Option<u32>,
     seeds: Vec<SocketAddr>,
     files: BTreeMap<String, String>,
+    /// v2 only: advisory bootstrap addresses (VA-SPEC §1a.9, D17), community listeners that agreed to be listed. Not
+    /// part of the network (`content_key`): a newer file with another list is the same network, which `pocol upgrade`
+    /// rebinds to. Skipped when empty, so files without it keep their bytes and fingerprints.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    bootstrap: Vec<SocketAddr>,
+    /// v2 only: the seeds are retired (VA-SPEC §1a.8, D23): nodes dial none of them. Not part of the network either;
+    /// skipped when false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    seeds_retired: bool,
 }
 impl Invitation {
     /// A well-formed invitation whose consensus rules are this release's.
@@ -110,6 +119,17 @@ impl Invitation {
                 .any(|a| a.port() == 0 || a.ip().is_unspecified() || a.ip().is_multicast())
         {
             return Err("provide 1..7 distinct reachable seed addresses".into());
+        }
+        // D17, D23: the advisory fields are v2 only; a bootstrap list holds at most 16 distinct learnable addresses
+        // (ports >= 1024, VA-SPEC §1a.3), none a seed.
+        if (!self.bootstrap.is_empty() || self.seeds_retired) && self.schema != SCHEMA_V2 {
+            return Err("bootstrap addresses and seedsRetired need a pocol-network-v2 invitation".into());
+        }
+        let distinct: HashSet<_> = self.bootstrap.iter().collect();
+        if self.bootstrap.len() > crate::node::BOOTSTRAP_MAX || distinct.len() != self.bootstrap.len()
+            || self.bootstrap.iter().any(|a| a.port() < 1024 || a.ip().is_unspecified() || a.ip().is_multicast() || self.seeds.contains(a))
+        {
+            return Err("provide at most 16 distinct bootstrap addresses with ports >= 1024, none a seed".into());
         }
         let info = self.info()?;
         if info["keyMode"] != "independent-key-files" {
@@ -174,11 +194,27 @@ impl Invitation {
         let activations: Vec<&(u16, u64)> = forks.iter().filter(|(version, _)| *version > 1).collect();
         crate::network_display::annotate_genesis(serde_json::json!({"networkFingerprint":self.fingerprint(),"invitationSchema":self.schema,
             "consensusRulesVersion":self.rules_of().ok(),"consensusIdentity":self.published_identity(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],
-            "forkSchedule":forks,"activations":activations,"fullNonceActivationHeight":activation,"seeds":self.seeds,"scope":"experimental-testnet","publicLaunchReady":false}), &self.files["genesis.spec.hex"])
+            "forkSchedule":forks,"activations":activations,"fullNonceActivationHeight":activation,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"experimental-testnet","publicLaunchReady":false}), &self.files["genesis.spec.hex"])
     }
-    /// What `pocol network` writes: v2, bound to this release's consensus rules.
-    fn new_v2(seeds: Vec<SocketAddr>, files: BTreeMap<String, String>) -> Self {
-        Self { schema: SCHEMA_V2.into(), compatibility_sha256: None, consensus_rules_version: Some(identity::CONSENSUS_RULES_VERSION), seeds, files }
+    /// What `pocol network` writes: v2, bound to this release's consensus rules, with its bootstrap list and whether the
+    /// seeds are retired.
+    fn new_v2(seeds: Vec<SocketAddr>, bootstrap: Vec<SocketAddr>, seeds_retired: bool, files: BTreeMap<String, String>) -> Self {
+        Self { schema: SCHEMA_V2.into(), compatibility_sha256: None, consensus_rules_version: Some(identity::CONSENSUS_RULES_VERSION), seeds, files, bootstrap, seeds_retired }
+    }
+    /// D17: the advisory bootstrap addresses.
+    pub fn bootstrap(&self) -> &[SocketAddr] { &self.bootstrap }
+    /// D23: whether the seeds are retired.
+    pub fn seeds_retired(&self) -> bool { self.seeds_retired }
+    /// VA-SPEC §1a.8 (D23, D27), what a home runs with: the configured peers (the static `peers`, then the seeds), the
+    /// seeds, and whether this host is a seed. No seed at all once the invitation retires them; a seed that is this
+    /// host's own listener (`node::is_own_seed`) is dropped and makes the node a seed host, which keeps the others; a
+    /// seed also given as a static peer stays static.
+    pub fn launch_peers(&self, listen: Option<SocketAddr>, peers: &[SocketAddr]) -> (Vec<SocketAddr>, Vec<SocketAddr>, bool) {
+        if self.seeds_retired { return (peers.to_vec(), vec![], false) }
+        let is_seed = self.seeds.iter().any(|s| node::is_own_seed(listen, *s));
+        let seeds: Vec<SocketAddr> = self.seeds.iter().copied().filter(|a| !node::is_own_seed(listen, *a) && !peers.contains(a)).collect();
+        let mut all = peers.to_vec(); all.extend(seeds.iter().copied());
+        (all, seeds, is_seed)
     }
 }
 
@@ -374,7 +410,7 @@ fn read_capped(r: impl Read) -> std::io::Result<Vec<u8>> {
     r.take((MAX_INVITATION + 1) as u64).read_to_end(&mut bytes)?;
     Ok(bytes)
 }
-pub fn pack(network: &Path, seeds: Vec<SocketAddr>, out: &Path) -> Result<(), String> {
+pub fn pack(network: &Path, seeds: Vec<SocketAddr>, bootstrap: Vec<SocketAddr>, seeds_retired: bool, out: &Path) -> Result<(), String> {
     let mut files = BTreeMap::new();
     for name in FILES {
         files.insert(
@@ -383,7 +419,7 @@ pub fn pack(network: &Path, seeds: Vec<SocketAddr>, out: &Path) -> Result<(), St
                 .map_err(|_| "genesis files must be UTF-8")?,
         );
     }
-    let invitation = Invitation::new_v2(seeds, files);
+    let invitation = Invitation::new_v2(seeds, bootstrap, seeds_retired, files);
     let bytes = serde_json::to_vec_pretty(&invitation).map_err(|e| e.to_string())?;
     Invitation::parse(&bytes)?;
     // Full admission still runs on each device, including its local storage measurement.
@@ -554,6 +590,10 @@ impl Home {
         out["change"] = match &appended { None => "none", Some(a) if a.is_empty() => "rebind", Some(_) => "activation" }.into();
         out["appended"] = serde_json::json!(appended.unwrap_or_default());
         out["resuming"] = resuming.into();
+        // A7 (D17): what changes beside the network itself, to compare with the published list and fingerprint.
+        out["bootstrapBefore"] = serde_json::json!(before.bootstrap);out["bootstrapAfter"] = serde_json::json!(after.bootstrap);
+        out["seedsRetiredBefore"] = before.seeds_retired.into();out["seedsRetiredAfter"] = after.seeds_retired.into();
+        out["fingerprintBefore"] = before.fingerprint().into();out["fingerprintAfter"] = after.fingerprint().into();
         Ok(out)
     }
     /// Whether `before`'s backup exists. One that exists must be a regular file holding `before`, or nothing is written.
@@ -648,16 +688,18 @@ impl Home {
         }
         Ok(invitation)
     }
+    /// `pocol start`: the node with `peers` as static configured peers (`--peer`) besides the invitation's seeds.
     pub fn run(
         &self,
         listen: Option<SocketAddr>,
         rpc: Option<SocketAddr>,
+        peers: &[SocketAddr],
         stop: impl FnMut(&mut node::Node) -> bool,
     ) -> Result<(), String> {
-        self.run_mode(listen,rpc,true,stop)
+        self.run_mode(listen,rpc,peers,true,stop)
     }
     pub fn run_mode(
-        &self, listen: Option<SocketAddr>, rpc: Option<SocketAddr>, mining: bool,
+        &self, listen: Option<SocketAddr>, rpc: Option<SocketAddr>, peers: &[SocketAddr], mining: bool,
         mut stop: impl FnMut(&mut node::Node) -> bool,
     ) -> Result<(), String> {
         let key = self.key()?;
@@ -673,11 +715,8 @@ impl Home {
         if declared["genesisHash"] != types::hex(&spec.genesis_hash()) {
             return Err("invitation genesis hash mismatch".into());
         }
-        let peers = invitation
-            .seeds
-            .into_iter()
-            .filter(|a| Some(*a) != listen)
-            .collect();
+        let (peers, seeds, is_seed) = invitation.launch_peers(listen, peers);
+        let bootstrap = invitation.bootstrap().to_vec();
         let cfg = node::Config {
             dir: data,
             name: "pocol".into(),
@@ -700,8 +739,10 @@ impl Home {
                     per_group_max: std::env::var("POCOL_PER_GROUP_MAX").ok().filter(|s|!s.trim().is_empty()).map(|s|s.trim().parse::<usize>().map_err(|_|"Invalid POCOL_PER_GROUP_MAX")).transpose()?.unwrap_or(crate::net::Limits::default().per_group_max),
                     ..Default::default()
                 },
-                // Peer discovery (VA-SPEC §1a): POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL, as for `pocold run`.
-                discovery: { let mut d = node::Discovery::default(); d.env(false, false)?; d },
+                // Peer discovery (VA-SPEC §1a): POCOL_DISCOVERY, POCOL_DISCOVER_LOCAL and POCOL_OUTBOUND, as for `pocold run`;
+                // the invitation's seeds and bootstrap addresses.
+                discovery: { let mut d = node::Discovery::default(); d.env(false, false)?; d.outbound_env(false)?;
+                    d.seeds = seeds; d.is_seed = is_seed; d.bootstrap = bootstrap; d.seeds_retired = invitation.seeds_retired(); d },
                 ..Default::default()
             },
         };
@@ -735,7 +776,7 @@ mod upgrade_tests {
             seeds: vec!["127.0.0.1:30300".parse().unwrap()], files: BTreeMap::from([
                 ("alloc.json".into(), "{}".into()), ("genesis.spec.hex".into(), "00".into()),
                 ("devnet.json".into(), info.to_string()),
-            ]) }
+            ]), bootstrap: vec![], seeds_retired: false }
     }
     #[test]
     fn description_does_not_relabel_fixture_networks_or_change_invitation_identity() {
@@ -926,7 +967,7 @@ mod upgrade_tests {
     fn a_v2_binding_does_not_depend_on_the_build_digest() {
         // T23: what `pocol network` writes names the rules, not a digest, so a release with another digest (R2) and no
         // legacy table parses and imports it unchanged.
-        let packed = Invitation::new_v2(h15000().seeds, h15000().files);
+        let packed = Invitation::new_v2(h15000().seeds, vec![], false, h15000().files);
         let text = String::from_utf8(bytes(&packed)).unwrap();
         assert!(text.contains("\"schema\": \"pocol-network-v2\"") && text.contains("\"consensusRulesVersion\": 1"), "{text}");
         assert!(!text.contains("compatibilitySha256") && !text.contains(identity::COMPATIBILITY_HEX));
@@ -938,6 +979,62 @@ mod upgrade_tests {
         let mut other = packed.clone();
         other.consensus_rules_version = Some(identity::CONSENSUS_RULES_VERSION + 1);
         assert!(Invitation::parse(&bytes(&other)).unwrap_err().contains("different PoCol consensus release"));
+    }
+    /// D17, D23: the bootstrap list and the seeds' retirement are v2 fields outside the network's identity: an empty
+    /// list and `false` are not written (a file without them keeps its bytes and fingerprint), the content key ignores
+    /// them, and a list holds at most 16 distinct addresses with ports >= 1024, none a seed.
+    #[test]
+    fn the_bootstrap_list_is_validated_and_kept_out_of_the_content_key() {
+        let plain = h15000_v2(serde_json::Value::Null);
+        let b: Vec<SocketAddr> = (0..16).map(|i| SocketAddr::new([81, 2, 0, i + 1].into(), 30300)).collect();
+        let text = String::from_utf8(bytes(&plain)).unwrap();assert!(!text.contains("bootstrap") && !text.contains("seedsRetired"), "absent when empty");
+        let listed = Invitation { bootstrap: b.clone(), seeds_retired: true, ..plain.clone() };
+        let again = Invitation::parse_saved(&bytes(&listed)).unwrap();
+        assert_eq!((again.bootstrap(), again.seeds_retired()), (&b[..], true));
+        assert_eq!(listed.content_key(), plain.content_key(), "the same network");
+        assert_ne!(listed.fingerprint(), plain.fingerprint(), "another file");
+        assert_eq!(listed.describe()["bootstrap"].as_array().map(Vec::len), Some(16));
+        let bad = |i: Invitation| Invitation::parse_saved(&bytes(&i)).unwrap_err();
+        let mut more = b.clone(); more.push("81.3.0.1:30300".parse().unwrap());
+        for (why, i) in [("17", Invitation { bootstrap: more, ..plain.clone() }), ("twice", Invitation { bootstrap: vec![b[0], b[0]], ..plain.clone() }),
+            ("port 80", Invitation { bootstrap: vec!["81.2.0.1:80".parse().unwrap()], ..plain.clone() }),
+            ("a seed", Invitation { bootstrap: vec![plain.seeds[0]], ..plain.clone() })] {
+            assert!(bad(i).contains("at most 16 distinct bootstrap addresses"), "{why}");
+        }
+        for v1 in [Invitation { bootstrap: vec![b[0]], ..h15000() }, Invitation { seeds_retired: true, ..h15000() }] {
+            assert!(bad(v1).contains("need a pocol-network-v2 invitation"));
+        }
+    }
+    /// D17, D23 (A7): an upgrade may change only the bootstrap list or retire the seeds: a rebind (no activation), which
+    /// `inspect-upgrade` shows with both lists, both flags and both fingerprints.
+    #[test]
+    fn an_upgrade_may_change_only_the_bootstrap_list_or_retire_the_seeds() {
+        let t = Scratch::new();
+        let before = h15000_v2(serde_json::Value::Null);
+        let home = home_with(&t, &bytes(&before));
+        let b: SocketAddr = "81.2.0.9:30300".parse().unwrap();
+        let after = Invitation { bootstrap: vec![b], ..before.clone() };
+        let shown = home.inspect_upgrade(&bytes(&after)).unwrap();
+        assert_eq!((shown["change"].as_str(), shown["bootstrapBefore"].clone(), shown["bootstrapAfter"].clone()), (Some("rebind"), serde_json::json!([]), serde_json::json!([b])));
+        assert_eq!((shown["fingerprintBefore"].as_str(), shown["fingerprintAfter"].as_str()), (Some(before.fingerprint().as_str()), Some(after.fingerprint().as_str())));
+        home.upgrade(&bytes(&after)).unwrap();
+        let retired = Invitation { seeds_retired: true, ..after.clone() };
+        let shown = home.inspect_upgrade(&bytes(&retired)).unwrap();
+        assert_eq!((shown["change"].as_str(), shown["seedsRetiredBefore"].as_bool(), shown["seedsRetiredAfter"].as_bool()), (Some("rebind"), Some(false), Some(true)));
+        home.upgrade(&bytes(&retired)).unwrap();
+        assert_eq!(fs::read(home.path.join("network.pocol.json")).unwrap(), bytes(&retired));
+    }
+    /// D23, D27 (B12): with retired seeds a home dials none of them; otherwise its own seed is dropped and makes it a
+    /// seed host, and a seed also given with `--peer` stays a static peer.
+    #[test]
+    fn retired_seeds_are_not_dialed() {
+        let seeds: Vec<SocketAddr> = ["127.0.0.1:30311", "81.2.0.1:30300", "81.2.0.2:30300"].iter().map(|s| s.parse().unwrap()).collect();
+        let i = Invitation { seeds: seeds.clone(), ..h15000_v2(serde_json::Value::Null) };
+        let p: SocketAddr = "81.9.0.1:30300".parse().unwrap();
+        assert_eq!(i.launch_peers(Some(seeds[0]), &[p, seeds[2]]), (vec![p, seeds[2], seeds[1]], vec![seeds[1]], true), "own seed dropped, a static one stays static");
+        assert_eq!(i.launch_peers(None, &[]), (seeds.clone(), seeds.clone(), false));
+        let r = Invitation { seeds_retired: true, ..i };
+        assert_eq!(r.launch_peers(Some(seeds[0]), &[p]), (vec![p], vec![], false), "retired: no seed at all");
     }
     #[test]
     fn schedule_transition_returns_exactly_the_appended_entries() {
