@@ -96,10 +96,12 @@ fn indexing_a_height_below_the_window_panics(){let mut c=window(5);c.pop_low();c
         ix.put(&(1..=5).map(|h|(h,rec(h,0))).collect::<Vec<_>>()).unwrap();
         assert_eq!(ix.at(3).unwrap(),Some(rec(3,0)));assert_eq!(ix.at(6).unwrap(),None);
         assert_eq!(ix.height_of(&rec(4,0).hash).unwrap(),Some(4));
-        assert_eq!(ix.range(2,3).unwrap(),(2..=4).map(|h|(h,rec(h,0))).collect::<Vec<_>>());
+        let range=|s:u64,n:u64,stop:usize|{let mut v=Vec::new();ix.range_each(s,n,|h,r|{v.push((h,r));v.len()<stop}).unwrap();v};
+        assert_eq!(range(2,3,usize::MAX),(2..=4).map(|h|(h,rec(h,0))).collect::<Vec<_>>());
+        let rows=ix.rows_read();assert_eq!(range(1,5,2).len(),2);assert_eq!(ix.rows_read()-rows,2,"a range stopped by its callback reads no row after it");
         ix.put(&[(4,rec(4,1))]).unwrap();
         assert_eq!((ix.height_of(&rec(4,0).hash).unwrap(),ix.height_of(&rec(4,1).hash).unwrap()),(None,Some(4)),"an overwritten row's block is no longer found");
-        let before=ix.reads();ix.at(1).unwrap();ix.height_of(&[1;32]).unwrap();ix.range(1,5).unwrap();assert_eq!(ix.reads()-before,3,"one lookup each");
+        let before=ix.reads();ix.at(1).unwrap();ix.height_of(&[1;32]).unwrap();range(1,5,usize::MAX);assert_eq!(ix.reads()-before,3,"one lookup each");
         ix.sync().unwrap();}
     {let ix=Index::open(&dir,&g).unwrap();assert!(!ix.rebuilt);assert_eq!(ix.at(5).unwrap(),Some(rec(5,0)),"the rows survive a reopen");}
     {let ix=Index::open(&dir,&[8u8;32]).unwrap();assert!(ix.rebuilt,"a file of another genesis is set aside");assert_eq!(ix.at(5).unwrap(),None);

@@ -1712,8 +1712,9 @@ impl Node{
         locator.contains(&g).then_some(1)
     }
     /// The canonical blocks of heights start..start+count to peer `p`, until its queue is half full (`offer`) or a
-    /// height is not held. Below the window from one index read (`canon.range`) and the journal, each record checked
-    /// to hash to its row's block; then the window's, as before. Only the index is blamed for what is the index's: a
+    /// height is not held. Below the window from one index read (`canon.range_each`, a row read only when the one
+    /// before it was offered) and the journal, each record checked to hash to its row's block; then the window's, as
+    /// before. Only the index is blamed for what is the index's: a
     /// row naming no record, or a record that reads but is not the row's block, marks it damaged; a journal that
     /// cannot be read is logged and serving stops (as `block_msg`, `indexed_view` and `canonical_entry` do), since
     /// marking the index for it stopped the node at its next eviction and made the next open drop every checkpoint
@@ -1721,15 +1722,15 @@ impl Node{
     fn serve_range(&self,p:&Peer,start:u64,count:u64){
         let (end,base)=(start.saturating_add(count),self.chain.canonical.base());let mut hgt=start;
         if hgt<base{
-            let rows=match self.canon.range(hgt,end.min(base)-hgt){Ok(r)=>r,Err(e)=>{self.log(&format!("serving height {hgt}: {e}"));return}};
-            for (h,r) in rows{
-                if h!=hgt{return}
-                let Some(o)=r.body_off else{self.log(&self.canon.mark_damaged(&format!("the row at height {h} names no journal record")));return};
-                let (hb,bb,_)=match self.journal.read_at(o){Ok(x)=>x,Err(e)=>{self.log(&format!("serving height {h}: journal read at {o}: {e:?}"));return}};
-                if decode_header(&hb).map(|x|block_hash(&x)).ok()!=Some(r.hash){self.log(&self.canon.mark_damaged(&format!("the row at height {h} does not name its journal record")));return}
-                if !p.offer(&Msg::Block{header:hb,body:bb}){return}hgt+=1;
-            }
-            if hgt<end.min(base){return}
+            let mut stopped=false;
+            let read=self.canon.range_each(hgt,end.min(base)-hgt,|h,r|{
+                stopped=true;if h!=hgt{return false}
+                let Some(o)=r.body_off else{self.log(&self.canon.mark_damaged(&format!("the row at height {h} names no journal record")));return false};
+                let (hb,bb,_)=match self.journal.read_at(o){Ok(x)=>x,Err(e)=>{self.log(&format!("serving height {h}: journal read at {o}: {e:?}"));return false}};
+                if decode_header(&hb).map(|x|block_hash(&x)).ok()!=Some(r.hash){self.log(&self.canon.mark_damaged(&format!("the row at height {h} does not name its journal record")));return false}
+                if !p.offer(&Msg::Block{header:hb,body:bb}){return false}hgt+=1;stopped=false;true});
+            if let Err(e)=read{self.log(&format!("serving height {hgt}: {e}"));return}
+            if stopped||hgt<end.min(base){return}
         }
         for h in hgt..end{match self.chain.canonical_at(h).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
     }

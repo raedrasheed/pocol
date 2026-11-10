@@ -31,8 +31,10 @@ fn rerr(e:impl Into<redb::Error>)->String{let e:redb::Error=e.into();if crate::s
 fn seal(h:u64,rec:&[u8])->[u8;32]{let mut b=Vec::with_capacity(8+rec.len());b.extend_from_slice(&h.to_be_bytes());b.extend_from_slice(rec);keccak256(&b).0}
 
 pub struct Index{db:Database,dir:PathBuf,pub rebuilt:bool,damaged:AtomicBool,puts:AtomicU64,
-    /// Lookups made (one per `at`, `height_of` and `range` call): serving and RPC tests bound them.
-    reads:AtomicU64}
+    /// Lookups made (one per `at`, `height_of` and `range_each` call): serving and RPC tests bound them.
+    reads:AtomicU64,
+    /// Rows checked against their seal and decoded: serving tests bound them by what a request delivers.
+    rows:AtomicU64}
 impl Index{
     /// Opens `dir/canon.redb` for the chain of `genesis`, with history.redb's policy (`History::open`): an I/O
     /// failure keeps the file and fails the open; a file redb cannot open, that fails its integrity check, that is
@@ -60,7 +62,7 @@ impl Index{
             Err(_)=>{let aside=dir.join(format!("{FILE}.aside"));let _=std::fs::remove_file(&aside);let _=std::fs::rename(&path,&aside);
                 let db=create(&path).map_err(|e|format!("canon: {e}"))?;let _=std::fs::remove_file(&marker);(db,true)}
         };
-        Ok(Self{db,dir:dir.to_path_buf(),rebuilt,damaged:AtomicBool::new(false),puts:AtomicU64::new(0),reads:AtomicU64::new(0)})
+        Ok(Self{db,dir:dir.to_path_buf(),rebuilt,damaged:AtomicBool::new(false),puts:AtomicU64::new(0),reads:AtomicU64::new(0),rows:AtomicU64::new(0)})
     }
     pub fn is_damaged(&self)->bool{self.damaged.load(Ordering::SeqCst)}
     /// Marks the index damaged: its operations fail from now on (a `put` too, so the node's next eviction stops
@@ -93,6 +95,7 @@ impl Index{
     /// A durable commit: every earlier `put` is persisted (invariant I5: before each checkpoint).
     pub fn sync(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;w.commit().map_err(rerr)})}
     fn row(&self,h:u64,v:&[u8])->Result<Rec,String>{
+        self.rows.fetch_add(1,Ordering::Relaxed);
         if v.len()<32||v[..32]!=seal(h,&v[32..])[..]{return Err(self.mark_damaged(&format!("the row at height {h} fails its seal")))}
         checkpoint::rec_from(&v[32..]).map_err(|e|self.mark_damaged(&format!("the row at height {h}: {e}")))
     }
@@ -109,14 +112,23 @@ impl Index{
         let Some(h)=h else{return Ok(None)};
         Ok(self.at_row(h)?.filter(|r|r.hash==*hash).map(|_|h))
     }
-    /// The rows of heights start..start+n, in height order, in one read (GetRange/GetFrom below the window).
-    pub fn range(&self,start:u64,n:u64)->Result<Vec<(u64,Rec)>,String>{
+    /// The rows of heights start..start+n, in height order, in one read (GetRange/GetFrom below the window), each
+    /// handed to `f` as it is read, checked and decoded; `f` returns false to stop, and no row after it is read. So
+    /// the work of a request is what it delivers (a peer whose queue is half full stops it at its first block): the
+    /// rows were collected into a Vec first, every one sealed and decoded before the first was offered, up to 512 a
+    /// request and a transient the views term did not count (review 2026-11, finding 7). Only redb's steps run under
+    /// `guard`, so a panic in `f` is not taken for the index's.
+    pub fn range_each(&self,start:u64,n:u64,mut f:impl FnMut(u64,Rec)->bool)->Result<(),String>{
         self.reads.fetch_add(1,Ordering::Relaxed);
-        let rows=self.guard(||{let r=self.db.begin_read().map_err(rerr)?;let t=r.open_table(BY_HEIGHT).map_err(rerr)?;
-            let mut out=Vec::new();for kv in t.range(start..start.saturating_add(n)).map_err(rerr)?{let (k,v)=kv.map_err(rerr)?;out.push((k.value(),v.value().to_vec()));}Ok(out)})?;
-        rows.into_iter().map(|(h,v)|Ok((h,self.row(h,&v)?))).collect()
+        let tx=self.guard(||self.db.begin_read().map_err(rerr))?;let t=self.guard(||tx.open_table(BY_HEIGHT).map_err(rerr))?;
+        let mut it=self.guard(||t.range(start..start.saturating_add(n)).map_err(rerr))?;
+        loop{
+            let Some((h,v))=self.guard(||it.next().map(|kv|kv.map(|(k,v)|(k.value(),v.value().to_vec())).map_err(rerr)).transpose())? else{return Ok(())};
+            if !f(h,self.row(h,&v)?){return Ok(())}
+        }
     }
     pub fn reads(&self)->u64{self.reads.load(Ordering::Relaxed)}
+    pub fn rows_read(&self)->u64{self.rows.load(Ordering::Relaxed)}
     /// The file's size (0 when it cannot be read).
     pub fn file_bytes(&self)->u64{std::fs::metadata(self.dir.join(FILE)).map_or(0,|m|m.len())}
 }

@@ -4441,6 +4441,28 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     drop(s);drop(a);let _=std::fs::remove_dir_all(&da);
 }
 
+/// Review 2026-11 (finding 7): GetRange below the window reads, checks and decodes a row only once the block before
+/// it was delivered, in one index read: a request that stops at its first block (here a journal read that fails, as
+/// a peer's half-full queue stops it at its first offer) reads one row, not the 512 it asked for; one that is served
+/// whole reads one row a block. FAIL-ON-ORIGINAL: every row of the range was read and decoded before the first offer.
+#[cfg(feature="io-fault")]
+#[test] fn serving_below_the_window_reads_a_row_only_after_the_block_before_it_was_offered(){
+    use pocold::io_fault::{self,Op};
+    let blocks=pr7_chain(1000);let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();let da=e44_dir("pr7-serve-rows");
+    let mut conf=pr7_conf(&da,pr7_limits(8,false,0,None))();conf.listen=Some(format!("127.0.0.1:{port}").parse().unwrap());
+    let mut a=pocold::node::Node::open(conf,admitted(&cfg(&["a","b","c"]))).unwrap();a.start_network().unwrap();
+    for x in &blocks{a.import(x.clone(),None).unwrap();}assert!(a.chain.canonical.base()>514,"positive control: base {}",a.chain.canonical.base());
+    let (mut s,mut buf)=pr7_peer(&mut a,port);let journal=da.join("blocks.journal");
+    let (rd,rows)=(a.canon().reads(),a.canon().rows_read());
+    assert_eq!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:10,count:20},600).len(),20);
+    assert_eq!((a.canon().reads()-rd,a.canon().rows_read()-rows),(1,20),"a range served whole: one index read, one row a block");
+    io_fault::arm_now(&journal,Op::Read);let rows=a.canon().rows_read();
+    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:512},600).is_empty());
+    assert_eq!(io_fault::fired(&journal).len(),1,"positive control: the first block's journal read failed");
+    assert_eq!(a.canon().rows_read()-rows,1,"a request stopped at its first block reads one row");
+    drop(s);drop(a);let _=std::fs::remove_dir_all(&da);
+}
+
 /// A test-only format-1 encoder: the checkpoint layout before C-1 S5 (no eviction or anchor parameters, no window
 /// fields), sealed as before.
 fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
