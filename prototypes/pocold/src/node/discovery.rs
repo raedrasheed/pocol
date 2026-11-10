@@ -115,7 +115,9 @@ pub fn endpoints(values:&[String],what:&str,max:usize,min_port:u16)->Result<Vec<
 /// D27 (VA-SPEC §1a.8): whether `seed` is this host's own listener: the exact `--listen` address, or a listener on the
 /// seed's port bound to the unspecified address or to the seed's IP while the seed's IP is a local address (a UDP bind
 /// to it succeeds; it fails with EADDRNOTAVAIL otherwise, and sends nothing). A seed host behind 1:1 NAT cannot see its
-/// public IP so: it must pass its exact public `--listen`.
+/// public IP so, nor bind it (EADDRNOTAVAIL, unless net.ipv4.ip_nonlocal_bind=1: the node would not start): it keeps a
+/// local or unspecified `--listen` and lists the other seeds as static peers (`--peer`), or relies on hairpin nonce
+/// self-detection (VA-SPEC §2).
 pub fn is_own_seed(listen:Option<SocketAddr>,seed:SocketAddr)->bool{
     let Some(l)=listen else{return false};
     l==seed||(l.port()==seed.port()&&(l.ip().is_unspecified()||l.ip()==seed.ip())&&std::net::UdpSocket::bind((seed.ip(),0)).is_ok())

@@ -239,9 +239,12 @@ defaults and keeps every consensus-relevant path fail-closed:
 nonce and stops dialing that address. This needs NAT hairpinning. A seed behind a NAT
 without hairpinning cannot reach itself, so it cannot detect itself. Its dialer keeps
 retrying its own address, as before this release, which costs nothing but a failed
-connect. Such a seed host passes its exact public `--listen`, so that it recognises
-its own seed address, or lists the other seeds with `pocol start --peer` (static peers,
-standalone README).
+connect. Such a seed host keeps its local or unspecified `--listen` and lists the other
+seeds with `pocol start --peer` (or `pocold run --peer`: static peers, standalone README),
+so that it keeps them all. Do not pass the public IP as `--listen` on a 1:1 NAT host (most
+cloud VMs with an elastic or public IP): that IP is on no interface, so the bind fails
+(`Cannot assign requested address`, unless `net.ipv4.ip_nonlocal_bind=1`) and the node
+does not start.
 
 ## Stopping the seeds
 

@@ -49,7 +49,9 @@ most crowded address range; a few recent useful peers, the longest connected and
 configured peers are protected) or is closed. `POCOL_OUTBOUND` (`auto`, the default: 4 automatic outbound connections with `--listen`, 2 without; or 0..8, 0
 restoring the earlier behaviour) sets how many connections the node opens itself to addresses it learned, plus one
 spare slot; `pocol start --peer IP:PORT` (repeated, at most 7) adds static peers besides the invitation's seeds. A
-seed host passes its exact public `--listen`, so that it recognises its own seed address and keeps the others.
+seed host recognises its own seed address from a local listener on the seed's port (or by its nonce, with NAT
+hairpinning); one behind 1:1 NAT lists the other seeds with `--peer` to keep them all, and never passes its public IP
+as `--listen`, which is on no interface there (the bind fails and the node does not start).
 `POCOL_PER_GROUP_MAX` (or `pocold run --per-group-max
 N`) sets how many inbound connections one public address range (an IPv4 /16 or IPv6
 /32) may hold, default 4, plus one spare place whose newcomer must
