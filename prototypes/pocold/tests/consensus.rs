@@ -4417,6 +4417,30 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     drop(s);drop(a);drop(j);for d in [da,dj]{let _=std::fs::remove_dir_all(&d);}
 }
 
+/// Review 2026-11 (findings 2 and 5): a journal read that fails while a GetRange below the window is served is the
+/// journal's failure, not the index's: nothing is served, the index is not marked damaged (no canon.redb.damaged),
+/// the next eviction's put succeeds, and once the journal reads again the same request is answered. FAIL-ON-ORIGINAL:
+/// the failed read marked the index damaged, and the next import's eviction stopped the node.
+#[cfg(feature="io-fault")]
+#[test] fn a_journal_read_failure_while_serving_does_not_mark_the_index_damaged(){
+    use pocold::io_fault::{self,Op};
+    let blocks=pr7_chain(460);let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();let da=e44_dir("pr7-serve-io");
+    let mut conf=pr7_conf(&da,pr7_limits(8,false,0,None))();conf.listen=Some(format!("127.0.0.1:{port}").parse().unwrap());
+    let mut a=pocold::node::Node::open(conf,admitted(&cfg(&["a","b","c"]))).unwrap();a.start_network().unwrap();
+    for x in &blocks[..420]{a.import(x.clone(),None).unwrap();}let base=a.chain.canonical.base();assert!(base>30,"positive control: base {base}");
+    let (mut s,mut buf)=pr7_peer(&mut a,port);let journal=da.join("blocks.journal");
+    io_fault::arm_now(&journal,Op::Read);
+    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:20},600).is_empty(),"nothing is served past a failed journal read");
+    assert_eq!(io_fault::fired(&journal).len(),1,"positive control: the journal read failed");
+    assert!(!a.canon().is_damaged()&&!da.join(pocold::node::canon::DAMAGED).exists(),"the index is not marked damaged");
+    for x in &blocks[420..]{a.import(x.clone(),None).expect("the next evictions put their rows");}
+    assert!(a.chain.canonical.base()>base,"positive control: the window moved");
+    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:20},600);
+    // (The imports' new heads are relayed to the peer too.)
+    assert_eq!(got.iter().map(|b|b.header.h).filter(|h|*h<=420).collect::<Vec<_>>(),(2..22).collect::<Vec<_>>(),"served once the journal reads again");
+    drop(s);drop(a);let _=std::fs::remove_dir_all(&da);
+}
+
 /// A test-only format-1 encoder: the checkpoint layout before C-1 S5 (no eviction or anchor parameters, no window
 /// fields), sealed as before.
 fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{

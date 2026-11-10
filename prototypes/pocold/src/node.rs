@@ -1713,16 +1713,21 @@ impl Node{
     }
     /// The canonical blocks of heights start..start+count to peer `p`, until its queue is half full (`offer`) or a
     /// height is not held. Below the window from one index read (`canon.range`) and the journal, each record checked
-    /// to hash to its row's block (a row that does not marks the index damaged); then the window's, as before.
+    /// to hash to its row's block; then the window's, as before. Only the index is blamed for what is the index's: a
+    /// row naming no record, or a record that reads but is not the row's block, marks it damaged; a journal that
+    /// cannot be read is logged and serving stops (as `block_msg`, `indexed_view` and `canonical_entry` do), since
+    /// marking the index for it stopped the node at its next eviction and made the next open drop every checkpoint
+    /// based above height 1 and replay from genesis (review 2026-11, findings 2 and 5).
     fn serve_range(&self,p:&Peer,start:u64,count:u64){
         let (end,base)=(start.saturating_add(count),self.chain.canonical.base());let mut hgt=start;
         if hgt<base{
             let rows=match self.canon.range(hgt,end.min(base)-hgt){Ok(r)=>r,Err(e)=>{self.log(&format!("serving height {hgt}: {e}"));return}};
             for (h,r) in rows{
                 if h!=hgt{return}
-                let Some(m)=r.body_off.and_then(|o|self.journal.read_at(o).ok()).filter(|(hb,_,_)|decode_header(hb).map(|x|block_hash(&x)).ok()==Some(r.hash)).map(|(hb,bb,_)|Msg::Block{header:hb,body:bb})
-                    else{self.log(&self.canon.mark_damaged(&format!("the row at height {h} does not name its journal record")));return};
-                if !p.offer(&m){return}hgt+=1;
+                let Some(o)=r.body_off else{self.log(&self.canon.mark_damaged(&format!("the row at height {h} names no journal record")));return};
+                let (hb,bb,_)=match self.journal.read_at(o){Ok(x)=>x,Err(e)=>{self.log(&format!("serving height {h}: journal read at {o}: {e:?}"));return}};
+                if decode_header(&hb).map(|x|block_hash(&x)).ok()!=Some(r.hash){self.log(&self.canon.mark_damaged(&format!("the row at height {h} does not name its journal record")));return}
+                if !p.offer(&Msg::Block{header:hb,body:bb}){return}hgt+=1;
             }
             if hgt<end.min(base){return}
         }
