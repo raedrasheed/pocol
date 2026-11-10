@@ -267,9 +267,10 @@ pub struct Cand{pub sender:Address,pub gas_limit:u64,pub raw:Vec<u8>}
 /// A template selection (`Node::template_selection`): the transactions in block order, the candidates kept
 /// for the append round (`rest`, in pool order, at most BODY_MAX bytes and the TX_CAP room), the gas counted
 /// for `txs` (gas used, or declared gas where `fallback`), and whether declared gas was counted (no checked
-/// parent state).
+/// parent state), and the gas the simulation executed (`executed`: before refunds, committed or left out; at most
+/// `selection_exec_budget(GAS_LIMIT)`).
 #[derive(Clone,Debug,Default)]
-pub struct Selection{pub txs:Vec<Vec<u8>>,pub rest:Vec<Cand>,pub counted:u64,pub fallback:bool}
+pub struct Selection{pub txs:Vec<Vec<u8>>,pub rest:Vec<Cand>,pub counted:u64,pub fallback:bool,pub executed:u64}
 /// PR6 B5: the most `build_signed` calls one signed template takes (the retry loop's bound before PR6).
 pub const TEMPLATE_BUILDS_MAX:usize=8;
 /// Whether a `build_signed` refusal is the USER phase's gas check (`apply User("Gas")`: a transaction's
@@ -295,6 +296,12 @@ fn sim_halt<S:pocol_lp4_execution::view::WorkState+?Sized>(st:&mut S,caller:Addr
         c.balance=c.balance.checked_add(reward)?;st.insert_info(e,c);}
     Some(())
 }
+/// PR6 second review: the most gas one template selection executes, committed or not: GAS_LIMIT for candidates it
+/// executes and then leaves out (B4), plus 5/4 GAS_LIMIT, the most its committed transactions spend (EIP-3529), so
+/// the bound never binds before GAS_LIMIT of execution was wasted.
+pub fn selection_exec_budget(gas_limit:u64)->u64{gas_limit.saturating_add(gas_limit.saturating_mul(5)/4)}
+/// The gas an execution spent, before the refund (EIP-3529): what the engine ran.
+fn executed_gas(r:&revm::primitives::ExecutionResult)->u64{match r{revm::primitives::ExecutionResult::Success{gas_used,gas_refunded,..}=>gas_used.saturating_add(*gas_refunded),r=>r.gas_used()}}
 /// PR6 B5, the append round: indices into `rest` to add after a built block, within `gas` of room counting
 /// declared gas, the TX_CAP/TXBYTES room and the BODY room. The head of each sender's queue (pool order) is a
 /// candidate; the smallest declared gas goes first (ties in pool order); a head that does not fit stops its
@@ -1280,7 +1287,10 @@ impl Node{
     /// entry without its full state, tests only) declared gas is counted instead (`fallback`), valid by
     /// construction. A transaction whose logs or state effects would pass a block cap (B4) is skipped: it
     /// would halt in the block and be charged all its gas. One whose own logs pass a log cap halts in every
-    /// block on p (`own_logs_halt`): it is included, as that halt, counted at its declared gas.
+    /// block on p (`own_logs_halt`): it is included, as that halt, counted at its declared gas. Execution (PR6 second
+    /// review): the selection executes at most `selection_exec_budget(GAS_LIMIT)` of gas, committed or left out
+    /// (`Selection::executed`); a candidate whose declared gas does not fit what is left is kept, unexecuted, with
+    /// those that do not fit by gas.
     pub fn template_selection(&self,p:&Entry,clock:u64)->Selection{
         let cp=self.chain.spec.cp();let mut sel=Selection::default();let mut used=0u64;let mut bytes=0usize;
         let (room_txs0,room_bytes0)=self.chain.caps_room(p);let (mut room_txs,mut room_bytes)=(room_txs0,room_bytes0);
@@ -1308,6 +1318,11 @@ impl Node{
         // declared gas come from the pool's meta, so one that is skipped is not decoded; B3: at most
         // BUILD_VISIT_MAX decodes (each recovers a signature).
         let mut decodes=0usize;
+        // PR6 second review: the gas executed so far (`Selection::executed`), committed or left out, within
+        // `selection_exec_budget`. A candidate is executed only when its declared gas fits what is left of it, so
+        // one that B4 leaves out after running (it commits nothing, so `used` does not grow) cannot make the
+        // selection run without bound; one that does not fit is kept for the append round, unexecuted.
+        let budget=selection_exec_budget(cp.GAS_LIMIT);
         // B6: the oldest pooled transaction declaring more than half a block, first in its sender's queue, is
         // tried first (it always fits an empty block), so a transaction that needs most of a block waits a
         // bounded time behind the small ones. If it fails here (for example it depends on another sender's
@@ -1327,12 +1342,12 @@ impl Node{
             // B3: nothing fits any more and nothing more can be kept for the append round.
             if room_txs==0||room_bytes<MIN_TX_BYTES||bytes+enc(MIN_TX_BYTES as usize)>body_room{break}
             let rest_full=rest_bytes>=cp.BODY_MAX as usize||sel.rest.len() as u64>=room_txs0;
-            if cp.GAS_LIMIT-used<TX_GAS_MIN&&rest_full{break}
+            if (cp.GAS_LIMIT-used<TX_GAS_MIN||budget-sel.executed<TX_GAS_MIN)&&rest_full{break}
             let mut decode=||{if decodes>=BUILD_VISIT_MAX{return Err(())}decodes+=1;wire::decode_for_profile(raw,profile).map(|e|Some(e.tx_env())).or(Ok(None))};
             let (caller,gas_limit,mut env)=match known{Some((c,g))=>(c,g,None),None=>match decode(){Err(())=>break,Ok(None)=>continue,Ok(Some(t))=>(t.caller,t.gas_limit,Some(t))}};
             if skipped.contains(&caller){continue}
             // `rest` (B5): a candidate skipped only because it did not fit by gas, and its sender's later ones.
-            let gas_skip=gas_skipped.contains(&caller)||gas_limit>cp.GAS_LIMIT-used;
+            let gas_skip=gas_skipped.contains(&caller)||gas_limit>cp.GAS_LIMIT-used||(sim.is_some()&&gas_limit>budget-sel.executed);
             if gas_skip&&!slot{
                 gas_skipped.insert(caller);
                 if !rest_full{rest_bytes+=raw.len();sel.rest.push(Cand{sender:caller,gas_limit,raw:raw.clone()});}
@@ -1344,7 +1359,9 @@ impl Node{
                 Some((st,total))=>{
                     let tx=match env.take(){Some(t)=>t,None=>match decode(){Err(())=>break,Ok(None)=>{skip(slot);continue},Ok(Some(t))=>t}};
                     let (gas_price,priority)=(tx.gas_price,tx.gas_priority_fee);
-                    match native::execute_on_validated(&*st,*total,tx,&ctx,profile){
+                    let r=native::execute_on_validated(&*st,*total,tx,&ctx,profile);
+                    if let Ok(r)=&r{sel.executed=sel.executed.saturating_add(executed_gas(&r.result));}
+                    match r{
                     // PR6 review: one whose own logs pass a log cap halts in every block on p (the pool refuses
                     // it, but its logs can follow the context, for example PREVRANDAO, which admission does not
                     // have). It is included as the block applies it, charged its declared gas as before PR6, so it

@@ -4444,3 +4444,35 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),[fill2.clone(),b2.clone(),vec![iv[0].clone(),hk.clone()]].concat());
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR6 second review (execution budget): a candidate the selection executes and then leaves out (B4: logs or the
+/// meter) is not committed, so its gas does not count against GAS_LIMIT, and parked transactions are candidates
+/// without having been executed. alice's CREATE emits 546 LOG0 (the limit) and is included; then 24 parked CREATEs
+/// from distinct senders each burn about 1.3M gas in a loop and emit one LOG0, so each one passes the log count
+/// only alone. Before the fix the selection ran all of them in full and skipped each (about 32M gas executed for
+/// one template, without bound: up to POOL_PARKED_MAX of them); now it executes at most
+/// `selection_exec_budget(GAS_LIMIT)` (GAS_LIMIT + 5/4 GAS_LIMIT) and keeps the others, unexecuted, for the
+/// append round.
+#[test] fn the_template_selection_executes_a_bounded_amount_of_gas(){
+    use pocold::node::POOL_PARKED;
+    let mut c=cfg_funded();let burners:Vec<String>=(0..24).map(|i|format!("burner{i}")).collect();
+    for l in &burners{c.accounts.push((l.clone(),U256::from(10u128.pow(24))));}
+    let (mut n,dir)=gas_node_cfg("exec-budget",Default::default(),&c,None);
+    let create=|k:&Key,gas:u64,init:Vec<u8>|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:None,value:U256::ZERO,data:init.into()}.sign_1559(k);
+    // PUSH2 546; loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 3 JUMPI; STOP
+    let logger=create(&key("alice"),GL/2,vec![0x61,0x02,0x22,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x03,0x57,0x00]);
+    // PUSH3 50,000; loop: PUSH1 1 SWAP1 SUB DUP1 PUSH1 4 JUMPI; PUSH0 PUSH0 LOG0 STOP (26 gas a round)
+    let burn=vec![0x62,0x00,0xc3,0x50,0x5b,0x60,0x01,0x90,0x03,0x80,0x60,0x04,0x57,0x5f,0x5f,0xa0,0x00];
+    n.submit_tx(logger.clone(),false).unwrap();
+    let fill=[pay_gas(&key("carol"),0,1,GL),pay_gas(&key("erin"),0,1,GL),pay_gas(&key("frank"),0,1,GL),pay_gas(&key("gina"),0,1,GL/2)];
+    for t in &fill{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    let parked:Vec<Vec<u8>>=burners.iter().map(|l|create(&key(l),1_500_000,burn.clone())).collect();
+    for t in &parked{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED,"a burner is parked (not executed)");}
+    let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+    let sel=n.template_selection(&head,clock);assert!(!sel.fallback);
+    assert_eq!(sel.txs,vec![fill[0].clone(),logger.clone(),fill[3].clone()],"the big one first, the logger and gina's transfer; no burner fits the log count");
+    let budget=pocold::node::selection_exec_budget(GL);
+    assert!(sel.executed<=budget,"the selection executed {} gas, past its budget {budget}",sel.executed);
+    assert!(sel.executed>budget-1_500_000,"positive control: the burners use the budget ({})",sel.executed);
+    assert!(sel.rest.iter().any(|x|parked.contains(&x.raw)),"burners past the budget are kept, not executed");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}

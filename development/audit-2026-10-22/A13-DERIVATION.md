@@ -504,6 +504,13 @@ three terms: one up and two down. It also withdraws one projection.
     for example PREVRANDAO, which admission does not have), so it is included as that halt and counted at its
     declared gas, as the block charges it (before PR6 every such transaction was included and charged). A
     transaction the selection never takes cannot stay pooled unpaid;
+  - PR6 second review, the execution budget: a candidate left out after it ran (the log caps, the meter) commits
+    nothing, so the gas fit alone did not bound the execution once parked transactions became candidates (one
+    546-log transaction, then up to POOL_PARKED_MAX parked ones each burning most of a block and emitting one log,
+    ran about POOL_PARKED_MAX × GAS_LIMIT/2 of gas on the consensus thread for each template). The selection now
+    executes at most `selection_exec_budget(GAS_LIMIT)` = GAS_LIMIT + 5/4 GAS_LIMIT of gas, committed or not
+    (before refunds): a candidate is executed only when its declared gas fits what is left, and one that does not
+    is kept, unexecuted, for the append round. The bound never binds before GAS_LIMIT of execution was wasted;
   - the oldest pooled transaction declaring more than GAS_LIMIT/2 (first of its sender) is tried first;
   - without a checked parent state (tests only) declared gas is counted (`templateGasFallbacks`);
   - the build (`build_signed_template`, at most TEMPLATE_BUILDS_MAX = 8 builds at one clock): a gas failure,
@@ -519,7 +526,8 @@ three terms: one up and two down. It also withdraws one projection.
   more entries and BODY_MAX more bytes, so the term counts BODY_MAX/MIN_TX_BYTES + 1 + GAS_LIMIT/TX_GAS_MIN entries
   and 2·BODY_MAX + TX_MAX bytes; the skipped-sender sets count the parked candidates too, POOL_PARKED_MAX more). The block overlay term now counts its BLOCKHASH window (257 entries), which the selection's overlay
   carries too; the selection's committed gas used is at most GAS_LIMIT (spent at most 5/4 GAS_LIMIT), within
-  that term. The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs), by up to 163
+  that term (a candidate it leaves out commits nothing to the overlay; its execution is bounded in time by the
+  execution budget above, not in memory). The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs), by up to 163
   more with the tail and by up to 168 more with the parked runs.
 - **Revalidation does not hold up consensus.** The run loop takes one event between two slices of
   revalidation. The test runs `Node::run` with the pool at its bound: four BLAKE2F transactions of 7.9M gas,
