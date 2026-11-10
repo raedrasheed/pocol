@@ -656,26 +656,35 @@ impl Node{
             let header=decode_header(&hb).map_err(|e|format!("record {i}: {e}"))?;
             let body=Body::decode(&bb,chain.spec.cp().BODY_MAX as usize).map_err(|e|format!("record {i}: {e}"))?;
             let block=Block{header,body};let hash=block.hash();let parent=block.header.parent_hash;let old_head=chain.head;
+            // C-1 S5 (§3.3): a record of a journal written before live refused blocks at or below head - R_keep (import_with)
+            // can name a canonical block below the window (i), or build on a canonical block (ii). Replay without eviction
+            // re-imports the first (a new importSeq, its record's copy) and inserts the second, which the same retain
+            // removes. Both are reproduced here without the entry: the row takes the new importSeq and offset, and the
+            // removal is counted as that retain's. (ii) is taken before validation whether its parent is below the window
+            // or in it (review 2026-11): a parent at most 255 heights above the window's base has ancestors the window no
+            // longer holds, so validating its child read a short BLOCKHASH window (`child_ctx` now refuses that) and failed
+            // the open; and a rebuild to validate a block the retain drops at once walked from below the window.
+            let old_record=|chain:&mut Chain|->Result<bool,String>{
+                let base=chain.canonical.base();if base<2{return Ok(false)}
+                let deep=|x:&[u8;32]|->Result<Option<u64>,String>{Ok(canon.height_of(x).map_err(|e|format!("record {i}: canonical index: {e}"))?.filter(|h|*h<base))};
+                if let Some(h)=deep(&hash)?{
+                    let mut r=canon.at(h).map_err(|e|format!("record {i}: canonical index: {e}"))?.ok_or_else(||format!("record {i}: canonical index: no row at height {h}"))?;
+                    r.import_seq=chain.note_reimported();r.body_off=Some(this_off);canon.put(&[(h,r)]).map_err(|e|format!("record {i}: canonical index: {e}"))?;return Ok(true)
+                }
+                let held=block.header.h>0&&chain.canonical.get(block.header.h as usize-1)==Some(&parent);
+                if held||deep(&parent)?.is_some(){chain.note_removed(hash);return Ok(true)}Ok(false)};
+            // Only a record the retain after it would remove (live refuses one now), of a block replay does not hold.
+            let deep_record=!chain.blocks.contains_key(&hash)&&block.header.h.saturating_add(chain.r_keep)<=chain.head().height;
             // Same rules as live import: a journaled fork child of a block below the K_hist window
             // needs the TrieRebuild that import performed before journaling it.
-            let t=Instant::now();let validated=chain.validate(&block,None,0);timing.replay_validate_ms+=ms(t);
+            let t=Instant::now();let taken=deep_record&&old_record(&mut chain)?;let validated=(!taken).then(||chain.validate(&block,None,0));timing.replay_validate_ms+=ms(t);
             match validated{
-                Err(Reject::Duplicate)=>chain.reimport(&hash,block.header.clone(),Some(this_off)),
+                None=>{}
+                Some(Err(Reject::Duplicate))=>chain.reimport(&hash,block.header.clone(),Some(this_off)),
                 // Unreachable by (1) for a block whose parent replay holds; counted (Stats::replay_skipped) rather than
-                // refusing to open. C-1 S5: a record of a journal written before live refused blocks at or below
-                // head - R_keep (import_with) can name a canonical block below the window, or build on one. Replay
-                // without eviction re-imports the first (a new importSeq, its record's copy) and inserts the second, which
-                // the same retain removes. Both are reproduced here without the entry: the row takes the new importSeq
-                // and offset, and the removal is counted as that retain's. (Only on UnknownParent: a rare record.)
-                Err(Reject::UnknownParent)=>{
-                    let base=chain.canonical.base();
-                    let deep=|x:&[u8;32]|->Result<Option<u64>,String>{if base<2{return Ok(None)}Ok(canon.height_of(x).map_err(|e|format!("record {i}: canonical index: {e}"))?.filter(|h|*h<base))};
-                    if let Some(h)=deep(&hash)?{
-                        let mut r=canon.at(h).map_err(|e|format!("record {i}: canonical index: {e}"))?.ok_or_else(||format!("record {i}: canonical index: no row at height {h}"))?;
-                        r.import_seq=chain.note_reimported();r.body_off=Some(this_off);canon.put(&[(h,r)]).map_err(|e|format!("record {i}: canonical index: {e}"))?;
-                    }else if deep(&parent)?.is_some(){chain.note_removed(hash);}else{skipped+=1;}
-                }
-                r=>{
+                // refusing to open. An old record below the window was taken above; this is a last resort.
+                Some(Err(Reject::UnknownParent))=>{if !old_record(&mut chain)?{skipped+=1;}}
+                Some(r)=>{
                     let (mut entry,_)=match r{
                         Err(Reject::NeedsRebuild(p))=>{let t=Instant::now();let src=Src{journal:&rec.journal,history:&history,canon:&canon};let mut q=p;let mut tries=0;
                             loop{chain.ensure_state_with(&q,Some(&src)).map_err(|e|format!("replay {i}: rebuild {e:?}"))?;tries+=1;

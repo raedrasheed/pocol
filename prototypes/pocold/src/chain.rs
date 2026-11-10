@@ -552,14 +552,20 @@ impl Chain{
         let base_fee=if h==1{from_fixed_lp4(&cp.baseFee0)}else{fees::next_base_fee(p.base_fee,p.gas_used,p.header.gas_limit).map_err(|e|Reject::Block(format!("baseFee {e:?}")))?};
         Ok(ChildPre{window,target,nonce_max,t_share,base_fee})
     }
+    /// C-1 S5: the BLOCKHASH window must be whole (min(p.height + 1, 256) ancestors). A walk that stops short met an
+    /// ancestor below the evicting window, which no validation reads (live refuses a block at or below head - R_keep,
+    /// and E > 256 + R_keep): executing on it would read a substitute hash, so it is a local failure, never a verdict
+    /// (review 2026-11: an old journal's deep side block was executed so and the open failed on a wrong root).
     pub fn child_ctx(&self,p:&Entry,attempt:u32)->Result<ChildCtx,Reject>{
         let cp=self.spec.cp();let h=p.height+1;
         let ChildPre{window,target,t_share,base_fee,..}=self.child_pre(p,attempt)?;
+        let ancestors=self.ancestors(p);
+        if (ancestors.len() as u64)<h.min(256){return Err(Reject::Local(format!("the BLOCKHASH window of a child at height {h} reaches below the held entries ({} of {})",ancestors.len(),h.min(256))))}
         let membership=self.membership(p,h)?;
         let assignment=Assignment::new(&membership,attempt,&target,self.spec.effective_nonce_mode(h),cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
         let proposer=self.draw(p,&membership,h)?;
         Ok(ChildCtx{height:h,attempt,window,membership,assignment,target,t_share,proposer,base_fee,prevrandao:prevrandao(&p.seal),
-            parent_result:p.result.clone(),ancestors:self.ancestors(p)})
+            parent_result:p.result.clone(),ancestors})
     }
 
     // ---------------- execution ----------------

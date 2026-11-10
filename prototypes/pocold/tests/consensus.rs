@@ -4639,6 +4639,49 @@ fn pr7_result_bytes(r:&Option<apply::ParentResult>)->Vec<u8>{
     assert!(row.import_seq>420,"positive control: re-imported after the chain");
     drop(n);drop(r);for p in [a,g]{let _=std::fs::remove_dir_all(&p);}
 }
+/// PR7 (T14, review 2026-11): the same, for an old record of a side block on a canonical parent the window still holds,
+/// one height above its base, whose transaction stores BLOCKHASH(base - 1). Replay with eviction does not validate it
+/// (its BLOCKHASH window reaches below what the window holds): it gives it the import sequence and the removal replay
+/// without eviction gives it, and the two nodes are the same. FAIL-ON-ORIGINAL: the record was executed on a short
+/// window, its state root differed from its header's, and the node could not open.
+#[test] fn an_old_side_block_reading_blockhash_below_the_window_replays_as_without_eviction(){
+    let blocks=pr7_chain(420);let gh=net().chain.spec.genesis_hash();
+    let a=e44_dir("pr7-t14-base");let l=pr7_limits(8,true,0,None);
+    let base={let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}n.chain.canonical.base() as usize};
+    assert!(base>2&&base+2+8<=420,"positive control: a window based at {base}, the side block deep below the head");
+    let mut h=pr7_builder(&blocks);let p=blocks[base].hash();h.chain.ensure_state(&p).unwrap();
+    let alice=devnet::account_key("alice");let at=(base-1) as u16;
+    let init=vec![0x61,(at>>8) as u8,at as u8,0x40,0x5f,0x55,0x00];// SSTORE(0, BLOCKHASH(base - 1))
+    let tx=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
+    let y=signed(&h,p,Body{txs:vec![tx],evidence:vec![]},0);let (ye,_)=h.chain.validate(&y,None,0).unwrap();
+    assert_eq!((ye.height as usize,ye.state.accounts[&alice.address().create(0)].storage[&U256::ZERO]),(base+2,U256::from_be_bytes(blocks[base-2].hash())),
+        "positive control: the side block is at base + 2 and stores the hash of height base - 1");
+    {let mut rec=pocold::store::open(&a,&gh).unwrap();rec.journal.append(&pocold::store::encode_record(&y.header.encoded,&y.body.encode(),&pr7_result_bytes(&ye.result))).unwrap();}
+    let g=e44_dir("pr7-t14-base-ref");copy_dir(&a,&g);
+    let n=pocold::node::Node::open(pr7_conf(&a,l)(),admitted(&cfg(&["a","b","c"]))).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: the evicting node does not open: {e}"));
+    let r=reopen(&pr7_conf(&g,pr7_limits(8,true,0,Some(u64::MAX))));
+    let (c,d)=(&n.chain,&r.chain);assert_eq!(c.canonical.base() as usize,base,"positive control: the window replay moved to is the live one");
+    assert_eq!((c.head,c.evicted_total,n.stats.replay_skipped),(d.head,d.evicted_total,r.stats.replay_skipped),"head, removals and skipped records");
+    assert!(d.evicted_total==1&&d.was_evicted(&y.hash()),"positive control: replay without eviction validated the side block and removed it");
+    let (fc,fd)=(pocold::checkpoint::fingerprint(c).unwrap(),pocold::checkpoint::fingerprint(d).unwrap());
+    assert_eq!((fc.next_seq,&fc.evicted_order),(fd.next_seq,&fd.evicted_order),"import sequences and the eviction FIFO");
+    let held:Vec<&pocold::checkpoint::Rec>=fd.entries.iter().filter(|x|c.blocks.contains_key(&x.hash)).collect();
+    assert_eq!(fc.entries.iter().collect::<Vec<_>>(),held,"every entry held is the reference's");
+    drop(n);drop(r);for p in [a,g]{let _=std::fs::remove_dir_all(&p);}
+}
+/// PR7 (review 2026-11): a child of an entry whose BLOCKHASH window reaches below the evicting window has no context
+/// (a local failure, never a verdict); one whose 256 ancestors are all held has one. FAIL-ON-ORIGINAL: the context
+/// was built on the ancestors the walk found, and execution read substitute hashes for the rest.
+#[test] fn a_child_context_whose_blockhash_window_reaches_below_the_window_is_a_local_failure(){
+    let blocks=pr7_chain(420);let a=e44_dir("pr7-short-window");
+    let mut n=reopen(&pr7_conf(&a,pr7_limits(8,false,0,None)));for b in &blocks{n.import(b.clone(),None).unwrap();}
+    let base=n.chain.canonical.base();assert!(base>2&&base+255<420,"positive control: a window based at {base}");
+    let at=|h:u64|n.chain.canonical_at(h).unwrap().meta_clone();
+    assert_eq!(n.chain.ancestors(&at(base+255)).len(),256,"positive control: the 256 ancestors from base + 255 are held");
+    assert!(!matches!(n.chain.child_ctx(&at(base+255),0),Err(Reject::Local(_))),"a whole window is not refused");
+    for h in [base,base+1,base+254]{let r=n.chain.child_ctx(&at(h),0);assert!(matches!(&r,Err(Reject::Local(s)) if s.contains("BLOCKHASH window")),"a child of height {}: {:?}",h+1,r.err());}
+    drop(n);let _=std::fs::remove_dir_all(&a);
+}
 
 /// The child of `crash_at_canon_points`: imports the blocks of `POCOLD_PR7_BLOCKS` into the PR7 store-mode node at
 /// `POCOLD_PR7_CHILD` (R_keep 8, a checkpoint every 25 records), until it is aborted. Not a test on its own.
