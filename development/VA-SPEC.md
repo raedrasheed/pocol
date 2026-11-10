@@ -117,7 +117,7 @@ connection (§1); any other discovery fault drops an entry or a message and is c
 8. Seeds (`--seed`, the invitation's seeds unless it retires them; with N > 0; with N = 0 they are configured
    peers): they bootstrap and refill, and at most 2 are wanted at once; a seed not wanted is not dialed. For the
    first minute seeds are wanted only while the book cannot fill the N slots (slots dialing or up, groups of
-   dialable verified entries, anchors). Then a node wants one seed while it does not listen, has fewer than 2 useful
+   dialable verified entries, anchors), and one by a node that does not listen. Then a node wants one seed while it does not listen, has fewer than 2 useful
    peers (either direction, at least one outbound, outside the seeds' groups), has a slot without candidates and
    fewer than N peers, or is stalled; a listening node releases it 2 min after 2 useful peers hold. A released seed
    has been compatible 30 s, its GetAddr answered or expired, and is not the sync peer. A wanted seed not compatible
