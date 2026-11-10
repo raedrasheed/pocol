@@ -856,11 +856,16 @@ mod upgrade_tests {
         for name in FILES { fs::write(home.path.join("network").join(name), &invitation.files[name]).unwrap(); }
         home
     }
+    /// Every file under `dir` with its bytes, except `launcher.lock`, which the open `Home` holds locked: a Windows
+    /// byte-range lock is mandatory, so reading it through a second handle fails with ERROR_LOCK_VIOLATION (33). The
+    /// launcher never writes to it, so its length stands in for its bytes.
     fn snapshot(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
         let mut out = BTreeMap::new();
         for e in fs::read_dir(dir).unwrap() {
             let p = e.unwrap().path();
-            if p.is_dir() { out.extend(snapshot(&p)) } else { out.insert(p.clone(), fs::read(&p).unwrap()); }
+            if p.is_dir() { out.extend(snapshot(&p)); continue }
+            let bytes = if p.file_name() == Some("launcher.lock".as_ref()) { fs::metadata(&p).unwrap().len().to_le_bytes().to_vec() } else { fs::read(&p).unwrap() };
+            out.insert(p, bytes);
         }
         out
     }
