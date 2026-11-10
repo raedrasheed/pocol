@@ -248,6 +248,20 @@ fn a_tests_file_not_declared_under_cfg_test_is_consensus() {
 }
 
 #[test]
+fn a_tests_file_a_consensus_file_loads_as_a_live_module_is_refused() {
+    // lib.rs declares fee_tests.rs under #[cfg(test)], so check 7 excludes it; fees.rs loading it too must not hide it.
+    let r = fixture("tests-live");
+    let lock = base(&tree(&r));
+    append(&r, "lp4-execution/src/fees.rs", "#[path = \"fee_tests.rs\"] pub mod live;\n");
+    let t = tree(&r);
+    assert!(!t.files.contains_key("lp4-execution/src/fee_tests.rs"));
+    refused(check(&lock, &t, &K), "lp4-execution/src/fees.rs loads lp4-execution/src/fee_tests.rs (module lp4::live) without #[cfg(test)]");
+    assert!(repin(Some(&lock), &t, &K, "neutral", "PR5", "x", None).unwrap_err().contains("classify first"));
+    put(&r, "lp4-execution/src/fees.rs", "pub fn base_fee() -> u64 { 7 }\n#[cfg(test)] #[path = \"fee_tests.rs\"] mod again;\n");
+    assert_eq!(tree(&r).problems, Vec::<String>::new(), "a gated second declaration stays test-only");
+}
+
+#[test]
 fn the_reference_scanner_skips_comments_test_modules_and_char_literals() {
     let src = "use crate::a; // crate::b\n/* crate::c */ fn f() { let _ = '\\''; let _ = '{'; }\n#[cfg(test)] mod tests { use crate::e; const X: char = '}'; }\n\
         mod inner { use super::*; }\nuse super::{g, h::{self, i}};\n";

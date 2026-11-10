@@ -435,6 +435,9 @@ fn modules(root: &Path, b: &Boundary, files: &BTreeMap<String, Vec<u8>>, test_on
             let class = if d.inline { Class::Inline } else if depth == 0 && b.local.contains(&qualified) { Class::Local } else {
                 match mod_file(root, &file, &d) {
                     Some(f) if files.contains_key(&f) => { if f.ends_with(".rs") { visit.push((f, krate.clone(), depth + 1)) } Class::Plus }
+                    // Check 7 looks only at the conventional parents, so a `+` file that also loads a test-only file
+                    // as a live module (`#[path = "x_tests.rs"] mod live;`) would run code outside the aggregate.
+                    Some(f) if test_only.contains(&f) && !d.test => { problems.push(format!("{file} loads {f} (module {qualified}) without #[cfg(test)]: it matches a -*suffix exclusion but would be consensus; gate the mod with #[cfg(test)] or rename the file")); Class::Excluded }
                     Some(f) if test_only.contains(&f) || b.exclude.iter().any(|x| covers(x, &f)) => Class::Excluded,
                     Some(f) => { problems.push(format!("classify module {qualified} ({file} loads {f}): add +{f}, -{f} or ={qualified} to {BOUNDARY_FILE}")); Class::Excluded }
                     None => { problems.push(format!("classify module {qualified}: {file} declares it but no file exists")); Class::Excluded }
