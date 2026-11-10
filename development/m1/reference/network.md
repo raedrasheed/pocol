@@ -154,7 +154,7 @@ No RPC accepts blocks, headers or templates. pocol_submitShare checks TemplateID
 - Transactions returned after reorg are rechecked.
 
 **P2P and node resource limits**
-- ≤ 50 peers by default (32 + 8 inbound, ≤ 7 outbound); an operator may raise inbound (`--peers-max` ≤ 128) within A13 and its task limit. Queue ≤ 256, ≤ 16 per peer.
+- ≤ 50 peers by default (32 established inbound; ≤ 18 outbound: configured peers, ≤ 8 automatic and 1 spare; the 8 handshaking places are not peers); an operator may raise inbound (`--peers-max` ≤ 128) within A13 and its task limit. Queue ≤ 256, ≤ 16 per peer.
 - Mempool ≤ 64 MiB.
 - Node memory excluding RPC ≤ 750 MiB, including redb cache, envelope judgments, slots and EnvQueue ≤ ENV_MEM_MAX = 7 MiB (D136, D137). RPC memory ≤ 192 MiB.
 - ASERT ≤ 512 bits.
