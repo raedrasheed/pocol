@@ -51,7 +51,7 @@ pub enum Outbound{Auto,Count(u8)}
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct Discovery{pub enabled:bool,pub allow_local:bool,pub outbound:Outbound,pub seeds:Vec<SocketAddr>,pub is_seed:bool,
     pub bootstrap:Vec<SocketAddr>,pub rng_seed:Option<u64>,pub times:DiscoveryTimes}
-impl Default for Discovery{fn default()->Self{Self{enabled:true,allow_local:false,outbound:Outbound::Count(0),seeds:Vec::new(),is_seed:false,bootstrap:Vec::new(),rng_seed:None,times:DiscoveryTimes::default()}}}
+impl Default for Discovery{fn default()->Self{Self{enabled:true,allow_local:false,outbound:Outbound::Auto,seeds:Vec::new(),is_seed:false,bootstrap:Vec::new(),rng_seed:None,times:DiscoveryTimes::default()}}}
 impl Discovery{
     /// The automatic slots A13 counts (`resources::derive`): the resolved count, or before `resolve` the larger value
     /// `auto` can take; 0 with discovery off.
@@ -349,6 +349,8 @@ impl Node{
             for l in d.links.values(){match (l.origin.dialed(),l.advertised){(Some(a),_) if l.compatible&&l.consent=>d.book.touch(a,false,now),(None,Some(a))=>d.book.touch(a,true,now),_=>{}}}}
         self.out_tick(now);let d=&mut self.disc;
         if d.loaded&&now>=d.next_save_ms{d.next_save_ms=now.saturating_add(d.times.save_every_ms);d.book.purge(now);self.disc_save();}
+        // VA-SPEC §1a.6: a change of the anchors is saved at once, even with a clean book.
+        else if self.disc.loaded&&self.anchors_moved(now){self.disc_save();}
     }
     /// VA-SPEC §1a.6, when the network starts with discovery on: the book is read from the data directory with a 1 MiB
     /// bound (`launcher::read_bounded`), each entry passing the filter and the quotas again (`addrbook::parse`). Without
@@ -362,23 +364,30 @@ impl Node{
         let read=match std::fs::metadata(&path){Err(e) if e.kind()==std::io::ErrorKind::NotFound=>None,_=>Some(crate::launcher::read_bounded(&path))};
         let (chain_id,genesis)=(self.chain.spec.chain_id(),self.chain.spec.genesis_hash());let d=&mut self.disc;
         d.file=match read{None=>"absent".into(),Some(r)=>{d.book=Book::disabled();
-            match r.and_then(|b|addrbook::parse(&b,chain_id,&genesis,d.allow_local,now)){Ok((book,_anchors))=>{d.book=book;"loaded".into()}
+            match r.and_then(|b|addrbook::parse(&b,chain_id,&genesis,d.allow_local,now)){Ok((book,anchors))=>{d.book=book;d.out.load_anchors(&anchors,now,d.times.anchor_keep_ms);"loaded".into()}
                 Err(e)=>{d.book=Book::new(d.allow_local);format!("ignored: {e}")}}}};
         d.book.set_times(d.times.book());d.loaded=true;d.next_save_ms=now.saturating_add(d.times.save_first_ms);
+        // VA-SPEC §1a.9: each bootstrap address is an unverified entry of its own source, heard (never answered before
+        // it is verified); one already in the book unverified becomes its own source again.
+        for i in 0..d.out.bootstrap.len(){let a=d.out.bootstrap[i];
+            match d.book.insert_unverified(a,Source::Cfg(a),Kind::Heard,net::group_of(a.ip()).is_none(),now){
+                Outcome::Dropped(_)=>{}Outcome::Refreshed=>{d.book.adopt_cfg(a);d.out.counters.bootstrap_loaded+=1}_=>d.out.counters.bootstrap_loaded+=1}}
         self.log(&format!("address book: {}, {} entries",self.disc.file,self.disc.book.entries().len()));
     }
-    /// VA-SPEC §1a.6: the book, once loaded and if it changed since, is written atomically, as `persist_signed_a0` writes
+    /// VA-SPEC §1a.6: the book, once loaded and if it or its anchors (`disc_anchors`) changed since, is written atomically, as `persist_signed_a0` writes
     /// its record: the temporary file written and synced, renamed over the file, then the directory synced (Unix only:
     /// Windows cannot open a directory). A failure is logged and counted, never fatal: the book stays changed, and the
     /// next save writes it.
     pub(super) fn disc_save(&mut self){
         use std::io::Write;
-        if !self.disc.loaded||!self.disc.book.dirty(){return}
-        let bytes=self.disc.book.encode(self.chain.spec.chain_id(),&self.chain.spec.genesis_hash(),&[]);let dir=&self.cfg.dir;
+        if !self.disc.loaded{return}
+        let anchors=self.disc_anchors(self.disc_now());
+        if !self.disc.book.dirty()&&!self.anchors_moved(self.disc_now()){return}
+        let bytes=self.disc.book.encode(self.chain.spec.chain_id(),&self.chain.spec.genesis_hash(),&anchors);let dir=&self.cfg.dir;
         let r=(||->std::io::Result<()>{
             {let mut f=std::fs::File::create(dir.join(FILE_TMP))?;f.write_all(&bytes)?;f.sync_all()?;}
             std::fs::rename(dir.join(FILE_TMP),dir.join(FILE))?;if cfg!(unix){std::fs::File::open(dir)?.sync_all()?;}Ok(())})();
-        match r{Ok(())=>{self.disc.book.saved();self.disc.counters.book_saves+=1;}
+        match r{Ok(())=>{self.disc.book.saved();self.disc.out.saved_anchors=anchors;self.disc.counters.book_saves+=1;}
             Err(e)=>{self.disc.counters.book_save_errors+=1;self.log(&format!("address book: the save failed: {e}"));}}
     }
     /// `pocol_status.discovery` (plan §8): the settings, the book's size (never its contents), the outbound settings,
@@ -860,7 +869,7 @@ mod tests{
         let mut d=Discovery{outbound:Outbound::Auto,..Discovery::default()};d.resolve(true,0).unwrap();d.resolve(true,0).unwrap();assert_eq!(d.outbound,Outbound::Count(4),"resolving twice");
         let a=sa("81.2.69.9:30300");
         let mut off=Discovery{enabled:false,outbound:Outbound::Auto,seeds:vec![a],is_seed:true,bootstrap:vec![a],..Discovery::default()};
-        assert!(off.resolve(true,1).is_ok()&&off==Discovery{enabled:false,..Discovery::default()},"discovery off: no slots, seeds or bootstrap");
+        assert!(off.resolve(true,1).is_ok()&&off==Discovery{enabled:false,outbound:Outbound::Count(0),..Discovery::default()},"discovery off: no slots, seeds or bootstrap");
         assert!(Discovery{enabled:false,outbound:Outbound::Count(1),..Discovery::default()}.resolve(true,0).is_err_and(|e|e.contains("needs peer discovery")));
         let many=Discovery{seeds:vec![a;8],..Discovery::default()};assert!(many.clone().resolve(true,8).is_err());
         for (v,want) in [("auto",Outbound::Auto),(" 3 ",Outbound::Count(3)),("8",Outbound::Count(8)),("0",Outbound::Count(0))]{assert_eq!(parse_outbound(v),Ok(want),"{v:?}");}

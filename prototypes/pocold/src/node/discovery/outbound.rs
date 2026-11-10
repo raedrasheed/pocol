@@ -43,10 +43,11 @@ pub(super) struct OutCounters{pub(super) dials:u64,pub(super) dial_failed:u64,pu
 /// route probe failed and when it was last probed; `last_peer_head_ms`: the last time a peer's block moved the head;
 /// `stalled`/`quiet`: last tick's values (their rising edges are counted); `trouble_since`: since when either holds;
 /// `next_extra_ms`: the next extra assignment while it does; `anchors_left`: anchors not dialed yet in this process,
-/// `anchors_bad`: those dialed whose connection failed, `saved_anchors`: the set last written.
+/// `loaded_anchors`: the anchors read at the network's start with their save times, `anchors_bad`: those dialed whose
+/// connection failed, was incompatible or closed short, `saved_anchors`: the set last written.
 pub(super) struct Out{pub(super) k:usize,pub(super) slots:Vec<Slot>,pub(super) tx:Vec<SyncSender<SocketAddr>>,pub(super) feeler:Option<Feeler>,pub(super) next_feeler_ms:u64,
     pub(super) seeds:Vec<Seed>,pub(super) seed_node:bool,pub(super) bootstrap:Vec<SocketAddr>,pub(super) cursor_b:usize,
-    pub(super) anchors_left:VecDeque<SocketAddr>,pub(super) anchors_bad:Vec<SocketAddr>,pub(super) saved_anchors:Vec<SocketAddr>,
+    pub(super) anchors_left:VecDeque<SocketAddr>,pub(super) loaded_anchors:Vec<(SocketAddr,u64)>,pub(super) anchors_bad:Vec<SocketAddr>,pub(super) saved_anchors:Vec<(SocketAddr,u64)>,
     pub(super) family_down:[Option<(SocketAddr,u64)>;2],pub(super) last_peer_head_ms:u64,
     pub(super) stalled:bool,pub(super) quiet:bool,pub(super) trouble_since:Option<u64>,pub(super) next_extra_ms:u64,pub(super) counters:OutCounters,
     /// Tests: the result of every route probe (`net::route_ok`).
@@ -67,11 +68,18 @@ impl Out{
         let mut bootstrap=Vec::with_capacity(super::BOOTSTRAP_MAX);bootstrap.extend(s.bootstrap.iter().map(|a|canon(*a)));
         let a=||Vec::with_capacity(2*addrbook::ANCHORS_MAX);
         Self{k:s.automatic(),slots:Vec::new(),tx:Vec::new(),feeler:None,next_feeler_ms:0,seeds,seed_node:s.is_seed,bootstrap,cursor_b:0,
-            anchors_left:VecDeque::with_capacity(2*addrbook::ANCHORS_MAX),anchors_bad:a(),saved_anchors:a(),
+            anchors_left:VecDeque::with_capacity(2*addrbook::ANCHORS_MAX),loaded_anchors:Vec::with_capacity(2*addrbook::ANCHORS_MAX),anchors_bad:a(),saved_anchors:Vec::with_capacity(2*addrbook::ANCHORS_MAX),
             family_down:[None;2],last_peer_head_ms:0,stalled:false,quiet:false,trouble_since:None,next_extra_ms:0,counters:OutCounters::default(),
             #[cfg(test)]route_ok:None}
     }
     fn spare(&self)->Option<usize>{self.slots.iter().position(|s|s.role==Role::Spare)}
+    /// VA-SPEC §1a.7: the anchors the file held (`addrbook::parse`), those saved within `keep_ms` only; each is dialed
+    /// first, once in this process.
+    pub(super) fn load_anchors(&mut self,anchors:&[(SocketAddr,u64)],now:u64,keep_ms:u64){
+        self.loaded_anchors.clear();self.anchors_left.clear();
+        for (a,ms) in anchors.iter().filter(|(_,ms)|now.saturating_sub(*ms)<=keep_ms).take(addrbook::ANCHORS_MAX){self.loaded_anchors.push((canon(*a),*ms));self.anchors_left.push_back(canon(*a));}
+        self.saved_anchors.clone_from(&self.loaded_anchors);
+    }
     /// Whether `id` is the feeler's connection.
     pub(super) fn is_feeler(&self,id:PeerId)->bool{self.feeler.as_ref().is_some_and(|f|f.id==id)}
     /// The feeler's slot and address, when `id` is the feeler's connection.
@@ -362,7 +370,7 @@ impl Node{
         serde_json::json!({"automatic":o.k,"healthy":self.healthy(now),"starved":self.starved(),"stalled":self.stalled(now),"quiet":self.quiet(now),
             "headAgeSeconds":head_age,"peerHeadAgeSeconds":now.saturating_sub(o.last_peer_head_ms)/1000,"seedNode":o.seed_node,
             "familyDown":{"v4":o.family_down[0].is_some(),"v6":o.family_down[1].is_some()},"windowSeconds":self.window_ms()/1000,
-            "slots":slots,"seeds":seeds,"anchors":o.saved_anchors.iter().map(|a|a.to_string()).collect::<Vec<_>>(),"bootstrap":o.bootstrap.len()})
+            "slots":slots,"seeds":seeds,"anchors":o.saved_anchors.iter().map(|a|a.0.to_string()).collect::<Vec<_>>(),"bootstrap":o.bootstrap.len()})
     }
     /// A seed's state in the status: this node itself, connected, or dialing (a configured peer like the others).
     fn seed_state(&self,s:&Seed)->&'static str{if s.is_self{"self"}else if s.peer.is_some(){"connected"}else{"dialing"}}
@@ -373,6 +381,38 @@ impl Node{
             "slotsStale":c.slots_stale,"feelers":c.feelers,"feelersOk":c.feelers_ok,"feelersIncompatible":c.feelers_incompatible,"anchorsDialed":c.anchors_dialed,"extras":c.extras,
             "extraSwaps":c.extra_swaps,"extraClosed":c.extra_closed,"extraStarved":c.extra_starved,"seedWants":c.seed_wants,"seedReleases":c.seed_releases,"seedRotations":c.seed_rotations,
             "seedHolds":c.seed_holds,"stalls":c.stalls,"quiets":c.quiets,"bootstrapLoaded":c.bootstrap_loaded})
+    }
+    /// D26 (VA-SPEC §1a.7): the anchors to save. While stalled, the set last saved stands (less any whose dial failed in
+    /// this process). Otherwise the automatic
+    /// slots' connections that are compatible, up anchor_uptime_ms, delivered a block and were useful within W, one per
+    /// key, longest-lived first, saved now; then, while fewer than ANCHORS_MAX, the loaded anchors of other keys within
+    /// anchor_keep_ms of their save, but none dialed in this process whose connection failed or ended short.
+    pub(super) fn disc_anchors(&self,now:u64)->Vec<(SocketAddr,u64)>{
+        if self.stalled(now)&&!self.disc.out.slots.is_empty(){let o=&self.disc.out;return o.saved_anchors.iter().filter(|a|!o.anchors_bad.contains(&a.0)).copied().collect()}
+        let (o,w,t)=(&self.disc.out,self.window_ms(),&self.disc.times);
+        let mut up:Vec<(u64,SocketAddr)>=o.slots.iter().filter(|s|s.role==Role::Auto).filter_map(|s|match s.state{
+            SlotState::Up{peer,addr,since_ms,..}=>self.disc.links.get(&peer).filter(|l|l.compatible&&l.blocks>=1&&l.useful_ms.saturating_add(w)>=now&&now.saturating_sub(since_ms)>=t.anchor_uptime_ms).map(|_|(since_ms,addr)),
+            _=>None}).collect();
+        up.sort_unstable();
+        let mut out:Vec<(SocketAddr,u64)>=Vec::with_capacity(addrbook::ANCHORS_MAX);
+        for (_,a) in up{if out.len()<addrbook::ANCHORS_MAX&&!out.iter().any(|x|key_of(x.0)==key_of(a)){out.push((a,now))}}
+        for (a,ms) in &o.loaded_anchors{
+            if out.len()<addrbook::ANCHORS_MAX&&now.saturating_sub(*ms)<=t.anchor_keep_ms&&!o.anchors_bad.contains(a)&&!out.iter().any(|x|key_of(x.0)==key_of(*a)){out.push((*a,*ms))}
+        }
+        out
+    }
+    /// The anchors to save are other addresses than the set last saved (`disc_tick` then saves at once).
+    pub(super) fn anchors_moved(&self,now:u64)->bool{let a=self.disc_anchors(now);a.len()!=self.disc.out.saved_anchors.len()||a.iter().zip(&self.disc.out.saved_anchors).any(|(x,y)|x.0!=y.0)}
+    /// VA-SPEC §1a.7, at the network's start after the listener and before the configured dialers: the K + 1 slot
+    /// threads (`net::slot`, the spare last) and the one forwarder that hands their events to the node. Nothing with
+    /// K = 0 or discovery off.
+    pub(in crate::node) fn disc_start_outbound(&mut self,now:u64)->Result<(),String>{
+        let k=self.disc.out.k;if k==0||!self.disc.on{return Ok(())}
+        let tx=self.tx.clone();let (otx,orx)=std::sync::mpsc::sync_channel(net::NET_EVENT_QUEUE);
+        crate::threads::spawn("out-fwd",crate::threads::IO_STACK,move||{for e in orx{if tx.send(crate::node::Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
+        for t in 0..=k{let (stx,srx)=std::sync::mpsc::sync_channel(1);net::slot(t as u8,srx,otx.clone(),self.net.clone()).map_err(|e|format!("spawn: {e}"))?;
+            self.disc.out.tx.push(stx);self.disc.out.slots.push(Slot{role:if t==k{Role::Spare}else{Role::Auto},state:SlotState::Idle{next_ms:now},fails:0,starved:false});}
+        self.disc.out.last_peer_head_ms=now;Ok(())
     }
     /// Tests: installs the K + 1 slots without threads (the spare last) and returns the receiving end of each slot's
     /// channel, where the assigned addresses arrive (64 of them may wait, so a test need not take each one).
@@ -398,8 +438,11 @@ mod tests{
     /// A node with K automatic slots (`peers` configured, `seeds` among them), its clock at `now`, the slots installed
     /// without threads (the spare last) and their channels.
     fn node(tag:&str,k:u8,listen:bool,peers:Vec<SocketAddr>,seeds:Vec<SocketAddr>,now:u64)->(Node,Vec<Receiver<SocketAddr>>,std::path::PathBuf){
-        let d=Discovery{outbound:Outbound::Count(k),seeds,rng_seed:Some(7),..Discovery::default()};
-        let (n,dir)=open_peers(tag,listen,d,peers);let mut n=n.unwrap();n.disc.test_now=Some(now);let rx=n.disc_test_slots(now);(n,rx,dir)
+        let (mut n,dir)=opened(tag,Discovery{outbound:Outbound::Count(k),seeds,rng_seed:Some(7),..Discovery::default()},listen,peers,now);let rx=n.disc_test_slots(now);(n,rx,dir)
+    }
+    /// The node of `node` with these settings, before its slots are installed.
+    fn opened(tag:&str,d:Discovery,listen:bool,peers:Vec<SocketAddr>,now:u64)->(Node,std::path::PathBuf){
+        let (n,dir)=open_peers(tag,listen,d,peers);let mut n=n.unwrap();n.disc.test_now=Some(now);(n,dir)
     }
     fn tick(n:&mut Node,now:u64){n.disc.test_now=Some(now);n.out_tick(now)}
     fn state(n:&Node,t:usize)->SlotState{n.disc.out.slots[t].state}
@@ -643,6 +686,54 @@ mod tests{
         assert!(now-G<=n.disc.times.backoff_max_ms,"within the backoff");
         let _i=connect(&mut n,9,Origin::Inbound,Some(sa("81.50.0.1:51000")));greet(&mut n,9,0,0);
         tick(&mut n,now);assert!(rx[0].try_recv().is_err(),"with a compatible peer the spacing holds");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D26, VA-SPEC §1a.7: the anchors are the automatic peers connected anchor_uptime_ms (10 min) that delivered a
+    /// block and were useful within W, one per key; a change is saved at once though the book is clean, but not while
+    /// the node is stalled. After a restart the anchor is the first assignment (`anchorsDialed`); one saved more than
+    /// anchor_keep_ms (24 h) ago is not dialed; a loaded anchor whose dial failed is not saved again.
+    #[test] fn anchors_come_from_currently_useful_long_lived_peers_and_are_dialed_first(){
+        const M:u64=60_000;
+        let (mut n,rx,dir)=node("o-anchor",4,false,vec![],vec![],G);let _=rx;
+        n.disc.times.stall_min_ms=700_000;n.disc.times.save_first_ms=u64::MAX/4;n.disc.times.save_every_ms=u64::MAX/4;n.disc_load(G);
+        let w=n.window_ms();assert_eq!(w,700_000);
+        let a:Vec<SocketAddr>=(0..4).map(|i|SocketAddr::new([81,30+i,0,1].into(),30300)).collect();
+        let now=G+11*M;
+        let _0=up(&mut n,0,a[0],1,true,G+2*M);let _1=up(&mut n,1,a[1],2,true,G);let _2=up(&mut n,2,a[2],3,true,G);let mut c3=up(&mut n,3,a[3],4,true,G);
+        n.disc_useful(1,true,now);n.disc_useful(3,true,now-w-S);n.disc_useful(4,true,now);n.disc_useful(2,false,now);
+        n.disc.test_now=Some(G+5*M);n.disc_save();assert_eq!(n.disc.counters.book_saves,1);assert!(!n.disc.book.dirty());
+        n.disc.test_now=Some(now);n.disc_tick(now);
+        assert_eq!((n.disc.counters.book_saves,n.disc.out.saved_anchors.iter().map(|x|x.0).collect::<Vec<_>>()),(2,vec![a[3]]),"only the long-lived, currently useful peer with a block; saved though the book was clean");
+        let file=std::fs::read(dir.join(super::super::FILE)).unwrap();
+        let (_,anchors)=crate::addrbook::parse(&file,n.chain.spec.chain_id(),&n.chain.spec.genesis_hash(),false,now).unwrap();assert_eq!(anchors,[(a[3],now)]);
+        let late=G+w+M;n.disc.test_now=Some(late);n.handle(Event::Net(NetEvent::Closed(4)));n.disc_tick(late);
+        assert!(n.stalled(late)&&n.disc.counters.book_saves==2&&n.disc.out.saved_anchors.len()==1,"no anchor change is saved while stalled");
+        let _=closed(&mut c3);
+        // A restart: the anchor first, whatever its retry spacing.
+        let (mut m,mdir)=opened("o-anchor2",Discovery{outbound:Outbound::Count(2),rng_seed:Some(7),..Discovery::default()},false,vec![],now+M);
+        std::fs::write(mdir.join(super::super::FILE),&file).unwrap();m.disc_load(now+M);m.disc.book.tried(a[3],now);let rx=m.disc_test_slots(now+M);
+        for i in 0..3{verified(&mut m,a[i],now)}
+        tick(&mut m,now+M);assert!(matches!(state(&m,0),SlotState::Dialing{addr,kind:SlotKind::Anchor,..} if addr==a[3])&&rx[0].try_recv().ok()==Some(a[3])&&m.disc.out.counters.anchors_dialed==1,"the anchor is dialed first");
+        m.disc_dial_failed(0,a[3],DialError::Refused,now+M);assert!(m.disc_anchors(now+M).is_empty(),"a loaded anchor whose dial failed is not saved again");
+        let (mut o,odir)=opened("o-anchor3",Discovery{outbound:Outbound::Count(2),rng_seed:Some(7),..Discovery::default()},false,vec![],now+25*60*M);
+        std::fs::write(odir.join(super::super::FILE),&file).unwrap();o.disc_load(now+25*60*M);
+        assert!(o.disc.out.anchors_left.is_empty()&&o.disc.out.loaded_anchors.is_empty(),"an anchor saved 25 h ago is not dialed");
+        drop((n,m,o));for d in [dir,mdir,odir]{let _=std::fs::remove_dir_all(&d);}
+    }
+    /// D17 (VA-SPEC §1a.9): at the network's start each bootstrap address is an unverified entry of its own source
+    /// (one a slot peer named first is re-sourced), never answered before it is verified; an otherwise empty book's
+    /// first assignments are the bootstrap addresses.
+    #[test] fn bootstrap_addresses_are_unverified_entries_of_their_own_source(){
+        let (b1,b2,x)=(sa("81.30.0.1:30300"),sa("81.31.0.1:30300"),sa("81.9.0.1:30300"));
+        let (mut n,dir)=opened("o-boot",Discovery{outbound:Outbound::Count(2),bootstrap:vec![b1,b2],rng_seed:Some(7),..Discovery::default()},false,vec![],G);
+        n.disc.book.insert_unverified(b1,Source::Peer(key_of(x)),Kind::Heard,false,G);
+        n.disc_load(G);
+        for b in [b1,b2]{let e=n.disc.book.get(b).unwrap();assert_eq!((e.source,e.verified_ms),(Source::Cfg(b),0),"{b}");}
+        assert_eq!(n.disc.out.counters.bootstrap_loaded,2);
+        let _i=connect(&mut n,1,Origin::Inbound,Some(sa("81.50.0.1:51000")));greet(&mut n,1,0,0);msg(&mut n,1,Msg::GetAddr);
+        assert!(n.peers[&1].queued().iter().all(|m|!matches!(m,Msg::Addr{addrs} if addrs.contains(&b1)||addrs.contains(&b2))),"never answered before verified");
+        let rx=n.disc_test_slots(G);tick(&mut n,G);
+        let mut got=[rx[0].try_recv().unwrap(),rx[1].try_recv().unwrap()];got.sort();assert_eq!(got,[b1,b2]);
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
 }

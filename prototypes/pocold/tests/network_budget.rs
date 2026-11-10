@@ -303,11 +303,14 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // 1,156,856 and 1,132,236 at 8 (-168, -130), 1,125,065 and 1,100,218 at 32 (-167, -167), 1,082,476 and 1,057,678 at
     // 64 (0, -167); the seed rule's outcome is unchanged. PR2b, the link's automatic-outbound fields (LINK_BYTES 128 ->
     // 144): 1,156,841 and 1,132,210 at 8 (-15, -26), 1,125,048 and 1,100,190 at 32 (-17, -28), 1,082,476 and 1,057,648
-    // at 64 (0, -30).
+    // at 64 (0, -30). PR2b, automatic outbound on by default (auto counted at S = 5 slot places, the forwarder and the
+    // outbound state, +27,517,640 B): 1,146,268 and 1,121,410 at 8 (-10,573, -10,800), 1,114,248 and 1,089,603 at 32
+    // (-10,800, -10,587), 1,071,706 and 1,046,848 at 64 (-10,770, -10,800); the seed rule's outcome is unchanged
+    // (R10[0] - R(32, 2) = 55,465 of the week's 60,480).
     // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
     // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[1_156_841,1_132_210,1_125_048,1_100_190,1_082_476,1_057_648],"the live chain's halt moved (record it in the PR)");
+        assert_eq!(got,[1_146_268,1_121_410,1_114_248,1_089_603,1_071_706,1_046_848],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
@@ -330,13 +333,15 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     let conn_max=Limits::default().rpc.conn_max as u128;assert_eq!(conn_max,32,"the RPC connections the io and exiting terms were derived with");
     let (q,f)=(net::Limits::default().queue_bytes_max as u128,net::MAX_FRAME as u128);
     for (p,h,d) in [(8usize,8usize,2usize),(32,8,2),(64,8,7),(1,1,0)]{
+        // PR2b: the default automatic outbound (S = 5 slot places with the spare, F = 1 forwarder).
+        let (sl,fw)=(node::Discovery::default().slots() as u128,1u128);
         let b=at(p,h,d);let (s,d)=((p+h) as u128,d as u128);
-        let high=s+d+node::EVENT_QUEUE as u128+(1+d)*(net::NET_EVENT_QUEUE as u128+1);
+        let high=s+d+sl+node::EVENT_QUEUE as u128+(1+d+fw)*(net::NET_EVENT_QUEUE as u128+1);
         assert_eq!(item(&b,"queues/inbound eviction"),s*192+high*64+3072,"the registry at ({p}, {h}, {d})");
         assert_eq!(item(&b,"queues/node peer and status maps"),high*2718+1024,"the maps at ({p}, {h}, {d})");
-        assert_eq!(item(&b,"queues/peer send queues and frames"),(s+d)*(q+2*f+4096),"the queues at ({p}, {h}, {d})");
-        assert_eq!(item(&b,"threads/I/O thread stacks and heap"),(2*s+4*d+conn_max+6)*(IO_STACK as u128+4096),"the io threads at ({p}, {h}, {d})");
-        assert_eq!(item(&b,"threads/exiting not-yet-joined"),(s+d+conn_max)*IO_STACK as u128,"the exiting threads at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"queues/peer send queues and frames"),(s+d+sl)*(q+2*f+4096),"the queues at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"threads/I/O thread stacks and heap"),(2*s+4*d+3*sl+fw+conn_max+6)*(IO_STACK as u128+4096),"the io threads at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"threads/exiting not-yet-joined"),(s+d+sl+conn_max)*IO_STACK as u128,"the exiting threads at ({p}, {h}, {d})");
     }
     let d=net::Limits::default();assert_eq!(at(d.peers_max+1,d.handshaking_max,2).total-at(d.peers_max,d.handshaking_max,2).total,3_424_620,"one more established place");
     assert_eq!((net::SLOT_BYTES,net::CAND_BYTES,net::ACTIVITY_BYTES,net::EVICT_RING,net::EVICT_ENTRY_BYTES),(96,96,64,64,32),"the constants the pinned totals were derived with");

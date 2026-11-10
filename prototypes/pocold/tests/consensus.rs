@@ -1981,9 +1981,11 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // bytes), +383,948 B, -> 3,359,500,859 B; PR6 review: parked runs (PARKED_ENTRY_BYTES 160) and the parked senders
     // in the selection's skipped sets, +393,216 B, -> 3,359,894,075 B; PR2b automatic outbound state per connection (the
     // link's mismatch, self-connection, usefulness and closed-by-us fields): LINK_BYTES 128 -> 144 at the old high 269,
-    // +39,274 B, -> 3,359,933,349 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
+    // +39,274 B, -> 3,359,933,349 B; PR2b automatic outbound on by default (auto: S = 5 slot places, the spare's
+    // included, at 3,690,508 B, one forwarder at 9,065,100 B with the 4,096-B outbound state), +27,517,640 B,
+    // -> 3,387,450,989 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
     // the target the evidence is produced on; every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_359_933_349,"the A13 model total changed");
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_387_450_989,"the A13 model total changed");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);

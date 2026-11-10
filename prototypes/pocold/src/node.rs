@@ -820,6 +820,8 @@ impl Node{
             self.net.expect_hello(net::HelloId{consensus:self.consensus.clone(),nonce:self.disc.wire_nonce()});
             let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn("listen-fwd",crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::listen(l,ntx,self.net.clone());}
+        // VA-SPEC §1a.7: the automatic outbound slots, before the configured dialers.
+        self.disc_start_outbound(self.disc_now())?;
         for a in self.cfg.peers.clone(){let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn(format!("dial-fwd-{a}"),crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::dial(a,ntx,self.outbound.clone(),self.net.clone());}
         if let Some(a)=self.cfg.rpc{crate::rpc::serve(a,self.tx.clone(),self.light.clone(),self.cfg.limits.rpc.clone())?;}

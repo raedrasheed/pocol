@@ -4,7 +4,7 @@ use std::io::{Read,Write};
 use std::net::{SocketAddr,TcpListener,TcpStream};
 use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
 use std::time::{Duration,Instant};
-use pocold::{chain::Spec,net::Msg,node::{Config,Discovery,DiscoveryTimes,Limits,Node}};
+use pocold::{chain::Spec,net::Msg,node::{Config,Discovery,DiscoveryTimes,Limits,Node,Outbound}};
 use pocol_lp4_execution::devnet::{self,DevnetConfig};
 #[path="support/hello.rs"] mod support;
 
@@ -53,7 +53,8 @@ impl Running{
         let dir=std::env::temp_dir().join(format!("pocold-disc-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         // The node's ports stay held until it binds them (tests/relay.rs).
         let held=[TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()];let [p2p,rpc]=held.each_ref().map(|l|l.local_addr().unwrap());
-        let limits=Limits{discovery:Discovery{allow_local,rng_seed:Some(7),..Default::default()},..Default::default()};
+        // PR2a's behaviour alone: no automatic outbound (PR2b's tests set their own).
+        let limits=Limits{discovery:Discovery{allow_local,rng_seed:Some(7),outbound:Outbound::Count(0),..Default::default()},..Default::default()};
         let cfg=Config{dir,name:tag.into(),miner:None,listen:Some(p2p),peers:peers(p2p),rpc:Some(rpc),stop_at:None,log:false,limits};
         let mut n=Node::open(cfg,spec()).unwrap();let net=n.net.clone();drop(held);n.start_network().unwrap();
         let stop=Arc::new(AtomicBool::new(false));let s=stop.clone();
@@ -149,7 +150,7 @@ fn ask_and_answer(n:&Running,r:&TcpListener)->(serde_json::Value,Vec<SocketAddr>
 #[test] fn the_address_book_survives_a_clean_restart_and_a_damaged_file_is_ignored(){
     let dir=std::env::temp_dir().join(format!("pocold-disc-book-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);let file=dir.join("addrbook");
     // Local mode; the first save an hour away, so that the file can come only from the stop.
-    let limits=||Limits{discovery:Discovery{allow_local:true,rng_seed:Some(7),times:DiscoveryTimes{save_first_ms:3_600_000,..Default::default()},..Default::default()},..Default::default()};
+    let limits=||Limits{discovery:Discovery{allow_local:true,rng_seed:Some(7),outbound:Outbound::Count(0),times:DiscoveryTimes{save_first_ms:3_600_000,..Default::default()},..Default::default()},..Default::default()};
     let config=|listen:Option<SocketAddr>,peers:Vec<SocketAddr>,rpc:Option<SocketAddr>|Config{dir:dir.clone(),name:"book".into(),miner:None,listen,peers,rpc,stop_at:None,log:false,limits:limits()};
     let r=TcpListener::bind("127.0.0.1:0").unwrap();let ra=r.local_addr().unwrap();
     // The node's ports stay held until it binds them (tests/relay.rs).
