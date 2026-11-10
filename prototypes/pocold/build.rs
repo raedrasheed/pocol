@@ -34,8 +34,8 @@ fn consensus(root: &Path) -> serde_json::Value {
         max_fork: constant(root, "lp4-execution/src/p1_profile.rs", "MAX_FORK_VERSION"),
         spec: constant(root, "lp1-node/src/genesis_spec.rs", "SPEC_VERSION"),
         protocol: constant(root, "pocold/src/identity.rs", "PROTOCOL_VERSION"),
+        protocol_min: constant(root, "pocold/src/identity.rs", "PROTOCOL_VERSION_MIN"),
     };
-    let min = constant(root, "pocold/src/identity.rs", "PROTOCOL_VERSION_MIN");
     let lock = fs::read_to_string(root.join(boundary::LOCK_FILE))
         .map_err(|e| e.to_string())
         .and_then(|t| boundary::parse_lock(&t));
@@ -61,7 +61,7 @@ fn consensus(root: &Path) -> serde_json::Value {
         if pinned { "" } else { &tree.sources }
     );
     serde_json::json!({"consensusPinned":pinned,"consensusSourcesSha256":tree.sources,
-        "consensusRulesVersion":k.rules,"protocolVersionMin":min,"maxForkVersion":k.max_fork})
+        "consensusRulesVersion":k.rules,"protocolVersionMin":k.protocol_min,"maxForkVersion":k.max_fork})
 }
 
 fn sources(dir: &Path, out: &mut Vec<PathBuf>) {

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 fn root() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf() }
 fn constants() -> Constants {
     Constants { rules: pocold::identity::CONSENSUS_RULES_VERSION as u64, max_fork: pocol_lp4_execution::profile::MAX_FORK_VERSION as u64,
-        spec: pocold::genesis_spec::SPEC_VERSION as u64, protocol: pocold::identity::PROTOCOL_VERSION }
+        spec: pocold::genesis_spec::SPEC_VERSION as u64, protocol: pocold::identity::PROTOCOL_VERSION, protocol_min: pocold::identity::PROTOCOL_VERSION_MIN }
 }
 
 #[test]
@@ -73,7 +73,7 @@ const FIXTURE_LOCK: &str = "version = 4\n\n[[package]]\nname = \"k256\"\nversion
 [[package]]\nname = \"sha2\"\nversion = \"0.10.9\"\nsource = \"registry+x\"\nchecksum = \"bb\"\n\n[[package]]\nname = \"redb\"\nversion = \"2.6.4\"\nsource = \"registry+x\"\nchecksum = \"cc\"\n";
 const FIXTURE_BOUNDARY: &str = "+lp4-execution/src/\n-lp4-execution/src/pool.rs\n-*tests.rs\n+lp4-execution/tests/data/\nvector lp4-execution/tests/data/\n\
 +pocold/src/{lib,chain}.rs\n+pocold/rust-toolchain.toml\nroot k256\n=pocold::net\n";
-const K: Constants = Constants { rules: 1, max_fork: 2, spec: 1, protocol: 2 };
+const K: Constants = Constants { rules: 1, max_fork: 2, spec: 1, protocol: 2, protocol_min: 2 };
 /// A miniature two-crate tree with the real layout: pocold (lib, chain +, net =) and lp4 (fees +, pool -, tests).
 fn fixture(name: &str) -> PathBuf {
     let r = scratch(name);
@@ -88,8 +88,10 @@ fn fixture(name: &str) -> PathBuf {
     put(&r, "lp4-execution/src/pool.rs", "use crate::fees;\n");
     put(&r, "lp4-execution/src/fee_tests.rs", "#[test] fn t() {}\n");
     put(&r, "lp4-execution/tests/data/v.json", "[1]\n");
+    put(&r, WIRE_FILE, WIRE_V2);
     r
 }
+const WIRE_V2: &str = "[{\"key\":\"v2/hello\",\"v\":2,\"hex\":\"c180\"},{\"key\":\"v2/get-addr\",\"v\":2,\"hex\":\"c108\"}]";
 fn tree(r: &Path) -> Tree { compute(r).unwrap() }
 fn base(t: &Tree) -> Lock { parse_lock(&repin(None, t, &K, "base", "PR5", "fixture", None).unwrap()).unwrap() }
 fn refused(r: Result<(), String>, needle: &str) {
@@ -191,7 +193,7 @@ fn an_unclassified_module_is_refused() {
 }
 /// A base lock for a tree that re-pin would refuse (the guard must still report the tree's problems).
 fn base_unchecked(t: &Tree) -> Lock {
-    let h = History { n: 1, kind: "base".into(), rules: 1, max_fork: 2, spec: 1, protocol: 2, sources: t.sources.clone(), vectors: t.vectors.clone(), deps: t.dep_digest.clone(), gate: None, reference: "PR5".into(), note: "x".into() };
+    let h = History { n: 1, kind: "base".into(), rules: 1, max_fork: 2, spec: 1, protocol: 2, protocol_min: 2, sources: t.sources.clone(), vectors: t.vectors.clone(), deps: t.dep_digest.clone(), wire: t.wire_digest.clone(), gate: None, reference: "PR5".into(), note: "x".into() };
     parse_lock(&render_lock(&[h], t)).unwrap()
 }
 
@@ -287,7 +289,8 @@ fn the_aggregate_moves_exactly_with_consensus_inputs() {
     let real = root();
     let r = scratch("mutation");
     for d in ["lp4-execution/src", "lp4-execution/tests/data", "lp1-node/src", "lp1-node/tests/data", "third-party/evm-crypto", "pocold/src"] { copy_dir(&real.join(d), &r.join(d)) }
-    for f in ["pocold/build.rs", "pocold/consensus_boundary.rs", BOUNDARY_FILE, CARGO_LOCK, "pocold/Cargo.toml", "lp4-execution/Cargo.toml", "lp1-node/Cargo.toml", "pocold/rust-toolchain.toml", "lp4-execution/rust-toolchain.toml"] {
+    for f in ["pocold/build.rs", "pocold/consensus_boundary.rs", BOUNDARY_FILE, CARGO_LOCK, "pocold/Cargo.toml", "lp4-execution/Cargo.toml", "lp1-node/Cargo.toml", "pocold/rust-toolchain.toml", "lp4-execution/rust-toolchain.toml", WIRE_FILE] {
+        std::fs::create_dir_all(r.join(f).parent().unwrap()).unwrap();
         std::fs::copy(real.join(f), r.join(f)).unwrap();
     }
     let t0 = tree(&r);
@@ -316,4 +319,85 @@ fn the_aggregate_moves_exactly_with_consensus_inputs() {
     assert!(!moved(CARGO_LOCK, &|s| s.replacen("name = \"redb\"\nversion = \"2.6.4\"", "name = \"redb\"\nversion = \"2.6.5\"", 1)), "redb is outside the closure");
     assert!(!moved("lp4-execution/tests/data/website.json", &append), "website.json is excluded");
     assert!(moved("lp4-execution/src/admission.rs", &append), "admission builds the profile chain::Spec wraps");
+    assert!(!moved(WIRE_FILE, &|s| s.replacen("c108", "c109", 1)), "the wire golden file is pinned by wire lines, not by the aggregate");
+}
+
+// ---- T19: the wire golden rules (plan §1.6) ----
+
+fn wire_refused(r: Result<(), String>, needle: &str) {
+    let e = r.expect_err("the guard must refuse");
+    assert!(e.contains(needle) && e.contains(WIRE_INSTRUCTIONS), "missing {needle:?} or the wire instructions in:\n{e}");
+}
+
+#[test]
+fn a_pinned_wire_key_never_changes_or_disappears_while_its_version_is_accepted() {
+    let r = fixture("wire-frozen");
+    let lock = base(&tree(&r));
+    assert_eq!(lock.wire.iter().map(|w| w.key.as_str()).collect::<Vec<_>>(), ["v2/get-addr", "v2/hello"], "the lock pins one line per key");
+    put(&r, WIRE_FILE, &WIRE_V2.replace("c180", "c20180"));
+    let t = tree(&r);
+    wire_refused(check(&lock, &t, &K), "wire key v2/hello (v2 >= PROTOCOL_VERSION_MIN=2) changed");
+    assert!(repin(Some(&lock), &t, &K, "wire", "PR9", "new hello field", None).unwrap_err().contains("v2/hello (v2 >= PROTOCOL_VERSION_MIN=2) changed"));
+    put(&r, WIRE_FILE, "[{\"key\":\"v2/hello\",\"v\":2,\"hex\":\"c180\"}]");
+    let t = tree(&r);
+    wire_refused(check(&lock, &t, &K), "wire key v2/get-addr (v2 >= PROTOCOL_VERSION_MIN=2) was removed");
+    assert!(repin(Some(&lock), &t, &K, "wire", "PR9", "drop GetAddr", None).is_err());
+    // Raising PROTOCOL_VERSION_MIN past v2 (with a v3 wire) retires the v2 keys: they may then change or go.
+    let k3 = Constants { protocol: 3, protocol_min: 3, ..K };
+    let retired = parse_lock(&repin(Some(&lock), &t, &k3, "wire", "PR9", "wire 3 only", None).unwrap()).unwrap();
+    check(&retired, &t, &k3).unwrap();
+}
+
+#[test]
+fn a_new_wire_key_needs_a_new_wire_version() {
+    let r = fixture("wire-new");
+    let lock = base(&tree(&r));
+    put(&r, WIRE_FILE, &WIRE_V2.replace("]", ",{\"key\":\"v2/ping\",\"v\":2,\"hex\":\"c10a\"}]"));
+    let t = tree(&r);
+    wire_refused(check(&lock, &t, &K), "new wire key v2/ping at v2");
+    assert!(repin(Some(&lock), &t, &K, "wire", "PR9", "ping", None).unwrap_err().contains("new wire key v2/ping at v2"));
+    put(&r, WIRE_FILE, &WIRE_V2.replace("]", ",{\"key\":\"v3/ping\",\"v\":3,\"hex\":\"c10a\"}]"));
+    let t = tree(&r);
+    assert!(repin(Some(&lock), &t, &K, "wire", "PR9", "ping", None).unwrap_err().contains("new wire key v3/ping at v3"), "v3 needs PROTOCOL_VERSION=3");
+    let k3 = Constants { protocol: 3, ..K };
+    let three = parse_lock(&repin(Some(&lock), &t, &k3, "wire", "PR9", "wire 3 adds Ping", None).unwrap()).unwrap();
+    check(&three, &t, &k3).unwrap();
+    assert_eq!((three.history[1].kind.as_str(), &three.history[1].sources), ("wire", &lock.history[0].sources), "a wire line keeps the sources");
+    // Once v3 keys are pinned, another v3 key needs v4.
+    put(&r, WIRE_FILE, &WIRE_V2.replace("]", ",{\"key\":\"v3/ping\",\"v\":3,\"hex\":\"c10a\"},{\"key\":\"v3/pong\",\"v\":3,\"hex\":\"c10b\"}]"));
+    wire_refused(check(&three, &tree(&r), &k3), "new wire key v3/pong at v3");
+}
+
+#[test]
+fn a_wire_line_records_only_a_wire_change() {
+    let r = fixture("wire-kind");
+    let lock = base(&tree(&r));
+    let k3 = Constants { protocol: 3, ..K };
+    put(&r, WIRE_FILE, &WIRE_V2.replace("]", ",{\"key\":\"v3/ping\",\"v\":3,\"hex\":\"c10a\"}]"));
+    assert!(repin(Some(&lock), &tree(&r), &k3, "neutral", "PR9", "x", None).unwrap_err().contains("re-pin kind=wire"));
+    append(&r, "lp4-execution/src/fees.rs", " ");
+    let t = tree(&r);
+    assert!(repin(Some(&lock), &t, &k3, "wire", "PR9", "x", None).unwrap_err().contains("kind=wire records only a wire change"));
+    // Together with a consensus change the consensus kind carries it, and the wire rules still apply.
+    let both = parse_lock(&repin(Some(&lock), &t, &k3, "neutral", "PR9", "refactor and wire 3", None).unwrap()).unwrap();
+    check(&both, &t, &k3).unwrap();
+    let mut forged = both.clone();
+    forged.history[1].kind = "wire".into();
+    refused(check(&forged, &t, &k3), "kind=wire records only a wire change");
+    // An unlisted or malformed wire file fails closed.
+    put(&r, WIRE_FILE, "[{\"key\":\"hello\",\"v\":2,\"hex\":\"c180\"}]");
+    assert!(compute(&r).unwrap_err().contains("must be v<version>/<name>"));
+    put(&r, WIRE_FILE, "[{\"key\":\"v3/hello\",\"v\":2,\"hex\":\"c180\"}]");
+    assert!(compute(&r).unwrap_err().contains("differs from the key's version"));
+    std::fs::remove_file(r.join(WIRE_FILE)).unwrap();
+    assert!(compute(&r).unwrap_err().contains(WIRE_FILE));
+}
+
+#[test]
+fn the_real_lock_pins_every_wire_golden_key() {
+    let lock = parse_lock(&std::fs::read_to_string(root().join(LOCK_FILE)).unwrap()).unwrap();
+    let keys: Vec<&str> = lock.wire.iter().map(|w| w.key.as_str()).collect();
+    for k in ["v2/hello", "v2/block", "v2/template", "v2/share", "v2/get-block", "v2/get-range", "v2/tx", "v2/get-from", "v2/get-addr", "v2/addr", "v2/limits"] {
+        assert!(keys.contains(&k), "{k} is pinned");
+    }
 }

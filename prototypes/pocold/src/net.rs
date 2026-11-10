@@ -1299,4 +1299,51 @@ mod tests{
         assert_eq!(redial_delay(Duration::MAX,short),DIAL_BACKOFF_MAX,"no overflow");
         assert_eq!((DIAL_RETRY,DIAL_STABLE,DIAL_BACKOFF_MAX),(ms(300),Duration::from_secs(60),Duration::from_secs(30)));
     }
+    /// Wire golden vectors (plan §1.6, VA-SPEC §2.2): now that a net.rs change no longer partitions the network, the
+    /// frames same-rules nodes exchange are pinned. Each canonical message encodes to its pinned frame and decodes
+    /// back to itself, `v2/limits` pins MAX_FRAME, the Hello arity and the decoders' bounds, and the file holds exactly
+    /// these keys for every accepted version. The consensus guard keeps a pinned key frozen until PROTOCOL_VERSION_MIN
+    /// passes it, and lets a new key in only at a new PROTOCOL_VERSION.
+    mod wire_golden{
+        use super::*;
+        use crate::identity::{PROTOCOL_VERSION,PROTOCOL_VERSION_MIN};
+        const FILE:&str=include_str!("../tests/data/wire-golden.json");
+        /// One canonical message per type 0–9, then the limits; `v` is the wire version that introduced the frame.
+        fn canonical()->Vec<(&'static str,u64,Vec<u8>,Option<Msg>)>{
+            let msgs=[
+                ("v2/hello",Msg::Hello{chain_id:1599846715,genesis:[0x11;32],head:[0x22;32],height:15000,work:{let mut w=[0;32];w[30]=0x01;w[31]=0x2a;w},node:"pocol-golden".into(),
+                    protocol:2,compatibility:[0x44;32],listen_port:30333,nonce:0x0102030405060708}),
+                ("v2/block",Msg::Block{header:vec![0xc1,0x80],body:vec![0xc0]}),
+                ("v2/template",Msg::Template{shell:vec![1,2,3],body:vec![]}),
+                ("v2/share",Msg::Share{tid:[0x55;32],nonce:0xfedcba9876543210}),
+                ("v2/get-block",Msg::GetBlock{hash:[0x66;32]}),
+                ("v2/get-range",Msg::GetRange{start:15000,count:512}),
+                ("v2/tx",Msg::Tx{raw:vec![0x02,0xf8,0x01]}),
+                ("v2/get-from",Msg::GetFrom{locator:vec![[0x77;32],[0x88;32]],count:512}),
+                ("v2/get-addr",Msg::GetAddr),
+                ("v2/addr",Msg::Addr{addrs:vec!["203.0.113.7:30333".parse().unwrap(),"[2001:db8::1]:30334".parse().unwrap()]}),
+            ];
+            let arity=rlp::decode(&msgs[0].1.encode()).unwrap().list().unwrap().len() as u64;
+            let mut p=Vec::new();for v in [MAX_FRAME as u64,arity,HELLO_MAX as u64,NODE_NAME_MAX as u64,LOCATOR_MAX as u64,ADDR_RECORD as u64,ADDR_MAX as u64]{u64b(v,&mut p)}
+            let mut limits=Vec::new();rlp::encode_list_payload(&p,&mut limits);
+            let mut out:Vec<_>=msgs.into_iter().map(|(k,m)|(k,2,m.encode(),Some(m))).collect();
+            out.push(("v2/limits",2,limits,None));out
+        }
+        fn hex(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
+        #[test] fn every_message_type_encodes_to_its_pinned_frame_and_decodes_back_to_itself(){
+            let c=canonical();
+            let want=format!("[\n{}\n]\n",c.iter().map(|(k,v,b,_)|format!(" {{\"key\":\"{k}\",\"v\":{v},\"hex\":\"{}\"}}",hex(b))).collect::<Vec<_>>().join(",\n"));
+            let file:Vec<serde_json::Value>=serde_json::from_str(FILE).expect("wire-golden.json");
+            let accepted:Vec<&serde_json::Value>=file.iter().filter(|e|e["v"].as_u64().is_some_and(|v|v>=PROTOCOL_VERSION_MIN)).collect();
+            let keys:Vec<&str>=accepted.iter().map(|e|e["key"].as_str().unwrap()).collect();
+            assert_eq!(keys,c.iter().map(|x|x.0).collect::<Vec<_>>(),"the file holds exactly the canonical keys of every accepted version; the encoding of this tree is:\n{want}");
+            for ((k,v,bytes,msg),e) in c.iter().zip(accepted){
+                assert!(*v>=PROTOCOL_VERSION_MIN&&*v<=PROTOCOL_VERSION&&e["v"]==*v,"{k}: v");
+                assert_eq!(e["hex"].as_str().unwrap(),hex(bytes),"{k} no longer encodes to its pinned frame (old decoders are strict; see the consensus guard's wire rules). This tree encodes:\n{want}");
+                if let Some(m)=msg{assert_eq!(Msg::decode(bytes).as_ref(),Ok(m),"{k} decodes back to itself")}
+            }
+            let types:Vec<u64>=c.iter().filter(|x|x.3.is_some()).map(|x|{let it=rlp::decode(&x.2).unwrap();let t=it.list().unwrap()[0].bytes().unwrap().iter().fold(0u64,|a,b|(a<<8)|*b as u64);t}).collect();
+            assert_eq!(types,(0..=9).collect::<Vec<_>>(),"one canonical message per Msg type");
+        }
+    }
 }
