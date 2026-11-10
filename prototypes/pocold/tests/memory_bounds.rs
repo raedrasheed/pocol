@@ -38,3 +38,20 @@ fn window(n:u64)->Canon{let mut c=Canon::new(hash(0));c.extend((1..=n).map(hash)
 }
 #[test] #[should_panic(expected="canonical height 2 is not held")]
 fn indexing_a_height_below_the_window_panics(){let mut c=window(5);c.pop_low();c.pop_low();let _=c[2];}
+
+/// The record codec a snapshot uses, on its own (the node's canonical index stores the same bytes): an
+/// evicted entry's record (slim, pruned, offloaded: no summary, no root) is the smallest, REC_MIN bytes; one
+/// with a summary and a root is REC_MAX; each reads back equal, and a cut or a longer record is refused.
+#[test] fn a_record_reads_back_from_its_bytes_and_a_cut_or_longer_one_is_refused(){
+    use pocold::checkpoint::{flags,rec_bytes,rec_from,Rec,REC_MAX,REC_MIN};
+    use revm::primitives::{alloy_primitives::U512,Address,U256};
+    let min=Rec{hash:[3;32],body_off:Some(77),import_seq:5,total_work:U256::from(9u64),flags:flags::PRUNED|flags::SLIM|flags::OFFLOADED|flags::OFF,cum_txs:1,cum_tx_bytes:2,
+        cum_log_bytes:3,drawn:Address::repeat_byte(4),summary:None,root:None};
+    let b=rec_bytes(&min);assert_eq!(b.len(),REC_MIN);assert_eq!(rec_from(&b).unwrap(),min);
+    let sum=pocol_lp4_execution::state_summary::Summary{runtime:1,code_total:2,code_missing:3,code_mismatch:4,over_runtime:5,user_accounts:6,user_slots:7,sys_slots:8,balance:U512::from(9u64),contracts_clean:true};
+    let full=Rec{flags:flags::STORED|flags::WORLD|flags::SUMMARY|flags::OFF,summary:Some(sum),root:Some([8;32]),..min.clone()};
+    let b=rec_bytes(&full);assert_eq!(b.len(),REC_MAX);assert_eq!(rec_from(&b).unwrap(),full);
+    assert!(rec_from(&b[..b.len()-1]).is_err(),"a cut record");let mut x=b.clone();x.push(0);assert!(rec_from(&x).is_err(),"a record with a byte more");
+    assert!(rec_from(&rec_bytes(&Rec{flags:flags::WORLD,..full.clone()})).is_err(),"a root without a stored version");
+    let none=Rec{body_off:None,flags:0,..min.clone()};assert_eq!(rec_from(&rec_bytes(&none)).unwrap(),none,"no journal record: the offset reads back as None");
+}

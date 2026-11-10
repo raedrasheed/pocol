@@ -5,7 +5,6 @@ use pocold::{
     history::History,
     store,
 };
-use std::collections::HashMap;
 use std::io::{Seek, SeekFrom, Write};
 
 #[test]
@@ -26,7 +25,7 @@ fn verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal() {
     let off = recovered.offsets[0];
     let history = History::open(&dir).unwrap();
     let source = JournalSource {
-        by_off: HashMap::from([(off, 0)]),
+        offsets: &recovered.offsets,
         journal: &recovered.journal,
         records: 1,
         history: &history,
@@ -38,7 +37,7 @@ fn verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal() {
         "unknown offsets remain refusals"
     );
     let outside_prefix = JournalSource {
-        by_off: source.by_off.clone(),
+        offsets: source.offsets,
         journal: &recovered.journal,
         records: 0,
         history: &history,

@@ -94,11 +94,18 @@ fn protect_of(c:&Chain)->Option<Vec<[u8;32]>>{c.replaying.then(||{let mut v:Vec<
 fn sorted(c:&Chain)->Vec<&Entry>{let mut es:Vec<&Entry>=c.blocks.values().map(|e|&**e).collect();es.sort_by_key(|e|(e.height,e.hash));es}
 fn rec_of(e:&Entry)->Result<Rec,String>{
     if !e.state.accounts.is_empty()||e.diff.is_some()||e.trie.is_some(){return Err(format!("entry {} holds more than a stored version",B256::from(e.hash)))}
+    Ok(rec_fields(e))
+}
+/// An entry's record without its state (no stored version, no root): what the node's canonical index keeps
+/// for an entry evicted below the window (C-1 S5), which holds no state. Such an entry is slim, so its record
+/// is the smallest one, `REC_MIN` bytes.
+pub fn rec_of_meta(e:&Entry)->Rec{let mut r=rec_fields(e);r.flags&=!(F_STORED|F_WORLD);r.root=None;r}
+fn rec_fields(e:&Entry)->Rec{
     let mut f=0u16;
     for (on,bit) in [(e.pruned,F_PRUNED),(e.full,F_FULL),(e.slim,F_SLIM),(e.offloaded,F_OFFLOADED),(e.is_final,F_FINAL),(e.summary.is_some(),F_SUMMARY),(e.stored.is_some(),F_STORED),
         (e.stored.as_ref().map_or(false,|s|s.trie.world.is_some()),F_WORLD),(e.body_off.is_some(),F_OFF)]{if on{f|=bit}}
-    Ok(Rec{hash:e.hash,body_off:e.body_off,import_seq:e.import_seq,total_work:e.total_work,flags:f,cum_txs:e.cum_txs,cum_tx_bytes:e.cum_tx_bytes,cum_log_bytes:e.cum_log_bytes,
-        drawn:e.drawn,summary:e.summary.as_deref().copied(),root:e.stored.as_ref().and_then(|s|s.trie.world)})
+    Rec{hash:e.hash,body_off:e.body_off,import_seq:e.import_seq,total_work:e.total_work,flags:f,cum_txs:e.cum_txs,cum_tx_bytes:e.cum_tx_bytes,cum_log_bytes:e.cum_log_bytes,
+        drawn:e.drawn,summary:e.summary.as_deref().copied(),root:e.stored.as_ref().and_then(|s|s.trie.world)}
 }
 /// Most bytes one entry takes in a snapshot (A13: a checkpoint being written holds the snapshot's bytes).
 /// The smallest record `put_rec` writes: hash, flags, body offset, import sequence, total work, the three cumulative
@@ -110,6 +117,19 @@ fn put_rec(w:&mut W,e:&Rec){
     w.u(e.cum_txs);w.u(e.cum_tx_bytes);w.u(e.cum_log_bytes);w.b(e.drawn.as_slice());
     if e.flags&F_SUMMARY!=0{if let Some(x)=&e.summary{put_summary(w,x)}}
     if e.flags&F_WORLD!=0{if let Some(r)=&e.root{w.b(r)}}
+}
+/// One record's bytes, as a snapshot writes it (the node's canonical index stores the same bytes).
+pub fn rec_bytes(e:&Rec)->Vec<u8>{let mut w=W(Vec::with_capacity(REC_MAX));put_rec(&mut w,e);w.0}
+/// A record read back from `rec_bytes`: every byte is used and none is missing.
+pub fn rec_from(b:&[u8])->Result<Rec,String>{let mut r=R{b,i:0};let e=get_rec(&mut r)?;if r.i!=b.len(){return Err("record has trailing bytes".into())}Ok(e)}
+fn get_rec(r:&mut R<'_>)->Result<Rec,String>{
+    let hash=r.h()?;let flags=u16::from_be_bytes(r.take(2)?.try_into().unwrap());let off=r.u()?;let import_seq=r.u()?;
+    let total_work=U256::from_be_bytes::<32>(r.take(32)?.try_into().unwrap());let (cum_txs,cum_tx_bytes,cum_log_bytes)=(r.u()?,r.u()?,r.u()?);
+    let drawn=Address::from_slice(r.take(20)?);
+    let summary=if flags&F_SUMMARY!=0{Some(get_summary(r)?)}else{None};
+    let root=if flags&F_WORLD!=0{Some(r.h()?)}else{None};
+    if flags&F_WORLD!=0&&flags&F_STORED==0{return Err("snapshot: a root without a stored version".into())}
+    Ok(Rec{hash,body_off:(flags&F_OFF!=0).then_some(off),import_seq,total_work,flags,cum_txs,cum_tx_bytes,cum_log_bytes,drawn,summary,root})
 }
 fn put_head(w:&mut W,genesis:&[u8;32],p:&Params,b:&Binding,head:&[u8;32],next_seq:u64,slim_cursor:u64,history_cursor:u64,evicted_total:u64,unslimmed:&[[u8;32]],evicted:&[[u8;32]],protect:&Option<Vec<[u8;32]>>,n:usize){
     w.b(MAGIC);w.b(genesis);
@@ -151,15 +171,7 @@ pub fn decode(bytes:&[u8])->Result<Snapshot,String>{
     // 2026-10-28: the guard took 134 bytes a record (six u64 fields; put_rec writes five), so a snapshot of mostly
     // minimal entries (past about 100,000 slimmed ones) was refused and open rebuilt from genesis (evidence/r4/hend/).
     let n=r.n(REC_MIN)?;let mut entries=Vec::with_capacity(n);
-    for _ in 0..n{
-        let hash=r.h()?;let flags=u16::from_be_bytes(r.take(2)?.try_into().unwrap());let off=r.u()?;let import_seq=r.u()?;
-        let total_work=U256::from_be_bytes::<32>(r.take(32)?.try_into().unwrap());let (cum_txs,cum_tx_bytes,cum_log_bytes)=(r.u()?,r.u()?,r.u()?);
-        let drawn=Address::from_slice(r.take(20)?);
-        let summary=if flags&F_SUMMARY!=0{Some(get_summary(&mut r)?)}else{None};
-        let root=if flags&F_WORLD!=0{Some(r.h()?)}else{None};
-        if flags&F_WORLD!=0&&flags&F_STORED==0{return Err("snapshot: a root without a stored version".into())}
-        entries.push(Rec{hash,body_off:(flags&F_OFF!=0).then_some(off),import_seq,total_work,flags,cum_txs,cum_tx_bytes,cum_log_bytes,drawn,summary,root});
-    }
+    for _ in 0..n{entries.push(get_rec(&mut r)?);}
     if r.i!=body.len(){return Err("snapshot has trailing bytes".into())}
     Ok(Snapshot{genesis,params,binding,head,next_seq,slim_cursor,history_cursor,evicted_total,unslimmed,evicted_order,protect,entries})
 }
@@ -218,25 +230,12 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
             // must be there too.
             if !src.has(&r.hash)?{return Err(why("not in history.redb"))}
             let payload=src.payload_at(off)?.ok_or_else(||why("its journal offset is not a record of the bound prefix"))?;
-            let (hb,bb,rb)=crate::store::decode_record(&payload).map_err(|e|why(&format!("record: {e}")))?;
-            let header=decode_header(&hb).map_err(|e|why(&format!("header: {e}")))?;
-            if block_hash(&header)!=r.hash{return Err(why("the journal header does not hash to the entry"))}
-            let p=blocks.get(&header.parent_hash).ok_or_else(||why("parent not restored"))?;
-            if header.h!=p.height+1{return Err(why("height"))}
-            if r.total_work!=p.total_work.saturating_add(crate::chain::work(&header.target)){return Err(why("total work does not follow from the parent"))}
-            let body=Body::decode(&bb,body_max).map_err(|e|why(&format!("body: {e}")))?;
-            let result=crate::chain::decode_result(&rb,&r.hash).map_err(|e|why(&format!("result: {e:?}")))?;
-            let receipts=if r.flags&F_OFFLOADED!=0{Vec::new()}else{src.receipts(&r.hash)?.ok_or_else(||why("receipts not in history.redb"))?};
-            let ranges=if r.flags&F_SLIM!=0{Vec::new()}else{src.ranges(&r.hash)?.ok_or_else(||why("nonce ranges not in history.redb"))?};
-            let tx_hashes=body.txs.iter().map(|t|keccak256(t)).collect();
-            let mut e=Entry{hash:r.hash,height:header.h,parent:Some(header.parent_hash),total_work:r.total_work,import_seq:r.import_seq,signed:!header.proposer.is_empty(),ts:header.ts,
-                target:header.target,base_fee:from_fixed(&header.base_fee),gas_used:header.gas_used,seal:seal(&template_id(&header.ut_raw),header.nonce),state:crate::chain::empty_state(),
-                is_final:r.flags&F_FINAL!=0,result,receipts,tx_hashes,cum_txs:r.cum_txs,cum_tx_bytes:r.cum_tx_bytes,cum_log_bytes:r.cum_log_bytes,pruned:false,full:false,diff:None,
-                slim:false,drawn:r.drawn,ranges,body_off:Some(off),offloaded:false,trie:None,summary:r.summary.map(Box::new),stored:None,header,body};
-            if r.flags&F_OFFLOADED!=0{crate::chain::offload(&mut e);}
-            if r.flags&F_SLIM!=0{crate::chain::slim(&mut e);}
-            if e.summary.as_deref()!=r.summary.as_ref(){return Err(why("a slimmed entry with a summary"))}
+            let parent=|h:&crate::header::Header|->Result<(),String>{let p=blocks.get(&h.parent_hash).ok_or_else(||why("parent not restored"))?;
+                if h.h!=p.height+1{return Err(why("height"))}
+                if r.total_work!=p.total_work.saturating_add(crate::chain::work(&h.target)){return Err(why("total work does not follow from the parent"))}Ok(())};
+            let (mut e,_)=entry_of(r,&payload,parent,||src.receipts(&r.hash),||src.ranges(&r.hash),body_max,true,&why)?;
             if let Some(root)=r.root{
+                let p=blocks.get(&e.header.parent_hash).map(|b|&**b).ok_or_else(||why("parent not restored"))?;
                 // The version's state root, from its stored root node (checked against its id as it is read).
                 let r=std::panic::catch_unwind(std::panic::AssertUnwindSafe(||pocol_lp4_execution::node_trie::NodeTrie{world:Some(root)}.root(&**store,&Default::default())))
                     .map_err(|_|why("the stored root node cannot be read"))?;
@@ -275,13 +274,46 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
     c.unslimmed=s.unslimmed.clone();c.evicted_order=s.evicted_order.iter().copied().collect();c.evicted=evicted;
     Ok(read)
 }
+/// The entry a record describes, from its journal record's payload (header, body and ParentResult bytes) and
+/// history.redb's receipts and nonce ranges, asked only when the entry keeps them: the one way an entry is
+/// built back from what a snapshot or the node's canonical index keeps (C-1 S5). The checks, in order: the
+/// record decodes, the header hashes to the record's block, `parent` accepts the header (a restore checks the
+/// parent it restored, its height and the total work), then the body, the ParentResult, the receipts and the
+/// ranges. The entry is offloaded and slimmed as the record's flags say, except that `slim: false` keeps a
+/// slimmed record whole (its ranges are then read: a rebuild re-executes it). Refusals are worded by `why`;
+/// an error of `receipts` or `ranges` is passed on as it is (a local failure). Returns the entry and the
+/// block's body, which an offloaded entry does not hold.
+pub fn entry_of(r:&Rec,payload:&[u8],parent:impl FnOnce(&crate::header::Header)->Result<(),String>,receipts:impl FnOnce()->Result<Option<Vec<Vec<u8>>>,String>,
+    ranges:impl FnOnce()->Result<Option<Vec<(Address,u128,u128)>>,String>,body_max:usize,slim:bool,why:&dyn Fn(&str)->String)->Result<(Entry,Body),String>{
+    let (hb,bb,rb)=crate::store::decode_record(payload).map_err(|e|why(&format!("record: {e}")))?;
+    let header=decode_header(&hb).map_err(|e|why(&format!("header: {e}")))?;
+    if block_hash(&header)!=r.hash{return Err(why("the journal header does not hash to the entry"))}
+    parent(&header)?;
+    let body=Body::decode(&bb,body_max).map_err(|e|why(&format!("body: {e}")))?;
+    let result=crate::chain::decode_result(&rb,&r.hash).map_err(|e|why(&format!("result: {e:?}")))?;
+    let (offloaded,slimmed)=(r.flags&F_OFFLOADED!=0,slim&&r.flags&F_SLIM!=0);
+    let receipts=if offloaded{Vec::new()}else{receipts()?.ok_or_else(||why("receipts not in history.redb"))?};
+    let ranges=if slimmed{Vec::new()}else{ranges()?.ok_or_else(||why("nonce ranges not in history.redb"))?};
+    let tx_hashes=body.txs.iter().map(|t|keccak256(t)).collect();
+    let mut e=Entry{hash:r.hash,height:header.h,parent:Some(header.parent_hash),total_work:r.total_work,import_seq:r.import_seq,signed:!header.proposer.is_empty(),ts:header.ts,
+        target:header.target,base_fee:from_fixed(&header.base_fee),gas_used:header.gas_used,seal:seal(&template_id(&header.ut_raw),header.nonce),state:crate::chain::empty_state(),
+        is_final:r.flags&F_FINAL!=0,result,receipts,tx_hashes,cum_txs:r.cum_txs,cum_tx_bytes:r.cum_tx_bytes,cum_log_bytes:r.cum_log_bytes,pruned:r.flags&F_PRUNED!=0,full:r.flags&F_FULL!=0,diff:None,
+        slim:false,drawn:r.drawn,ranges,body_off:r.body_off,offloaded:false,trie:None,summary:r.summary.map(Box::new),stored:None,header,body:if offloaded{Body::default()}else{body.clone()}};
+    if offloaded{crate::chain::offload(&mut e);}
+    if slimmed{crate::chain::slim(&mut e);}
+    if e.summary.as_deref()!=r.summary.as_ref(){return Err(why("a slimmed entry with a summary"))}
+    Ok((e,body))
+}
 
 /// A journal's records by frame offset (the prefix a snapshot is bound to) over history.redb.
-pub struct JournalSource<'a>{pub by_off:HashMap<u64,usize>,pub journal:&'a crate::store::Journal,pub records:usize,pub history:&'a crate::history::History}
+/// `offsets`: the journal's record frame offsets in order (open's first pass); the bound prefix is the first
+/// `records` of them. A slice searched by halving, not a map: the map was O(records) at every open and was
+/// copied for each snapshot tried (PR7).
+pub struct JournalSource<'a>{pub offsets:&'a [u64],pub journal:&'a crate::store::Journal,pub records:usize,pub history:&'a crate::history::History}
 impl Source for JournalSource<'_>{
     /// Read back from the journal file and verified again (open no longer holds the payloads).
     fn payload_at(&self,off:u64)->Result<Option<Vec<u8>>,String>{
-        if self.by_off.get(&off).filter(|i|**i<self.records).is_none(){return Ok(None)}
+        if self.offsets.get(..self.records).map_or(true,|o|o.binary_search(&off).is_err()){return Ok(None)}
         // Every offset here was verified by open's first pass, so a record that no longer verifies is the local file
         // changing (review 2026-10-28, F-B): a local failure, never a refusal that would drop the checkpoint.
         match self.journal.payload_at(off){Ok(p)=>Ok(Some(p)),Err(e)=>Err(format!("{LOCAL}the journal at offset {off}: {e:?}"))}}
@@ -293,4 +325,5 @@ impl Source for JournalSource<'_>{
 /// The chain's persistent fields as a snapshot sees them (tests compare two chains with it).
 pub fn fingerprint(c:&Chain)->Result<Snapshot,String>{snapshot_of(c,&Binding{records:0,end:0,hash:[0;32]})}
 /// The flag bits of `Rec::flags` (tests read them).
-pub mod flags{pub const PRUNED:u16=super::F_PRUNED;pub const FULL:u16=super::F_FULL;pub const SLIM:u16=super::F_SLIM;pub const OFFLOADED:u16=super::F_OFFLOADED;pub const STORED:u16=super::F_STORED;}
+pub mod flags{pub const PRUNED:u16=super::F_PRUNED;pub const FULL:u16=super::F_FULL;pub const SLIM:u16=super::F_SLIM;pub const OFFLOADED:u16=super::F_OFFLOADED;pub const STORED:u16=super::F_STORED;
+    pub const SUMMARY:u16=super::F_SUMMARY;pub const WORLD:u16=super::F_WORLD;pub const OFF:u16=super::F_OFF;}
