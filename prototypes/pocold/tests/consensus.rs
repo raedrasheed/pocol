@@ -1665,8 +1665,10 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     let dir=std::env::temp_dir().join(format!("pocold-a13-{}",std::process::id()));
     let conf=|limits:Limits,peers:usize|Config{dir:dir.clone(),name:"a13".into(),miner:None,listen:None,peers:(0..peers).map(|i|format!("127.0.0.1:{}",1+i).parse().unwrap()).collect(),rpc:None,stop_at:None,log:false,limits};
     let l=pocold::single_host_local();let default=admitted(&cfg(&["a","b","c"]));
-    // The devnet's own configuration: default limits, two configured peers.
-    let d=pocold::resources::derive(default.cp(),l.k_hist,l.side_max,&Limits::default(),2).unwrap();
+    // The devnet's own configuration: default limits, two configured peers, no listener; `auto` resolved as
+    // `Node::open` resolves it before its A13 check (2 automatic slots without a listener, not 4).
+    let mut resolved=Limits::default();resolved.discovery.resolve(false,2).unwrap();
+    let d=pocold::resources::derive(default.cp(),l.k_hist,l.side_max,&resolved,2).unwrap();
     let need=pocold::resources::budget_required(d.total).unwrap();
     // 1. The approved default boots, with its 1/8 reserve inside the 6 GiB budget.
     assert!(need<=u128::from(pocold::node::MEM_BUDGET),"the default needs {need} B: {d:?}");
