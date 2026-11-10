@@ -238,6 +238,29 @@ pub struct Cand{pub sender:Address,pub gas_limit:u64,pub raw:Vec<u8>}
 /// parent state).
 #[derive(Clone,Debug,Default)]
 pub struct Selection{pub txs:Vec<Vec<u8>>,pub rest:Vec<Cand>,pub counted:u64,pub fallback:bool}
+/// PR6 B5: the most `build_signed` calls one signed template takes (the retry loop's bound before PR6).
+pub const TEMPLATE_BUILDS_MAX:usize=8;
+/// Whether a `build_signed` refusal is the USER phase's gas check (`apply User("Gas")`: a transaction's
+/// declared gas exceeded what the block had left). It carries no transaction index.
+pub fn is_user_gas(why:&str)->bool{why.ends_with("User(\"Gas\")")}
+/// PR6 B5, the append round: indices into `rest` to add after a built block, within `gas` of room counting
+/// declared gas, the TX_CAP/TXBYTES room and the BODY room. The head of each sender's queue (pool order) is a
+/// candidate; the smallest declared gas goes first (ties in pool order); a head that does not fit stops its
+/// sender's queue.
+fn append_round(rest:&[Cand],mut gas:u64,mut txs:u64,mut bytes:u64,mut body:usize)->Vec<usize>{
+    use std::{cmp::Reverse,collections::BinaryHeap};
+    let mut queues:Vec<VecDeque<usize>>=Vec::new();let mut of:HashMap<Address,usize>=HashMap::new();
+    for (i,c) in rest.iter().enumerate(){let q=*of.entry(c.sender).or_insert_with(||{queues.push(VecDeque::new());queues.len()-1});queues[q].push_back(i);}
+    let mut heap:BinaryHeap<Reverse<(u64,usize,usize)>>=queues.iter().enumerate().filter_map(|(q,v)|v.front().map(|&i|Reverse((rest[i].gas_limit,i,q)))).collect();
+    let mut out=Vec::new();
+    while let Some(Reverse((g,i,q)))=heap.pop(){
+        let n=rest[i].raw.len();
+        if g>gas||txs==0||n as u64>bytes||enc(n)>body{continue}
+        gas-=g;txs-=1;bytes-=n as u64;body-=enc(n);out.push(i);queues[q].pop_front();
+        if let Some(&j)=queues[q].front(){heap.push(Reverse((rest[j].gas_limit,j,q)));}
+    }
+    out
+}
 /// Decision D-7 (approved 2026-10-25, local pool policy): by default the pooled transactions' declared gas
 /// limits sum to at most this many GAS_LIMITs. It bounds the gas a new head re-executes and what the
 /// pending layer can hold; it bounds no execution time (gas is not time), which the slices do.
@@ -356,8 +379,10 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     pub release_steps:u64,pub release_step_max_ms:u64,pub released_rows:u64,pub released_at_open:u64,
     /// Where the last open spent its time (`OpenTiming`).
     pub open:OpenTiming,
-    /// PR6: template selections that counted declared gas (no checked parent state; never in production).
-    pub template_gas_fallbacks:u64}
+    /// PR6: template selections that counted declared gas (no checked parent state; never in production), gas
+    /// failures recovered with the declared-safe prefix, transactions the append round added to a signed
+    /// template, and `build_signed` calls for signed templates.
+    pub template_gas_fallbacks:u64,pub template_gas_recoveries:u64,pub template_appended:u64,pub template_builds:u64}
 /// 2026-10-28: the time (ms) each step of `Node::open` took, so an open's cost can be attributed: reading the
 /// journal (every record's payload, its frame offsets and rolling hashes), opening history.redb and state.redb
 /// (redb's full integrity check of every page included), the release at open, reading and checking the
@@ -1258,32 +1283,73 @@ impl Node{
             self.lock_fallback(&p,a);
         }
     }
+    /// The signed template for `p` from a selection, built at `clock` (PR6 B5). At most TEMPLATE_BUILDS_MAX
+    /// builds, all at one clock (one timestamp); only the returned one leaves the process (F7: the caller records
+    /// and broadcasts it).
+    /// - A USER transaction the build reports by index is dropped with its sender's later ones, and the build is
+    ///   tried again (as before PR6).
+    /// - A gas failure (`is_user_gas`: the simulation counted less gas than the block used, for example because
+    ///   the block's SYSTEM phase ran first) carries no index: the transactions fall back to the longest prefix
+    ///   whose declared gas fits GAS_LIMIT, valid by construction, and the rest goes back to the candidates. The
+    ///   template is never emptied while such a prefix is known.
+    /// - Append round (one): the candidates left out for gas (`Selection::rest`) are added within the room the
+    ///   real build left, counting their declared gas, smallest first, the head of each sender's queue at a
+    ///   time; the block is built again only if one fits. The simulation cannot inflate declared gas, so a
+    ///   transaction that burns gas only in the simulation cannot leave the block under-filled.
+    /// The last good build is kept when a later one fails.
     fn build_signed_template(&mut self,p:&Entry,sel:Selection,clock:u64)->Option<(Header,Body)>{
-        let mut txs=sel.txs;
         self.cfg.miner.as_ref()?;
-        let evidence=self.includable_evidence(p);
-        let key=self.cfg.miner.as_ref()?;
-        for _ in 0..8{
-            let body=Body{txs:txs.clone(),evidence:evidence.clone()};
-            let effects=match self.chain.evidence_effects(p,&body,p.height+1){Ok(e)=>e,Err(_)=>vec![]};
-            let mut body=if effects.len()==body.evidence.len(){body}else{Body{txs:txs.clone(),evidence:vec![]}};
+        let cp=self.chain.spec.cp();let (gas_limit,body_max)=(cp.GAS_LIMIT,cp.BODY_MAX as usize);
+        let mut evidence=self.includable_evidence(p);
+        let effects=match self.chain.evidence_effects(p,&Body{txs:vec![],evidence:evidence.clone()},p.height+1){Ok(e)=>e,Err(_)=>vec![]};
+        let mut effects=if effects.len()==evidence.len(){effects}else{evidence.clear();vec![]};
+        // Evidence alone over BODY_MAX (not reachable with E_max·EVID_BYTES_MAX < BODY_MAX): built without it.
+        if (Body{txs:vec![],evidence:evidence.clone()}).encode().len()>body_max{evidence.clear();effects.clear();}
+        let Selection{mut txs,mut rest,..}=sel;
+        let sender=|chain:&Chain,raw:&Vec<u8>|wire::decode_for_profile(raw,chain.spec.profile()).ok().map(|e|(e.tx_env().caller,e.tx_env().gas_limit));
+        let mut last_good:Option<(Header,Body)>=None;let mut base:Option<usize>=None;let t0=Instant::now();let mut builds=0;
+        while builds<TEMPLATE_BUILDS_MAX{
+            builds+=1;
             // Evidence shares BODY_MAX with the transactions: drop transactions until the encoded body fits.
-            while body.encode().len()>self.chain.spec.cp().BODY_MAX as usize&&!body.txs.is_empty(){body.txs.pop();}txs=body.txs.clone();
-            // Evidence alone over BODY_MAX (not reachable with E_max·EVID_BYTES_MAX < BODY_MAX): build without it.
-            let effects=if body.encode().len()>self.chain.spec.cp().BODY_MAX as usize{body.evidence.clear();vec![]}else{effects};
-            match self.chain.build_signed(p,key,clock,body.clone(),effects){
-                Ok((h,_,_))=>return Some((h,body)),
+            let mut body=Body{txs:txs.clone(),evidence:evidence.clone()};
+            while body.encode().len()>body_max&&!body.txs.is_empty(){body.txs.pop();}txs=body.txs.clone();
+            if base.is_some_and(|n|txs.len()<=n){break}
+            let key=self.cfg.miner.as_ref()?;
+            match self.chain.build_signed(p,key,clock,body.clone(),effects.clone()){
+                Ok((h,_,_))=>{
+                    if let Some(n)=base{self.stats.template_appended+=(body.txs.len()-n) as u64;last_good=Some((h,body));break}
+                    // The append round, within the room this build left (exact: its own gas used).
+                    let (room_txs,room_bytes)=self.chain.caps_room(p);let used_bytes:u64=body.txs.iter().map(|t|t.len() as u64).sum();
+                    let add=append_round(&rest,gas_limit-h.gas_used,room_txs.saturating_sub(body.txs.len() as u64),room_bytes.saturating_sub(used_bytes),body_max.saturating_sub(body.encode().len()+8));
+                    base=Some(body.txs.len());last_good=Some((h,body));
+                    if add.is_empty(){break}
+                    txs.extend(add.into_iter().map(|i|rest[i].raw.clone()));rest.clear();
+                }
                 Err(Reject::Local(why))=>self.fatal(&why),
                 Err(Reject::Block(why))=>{
                     self.log(&format!("signed template failed: {why}"));
-                    // Drop the offending user transaction (USER phase reports its index) and retry.
+                    if is_user_gas(&why){
+                        // A failure of the append build keeps the last good one.
+                        if base.is_some(){break}
+                        let mut sum=0u64;let k=txs.iter().take_while(|t|{sum=sum.saturating_add(sender(&self.chain,t).map_or(u64::MAX,|(_,g)|g));sum<=gas_limit}).count();
+                        let tail=txs.split_off(if k==txs.len(){0}else{k});
+                        let mut back:Vec<Cand>=tail.into_iter().filter_map(|raw|sender(&self.chain,&raw).map(|(s,g)|Cand{sender:s,gas_limit:g,raw})).collect();
+                        back.append(&mut rest);rest=back;self.stats.template_gas_recoveries+=1;continue
+                    }
+                    // Drop the offending user transaction (USER phase reports its index) with its sender's later
+                    // ones, and retry.
                     let idx=why.split("User(").nth(1).and_then(|s|s.split(|c:char|!c.is_ascii_digit()).find(|x|!x.is_empty())).and_then(|n|n.parse::<usize>().ok());
-                    match idx{Some(i) if i<txs.len()=>{txs.remove(i);}_=>{if txs.is_empty(){return None}txs.clear();}}
+                    match idx{
+                        Some(i) if i<txs.len()=>{let s=sender(&self.chain,&txs[i]).map(|x|x.0);let chain=&self.chain;let mut j=0;txs.retain(|t|{j+=1;j-1<i||(j-1>i&&(s.is_none()||sender(chain,t).map(|x|x.0)!=s))});}
+                        _ if base.is_some()=>break,
+                        _=>{if txs.is_empty(){break}txs.clear();}}
                 }
-                Err(_)=>return None,
+                Err(_)=>break,
             }
         }
-        None
+        self.stats.template_builds+=builds as u64;
+        if builds>1{self.log(&format!("signed template: {builds} builds in {} ms",t0.elapsed().as_millis()));}
+        last_good
     }
     /// F7: record that we signed `tid` for (parent,h), persist it durably BEFORE the caller broadcasts,
     /// and cache the encoded template so a same-process re-attempt re-broadcasts it unchanged. Pruned to
@@ -1714,6 +1780,9 @@ impl Node{
         status["stats"]["relayedTemplates"]=serde_json::json!(self.stats.relayed_templates);
         // PR6: the builder (gas used) and the pool's sender quota and parking.
         status["stats"]["templateGasFallbacks"]=serde_json::json!(self.stats.template_gas_fallbacks);
+        status["stats"]["templateGasRecoveries"]=serde_json::json!(self.stats.template_gas_recoveries);
+        status["stats"]["templateAppended"]=serde_json::json!(self.stats.template_appended);
+        status["stats"]["templateBuilds"]=serde_json::json!(self.stats.template_builds);
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));

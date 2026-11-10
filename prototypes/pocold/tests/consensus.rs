@@ -4155,3 +4155,56 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert!(seen.len()>1,"positive control: the gas depends on the context ({seen:?})");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR6 B5: the selection simulates on the parent's state, but the block runs its SYSTEM phase first
+/// (apply.rs Phase 0: settle(h-D) pays out of the escrow, the block's COINBASE). Two contracts compare
+/// BALANCE(COINBASE) with the parent's value (the call's data):
+/// - (a) cheap in the simulation, all its gas in the block (INVALID): the build fails the gas check, which
+///   carries no index. The production path still signs a non-empty valid template, the longest prefix whose
+///   declared gas fits, and then adds bob's transfers within the room the real build left;
+/// - (b) all its gas in the simulation, cheap in the block (the under-fill attack): bob's transfers do not fit
+///   the simulated room, and the append round adds them within the real room, counting declared gas.
+/// The gas failure is the build's `User("Gas")` (`is_user_gas`, pinned on a forced over-reservation).
+#[test] fn a_gas_failure_keeps_a_valid_template(){
+    use pocold::node::is_user_gas;
+    let mut c=cfg_funded();c.g_ts=pocold::node::now_s()-60;let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    // The rule's own refusal: 5M declared then GAS_LIMIT - 20,999 after 21,000 used.
+    let gp=h.chain.full_entry(&g).unwrap();let lower=h.chain.child_ctx(&gp,0).unwrap().window.lower();
+    match signed_at(&h,g,vec![pay_gas(&alice,0,1,5_000_000),pay_gas(&key("carol"),0,1,GL-20999)],lower){Err(Reject::Block(s))=>assert!(is_user_gas(&s),"{s}"),r=>panic!("{:?}",r.map(|x|x.gas_used))}
+    assert!(!is_user_gas("apply User(\"Execution(0, \\\"x\\\")\")"));
+    // CALLDATALOAD(0) == BALANCE(COINBASE): (a) jumps to STOP, else INVALID; (b) jumps to INVALID, else STOP.
+    let code_a=vec![0x41,0x31,0x60,0x00,0x35,0x14,0x60,0x0a,0x57,0xfe,0x5b,0x00];let code_b=vec![0x41,0x31,0x60,0x00,0x35,0x14,0x60,0x0a,0x57,0x00,0x5b,0xfe];
+    let deploy=|nonce:u64,rt:&[u8]|{let mut init=vec![0x60,rt.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(rt);
+        Tx{chain_id:777910,nonce,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice)};
+    let mut blocks=branch(&mut h,g,1,&[Body{txs:vec![deploy(0,&code_a),deploy(1,&code_b)],evidence:vec![]}]);
+    let tail=branch(&mut h,blocks[0].hash(),7,&[]);blocks.extend(tail);
+    let (ca,cb)=(alice.address().create(0),alice.address().create(1));
+    let head=h.chain.head().clone();assert!(head.height>u64::from(h.chain.spec.cp().D)+1,"settle runs in the next block's SYSTEM phase");
+    let v=head.state.accounts[&pocol_lp4_execution::pay::escrow_address()].info.balance;
+    let prop=h.chain.child_ctx(&head,0).unwrap().proposer;
+    let call=|to:Address,gas:u64|Tx{chain_id:777910,nonce:2,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:Some(to),value:U256::ZERO,data:v.to_be_bytes::<32>().to_vec().into()}.sign_1559(&alice);
+    let produce=|tag:&str,pool:&[Vec<u8>]|{
+        let miner=Key::from_secret(&h.keys[&prop].secret()).unwrap();
+        let (mut n,dir)=gas_node_cfg(tag,Default::default(),&c,Some(miner));
+        let (last,rest)=blocks.split_last().unwrap();for b in rest{n.import(b.clone(),None).unwrap();}
+        for t in pool{n.submit_tx(t.clone(),false).unwrap();}
+        let (signed0,rec0,app0)=(n.stats.signed_templates,n.stats.template_gas_recoveries,n.stats.template_appended);
+        assert!(n.import(last.clone(),None).unwrap());assert_eq!(n.chain.head,head.hash);
+        let st=n.status_json();assert_eq!(n.stats.signed_templates-signed0,1,"{tag}: the drawn proposer signed one template on the head: {}",st["production"]);
+        let t=decode_header(&unhex(n.template_json()["header"].as_str().unwrap()).unwrap()).unwrap();assert_eq!(t.parent_hash,head.hash);
+        println!("PR6-B5 {tag} builds {} gasUsed {}",st["stats"]["templateBuilds"],t.gas_used);
+        let out=(t,n.stats.template_gas_recoveries-rec0,n.stats.template_appended-app0);drop(n);let _=std::fs::remove_dir_all(&dir);out};
+    // (a): the simulation counts about 21,000 for the call and lets carol's 4M follow; the block charges 5M, so
+    // carol's no longer fits (gas failure). The prefix [call] is built, then bob's two transfers are appended.
+    let (atk,carol)=(call(ca,5_000_000),pay_gas(&key("carol"),0,1,4_000_000));let (b0,b1)=(pay(&bob,0,1),pay(&bob,1,1));
+    let (t,rec,app)=produce("diverge-a",&[atk.clone(),carol.clone(),b0.clone(),b1.clone()]);
+    let want=signed_at(&h,head.hash,vec![atk.clone(),b0.clone(),b1.clone()],t.ts).unwrap();
+    assert_eq!((t.tx_root,t.state_root,t.gas_used),(want.tx_root,want.state_root,5_000_000+2*21000),"a non-empty valid template: the declared-safe prefix and bob's transfers");
+    assert_eq!((rec,app),(1,2),"one gas failure recovered; two transfers appended");
+    // (b): the simulation counts 7.9M for the call, so bob's 1M transfers do not fit; the block charges about
+    // 21,000, and the append round adds all three.
+    let atk=call(cb,7_900_000);let bs:Vec<Vec<u8>>=(0..3).map(|k|pay_gas(&bob,k,1,1_000_000)).collect();
+    let (t,rec,app)=produce("diverge-b",&[vec![atk.clone()],bs.clone()].concat());
+    let want=signed_at(&h,head.hash,[vec![atk.clone()],bs.clone()].concat(),t.ts).unwrap();
+    assert_eq!((t.tx_root,t.state_root),(want.tx_root,want.state_root),"the call and bob's three transfers");assert!(t.gas_used<200_000,"the block is cheap: {}",t.gas_used);
+    assert_eq!((rec,app),(0,3),"no gas failure; three appended");
+}
