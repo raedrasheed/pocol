@@ -198,8 +198,9 @@ here). Documents about the old network's history stay as they are, and so do the
 other tracked file pins the old identity.
 
 In the same PR, change what the tool cannot, because it ships with the packages:
-- replace `deploy/standalone/RELEASE-UPGRADE.md`, the old network's 0.4.0 update notes, with the new
-  network's notes. They must name the chain ID `261597237` and the new genesis hash, which users
+- replace the 0.4.0 reference section of `deploy/standalone/RELEASE-UPGRADE.md`, the old network's
+  update notes, with the new network's notes (keep its release-update sections: same rules, fork
+  activation, the switch, resync and the checklist). They must name the chain ID `261597237` and the new genesis hash, which users
   check, and may name the old network as history. They must also give existing wallets their way
   across, because Import and Upgrade refuse a home bound to the old genesis, and a new home would
   make a new, empty address:
@@ -211,14 +212,18 @@ In the same PR, change what the tool cannot, because it ships with the packages:
   3. in the wallet's home (on Windows `%LOCALAPPDATA%\PoCol`; the standalone Linux service uses
      `/var/lib/pocol-standalone`), make a folder such as `old-network` and move into it
      `network.pocol.json`, `network`, `state`, `wallet-activity.json` and, if present,
-     `network-upgrade.pending.json` and `network.pocol.json.before-full-nonce`. Delete nothing;
+     `network-upgrade.pending.json`, `network.pocol.json.before-full-nonce` and any
+     `network.pocol.json.before-<16 hex>` backup written by a later release. Delete nothing;
   4. keep `identity.pocol-key` and `identity.address` where they are;
   5. open the wallet, or start the service: it imports the new invitation beside it (Settings →
      Import, or `pocol import --home <home> --network network.pocol.json`, does the same). The address
      stays the same.
 
   `deploy/standalone/test_upgrade.py` (`NewGenesisRejoin`) runs these steps, and shows that an old
-  invitation left beside the application binds the home to the old genesis again;
+  invitation left beside the application binds the home to the old genesis again. A release built
+  from this repository after PR5 refuses an unmoved H15000 home with "This network was replaced by a
+  new genesis. Follow the release notes to move the old network files aside; keep your wallet key."
+  (owner decision D1, Option B) and writes nothing;
 - give the packages new version numbers: `deploy/standalone/package.py` and
   `deploy/standalone/test_release_package.py`; the Windows wallet's assembly versions in `Wallet.cs`
   and its label in `Wallet.xaml`; the files in `deploy/standalone/linux-desktop`; the extension's
@@ -343,8 +348,10 @@ Everything below comes from the merged head of step 3.
      bundle and in `DEPLOY-README-AR.txt`.
   5. Replace `pocol.net/downloads/network.pocol.json` with the new network's invitation. Build it
      outside the snapshot, with the new release's `pocol` and the old invitation's three seeds, one
-     `--seed` each. `pocol network` writes the file with mode 600 and refuses an existing file, so
-     copy it into place with mode 644:
+     `--seed` each. `pocol network` writes a `pocol-network-v2` file, bound to the release's
+     `consensusRulesVersion` rather than its build digest, so later releases with the same rules
+     accept it unchanged (no new invitation for a digest-only release). It writes the file with mode
+     600 and refuses an existing file, so copy it into place with mode 644:
      ```sh
      pocol network --from /var/tmp/pocol-earnin-net --seed <seed 1> --seed <seed 2> --seed <seed 3> \
          --out /var/tmp/network.pocol.json

@@ -297,10 +297,13 @@ class FullNonceUpgrade(unittest.TestCase):
 
 
 class NewGenesisRejoin(unittest.TestCase):
-    """A home bound to one genesis joins a network with another genesis (the earn-in cutover) the way the
-    release notes describe (runbook step 3): the new invitation goes beside the application, the old network's
-    files go to a folder in the home, the key stays, and the wallet imports the new invitation. Import and
-    upgrade refuse the new genesis while the old binding is in place, so nothing rebinds a home silently."""
+    """A home bound to one genesis joins a network with another genesis (the earn-in cutover, owner decision D1
+    Option B) the way the release notes describe (runbook step 3; RELEASE-UPGRADE.md "Resync a launcher home"): the
+    new invitation goes beside the application, the old network's files (state, wallet activity, every
+    network.pocol.json.before-* backup) go to a folder in the home, the key stays, and the wallet imports the new
+    invitation. Both invitations are `pocol network` output, so pocol-network-v2 bound to the rules revision. Import
+    and upgrade refuse the new genesis while the old binding is in place, so nothing rebinds a home silently, and the
+    published H15000 (v1, uncertified) invitation is refused with the Option B text and writes nothing."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -341,15 +344,17 @@ class NewGenesisRejoin(unittest.TestCase):
         return json.loads(read_json(self.home / 'network.pocol.json')['files']['devnet.json'])['chainId']
 
     def move_aside(self):
-        # What a used home also holds: chain data, wallet activity and the H15000 upgrade's backup.
+        # What a used home also holds: chain data, wallet activity, the H15000 upgrade's backup and a later
+        # release's fingerprint-named backup.
         (self.home / 'state').mkdir(exist_ok=True)
         (self.home / 'state' / 'blocks.journal').write_bytes(b'old chain')
         (self.home / 'wallet-activity.json').write_text('[]', encoding='utf-8')
         (self.home / 'network.pocol.json.before-full-nonce').write_text('{}', encoding='utf-8')
+        (self.home / 'network.pocol.json.before-0123456789abcdef').write_text('{}', encoding='utf-8')
         aside = self.home / 'old-network'
         aside.mkdir()
         moved = ['network.pocol.json', 'network', 'state', 'wallet-activity.json',
-                 'network.pocol.json.before-full-nonce']
+                 'network.pocol.json.before-full-nonce', 'network.pocol.json.before-0123456789abcdef']
         for name in moved:
             shutil.move(str(self.home / name), str(aside / name))
         return aside, moved

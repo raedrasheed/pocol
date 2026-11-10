@@ -151,9 +151,9 @@ impl Node{
         self.disc.counters.self_connections+=1;
         self.log(&format!("peer {}: a connection to this node itself (its nonce); closing",p.addr));
     }
-    /// VA-SPEC §1a.4: a connection this node dialed whose Hello names another chain or genesis (`network`) forgets the
-    /// dialed address; another release (protocol version or compatibility digest) holds it back for a while, since
-    /// after an upgrade the network is split until its nodes have upgraded.
+    /// VA-SPEC §1a.4, §2: a connection this node dialed whose Hello names another chain or genesis (`network`) forgets the
+    /// dialed address; a wire version below the minimum or another consensus identity (rules or fork schedule) holds it
+    /// back for a while, since until every node has applied a network upgrade the network is split.
     pub(super) fn disc_incompatible(&mut self,from:PeerId,network:bool,now:u64){
         let Some(a)=self.peers.get(&from).and_then(|p|p.origin.dialed()) else{return};
         if network{self.disc.book.remove(a)}else{self.disc.book.held(a,now)}

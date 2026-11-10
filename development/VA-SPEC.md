@@ -40,7 +40,7 @@ production P2P design of network.md (libp2p, Noise, gossipsub).
 
 | type | message | fields |
 |---|---|---|
-| 0 | Hello | chainId, genesisHash, headHash, headHeight, totalWork (32 B), nodeName, protocolVersion, compatibility (32 B), listenPort (0..65535; 0: none), nonce (8 bytes; 0: none) |
+| 0 | Hello | chainId, genesisHash, headHash, headHeight, totalWork (32 B), nodeName, protocolVersion (the sender's maximum wire version, §2.2), consensusIdentity (32 B, §2.1), listenPort (0..65535; 0: none), nonce (8 bytes; 0: none) |
 | 1 | Block | headerBytes, bodyBytes |
 | 2 | Template | signed-template shell (header encoding with nonce 0), body |
 | 3 | Share | TemplateID, nonce (8 bytes) |
@@ -123,8 +123,9 @@ admission, and no message or wire field is added.
    eligible Hello of a connection that took its full group's spare place (§1) while that group still holds
    more than `per_group_max` places; a group that shrank meanwhile makes it an ordinary newcomer. Held:
    established and still open; a victim already closed but not yet released does not count.
-2. Eligible: the Hello's chainId, genesisHash, protocolVersion and compatibility match this node and build
-   (§2), and its nonce is not this node's own. An ineligible Hello is never established, never evicts and
+2. Eligible: the Hello passes the one acceptance predicate of §2 (`identity::accepts`: chainId and
+   genesisHash equal, protocolVersion >= PROTOCOL_VERSION_MIN, consensusIdentity equal), and its nonce is not
+   this node's own. An ineligible Hello is never established, never evicts and
    never counts as held; the node then closes it (§2) or finishes it as a self-connection.
 3. Candidates: the other established, open, non-exempt inbound connections. A connection established less
    than `grace` (30 s) ago is never chosen, so a flood of newcomers cannot evict the honest peers that joined
@@ -180,12 +181,118 @@ Status (`pocol_status`): `inboundEstablished`, `inboundMax` (`peers_max`), `stat
 `stats.inboundRefusedByGroup`, and `stats.creditsBlock`, `creditsTemplate`, `creditsTx`, `creditsShare`.
 
 ## 2. Network identity
-`Hello.chainId` and `Hello.genesisHash` must equal cfg, and `Hello.protocolVersion` and
-`Hello.compatibility` must match this build for the profile's fork schedule
-(`identity::matches_for`); otherwise the peer is closed (wrong network or implementation).
-activeVersion is checked per header (H-pre 1b).
+A Hello is accepted iff `identity::accepts(local, chainId, genesisHash, protocolVersion, consensusIdentity)` is
+Ok: chainId and genesisHash equal cfg (else `Network`), protocolVersion >= PROTOCOL_VERSION_MIN (else
+`Wire(v)`), and consensusIdentity equals this node's (else `Consensus`). Inbound eviction (`net::Net::eligible`,
+§1b.2) and the node's close decision use this one predicate. A refused peer is closed; `Network` forgets an address
+this node dialed, any other refusal holds it (§1a). The build digest (`compatibilitySha256`) is never a peering
+condition: it is informational install-integrity status. activeVersion is checked per header (H-pre 1b); the
+handshake is self-declared, not remote attestation, and block validation stays authoritative.
 
-A listening node draws a random nonzero 64-bit nonce per process and sends it in every Hello on a connection that
+### 2.1 Consensus identity
+```
+id = SHA-256( "pocol-consensus-identity-v1\0" ‖ chainId u64 ‖ genesisHash 32 B ‖ CONSENSUS_RULES_VERSION u32
+            ‖ flags u8 ‖ n u8 (1..=16) ‖ (version u16 ‖ height u64) × n ‖ [sourcesAggregate 32 B, only if bit1] )
+```
+Integers are big-endian; the schedule is the full configured fork schedule (`ForkSchedule::entries`). A node runs
+only a schedule of versions 1, 2, ... in order, each once, starting `(1,0)`, at most MAX_FORK_VERSION = 2
+(`configured_forks`; today exactly `[(1,0)]` or `[(1,0),(2,H)]`). The profile itself would accept a skipped version;
+the runtime keeps refusing one (owner decision D3, implemented at its recommended default; the v3 PR decides).
+genesisHash
+commits CP, sysCodeHash and the alloc. Flags: bit0 caps-test, taken from `pocol_lp4_execution::CAPS_TEST` (the
+crate whose LOG_CAP it changes; a build enabling lp4's feature without pocold's does not compile); bit1 unpinned,
+set when the build's consensus-boundary aggregate differs from the lock (§2.4), in which case the 32-byte aggregate
+is appended, so an unpinned tree peers only with byte-identical unpinned trees. Other bits are 0. Left out: the build
+digest, the crash-test and io-fault features, `r_keep`, admission and other boot policy. A pinned build's identity
+is computable by anyone from public data (devnet.json and `consensusRulesVersion`): `identity.rs`,
+`deploy/public-testnet/pocol_identity.py` and the inline copy in `deploy/mainnet/preflight.py` compute it, and the
+H15000 value (chain 1599846715, genesis `0xbe137b…`, rules 1, flags 0, `[(1,0),(2,15000)]`) is pinned in tests:
+`bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110`.
+
+### 2.2 Wire range
+PROTOCOL_VERSION = 2 is this build's maximum and PROTOCOL_VERSION_MIN = 2 its minimum. Hello item 7 is the sender's
+maximum; a peer is accepted iff its maximum >= MIN, and the session runs at min(peer's maximum, ours). The 11-item
+Hello layout is frozen across every accepted range: changing it requires raising MIN. A sender never emits a message
+type or field above the negotiated version, and decoders stay strict (§1). Item 8 was redefined from the build digest
+to the consensus identity while keeping wire 2: deployed 0.4.0 sends 9 items and fails on arity, and earlier main
+builds send a build digest, which fails the 32-byte comparison. A first frame that fails to decode and is a type-0
+list of 9 items is counted as a 0.4.0 handshake (`legacyHellos`, §2.5).
+
+Wire golden vectors (`pocold/tests/data/wire-golden.json`): one canonical frame per message type 0..9 and a
+`v2/limits` entry (MAX_FRAME, the Hello arity and the field bounds), each keyed `v<version>/<name>`. The unit test
+`net::tests::wire_golden` encodes each to its pinned bytes and decodes it back. The lock holds one `wire <sha256>
+<key>` line per key, and the guard enforces: a key with v >= PROTOCOL_VERSION_MIN never changes and is never removed
+(changing a frame needs a raised MIN, which retires the key); a new key needs v == PROTOCOL_VERSION and v greater
+than every existing key's, since old decoders are strict. A wire change is re-pinned `kind=wire`.
+
+### 2.3 Bump policy
+Every change to a consensus-boundary file (§2.4) needs one appended history line in `consensus-sources.lock`:
+
+| kind | when | requirement |
+|---|---|---|
+| `bump` | validity, state or receipt roots, rewards, genesis decoding or fork choice can differ for some input under a schedule or genesis an accepting build allows | CONSENSUS_RULES_VERSION += 1, **only together with a new genesis**; a rule change on a live chain is always a new fork version and a schedule entry |
+| `neutral` | refactors with identical verdicts; logs and comments | note required |
+| `neutral` + `gate=fork:V` | new rules reachable only through `active_version(h) >= V` | V greater than every `maxFork` on an earlier history line |
+| `neutral` + `gate=spec:S` | new rules only under genesis specVersion >= S | S greater than every `spec` on an earlier history line |
+| `neutral-vector` | a pinned vector file changed | note required; reviewers presume `bump` |
+| `neutral-dep` | the dependency closure or a `rust-toolchain.toml` changed | note required; presumed `bump`; the release replay gate is mandatory |
+| `wire` | only the wire golden file changed | the §2.2 rules |
+
+"Released" means merged to main: every history line records `maxFork` (MAX_FORK_VERSION) and `spec`
+(genesis_spec::SPEC_VERSION), so a gate value is spent as soon as the gated code lands on main, because public-testnet
+nodes run main builds (owner decision D2, implemented at its recommended default). Consequently a second v3 change
+after the first has merged needs a new gate or a bump with a new genesis.
+
+### 2.4 Boundary, lock and enforcement
+`pocold/consensus-boundary.txt` lists the consensus sources (paths relative to `prototypes/`): `+` includes (all of
+`lp4-execution/src/` by default, so new modules are covered, minus the pool, RPC, bin and resources modules and
+`*tests.rs` files declared `#[cfg(test)]` by their parent), the shared lp1 sources, the pocold validation, state,
+history, signature-recovery, crate-root and identity sources, `build.rs`, the boundary code and file, the three
+Cargo manifests, both `rust-toolchain.toml` files, the vector directories and the EVM-crypto path patches. Cargo.lock
+is not hashed whole: the dependency closure of `root` crates (pocol-lp4-execution, k256, sha2, sha3) becomes one
+`dep` line per package. Every other crate-root module is classified node-local (`=`), and a `+` file may reference an
+`=` or `-` module only through a reviewed `~` line with its reason. The aggregate is
+`SHA-256("pocol-consensus-sources-v1\0" ‖ (u64 len name ‖ name ‖ u64 len bytes ‖ bytes)*)`, with the `dep` lines as
+one entry named `Cargo.lock#closure`.
+
+`pocold/consensus-sources.lock` holds append-only `history` lines (n, kind, rules, maxFork, spec, protocol,
+protocolMin, sources, vectors, deps, wire digests, ref, note) and the `file`, `dep` and `wire` manifest, which re-pin
+mode rewrites: `POCOL_REPIN_CONSENSUS=<kind> POCOL_REPIN_REF=<PR> POCOL_REPIN_NOTE=<why> [POCOL_REPIN_GATE=fork:V]
+cargo test --release --locked --test consensus_guard`. Re-pin refuses `neutral` over a changed vector or dependency
+closure, `bump` without the incremented constant, and a spent gate. Enforcement:
+- `build.rs` computes the aggregate. Equal to the last history line's `sources`: pinned. Otherwise the build is
+  unpinned (bit1 and the aggregate in its identity, §2.1), and with `POCOL_RELEASE=1` (every packaging build) it fails
+  with the instruction text. Build-info reports `consensusPinned`, `consensusSourcesSha256`, `consensusRulesVersion`,
+  `protocolVersionMin` and `maxForkVersion`; `deploy/standalone/package.py` refuses a build whose `consensusPinned`
+  is not true.
+- The guard (`pocold/tests/consensus_guard.rs`, CI) checks the manifest, the aggregate build.rs saw, history
+  consistency, the constants, module classification, the reference closure, `*tests.rs` declarations, the wire rules
+  and the legacy launcher table (`launcher::LEGACY_BUILDS`: every entry names the H15000 chain, genesis and rules 1).
+- `deploy/ci/check_lock_append_only.py` requires main's history lines to be a prefix of the branch's, and main's wire
+  keys to obey §2.2.
+
+The reference closure is a lexical scan, not a parser: an unusual construction errs towards an unclassified or
+unannounced reference (fail closed). A consensus effect through a node-local module that no `+` file references is
+outside what the guard can see; `chain.rs` validates everything it imports.
+
+### 2.5 Diagnostics
+A refusal is logged as `peer <name>: <reason>; closing` and counted in status `incompatiblePeers{network, wire,
+consensus}`; `lastIncompatibleReason` holds the last `peer <name>: <reason>`, at most 160 characters (null when there
+has been none), and `legacyHellos` counts 0.4.0 handshakes. The reasons: "another network (chain id or genesis)",
+"wire protocol v < MIN", or for a consensus mismatch (`identity::explain`, at most FORKS_MAX + RULES + 3 hashes, close
+path only): "peer has not scheduled activation (v,H): it must apply the published network upgrade" (the peer's
+identity is a prefix of our schedule); "peer runs consensus rules r; this node runs rules R"; "peer runs a caps-test
+build" (or the reverse); for an unpinned node, "this node runs an unpinned (development) build; the peer runs the
+pinned rules: re-pin consensus-sources.lock or use a released build" or "... which peers only with byte-identical
+trees"; otherwise "different consensus rules, fork schedule or test build (ours X…, theirs Y…). If this node has not
+applied a published network upgrade, apply it (Settings → Upgrade or `pocol upgrade`) or update PoCol". A pinned node
+cannot recognise an unpinned peer (it does not know the peer's aggregate), so it reports the generic text.
+These three fields are in `pocol_status` and wallet status. `pocol_status` and `pocol_getParams` also report
+`protocolVersion`, `protocolVersionMin`, `consensusRulesVersion`, `maxForkVersion`, `consensusIdentity` and
+`consensusPinned` beside the informational `compatibilitySha256`; `consensusCompatibilitySha256` (pocol_getParams)
+is a deprecated alias of `consensusIdentity`.
+
+Self-connections. A listening node draws a random nonzero 64-bit nonce per process and sends it in every Hello on a connection that
 can reach its listener (§1a.1; others send 0). A
 first Hello carrying the receiver's own nonce is a self-connection: it is closed before any Status is kept, and
 an address the receiver dialed for it is not dialed again by that process.

@@ -672,7 +672,7 @@ fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net
 }
 /// Accepts inbound peers on the operator-selected listener, within the connection limits.
 /// A loopback bind remains local; a private/public bind accepts remote peers. RPC separately
-/// remains loopback-only. Every peer must pass the node's network/compatibility handshake.
+/// remains loopback-only. Every peer must pass the node's network and consensus-identity handshake.
 pub fn listen(listener:TcpListener,events:SyncSender<NetEvent>,net:Net){
     crate::threads::spawn("p2p-listen",crate::threads::IO_STACK,move||{
         let mut readers=Vec::new();

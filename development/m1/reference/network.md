@@ -5,6 +5,7 @@ libp2p over TCP+Noise, with gossipsub and request/response on '/pocol/1/req'.
 
 **Messages**
 - Status = [chainId, genesisHash, protocolVersion, headHash, height, totalWork]. An identity mismatch or unsupported version disconnects the peer. Status is informational and does not replace 1b.
+  (Note, PR5: the implemented pocold wire is VA-SPEC §1–§2, where Hello carries the sender's maximum wire version and a consensus identity over chain, genesis, rules revision and fork schedule; this M1 reference text is unchanged.)
 - Request = [reqId, kind, body]: 1 GetHeaders [locator ≤ 32, count ≤ 512], 2 GetBodies [hashes ≤ 64], 3 GetTemplate, and 4 GetEnvelope [blockHash, exclude ≤ 4 hdrId] (D131). GetEnvelope returns the stored envelope-valid copy if its hdrId is not in exclude, otherwise NotFound.
 - Response = [reqId, status, payload]. status: 0 success, 1 not found, 2 limit exceeded, 3 invalid, 4 rate limited. A missing body is 0x80; truncate at 8 MiB.
 
