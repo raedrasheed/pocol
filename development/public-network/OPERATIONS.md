@@ -254,8 +254,9 @@ in the invitation, stalled nodes through the extra slot.
 2. **Community listeners.** At least 8 volunteers in at least 4 /16s, each reachable from outside
    (deploy/public-testnet/test_remote_listener.py from another network).
 3. **Capacity.** The listeners' `peers_max` sum is at least 1.5·(4·L + 2·N) for L listeners and N non-listening nodes.
-   Phones behind one carrier NAT share a /16: each listener takes at most 5 of them. Watch `refusedGroup`,
-   `refusedRate` and `inboundEvicted` on sample listeners for a day.
+   Phones behind one carrier NAT share a /16: each listener takes at most 5 of them (`per_group_max` + 1); listeners
+   that serve wallets may raise `POCOL_PER_GROUP_MAX` within A13. Watch `refusedGroup`, `refusedRate` and
+   `inboundEvicted` on sample listeners for a day.
 4. **Bootstrap list.** Publish a v2 invitation with the same seeds and a `bootstrap` list
    (`pocol network --from … --seed … --bootstrap <volunteer> … --out network.pocol.json`) and its fingerprint through
    the same trusted channel as the genesis. Homes run `pocol inspect-upgrade --network …`, **compare the shown
@@ -266,7 +267,8 @@ in the invitation, stalled nodes through the extra slot.
    `discovery.book.verified` >= 16 in `keys` >= 8.
 
 **Staged stop.** Stop one seed with `systemctl stop` (a clean stop) and watch `stalled`, `healthy` and `extraSwaps` on
-sample nodes for 24 h; then the second, and 24 h later the third. Then publish an invitation with `seedsRetired: true`
+sample nodes for 24 h; then the second, and 24 h later the third. If the seeds were genesis miners, production goes on
+with the other miners (fallback templates fill the stopped ones' drawn slots; expect slower blocks). Then publish an invitation with `seedsRetired: true`
 (`--seeds-retired true`; same seeds and bootstrap list, fingerprint through the trusted channel) and let homes take it
 with `pocol upgrade`; public-testnet join bundles drop their seeds (inventory `seedsRetired`).
 
