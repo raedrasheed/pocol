@@ -4417,7 +4417,7 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
 #[test] fn parked_transactions_are_candidates_and_a_sender_may_park_a_run(){
     use pocold::node::{POOL_FULL_GAS,POOL_FULL_SENDER,POOL_PARKED};
     let mut c=cfg_funded();for l in ["hank","ivy"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
-    let mut h=net_with(&c);let g=h.chain.head;let bob=key("bob");
+    let mut h=net_with(&c);let bob=key("bob");
     let (mut n,dir)=gas_node_cfg("park-run",Default::default(),&c,None);
     let fill:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().flat_map(|l|(0..2).map(move |k|pay_gas(&key(l),k,1,GL/2))).collect();
     for t in &fill{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");

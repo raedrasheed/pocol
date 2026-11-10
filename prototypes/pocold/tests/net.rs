@@ -987,7 +987,8 @@ fn pacer_batch()->String{
 #[test] fn a_transaction_admission_past_its_compute_deadline_is_refused_and_not_pooled(){let _g=serial();
     use pocold::rpc::{answer,Request};
     let dir=std::env::temp_dir().join(format!("pocold-net-admitdl-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    let cfg=Config{dir,name:"admitdl".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
+    // PR6: alice pools several transactions declaring 7.9M, past the default sender quota (GAS_LIMIT).
+    let cfg=Config{dir,name:"admitdl".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{pool_sender_gas_max:Some(32_000_000),..Limits::default()}};
     let mut n=Node::open(cfg,spec()).unwrap();let alice=devnet::account_key("alice");
     let tx=|nonce:u64,to:Option<revm::primitives::Address>,data:Vec<u8>|Tx{chain_id:777940,nonce,max_priority:U256::from(1u64),max_fee:U256::from(10_000_000_000u64),gas:7_900_000,to,value:U256::ZERO,data:data.into()}.sign_1559(&alice);
     // A create whose init code loops until it runs out of gas (JUMPDEST PUSH1 0 JUMP): interpreted.
