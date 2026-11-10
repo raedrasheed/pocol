@@ -23,6 +23,8 @@ use std::net::SocketAddr;
 use crate::addrbook::{self,Book,Kind,Outcome,Source};
 use crate::net::{self,Msg,Origin,PeerId};
 use super::{Node,now_ms};
+mod outbound;
+pub(super) use outbound::{Arrival,first_delivery};
 /// The book's file in the data directory (VA-SPEC §1a.6), and the temporary file a save writes first.
 const FILE:&str="addrbook";const FILE_TMP:&str="addrbook.tmp";
 
@@ -149,8 +151,16 @@ impl DiscoveryTimes{
 /// an inbound connection advertised in its first Hello; `compatible`: its first Hello was compatible; `consent`: a
 /// connection this node dialed announced a listener (listenPort != 0), so its dialed address is verified; `asked_ms`:
 /// the GetAddr sent on a connection this node dialed and not yet answered or expired; `answered`: an inbound
-/// connection's GetAddr was taken (at most one per connection).
-struct Link{origin:Origin,remote:Option<SocketAddr>,advertised:Option<SocketAddr>,compatible:bool,consent:bool,asked_ms:Option<u64>,answered:bool}
+/// connection's GetAddr was taken (at most one per connection). Automatic outbound (VA-SPEC §1a.7): `mismatch` its first Hello named another release or network; `self_conn` it reached this node
+/// itself; `useful_ms` and `blocks` the last time and the number of times it delivered first (D26); `closed_by_us`
+/// this node closed it on purpose (a swap, the extra's end, an invalid template), no failure of the address.
+struct Link{origin:Origin,remote:Option<SocketAddr>,advertised:Option<SocketAddr>,compatible:bool,consent:bool,asked_ms:Option<u64>,answered:bool,
+    mismatch:Option<Mismatch>,self_conn:bool,useful_ms:u64,blocks:u32,closed_by_us:bool}
+impl Link{fn new(p:&net::Peer)->Self{Self{origin:p.origin,remote:p.remote,advertised:None,compatible:false,consent:false,asked_ms:None,answered:false,
+    mismatch:None,self_conn:false,useful_ms:0,blocks:0,closed_by_us:false}}}
+/// Why a connection's first Hello was refused (`Link::mismatch`): another release (wire range or consensus identity)
+/// or another network.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)] enum Mismatch{Release,Network}
 /// A13 (resources.rs, `queues/discovery: per-connection links`): one entry of the links table, its key and Link.
 pub const LINK_BYTES:usize=std::mem::size_of::<(PeerId,Link)>();
 /// Shown in `pocol_status` as `discovery.counters`. GetAddr messages: sent, answered, ignored (on a connection this
@@ -166,9 +176,10 @@ struct Counters{get_addr_sent:u64,get_addr_answered:u64,get_addr_ignored:u64,get
 /// per process); `listen_ip`: the listener's IP (canonical), which decides the connections that can reach it;
 /// `listen_port`: the bound listener's port, read when the network starts with discovery on; `rng`:
 /// the book's shuffles (seeded from the OS, or `Discovery::rng_seed`); `links`: each connection's state; `file`: what
-/// the network's start found in the book's file; `loaded`: the network started with discovery on, so the book is saved.
+/// the network's start found in the book's file; `loaded`: the network started with discovery on, so the book is saved;
+/// `out`: automatic outbound (`outbound`).
 pub(super) struct Disc{on:bool,allow_local:bool,listening:bool,nonce:u64,listen_ip:Option<std::net::IpAddr>,listen_port:u16,book:Book,rng:addrbook::Rng,links:HashMap<PeerId,Link>,
-    times:DiscoveryTimes,file:String,loaded:bool,next_tick_ms:u64,next_refresh_ms:u64,next_save_ms:u64,counters:Counters,
+    times:DiscoveryTimes,file:String,loaded:bool,next_tick_ms:u64,next_refresh_ms:u64,next_save_ms:u64,counters:Counters,out:outbound::Out,
     /// Tests: the clock the hooks read (`Node::disc_now`).
     #[cfg(test)] test_now:Option<u64>}
 impl Disc{
@@ -180,7 +191,7 @@ impl Disc{
         let [nonce,seed]=[0,8].map(|i|u64::from_be_bytes(r[i..i+8].try_into().unwrap()));
         let mut book=if s.enabled{Book::new(s.allow_local)}else{Book::disabled()};book.set_times(s.times.book());
         Ok(Self{on:s.enabled,allow_local:s.allow_local,listening:listen.is_some(),nonce:nonce.max(1),listen_ip:listen.map(|a|a.ip().to_canonical()),listen_port:0,book,rng:addrbook::Rng::new(s.rng_seed.unwrap_or(seed)),
-            links:HashMap::new(),times:s.times,file:"not loaded".into(),loaded:false,next_tick_ms:0,next_refresh_ms:0,next_save_ms:0,counters:Counters::default(),
+            links:HashMap::new(),times:s.times,file:"not loaded".into(),loaded:false,next_tick_ms:0,next_refresh_ms:0,next_save_ms:0,counters:Counters::default(),out:outbound::Out::new(s),
             #[cfg(test)]test_now:None})
     }
     /// The network started with this listener (`start_network`): its port is advertised only with discovery on.
@@ -197,6 +208,8 @@ impl Disc{
     /// seed is not recorded under its public IP as a listener nobody can reach, and sends nothing that links it across
     /// addresses (it cannot be dialed through that connection's addresses, so no self-connection is missed).
     pub(super) fn reaches(&self,local:Option<SocketAddr>,remote:Option<SocketAddr>)->bool{reaches(self.listen_ip,local,remote)}
+    /// Whether `id` is the feeler's connection (VA-SPEC §1a.7), which is never in `Node::peers`.
+    pub(super) fn is_feeler(&self,id:PeerId)->bool{self.out.is_feeler(id)}
 }
 /// `Disc::reaches` for a listener on `listen` (canonical).
 fn reaches(listen:Option<std::net::IpAddr>,local:Option<SocketAddr>,remote:Option<SocketAddr>)->bool{
@@ -210,16 +223,28 @@ impl Node{
         #[cfg(test)]{if let Some(t)=self.disc.test_now{return t}}
         now_ms() as u64
     }
-    pub(super) fn disc_connected(&mut self,id:PeerId,p:&net::Peer){
-        if self.disc.on{self.disc.links.insert(id,Link{origin:p.origin,remote:p.remote,advertised:None,compatible:false,consent:false,asked_ms:None,answered:false});}
+    /// A new connection (`Arrival`): one an automatic slot dialed is taken by its slot (a feeler is kept out of
+    /// `peers`); any other gets a link (discovery on) and is a peer. A connection of an address family clears that
+    /// family's route flag (VA-SPEC §1a.7).
+    pub(super) fn disc_connected(&mut self,id:PeerId,p:&net::Peer,now:u64)->Arrival{
+        if !self.disc.on{return Arrival::Peer}
+        if let Origin::Slot(t,a)=p.origin{return self.slot_connected(id,p,usize::from(t),a,now)}
+        if let Origin::Configured(a)=p.origin{self.seed_connected(a,Some(id));}
+        self.family_up(p.origin.dialed().or(p.remote));
+        self.disc.links.insert(id,Link::new(p));Arrival::Peer
     }
-    /// A connection ended. One this node dialed that consented refreshes its verification (`Book::touch`).
+    /// A connection ended. A configured peer this node dialed that consented refreshes its verification
+    /// (`Book::touch`); an automatic slot's goes to its slot (`slot_closed`, which touches only a connection that
+    /// lived), as does the feeler's, which has no link.
     pub(super) fn disc_closed(&mut self,id:PeerId,now:u64){
+        if let Some((t,a))=self.disc.out.feeler_slot(id){return self.slot_closed(id,t,a,None,now)}
         let Some(l)=self.disc.links.remove(&id) else{return};
-        if let Some(a)=l.origin.dialed().filter(|_|l.compatible&&l.consent){self.disc.book.touch(a,false,now);}
+        match l.origin{
+            Origin::Configured(a)=>{self.seed_connected(a,None);if l.compatible&&l.consent{self.disc.book.touch(a,false,now);}}
+            Origin::Slot(t,a)=>self.slot_closed(id,usize::from(t),a,Some(&l),now),
+            Origin::Inbound=>{}
+        }
     }
-    /// An automatic outbound slot's dial failed (`net::slot`, VA-SPEC §1a.7). No slot runs yet: nothing to account.
-    pub(super) fn disc_dial_failed(&mut self,_t:u8,_a:SocketAddr,_e:net::DialError,_now:u64){}
     /// VA-SPEC §2: a first Hello carrying this node's own nonce. The connection is closed and removed before any Status
     /// is kept, so `compatiblePeers` never counts it, and an address this node dialed for it is marked as its own
     /// (`Book::mark_self`). A configured address stays in the outbound set: its peer is gone from `peers` before its
@@ -230,6 +255,7 @@ impl Node{
     /// address, would see the connection end before any Hello and dial again (1 in 5 loopback runs needed 2 or 3 more
     /// connections before the dialer stopped).
     pub(super) fn disc_self_connection(&mut self,from:PeerId){
+        if let Some(l)=self.disc.links.get_mut(&from){l.self_conn=true;}
         let Some(p)=self.peers.remove(&from) else{return};
         match p.origin.dialed(){Some(a)=>{p.close();self.disc.book.mark_self(a);}None=>p.finish()}
         self.disc.counters.self_connections+=1;
@@ -239,6 +265,7 @@ impl Node{
     /// dialed address; a wire version below the minimum or another consensus identity (rules or fork schedule) holds it
     /// back for a while, since until every node has applied a network upgrade the network is split.
     pub(super) fn disc_incompatible(&mut self,from:PeerId,network:bool,now:u64){
+        if let Some(l)=self.disc.links.get_mut(&from){l.mismatch=Some(if network{Mismatch::Network}else{Mismatch::Release});}
         let Some(a)=self.peers.get(&from).and_then(|p|p.origin.dialed()) else{return};
         if network{self.disc.book.remove(a)}else{self.disc.book.held(a,now)}
     }
@@ -252,6 +279,7 @@ impl Node{
     /// (VA-SPEC §1a.5).
     pub(super) fn disc_first_hello(&mut self,from:PeerId,port:u16,nonce:u64,now:u64){
         if !self.disc.on{return}
+        let remote=self.disc.links.get(&from).filter(|l|l.origin==Origin::Inbound).and_then(|l|l.remote);self.family_up(remote);
         let d=&mut self.disc;let Some(l)=d.links.get_mut(&from) else{return};
         l.compatible=true;
         match l.origin.dialed(){
@@ -318,6 +346,7 @@ impl Node{
         for l in d.links.values_mut(){if l.asked_ms.is_some_and(|a|a>now.saturating_add(t.tick_ms)||now.saturating_sub(a)>t.getaddr_timeout_ms){l.asked_ms=None;d.counters.get_addr_timeouts+=1;}}
         if now>=d.next_refresh_ms{d.next_refresh_ms=now.saturating_add(d.times.refresh_ms);
             for l in d.links.values(){match (l.origin.dialed(),l.advertised){(Some(a),_) if l.compatible&&l.consent=>d.book.touch(a,false,now),(None,Some(a))=>d.book.touch(a,true,now),_=>{}}}}
+        self.out_tick(now);let d=&mut self.disc;
         if d.loaded&&now>=d.next_save_ms{d.next_save_ms=now.saturating_add(d.times.save_every_ms);d.book.purge(now);self.disc_save();}
     }
     /// VA-SPEC §1a.6, when the network starts with discovery on: the book is read from the data directory with a 1 MiB
@@ -357,36 +386,37 @@ impl Node{
         let (d,now)=(&self.disc,self.disc_now());let e=d.book.entries();
         let mut keys:Vec<addrbook::Key>=e.iter().map(|e|e.key).collect();keys.sort_unstable();keys.dedup();
         let c=&d.counters;
-        serde_json::json!({"enabled":d.on,"allowLocal":d.allow_local,"listenPort":d.listen_port(),"selfDetection":d.wire_nonce()!=0,
+        let mut j=serde_json::json!({"enabled":d.on,"allowLocal":d.allow_local,"listenPort":d.listen_port(),"selfDetection":d.wire_nonce()!=0,
             "book":{"entries":e.len(),"verified":e.iter().filter(|x|x.verified_ms>0).count(),"relayable":e.iter().filter(|x|d.book.relayable(x,now)).count(),"keys":keys.len(),
                 "max":if d.on{addrbook::BOOK_MAX}else{0},"file":d.file},
-            // VA-SPEC §1a.7: the resolved automatic slots and the bootstrap addresses given (the slots themselves start
-            // with automatic outbound).
-            "outbound":{"automatic":self.cfg.limits.discovery.automatic(),"bootstrap":self.cfg.limits.discovery.bootstrap.len()},
+            "outbound":self.out_status(now),
             "self":d.book.selfs().iter().map(|a|a.to_string()).collect::<Vec<_>>(),
             "counters":{"getAddrSent":c.get_addr_sent,"getAddrAnswered":c.get_addr_answered,"getAddrIgnored":c.get_addr_ignored,"getAddrTimeouts":c.get_addr_timeouts,
                 "answerSkippedQueue":c.answer_skipped_queue,"addrReceived":c.addr_received,"addrUnsolicited":c.addr_unsolicited,"addrAccepted":c.addr_accepted,
-                "addrRefreshed":c.addr_refreshed,"addrDropped":c.addr_dropped,"selfAds":c.self_ads,"selfConnections":c.self_connections,"bookSaves":c.book_saves,"bookSaveErrors":c.book_save_errors}})
+                "addrRefreshed":c.addr_refreshed,"addrDropped":c.addr_dropped,"selfAds":c.self_ads,"selfConnections":c.self_connections,"bookSaves":c.book_saves,"bookSaveErrors":c.book_save_errors}});
+        // Automatic outbound's counters follow bookSaveErrors in the same object.
+        if let (Some(m),serde_json::Value::Object(o))=(j["counters"].as_object_mut(),self.out_counters()){m.extend(o);}
+        j
     }
 }
 
 #[cfg(test)]
 mod tests{
-    use crate::node::*;
+    pub(super) use crate::node::*;
     use super::{Discovery,Source,Outbound,parse_outbound,is_own_seed};
     use std::io::Read;
-    use std::net::TcpStream;
-    use crate::net::Origin;
+    pub(super) use std::net::TcpStream;
+    pub(super) use crate::net::Origin;
     use pocol_lp4_execution::devnet::{self,DevnetConfig};
-    const T0:u64=1_800_000_000_000;
+    pub(super) const T0:u64=1_800_000_000_000;
     /// A devnet node without a network (the relay_tests pattern): events are handed to `handle` directly.
-    fn open(tag:&str)->(Node,std::path::PathBuf){open_with(tag,false,Discovery::default())}
+    pub(super) fn open(tag:&str)->(Node,std::path::PathBuf){open_with(tag,false,Discovery::default())}
     /// `open`, listening (so it sends its nonce; nothing is bound without `start_network`) or not, with these settings.
-    fn open_with(tag:&str,listen:bool,d:Discovery)->(Node,std::path::PathBuf){
+    pub(super) fn open_with(tag:&str,listen:bool,d:Discovery)->(Node,std::path::PathBuf){
         let (n,dir)=open_peers(tag,listen,d,vec![]);let mut n=n.unwrap();n.disc.test_now=Some(T0);(n,dir)
     }
     /// `open_with` these configured peers, as `Node::open` returns it.
-    fn open_peers(tag:&str,listen:bool,d:Discovery,peers:Vec<SocketAddr>)->(Result<Node,String>,std::path::PathBuf){
+    pub(super) fn open_peers(tag:&str,listen:bool,d:Discovery,peers:Vec<SocketAddr>)->(Result<Node,String>,std::path::PathBuf){
         let c=DevnetConfig::new(777919,1_700_000_000,&["a","b","c"]);
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
         let dir=std::env::temp_dir().join(format!("pocold-disc-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
@@ -394,23 +424,23 @@ mod tests{
             limits:Limits{discovery:d,..Limits::default()}};
         (Node::open(cfg,spec),dir)
     }
-    fn sa(s:&str)->SocketAddr{s.parse().unwrap()}
+    pub(super) fn sa(s:&str)->SocketAddr{s.parse().unwrap()}
     /// A peer's Hello for this node's network and head (so it starts no sync session), announcing `listen_port` and
     /// `nonce`.
-    fn hello(n:&Node,listen_port:u16,nonce:u64)->Msg{let mut h=n.hello();if let Msg::Hello{listen_port:p,nonce:x,..}=&mut h{(*p,*x)=(listen_port,nonce);}h}
+    pub(super) fn hello(n:&Node,listen_port:u16,nonce:u64)->Msg{let mut h=n.hello();if let Msg::Hello{listen_port:p,nonce:x,..}=&mut h{(*p,*x)=(listen_port,nonce);}h}
     /// A connection of this `origin` whose socket reported `remote`, handed to the node; for a dialed one the address is
     /// in the outbound set first, as `net::dial` puts it there. The other end of the socket pair is returned.
-    fn connect(n:&mut Node,id:PeerId,origin:Origin,remote:Option<SocketAddr>)->TcpStream{
+    pub(super) fn connect(n:&mut Node,id:PeerId,origin:Origin,remote:Option<SocketAddr>)->TcpStream{
         if let Some(a)=origin.dialed(){n.outbound.lock().unwrap().insert(a.to_string());}
         let (p,other)=net::test_peer_as(id,4096,origin,remote);n.handle(Event::Net(NetEvent::Connected(id,p)));other
     }
-    fn msg(n:&mut Node,id:PeerId,m:Msg){n.handle(Event::Net(NetEvent::Message(id,m)))}
+    pub(super) fn msg(n:&mut Node,id:PeerId,m:Msg){n.handle(Event::Net(NetEvent::Message(id,m)))}
     /// Peer `id`'s Hello (`hello`) handed to the node.
-    fn greet(n:&mut Node,id:PeerId,listen_port:u16,nonce:u64){let h=hello(n,listen_port,nonce);msg(n,id,h)}
+    pub(super) fn greet(n:&mut Node,id:PeerId,listen_port:u16,nonce:u64){let h=hello(n,listen_port,nonce);msg(n,id,h)}
     /// The node closed the connection whose other end this is (EOF; the test peer writes nothing).
-    fn closed(s:&mut TcpStream)->bool{s.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();let mut b=[0u8;1];
+    pub(super) fn closed(s:&mut TcpStream)->bool{s.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();let mut b=[0u8;1];
         match s.read(&mut b){Ok(0)=>true,Err(e)=>!matches!(e.kind(),std::io::ErrorKind::WouldBlock|std::io::ErrorKind::TimedOut),Ok(_)=>false}}
-    fn dialing(n:&Node,a:SocketAddr)->bool{n.outbound.lock().unwrap().contains(&a.to_string())}
+    pub(super) fn dialing(n:&Node,a:SocketAddr)->bool{n.outbound.lock().unwrap().contains(&a.to_string())}
     /// The Addr answers waiting in a peer's queue.
     fn answers(n:&Node,id:PeerId)->Vec<Vec<SocketAddr>>{n.peers[&id].queued().into_iter().filter_map(|m|match m{Msg::Addr{addrs}=>Some(addrs),_=>None}).collect()}
 

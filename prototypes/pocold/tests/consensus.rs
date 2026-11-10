@@ -1979,9 +1979,11 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // overlay's BLOCKHASH window, +4,692,588 B, -> 3,359,116,911 B (this pin was not moved with them); PR6 review: the
     // selection's tail after a gas failure joins the candidates (GAS_LIMIT/TX_GAS_MIN more entries, BODY_MAX more raw
     // bytes), +383,948 B, -> 3,359,500,859 B; PR6 review: parked runs (PARKED_ENTRY_BYTES 160) and the parked senders
-    // in the selection's skipped sets, +393,216 B, -> 3,359,894,075 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
+    // in the selection's skipped sets, +393,216 B, -> 3,359,894,075 B; PR2b automatic outbound state per connection (the
+    // link's mismatch, self-connection, usefulness and closed-by-us fields): LINK_BYTES 128 -> 144 at the old high 269,
+    // +39,274 B, -> 3,359,933,349 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
     // the target the evidence is produced on; every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_359_894_075,"the A13 model total changed");
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_359_933_349,"the A13 model total changed");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);

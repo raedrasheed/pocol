@@ -257,7 +257,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         assert_eq!(local,on,"local mode costs nothing more");
     }
     assert_eq!(BOOK_MAX,1024);
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,128),"the type sizes the pinned total was derived with");}
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,144),"the type sizes the pinned total was derived with");}
 }
 
 /// R1 (PR3): the live continuous chain (deploy/mainnet/h15000, T_blk 10 s) has no finite lifetime, so A13 projects
@@ -297,11 +297,13 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // 1,132,366 at 8 (-163, 0), 1,125,232 and 1,100,385 at 32 (-7, -163), 1,082,476 and 1,057,845 at 64 (-153, -163).
     // PR6 review, parked runs (PARKED_ENTRY_BYTES 128 -> 160) and the parked senders in the selection's skipped sets:
     // 1,156,856 and 1,132,236 at 8 (-168, -130), 1,125,065 and 1,100,218 at 32 (-167, -167), 1,082,476 and 1,057,678 at
-    // 64 (0, -167); the seed rule's outcome is unchanged.
+    // 64 (0, -167); the seed rule's outcome is unchanged. PR2b, the link's automatic-outbound fields (LINK_BYTES 128 ->
+    // 144): 1,156,841 and 1,132,210 at 8 (-15, -26), 1,125,048 and 1,100,190 at 32 (-17, -28), 1,082,476 and 1,057,648
+    // at 64 (0, -30).
     // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
     // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[1_156_856,1_132_236,1_125_065,1_100_218,1_082_476,1_057_678],"the live chain's halt moved (record it in the PR)");
+        assert_eq!(got,[1_156_841,1_132_210,1_125_048,1_100_190,1_082_476,1_057_648],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
@@ -315,7 +317,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// send queues and frames, the group entries, the connection high-water (`high`, with the node's maps at 2,718 B an
 /// entry and each connection's activity record), the I/O threads and the exiting ones; and the eviction registry (a
 /// slot and a selection candidate per place, reserved once, and the ring). At the defaults one more established place
-/// costs 3,424,474 B of model.
+/// costs 3,424,620 B of model (PR2b: 3,424,474 before the link's automatic-outbound fields, 2·73 B a link).
 #[test] fn a13_inbound_terms_count_every_inbound_place_and_the_eviction_registry(){
     use pocold::{net,node::{self,Limits},resources::derive,threads::IO_STACK};
     let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
@@ -332,7 +334,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         assert_eq!(item(&b,"threads/I/O thread stacks and heap"),(2*s+4*d+conn_max+6)*(IO_STACK as u128+4096),"the io threads at ({p}, {h}, {d})");
         assert_eq!(item(&b,"threads/exiting not-yet-joined"),(s+d+conn_max)*IO_STACK as u128,"the exiting threads at ({p}, {h}, {d})");
     }
-    let d=net::Limits::default();assert_eq!(at(d.peers_max+1,d.handshaking_max,2).total-at(d.peers_max,d.handshaking_max,2).total,3_424_474,"one more established place");
+    let d=net::Limits::default();assert_eq!(at(d.peers_max+1,d.handshaking_max,2).total-at(d.peers_max,d.handshaking_max,2).total,3_424_620,"one more established place");
     assert_eq!((net::SLOT_BYTES,net::CAND_BYTES,net::ACTIVITY_BYTES,net::EVICT_RING,net::EVICT_ENTRY_BYTES),(96,96,64,64,32),"the constants the pinned totals were derived with");
 }
 /// PR3 A2: the devnet profile pocold boots passes the A13 gate at a seed's settings (64 established, 8 waiting for a

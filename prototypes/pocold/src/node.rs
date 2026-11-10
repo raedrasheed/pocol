@@ -896,7 +896,12 @@ impl Node{
                 if std::time::Instant::now()>=q.deadline{crate::rpc::COUNTERS.expired.fetch_add(1,std::sync::atomic::Ordering::SeqCst);}
                 else{let r=crate::rpc::answer(self,&q);let _=q.reply.send(r);}
             }
-            Event::Net(NetEvent::Connected(id,peer))=>{self.disc_connected(id,&peer);let hello=self.hello_to(&peer,self.hello());peer.send(&hello);self.peers.insert(id,peer);}
+            // A feeler (VA-SPEC §1a.7) sends nothing and is never a peer; a connection its slot no longer waits for is
+            // closed at once.
+            Event::Net(NetEvent::Connected(id,peer))=>match self.disc_connected(id,&peer,self.disc_now()){
+                discovery::Arrival::Peer=>{let hello=self.hello_to(&peer,self.hello());peer.send(&hello);self.peers.insert(id,peer);}
+                discovery::Arrival::Feeler=>{}
+                discovery::Arrival::Close=>peer.close()},
             Event::Net(NetEvent::Closed(id))=>{self.disc_closed(id,self.disc_now());self.peer_status.remove(&id);if self.session.as_ref().map_or(false,|s|s.peer==id){self.end_session(false);}
                 if let Some(p)=self.peers.remove(&id){self.allow_redial(p.origin);}}
             Event::Net(NetEvent::Message(id,m))=>self.on_msg(id,m),
@@ -1696,7 +1701,7 @@ impl Node{
         match rebuilt{
             Ok(ut) if ut==shell.ut_raw=>{
                 let m=Msg::Template{shell:shell.encoded.clone(),body:body.encode()};
-                self.lock(shell,body,false);self.credit(from,Useful::Template);self.relay_template(tid,&m,from);true}
+                self.lock(shell,body,false);self.credit(from,Useful::Template);self.disc_useful(from,false,self.disc_now());self.relay_template(tid,&m,from);true}
             Ok(_)=>self.punish_template(from,"its rebuild differs"),
             Err(e)=>self.template_error(from,"its rebuild fails",e),
         }
@@ -1730,7 +1735,7 @@ impl Node{
     fn credit(&mut self,id:PeerId,u:Useful){if let Some(p)=self.peers.get(&id){p.credit(u);self.stats.credits[u as usize]+=1;}}
     fn punish_template(&mut self,from:PeerId,why:&str)->bool{
         self.stats.template_penalties+=1;self.log(&format!("invalid template from Draw(h,0) ({why}): closing its peer"));
-        if let Some(p)=self.peers.get(&from){p.close();}
+        self.disc_closed_by_us(from);if let Some(p)=self.peers.get(&from){p.close();}
         false
     }
     // ---------------- sync sessions (network.md D38; D-REORG-REDB re-fetch) ----------------
@@ -1843,6 +1848,8 @@ impl Node{
         }
     }
     fn on_msg(&mut self,from:PeerId,m:Msg){
+        // The feeler (VA-SPEC §1a.7) is not in `peers`: only its first Hello is read, then it closes.
+        if self.disc.is_feeler(from){if matches!(m,Msg::Hello{..}){self.disc_feeler_hello(from,m,self.disc_now());}return}
         // Reader events may already be queued when an incompatible Hello closes a socket.
         // Neither those frames nor a later Hello may revive the removed connection.
         if !self.peers.contains_key(&from){return}
@@ -1889,7 +1896,12 @@ impl Node{
                 let Ok(b)=Body::decode(&body,self.chain.spec.cp().BODY_MAX as usize) else{return};
                 let solicited=self.session.as_ref().map_or(false,|s|s.peer==from);
                 let height=h.h;let b=Block{header:h,body:b};let hash=b.hash();
-                let r=self.import_with(b,Some(from),solicited);
+                let before=self.chain.head;let r=self.import_with(b,Some(from),solicited);let now=self.disc_now();
+                // D25, D26 (VA-SPEC §1a.7): a peer's block that moved the head; first delivery (new, within 2 of the
+                // head, or of the peer's own sync session) makes the peer useful. An echo of a block this node sent is
+                // a Duplicate outside a session and earns nothing.
+                if self.chain.head!=before{self.disc_head(from,now);}
+                if discovery::first_delivery(r.is_ok(),matches!(r,Err(Reject::Duplicate)),height,self.chain.head().height,solicited){self.disc_useful(from,true,now);}
                 // Progress: a block stored by this import, or a stored copy at a new height inside the
                 // R_keep window (the honest common point is inside it). Anything else (junk, duplicates
                 // below the frontier, blocks retention removed at once) does not refresh the session.
