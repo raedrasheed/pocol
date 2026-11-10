@@ -602,7 +602,8 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
                 mul(2*CACHE_MAX as u128,size_of::<std::net::SocketAddr>() as u128)?,mul((SELF_MAX+ANCHORS_MAX+7) as u128,64)?,1024])?),
             ("queues/discovery: address-book file buffers",add(&[crate::launcher::MAX_INVITATION as u128+1,mul(FILE_LINE_MAX as u128,(BOOK_MAX+ANCHORS_MAX+3) as u128)?])?),
             // Automatic outbound's state (`Out`: the slots, their channels, the seeds, bootstrap addresses, the suppressed
-            // set and the anchors, reserved at open; a const assert keeps it within OUT_STATE_BYTES), with any slot.
+            // set and the anchors, reserved at open, the slots and channels at the network's start; a const assert keeps
+            // it within OUT_STATE_BYTES), with any slot.
             ("queues/discovery: outbound state",mul(f,node::OUT_STATE_BYTES as u128)?)];
         queues=add(&[queues,add(&d.map(|x|x.1))?])?;items.extend(d);
     }

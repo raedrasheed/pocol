@@ -41,8 +41,9 @@ pub(super) struct OutCounters{pub(super) dials:u64,pub(super) dial_failed:u64,pu
     pub(super) extras:u64,pub(super) extra_swaps:u64,pub(super) extra_closed:u64,pub(super) extra_starved:u64,pub(super) seed_wants:u64,pub(super) seed_releases:u64,
     pub(super) seed_rotations:u64,pub(super) seed_holds:u64,pub(super) stalls:u64,pub(super) quiets:u64,pub(super) bootstrap_loaded:u64}
 /// Automatic outbound's state (A13 `queues/discovery: outbound state`: the struct and the vectors reserved at open,
-/// OUT_STATE_BYTES in all). `k`: the resolved automatic slots; `slots`/`tx`: the K + 1 slots and their address
-/// channels (empty until the network starts); `family_down`: per address family (0 IPv4, 1 IPv6) the address whose
+/// the slots' and channels' at the network's start, OUT_STATE_BYTES in all). `k`: the resolved automatic slots;
+/// `slots`/`tx`: the K + 1 slots and their address channels (empty until the network starts, then reserved for
+/// OUTBOUND_MAX + 1 at once, `reserve_slots`, so that their growth never holds two buffers); `family_down`: per address family (0 IPv4, 1 IPv6) the address whose
 /// route probe failed and when it was last probed; `last_peer_head_ms`: the last time a peer's block moved the head;
 /// `suppressed`: the seeds not wanted (their dialers see them as live and wait); `cursor`: the next seed to want;
 /// `started_ms`: the slots' start (the seeds' boot window); `healthy_since`: since when healthy >= 2;
@@ -59,7 +60,7 @@ pub(super) struct Out{pub(super) k:usize,pub(super) slots:Vec<Slot>,pub(super) t
     #[cfg(test)] pub(super) route_ok:Option<bool>}
 /// A13 (`resources::derive`, `queues/discovery: outbound state`): the bytes counted for `Out` with automatic outbound.
 pub const OUT_STATE_BYTES:usize=4096;
-// The struct, the slots and channels (at most OUTBOUND_MAX + 1), the seeds, bootstrap addresses, the suppressed set
+// The struct, the slots and channels (exactly OUTBOUND_MAX + 1 reserved), the seeds, bootstrap addresses, the suppressed set
 // (a HashSet of SEEDS_MAX reserves about twice as many buckets, each with a control byte) and the four anchor lists of
 // at most ANCHORS_MAX fit OUT_STATE_BYTES (760 + 9·80 + 7·226 + 512 + 320 = 3,894 B on x86_64).
 const _:()={use std::mem::size_of;let s=super::OUTBOUND_MAX as usize+1;
@@ -77,6 +78,9 @@ impl Out{
             #[cfg(test)]route_ok:None}
     }
     fn spare(&self)->Option<usize>{self.slots.iter().position(|s|s.role==Role::Spare)}
+    /// The slots and their channels reserved for OUTBOUND_MAX + 1, the bound OUT_STATE_BYTES counts: pushed one by one
+    /// from empty, 9 would grow to a capacity of 16 through one of 8.
+    fn reserve_slots(&mut self){let s=super::OUTBOUND_MAX as usize+1;self.slots.reserve_exact(s);self.tx.reserve_exact(s);}
     /// VA-SPEC §1a.7: the anchors the file held (`addrbook::parse`), those saved within `keep_ms` only; each is dialed
     /// first, once in this process.
     pub(super) fn load_anchors(&mut self,anchors:&[(SocketAddr,u64)],now:u64,keep_ms:u64){
@@ -452,7 +456,7 @@ impl Node{
     /// K = 0 or discovery off.
     pub(in crate::node) fn disc_start_outbound(&mut self,now:u64)->Result<(),String>{
         let k=self.disc.out.k;if k==0||!self.disc.on{return Ok(())}
-        let tx=self.tx.clone();let (otx,orx)=std::sync::mpsc::sync_channel(net::NET_EVENT_QUEUE);
+        self.disc.out.reserve_slots();let tx=self.tx.clone();let (otx,orx)=std::sync::mpsc::sync_channel(net::NET_EVENT_QUEUE);
         crate::threads::spawn("out-fwd",crate::threads::IO_STACK,move||{for e in orx{if tx.send(crate::node::Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
         for t in 0..=k{let (stx,srx)=std::sync::mpsc::sync_channel(1);net::slot(t as u8,srx,otx.clone(),self.net.clone()).map_err(|e|format!("spawn: {e}"))?;
             self.disc.out.tx.push(stx);self.disc.out.slots.push(Slot{role:if t==k{Role::Spare}else{Role::Auto},state:SlotState::Idle{next_ms:now},fails:0,starved:false});}
@@ -539,7 +543,7 @@ impl Node{
     /// channel, where the assigned addresses arrive (64 of them may wait, so a test need not take each one).
     #[cfg(test)]
     pub(crate) fn disc_test_slots(&mut self,now:u64)->Vec<std::sync::mpsc::Receiver<SocketAddr>>{
-        let k=self.disc.out.k;let mut rx=Vec::new();
+        let k=self.disc.out.k;let mut rx=Vec::new();self.disc.out.reserve_slots();
         for t in 0..=k{let (stx,srx)=std::sync::mpsc::sync_channel(64);self.disc.out.tx.push(stx);rx.push(srx);
             self.disc.out.slots.push(Slot{role:if t==k{Role::Spare}else{Role::Auto},state:SlotState::Idle{next_ms:now},fails:0,starved:false});}
         self.seeds_start(now);rx
@@ -1073,6 +1077,13 @@ mod tests{
         std::fs::remove_dir(dir.join(super::super::FILE_TMP)).unwrap();
         let now=G+every;n.disc.test_now=Some(now);n.disc_tick(now);
         assert!(n.disc.counters.book_saves==1&&n.disc.out.saved_anchors==[(a,G)],"saved once the disk recovers");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// A13 (`queues/discovery: outbound state`): at --outbound 8 the 9 slots and channels hold exactly the capacity
+    /// OUT_STATE_BYTES counts, not the 16 that growth from empty reaches.
+    #[test] fn the_slots_hold_exactly_the_capacity_a13_counts(){
+        let (n,_rx,dir)=node("o-cap9",8,true,vec![],vec![],G);
+        assert_eq!((n.disc.out.slots.len(),n.disc.out.slots.capacity(),n.disc.out.tx.capacity()),(9,9,9));
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     const SESSION_STALL:u128=crate::node::SESSION_STALL_MS;
