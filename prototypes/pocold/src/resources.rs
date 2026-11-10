@@ -317,7 +317,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("canon-redb-representation","C-1 S5 (PR7): canon.redb's terms rely on the same redb 2.6.4 behaviour as history.redb's (its page cache CANON_CACHE also holds the write buffer of the SYNC_EVERY non-durable puts between two durable commits) and on HISTORY_FILE_FACTOR for its file, not measured on canon.redb itself; with eviction on, the history.redb, canon.redb and state.redb allocator terms are counted over the observed file sizes (Limits::disk, observed at open and every 256 records) plus DISK_HEADROOM records, at least one whole region's allocator each"),
     ("serving-io","C-1 S5 (PR7): GetRange and GetFrom below the in-memory window read canon.redb and the journal on the consensus thread, bounded per request by the peer's send queue (`offer`) and one index read per locator hash not held in memory (at most net::LOCATOR_MAX, 32, the wire's cap), with no per-peer request rate limit (as GetRange over offloaded history before PR7); I/O, not memory"),
     ("redb-representation","the history.redb terms rely on redb 2.6.4 behaviour checked by source inspection (cache split and write-buffer flush, allocator bitmaps) and on a measured file-size factor (HISTORY_FILE_FACTOR)"),
-    ("open-replay-transient","Node::open holds, while it replays, tables that grow with the journal, outside the steady-state bound and counted at open only (`open_transient`, checked by `check_open`; PR7 §7): every record's frame offset (store::open) and two replay events, each a Vec grown by doubling, a rolling hash every ROLL_SAMPLE records, and the checkpoint snapshots it decodes (KEPT, each of the window's entries). Not counted: a format-1 checkpoint (every entry of the chain) decoded before `migration_fits` refuses one that does not fit, and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, read before it, which holds the accounts and slots that differ, one block's write set (an anchor and the lowest entry above the K_hist cut are read whole), the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),
+    ("open-replay-transient","Node::open holds, while it replays, tables that grow with the journal, outside the steady-state bound and counted at open only (`open_transient`, checked by `check_open`; PR7 §7): every record's frame offset (store::open) and two replay events, each a Vec grown by doubling, a rolling hash every ROLL_SAMPLE records, and the checkpoint snapshots it reads (KEPT, each of the window's entries; decoded one at a time, and a format-1 one, every entry of the chain, with the KEPT checkpoints' bytes, by `migration_fits`). Not counted: a format-1 checkpoint decoded once to check it, and again before `migration_fits` refuses one that does not fit, and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, read before it, which holds the accounts and slots that differ, one block's write set (an anchor and the lowest entry above the K_hist cut are read whole), the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),
     ("store-inventory","store mode (C-1 E4): BATCHES (1) and stored_versions are inventories by code inspection, not enforced by a counter; the node cache is bounded by its resident-byte count (state_store::CACHE_ENTRY, Node::resident_bytes), checked by a test"),
     ("revm-loading","the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION §2d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested"),
     ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; by inspection"),
@@ -742,12 +742,16 @@ pub fn evict_depth_of(cp:&ConsensusParams,k_hist:u32,limits:&Limits,rk_replay:u6
 }
 /// C-1 S5: whether a format-1 checkpoint (every entry of the chain, restored at once before the open's window
 /// evicts it, PR7 §4.4) fits the budget beside the model and the open's replay tables for the journal's `records`:
-/// each entry counted as a slimmed one and 80 bytes of the restore's own tables. Err names the bytes; open then
+/// each entry counted as a slimmed one and 80 bytes of the restore's own tables, and the checkpoints open holds while
+/// it restores (review 2026-11, finding 6): the KEPT checkpoints' bytes, each counted at this one's `entries` (an
+/// older one holds fewer records), and this one decoded (open decodes one at a time). Err names the bytes; open then
 /// replays from genesis, which holds only the window.
 pub fn migration_fits(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize,entries:u64,records:u64)->Result<(),String>{
     let over=||"A13 migration headroom: arithmetic overflow".to_string();
     let b=derive(cp,k_hist,side_max,limits,dials).ok_or_else(over)?;let t=open_transient(cp,limits,records).ok_or_else(over)?;
-    let total=mul(u128::from(entries),slim_entry_bytes().ok_or_else(over)?.checked_add(80).ok_or_else(over)?).and_then(|x|add(&[x,b.total,t])).ok_or_else(over)?;
+    let e=u128::from(entries);
+    let snaps=snapshot_raw_bytes(e).and_then(|r|mul(crate::checkpoint::KEPT as u128,r)).and_then(|r|add(&[r,snapshot_decoded_bytes(e)?])).ok_or_else(over)?;
+    let total=mul(e,slim_entry_bytes().ok_or_else(over)?.checked_add(80).ok_or_else(over)?).and_then(|x|add(&[x,b.total,t,snaps])).ok_or_else(over)?;
     let need=budget_required(total).ok_or_else(over)?;
     if need>u128::from(limits.mem_budget){return Err(format!("a format-1 checkpoint of {entries} entries needs {need} B with the model, which exceeds the node memory budget {} B; replaying from genesis",limits.mem_budget))}
     Ok(())
@@ -773,10 +777,13 @@ pub fn open_transient(cp:&ConsensusParams,limits:&Limits,records:u64)->Option<u1
 /// A checkpoint snapshot open holds while it decodes it (C-1 S5): its bytes (every entry at most `REC_MAX`, the
 /// eviction FIFO, the unslimmed list and the protect set) and the decoded `Snapshot` (a `Rec` and a root per entry,
 /// the same hash lists).
-pub fn snapshot_bytes(entries:u128)->Option<u128>{
-    let lists=mul(add(&[chain::EVICTED_MAX as u128,mul(2,entries)?])?,32)?;
-    add(&[256,mul(entries,add(&[crate::checkpoint::REC_MAX as u128,size_of::<crate::checkpoint::Rec>() as u128,32])?)?,mul(2,lists)?])
-}
+pub fn snapshot_bytes(entries:u128)->Option<u128>{add(&[snapshot_raw_bytes(entries)?,snapshot_decoded_bytes(entries)?])}
+/// A checkpoint's bytes, as `StateStore::checkpoints` reads them: every entry at most `REC_MAX` and the hash lists.
+pub fn snapshot_raw_bytes(entries:u128)->Option<u128>{add(&[128,mul(entries,crate::checkpoint::REC_MAX as u128)?,snapshot_lists(entries)?])}
+/// A decoded `Snapshot`: a `Rec` and a root per entry, and the same hash lists.
+pub fn snapshot_decoded_bytes(entries:u128)->Option<u128>{add(&[128,mul(entries,add(&[size_of::<crate::checkpoint::Rec>() as u128,32])?)?,snapshot_lists(entries)?])}
+/// The eviction FIFO, the unslimmed list and the protect set: at most EVICTED_MAX + 2·entries hashes.
+fn snapshot_lists(entries:u128)->Option<u128>{mul(add(&[chain::EVICTED_MAX as u128,mul(2,entries)?])?,32)}
 /// C-1 S5 (PR7 §7): the boot check of an open about to replay a journal of `records` records: the bound and the
 /// replay's tables (`open_transient`), with the reserve, must fit the budget. The steady-state checks leave the tables
 /// out (they are gone once the node runs).

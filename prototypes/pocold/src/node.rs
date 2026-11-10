@@ -557,11 +557,15 @@ impl Node{
                 Err(e)=>return Err(format!("state store: the release at open: {}",e.0))}};timing.release_ms=ms(t);
             // The pins are reset to the checkpoints' before genesis's version is pinned for its entry.
             let t=Instant::now();let mut reset_ms=0u64;
-            let snaps:Result<Vec<(u64,crate::checkpoint::Snapshot)>,String>=if ckpt_every>0&&!st.rebuilt&&!history.rebuilt&&history_kept{
-                st.checkpoints().map_err(|e|e.0).and_then(|c|c.iter().map(|(q,b,roots)|{
-                    let s=crate::checkpoint::decode(b).map_err(|e|format!("checkpoint {q}: {e}"))?;
-                    if *roots!=crate::checkpoint::roots(&s){return Err(format!("checkpoint {q}: its roots record is not its snapshot's"))}Ok((*q,s))}).collect())
-                    .and_then(|s:Vec<(u64,crate::checkpoint::Snapshot)>|if s.is_empty(){Ok(s)}else{let t=Instant::now();let r=st.reset_pins().map(|n|{released=n;s}).map_err(|e|e.0);reset_ms=ms(t);r})}else{Ok(vec![])};
+            // Each checkpoint is decoded and checked here, then dropped, and decoded again only when it is tried below, so
+            // one decoded snapshot is alive at a time beside the KEPT checkpoints' bytes (`resources::migration_fits`
+            // counts that for a format-1 one, which holds every entry of the chain). Before, all KEPT were decoded at once
+            // and alive through the migration's restore, uncounted (review 2026-11, finding 6).
+            let snaps:Result<Vec<(u64,Vec<u8>)>,String>=if ckpt_every>0&&!st.rebuilt&&!history.rebuilt&&history_kept{
+                st.checkpoints().map_err(|e|e.0).and_then(|c|c.into_iter().map(|(q,b,roots)|{
+                    let s=crate::checkpoint::decode(&b).map_err(|e|format!("checkpoint {q}: {e}"))?;
+                    if roots!=crate::checkpoint::roots(&s){return Err(format!("checkpoint {q}: its roots record is not its snapshot's"))}Ok((q,b))}).collect())
+                    .and_then(|s:Vec<(u64,Vec<u8>)>|if s.is_empty(){Ok(s)}else{let t=Instant::now();let r=st.reset_pins().map(|n|{released=n;s}).map_err(|e|e.0);reset_ms=ms(t);r})}else{Ok(vec![])};
             timing.checkpoints_ms=ms(t);timing.reset_pins_ms=reset_ms;
             // A store found damaged so far (the release at open met a row naming a node that is not stored,
             // say) is set aside now and started empty, as `StateStore::open` sets aside one marked damaged:
@@ -578,7 +582,9 @@ impl Node{
                 match snaps{
                     Ok(mut snaps)=>{
                         snaps.sort_by_key(|x|std::cmp::Reverse(x.0));
-                        for (q,s) in snaps{
+                        for (q,raw) in snaps{
+                            // It decoded above, from the same bytes.
+                            let s=crate::checkpoint::decode(&raw).map_err(|e|format!("checkpoint {q}: {e}"))?;drop(raw);
                             let b=s.binding;let k=b.records as usize;
                             // Replay's protect set after record k: the blocks whose next journal event is a child record.
                             let protect:std::collections::HashSet<[u8;32]>=s.entries.iter().filter(|e|next_event(&evs,&e.hash,k)==Some(true)).map(|e|e.hash).collect();

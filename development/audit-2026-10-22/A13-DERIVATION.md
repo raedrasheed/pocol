@@ -931,8 +931,8 @@ its frame offset and two replay events (`node::Ev`, 36 B), each a Vec counted at
 every ROLL_SAMPLE (256) records; and in store mode the KEPT snapshots it decodes, each of the window's entries.
 The model is 160 B a record; tests/open_transient.rs measured about 89 B a record with eviction off and 107 B by
 default. On failure: `LOCAL CAPACITY at open: the journal's N records need … B of replay tables …`. A format-1
-checkpoint is restored whole once (`migration_fits`: entries × (slim_entry + 80) beside the model and the
-transient). If it does not fit, open replays from genesis, which now holds only the window.
+checkpoint is restored whole once (`migration_fits`: entries × (slim_entry + 80), the KEPT checkpoints' bytes at
+REC_MAX an entry and the one snapshot open decodes at a time, beside the model and the transient). If it does not fit, open replays from genesis, which now holds only the window.
 
 **CONDITIONS.** New: `canon-redb-representation` (canon.redb relies on the same redb behaviour as history.redb and
 on HISTORY_FILE_FACTOR; the allocator terms are over observed sizes) and `serving-io` (GetRange/GetFrom below the

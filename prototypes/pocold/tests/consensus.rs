@@ -4482,6 +4482,25 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     drop(x);let _=std::fs::remove_dir_all(&a);
 }
 
+/// Review 2026-11 (finding 6): the headroom check of a format-1 migration counts the checkpoints open holds while it
+/// restores: the KEPT checkpoints' bytes and the one it decodes (one at a time), each of every entry of the chain. A
+/// budget that fits only the slimmed entries beside the model and the replay tables is refused; one that fits the
+/// checkpoints too is accepted, to the byte. FAIL-ON-ORIGINAL: the check left the decoded snapshots out, and accepted
+/// the first budget.
+#[test] fn the_migration_check_counts_the_checkpoints_open_holds(){
+    use pocold::resources as r;
+    let spec=admitted(&cfg(&["a","b","c"]));let (cp,lo)=(spec.cp(),spec.local());let mut l=pr7_limits(8,true,50,None);l.evict_depth=Some(pr7_depth(&l));
+    let n=1_000_000u64;let e=u128::from(n);
+    let base=r::derive(cp,lo.k_hist,lo.side_max,&l,0).unwrap().total+r::open_transient(cp,&l,n).unwrap()+e*(r::slim_entry_bytes().unwrap()+80);
+    let snaps=pocold::checkpoint::KEPT as u128*r::snapshot_raw_bytes(e).unwrap()+r::snapshot_decoded_bytes(e).unwrap();
+    assert!(snaps>e*pocold::checkpoint::REC_MAX as u128*2,"positive control: KEPT checkpoints of every entry, {snaps} B");
+    let fits=|b:u128|{let mut x=l.clone();x.mem_budget=b as u64;r::migration_fits(cp,lo.k_hist,lo.side_max,&x,0,n,n)};
+    assert!(fits(r::budget_required(base).unwrap()).is_err(),"the slimmed entries, the model and the replay tables alone do not fit the checkpoints");
+    let need=r::budget_required(base+snaps).unwrap();
+    assert!(fits(need).is_ok()&&fits(need-1).is_err(),"the checkpoints are counted to the byte ({need} B)");
+    assert_eq!(r::snapshot_bytes(e),Some(r::snapshot_raw_bytes(e).unwrap()+r::snapshot_decoded_bytes(e).unwrap()),"a decoded checkpoint is its bytes and its snapshot");
+}
+
 /// A test-only format-1 encoder: the checkpoint layout before C-1 S5 (no eviction or anchor parameters, no window
 /// fields), sealed as before.
 fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
