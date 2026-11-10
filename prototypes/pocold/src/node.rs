@@ -1469,6 +1469,8 @@ impl Node{
                         let mut sum=0u64;let k=txs.iter().take_while(|t|{sum=sum.saturating_add(sender(&self.chain,t).map_or(u64::MAX,|(_,g)|g));sum<=gas_limit}).count();
                         let tail=txs.split_off(if k==txs.len(){0}else{k});
                         let mut back:Vec<Cand>=tail.into_iter().filter_map(|raw|sender(&self.chain,&raw).map(|(s,g)|Cand{sender:s,gas_limit:g,raw})).collect();
+                        // A13 (resources::selection_bytes): the tail is at most the selected transactions (GAS_LIMIT/
+                        // TX_GAS_MIN entries, BODY_MAX bytes), counted beside the candidates' own bound.
                         back.append(&mut rest);rest=back;self.stats.template_gas_recoveries+=1;continue
                     }
                     // Drop the offending user transaction (USER phase reports its index) with its sender's later

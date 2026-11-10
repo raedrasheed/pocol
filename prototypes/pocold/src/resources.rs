@@ -65,10 +65,15 @@ pub fn overlay_max(cp:&ConsensusParams)->Option<u128>{
 /// (`Selection::rest`: their raw copies, at most BODY_MAX plus the one transaction that passes it, TX_MAX; at
 /// most BODY_MAX/MIN_TX_BYTES + 1 entries, each a `Cand` and the round's queue, heap and sender-map entries), and
 /// the sets of skipped senders (the pooled transactions and at most BUILD_VISIT_MAX backlog decodes, three sets).
+/// PR6 review: after a gas failure (`build_signed_template`) the selection's tail joins the candidates in front of
+/// them: at most the selected transactions, each counted at least TX_GAS_MIN against GAS_LIMIT (gas used, its
+/// declared gas in the fallback, or a halt's declared gas), so GAS_LIMIT/TX_GAS_MIN more entries, and at most
+/// BODY_MAX more raw bytes (moved from the selection, which the template being built may fill again from the
+/// candidates). The candidates' bound therefore holds after the recovery too.
 pub fn selection_bytes(cp:&ConsensusParams)->Option<u128>{
-    let entries=u128::from(cp.BODY_MAX)/MIN_TX_BYTES+1;let senders=(node::POOL_MAX_TXS+node::BUILD_VISIT_MAX) as u128;
+    let entries=add(&[u128::from(cp.BODY_MAX)/MIN_TX_BYTES+1,u128::from(cp.GAS_LIMIT)/TX_GAS_MIN])?;let senders=(node::POOL_MAX_TXS+node::BUILD_VISIT_MAX) as u128;
     let per=add(&[mul(memory::VEC,node::CAND_ENTRY_BYTES as u128)?,mul(memory::VEC,24+8)?,mul(memory::VEC,24)?,memory::entry_bytes(28)])?;
-    add(&[u128::from(cp.BODY_MAX),u128::from(cp.TX_MAX),mul(entries,per)?,mul(3,add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?)?])
+    add(&[mul(2,u128::from(cp.BODY_MAX))?,u128::from(cp.TX_MAX),mul(entries,per)?,mul(3,add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?)?])
 }
 /// D-7: the gas the pool's layer can hold: its bound (`node::pool_gas_bound`), and at most POOL_MAX_TXS
 /// transactions of GAS_LIMIT each (the count bound binds first above it).

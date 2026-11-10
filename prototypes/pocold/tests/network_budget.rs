@@ -68,6 +68,12 @@ fn print(tag:&str,b:&pocold::resources::Bound){
             assert_eq!(item(&b,"queues/pool sender and declared gas"),3*POOL_MAX_TXS as u128*META_ENTRY_BYTES as u128);
             assert_eq!(item(&b,"queues/parked transactions' entries"),3*POOL_PARKED_MAX as u128*PARKED_ENTRY_BYTES as u128);
             assert_eq!(item(&b,"queues/template selection"),r::selection_bytes(cp).unwrap());assert!(r::selection_bytes(cp).unwrap()>2*body);
+            // PR6 review: after a gas failure the selection's tail (at most GAS_LIMIT/TX_GAS_MIN transactions, BODY_MAX
+            // bytes) joins the append round's candidates, so the term counts it beside their own bound.
+            {use pocol_lp4_execution::resources::memory::{entry_bytes,table_bytes};
+            let entries=body/r::MIN_TX_BYTES+1+u128::from(cp.GAS_LIMIT)/r::TX_GAS_MIN;let per=3*pocold::node::CAND_ENTRY_BYTES as u128+3*32+3*24+entry_bytes(28);
+            let senders=(POOL_MAX_TXS+pocold::node::BUILD_VISIT_MAX) as u128;
+            assert_eq!(r::selection_bytes(cp).unwrap(),2*body+u128::from(cp.TX_MAX)+entries*per+3*(senders*entry_bytes(20)+table_bytes(20)),"the candidates after a gas recovery");}
             let e=r::check(cp,32,l.side_max,&Limits{state_store:store,pool_sender_gas_max:Some(cp.GAS_LIMIT-1),..Default::default()},2).unwrap_err();assert!(e.contains("pool_sender_gas_max"),"{e}");
         }
     }
@@ -286,11 +292,13 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // days; -42,548 and -42,553 against R10's (8, d) halts, within the week of records, 60,480, the plan's rule allows).
     // PR6, the pool's meta, the parked entries, the template selection's candidates and the block overlay's BLOCKHASH
     // window: 1,157,187 and 1,132,366 at 8 established (-1,770, -1,970), 1,125,239 and 1,100,548 at 32 (-1,926, -1,770),
-    // 1,082,629 and 1,058,008 at 64 (-1,996, -1,770); the seed rule's outcome is unchanged.
+    // 1,082,629 and 1,058,008 at 64 (-1,996, -1,770); the seed rule's outcome is unchanged. PR6 review, the selection's
+    // tail after a gas failure (GAS_LIMIT/TX_GAS_MIN more candidate entries and BODY_MAX more raw bytes): 1,157,024 and
+    // 1,132,366 at 8 (-163, 0), 1,125,232 and 1,100,385 at 32 (-7, -163), 1,082,476 and 1,057,845 at 64 (-153, -163).
     // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
     // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[1_157_187,1_132_366,1_125_239,1_100_548,1_082_629,1_058_008],"the live chain's halt moved (record it in the PR)");
+        assert_eq!(got,[1_157_024,1_132_366,1_125_232,1_100_385,1_082_476,1_057_845],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];

@@ -239,6 +239,7 @@ Model totals, each dated to the code it was computed on (the heading "Final code
 | **C-1 E3** (executor, pool and RPC on overlays, 2026-10-25) | **3,186,963,844 B (2.968 GiB)** | **3,642,244,394 B** | **455,280,550 B = 434.2 MiB** | **2,800,206,550 B = 2670.5 MiB** | evidence/c1-e3/a13-devnet-breakdown-e3.log. TRANSIENT_SNAPSHOTS 10 → 2 (a block's merged child; a rolling re-execution's state and next merged state), POOL_LAYER_SNAPSHOTS 1 (the pool's layer counted as a whole state until D-7's value bounds it), and the applied block's overlay (`overlay_max`, in the diffs group). `Entry.state` is an `Arc`, so the entry is smaller. Network profile: 28.08 GiB, gate 32.09 GiB (evidence/c1-e3/a13-network-profile-e3.log) |
 | **PR4** (no state work before the pre-auth checks, 2026-11-08; the totals between C-1 E3 and here are in `a13_bound_breakdown`'s comment chain) | **3,244,176,189 B (3.021 GiB)** | **3,707,629,931 B** | **463,453,742 B = 442.0 MiB** | **2,734,821,013 B = 2608.1 MiB** | evidence/pr4/a13-breakdown-merge.log (merged with main's PR2a discovery, `b83b584`). One new term, `queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)`, +239,520 B on 3,243,936,669 B (the PR2a discovery total; before the merge, on 3,242,021,872 B, the P2P gossip total, it gave 3,242,261,392 B, evidence/pr4/a13-breakdown.log): `size_of::<([u8;32], Costly)>()` = 56 B, asserted with the pinned total on Linux x86_64, so a key's buckets round to 264 B. No other term changes; see the PR4 note below the table |
 | **PR3** (32 established inbound, inbound eviction and the node's per-connection maps, merged with main's PR4 `e3d6f07`; §2f) | **3,354,424,323 B (3.124 GiB)** | **3,833,627,798 B** | **479,203,475 B = 457.0 MiB** | **2,608,823,146 B = 2488.0 MiB** | `a13_bound_breakdown` (tests/consensus.rs) asserts the total on Linux x86_64: PR4's total plus PR3's +110,248,134 B (§2f) |
+| **PR6** (the pool and builder count gas used; with the readiness review's fixes) | **3,359,500,859 B (3.129 GiB)** | **3,839,429,554 B** | **479,928,695 B = 457.7 MiB** | **2,603,021,390 B = 2482.4 MiB** | `a13_bound_breakdown`: PR3's total plus the pool's meta, the parked entries, the template selection and the block overlay's BLOCKHASH window (+4,692,588 B), plus the selection's tail after a gas failure (+383,948 B); see the D-7 Builder and A13 (PR6) notes |
 
 PR4 note (the assumptions the existing terms rest on, made to hold; no new line): a block refused after a
 TrieRebuild or restore now drops the rebuilt state at once (`Chain::reprune`), so `MATERIALIZED` holds
@@ -504,9 +505,12 @@ three terms: one up and two down. It also withdraws one projection.
 - **A13 (PR6).** G and `pool_gas` are unchanged. New rows: queues/pool sender and declared gas (POOL_MAX_TXS
   entries), queues/parked transactions' entries (POOL_PARKED_MAX; their bytes are inside POOL_MAX_BYTES) and
   queues/template selection (the append round's candidates, BODY_MAX + TX_MAX bytes, and the skipped-sender
-  sets). The block overlay term now counts its BLOCKHASH window (257 entries), which the selection's overlay
+  sets; PR6 review: after a gas failure the selection's tail joins the candidates, at most GAS_LIMIT/TX_GAS_MIN
+  more entries and BODY_MAX more bytes, so the term counts BODY_MAX/MIN_TX_BYTES + 1 + GAS_LIMIT/TX_GAS_MIN entries
+  and 2·BODY_MAX + TX_MAX bytes). The block overlay term now counts its BLOCKHASH window (257 entries), which the selection's overlay
   carries too; the selection's committed gas used is at most GAS_LIMIT (spent at most 5/4 GAS_LIMIT), within
-  that term. The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs).
+  that term. The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs), and by up to 163
+  more with the tail.
 - **Revalidation does not hold up consensus.** The run loop takes one event between two slices of
   revalidation. The test runs `Node::run` with the pool at its bound: four BLAKE2F transactions of 7.9M gas,
   which no stop hook can cut short.
