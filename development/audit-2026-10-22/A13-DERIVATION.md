@@ -533,7 +533,11 @@ three terms: one up and two down. It also withdraws one projection.
     which carries no index, falls back to the longest prefix whose declared gas fits GAS_LIMIT, never an empty
     template; then one append round adds the candidates left out for gas within the room the real build left,
     counting declared gas, smallest first. The simulation is not the block (the SYSTEM phase runs first), and
-    the append round closes the under-fill a contract could cause by burning gas only in the simulation.
+    the append round closes the under-fill a contract could cause by burning gas only in the simulation. PR6 third
+    review: its candidates are pooled or parked ones only (a backlog one is only decoded: junk relayed during
+    revalidation, unfunded or below its intrinsic gas, went first and failed each append build in turn, so the
+    round added nothing and cost all eight builds), and an appended transaction the build refuses drops every
+    appended one after it, so the round costs at most two builds more whatever its candidates are.
 - **A13 (PR6).** G and `pool_gas` are unchanged. New rows: queues/pool sender and declared gas (POOL_MAX_TXS
   entries), queues/parked transactions' entries (POOL_PARKED_MAX; their bytes are inside POOL_MAX_BYTES; PR6
   review: PARKED_ENTRY_BYTES 160, with the nonce, the run and the cost; PR6 third review: and its arrival position

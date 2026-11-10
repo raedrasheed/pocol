@@ -4591,3 +4591,48 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert!(at(&a0).is_some()&&at(&a1)==at(&a0).map(|i|i+1),"both of alice's are pooled at the next head, in nonce order");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR6 third review (append round and the backlog): the append round's candidates are pooled or parked ones only. A
+/// backlog transaction is only decoded by the selection, so junk relayed during revalidation (unfunded keys,
+/// little declared gas) went first in the round and failed each append build in turn: the round added nothing and
+/// cost TEMPLATE_BUILDS_MAX builds. The setup is B5's under-fill (`a_gas_failure_keeps_a_valid_template` (b)):
+/// alice's call burns 7.9M only in the simulation, so bob's three 1M transfers are left for the round. With one
+/// transaction a slice, ten junk transfers (100,001 declared, the simulated room plus one) are relayed while the
+/// head is revalidated; once alice's and bob's are pooled again, the junk is still in the backlog. The selection
+/// keeps only bob's for the round, which appends them in two builds. And whatever the candidates, an appended one the
+/// build refuses drops every appended one after it: a round of three cheap transfers then ten junk ones costs
+/// three builds and keeps the transfers. Before the fix the junk took the round and all eight builds, in both cases.
+#[test] fn backlog_junk_does_not_cancel_the_append_round(){
+    use pocold::{node::{Cand,Event,Limits,Selection},net::{Msg,NetEvent}};
+    let mut c=cfg_funded();c.g_ts=pocold::node::now_s()-60;let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    // CALLDATALOAD(0) == BALANCE(COINBASE) jumps to INVALID, else STOP: all its gas in the simulation, cheap in the block.
+    let rt=vec![0x41,0x31,0x60,0x00,0x35,0x14,0x60,0x0a,0x57,0x00,0x5b,0xfe];let mut init=vec![0x60,rt.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(&rt);
+    let deploy=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
+    let mut blocks=branch(&mut h,g,1,&[Body{txs:vec![deploy],evidence:vec![]}]);let tail=branch(&mut h,blocks[0].hash(),7,&[]);blocks.extend(tail);
+    let head=h.chain.head().clone();let v=head.state.accounts[&pocol_lp4_execution::pay::escrow_address()].info.balance;
+    let atk=Tx{chain_id:777910,nonce:1,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:7_900_000,to:Some(alice.address().create(0)),value:U256::ZERO,data:v.to_be_bytes::<32>().to_vec().into()}.sign_1559(&alice);
+    let bs:Vec<Vec<u8>>=(0..3).map(|k|pay_gas(&bob,k,1,1_000_000)).collect();
+    let junk:Vec<(Address,Vec<u8>)>=(0..10).map(|i|{let k=key(&format!("junk{i}"));(k.address(),pay_gas(&k,0,1,100_001))}).collect();
+    let miner=Key::from_secret(&h.keys[&h.chain.child_ctx(&head,0).unwrap().proposer].secret()).unwrap();
+    let (mut n,dir)=gas_node_cfg("backlog-junk",Limits{pool_slice:std::time::Duration::ZERO,..Default::default()},&c,Some(miner));
+    let (last,rest)=blocks.split_last().unwrap();for b in rest{n.import(b.clone(),None).unwrap();}
+    for t in std::iter::once(&atk).chain(&bs){n.submit_tx(t.clone(),false).unwrap();}
+    let (peer,_socket)=auth_peer::connect(&mut n);
+    assert!(n.import(last.clone(),None).unwrap());assert_eq!(n.chain.head,head.hash);assert!(n.pool_pending(),"one transaction a slice leaves a backlog");
+    for (_,t) in &junk{n.handle(Event::Net(NetEvent::Message(peer,Msg::Tx{raw:t.clone()})));}
+    while !n.pool.txs.iter().any(|(_,r)|*r==atk){assert!(n.pool_pending());n.pool_step();}
+    assert_eq!(pool_txs(&n),[bs.clone(),vec![atk.clone()]].concat());assert!(n.pool_pending(),"the junk is still in the backlog");
+    let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+    let sel=n.template_selection(&head,clock);assert!(!sel.fallback);assert_eq!(sel.txs,vec![atk.clone()],"alice's call takes the simulated block");
+    assert_eq!(sel.rest.iter().map(|x|x.raw.clone()).collect::<Vec<_>>(),bs,"only bob's pooled transfers are kept for the append round");
+    let b0=n.stats.template_builds;let (t,body)=n.build_template_unrecorded(&head,sel,clock).expect("a template");
+    assert_eq!(body.txs,[vec![atk.clone()],bs.clone()].concat(),"bob's transfers are appended");assert_eq!(n.stats.template_builds-b0,2,"in two builds");
+    let want=signed_at(&h,head.hash,body.txs.clone(),t.ts).unwrap();assert_eq!((t.tx_root,t.gas_used),(want.tx_root,want.gas_used));
+    // The build's own bound: cheap transfers, then junk, appended after alice's call.
+    let cheap:Vec<Vec<u8>>=(0..3).map(|k|pay(&bob,k,1)).collect();
+    let rest:Vec<Cand>=cheap.iter().map(|r|Cand{sender:bob.address(),gas_limit:21000,raw:r.clone()}).chain(junk.iter().map(|(a,r)|Cand{sender:*a,gas_limit:100_001,raw:r.clone()})).collect();
+    let b0=n.stats.template_builds;let (_,body)=n.build_template_unrecorded(&head,Selection{txs:vec![atk.clone()],rest,..Default::default()},clock).expect("a template");
+    assert_eq!(body.txs,[vec![atk.clone()],cheap].concat(),"the transfers are kept, the junk after them dropped");
+    assert_eq!(n.stats.template_builds-b0,3,"the base build, the failed append build and the build without the junk");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+fn pool_txs(n:&pocold::node::Node)->Vec<Vec<u8>>{n.pool.txs.iter().map(|(_,r)|r.clone()).collect()}

@@ -1323,6 +1323,11 @@ impl Node{
         q.extend(rest);self.pool.backlog=q;
         self.pool_step();
     }
+    /// A signed template on `p` built from `sel` at `clock` as production builds it (`build_signed_template`), but
+    /// neither recorded nor sent: for tests only. Broadcasting it with another template for the same parent and
+    /// height is self-equivocation (F7). None without a mining key.
+    #[doc(hidden)]
+    pub fn build_template_unrecorded(&mut self,p:&Entry,sel:Selection,clock:u64)->Option<(Header,Body)>{self.build_signed_template(p,sel,clock)}
     /// Pool transactions that still execute in order (for a signed template on `p`), as selected now:
     /// `template_selection(p, now_s()).txs`.
     pub fn template_txs(&self,p:&Entry)->Vec<Vec<u8>>{self.template_selection(p,now_s()).txs}
@@ -1414,10 +1419,13 @@ impl Node{
             let (caller,gas_limit,mut env)=match known{Some((c,g))=>(c,g,None),None=>match decode(){Err(())=>break,Ok(None)=>continue,Ok(Some(t))=>(t.caller,t.gas_limit,Some(t))}};
             if skipped.contains(&caller){continue}
             // `rest` (B5): a candidate skipped only because it did not fit by gas, and its sender's later ones.
+            // PR6 third review: only a pooled or parked one (checked when admitted or parked). A backlog one is only
+            // decoded: junk declaring little gas (below its intrinsic gas, or from an unfunded key) went first in the
+            // append round and failed each append build in turn, so the round added nothing and cost every build.
             let gas_skip=gas_skipped.contains(&caller)||gas_limit>cp.GAS_LIMIT-used||(sim.is_some()&&gas_limit>budget-sel.executed);
             if gas_skip&&!slot{
                 gas_skipped.insert(caller);
-                if !rest_full{rest_bytes+=raw.len();sel.rest.push(Cand{sender:caller,gas_limit,raw:raw.clone()});}
+                if !rest_full&&known.is_some(){rest_bytes+=raw.len();sel.rest.push(Cand{sender:caller,gas_limit,raw:raw.clone()});}
                 continue}
             // Other reasons skip the sender (its later nonces follow it); the big-first slot (B6) marks nothing.
             let mut skip=|slot:bool|if !slot{skipped.insert(caller);};
@@ -1536,7 +1544,9 @@ impl Node{
     /// - Append round (one): the candidates left out for gas (`Selection::rest`) are added within the room the
     ///   real build left, counting their declared gas, smallest first, the head of each sender's queue at a
     ///   time; the block is built again only if one fits. The simulation cannot inflate declared gas, so a
-    ///   transaction that burns gas only in the simulation cannot leave the block under-filled.
+    ///   transaction that burns gas only in the simulation cannot leave the block under-filled. PR6 third review:
+    ///   an appended transaction the build reports by index is dropped with every appended one after it, and the
+    ///   block is built once more (its prefix executed), so the round costs at most two builds.
     /// The last good build is kept when a later one fails.
     fn build_signed_template(&mut self,p:&Entry,sel:Selection,clock:u64)->Option<(Header,Body)>{
         self.cfg.miner.as_ref()?;
@@ -1583,6 +1593,10 @@ impl Node{
                     // ones, and retry.
                     let idx=why.split("User(").nth(1).and_then(|s|s.split(|c:char|!c.is_ascii_digit()).find(|x|!x.is_empty())).and_then(|n|n.parse::<usize>().ok());
                     match idx{
+                        // PR6 third review: in the append build, the appended ones from the failing one on are dropped
+                        // (the transactions before it executed, so the next build succeeds): the append round costs at
+                        // most two builds more, whatever its candidates are.
+                        Some(i) if base.is_some_and(|n|i>=n)&&i<txs.len()=>txs.truncate(i),
                         Some(i) if i<txs.len()=>{let s=sender(&self.chain,&txs[i]).map(|x|x.0);let chain=&self.chain;let mut j=0;txs.retain(|t|{j+=1;j-1<i||(j-1>i&&(s.is_none()||sender(chain,t).map(|x|x.0)!=s))});}
                         _ if base.is_some()=>break,
                         _=>{if txs.is_empty(){break}txs.clear();}}
