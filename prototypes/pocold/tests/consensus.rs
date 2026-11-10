@@ -1210,9 +1210,10 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
 /// Decision D-7 (approved 2026-10-25: POOL_GAS_BLOCKS × GAS_LIMIT by default), admission. A transaction whose
 /// declared gas limit would take the pooled sum past the bound is refused with -32016 (gas) before it is
 /// executed, and changes nothing; a duplicate is answered with its hash even at the bound; a new head recounts
-/// the sum from what stays.
+/// the sum from what stays. PR6: a valid one refused only by the bound is held for the next head (parked) and
+/// admitted then; one that is not valid on the pending state (here an unfunded sender) is not held.
 #[test] fn the_pool_gas_bound_refuses_past_it_and_is_recounted_on_a_new_head(){
-    use pocold::node::{POOL_FULL_GAS,POOL_GAS_BLOCKS};
+    use pocold::node::{POOL_FULL_GAS,POOL_GAS_BLOCKS,POOL_PARKED};
     let c=cfg_funded();let (mut n,dir)=gas_node_cfg("admit",Default::default(),&c,None);
     let gl=n.chain.spec.cp().GAS_LIMIT;assert_eq!((n.pool.gas_max,POOL_GAS_BLOCKS*gl),(32_000_000,32_000_000),"the default bound");
     let (alice,bob)=(devnet::account_key("alice"),devnet::account_key("bob"));
@@ -1221,7 +1222,9 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     for t in &txs{n.submit_tx(t.clone(),false).unwrap();}
     assert_eq!((n.pool.txs.len(),n.pool.gas),(4,4*gl),"four transactions that declare GAS_LIMIT fill it exactly");n.pool_audit().unwrap();
     let root=apply::state_root(&n.pool_state()).unwrap();
-    for t in [pay_gas(&bob,0,1,gl),pay(&bob,0,1)]{assert_eq!(n.submit_tx(t,false).unwrap_err(),POOL_FULL_GAS,"one gas past the bound is refused");}
+    assert_eq!(n.submit_tx(pay_gas(&key("dave-unfunded"),0,1,gl),false).unwrap_err(),POOL_FULL_GAS,"one gas past the bound is refused");
+    assert_eq!(n.submit_tx(pay(&bob,0,1),false).unwrap_err(),POOL_PARKED,"a valid one is held for the next head");
+    assert_eq!(n.submit_tx(pay_gas(&bob,0,2,gl),false).unwrap_err(),POOL_FULL_GAS,"one per sender is held");
     assert_eq!((n.pool.txs.len(),n.pool.gas),(4,4*gl),"refused, nothing pooled");
     assert_eq!(apply::state_root(&n.pool_state()).unwrap(),root,"and the pending state is unchanged");
     // A duplicate is not a new transaction: its hash, and nothing counted.
@@ -1229,20 +1232,22 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     // A block that includes the first one (a block holds one transaction that declares GAS_LIMIT): the pool is
     // revalidated on it and its gas recounted, so a new one fits again.
     let mut h=net_with(&c);let g=h.chain.head;let b=branch(&mut h,g,1,&[Body{txs:vec![txs[0].clone()],evidence:vec![]}]);
-    n.import(b[0].clone(),None).unwrap();n.pool_settle();assert_eq!((n.pool.txs.len(),n.pool.gas),(3,3*gl));n.pool_audit().unwrap();
-    n.submit_tx(pay(&alice,1,1),false).unwrap();assert_eq!(n.pool.gas,3*gl+21000);n.pool_audit().unwrap();
+    n.import(b[0].clone(),None).unwrap();n.pool_settle();assert_eq!((n.pool.txs.len(),n.pool.gas),(4,3*gl+21000),"bob's held transfer is admitted");n.pool_audit().unwrap();
+    assert_eq!(n.pool.txs[0].1,pay(&bob,0,1),"ahead of the big ones");
+    n.submit_tx(pay(&alice,1,1),false).unwrap();assert_eq!(n.pool.gas,3*gl+42000);n.pool_audit().unwrap();
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// D-7: the bound is a local setting (`Limits::pool_gas_max`, `pocold run --pool-gas-max`). Below GAS_LIMIT the
 /// node refuses to open, since a transaction a block can hold must fit an empty pool; at GAS_LIMIT one such
 /// transaction fills it; a larger value is taken as given (A13 counts the pool at it).
 #[test] fn the_pool_gas_bound_is_configurable_and_refused_below_gas_limit(){
-    use pocold::node::{Limits,POOL_FULL_GAS};
+    use pocold::node::{Limits,POOL_FULL_GAS,POOL_PARKED};
     let gl=8_000_000u64;let alice=devnet::account_key("alice");
     let (low,d0)=gas_node("low",Limits{pool_gas_max:Some(gl-1),..Default::default()});
     match low{Err(e)=>assert!(e.contains("below GAS_LIMIT"),"{e}"),Ok(_)=>panic!("a bound below GAS_LIMIT opened")}
     let (one,d1)=gas_node("one",Limits{pool_gas_max:Some(gl),..Default::default()});let mut one=one.unwrap();assert_eq!(one.pool.gas_max,gl);
-    one.submit_tx(pay_gas(&alice,0,1,gl),false).unwrap();assert_eq!(one.submit_tx(pay(&devnet::account_key("bob"),0,1),false).unwrap_err(),POOL_FULL_GAS);
+    one.submit_tx(pay_gas(&alice,0,1,gl),false).unwrap();assert_eq!(one.submit_tx(pay(&devnet::account_key("dave-unfunded"),0,1),false).unwrap_err(),POOL_FULL_GAS);
+    assert_eq!(one.submit_tx(pay(&devnet::account_key("bob"),0,1),false).unwrap_err(),POOL_PARKED,"PR6: a valid one is held for the next head");
     let (big,d2)=gas_node("big",Limits{pool_gas_max:Some(16*gl),..Default::default()});let big=big.unwrap();assert_eq!(big.pool.gas_max,16*gl);
     drop((one,big));for d in [d0,d1,d2]{let _=std::fs::remove_dir_all(&d);}
 }
@@ -1265,8 +1270,9 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
 }
 /// D-7, re-insertion after a reorganization (consensus.md: excluded transactions return to the pool once checked
 /// again). The abandoned block's transactions come first, in block order, then the previous pool in its order,
-/// each admitted within every pool bound. One that no longer fits the gas bound is dropped and is not pooled
-/// later; a later, smaller one is still admitted. The counters equal the contents throughout.
+/// each admitted within every pool bound. PR6: a sender's transactions from its first one declaring more than
+/// GAS_LIMIT/2 on are re-admitted after the others (and after the parked ones), and one that no longer fits the
+/// gas bound is held for the next head (parked), not dropped. The counters equal the contents throughout.
 #[test] fn reorg_reinsertion_puts_detached_transactions_first_within_the_gas_bound(){
     // PR6: bob holds 31.9M of declared gas here, past the default sender quota (GAS_LIMIT).
     let (n,dir)=gas_node("reorg",pocold::node::Limits{pool_sender_gas_max:Some(32_000_000),..Default::default()});let mut n=n.unwrap();
@@ -1277,14 +1283,14 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     let (b0,b1,b2,b3)=(pay_gas(&bob,0,1,8*m),pay_gas(&bob,1,1,8*m),pay_gas(&bob,2,1,7_900_000),pay_gas(&bob,3,1,8*m));let a2=pay(&alice,2,1);
     for t in [&b0,&b1,&b2,&b3,&a2]{n.submit_tx(t.clone(),false).unwrap();}
     assert_eq!(n.pool.gas,31_921_000);n.pool_audit().unwrap();
-    // A heavier branch without x: a0 and a1 (8M) return first; b0, b1 and b2 fill the bound to 31.9M; b3 (8M) no
-    // longer fits and is dropped; a2 (21,000) still fits.
+    // A heavier branch without x: a0 and a1 (8M) return first; a2 (21,000) comes before bob's big ones; b0, b1 and b2
+    // fill the bound to 31.9M; b3 (8M) no longer fits and is parked.
     let mut h2=net();let y=branch(&mut h2,g,2,&[]);
     for b in &y{n.import(b.clone(),None).unwrap();n.pool_audit().unwrap();}
     assert_eq!(n.chain.head,y[1].hash(),"reorganized");
-    assert_eq!(pool(&mut n),vec![a0,a1,b0,b1,b2,a2],"detached first, then the pool in order, b3 dropped");
-    assert_eq!(n.pool.gas,8*m+16*m+7_900_000+21000);n.pool_audit().unwrap();
-    assert_eq!(n.submit_tx(b3,false).unwrap_err(),pocold::node::POOL_FULL_GAS,"b3 is not pooled later on its own");
+    assert_eq!(pool(&mut n),vec![a0,a1,a2,b0,b1,b2],"detached first, then the small ones of the pool, then bob's big ones; b3 parked");
+    assert_eq!(n.pool.gas,8*m+16*m+7_900_000+21000);n.pool_audit().unwrap();assert_eq!(n.pool_parked(),vec![b3.clone()]);
+    assert_eq!(n.submit_tx(b3,false).unwrap_err(),pocold::node::POOL_PARKED,"b3 is held for the next head");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// The frames a node sent on `s` within `ms`, decoded; the node handles its queued events (the peer's
@@ -1339,21 +1345,26 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
 /// (`Node::pool_audit`). The positive controls: each kind of step happened.
 #[test] fn the_pool_counters_equal_the_contents_through_admission_revalidation_and_reorgs(){
     use pocold::{net::{Msg,NetEvent},node::{Event,Limits}};
-    let (n,dir)=gas_node("audit",Limits{pool_slice:std::time::Duration::ZERO,..Default::default()});let mut n=n.unwrap();
+    // PR6: five senders, so the per-sender quota (GAS_LIMIT) still lets the pool reach its gas bound and park.
+    let c=cfg_funded();let (mut n,dir)=gas_node_cfg("audit",Limits{pool_slice:std::time::Duration::ZERO,..Default::default()},&c,None);
     let (peer,_socket)=auth_peer::connect(&mut n);
-    let keys=[devnet::account_key("alice"),devnet::account_key("bob")];let mut h=net();
+    let keys=["alice","bob","carol","erin","frank"].map(key);let mut h=net_with(&c);
     let mut seed=0x9e37_79b9_7f4a_7c15u64;let mut rnd=|k:u64|{seed^=seed<<13;seed^=seed>>7;seed^=seed<<17;seed%k};
-    let (mut admitted_n,mut gas_refused,mut relayed_in_backlog,mut heads,mut reorgs)=(0,0,0,0,0);
+    let (mut admitted_n,mut gas_refused,mut relayed_in_backlog,mut heads,mut reorgs,mut parked)=(0,0,0,0,0,0);
     let gases=[21000u64,4_000_000,8_000_000,8_000_000];
+    // The bound filled by four senders and a fifth's transfer held, so the first head revalidates a parked one.
+    for k in &keys[1..]{n.submit_tx(pay_gas(k,0,1,8_000_000),false).unwrap();admitted_n+=1;}
+    assert_eq!(n.submit_tx(pay(&keys[0],0,1),false).unwrap_err(),pocold::node::POOL_PARKED);gas_refused+=1;parked+=1;n.pool_audit().unwrap();
     for step in 0..160{
         match rnd(10){
-            0..=3=>{let k=&keys[rnd(2) as usize];
+            0..=3=>{let k=&keys[rnd(5) as usize];
                 // Mostly the sender's next nonce on the pending state, sometimes another one.
                 let next=n.pool_state().accounts.get(&k.address()).map_or(0,|a|a.info.nonce);let nonce=if rnd(5)==0{rnd(12)}else{next};
                 let raw=pay_gas(k,nonce,1+rnd(3),gases[rnd(4) as usize]);
-                match n.submit_tx(raw,false){Ok(_)=>admitted_n+=1,Err(e) if e.starts_with(pocold::node::POOL_FULL_GAS)||e==pocold::node::POOL_FULL_SENDER=>gas_refused+=1,Err(_)=>{}}}
+                match n.submit_tx(raw,false){Ok(_)=>admitted_n+=1,Err(e) if e==pocold::node::POOL_PARKED=>{gas_refused+=1;parked+=1}
+                    Err(e) if e==pocold::node::POOL_FULL_GAS||e==pocold::node::POOL_FULL_SENDER=>gas_refused+=1,Err(_)=>{}}}
             4=>if let Some((_,raw))=n.pool.txs.first().cloned(){n.submit_tx(raw,false).unwrap();},
-            5=>{let k=&keys[rnd(2) as usize];let raw=pay_gas(k,rnd(12),1,gases[rnd(4) as usize]);if n.pool_pending(){relayed_in_backlog+=1;}
+            5=>{let k=&keys[rnd(5) as usize];let raw=pay_gas(k,rnd(12),1,gases[rnd(4) as usize]);if n.pool_pending(){relayed_in_backlog+=1;}
                 n.handle(Event::Net(NetEvent::Message(peer,Msg::Tx{raw})));}
             6|7=>n.pool_step(),
             8=>{let head=n.chain.head().meta_clone();let txs=n.template_txs(&head);let p=n.chain.head;h.chain.ensure_state(&p).unwrap();
@@ -1367,12 +1378,13 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
         n.pool_audit().unwrap_or_else(|e|panic!("step {step}: {e}"));
     }
     n.pool_settle();n.pool_audit().unwrap();
-    println!("D7-AUDIT admitted {admitted_n} refusedForGas {gas_refused} relayedInBacklog {relayed_in_backlog} heads {heads} reorgs {reorgs}");
-    assert!(admitted_n>10&&gas_refused>0&&relayed_in_backlog>0&&heads>3&&reorgs>0,"every kind of step ran: admitted {admitted_n}, refused for gas {gas_refused}, relayed in a backlog {relayed_in_backlog}, heads {heads}, reorgs {reorgs}");
+    println!("D7-AUDIT admitted {admitted_n} refusedForGas {gas_refused} parked {parked} relayedInBacklog {relayed_in_backlog} heads {heads} reorgs {reorgs}");
+    assert!(admitted_n>10&&gas_refused>0&&parked>0&&relayed_in_backlog>0&&heads>3&&reorgs>0,"every kind of step ran: admitted {admitted_n}, refused for gas {gas_refused}, relayed in a backlog {relayed_in_backlog}, heads {heads}, reorgs {reorgs}");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
-/// D-7 over JSON-RPC: eth_sendRawTransaction past the gas bound is a -32016 error that names the gas bound, the
-/// transaction is not pooled, and pocol_status reports the pooled gas and its bound.
+/// D-7 over JSON-RPC: eth_sendRawTransaction past the gas bound is a -32016 error that names the gas bound (PR6:
+/// and that the transaction is held for the next block), the transaction is not pooled, and pocol_status reports
+/// the pooled gas, its bound and the parked transactions.
 #[test] fn rpc_answers_minus_32016_past_the_pool_gas_bound_and_reports_it(){
     use pocold::rpc::{answer,Request};use std::time::{Duration,Instant};
     let (mut n,dir)=gas_node_cfg("rpc",Default::default(),&cfg_funded(),None);let bob=devnet::account_key("bob");
@@ -1381,10 +1393,11 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
         serde_json::from_str(&answer(n,&Request::local(body.into_bytes(),t,Instant::now()+Duration::from_secs(30),false)).body).unwrap()};
     let raw=pay(&bob,0,1);
     let v=call(&mut n,format!(r#"{{"jsonrpc":"2.0","id":7,"method":"eth_sendRawTransaction","params":["{}"]}}"#,pocold::types::hex(&raw)));
-    assert_eq!((v["id"].clone(),v["error"]["code"].clone(),v["error"]["message"].clone()),(serde_json::json!(7),serde_json::json!(-32016),serde_json::json!(pocold::node::POOL_FULL_GAS)),"{v}");
+    assert_eq!((v["id"].clone(),v["error"]["code"].clone(),v["error"]["message"].clone()),(serde_json::json!(7),serde_json::json!(-32016),serde_json::json!(pocold::node::POOL_PARKED)),"{v}");
     assert!(v.get("result").is_none(),"{v}");assert_eq!(n.pool.txs.len(),4,"not pooled");
     let s=call(&mut n,r#"{"jsonrpc":"2.0","id":8,"method":"pocol_status","params":[]}"#.into());
     assert_eq!((s["result"]["pool"].clone(),s["result"]["poolGas"].clone(),s["result"]["poolGasMax"].clone()),(serde_json::json!(4),serde_json::json!(32_000_000u64),serde_json::json!(32_000_000u64)),"{s}");
+    assert_eq!((s["result"]["poolParked"].clone(),s["result"]["poolParkedMax"].clone()),(serde_json::json!(1),serde_json::json!(pocold::node::POOL_PARKED_MAX)),"{s}");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// D-7: pool revalidation does not hold up consensus. A node runs its event loop (`Node::run`) with the pool at
@@ -4250,5 +4263,58 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert_eq!(n.pool.gas,12_000_000);n.pool_audit().unwrap();
     n.import(y[3].clone(),None).unwrap();assert_eq!(pool(&mut n),vec![a0.clone(),a1.clone()],"still pooled at the next head");n.pool_audit().unwrap();
     n.submit_tx(pay(&alice,2,1),false).unwrap();assert_eq!(n.pool.txs.len(),3,"returned transactions do not count against alice's quota");n.pool_audit().unwrap();
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 P2/P3, the finding with several senders: carol, erin, frank and gina each pool one transfer declaring
+/// GAS_LIMIT (within their quota), which fills the pool's gas bound. bob's plain transfer is held for the next
+/// head instead of refused; at the head (a block that took carol's) it is admitted before the big ones, so carol
+/// refilling the freed room right after the head does not keep it out. The next template holds bob's and
+/// alice's transfers and exactly one big one, and its block is valid. Before PR6 bob's transfer was refused and
+/// not remembered.
+#[test] fn many_senders_cannot_hold_the_pool(){
+    use pocold::node::POOL_PARKED;
+    let c=cfg_funded();let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("many",Default::default(),&c,None);
+    let big:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    let b0=pay(&bob,0,1);assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED,"bob's transfer is held");n.pool_audit().unwrap();
+    let x=branch(&mut h,g,1,&[Body{txs:vec![big[0].clone()],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();
+    assert_eq!(pool(&mut n),vec![b0.clone(),big[1].clone(),big[2].clone(),big[3].clone()],"bob's first, then the big ones");n.pool_audit().unwrap();
+    // carol refills at once: only GAS_LIMIT - 21,000 is free, so hers is held; alice's plain transfer fits.
+    assert_eq!(n.submit_tx(pay_gas(&key("carol"),1,1,GL),false).unwrap_err(),POOL_PARKED);
+    let a0=pay(&alice,0,1);n.submit_tx(a0.clone(),false).unwrap();
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,vec![big[1].clone(),b0.clone(),a0.clone()],"one big transfer (the oldest, first) and both plain ones");
+    let b=signed(&h,head.hash,Body{txs,evidence:vec![]},0);assert_eq!(b.header.gas_used,3*21000);assert!(import(&mut h,&b),"valid");
+    assert!(n.import(b,None).unwrap());n.pool_settle();n.pool_audit().unwrap();
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 P2: what is held for the next head. Not held (the plain gas refusal): an unfunded sender, a wrong nonce,
+/// a fee cap below the next base fee, a second transaction of a sender already held. The held set is bounded:
+/// once full, a newcomer declaring strictly less gas evicts the one declaring the most, and an equal one is
+/// refused. At the next head the held ones are admitted least declared gas first, ahead of the big ones.
+#[test] fn parking_is_bounded_valid_and_prefers_small_declared_gas(){
+    use pocold::node::{POOL_FULL_GAS,POOL_PARKED};
+    let mut c=cfg_funded();for l in ["hank","ivy"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+    let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("park",Default::default(),&c,None);
+    let big:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}
+    let cheap=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(1u64),gas:21000,to:Some(bob.address()),value:U256::from(1u64),data:Default::default()}.sign_1559(&alice);
+    for (t,why) in [(pay(&key("dave-unfunded"),0,1),"unfunded"),(pay(&alice,3,1),"a wrong nonce"),(cheap,"a fee cap below the base fee")]{
+        assert_eq!(n.submit_tx(t,false).unwrap_err(),POOL_FULL_GAS,"{why} is not held");}
+    let b0=pay(&bob,0,1);assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED);
+    assert_eq!(n.submit_tx(pay(&bob,0,2),false).unwrap_err(),POOL_FULL_GAS,"one per sender");
+    assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED,"a duplicate of a held one changes nothing");
+    n.set_pool_parked_max(2);
+    let a0=pay_gas(&alice,0,1,1_000_000);assert_eq!(n.submit_tx(a0.clone(),false).unwrap_err(),POOL_PARKED);
+    let hk=pay_gas(&key("hank"),0,1,500_000);assert_eq!(n.submit_tx(hk.clone(),false).unwrap_err(),POOL_PARKED,"less declared gas evicts the most");
+    assert_eq!(n.pool_parked(),vec![b0.clone(),hk.clone()]);assert_eq!(n.status_json()["stats"]["parkedEvicted"].as_u64(),Some(1));
+    assert_eq!(n.submit_tx(pay_gas(&key("ivy"),0,1,500_000),false).unwrap_err(),POOL_FULL_GAS,"an equal one is refused");
+    assert_eq!(n.pool_parked(),vec![b0.clone(),hk.clone()]);n.pool_audit().unwrap();
+    assert_eq!(n.status_json()["poolParked"].as_u64(),Some(2));
+    let x=branch(&mut h,g,1,&[Body{txs:vec![big[0].clone()],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();
+    assert_eq!(pool(&mut n),vec![b0,hk,big[1].clone(),big[2].clone(),big[3].clone()],"held ones first, least declared first");
+    assert!(n.pool_parked().is_empty());n.pool_audit().unwrap();
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }

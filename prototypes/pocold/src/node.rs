@@ -166,6 +166,9 @@ pub const POOL_FULL_GAS:&str="-32016 pool full (gas)";
 /// `admit_tx`'s refusal of a transaction that would take its sender's pooled declared gas past the sender quota
 /// (PR6 P1, `pool_sender_gas_bound`).
 pub const POOL_FULL_SENDER:&str="-32016 pool full (sender gas)";
+/// `admit_tx`'s answer for a valid transaction refused only by the pool's gas bound and held (parked) to be
+/// admitted at the next head, ahead of later arrivals (PR6 P2). It is neither executed nor relayed yet.
+pub const POOL_PARKED:&str="-32016 pool full (gas): held for the next block";
 
 pub fn now_ms()->u128{SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()}
 pub fn now_s()->u64{(now_ms()/1000) as u64}
@@ -214,7 +217,17 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
     pub gas:u64,pub gas_max:u64,
     /// PR6 P4: per pooled transaction (aligned with `txs`), its sender, declared gas limit and whether it is
     /// exempt from the sender quota (returned from an abandoned block); and the quota (`pool_sender_gas_bound`).
-    meta:Vec<(Address,u64,bool)>,pub sender_gas_max:u64}
+    meta:Vec<(Address,u64,bool)>,pub sender_gas_max:u64,
+    /// PR6 P2: transactions refused only by the gas bound and held for the next head (at most `parked_max`
+    /// <= POOL_PARKED_MAX, one per sender); their bytes share POOL_MAX_BYTES with `txs` and the backlog; and
+    /// the arrival counter that orders them.
+    parked:Vec<Parked>,parked_bytes:usize,park_seq:u64,parked_max:usize}
+/// A parked transaction (PR6 P2): its declared gas, sender, arrival, hash, how it is relayed once admitted, and
+/// its bytes.
+struct Parked{gas:u64,sender:Address,seq:u64,hash:B256,relay:Relay,raw:Vec<u8>}
+/// PR6 P2: the most parked transactions. Each is decoded and validated again at the next head, so this bounds
+/// that work (about POOL_PARKED_MAX signature recoveries per head).
+pub const POOL_PARKED_MAX:usize=1024;
 /// One backlog entry: an abandoned block's journal offset, or a transaction and how to relay it once
 /// admitted (a P2P transaction that arrived during the backlog is relayed then, as it would have been).
 enum PoolItem{Block(u64),Tx(Vec<u8>,Relay)}
@@ -407,8 +420,8 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// failures recovered with the declared-safe prefix, transactions the append round added to a signed
     /// template, and `build_signed` calls for signed templates.
     pub template_gas_fallbacks:u64,pub template_gas_recoveries:u64,pub template_appended:u64,pub template_builds:u64,
-    /// PR6 P1: submissions refused by the sender quota.
-    pub sender_quota_refused:u64}
+    /// PR6 P1: submissions refused by the sender quota; P2: parked transactions evicted by one declaring less.
+    pub sender_quota_refused:u64,pub parked_evicted:u64}
 /// 2026-10-28: the time (ms) each step of `Node::open` took, so an open's cost can be attributed: reading the
 /// journal (every record's payload, its frame offsets and rolling hashes), opening history.redb and state.redb
 /// (redb's full integrity check of every page included), the release at open, reading and checking the
@@ -683,7 +696,7 @@ impl Node{
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let mut node=Self{cfg,chain,net,disc,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
@@ -1025,7 +1038,7 @@ impl Node{
     /// nothing, since the backlog does not record its sender (that would change PoolItem's A13 cost).
     fn relay_tx(&mut self,raw:Vec<u8>,from:PeerId){
         if !self.pool_pending(){let n=self.pool.txs.len();let _=self.submit_tx(raw,true);if self.pool.txs.len()>n{self.credit(from,Useful::Tx);}return}
-        if self.pool.bytes+self.pool.backlog_bytes+raw.len()>POOL_MAX_BYTES{return}
+        if self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{return}
         self.pool.backlog_bytes+=raw.len();self.pool.backlog.push_back(PoolItem::Tx(raw,Relay::Gossip));
     }
     /// Whether a new head left pool revalidation to do (D-7).
@@ -1082,7 +1095,9 @@ impl Node{
         let env=wire::decode_for_profile(&raw,self.chain.spec.profile()).map_err(|e|format!("{} {e:?}",e.specified_pool_code().unwrap_or(-32000)))?;
         let hash=env.hash();
         if self.pool.txs.iter().any(|(h,_)|*h==hash){return Ok(hash)}
-        if self.pool.bytes+self.pool.backlog_bytes+raw.len()>POOL_MAX_BYTES||self.pool.txs.len()>=POOL_MAX_TXS{return Err("-32016 pool full".into())}
+        // PR6 P2: a parked one is held already; nothing changes.
+        if self.pool.parked.iter().any(|x|x.hash==hash){return Err(POOL_PARKED.into())}
+        if self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES||self.pool.txs.len()>=POOL_MAX_TXS{return Err("-32016 pool full".into())}
         // D-7: refused before it is executed, with no state change; a new head recounts the sum.
         let (gas_limit,caller)=(env.tx_env().gas_limit,env.tx_env().caller);
         // PR6 P1: the sender quota, before the pool's bound. A transaction returned from an abandoned block was in a
@@ -1092,7 +1107,7 @@ impl Node{
             let held=self.pool.meta.iter().filter(|(s,_,x)|*s==caller&&!*x).fold(0u64,|n,(_,g,_)|n.saturating_add(*g));
             if held.saturating_add(gas_limit)>self.pool.sender_gas_max{self.stats.sender_quota_refused+=1;return Err(POOL_FULL_SENDER.into())}
         }
-        if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max{return Err(POOL_FULL_GAS.into())}
+        if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max{return Err(self.park(raw,hash,&env.tx_env(),relay).into())}
         let ctx=self.next_block_ctx();
         let base=self.pool.pending_base.clone();let view=pocol_lp4_execution::view::LayerView{base:&base,layer:&self.pool.pending};
         let r=match(by,self.pool.code_total){
@@ -1124,6 +1139,32 @@ impl Node{
             Relay::No|Relay::Returned=>{}}
         Ok(hash)
     }
+    /// PR6 P2: a transaction refused only by the pool's gas bound is held for the next head when it is the
+    /// sender's next transaction on the pending state, its sender can pay its declared gas at its fee cap and its
+    /// value, its fee cap covers the next base fee, and its sender has no other parked one (two reads, no
+    /// execution). The set is bounded (`parked_max`, POOL_MAX_BYTES shared with the pool and the backlog); when
+    /// it is full, the parked transaction declaring the most gas (the latest of equals) makes room for one
+    /// declaring strictly less. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
+    fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay)->&'static str{
+        use pocol_lp4_execution::view::View;
+        if self.pool.parked.iter().any(|x|x.sender==tx.caller){return POOL_FULL_GAS}
+        let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
+        let acct=view.account(&tx.caller).map(|a|a.info).unwrap_or_default();
+        let cost=U256::from(tx.gas_limit).checked_mul(tx.gas_price).and_then(|c|c.checked_add(tx.value));
+        if tx.nonce!=Some(acct.nonce)||cost.is_none_or(|c|acct.balance<c)||tx.gas_price<self.next_block_ctx().base_fee{return POOL_FULL_GAS}
+        while self.pool.parked.len()>=self.pool.parked_max||self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{
+            let Some(i)=(0..self.pool.parked.len()).max_by_key(|&i|(self.pool.parked[i].gas,self.pool.parked[i].seq)) else{return POOL_FULL_GAS};
+            if self.pool.parked[i].gas<=tx.gas_limit{return POOL_FULL_GAS}
+            let x=self.pool.parked.swap_remove(i);self.pool.parked_bytes-=x.raw.len();self.stats.parked_evicted+=1;
+        }
+        self.pool.parked_bytes+=raw.len();self.pool.park_seq+=1;
+        self.pool.parked.push(Parked{gas:tx.gas_limit,sender:tx.caller,seq:self.pool.park_seq,hash,relay,raw});
+        POOL_PARKED
+    }
+    /// The parked transactions, in the order the next head admits them (PR6 P2; tests and inspection).
+    pub fn pool_parked(&self)->Vec<Vec<u8>>{let mut v:Vec<&Parked>=self.pool.parked.iter().collect();v.sort_by_key(|x|(x.gas,x.seq));v.into_iter().map(|x|x.raw.clone()).collect()}
+    /// Lowers the parked set's bound (tests reach a full set with a few senders); never above POOL_PARKED_MAX.
+    pub fn set_pool_parked_max(&mut self,m:usize){self.pool.parked_max=m.min(POOL_PARKED_MAX);}
     /// Journal offsets of the blocks that left the canonical chain, from `old` back to the common
     /// ancestor with the new head, oldest first (A11). The walk always reaches the common ancestor
     /// (as `lca_height` does); the abandoned side is at most R_keep blocks, since a deeper fork is
@@ -1146,11 +1187,27 @@ impl Node{
         // then its own backlog); each is re-executed on the new head (nonce, balance, fee), so one the
         // new branch includes is not taken again. One from an abandoned block that is admitted again is
         // offered to the peers (Relay::Offer); the previous pool's were relayed when first admitted.
+        // PR6 P3, the order: (1) the abandoned blocks; (2) the previous pool up to each sender's first transaction
+        // declaring more than GAS_LIMIT/2; (3) the parked transactions, least declared gas first; (4) the previous
+        // pool's deferred part (each sender's transactions from its first big one on, in pool order), then the
+        // parked ones of those senders; (5) the previous backlog. Transactions a block cannot take many of are
+        // re-admitted after the waiting small ones, so they cannot hold the gas bound against them across heads.
+        // One refused for the gas bound here is parked again when eligible (`park`), not dropped.
         let old=std::mem::take(&mut self.pool.txs);let meta=std::mem::take(&mut self.pool.meta);let rest=std::mem::take(&mut self.pool.backlog);
+        let mut parked=std::mem::take(&mut self.pool.parked);self.pool.backlog_bytes+=std::mem::take(&mut self.pool.parked_bytes);
+        parked.sort_by_key(|x|(x.gas,x.seq));
         self.pool.bytes=0;self.pool.gas=0;self.pool.pending=Default::default();self.pool.pending_base=chain::StateHandle::of(self.chain.head());
         let (meter,code)=pool_start(self.chain.head(),&self.chain.spec);self.pool.code_total=code;self.pool.meter=meter;
+        let big=self.chain.spec.cp().GAS_LIMIT/2;
         let mut q:VecDeque<PoolItem>=detached.into_iter().map(PoolItem::Block).collect();
-        for ((_,raw),(_,_,exempt)) in old.into_iter().zip(meta){self.pool.backlog_bytes+=raw.len();q.push_back(PoolItem::Tx(raw,if exempt{Relay::Returned}else{Relay::No}));}
+        let (mut later,mut deferred)=(HashSet::new(),Vec::new());
+        for ((_,raw),(sender,gas,exempt)) in old.into_iter().zip(meta){
+            self.pool.backlog_bytes+=raw.len();let item=PoolItem::Tx(raw,if exempt{Relay::Returned}else{Relay::No});
+            if gas>big||later.contains(&sender){later.insert(sender);deferred.push(item);}else{q.push_back(item);}
+        }
+        let (after,first):(Vec<Parked>,Vec<Parked>)=parked.into_iter().partition(|x|later.contains(&x.sender));
+        q.extend(first.into_iter().map(|x|PoolItem::Tx(x.raw,x.relay)));
+        q.extend(deferred);q.extend(after.into_iter().map(|x|PoolItem::Tx(x.raw,x.relay)));
         q.extend(rest);self.pool.backlog=q;
         self.pool_step();
     }
@@ -1790,11 +1847,21 @@ impl Node{
             gas=gas.checked_add(env.tx_env().gas_limit).ok_or("pooled gas overflows")?;bytes+=raw.len();
         }
         let backlog:usize=self.pool.backlog.iter().map(|i|match i{PoolItem::Tx(r,_)=>r.len(),PoolItem::Block(_)=>0}).sum();
+        // PR6 P2: the parked set is bounded, counted, one per sender, and holds nothing pooled.
+        let parked:usize=self.pool.parked.iter().map(|x|x.raw.len()).sum();let mut senders=HashSet::new();
+        if self.pool.parked.len()>self.pool.parked_max||self.pool.parked_max>POOL_PARKED_MAX{return Err(format!("{} parked, past the bound {}",self.pool.parked.len(),self.pool.parked_max))}
+        if parked!=self.pool.parked_bytes{return Err(format!("parked bytes {} differ from the contents: {parked}",self.pool.parked_bytes))}
+        for x in &self.pool.parked{
+            if !senders.insert(x.sender){return Err(format!("{} has two parked transactions",x.sender))}
+            if seen.contains(&x.hash){return Err(format!("{} is both pooled and parked",x.hash))}
+            let env=wire::decode_for_profile(&x.raw,profile).map_err(|e|format!("a parked transaction does not decode: {e:?}"))?;
+            if (env.hash(),env.tx_env().caller,env.tx_env().gas_limit)!=(x.hash,x.sender,x.gas){return Err(format!("parked {} is not its hash, sender and gas",x.hash))}
+        }
         if (gas,bytes,backlog)!=(self.pool.gas,self.pool.bytes,self.pool.backlog_bytes){
             return Err(format!("counters gas {}, bytes {}, backlog bytes {} differ from the contents: {gas}, {bytes}, {backlog}",self.pool.gas,self.pool.bytes,self.pool.backlog_bytes))}
         if gas>self.pool.gas_max{return Err(format!("pooled gas {gas} is past the bound {}",self.pool.gas_max))}
         if self.pool.txs.len()>POOL_MAX_TXS{return Err(format!("{} transactions pooled, past POOL_MAX_TXS",self.pool.txs.len()))}
-        if bytes>POOL_MAX_BYTES||bytes+backlog>POOL_MAX_BYTES+self.chain.spec.cp().BODY_MAX as usize{return Err(format!("{bytes} pooled and {backlog} backlog bytes, past POOL_MAX_BYTES"))}
+        if bytes>POOL_MAX_BYTES||bytes+backlog+parked>POOL_MAX_BYTES+self.chain.spec.cp().BODY_MAX as usize{return Err(format!("{bytes} pooled, {backlog} backlog and {parked} parked bytes, past POOL_MAX_BYTES"))}
         Ok(())
     }
     pub fn peer_count(&self)->usize{self.peers.len()}
@@ -1804,7 +1871,7 @@ impl Node{
             Mode::Locked(l)=>format!("{} h={} a={} shares={} mining={}",if l.fallback{"FB"}else{"PROP"},p.height,p.attempt,p.shares.len(),p.miner.is_some())}};
         let mut status=serde_json::json!({"name":self.cfg.name,"chainId":self.chain.spec.chain_id(),"genesisHash":hex(&self.chain.spec.genesis_hash()),"head":{"height":h.height,"hash":hex(&h.hash),"ts":h.ts,"signed":h.signed,"final":h.is_final,"totalWork":format!("{:#x}",h.total_work)},
             "peers":self.peers.values().map(|p|p.addr.clone()).collect::<Vec<_>>(),"production":mode,"miner":self.cfg.miner.as_ref().map(|k|format!("{:#x}",k.address())),
-            "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"poolSenderGasMax":self.pool.sender_gas_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
+            "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"poolSenderGasMax":self.pool.sender_gas_max,"poolParked":self.pool.parked.len(),"poolParkedMax":self.pool.parked_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
             "admission":crate::admission_json(self.chain.spec.admission()),
             "a13":crate::resources::derive(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&self.cfg.limits,self.cfg.peers.len()).map(|b|serde_json::json!({
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
@@ -1822,6 +1889,7 @@ impl Node{
         status["stats"]["templateAppended"]=serde_json::json!(self.stats.template_appended);
         status["stats"]["templateBuilds"]=serde_json::json!(self.stats.template_builds);
         status["stats"]["senderQuotaRefused"]=serde_json::json!(self.stats.sender_quota_refused);
+        status["stats"]["parkedEvicted"]=serde_json::json!(self.stats.parked_evicted);
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));
