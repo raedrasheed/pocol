@@ -4408,7 +4408,9 @@ fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
         assert_eq!(x.stats.resumed_from,Some(420),"the format-1 checkpoint is used");
         assert!(x.chain.window_done()&&x.chain.evict_stalls==0&&x.chain.canonical.base()==420-x.cfg.limits.evict_depth.unwrap(),"the open's window reaches its floor");
         e44_same(&mut x,&mut y,"migrated from format 1, and replayed from genesis");
+        // The bound and the open's replay tables fit; the format-1 entries beside them do not.
         let c=x.chain.spec.cp().clone();let t=pocold::resources::derive(&c,x.chain.spec.local().k_hist,x.chain.spec.local().side_max,&x.cfg.limits,0).unwrap().total;
+        let t=t+pocold::resources::open_transient(&c,&x.cfg.limits,420).unwrap();
         drop(x);let _=std::fs::remove_dir_all(&b);pocold::resources::budget_required(t).unwrap() as u64};
     let c=e44_dir("pr7-t11-noindex");copy_dir(&a,&c);std::fs::remove_file(c.join(pocold::node::canon::FILE)).unwrap();
     let x=reopen(&pr7_conf(&c,l.clone()));assert_eq!(x.stats.resumed_from,Some(420),"without canon.redb the format-1 checkpoint is still used");drop(x);
