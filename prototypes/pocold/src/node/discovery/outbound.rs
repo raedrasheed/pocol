@@ -1061,5 +1061,19 @@ mod tests{
         n.disc.out.slots[0].state=SlotState::Up{peer:1,addr:x,kind:SlotKind::Auto,since_ms:G};assert_eq!(n.slot_source(0,x),None);
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
+    /// VA-SPEC §1a.6: an anchor change is saved at once, but after a failed save (here the temporary file cannot be
+    /// created) it retries no sooner than save_every_ms, not at every tick; once the disk recovers it is saved.
+    #[test] fn a_failing_save_is_not_retried_every_tick_for_an_anchor_change(){
+        let (mut n,_rx,dir)=node("o-savefail",1,false,vec![],vec![],G);n.disc.times.stall_min_ms=u64::MAX/4;n.disc_load(G);
+        let a=sa("81.30.0.1:30300");n.disc.out.loaded_anchors=vec![(a,G)];assert!(n.anchors_moved(G));
+        std::fs::create_dir(dir.join(super::super::FILE_TMP)).unwrap();
+        let tick_ms=n.disc.times.tick_ms;let every=n.disc.times.save_every_ms;
+        for i in 0..20{let now=G+i*tick_ms;n.disc.test_now=Some(now);n.disc_tick(now);}
+        assert_eq!((n.disc.counters.book_save_errors,n.disc.counters.book_saves),(1,0),"one failed attempt in 20 ticks");
+        std::fs::remove_dir(dir.join(super::super::FILE_TMP)).unwrap();
+        let now=G+every;n.disc.test_now=Some(now);n.disc_tick(now);
+        assert!(n.disc.counters.book_saves==1&&n.disc.out.saved_anchors==[(a,G)],"saved once the disk recovers");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
     const SESSION_STALL:u128=crate::node::SESSION_STALL_MS;
 }

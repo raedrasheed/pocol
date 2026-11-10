@@ -179,9 +179,10 @@ struct Counters{get_addr_sent:u64,get_addr_answered:u64,get_addr_ignored:u64,get
 /// `listen_port`: the bound listener's port, read when the network starts with discovery on; `rng`:
 /// the book's shuffles (seeded from the OS, or `Discovery::rng_seed`); `links`: each connection's state; `file`: what
 /// the network's start found in the book's file; `loaded`: the network started with discovery on, so the book is saved;
+/// `next_anchor_save_ms`: after a failed save, the earliest save an anchor change makes (else every tick would retry);
 /// `out`: automatic outbound (`outbound`).
 pub(super) struct Disc{on:bool,allow_local:bool,listening:bool,nonce:u64,listen_ip:Option<std::net::IpAddr>,listen_port:u16,book:Book,rng:addrbook::Rng,links:HashMap<PeerId,Link>,
-    times:DiscoveryTimes,file:String,loaded:bool,next_tick_ms:u64,next_refresh_ms:u64,next_save_ms:u64,counters:Counters,out:outbound::Out,
+    times:DiscoveryTimes,file:String,loaded:bool,next_tick_ms:u64,next_refresh_ms:u64,next_save_ms:u64,next_anchor_save_ms:u64,counters:Counters,out:outbound::Out,
     /// Tests: the clock the hooks read (`Node::disc_now`).
     #[cfg(test)] test_now:Option<u64>}
 impl Disc{
@@ -193,7 +194,7 @@ impl Disc{
         let [nonce,seed]=[0,8].map(|i|u64::from_be_bytes(r[i..i+8].try_into().unwrap()));
         let mut book=if s.enabled{Book::new(s.allow_local)}else{Book::disabled()};book.set_times(s.times.book());
         Ok(Self{on:s.enabled,allow_local:s.allow_local,listening:listen.is_some(),nonce:nonce.max(1),listen_ip:listen.map(|a|a.ip().to_canonical()),listen_port:0,book,rng:addrbook::Rng::new(s.rng_seed.unwrap_or(seed)),
-            links:HashMap::new(),times:s.times,file:"not loaded".into(),loaded:false,next_tick_ms:0,next_refresh_ms:0,next_save_ms:0,counters:Counters::default(),out:outbound::Out::new(s),
+            links:HashMap::new(),times:s.times,file:"not loaded".into(),loaded:false,next_tick_ms:0,next_refresh_ms:0,next_save_ms:0,next_anchor_save_ms:0,counters:Counters::default(),out:outbound::Out::new(s),
             #[cfg(test)]test_now:None})
     }
     /// The network started with this listener (`start_network`): its port is advertised only with discovery on.
@@ -351,7 +352,7 @@ impl Node{
         if !d.on{return}
         let t=d.times;let ahead=|deadline:&mut u64,period:u64|*deadline=(*deadline).min(now.saturating_add(period));
         if d.next_tick_ms>now.saturating_add(t.tick_ms){d.next_tick_ms=now}
-        ahead(&mut d.next_refresh_ms,t.refresh_ms);ahead(&mut d.next_save_ms,t.save_first_ms.max(t.save_every_ms));
+        ahead(&mut d.next_refresh_ms,t.refresh_ms);ahead(&mut d.next_save_ms,t.save_first_ms.max(t.save_every_ms));ahead(&mut d.next_anchor_save_ms,t.save_every_ms);
         if now<d.next_tick_ms{return}
         d.next_tick_ms=now.saturating_add(t.tick_ms);
         for l in d.links.values_mut(){if l.asked_ms.is_some_and(|a|a>now.saturating_add(t.tick_ms)||now.saturating_sub(a)>t.getaddr_timeout_ms){l.asked_ms=None;d.counters.get_addr_timeouts+=1;}}
@@ -359,8 +360,9 @@ impl Node{
             for l in d.links.values(){match (l.origin.dialed(),l.advertised){(Some(a),_) if l.compatible&&l.consent=>d.book.touch(a,false,now),(None,Some(a))=>d.book.touch(a,true,now),_=>{}}}}
         self.out_tick(now);let d=&mut self.disc;
         if d.loaded&&now>=d.next_save_ms{d.next_save_ms=now.saturating_add(d.times.save_every_ms);d.book.purge(now);self.disc_save();}
-        // VA-SPEC §1a.6: a change of the anchors is saved at once, even with a clean book.
-        else if self.disc.loaded&&self.anchors_moved(now){self.disc_save();}
+        // VA-SPEC §1a.6: a change of the anchors is saved at once, even with a clean book; after a failed save, not
+        // before save_every_ms (a full disk would otherwise rewrite and sync the book every tick).
+        else if self.disc.loaded&&now>=self.disc.next_anchor_save_ms&&self.anchors_moved(now){self.disc_save();}
     }
     /// VA-SPEC §1a.6, when the network starts with discovery on: the book is read from the data directory with a 1 MiB
     /// bound (`launcher::read_bounded`), each entry passing the filter and the quotas again (`addrbook::parse`). Without
@@ -387,7 +389,7 @@ impl Node{
     /// VA-SPEC §1a.6: the book, once loaded and if it or its anchors (`disc_anchors`) changed since, is written atomically, as `persist_signed_a0` writes
     /// its record: the temporary file written and synced, renamed over the file, then the directory synced (Unix only:
     /// Windows cannot open a directory). A failure is logged and counted, never fatal: the book stays changed, and the
-    /// next save writes it.
+    /// next save writes it (an anchor change retries no sooner than save_every_ms).
     pub(super) fn disc_save(&mut self){
         use std::io::Write;
         if !self.disc.loaded{return}
@@ -397,8 +399,9 @@ impl Node{
         let r=(||->std::io::Result<()>{
             {let mut f=std::fs::File::create(dir.join(FILE_TMP))?;f.write_all(&bytes)?;f.sync_all()?;}
             std::fs::rename(dir.join(FILE_TMP),dir.join(FILE))?;if cfg!(unix){std::fs::File::open(dir)?.sync_all()?;}Ok(())})();
-        match r{Ok(())=>{self.disc.book.saved();self.disc.out.saved_anchors=anchors;self.disc.counters.book_saves+=1;}
-            Err(e)=>{self.disc.counters.book_save_errors+=1;self.log(&format!("address book: the save failed: {e}"));}}
+        match r{Ok(())=>{self.disc.book.saved();self.disc.out.saved_anchors=anchors;self.disc.counters.book_saves+=1;self.disc.next_anchor_save_ms=0;}
+            Err(e)=>{self.disc.counters.book_save_errors+=1;self.disc.next_anchor_save_ms=self.disc_now().saturating_add(self.disc.times.save_every_ms);
+                self.log(&format!("address book: the save failed: {e}"));}}
     }
     /// `pocol_status.discovery` (plan §8): the settings, the book's size (never its contents), the outbound settings,
     /// this node's own addresses (at most addrbook::SELF_MAX) and the counters.
