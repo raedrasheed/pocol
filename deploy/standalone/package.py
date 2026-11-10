@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Explicit allowlists only: no network keys, private state or Android signing keys."""
-import argparse, hashlib, json, shutil, subprocess, tarfile
+import argparse, hashlib, json, runpy, shutil, subprocess, tarfile
 from pathlib import Path
-p=argparse.ArgumentParser(); p.add_argument('--platform',choices=['Linux','Windows','Android'],required=True); p.add_argument('--out',type=Path,required=True); args=p.parse_args()
-root=Path(__file__).resolve().parents[2]; args.out.mkdir()
+p=argparse.ArgumentParser(); p.add_argument('--platform',choices=['Linux','Windows','Android'],required=True); p.add_argument('--out',type=Path,required=True)
+p.add_argument('--network',type=Path,help='the v2 invitation this release is for; release-info then names its consensusIdentity'); args=p.parse_args()
+root=Path(__file__).resolve().parents[2]
+# The consensus identity reference and the LEGACY_BUILDS mirror (standard library only; never imported from a package).
+identity=runpy.run_path(str(root/'deploy/public-testnet/pocol_identity.py'))
+args.out.mkdir()
 version='0.4.0'
 if args.platform=='Android':
     # CI has no retained signer for the installed app. An unsigned release is a
@@ -21,6 +25,19 @@ else:
     for name in (['Start-PoCol.cmd','Initialize-PoColNetwork.ps1'] if suffix else ['install-linux.sh']): files[name]=root/'deploy/standalone'/name
     info=subprocess.check_output([str(files['pocol'+suffix]),'build-info'])
     (args.out/'build-info.json').write_bytes(info)
+build=json.loads((args.out/'build-info.json').read_text(encoding='utf-8'))
+# Release builds are compiled with POCOL_RELEASE=1, so build.rs refuses an unpinned tree; refuse its build-info too
+# (VA-SPEC §2.4). A certified legacy entry is bound to the consensus sources its replay ran: any re-pin voids it (A2-8).
+if build.get('consensusPinned') is not True: raise SystemExit('refusing to package an unpinned consensus build (consensusPinned is not true)')
+stale=[e['digest'] for e in identity['LEGACY_BUILDS'] if e['certified'] and e['sources']!=build.get('consensusSourcesSha256')]
+if stale: raise SystemExit('a certified legacy build was replayed against other consensus sources; rerun the replay: '+', '.join(stale))
+chain,genesis=1599846715,'0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
+network_identity=None
+if args.network:
+    invitation=json.loads(args.network.read_bytes()); info=json.loads(invitation['files']['devnet.json'])
+    if invitation['schema']!='pocol-network-v2' or invitation['consensusRulesVersion']!=build['consensusRulesVersion']: raise SystemExit('the invitation binds other consensus rules')
+    if (info['chainId'],info['genesisHash'].lower())!=(chain,genesis): raise SystemExit('the invitation is for another network')
+    network_identity=identity['for_network'](info,build)
 if args.platform=='Linux':
     for asset in (root/'deploy/standalone/linux-desktop').iterdir():
         if asset.is_file(): files[asset.name]=asset
@@ -30,12 +47,12 @@ shutil.copy2(root/'deploy/standalone/RELEASE-UPGRADE.md',args.out/'RELEASE-UPGRA
 shutil.copy2(root/'prototypes/third-party/evm-crypto/NOTICE.txt',args.out/'THIRD-PARTY-CRYPTO-NOTICES.txt')
 commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
 (args.out/'source-commit.txt').write_text(commit+'\n',encoding='utf-8',newline='\n')
-build=json.loads((args.out/'build-info.json').read_text(encoding='utf-8'))
 release={'version':version,'platform':args.platform,'sourceCommit':commit,
-         'compatibilitySha256':build['compatibilitySha256'],
+         'compatibilitySha256':build['compatibilitySha256'],'consensusRulesVersion':build['consensusRulesVersion'],
+         'protocolVersionMin':build['protocolVersionMin'],'consensusIdentity':network_identity,
          'networkName':'PoCol Mainnet','networkEnvironment':'mainnet',
          'operatorDesignation':'PoCol Mainnet','requiresCoordinatedUpgrade':True,'activationHeight':None,
-         'chainId':1599846715,'genesisHash':'0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca',
+         'chainId':chain,'genesisHash':genesis,
          'publicLaunchReady':False,'networkInvitationIncluded':False,
          'distribution':'unsigned-apk' if args.platform=='Android' else 'portable-native-tools',
          'installable':args.platform!='Android'}

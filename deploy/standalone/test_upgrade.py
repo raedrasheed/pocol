@@ -12,7 +12,11 @@ import threading
 import time
 import unittest
 
-from test_launcher import BIN, EXE, call, identity, network
+from test_launcher import BIN, EXE, ROOT, call, identity, network
+
+H15000 = ROOT / 'deploy/mainnet/h15000/network.pocol.json'
+# launcher::legacy_refusal() under SWITCH = B, owner decision D1's recommended default (plan §5.4).
+LEGACY_REFUSAL = 'This network was replaced by a new genesis. Follow the release notes to move the old network files aside; keep your wallet key.'
 
 
 def read_json(path):
@@ -157,6 +161,24 @@ class FullNonceUpgrade(unittest.TestCase):
         self.upgrade()  # Safe idempotent retry.
         for name in ('alloc.json', 'genesis.spec.hex'):
             self.assertEqual((self.home / 'network' / name).read_bytes(), self.before['files'][name].encode('utf-8'))
+
+    def test_a_home_bound_to_the_uncertified_h15000_file_is_refused_with_the_release_notes_text(self):
+        # Plan T32 and §5.4: LEGACY_BUILDS ships uncertified (owner decision D1, Option B by default), so neither an
+        # upgrade nor a plain start of an H15000 home proceeds, and nothing in the home changes.
+        h15000 = read_json(H15000)
+        write_json(self.home / 'network.pocol.json', h15000)
+        for name, content in h15000['files'].items():
+            (self.home / 'network' / name).write_bytes(content.encode('utf-8'))
+        before = {p.relative_to(self.home): p.read_bytes() for p in self.home.rglob('*') if p.is_file()}
+        for args in (('upgrade', '--home', self.home, '--network', self.target),
+                     ('inspect-upgrade', '--home', self.home, '--network', self.target),
+                     ('import', '--home', self.home)):
+            with self.subTest(command=args[0]):
+                refused = call('pocol', *args, ok=False)
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertIn(LEGACY_REFUSAL, refused.stderr)
+                self.assertEqual({p.relative_to(self.home): p.read_bytes() for p in self.home.rglob('*') if p.is_file()}, before)
+        self.assertFalse((self.home / 'network-upgrade.pending.json').exists())
 
     def test_rejects_changed_network_metadata_seeds_and_schedule(self):
         candidates = []
@@ -349,6 +371,18 @@ class NewGenesisRejoin(unittest.TestCase):
         self.assertEqual(self.bound_chain(), 777916)
         self.assertEqual(sorted(p.name for p in aside.iterdir()), sorted(moved))
         self.assertEqual((aside / 'state' / 'blocks.journal').read_bytes(), b'old chain')
+
+    def test_the_real_h15000_invitation_beside_the_application_is_refused_and_writes_nothing(self):
+        # Plan T32: a fresh home with only its key, and the published 0.4.0 invitation beside the application.
+        home = self.root / 'fresh'
+        self.assertEqual(len(identity(home)), 42)
+        shutil.copy2(H15000, self.app / 'network.pocol.json')
+        before = sorted(p.name for p in home.iterdir())
+        refused = self.engine('import', '--home', home, ok=False)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn(LEGACY_REFUSAL, refused.stderr)
+        self.assertEqual(sorted(p.name for p in home.iterdir()), before, 'no binding and no network files')
+        self.assertFalse((home / 'network.pocol.json').exists())
 
     def test_an_old_invitation_left_beside_the_application_binds_the_home_again(self):
         # Why the notes replace the file beside the application first: otherwise opening the wallet rebinds

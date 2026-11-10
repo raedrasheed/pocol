@@ -3,11 +3,15 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import preflight
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'public-testnet'))
+import pocol_identity  # noqa: E402
 
 
 class PreflightTests(unittest.TestCase):
@@ -16,7 +20,8 @@ class PreflightTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.bundle = self.root / 'bundle'; self.bundle.mkdir()
         self.data = self.root / 'state'; self.data.mkdir()
-        self.source = 'a' * 64
+        # A 0.4.0 seed: the published legacy source and no consensus identity fields (plan T29).
+        self.source = preflight.LEGACY_SOURCE
         self.binding = {'chainId': preflight.CHAIN_ID, 'genesisHash': preflight.GENESIS,
                         'compatibilitySha256': self.source, 'protocolVersion': 2,
                         'stateStore': True, 'node': 'seed-1', 'miner': '0x' + '11' * 20}
@@ -223,6 +228,98 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(self.collect()['node']['forkSchedule'][1][1], str(height))
         self.params['forkSchedule'] = [[1, 0], [2, True]]
         self.assertFalse(self.collect()['checks']['node'])
+
+
+    def r1(self, marker_source=None):
+        """Turn the fixture into an R1 seed: a pinned build that reports its rules and consensus identity."""
+        self.source = 'c' * 64
+        identity = pocol_identity.consensus_id(preflight.CHAIN_ID, preflight.GENESIS, 1, 0, [(1, 0)])
+        fields = {'compatibilitySha256': self.source, 'consensusRulesVersion': 1, 'consensusIdentity': identity}
+        self.binding.update(fields)
+        self.build.update(compatibilitySha256=self.source, consensusRulesVersion=1, consensusPinned=True)
+        self.write('build-info.json', self.build); self.manifest()
+        (self.data / 'network-binding.json').write_text(json.dumps({**self.binding, 'compatibilitySha256': marker_source or self.source}))
+        for value in (self.params, self.status): value.update(fields, consensusPinned=True)
+        return identity
+
+    def test_an_r1_seed_passes_and_its_identity_is_recomputed_from_public_fields(self):
+        identity = self.r1()
+        result = self.collect()
+        self.assertEqual(result['result'], 'PASS', result['issues'])
+        self.assertEqual(result['node']['consensusIdentity'], identity)
+        self.assertNotIn('legacyRules', result['node'])
+        self.assertEqual(result['warnings'], [])
+
+    def test_a_marker_of_an_earlier_build_of_the_same_rules_passes_with_a_warning(self):
+        self.r1(marker_source='d' * 64)
+        result = self.collect()
+        self.assertEqual(result['result'], 'PASS', result['issues'])
+        self.assertEqual(len(result['warnings']), 1)
+        self.assertIn('another build of the same consensus rules', result['warnings'][0])
+
+    def test_a_consensus_identity_that_does_not_match_its_fields_fails(self):
+        self.r1()
+        for value in (self.params, self.status): value['consensusIdentity'] = 'e' * 64
+        result = self.collect()
+        self.assertFalse(result['checks']['node'])
+        self.assertIn('does not match', result['issues'][0]['reason'])
+        self.r1()
+        self.params['forkSchedule'] = [[1, 0], [2, 50]]
+        self.assertFalse(self.collect()['checks']['node'], 'another schedule is another identity')
+
+    def test_an_unpinned_r1_node_or_bundle_fails(self):
+        self.r1(); self.status['consensusPinned'] = False
+        self.assertFalse(self.collect()['checks']['node'])
+        self.r1(); self.build['consensusPinned'] = False; self.write('build-info.json', self.build); self.manifest()
+        self.assertFalse(self.collect()['checks']['bundle'])
+
+    def test_a_running_consensus_identity_other_than_the_bundle_fails(self):
+        self.r1()
+        self.build['consensusRulesVersion'] = 2; self.write('build-info.json', self.build)
+        self.binding['consensusRulesVersion'] = 2
+        self.binding['consensusIdentity'] = pocol_identity.consensus_id(preflight.CHAIN_ID, preflight.GENESIS, 2, 0, [(1, 0)])
+        self.manifest()
+        result = self.collect()
+        self.assertFalse(result['checks']['bundle'])
+        self.assertIn('running consensus identity differs', json.dumps(result['issues']))
+
+    def test_only_the_published_legacy_source_may_omit_the_consensus_identity(self):
+        for value in (self.params, self.status): value['compatibilitySha256'] = 'b' * 64
+        result = self.collect()
+        self.assertFalse(result['checks']['node'])
+        self.assertIn('no consensus identity', result['issues'][0]['reason'])
+
+    def test_a_legacy_marker_under_an_r1_bundle_is_refused(self):
+        self.r1()
+        legacy = {k: v for k, v in self.binding.items() if k not in ('consensusRulesVersion', 'consensusIdentity')}
+        (self.data / 'network-binding.json').write_text(json.dumps({**legacy, 'compatibilitySha256': preflight.LEGACY_SOURCE}))
+        self.assertFalse(self.collect()['checks']['stateBinding'])
+
+    def test_a_0_4_0_seed_reports_legacy_rules(self):
+        result = self.collect()
+        self.assertEqual(result['result'], 'PASS', result['issues'])
+        self.assertEqual(result['node']['legacyRules'], 1)
+        self.assertNotIn('consensusIdentity', result['node'])
+
+    def test_the_schedule_rule_is_generic_with_the_runtime_shape(self):
+        self.assertEqual(preflight.forks([[1, 0], [2, 9]]), [[1, 0], [2, 9]])
+        with patch.object(preflight, 'MAX_FORK_VERSION', 3):
+            self.assertEqual(preflight.forks([[1, 0], [2, 9], [3, 20]])[-1], [3, 20])
+        for bad in ([], [[2, 0]], [[1, 1]], [[1, 0], [1, 5]], [[1, 0], [3, 5]], [[1, 0], [2, 0]],
+                    [[1, 0], [2, 9], [3, 20]], [[1, 0]] * 17, [[1, 0], [2, 9], [2, 20]]):
+            with self.subTest(bad=bad), self.assertRaises(preflight.PreflightError): preflight.forks(bad)
+
+    def test_the_inline_consensus_id_equals_the_reference_implementation(self):
+        cases = [(preflight.CHAIN_ID, preflight.GENESIS, 1, [[1, 0], [2, 150]]), (7, '0x' + '01' * 32, 2, [[1, 0]]),
+                 (2**64 - 1, '0x' + 'ff' * 32, 2**32 - 1, [[1, 0], [2, 2**64 - 1]])]
+        for chain, genesis, rules, schedule in cases:
+            with self.subTest(chain=chain):
+                self.assertEqual(preflight.consensus_id(chain, genesis, rules, schedule),
+                                 pocol_identity.consensus_id(chain, genesis, rules, 0, schedule))
+        # The published H15000 network, read from its invitation so the old identity is not pinned here again.
+        info = json.loads(json.loads((Path(__file__).parent / 'h15000/network.pocol.json').read_text())['files']['devnet.json'])
+        self.assertEqual(preflight.consensus_id(info['chainId'], info['genesisHash'], 1, info['forks']),
+                         'bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110', 'the T11 golden identity')
 
 
 if __name__ == '__main__':

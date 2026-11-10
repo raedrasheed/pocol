@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 
+import pocol_identity
 from node_operator import BINARIES, SCHEMA, digest, files, identity, read_json, verify, write_json
 
 HERE = Path(__file__).resolve().parent
@@ -192,6 +193,9 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
         raise ValueError('Generate independent genesis with init-testnet, not label-based init-devnet')
     build = json.loads(subprocess.check_output([str(bin_dir / 'pocold'), 'build-info'], text=True, timeout=10))
     if build['features'] or build['protocolVersion'] != 2: raise ValueError('Use the feature-free wire-v2 release build')
+    # A tree whose consensus sources are not pinned peers with no released node (VA-SPEC §2.4).
+    if build.get('consensusPinned') is not True or 'consensusRulesVersion' not in build:
+        raise ValueError('Use a release build with pinned consensus sources')
     # Catch a stale binary packaged from a changed checkout. No dirty-tree override.
     for name, expected in build['sourceSha256'].items():
         path = ROOT / 'prototypes' / name
@@ -205,7 +209,7 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
         bundle = out / node['name']; bundle.mkdir()
         shutil.copytree(network, bundle / 'net'); (bundle / 'bin').mkdir()
         for name in BINARIES: shutil.copy2(bin_dir / name, bundle / 'bin' / name)
-        for name in ('node_operator.py', 'install.sh'): shutil.copy2(HERE / name, bundle / name)
+        for name in ('node_operator.py', 'pocol_identity.py', 'install.sh'): shutil.copy2(HERE / name, bundle / name)
         peers = sorted(set(node['seeds'] + [f"{n['ip']}:{n['p2pPort']}" for n in nodes if n != node]))
         if len(peers) > 7: raise ValueError('At most seven configured outbound peers in this release')
         config = {'name': node['name'], 'minerAddress': node['minerAddress'],
@@ -223,7 +227,10 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
     write_json(out / 'inventory.json', inventory)
     release = {'schema': 'pocol-public-testnet-release-v1', 'chainId': info['chainId'],
         'genesisHash': info['genesisHash'], 'genesisTime': info['genesisTime'],
-        'protocolVersion': build['protocolVersion'], 'compatibilitySha256': build['compatibilitySha256'],
+        'protocolVersion': build['protocolVersion'], 'protocolVersionMin': build['protocolVersionMin'],
+        # The build digest is informational; nodes peer on the consensus identity (VA-SPEC §2.1).
+        'compatibilitySha256': build['compatibilitySha256'], 'consensusRulesVersion': build['consensusRulesVersion'],
+        'consensusIdentity': pocol_identity.for_network(info, build),
         'bundleManifestSha256': manifests, 'rehearsalOnly': rehearsal,
         'admission': info['admission'], 'publicLaunchReady': False, 'deploymentPerformed': False,
         'seeds': sorted(set(p for n in nodes for p in n['seeds']) | {f"{n['ip']}:{n['p2pPort']}" for n in nodes})}

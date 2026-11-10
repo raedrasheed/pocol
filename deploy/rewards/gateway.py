@@ -81,18 +81,21 @@ def valid_call(request):
 def valid_payload(value):
     return (0 < len(value) <= 20 and all(valid_call(v) for v in value)) if isinstance(value, list) else valid_call(value)
 
+# The public consensus identity and wire range (VA-SPEC §2), so a wallet or explorer can tell why peers differ (A2-10).
+IDENTITY_FIELDS = ('consensusIdentity', 'consensusRulesVersion', 'protocolVersionMin', 'maxForkVersion')
+
 def sanitize(method, value):
     if not isinstance(value, dict): return value
     if method == 'pocol_status':
         keys = ('chainId', 'genesisHash', 'head', 'pool', 'lifetime', 'protocolVersion', 'compatibilitySha256',
                 'forkSchedule', 'effectiveNonceMode', 'nextBlockNonceMode', 'consensusCompatibilitySha256',
-                'networkName', 'networkEnvironment')
+                'networkName', 'networkEnvironment') + IDENTITY_FIELDS
         result = {k:value.get(k) for k in keys}
         result['peerCount'] = len(value.get('peers', []))
         result['stats'] = {k:value.get('stats', {}).get(k) for k in ('reorgs', 'mined', 'imported')}
         return result
     if method == 'pocol_getParams':
-        keys = ('chainId', 'genesisHash', 'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'protocolVersion', 'compatibilitySha256', 'activeVersion', 'forkSchedule', 'effectiveNonceMode', 'nextBlockNonceMode', 'consensusCompatibilitySha256', 'networkName', 'networkEnvironment')
+        keys = ('chainId', 'genesisHash', 'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'protocolVersion', 'compatibilitySha256', 'activeVersion', 'forkSchedule', 'effectiveNonceMode', 'nextBlockNonceMode', 'consensusCompatibilitySha256', 'networkName', 'networkEnvironment') + IDENTITY_FIELDS
         return {k:value.get(k) for k in keys}
     return value
 

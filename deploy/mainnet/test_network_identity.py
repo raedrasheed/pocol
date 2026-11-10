@@ -96,6 +96,14 @@ KEPT = {
     'deploy/mainnet/README.md': "the old network's operations",
     'deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md': 'the move from the old network',
     'deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK-AR.md': 'the move from the old network',
+    # PR5: the old network as the legacy 0.4.0 build and the pinned golden values of the consensus identity.
+    'deploy/public-testnet/pocol_identity.py': "the LEGACY_BUILDS mirror: the 0.4.0 build bound to the old chain",
+    'deploy/public-testnet/test_pocol_identity.py': "the old network's golden consensus identity",
+    'prototypes/pocold/src/identity.rs': "the old network's golden consensus identity (T11)",
+    'prototypes/pocold/src/launcher.rs': 'LEGACY_BUILDS: the 0.4.0 build bound to the old chain, and its tests',
+    'prototypes/pocold/tests/consensus_guard.rs': 'checks that LEGACY_BUILDS stays bound to the old chain',
+    'prototypes/pocold/src/net.rs': 'a pinned canonical Hello frame (wire golden vectors), not a network setting',
+    'prototypes/pocold/tests/data/wire-golden.json': 'the pinned canonical Hello frame (wire golden vectors)',
 }
 # The release notes every package ships. The step-3 PR replaces the old network's 0.4.0 notes with the new
 # network's, which may name the old network as history but must name the tree's identity: the chain ID and

@@ -16,10 +16,15 @@ import stat
 import subprocess
 import sys
 
+import pocol_identity
+
 SCHEMA = 'pocol-public-testnet-bundle-v1'
 LOCAL_ARGS = ['--delta', '1', '--phi', '1', '--t-exec', '1', '--delta-rel', '8', '--gamma', '5']
 BINARIES = ('pocold', 'pocol-key', 'pocol-sign', 'pocol-site')
 LOCKS = {'.operator.lock', 'LOCK'}
+# What a node's state is bound to (plan §4). compatibilitySha256 and protocolVersion are informational: a release
+# that changes only the build digest starts on the existing marker and never rewrites it.
+BOUND = ('chainId', 'genesisHash', 'consensusIdentity', 'stateStore', 'node', 'miner')
 
 
 def digest(path):
@@ -88,7 +93,14 @@ def verify(bundle, expected=None):
     config = read_json(bundle / 'node.json')
     info = read_json(bundle / 'net/devnet.json')
     build = read_json(bundle / 'build-info.json')
-    if build['features'] or build['protocolVersion'] != 2: raise ValueError('Unsupported or test-feature binary')
+    if build['features'] or not pocol_identity.PROTOCOL_VERSION_MIN <= build['protocolVersion']:
+        raise ValueError('Unsupported or test-feature binary')
+    # A release build is pinned (VA-SPEC §2.4); an unpinned one would peer with nobody. A 0.4.0 build reports no rules.
+    if 'consensusRulesVersion' in build and build.get('consensusPinned') is not True:
+        raise ValueError('Unpinned consensus build; use a release build')
+    # node_operator.py imports the identity reference beside it.
+    if 'consensusRulesVersion' in build and 'pocol_identity.py' not in manifest['sha256']:
+        raise ValueError('Incomplete bundle manifest')
     if info['admission']['scope'] != 'experimental-devnet' or info['chainId'] == 777001:
         raise ValueError('Only the experimental testnet profile is supported')
     if manifest['identity'] != identity(config, info, build): raise ValueError('Bundle identity mismatch')
@@ -96,9 +108,26 @@ def verify(bundle, expected=None):
 
 
 def identity(config, info, build):
-    return {'chainId': info['chainId'], 'genesisHash': info['genesisHash'],
-            'protocolVersion': build['protocolVersion'], 'compatibilitySha256': build['compatibilitySha256'],
-            'stateStore': True, 'node': config['name'], 'miner': config['minerAddress']}
+    """The bundle's public identity. A build that reports its consensus rules (R1 on) adds them and the consensus
+    identity (VA-SPEC §2.1) its node sends on this network; a 0.4.0 build-info has neither."""
+    value = {'chainId': info['chainId'], 'genesisHash': info['genesisHash'],
+             'protocolVersion': build['protocolVersion'], 'compatibilitySha256': build['compatibilitySha256']}
+    if 'consensusRulesVersion' in build:
+        value.update(consensusRulesVersion=build['consensusRulesVersion'],
+                     consensusIdentity=pocol_identity.for_network(info, build))
+    return {**value, 'stateStore': True, 'node': config['name'], 'miner': config['minerAddress']}
+
+
+def bound(marker, expected):
+    """Whether the state marker binds this bundle's node (plan §4). A marker with a consensus identity matches on
+    BOUND, so a digest-only release starts on it. A 0.4.0 marker names only its build digest: it matches its own
+    release exactly, or a newer one only through a certified LEGACY_BUILDS entry for its chain and genesis."""
+    if not isinstance(marker, dict): return False
+    if 'consensusIdentity' in marker: return all(marker.get(k) == expected.get(k) for k in BOUND)
+    if marker == expected: return True
+    rules = pocol_identity.legacy_rules(marker.get('compatibilitySha256'), marker.get('chainId'), marker.get('genesisHash'))
+    return (rules is not None and rules == expected.get('consensusRulesVersion')
+            and all(marker.get(k) == expected.get(k) for k in BOUND if k != 'consensusIdentity'))
 
 
 @contextlib.contextmanager
@@ -136,7 +165,9 @@ def launch(bundle, data, key):
     with locked(data, journal=False) as handles:
         marker = data / 'network-binding.json'
         if marker.exists():
-            if read_json(marker) != expected: raise ValueError('State belongs to another release, network, node or key')
+            if not bound(read_json(marker), expected):
+                raise ValueError('State belongs to another network, consensus rules, node or key, '
+                                 'or to a PoCol 0.4.0 release this release is not certified to run')
         else:
             if set(p.name for p in data.iterdir()) - {'.operator.lock'}:
                 raise ValueError('Refusing unbound existing data')

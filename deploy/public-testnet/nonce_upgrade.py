@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Prepare a seed bundle and migrate its stopped state binding for full nonce v2.
+"""Prepare a seed bundle and migrate its stopped state binding to a new release or fork schedule.
 
-Offline only: no service start, installation, key read, or chain-state mutation.
-Use the same approved activation height on every node and browser verifier.
+Offline only: no service start, installation, key read, or chain-state mutation. A release may append future fork
+entries (append-only, future-only) or none (a rebind to a new build of the same rules). Use the same approved
+activation heights on every node and browser verifier.
 """
 import argparse
 import copy
@@ -18,14 +19,18 @@ import sys
 import tempfile
 
 import node_operator as op
+import pocol_identity
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 MAX_RECORD = 4 * 1024 * 1024
 INTENT = 'nonce-upgrade.intent.json'
-BACKUP = 'network-binding.pre-full-nonce.json'
-MUTABLE = {'manifest.json', 'build-info.json', 'net/devnet.json',
-           'node_operator.py', 'nonce_upgrade.py'} | {'bin/' + n for n in op.BINARIES}
+INTENT_SCHEMA = 'pocol-seed-upgrade-v2'
+# The fixed name the 0.4.0 tool wrote before its full-nonce migration. It is never read or written again: a backup is
+# now named by the replaced marker (backup_name), so a second migration of the same state no longer collides with it.
+LEGACY_BACKUP = 'network-binding.pre-full-nonce.json'
+MUTABLE = {'manifest.json', 'build-info.json', 'net/devnet.json', 'node_operator.py', 'nonce_upgrade.py',
+           'pocol_identity.py'} | {'bin/' + n for n in op.BINARIES}
 
 
 def require(condition, message):
@@ -48,31 +53,39 @@ def read_bytes(path, limit=4 * 1024 * 1024):
     return value
 
 
+def schedule(info):
+    """The runtime fork schedule of devnet.json (pocold configured_forks: (1, 0), then 2, 3, ... at increasing heights)."""
+    try: return pocol_identity.validated_schedule(info.get('forks', [[1, 0]]), pocol_identity.MAX_FORK_VERSION)
+    except ValueError as error: raise ValueError('Unsupported fork schedule: ' + str(error)) from None
+
+
 def fork_transition(before, after):
+    """The fork entries `after` appends to `before` (plan §1.7): existing entries never change or disappear, and
+    every other metadata key is unchanged. No appended entry is a rebind to a new build of the same rules."""
     require(isinstance(before, dict) and isinstance(after, dict), 'Invalid network metadata')
-    old = copy.deepcopy(before)
-    new = copy.deepcopy(after)
-    def v1_start(value):
-        return (isinstance(value, list) and len(value) == 2
-                and all(type(x) is int for x in value) and value == [1, 0])
-    old_forks = old.pop('forks', [[1, 0]])
-    require(isinstance(old_forks, list) and len(old_forks) == 1 and v1_start(old_forks[0]),
-            'Existing network must be v1-only')
-    forks = new.pop('forks', None)
-    require(isinstance(forks, list) and len(forks) == 2 and v1_start(forks[0])
-            and isinstance(forks[1], list) and len(forks[1]) == 2
-            and type(forks[1][0]) is int and forks[1][0] == 2
-            and type(forks[1][1]) is int and 0 < forks[1][1] < 2**64,
-            'Expected one future full-nonce v2 activation')
+    old, new = copy.deepcopy(before), copy.deepcopy(after)
+    old_forks, new_forks = schedule(old), schedule(new)
+    old.pop('forks', None); new.pop('forks', None)
+    require(new_forks[:len(old_forks)] == old_forks, 'Changing or removing an activation is forbidden')
     require(old == new and old.get('keyMode') == 'independent-key-files',
             'Only the fork schedule may change in network metadata')
-    return forks[1][1]
+    return [list(entry) for entry in new_forks[len(old_forks):]]
+
+
+def backup_name(marker):
+    """The backup of the replaced marker, named by its content, so every migration keeps its own backup."""
+    canonical = json.dumps(marker, sort_keys=True, separators=(',', ':')).encode()
+    return 'network-binding.before-' + hashlib.sha256(canonical).hexdigest()[:16] + '.json'
 
 
 def validate_build(build):
     require(isinstance(build, dict) and build.get('schema') == 'pocol-testnet-build-v1'
-            and build.get('features') == [] and build.get('protocolVersion') == 2,
-            'Use a feature-free wire-v2 native release')
+            and build.get('features') == [] and type(build.get('protocolVersion')) is int
+            and build['protocolVersion'] >= pocol_identity.PROTOCOL_VERSION_MIN,
+            'Use a feature-free native release')
+    rules = build.get('consensusRulesVersion')
+    require(type(rules) is int and rules >= 1 and build.get('consensusPinned') is True,
+            'Use a release build with pinned consensus sources')
     sources = build.get('sourceSha256')
     require(isinstance(sources, dict) and {'pocold/src/chain.rs', 'lp1-node/src/profile.rs'} <= sources.keys(),
             'Build source inventory is missing consensus inputs')
@@ -95,8 +108,9 @@ def prepare_bundle(old_bundle, binary_dir, invitation_file, out, expected_old=No
             'New bundle must be outside the existing bundle')
     old_manifest, _ = op.verify(old_bundle, expected_old)
     invitation = op.read_json(invitation_file)
-    require(isinstance(invitation, dict) and set(invitation) == {'schema', 'compatibilitySha256', 'seeds', 'files'}
-            and invitation['schema'] == 'pocol-network-v1', 'Invalid new invitation')
+    require(isinstance(invitation, dict) and invitation.get('schema') in ('pocol-network-v1', 'pocol-network-v2')
+            and set(invitation) == {'schema', 'seeds', 'files', 'compatibilitySha256' if invitation['schema']
+                                    == 'pocol-network-v1' else 'consensusRulesVersion'}, 'Invalid new invitation')
     public = invitation['files']
     require(isinstance(public, dict) and set(public) == {'alloc.json', 'devnet.json', 'genesis.spec.hex'}
             and all(isinstance(v, str) for v in public.values()), 'Invalid public network files')
@@ -106,14 +120,18 @@ def prepare_bundle(old_bundle, binary_dir, invitation_file, out, expected_old=No
     # The invitation's discovery addresses are not installed here. The existing
     # node.json (including every configured peer and endpoint) is preserved.
     new_info = json.loads(public['devnet.json'])
-    activation = fork_transition(op.read_json(old_bundle / 'net/devnet.json'), new_info)
+    appended = fork_transition(op.read_json(old_bundle / 'net/devnet.json'), new_info)
     for name in op.BINARIES:
         regular(binary_dir / name)
     build = json.loads(subprocess.check_output([str(binary_dir / 'pocold'), 'build-info'],
                                               text=True, timeout=10))
     validate_build(build)
-    require(invitation['compatibilitySha256'] == build['compatibilitySha256'],
-            'Invitation and new native binaries disagree')
+    # A v2 invitation names its consensus rules; a v1 file names a 0.4.0 build digest and has rules only through a
+    # certified LEGACY_BUILDS entry for its chain and genesis (none is certified as shipped: fail closed).
+    rules = (invitation['consensusRulesVersion'] if invitation['schema'] == 'pocol-network-v2' else
+             pocol_identity.legacy_rules(invitation['compatibilitySha256'], new_info.get('chainId'), new_info.get('genesisHash')))
+    require(type(rules) is int and rules == build['consensusRulesVersion'],
+            'Invitation and new native binaries run different consensus rules')
     require(not out.exists() and not out.is_symlink(), 'Never overwrite an existing seed bundle')
     out.mkdir(parents=True, mode=0o700)
     for name, source in op.files(old_bundle).items():
@@ -124,7 +142,7 @@ def prepare_bundle(old_bundle, binary_dir, invitation_file, out, expected_old=No
         shutil.copy2(source, target)
     for name in op.BINARIES:
         shutil.copy2(binary_dir / name, out / 'bin' / name)
-    for name in ('node_operator.py', 'nonce_upgrade.py'):
+    for name in ('node_operator.py', 'nonce_upgrade.py', 'pocol_identity.py'):
         shutil.copy2(HERE / name, out / name)
     (out / 'net/devnet.json').write_text(public['devnet.json'], encoding='utf-8')
     (out / 'build-info.json').write_text(json.dumps(build, indent=2) + '\n', encoding='utf-8')
@@ -136,7 +154,7 @@ def prepare_bundle(old_bundle, binary_dir, invitation_file, out, expected_old=No
     expected_new = op.digest(out / 'manifest.json')
     verify_transition(old_bundle, out, expected_new)
     return {'bundle': str(out), 'bundleManifestSha256': expected_new,
-            'activationHeight': str(activation), 'deploymentPerformed': False}
+            'appended': [[v, str(h)] for v, h in appended], 'deploymentPerformed': False}
 
 
 def verify_transition(old_bundle, new_bundle, expected_new):
@@ -153,16 +171,23 @@ def verify_transition(old_bundle, new_bundle, expected_new):
     for key in set(old) | set(new):
         if key not in {'identity', 'sha256'}:
             require(old.get(key) == new.get(key), 'Bundle metadata must remain unchanged')
+    # The build digest may change. The consensus identity follows the schedule; op.verify recomputed both.
     old_identity, new_identity = copy.deepcopy(old['identity']), copy.deepcopy(new['identity'])
-    old_identity.pop('compatibilitySha256'); new_identity.pop('compatibilitySha256')
-    require(old_identity == new_identity, 'Only the release compatibility binding may change')
+    for value in (old_identity, new_identity): value.pop('compatibilitySha256'); value.pop('consensusIdentity', None)
+    if 'consensusRulesVersion' not in old_identity:
+        # A 0.4.0 bundle: the new release must be certified to run its rules (plan §4; fail closed as shipped).
+        rules = pocol_identity.legacy_rules(old['identity']['compatibilitySha256'], old_identity['chainId'], old_identity['genesisHash'])
+        require(rules is not None and rules == new_identity.get('consensusRulesVersion'),
+                'The old bundle runs a PoCol 0.4.0 release this release is not certified to run')
+        new_identity.pop('consensusRulesVersion')
+    require(old_identity == new_identity, 'Only the release build and the fork schedule may change')
     before, after = op.files(old_bundle), op.files(new_bundle)
     require(set(before) - MUTABLE == set(after) - MUTABLE, 'Unexpected bundle inventory change')
     for name in set(before) - MUTABLE:
         require(op.digest(before[name]) == op.digest(after[name]), 'Protected bundle file changed: ' + name)
-    activation = fork_transition(op.read_json(old_bundle / 'net/devnet.json'),
-                                 op.read_json(new_bundle / 'net/devnet.json'))
-    return old, new, activation
+    appended = fork_transition(op.read_json(old_bundle / 'net/devnet.json'),
+                               op.read_json(new_bundle / 'net/devnet.json'))
+    return old, new, appended
 
 
 def rlp(raw):
@@ -200,7 +225,7 @@ def rlp(raw):
     return result
 
 
-def header_height(payload, genesis, chain_id):
+def header_height(payload, genesis, chain_id, forks=((1, 0),)):
     fields = rlp(payload)
     require(isinstance(fields, list) and len(fields) == 3 and all(isinstance(x, bytes) for x in fields),
             'Invalid journal record payload')
@@ -216,10 +241,12 @@ def header_height(payload, genesis, chain_id):
         require(isinstance(value, bytes) and len(value) <= width and (not value or value[0]),
                 'Invalid header integer')
         return int.from_bytes(value, 'big')
-    require(unsigned[2] == genesis and integer(1, 8) == chain_id and integer(6, 2) == 1,
-            'Journal header differs from the existing v1 network')
     height = integer(4, 8)
     require(height > 0, 'Invalid stored block height')
+    # Each stored header carries the version the existing schedule makes active at its height.
+    active = next(version for version, start in reversed(forks) if height >= start)
+    require(unsigned[2] == genesis and integer(1, 8) == chain_id and integer(6, 2) == active,
+            'Journal header differs from the existing network and its fork schedule')
     return height
 
 
@@ -264,7 +291,7 @@ def highest_stored_height(data, info):
                     'Recover a torn journal with the existing release first')
             payload = content[32:-1]
             require(hashlib.sha256(payload).digest() == content[:32], 'Invalid journal checksum')
-            highest = max(highest, header_height(payload, genesis, info['chainId']))
+            highest = max(highest, header_height(payload, genesis, info['chainId'], schedule(info)))
             records += 1; position += size + 41
             if records == count:
                 matched_commit = position == committed_end
@@ -328,7 +355,7 @@ def migrate_binding(old_bundle, new_bundle, data, expected_new):
 
 
 def _migrate_locked(old_bundle, new_bundle, old_snap, new_snap, data, expected_new):
-    old, new, activation = verify_transition(old_snap, new_snap, expected_new)
+    old, new, appended = verify_transition(old_snap, new_snap, expected_new)
     actual_build = json.loads(subprocess.check_output([str(new_snap / 'bin/pocold'), 'build-info'],
                                                      text=True, timeout=10))
     require(actual_build == op.read_json(new_snap / 'build-info.json'),
@@ -344,22 +371,27 @@ def _migrate_locked(old_bundle, new_bundle, old_snap, new_snap, data, expected_n
     with op.locked(data):
         current = op.read_json(marker)
         before, after = old['identity'], new['identity']
-        intent = {'schema': 'pocol-full-nonce-seed-upgrade-v1',
+        intent = {'schema': INTENT_SCHEMA,
                   'oldManifestSha256': op.digest(old_snap / 'manifest.json'),
                   'newManifestSha256': expected_new, 'before': before, 'after': after,
-                  'activationHeight': str(activation)}
+                  'appended': [[v, str(h)] for v, h in appended]}
         intent_path = data / INTENT
+        resume = False
         if intent_path.exists() or intent_path.is_symlink():
             regular(intent_path)
-            require(op.read_json(intent_path) == intent, 'Resume with exactly the same approved seed bundles')
-        else:
+            saved = op.read_json(intent_path)
+            # A finished earlier migration (also one by the 0.4.0 tool) ends at this plan's starting marker.
+            resume = saved == intent
+            require(resume or (isinstance(saved, dict) and saved.get('after') == current == before),
+                    'Resume with exactly the same approved seed bundles')
+        if not resume:
             require(current == before, 'State binding does not match the old seed bundle')
         require(current in (before, after), 'Unexpected state release binding')
         # Check again on retry, including all side branches and a complete but
         # uncommitted frame. Never alter journal/checkpoint/history data here.
         highest = highest_stored_height(data, old_info)
-        require(activation > highest, 'Activation must be above every stored block: ' + str(highest))
-        backup = data / BACKUP
+        require(not appended or appended[0][1] > highest, 'Activation must be above every stored block: ' + str(highest))
+        backup = data / backup_name(before)
         if backup.exists() or backup.is_symlink():
             regular(backup)
             require(op.read_json(backup) == before, 'Existing binding backup differs; preserve it for review')
@@ -367,12 +399,12 @@ def _migrate_locked(old_bundle, new_bundle, old_snap, new_snap, data, expected_n
             require(current == before, 'Missing original binding backup')
             atomic_public_write(backup, read_bytes(marker), owner)
         encode = lambda value: (json.dumps(value, indent=2) + '\n').encode()
-        if not intent_path.exists():
+        if not resume:
             atomic_public_write(intent_path, encode(intent), owner)
         if current != after:
             atomic_public_write(marker, encode(after), owner)
         return {'bindingMigrated': True, 'highestStoredBlock': str(highest),
-                'activationHeight': str(activation), 'backup': str(backup),
+                'appended': [[v, str(h)] for v, h in appended], 'backup': str(backup),
                 'newBundleManifestSha256': expected_new, 'serviceStarted': False,
                 'chainStateChanged': False, 'keysAccessed': False}
 

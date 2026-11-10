@@ -5,6 +5,9 @@ Run on the Windows workstation holding the existing SSH identity. No remote
 file upload, service change, key read, cutover or consensus write is performed.
 This historical collector stays bound to the old network. After the client
 identity switch its pinned preflight source changes, so it refuses to run.
+Seeds must agree on the consensus identity (VA-SPEC §2.1) and fork schedule;
+0.4.0 seeds, which report none, on their build digest. Build digests of
+same-identity seeds are listed for information only.
 """
 import argparse
 from datetime import datetime, timezone
@@ -21,7 +24,7 @@ import ssh_terminal
 
 HOSTS = ('108.165.128.89', '108.165.128.90', '108.165.128.91')
 USER = 'pocol-admin'
-PREFLIGHT_SHA256 = 'af8a566627150d720cf5af8d3479c4813d2ec723c6a7702715e1babd38bc0ac1'
+PREFLIGHT_SHA256 = '02645f75d76744b374a7040a8dd69c46d9c5c0df6df305bee550643da8369abb'
 CHAIN_ID = 1599846715
 GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 
@@ -118,9 +121,10 @@ class SSH:
 
 
 def same_network(rows):
+    """The (consensus key, fork schedule) all three seeds share, and the build digests they run."""
     if len(rows) != 3:
         raise Blocked('All three seeds must return an inventory')
-    identities, miners = set(), set()
+    identities, miners, digests = set(), set(), set()
     for row in rows:
         validate_report(row)
         if row['result'] != 'PASS':
@@ -131,7 +135,12 @@ def same_network(rows):
         source = node['compatibilitySha256']
         if not isinstance(source, str) or not re.fullmatch(r'[0-9a-f]{64}', source):
             raise Blocked('Invalid running source fingerprint')
-        identities.add((source, json.dumps(node['forkSchedule'], separators=(',', ':'))))
+        consensus = node.get('consensusIdentity')
+        if consensus is not None and (not isinstance(consensus, str) or not re.fullmatch(r'[0-9a-f]{64}', consensus)):
+            raise Blocked('Invalid running consensus identity')
+        digests.add(source)
+        key = consensus or ('legacy', source)
+        identities.add((json.dumps(key), json.dumps(node['forkSchedule'], separators=(',', ':'))))
         binding = node['binding']
         name, miner = binding['node'], binding['miner']
         if not isinstance(name, str) or not name or not isinstance(miner, str) or not re.fullmatch(r'0x[0-9a-fA-F]{40}', miner):
@@ -143,10 +152,10 @@ def same_network(rows):
         if not isinstance(value, str) or not re.fullmatch(r'0|[1-9][0-9]*', value) or int(value) >= 2**64:
             raise Blocked('Invalid observed head height')
     if len(identities) != 1:
-        raise Blocked('The seeds disagree on running source or fork schedule')
+        raise Blocked('The seeds disagree on consensus identity, running source or fork schedule')
     if len(miners) != 3:
         raise Blocked('Seed miner identities must be independent')
-    return next(iter(identities))
+    return next(iter(identities)), tuple(sorted(digests))
 
 
 def execute(client, report, checkpoint, pause=time.sleep, wait_seconds=15):
@@ -177,6 +186,11 @@ def execute(client, report, checkpoint, pause=time.sleep, wait_seconds=15):
             raise Blocked('A seed installation or public invitation changed during collection')
     initial = collect_round('initial')
     network = same_network(initial)
+    report['buildDigests'] = list(network[1])
+    if len(network[1]) > 1:
+        # One consensus identity, several builds: a digest-only release rolled out seed by seed (plan §4).
+        report['warnings'] = ['the seeds run different builds of the same consensus identity: ' + ', '.join(network[1])]
+        print('warning: ' + report['warnings'][0], flush=True)
     common_height = min(int(row['node']['head']['height']) for row in initial) - 60
     if common_height < 1:
         raise Blocked('The old network is too young for a stable historical comparison')

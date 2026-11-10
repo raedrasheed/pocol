@@ -147,7 +147,63 @@ class StandaloneTests(unittest.TestCase):
         self.assertNotIn('stateBinding', result)
 
     def test_different_running_source_cannot_inherit_published_binary_binding(self):
+        # Another source with no consensus identity is not the published 0.4.0 build: refused at the node.
         self.params['compatibilitySha256'] = self.status['compatibilitySha256'] = 'f' * 64
+        result = self.collect()
+        self.assertFalse(result['checks']['node']); self.assertEqual(result['result'], 'FAIL')
+        # An R1 node on the 0.4.0 installation runs another release: refused at the bundle.
+        self.r1_status()
+        result = self.collect()
+        self.assertFalse(result['checks']['bundle'])
+        self.assertIn('running consensus identity differs', json.dumps(result['issues']))
+
+    def r1_status(self, source='c' * 64):
+        golden = 'bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110'  # the T11 H15000 identity
+        for value in (self.params, self.status):
+            value.update(compatibilitySha256=source, consensusRulesVersion=1, consensusIdentity=golden, consensusPinned=True)
+
+    def r1_release(self, saved_v1=True):
+        """Pin this fixture's binaries as the R1 package, with its v2 twin installed and the 0.4.0 file (or the twin)
+        saved in the home."""
+        twin = {'schema': 'pocol-network-v2', 'consensusRulesVersion': 1,
+                'seeds': self.invitation['seeds'], 'files': self.invitation['files']}
+        (self.bundle / 'network.pocol.json').write_text(json.dumps(twin))
+        if not saved_v1: (self.home / 'network.pocol.json').write_text(json.dumps(twin))
+        hashes = dict(tool.LEGACY_BINARIES)
+        self.r1_status()
+        return [patch.object(tool, 'LEGACY_BINARIES', {name: '0' * 64 for name in hashes}),
+                patch.object(tool, 'R1_BINARIES', hashes), patch.object(tool, 'R1_SOURCE', 'c' * 64)]
+
+    def test_the_r1_profile_fails_closed_while_its_release_is_not_pinned(self):
+        patches = self.r1_release()
+        for guard in patches[:1]: guard.start(); self.addCleanup(guard.stop)
+        result = self.collect()
+        self.assertFalse(result['checks']['bundle'])
+        self.assertIn('differs from the published legacy release', json.dumps(result['issues']))
+
+    def test_the_pinned_r1_profile_accepts_a_saved_0_4_0_binding_with_its_v2_twin_and_equal_v2_bindings(self):
+        for saved_v1 in (True, False):
+            with self.subTest(saved_v1=saved_v1):
+                patches = self.r1_release(saved_v1)
+                for guard in patches: guard.start()
+                try: result = self.collect()
+                finally:
+                    for guard in patches: guard.stop()
+                self.assertEqual(result['result'], 'PASS', result['issues'])
+                self.assertEqual(result['bundle']['release'], 'R1')
+                self.assertEqual(result['bundle']['consensusIdentity'], self.params['consensusIdentity'])
+                self.write_invitations()
+
+    def test_the_r1_profile_refuses_a_twin_with_other_content_or_another_saved_file(self):
+        patches = self.r1_release()
+        for guard in patches: guard.start(); self.addCleanup(guard.stop)
+        twin = json.loads((self.bundle / 'network.pocol.json').read_text())
+        for change in ({'seeds': ['192.0.2.1:30300']}, {'consensusRulesVersion': 2}):
+            with self.subTest(change=change):
+                (self.bundle / 'network.pocol.json').write_text(json.dumps({**twin, **change}))
+                self.assertFalse(self.collect()['checks']['bundle'])
+        (self.bundle / 'network.pocol.json').write_text(json.dumps(twin))
+        (self.home / 'network.pocol.json').write_text(json.dumps({**self.invitation, 'compatibilitySha256': 'a' * 64}))
         self.assertFalse(self.collect()['checks']['bundle'])
 
     def test_other_public_address_cannot_claim_the_running_miner(self):

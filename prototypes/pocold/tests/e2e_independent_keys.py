@@ -150,6 +150,8 @@ def main():
         build = json.loads(subprocess.check_output([str(BIN / 'pocold'), 'build-info'], text=True))
         wait(lambda: all(rpc(u, 'pocol_status')['compatiblePeers'] >= 1 for u in urls), 'compatible handshakes', 60)
         assert all(rpc(u, 'pocol_status')['compatibilitySha256'] == build['compatibilitySha256'] for u in urls)
+        identities = {rpc(u, 'pocol_status')['consensusIdentity'] for u in urls}
+        assert len(identities) == 1 and (not args.packaged or identities == {release['consensusIdentity']}), identities
         assert all(rpc(urls[i], 'pocol_status')['miner'].lower() == addresses[f'm{i+1}'] for i in range(4))
         assert all(len(rpc(u, 'pocol_getMiners')) == 3 for u in urls)
         ok('four nodes load independent keys; fourth key is not in genesis membership')
@@ -219,7 +221,7 @@ def main():
         report = {'result': 'PASS', 'scope': 'local independent-key/registration integration', 'checks': checks,
                   'publicLaunchReady': False, 'realMultiHostProven': False, 'binarySha256': digest(BIN / 'pocold'),
                   'commonHeight': height, 'commonHash': blocks[0]['hash'], 'site': site, 'packaged': args.packaged,
-                  'compatibilitySha256': build['compatibilitySha256'],
+                  'compatibilitySha256': build['compatibilitySha256'], 'consensusIdentity': next(iter(identities)),
                   'transactions': {'transfer': transfer, 'registration': registration, 'duplicate': duplicate}}
         (evidence / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
     finally:

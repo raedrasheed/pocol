@@ -123,6 +123,38 @@ class CollectionTests(unittest.TestCase):
         with self.assertRaises(tool.Blocked): self.run_collection(client)
         self.assertEqual(len(client.calls), 6)
 
+    def r1(self, index_digest=lambda number: 'a' * 64):
+        client = Fake()
+        def mutate(value, number):
+            value['node'].update(consensusIdentity='c' * 64, consensusRulesVersion=1,
+                                 compatibilitySha256=index_digest(number))
+        client.mutate = mutate
+        return client
+
+    def test_same_consensus_identity_with_different_build_digests_passes_with_a_warning(self):
+        # Seed 2 runs another build of the same rules: a digest-only release rolled out seed by seed.
+        self.run_collection(self.r1(lambda number: 'b' * 64 if number % 3 == 1 else 'a' * 64))
+        self.assertEqual(self.report['result'], 'PASS')
+        self.assertEqual(self.report['buildDigests'], ['a' * 64, 'b' * 64])
+        self.assertEqual(len(self.report['warnings']), 1)
+        self.run_collection(self.r1())
+        self.assertNotIn('warnings', self.report)
+
+    def test_different_consensus_identities_are_blocked(self):
+        client = self.r1()
+        inner = client.mutate
+        client.mutate = lambda value, number: (inner(value, number), value['node'].update(consensusIdentity='d' * 64) if number == 1 else None)
+        with self.assertRaisesRegex(tool.Blocked, 'consensus identity'): self.run_collection(client)
+        self.assertEqual(len(client.calls), 3)
+        # A 0.4.0 seed beside R1 seeds is another network identity, whatever its digest.
+        client = self.r1()
+        client.mutate = lambda value, number: inner(value, number) if number != 2 else None
+        with self.assertRaises(tool.Blocked): self.run_collection(client)
+
+    def test_a_build_digest_change_between_rounds_is_refused_even_with_one_identity(self):
+        with self.assertRaisesRegex(tool.Blocked, 'changed during collection'):
+            self.run_collection(self.r1(lambda number: 'b' * 64 if number >= 3 else 'a' * 64))
+
     def test_too_young_network_has_no_selected_freeze_height(self):
         client = Fake()
         client.mutate = lambda value, number: value['node']['head'].update(height='60')

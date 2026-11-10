@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 CHAIN_ID = 1599846715
 GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 READ_METHODS = {'pocol_getParams', 'pocol_status', 'eth_getBlockByNumber'}
-PUBLIC_FILES = {'manifest.json', 'node.json', 'build-info.json', 'node_operator.py',
+PUBLIC_FILES = {'manifest.json', 'node.json', 'build-info.json', 'node_operator.py', 'pocol_identity.py',
                 'install.sh', 'pocol-testnet.service', 'nginx.conf', 'README.md', 'nonce_upgrade.py',
                 'net/genesis.spec.hex', 'net/devnet.json', 'net/alloc.json',
                 'bin/pocold', 'bin/pocol-key', 'bin/pocol-sign', 'bin/pocol-site'}
@@ -39,6 +39,15 @@ LEGACY_BINARIES = {
     'pocol-site': 'c13b285d431b1e4bb88c8f957a86869ef8b0bee14e1f8dc2ec5f45e54acffca8',
 }
 LEGACY_SPEC_SHA256 = '2aa7c71b0aab924002281bfb05f2cda6c06998999ebe4511774a219932668725'
+# The first release that peers on the consensus identity (R1, plan §6). Empty, so its standalone profile fails closed
+# until the release commit pins the published package's binaries and build digest here and in collect_seeds.
+R1_BINARIES = {}
+R1_SOURCE = None
+# What pocold accepts: fork versions 1..MAX_FORK_VERSION and wire versions from PROTOCOL_VERSION_MIN (VA-SPEC §2).
+MAX_FORK_VERSION = 2
+PROTOCOL_VERSION_MIN = 2
+# The state binding fields node_operator.launch compares (plan §4); the build digest is informational.
+BOUND = ('chainId', 'genesisHash', 'consensusIdentity', 'stateStore', 'node', 'miner')
 LAYOUTS = {
     'manifest': (Path('/opt/pocol-testnet'), Path('/var/lib/pocol-testnet'), 'pocol-testnet.service'),
     'standalone': (Path('/opt/pocol-standalone'), Path('/var/lib/pocol-standalone'), 'pocol-standalone.service'),
@@ -126,19 +135,49 @@ def integer(value):
 
 
 def forks(value):
-    require(isinstance(value, list) and len(value) in (1, 2), 'invalid fork schedule')
+    """pocold configured_forks' runtime shape: (1, 0), then versions 2, 3, ... in order up to MAX_FORK_VERSION, at
+    strictly increasing heights, 1..16 entries."""
+    require(isinstance(value, list) and 1 <= len(value) <= 16, 'invalid fork schedule')
     for entry in value:
         require(isinstance(entry, list) and len(entry) == 2, 'invalid fork entry')
         integer(entry[0]); integer(entry[1])
-    require(value[0] == [1, 0] and (len(value) == 1 or value[1][0] == 2 and value[1][1] > 0),
-            'unsupported fork schedule')
+    require(value[0] == [1, 0] and all(v == i + 1 <= MAX_FORK_VERSION for i, (v, _) in enumerate(value))
+            and all(a[1] < b[1] for a, b in zip(value, value[1:])), 'unsupported fork schedule')
     return value
 
 
-def identity(value):
+def consensus_id(chain_id, genesis, rules, schedule):
+    """An inline copy of deploy/public-testnet/pocol_identity.consensus_id (VA-SPEC §2.1), so this file still runs
+    alone over stdin; test_preflight cross-checks the two. Flags are 0: a seed runs a pinned, feature-free build."""
+    data = (b'pocol-consensus-identity-v1\0' + chain_id.to_bytes(8, 'big') + bytes.fromhex(genesis[2:])
+            + rules.to_bytes(4, 'big') + bytes([0, len(schedule)])
+            + b''.join(v.to_bytes(2, 'big') + h.to_bytes(8, 'big') for v, h in schedule))
+    return hashlib.sha256(data).hexdigest()
+
+
+def identity(value, schedule=None):
+    """The public identity a node, bundle or binding names. A 0.4.0 one has no consensus identity and is accepted only
+    as the published legacy source; any other carries consensusRulesVersion and consensusIdentity, recomputed from
+    the chain, genesis, rules and fork schedule whenever the schedule is known."""
     require(isinstance(value, dict), 'invalid identity metadata')
-    return {'chainId': integer(value.get('chainId')), 'genesisHash': hex_hash(value.get('genesisHash')),
-            'compatibilitySha256': source_hash(value.get('compatibilitySha256'))}
+    public = {'chainId': integer(value.get('chainId')), 'genesisHash': hex_hash(value.get('genesisHash')),
+              'compatibilitySha256': source_hash(value.get('compatibilitySha256'))}
+    if 'consensusIdentity' not in value:
+        require(public['compatibilitySha256'] == LEGACY_SOURCE and 'consensusRulesVersion' not in value,
+                'node reports no consensus identity')
+        return public
+    rules = value.get('consensusRulesVersion')
+    require(type(rules) is int and 1 <= rules < 2**32, 'invalid consensus rules version')
+    claimed = source_hash(value.get('consensusIdentity'))
+    if schedule is not None:
+        require(consensus_id(public['chainId'], public['genesisHash'], rules, schedule) == claimed,
+                'consensus identity does not match its chain, rules and fork schedule')
+    return {**public, 'consensusRulesVersion': rules, 'consensusIdentity': claimed}
+
+
+def consensus(value):
+    """What peers compare (VA-SPEC §2.1); the build digest is only an install-integrity fact."""
+    return {k: v for k, v in identity(value).items() if k != 'compatibilitySha256'}
 
 
 def binding_identity(value):
@@ -146,7 +185,7 @@ def binding_identity(value):
     public = identity(value)
     require(set(value) == set(public) | {'protocolVersion', 'stateStore', 'node', 'miner'},
             'unexpected state binding fields')
-    require(type(value.get('protocolVersion')) is int and value['protocolVersion'] == 2,
+    require(type(value.get('protocolVersion')) is int and value['protocolVersion'] >= PROTOCOL_VERSION_MIN,
             'unsupported binding protocol version')
     require(value.get('stateStore') is True, 'state binding has an unexpected storage mode')
     require(isinstance(value.get('node'), str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,64}', value['node']),
@@ -186,6 +225,20 @@ class LocalRpc:
             connection.close()
 
 
+def release_identity(network, build, schedule):
+    """The identity a node of build-info `build` has on devnet.json `network`: a build that reports its consensus rules
+    must be pinned (VA-SPEC §2.4), and its consensus identity is computed here, never taken from the host."""
+    value = {'chainId': network.get('chainId'), 'genesisHash': network.get('genesisHash'),
+             'compatibilitySha256': build.get('compatibilitySha256')}
+    if 'consensusRulesVersion' in build:
+        rules = build['consensusRulesVersion']
+        require(build.get('consensusPinned') is True, 'the installed build has unpinned consensus sources')
+        require(type(rules) is int and 1 <= rules < 2**32, 'invalid consensus rules version')
+        value.update(consensusRulesVersion=rules, consensusIdentity=consensus_id(
+            integer(value['chainId']), hex_hash(value['genesisHash']), rules, schedule))
+    return identity(value, schedule)
+
+
 def bundle_report(bundle):
     require(bundle.is_dir() and not bundle.is_symlink(), 'public bundle directory is unavailable')
     actual = {}
@@ -204,13 +257,14 @@ def bundle_report(bundle):
     require(isinstance(hashes, dict) and set(hashes) == set(actual) - {'manifest.json'}, 'bundle inventory mismatch')
     require(all(source_hash(expected) == digest(actual[name]) for name, expected in hashes.items()), 'bundle checksum mismatch')
     build, node, network = (read_json(bundle / name) for name in ('build-info.json', 'node.json', 'net/devnet.json'))
-    require(build.get('features') == [] and build.get('protocolVersion') == 2, 'unsupported or test-feature native build')
-    public = identity({**network, 'compatibilitySha256': build.get('compatibilitySha256')})
+    require(build.get('features') == [] and type(build.get('protocolVersion')) is int
+            and build['protocolVersion'] >= PROTOCOL_VERSION_MIN, 'unsupported or test-feature native build')
+    schedule = forks(network.get('forks', [[1, 0]]))
+    public = release_identity(network, build, schedule)
     binding = binding_identity(manifest.get('identity', {}))
     require(identity(binding) == public, 'bundle identity mismatch')
     require(binding['node'] == node.get('name') and binding['miner'] == node.get('minerAddress')
             and binding['protocolVersion'] == build.get('protocolVersion'), 'bundle node binding mismatch')
-    schedule = forks(network.get('forks', [[1, 0]]))
     name = node.get('name')
     require(isinstance(name, str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,64}', name), 'invalid public node name')
     return {**public, 'manifestSha256': digest(bundle / 'manifest.json'), 'nodeName': name, 'binding': binding,
@@ -270,26 +324,44 @@ def choose_layout(layout, bundle, data, main_service, services):
 
 
 def standalone_report(bundle, home):
-    """Check only the legacy installer's public allowlist; never enumerate the home."""
+    """Check only the installer's public allowlist; never enumerate the home. The 0.4.0 profile accepts the published
+    legacy package and its v1 invitation; the R1 profile (closed until R1_BINARIES is pinned) accepts equal v2
+    bindings, or a saved 0.4.0 binding with its installed v2 twin."""
     for directory in (bundle, home, home / 'network', home / 'state'): real_path(directory, directory=True)
-    for name, expected in LEGACY_BINARIES.items():
-        require(digest(bundle / name) == expected, 'standalone binary differs from the published legacy release')
+    binaries = {name: digest(bundle / name) for name in LEGACY_BINARIES}
+    legacy = binaries == LEGACY_BINARIES
+    # The R1 profile stays closed until the release commit pins R1_BINARIES and R1_SOURCE.
+    require(legacy or (R1_BINARIES and R1_SOURCE and binaries == R1_BINARIES),
+            'standalone binary differs from the published legacy release')
     installed, saved = (read_json(path / 'network.pocol.json') for path in (bundle, home))
-    require(installed == saved, 'installed and saved standalone invitations differ')
-    require(set(saved) == {'schema', 'compatibilitySha256', 'seeds', 'files'}
-            and saved['schema'] == 'pocol-network-v1' and saved['compatibilitySha256'] == LEGACY_SOURCE,
-            'unsupported standalone invitation or source')
+    v1 = lambda value: (set(value) == {'schema', 'compatibilitySha256', 'seeds', 'files'}
+                        and value['schema'] == 'pocol-network-v1' and value['compatibilitySha256'] == LEGACY_SOURCE)
+    if legacy:
+        require(installed == saved, 'installed and saved standalone invitations differ')
+        require(v1(saved), 'unsupported standalone invitation or source')
+    else:
+        rules = installed.get('consensusRulesVersion')
+        require(set(installed) == {'schema', 'consensusRulesVersion', 'seeds', 'files'}
+                and installed['schema'] == 'pocol-network-v2' and type(rules) is int and 1 <= rules < 2**32,
+                'unsupported standalone invitation or source')
+        # Equal v2 bindings, or a saved 0.4.0 binding and its installed v2 twin (same seeds and files, plan §6).
+        require(installed == saved or v1(saved) and (saved['seeds'], saved['files']) == (installed['seeds'], installed['files']),
+                'installed and saved standalone invitations differ')
     files = saved['files']
     require(isinstance(files, dict) and set(files) == {'alloc.json', 'devnet.json', 'genesis.spec.hex'}
             and all(isinstance(v, str) for v in files.values()), 'invalid standalone public file inventory')
     # The old genesis is pinned independently of both the RPC and the host's metadata.
-    require(hashlib.sha256(files['genesis.spec.hex'].encode()).hexdigest() == LEGACY_SPEC_SHA256,
+    require(saved['schema'] != 'pocol-network-v1'
+            or hashlib.sha256(files['genesis.spec.hex'].encode()).hexdigest() == LEGACY_SPEC_SHA256,
             'standalone GenesisSpec differs from the published old network')
     for name, content in files.items():
         require(public_bytes(home / 'network' / name) == content.encode(), 'standalone public network file differs from its invitation')
     network = json_object(files['devnet.json'])
     json_object(files['alloc.json'])
-    public = identity({**network, 'compatibilitySha256': LEGACY_SOURCE})
+    schedule = forks(network.get('forks', [[1, 0]]))
+    build = ({'compatibilitySha256': LEGACY_SOURCE} if legacy else
+             {'compatibilitySha256': R1_SOURCE, 'consensusRulesVersion': rules, 'consensusPinned': True})
+    public = release_identity(network, build, schedule)
     require((public['chainId'], public['genesisHash']) == (CHAIN_ID, GENESIS)
             and network.get('keyMode') == 'independent-key-files', 'standalone network identity or key mode differs')
     require(saved['seeds'] == [f'{host}:30300' for host in ('108.165.128.89', '108.165.128.90', '108.165.128.91')],
@@ -298,9 +370,8 @@ def standalone_report(bundle, home):
     require(addresses[0] == addresses[1] and re.fullmatch(r'0x[0-9a-f]{40}', addresses[0]),
             'standalone public miner addresses disagree or are invalid')
     binding = binding_identity({**public, 'protocolVersion': 2, 'stateStore': True, 'node': 'pocol', 'miner': addresses[0]})
-    schedule = forks(network.get('forks', [[1, 0]]))
-    return {**public, 'binding': binding, 'nodeName': 'pocol', 'release': 'handoff-2026-11-01',
-            'binarySha256': dict(LEGACY_BINARIES), 'invitationSha256': digest(home / 'network.pocol.json'),
+    return {**public, 'binding': binding, 'nodeName': 'pocol', 'release': 'handoff-2026-11-01' if legacy else 'R1',
+            'binarySha256': binaries, 'invitationSha256': digest(home / 'network.pocol.json'),
             'forkSchedule': [[v, str(h)] for v, h in schedule], 'filesVerified': 12}
 
 
@@ -348,7 +419,7 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
               'expectedIdentity': {'chainId': CHAIN_ID, 'genesisHash': GENESIS},
               'paths': {'bundle': str(bundle.absolute()), 'state': str(data.absolute())},
               'readOnly': True, 'deploymentPerformed': False, 'activationHeightSelected': False,
-              'publicLaunchReady': False, 'checks': {}, 'issues': []}
+              'publicLaunchReady': False, 'checks': {}, 'issues': [], 'warnings': []}
     def fail(stage, message):
         report['checks'][stage] = False; report['issues'].append({'stage': stage, 'reason': message})
     units = [main_service, 'pocol-standalone.service', 'pocol-explorer-gateway.service',
@@ -366,8 +437,11 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
     try:
         params, status = rpc('pocol_getParams', []), rpc('pocol_status', [])
         require(isinstance(params, dict) and isinstance(status, dict), 'invalid node metadata')
-        public = identity(params)
+        schedule = forks(params.get('forkSchedule', [[1, 0]]))
+        public = identity(params, schedule)
         require(public == identity(status), 'node status and parameter identities disagree')
+        require('consensusIdentity' not in public or params.get('consensusPinned') is True and status.get('consensusPinned') is True,
+                'node runs a build with unpinned consensus sources')
         runtime_binding = binding_identity({**public, 'protocolVersion': status.get('protocolVersion'),
                                             'stateStore': status.get('stateStore'),
                                             'node': status.get('name'), 'miner': status.get('miner')})
@@ -391,9 +465,8 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
         confirmed = rpc('eth_getBlockByNumber', [hex(height), False])
         require(isinstance(confirmed, dict) and confirmed.get('number') == hex(height)
                 and hex_hash(confirmed.get('hash')) == block_hash, 'captured canonical head changed; collect again')
-        schedule = forks(params.get('forkSchedule', [[1, 0]]))
         active = integer(params.get('activeVersion'))
-        require(active in (1, 2), 'unsupported active consensus version')
+        require(1 <= active <= MAX_FORK_VERSION, 'unsupported active consensus version')
         require(active == next(version for version, start in reversed(schedule) if height >= start),
                 'active consensus version disagrees with captured head; collect again')
         stats = status.get('stats', {})
@@ -407,6 +480,8 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
                           'forkSchedule': [[v, str(h)] for v, h in schedule], 'reportedActiveVersion': active,
                           'compatiblePeers': peers, 'stateStore': status.get('stateStore') is True,
                           'historyDamaged': False}
+        # A 0.4.0 node names only its build digest; its rules are revision 1 (plan §6).
+        if 'consensusIdentity' not in public: report['node']['legacyRules'] = 1
         for key, allowed in (('networkName', {'PoCol Mainnet'}), ('networkEnvironment', {'mainnet'})):
             report['node'][key] = params.get(key) if params.get(key) in allowed else None
         for key in ('nonceMode', 'effectiveNonceMode', 'nextBlockNonceMode'):
@@ -422,6 +497,7 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
         report['bundle'] = standalone_report(bundle, data) if layout == 'standalone' else bundle_report(bundle)
         report['checks']['bundle'] = True
         if 'node' in report:
+            require(consensus(report['bundle']) == consensus(report['node']), 'running consensus identity differs from the installed public bundle')
             require(identity(report['bundle']) == identity(report['node']), 'running source differs from the installed public bundle')
             require(report['bundle']['binding'] == report['node']['binding'], 'running node binding differs from the installed bundle')
             require(report['bundle']['forkSchedule'] == report['node']['forkSchedule'], 'installed and running fork schedules differ')
@@ -438,7 +514,16 @@ def collect(rpc, bundle, data, main_service='pocol-testnet.service', services=No
         else:
             binding = binding_identity(read_json(data / 'network-binding.json'))
         report['stateBinding'] = binding
-        require('bundle' in report and binding == report['bundle']['binding'], 'state release binding differs from the bundle')
+        require('bundle' in report, 'state release binding differs from the bundle')
+        installed = report['bundle']['binding']
+        if 'consensusIdentity' in binding:
+            # node_operator starts on a marker with the same consensus binding and never rewrites it (plan §4).
+            require(all(binding.get(k) == installed.get(k) for k in BOUND), 'state release binding differs from the bundle')
+            if binding != installed:
+                report['warnings'].append('the state binding names another build of the same consensus rules')
+        else:
+            # A 0.4.0 marker is bound to its own release exactly; this check knows no certified legacy build.
+            require(binding == installed, 'state release binding differs from the bundle')
         space = os.statvfs(data / 'state' if layout == 'standalone' else data)
         report['storage'] = {'availableBytes': str(space.f_bavail * space.f_frsize)}
         report['checks']['stateBinding'] = True
