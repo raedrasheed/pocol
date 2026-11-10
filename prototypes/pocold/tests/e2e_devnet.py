@@ -47,7 +47,7 @@ import contextlib, io, json, os, shutil, signal, socket, struct, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import devnet as dn
-sys.path.insert(0, os.path.join(os.path.dirname(ROOT), "deploy", "public-testnet"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(ROOT)), "deploy", "public-testnet"))  # the repository root
 import pocol_identity
 SIGN = os.environ.get("POCOL_SIGN", os.path.join(os.path.dirname(dn.BIN), "pocol-sign"))
 L = "abc"
