@@ -209,6 +209,8 @@ impl Disc{
     /// seed is not recorded under its public IP as a listener nobody can reach, and sends nothing that links it across
     /// addresses (it cannot be dialed through that connection's addresses, so no self-connection is missed).
     pub(super) fn reaches(&self,local:Option<SocketAddr>,remote:Option<SocketAddr>)->bool{reaches(self.listen_ip,local,remote)}
+    /// Whether `a` is a seed the seed policy does not want (VA-SPEC §1a.8).
+    pub(super) fn suppressed(&self,a:SocketAddr)->bool{self.out.suppressed(a)}
     /// Whether `id` is the feeler's connection (VA-SPEC §1a.7), which is never in `Node::peers`.
     pub(super) fn is_feeler(&self,id:PeerId)->bool{self.out.is_feeler(id)}
 }
@@ -230,7 +232,8 @@ impl Node{
     pub(super) fn disc_connected(&mut self,id:PeerId,p:&net::Peer,now:u64)->Arrival{
         if !self.disc.on{return Arrival::Peer}
         if let Origin::Slot(t,a)=p.origin{return self.slot_connected(id,p,usize::from(t),a,now)}
-        if let Origin::Configured(a)=p.origin{self.seed_connected(a,Some(id));}
+        // VA-SPEC §1a.8: a seed the policy does not want is closed at once; its address stays in the outbound set.
+        if let Origin::Configured(a)=p.origin{if self.disc.out.suppressed(a){return Arrival::Close}self.seed_connected(a,Some(id),now);}
         self.family_up(p.origin.dialed().or(p.remote));
         self.disc.links.insert(id,Link::new(p));Arrival::Peer
     }
@@ -241,7 +244,7 @@ impl Node{
         if let Some((t,a))=self.disc.out.feeler_slot(id){return self.slot_closed(id,t,a,None,now)}
         let Some(l)=self.disc.links.remove(&id) else{return};
         match l.origin{
-            Origin::Configured(a)=>{self.seed_connected(a,None);if l.compatible&&l.consent{self.disc.book.touch(a,false,now);}}
+            Origin::Configured(a)=>{self.seed_connected(a,None,now);if l.compatible&&l.consent{self.disc.book.touch(a,false,now);}}
             Origin::Slot(t,a)=>self.slot_closed(id,usize::from(t),a,Some(&l),now),
             Origin::Inbound=>{}
         }
@@ -256,7 +259,7 @@ impl Node{
     /// address, would see the connection end before any Hello and dial again (1 in 5 loopback runs needed 2 or 3 more
     /// connections before the dialer stopped).
     pub(super) fn disc_self_connection(&mut self,from:PeerId){
-        if let Some(l)=self.disc.links.get_mut(&from){l.self_conn=true;}
+        if let Some(l)=self.disc.links.get_mut(&from){l.self_conn=true;}self.seed_hello(from,true,0);
         let Some(p)=self.peers.remove(&from) else{return};
         match p.origin.dialed(){Some(a)=>{p.close();self.disc.book.mark_self(a);}None=>p.finish()}
         self.disc.counters.self_connections+=1;
@@ -280,7 +283,7 @@ impl Node{
     /// (VA-SPEC §1a.5).
     pub(super) fn disc_first_hello(&mut self,from:PeerId,port:u16,nonce:u64,now:u64){
         if !self.disc.on{return}
-        let remote=self.disc.links.get(&from).filter(|l|l.origin==Origin::Inbound).and_then(|l|l.remote);self.family_up(remote);
+        let remote=self.disc.links.get(&from).filter(|l|l.origin==Origin::Inbound).and_then(|l|l.remote);self.family_up(remote);self.seed_hello(from,false,now);
         let d=&mut self.disc;let Some(l)=d.links.get_mut(&from) else{return};
         l.compatible=true;
         match l.origin.dialed(){

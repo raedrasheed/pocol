@@ -917,7 +917,8 @@ impl Node{
     /// set, so an ended connection clears the set by that address (`Origin::Configured`), never by the address
     /// its socket reported: that is empty when `peer_addr` failed (a reset right after connect), and clearing by
     /// it would stall the dialer for good.
-    fn allow_redial(&self,origin:net::Origin){if let net::Origin::Configured(a)=origin{if let Ok(mut s)=self.outbound.lock(){s.remove(&a.to_string());}}}
+    /// A suppressed seed's address stays in the set, so its dialer waits (VA-SPEC §1a.8).
+    fn allow_redial(&self,origin:net::Origin){if let net::Origin::Configured(a)=origin{if self.disc.suppressed(a){return}if let Ok(mut s)=self.outbound.lock(){s.remove(&a.to_string());}}}
     /// Φ = 2φ from the admitted local parameters (future-timestamp slack).
     fn capital_phi(&self)->u64{u64::from(self.chain.spec.local().capital_phi())}
     /// `hello` as sent to `p`: without listenPort and nonce when its connection cannot reach the listener

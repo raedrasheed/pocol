@@ -5,13 +5,13 @@
 //! thread. A grandchild of `node` (D21): it reads the private state of `Disc` and `Node` without a boundary line.
 //! Every function returns early while no slot is installed (`slots` empty: K = 0, discovery off, or a node whose
 //! network never started), so in-crate tests that never start the network see the PR2a behaviour.
-use std::collections::VecDeque;
+use std::collections::{HashSet,VecDeque};
 use std::net::SocketAddr;
 use std::sync::mpsc::SyncSender;
 use crate::addrbook::{self,Class,Key,Source};
 use crate::net::{self,DialError,Msg,Origin,PeerId};
 use super::{Discovery,Link};
-use crate::node::Node;
+use crate::node::{Node,now_ms};
 
 /// A slot's role: one of the K automatic slots, or the spare (exactly one). Roles change only in a swap (§2.6).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)] pub(super) enum Role{Auto,Spare}
@@ -27,8 +27,11 @@ impl Slot{
     fn kind(&self)->Option<SlotKind>{match self.state{SlotState::Idle{..}=>None,SlotState::Dialing{kind,..}|SlotState::Up{kind,..}=>Some(kind)}}
     fn peer(&self)->Option<PeerId>{match self.state{SlotState::Up{peer,..}=>Some(peer),_=>None}}
 }
-/// A seed (VA-SPEC §1a.8): its address and key, its live connection, and whether it is this node itself.
-pub(super) struct Seed{pub(super) addr:SocketAddr,pub(super) key:Key,pub(super) peer:Option<PeerId>,pub(super) is_self:bool}
+/// A seed (VA-SPEC §1a.8): its address (canonical) as its dialer knows it (`dial`, the outbound set's text) and its
+/// key, its live connection, when it was last wanted (None: suppressed, not dialed), when its connection became
+/// compatible, whether it is this node itself, and its holds (`fails`, `hold_until_ms`).
+pub(super) struct Seed{pub(super) addr:SocketAddr,pub(super) dial:SocketAddr,pub(super) key:Key,pub(super) peer:Option<PeerId>,pub(super) wanted_ms:Option<u64>,
+    pub(super) compatible_ms:Option<u64>,pub(super) is_self:bool,pub(super) fails:u32,pub(super) hold_until_ms:u64}
 /// The feeler's connection, kept here and never in `Node::peers`; `hello`: its Hello was read.
 pub(super) struct Feeler{id:PeerId,peer:net::Peer,hello:bool}
 /// Shown in `pocol_status.discovery.counters` (plan §6).
@@ -41,14 +44,16 @@ pub(super) struct OutCounters{pub(super) dials:u64,pub(super) dial_failed:u64,pu
 /// OUT_STATE_BYTES in all). `k`: the resolved automatic slots; `slots`/`tx`: the K + 1 slots and their address
 /// channels (empty until the network starts); `family_down`: per address family (0 IPv4, 1 IPv6) the address whose
 /// route probe failed and when it was last probed; `last_peer_head_ms`: the last time a peer's block moved the head;
-/// `stalled`/`quiet`: last tick's values (their rising edges are counted); `trouble_since`: since when either holds;
+/// `suppressed`: the seeds not wanted (their dialers see them as live and wait); `cursor`: the next seed to want;
+/// `started_ms`: the slots' start (the seeds' boot window); `healthy_since`: since when healthy >= 2;
+/// `last_rotation_ms`: the last stall rotation; `stalled`/`quiet`: last tick's values (their rising edges are counted); `trouble_since`: since when either holds;
 /// `next_extra_ms`: the next extra assignment while it does; `anchors_left`: anchors not dialed yet in this process,
 /// `loaded_anchors`: the anchors read at the network's start with their save times, `anchors_bad`: those dialed whose
 /// connection failed, was incompatible or closed short, `saved_anchors`: the set last written.
 pub(super) struct Out{pub(super) k:usize,pub(super) slots:Vec<Slot>,pub(super) tx:Vec<SyncSender<SocketAddr>>,pub(super) feeler:Option<Feeler>,pub(super) next_feeler_ms:u64,
-    pub(super) seeds:Vec<Seed>,pub(super) seed_node:bool,pub(super) bootstrap:Vec<SocketAddr>,pub(super) cursor_b:usize,
+    pub(super) seeds:Vec<Seed>,pub(super) suppressed:HashSet<SocketAddr>,pub(super) seed_node:bool,pub(super) cursor:usize,pub(super) bootstrap:Vec<SocketAddr>,pub(super) cursor_b:usize,
     pub(super) anchors_left:VecDeque<SocketAddr>,pub(super) loaded_anchors:Vec<(SocketAddr,u64)>,pub(super) anchors_bad:Vec<SocketAddr>,pub(super) saved_anchors:Vec<(SocketAddr,u64)>,
-    pub(super) family_down:[Option<(SocketAddr,u64)>;2],pub(super) last_peer_head_ms:u64,
+    pub(super) family_down:[Option<(SocketAddr,u64)>;2],pub(super) last_peer_head_ms:u64,pub(super) started_ms:u64,pub(super) healthy_since:Option<u64>,pub(super) last_rotation_ms:u64,
     pub(super) stalled:bool,pub(super) quiet:bool,pub(super) trouble_since:Option<u64>,pub(super) next_extra_ms:u64,pub(super) counters:OutCounters,
     /// Tests: the result of every route probe (`net::route_ok`).
     #[cfg(test)] pub(super) route_ok:Option<bool>}
@@ -56,20 +61,19 @@ pub(super) struct Out{pub(super) k:usize,pub(super) slots:Vec<Slot>,pub(super) t
 pub const OUT_STATE_BYTES:usize=4096;
 // The struct, the slots and channels (at most OUTBOUND_MAX + 1), the seeds, bootstrap addresses, the suppressed set
 // (a HashSet of SEEDS_MAX reserves about twice as many buckets, each with a control byte) and the four anchor lists of
-// at most 2·ANCHORS_MAX fit OUT_STATE_BYTES.
+// at most ANCHORS_MAX fit OUT_STATE_BYTES (760 + 9·80 + 7·226 + 512 + 320 = 3,894 B on x86_64).
 const _:()={use std::mem::size_of;let s=super::OUTBOUND_MAX as usize+1;
     assert!(size_of::<Out>()+s*(size_of::<Slot>()+size_of::<SyncSender<SocketAddr>>())+super::SEEDS_MAX*(size_of::<Seed>()+2*(size_of::<SocketAddr>()+1))
-        +super::BOOTSTRAP_MAX*size_of::<SocketAddr>()+4*2*addrbook::ANCHORS_MAX*size_of::<(SocketAddr,u64)>()<=OUT_STATE_BYTES)};
+        +super::BOOTSTRAP_MAX*size_of::<SocketAddr>()+4*addrbook::ANCHORS_MAX*size_of::<(SocketAddr,u64)>()<=OUT_STATE_BYTES)};
 impl Out{
     /// At `Node::open`, from the resolved settings: K, the seeds (keyed as the book keys them), whether this host is a
     /// seed, the bootstrap addresses. Nothing runs until `Node::disc_start_outbound` installs the slots.
     pub(super) fn new(s:&Discovery)->Self{
-        let mut seeds=Vec::with_capacity(super::SEEDS_MAX);seeds.extend(s.seeds.iter().map(|a|Seed{addr:canon(*a),key:key_of(*a),peer:None,is_self:false}));
+        let mut seeds=Vec::with_capacity(super::SEEDS_MAX);seeds.extend(s.seeds.iter().map(|a|Seed{addr:canon(*a),dial:*a,key:key_of(*a),peer:None,wanted_ms:None,compatible_ms:None,is_self:false,fails:0,hold_until_ms:0}));
         let mut bootstrap=Vec::with_capacity(super::BOOTSTRAP_MAX);bootstrap.extend(s.bootstrap.iter().map(|a|canon(*a)));
-        let a=||Vec::with_capacity(2*addrbook::ANCHORS_MAX);
-        Self{k:s.automatic(),slots:Vec::new(),tx:Vec::new(),feeler:None,next_feeler_ms:0,seeds,seed_node:s.is_seed,bootstrap,cursor_b:0,
-            anchors_left:VecDeque::with_capacity(2*addrbook::ANCHORS_MAX),loaded_anchors:Vec::with_capacity(2*addrbook::ANCHORS_MAX),anchors_bad:a(),saved_anchors:Vec::with_capacity(2*addrbook::ANCHORS_MAX),
-            family_down:[None;2],last_peer_head_ms:0,stalled:false,quiet:false,trouble_since:None,next_extra_ms:0,counters:OutCounters::default(),
+        Self{k:s.automatic(),slots:Vec::new(),tx:Vec::new(),feeler:None,next_feeler_ms:0,seeds,suppressed:HashSet::with_capacity(super::SEEDS_MAX),seed_node:s.is_seed,cursor:0,bootstrap,cursor_b:0,
+            anchors_left:VecDeque::with_capacity(addrbook::ANCHORS_MAX),loaded_anchors:Vec::with_capacity(addrbook::ANCHORS_MAX),anchors_bad:Vec::with_capacity(addrbook::ANCHORS_MAX),saved_anchors:Vec::with_capacity(addrbook::ANCHORS_MAX),
+            family_down:[None;2],last_peer_head_ms:0,started_ms:0,healthy_since:None,last_rotation_ms:0,stalled:false,quiet:false,trouble_since:None,next_extra_ms:0,counters:OutCounters::default(),
             #[cfg(test)]route_ok:None}
     }
     fn spare(&self)->Option<usize>{self.slots.iter().position(|s|s.role==Role::Spare)}
@@ -82,6 +86,8 @@ impl Out{
     }
     /// Whether `id` is the feeler's connection.
     pub(super) fn is_feeler(&self,id:PeerId)->bool{self.feeler.as_ref().is_some_and(|f|f.id==id)}
+    /// Whether `a` is a seed the policy does not want now (VA-SPEC §1a.8): its address stays in the outbound set.
+    pub(super) fn suppressed(&self,a:SocketAddr)->bool{self.suppressed.contains(&canon(a))}
     /// The feeler's slot and address, when `id` is the feeler's connection.
     pub(super) fn feeler_slot(&self,id:PeerId)->Option<(usize,SocketAddr)>{
         if !self.is_feeler(id){return None}
@@ -111,8 +117,18 @@ impl Node{
     pub(super) fn stalled(&self,now:u64)->bool{now.saturating_sub(self.chain.head().ts.saturating_mul(1000))>=self.window_ms()}
     /// D25: not stalled, and no block a peer delivered moved the head for quiet_factor·W (a lone miner).
     pub(super) fn quiet(&self,now:u64)->bool{!self.stalled(now)&&now.saturating_sub(self.disc.out.last_peer_head_ms)>=self.disc.times.quiet_factor.saturating_mul(self.window_ms())}
-    /// A configured connection to `a` came up (`id`) or ended (None): a seed's live connection (VA-SPEC §1a.8).
-    pub(super) fn seed_connected(&mut self,a:SocketAddr,id:Option<PeerId>){let a=canon(a);if let Some(s)=self.disc.out.seeds.iter_mut().find(|s|s.addr==a){s.peer=id;}}
+    /// A configured connection to `a` came up (`id`) or ended (None): a seed's live connection (VA-SPEC §1a.8). An end
+    /// clears its compatibility, and a wanted seed has seed_connect_ms again from then to become compatible.
+    pub(super) fn seed_connected(&mut self,a:SocketAddr,id:Option<PeerId>,now:u64){
+        let a=canon(a);let Some(s)=self.disc.out.seeds.iter_mut().find(|s|s.addr==a) else{return};
+        s.peer=id;if id.is_none(){s.compatible_ms=None;if s.wanted_ms.is_some(){s.wanted_ms=Some(now)}}
+    }
+    /// VA-SPEC §1a.8: the first compatible Hello of a seed's connection `from` (its failures cleared), or one carrying
+    /// this node's own nonce (`is_self`: this node is a seed, and keeps all others).
+    pub(super) fn seed_hello(&mut self,from:PeerId,is_self:bool,now:u64){
+        let o=&mut self.disc.out;let Some(s)=o.seeds.iter_mut().find(|s|s.peer==Some(from)) else{return};
+        if is_self{s.is_self=true;o.seed_node=true}else{s.compatible_ms=Some(now);s.fails=0}
+    }
     /// D18': a connection of an address family (one this node dialed, or an inbound one's first Hello) shows that it
     /// has a route: the family is up again.
     pub(super) fn family_up(&mut self,a:Option<SocketAddr>){if let Some(a)=a{self.disc.out.family_down[family(a)]=None;}}
@@ -201,6 +217,9 @@ impl Node{
         if stalled&&!o.stalled{o.counters.stalls+=1}if quiet&&!o.quiet{o.counters.quiets+=1}
         (o.stalled,o.quiet)=(stalled,quiet);
         if stalled||quiet{if o.trouble_since.is_none(){o.trouble_since=Some(now);o.next_extra_ms=now;}}else{o.trouble_since=None}
+        let healthy=self.healthy(now);let o=&mut self.disc.out;
+        if healthy>=2{o.healthy_since.get_or_insert(now);}else{o.healthy_since=None}
+        self.seed_policy(now,stalled,healthy);
         for t in 0..self.disc.out.slots.len(){
             let s=&self.disc.out.slots[t];
             if s.role==Role::Auto&&matches!(s.state,SlotState::Idle{next_ms} if next_ms<=now){self.fill(t,now)}
@@ -246,7 +265,7 @@ impl Node{
     /// else the book's choice, not excluded, from a source no automatic slot is connected to, failing that from any.
     fn extra_addr(&mut self,t:usize,now:u64)->Option<SocketAddr>{
         let o=&self.disc.out;let n=o.bootstrap.len();
-        if n>0&&!o.seeds.iter().any(|s|!s.is_self){
+        if n>0&&!o.seeds.iter().any(|s|!s.is_self&&s.hold_until_ms<=now){
             let relax=self.peer_status.is_empty();let b=&self.disc.book;
             for i in 0..n{
                 let a=o.bootstrap[(o.cursor_b+i)%n];
@@ -275,7 +294,7 @@ impl Node{
         let t=usize::from(t);
         let Some(SlotState::Dialing{addr,kind,..})=self.disc.out.slots.get(t).map(|s|s.state) else{return};
         if addr!=a{return}
-        if kind==SlotKind::Anchor{self.disc.out.anchors_bad.push(a)}
+        if kind==SlotKind::Anchor{self.anchor_bad(a)}
         match e{
             DialError::Refused|DialError::Timeout|DialError::Unreachable=>{self.disc.book.failed(a,now);self.disc.out.counters.dial_failed+=1}
             DialError::NoRoute=>{let o=&mut self.disc.out;o.family_down[family(a)]=Some((a,now));o.counters.dial_no_route+=1;
@@ -300,7 +319,7 @@ impl Node{
         }
         let Some(l)=l else{return};
         let lived=now.saturating_sub(since_ms)>=self.disc.times.stable_ms;
-        if kind==SlotKind::Anchor&&(l.self_conn||l.mismatch.is_some()||!l.compatible||!lived){self.disc.out.anchors_bad.push(a)}
+        if kind==SlotKind::Anchor&&(l.self_conn||l.mismatch.is_some()||!l.compatible||!lived){self.anchor_bad(a)}
         let c=&mut self.disc.out.counters;
         if l.self_conn{self.disc.out.slots[t].state=SlotState::Idle{next_ms:now};return}
         if l.mismatch.is_some(){c.dial_incompatible+=1}
@@ -365,15 +384,19 @@ impl Node{
             let (state,since)=match s.state{SlotState::Idle{..}=>("idle",None),SlotState::Dialing{..}=>("dialing",None),SlotState::Up{since_ms,..}=>("up",Some(since_ms))};
             serde_json::json!({"index":i,"role":if s.role==Role::Auto{"auto"}else{"spare"},"kind":s.kind().map(name),"state":state,"addr":s.addr().map(|a|a.to_string()),
                 "key":s.addr().map(key),"upSeconds":since.map(|t|now.saturating_sub(t)/1000),"fails":s.fails})}).collect();
-        let seeds:Vec<serde_json::Value>=o.seeds.iter().map(|s|serde_json::json!({"addr":s.addr.to_string(),"state":self.seed_state(s)})).collect();
+        let seeds:Vec<serde_json::Value>=o.seeds.iter().map(|s|serde_json::json!({"addr":s.addr.to_string(),"state":self.seed_state(s,now),"fails":s.fails})).collect();
         let head_age=now.saturating_sub(self.chain.head().ts.saturating_mul(1000))/1000;
-        serde_json::json!({"automatic":o.k,"healthy":self.healthy(now),"starved":self.starved(),"stalled":self.stalled(now),"quiet":self.quiet(now),
+        serde_json::json!({"automatic":o.k,"seedTarget":o.seeds.iter().filter(|s|s.wanted_ms.is_some()).count(),"healthy":self.healthy(now),"starved":self.starved(),"stalled":self.stalled(now),"quiet":self.quiet(now),
             "headAgeSeconds":head_age,"peerHeadAgeSeconds":now.saturating_sub(o.last_peer_head_ms)/1000,"seedNode":o.seed_node,
             "familyDown":{"v4":o.family_down[0].is_some(),"v6":o.family_down[1].is_some()},"windowSeconds":self.window_ms()/1000,
             "slots":slots,"seeds":seeds,"anchors":o.saved_anchors.iter().map(|a|a.0.to_string()).collect::<Vec<_>>(),"bootstrap":o.bootstrap.len()})
     }
-    /// A seed's state in the status: this node itself, connected, or dialing (a configured peer like the others).
-    fn seed_state(&self,s:&Seed)->&'static str{if s.is_self{"self"}else if s.peer.is_some(){"connected"}else{"dialing"}}
+    /// A seed's state in the status: this node itself, held, connected, wanted and dialing, or suppressed (not
+    /// dialed). Without automatic slots the seeds are configured peers like the others: connected or dialing.
+    fn seed_state(&self,s:&Seed,now:u64)->&'static str{
+        if s.is_self{"self"}else if s.hold_until_ms>now{"held"}else if s.peer.is_some(){"connected"}
+        else if s.wanted_ms.is_some()||self.disc.out.slots.is_empty(){"dialing"}else{"suppressed"}
+    }
     /// The counters of `pocol_status.discovery.counters` that automatic outbound keeps (plan §6).
     pub(super) fn out_counters(&self)->serde_json::Value{
         let c=&self.disc.out.counters;
@@ -401,6 +424,9 @@ impl Node{
         }
         out
     }
+    /// A loaded anchor dialed in this process failed, was incompatible or ended short: never saved again. Each anchor is
+    /// dialed once, so the list holds at most ANCHORS_MAX.
+    fn anchor_bad(&mut self,a:SocketAddr){let b=&mut self.disc.out.anchors_bad;if !b.contains(&a)&&b.len()<addrbook::ANCHORS_MAX{b.push(a)}}
     /// The anchors to save are other addresses than the set last saved (`disc_tick` then saves at once).
     pub(super) fn anchors_moved(&self,now:u64)->bool{let a=self.disc_anchors(now);a.len()!=self.disc.out.saved_anchors.len()||a.iter().zip(&self.disc.out.saved_anchors).any(|(x,y)|x.0!=y.0)}
     /// VA-SPEC §1a.7, at the network's start after the listener and before the configured dialers: the K + 1 slot
@@ -412,7 +438,83 @@ impl Node{
         crate::threads::spawn("out-fwd",crate::threads::IO_STACK,move||{for e in orx{if tx.send(crate::node::Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
         for t in 0..=k{let (stx,srx)=std::sync::mpsc::sync_channel(1);net::slot(t as u8,srx,otx.clone(),self.net.clone()).map_err(|e|format!("spawn: {e}"))?;
             self.disc.out.tx.push(stx);self.disc.out.slots.push(Slot{role:if t==k{Role::Spare}else{Role::Auto},state:SlotState::Idle{next_ms:now},fails:0,starved:false});}
-        self.disc.out.last_peer_head_ms=now;Ok(())
+        self.seeds_start(now);Ok(())
+    }
+    /// VA-SPEC §1a.8, when the slots start (before any configured dialer): every seed is suppressed, its address put
+    /// into the outbound set so that its dialer sees it as live and waits until the policy wants it; the first seed
+    /// to want is drawn at random.
+    fn seeds_start(&mut self,now:u64){
+        let o=&mut self.disc.out;o.started_ms=now;o.last_peer_head_ms=now;
+        for s in &o.seeds{o.suppressed.insert(s.addr);if let Ok(mut set)=self.outbound.lock(){set.insert(s.dial.to_string());}}
+        o.cursor=self.disc.rng.below(o.seeds.len() as u64) as usize;
+    }
+    /// Seed `i` is wanted: its dialer may dial it (it leaves the suppressed and the outbound set).
+    fn want(&mut self,i:usize,now:u64){
+        let o=&mut self.disc.out;let s=&mut o.seeds[i];s.wanted_ms=Some(now);o.suppressed.remove(&s.addr);o.counters.seed_wants+=1;
+        if let Ok(mut set)=self.outbound.lock(){set.remove(&s.dial.to_string());}
+    }
+    /// Seed `i` is no longer wanted: back into the suppressed and the outbound set, its live connection closed.
+    fn suppress(&mut self,i:usize){
+        let o=&mut self.disc.out;let s=&mut o.seeds[i];s.wanted_ms=None;o.suppressed.insert(s.addr);
+        if let Ok(mut set)=self.outbound.lock(){set.insert(s.dial.to_string());}
+        if let Some(p)=s.peer.and_then(|id|self.peers.get(&id)){p.close();}
+    }
+    /// VA-SPEC §1a.8, D27: the slots that can be filled without a seed: the distinct keys of automatic slots dialing or
+    /// up (B3: an assigned entry is no longer dialable), of verified entries outside the exclusions and those keys that
+    /// may be dialed by their retry spacing (not relaxed: one that just failed does not count), and the pending anchors.
+    pub(super) fn fillable(&self,now:u64)->usize{
+        let o=&self.disc.out;
+        let slots=distinct(o.slots.iter().filter(|s|s.role==Role::Auto).filter_map(Slot::addr).map(key_of));
+        slots+self.disc.book.verified_keys(|e|!self.excluded_addr(e.addr)&&!self.excluded_key(e.key,usize::MAX),now,false)+o.anchors_left.len()
+    }
+    /// D7'' (VA-SPEC §1a.8), each tick with automatic outbound: how many seeds to want, and the one change a tick
+    /// toward it. A seed node wants every other seed. During the boot window: none while the slots can be filled
+    /// without one (one without a listener, D7'a, so that it does not release and want again at the window's end), else
+    /// up to SEED_LINKS_MAX. Then one while stalled, healthy < 2 (or for less than
+    /// seed_release_ms), starved or not listening (D7'a), else none. A wanted seed not compatible seed_connect_ms after
+    /// it was wanted is held (1 min doubling to 6 h) and the next is wanted. One beyond the target is released: one not
+    /// connected first, else one compatible seed_hold_ms whose GetAddr is answered or expired and that is not the sync
+    /// peer, the most recently wanted first. While stalled, a wanted seed compatible for W without session progress is
+    /// replaced by the next, at most once per W, never while the session progresses.
+    fn seed_policy(&mut self,now:u64,stalled:bool,healthy:usize){
+        if self.disc.out.seeds.is_empty(){return}
+        let t=self.disc.times;
+        // Holds first: a wanted seed that did not become compatible in time.
+        for i in 0..self.disc.out.seeds.len(){
+            let s=&mut self.disc.out.seeds[i];
+            if s.compatible_ms.is_none()&&s.wanted_ms.is_some_and(|w|now.saturating_sub(w)>=t.seed_connect_ms){
+                s.fails=s.fails.saturating_add(1);s.hold_until_ms=now.saturating_add(t.seed_hold_base_ms.saturating_mul(1u64.checked_shl(s.fails-1).unwrap_or(u64::MAX)).min(t.seed_hold_max_ms));
+                self.disc.out.counters.seed_holds+=1;self.suppress(i);
+            }
+        }
+        let o=&self.disc.out;let eligible=|s:&Seed|!s.is_self&&s.hold_until_ms<=now;
+        let n_eligible=o.seeds.iter().filter(|s|eligible(s)).count();
+        if o.seed_node{for i in 0..o.seeds.len(){let s=&self.disc.out.seeds[i];if eligible(s)&&s.wanted_ms.is_none(){self.want(i,now)}}return}
+        let target=if now<o.started_ms.saturating_add(t.seed_boot_ms){if self.fillable(now)>=o.k{usize::from(!self.disc.listening)}else{super::SEED_LINKS_MAX}}
+            else{usize::from(stalled||healthy<2||self.starved()||!self.disc.listening||o.healthy_since.is_none_or(|h|now.saturating_sub(h)<t.seed_release_ms))};
+        let target=target.min(super::SEED_LINKS_MAX).min(n_eligible);
+        let wanted=o.seeds.iter().filter(|s|s.wanted_ms.is_some()).count();
+        let session=self.session.as_ref().map(|s|s.peer);
+        if wanted>target{
+            let releasable=|s:&Seed|s.peer.is_none_or(|p|s.compatible_ms.is_some_and(|c|now.saturating_sub(c)>=t.seed_hold_ms)&&Some(p)!=session
+                &&self.disc.links.get(&p).is_none_or(|l|l.asked_ms.is_none()));
+            let pick=o.seeds.iter().enumerate().filter(|(_,s)|s.wanted_ms.is_some()&&releasable(s)).max_by_key(|(_,s)|(s.peer.is_none(),s.wanted_ms)).map(|(i,_)|i);
+            if let Some(i)=pick{self.suppress(i);self.disc.out.counters.seed_releases+=1;}
+        }else{for _ in wanted..target{self.want_next(now);}}
+        // Stall rotation (B5): never the session's peer, never while the session progresses.
+        let o=&self.disc.out;let w=self.window_ms();
+        let progressing=self.session.as_ref().is_some_and(|s|now_ms().saturating_sub(s.last_ms)<crate::node::SESSION_STALL_MS);
+        if stalled&&n_eligible>=2&&!progressing&&now.saturating_sub(o.last_rotation_ms)>=w{
+            if let Some(i)=o.seeds.iter().position(|s|s.wanted_ms.is_some()&&s.compatible_ms.is_some_and(|c|now.saturating_sub(c)>=w)&&s.peer.is_some()&&s.peer!=session){
+                self.suppress(i);self.disc.out.last_rotation_ms=now;self.disc.out.counters.seed_rotations+=1;self.want_next(now);
+            }
+        }
+    }
+    /// Wants the next eligible seed not wanted, in turn from `cursor`.
+    fn want_next(&mut self,now:u64){
+        let o=&self.disc.out;let n=o.seeds.len();
+        let next=(0..n).map(|j|(o.cursor+j)%n).find(|&i|{let s=&o.seeds[i];!s.is_self&&s.hold_until_ms<=now&&s.wanted_ms.is_none()});
+        if let Some(i)=next{self.disc.out.cursor=(i+1)%n;self.want(i,now)}
     }
     /// Tests: installs the K + 1 slots without threads (the spare last) and returns the receiving end of each slot's
     /// channel, where the assigned addresses arrive (64 of them may wait, so a test need not take each one).
@@ -421,7 +523,7 @@ impl Node{
         let k=self.disc.out.k;let mut rx=Vec::new();
         for t in 0..=k{let (stx,srx)=std::sync::mpsc::sync_channel(64);self.disc.out.tx.push(stx);rx.push(srx);
             self.disc.out.slots.push(Slot{role:if t==k{Role::Spare}else{Role::Auto},state:SlotState::Idle{next_ms:now},fails:0,starved:false});}
-        self.disc.out.last_peer_head_ms=now;rx
+        self.seeds_start(now);rx
     }
 }
 
@@ -736,4 +838,118 @@ mod tests{
         let mut got=[rx[0].try_recv().unwrap(),rx[1].try_recv().unwrap()];got.sort();assert_eq!(got,[b1,b2]);
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
+    fn wanted(n:&Node)->Vec<usize>{n.disc.out.seeds.iter().enumerate().filter(|(_,s)|s.wanted_ms.is_some()).map(|(i,_)|i).collect()}
+    fn in_set(n:&Node,a:SocketAddr)->bool{n.outbound.lock().unwrap().contains(&a.to_string())}
+    fn seeds3()->Vec<SocketAddr>{(0..3).map(|i|SocketAddr::new([108,165,128,89+i].into(),30300)).collect()}
+    /// D7'' (B3, VA-SPEC §1a.8): every seed starts suppressed (in the outbound set, so its dialer waits). During the
+    /// boot window an empty book wants SEED_LINKS_MAX of them; a book that can fill the K slots wants none, also once
+    /// the slots are dialing its entries; when those dials fail, the seeds are wanted.
+    #[test] fn the_boot_wants_seeds_only_when_the_book_cannot_fill_the_slots(){
+        let seeds=seeds3();
+        let (mut n,_rx,dir)=node("o-boot-empty",2,true,seeds.clone(),seeds.clone(),G);
+        assert!(seeds.iter().all(|s|in_set(&n,*s))&&wanted(&n).is_empty(),"every seed suppressed before the first tick");
+        tick(&mut n,G);let w=wanted(&n);assert_eq!(w.len(),2,"an empty book wants two of three");
+        assert!(w.iter().all(|i|!in_set(&n,seeds[*i]))&&seeds.iter().filter(|s|in_set(&n,**s)).count()==1,"a wanted seed's dialer may dial");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+        let (mut n,rx,dir)=node("o-boot-full",2,true,seeds.clone(),seeds.clone(),G);
+        let v=[sa("81.30.0.1:30300"),sa("81.31.0.1:30300")];for a in v{verified(&mut n,a,G-S)}
+        tick(&mut n,G);assert!(wanted(&n).is_empty(),"the book can fill the slots");
+        assert!(matches!(state(&n,0),SlotState::Dialing{..})&&matches!(state(&n,1),SlotState::Dialing{..}));
+        tick(&mut n,G+S);assert!(wanted(&n).is_empty(),"also while the slots dial its entries");
+        for t in 0..2{let a=rx[t].try_recv().unwrap();n.disc_dial_failed(t as u8,a,DialError::Refused,G+S);}
+        tick(&mut n,G+2*S);assert_eq!(wanted(&n).len(),2,"once they failed, the seeds are wanted");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D7'' (A5, B1): a node without a listener wants one seed (D7'a); a wanted seed not compatible 30 s after it was
+    /// wanted is held, 1 min doubling to 6 h, and the next is wanted, so 3 dead seeds see few want cycles in 2 h; with
+    /// all held none is wanted and every one stays in the outbound set. A seed that connects clears its failures.
+    #[test] fn dead_seeds_are_held_with_backoff(){
+        let seeds=seeds3();
+        let (mut n,_rx,dir)=node("o-dead",2,false,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;
+        let mut now=G;let end=G+2*3_600_000;let mut all_held=false;
+        let boot=G+n.disc.times.seed_boot_ms;let mut holds:Vec<Vec<u64>>=vec![vec![];3];
+        while now<end{let before:Vec<u64>=n.disc.out.seeds.iter().map(|s|s.hold_until_ms).collect();tick(&mut n,now);assert!(wanted(&n).len()<=if now<boot{2}else{1});
+            for (i,s) in n.disc.out.seeds.iter().enumerate(){if s.hold_until_ms!=before[i]{holds[i].push((s.hold_until_ms-now)/60_000)}}
+            if n.disc.out.seeds.iter().all(|s|s.hold_until_ms>now){all_held=true;assert!(wanted(&n).is_empty()&&seeds.iter().all(|s|in_set(&n,*s)),"all held: none wanted, every dialer waits");}
+            now+=S;}
+        let c=&n.disc.out.counters;assert!(c.seed_wants<=24&&c.seed_holds>=3,"want cycles {} holds {}",c.seed_wants,c.seed_holds);
+        assert!(all_held,"every seed held at some point");
+        let fails:Vec<u32>=n.disc.out.seeds.iter().map(|s|s.fails).collect();assert!(fails.iter().all(|f|*f>=4),"{fails:?}");
+        for h in &holds{assert!(h.len()>=3&&h.iter().enumerate().all(|(k,m)|*m==1<<k),"the holds double from 1 min: {h:?}");}
+        while wanted(&n).is_empty(){now+=S;tick(&mut n,now);}
+        let i=wanted(&n)[0];let s=seeds[i];let _c=connect(&mut n,1,Origin::Configured(s),Some(s));greet(&mut n,1,30300,0);
+        assert_eq!(n.disc.out.seeds[i].fails,0,"a seed that connects clears its failures");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D7'' (VA-SPEC §1a.8): a listening node wants a seed until 2 useful peers have held for seed_release_ms, then
+    /// releases it, but not while its GetAddr is outstanding nor while it is the sync peer. A suppressed seed's address
+    /// stays in the outbound set when its connection ends; a Connected from a suppressed seed is closed at once.
+    #[test] fn the_seed_policy_holds_rotates_and_releases(){
+        let seeds=seeds3();
+        let (mut n,_rx,dir)=node("o-release",2,true,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;
+        // A release hold of 10 s, so that the release falls within the GetAddr's 2 minutes.
+        n.disc.times.seed_release_ms=10_000;
+        let boot=G+n.disc.times.seed_boot_ms;
+        tick(&mut n,G);let i=wanted(&n)[0];let s=seeds[i];
+        let _s=connect(&mut n,1,Origin::Configured(s),Some(s));greet(&mut n,1,30300,0);
+        let _a=up(&mut n,0,sa("81.30.0.1:30300"),2,true,G);let _b=up(&mut n,1,sa("81.31.0.1:30300"),3,true,G);
+        let mut now=boot;tick(&mut n,now);assert_eq!(wanted(&n),[i],"after the boot one seed while healthy < 2");
+        let useful=|n:&mut Node,now:u64|{n.disc_useful(2,true,now);n.disc_useful(3,true,now)};
+        useful(&mut n,now);tick(&mut n,now);let since=n.disc.out.healthy_since.unwrap();assert_eq!(since,now);
+        now=since+n.disc.times.seed_release_ms-S;useful(&mut n,now);tick(&mut n,now);assert_eq!(wanted(&n),[i],"healthy for less than 2 min");
+        now+=S;useful(&mut n,now);tick(&mut n,now);assert_eq!(wanted(&n),[i],"its GetAddr is outstanding");
+        msg(&mut n,1,Msg::Addr{addrs:vec![]});n.start_session(1,now_ms());tick(&mut n,now);assert_eq!(wanted(&n),[i],"it is the sync peer");
+        n.end_session(true);let mut c=connect(&mut n,9,Origin::Inbound,None);let _=&mut c;
+        tick(&mut n,now);assert!(wanted(&n).is_empty()&&n.disc.out.counters.seed_releases==1,"released");
+        assert!(in_set(&n,s),"suppressed: in the outbound set");
+        n.handle(Event::Net(NetEvent::Closed(1)));assert!(in_set(&n,s),"its Closed leaves it there");
+        let mut again=connect(&mut n,4,Origin::Configured(s),Some(s));assert!(closed(&mut again)&&!n.peers.contains_key(&4),"a Connected from a suppressed seed is closed");
+        n.handle(Event::Net(NetEvent::Closed(4)));assert!(in_set(&n,s));
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D7'a: a node without a listener keeps exactly one seed while it answers, however healthy two attacker
+    /// listeners make it look.
+    #[test] fn two_attacker_listeners_never_release_a_non_listening_nodes_seed(){
+        let seeds=seeds3();
+        let (mut n,_rx,dir)=node("o-quietnode",2,false,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;
+        tick(&mut n,G);let i=wanted(&n)[0];let s=seeds[i];let _s=connect(&mut n,1,Origin::Configured(s),Some(s));greet(&mut n,1,30300,0);msg(&mut n,1,Msg::Addr{addrs:vec![]});
+        let _a=up(&mut n,0,sa("81.30.0.1:30300"),2,true,G);let _b=up(&mut n,1,sa("81.31.0.1:30300"),3,true,G);
+        let mut now=G;while now<G+3_600_000{n.disc_useful(2,true,now);n.disc_useful(3,true,now);tick(&mut n,now);assert_eq!(wanted(&n),[i],"at {now}");now+=10*S;}
+        assert!(n.healthy(now-10*S)>=2);
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D27 (B12): a seed whose connection carries this node's own nonce is this node: it keeps every other seed wanted
+    /// whatever its health; `is_seed` at open does the same, also with a book that could fill the slots.
+    #[test] fn a_seed_that_is_this_node_keeps_the_other_seeds(){
+        let seeds=seeds3();
+        let (mut n,_rx,dir)=node("o-selfseed",2,true,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;
+        n.disc_load(G);tick(&mut n,G);for i in wanted(&n){let s=seeds[i];let ours=n.disc.wire_nonce();let _c=connect(&mut n,10+i as u64,Origin::Configured(s),Some(s));greet(&mut n,10+i as u64,30300,if i==1{ours}else{0});}
+        if !n.disc.out.seed_node{let s=seeds[1];n.want(1,G);let ours=n.disc.wire_nonce();let _c=connect(&mut n,20,Origin::Configured(s),Some(s));greet(&mut n,20,30300,ours);}
+        assert!(n.disc.out.seed_node&&n.disc.out.seeds[1].is_self);
+        let late=G+n.disc.times.seed_boot_ms+n.disc.times.seed_release_ms*3;tick(&mut n,late);
+        assert_eq!(wanted(&n),[0,2],"the other seeds stay wanted");
+        assert_eq!(n.status_json()["discovery"]["outbound"]["seedNode"],true);
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+        let (mut m,dir)=opened("o-isseed",Discovery{outbound:Outbound::Count(2),seeds:seeds.clone(),is_seed:true,rng_seed:Some(7),..Discovery::default()},true,seeds.clone(),G);
+        for i in 0..4{verified(&mut m,SocketAddr::new([81,30+i,0,1].into(),30300),G-S)}let _rx=m.disc_test_slots(G);tick(&mut m,G);
+        assert_eq!(wanted(&m),[0,1,2],"is_seed: every seed wanted, though the book could fill the slots");
+        drop(m);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D7'' (B5): while stalled, a wanted seed compatible for W is replaced by the next, at most once per W, but never
+    /// while a sync session progresses and never the session's peer.
+    #[test] fn a_stall_rotation_spares_a_progressing_session(){
+        let seeds=seeds3();let w=120_000;let start=G-S+w;
+        let (mut n,_rx,dir)=node("o-rotate",2,true,seeds.clone(),seeds.clone(),start);
+        tick(&mut n,start);let i=wanted(&n)[0];let s=seeds[i];let _s=connect(&mut n,1,Origin::Configured(s),Some(s));greet(&mut n,1,30300,0);
+        let _x=connect(&mut n,2,Origin::Inbound,Some(sa("81.40.0.1:51000")));greet(&mut n,2,0,0);
+        let now=start+2*w;assert!(n.stalled(now));
+        n.start_session(2,now_ms());tick(&mut n,now);assert_eq!((wanted(&n).contains(&i),n.disc.out.counters.seed_rotations),(true,0),"another peer's session progresses");
+        n.session.as_mut().unwrap().last_ms=now_ms()-SESSION_STALL;tick(&mut n,now+S);
+        assert!(!wanted(&n).contains(&i)&&n.disc.out.counters.seed_rotations==1&&wanted(&n).len()==1,"rotated once the session stopped progressing");
+        let j=wanted(&n)[0];let t=seeds[j];let _t=connect(&mut n,3,Origin::Configured(t),Some(t));greet(&mut n,3,30300,0);
+        n.end_session(false);n.start_session(3,now_ms());n.session.as_mut().unwrap().last_ms=now_ms()-SESSION_STALL;
+        tick(&mut n,now+3*w);assert_eq!(n.disc.out.counters.seed_rotations,1,"never the session's peer");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    const SESSION_STALL:u128=crate::node::SESSION_STALL_MS;
 }
