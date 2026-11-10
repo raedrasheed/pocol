@@ -172,13 +172,22 @@ impl Book{
     /// except that a configured peer's address, verified by its own dial, becomes its own source (`Source::Peer` of
     /// its key): the operator named it, so it leaves the Inbound source even if it was first self-advertised. A new
     /// one is its own source too. Verified entries count toward no source quota.
-    pub fn good(&mut self,a:SocketAddr,configured:bool,from_local:bool,now:u64)->Outcome{
+    pub fn good(&mut self,a:SocketAddr,configured:bool,from_local:bool,now:u64)->Outcome{self.good_from(a,configured,None,from_local,now)}
+    /// `good` for an automatic slot's or a feeler's dial: an address no longer in the book (withdrawn, rotated or
+    /// purged while it was dialed) is placed only with `new` (a bootstrap address its `Cfg`, an anchor its own key),
+    /// else not at all (`Dropped(Source)`, `last_good_ms` still moves). Its own source would launder a Sybil's
+    /// self-advertisement, withdrawn mid-dial, into a verified source of its own in `select`'s tried class, outside
+    /// the feeler's VERIFIED_INBOUND_MAX cap and first in the answers.
+    pub fn good_dialed(&mut self,a:SocketAddr,new:Option<Source>,from_local:bool,now:u64)->Outcome{self.good_from(a,false,Some(new),from_local,now)}
+    /// `good` (`new` None: a newcomer is its own source) and `good_dialed` (`new` Some).
+    fn good_from(&mut self,a:SocketAddr,configured:bool,new:Option<Option<Source>>,from_local:bool,now:u64)->Outcome{
         if !self.on{return Outcome::Dropped(Why::Full)}
         self.last_good_ms=now;self.dirty=true;
         let Some((a,key))=self.learnable(a,from_local,configured) else{return Outcome::Dropped(Why::Filter)};
         if let Some(e)=self.entries.iter_mut().find(|e|e.addr==a){e.verified_ms=now;e.last_try_ms=e.last_try_ms.min(now);e.attempts=0;e.hold_until_ms=0;
             if configured{e.source=Source::Peer(key);}return Outcome::Refreshed}
-        self.place(Entry{addr:a,key,source:Source::Peer(key),heard_ms:0,direct_ms:0,verified_ms:now,last_try_ms:0,last_count_ms:0,hold_until_ms:0,attempts:0,holds:0},now)
+        let Some(source)=new.unwrap_or(Some(Source::Peer(key))) else{return Outcome::Dropped(Why::Source)};
+        self.place(Entry{addr:a,key,source:canonical_source(source),heard_ms:0,direct_ms:0,verified_ms:now,last_try_ms:0,last_count_ms:0,hold_until_ms:0,attempts:0,holds:0},now)
     }
     /// Places a newcomer that is not in the book (VA-SPEC §1a.4). The quotas it may fill: its key (GROUP_MAX), its IP's
     /// ports (IP_PORTS_MAX, address-group keys only), its source (unverified newcomers only: SOURCE_MAX, or SELFADS_MAX

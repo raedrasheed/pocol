@@ -64,7 +64,8 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    nonzero nonce (a listening node that no longer advertises), the unverified self-advertisements at that
    public source IP are forgotten, except those another live connection advertises. (b) The first compatible
    Hello of a connection this node dialed: the dialed address is verified when listenPort != 0 and forgotten
-   when it is 0. (c) The one Addr that answers this node's GetAddr on a connection it dialed, within 120 s:
+   when it is 0; an entry keeps its source, and an address an automatic slot or feeler took from the book that
+   left it while dialed is not stored again (an anchor or bootstrap address is, as its own source). (c) The one Addr that answers this node's GetAddr on a connection it dialed, within 120 s:
    at most 64 addresses, heard from that peer. Nothing else is learned.
 3. Never stored: ports below 1024 (configured addresses exempt); IPv6 outside 2000::/3; unspecified,
    multicast, broadcast, link-local and reserved addresses; addresses without an address group (§1) unless

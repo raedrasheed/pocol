@@ -276,6 +276,13 @@ impl Node{
         self.pick(Class::Any,|n,e|!n.excluded_addr(e.addr)&&!n.excluded_key(e.key,t)&&n.extra_source_ok(e),now)
             .or_else(||self.pick(Class::Any,|n,e|!n.excluded_addr(e.addr)&&!n.excluded_key(e.key,t),now))
     }
+    /// The source slot `t`'s verified address takes should it have left the book while dialed (`Book::good_dialed`):
+    /// a bootstrap address its own `Cfg`, an anchor its own key (the node saved it), anything else none, so that an
+    /// entry a slot or feeler took from the book never becomes a source of its own.
+    pub(super) fn slot_source(&self,t:usize,a:SocketAddr)->Option<Source>{
+        let (a,o)=(canon(a),&self.disc.out);
+        if o.bootstrap.contains(&a){Some(Source::Cfg(a))}else if o.slots.get(t).and_then(Slot::kind)==Some(SlotKind::Anchor){Some(Source::Peer(key_of(a)))}else{None}
+    }
     /// A connection slot `t` dialed to `a` (`Origin::Slot`): kept only while the slot is dialing that address (else it
     /// is closed, `slotsStale`). Its family is up again. A feeler is kept here, out of `peers`; any other is a peer.
     pub(super) fn slot_connected(&mut self,id:PeerId,p:&net::Peer,t:usize,a:SocketAddr,now:u64)->Arrival{
@@ -335,14 +342,14 @@ impl Node{
     pub(in crate::node) fn disc_feeler_hello(&mut self,from:PeerId,m:Msg,now:u64){
         let Some(f)=self.disc.out.feeler.as_mut().filter(|f|f.id==from&&!f.hello) else{return};
         f.hello=true;let peer=f.peer.clone();
-        let Some(a)=self.disc.out.slots.iter().find(|s|s.peer()==Some(from)).and_then(Slot::addr) else{peer.close();return};
+        let Some((t,a))=self.disc.out.slots.iter().enumerate().find(|(_,s)|s.peer()==Some(from)).and_then(|(t,s)|Some((t,s.addr()?))) else{peer.close();return};
         if let Msg::Hello{chain_id,genesis,protocol,compatibility,listen_port,nonce,..}=m{
-            let ours=self.disc.wire_nonce();let (b,c)=(&mut self.disc.book,&mut self.disc.out.counters);
+            let (ours,src)=(self.disc.wire_nonce(),self.slot_source(t,a));let (b,c)=(&mut self.disc.book,&mut self.disc.out.counters);
             if nonce!=0&&nonce==ours{b.mark_self(a)}
             else{match crate::identity::accepts(&self.consensus,chain_id,&genesis,protocol,&compatibility){
                 Err(crate::identity::Mismatch::Network)=>{b.remove(a);c.feelers_incompatible+=1}
                 Err(_)=>{b.held(a,now);c.feelers_incompatible+=1}
-                Ok(_) if listen_port!=0=>{b.good(a,false,net::group_of(a.ip()).is_none(),now);c.feelers_ok+=1}
+                Ok(_) if listen_port!=0=>{b.good_dialed(a,src,net::group_of(a.ip()).is_none(),now);c.feelers_ok+=1}
                 Ok(_)=>b.remove(a)}}
         }
         peer.close();
@@ -531,7 +538,7 @@ impl Node{
 mod tests{
     use super::*;
     use super::super::tests::{open_peers,sa,hello,connect,msg,greet,closed};
-    use crate::node::{Event,NetEvent,Outbound,Discovery,now_ms};
+    use crate::node::{Event,NetEvent,Outbound,Discovery,DiscoveryTimes,now_ms};
     use crate::addrbook::Kind;
     use std::sync::mpsc::Receiver;
     /// A clock one second after the devnet genesis's timestamp: the head is young, so the node is not stalled.
@@ -988,6 +995,34 @@ mod tests{
         n.disc.next_save_ms=0;n.disc.test_now=Some(now);n.disc_tick(now);
         let file=std::fs::read_to_string(dir.join(super::super::FILE)).unwrap();
         assert!(n.disc.book.get(echo).is_none()&&!file.contains("81.77.0.1"),"purged at the save");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D24 (VA-SPEC §1a.7): a self-advertisement withdrawn by a second connection from its IP while a slot or the
+    /// feeler dials it is not placed again as its own verified source when the Hello comes (it would be a source of
+    /// its own in the tried class, uncounted by the feeler's cap). Without the withdrawal it is verified in place and
+    /// stays Inbound. An anchor or a bootstrap address no longer in the book is placed as its own or as `Cfg`.
+    #[test] fn a_self_advertisement_withdrawn_mid_dial_never_becomes_its_own_verified_source(){
+        let (p,b,x)=(sa("81.40.0.1:30300"),sa("81.91.0.1:30300"),sa("81.90.0.1:30300"));
+        let (mut n,dir)=opened("o-launder",Discovery{outbound:Outbound::Count(1),bootstrap:vec![b],rng_seed:Some(7),times:DiscoveryTimes{stall_min_ms:u64::MAX/4,..DiscoveryTimes::default()},..Discovery::default()},true,vec![],G);
+        let _rx=n.disc_test_slots(G);verified(&mut n,p,G);let _p=up(&mut n,0,p,1,true,G);
+        let mut id=10;
+        // The self-ad at x (a closed inbound connection), slot `t` dials it as `kind`, then (with `withdraw`) a second
+        // inbound connection from x's IP withdraws it before x's Hello arrives.
+        let mut run=|n:&mut Node,t:usize,kind:SlotKind,withdraw:bool|{
+            id+=3;let _i=connect(n,id,Origin::Inbound,Some(sa("81.90.0.1:51000")));greet(n,id,30300,0);close(n,id,G);
+            assert_eq!(n.disc.book.get(x).map(|e|(e.source,e.verified_ms)),Some((Source::Inbound,0)));
+            n.disc.out.slots[t].state=SlotState::Idle{next_ms:0};n.assign(t,x,kind,G);let _c=connect(n,id+1,Origin::Slot(t as u8,x),Some(x));
+            if withdraw{let _w=connect(n,id+2,Origin::Inbound,Some(sa("81.90.0.1:51001")));greet(n,id+2,0,0x77);assert!(n.disc.book.get(x).is_none(),"withdrawn mid-dial");}
+            greet(n,id+1,30300,0);let got=n.disc.book.get(x).map(|e|(e.source,e.verified_ms>0));n.disc.book.remove(x);close(n,id+1,G);got
+        };
+        for (t,kind) in [(0,SlotKind::Auto),(1,SlotKind::Feeler)]{
+            assert_eq!(run(&mut n,t,kind,true),None,"{kind:?}: not placed as its own source");
+            assert_eq!(run(&mut n,t,kind,false),Some((Source::Inbound,true)),"{kind:?}: verified in place, still Inbound");
+        }
+        assert_eq!(n.slot_source(0,b),Some(Source::Cfg(b)),"a bootstrap address keeps its own source");
+        n.disc.out.slots[0].state=SlotState::Up{peer:1,addr:x,kind:SlotKind::Anchor,since_ms:G};
+        assert_eq!(n.slot_source(0,x),Some(Source::Peer(key_of(x))),"an anchor is its own");
+        n.disc.out.slots[0].state=SlotState::Up{peer:1,addr:x,kind:SlotKind::Auto,since_ms:G};assert_eq!(n.slot_source(0,x),None);
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     const SESSION_STALL:u128=crate::node::SESSION_STALL_MS;

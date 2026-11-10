@@ -285,6 +285,7 @@ impl Node{
     pub(super) fn disc_first_hello(&mut self,from:PeerId,port:u16,nonce:u64,now:u64){
         if !self.disc.on{return}
         let remote=self.disc.links.get(&from).filter(|l|l.origin==Origin::Inbound).and_then(|l|l.remote);self.family_up(remote);self.seed_hello(from,false,now);
+        let src=match self.disc.links.get(&from).map(|l|l.origin){Some(Origin::Slot(t,a))=>self.slot_source(usize::from(t),a),_=>None};
         let d=&mut self.disc;let Some(l)=d.links.get_mut(&from) else{return};
         l.compatible=true;
         match l.origin.dialed(){
@@ -296,7 +297,10 @@ impl Node{
                 }else if nonce!=0{let links=&d.links;d.book.withdraw(r.ip(),|a|links.values().any(|x|x.advertised==Some(a)));}
             }
             Some(a)=>{
-                if port!=0{l.consent=true;d.book.good(a,matches!(l.origin,Origin::Configured(_)),net::group_of(a.ip()).is_none(),now);}else{d.book.remove(a);}
+                // A slot's address that left the book while dialed is not placed as its own source (`good_dialed`).
+                if port!=0{l.consent=true;let local=net::group_of(a.ip()).is_none();
+                    if matches!(l.origin,Origin::Slot(..)){d.book.good_dialed(a,src,local,now);}else{d.book.good(a,matches!(l.origin,Origin::Configured(_)),local,now);}}
+                else{d.book.remove(a);}
                 l.asked_ms=Some(now);d.counters.get_addr_sent+=1;
                 if let Some(p)=self.peers.get(&from){p.send(&Msg::GetAddr);}
             }
