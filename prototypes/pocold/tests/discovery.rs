@@ -211,17 +211,21 @@ fn ask_and_answer(n:&Running,r:&TcpListener)->(serde_json::Value,Vec<SocketAddr>
 fn short()->DiscoveryTimes{DiscoveryTimes{tick_ms:100,retry_ms:2_000,retry_verified_ms:1_000,backoff_base_ms:200,backoff_max_ms:1_000,stable_ms:1_000,
     seed_boot_ms:1_000,seed_connect_ms:3_000,seed_hold_ms:500,seed_release_ms:1_000,seed_hold_base_ms:2_000,anchor_uptime_ms:1_500,save_first_ms:500,save_every_ms:1_000,
     feeler_listen_ms:1_000,feeler_quiet_ms:1_000,feeler_jitter_ms:200,stall_min_ms:20_000,stall_blocks:1,cache_ms:100,..Default::default()}}
+/// `short` never stalled nor quiet: for the tests without a miner, whose head stays at the binary-wide genesis (`spec`),
+/// which is 20 s old once the test starts 20 s after the binary's first (`--test-threads=1`, a loaded runner); stalled,
+/// the spare runs the extra in place of the feeler.
+fn no_stall()->DiscoveryTimes{DiscoveryTimes{stall_min_ms:u64::MAX/4,..short()}}
 /// What a PR2b live node is: its name, whether it listens, which genesis miner it mines as, its configured peers
 /// (its seeds among them), seeds, bootstrap addresses and automatic outbound.
 struct Live<'a>{name:&'a str,listen:bool,miner:Option<&'a str>,peers:Vec<SocketAddr>,seeds:Vec<SocketAddr>,bootstrap:Vec<SocketAddr>,outbound:Outbound}
 impl Running{
     /// A PR2b live node in local mode with the short timings, its data in `dir` (kept, so that a restart on the same
     /// directory reads its book and anchors), its two ports held until it binds them.
-    fn live(dir:&std::path::Path,l:Live)->Self{Self::live_net(dir,l,Default::default())}
-    /// `live` with these network limits.
-    fn live_net(dir:&std::path::Path,l:Live,net:pocold::net::Limits)->Self{
+    fn live(dir:&std::path::Path,l:Live)->Self{Self::live_with(dir,l,Default::default(),short())}
+    /// `live` with these network limits and discovery timings.
+    fn live_with(dir:&std::path::Path,l:Live,net:pocold::net::Limits,times:DiscoveryTimes)->Self{
         let held=[TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()];let [p2p,rpc]=held.each_ref().map(|x|x.local_addr().unwrap());
-        let d=Discovery{allow_local:true,rng_seed:Some(7),outbound:l.outbound,seeds:l.seeds,bootstrap:l.bootstrap,times:short(),..Default::default()};
+        let d=Discovery{allow_local:true,rng_seed:Some(7),outbound:l.outbound,seeds:l.seeds,bootstrap:l.bootstrap,times,..Default::default()};
         let cfg=Config{dir:dir.into(),name:l.name.into(),miner:l.miner.map(|m|devnet::miner_identity(m).key),listen:l.listen.then_some(p2p),peers:l.peers,rpc:Some(rpc),stop_at:None,log:false,
             limits:Limits{discovery:d,net,..Default::default()}};
         let mut n=Node::open(cfg,spec()).unwrap();let net=n.net.clone();drop(held);n.start_network().unwrap();
@@ -275,7 +279,7 @@ fn agree(nodes:&[&Running],h:u64)->bool{let heads:Vec<(u64,String)>=nodes.iter()
     let a=Running::live(&root.join("a"),Live{name:"a",listen:true,miner:None,peers:vec![],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
     let b=Running::live(&root.join("b"),Live{name:"b",listen:true,miner:None,peers:vec![a.p2p],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
     assert!(wait_until(30_000,||a.counter("selfAds")>=1),"A holds B's self-advertisement");
-    let k=Running::live(&root.join("k"),Live{name:"k",listen:true,miner:None,peers:vec![dead],seeds:vec![dead],bootstrap:vec![a.p2p],outbound:Outbound::Count(2)});
+    let k=Running::live_with(&root.join("k"),Live{name:"k",listen:true,miner:None,peers:vec![dead],seeds:vec![dead],bootstrap:vec![a.p2p],outbound:Outbound::Count(2)},Default::default(),no_stall());
     let held=std::cell::Cell::new(false);
     assert!(wait_until(60_000,||{held.set(held.get()||k.status()["discovery"]["outbound"]["seeds"][0]["state"]=="held");k.slots_up()==set(&[a.p2p,b.p2p])}),"K fills its slots from A and what A knows: {}",k.status()["discovery"]);
     assert!(held.get()||wait_until(30_000,||k.counter("seedHolds")>=1),"the dead seed is held: {}",k.status()["discovery"]);
@@ -315,15 +319,16 @@ fn greet_and_wait_for_getaddr(c:&mut TcpStream,port:u16){
 #[test] fn a_feeler_verifies_without_evicting_a_full_listener(){
     let root=live_root("feeler");
     let free=pocold::net::EvictLimits{grace:Duration::ZERO,key_interval:Duration::ZERO,burst:1000,refill:Duration::ZERO};
-    let f=Running::live_net(&root.join("f"),Live{name:"f",listen:true,miner:None,peers:vec![],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)},
-        pocold::net::Limits{peers_max:3,handshaking_max:1,evict:free,..Default::default()});
+    let f=Running::live_with(&root.join("f"),Live{name:"f",listen:true,miner:None,peers:vec![],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)},
+        pocold::net::Limits{peers_max:3,handshaking_max:1,evict:free,..Default::default()},no_stall());
     let mut fp:Vec<TcpStream>=(0..3).map(|i|{let mut c=TcpStream::connect(f.p2p).unwrap();assert!(matches!(read(&mut c,Duration::from_secs(5)),Some(Msg::Hello{..})));
         c.write_all(&raw_hello(0)).unwrap();assert!(wait_until(10_000,||f.net.established()==i+1),"F's place {i} is held");c}).collect();
     let p=Running::live(&root.join("p"),Live{name:"p",listen:true,miner:None,peers:vec![],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
     let r=TcpListener::bind("127.0.0.1:0").unwrap();let ra=r.local_addr().unwrap();
-    let x=Running::live(&root.join("x"),Live{name:"x",listen:true,miner:None,peers:vec![ra],seeds:vec![],bootstrap:vec![p.p2p],outbound:Outbound::Count(1)});
+    let x=Running::live_with(&root.join("x"),Live{name:"x",listen:true,miner:None,peers:vec![ra],seeds:vec![],bootstrap:vec![p.p2p],outbound:Outbound::Count(1)},Default::default(),no_stall());
     let mut c=accept(&r);greet_and_wait_for_getaddr(&mut c,ra.port());
     assert!(wait_until(30_000,||x.slots_up()==set(&[p.p2p])),"X's automatic slot holds P: {}",x.status()["discovery"]["outbound"]);
+    let st=x.status();assert!(st["discovery"]["outbound"]["stalled"]==false&&st["discovery"]["outbound"]["quiet"]==false,"X is neither stalled nor quiet, so its spare runs feelers: {}",st["discovery"]["outbound"]);
     c.write_all(&frame(&Msg::Addr{addrs:vec![f.p2p]})).unwrap();
     let named=std::cell::Cell::new(false);let fa=f.p2p.to_string();
     let auto_names_f=|st:&serde_json::Value|st["discovery"]["outbound"]["slots"].as_array().into_iter().flatten().any(|s|s["role"]=="auto"&&s["addr"]==fa.as_str());
