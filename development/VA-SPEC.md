@@ -246,12 +246,14 @@ after the first has merged needs a new gate or a bump with a new genesis.
 ### 2.4 Boundary, lock and enforcement
 `pocold/consensus-boundary.txt` lists the consensus sources (paths relative to `prototypes/`): `+` includes (all of
 `lp4-execution/src/` by default, so new modules are covered, minus the pool, RPC, bin and resources modules and
-`*tests.rs` files declared `#[cfg(test)]` by their parent), the shared lp1 sources, the pocold validation, state,
+`*tests.rs` files that their parent declares only under `#[cfg(test)]` and that no `+` file loads without it),
+the shared lp1 sources, the pocold validation, state,
 history, signature-recovery, crate-root and identity sources, `build.rs`, the boundary code and file, the three
 Cargo manifests, both `rust-toolchain.toml` files, the vector directories and the EVM-crypto path patches. Cargo.lock
 is not hashed whole: the dependency closure of `root` crates (pocol-lp4-execution, k256, sha2, sha3) becomes one
 `dep` line per package. Every other crate-root module is classified node-local (`=`), and a `+` file may reference an
-`=` or `-` module only through a reviewed `~` line with its reason. The aggregate is
+`=` or `-` module (by `crate::`, another crate's name, or a `self::`/`super::` path that climbs to the crate root)
+only through a reviewed `~` line with its reason. The aggregate is
 `SHA-256("pocol-consensus-sources-v1\0" ‖ (u64 len name ‖ name ‖ u64 len bytes ‖ bytes)*)`, with the `dep` lines as
 one entry named `Cargo.lock#closure`.
 
