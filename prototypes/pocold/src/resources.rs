@@ -64,14 +64,15 @@ pub fn overlay_max(cp:&ConsensusParams)->Option<u128>{
 /// PR6: what a template selection and its signed build keep beside the overlay: the append round's candidates
 /// (`Selection::rest`: their raw copies, at most BODY_MAX plus the one transaction that passes it, TX_MAX; at
 /// most BODY_MAX/MIN_TX_BYTES + 1 entries, each a `Cand` and the round's queue, heap and sender-map entries), and
-/// the sets of skipped senders (the pooled transactions and at most BUILD_VISIT_MAX backlog decodes, three sets).
+/// the sets of skipped senders (the pooled transactions, the parked ones (PR6 review: template candidates too) and at
+/// most BUILD_VISIT_MAX backlog decodes, three sets).
 /// PR6 review: after a gas failure (`build_signed_template`) the selection's tail joins the candidates in front of
 /// them: at most the selected transactions, each counted at least TX_GAS_MIN against GAS_LIMIT (gas used, its
 /// declared gas in the fallback, or a halt's declared gas), so GAS_LIMIT/TX_GAS_MIN more entries, and at most
 /// BODY_MAX more raw bytes (moved from the selection, which the template being built may fill again from the
 /// candidates). The candidates' bound therefore holds after the recovery too.
 pub fn selection_bytes(cp:&ConsensusParams)->Option<u128>{
-    let entries=add(&[u128::from(cp.BODY_MAX)/MIN_TX_BYTES+1,u128::from(cp.GAS_LIMIT)/TX_GAS_MIN])?;let senders=(node::POOL_MAX_TXS+node::BUILD_VISIT_MAX) as u128;
+    let entries=add(&[u128::from(cp.BODY_MAX)/MIN_TX_BYTES+1,u128::from(cp.GAS_LIMIT)/TX_GAS_MIN])?;let senders=(node::POOL_MAX_TXS+node::POOL_PARKED_MAX+node::BUILD_VISIT_MAX) as u128;
     let per=add(&[mul(memory::VEC,node::CAND_ENTRY_BYTES as u128)?,mul(memory::VEC,24+8)?,mul(memory::VEC,24)?,memory::entry_bytes(28)])?;
     add(&[mul(2,u128::from(cp.BODY_MAX))?,u128::from(cp.TX_MAX),mul(entries,per)?,mul(3,add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?)?])
 }
@@ -314,7 +315,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("transient-snapshot-inventory","TRANSIENT_SNAPSHOTS (2, C-1 E3) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter"),
     ("main-thread","the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins"),
     ("revm-representation","the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks"),
-    ("cpu-and-timing","CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded. PR6: a signed template costs one selection (at most GAS_LIMIT of committed gas, at most BUILD_VISIT_MAX decodes) and at most node::TEMPLATE_BUILDS_MAX block executions (normally one; two or three when simulated and real gas differ), and a new head also re-validates up to node::POOL_PARKED_MAX parked transactions (each executed only when re-admitted within the pool's gas bound). A peer-driven deep-fork rebuild is PoW-gated and rate-bounded (PR4 I-5: node::REBUILD_BURST, SESSION_REBUILD_MAX), but each one is still O(chain height), with no reverse diffs (F-1)"),
+    ("cpu-and-timing","CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded. PR6: a signed template costs one selection (at most GAS_LIMIT of committed gas, at most BUILD_VISIT_MAX decodes) and at most node::TEMPLATE_BUILDS_MAX block executions (normally one; two or three when simulated and real gas differ), and a new head also re-validates up to node::POOL_PARKED_MAX parked transactions (each executed only when re-admitted within the pool's gas bound); the parked ones are also template candidates, within the same selection bounds. A peer-driven deep-fork rebuild is PoW-gated and rate-bounded (PR4 I-5: node::REBUILD_BURST, SESSION_REBUILD_MAX), but each one is still O(chain height), with no reverse diffs (F-1)"),
     ("s3a-removal","a diff keeps no storage for a removed account: under Cancun (revm 19.7, EIP-6780) only an account created in the same transaction is destroyed, and an account without code, nonce and balance holds no storage; by inspection, not enforced by a counter"),
     ("redb-representation","the history.redb terms rely on redb 2.6.4 behaviour checked by source inspection (cache split and write-buffer flush, allocator bitmaps) and on a measured file-size factor (HISTORY_FILE_FACTOR)"),
     ("open-replay-transient","Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound. C-1 E4.4 adds to it, at open only: every record's offset and rolling hash, a decoded checkpoint snapshot and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, which holds the accounts and slots that differ, one block's writes at most, as an import's write set, the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),

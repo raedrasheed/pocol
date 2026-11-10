@@ -795,7 +795,10 @@ issuance(h) = h==0 ? 0 : max(k>=256 ? 0 : S0>>k, S_tail),  k = h / H_half
   per-sender quotas.
   - Partly delivered by PR6 (the gas-used finding): a per-sender declared-gas quota (default GAS_LIMIT) and
     parking of transactions refused only by the pool's gas bound, re-admitted least declared gas first at the
-    next head. Fee ordering, replacement and lowest-fee eviction remain.
+    next head; after the readiness review, a sender may park a run of its next nonces, and parked transactions
+    are relayed and are template candidates. Fee ordering, replacement and lowest-fee eviction remain: cheap
+    declared gas can still hold the pool's bound (not the next block), so admission into the pending state, not
+    inclusion, waits.
 
 **Principle check.**
 - (a) and (b) keep P6: R_tot is still shared by a deterministic pre-mining rule, and the proposer is drawn

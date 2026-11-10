@@ -219,19 +219,21 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
     /// exempt from the sender quota (returned from an abandoned block); and the quota (`pool_sender_gas_bound`).
     meta:Vec<(Address,u64,bool)>,pub sender_gas_max:u64,
     /// PR6 P2: transactions refused only by the gas bound and held for the next head (at most `parked_max`
-    /// <= POOL_PARKED_MAX, one per sender); their bytes share POOL_MAX_BYTES with `txs` and the backlog; and
-    /// the arrival counter that orders them.
+    /// <= POOL_PARKED_MAX; per sender a run of its next nonces, in arrival order); their bytes share POOL_MAX_BYTES
+    /// with `txs` and the backlog; and the arrival counter that orders them. PR6 review: they are template
+    /// candidates and are relayed when parked.
     parked:Vec<Parked>,parked_bytes:usize,park_seq:u64,parked_max:usize}
-/// A parked transaction (PR6 P2): its declared gas, sender, arrival, hash, how it is relayed once admitted, and
-/// its bytes.
-struct Parked{gas:u64,sender:Address,seq:u64,hash:B256,relay:Relay,raw:Vec<u8>}
+/// A parked transaction (PR6 P2): its declared gas, nonce, arrival, its sender's run (the declared gas and arrival
+/// of the sender's first parked one, which orders the run at the next head), sender, hash, its cost at its fee cap
+/// (gas_limit × fee cap + value), how it is relayed once admitted, and its bytes.
+struct Parked{gas:u64,nonce:u64,seq:u64,run:(u64,u64),sender:Address,hash:B256,cost:U256,relay:Relay,raw:Vec<u8>}
 /// PR6 P2: the most parked transactions. Each is decoded and validated again at the next head, so this bounds
 /// that work (about POOL_PARKED_MAX signature recoveries per head).
 pub const POOL_PARKED_MAX:usize=1024;
 /// A13 (resources, PR6): the bytes counted for one pool meta entry, one parked entry (its raw bytes are inside
 /// POOL_MAX_BYTES) and one append-round candidate (its raw bytes are counted apart). Fixed, so the pinned total
 /// does not follow rustc's layout; checked below.
-pub const META_ENTRY_BYTES:usize=32;pub const PARKED_ENTRY_BYTES:usize=128;pub const CAND_ENTRY_BYTES:usize=64;
+pub const META_ENTRY_BYTES:usize=32;pub const PARKED_ENTRY_BYTES:usize=160;pub const CAND_ENTRY_BYTES:usize=64;
 const _:()=assert!(std::mem::size_of::<(Address,u64,bool)>()<=META_ENTRY_BYTES&&std::mem::size_of::<Parked>()<=PARKED_ENTRY_BYTES&&std::mem::size_of::<Cand>()<=CAND_ENTRY_BYTES);
 /// One backlog entry: an abandoned block's journal offset, or a transaction and how to relay it once
 /// admitted (a P2P transaction that arrived during the backlog is relayed then, as it would have been).
@@ -446,7 +448,9 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// template, and `build_signed` calls for signed templates.
     pub template_gas_fallbacks:u64,pub template_gas_recoveries:u64,pub template_appended:u64,pub template_builds:u64,
     /// PR6 P1: submissions refused by the sender quota; P2: parked transactions evicted by one declaring less.
-    pub sender_quota_refused:u64,pub parked_evicted:u64}
+    pub sender_quota_refused:u64,pub parked_evicted:u64,
+    /// PR6 review: parked transactions relayed when parked.
+    pub parked_relayed:u64}
 /// 2026-10-28: the time (ms) each step of `Node::open` took, so an open's cost can be attributed: reading the
 /// journal (every record's payload, its frame offsets and rolling hashes), opening history.redb and state.redb
 /// (redb's full integrity check of every page included), the release at open, reading and checking the
@@ -1129,7 +1133,9 @@ impl Node{
         // sealed block and is not counted (a reorganization must not drop a sender's second block of them).
         let exempt=matches!(relay,Relay::Offer|Relay::Returned);
         if !exempt{
+            // PR6 review: and its parked ones (a sender may park a run of its next nonces).
             let held=self.pool.meta.iter().filter(|(s,_,x)|*s==caller&&!*x).fold(0u64,|n,(_,g,_)|n.saturating_add(*g));
+            let held=self.pool.parked.iter().filter(|x|x.sender==caller&&!matches!(x.relay,Relay::Offer|Relay::Returned)).fold(held,|n,x|n.saturating_add(x.gas));
             if held.saturating_add(gas_limit)>self.pool.sender_gas_max{self.stats.sender_quota_refused+=1;return Err(POOL_FULL_SENDER.into())}
         }
         if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max{return Err(self.park(raw,hash,&env.tx_env(),relay).into())}
@@ -1169,29 +1175,40 @@ impl Node{
         Ok(hash)
     }
     /// PR6 P2: a transaction refused only by the pool's gas bound is held for the next head when it is the
-    /// sender's next transaction on the pending state, its sender can pay its declared gas at its fee cap and its
-    /// value, its fee cap covers the next base fee, and its sender has no other parked one (two reads, no
-    /// execution). The set is bounded (`parked_max`, POOL_MAX_BYTES shared with the pool and the backlog); when
-    /// it is full, the parked transaction declaring the most gas (the latest of equals) makes room for one
-    /// declaring strictly less. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
+    /// sender's next transaction (on the pending state, or after the sender's parked ones: PR6 review, a sender
+    /// may park a run of its next nonces, within its quota), its sender can pay it and its parked ones at their
+    /// fee caps and values, and its fee cap covers the next base fee (two reads, no execution). The set is bounded
+    /// (`parked_max`, POOL_MAX_BYTES shared with the pool and the backlog); when it is full, the parked
+    /// transaction declaring the most gas (the latest of equals), with its sender's later parked ones, makes room
+    /// for one of another sender declaring strictly less. A parked transaction is a template candidate
+    /// (`template_selection`) and is relayed now (PR6 review): the drawn proposer can take it in the next block
+    /// even while the gas bound is held. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
     fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay)->&'static str{
         use pocol_lp4_execution::view::View;
-        if self.pool.parked.iter().any(|x|x.sender==tx.caller){return POOL_FULL_GAS}
         let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
         let acct=view.account(&tx.caller).map(|a|a.info).unwrap_or_default();
+        let (mut next,mut spent,mut run)=(acct.nonce,Some(U256::ZERO),None);
+        for x in self.pool.parked.iter().filter(|x|x.sender==tx.caller){next=x.nonce.saturating_add(1);spent=spent.and_then(|s|s.checked_add(x.cost));run=Some(x.run);}
         let cost=U256::from(tx.gas_limit).checked_mul(tx.gas_price).and_then(|c|c.checked_add(tx.value));
-        if tx.nonce!=Some(acct.nonce)||cost.is_none_or(|c|acct.balance<c)||tx.gas_price<self.next_block_ctx().base_fee{return POOL_FULL_GAS}
+        let total=cost.and_then(|c|spent.and_then(|s|s.checked_add(c)));
+        if tx.nonce!=Some(next)||total.is_none_or(|c|acct.balance<c)||tx.gas_price<self.next_block_ctx().base_fee{return POOL_FULL_GAS}
         while self.pool.parked.len()>=self.pool.parked_max||self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{
             let Some(i)=(0..self.pool.parked.len()).max_by_key(|&i|(self.pool.parked[i].gas,self.pool.parked[i].seq)) else{return POOL_FULL_GAS};
-            if self.pool.parked[i].gas<=tx.gas_limit{return POOL_FULL_GAS}
-            let x=self.pool.parked.swap_remove(i);self.pool.parked_bytes-=x.raw.len();self.stats.parked_evicted+=1;
+            let (s,k)=(self.pool.parked[i].sender,self.pool.parked[i].nonce);
+            if self.pool.parked[i].gas<=tx.gas_limit||s==tx.caller{return POOL_FULL_GAS}
+            // Its sender's later ones would follow a nonce gap: they go with it.
+            let (mut freed,mut n)=(0usize,0u64);
+            self.pool.parked.retain(|x|if x.sender==s&&x.nonce>=k{freed+=x.raw.len();n+=1;false}else{true});
+            self.pool.parked_bytes-=freed;self.stats.parked_evicted+=n;
         }
-        self.pool.parked_bytes+=raw.len();self.pool.park_seq+=1;
-        self.pool.parked.push(Parked{gas:tx.gas_limit,sender:tx.caller,seq:self.pool.park_seq,hash,relay,raw});
+        self.pool.parked_bytes+=raw.len();self.pool.park_seq+=1;let seq=self.pool.park_seq;
+        let relay=if relay==Relay::Gossip{self.broadcast(&Msg::Tx{raw:raw.clone()},None);self.stats.parked_relayed+=1;Relay::No}else{relay};
+        self.pool.parked.push(Parked{gas:tx.gas_limit,nonce:next,seq,run:run.unwrap_or((tx.gas_limit,seq)),sender:tx.caller,hash,cost:cost.unwrap_or_default(),relay,raw});
         POOL_PARKED
     }
-    /// The parked transactions, in the order the next head admits them (PR6 P2; tests and inspection).
-    pub fn pool_parked(&self)->Vec<Vec<u8>>{let mut v:Vec<&Parked>=self.pool.parked.iter().collect();v.sort_by_key(|x|(x.gas,x.seq));v.into_iter().map(|x|x.raw.clone()).collect()}
+    /// The parked transactions, in the order the next head admits them (PR6 P2; tests and inspection): each
+    /// sender's run by its first one's declared gas and arrival, in nonce order.
+    pub fn pool_parked(&self)->Vec<Vec<u8>>{let mut v:Vec<&Parked>=self.pool.parked.iter().collect();v.sort_by_key(|x|(x.run,x.nonce));v.into_iter().map(|x|x.raw.clone()).collect()}
     /// Lowers the parked set's bound (tests reach a full set with a few senders); never above POOL_PARKED_MAX.
     pub fn set_pool_parked_max(&mut self,m:usize){self.pool.parked_max=m.min(POOL_PARKED_MAX);}
     /// Journal offsets of the blocks that left the canonical chain, from `old` back to the common
@@ -1217,14 +1234,15 @@ impl Node{
         // new branch includes is not taken again. One from an abandoned block that is admitted again is
         // offered to the peers (Relay::Offer); the previous pool's were relayed when first admitted.
         // PR6 P3, the order: (1) the abandoned blocks; (2) the previous pool up to each sender's first transaction
-        // declaring more than GAS_LIMIT/2; (3) the parked transactions, least declared gas first; (4) the previous
+        // declaring more than GAS_LIMIT/2; (3) the parked transactions, least declared gas first (each sender's run by
+        // its first one, in nonce order); (4) the previous
         // pool's deferred part (each sender's transactions from its first big one on, in pool order), then the
         // parked ones of those senders; (5) the previous backlog. Transactions a block cannot take many of are
         // re-admitted after the waiting small ones, so they cannot hold the gas bound against them across heads.
         // One refused for the gas bound here is parked again when eligible (`park`), not dropped.
         let old=std::mem::take(&mut self.pool.txs);let meta=std::mem::take(&mut self.pool.meta);let rest=std::mem::take(&mut self.pool.backlog);
         let mut parked=std::mem::take(&mut self.pool.parked);self.pool.backlog_bytes+=std::mem::take(&mut self.pool.parked_bytes);
-        parked.sort_by_key(|x|(x.gas,x.seq));
+        parked.sort_by_key(|x|(x.run,x.nonce));
         self.pool.bytes=0;self.pool.gas=0;self.pool.pending=Default::default();self.pool.pending_base=chain::StateHandle::of(self.chain.head());
         let (meter,code)=pool_start(self.chain.head(),&self.chain.spec);self.pool.code_total=code;self.pool.meter=meter;
         let big=self.chain.spec.cp().GAS_LIMIT/2;
@@ -1285,7 +1303,7 @@ impl Node{
         // B4: the block caps a candidate's logs and state effects could reach (the pool's meter for
         // SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX; logs exactly). Dirty keys and accounts are not modelled.
         let mut meter=sim.as_ref().map(|_|pool_start(p,&self.chain.spec).0);let (mut log_count,mut log_bytes)=(0u64,0u64);
-        // D-7: candidates are the admitted transactions, then the backlog's (each is executed here on p's
+        // D-7: candidates are the admitted transactions, then (PR6 review) the parked ones, then the backlog's (each is executed here on p's
         // state anyway); an abandoned block not yet expanded is not a candidate. A pooled one's sender and
         // declared gas come from the pool's meta, so one that is skipped is not decoded; B3: at most
         // BUILD_VISIT_MAX decodes (each recovers a signature).
@@ -1297,10 +1315,14 @@ impl Node{
         let mut first_seen=HashSet::new();
         let big=self.pool.meta.iter().position(|(s,g,_)|first_seen.insert(*s)&&*g>cp.GAS_LIMIT/2);
         let pooled=self.pool.txs.iter().zip(&self.pool.meta).enumerate().map(|(i,((_,r),(s,g,_)))|(false,i,r,Some((*s,*g))));
+        // PR6 review: then the parked ones, in arrival order (each sender's run in nonce order): they were checked on
+        // the pending state when parked (next nonce, balance, fee cap) and are executed here like any candidate, so
+        // a valid transaction the gas bound holds out of the pool still reaches the next block.
+        let parked=self.pool.parked.iter().map(|x|(false,usize::MAX,&x.raw,Some((x.sender,x.gas))));
         let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)=>Some((false,usize::MAX,r,None)),PoolItem::Block(_)=>None});
         let slot_first=big.map(|i|{let (s,g,_)=self.pool.meta[i];(true,i,&self.pool.txs[i].1,Some((s,g)))});
         let mut big_in=false;
-        for (slot,i,raw,known) in slot_first.into_iter().chain(pooled).chain(backlog){
+        for (slot,i,raw,known) in slot_first.into_iter().chain(pooled).chain(parked).chain(backlog){
             if !slot&&big_in&&big==Some(i){continue}
             // B3: nothing fits any more and nothing more can be kept for the append round.
             if room_txs==0||room_bytes<MIN_TX_BYTES||bytes+enc(MIN_TX_BYTES as usize)>body_room{break}
@@ -1894,15 +1916,23 @@ impl Node{
             gas=gas.checked_add(env.tx_env().gas_limit).ok_or("pooled gas overflows")?;bytes+=raw.len();
         }
         let backlog:usize=self.pool.backlog.iter().map(|i|match i{PoolItem::Tx(r,_)=>r.len(),PoolItem::Block(_)=>0}).sum();
-        // PR6 P2: the parked set is bounded, counted, one per sender, and holds nothing pooled.
-        let parked:usize=self.pool.parked.iter().map(|x|x.raw.len()).sum();let mut senders=HashSet::new();
+        // PR6 P2: the parked set is bounded, counted, per sender a run of consecutive nonces sharing its run key (in
+        // arrival order), within the sender quota with its pooled ones, and holds nothing pooled.
+        let parked:usize=self.pool.parked.iter().map(|x|x.raw.len()).sum();let mut runs:HashMap<Address,((u64,u64),u64,u64)>=HashMap::new();
         if self.pool.parked.len()>self.pool.parked_max||self.pool.parked_max>POOL_PARKED_MAX{return Err(format!("{} parked, past the bound {}",self.pool.parked.len(),self.pool.parked_max))}
         if parked!=self.pool.parked_bytes{return Err(format!("parked bytes {} differ from the contents: {parked}",self.pool.parked_bytes))}
         for x in &self.pool.parked{
-            if !senders.insert(x.sender){return Err(format!("{} has two parked transactions",x.sender))}
+            let g=if matches!(x.relay,Relay::Offer|Relay::Returned){0}else{x.gas};
+            match runs.get_mut(&x.sender){
+                None=>{runs.insert(x.sender,(x.run,x.nonce,g));}
+                Some((run,last,h))=>{if *run!=x.run||x.nonce!=last.saturating_add(1){return Err(format!("{}'s parked transactions are not one run of consecutive nonces",x.sender))}*last=x.nonce;*h=h.saturating_add(g);}}
             if seen.contains(&x.hash){return Err(format!("{} is both pooled and parked",x.hash))}
             let env=wire::decode_for_profile(&x.raw,profile).map_err(|e|format!("a parked transaction does not decode: {e:?}"))?;
-            if (env.hash(),env.tx_env().caller,env.tx_env().gas_limit)!=(x.hash,x.sender,x.gas){return Err(format!("parked {} is not its hash, sender and gas",x.hash))}
+            if (env.hash(),env.tx_env().caller,env.tx_env().gas_limit,env.tx_env().nonce)!=(x.hash,x.sender,x.gas,Some(x.nonce)){return Err(format!("parked {} is not its hash, sender, gas and nonce",x.hash))}
+        }
+        for (s,(_,_,g)) in &runs{
+            let all=held.get(s).copied().unwrap_or(0).saturating_add(*g);
+            if *g>0&&all>self.pool.sender_gas_max{return Err(format!("{s} holds {all} declared gas pooled and parked, past the sender quota {}",self.pool.sender_gas_max))}
         }
         if (gas,bytes,backlog)!=(self.pool.gas,self.pool.bytes,self.pool.backlog_bytes){
             return Err(format!("counters gas {}, bytes {}, backlog bytes {} differ from the contents: {gas}, {bytes}, {backlog}",self.pool.gas,self.pool.bytes,self.pool.backlog_bytes))}
@@ -1936,7 +1966,7 @@ impl Node{
         status["stats"]["templateAppended"]=serde_json::json!(self.stats.template_appended);
         status["stats"]["templateBuilds"]=serde_json::json!(self.stats.template_builds);
         status["stats"]["senderQuotaRefused"]=serde_json::json!(self.stats.sender_quota_refused);
-        status["stats"]["parkedEvicted"]=serde_json::json!(self.stats.parked_evicted);
+        status["stats"]["parkedEvicted"]=serde_json::json!(self.stats.parked_evicted);status["stats"]["parkedRelayed"]=serde_json::json!(self.stats.parked_relayed);
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));

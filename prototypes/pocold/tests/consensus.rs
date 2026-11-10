@@ -1224,7 +1224,8 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     let root=apply::state_root(&n.pool_state()).unwrap();
     assert_eq!(n.submit_tx(pay_gas(&key("dave-unfunded"),0,1,gl),false).unwrap_err(),POOL_FULL_GAS,"one gas past the bound is refused");
     assert_eq!(n.submit_tx(pay(&bob,0,1),false).unwrap_err(),POOL_PARKED,"a valid one is held for the next head");
-    assert_eq!(n.submit_tx(pay_gas(&bob,0,2,gl),false).unwrap_err(),POOL_FULL_GAS,"one per sender is held");
+    assert_eq!(n.submit_tx(pay_gas(&bob,0,2,1_000_000),false).unwrap_err(),POOL_FULL_GAS,"another with a held one's nonce is not held");
+    assert_eq!(n.submit_tx(pay_gas(&bob,1,2,gl),false).unwrap_err(),pocold::node::POOL_FULL_SENDER,"PR6 review: a held one counts against its sender's quota");
     assert_eq!((n.pool.txs.len(),n.pool.gas),(4,4*gl),"refused, nothing pooled");
     assert_eq!(apply::state_root(&n.pool_state()).unwrap(),root,"and the pending state is unchanged");
     // A duplicate is not a new transaction: its hash, and nothing counted.
@@ -1976,9 +1977,10 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // +82,187,376 B, -> 3,354,424,323 B; PR6: the pool's meta, the parked entries, the template selection and the block
     // overlay's BLOCKHASH window, +4,692,588 B, -> 3,359,116,911 B (this pin was not moved with them); PR6 review: the
     // selection's tail after a gas failure joins the candidates (GAS_LIMIT/TX_GAS_MIN more entries, BODY_MAX more raw
-    // bytes), +383,948 B, -> 3,359,500,859 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
+    // bytes), +383,948 B, -> 3,359,500,859 B; PR6 review: parked runs (PARKED_ENTRY_BYTES 160) and the parked senders
+    // in the selection's skipped sets, +393,216 B, -> 3,359,894,075 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
     // the target the evidence is produced on; every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_359_500_859,"the A13 model total changed");
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_359_894_075,"the A13 model total changed");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -4293,7 +4295,8 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// PR6 P2: what is held for the next head. Not held (the plain gas refusal): an unfunded sender, a wrong nonce,
-/// a fee cap below the next base fee, a second transaction of a sender already held. The held set is bounded:
+/// a fee cap below the next base fee, another transaction with the nonce of a held one (PR6 review: a sender may
+/// hold a run of its next nonces, `parked_transactions_are_candidates_and_a_sender_may_park_a_run`). The held set is bounded:
 /// once full, a newcomer declaring strictly less gas evicts the one declaring the most, and an equal one is
 /// refused. At the next head the held ones are admitted least declared gas first, ahead of the big ones.
 #[test] fn parking_is_bounded_valid_and_prefers_small_declared_gas(){
@@ -4307,7 +4310,7 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     for (t,why) in [(pay(&key("dave-unfunded"),0,1),"unfunded"),(pay(&alice,3,1),"a wrong nonce"),(cheap,"a fee cap below the base fee")]{
         assert_eq!(n.submit_tx(t,false).unwrap_err(),POOL_FULL_GAS,"{why} is not held");}
     let b0=pay(&bob,0,1);assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED);
-    assert_eq!(n.submit_tx(pay(&bob,0,2),false).unwrap_err(),POOL_FULL_GAS,"one per sender");
+    assert_eq!(n.submit_tx(pay(&bob,0,2),false).unwrap_err(),POOL_FULL_GAS,"another with a held one's nonce");
     assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED,"a duplicate of a held one changes nothing");
     n.set_pool_parked_max(2);
     let a0=pay_gas(&alice,0,1,1_000_000);assert_eq!(n.submit_tx(a0.clone(),false).unwrap_err(),POOL_PARKED);
@@ -4402,5 +4405,42 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
     if n.template_selection(&head,clock).txs==vec![b0.clone()]{mined=true;}
     assert!(mined,"bob's transfer is taken once the calls are gone");assert_eq!(n.pool.gas,21000);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 review (the residual): cheap transfers declaring GAS_LIMIT/2 still fill the pool's declared-gas bound right
+/// after each head (here carol, erin, frank and gina, two each, within their quotas; the builder takes all eight,
+/// at 21,000 used each). bob's three transfers, submitted after them, are parked as a run of his next nonces, relayed
+/// when parked, and are template candidates: the next template holds the eight and all of bob's, and the block is
+/// valid. Before the fix only bob's first was parked (the others got POOL_FULL_GAS), and a parked one was neither a
+/// candidate nor relayed, so bob waited a block per transaction. Parking stays bounded: a full set evicts the
+/// parked transaction declaring the most gas with its sender's later ones, never one of the newcomer's own.
+#[test] fn parked_transactions_are_candidates_and_a_sender_may_park_a_run(){
+    use pocold::node::{POOL_FULL_GAS,POOL_FULL_SENDER,POOL_PARKED};
+    let mut c=cfg_funded();for l in ["hank","ivy"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+    let mut h=net_with(&c);let g=h.chain.head;let bob=key("bob");
+    let (mut n,dir)=gas_node_cfg("park-run",Default::default(),&c,None);
+    let fill:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().flat_map(|l|(0..2).map(move |k|pay_gas(&key(l),k,1,GL/2))).collect();
+    for t in &fill{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    let b:Vec<Vec<u8>>=(0..3).map(|k|pay(&bob,k,1)).collect();
+    for t in &b{assert_eq!(n.submit_tx(t.clone(),true).unwrap_err(),POOL_PARKED,"bob's run is held");}
+    assert_eq!(n.status_json()["stats"]["parkedRelayed"].as_u64(),Some(3),"and relayed when parked");n.pool_audit().unwrap();
+    assert_eq!(n.submit_tx(pay(&bob,4,1),false).unwrap_err(),POOL_FULL_GAS,"a nonce gap after the run is not held");
+    assert_eq!(n.submit_tx(pay_gas(&bob,3,1,GL),false).unwrap_err(),POOL_FULL_SENDER,"the run counts against bob's quota");
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,[fill.clone(),b.clone()].concat(),"the eight transfers, then bob's parked run");
+    let blk=signed(&h,head.hash,Body{txs,evidence:vec![]},0);assert_eq!(blk.header.gas_used,11*21000);assert!(import(&mut h,&blk),"valid");
+    assert!(n.import(blk,None).unwrap());assert!(pool(&mut n).is_empty()&&n.pool_parked().is_empty(),"all of it was included");n.pool_audit().unwrap();
+    // Bounded: with room for six, ivy's run (21,000, 1M, 21,000) follows bob's; hank's 500,000 evicts ivy's 1M and her
+    // later one (a nonce gap), and ivy's own newcomer never evicts her run.
+    let (fill2,b2):(Vec<Vec<u8>>,Vec<Vec<u8>>)=(["carol","erin","frank","gina"].iter().flat_map(|l|(2..4).map(move |k|pay_gas(&key(l),k,1,GL/2))).collect(),(3..6).map(|k|pay(&bob,k,1)).collect());
+    for t in &fill2{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL);
+    n.set_pool_parked_max(6);let ivy=key("ivy");
+    let iv=[pay(&ivy,0,1),pay_gas(&ivy,1,1,1_000_000),pay(&ivy,2,1)];
+    for t in b2.iter().chain(&iv){assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
+    assert_eq!(n.submit_tx(pay(&ivy,3,1),false).unwrap_err(),POOL_FULL_GAS,"full, and the most declared is ivy's own");
+    let hk=pay_gas(&key("hank"),0,1,500_000);assert_eq!(n.submit_tx(hk.clone(),false).unwrap_err(),POOL_PARKED,"hank's evicts ivy's 1M and her later one");
+    assert_eq!(n.status_json()["stats"]["parkedEvicted"].as_u64(),Some(2));
+    assert_eq!(n.pool_parked(),[b2.clone(),vec![iv[0].clone(),hk.clone()]].concat(),"each run by its first one, in nonce order");n.pool_audit().unwrap();
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),[fill2.clone(),b2.clone(),vec![iv[0].clone(),hk.clone()]].concat());
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }

@@ -72,7 +72,7 @@ fn print(tag:&str,b:&pocold::resources::Bound){
             // bytes) joins the append round's candidates, so the term counts it beside their own bound.
             {use pocol_lp4_execution::resources::memory::{entry_bytes,table_bytes};
             let entries=body/r::MIN_TX_BYTES+1+u128::from(cp.GAS_LIMIT)/r::TX_GAS_MIN;let per=3*pocold::node::CAND_ENTRY_BYTES as u128+3*32+3*24+entry_bytes(28);
-            let senders=(POOL_MAX_TXS+pocold::node::BUILD_VISIT_MAX) as u128;
+            let senders=(POOL_MAX_TXS+POOL_PARKED_MAX+pocold::node::BUILD_VISIT_MAX) as u128;
             assert_eq!(r::selection_bytes(cp).unwrap(),2*body+u128::from(cp.TX_MAX)+entries*per+3*(senders*entry_bytes(20)+table_bytes(20)),"the candidates after a gas recovery");}
             let e=r::check(cp,32,l.side_max,&Limits{state_store:store,pool_sender_gas_max:Some(cp.GAS_LIMIT-1),..Default::default()},2).unwrap_err();assert!(e.contains("pool_sender_gas_max"),"{e}");
         }
@@ -295,10 +295,13 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // 1,082,629 and 1,058,008 at 64 (-1,996, -1,770); the seed rule's outcome is unchanged. PR6 review, the selection's
     // tail after a gas failure (GAS_LIMIT/TX_GAS_MIN more candidate entries and BODY_MAX more raw bytes): 1,157,024 and
     // 1,132,366 at 8 (-163, 0), 1,125,232 and 1,100,385 at 32 (-7, -163), 1,082,476 and 1,057,845 at 64 (-153, -163).
+    // PR6 review, parked runs (PARKED_ENTRY_BYTES 128 -> 160) and the parked senders in the selection's skipped sets:
+    // 1,156,856 and 1,132,236 at 8 (-168, -130), 1,125,065 and 1,100,218 at 32 (-167, -167), 1,082,476 and 1,057,678 at
+    // 64 (0, -167); the seed rule's outcome is unchanged.
     // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
     // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[1_157_024,1_132_366,1_125_232,1_100_385,1_082_476,1_057_845],"the live chain's halt moved (record it in the PR)");
+        assert_eq!(got,[1_156_856,1_132_236,1_125_065,1_100_218,1_082_476,1_057_678],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
