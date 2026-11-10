@@ -176,10 +176,11 @@ pub const GROUP_SPARE:usize=1;
 /// An admitted inbound connection (`Net::admit`). `over`: it took its group's spare place (`GROUP_SPARE`).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 struct Admit{over:bool}
-/// What an eligible Hello carries for this network and build (`Net::expect_hello`, `Net::eligible`): the same values
-/// the node checks on every Hello (node.rs, `identity::matches_for`) and its own self-connection nonce.
-#[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct HelloId{pub chain_id:u64,pub genesis:[u8;32],pub compatibility:[u8;32],pub nonce:u64}
+/// What an eligible Hello is checked against (`Net::expect_hello`, `Net::eligible`): this node's consensus identity
+/// (chain, genesis and `Consensus.id`, VA-SPEC §2.1), which node.rs checks every Hello against through the same
+/// `identity::accepts`, and its own self-connection nonce.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct HelloId{pub consensus:crate::identity::Consensus,pub nonce:u64}
 /// The key inbound eviction groups connections by (`victim`), from the canonical address:
 /// - `Net`: its address group (`group_of`, also with per_group_max 0);
 /// - `Ula`: all of fc00::/7, where cjdns and ULA overlays mint addresses cheaply;
@@ -347,13 +348,14 @@ impl Net{
     fn registry(&self)->MutexGuard<'_,Registry>{self.inbound.lock().unwrap_or_else(|e|e.into_inner())}
     /// Sets what an eligible Hello carries. The node calls it once its nonce is final and before it listens.
     pub fn expect_hello(&self,id:HelloId){let _=self.hello_id.set(id);}
-    /// Whether `m` is a Hello the node would keep (node.rs: the network, `identity::matches_for`, and not the node's
-    /// own nonce): only such a Hello is established, so a Hello for another network or build, or a self-connection,
-    /// never evicts or counts as held. True while `expect_hello` was not called (unit tests, a node without a network).
+    /// Whether `m` is a Hello the node would keep (node.rs: `identity::accepts`, the one predicate, and not the node's
+    /// own nonce): only such a Hello is established, so a Hello for another network, wire range or consensus identity,
+    /// or a self-connection, never evicts or counts as held. True while `expect_hello` was not called (unit tests, a
+    /// node without a network).
     pub fn eligible(&self,m:&Msg)->bool{
         let Some(id)=self.hello_id.get() else{return true};
         let Msg::Hello{chain_id,genesis,protocol,compatibility,nonce,..}=m else{return false};
-        !(*nonce!=0&&*nonce==id.nonce)&&*chain_id==id.chain_id&&*genesis==id.genesis&&*protocol==crate::identity::PROTOCOL_VERSION&&*compatibility==id.compatibility
+        !(*nonce!=0&&*nonce==id.nonce)&&crate::identity::accepts(&id.consensus,*chain_id,genesis,*protocol,compatibility).is_ok()
     }
     /// Registers an admitted inbound connection (not yet established) with the group place it holds and whether that
     /// place is the spare one (`admit`), right before the node learns of it.
@@ -410,8 +412,8 @@ impl Net{
 
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub enum Msg{
-    /// Status (network.md:7): chainId, genesisHash, headHash, height, totalWork (32 B big-endian), name,
-    /// protocolVersion and the compatibility digest; then peer discovery's two fields (VA-SPEC §1a.1, §2): the
+    /// Status (network.md:7): chainId, genesisHash, headHash, height, totalWork (32 B big-endian), name, the
+    /// sender's maximum wire version and its consensus identity (`compatibility`, VA-SPEC §2.1); then peer discovery's two fields (VA-SPEC §1a.1, §2): the
     /// port the sender's listener accepts peers on and the sender's per-process self-connection nonce (8 bytes),
     /// each 0 for none.
     Hello{chain_id:u64,genesis:[u8;32],head:[u8;32],height:u64,work:[u8;32],node:String,protocol:u64,compatibility:[u8;32],listen_port:u16,nonce:u64},
@@ -492,7 +494,14 @@ impl Msg{
 
 pub type PeerId=u64;
 #[derive(Debug)]
-pub enum NetEvent{Connected(PeerId,Peer),Message(PeerId,Msg),Closed(PeerId)}
+/// `Legacy`: the connection's first frame was PoCol 0.4.0's 9-item Hello (`legacy_hello`); its Closed follows.
+pub enum NetEvent{Connected(PeerId,Peer),Message(PeerId,Msg),Closed(PeerId),Legacy(PeerId)}
+/// Whether `b` is a list whose first item is type 0 (Hello) with the nine items of the PoCol 0.4.0 Hello (no listenPort
+/// and nonce, VA-SPEC §1a.1). It is only counted and logged: such a peer is refused by arity as before.
+pub fn legacy_hello(b:&[u8])->bool{
+    let Ok(it)=rlp::decode(b) else{return false};let Some(f)=it.list() else{return false};
+    f.len()==9&&f.first().and_then(|x|x.bytes()).is_some_and(|t|t.is_empty())
+}
 /// How a connection came about: accepted by the listener, or dialed by this node for a configured peer (`dial`)
 /// or by an automatic outbound slot (VA-SPEC §1a.7). A dialed connection keeps the address it was dialed at, and
 /// the node's outbound bookkeeping is keyed by that address, never by the one the socket reports (H2).
@@ -644,7 +653,8 @@ fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net
             // Before the Hello the whole handshake frame must also meet the Hello deadline.
             let frame_by=Instant::now()+l.frame_deadline;let frame_by=if hello{frame_by}else{frame_by.min(wait)};
             let mut buf=vec![0u8;n];if !read_by(&mut r,&mut buf,frame_by,&rpeer.out.closed){break}
-            let Ok(m)=Msg::decode(&buf) else{break};
+            // A first frame that is PoCol 0.4.0's 9-item Hello is named, so a node still meeting 0.4.0 peers can tell.
+            let Ok(m)=Msg::decode(&buf) else{if !hello&&legacy_hello(&buf){let _=events.send(NetEvent::Legacy(id));}break};
             if !hello{
                 // Nothing but a Hello is accepted before the handshake.
                 if !matches!(m,Msg::Hello{..}){break}
@@ -754,7 +764,7 @@ mod tests{
     /// D-REORG-REDB wire: Status carries the 32-byte totalWork, GetFrom a locator of 1..=32 hashes;
     /// both round-trip, and a locator that is empty, ragged or longer than 32 hashes is refused.
     #[test] fn status_work_and_locator_requests_round_trip_within_bounds(){
-        let h=Msg::Hello{chain_id:7,genesis:[1;32],head:[2;32],height:9,work:[3;32],node:"n".into(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility(),listen_port:0,nonce:0};assert_eq!(Msg::decode(&h.encode()).unwrap(),h);
+        let h=Msg::Hello{chain_id:7,genesis:[1;32],head:[2;32],height:9,work:[3;32],node:"n".into(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:[4;32],listen_port:0,nonce:0};assert_eq!(Msg::decode(&h.encode()).unwrap(),h);
         let g=Msg::GetFrom{locator:vec![[4;32],[5;32]],count:512};assert_eq!(Msg::decode(&g.encode()).unwrap(),g);
         let full=Msg::GetFrom{locator:vec![[6;32];LOCATOR_MAX],count:1};assert_eq!(Msg::decode(&full.encode()).unwrap(),full);
         let raw=|loc:Vec<u8>|{let mut p=Vec::new();u64b(7,&mut p);rlp::encode_bytes(&loc,&mut p);u64b(1,&mut p);let mut o=Vec::new();rlp::encode_list_payload(&p,&mut o);o};
@@ -779,6 +789,7 @@ mod tests{
         assert_eq!(Msg::decode(&raw(&[bin(&[0,1]),bin(&[5;8])])),Err("int".into()),"a port with a leading zero");
         for len in [0,7,9]{assert_eq!(Msg::decode(&raw(&[int(1),bin(&vec![5;len])])),Err("nonce".into()),"a {len}-byte nonce");}
         assert_eq!(Msg::decode(&raw(&[])),Err("arity".into()),"the previous 9-item Hello");
+        assert!(legacy_hello(&raw(&[]))&&!legacy_hello(&raw(&[int(1),bin(&[5;8])])),"named only for the 9 items (NetEvent::Legacy)");
         assert_eq!(Msg::decode(&raw(&[int(1),bin(&[5;8]),int(1)])),Err("arity".into()),"a 12-item Hello");
         let largest=Msg::Hello{chain_id:u64::MAX,genesis:[0xff;32],head:[0xff;32],height:u64::MAX,work:[0xff;32],node:"n".repeat(NODE_NAME_MAX),protocol:u64::MAX,compatibility:[0xff;32],listen_port:u16::MAX,nonce:u64::MAX};
         assert!(largest.encode().len()<=HELLO_MAX,"the largest Hello is {} B",largest.encode().len());assert_eq!(Msg::decode(&largest.encode()),Ok(largest));
@@ -962,7 +973,7 @@ mod tests{
         let shaking=||c.handshaking.load(Ordering::SeqCst);
         let until=|f:&dyn Fn()->bool|{let t=Instant::now();while !f()&&t.elapsed()<Duration::from_secs(10){std::thread::sleep(Duration::from_millis(5));}f()};
         let closed=|s:&mut TcpStream|{s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();let mut b=[0u8;1];matches!(s.read(&mut b),Ok(0)|Err(_))};
-        let hello=||{let m=Msg::Hello{chain_id:7,genesis:[1;32],head:[1;32],height:0,work:[0;32],node:"g".into(),protocol:1,compatibility:[0;32],listen_port:0,nonce:0}.encode();
+        let hello=||{let m=Msg::Hello{chain_id:7,genesis:[1;32],head:[1;32],height:0,work:[0;32],node:"g".into(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:[0;32],listen_port:0,nonce:0}.encode();
             let mut f=(m.len() as u32).to_be_bytes().to_vec();f.extend(m);f};
         let mut a=TcpStream::connect(addr).unwrap();a.write_all(&hello()).unwrap();
         let mut b=TcpStream::connect(addr).unwrap();b.write_all(&hello()).unwrap();
@@ -1209,19 +1220,31 @@ mod tests{
         assert!(n6.establish(50)&&n6.establish(51));assert!(!n6.establish(52),"exempt connections are never victims");
         drop(e);
     }
-    /// Only a Hello the node would keep is established (and so may evict): with `expect_hello` unset, every Hello; then the
-    /// network (chain id, genesis), the protocol version and the compatibility digest must match, and a nonzero nonce must
-    /// not be the node's own (a self-connection). Nonce 0 (a node that does not listen) is eligible.
-    #[test] fn only_a_hello_for_this_network_and_build_is_eligible(){
-        let digest=crate::identity::compatibility();
+    /// Only a Hello the node would keep is established (and so may evict): with `expect_hello` unset, every Hello; then
+    /// exactly the Hellos `identity::accepts` takes (the node's own close decision), less a nonzero nonce that is the
+    /// node's own (a self-connection). Nonce 0 (a node that does not listen) is eligible. T15: a table of every field
+    /// that can differ, then seeded random Hellos drawn mostly from near-misses.
+    #[test] fn eligible_matches_accepts(){
+        use crate::identity::{accepts,Consensus,PROTOCOL_VERSION as V,PROTOCOL_VERSION_MIN as MIN};
+        let ours=Consensus::new(7,[1;32],&[(1,0),(2,100)],1,0,None);let other=Consensus::new(7,[1;32],&[(1,0)],1,0,None);
         let hello=|chain_id,genesis,protocol,compatibility,nonce|Msg::Hello{chain_id,genesis,head:[0;32],height:0,work:[0;32],node:"n".into(),protocol,compatibility,listen_port:0,nonce};
-        let v=crate::identity::PROTOCOL_VERSION;let good=hello(7,[1;32],v,digest,5);
         let n=Net::new(Limits::default());assert!(n.eligible(&hello(8,[9;32],0,[0;32],5)),"unset: every Hello");
-        n.expect_hello(HelloId{chain_id:7,genesis:[1;32],compatibility:digest,nonce:42});
-        assert!(n.eligible(&good)&&n.eligible(&hello(7,[1;32],v,digest,0)),"this network and build; nonce 0");
-        for (bad,why) in [(hello(8,[1;32],v,digest,5),"chain"),(hello(7,[2;32],v,digest,5),"genesis"),(hello(7,[1;32],v+1,digest,5),"protocol"),
-            (hello(7,[1;32],v,[0;32],5),"digest"),(hello(7,[1;32],v,digest,42),"own nonce")]{assert!(!n.eligible(&bad),"{why}");}
+        n.expect_hello(HelloId{consensus:ours.clone(),nonce:42});
+        let rule=|m:&Msg|{let Msg::Hello{chain_id,genesis,protocol,compatibility,nonce,..}=m else{return false};
+            !(*nonce!=0&&*nonce==42)&&accepts(&ours,*chain_id,genesis,*protocol,compatibility).is_ok()};
+        let table=[(hello(7,[1;32],V,ours.id,5),true,"this network and identity"),(hello(7,[1;32],V,ours.id,0),true,"nonce 0"),
+            (hello(7,[1;32],V+1,ours.id,5),true,"a newer maximum wire version"),(hello(7,[1;32],MIN,ours.id,5),true,"the minimum wire version"),
+            (hello(8,[1;32],V,ours.id,5),false,"chain"),(hello(7,[2;32],V,ours.id,5),false,"genesis"),(hello(7,[1;32],MIN-1,ours.id,5),false,"wire below MIN"),
+            (hello(7,[1;32],V,other.id,5),false,"another schedule"),(hello(7,[1;32],V,[0;32],5),false,"another identity"),(hello(7,[1;32],V,ours.id,42),false,"own nonce")];
+        for (m,want,why) in &table{assert_eq!(n.eligible(m),*want,"{why}");assert_eq!(n.eligible(m),rule(m),"{why}");}
         assert!(!n.eligible(&Msg::GetAddr),"not a Hello");
+        let mut x=0x9e37_79b9_7f4a_7c15u64;let mut next=||{x^=x<<13;x^=x>>7;x^=x<<17;x};
+        for _ in 0..2000{
+            let r=next();let b=|bit:u64|r>>bit&1==0;
+            let id=if b(2){ours.id}else if b(3){other.id}else{[r as u8;32]};let nonce=if b(4){r>>16}else if b(5){42}else{0};
+            let m=hello(if b(0){7}else{8},if b(1){[1;32]}else{[2;32]},[V,MIN,MIN-1,V+1,0,u64::MAX][(r>>8) as usize%6],id,nonce);
+            assert_eq!(n.eligible(&m),rule(&m),"{m:?}");
+        }
     }
     /// The eviction budget: the GCRA allows `burst` evictions at once and then one per `refill`; one key evicts at most
     /// once per `key_interval`; the ring keeps the latest EVICT_RING charges and wraps; a charge stamped after `now`

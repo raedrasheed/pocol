@@ -47,6 +47,8 @@ import contextlib, io, json, os, shutil, signal, socket, struct, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import devnet as dn
+sys.path.insert(0, os.path.join(os.path.dirname(ROOT), "deploy", "public-testnet"))
+import pocol_identity
 SIGN = os.environ.get("POCOL_SIGN", os.path.join(os.path.dirname(dn.BIN), "pocol-sign"))
 L = "abc"
 # Node index: RPC port 8540+i, P2P port 30300+i. d and e are copies of c's store taken before the heal,
@@ -91,11 +93,12 @@ def rlp_list(items):
     if len(p) < 56: return bytes([0xc0 + len(p)]) + p
     l = len(p).to_bytes((len(p).bit_length() + 7) // 8, "big"); return bytes([0xf7 + len(l)]) + l + p
 def uint(v): return rlp_bytes(v.to_bytes((v.bit_length() + 7) // 8, "big") if v else b"")
-# Experimental wire v2 appends protocolVersion and the strict source compatibility digest, then peer
-# discovery's listenPort and nonce (VA-SPEC §1a): this test peer advertises no port and sends no nonce.
-def hello(chain_id, genesis, head, height, work, name):
-    identity = json.loads(subprocess.check_output([dn.BIN, 'build-info'], text=True))
-    return frame(rlp_list([uint(0), uint(chain_id), rlp_bytes(genesis), rlp_bytes(head), uint(height), rlp_bytes(work.to_bytes(32, "big")), rlp_bytes(name), uint(identity['protocolVersion']), rlp_bytes(bytes.fromhex(identity['compatibilitySha256'])), uint(0), rlp_bytes(bytes(8))]))
+# Wire v2 carries the sender's maximum protocolVersion and the consensus identity (VA-SPEC §2.1), computed from
+# devnet.json and build-info, then peer discovery's listenPort and nonce (VA-SPEC §1a): this test peer advertises
+# no port and sends no nonce. `info` is the network's devnet.json.
+def hello(chain_id, genesis, head, height, work, name, info):
+    build = json.loads(subprocess.check_output([dn.BIN, 'build-info'], text=True))
+    return frame(rlp_list([uint(0), uint(chain_id), rlp_bytes(genesis), rlp_bytes(head), uint(height), rlp_bytes(work.to_bytes(32, "big")), rlp_bytes(name), uint(build['protocolVersion']), rlp_bytes(bytes.fromhex(pocol_identity.for_network(info, build))), uint(0), rlp_bytes(bytes(8))]))
 def block_frame(blk): return frame(rlp_list([uint(1), rlp_bytes(bytes.fromhex(blk["header"][2:])), rlp_bytes(bytes.fromhex(blk["body"][2:]))]))
 def closed_by_peer(s, t):
     """Drops what the node sends until it closes the connection: True if it does within t s."""
@@ -255,8 +258,8 @@ def main():
         # is attributable to the input; the corrupted block is sent after that Hello, so it reaches
         # validation (before a Hello any other frame closes the connection unread).
         s = socket.create_connection(("127.0.0.1", 30300)); s.sendall(frame(b"\xff\xfe garbage")); garbage = closed_by_peer(s, 5); s.close()
-        s = socket.create_connection(("127.0.0.1", 30300)); s.sendall(hello(1, b"\x01" * 32, b"\x02" * 32, 5, 5, b"evil")); wrong = closed_by_peer(s, 5); s.close()
-        s = socket.create_connection(("127.0.0.1", 30300)); s.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e")); kept = not closed_by_peer(s, 2)
+        s = socket.create_connection(("127.0.0.1", 30300)); s.sendall(hello(1, b"\x01" * 32, b"\x02" * 32, 5, 5, b"evil", info)); wrong = closed_by_peer(s, 5); s.close()
+        s = socket.create_connection(("127.0.0.1", 30300)); s.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e", info)); kept = not closed_by_peer(s, 2)
         ok("malicious peer: a garbage frame and a wrong-network Hello close the connection; a well-formed Hello does not", garbage and wrong and kept,
            f"garbage closed={garbage} wrong-network closed={wrong} valid kept={kept}")
         rej0 = {json.dumps(r, sort_keys=True) for r in dn.rpc(8540, "pocol_getRejects")}
@@ -339,7 +342,7 @@ def main():
         abr = [dn.rpc(8540, "pocol_getBlockRlp", [hex(n)]) for n in range(fork + 1, ab_tip["number"] + 1)]
         run_node("d", miner=False, listen=True, peers=[])
         d0 = st(IDX["d"])
-        s = socket.create_connection(("127.0.0.1", 30300 + IDX["d"])); s.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e-orphans"))
+        s = socket.create_connection(("127.0.0.1", 30300 + IDX["d"])); s.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e-orphans", info))
         for b in reversed(abr): s.sendall(block_frame(b))
         adopted = waited(lambda: tip(IDX["d"])["hash"] == ab_tip["hash"], 60, "d adopts a/b's tip"); seen, _ = frames(s, 2); s.close(); d1 = st(IDX["d"]); ann = status_claims(seen)
         ok("heal without a session: d (c's pre-heal store), sent a/b's branch tip first by a peer claiming genesis, adopts a/b's tip through the orphan pool, reorganizing once",
@@ -358,7 +361,7 @@ def main():
         #     every Status it sends the peer names a/b's tip.
         i_f = IDX["f"]; stop_node("b"); shutil.copytree(os.path.join(work, "data", "b"), os.path.join(work, "data", "f")); run_node("b", miner=False)
         run_node("f", miner=False, listen=True, peers=[]); f0 = st(i_f); held = sum(1 for b in late if blk(i_f, b["hash"]) is not None)
-        s = socket.create_connection(("127.0.0.1", 30300 + i_f)); s.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e-orphans-light"))
+        s = socket.create_connection(("127.0.0.1", 30300 + i_f)); s.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e-orphans-light", info))
         for b in reversed(relay): s.sendall(block_frame(b))
         fst = waited(lambda: blk(i_f, c_tip["hash"]) is not None, 60, "f stores c's tip"); seen, _ = frames(s, 2); s.close(); ann = status_heads(seen); f1 = st(i_f)
         ok("heal without a session, lighter branch: f (b's store: head a/b's tip, none of c's late blocks), sent c's branch tip first by a peer claiming genesis, stores c's tip through the orphan pool and keeps a/b's tip, c's tip not canonical, no reorganization, no session",
@@ -383,8 +386,8 @@ def main():
         # full mesh needs relay, this peer does.
         #    A block a already holds is a duplicate and is not imported again, so only the others are expected.
         new_to_a = [blk(0, x) is None for x in relay_h[:-1]]
-        lis = socket.create_connection(("127.0.0.1", 30300)); lis.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e-listen")); frames(lis, 1)
-        s = socket.create_connection(("127.0.0.1", 30300)); s.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e-relay"))
+        lis = socket.create_connection(("127.0.0.1", 30300)); lis.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e-listen", info)); frames(lis, 1)
+        s = socket.create_connection(("127.0.0.1", 30300)); s.sendall(hello(info["chainId"], genesis, genesis, 0, 0, b"e2e-relay", info))
         for b in relay[:-1]: s.sendall(block_frame(b))
         stored = waited(lambda: blk(0, late[-2]["hash"]) is not None, 60, "a stores c's branch below c's tip")
         seen, rest = frames(s, 2); seen5 = seen; ann = status_heads(seen)
@@ -406,7 +409,7 @@ def main():
         #    Hello on a new one: a must take it into its round-robin and ask within SESSION_GAP_MS (1 s) and
         #    a tick. 15 s is the bound.
         a0 = counters(0)
-        s.sendall(hello(info["chainId"], genesis, bytes.fromhex(c_tip["hash"][2:]), c_tip["number"], ab_tip["work"] + 1, b"e2e-relay"))
+        s.sendall(hello(info["chainId"], genesis, bytes.fromhex(c_tip["hash"][2:]), c_tip["number"], ab_tip["work"] + 1, b"e2e-relay", info))
         t_ask = time.time(); seen, rest = frames(s, 15, until=7, buf=rest); asked = any(msg_type(p) == 7 for p in seen); t_ask = time.time() - t_ask  # 7 = GetFrom
         ok("relay: a Status refresh (a second Hello on the same connection) claiming more work starts a session: a asks with GetFrom",
            asked, f"GetFrom after {t_ask:.1f}s")

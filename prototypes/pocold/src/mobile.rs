@@ -33,7 +33,9 @@ unsafe fn text<'a>(s: *const c_char) -> Result<&'a str, String> {
 pub unsafe extern "C" fn pocol_mobile_identity(home: *const c_char) -> *mut c_char {
     reply(std::panic::catch_unwind(|| {
         let home = Home::open(Path::new(unsafe { text(home)? }))?;
-        Ok(serde_json::json!({"address":home.address()?,"compatibilitySha256":crate::identity::COMPATIBILITY_HEX}))
+        use crate::identity as id;
+        Ok(serde_json::json!({"address":home.address()?,"compatibilitySha256":id::COMPATIBILITY_HEX,"consensusRulesVersion":id::CONSENSUS_RULES_VERSION,
+            "protocolVersion":id::PROTOCOL_VERSION,"protocolVersionMin":id::PROTOCOL_VERSION_MIN}))
     }).unwrap_or_else(|_| Err("identity failed".into())))
 }
 #[no_mangle]
