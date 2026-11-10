@@ -4476,3 +4476,30 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert!(sel.rest.iter().any(|x|parked.contains(&x.raw)),"burners past the budget are kept, not executed");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR6 second review (junk parking): parking executes nothing, so it must refuse what the engine refuses before
+/// execution, or a transaction that can never be included or paid holds a parked slot: 20,999 declared gas, or
+/// 21,000 with calldata (below its intrinsic gas). Such junk declared below a user's 21,000 transfer, so the user could
+/// not evict it. And a sender's run must not set the eviction floor: bob's run of four 21,000 transfers fills a set
+/// of four, and hank's single 21,000 transfer evicts bob's last one (equal gas), where before the fix it was refused.
+/// A newcomer of a sender already parked does not evict at equal gas, so runs do not evict one another.
+#[test] fn parking_refuses_what_the_engine_refuses_and_a_run_yields_at_equal_gas(){
+    use pocold::node::{POOL_FULL_GAS,POOL_PARKED};
+    let mut c=cfg_funded();for l in ["hank","ivy"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+    let (mut n,dir)=gas_node_cfg("park-junk",Default::default(),&c,None);let (alice,bob)=(key("alice"),key("bob"));
+    let big:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    for (t,why) in [(pay_gas(&alice,0,1,20_999),"20,999 declared"),(send_gas(&alice,0,bob.address(),21000,1),"21,000 with calldata")]{
+        let e=n.submit_tx(t,false).unwrap_err();assert!(e.starts_with("-32000")&&e.contains("CallGasCostMoreThanGasLimit"),"{why} is refused as the engine refuses it: {e}");}
+    assert!(n.pool_parked().is_empty(),"nothing was parked");
+    n.set_pool_parked_max(4);
+    let run:Vec<Vec<u8>>=(0..4).map(|k|pay(&bob,k,1)).collect();
+    for t in &run{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
+    assert_eq!(n.submit_tx(pay(&bob,4,1),false).unwrap_err(),POOL_FULL_GAS,"full; bob's own does not evict his run");
+    let hk=pay(&key("hank"),0,1);assert_eq!(n.submit_tx(hk.clone(),false).unwrap_err(),POOL_PARKED,"hank's transfer evicts the last of bob's run");
+    assert_eq!(n.pool_parked(),[run[..3].to_vec(),vec![hk.clone()]].concat());n.pool_audit().unwrap();
+    assert_eq!(n.submit_tx(pay(&key("hank"),1,1),false).unwrap_err(),POOL_FULL_GAS,"hank's second does not evict at equal gas");
+    let iv=pay(&key("ivy"),0,1);assert_eq!(n.submit_tx(iv.clone(),false).unwrap_err(),POOL_PARKED,"ivy's evicts bob's next-to-last");
+    assert_eq!(n.pool_parked(),[run[..2].to_vec(),vec![hk.clone(),iv.clone()]].concat());n.pool_audit().unwrap();
+    assert_eq!(n.status_json()["stats"]["parkedEvicted"].as_u64(),Some(2));
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}

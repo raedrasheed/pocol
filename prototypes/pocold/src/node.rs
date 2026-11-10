@@ -302,6 +302,20 @@ fn sim_halt<S:pocol_lp4_execution::view::WorkState+?Sized>(st:&mut S,caller:Addr
 pub fn selection_exec_budget(gas_limit:u64)->u64{gas_limit.saturating_add(gas_limit.saturating_mul(5)/4)}
 /// The gas an execution spent, before the refund (EIP-3529): what the engine ran.
 fn executed_gas(r:&revm::primitives::ExecutionResult)->u64{match r{revm::primitives::ExecutionResult::Success{gas_used,gas_refunded,..}=>gas_used.saturating_add(*gas_refunded),r=>r.gas_used()}}
+/// PR6 second review: the engine's checks before execution, with no state read (revm 19.7 validate_env and
+/// validate_initial_tx_gas under Cancun, as `native::build_engine` runs them, and EIP-2681's nonce): the block's
+/// gas limit, chain id, fee cap order, initcode size and intrinsic gas (calldata, access list, CREATE, initcode
+/// words). Parking executes nothing, so it refuses what these refuse: such a transaction can never be included or
+/// paid. The answer is the engine's (`-32000 {e:?}`). The fee cap against the next base fee stays `park`'s own check
+/// (POOL_FULL_GAS: the base fee moves), so the base fee is left at zero here.
+fn pre_execution(tx:&revm::primitives::TxEnv,ctx:&NativeBlockContext,chain_id:u64)->Result<(),String>{
+    use revm::{handler::mainnet::{validate_env,validate_initial_tx_gas},primitives::{BlobExcessGasAndPrice,CancunSpec,EVMError,Env,InvalidTransaction}};
+    if tx.nonce==Some(u64::MAX){return Err(format!("-32000 {:?}",EVMError::<core::convert::Infallible>::Transaction(InvalidTransaction::NonceOverflowInTransaction)))}
+    let mut env=Env::default();env.cfg.chain_id=chain_id;env.tx=tx.clone();
+    let b=&mut env.block;b.number=ctx.height;b.timestamp=ctx.timestamp;b.gas_limit=ctx.gas_limit;b.prevrandao=Some(ctx.prevrandao);
+    b.coinbase=pocol_lp4_execution::pay::escrow_address();b.blob_excess_gas_and_price=Some(BlobExcessGasAndPrice::new(0,false));
+    validate_env::<CancunSpec,revm::db::EmptyDB>(&env).and_then(|_|validate_initial_tx_gas::<CancunSpec,revm::db::EmptyDB>(&env).map(|_|())).map_err(|e|format!("-32000 {e:?}"))
+}
 /// PR6 B5, the append round: indices into `rest` to add after a built block, within `gas` of room counting
 /// declared gas, the TX_CAP/TXBYTES room and the BODY room. The head of each sender's queue (pool order) is a
 /// candidate; the smallest declared gas goes first (ties in pool order); a head that does not fit stops its
@@ -1145,7 +1159,11 @@ impl Node{
             let held=self.pool.parked.iter().filter(|x|x.sender==caller&&!matches!(x.relay,Relay::Offer|Relay::Returned)).fold(held,|n,x|n.saturating_add(x.gas));
             if held.saturating_add(gas_limit)>self.pool.sender_gas_max{self.stats.sender_quota_refused+=1;return Err(POOL_FULL_SENDER.into())}
         }
-        if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max{return Err(self.park(raw,hash,&env.tx_env(),relay).into())}
+        if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max{
+            // PR6 second review: refused as the engine would refuse it before executing it (intrinsic gas and the
+            // rest), never parked.
+            let (tx,ctx)=(env.tx_env(),self.next_block_ctx());pre_execution(&tx,&ctx,self.chain.spec.profile().spec().chain_id)?;
+            return Err(self.park(raw,hash,&tx,relay).into())}
         let ctx=self.next_block_ctx();
         let base=self.pool.pending_base.clone();let view=pocol_lp4_execution::view::LayerView{base:&base,layer:&self.pool.pending};
         let r=match(by,self.pool.code_total){
@@ -1187,7 +1205,9 @@ impl Node{
     /// fee caps and values, and its fee cap covers the next base fee (two reads, no execution). The set is bounded
     /// (`parked_max`, POOL_MAX_BYTES shared with the pool and the backlog); when it is full, the parked
     /// transaction declaring the most gas (the latest of equals), with its sender's later parked ones, makes room
-    /// for one of another sender declaring strictly less. A parked transaction is a template candidate
+    /// for one of another sender declaring strictly less (PR6 second review: and the last entry of the longest run makes
+    /// room, at equal declared gas, for its sender's first one). Refused before parking: what the engine refuses
+    /// before execution (`pre_execution`, in `admit_tx`). A parked transaction is a template candidate
     /// (`template_selection`) and is relayed now (PR6 review): the drawn proposer can take it in the next block
     /// even while the gas bound is held. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
     fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay)->&'static str{
@@ -1202,11 +1222,20 @@ impl Node{
         while self.pool.parked.len()>=self.pool.parked_max||self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{
             let Some(i)=(0..self.pool.parked.len()).max_by_key(|&i|(self.pool.parked[i].gas,self.pool.parked[i].seq)) else{return POOL_FULL_GAS};
             let (s,k)=(self.pool.parked[i].sender,self.pool.parked[i].nonce);
-            if self.pool.parked[i].gas<=tx.gas_limit||s==tx.caller{return POOL_FULL_GAS}
-            // Its sender's later ones would follow a nonce gap: they go with it.
-            let (mut freed,mut n)=(0usize,0u64);
-            self.pool.parked.retain(|x|if x.sender==s&&x.nonce>=k{freed+=x.raw.len();n+=1;false}else{true});
-            self.pool.parked_bytes-=freed;self.stats.parked_evicted+=n;
+            if self.pool.parked[i].gas>tx.gas_limit&&s!=tx.caller{
+                // Its sender's later ones would follow a nonce gap: they go with it.
+                let (mut freed,mut n)=(0usize,0u64);
+                self.pool.parked.retain(|x|if x.sender==s&&x.nonce>=k{freed+=x.raw.len();n+=1;false}else{true});
+                self.pool.parked_bytes-=freed;self.stats.parked_evicted+=n;continue
+            }
+            // PR6 second review: a run's later entries hold room only while it is spare. A newcomer that would be its
+            // sender's first parked one evicts, at equal declared gas, the last entry of the longest run (the latest
+            // of equals), so one sender's run of cheap transactions cannot set the eviction floor for many slots.
+            if run.is_some(){return POOL_FULL_GAS}
+            let p=&self.pool.parked;let mut runs:HashMap<Address,(usize,usize)>=HashMap::new();
+            for (j,x) in p.iter().enumerate(){let e=runs.entry(x.sender).or_insert((0,j));e.0+=1;if x.nonce>p[e.1].nonce{e.1=j;}}
+            let Some(j)=runs.values().filter(|(m,j)|*m>=2&&p[*j].gas>=tx.gas_limit).max_by_key(|(m,j)|(*m,p[*j].seq)).map(|(_,j)|*j) else{return POOL_FULL_GAS};
+            let x=self.pool.parked.remove(j);self.pool.parked_bytes-=x.raw.len();self.stats.parked_evicted+=1;
         }
         self.pool.parked_bytes+=raw.len();self.pool.park_seq+=1;let seq=self.pool.park_seq;
         let relay=if relay==Relay::Gossip{self.broadcast(&Msg::Tx{raw:raw.clone()},None);self.stats.parked_relayed+=1;Relay::No}else{relay};
