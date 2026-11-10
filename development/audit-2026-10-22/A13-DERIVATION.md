@@ -936,8 +936,8 @@ transient). If it does not fit, open replays from genesis, which now holds only 
 
 **CONDITIONS.** New: `canon-redb-representation` (canon.redb relies on the same redb behaviour as history.redb and
 on HISTORY_FILE_FACTOR; the allocator terms are over observed sizes) and `serving-io` (GetRange/GetFrom below the
-window read the index and journal on the consensus thread, bounded per request by `offer` and LOCATOR_INDEX_MAX,
-with no per-peer rate limit). `cpu-and-timing` is narrowed: a store-mode rebuild starts at an anchor, and it stays
+window read the index and journal on the consensus thread, bounded per request by `offer` and one index read per locator hash not
+in memory, at most the wire's 32, with no per-peer rate limit). `cpu-and-timing` is narrowed: a store-mode rebuild starts at an anchor, and it stays
 O(height) in whole-state mode, with eviction off, after a lost index or format-1 migration, and after a head drop
 beyond the anchors. `open-replay-transient` is restated: the tables are counted and checked at open.
 

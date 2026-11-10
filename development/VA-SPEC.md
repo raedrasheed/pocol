@@ -358,7 +358,8 @@ an address the receiver dialed for it is not dialed again by that process.
   answers any block held in memory (the eviction window and side blocks) except genesis, an offloaded one from
   its journal record (byte-equal); older canonical history is served by `GetRange`/`GetFrom`. Below the eviction
   window (C-1 S5, local retention) those read the node-local canonical index and the journal; the answers and
-  the locator are unchanged. A `GetFrom` locator hash that is not in memory costs at most 12 index reads.
+  the locator are unchanged. Each `GetFrom` locator hash that is not in memory costs one index read, at most 32 per locator
+  (the wire's cap), so a peer whose locator leads with its own fork's blocks is answered from the first shared hash.
 - Forks: blocks whose parents are unknown also recurse through `GetBlock(parent)` (short gaps); deep
   forks are fetched by the locator session; the heavier branch then wins by D133.
 

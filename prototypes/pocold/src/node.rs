@@ -144,9 +144,6 @@ impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Defau
 /// record: its receipts (history.redb) only when asked.
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
 pub struct Want{pub receipts:bool}
-/// Hashes of a GetFrom locator looked up in the canonical index (C-1 S5): an honest locator matches on one of its
-/// first (highest first), and a locator of unknown hashes costs at most this many reads.
-pub const LOCATOR_INDEX_MAX:usize=12;
 /// What a view that cannot read its block's history answers (the store is logged, marked and rebuilt at the next open).
 pub const HISTORY_UNAVAILABLE:&str="block history unavailable (logged; the store is rebuilt at the next open)";
 /// C-1 S1: replay refills history.redb with non-durable commits and makes them durable every this many blocks.
@@ -1698,14 +1695,17 @@ impl Node{
     }
     /// GetFrom's start (C-1 S5, PR7): one past the first locator hash that is a canonical block held in memory other
     /// than genesis (an honest locator is highest first, so a peer that is behind matches on its first hash, as
-    /// before); else one past the first of at most LOCATOR_INDEX_MAX hashes found below the window in the canonical
-    /// index, in locator order; else one past genesis. A locator of hashes this node never held costs at most
-    /// LOCATOR_INDEX_MAX index reads (a hash lookup in memory before C-1 S5).
+    /// before); else one past the first hash found below the window in the canonical index, in locator order; else
+    /// one past genesis. Every hash not held in memory is looked up, one index read each, at most the wire's
+    /// net::LOCATOR_MAX (32): a peer on its own fork leads its locator with blocks this node never held (the 10 dense
+    /// hashes and the first doubling steps above its fork point), so a cap below the locator's length skipped the
+    /// shared hashes after them and served a peer forked more than 15 blocks deep from genesis, which it holds
+    /// already, and it never synced (review 2026-11, finding 1; a hash lookup in memory before C-1 S5).
     fn locator_start(&self,locator:&[[u8;32]])->Option<u64>{
         let g=*self.chain.canonical.genesis();
         if let Some(e)=locator.iter().filter(|h|**h!=g&&self.chain.is_canonical(h)).find_map(|h|self.chain.get(h)){return Some(e.height+1)}
         if self.chain.canonical.base()>1{
-            for h in locator.iter().filter(|h|**h!=g&&!self.chain.blocks.contains_key(*h)).take(LOCATOR_INDEX_MAX){
+            for h in locator.iter().filter(|h|**h!=g&&!self.chain.blocks.contains_key(*h)).take(net::LOCATOR_MAX){
                 match self.canon_height(h){Ok(Some(x))=>return Some(x+1),Ok(None)=>{},Err(e)=>{self.log(&format!("GetFrom locator: {e}"));return None}}
             }
         }

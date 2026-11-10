@@ -4361,7 +4361,7 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
 /// off; GetRange from height 1 answers the blocks as imported, byte for byte, from the index; a joiner whose locator
 /// is genesis alone syncs to the same head by GetFrom; and a locator of a peer that is behind, below the window, is
 /// answered from that peer's height. Serving reads are bounded: GetBlock of an unknown hash reads no index row, a
-/// GetFrom of 32 unknown hashes at most LOCATOR_INDEX_MAX, and a GetRange below the window one range read.
+/// GetFrom of 32 unknown hashes one each (the wire's LOCATOR_MAX), and a GetRange below the window one range read.
 #[test] fn a_joiner_syncs_from_genesis_from_a_node_that_evicted_its_old_history(){
     let blocks=pr7_chain(420);let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
     let (da,dr,dj)=(e44_dir("pr7-t5"),e44_dir("pr7-t5-ref"),e44_dir("pr7-t5-joiner"));
@@ -4378,7 +4378,7 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetBlock{hash:[0x5a;32]},300).is_empty());assert_eq!(a.canon().reads(),rd,"GetBlock reads no index row");
     let junk:Vec<[u8;32]>=(0..32u8).map(|i|[i;32]).collect();
     assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:junk,count:512},300).is_empty());
-    assert_eq!(a.canon().reads()-rd,pocold::node::LOCATOR_INDEX_MAX as u64,"GetFrom of unknown hashes reads at most LOCATOR_INDEX_MAX rows");
+    assert_eq!(a.canon().reads()-rd,pocold::net::LOCATOR_MAX as u64,"GetFrom of unknown hashes reads one row each, at most LOCATOR_MAX");
     let rd=a.canon().reads();assert_eq!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:10,count:20},600).len(),20);assert_eq!(a.canon().reads()-rd,1,"one range read below the window");
     let g=a.chain.spec.genesis_hash();let lag:Vec<[u8;32]>=(50..=60usize).rev().map(|x|blocks[x-1].hash()).chain([g]).collect();
     let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:lag,count:5},600);
@@ -4388,6 +4388,33 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
         for b in got{match j.import(b,None){Ok(_)|Err(Reject::Duplicate)=>{},Err(e)=>panic!("the joiner: {e:?}")}}}
     assert_eq!(j.chain.head,a.chain.head,"the joiner syncs to the head from genesis");
     drop(s);drop(a);drop(r);drop(j);for d in [da,dr,dj]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// Review 2026-11 (finding 1): a peer that mined 20 blocks of its own on a fork point below this node's window (and
+/// above GetFrom's 512, so an answer from genesis holds nothing it lacks) syncs. Its locator leads with 12 hashes of
+/// its fork (the 10 dense ones and two doubling steps); GetFrom looks up every hash it does not hold in memory, so
+/// it answers from the first shared one, below the fork point, not from genesis. FAIL-ON-ORIGINAL: 12 index lookups
+/// spent on the fork's hashes answered from height 1.
+#[test] fn a_peer_forked_below_the_window_syncs_from_its_fork_point(){
+    let blocks=pr7_chain(1000);let fp=600usize;let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let (da,dj)=(e44_dir("pr7-fork-serve"),e44_dir("pr7-fork-peer"));
+    let mut conf=pr7_conf(&da,pr7_limits(8,false,0,None))();conf.listen=Some(format!("127.0.0.1:{port}").parse().unwrap());
+    let mut a=pocold::node::Node::open(conf,admitted(&cfg(&["a","b","c"]))).unwrap();a.start_network().unwrap();
+    for x in &blocks{a.import(x.clone(),None).unwrap();}
+    assert!(a.chain.canonical.base()>fp as u64+1,"positive control: the fork point {fp} is below the window (base {})",a.chain.canonical.base());
+    // The peer: the shared blocks to the fork point, then 20 of its own (a signed first block, unlike the server's).
+    let mut h=pr7_builder(&blocks[..fp]);let fork=grow(&mut h,blocks[fp-1].hash(),20,&|n,p|signed(n,p,Body::default(),0));
+    let mut j=reopen(&pr7_conf(&dj,pr7_limits(64,false,0,None)));for b in blocks[..fp].iter().chain(&fork){j.import(b.clone(),None).unwrap();}
+    let loc=j.locator(None);
+    assert!(loc.iter().take(12).all(|x|a.canon_height(x).unwrap().is_none()),"positive control: the locator's first 12 hashes are the peer's own fork");
+    let (mut s,mut buf)=pr7_peer(&mut a,port);
+    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:loc,count:512},1500);
+    let first=got.first().map(|b|b.header.h).unwrap_or(0);
+    assert!(first>1&&first<=fp as u64+1,"GetFrom answers from the first shared locator hash, at or below the fork point {fp}: from {first}");
+    for _ in 0..10{let loc=j.locator(None);let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:loc,count:512},1500);if got.is_empty(){break}
+        for b in got{match j.import(b,None){Ok(_)|Err(Reject::Duplicate)=>{},Err(e)=>panic!("the peer: {e:?}")}}}
+    assert_eq!(j.chain.head,a.chain.head,"the forked peer syncs to the server's head");
+    drop(s);drop(a);drop(j);for d in [da,dj]{let _=std::fs::remove_dir_all(&d);}
 }
 
 /// A test-only format-1 encoder: the checkpoint layout before C-1 S5 (no eviction or anchor parameters, no window
