@@ -41,6 +41,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_COMMIT }}
+          # The collector test reads the reviewed rows' blobs at the pinned historical commits.
+          fetch-depth: 0
           persist-credentials: false
       - name: Test the owner collector on Windows without calling GitHub
         shell: powershell

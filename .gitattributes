@@ -1,2 +1,3 @@
 # Keep imported byte fixtures and their recorded SHA256 stable on Windows.
 /development/m1/** -text
+/prototypes/pocol-windows/released/** -text
