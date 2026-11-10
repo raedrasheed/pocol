@@ -27,7 +27,9 @@ const FORMAT:u64=1;
 /// Puts between two durable commits: redb frees pages only on a durable commit (as history.redb's HISTORY_SYNC).
 pub const SYNC_EVERY:u64=256;
 const IO:&str="I/O failure: ";
-fn rerr(e:impl Into<redb::Error>)->String{let e:redb::Error=e.into();if crate::state_store::disk_failed(&e){format!("{IO}{e}")}else{e.to_string()}}
+/// A redb error as the index words it: an I/O failure of the file (`state_store::disk_failed`: EIO, ENOSPC, and
+/// redb's PreviousIo after one) begins with "I/O failure: ".
+pub fn rerr(e:impl Into<redb::Error>)->String{let e:redb::Error=e.into();if crate::state_store::disk_failed(&e){format!("{IO}{e}")}else{e.to_string()}}
 fn seal(h:u64,rec:&[u8])->[u8;32]{let mut b=Vec::with_capacity(8+rec.len());b.extend_from_slice(&h.to_be_bytes());b.extend_from_slice(rec);keccak256(&b).0}
 
 pub struct Index{db:Database,dir:PathBuf,pub rebuilt:bool,damaged:AtomicBool,puts:AtomicU64,
@@ -132,5 +134,10 @@ impl Index{
     /// The file's size (0 when it cannot be read).
     pub fn file_bytes(&self)->u64{std::fs::metadata(self.dir.join(FILE)).map_or(0,|m|m.len())}
 }
+/// An index error as a checkpoint restore is told it (`checkpoint::CanonIndex`): an I/O failure of canon.redb is the
+/// node's own storage failing (`checkpoint::LOCAL`: open stops, keeps every checkpoint and drops nothing, as for the
+/// journal, history.redb and state.redb, review F1/F2); any other (a row missing, failing its seal or not decoding,
+/// each of which marks the index damaged) refuses the snapshot.
+pub fn restore_error(e:String)->String{if e.starts_with(IO){format!("{}{e}",checkpoint::LOCAL)}else{e}}
 /// What a checkpoint restore reads (`checkpoint::Source::canonical`): the row, checked.
-impl checkpoint::CanonIndex for Index{fn at(&self,h:u64)->Result<Option<Rec>,String>{Index::at(self,h)}}
+impl checkpoint::CanonIndex for Index{fn at(&self,h:u64)->Result<Option<Rec>,String>{Index::at(self,h).map_err(restore_error)}}

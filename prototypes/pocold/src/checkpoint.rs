@@ -216,11 +216,14 @@ pub trait Source{
     /// Whether history.redb holds the block's receipts and nonce ranges.
     fn has(&self,hash:&[u8;32])->Result<bool,String>;
     /// C-1 S5: the hash and total work of the canonical block at height `h` in the node's canonical index (None: no
-    /// row there). Err: the index could not be read.
+    /// row there). Err: the index could not be read (`LOCAL` when its file failed, a local failure), or a row failed
+    /// its check (a refusal).
     fn canonical(&self,h:u64)->Result<Option<([u8;32],U256)>,String>;
 }
 /// C-1 S5: the node's canonical index below the window, as a restore reads it (the node implements it; a `+` file
-/// names no node module). Err: the index could not be read, or a row failed its check.
+/// names no node module). Err: one that begins with `LOCAL` is the index's file failing (an I/O error: the node's
+/// own storage, on which open stops and drops nothing); any other, a row missing or failing its check, refuses the
+/// snapshot.
 pub trait CanonIndex{fn at(&self,h:u64)->Result<Option<Rec>,String>;}
 /// An index that holds no row (a source without one; tests).
 pub struct NoIndex;
@@ -383,9 +386,13 @@ impl Source for JournalSource<'_>{
     fn receipts(&self,hash:&[u8;32])->Result<Option<Vec<Vec<u8>>>,String>{self.history.receipts(hash).map_err(|e|format!("{LOCAL}history: {}",e.0))}
     fn ranges(&self,hash:&[u8;32])->Result<Option<Vec<(Address,u128,u128)>>,String>{self.history.ranges(hash).map_err(|e|format!("{LOCAL}history: {}",e.0))}
     fn has(&self,hash:&[u8;32])->Result<bool,String>{self.history.has(hash).map_err(|e|format!("{LOCAL}history: {}",e.0))}
-    /// A row that cannot be read or fails its check refuses the snapshot (the index marks itself damaged and the next
-    /// open rebuilds it); it is not a failure of the node's own journal or state store.
-    fn canonical(&self,h:u64)->Result<Option<([u8;32],U256)>,String>{Ok(self.canon.at(h).map_err(|e|format!("the canonical index at height {h}: {e}"))?.map(|r|(r.hash,r.total_work)))}
+    /// A row that fails its check refuses the snapshot (the index marks itself damaged and the next open rebuilds it).
+    /// An index whose file cannot be read (`LOCAL`, as the index words it) is the node's own storage failing, as the
+    /// journal and history.redb here: it stays a local failure, so open stops and drops nothing. Before, it refused
+    /// the snapshot, and one transient I/O error on canon.redb dropped every kept checkpoint in turn (review 2026-11,
+    /// finding 4).
+    fn canonical(&self,h:u64)->Result<Option<([u8;32],U256)>,String>{
+        Ok(self.canon.at(h).map_err(|e|match e.strip_prefix(LOCAL){Some(m)=>format!("{LOCAL}the canonical index at height {h}: {m}"),None=>format!("the canonical index at height {h}: {e}")})?.map(|r|(r.hash,r.total_work)))}
 }
 /// The chain's persistent fields as a snapshot sees them (tests compare two chains with it).
 pub fn fingerprint(c:&Chain)->Result<Snapshot,String>{snapshot_of(c,&Binding{records:0,end:0,hash:[0;32]})}
