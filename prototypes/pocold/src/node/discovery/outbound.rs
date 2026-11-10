@@ -108,9 +108,11 @@ pub(super) fn key_of(a:SocketAddr)->Key{let a=canon(a);match net::group_of(a.ip(
 fn family(a:SocketAddr)->usize{usize::from(!canon(a).is_ipv4())}
 /// The number of distinct keys, without allocating: each key counts at its first position.
 /// D26 (the Block arm of `Node::on_msg`): whether a block's import makes its sender useful: imported (`ok`) at a
-/// height within 2 of the head after it, or a Duplicate (`duplicate`) solicited by the sender's own sync session. An
-/// echo of a block this node broadcast is an unsolicited Duplicate and earns nothing.
-pub(in crate::node) fn first_delivery(ok:bool,duplicate:bool,height:u64,head:u64,solicited:bool)->bool{(ok&&height.saturating_add(2)>=head)||(solicited&&duplicate)}
+/// height within 2 of the head after it. A Duplicate never does, solicited or not: an echo of a block this node
+/// broadcast is one, and so is a stored block sent back to the GetFrom of a session that any peer starts by claiming
+/// more work in its Hello (A4: usefulness, an anchor and immunity from the stall swap for nothing). A session that
+/// delivers new blocks earns its credit through their `Ok` imports.
+pub(in crate::node) fn first_delivery(ok:bool,height:u64,head:u64)->bool{ok&&height.saturating_add(2)>=head}
 fn distinct(keys:impl Iterator<Item=Key>+Clone)->usize{keys.clone().enumerate().filter(|(i,k)|!keys.clone().take(*i).any(|x|x==*k)).count()}
 
 impl Node{
@@ -369,8 +371,7 @@ impl Node{
         }
         peer.close();
     }
-    /// D26: peer `from` delivered something first (a block within 2 of the head, or a block of its sync session; or a
-    /// template that locked).
+    /// D26: peer `from` delivered something first (a new block within 2 of the head, or a template that locked).
     pub(in crate::node) fn disc_useful(&mut self,from:PeerId,block:bool,now:u64){
         if let Some(l)=self.disc.links.get_mut(&from){l.useful_ms=now;if block{l.blocks=l.blocks.saturating_add(1)}}
     }
@@ -727,19 +728,49 @@ mod tests{
         assert!(n.disc.book.get(l).is_some()&&n.disc.book.get(l2).is_none(),"the verified listener stays, the unverified self-advertisement goes");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
-    /// D26: first delivery. An echo of a block this node already holds (a Duplicate outside the sender's sync
-    /// session, node.rs broadcasts to every peer but the sender) earns nothing; the same Duplicate from the session's
-    /// peer, solicited, does; a new block counts within 2 of the head only. A template that locks makes its sender
-    /// useful (`try_lock_signed`), without a block. (The genesis header is not a wire header, so this in-crate test
-    /// checks the Block arm's rule, `first_delivery`, and the template hook through `disc_useful`.)
+    /// D26: first delivery. A new block counts within 2 of the head only; a Duplicate or a rejected block never
+    /// does. A template that locks makes its sender useful (`try_lock_signed`), without a block.
     #[test] fn usefulness_is_first_delivery(){
-        assert!(!first_delivery(false,true,5,5,false),"an echo earns nothing");
-        assert!(first_delivery(false,true,5,5,true),"a Duplicate of the peer's own session does");
-        assert!(first_delivery(true,false,8,10,false)&&!first_delivery(true,false,7,10,false),"a new block within 2 of the head");
-        assert!(!first_delivery(false,false,10,10,true),"a rejected block never does");
+        assert!(first_delivery(true,8,10)&&!first_delivery(true,7,10),"a new block within 2 of the head");
+        assert!(!first_delivery(false,10,10),"a Duplicate or a rejected block never does");
         let (mut n,_rx,dir)=node("o-useful",1,false,vec![],vec![],G);
         let _a=up(&mut n,0,sa("81.30.0.1:30300"),1,true,G);n.disc_useful(1,false,G+S);
         assert_eq!((n.disc.links[&1].useful_ms,n.disc.links[&1].blocks),(G+S,0),"a locked template: useful, no block");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// A signed, sealed empty block on `parent` by its drawn proposer, for the devnet `open_peers` builds (whose
+    /// miners' keys a test holds; tests/eviction_credit.rs `signed`).
+    fn sealed(n:&Node,parent:[u8;32])->crate::types::Block{
+        use crate::types::*;use pocol_lp4_execution::{devnet,txsign};use revm::primitives::B256;
+        let d=devnet::build(&devnet::DevnetConfig::new(777919,1_700_000_000,&["a","b","c"])).unwrap();
+        let key=|a:revm::primitives::Address|txsign::Key::from_secret(&d.miners.iter().find(|m|m.id==a).unwrap().key.secret()).unwrap();
+        let p=n.chain.full_entry(&parent).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
+        for off in 0..u64::from(n.chain.spec.cp().D_att){
+            let (mut h,_,_)=n.chain.build_signed(&p,&key(ctx.proposer),ctx.window.lower()+off,Body::default(),vec![]).unwrap();
+            let tid=template_id(&h.ut_raw);let mut shares=vec![];
+            let Some(x)=(0u64..).take_while(|x|u128::from(*x)<ctx.assignment.nonce_max()).find(|x|{let ph=pow_hash(&tid,*x);
+                if le_target(&ph,&ctx.target){return true}if le_target(&ph,&ctx.t_share){shares.push(*x)}false}) else{continue};
+            h.nonce=x;shares.truncate(256);h.shares=shares;reseal(&mut h);
+            h.winner_sig=key(addr(&ctx.assignment.owner(x).unwrap())).sign_hash(&B256::from(crate::hashes::win_msg(&tid,x,&share_root(&h))));reseal(&mut h);
+            return Block{header:h,body:Body::default()}
+        }
+        panic!("no signed solution")
+    }
+    /// D26 (A4): a peer that claims more work in its Hello (a made-up head) gets a sync session at once; answering its
+    /// GetFrom with a block this node already stores (a solicited Duplicate), however often, earns it no usefulness
+    /// and no block, so it can be neither an anchor, nor spared by the stall swap, nor count for health. A new block the
+    /// same session delivers does.
+    #[test] fn a_claimed_session_sending_back_a_stored_block_earns_nothing(){
+        let (mut n,_rx,dir)=node("o-dupe",1,false,vec![],vec![],G);
+        let b1=sealed(&n,n.chain.head);n.import_with(b1.clone(),None,false).unwrap();let b2=sealed(&n,b1.hash());
+        let _c=up(&mut n,0,sa("81.30.0.1:30300"),1,false,G);
+        let mut h=hello(&n,30300,0);if let Msg::Hello{head,height,work,..}=&mut h{(*head,*height,*work)=([0xab;32],1_000_000,[0xff;32]);}msg(&mut n,1,h);
+        assert!(n.session.as_ref().is_some_and(|s|s.peer==1),"positive control: the claim starts a session");
+        let block=|b:&crate::types::Block|Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()};
+        for _ in 0..3{msg(&mut n,1,block(&b1));}
+        assert_eq!((n.disc.links[&1].useful_ms,n.disc.links[&1].blocks),(0,0),"a stored block sent back earns nothing");
+        msg(&mut n,1,block(&b2));
+        assert_eq!((n.chain.head,n.disc.links[&1].useful_ms,n.disc.links[&1].blocks),(b2.hash(),G,1),"a new block of the session does");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// D26 (VA-SPEC §1a.8): healthy counts distinct keys of useful peers in either direction, but only with at least

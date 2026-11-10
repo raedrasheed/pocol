@@ -1901,10 +1901,9 @@ impl Node{
                 let height=h.h;let b=Block{header:h,body:b};let hash=b.hash();
                 let before=self.chain.head;let r=self.import_with(b,Some(from),solicited);let now=self.disc_now();
                 // D25, D26 (VA-SPEC §1a.7): a peer's block that moved the head; first delivery (new, within 2 of the
-                // head, or of the peer's own sync session) makes the peer useful. An echo of a block this node sent is
-                // a Duplicate outside a session and earns nothing.
+                // head) makes the peer useful. A Duplicate earns nothing, also inside the peer's own sync session.
                 if self.chain.head!=before{self.disc_head(from,now);}
-                if discovery::first_delivery(r.is_ok(),matches!(r,Err(Reject::Duplicate)),height,self.chain.head().height,solicited){self.disc_useful(from,true,now);}
+                if discovery::first_delivery(r.is_ok(),height,self.chain.head().height){self.disc_useful(from,true,now);}
                 // Progress: a block stored by this import, or a stored copy at a new height inside the
                 // R_keep window (the honest common point is inside it). Anything else (junk, duplicates
                 // below the frontier, blocks retention removed at once) does not refresh the session.

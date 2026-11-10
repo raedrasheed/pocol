@@ -110,8 +110,8 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    evicts nobody for it (§1b). While stalled (the head's timestamp older than W = max(120 s, 12·T_blk)) or quiet (no
    block from a peer moved the head within 4W), the spare is an extra full slot to a new source (bootstrap
    addresses first while no seed can be wanted); if it moves the head it replaces the slot that was useful longest
-   ago (never the sync peer), else it closes after W. Useful: a new block within 2 of the head delivered first, a
-   block of the peer's sync session, or a template that locked. Anchors: up to 2 automatic peers connected 10 min,
+   ago (never the sync peer), else it closes after W. Useful: a new block within 2 of the head delivered first, or
+   a template that locked; a copy of a stored block never, even one the peer's own sync session asked for. Anchors: up to 2 automatic peers connected 10 min,
    useful within W, in distinct groups, saved with the book (not while stalled) and dialed first after a restart
    (once, within 24 h of their save). Configured peers + slots <= 18 (network.md:157), checked at boot; `auto` is
    lowered to fit.
