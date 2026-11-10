@@ -102,7 +102,8 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    0 with discovery off): N slots, one connection each, at most one per address group (local mode: per endpoint),
    never to a configured peer, a seed, this node, an inbound peer's advertised address or an address already
    connected; plus one spare slot. Choice: verified or unverified entries 50/50 when both can be dialed; in each, by
-   source (all self-advertisements one source), then group, then fewest failures. A slot waits min(1 s · 2^k, 60 s)
+   source (all self-advertisements one source), then group, then fewest failures; once 128 self-advertised entries
+   are verified, no slot (the feeler and the extra included) dials an unverified one. A slot waits min(1 s · 2^k, 60 s)
    after k failures. An address family is skipped only while this host has no route for it (a local probe).
    Spare slot: with every slot up or without candidates, one feeler every 2 min (10 min without a listener, plus up
    to 30 s) connects to an unverified entry, sends nothing, reads the peer's Hello, verifies the address

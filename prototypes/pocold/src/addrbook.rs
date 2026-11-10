@@ -85,8 +85,9 @@ impl Default for Times{
 /// feeler).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum Class{Any,NewOnly}
-/// Verified self-advertised entries past which a feeler verifies no more of them (VA-SPEC §1a.7): Sybil listeners
-/// the feelers verify stay one source in the verified class, and their number stays bounded.
+/// Verified self-advertised entries past which no feeler, automatic slot or extra dials an unverified one (VA-SPEC
+/// §1a.7, `Node::selfads_capped`), so none is verified past it but for the dials already under way: Sybil listeners
+/// verified this way stay one source in the verified class, and their number stays bounded.
 pub const VERIFIED_INBOUND_MAX:usize=128;
 /// xorshift64* (Vigna, "An experimental exploration of Marsaglia's xorshift generators, scrambled", 2016): the book's
 /// shuffles. The node seeds it once per process from the OS; tests fix the seed. xorshift never leaves 0, so seed 0
@@ -177,7 +178,7 @@ impl Book{
     /// purged while it was dialed) is placed only with `new` (a bootstrap address its `Cfg`, an anchor its own key),
     /// else not at all (`Dropped(Source)`, `last_good_ms` still moves). Its own source would launder a Sybil's
     /// self-advertisement, withdrawn mid-dial, into a verified source of its own in `select`'s tried class, outside
-    /// the feeler's VERIFIED_INBOUND_MAX cap and first in the answers.
+    /// the dialers' VERIFIED_INBOUND_MAX cap and first in the answers.
     pub fn good_dialed(&mut self,a:SocketAddr,new:Option<Source>,from_local:bool,now:u64)->Outcome{self.good_from(a,false,Some(new),from_local,now)}
     /// `good` (`new` None: a newcomer is its own source) and `good_dialed` (`new` Some).
     fn good_from(&mut self,a:SocketAddr,configured:bool,new:Option<Option<Source>>,from_local:bool,now:u64)->Outcome{
@@ -307,7 +308,7 @@ impl Book{
     pub fn verified_keys(&self,ok:impl Fn(&Entry)->bool,now:u64,relax:bool)->usize{
         let mut k:Vec<Key>=self.entries.iter().filter(|e|e.verified_ms>0&&self.dialable(e,now,relax)&&ok(e)).map(|e|e.key).collect();k.sort_unstable();k.dedup();k.len()
     }
-    /// Verified entries learned from self-advertisements (the feeler's cap, VERIFIED_INBOUND_MAX).
+    /// Verified entries learned from self-advertisements (the dialers' cap, VERIFIED_INBOUND_MAX).
     pub fn verified_inbound(&self)->usize{self.entries.iter().filter(|e|e.verified_ms>0&&e.source==Source::Inbound).count()}
     /// VA-SPEC §1a.7: the address an automatic outbound slot (`Class::Any`) or a feeler (`NewOnly`) dials, among the
     /// dialable entries that pass `ok` (the caller's exclusions). Verified ("tried") and unverified ("new") entries: Any

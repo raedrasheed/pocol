@@ -114,6 +114,8 @@ fn family(a:SocketAddr)->usize{usize::from(!canon(a).is_ipv4())}
 /// delivers new blocks earns its credit through their `Ok` imports.
 pub(in crate::node) fn first_delivery(ok:bool,height:u64,head:u64)->bool{ok&&height.saturating_add(2)>=head}
 fn distinct(keys:impl Iterator<Item=Key>+Clone)->usize{keys.clone().enumerate().filter(|(i,k)|!keys.clone().take(*i).any(|x|x==*k)).count()}
+/// Whether `e` may be picked while `cap` (`Node::selfads_capped`) holds: anything but an unverified self-advertisement.
+fn selfad_ok(cap:bool,e:&addrbook::Entry)->bool{!(cap&&e.source==Source::Inbound&&e.verified_ms==0)}
 
 impl Node{
     /// W (VA-SPEC §1a.7): max(stall_min_ms, stall_blocks·T_blk).
@@ -187,6 +189,11 @@ impl Node{
     fn extra_source_ok(&self,e:&addrbook::Entry)->bool{
         !self.disc.out.slots.iter().any(|s|s.role==Role::Auto&&matches!(s.state,SlotState::Up{addr,..} if self.disc.book.get(addr).is_some_and(|x|x.source==e.source)))
     }
+    /// VA-SPEC §1a.7: VERIFIED_INBOUND_MAX verified self-advertisements are reached. From then on no automatic slot,
+    /// extra or feeler dials an unverified one: each that answers a compatible Hello is verified (`good_dialed`), so a
+    /// Sybil listener that closes at once would otherwise verify one per slot backoff past the cap. At most the
+    /// OUTBOUND_MAX + 1 dials already under way when it is reached go past it.
+    fn selfads_capped(&self)->bool{self.disc.book.verified_inbound()>=addrbook::VERIFIED_INBOUND_MAX}
     /// `Book::select` with the node's generator, relaxed while the node has no compatible peer (B4).
     fn pick(&mut self,class:Class,ok:impl Fn(&Node,&addrbook::Entry)->bool,now:u64)->Option<SocketAddr>{
         let mut rng=self.disc.rng.clone();let relax=self.peer_status.is_empty();
@@ -205,12 +212,13 @@ impl Node{
         let s=&mut o.slots[t];s.starved=false;s.state=if sent{SlotState::Dialing{addr:a,kind,since_ms:now}}else{SlotState::Idle{next_ms:now.saturating_add(base)}};
     }
     /// §2.1: an idle automatic slot takes a pending anchor (once per process, whatever its retry spacing), else the
-    /// book's choice of any class, never an excluded address or key. Nothing: starved, and it looks again after the
-    /// backoff's base.
+    /// book's choice of any class, never an excluded address or key, nor an unverified self-advertisement once the
+    /// cap is reached (`selfads_capped`). Nothing: starved, and it looks again after the backoff's base.
     fn fill(&mut self,t:usize,now:u64){
         let anchor=self.disc.out.anchors_left.iter().position(|a|!self.excluded_addr(*a)&&!self.excluded_key(key_of(*a),t));
         if let Some(i)=anchor{if let Some(a)=self.disc.out.anchors_left.remove(i){return self.assign(t,a,SlotKind::Anchor,now)}}
-        match self.pick(Class::Any,|n,e|!n.excluded_addr(e.addr)&&!n.excluded_key(e.key,t),now){
+        let cap=self.selfads_capped();
+        match self.pick(Class::Any,|n,e|!n.excluded_addr(e.addr)&&!n.excluded_key(e.key,t)&&selfad_ok(cap,e),now){
             Some(a)=>self.assign(t,a,SlotKind::Auto,now),
             None=>{let next=now.saturating_add(self.disc.times.backoff_base_ms);let s=&mut self.disc.out.slots[t];s.starved=true;s.state=SlotState::Idle{next_ms:next};}
         }
@@ -246,8 +254,8 @@ impl Node{
     /// The spare slot (§2.4, §2.6). Up as the extra: closed once the trouble ended or W after it came up without
     /// moving the head. Idle while stalled or quiet: the extra, at the trouble's rising edge and every W while it
     /// lasts. Idle otherwise: a feeler when the automatic slots are settled (each up or starved, none dialing) and its
-    /// interval passed, to an unverified entry (`NewOnly`), not self-advertised once VERIFIED_INBOUND_MAX such entries
-    /// are verified.
+    /// interval passed, to an unverified entry (`NewOnly`), not self-advertised once the cap is reached
+    /// (`selfads_capped`).
     fn spare(&mut self,now:u64,trouble:bool){
         let Some(t)=self.disc.out.spare() else{return};let w=self.window_ms();
         match self.disc.out.slots[t].state{
@@ -262,8 +270,8 @@ impl Node{
                     self.disc.out.next_extra_ms=now.saturating_add(w);
                     match self.extra_addr(t,now){Some(a)=>self.assign(t,a,SlotKind::Extra,now),None=>self.disc.out.counters.extra_starved+=1}
                 }else if self.feeler_due(now){
-                    let cap=self.disc.book.verified_inbound()>=addrbook::VERIFIED_INBOUND_MAX;
-                    if let Some(a)=self.pick(Class::NewOnly,|n,e|!n.excluded_addr(e.addr)&&!(cap&&e.source==Source::Inbound),now){
+                    let cap=self.selfads_capped();
+                    if let Some(a)=self.pick(Class::NewOnly,|n,e|!n.excluded_addr(e.addr)&&selfad_ok(cap,e),now){
                         let ti=&self.disc.times;let base=if self.disc.listening{ti.feeler_listen_ms}else{ti.feeler_quiet_ms};let jitter=self.disc.rng.below(ti.feeler_jitter_ms);
                         self.disc.out.next_feeler_ms=now.saturating_add(base).saturating_add(jitter);self.assign(t,a,SlotKind::Feeler,now);
                     }
@@ -279,7 +287,8 @@ impl Node{
     }
     /// D25, D17: the extra's address. While no seed can be wanted (every one held or this node, or none), the next
     /// bootstrap address in turn that is not excluded and may be dialed (or was last tried retry_verified_ms ago);
-    /// else the book's choice, not excluded, from a source no automatic slot is connected to, failing that from any.
+    /// else the book's choice, not excluded (nor an unverified self-advertisement past the cap), from a source no
+    /// automatic slot is connected to, failing that from any.
     fn extra_addr(&mut self,t:usize,now:u64)->Option<SocketAddr>{
         let o=&self.disc.out;let n=o.bootstrap.len();
         if n>0&&!o.seeds.iter().any(|s|!s.is_self&&s.hold_until_ms<=now){
@@ -290,8 +299,9 @@ impl Node{
                 if b.get(a).map_or(true,|e|b.dialable(e,now,relax)||now.saturating_sub(e.last_try_ms)>=self.disc.times.retry_verified_ms){self.disc.out.cursor_b=(o.cursor_b+i+1)%n;return Some(a)}
             }
         }
-        self.pick(Class::Any,|n,e|!n.excluded_addr(e.addr)&&!n.excluded_key(e.key,t)&&n.extra_source_ok(e),now)
-            .or_else(||self.pick(Class::Any,|n,e|!n.excluded_addr(e.addr)&&!n.excluded_key(e.key,t),now))
+        let cap=self.selfads_capped();
+        self.pick(Class::Any,|n,e|!n.excluded_addr(e.addr)&&!n.excluded_key(e.key,t)&&selfad_ok(cap,e)&&n.extra_source_ok(e),now)
+            .or_else(||self.pick(Class::Any,|n,e|!n.excluded_addr(e.addr)&&!n.excluded_key(e.key,t)&&selfad_ok(cap,e),now))
     }
     /// The source slot `t`'s verified address takes should it have left the book while dialed (`Book::good_dialed`):
     /// a bootstrap address its own `Cfg`, an anchor its own key (the node saved it), anything else none, so that an
@@ -700,6 +710,26 @@ mod tests{
             m.disc.out.slots[1].state=SlotState::Idle{next_ms:0};m.disc.book.get(hc).unwrap();}}
         drop(m);let _=std::fs::remove_dir_all(&dir);
     }
+    /// VA-SPEC §1a.7: with VERIFIED_INBOUND_MAX verified self-advertisements, neither an automatic slot nor the extra
+    /// dials an unverified one (a Sybil listener answering a compatible Hello and closing at once would be verified at
+    /// each slot backoff, past the cap); an unverified entry of another source is still dialed.
+    #[test] fn past_the_cap_no_slot_or_extra_dials_an_unverified_self_advertisement(){
+        let (mut n,rx,dir)=node("o-capslot",2,true,vec![],vec![],G);
+        let p=sa("81.40.0.1:30300");verified(&mut n,p,G);let _p=up(&mut n,0,p,1,true,G);
+        // 128 verified self-advertisements, each just tried (its retry spacing holds), and one unverified.
+        for i in 0..128u32{let a=SocketAddr::new([82,(i/8) as u8,(i%8) as u8,1].into(),30300);
+            n.disc.book.insert_unverified(a,Source::Inbound,Kind::Direct,false,G-S);verified(&mut n,a,G-S);n.disc.book.tried(a,G);}
+        let si=sa("83.1.0.1:30300");n.disc.book.insert_unverified(si,Source::Inbound,Kind::Direct,false,G);
+        assert_eq!(n.disc.book.verified_inbound(),128);
+        let w=n.window_ms();n.disc.out.last_peer_head_ms=G-4*w;
+        tick(&mut n,G);assert!(n.quiet(G));
+        let got=rx[1].try_recv();assert!(got.is_err()&&n.disc.out.slots[1].starved,"no automatic slot dials it: {got:?}");
+        assert!(rx[2].try_recv().is_err()&&n.disc.out.counters.extra_starved==1,"nor the extra");
+        let h=sa("83.2.0.1:30300");heard(&mut n,h,sa("81.1.0.1:30300"),G);n.disc.out.slots[1].state=SlotState::Idle{next_ms:0};
+        tick(&mut n,G+S);assert_eq!(rx[1].try_recv().ok(),Some(h),"another source's unverified entry is dialed");
+        assert_eq!(n.disc.book.verified_inbound(),128);
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
     /// Residual (a) of PR2a (D27): a squatted self-advertisement that accepts and stays silent until the Hello
     /// deadline (or closes, or refuses) collects counted failures from the feeler (each after a verification
     /// elsewhere) and is terrible after 3. A listener a feeler verified is shielded from a co-tenant's withdrawal.
@@ -1070,7 +1100,7 @@ mod tests{
     }
     /// D24 (VA-SPEC §1a.7): a self-advertisement withdrawn by a second connection from its IP while a slot or the
     /// feeler dials it is not placed again as its own verified source when the Hello comes (it would be a source of
-    /// its own in the tried class, uncounted by the feeler's cap). Without the withdrawal it is verified in place and
+    /// its own in the tried class, uncounted by the dialers' cap). Without the withdrawal it is verified in place and
     /// stays Inbound. An anchor or a bootstrap address no longer in the book is placed as its own or as `Cfg`.
     #[test] fn a_self_advertisement_withdrawn_mid_dial_never_becomes_its_own_verified_source(){
         let (p,b,x)=(sa("81.40.0.1:30300"),sa("81.91.0.1:30300"),sa("81.90.0.1:30300"));
