@@ -455,8 +455,9 @@ three terms: one up and two down. It also withdraws one projection.
   5. then its backlog.
 
   Each is admitted within every pool bound. PR6: one that no longer fits the gas bound is parked when
-  eligible, not dropped (before PR6 it was dropped and not pooled later); a later, smaller one is still
-  admitted. Big transactions go after the waiting small ones, so transactions a block takes one of at a time
+  eligible, not dropped (before PR6 it was dropped and not pooled later); a later, smaller one of another sender is
+  still admitted, and (PR6 third review) a later one of its sender, whatever its gas, is parked behind it: executed
+  on the pending state its nonce was too high, so a pooled transaction behind a parked one was lost. Big transactions go after the waiting small ones, so transactions a block takes one of at a time
   cannot hold the bound against users across heads.
 
   **Relay of a returned transaction** (a local policy). A transaction that leaves an abandoned block and is

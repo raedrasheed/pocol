@@ -1176,7 +1176,10 @@ impl Node{
             let held=self.pool.parked.iter().filter(|x|x.sender==caller&&!matches!(x.relay,Relay::Offer|Relay::Returned)).fold(held,|n,x|n.saturating_add(x.gas));
             if held.saturating_add(gas_limit)>self.pool.sender_gas_max{self.stats.sender_quota_refused+=1;return Err(POOL_FULL_SENDER.into())}
         }
-        if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max{
+        // PR6 third review: so is a later transaction of a sender with parked ones, whatever its gas. Its nonce follows
+        // theirs, which the pending state does not have, so executed there it was refused as nonce too high and
+        // lost (at a head, one that was pooled behind a parked one); parked, it joins its sender's run.
+        if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max||self.pool.parked.iter().any(|x|x.sender==caller){
             // PR6 second review: refused as the engine would refuse it before executing it (intrinsic gas and the
             // rest), never parked.
             let (tx,ctx)=(env.tx_env(),self.next_block_ctx());pre_execution(&tx,&ctx,self.chain.spec.profile().spec().chain_id)?;
@@ -1216,8 +1219,8 @@ impl Node{
             Relay::No|Relay::Returned=>{}}
         Ok(hash)
     }
-    /// PR6 P2: a transaction refused only by the pool's gas bound is held for the next head when it is the
-    /// sender's next transaction (on the pending state, or after the sender's parked ones: PR6 review, a sender
+    /// PR6 P2: a transaction refused only by the pool's gas bound (PR6 third review: or whose sender has parked ones,
+    /// `admit_tx`) is held for the next head when it is the sender's next transaction (on the pending state, or after the sender's parked ones: PR6 review, a sender
     /// may park a run of its next nonces, within its quota), its sender can pay it and its parked ones at their
     /// fee caps and values, and its fee cap covers the next base fee (two reads, no execution). The set is bounded
     /// (`parked_max`, POOL_MAX_BYTES shared with the pool and the backlog); when it is full, the parked

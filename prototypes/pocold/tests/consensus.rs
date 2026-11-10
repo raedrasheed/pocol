@@ -4564,3 +4564,30 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![y]);
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR6 third review (a run behind a parked one): a transaction whose sender has parked ones is parked after them,
+/// whatever its gas, not executed on the pending state, where its nonce is too high. Default bound (32M) and quota
+/// (8M): carol, erin and frank pool 8M each and alice pools 6M then 21,000; gina's 8M and bob's 3M are parked. At
+/// an empty head P3 re-admits bob's and gina's before the deferred senders, so frank's and alice's 6M are parked;
+/// alice's 21,000 fits the bound but follows her parked one, and is parked behind it. At the next head both of
+/// alice's are pooled. A new submission behind a parked one is held too. Before the fix alice's 21,000 was refused
+/// as nonce too high at the head and lost, and a new one was answered nonce too high.
+#[test] fn a_later_transaction_of_a_parked_sender_is_parked_behind_it(){
+    use pocold::node::POOL_PARKED;
+    let mut c=cfg_funded();c.accounts.push(("hank".into(),U256::from(10u128.pow(24))));
+    let mut h=net_with(&c);let g=h.chain.head;let alice=key("alice");
+    let (mut n,dir)=gas_node_cfg("park-behind",Default::default(),&c,None);
+    let big:Vec<Vec<u8>>=["carol","erin","frank"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}
+    let (a0,a1)=(pay_gas(&alice,0,1,6_000_000),pay(&alice,1,1));for t in [&a0,&a1]{n.submit_tx(t.clone(),false).unwrap();}
+    let (g0,b0)=(pay_gas(&key("gina"),0,1,GL),pay_gas(&key("bob"),0,1,3_000_000));
+    for t in [&g0,&b0]{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}n.pool_audit().unwrap();
+    let e=branch(&mut h,g,2,&[]);n.import(e[0].clone(),None).unwrap();n.pool_settle();n.pool_audit().unwrap();
+    assert_eq!(n.pool_parked(),vec![a0.clone(),a1.clone(),big[2].clone()],"alice's 21,000 is parked behind her 6M");
+    // A new submission behind a parked one: hank's 6M passes the bound and his 21,000 is held after it.
+    let (h0,h1)=(pay_gas(&key("hank"),0,1,6_000_000),pay(&key("hank"),1,1));
+    for t in [&h0,&h1]{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED,"hank's run is held");}n.pool_audit().unwrap();
+    n.import(e[1].clone(),None).unwrap();let p=pool(&mut n);n.pool_audit().unwrap();
+    let at=|t:&Vec<u8>|p.iter().position(|x|x==t);
+    assert!(at(&a0).is_some()&&at(&a1)==at(&a0).map(|i|i+1),"both of alice's are pooled at the next head, in nonce order");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
