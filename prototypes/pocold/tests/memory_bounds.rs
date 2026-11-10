@@ -1,6 +1,6 @@
 //! PR7 (C-1 S5): resident memory and per-block work that stay O(window), not O(height). The pieces the
 //! eviction is built from, each checked on its own: the canonical window type and the checkpoint record
-//! codec it shares with the node's canonical index.
+//! codec it shares with the node's canonical index, and that index (canon.redb).
 use pocold::chain::Canon;
 
 fn hash(i:u64)->[u8;32]{let mut h=[0u8;32];h[..8].copy_from_slice(&(i+1).to_be_bytes());h[31]=0xc5;h}
@@ -54,4 +54,33 @@ fn indexing_a_height_below_the_window_panics(){let mut c=window(5);c.pop_low();c
     assert!(rec_from(&b[..b.len()-1]).is_err(),"a cut record");let mut x=b.clone();x.push(0);assert!(rec_from(&x).is_err(),"a record with a byte more");
     assert!(rec_from(&rec_bytes(&Rec{flags:flags::WORLD,..full.clone()})).is_err(),"a root without a stored version");
     let none=Rec{body_off:None,flags:0,..min.clone()};assert_eq!(rec_from(&rec_bytes(&none)).unwrap(),none,"no journal record: the offset reads back as None");
+}
+
+/// The node's canonical index (canon.redb) on its own: rows read back by height, by hash and as a range; a row
+/// overwritten by another block's drops that block's hash; the rows survive a reopen; and a file of another
+/// genesis, one marked damaged and one that is not a redb file are each set aside and a new index is created.
+#[test] fn the_canonical_index_reads_back_its_rows_and_sets_aside_a_foreign_or_damaged_file(){
+    use pocold::checkpoint::{flags,Rec};use pocold::node::canon::{Index,DAMAGED,FILE};
+    use revm::primitives::{Address,U256};
+    let dir=std::env::temp_dir().join(format!("pocold-pr7-canon-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);std::fs::create_dir_all(&dir).unwrap();
+    let rec=|h:u64,tag:u8|Rec{hash:{let mut x=hash(h);x[30]=tag;x},body_off:Some(40+h),import_seq:h,total_work:U256::from(h),flags:flags::PRUNED|flags::SLIM|flags::OFFLOADED|flags::OFF,
+        cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,drawn:Address::ZERO,summary:None,root:None};
+    let g=[9u8;32];
+    {let ix=Index::open(&dir,&g).unwrap();assert!(!ix.rebuilt,"a new file is not a rebuilt one");
+        ix.put(&(1..=5).map(|h|(h,rec(h,0))).collect::<Vec<_>>()).unwrap();
+        assert_eq!(ix.at(3).unwrap(),Some(rec(3,0)));assert_eq!(ix.at(6).unwrap(),None);
+        assert_eq!(ix.height_of(&rec(4,0).hash).unwrap(),Some(4));
+        assert_eq!(ix.range(2,3).unwrap(),(2..=4).map(|h|(h,rec(h,0))).collect::<Vec<_>>());
+        ix.put(&[(4,rec(4,1))]).unwrap();
+        assert_eq!((ix.height_of(&rec(4,0).hash).unwrap(),ix.height_of(&rec(4,1).hash).unwrap()),(None,Some(4)),"an overwritten row's block is no longer found");
+        let before=ix.reads();ix.at(1).unwrap();ix.height_of(&[1;32]).unwrap();ix.range(1,5).unwrap();assert_eq!(ix.reads()-before,3,"one lookup each");
+        ix.sync().unwrap();}
+    {let ix=Index::open(&dir,&g).unwrap();assert!(!ix.rebuilt);assert_eq!(ix.at(5).unwrap(),Some(rec(5,0)),"the rows survive a reopen");}
+    {let ix=Index::open(&dir,&[8u8;32]).unwrap();assert!(ix.rebuilt,"a file of another genesis is set aside");assert_eq!(ix.at(5).unwrap(),None);
+        ix.mark_damaged("a test");assert!(ix.put(&[(1,rec(1,0))]).is_err(),"a damaged index refuses writes");}
+    assert!(dir.join(DAMAGED).exists());
+    {let ix=Index::open(&dir,&[8u8;32]).unwrap();assert!(ix.rebuilt,"a file marked damaged is set aside");assert!(!dir.join(DAMAGED).exists());}
+    std::fs::write(dir.join(FILE),b"not a redb file").unwrap();
+    {let ix=Index::open(&dir,&g).unwrap();assert!(ix.rebuilt,"a file that is not a redb file is set aside");ix.put(&[(1,rec(1,0))]).unwrap();}
+    let _=std::fs::remove_dir_all(&dir);
 }

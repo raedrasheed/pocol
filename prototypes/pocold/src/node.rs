@@ -12,6 +12,7 @@ use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId,Useful},store::{self,Journal},types::*};
 mod discovery;
 pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES};
+pub mod canon;
 
 /// D-REORG-REDB: the journal is the off-heap block store. `record_at` reads a block record back by
 /// its frame offset for on-demand body fetch (fork choice and retention stay on resident metadata).
@@ -90,6 +91,15 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// Peer discovery (VA-SPEC §1a; local policy, never validity): on by default, local mode off.
     pub discovery:Discovery}
 impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,discovery:Discovery::default()}}}
+/// C-1 S5 (PR7): what a view of a canonical block below the window reads besides its index row and journal
+/// record: its receipts (history.redb) only when asked.
+#[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
+pub struct Want{pub receipts:bool}
+/// Hashes of a GetFrom locator looked up in the canonical index (C-1 S5): an honest locator matches on one of its
+/// first (highest first), and a locator of unknown hashes costs at most this many reads.
+pub const LOCATOR_INDEX_MAX:usize=12;
+/// What a view that cannot read its block's history answers (the store is logged, marked and rebuilt at the next open).
+pub const HISTORY_UNAVAILABLE:&str="block history unavailable (logged; the store is rebuilt at the next open)";
 /// C-1 S1: replay refills history.redb with non-durable commits and makes them durable every this many blocks.
 const HISTORY_SYNC:u64=256;
 /// D-7: one slice of pool revalidation. The consensus thread is held for at most this, plus the
@@ -238,6 +248,8 @@ pub struct Node{
     journal:Journal,
     /// C-1 S1: receipts and the transaction index of every validated block (derived; rebuilt by replay).
     pub history:crate::history::History,
+    /// C-1 S5 (PR7): the canonical entries below the in-memory window (derived; rebuilt by replay).
+    canon:canon::Index,
     peers:HashMap<PeerId,Peer>,
     /// Sync: each peer's announced Status, the live session (at most one), when a session last
     /// started and the round-robin turn among peers announcing more work.
@@ -448,7 +460,8 @@ impl Node{
         // C-1 S1: canonical history below the resident window lives off the heap (journal + history.redb).
         // C-1 E4.4: a history.redb created now holds nothing a checkpoint's entries need (replay refills it).
         let history_kept=cfg.dir.join(crate::history::FILE).exists();
-        let t=Instant::now();let history=crate::history::History::open(&cfg.dir).map_err(|e|format!("history: {}",e.0))?;timing.history_open_ms=ms(t);chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
+        let t=Instant::now();let history=crate::history::History::open(&cfg.dir).map_err(|e|format!("history: {}",e.0))?;timing.history_open_ms=ms(t);
+        let canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
         // C-1 S4: deeper than any fork (R_keep), a head that fell back by R_keep, the evidence window and
         // the 256-ancestor window: no validation reads a slimmed entry unless the head fell back further.
         chain.slim_depth=Some(cfg.limits.slim_depth.unwrap_or(2*rk_replay.max(cfg.limits.r_keep)+u64::from(chain.spec.cp().E_win)+257));
@@ -619,7 +632,7 @@ impl Node{
         let signed_a0=load_signed_a0(&cfg.dir); // F7: resume the attempt-0 signing record across restarts
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let consensus=crate::identity::Consensus::of(&chain.spec);
-        let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
+        let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
@@ -1340,7 +1353,10 @@ impl Node{
     /// always answers from a point within the window) and genesis.
     pub fn locator(&self,tip:Option<[u8;32]>)->Vec<[u8;32]>{
         let mut out:Vec<[u8;32]>=tip.into_iter().collect();
-        out.extend(Self::locator_heights(self.chain.head().height,self.chain.r_keep).into_iter().filter_map(|h|self.chain.canonical.get(h as usize).copied()));out.truncate(net::LOCATOR_MAX);out
+        // C-1 S5: a height below the window is read from the canonical index (O(log H) of them); one that cannot
+        // be read is left out and logged (the index is then marked damaged, and the node's next eviction stops it).
+        out.extend(Self::locator_heights(self.chain.head().height,self.chain.r_keep).into_iter().filter_map(|h|self.canon_hash(h).unwrap_or_else(|e|{self.log(&format!("locator height {h}: {e}"));None})));
+        out.truncate(net::LOCATOR_MAX);out
     }
     /// The canonical heights of a locator built at head height `head`, highest first.
     fn locator_heights(head:u64,r_keep:u64)->Vec<u64>{
@@ -1532,13 +1548,14 @@ impl Node{
                 let Some(p)=self.peers.get(&from) else{return};
                 // The highest locator hash on our canonical chain (genesis always is); answers stop when
                 // the peer's queue is half full (offer) and the peer asks again from its last block.
-                let Some(start)=locator.iter().find(|h|self.chain.is_canonical(h)).and_then(|h|self.chain.get(h)).map(|e|e.height+1) else{return};
-                for hgt in start..start.saturating_add(count.min(SYNC_COUNT)){match self.chain.canonical_at(hgt).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
+                let Some(start)=self.locator_start(&locator) else{return};
+                self.serve_range(p,start,count.min(SYNC_COUNT));
             }
             Msg::GetRange{start,count}=>{
                 let Some(p)=self.peers.get(&from) else{return};
-                // Responses stop when the peer's queue is half full (offer); the peer asks again.
-                for hgt in start..start.saturating_add(count.min(512)){match self.chain.canonical_at(hgt).filter(|e|e.height>0).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
+                // Responses stop when the peer's queue is half full (offer); the peer asks again. Genesis is not served.
+                if start==0{return}
+                self.serve_range(p,start,count.min(512));
             }
             Msg::Tx{raw}=>self.relay_tx(raw,from),
             // Peer discovery (VA-SPEC §1a.2, §1a.5): answers to inbound peers, and what this node asked for.
@@ -1562,6 +1579,38 @@ impl Node{
             "lastIncompatibleReason":if last.is_empty(){serde_json::Value::Null}else{serde_json::json!(last)}});
         let serde_json::Value::Object(m)=j else{unreachable!()};m
     }
+    /// GetFrom's start (C-1 S5, PR7): one past the first locator hash that is a canonical block held in memory other
+    /// than genesis (an honest locator is highest first, so a peer that is behind matches on its first hash, as
+    /// before); else one past the first of at most LOCATOR_INDEX_MAX hashes found below the window in the canonical
+    /// index, in locator order; else one past genesis. A locator of hashes this node never held costs at most
+    /// LOCATOR_INDEX_MAX index reads (a hash lookup in memory before C-1 S5).
+    fn locator_start(&self,locator:&[[u8;32]])->Option<u64>{
+        let g=*self.chain.canonical.genesis();
+        if let Some(e)=locator.iter().filter(|h|**h!=g&&self.chain.is_canonical(h)).find_map(|h|self.chain.get(h)){return Some(e.height+1)}
+        if self.chain.canonical.base()>1{
+            for h in locator.iter().filter(|h|**h!=g&&!self.chain.blocks.contains_key(*h)).take(LOCATOR_INDEX_MAX){
+                match self.canon_height(h){Ok(Some(x))=>return Some(x+1),Ok(None)=>{},Err(e)=>{self.log(&format!("GetFrom locator: {e}"));return None}}
+            }
+        }
+        locator.contains(&g).then_some(1)
+    }
+    /// The canonical blocks of heights start..start+count to peer `p`, until its queue is half full (`offer`) or a
+    /// height is not held. Below the window from one index read (`canon.range`) and the journal, each record checked
+    /// to hash to its row's block (a row that does not marks the index damaged); then the window's, as before.
+    fn serve_range(&self,p:&Peer,start:u64,count:u64){
+        let (end,base)=(start.saturating_add(count),self.chain.canonical.base());let mut hgt=start;
+        if hgt<base{
+            let rows=match self.canon.range(hgt,end.min(base)-hgt){Ok(r)=>r,Err(e)=>{self.log(&format!("serving height {hgt}: {e}"));return}};
+            for (h,r) in rows{
+                if h!=hgt{return}
+                let Some(m)=r.body_off.and_then(|o|self.journal.read_at(o).ok()).filter(|(hb,_,_)|decode_header(hb).map(|x|block_hash(&x)).ok()==Some(r.hash)).map(|(hb,bb,_)|Msg::Block{header:hb,body:bb})
+                    else{self.log(&self.canon.mark_damaged(&format!("the row at height {h} does not name its journal record")));return};
+                if !p.offer(&m){return}hgt+=1;
+            }
+            if hgt<end.min(base){return}
+        }
+        for h in hgt..end{match self.chain.canonical_at(h).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
+    }
     /// The Block message for a stored block (genesis excluded); an offloaded non-canonical block is
     /// served from its journal record, byte-equal to what was imported (VA-SPEC §4).
     pub fn block_msg(&self,hash:&[u8;32])->Option<Msg>{
@@ -1569,6 +1618,51 @@ impl Node{
         if !e.offloaded&&!e.slim{return Some(Msg::Block{header:e.header.encoded.clone(),body:e.body.encode()})}
         match self.journal.read_at(e.body_off?){Ok((hb,bb,_))=>Some(Msg::Block{header:hb,body:bb}),Err(err)=>{self.log(&format!("journal read for {}: {err:?}",&hex(hash)[..14]));None}}
     }
+    /// The canonical hash at height `h` (C-1 S5): the window's or genesis's, else the canonical index's below the
+    /// window. Ok(None) above the head. Err: the index could not be read (it is then marked damaged).
+    pub fn canon_hash(&self,h:u64)->Result<Option<[u8;32]>,String>{
+        if h==0||h>=self.chain.canonical.base(){return Ok(self.chain.canonical.get(h as usize).copied())}
+        Ok(Some(self.indexed(h)?.hash))
+    }
+    /// The height of `hash` if it is canonical: held in memory (the window or genesis), else found in the canonical
+    /// index below the window.
+    pub fn canon_height(&self,hash:&[u8;32])->Result<Option<u64>,String>{
+        if let Some(e)=self.chain.blocks.get(hash){return Ok(self.chain.is_canonical(hash).then_some(e.height))}
+        let base=self.chain.canonical.base();if base<2{return Ok(None)}
+        Ok(self.canon.height_of(hash)?.filter(|h|*h<base))
+    }
+    /// A block with its body, encoded header and (in memory always, below the window when asked) its receipts, by
+    /// hash: one held in memory (any, as `block_view`), else a canonical one below the window. Never inserted into
+    /// the chain. Err: its history could not be read (logged; the store is marked damaged and rebuilt at the next open).
+    pub fn view_by_hash(&self,hash:&[u8;32],want:Want)->Result<Option<std::borrow::Cow<'_,Entry>>,String>{
+        if let Some(e)=self.chain.get(hash){return self.view(e).map(Some).ok_or_else(||HISTORY_UNAVAILABLE.to_string())}
+        match self.canon_height(hash)?{Some(h)=>self.indexed_view(h,want).map(|e|Some(std::borrow::Cow::Owned(e))),None=>Ok(None)}
+    }
+    /// `view_by_hash` of the canonical block at height `h` (Ok(None) above the head).
+    pub fn canonical_view(&self,h:u64,want:Want)->Result<Option<std::borrow::Cow<'_,Entry>>,String>{
+        if h==0||h>=self.chain.canonical.base(){return match self.chain.canonical_at(h){Some(e)=>self.view(e).map(Some).ok_or_else(||HISTORY_UNAVAILABLE.to_string()),None=>Ok(None)}}
+        self.indexed_view(h,want).map(|e|Some(std::borrow::Cow::Owned(e)))
+    }
+    /// The canonical index's row at height `h` below the window: one must be there (a row missing marks the index damaged).
+    fn indexed(&self,h:u64)->Result<crate::checkpoint::Rec,String>{self.canon.at(h)?.ok_or_else(||self.canon.mark_damaged(&format!("no row at height {h} below the window")))}
+    /// A canonical block below the window as RPC reads it: one index read and one journal read (header, body and
+    /// ParentResult), receipts from history.redb only when asked, no nonce ranges (`checkpoint::entry_of`, so the
+    /// answer is the one the entry gave while it was held). The record must hash to the row's block.
+    fn indexed_view(&self,h:u64,want:Want)->Result<Entry,String>{
+        let r=self.indexed(h)?;let off=r.body_off.ok_or_else(||self.canon.mark_damaged(&format!("the row at height {h} names no journal record")))?;
+        let payload=self.journal.payload_at(off).map_err(|e|{let m=format!("journal read at {off}: {e:?}");self.log(&m);m})?;
+        let mut q=r.clone();q.flags&=!(crate::checkpoint::flags::OFFLOADED|crate::checkpoint::flags::SLIM);
+        let why=|m:&str|format!("the row at height {h}: {m}");
+        let (mut e,_)=crate::checkpoint::entry_of(&q,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(Some(Vec::new())),self.chain.spec.cp().BODY_MAX as usize,false,&why)
+            .map_err(|m|self.canon.mark_damaged(&m))?;
+        if e.height!=h{return Err(self.canon.mark_damaged(&format!("the row at height {h} names a block at height {}",e.height)))}
+        if want.receipts{e.receipts=match self.history.receipts(&e.hash){Ok(Some(x))=>x,
+            Ok(None)=>{let m=self.history.mark_damaged("receipts missing for a journaled block").0;self.log(&m);return Err(m)}
+            Err(x)=>{self.log(&format!("history read for {}: {}",&hex(&e.hash)[..14],x.0));return Err(x.0)}};}
+        Ok(e)
+    }
+    /// The canonical index (C-1 S5; tests and inspection).
+    pub fn canon(&self)->&canon::Index{&self.canon}
     /// A stored block for RPC (eth_getBlockByHash): as stored when resident; an offloaded one (a side block,
     /// or since C-1 S1 canonical history below the resident window) is materialized from its journal record
     /// (encoded header, body, tx hashes) and history.redb (receipts), so every answer is the one it had
