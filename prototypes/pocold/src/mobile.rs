@@ -175,7 +175,7 @@ mod tests {
         }
     }
     #[test]
-    fn inspect_upgrade_reports_none_rebind_and_activation_and_writes_nothing() {
+    fn inspect_upgrade_reports_none_rebind_activation_and_an_interrupted_upgrade_to_resume() {
         // T33: the H15000 genesis files under pocol-network-v2 (rules 1), as `pocol network` writes them from R1 on.
         let dir = std::env::temp_dir().join(format!("pocol-mobile-inspect-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -215,6 +215,17 @@ mod tests {
         }
         assert_eq!(ask(pocol_mobile_inspect_upgrade, &home, &activation)["consensusIdentity"],
                    "bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110", "the T11 golden identity");
+        // An upgrade killed after its intent (the app has no CLI): the same file's dry run offers to resume it, so the
+        // confirm dialog opens and the upgrade finishes; another file is refused.
+        let read = |p: &Path| -> serde_json::Value { serde_json::from_slice(&std::fs::read(p).unwrap()).unwrap() };
+        std::fs::write(home.join("network-upgrade.pending.json"), serde_json::json!({"before": read(&base), "after": read(&activation)}).to_string()).unwrap();
+        std::fs::write(home.join("network/devnet.json"), read(&activation)["files"]["devnet.json"].as_str().unwrap()).unwrap();
+        let dry = ask(pocol_mobile_inspect_upgrade, &home, &activation);
+        assert_eq!((dry["change"].as_str(), &dry["resuming"]), (Some("activation"), &serde_json::json!(true)), "{dry}");
+        assert!(ask(pocol_mobile_inspect_upgrade, &home, &rebind)["error"].as_str().unwrap().contains("same network invitation"));
+        assert!(ask(pocol_mobile_upgrade, &home, &activation).get("error").is_none());
+        assert!(!home.join("network-upgrade.pending.json").exists());
+        assert_eq!(ask(pocol_mobile_inspect_upgrade, &home, &activation)["change"], "none");
         std::fs::remove_dir_all(&dir).unwrap();
     }
     #[test]

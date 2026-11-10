@@ -246,6 +246,13 @@ fn read_intent(pending: &Path, legacy: &[Legacy]) -> Result<UpgradeIntent, Strin
         Err(why) => Err(format!("an interrupted upgrade started by PoCol 0.4.0 is pending; finish this upgrade with PoCol 0.4.0 first ({why})")),
     }
 }
+/// The pending `intent` resumes only with its own file, from a home still bound to its `before` or already to `after`.
+fn resumable(intent: UpgradeIntent, saved: &Invitation, after: &Invitation) -> Result<UpgradeIntent, String> {
+    if intent.after.fingerprint() != after.fingerprint() || (saved.fingerprint() != intent.before.fingerprint() && saved.fingerprint() != after.fingerprint()) {
+        return Err("resume the interrupted upgrade with the same network invitation".into());
+    }
+    Ok(intent)
+}
 
 fn real_file(path: &Path) -> Result<(), String> {
     let meta = fs::symlink_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -504,29 +511,12 @@ impl Home {
             self.network_files(&after, None)?;
             return Ok(after);
         }
-        let intent = if resuming {
-            let intent = read_intent(&pending, legacy)?;
-            if intent.after.fingerprint() != after.fingerprint()
-                || (saved.fingerprint() != intent.before.fingerprint() && saved.fingerprint() != after.fingerprint())
-            {
-                return Err("resume the interrupted upgrade with the same network invitation".into());
-            }
-            intent
-        } else {
-            UpgradeIntent { before: saved, after: after.clone() }
-        };
+        let intent = if resuming { resumable(read_intent(&pending, legacy)?, &saved, &after)? } else { UpgradeIntent { before: saved, after: after.clone() } };
         let network = self.path.join("network");
         let (_appended, _state_lock) = self.plan(&intent.before, &after, resuming, legacy)?;
         let original = serde_json::to_vec_pretty(&intent.before).map_err(|e| e.to_string())?;
         let backup = self.path.join(backup_name(&intent.before));
-        if fs::symlink_metadata(&backup).is_ok() {
-            real_file(&backup)?;
-            if Invitation::parse_saved(&read_bounded(&backup)?)?.fingerprint() != intent.before.fingerprint() {
-                return Err("existing original-invitation backup differs; nothing changed".into());
-            }
-        } else {
-            replace_public(&backup, &original)?;
-        }
+        if !self.backup_kept(&intent.before)? { replace_public(&backup, &original)?; }
         if !resuming {
             replace_public(&pending, &serde_json::to_vec(&intent).map_err(|e| e.to_string())?)?;
         }
@@ -541,26 +531,40 @@ impl Home {
     }
     /// A read-only dry run of `upgrade` under the state lock (plan §1.7): `change` is "none" (already applied),
     /// "rebind" (the same rules and schedule in a newer file) or "activation" (`appended` lists the new entries),
-    /// beside the new invitation's `describe()`. Every refusal `upgrade` would give, it gives.
+    /// beside the new invitation's `describe()`. It makes every check `upgrade` makes before it writes. An upgrade this
+    /// release left pending is finished only by `upgrade` with the same file, so for that file the dry run reports the
+    /// interrupted transition (from the intent's binding) with `resuming: true` and the wallets confirm and resume it;
+    /// any other file is refused, as `upgrade` refuses it. Refusing the same file left a wallet with no way to resume.
     pub fn inspect_upgrade(&self, bytes: &[u8]) -> Result<serde_json::Value, String> { self.inspect_upgrade_with(bytes, LEGACY_BUILDS) }
     fn inspect_upgrade_with(&self, bytes: &[u8], legacy: &[Legacy]) -> Result<serde_json::Value, String> {
         let after = Invitation::parse_with(bytes, legacy)?;
         let saved = self.saved()?;
         let pending = self.path.join(UPGRADE_PENDING);
-        if fs::symlink_metadata(&pending).is_ok() {
-            read_intent(&pending, legacy)?;
-            return Err("network upgrade is incomplete; resume it with the explicit upgrade command and the same invitation".into());
-        }
-        let appended = if saved.fingerprint() == after.fingerprint() {
+        let resuming = fs::symlink_metadata(&pending).is_ok();
+        let before = if resuming { resumable(read_intent(&pending, legacy)?, &saved, &after)?.before } else { saved };
+        let appended = if !resuming && before.fingerprint() == after.fingerprint() {
             self.network_files(&after, None)?;
             None
         } else {
-            Some(self.plan(&saved, &after, false, legacy)?.0)
+            let (appended, _state_lock) = self.plan(&before, &after, resuming, legacy)?;
+            self.backup_kept(&before)?;
+            Some(appended)
         };
         let mut out = after.describe();
         out["change"] = match &appended { None => "none", Some(a) if a.is_empty() => "rebind", Some(_) => "activation" }.into();
         out["appended"] = serde_json::json!(appended.unwrap_or_default());
+        out["resuming"] = resuming.into();
         Ok(out)
+    }
+    /// Whether `before`'s backup exists. One that exists must be a regular file holding `before`, or nothing is written.
+    fn backup_kept(&self, before: &Invitation) -> Result<bool, String> {
+        let backup = self.path.join(backup_name(before));
+        if fs::symlink_metadata(&backup).is_err() { return Ok(false) }
+        real_file(&backup)?;
+        if Invitation::parse_saved(&read_bounded(&backup)?)?.fingerprint() != before.fingerprint() {
+            return Err("existing original-invitation backup differs; nothing changed".into());
+        }
+        Ok(true)
     }
     /// The saved binding, after the checks every upgrade path makes first: the key, its address and the binding
     /// are regular files. Well-formed only; the transition checks its rules.
@@ -1003,6 +1007,34 @@ mod upgrade_tests {
         assert_eq!(home.inspect_upgrade(&at(serde_json::json!([[1, 0], [2, 21]]))).unwrap()["appended"], serde_json::json!([[2, 21]]));
         // A running wallet holds the home's lock.
         assert!(Home::open(&home.path).is_err());
+    }
+    #[test]
+    fn the_dry_run_of_an_interrupted_upgrade_offers_to_resume_it_with_the_same_file() {
+        // The wallets run the dry run before every upgrade, so refusing the interrupted upgrade's own file left them no
+        // way to resume it (and an Android home no way out but clearing the key). Both crash windows: before and after
+        // the binding is written.
+        let (before, after) = (h15000_v2(serde_json::json!([[1, 0]])), h15000_v2(serde_json::json!([[1, 0], [2, 15000]])));
+        for bound in [&before, &after] {
+            let t = Scratch::new();
+            let home = home_with(&t, &bytes(&before));
+            // What `upgrade` leaves at network-upgrade-metadata (or -binding): the backup, the intent and the new devnet.json.
+            fs::write(home.path.join(backup_name(&before)), serde_json::to_vec_pretty(&before).unwrap()).unwrap();
+            fs::write(home.path.join(UPGRADE_PENDING), serde_json::to_vec(&UpgradeIntent { before: before.clone(), after: after.clone() }).unwrap()).unwrap();
+            fs::write(home.path.join("network").join("devnet.json"), &after.files["devnet.json"]).unwrap();
+            fs::write(home.path.join("network.pocol.json"), bytes(bound)).unwrap();
+            let interrupted = snapshot(&home.path);
+            let dry = home.inspect_upgrade(&bytes(&after)).unwrap();
+            assert_eq!((dry["change"].as_str(), &dry["appended"], &dry["resuming"]), (Some("activation"), &serde_json::json!([[2, 15000]]), &serde_json::json!(true)), "{dry}");
+            let other = h15000_v2(serde_json::json!([[1, 0], [2, 15001]]));
+            assert_eq!(home.inspect_upgrade(&bytes(&other)).unwrap_err(), "resume the interrupted upgrade with the same network invitation");
+            assert_eq!(home.upgrade(&bytes(&other)).unwrap_err(), "resume the interrupted upgrade with the same network invitation");
+            assert_eq!(snapshot(&home.path), interrupted, "neither the dry run nor a refused file writes");
+            home.upgrade(&bytes(&after)).unwrap();
+            assert!(!home.path.join(UPGRADE_PENDING).exists());
+            assert_eq!(fs::read(home.path.join("network.pocol.json")).unwrap(), bytes(&after));
+            let done = home.inspect_upgrade(&bytes(&after)).unwrap();
+            assert_eq!((done["change"].as_str(), &done["resuming"]), (Some("none"), &serde_json::json!(false)));
+        }
     }
     #[test]
     fn a_pending_upgrade_left_by_0_4_0_must_be_finished_with_0_4_0() {

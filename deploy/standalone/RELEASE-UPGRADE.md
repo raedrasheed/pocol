@@ -52,7 +52,9 @@ another `devnet.json` key, another rules revision, a v2 → v1 change and a runn
 It keeps the previous binding as `network.pocol.json.before-<16 hex of its fingerprint>`
 (one per upgrade, so later upgrades never collide; the 0.4.0 `.before-full-nonce`
 backup is left as it is) and a recoverable `network-upgrade.pending.json` intent. If
-interrupted, rerun the **same** command. A node that has not applied the entry is
+interrupted, rerun the **same** command (in a wallet, Upgrade existing network with the
+same file): `inspect-upgrade` of that file reports the interrupted change with
+`"resuming": true`, and any other file is refused until it is finished. A node that has not applied the entry is
 refused by the others with "peer has not scheduled activation (v,H): it must apply the
 published network upgrade"; the lagging node itself reports how to fix it in
 `lastIncompatibleReason` and in the wallet.
