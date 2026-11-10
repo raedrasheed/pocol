@@ -26,14 +26,59 @@ use super::{Node,now_ms};
 /// The book's file in the data directory (VA-SPEC §1a.6), and the temporary file a save writes first.
 const FILE:&str="addrbook";const FILE_TMP:&str="addrbook.tmp";
 
+/// Automatic outbound (VA-SPEC §1a.7): at most OUTBOUND_MAX slots; `auto` is AUTO_LISTENING with a listener, else
+/// AUTO_QUIET; plus one spare slot (feeler or extra). network.md:157 (D14'): configured peers + slots (the spare's
+/// included) <= OUTBOUND_TOTAL_MAX, 50 peers less the default 32 established inbound.
+pub const OUTBOUND_MAX:u8=8;pub const AUTO_LISTENING:u8=4;pub const AUTO_QUIET:u8=2;pub const OUTBOUND_TOTAL_MAX:usize=18;
+/// Seeds (VA-SPEC §1a.8): at most SEEDS_MAX; at most SEED_LINKS_MAX wanted at once (a seed host's own mesh excepted).
+pub const SEEDS_MAX:usize=7;pub const SEED_LINKS_MAX:usize=2;
+/// Bootstrap addresses (VA-SPEC §1a.9).
+pub const BOOTSTRAP_MAX:usize=16;
+/// `--outbound N|auto` (VA-SPEC §1a.7): `Auto` until `Discovery::resolve` turns it into a count at `Node::open`.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum Outbound{Auto,Count(u8)}
 /// Peer discovery's local settings (`node::Limits::discovery`, VA-SPEC §1a). `enabled`: learn, answer and advertise
 /// the listener's port (off: `--no-discovery`, the escape hatch; the nonce check and the H2 fix still apply);
 /// `allow_local`: local mode (`--discover-local`), which stores addresses without an address group when they came
-/// from a source without one. `rng_seed` and `times` are for tests only (plan D13: no flag or variable sets them).
+/// from a source without one. `outbound`: the automatic outbound slots (`--outbound`, POCOL_OUTBOUND); `seeds`: the
+/// configured peers that are seeds (`--seed`, the invitation's), also in `Config::peers`, without this host's own;
+/// `is_seed`: this host is one of the seeds (`is_own_seed`), so it keeps the others; `bootstrap`: unverified addresses
+/// to try (`--bootstrap`, the invitation's). `rng_seed` and `times` are for tests only (plan D13: no flag or variable
+/// sets them).
 #[derive(Clone,Debug,PartialEq,Eq)]
-pub struct Discovery{pub enabled:bool,pub allow_local:bool,pub rng_seed:Option<u64>,pub times:DiscoveryTimes}
-impl Default for Discovery{fn default()->Self{Self{enabled:true,allow_local:false,rng_seed:None,times:DiscoveryTimes::default()}}}
+pub struct Discovery{pub enabled:bool,pub allow_local:bool,pub outbound:Outbound,pub seeds:Vec<SocketAddr>,pub is_seed:bool,
+    pub bootstrap:Vec<SocketAddr>,pub rng_seed:Option<u64>,pub times:DiscoveryTimes}
+impl Default for Discovery{fn default()->Self{Self{enabled:true,allow_local:false,outbound:Outbound::Count(0),seeds:Vec::new(),is_seed:false,bootstrap:Vec::new(),rng_seed:None,times:DiscoveryTimes::default()}}}
 impl Discovery{
+    /// The automatic slots A13 counts (`resources::derive`): the resolved count, or before `resolve` the larger value
+    /// `auto` can take; 0 with discovery off.
+    pub fn automatic(&self)->usize{if !self.enabled{return 0}match self.outbound{Outbound::Auto=>AUTO_LISTENING.into(),Outbound::Count(n)=>n.into()}}
+    /// S: the automatic slots and the spare, 0 without automatic outbound.
+    pub fn slots(&self)->usize{let k=self.automatic();if k>0{k+1}else{0}}
+    /// At `Node::open` (D3', D14'): `auto` becomes AUTO_LISTENING or AUTO_QUIET, clamped so that the `configured` peers
+    /// and the slots fit OUTBOUND_TOTAL_MAX; with discovery off it becomes 0 and the seeds and bootstrap addresses are
+    /// dropped (the seeds stay configured peers). An explicit count above OUTBOUND_MAX, one with discovery off, one past
+    /// OUTBOUND_TOTAL_MAX, and more than SEEDS_MAX seeds or BOOTSTRAP_MAX bootstrap addresses are refused. Resolving
+    /// twice gives the same result.
+    pub fn resolve(&mut self,listening:bool,configured:usize)->Result<(),String>{
+        if !self.enabled{
+            if matches!(self.outbound,Outbound::Count(n) if n>0){return Err("automatic outbound (--outbound, POCOL_OUTBOUND) needs peer discovery, which is off".into())}
+            self.outbound=Outbound::Count(0);self.seeds.clear();self.bootstrap.clear();self.is_seed=false;return Ok(())}
+        let room=OUTBOUND_TOTAL_MAX.saturating_sub(configured).saturating_sub(1);
+        let k=match self.outbound{Outbound::Auto=>usize::from(if listening{AUTO_LISTENING}else{AUTO_QUIET}).min(room),Outbound::Count(n)=>usize::from(n)};
+        if k>usize::from(OUTBOUND_MAX){return Err(format!("--outbound {k}: must be auto or 0..={OUTBOUND_MAX}"))}
+        let s=if k>0{k+1}else{0};
+        if configured+s>OUTBOUND_TOTAL_MAX{return Err(format!("P2P: {configured} configured peers and {s} automatic outbound slots exceed {OUTBOUND_TOTAL_MAX} (network.md:157: at most 50 peers by default, 32 of them established inbound)"))}
+        if self.seeds.len()>SEEDS_MAX||self.bootstrap.len()>BOOTSTRAP_MAX{return Err(format!("at most {SEEDS_MAX} seeds and {BOOTSTRAP_MAX} bootstrap addresses"))}
+        self.outbound=Outbound::Count(k as u8);Ok(())
+    }
+    /// POCOL_OUTBOUND (auto or 0..=8) unless `--outbound` was given (`flag`); an empty value counts as unset, any other
+    /// bad one is an error naming the variable.
+    pub fn outbound_env(&mut self,flag:bool)->Result<(),String>{
+        if flag{return Ok(())}
+        if let Some(v)=std::env::var("POCOL_OUTBOUND").ok().filter(|v|!v.trim().is_empty()){self.outbound=parse_outbound(&v).map_err(|e|format!("POCOL_OUTBOUND {v}: {e}"))?;}
+        Ok(())
+    }
     /// The operator's switches in the environment (plan §7), read by `pocold run` and the launcher, the commands that
     /// open the network: POCOL_DISCOVERY (0 turns discovery off, 1 on) unless `--no-discovery` was given, and
     /// POCOL_DISCOVER_LOCAL (1 turns local mode on, 0 off) unless `--discover-local` was given; a flag wins over its
@@ -47,20 +92,57 @@ impl Discovery{
         Ok(())
     }
 }
+/// POCOL_OUTBOUND / `--outbound`: `auto`, or a decimal 0..=OUTBOUND_MAX; white space around it ignored.
+pub fn parse_outbound(s:&str)->Result<Outbound,String>{
+    match s.trim(){"auto"=>Ok(Outbound::Auto),v=>{let n:u8=v.parse().map_err(|_|format!("expected auto or 0..={OUTBOUND_MAX}"))?;
+        if n>OUTBOUND_MAX{Err(format!("expected auto or 0..={OUTBOUND_MAX}"))}else{Ok(Outbound::Count(n))}}}
+}
+/// Seeds, static peers and bootstrap addresses as operators give them: at most `max`, distinct, port != 0 and at least
+/// `min_port` (1024 for bootstrap addresses: they are learned entries, VA-SPEC §1a.3), not unspecified or multicast.
+/// The error names `what` and the value.
+pub fn endpoints(values:&[String],what:&str,max:usize,min_port:u16)->Result<Vec<SocketAddr>,String>{
+    if values.len()>max{return Err(format!("{what}: at most {max}"))}
+    let mut out:Vec<SocketAddr>=Vec::with_capacity(values.len());
+    for v in values{let a:SocketAddr=v.trim().parse().map_err(|_|format!("{what} {v}: expected IP:PORT"))?;
+        if a.port()==0||a.port()<min_port||a.ip().is_unspecified()||a.ip().is_multicast(){return Err(format!("{what} {v}: not a usable address"))}
+        if out.contains(&a){return Err(format!("{what} {v}: given twice"))}out.push(a);}
+    Ok(out)
+}
+/// D27 (VA-SPEC §1a.8): whether `seed` is this host's own listener: the exact `--listen` address, or a listener on the
+/// seed's port bound to the unspecified address or to the seed's IP while the seed's IP is a local address (a UDP bind
+/// to it succeeds; it fails with EADDRNOTAVAIL otherwise, and sends nothing). A seed host behind 1:1 NAT cannot see its
+/// public IP so: it must pass its exact public `--listen`.
+pub fn is_own_seed(listen:Option<SocketAddr>,seed:SocketAddr)->bool{
+    let Some(l)=listen else{return false};
+    l==seed||(l.port()==seed.port()&&(l.ip().is_unspecified()||l.ip()==seed.ip())&&std::net::UdpSocket::bind((seed.ip(),0)).is_ok())
+}
 /// Discovery's timings, in milliseconds: the period of its tick; the book's (`addrbook::Times`: the relay window, the
 /// horizon after which an entry is terrible, the failure window, the release hold and its cap, the answer list's
-/// age); how long an outstanding GetAddr waits for its Addr; the first save after the network's start and the period
-/// of the later ones; and how often live connections refresh their entries.
+/// age, the redial spacing of unverified and verified entries); how long an outstanding GetAddr waits for its Addr;
+/// the first save after the network's start and the period of the later ones; and how often live connections refresh
+/// their entries. Automatic outbound (VA-SPEC §1a.7-§1a.9): a slot's backoff after failures (base, cap); how long a
+/// slot connection must live to count as stable; the period of the address-family route probe; the feeler's interval
+/// with and without a listener, and its jitter; the stall window W = max(stall_min_ms, stall_blocks·T_blk) and the
+/// quiet factor (quiet after quiet_factor·W without a peer's head); the seeds' boot window, the time a wanted seed has
+/// to become compatible, how long a seed stays compatible before its release, how long healthy must hold before it,
+/// and the seed hold's base and cap; an anchor's uptime and how long a saved anchor is dialed after its save.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct DiscoveryTimes{pub tick_ms:u64,pub relay_window_ms:u64,pub horizon_ms:u64,pub fail_recent_ms:u64,pub hold_base_ms:u64,pub hold_max_ms:u64,
-    pub cache_ms:u64,pub getaddr_timeout_ms:u64,pub save_first_ms:u64,pub save_every_ms:u64,pub refresh_ms:u64}
+    pub cache_ms:u64,pub retry_ms:u64,pub retry_verified_ms:u64,pub getaddr_timeout_ms:u64,pub save_first_ms:u64,pub save_every_ms:u64,pub refresh_ms:u64,
+    pub backoff_base_ms:u64,pub backoff_max_ms:u64,pub stable_ms:u64,pub probe_ms:u64,pub feeler_listen_ms:u64,pub feeler_quiet_ms:u64,pub feeler_jitter_ms:u64,
+    pub stall_min_ms:u64,pub stall_blocks:u64,pub quiet_factor:u64,pub seed_boot_ms:u64,pub seed_connect_ms:u64,pub seed_hold_ms:u64,pub seed_release_ms:u64,
+    pub seed_hold_base_ms:u64,pub seed_hold_max_ms:u64,pub anchor_uptime_ms:u64,pub anchor_keep_ms:u64}
 impl Default for DiscoveryTimes{
     fn default()->Self{let b=addrbook::Times::default();
         Self{tick_ms:500,relay_window_ms:b.relay_window_ms,horizon_ms:b.horizon_ms,fail_recent_ms:b.fail_recent_ms,hold_base_ms:b.hold_base_ms,hold_max_ms:b.hold_max_ms,
-            cache_ms:b.cache_ms,getaddr_timeout_ms:120_000,save_first_ms:60_000,save_every_ms:900_000,refresh_ms:3_600_000}}
+            cache_ms:b.cache_ms,retry_ms:b.retry_ms,retry_verified_ms:b.retry_verified_ms,getaddr_timeout_ms:120_000,save_first_ms:60_000,save_every_ms:900_000,refresh_ms:3_600_000,
+            backoff_base_ms:1_000,backoff_max_ms:60_000,stable_ms:60_000,probe_ms:10_000,feeler_listen_ms:120_000,feeler_quiet_ms:600_000,feeler_jitter_ms:30_000,
+            stall_min_ms:120_000,stall_blocks:12,quiet_factor:4,seed_boot_ms:60_000,seed_connect_ms:30_000,seed_hold_ms:30_000,seed_release_ms:120_000,
+            seed_hold_base_ms:60_000,seed_hold_max_ms:21_600_000,anchor_uptime_ms:600_000,anchor_keep_ms:86_400_000}}
 }
 impl DiscoveryTimes{
-    fn book(&self)->addrbook::Times{addrbook::Times{relay_window_ms:self.relay_window_ms,horizon_ms:self.horizon_ms,fail_recent_ms:self.fail_recent_ms,hold_base_ms:self.hold_base_ms,hold_max_ms:self.hold_max_ms,cache_ms:self.cache_ms,..addrbook::Times::default()}}
+    fn book(&self)->addrbook::Times{addrbook::Times{relay_window_ms:self.relay_window_ms,horizon_ms:self.horizon_ms,fail_recent_ms:self.fail_recent_ms,hold_base_ms:self.hold_base_ms,
+        hold_max_ms:self.hold_max_ms,cache_ms:self.cache_ms,retry_ms:self.retry_ms,retry_verified_ms:self.retry_verified_ms}}
 }
 
 /// One connection's discovery state, from its Connected to its Closed (discovery on only). `advertised`: the endpoint
@@ -269,8 +351,8 @@ impl Node{
         match r{Ok(())=>{self.disc.book.saved();self.disc.counters.book_saves+=1;}
             Err(e)=>{self.disc.counters.book_save_errors+=1;self.log(&format!("address book: the save failed: {e}"));}}
     }
-    /// `pocol_status.discovery` (plan §8): the settings, the book's size (never its contents), this node's own
-    /// addresses (at most addrbook::SELF_MAX) and the counters.
+    /// `pocol_status.discovery` (plan §8): the settings, the book's size (never its contents), the outbound settings,
+    /// this node's own addresses (at most addrbook::SELF_MAX) and the counters.
     pub(super) fn disc_status(&self)->serde_json::Value{
         let (d,now)=(&self.disc,self.disc_now());let e=d.book.entries();
         let mut keys:Vec<addrbook::Key>=e.iter().map(|e|e.key).collect();keys.sort_unstable();keys.dedup();
@@ -278,6 +360,9 @@ impl Node{
         serde_json::json!({"enabled":d.on,"allowLocal":d.allow_local,"listenPort":d.listen_port(),"selfDetection":d.wire_nonce()!=0,
             "book":{"entries":e.len(),"verified":e.iter().filter(|x|x.verified_ms>0).count(),"relayable":e.iter().filter(|x|d.book.relayable(x,now)).count(),"keys":keys.len(),
                 "max":if d.on{addrbook::BOOK_MAX}else{0},"file":d.file},
+            // VA-SPEC §1a.7: the resolved automatic slots and the bootstrap addresses given (the slots themselves start
+            // with automatic outbound).
+            "outbound":{"automatic":self.cfg.limits.discovery.automatic(),"bootstrap":self.cfg.limits.discovery.bootstrap.len()},
             "self":d.book.selfs().iter().map(|a|a.to_string()).collect::<Vec<_>>(),
             "counters":{"getAddrSent":c.get_addr_sent,"getAddrAnswered":c.get_addr_answered,"getAddrIgnored":c.get_addr_ignored,"getAddrTimeouts":c.get_addr_timeouts,
                 "answerSkippedQueue":c.answer_skipped_queue,"addrReceived":c.addr_received,"addrUnsolicited":c.addr_unsolicited,"addrAccepted":c.addr_accepted,
@@ -288,7 +373,7 @@ impl Node{
 #[cfg(test)]
 mod tests{
     use crate::node::*;
-    use super::{Discovery,Source};
+    use super::{Discovery,Source,Outbound,parse_outbound,is_own_seed};
     use std::io::Read;
     use std::net::TcpStream;
     use crate::net::Origin;
@@ -298,12 +383,16 @@ mod tests{
     fn open(tag:&str)->(Node,std::path::PathBuf){open_with(tag,false,Discovery::default())}
     /// `open`, listening (so it sends its nonce; nothing is bound without `start_network`) or not, with these settings.
     fn open_with(tag:&str,listen:bool,d:Discovery)->(Node,std::path::PathBuf){
+        let (n,dir)=open_peers(tag,listen,d,vec![]);let mut n=n.unwrap();n.disc.test_now=Some(T0);(n,dir)
+    }
+    /// `open_with` these configured peers, as `Node::open` returns it.
+    fn open_peers(tag:&str,listen:bool,d:Discovery,peers:Vec<SocketAddr>)->(Result<Node,String>,std::path::PathBuf){
         let c=DevnetConfig::new(777919,1_700_000_000,&["a","b","c"]);
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
         let dir=std::env::temp_dir().join(format!("pocold-disc-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-        let cfg=Config{dir:dir.clone(),name:tag.into(),miner:None,listen:listen.then(||"127.0.0.1:30300".parse().unwrap()),peers:vec![],rpc:None,stop_at:None,log:false,
+        let cfg=Config{dir:dir.clone(),name:tag.into(),miner:None,listen:listen.then(||"127.0.0.1:30300".parse().unwrap()),peers,rpc:None,stop_at:None,log:false,
             limits:Limits{discovery:d,..Limits::default()}};
-        let mut n=Node::open(cfg,spec).unwrap();n.disc.test_now=Some(T0);(n,dir)
+        (Node::open(cfg,spec),dir)
     }
     fn sa(s:&str)->SocketAddr{s.parse().unwrap()}
     /// A peer's Hello for this node's network and head (so it starts no sync session), announcing `listen_port` and
@@ -725,6 +814,50 @@ mod tests{
         let _3=connect(&mut n,3,Origin::Inbound,Some(sa("81.3.0.9:51000")));let h=claim(&n);msg(&mut n,3,h);
         assert_eq!(sessions(&n),(3,Some(3)),"after a quiet gap a first Hello starts a session at once");
         drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D3', D14' (VA-SPEC §1a.7, network.md:157): `auto` is 4 slots with a listener and 2 without, clamped so that the
+    /// configured peers and the slots with the spare fit 18 outbound places; an explicit count past 8 or past the 18 is
+    /// refused, naming the rule; with discovery off `auto` is 0, the seeds and bootstrap addresses are dropped (the seeds
+    /// stay configured peers) and an explicit count is refused. `slots()` counts the spare.
+    #[test] fn outbound_settings_resolve_within_the_50_peer_rule(){
+        let r=|o:Outbound,listening:bool,peers:usize|{let mut d=Discovery{outbound:o,..Discovery::default()};d.resolve(listening,peers).map(|_|d.outbound)};
+        assert_eq!((r(Outbound::Auto,true,0),r(Outbound::Auto,false,0)),(Ok(Outbound::Count(4)),Ok(Outbound::Count(2))));
+        assert_eq!((r(Outbound::Auto,true,13),r(Outbound::Auto,true,14),r(Outbound::Auto,true,17)),(Ok(Outbound::Count(4)),Ok(Outbound::Count(3)),Ok(Outbound::Count(0))),"clamped to fit 18");
+        assert!(r(Outbound::Count(9),true,0).is_err_and(|e|e.contains("0..=8")));
+        assert!(r(Outbound::Count(4),true,14).is_err_and(|e|e.contains("14 configured peers and 5 automatic outbound slots exceed 18")));
+        assert_eq!(r(Outbound::Count(4),true,13),Ok(Outbound::Count(4)));
+        let mut d=Discovery{outbound:Outbound::Auto,..Discovery::default()};d.resolve(true,0).unwrap();d.resolve(true,0).unwrap();assert_eq!(d.outbound,Outbound::Count(4),"resolving twice");
+        let a=sa("81.2.69.9:30300");
+        let mut off=Discovery{enabled:false,outbound:Outbound::Auto,seeds:vec![a],is_seed:true,bootstrap:vec![a],..Discovery::default()};
+        assert!(off.resolve(true,1).is_ok()&&off==Discovery{enabled:false,..Discovery::default()},"discovery off: no slots, seeds or bootstrap");
+        assert!(Discovery{enabled:false,outbound:Outbound::Count(1),..Discovery::default()}.resolve(true,0).is_err_and(|e|e.contains("needs peer discovery")));
+        let many=Discovery{seeds:vec![a;8],..Discovery::default()};assert!(many.clone().resolve(true,8).is_err());
+        for (v,want) in [("auto",Outbound::Auto),(" 3 ",Outbound::Count(3)),("8",Outbound::Count(8)),("0",Outbound::Count(0))]{assert_eq!(parse_outbound(v),Ok(want),"{v:?}");}
+        for v in ["9","x","-1",""," auto2"]{assert!(parse_outbound(v).is_err(),"{v:?}");}
+        let s=|o:Outbound,on:bool|Discovery{enabled:on,outbound:o,..Discovery::default()}.slots();
+        assert_eq!((s(Outbound::Auto,true),s(Outbound::Count(4),true),s(Outbound::Count(0),true),s(Outbound::Auto,false)),(5,5,0,0));
+    }
+    /// D27 (VA-SPEC §1a.8): a seed is this host's own listener at its exact `--listen` address, or at the seed's port
+    /// when the listener is bound to the unspecified address (or to the seed's IP) and the seed's IP is local here (a
+    /// UDP bind to it succeeds). Loopback is local; a documentation address is not; another port is someone else.
+    #[test] fn own_seed_detection(){
+        let (lo,any,doc)=(sa("127.0.0.1:30311"),sa("0.0.0.0:30311"),sa("192.0.2.1:30311"));
+        assert!(is_own_seed(Some(lo),lo),"the exact --listen");
+        assert!(is_own_seed(Some(any),lo),"an unspecified listener on the port of a local seed IP");
+        assert!(!is_own_seed(Some(any),doc),"a seed IP that is not local here");
+        assert!(!is_own_seed(Some(any),sa("127.0.0.1:30312"))&&!is_own_seed(Some(lo),sa("127.0.0.2:30311")),"another port, or another IP than the bound one");
+        assert!(!is_own_seed(None,lo),"no listener");
+    }
+    /// `Node::open` (D14'): an explicit count that, with the configured peers, passes the 18 outbound places is refused
+    /// before anything opens, as is a count with discovery off and a seed that is not a configured peer.
+    #[test] fn open_refuses_outbound_past_the_50_peer_rule(){
+        let peers=|n:usize|(0..n).map(|i|SocketAddr::new([81,2,0,i as u8+1].into(),30300)).collect::<Vec<_>>();
+        let open=|tag:&str,d:Discovery,p:Vec<SocketAddr>|{let (n,dir)=open_peers(tag,true,d,p);let _=std::fs::remove_dir_all(&dir);n.map(|n|n.cfg.limits.discovery.outbound)};
+        assert!(open("o18",Discovery{outbound:Outbound::Count(8),..Discovery::default()},peers(10)).is_err_and(|e|e.contains("exceed 18")));
+        assert_eq!(open("o17",Discovery{outbound:Outbound::Count(4),..Discovery::default()},peers(13)),Ok(Outbound::Count(4)));
+        assert_eq!(open("oauto",Discovery{outbound:Outbound::Auto,..Discovery::default()},peers(2)),Ok(Outbound::Count(4)),"auto resolved at open");
+        assert!(open("oseed",Discovery{seeds:vec![sa("81.3.0.1:30300")],..Discovery::default()},peers(1)).is_err_and(|e|e.contains("every seed must also be a configured peer")));
+        assert!(open("ooff",Discovery{enabled:false,outbound:Outbound::Count(1),..Discovery::default()},vec![]).is_err_and(|e|e.contains("needs peer discovery")));
     }
     /// `--no-discovery` (VA-SPEC §1a, the escape hatch): Hello announces no port, no GetAddr is sent, a GetAddr is not
     /// answered, an Addr not taken, a self-advertisement not stored and no link state is kept; the nonce check still

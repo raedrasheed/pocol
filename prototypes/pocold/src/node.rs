@@ -11,7 +11,7 @@ use pocol_lp4_execution::{apply::ParentResult,txsign::Key,wire,native::{self,Nat
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId,Useful},store::{self,Journal},types::*};
 mod discovery;
-pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES};
+pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES,Outbound,parse_outbound,endpoints,is_own_seed,SEEDS_MAX,SEED_LINKS_MAX,BOOTSTRAP_MAX};
 
 /// D-REORG-REDB: the journal is the off-heap block store. `record_at` reads a block record back by
 /// its frame offset for on-demand body fetch (fork choice and retention stay on resident metadata).
@@ -560,6 +560,10 @@ impl Node{
         let t_open=Instant::now();let mut timing=OpenTiming::default();
         let pool_gas_max=pool_gas_bound(spec.cp(),&cfg.limits)?;let pool_sender_max=pool_sender_gas_bound(spec.cp(),&cfg.limits)?;
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
+        // D3', D14' (VA-SPEC §1a.7, network.md:157): `auto` becomes a count within the 18 outbound places, an explicit
+        // count past them is refused, and every seed must be a configured peer (it is dialed as one, VA-SPEC §1a.8).
+        cfg.limits.discovery.resolve(cfg.listen.is_some(),cfg.peers.len())?;
+        if let Some(s)=cfg.limits.discovery.seeds.iter().find(|s|!cfg.peers.contains(s)){return Err(format!("seed {s}: every seed must also be a configured peer"))}
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
         // One pass over the journal (2026-10-28: its payloads are not held, condition `open-replay-transient`):

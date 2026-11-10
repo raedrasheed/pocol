@@ -201,6 +201,45 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
     }
     let _=std::fs::remove_dir_all(&d);
 }
+/// Automatic outbound and seed settings (VA-SPEC §1a.7-§1a.9, plan §7): `--outbound N|auto` (0..8) or for `run`
+/// POCOL_OUTBOUND when the flag is absent, `--seed` (at most 7, distinct, a usable address) and `--bootstrap` (at most
+/// 16, ports >= 1024), neither with discovery off, and the 18 outbound places (network.md:157). A bad value fails `run`
+/// (status 1) naming it, before the network is read; a good one passes the settings and `run` fails later, on the
+/// missing --network. What `status` resolved is read back from `discovery.outbound.automatic`.
+#[test] fn outbound_and_seed_settings_are_validated(){
+    let cmd=|args:&[String],env:Option<&str>|{let mut c=Command::new(env!("CARGO_BIN_EXE_pocold"));c.args(args);
+        match env{Some(v)=>{c.env("POCOL_OUTBOUND",v);}None=>{c.env_remove("POCOL_OUTBOUND");}}c.env_remove("POCOL_DISCOVERY");c.output().unwrap()};
+    let v=|a:&[&str]|a.iter().map(|s|s.to_string()).collect::<Vec<_>>();
+    let many=|flag:&str,n:usize,port:u16|(0..n).flat_map(|i|[flag.to_string(),format!("81.2.0.{}:{port}",i+1)]).collect::<Vec<_>>();
+    let run=|rest:Vec<String>|[v(&["run"]),rest].concat();
+    for (args,env,want) in [(run(v(&["--outbound","9"])),None,"--outbound 9: expected auto or 0..=8"),(run(v(&["--outbound","x"])),None,"--outbound x:"),
+        (run(vec![]),Some("9"),"POCOL_OUTBOUND 9: expected auto or 0..=8"),(run(many("--seed",8,30300)),None,"--seed: at most 7"),
+        (run(v(&["--seed","1.2.3.4:30300","--seed","1.2.3.4:30300"])),None,"--seed 1.2.3.4:30300: given twice"),
+        (run(v(&["--seed","1.2.3.4:0"])),None,"--seed 1.2.3.4:0: not a usable address"),(run(v(&["--seed","0.0.0.0:30300"])),None,"--seed 0.0.0.0:30300: not a usable address"),
+        (run(v(&["--seed","1.2.3.4:30300","--no-discovery"])),None,"--seed and --bootstrap need peer discovery"),
+        (run(v(&["--bootstrap","1.2.3.4:30300","--no-discovery"])),None,"--seed and --bootstrap need peer discovery"),
+        (run(v(&["--bootstrap","1.2.3.4:80"])),None,"--bootstrap 1.2.3.4:80: not a usable address"),(run(many("--bootstrap",17,30300)),None,"--bootstrap: at most 16"),
+        (run([v(&["--outbound","4"]),many("--peer",14,30300)].concat()),None,"14 configured peers and 5 automatic outbound slots exceed 18"),
+        (run(v(&["--outbound","1","--no-discovery"])),None,"needs peer discovery"),(v(&["status","--outbound","9"]),None,"--outbound 9:")]{
+        let o=cmd(&args,env);let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains(want),"{args:?} {env:?}: {err}");
+    }
+    for (args,env) in [(run(v(&["--outbound","auto"])),None),(run(v(&["--outbound","0"])),None),(run(vec![]),Some(" 2 ")),(run(vec![]),Some(" ")),
+        (run(v(&["--outbound","3"])),Some("bad")),(run([many("--seed",7,30300),many("--bootstrap",16,1024)].concat()),None),(run([v(&["--outbound","4"]),many("--peer",13,30300)].concat()),None)]{
+        let o=cmd(&args,env);let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains("--network")&&!err.contains("outbound")&&!err.contains("OUTBOUND")&&!err.contains("seed")&&!err.contains("bootstrap"),"{args:?} {env:?}: {err}");
+    }
+    let d=tmp("outbound");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    for (i,(flag,want)) in [("2",2u64),("auto",2),("0",0)].into_iter().enumerate(){
+        let data=d.join(format!("data{i}"));
+        let st=cmd(&v(&["status","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap(),"--outbound",flag]),Some("8"));assert_eq!(st.status.code(),Some(0),"{}",text(&st.stderr));let st:serde_json::Value=serde_json::from_slice(&st.stdout).unwrap();
+        assert_eq!(st["discovery"]["outbound"]["automatic"].as_u64(),Some(want),"status --outbound {flag} (no listener; the variable is not read)");
+    }
+    let _=std::fs::remove_dir_all(&d);
+}
 /// pocol_status from a node's RPC port, None until it answers.
 fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     use std::io::{Read,Write};
