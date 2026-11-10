@@ -330,6 +330,36 @@ class SeedUpgradeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'another network, consensus rules'): op.launch(self.new, self.data, key)
             started.assert_not_called()
 
+    def test_migration_after_a_digest_only_swap_starts_on_the_kept_marker(self):
+        # The installed bundle is a digest-only swap: launch() accepted the marker and kept its older build digest.
+        swap = self.bundle('swap', 'c' * 64)
+        installed = op.read_json(swap / 'manifest.json')['identity']
+        self.assertNotEqual(installed, self.before)
+        self.assertTrue(op.bound(self.before, installed))
+        marker = (self.data / 'network-binding.json').read_bytes()
+        expected = op.digest(self.new / 'manifest.json')
+        real_write = upgrade.atomic_public_write
+        def interrupted(path, content, owner):
+            if path.name == 'network-binding.json': raise OSError('simulated interruption')
+            real_write(path, content, owner)
+        with patch.object(upgrade, 'atomic_public_write', side_effect=interrupted):
+            with self.assertRaises(OSError): upgrade.migrate_binding(swap, self.new, self.data, expected)
+        self.assertEqual((self.data / 'network-binding.json').read_bytes(), marker)
+        intent = op.read_json(self.data / upgrade.INTENT)
+        self.assertEqual(intent['before'], self.before, 'the intent records the actual starting marker')
+        self.assertEqual(intent['oldManifestSha256'], op.digest(swap / 'manifest.json'))
+        upgrade.migrate_binding(swap, self.new, self.data, expected)
+        self.assertEqual(op.read_json(self.data / 'network-binding.json'), self.after)
+        self.assertEqual((self.data / upgrade.backup_name(self.before)).read_bytes(), marker,
+                         'the backup keeps the original marker bytes')
+        self.assertFalse((self.data / upgrade.backup_name(installed)).exists())
+        self.assertTrue(upgrade.migrate_binding(swap, self.new, self.data, expected)['bindingMigrated'])
+        # A marker of another node is still refused from the same installed bundle.
+        for name in ('network-binding.json', upgrade.INTENT): (self.data / name).unlink()
+        op.write_json(self.data / 'network-binding.json', {**self.before, 'miner': None})
+        with self.assertRaisesRegex(ValueError, 'does not match the old seed bundle'):
+            upgrade.migrate_binding(swap, self.new, self.data, expected)
+
     def test_a_legacy_marker_is_accepted_only_through_a_certified_build(self):
         old = self.bundle('legacy', 'a' * 64, legacy=True)
         legacy = op.read_json(old / 'manifest.json')['identity']

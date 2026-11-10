@@ -370,22 +370,30 @@ def _migrate_locked(old_bundle, new_bundle, old_snap, new_snap, data, expected_n
     old_info = op.read_json(old_snap / 'net/devnet.json')
     with op.locked(data):
         current = op.read_json(marker)
-        before, after = old['identity'], new['identity']
-        intent = {'schema': INTENT_SCHEMA,
-                  'oldManifestSha256': op.digest(old_snap / 'manifest.json'),
-                  'newManifestSha256': expected_new, 'before': before, 'after': after,
-                  'appended': [[v, str(h)] for v, h in appended]}
+        old_identity, after = old['identity'], new['identity']
+        # The starting marker is the one node_operator.launch() accepts for the old bundle (op.bound: the consensus
+        # binding), not only its exact identity: a digest-only bundle swap keeps the older build digest in the marker.
+        # The plan, the backup and the resumable intent record that actual marker.
+        plan = lambda start: {'schema': INTENT_SCHEMA,
+                              'oldManifestSha256': op.digest(old_snap / 'manifest.json'),
+                              'newManifestSha256': expected_new, 'before': start, 'after': after,
+                              'appended': [[v, str(h)] for v, h in appended]}
         intent_path = data / INTENT
-        resume = False
+        resume, before = False, current
         if intent_path.exists() or intent_path.is_symlink():
             regular(intent_path)
             saved = op.read_json(intent_path)
-            # A finished earlier migration (also one by the 0.4.0 tool) ends at this plan's starting marker.
-            resume = saved == intent
-            require(resume or (isinstance(saved, dict) and saved.get('after') == current == before),
+            # Resume only this plan, from the starting marker it recorded. A finished earlier migration (also one by
+            # the 0.4.0 tool) ends at a marker this plan starts on.
+            resume = (isinstance(saved, dict) and op.bound(saved.get('before'), old_identity)
+                      and saved == plan(saved['before']))
+            require(resume or (isinstance(saved, dict) and saved.get('after') == current
+                               and op.bound(current, old_identity)),
                     'Resume with exactly the same approved seed bundles')
+            if resume: before = saved['before']
         if not resume:
-            require(current == before, 'State binding does not match the old seed bundle')
+            require(op.bound(current, old_identity), 'State binding does not match the old seed bundle')
+        intent = plan(before)
         require(current in (before, after), 'Unexpected state release binding')
         # Check again on retry, including all side branches and a complete but
         # uncommitted frame. Never alter journal/checkpoint/history data here.
