@@ -252,8 +252,9 @@ history, signature-recovery, crate-root and identity sources, `build.rs`, the bo
 Cargo manifests, both `rust-toolchain.toml` files, the vector directories and the EVM-crypto path patches. Cargo.lock
 is not hashed whole: the dependency closure of `root` crates (pocol-lp4-execution, k256, sha2, sha3) becomes one
 `dep` line per package. Every other crate-root module is classified node-local (`=`), and a `+` file may reference an
-`=` or `-` module (by `crate::`, another crate's name, or a `self::`/`super::` path that climbs to the crate root)
-only through a reviewed `~` line with its reason. The aggregate is
+`=` or `-` module (by `crate::`, `$crate::` in a macro, another crate's name, or a `self::`/`super::` path that climbs
+to the crate root) only through a reviewed `~` line with its reason; other `$`-prefixed paths are macro metavariables
+and are not resolved. The aggregate is
 `SHA-256("pocol-consensus-sources-v1\0" ‖ (u64 len name ‖ name ‖ u64 len bytes ‖ bytes)*)`, with the `dep` lines as
 one entry named `Cargo.lock#closure`.
 

@@ -291,6 +291,19 @@ fn a_self_or_super_chain_that_climbs_to_the_crate_root_is_a_crate_reference() {
 }
 
 #[test]
+fn a_dollar_crate_path_in_a_macro_is_a_crate_reference() {
+    // `$crate::` resolves to the defining crate's root, exactly like `crate::`; a metavariable path (`$m::x`) does not.
+    let names = |v: Vec<(String, String)>| v.into_iter().map(|(c, n)| format!("{c}::{n}")).collect::<Vec<_>>();
+    let src = "macro_rules! frame { ($m:ident) => { $crate::net::MAX_FRAME + $crate::{rpc::X, chain::Y} + $m::z() } }\n";
+    assert_eq!(names(references(src, "pocold", 1, &std::collections::BTreeSet::new())), ["pocold::chain", "pocold::net", "pocold::rpc"]);
+    // In a fixture: a + file's macro reaching the node-local net through `$crate::` fails check 6.
+    let r = fixture("dollar-crate");
+    append(&r, "pocold/src/chain.rs", "#[macro_export] macro_rules! frame { () => { $crate::net::MAX_FRAME } }\n");
+    let t = tree(&r);
+    refused(check(&base_unchecked(&t), &t, &K), "pocold/src/chain.rs (+) references pocold::net");
+}
+
+#[test]
 fn a_hand_edited_history_line_is_not_accepted() {
     let r = fixture("canonical");
     let text = repin(None, &tree(&r), &K, "base", "PR5", "fixture", None).unwrap();

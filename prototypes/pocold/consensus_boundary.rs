@@ -363,7 +363,7 @@ fn declared_only_under_cfg_test(root: &Path, path: &str) -> Result<(), String> {
     if seen == 0 { return Err("no parent declares it through a #[cfg(test)] mod".into()) }
     Ok(())
 }
-/// Names a source refers to in `crate`, through a `self::`/`super::` chain that climbs to the crate root, and in
+/// Names a source refers to in `crate` (or `$crate` in a macro), through a `self::`/`super::` chain that climbs to the crate root, and in
 /// extern crates. `depth` is the file's module depth (0 for the crate root). Returns (target crate, top-level name).
 /// `*` stands for a glob import.
 pub fn references(src: &str, own: &str, depth: usize, own_mods: &BTreeSet<String>) -> Vec<(String, String)> {
@@ -381,6 +381,8 @@ pub fn references(src: &str, own: &str, depth: usize, own_mods: &BTreeSet<String
         let mut from = 0;
         while let Some(k) = s[from..].find(prefix.as_str()) {
             let i = from + k; from = i + prefix.len();
+            // `$crate::` in a macro_rules! body resolves to the defining crate's root, which is this file's crate.
+            let i = if prefix == "crate::" && s[..i].ends_with('$') { i - 1 } else { i };
             if !starts(i) { continue }
             for n in group_heads(&s[from..]) { out.push((target.clone(), n)) }
         }
