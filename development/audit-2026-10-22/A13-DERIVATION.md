@@ -834,7 +834,7 @@ Terms (S = inbound_max, d = configured peers, high = S + d + EVENT_QUEUE + (1 + 
 | inbound eviction (new) | S × (SLOT_BYTES + CAND_BYTES) + high × ACTIVITY_BYTES + EVICT_RING × EVICT_ENTRY_BYTES + 1024 = S × 192 + high × 64 + 3,072 | `net::SLOT_BYTES` 96, `CAND_BYTES` 96, `ACTIVITY_BYTES` 64 (with the 16-byte Arc header), `EVICT_RING` 64, `EVICT_ENTRY_BYTES` 32; const-asserted against `Slot`, `Cand`, `Activity` and `(EvictKey, u64)`; the registry is reserved once for S entries and never grown |
 
 So one physical place costs 3,421,500 B (queue and frames 2,625,536, two threads 532,480, an exiting one 262,144,
-links 1,180, a group entry 160), and one established place at the defaults **3,424,474 B** of model with the
+links 1,180, a group entry 160), and one established place at the defaults **3,424,474 B** of model (PR2b: 3,424,620 B, the links at LINK_BYTES 144, 2 × 663 B) with the
 registry (192), its activity record (64) and its map entries (2,718): about **3.73 MiB of budget** with the 1/8
 reserve (`derive(P + 1) − derive(P)`, asserted). None of these terms depends on the CP, so the change is the
 same on every profile.

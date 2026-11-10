@@ -12,4 +12,11 @@ fallback, so the owner can still choose another option before the release; nothi
 | D17 | Bootstrap without the seeds | An optional v2 invitation field `bootstrap` (≤ 16 community listeners that agreed to be listed), outside `content_key`, refreshable by `pocol upgrade`, and `pocold run --bootstrap`. | A `bootstrap.pocol.txt` beside the invitation; a "reseed" upgrade path; documented `addrbook` copying. |
 | D23 | Retiring the seeds | An optional v2 invitation flag `seedsRetired`, outside `content_key`: when true the launcher passes no seeds. | Rely on dial backoff and seed holds alone. |
 
-VA-SPEC §1a.7-§1a.9 states the behaviour these defaults give.
+VA-SPEC §1a.7-§1a.9 states the behaviour these defaults give. development/public-network/OPERATIONS.md ("Peer
+discovery", "Stopping the seeds") is the operators' side, with the runbook for stopping the seeds.
+
+Implementation notes (PR2b): D7′a also applies in the seeds' boot window: a node without a listener whose book can
+fill its slots wants one seed there too, so that it does not release the seed and want it again when the window ends.
+The A13 cost of `auto` is 27,517,640 B of model (5 slot places at 3,690,508 B and one forwarder with the outbound
+state at 9,065,100 B) and 16 tasks; the live chain's A13 halt moves about 10,600-10,800 records earlier and the PR3
+seed rule still holds (55,465 of a week's 60,480 records).
