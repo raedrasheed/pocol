@@ -210,3 +210,51 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     let mut out=String::new();let _=s.read_to_string(&mut out);
     let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();v.is_object().then_some(v)
 }
+
+/// D20 (VA-SPEC §1a.6): `pocold run` stops cleanly on SIGTERM, as `systemctl stop` sends it: it leaves its run loop at the
+/// next event boundary, saves the address book if it changed, prints its final status on stdout and exits 0. Without a
+/// handler the signal killed it (no status, no save, exit by signal). (a) A listening node with no peers: a clean book
+/// is not written, so only the exit and the status are expected. (b) A node with a `--peer` that answers: once its
+/// peer's Hello verified (dirtied) the book, SIGTERM leaves `addrbook` in its data directory.
+#[cfg(unix)]
+#[test] fn pocold_run_stops_cleanly_on_sigterm(){
+    use std::process::{Child,Stdio};
+    let d=tmp("sigterm");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let path=|p:&PathBuf|p.to_str().unwrap().to_string();
+    // The node's ports stay held until right before it starts (tests/discovery.rs).
+    let hold=||{let held=[std::net::TcpListener::bind("127.0.0.1:0").unwrap(),std::net::TcpListener::bind("127.0.0.1:0").unwrap()];let a=held.each_ref().map(|l|l.local_addr().unwrap());(held,a)};
+    let start=|data:&PathBuf,extra:&[String]|->(Child,std::net::SocketAddr,std::net::SocketAddr){
+        let (held,[p2p,rpc])=hold();
+        let mut args=vec!["run".to_string(),"--network".into(),path(&net),"--data".into(),path(data),"--listen".into(),p2p.to_string(),"--rpc".into(),rpc.to_string()];args.extend(extra.iter().cloned());
+        drop(held);
+        let c=Command::new(env!("CARGO_BIN_EXE_pocold")).args(&args).env_remove("POCOL_DISCOVERY").stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();(c,p2p,rpc)
+    };
+    // Polls pocol_status until `ready` holds (the ordering barrier), within 60 s.
+    let wait=|c:&mut Child,rpc,ready:&dyn Fn(&serde_json::Value)->bool|{let t=std::time::Instant::now();
+        loop{if let Some(s)=c.try_wait().unwrap(){panic!("run exited early with {s}")}
+            if rpc_status(rpc).is_some_and(|v|ready(&v)){return}
+            assert!(t.elapsed()<std::time::Duration::from_secs(60),"not ready within 60 s");std::thread::sleep(std::time::Duration::from_millis(50));}};
+    // SIGTERM, then the exit within 10 s: its status and the final status JSON it printed.
+    let term=|mut c:Child|->(Option<i32>,serde_json::Value){
+        assert_eq!(unsafe{libc::kill(c.id() as i32,libc::SIGTERM)},0);
+        let t=std::time::Instant::now();
+        let s=loop{if let Some(s)=c.try_wait().unwrap(){break s}if t.elapsed()>std::time::Duration::from_secs(10){let _=c.kill();panic!("no exit within 10 s of SIGTERM")}std::thread::sleep(std::time::Duration::from_millis(20));};
+        let mut out=String::new();std::io::Read::read_to_string(c.stdout.as_mut().unwrap(),&mut out).unwrap();
+        (s.code(),serde_json::from_str(out.trim()).unwrap_or_else(|e|panic!("no final status on stdout ({e}): {out:?}")))
+    };
+    // (a)
+    let a=d.join("a");let (mut na,_,rpc_a)=start(&a,&[]);wait(&mut na,rpc_a,&|_|true);
+    let (code,st)=term(na);
+    assert_eq!(code,Some(0),"SIGTERM is a clean stop");assert!(st["discovery"].is_object(),"the final status: {st}");
+    assert!(!a.join("addrbook").exists(),"a clean book is not written");
+    // (b)
+    let b=d.join("b");let (mut nb,p2p_b,rpc_b)=start(&b,&[]);wait(&mut nb,rpc_b,&|_|true);
+    let c=d.join("c");let (mut nc,_,rpc_c)=start(&c,&["--peer".into(),p2p_b.to_string()]);
+    wait(&mut nc,rpc_c,&|v|v["compatiblePeers"].as_u64()>=Some(1));
+    let (code,st)=term(nc);
+    assert_eq!((code,st["compatiblePeers"].as_u64()),(Some(0),Some(1)),"a clean stop with its peer: {st}");
+    assert!(c.join("addrbook").exists(),"the book the peer's Hello changed is saved at the clean stop");
+    let _=term(nb);
+    let _=std::fs::remove_dir_all(&d);
+}

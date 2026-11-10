@@ -2,6 +2,7 @@
 use pocold::{node,types,load_spec_for,single_host_local};
 use pocol_lp4_execution::admission::NodeLocal;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool,Ordering};
 use pocol_lp4_execution::devnet;
 
 fn arg(args:&[String],k:&str)->Option<String>{args.iter().position(|a|a==k).and_then(|i|args.get(i+1)).cloned()}
@@ -9,9 +10,21 @@ fn args_all(args:&[String],k:&str)->Vec<String>{args.windows(2).filter(|w|w[0]==
 fn flag(args:&[String],k:&str)->bool{args.iter().any(|a|a==k)}
 fn num<T:std::str::FromStr>(args:&[String],k:&str,d:T)->T{arg(args,k).and_then(|v|v.parse().ok()).unwrap_or(d)}
 
+/// Set by SIGINT and SIGTERM (Ctrl-C, close and shutdown on Windows): `pocold run` then stops at its next event
+/// boundary, saves the address book and its anchors (`Node::run_controlled`), prints its status and exits 0, so
+/// `systemctl stop` is a clean stop. As bin/pocol.rs.
+static STOP:AtomicBool=AtomicBool::new(false);
+#[cfg(unix)]
+extern "C" fn signal(_:i32){STOP.store(true,Ordering::Relaxed);}
+#[cfg(windows)]
+unsafe extern "system" fn console(event:u32)->i32{if event==0||event==1||event==2{STOP.store(true,Ordering::Relaxed);1}else{0}}
 /// main only collects the arguments, then runs the command on the consensus thread, whose
 /// stack reservation is explicit (A13 thread inventory), and joins it.
 fn main(){
+    #[cfg(unix)]
+    unsafe{libc::signal(libc::SIGINT,signal as *const () as usize);libc::signal(libc::SIGTERM,signal as *const () as usize);}
+    #[cfg(windows)]
+    unsafe{windows_sys::Win32::System::Console::SetConsoleCtrlHandler(Some(console),1);}
     // A first argument that is not text is a command this build does not have (args() would panic on it).
     if let Some(c)=std::env::args_os().nth(1).filter(|c|c.to_str().is_none()){eprintln!("error: unknown command {c:?}\n{USAGE}");std::process::exit(2)}
     let args:Vec<String>=std::env::args().collect();
@@ -136,7 +149,7 @@ fn run(args:&[String])->Result<(),String>{
         eprintln!("pocold: {} admission, not specification compliance ({} conditions; see status \"admission\")",n.chain.spec.admission().scope().name(),n.chain.spec.admission().report().conditions.len());
     }
     n.log(&format!("opened: head h={} records={}",n.chain.head().height,n.journal_records()));
-    n.start_network()?;n.run();
+    n.start_network()?;n.run_controlled(|_|STOP.load(Ordering::Relaxed));
     println!("{}",n.status_json());Ok(())
 }
 /// The new network's genesis from a stopped old node's data at height S (EARN-IN-SPEC.md section 7).

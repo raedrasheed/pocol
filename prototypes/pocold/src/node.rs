@@ -839,8 +839,8 @@ impl Node{
             self.drain_light();self.handle(ev);
             if self.background_pending(){self.background_step();}
         }
-        // VA-SPEC §1a.6: a clean stop saves the address book (`pocold run` has no signal handler: a node that is
-        // killed keeps its last save).
+        // VA-SPEC §1a.6: a clean stop saves the address book. `pocold run` and the launcher stop cleanly on SIGINT and
+        // SIGTERM (so `systemctl stop` is a clean stop); a killed node keeps its last save.
         self.disc_save();
         if let Some(p)=&self.prod{if let Some(m)=&p.miner{m.stop();}}
     }
@@ -1868,11 +1868,14 @@ impl Node{
                 if first{self.disc_first_hello(from,listen_port,nonce,now);}
                 // Only a peer's first Hello may start a session at once; later Status updates wait for
                 // sync_tick's round-robin, so a peer re-announcing a false claim cannot hold the session
-                // slot. A claim set aside stays aside until the announced head changes.
+                // slot. And only SESSION_GAP_MS after the last start (VA-SPEC §4): a peer that ends its session by
+                // disconnecting gets no new one (and no new SESSION_REBUILD_MAX allowance) at its next first Hello
+                // sooner than the round-robin would give it (sync_tick). A claim set aside stays aside until the
+                // announced head changes.
                 let prev=self.peer_status.get(&from);
                 let stale=prev.map_or(false,|p|p.stale&&p.head==head);
                 let st=PeerStatus{work:U256::from_be_bytes(work),head,height,stale};
-                let start=first&&self.session.is_none()&&height>0&&self.wants(&st);
+                let start=first&&self.session.is_none()&&height>0&&self.wants(&st)&&now_ms().saturating_sub(self.sync_ask_ms)>=SESSION_GAP_MS;
                 self.peer_status.insert(from,st);
                 if start{self.start_session(from,now_ms());}
             }

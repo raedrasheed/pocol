@@ -704,6 +704,26 @@ mod tests{
         n.disc_tick(back+H);assert_eq!(n.disc.book.get(sa("81.5.0.1:30300")).unwrap().direct_ms,back+H,"and the hourly refresh an hour after it");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
+    /// D19, residual (b) (VA-SPEC §4): a first Hello starts a sync session at once only SESSION_GAP_MS after the last
+    /// start. A peer that ends its session by disconnecting and comes back at once with the same claim gets no fresh
+    /// session (and no fresh SESSION_REBUILD_MAX allowance) before sync_tick's round-robin gives it one; a first Hello
+    /// after a quiet gap still starts one at once.
+    #[test] fn a_reconnecting_peer_waits_for_the_session_gap(){
+        let (mut n,dir)=open("gap");
+        let claim=|n:&Node|{let mut h=n.hello();if let Msg::Hello{head,height,work,..}=&mut h{(*head,*height,*work)=([0x5a;32],5,[0xff;32]);}h};
+        let sessions=|n:&Node|(n.stats.sync_sessions,n.session.as_ref().map(|s|s.peer));
+        let _1=connect(&mut n,1,Origin::Inbound,Some(sa("81.2.69.7:51000")));let h=claim(&n);msg(&mut n,1,h);
+        assert_eq!(sessions(&n),(1,Some(1)),"an unknown head with more work starts a session at the first Hello");
+        n.handle(Event::Net(NetEvent::Closed(1)));assert_eq!(sessions(&n),(1,None),"its Closed ends the session");
+        let _2=connect(&mut n,2,Origin::Inbound,Some(sa("81.2.69.7:51001")));let h=claim(&n);msg(&mut n,2,h);
+        assert_eq!(sessions(&n),(1,None),"the same remote reconnecting at once starts no new session");
+        n.sync_ask_ms-=SESSION_GAP_MS;n.sync_tick(now_ms());
+        assert_eq!(sessions(&n),(2,Some(2)),"the round-robin asks it once the gap has passed");
+        n.handle(Event::Net(NetEvent::Closed(2)));n.sync_ask_ms-=SESSION_GAP_MS;
+        let _3=connect(&mut n,3,Origin::Inbound,Some(sa("81.3.0.9:51000")));let h=claim(&n);msg(&mut n,3,h);
+        assert_eq!(sessions(&n),(3,Some(3)),"after a quiet gap a first Hello starts a session at once");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
     /// `--no-discovery` (VA-SPEC §1a, the escape hatch): Hello announces no port, no GetAddr is sent, a GetAddr is not
     /// answered, an Addr not taken, a self-advertisement not stored and no link state is kept; the nonce check still
     /// stops a dialer that reached this node itself.
