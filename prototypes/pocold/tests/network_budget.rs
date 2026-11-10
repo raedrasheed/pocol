@@ -233,29 +233,33 @@ fn print(tag:&str,b:&pocold::resources::Bound){
 }
 fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution::admission::NodeLocal{delta:5,phi:5,t_exec:3,delta_rel:26,gamma:30,k_hist:32,retention_stress:false,..pocold::single_host_local()}}
 
-/// PR2a (plan §9): peer discovery's four queue terms are counted only with discovery on, each at its formula: the
-/// book's BOOK_MAX entries reserved once; the links table at its churn high-water (the live peers and one stale link
-/// per Closed still queued); the transient scratch; the file's read and save buffers. Off, no term is counted and the
-/// total is the on-total less exactly their sum. Local mode changes nothing.
+/// PR2a (plan §9): peer discovery's queue terms are counted only with discovery on, each at its formula: the book's
+/// BOOK_MAX entries reserved once; the links table at its churn high-water (the live peers, PR2b's S automatic slot
+/// places among them, and one stale link per Closed still queued, the slots' forwarder's queue included); the
+/// transient scratch; the file's read and save buffers; PR2b's outbound state with any slot. Off, no term is counted,
+/// and without automatic outbound (`Count(0)`) the total is the on-total less exactly their sum. Local mode changes
+/// nothing.
 #[test] fn a13_discovery_terms_are_counted_only_when_enabled(){
-    use pocold::{addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX},node::{self,Discovery,Limits},net,resources::derive};use std::mem::size_of;
+    use pocold::{addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX},node::{self,Discovery,Limits,Outbound},net,resources::derive};use std::mem::size_of;
     let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     let disc=|b:&pocold::resources::Bound|b.items.iter().filter(|x|x.0.starts_with("queues/discovery")).cloned().collect::<Vec<_>>();
     let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);
-    for (peers_max,dials) in [(net::Limits::default().peers_max,2usize),(16,5),(1,0)]{
+    for (peers_max,dials) in [(net::Limits::default().peers_max,2usize),(16,5),(1,0)]{for outbound in [Discovery::default().outbound,Outbound::Count(0),Outbound::Count(8)]{
         let at=|d:Discovery|derive(&cp,32,l.side_max,&Limits{net:net::Limits{peers_max,..Default::default()},discovery:d,..Default::default()},dials).unwrap();
-        let (on,off,local)=(at(Discovery::default()),at(Discovery{enabled:false,..Default::default()}),at(Discovery{allow_local:true,..Default::default()}));
+        let d=Discovery{outbound,..Default::default()};let (s,f)=(d.slots(),usize::from(d.slots()>0));
+        let (on,off,local)=(at(d.clone()),at(Discovery{enabled:false,outbound,..Default::default()}),at(Discovery{allow_local:true,..d.clone()}));
         assert!(disc(&off).is_empty(),"off: {:?}",disc(&off));
-        let high=(net::Limits{peers_max,..Default::default()}.inbound_max()+dials+node::EVENT_QUEUE+(1+dials)*(net::NET_EVENT_QUEUE+1)) as u128;
+        let high=(net::Limits{peers_max,..Default::default()}.inbound_max()+dials+s+node::EVENT_QUEUE+(1+dials+f)*(net::NET_EVENT_QUEUE+1)) as u128;
         let want=[("queues/discovery: address book (BOOK_MAX, reserved once)",BOOK_MAX as u128*size_of::<ab::Entry>() as u128+512),
             ("queues/discovery: per-connection links (churn)",high*2*link+512),
             ("queues/discovery: selection, answer and self scratch",(2*BOOK_MAX*(size_of::<ab::Source>()+size_of::<ab::Key>()+8)+2*CACHE_MAX*size_of::<std::net::SocketAddr>()+(SELF_MAX+ANCHORS_MAX+7)*64+1024) as u128),
-            ("queues/discovery: address-book file buffers",(pocold::launcher::MAX_INVITATION+1+FILE_LINE_MAX*(BOOK_MAX+ANCHORS_MAX+3)) as u128)];
-        assert_eq!(disc(&on),want,"peers_max {peers_max}, dials {dials}");
+            ("queues/discovery: address-book file buffers",(pocold::launcher::MAX_INVITATION+1+FILE_LINE_MAX*(BOOK_MAX+ANCHORS_MAX+3)) as u128),
+            ("queues/discovery: outbound state",(f*node::OUT_STATE_BYTES) as u128)];
+        assert_eq!(disc(&on),want,"peers_max {peers_max}, dials {dials}, {outbound:?}");
         let sum:u128=want.iter().map(|x|x.1).sum();
-        assert_eq!((on.total-sum,on.queues-sum),(off.total,off.queues),"off is on less exactly the discovery terms");
+        if s==0{assert_eq!((on.total-sum,on.queues-sum),(off.total,off.queues),"off is on less exactly the discovery terms");}
         assert_eq!(local,on,"local mode costs nothing more");
-    }
+    }}
     assert_eq!(BOOK_MAX,1024);
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,144),"the type sizes the pinned total was derived with");}
 }
@@ -336,6 +340,35 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     }
     let d=net::Limits::default();assert_eq!(at(d.peers_max+1,d.handshaking_max,2).total-at(d.peers_max,d.handshaking_max,2).total,3_424_620,"one more established place");
     assert_eq!((net::SLOT_BYTES,net::CAND_BYTES,net::ACTIVITY_BYTES,net::EVICT_RING,net::EVICT_ENTRY_BYTES),(96,96,64,64,32),"the constants the pinned totals were derived with");
+}
+/// PR2b (plan §4.2, VA-SPEC §1a.7): automatic outbound costs exactly its terms. Each slot place (S = K + 1, the spare's
+/// included) is a peer send queue with its frames, three threads (the slot's, its connection's reader and writer), an
+/// exiting reader, and one more connection the node can know at once (its map entries, activity record and two
+/// links); with any slot, one forwarder (its queue, its thread, and the connections its queue can hold) and the
+/// outbound state. Discovery off counts none of it, whatever the setting.
+#[test] fn a13_outbound_slots_cost_exactly_their_terms(){
+    use pocold::{net,node::{self,Limits,Discovery,Outbound},resources::derive,threads::IO_STACK};
+    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let at=|o:Outbound,on:bool|derive(&cp,32,l.side_max,&Limits{discovery:Discovery{enabled:on,outbound:o,..Default::default()},..Default::default()},2).unwrap();
+    let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
+    let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);let (q,fr)=(net::Limits::default().queue_bytes_max as u128,net::MAX_FRAME as u128);
+    let (io,stack,nq)=(IO_STACK as u128+4096,IO_STACK as u128,net::NET_EVENT_QUEUE as u128+1);
+    let per_high=2718+64+2*link;
+    let p_s=(q+2*fr+4096)+3*io+stack+per_high;
+    let p_f=nq*(fr+256)+io+nq*per_high+node::OUT_STATE_BYTES as u128;
+    let t=|o:Outbound|at(o,true).total;
+    assert_eq!(t(Outbound::Auto)-t(Outbound::Count(0)),5*p_s+p_f,"auto counts S = 5 slot places and the forwarder");
+    assert_eq!(t(Outbound::Count(8))-t(Outbound::Count(4)),4*p_s,"four more slots");
+    assert_eq!(t(Outbound::Count(1))-t(Outbound::Count(0)),2*p_s+p_f,"one slot and the spare");
+    assert_eq!(at(Outbound::Auto,false).total,at(Outbound::Count(0),false).total,"discovery off: no slot terms");
+    println!("A13-OUTBOUND {}",serde_json::json!({"slotPlace":p_s.to_string(),"forwarder":p_f.to_string(),"auto":(5*p_s+p_f).to_string()}));
+    let (a,z)=(at(Outbound::Auto,true),at(Outbound::Count(0),true));
+    for (k,want) in [("queues/peer send queues and frames",5*(q+2*fr+4096)),("queues/network event forwarders",nq*(fr+256)),("threads/I/O thread stacks and heap",16*io),
+        ("threads/exiting not-yet-joined",5*stack),("queues/node peer and status maps",(5+nq)*2718),("queues/inbound eviction",(5+nq)*64),
+        ("queues/discovery: per-connection links",(5+nq)*2*link),("queues/discovery: outbound state",node::OUT_STATE_BYTES as u128)]{
+        assert_eq!(item(&a,k)-item(&z,k),want,"{k}");
+    }
+    assert_eq!(item(&z,"queues/discovery: outbound state"),0,"no outbound state without slots");
 }
 /// PR3 A2: the devnet profile pocold boots passes the A13 gate at a seed's settings (64 established, 8 waiting for a
 /// Hello, 7 configured peers) and at the largest established count (128), in both modes.

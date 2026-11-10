@@ -11,7 +11,7 @@ use pocol_lp4_execution::{apply::ParentResult,txsign::Key,wire,native::{self,Nat
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId,Useful},store::{self,Journal},types::*};
 mod discovery;
-pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES,Outbound,parse_outbound,endpoints,is_own_seed,SEEDS_MAX,SEED_LINKS_MAX,BOOTSTRAP_MAX};
+pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES,OUT_STATE_BYTES,Outbound,parse_outbound,endpoints,is_own_seed,SEEDS_MAX,SEED_LINKS_MAX,BOOTSTRAP_MAX};
 
 /// D-REORG-REDB: the journal is the off-heap block store. `record_at` reads a block record back by
 /// its frame offset for on-demand body fetch (fork choice and retention stay on resident metadata).
@@ -802,7 +802,7 @@ impl Node{
         // R2 (PR3): the service must hold the whole A13 thread inventory, or a thread spawn would fail while the node
         // runs (a miner's is not fatal, a peer's closes it); a task limit that cannot be read is not checked.
         if let Some(m)=pids_max(){
-            let need=crate::resources::tasks_needed(&self.cfg.limits.net,self.cfg.peers.len(),self.cfg.limits.rpc.conn_max).unwrap_or(u128::MAX);
+            let need=crate::resources::tasks_needed(&self.cfg.limits.net,self.cfg.peers.len(),self.cfg.limits.discovery.slots(),self.cfg.limits.rpc.conn_max).unwrap_or(u128::MAX);
             crate::resources::tasks_fit(need,&m)?;
         }
         // The configured peers (for example the other seeds, which also dial this node) are never refused

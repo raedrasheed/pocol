@@ -81,8 +81,9 @@ impl Limits{
     pub fn inbound_max(&self)->usize{self.peers_max.saturating_add(self.handshaking_max)}
 }
 /// The largest `peers_max` an operator may set (`--peers-max`, POCOL_PEERS_MAX): A13 counts every place at about 3.73
-/// MiB of budget, and the thread inventory (`resources::tasks_needed`: 2·inbound_max + 4·dials + 40 tasks with 32 RPC
-/// connections) is 340 at 128 with 7 peers, within the 512 tasks a seed's unit allows (`Node::start_network` refuses to
+/// MiB of budget, and the thread inventory (`resources::tasks_needed`: 2·inbound_max + 4·dials + 3·S + [S > 0] + 40
+/// tasks with 32 RPC connections and S automatic outbound slots) is 368 at 128 with 7 peers and S = 9, within the 512
+/// tasks a seed's unit allows (`Node::start_network` refuses to
 /// boot past the service's pids.max, `resources::tasks_fit`).
 pub const PEERS_MAX_LIMIT:usize=128;
 /// `--peers-max N` / POCOL_PEERS_MAX: a decimal integer in 1..=PEERS_MAX_LIMIT, surrounding white space ignored. 0 is

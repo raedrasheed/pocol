@@ -25,6 +25,7 @@ use crate::net::{self,Msg,Origin,PeerId};
 use super::{Node,now_ms};
 mod outbound;
 pub(super) use outbound::{Arrival,first_delivery};
+pub use outbound::OUT_STATE_BYTES;
 /// The book's file in the data directory (VA-SPEC §1a.6), and the temporary file a save writes first.
 const FILE:&str="addrbook";const FILE_TMP:&str="addrbook.tmp";
 
