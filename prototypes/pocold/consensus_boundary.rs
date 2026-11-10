@@ -363,26 +363,38 @@ fn declared_only_under_cfg_test(root: &Path, path: &str) -> Result<(), String> {
     if seen == 0 { return Err("no parent declares it through a #[cfg(test)] mod".into()) }
     Ok(())
 }
-/// Names a source refers to in `crate` (and, for a crate-root module file, `super`) and in extern crates.
-/// Returns (target crate, top-level name). `*` stands for a glob import.
+/// Names a source refers to in `crate`, through a `self::`/`super::` chain that climbs to the crate root, and in
+/// extern crates. `depth` is the file's module depth (0 for the crate root). Returns (target crate, top-level name).
+/// `*` stands for a glob import.
 pub fn references(src: &str, own: &str, depth: usize, own_mods: &BTreeSet<String>) -> Vec<(String, String)> {
-    // Test-only inline modules are not consensus: their bodies are blanked. In any other inline module `super::`
-    // names the file's own module, so it is a crate reference only outside inline bodies.
+    // Test-only inline modules are not consensus: their bodies are blanked. Every other inline module is one more
+    // module level, so `super::` inside it names the file's own module, and `super::super::` the root at depth 1.
     let mut s = strip_comments(src);
     let decls = decls_in(&s);
     for d in decls.iter().filter(|d| d.inline && d.test) { s.replace_range(d.body.0..d.body.1, &" ".repeat(d.body.1 - d.body.0)) }
     let inner: Vec<(usize, usize)> = decls.iter().filter(|d| d.inline && !d.test).map(|d| d.body).collect();
+    let starts = |i: usize| i == 0 || { let c = s[..i].chars().last().unwrap(); !(is_ident(c) || c == '$' || c == ':') };
     let mut out = Vec::new();
     let mut prefixes: Vec<(String, String)> = vec![("crate::".into(), own.into())];
-    if depth == 1 { prefixes.push(("super::".into(), own.into())) }
     for (c, _, ext) in CRATES { if c != own { prefixes.push((format!("{ext}::"), c.into())) } }
     for (prefix, target) in &prefixes {
         let mut from = 0;
         while let Some(k) = s[from..].find(prefix.as_str()) {
             let i = from + k; from = i + prefix.len();
-            if i > 0 { let p = s[..i].chars().last().unwrap(); if is_ident(p) || p == '$' || p == ':' { continue } }
-            if prefix == "super::" && inner.iter().any(|&(a, b)| a < i && i < b) { continue }
+            if !starts(i) { continue }
             for n in group_heads(&s[from..]) { out.push((target.clone(), n)) }
+        }
+    }
+    // A relative path names the crate root when its `super::`s (after an optional `self::`) climb exactly the
+    // module levels above it: the file's depth plus the non-test inline modules around it. Fewer stay below the root.
+    let mut rel: Vec<usize> = s.match_indices("self::").chain(s.match_indices("super::")).map(|(i, _)| i).filter(|&i| starts(i)).collect();
+    rel.sort();
+    for i in rel {
+        let mut j = i + if s[i..].starts_with("self::") { 6 } else { 0 };
+        let mut supers = 0;
+        while s[j..].starts_with("super::") { supers += 1; j += 7 }
+        if supers == depth + inner.iter().filter(|&&(a, b)| a < i && i < b).count() {
+            for n in group_heads(&s[j..]) { out.push((own.into(), n)) }
         }
     }
     if depth == 0 {

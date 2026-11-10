@@ -273,6 +273,24 @@ fn the_reference_scanner_skips_comments_test_modules_and_char_literals() {
 }
 
 #[test]
+fn a_self_or_super_chain_that_climbs_to_the_crate_root_is_a_crate_reference() {
+    let mods = |n: &[&str]| n.iter().map(|x| x.to_string()).collect::<std::collections::BTreeSet<_>>();
+    let names = |v: Vec<(String, String)>| v.into_iter().map(|(c, n)| format!("{c}::{n}")).collect::<Vec<_>>();
+    // The crate root: `super::` from a non-test inline module (lib.rs has threads, io_fault and alloc_meter) and `self::`.
+    let root = "pub mod threads { pub const X: usize = super::net::MAX_FRAME; mod deeper { use super::super::rpc as r; } }\n\
+        fn f() { self::addrbook::open() }\n#[cfg(test)] mod tests { fn g() { super::miner::x() } }\n";
+    assert_eq!(names(references(root, "pocold", 0, &mods(&[]))), ["pocold::addrbook", "pocold::net", "pocold::rpc"]);
+    // Depth 2: two `super::`s reach the root, one stays in the parent module; an inline module adds one level.
+    let deep = "fn f() { super::super::net::X; super::sibling::Y; self::own::Z }\nmod m { fn g() { super::super::super::resources::Y; super::super::not_root() } }\n";
+    assert_eq!(names(references(deep, "lp4", 2, &mods(&[]))), ["lp4::net", "lp4::resources"]);
+    // In a fixture: lib.rs's inline module reaching the node-local net through `super::` is refused like `crate::net`.
+    let r = fixture("relative");
+    append(&r, "pocold/src/lib.rs", "pub mod threads { pub fn f() { super::net::start() } }\n");
+    let t = tree(&r);
+    refused(check(&base_unchecked(&t), &t, &K), "pocold/src/lib.rs (+) references pocold::net");
+}
+
+#[test]
 fn a_hand_edited_history_line_is_not_accepted() {
     let r = fixture("canonical");
     let text = repin(None, &tree(&r), &K, "base", "PR5", "fixture", None).unwrap();
