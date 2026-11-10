@@ -217,11 +217,13 @@ struct Live<'a>{name:&'a str,listen:bool,miner:Option<&'a str>,peers:Vec<SocketA
 impl Running{
     /// A PR2b live node in local mode with the short timings, its data in `dir` (kept, so that a restart on the same
     /// directory reads its book and anchors), its two ports held until it binds them.
-    fn live(dir:&std::path::Path,l:Live)->Self{
+    fn live(dir:&std::path::Path,l:Live)->Self{Self::live_net(dir,l,Default::default())}
+    /// `live` with these network limits.
+    fn live_net(dir:&std::path::Path,l:Live,net:pocold::net::Limits)->Self{
         let held=[TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()];let [p2p,rpc]=held.each_ref().map(|x|x.local_addr().unwrap());
         let d=Discovery{allow_local:true,rng_seed:Some(7),outbound:l.outbound,seeds:l.seeds,bootstrap:l.bootstrap,times:short(),..Default::default()};
         let cfg=Config{dir:dir.into(),name:l.name.into(),miner:l.miner.map(|m|devnet::miner_identity(m).key),listen:l.listen.then_some(p2p),peers:l.peers,rpc:Some(rpc),stop_at:None,log:false,
-            limits:Limits{discovery:d,..Default::default()}};
+            limits:Limits{discovery:d,net,..Default::default()}};
         let mut n=Node::open(cfg,spec()).unwrap();let net=n.net.clone();drop(held);n.start_network().unwrap();
         let stop=Arc::new(AtomicBool::new(false));let s=stop.clone();
         Self{p2p,rpc,net,stop,run:Some(std::thread::spawn(move||n.run_controlled(|_|s.load(Ordering::SeqCst))))}
@@ -297,4 +299,64 @@ fn agree(nodes:&[&Running],h:u64)->bool{let heads:Vec<(u64,String)>=nodes.iter()
     assert!(at.len()<=12&&at.iter().filter(|x|**x>=30_000).count()<=3,"the dead seed's connections: {at:?}");
     assert!(held&&n.counter("seedHolds")>=2,"held: {}",n.status()["discovery"]);
     drop(n);let _=std::fs::remove_dir_all(&root);
+}
+/// R, a raw configured or bootstrap peer of the node behind `c`: it reads the node's Hello, answers it at genesis
+/// announcing its listener `port`, and returns once the node has asked it for addresses (GetAddr), unanswered.
+fn greet_and_wait_for_getaddr(c:&mut TcpStream,port:u16){
+    assert!(matches!(read(c,Duration::from_secs(5)),Some(Msg::Hello{..})),"the node greets R");
+    c.write_all(&raw_hello(port)).unwrap();
+    assert!((0..16).any(|_|read(c,Duration::from_secs(5))==Some(Msg::GetAddr)),"and asks R for addresses");
+}
+/// D12' (VA-SPEC §1a.7, §1b): a feeler sends nothing, so a full listener never establishes it and evicts nobody for
+/// it. X holds its one automatic slot to the listener P; only then does its configured raw peer R name F, a node whose
+/// three inbound places raw peers hold and whose eviction is free (no grace, no budget; with three peers of one key
+/// the lottery and the older half protect two, so a newcomer's Hello would evict the third). X's feeler verifies F
+/// (`feelersOk`); F evicts nobody and keeps its peers; X's automatic slot never names F.
+#[test] fn a_feeler_verifies_without_evicting_a_full_listener(){
+    let root=live_root("feeler");
+    let free=pocold::net::EvictLimits{grace:Duration::ZERO,key_interval:Duration::ZERO,burst:1000,refill:Duration::ZERO};
+    let f=Running::live_net(&root.join("f"),Live{name:"f",listen:true,miner:None,peers:vec![],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)},
+        pocold::net::Limits{peers_max:3,handshaking_max:1,evict:free,..Default::default()});
+    let mut fp:Vec<TcpStream>=(0..3).map(|i|{let mut c=TcpStream::connect(f.p2p).unwrap();assert!(matches!(read(&mut c,Duration::from_secs(5)),Some(Msg::Hello{..})));
+        c.write_all(&raw_hello(0)).unwrap();assert!(wait_until(10_000,||f.net.established()==i+1),"F's place {i} is held");c}).collect();
+    let p=Running::live(&root.join("p"),Live{name:"p",listen:true,miner:None,peers:vec![],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
+    let r=TcpListener::bind("127.0.0.1:0").unwrap();let ra=r.local_addr().unwrap();
+    let x=Running::live(&root.join("x"),Live{name:"x",listen:true,miner:None,peers:vec![ra],seeds:vec![],bootstrap:vec![p.p2p],outbound:Outbound::Count(1)});
+    let mut c=accept(&r);greet_and_wait_for_getaddr(&mut c,ra.port());
+    assert!(wait_until(30_000,||x.slots_up()==set(&[p.p2p])),"X's automatic slot holds P: {}",x.status()["discovery"]["outbound"]);
+    c.write_all(&frame(&Msg::Addr{addrs:vec![f.p2p]})).unwrap();
+    let named=std::cell::Cell::new(false);let fa=f.p2p.to_string();
+    let auto_names_f=|st:&serde_json::Value|st["discovery"]["outbound"]["slots"].as_array().into_iter().flatten().any(|s|s["role"]=="auto"&&s["addr"]==fa.as_str());
+    assert!(wait_until(30_000,||{let st=x.status();named.set(named.get()||auto_names_f(&st));st["discovery"]["counters"]["feelersOk"].as_u64()>=Some(1)}),
+        "X's feeler verifies F: {}",x.status()["discovery"]);
+    assert!(!named.get()&&!auto_names_f(&x.status())&&x.slots_up()==set(&[p.p2p]),"X's automatic slot never names F");
+    assert_eq!((f.status()["stats"]["inboundEvicted"].as_u64(),f.net.established()),(Some(0),3),"F evicted nobody for the feeler");
+    for c in &mut fp{c.set_read_timeout(Some(Duration::from_millis(300))).unwrap();
+        assert!(matches!(c.read(&mut [0u8;1]),Err(e) if matches!(e.kind(),std::io::ErrorKind::WouldBlock|std::io::ErrorKind::TimedOut)),"and F's peers are still connected");}
+    drop((x,p,f));let _=std::fs::remove_dir_all(&root);
+}
+/// D25 (VA-SPEC §1a.7): J's one automatic slot holds R, an attacker-like raw peer that answers J's Hello at genesis and
+/// never sends a block, while the miners M, N and O build the chain; R's answer names M. Once J's head is W old J is
+/// stalled; its extra dials M (from a source no automatic slot is connected to), M's blocks move J's head, M takes R's
+/// place (`extraSwaps`), R's connection is closed, and J follows the chain.
+#[test] fn a_stalled_node_recovers_through_an_extra_slot(){
+    let root=live_root("stall");
+    let m=Running::live(&root.join("m"),Live{name:"m",listen:true,miner:Some("a"),peers:vec![],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
+    let mesh=vec![m.p2p];
+    let n=Running::live(&root.join("n"),Live{name:"n",listen:true,miner:Some("b"),peers:mesh.clone(),seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
+    let o=Running::live(&root.join("o"),Live{name:"o",listen:true,miner:Some("c"),peers:mesh.clone(),seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
+    let r=TcpListener::bind("127.0.0.1:0").unwrap();let ra=r.local_addr().unwrap();
+    let j=Running::live(&root.join("j"),Live{name:"j",listen:true,miner:None,peers:vec![],seeds:vec![],bootstrap:vec![ra],outbound:Outbound::Count(1)});
+    let mut c=accept(&r);greet_and_wait_for_getaddr(&mut c,ra.port());c.write_all(&frame(&Msg::Addr{addrs:mesh.clone()})).unwrap();
+    assert!(wait_until(30_000,||j.slots_up()==set(&[ra])),"J's automatic slot holds R: {}",j.status()["discovery"]["outbound"]);
+    // R keeps its connection and reads whatever J sends, until J closes it.
+    c.set_read_timeout(None).unwrap();let (etx,erx)=std::sync::mpsc::channel();
+    std::thread::spawn(move||{let mut b=[0u8;4096];while matches!(c.read(&mut b),Ok(k) if k>0){}let _=etx.send(());});
+    assert!(wait_until(120_000,||j.counter("extraSwaps")>=1),"J's extra replaces R: {}",j.status()["discovery"]);
+    assert!(j.counter("stalls")>=1&&j.counter("extras")>=1,"{}",j.status()["discovery"]);
+    assert!(erx.recv_timeout(Duration::from_secs(30)).is_ok(),"J closed R's connection");
+    assert!(wait_until(30_000,||j.slots_up()==set(&[m.p2p])),"M holds J's automatic slot: {}",j.status()["discovery"]["outbound"]);
+    let h=m.head().0.max(1);
+    assert!(wait_until(120_000,||agree(&[&m,&j],h)),"and J follows the chain: {:?} {:?}",m.head(),j.head());
+    drop((j,m,n,o));let _=std::fs::remove_dir_all(&root);
 }

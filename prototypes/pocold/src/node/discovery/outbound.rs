@@ -951,5 +951,44 @@ mod tests{
         tick(&mut n,now+3*w);assert_eq!(n.disc.out.counters.seed_rotations,1,"never the session's peer");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
+    /// D17, D25 (VA-SPEC §1a.7, §1a.9): with every seed held, a stalled node's extra goes to the bootstrap addresses in
+    /// turn, one per W, before any of the 300 entries 30 other sources put into its book.
+    #[test] fn with_every_seed_held_a_stalled_node_dials_a_bootstrap_address(){
+        let (seeds,b)=(seeds3(),[sa("81.30.0.1:30300"),sa("81.31.0.1:30300")]);let w=120_000;let now=G-S+w;
+        let (mut n,dir)=opened("o-bootx",Discovery{outbound:Outbound::Count(1),seeds:seeds.clone(),bootstrap:b.to_vec(),rng_seed:Some(7),..Discovery::default()},false,seeds,now);
+        n.disc_load(now);
+        for i in 0..300u32{let a=SocketAddr::new([91+(i/250) as u8,(i%250) as u8,0,1].into(),30300);
+            n.disc.book.insert_unverified(a,Source::Peer(key_of(SocketAddr::new([70,(i%30) as u8,0,1].into(),30300))),Kind::Heard,false,now);}
+        assert!(n.disc.book.entries().len()>=302,"the book is poisoned");
+        let rx=n.disc_test_slots(now);for s in &mut n.disc.out.seeds{s.fails=1;s.hold_until_ms=u64::MAX/2;}
+        let p=sa("81.40.0.1:30300");verified(&mut n,p,now);let _p=up(&mut n,0,p,1,true,now);let _=rx[0].try_recv();
+        tick(&mut n,now);assert!(n.stalled(now));assert_eq!(rx[1].try_recv().ok(),Some(b[0]),"the stall's extra: the first bootstrap address");
+        n.disc_dial_failed(1,b[0],DialError::Refused,now);
+        tick(&mut n,now+S);assert!(rx[1].try_recv().is_err(),"one extra per W");
+        tick(&mut n,now+w);assert_eq!(rx[1].try_recv().ok(),Some(b[1]),"W later, the next bootstrap address");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D27 (VA-SPEC §1a.4, §1a.7): an address a slot peer's Addr named that accepts connections but never sends a
+    /// Hello (an echo service: the feeler sends nothing, so it echoes nothing, and the Hello deadline closes it) takes
+    /// a counted failure at each feeler visit; after 3, spaced and each after a verification elsewhere, it is terrible
+    /// and the next save purges it from the book and the file.
+    #[test] fn a_hearsay_echo_service_is_forgotten(){
+        let (p,q,echo)=(sa("81.40.0.1:30300"),sa("81.60.0.1:30300"),sa("81.77.0.1:30307"));
+        let (mut n,rx,dir)=node("o-echo",1,true,vec![],vec![],G);n.disc.times.stall_min_ms=u64::MAX/4;n.disc_load(G);
+        verified(&mut n,p,G);let _p=up(&mut n,0,p,1,true,G);msg(&mut n,1,Msg::Addr{addrs:vec![echo]});
+        assert_eq!(n.disc.book.get(echo).map(|e|(e.source,e.verified_ms)),Some((Source::Peer(key_of(p)),0)),"hearsay from the slot peer");
+        let mut now=G;
+        for i in 0..3u64{
+            now+=S;verified(&mut n,q,now);let e=n.disc.book.get(echo).unwrap().clone();now=now.max(e.last_try_ms+n.disc.times.retry_ms);
+            n.disc.out.next_feeler_ms=0;tick(&mut n,now);assert_eq!(rx[1].try_recv().ok(),Some(echo),"visit {i}");
+            let _c=connect(&mut n,10+i,Origin::Slot(1,echo),Some(echo));assert!(n.disc.out.feeler.is_some());close(&mut n,10+i,now);
+            assert_eq!(attempts(&n,echo),i as u8+1,"visit {i}: a counted failure");
+        }
+        assert!(n.disc.book.terrible(n.disc.book.get(echo).unwrap(),now),"terrible after 3");
+        n.disc.next_save_ms=0;n.disc.test_now=Some(now);n.disc_tick(now);
+        let file=std::fs::read_to_string(dir.join(super::super::FILE)).unwrap();
+        assert!(n.disc.book.get(echo).is_none()&&!file.contains("81.77.0.1"),"purged at the save");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
     const SESSION_STALL:u128=crate::node::SESSION_STALL_MS;
 }
