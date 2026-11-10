@@ -13,6 +13,11 @@ on:
       - 'deploy/mainnet/test_ssh_terminal.py'
       - 'deploy/mainnet/preflight.py'
       - 'deploy/mainnet/test_standalone_preflight.py'
+      # The JNI boundary and the wallet texts it shares with the Windows wallet (deploy/standalone/test_android_jni.py).
+      - 'deploy/standalone/test_android_jni.py'
+      - 'prototypes/pocol-android/app/src/main/cpp/**'
+      - 'prototypes/pocol-android/app/src/main/java/**'
+      - 'prototypes/pocol-windows/Wallet.cs'
       - '.github/workflows/security-owner-evidence.yml'
   workflow_dispatch:
 permissions:

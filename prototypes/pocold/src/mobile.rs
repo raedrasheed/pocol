@@ -146,6 +146,7 @@ pub unsafe extern "C" fn pocol_mobile_free(s: *mut c_char) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{collections::BTreeMap, path::PathBuf};
     #[test]
     fn explicit_upgrade_does_not_create_a_missing_wallet() {
         let path = std::env::temp_dir().join(format!("pocol-mobile-upgrade-missing-{}", std::process::id()));
@@ -162,6 +163,59 @@ mod tests {
             }
         }
         assert!(!path.exists());
+    }
+    /// The bridge's JSON reply to `call(home, file)`.
+    fn ask(call: unsafe extern "C" fn(*const c_char, *const c_char) -> *mut c_char, home: &Path, file: &Path) -> serde_json::Value {
+        let (home, file) = (CString::new(home.to_str().unwrap()).unwrap(), CString::new(file.to_str().unwrap()).unwrap());
+        unsafe {
+            let result = call(home.as_ptr(), file.as_ptr());
+            let value = serde_json::from_str(CStr::from_ptr(result).to_str().unwrap()).unwrap();
+            pocol_mobile_free(result);
+            value
+        }
+    }
+    #[test]
+    fn inspect_upgrade_reports_none_rebind_and_activation_and_writes_nothing() {
+        // T33: the H15000 genesis files under pocol-network-v2 (rules 1), as `pocol network` writes them from R1 on.
+        let dir = std::env::temp_dir().join(format!("pocol-mobile-inspect-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir(&dir).unwrap();
+        let mut v2: serde_json::Value = serde_json::from_str(include_str!("../../../deploy/mainnet/h15000/network.pocol.json")).unwrap();
+        let o = v2.as_object_mut().unwrap();
+        o.remove("compatibilitySha256");
+        o.insert("schema".into(), launcher::SCHEMA_V2.into());
+        o.insert("consensusRulesVersion".into(), crate::identity::CONSENSUS_RULES_VERSION.into());
+        let devnet = |forks: serde_json::Value, pretty: bool| {
+            let mut info: serde_json::Value = serde_json::from_str(v2["files"]["devnet.json"].as_str().unwrap()).unwrap();
+            info["forks"] = forks;
+            let mut file = v2.clone();
+            file["files"]["devnet.json"] = if pretty { serde_json::to_string_pretty(&info) } else { serde_json::to_string(&info) }.unwrap().into();
+            file
+        };
+        let write = |name: &str, value: &serde_json::Value| { let p = dir.join(name); std::fs::write(&p, value.to_string()).unwrap(); p };
+        let base = write("base.json", &devnet(serde_json::json!([[1, 0]]), false));
+        let rebind = write("rebind.json", &devnet(serde_json::json!([[1, 0]]), true));
+        let activation = write("activation.json", &devnet(serde_json::json!([[1, 0], [2, 15000]]), false));
+        let home = dir.join("home");
+        let identity = CString::new(home.to_str().unwrap()).unwrap();
+        unsafe { pocol_mobile_free(pocol_mobile_identity(identity.as_ptr())) };
+        assert!(ask(pocol_mobile_import, &home, &base).get("error").is_none(), "the v2 file imports into a fresh home");
+        let files = |dir: &Path| -> BTreeMap<PathBuf, Vec<u8>> {
+            let mut out = BTreeMap::new(); let mut stack = vec![dir.to_path_buf()];
+            while let Some(d) = stack.pop() { for e in std::fs::read_dir(&d).unwrap() { let p = e.unwrap().path();
+                if p.is_dir() { stack.push(p) } else { out.insert(p.clone(), std::fs::read(&p).unwrap()); } } }
+            out
+        };
+        let before = files(&home);
+        for (file, change, appended) in [(&base, "none", serde_json::json!([])), (&rebind, "rebind", serde_json::json!([])),
+                                         (&activation, "activation", serde_json::json!([[2, 15000]]))] {
+            let dry = ask(pocol_mobile_inspect_upgrade, &home, file);
+            assert_eq!((dry["change"].as_str(), &dry["appended"]), (Some(change), &appended), "{dry}");
+            assert_eq!(files(&home), before, "the dry run writes nothing ({change})");
+        }
+        assert_eq!(ask(pocol_mobile_inspect_upgrade, &home, &activation)["consensusIdentity"],
+                   "bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110", "the T11 golden identity");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
     #[test]
     fn network_preview_rejects_missing_input_without_side_effects() {

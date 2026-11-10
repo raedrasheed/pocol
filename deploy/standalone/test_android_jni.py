@@ -5,6 +5,7 @@ the string boundary, not Android lifecycle or keystore behavior.
 """
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -22,6 +23,9 @@ char *pocol_mobile_identity(const char *s) {
 char *pocol_mobile_import(const char *h,const char *p) { (void)h;(void)p;return copy("{}"); }
 char *pocol_mobile_inspect_network(const char *p) { (void)p;return copy("{}"); }
 char *pocol_mobile_upgrade(const char *h,const char *p) { (void)h;(void)p;return copy("{}"); }
+char *pocol_mobile_inspect_upgrade(const char *h,const char *p) {
+    return copy(strcmp(h,"home")==0 && strcmp(p,"input")==0 ? "{\"change\":\"rebind\"}" : "{\"error\":\"arguments swapped\"}");
+}
 char *pocol_mobile_run(const char *h) { (void)h;return copy("{}"); }
 char *pocol_mobile_status(void) { return copy("{\"name\":\"PoCol \xf0\x9f\x9a\x80\"}"); }
 char *pocol_mobile_command(const char *s) { return copy(s); }
@@ -43,6 +47,7 @@ public final class JniBoundaryTest {
             case "ascii":
                 equal(Native.identity("home"),"{}");equal(Native.importNetwork("home","input"),"{}");
                 equal(Native.inspectNetwork("input"),"{}");equal(Native.upgradeNetwork("home","input"),"{}");
+                equal(Native.inspectUpgrade("home","input"),"{\"change\":\"rebind\"}");
                 equal(Native.run("home"),"{}");equal(Native.command("{}"),"{}");Native.stop();break;
             case "unicode-output":equal(Native.status(),"{\"name\":\"PoCol \uD83D\uDE80\"}");break;
             case "unicode-input":equal(Native.identity("home/\uD83D\uDE80"),"{}");break;
@@ -57,6 +62,14 @@ public final class JniBoundaryTest {
                     equal(Native.command(text),text);
                 }
                 break;
+            case "wallet-text":
+                equal(WalletText.peerNote(0,0,""),WalletText.LOOKING);equal(WalletText.peerNote(0,3,null),WalletText.LEGACY_SEEDS);
+                equal(WalletText.peerNote(1,3,"peer seed-1: peer runs consensus rules 2"),WalletText.CONSENSUS_REFUSED+"\npeer seed-1: peer runs consensus rules 2");
+                equal(WalletText.peerNote(2,0,""),WalletText.CONSENSUS_REFUSED);
+                equal(WalletText.activation("2","15000"),"Full mining range at block 15000");equal(WalletText.activation("3","20000"),"Consensus version 3 at block 20000");
+                equal(WalletText.outcome("none"),"Already applied");
+                equal(WalletText.outcome("rebind"),"Release update: consensus rules and schedule unchanged \u2014 saved; you can connect now");
+                if(!WalletText.outcome("activation").contains("coordinated release"))throw new AssertionError("activation text");break;
             case "nul":rejected("home\0other");break;
             case "surrogate":rejected("home\uD800");break;
             case "null":rejected(null);break;
@@ -93,7 +106,8 @@ class AndroidJniStrings(unittest.TestCase):
             '-I'+str(cls.jdk/'include'), '-I'+str(cls.jdk/'include/linux'),
             str(source/'cpp/bridge.c'), str(cls.work/'stub.c'), '-o', str(cls.work/'libpocol_bridge.so')], check=True)
         subprocess.run([str(javac), '-encoding', 'UTF-8', '-d', str(cls.work),
-            str(source/'java/org/pocol/node/Native.java'), str(cls.work/'JniBoundaryTest.java')], check=True)
+            str(source/'java/org/pocol/node/Native.java'), str(source/'java/org/pocol/node/WalletText.java'),
+            str(cls.work/'JniBoundaryTest.java')], check=True)
 
     def check(self, name):
         p = subprocess.run([str(self.jdk/'bin/java'), '-Xcheck:jni', '-Xmx64m',
@@ -112,6 +126,18 @@ class AndroidJniStrings(unittest.TestCase):
     def test_unpaired_surrogate_is_rejected(self): self.check('surrogate')
     def test_null_argument_raises_java_exception(self): self.check('null')
     def test_native_arguments_are_bounded_by_utf8_bytes(self): self.check('size-bound')
+    def test_peer_diagnostics_and_upgrade_texts_follow_the_status_and_the_dry_run(self): self.check('wallet-text')
+
+
+class WalletTexts(unittest.TestCase):
+    def test_the_windows_wallet_shows_the_android_texts(self):
+        # Plan §5: both wallets tell a lagging node the same thing.
+        java = (ROOT / 'prototypes/pocol-android/app/src/main/java/org/pocol/node/WalletText.java').read_text(encoding='utf-8')
+        windows = (ROOT / 'prototypes/pocol-windows/Wallet.cs').read_text(encoding='utf-8')
+        texts = [s for s in re.findall(r'"((?:[^"\\]|\\.)*)"', java) if len(s) > 12]
+        self.assertGreaterEqual(len(texts), 7)
+        for text in texts:
+            self.assertIn(text, windows)
 
 
 if __name__ == '__main__': unittest.main()

@@ -79,6 +79,18 @@ internal static class WalletUiTests {
    state["topUpAvailable"]=true;Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Visible,"Top-up action missing during probation.");
    state["topUpAvailable"]=false;Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Collapsed,"Top-up stayed visible after probation.");
    Response(Snapshot(new object[]{Entry(Transfer,"topup","Included")}));Check(CardText(0,0)=="Bond top-up","Top-up history row missing.");
+   // T34, network upgrades (plan §5): the dry run's change picks the text; only an activation waits for a coordinated release.
+   var outcome=typeof(Wallet).GetMethod("UpgradeOutcome",BindingFlags.Static|BindingFlags.NonPublic);Check(outcome!=null,"Network upgrade texts are missing.");
+   Check((string)outcome.Invoke(null,new object[]{"rebind"})=="Release update: consensus rules and schedule unchanged — saved; you can connect now","Rebind text missing.");
+   Check((string)outcome.Invoke(null,new object[]{"none"})=="Already applied","Already-applied text missing.");
+   Check(((string)outcome.Invoke(null,new object[]{"activation"})).Contains("coordinated release"),"An activation lost its coordinated-release text.");
+   var lines=(List<string>)typeof(Wallet).GetMethod("UpgradeLines",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{Json.Deserialize<Dictionary<string,object>>("{\"appended\":[[2,15000],[3,20000]]}")});
+   Check(lines.Count==2&&lines[0]=="Full mining range at block 15000"&&lines[1]=="Consensus version 3 at block 20000","Appended fork entries are not listed.");
+   // Peer diagnostics while no peer is connected (VA-SPEC §2.5).
+   var lonely=Snapshot(new object[0]);lonely["peers"]=0;Response(lonely);Check(Control<TextBlock>("WalletNote").Text.StartsWith("Looking for peers"),"Plain peer search text missing.");
+   lonely["legacyHellos"]=2;Response(lonely);Check(Control<TextBlock>("WalletNote").Text.StartsWith("Seeds still run PoCol 0.4.0"),"0.4.0 seed text missing.");
+   lonely["incompatiblePeers"]=D("network",0,"wire",0,"consensus",1);lonely["lastIncompatibleReason"]="peer seed-1: peer runs consensus rules 2";Response(lonely);
+   Check(Control<TextBlock>("WalletNote").Text.StartsWith("Peers use a different network configuration")&&Control<TextBlock>("WalletNote").Text.EndsWith("peer runs consensus rules 2"),"Consensus refusal reason not shown.");
    transfer["state"]="Included";transfer["confirmations"]=2;state["type"]="status";Response(state);
    if(args.Length==1){
     Invoke("Page","Activity");window.Show();window.UpdateLayout();
@@ -88,7 +100,7 @@ internal static class WalletUiTests {
     var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using(var file=File.Create(args[0]))png.Save(file);
    }
    window.Close();app.Shutdown();Check(Directory.Exists(home)==homeExisted,"UI test unexpectedly created a wallet home.");
-   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin and probation top-up");return 0;
+   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin, probation top-up, network upgrade texts and peer diagnostics");return 0;
   }catch(Exception e){Console.WriteLine("FAIL "+e.GetBaseException().Message);return 1;}
  }
 }

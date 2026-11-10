@@ -7,6 +7,7 @@ extern char *pocol_mobile_identity(const char *);
 extern char *pocol_mobile_import(const char *, const char *);
 extern char *pocol_mobile_inspect_network(const char *);
 extern char *pocol_mobile_upgrade(const char *, const char *);
+extern char *pocol_mobile_inspect_upgrade(const char *, const char *);
 extern char *pocol_mobile_run(const char *);
 extern char *pocol_mobile_status(void);
 extern char *pocol_mobile_command(const char *);
@@ -148,6 +149,18 @@ JNIEXPORT jstring JNICALL Java_org_pocol_node_Native_upgradeNetwork(JNIEnv *env,
     char *p = argument(env, path);
     if (!p) { free(h); return NULL; }
     char *out = pocol_mobile_upgrade(h, p);
+    free(p);
+    free(h);
+    return result(env, out);
+}
+/* The read-only dry run of an upgrade (change none, rebind or activation) shown before the user confirms it. */
+JNIEXPORT jstring JNICALL Java_org_pocol_node_Native_inspectUpgrade(JNIEnv *env, jclass cls, jstring home, jstring path) {
+    (void)cls;
+    char *h = argument(env, home);
+    if (!h) return NULL;
+    char *p = argument(env, path);
+    if (!p) { free(h); return NULL; }
+    char *out = pocol_mobile_inspect_upgrade(h, p);
     free(p);
     free(h);
     return result(env, out);
