@@ -199,8 +199,11 @@ pub fn configured_forks(info:&serde_json::Value)->Result<Vec<(u16,u64)>,String>{
         }
     };
     pocol_lp4_execution::profile::ForkSchedule::new(&forks).map_err(|e|format!("consensus fork schedule: {e:?}"))?;
-    if forks!=[(1,0)] && !(forks.len()==2 && forks[0]==(1,0) && forks[1].0==2){
-        return Err("runtime schedule must be [(1,0)] or [(1,0),(2,H)]".into());
+    // Runtime shape: versions 1, 2, … in order, each exactly once. With MAX_FORK_VERSION = 2 this is exactly
+    // [(1,0)] or [(1,0),(2,H)], as before. A repeated v1 (accepted by the profile) and a skipped version stay
+    // refused here (owner decision D3 is open; until it is taken the narrower rule holds, fail closed).
+    if forks.iter().enumerate().any(|(i,&(v,_))|v as usize!=i+1){
+        return Err("runtime schedule must list versions 1, 2, … in order, each once".into());
     }
     Ok(forks)
 }

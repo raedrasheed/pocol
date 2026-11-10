@@ -323,3 +323,10 @@ fn difficulty_one_changes_from_two_nonce_slots_to_ranges_for_all_seven_members()
         assert_eq!(pair[0].end_exclusive(), pair[1].start());
     }
 }
+
+#[test]
+fn the_full_nonce_domain_holds_from_version_two_onwards_not_only_at_two() {
+    for (version, nonce_mode, full) in [(3, 0, true), (7, 0, true), (2, 0, true), (1, 1, true), (1, 0, false), (u16::MAX, 0, true)] {
+        assert_eq!(pocold::chain::full_nonce_rule(version, nonce_mode), full, "version {version}, nonceMode {nonce_mode}");
+    }
+}

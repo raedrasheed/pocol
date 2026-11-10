@@ -220,7 +220,7 @@ Owner question O-0 decides the vehicle itself (B = ride the held earn-in re-gene
   - The node accepts only `[(1,0)]` or `[(1,0),(2,H)]` (`prototypes/pocold/src/lib.rs:202-204`).
 - **The v2 rule is an equality in three places.** If a (3,H) entry were appended, every height ≥ H would
   silently fall back to the bounded domain (live CP4 = nonceMode 0, `deploy/mainnet/h15000/README.md:18`):
-  - `chain.rs:58` `active_version(h)==2||cp().nonceMode==1`;
+  - `chain.rs:72` `active_version(h)==2||cp().nonceMode==1`;
   - `prototypes/pocol-extension/src/lib/rp.js:56` `x.version === 2n || …`;
   - `deploy/rewards/pocol_rewards.py:277` `header['protocolVersion'] == 2 or cp[4] == 1`.
 - **CP and system code are pinned to genesis.** Both are re-checked on every parent and candidate block
