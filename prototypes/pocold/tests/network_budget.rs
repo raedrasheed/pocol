@@ -54,12 +54,21 @@ fn print(tag:&str,b:&pocold::resources::Bound){
             let b=at(None);
             assert_eq!(item(&b,"diffs/the pool's pending layer"),r::layer_bytes(pa,ps).unwrap());
             let spent=gl*5/4;let (oa,os)=r::layer_writes(spent).unwrap();
-            assert_eq!(item(&b,"diffs/the overlay of the block being applied"),r::layer_bytes(oa+u128::from(cp.SYS_ACCT_BLOCK_MAX)+1,os+u128::from(cp.SYS_KEYS_BLOCK_MAX)).unwrap());
+            // PR6: and its BLOCKHASH window (257 entries), which the template selection's overlay also carries.
+            let window=257*pocol_lp4_execution::resources::memory::entry_bytes(64)+pocol_lp4_execution::resources::memory::table_bytes(64);
+            assert_eq!(item(&b,"diffs/the overlay of the block being applied"),r::layer_bytes(oa+u128::from(cp.SYS_ACCT_BLOCK_MAX)+1,os+u128::from(cp.SYS_KEYS_BLOCK_MAX)).unwrap()+window);
             assert_eq!(item(&b,"code/the pool's pending layer"),code_bytes(g/r::CODE_DEPOSIT,g/r::CREATE_GAS).unwrap(),"store {store}");
             let b2=at(Some(8*cp.GAS_LIMIT));assert!(item(&b2,"diffs/the pool's pending layer")>item(&b,"diffs/the pool's pending layer")&&b2.total>b.total,"a larger bound counts more");
             assert_eq!(at(Some(u64::MAX)).total,at(Some(POOL_MAX_TXS as u64*cp.GAS_LIMIT)).total,"capped by the count bound");
             let body=u128::from(cp.BODY_MAX);assert_eq!(item(&b,"queues/an abandoned block's transactions"),body+body/r::MIN_TX_BYTES*80,"one abandoned body in revalidation");
             let e=r::check(cp,32,l.side_max,&Limits{state_store:store,pool_gas_max:Some(cp.GAS_LIMIT-1),..Default::default()},2).unwrap_err();assert!(e.contains("below GAS_LIMIT"),"{e}");
+            // PR6: the pool's meta, the parked entries and the template selection's candidates, each at its bound; the
+            // sender quota is checked with the gas bound.
+            use pocold::node::{META_ENTRY_BYTES,PARKED_ENTRY_BYTES,POOL_PARKED_MAX};
+            assert_eq!(item(&b,"queues/pool sender and declared gas"),3*POOL_MAX_TXS as u128*META_ENTRY_BYTES as u128);
+            assert_eq!(item(&b,"queues/parked transactions' entries"),3*POOL_PARKED_MAX as u128*PARKED_ENTRY_BYTES as u128);
+            assert_eq!(item(&b,"queues/template selection"),r::selection_bytes(cp).unwrap());assert!(r::selection_bytes(cp).unwrap()>2*body);
+            let e=r::check(cp,32,l.side_max,&Limits{state_store:store,pool_sender_gas_max:Some(cp.GAS_LIMIT-1),..Default::default()},2).unwrap_err();assert!(e.contains("pool_sender_gas_max"),"{e}");
         }
     }
 }
@@ -275,10 +284,13 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // waiting for a Hello) and the eviction registry: 1,158,957 and 1,134,336 (-10,756, -10,535).
     // PR3 commit 5, the default of 32 established (40 places): 1,127,165 at 2 dials and 1,102,318 at 7 (130.5 and 127.6
     // days; -42,548 and -42,553 against R10's (8, d) halts, within the week of records, 60,480, the plan's rule allows).
+    // PR6, the pool's meta, the parked entries, the template selection's candidates and the block overlay's BLOCKHASH
+    // window: 1,157,187 and 1,132,366 at 8 established (-1,770, -1,970), 1,125,239 and 1,100,548 at 32 (-1,926, -1,770),
+    // 1,082,629 and 1,058,008 at 64 (-1,996, -1,770); the seed rule's outcome is unchanged.
     // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
     // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[1_158_957,1_134_336,1_127_165,1_102_318,1_084_625,1_059_778],"the live chain's halt moved (record it in the PR)");
+        assert_eq!(got,[1_157_187,1_132_366,1_125_239,1_100_548,1_082_629,1_058_008],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];

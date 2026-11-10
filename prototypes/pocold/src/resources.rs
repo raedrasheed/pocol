@@ -51,13 +51,24 @@ pub fn layer_bytes(accounts:u128,slots:u128)->Option<u128>{
         mul(mul(accounts,3)?,entry_bytes(addr))?,mul(2,table_bytes(acct))?,mul(3,table_bytes(addr))?])
 }
 /// C-1 E3: the overlay of the block being applied (one at a time on the consensus thread, like a template's
-/// selection, which runs at most GAS_LIMIT): the layer of the USER phase's gas (`block_writes`' 5/4 GAS_LIMIT)
-/// with the SYSTEM phase's accounts and keys (SYS_ACCT_BLOCK_MAX, SYS_KEYS_BLOCK_MAX) and the escrow's
-/// issuance. Before D-7's audit this counted the changed slots only (one per 2,900 gas) and each element at
-/// twice its inline size.
+/// selection, whose committed gas used is at most GAS_LIMIT and whose spent gas is at most 5/4 GAS_LIMIT, EIP-3529;
+/// PR6: its simulation errors are pre-execution and write nothing, and it is dropped before the first build):
+/// the layer of the USER phase's gas (`block_writes`' 5/4 GAS_LIMIT) with the SYSTEM phase's accounts and keys
+/// (SYS_ACCT_BLOCK_MAX, SYS_KEYS_BLOCK_MAX) and the escrow's issuance, and its BLOCKHASH window (the block's
+/// ancestors, at most 257 entries, `Job::run`; PR6: the selection's overlay carries the same window). Before
+/// D-7's audit this counted the changed slots only (one per 2,900 gas) and each element at twice its inline size.
 pub fn overlay_max(cp:&ConsensusParams)->Option<u128>{
     let spent=u128::from(cp.GAS_LIMIT).checked_mul(5)?/4;let (a,s)=layer_writes(spent)?;
-    layer_bytes(add(&[a,u128::from(cp.SYS_ACCT_BLOCK_MAX),1])?,add(&[s,u128::from(cp.SYS_KEYS_BLOCK_MAX)])?)
+    add(&[layer_bytes(add(&[a,u128::from(cp.SYS_ACCT_BLOCK_MAX),1])?,add(&[s,u128::from(cp.SYS_KEYS_BLOCK_MAX)])?)?,257*memory::entry_bytes(64)+memory::table_bytes(64)])
+}
+/// PR6: what a template selection and its signed build keep beside the overlay: the append round's candidates
+/// (`Selection::rest`: their raw copies, at most BODY_MAX plus the one transaction that passes it, TX_MAX; at
+/// most BODY_MAX/MIN_TX_BYTES + 1 entries, each a `Cand` and the round's queue, heap and sender-map entries), and
+/// the sets of skipped senders (the pooled transactions and at most BUILD_VISIT_MAX backlog decodes, three sets).
+pub fn selection_bytes(cp:&ConsensusParams)->Option<u128>{
+    let entries=u128::from(cp.BODY_MAX)/MIN_TX_BYTES+1;let senders=(node::POOL_MAX_TXS+node::BUILD_VISIT_MAX) as u128;
+    let per=add(&[mul(memory::VEC,node::CAND_ENTRY_BYTES as u128)?,mul(memory::VEC,24+8)?,mul(memory::VEC,24)?,memory::entry_bytes(28)])?;
+    add(&[u128::from(cp.BODY_MAX),u128::from(cp.TX_MAX),mul(entries,per)?,mul(3,add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?)?])
 }
 /// D-7: the gas the pool's layer can hold: its bound (`node::pool_gas_bound`), and at most POOL_MAX_TXS
 /// transactions of GAS_LIMIT each (the count bound binds first above it).
@@ -298,7 +309,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("transient-snapshot-inventory","TRANSIENT_SNAPSHOTS (2, C-1 E3) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter"),
     ("main-thread","the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins"),
     ("revm-representation","the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks"),
-    ("cpu-and-timing","CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded. A peer-driven deep-fork rebuild is PoW-gated and rate-bounded (PR4 I-5: node::REBUILD_BURST, SESSION_REBUILD_MAX), but each one is still O(chain height), with no reverse diffs (F-1)"),
+    ("cpu-and-timing","CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded. PR6: a signed template costs one selection (at most GAS_LIMIT of committed gas, at most BUILD_VISIT_MAX decodes) and at most node::TEMPLATE_BUILDS_MAX block executions (normally one; two or three when simulated and real gas differ), and a new head also re-validates up to node::POOL_PARKED_MAX parked transactions (each executed only when re-admitted within the pool's gas bound). A peer-driven deep-fork rebuild is PoW-gated and rate-bounded (PR4 I-5: node::REBUILD_BURST, SESSION_REBUILD_MAX), but each one is still O(chain height), with no reverse diffs (F-1)"),
     ("s3a-removal","a diff keeps no storage for a removed account: under Cancun (revm 19.7, EIP-6780) only an account created in the same transaction is destroyed, and an account without code, nonce and balance holds no storage; by inspection, not enforced by a counter"),
     ("redb-representation","the history.redb terms rely on redb 2.6.4 behaviour checked by source inspection (cache split and write-buffer flush, allocator bitmaps) and on a measured file-size factor (HISTORY_FILE_FACTOR)"),
     ("open-replay-transient","Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound. C-1 E4.4 adds to it, at open only: every record's offset and rolling hash, a decoded checkpoint snapshot and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, which holds the accounts and slots that differ, one block's writes at most, as an import's write set, the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),
@@ -504,6 +515,12 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // Hello; an evicted peer keeps its place until its reader releases it.
     let frame=net::MAX_FRAME as u128;let block=size_of::<Block>() as u128;let l=&limits.net;let inbound=l.inbound_max() as u128;
     let pool=add(&[node::POOL_MAX_BYTES as u128,mul(node::POOL_MAX_BYTES as u128/MIN_TX_BYTES,32+24+24)?])?;
+    // PR6: the pool's meta (sender, declared gas, exempt; aligned with its POOL_MAX_TXS transactions) and the parked
+    // transactions' entries (POOL_PARKED_MAX; their raw bytes share POOL_MAX_BYTES with the pool and the backlog,
+    // `Node::pool_audit`), each a Vec counted at memory::VEC times its length.
+    let pool_meta=mul(memory::VEC,mul(node::POOL_MAX_TXS as u128,node::META_ENTRY_BYTES as u128)?)?;
+    let parked=mul(memory::VEC,mul(node::POOL_PARKED_MAX as u128,node::PARKED_ENTRY_BYTES as u128)?)?;
+    let selection=selection_bytes(cp)?;
     // D-7: revalidation expands one abandoned block's body at a time into the backlog, beside the pool's bytes
     // (`Node::pool_step_until`; `Node::pool_audit` checks the sum).
     let abandoned=add(&[u128::from(cp.BODY_MAX),mul(u128::from(cp.BODY_MAX)/MIN_TX_BYTES,32+24+24)?])?;
@@ -543,7 +560,8 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // reason's Box<str> (<= REASON_MAX) and its allocation (16 B); plus 1,024 B of slack.
     let ck=((32*(size_of::<([u8;32],chain::Costly)>() as u128+1)).div_ceil(7)).div_ceil(8)*8;
     let costly=add(&[mul(chain::COSTLY_MAX as u128+1,add(&[mul(2,ck)?,128,REASON_MAX,16])?)?,1024])?;
-    let q=[("queues/transaction pool",pool),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
+    let q=[("queues/transaction pool",pool),("queues/pool sender and declared gas (POOL_MAX_TXS, PR6)",pool_meta),("queues/parked transactions' entries (POOL_PARKED_MAX, PR6)",parked),
+        ("queues/template selection: append-round candidates and skipped senders (BODY_MAX, PR6)",selection),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
         ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
         ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/node peer and status maps (churn)",maps),
         ("queues/inbound eviction: registry, selection scratch, per-connection activity and eviction ring",evict),
@@ -631,7 +649,7 @@ pub const RESERVE_KEEP_EIGHTHS:u128=7;
 pub fn budget_required(total:u128)->Option<u128>{total.checked_mul(8).map(|x|x.div_ceil(RESERVE_KEEP_EIGHTHS))}
 /// Boot check: the bound, with the reserve, must fit the node's memory budget.
 pub fn check(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize)->Result<Bound,String>{
-    node::pool_gas_bound(cp,limits)?;
+    node::pool_gas_bound(cp,limits)?;node::pool_sender_gas_bound(cp,limits)?;
     let b=derive(cp,k_hist,side_max,limits,dials).ok_or_else(||"A13 memory bound: arithmetic overflow".to_string())?;
     let need=budget_required(b.total).ok_or_else(||"A13 memory bound: arithmetic overflow".to_string())?;
     if need>u128::from(limits.mem_budget){return Err(format!("A13 memory bound {} B with its 1/8 reserve needs {need} B, which exceeds the node memory budget {} B ({b:?})",b.total,limits.mem_budget))}

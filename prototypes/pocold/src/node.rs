@@ -228,6 +228,11 @@ struct Parked{gas:u64,sender:Address,seq:u64,hash:B256,relay:Relay,raw:Vec<u8>}
 /// PR6 P2: the most parked transactions. Each is decoded and validated again at the next head, so this bounds
 /// that work (about POOL_PARKED_MAX signature recoveries per head).
 pub const POOL_PARKED_MAX:usize=1024;
+/// A13 (resources, PR6): the bytes counted for one pool meta entry, one parked entry (its raw bytes are inside
+/// POOL_MAX_BYTES) and one append-round candidate (its raw bytes are counted apart). Fixed, so the pinned total
+/// does not follow rustc's layout; checked below.
+pub const META_ENTRY_BYTES:usize=32;pub const PARKED_ENTRY_BYTES:usize=128;pub const CAND_ENTRY_BYTES:usize=64;
+const _:()=assert!(std::mem::size_of::<(Address,u64,bool)>()<=META_ENTRY_BYTES&&std::mem::size_of::<Parked>()<=PARKED_ENTRY_BYTES&&std::mem::size_of::<Cand>()<=CAND_ENTRY_BYTES);
 /// One backlog entry: an abandoned block's journal offset, or a transaction and how to relay it once
 /// admitted (a P2P transaction that arrived during the backlog is relayed then, as it would have been).
 enum PoolItem{Block(u64),Tx(Vec<u8>,Relay)}
@@ -1256,37 +1261,42 @@ impl Node{
         // SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX; logs exactly). Dirty keys and accounts are not modelled.
         let mut meter=sim.as_ref().map(|_|pool_start(p,&self.chain.spec).0);let (mut log_count,mut log_bytes)=(0u64,0u64);
         // D-7: candidates are the admitted transactions, then the backlog's (each is executed here on p's
-        // state anyway); an abandoned block not yet expanded is not a candidate. B3: at most BUILD_VISIT_MAX
-        // are decoded (each decode recovers a signature).
-        let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)=>Some(r),PoolItem::Block(_)=>None});
-        let cands:Vec<(revm::primitives::TxEnv,&Vec<u8>)>=self.pool.txs.iter().map(|(_,r)|r).chain(backlog).take(BUILD_VISIT_MAX)
-            .filter_map(|raw|wire::decode_for_profile(raw,profile).ok().map(|env|(env.tx_env().clone(),raw))).collect();
-        // B6: the oldest candidate declaring more than half a block, first in its sender's queue, is tried
-        // first (it always fits an empty block), so a transaction that needs most of a block waits a bounded
-        // time behind the small ones. If it fails here (for example it depends on another sender's
+        // state anyway); an abandoned block not yet expanded is not a candidate. A pooled one's sender and
+        // declared gas come from the pool's meta, so one that is skipped is not decoded; B3: at most
+        // BUILD_VISIT_MAX decodes (each recovers a signature).
+        let mut decodes=0usize;
+        // B6: the oldest pooled transaction declaring more than half a block, first in its sender's queue, is
+        // tried first (it always fits an empty block), so a transaction that needs most of a block waits a
+        // bounded time behind the small ones. If it fails here (for example it depends on another sender's
         // transaction), the in-order pass meets it again.
         let mut first_seen=HashSet::new();
-        let big=(0..cands.len()).find(|&i|first_seen.insert(cands[i].0.caller)&&cands[i].0.gas_limit>cp.GAS_LIMIT/2);
+        let big=self.pool.meta.iter().position(|(s,g,_)|first_seen.insert(*s)&&*g>cp.GAS_LIMIT/2);
+        let pooled=self.pool.txs.iter().zip(&self.pool.meta).enumerate().map(|(i,((_,r),(s,g,_)))|(false,i,r,Some((*s,*g))));
+        let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)=>Some((false,usize::MAX,r,None)),PoolItem::Block(_)=>None});
+        let slot_first=big.map(|i|{let (s,g,_)=self.pool.meta[i];(true,i,&self.pool.txs[i].1,Some((s,g)))});
         let mut big_in=false;
-        for (slot,i) in big.into_iter().map(|i|(true,i)).chain((0..cands.len()).map(|i|(false,i))){
-            let (tx,raw)=(&cands[i].0,cands[i].1);
+        for (slot,i,raw,known) in slot_first.into_iter().chain(pooled).chain(backlog){
             if !slot&&big_in&&big==Some(i){continue}
             // B3: nothing fits any more and nothing more can be kept for the append round.
             if room_txs==0||room_bytes<MIN_TX_BYTES||bytes+enc(MIN_TX_BYTES as usize)>body_room{break}
             let rest_full=rest_bytes>=cp.BODY_MAX as usize||sel.rest.len() as u64>=room_txs0;
             if cp.GAS_LIMIT-used<TX_GAS_MIN&&rest_full{break}
-            if skipped.contains(&tx.caller){continue}
+            let mut decode=||{if decodes>=BUILD_VISIT_MAX{return Err(())}decodes+=1;wire::decode_for_profile(raw,profile).map(|e|Some(e.tx_env())).or(Ok(None))};
+            let (caller,gas_limit,mut env)=match known{Some((c,g))=>(c,g,None),None=>match decode(){Err(())=>break,Ok(None)=>continue,Ok(Some(t))=>(t.caller,t.gas_limit,Some(t))}};
+            if skipped.contains(&caller){continue}
             // `rest` (B5): a candidate skipped only because it did not fit by gas, and its sender's later ones.
-            let gas_skip=gas_skipped.contains(&tx.caller)||tx.gas_limit>cp.GAS_LIMIT-used;
+            let gas_skip=gas_skipped.contains(&caller)||gas_limit>cp.GAS_LIMIT-used;
             if gas_skip&&!slot{
-                gas_skipped.insert(tx.caller);
-                if !rest_full{rest_bytes+=raw.len();sel.rest.push(Cand{sender:tx.caller,gas_limit:tx.gas_limit,raw:raw.clone()});}
+                gas_skipped.insert(caller);
+                if !rest_full{rest_bytes+=raw.len();sel.rest.push(Cand{sender:caller,gas_limit,raw:raw.clone()});}
                 continue}
             // Other reasons skip the sender (its later nonces follow it); the big-first slot (B6) marks nothing.
-            let mut skip=|slot:bool|if !slot{skipped.insert(tx.caller);};
+            let mut skip=|slot:bool|if !slot{skipped.insert(caller);};
             if gas_skip||raw.len() as u64>room_bytes||bytes+enc(raw.len())>body_room{skip(slot);continue}
             let gas=match &mut sim{
-                Some((st,total))=>match native::execute_on_validated(&*st,*total,tx.clone(),&ctx,profile){
+                Some((st,total))=>{
+                    let tx=match env.take(){Some(t)=>t,None=>match decode(){Err(())=>break,Ok(None)=>{skip(slot);continue},Ok(Some(t))=>t}};
+                    match native::execute_on_validated(&*st,*total,tx,&ctx,profile){
                     Ok(r)=>{
                         // B4: a transaction that would halt on a block cap is left out.
                         let logs=r.result.logs();let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));
@@ -1304,8 +1314,8 @@ impl Node{
                     }
                     // Pre-execution validation (nonce, balance, fee): no execution work, only this sender.
                     Err(_)=>{skip(slot);continue}
-                },
-                None=>{sel.fallback=true;tx.gas_limit}
+                }},
+                None=>{sel.fallback=true;gas_limit}
             };
             used+=gas;bytes+=enc(raw.len());room_txs-=1;room_bytes-=raw.len() as u64;sel.txs.push(raw.clone());
             if slot{big_in=true;}
