@@ -74,6 +74,10 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// transactions' summed declared gas limits (None: POOL_GAS_BLOCKS × GAS_LIMIT, approved 2026-10-25;
     /// a set value must be at least GAS_LIMIT, and A13 counts the pool at it: `pool_gas_bound`).
     pub pool_slice:Duration,pub pool_gas_max:Option<u64>,
+    /// PR6 (local pool policy, never validity): the most declared gas one sender's pooled transactions may sum to
+    /// (None: POOL_SENDER_GAS_BLOCKS × GAS_LIMIT; a set value must be at least GAS_LIMIT and at most the pool's
+    /// gas bound: `pool_sender_gas_bound`). Transactions returned from an abandoned block are not counted.
+    pub pool_sender_gas_max:Option<u64>,
     /// C-1 S1: how many canonical blocks below the head stay resident (None: K_hist). Older canonical
     /// history is served from the journal and history.redb. A test reference sets u64::MAX (none offloaded).
     pub history_window:Option<u64>,
@@ -89,7 +93,7 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     pub checkpoint_every:u64,
     /// Peer discovery (VA-SPEC §1a; local policy, never validity): on by default, local mode off.
     pub discovery:Discovery}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,discovery:Discovery::default()}}}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,discovery:Discovery::default()}}}
 /// C-1 S1: replay refills history.redb with non-durable commits and makes them durable every this many blocks.
 const HISTORY_SYNC:u64=256;
 /// D-7: one slice of pool revalidation. The consensus thread is held for at most this, plus the
@@ -159,6 +163,13 @@ pub const SUBMIT_DEADLINE:&str="-32020 compute deadline (not pooled)";
 pub const SUBMIT_BUSY:&str="-32021 pool revalidation in progress (not pooled)";
 /// `admit_tx`'s refusal of a transaction whose declared gas limit would take the pooled sum past the bound (D-7).
 pub const POOL_FULL_GAS:&str="-32016 pool full (gas)";
+/// `admit_tx`'s refusal of a transaction that would take its sender's pooled declared gas past the sender quota
+/// (PR6 P1, `pool_sender_gas_bound`).
+pub const POOL_FULL_SENDER:&str="-32016 pool full (sender gas)";
+/// `admit_tx`'s answer for a valid transaction refused only by the pool's gas bound and held (parked) to be
+/// admitted at the next head, ahead of later arrivals (PR6 P2). It is not executed; it is relayed now only within
+/// `park`'s bound (PR6 second review), else when admitted.
+pub const POOL_PARKED:&str="-32016 pool full (gas): held for the next block";
 
 pub fn now_ms()->u128{SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()}
 pub fn now_s()->u64{(now_ms()/1000) as u64}
@@ -204,7 +215,31 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
     /// state. `backlog_bytes` counts the transactions held here against POOL_MAX_BYTES.
     backlog:VecDeque<PoolItem>,backlog_bytes:usize,
     /// D-7: summed declared gas limits of `txs`, and their bound (`pool_gas_bound`).
-    pub gas:u64,pub gas_max:u64}
+    pub gas:u64,pub gas_max:u64,
+    /// PR6 P4: per pooled transaction (aligned with `txs`), its sender, declared gas limit and whether it is
+    /// exempt from the sender quota (returned from an abandoned block); and the quota (`pool_sender_gas_bound`).
+    meta:Vec<(Address,u64,bool)>,pub sender_gas_max:u64,
+    /// PR6 P2: transactions refused only by the gas bound and held for the next head (at most `parked_max`
+    /// <= POOL_PARKED_MAX; per sender a run of its next nonces, in arrival order); their bytes share POOL_MAX_BYTES
+    /// with `txs` and the backlog; and the arrival counter that orders them. PR6 review: they are template
+    /// candidates and are relayed when parked (PR6 second review: within `parked_relays`).
+    parked:Vec<Parked>,parked_bytes:usize,park_seq:u64,parked_max:usize,
+    /// PR6 second review: the transactions relayed when parked since the last head (at most `parked_max`).
+    parked_relays:usize}
+/// A parked transaction (PR6 P2): its declared gas, nonce, arrival, its sender's run (the declared gas and arrival
+/// of the sender's first parked one, which orders the run at the next head), sender, hash, its cost at its fee cap
+/// (gas_limit × fee cap + value), how it is relayed once admitted, and its bytes. PR6 third review: `ahead`, the
+/// number of pooled transactions when it was parked. The pool only grows between two heads, so the pooled
+/// transactions at an index below it arrived before it and the others after it (the big-first slot, B6).
+struct Parked{gas:u64,nonce:u64,seq:u64,run:(u64,u64),ahead:u64,sender:Address,hash:B256,cost:U256,relay:Relay,raw:Vec<u8>}
+/// PR6 P2: the most parked transactions. Each is decoded and validated again at the next head, so this bounds
+/// that work (about POOL_PARKED_MAX signature recoveries per head).
+pub const POOL_PARKED_MAX:usize=1024;
+/// A13 (resources, PR6): the bytes counted for one pool meta entry, one parked entry (its raw bytes are inside
+/// POOL_MAX_BYTES) and one append-round candidate (its raw bytes are counted apart). Fixed, so the pinned total
+/// does not follow rustc's layout; checked below.
+pub const META_ENTRY_BYTES:usize=32;pub const PARKED_ENTRY_BYTES:usize=160;pub const CAND_ENTRY_BYTES:usize=64;
+const _:()=assert!(std::mem::size_of::<(Address,u64,bool)>()<=META_ENTRY_BYTES&&std::mem::size_of::<Parked>()<=PARKED_ENTRY_BYTES&&std::mem::size_of::<Cand>()<=CAND_ENTRY_BYTES);
 /// One backlog entry: an abandoned block's journal offset, or a transaction and how to relay it once
 /// admitted (a P2P transaction that arrived during the backlog is relayed then, as it would have been).
 enum PoolItem{Block(u64),Tx(Vec<u8>,Relay)}
@@ -213,13 +248,97 @@ enum PoolItem{Block(u64),Tx(Vec<u8>,Relay)}
 /// may be the only one holding it, and a node that is not drawn never builds a block, so it is offered to
 /// each peer, and a peer with half its queue in use does not get it and is kept (one reorganization returns
 /// up to a whole pool at once).
+/// `Returned` is such a transaction of the previous pool at a later revalidation: not relayed again, and still
+/// exempt from the sender quota (PR6 P1).
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
-enum Relay{No,Gossip,Offer}
+enum Relay{No,Gossip,Offer,Returned}
 /// D-A13-BUDGET: 64 -> 32 MiB (network.md: pool <= 64 MiB); 256 transactions of TX_MAX.
 pub const POOL_MAX_BYTES:usize=32*1024*1024;
 /// Local limit on pooled transactions (about ten blocks of plain transfers): every new head
 /// re-executes the pool, so its length bounds that work.
 pub const POOL_MAX_TXS:usize=4096;
+/// PR6 B3: the most pool and backlog candidates one template selection decodes (each decode recovers a
+/// signature). A backlog flooded during revalidation can hold POOL_MAX_BYTES/MIN_TX_BYTES transactions.
+pub const BUILD_VISIT_MAX:usize=POOL_MAX_TXS;
+/// The smallest gas a transaction can use and the smallest raw transaction (resources::TX_GAS_MIN,
+/// resources::MIN_TX_BYTES): the selection stops once less than either is left.
+const TX_GAS_MIN:u64=crate::resources::TX_GAS_MIN as u64;const MIN_TX_BYTES:u64=crate::resources::MIN_TX_BYTES as u64;
+/// Encoded body item length (RLP string header included); the three list headers take <= 12 bytes.
+fn enc(n:usize)->usize{n+1+if n<56{0}else if n<256{1}else if n<65536{2}else{3}}
+/// A pool transaction the selection left out only because it did not fit by gas (PR6 B2), or a later one of
+/// its sender; `build_signed_template`'s append round (B5) may add it within the room the real build left.
+#[derive(Clone,Debug)]
+pub struct Cand{pub sender:Address,pub gas_limit:u64,pub raw:Vec<u8>}
+/// A template selection (`Node::template_selection`): the transactions in block order, the candidates kept
+/// for the append round (`rest`, in pool order, at most BODY_MAX bytes and the TX_CAP room), the gas counted
+/// for `txs` (gas used, or declared gas where `fallback`), and whether declared gas was counted (no checked
+/// parent state), and the gas the simulation executed (`executed`: before refunds, committed or left out; at most
+/// `selection_exec_budget(GAS_LIMIT)`).
+#[derive(Clone,Debug,Default)]
+pub struct Selection{pub txs:Vec<Vec<u8>>,pub rest:Vec<Cand>,pub counted:u64,pub fallback:bool,pub executed:u64}
+/// PR6 B5: the most `build_signed` calls one signed template takes (the retry loop's bound before PR6).
+pub const TEMPLATE_BUILDS_MAX:usize=8;
+/// Whether a `build_signed` refusal is the USER phase's gas check (`apply User("Gas")`: a transaction's
+/// declared gas exceeded what the block had left). It carries no transaction index.
+pub fn is_user_gas(why:&str)->bool{why.ends_with("User(\"Gas\")")}
+/// PR6 review: the log cap a transaction's own logs pass in a child of a block whose chain charged `cum` log bytes,
+/// if any: the block meter's log checks (`user_phase.rs` BlockMeter::check) with nothing before it in the block,
+/// LOG_COUNT_MAX, LOG_BLOCK_MAX and, when H_END != 0, LOG_CAP. Such a transaction halts in every block built on
+/// that parent, wherever it is placed.
+pub fn own_logs_halt(cp:&pocol_lp4_execution::profile::ConsensusParams,cum:u64,logs:&[revm::primitives::Log])->Option<user_phase::Halt>{
+    use user_phase::{caps,Halt};let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));
+    if n>caps::LOG_COUNT_MAX{Some(Halt::LogCount)}else if c>caps::LOG_BLOCK_MAX{Some(Halt::LogBytes)}
+    else if cp.H_END!=0&&cum.saturating_add(c)>caps::LOG_CAP{Some(Halt::LogCap)}else{None}
+}
+/// PR6 review: an exceptional halt on the selection's overlay, as the block applies it (`user_phase.rs`
+/// apply_halt): the sender's nonce + 1, the sender pays gas_limit·price, the escrow receives gas_limit·tip; nothing
+/// else changes. None on an arithmetic failure (unreachable after the engine's balance check).
+fn sim_halt<S:pocol_lp4_execution::view::WorkState+?Sized>(st:&mut S,caller:Address,gas_limit:u64,price:U256,tip:U256)->Option<()>{
+    let fee=price.checked_mul(U256::from(gas_limit))?;let reward=tip.checked_mul(U256::from(gas_limit))?;
+    let mut s=st.account(&caller).and_then(|a|a.info()).unwrap_or_default();
+    s.nonce=s.nonce.checked_add(1)?;s.balance=s.balance.checked_sub(fee)?;st.insert_info(caller,s);
+    if reward!=U256::ZERO{let e=pocol_lp4_execution::pay::escrow_address();let mut c=st.account(&e).and_then(|a|a.info()).unwrap_or_default();
+        c.balance=c.balance.checked_add(reward)?;st.insert_info(e,c);}
+    Some(())
+}
+/// PR6 second review: the most gas one template selection executes, committed or not: GAS_LIMIT for candidates it
+/// executes and then leaves out (B4), plus 5/4 GAS_LIMIT, the most its committed transactions spend (EIP-3529), so
+/// the bound never binds before GAS_LIMIT of execution was wasted.
+pub fn selection_exec_budget(gas_limit:u64)->u64{gas_limit.saturating_add(gas_limit.saturating_mul(5)/4)}
+/// The gas an execution spent, before the refund (EIP-3529): what the engine ran.
+fn executed_gas(r:&revm::primitives::ExecutionResult)->u64{match r{revm::primitives::ExecutionResult::Success{gas_used,gas_refunded,..}=>gas_used.saturating_add(*gas_refunded),r=>r.gas_used()}}
+/// PR6 second review: the engine's checks before execution, with no state read (revm 19.7 validate_env and
+/// validate_initial_tx_gas under Cancun, as `native::build_engine` runs them, and EIP-2681's nonce): the block's
+/// gas limit, chain id, fee cap order, initcode size and intrinsic gas (calldata, access list, CREATE, initcode
+/// words). Parking executes nothing, so it refuses what these refuse: such a transaction can never be included or
+/// paid. The answer is the engine's (`-32000 {e:?}`). The fee cap against the next base fee stays `park`'s own check
+/// (POOL_FULL_GAS: the base fee moves), so the base fee is left at zero here.
+fn pre_execution(tx:&revm::primitives::TxEnv,ctx:&NativeBlockContext,chain_id:u64)->Result<(),String>{
+    use revm::{handler::mainnet::{validate_env,validate_initial_tx_gas},primitives::{BlobExcessGasAndPrice,CancunSpec,EVMError,Env,InvalidTransaction}};
+    if tx.nonce==Some(u64::MAX){return Err(format!("-32000 {:?}",EVMError::<core::convert::Infallible>::Transaction(InvalidTransaction::NonceOverflowInTransaction)))}
+    let mut env=Env::default();env.cfg.chain_id=chain_id;env.tx=tx.clone();
+    let b=&mut env.block;b.number=ctx.height;b.timestamp=ctx.timestamp;b.gas_limit=ctx.gas_limit;b.prevrandao=Some(ctx.prevrandao);
+    b.coinbase=pocol_lp4_execution::pay::escrow_address();b.blob_excess_gas_and_price=Some(BlobExcessGasAndPrice::new(0,false));
+    validate_env::<CancunSpec,revm::db::EmptyDB>(&env).and_then(|_|validate_initial_tx_gas::<CancunSpec,revm::db::EmptyDB>(&env).map(|_|())).map_err(|e|format!("-32000 {e:?}"))
+}
+/// PR6 B5, the append round: indices into `rest` to add after a built block, within `gas` of room counting
+/// declared gas, the TX_CAP/TXBYTES room and the BODY room. The head of each sender's queue (pool order) is a
+/// candidate; the smallest declared gas goes first (ties in pool order); a head that does not fit stops its
+/// sender's queue.
+fn append_round(rest:&[Cand],mut gas:u64,mut txs:u64,mut bytes:u64,mut body:usize)->Vec<usize>{
+    use std::{cmp::Reverse,collections::BinaryHeap};
+    let mut queues:Vec<VecDeque<usize>>=Vec::new();let mut of:HashMap<Address,usize>=HashMap::new();
+    for (i,c) in rest.iter().enumerate(){let q=*of.entry(c.sender).or_insert_with(||{queues.push(VecDeque::new());queues.len()-1});queues[q].push_back(i);}
+    let mut heap:BinaryHeap<Reverse<(u64,usize,usize)>>=queues.iter().enumerate().filter_map(|(q,v)|v.front().map(|&i|Reverse((rest[i].gas_limit,i,q)))).collect();
+    let mut out=Vec::new();
+    while let Some(Reverse((g,i,q)))=heap.pop(){
+        let n=rest[i].raw.len();
+        if g>gas||txs==0||n as u64>bytes||enc(n)>body{continue}
+        gas-=g;txs-=1;bytes-=n as u64;body-=enc(n);out.push(i);queues[q].pop_front();
+        if let Some(&j)=queues[q].front(){heap.push(Reverse((rest[j].gas_limit,j,q)));}
+    }
+    out
+}
 /// Decision D-7 (approved 2026-10-25, local pool policy): by default the pooled transactions' declared gas
 /// limits sum to at most this many GAS_LIMITs. It bounds the gas a new head re-executes and what the
 /// pending layer can hold; it bounds no execution time (gas is not time), which the slices do.
@@ -230,6 +349,18 @@ pub fn pool_gas_bound(cp:&pocol_lp4_execution::profile::ConsensusParams,limits:&
     let g=match limits.pool_gas_max{Some(g)=>g,None=>cp.GAS_LIMIT.checked_mul(POOL_GAS_BLOCKS).ok_or("pool gas bound: overflow")?};
     if g<cp.GAS_LIMIT{return Err(format!("pool_gas_max {g} is below GAS_LIMIT {}: a transaction a block can hold could never be pooled",cp.GAS_LIMIT))}
     Ok(g)
+}
+/// PR6 P1: by default one sender's pooled transactions declare at most this many GAS_LIMITs (a sender pays only
+/// for the gas it uses, so declared gas it holds in the pool must be bounded per sender).
+pub const POOL_SENDER_GAS_BLOCKS:u64=1;
+/// The sender quota: `Limits::pool_sender_gas_max`, or POOL_SENDER_GAS_BLOCKS × GAS_LIMIT. Refused below GAS_LIMIT
+/// (a transaction a block can hold must fit an empty quota) and above the pool's gas bound.
+pub fn pool_sender_gas_bound(cp:&pocol_lp4_execution::profile::ConsensusParams,limits:&Limits)->Result<u64,String>{
+    let q=match limits.pool_sender_gas_max{Some(q)=>q,None=>cp.GAS_LIMIT.checked_mul(POOL_SENDER_GAS_BLOCKS).ok_or("pool sender gas bound: overflow")?};
+    if q<cp.GAS_LIMIT{return Err(format!("pool_sender_gas_max {q} is below GAS_LIMIT {}: a transaction a block can hold could never be pooled",cp.GAS_LIMIT))}
+    let g=pool_gas_bound(cp,limits)?;
+    if q>g{return Err(format!("pool_sender_gas_max {q} is above the pool's gas bound {g}"))}
+    Ok(q)
 }
 
 pub struct Node{
@@ -341,6 +472,14 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     pub release_steps:u64,pub release_step_max_ms:u64,pub released_rows:u64,pub released_at_open:u64,
     /// Where the last open spent its time (`OpenTiming`).
     pub open:OpenTiming,
+    /// PR6: template selections that counted declared gas (no checked parent state; never in production), gas
+    /// failures recovered with the declared-safe prefix, transactions the append round added to a signed
+    /// template, and `build_signed` calls for signed templates.
+    pub template_gas_fallbacks:u64,pub template_gas_recoveries:u64,pub template_appended:u64,pub template_builds:u64,
+    /// PR6 P1: submissions refused by the sender quota; P2: parked transactions evicted by one declaring less.
+    pub sender_quota_refused:u64,pub parked_evicted:u64,
+    /// PR6 review: parked transactions relayed when parked.
+    pub parked_relayed:u64,
     /// VA-SPEC §2.5: Hellos refused for another network, a wire version below MIN and another consensus identity
     /// (`identity::Mismatch` order), the last refusal's reason (at most INCOMPATIBLE_REASON_MAX characters) and the
     /// connections whose first frame was PoCol 0.4.0's 9-item Hello (`net::legacy_hello`).
@@ -419,7 +558,7 @@ impl Node{
         // A13: the resident bound of this profile with these limits must fit the budget (the pool counted at
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
-        let pool_gas_max=pool_gas_bound(spec.cp(),&cfg.limits)?;
+        let pool_gas_max=pool_gas_bound(spec.cp(),&cfg.limits)?;let pool_sender_max=pool_sender_gas_bound(spec.cp(),&cfg.limits)?;
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
@@ -622,7 +761,7 @@ impl Node{
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
@@ -966,7 +1105,7 @@ impl Node{
     /// nothing, since the backlog does not record its sender (that would change PoolItem's A13 cost).
     fn relay_tx(&mut self,raw:Vec<u8>,from:PeerId){
         if !self.pool_pending(){let n=self.pool.txs.len();let _=self.submit_tx(raw,true);if self.pool.txs.len()>n{self.credit(from,Useful::Tx);}return}
-        if self.pool.bytes+self.pool.backlog_bytes+raw.len()>POOL_MAX_BYTES{return}
+        if self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{return}
         self.pool.backlog_bytes+=raw.len();self.pool.backlog.push_back(PoolItem::Tx(raw,Relay::Gossip));
     }
     /// Whether a new head left pool revalidation to do (D-7).
@@ -1023,10 +1162,28 @@ impl Node{
         let env=wire::decode_for_profile(&raw,self.chain.spec.profile()).map_err(|e|format!("{} {e:?}",e.specified_pool_code().unwrap_or(-32000)))?;
         let hash=env.hash();
         if self.pool.txs.iter().any(|(h,_)|*h==hash){return Ok(hash)}
-        if self.pool.bytes+self.pool.backlog_bytes+raw.len()>POOL_MAX_BYTES||self.pool.txs.len()>=POOL_MAX_TXS{return Err("-32016 pool full".into())}
+        // PR6 P2: a parked one is held already; nothing changes.
+        if self.pool.parked.iter().any(|x|x.hash==hash){return Err(POOL_PARKED.into())}
+        if self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES||self.pool.txs.len()>=POOL_MAX_TXS{return Err("-32016 pool full".into())}
         // D-7: refused before it is executed, with no state change; a new head recounts the sum.
-        let gas_limit=env.tx_env().gas_limit;
-        if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max{return Err(POOL_FULL_GAS.into())}
+        let (gas_limit,caller)=(env.tx_env().gas_limit,env.tx_env().caller);
+        // PR6 P1: the sender quota, before the pool's bound. A transaction returned from an abandoned block was in a
+        // sealed block and is not counted (a reorganization must not drop a sender's second block of them).
+        let exempt=matches!(relay,Relay::Offer|Relay::Returned);
+        if !exempt{
+            // PR6 review: and its parked ones (a sender may park a run of its next nonces).
+            let held=self.pool.meta.iter().filter(|(s,_,x)|*s==caller&&!*x).fold(0u64,|n,(_,g,_)|n.saturating_add(*g));
+            let held=self.pool.parked.iter().filter(|x|x.sender==caller&&!matches!(x.relay,Relay::Offer|Relay::Returned)).fold(held,|n,x|n.saturating_add(x.gas));
+            if held.saturating_add(gas_limit)>self.pool.sender_gas_max{self.stats.sender_quota_refused+=1;return Err(POOL_FULL_SENDER.into())}
+        }
+        // PR6 third review: so is a later transaction of a sender with parked ones, whatever its gas. Its nonce follows
+        // theirs, which the pending state does not have, so executed there it was refused as nonce too high and
+        // lost (at a head, one that was pooled behind a parked one); parked, it joins its sender's run.
+        if self.pool.gas.saturating_add(gas_limit)>self.pool.gas_max||self.pool.parked.iter().any(|x|x.sender==caller){
+            // PR6 second review: refused as the engine would refuse it before executing it (intrinsic gas and the
+            // rest), never parked.
+            let (tx,ctx)=(env.tx_env(),self.next_block_ctx());pre_execution(&tx,&ctx,self.chain.spec.profile().spec().chain_id)?;
+            return Err(self.park(raw,hash,&tx,relay).into())}
         let ctx=self.next_block_ctx();
         let base=self.pool.pending_base.clone();let view=pocol_lp4_execution::view::LayerView{base:&base,layer:&self.pool.pending};
         let r=match(by,self.pool.code_total){
@@ -1036,6 +1193,10 @@ impl Node{
         let r=match r{Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>return Err(SUBMIT_DEADLINE.into()),r=>r.map_err(|e|format!("-32000 {e:?}"))?};
         // A precompile runs to its end between two polls: the deadline is checked again before the commit.
         if by.is_some_and(|by|Instant::now()>=by){return Err(SUBMIT_DEADLINE.into())}
+        // PR6 review: one whose own logs pass a block's log caps would halt in every block on this head. The honest
+        // selection takes it only as such a halt (charged all its gas); the pool refuses it, as it refuses one past
+        // the meter's caps, so it cannot hold the gas bound unpaid.
+        if let Some(why)=own_logs_halt(self.chain.spec.cp(),self.chain.head().cum_log_bytes,r.result.logs()){return Err(format!("-32000 logs would exceed a block cap ({why:?})"))}
         // A13: the effects must stay within the caps a block enforces; then only live entries are kept.
         self.pool.meter.admit(&view,&r.state).map_err(|h|format!("-32000 pending state would exceed a cap ({h:?})"))?;
         // The same commit as a block's USER phase (EIP-161 cleanup, normalization), so the meter
@@ -1051,13 +1212,70 @@ impl Node{
         // The running total follows the commit; any failure (unreachable for an engine result) falls back to full checks.
         self.pool.code_total=match(self.pool.code_total,before,after){
             (Some(t),Ok(b),Ok(a))=>t.checked_sub(b).and_then(|t|t.checked_add(a)),_=>None};
-        self.pool.bytes+=raw.len();self.pool.gas+=gas_limit;self.pool.txs.push((hash,raw.clone()));
+        self.pool.bytes+=raw.len();self.pool.gas+=gas_limit;self.pool.txs.push((hash,raw.clone()));self.pool.meta.push((caller,gas_limit,exempt));
         match relay{
             Relay::Gossip=>self.broadcast(&Msg::Tx{raw},None),
             Relay::Offer=>{let m=Msg::Tx{raw};for p in self.peers.values(){if p.offer(&m){self.stats.reinserted_offered+=1}else{self.stats.reinserted_unoffered+=1}}}
-            Relay::No=>{}}
+            Relay::No|Relay::Returned=>{}}
         Ok(hash)
     }
+    /// PR6 P2: a transaction refused only by the pool's gas bound (PR6 third review: or whose sender has parked ones,
+    /// `admit_tx`) is held for the next head when it is the sender's next transaction (on the pending state, or after the sender's parked ones: PR6 review, a sender
+    /// may park a run of its next nonces, within its quota), its sender can pay it and its parked ones at their
+    /// fee caps and values, and its fee cap covers the next base fee (two reads, no execution). The set is bounded
+    /// (`parked_max`, POOL_MAX_BYTES shared with the pool and the backlog); when it is full, the parked
+    /// transaction declaring the most gas (the latest of equals), with its sender's later parked ones, makes room
+    /// for one of another sender declaring strictly less (PR6 second review: and the last entry of the longest run makes
+    /// room, at equal declared gas, for its sender's first one). Refused before parking: what the engine refuses
+    /// before execution (`pre_execution`, in `admit_tx`). A parked transaction is a template candidate
+    /// (`template_selection`) and is relayed now (PR6 review): the drawn proposer can take it in the next block
+    /// even while the gas bound is held; PR6 second review: only one that evicted nothing, at most `parked_max` per
+    /// head, offered; another is relayed when admitted at a later head. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
+    fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay)->&'static str{
+        use pocol_lp4_execution::view::View;
+        let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
+        let acct=view.account(&tx.caller).map(|a|a.info).unwrap_or_default();
+        let (mut next,mut spent,mut run)=(acct.nonce,Some(U256::ZERO),None);
+        for x in self.pool.parked.iter().filter(|x|x.sender==tx.caller){next=x.nonce.saturating_add(1);spent=spent.and_then(|s|s.checked_add(x.cost));run=Some(x.run);}
+        let cost=U256::from(tx.gas_limit).checked_mul(tx.gas_price).and_then(|c|c.checked_add(tx.value));
+        let total=cost.and_then(|c|spent.and_then(|s|s.checked_add(c)));
+        if tx.nonce!=Some(next)||total.is_none_or(|c|acct.balance<c)||tx.gas_price<self.next_block_ctx().base_fee{return POOL_FULL_GAS}
+        let mut evicted=false;
+        while self.pool.parked.len()>=self.pool.parked_max||self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{
+            evicted=true;
+            let Some(i)=(0..self.pool.parked.len()).max_by_key(|&i|(self.pool.parked[i].gas,self.pool.parked[i].seq)) else{return POOL_FULL_GAS};
+            let (s,k)=(self.pool.parked[i].sender,self.pool.parked[i].nonce);
+            if self.pool.parked[i].gas>tx.gas_limit&&s!=tx.caller{
+                // Its sender's later ones would follow a nonce gap: they go with it.
+                let (mut freed,mut n)=(0usize,0u64);
+                self.pool.parked.retain(|x|if x.sender==s&&x.nonce>=k{freed+=x.raw.len();n+=1;false}else{true});
+                self.pool.parked_bytes-=freed;self.stats.parked_evicted+=n;continue
+            }
+            // PR6 second review: a run's later entries hold room only while it is spare. A newcomer that would be its
+            // sender's first parked one evicts, at equal declared gas, the last entry of the longest run (the latest
+            // of equals), so one sender's run of cheap transactions cannot set the eviction floor for many slots.
+            if run.is_some(){return POOL_FULL_GAS}
+            let p=&self.pool.parked;let mut runs:HashMap<Address,(usize,usize)>=HashMap::new();
+            for (j,x) in p.iter().enumerate(){let e=runs.entry(x.sender).or_insert((0,j));e.0+=1;if x.nonce>p[e.1].nonce{e.1=j;}}
+            let Some(j)=runs.values().filter(|(m,j)|*m>=2&&p[*j].gas>=tx.gas_limit).max_by_key(|(m,j)|(*m,p[*j].seq)).map(|(_,j)|*j) else{return POOL_FULL_GAS};
+            let x=self.pool.parked.remove(j);self.pool.parked_bytes-=x.raw.len();self.stats.parked_evicted+=1;
+        }
+        self.pool.parked_bytes+=raw.len();self.pool.park_seq+=1;let seq=self.pool.park_seq;
+        // PR6 second review: relayed now only when it evicted nothing and fewer than `parked_max` were relayed when
+        // parked since the last head, and offered (a peer with half its queue in use does not get it and is kept):
+        // eviction lets a sender park again at the same nonce, so relaying every parked one let the relays per head
+        // grow without bound and unpaid. Any other one keeps its relay and is relayed when admitted at a later head.
+        let relay=if relay==Relay::Gossip&&!evicted&&self.pool.parked_relays<self.pool.parked_max{
+            let m=Msg::Tx{raw:raw.clone()};for p in self.peers.values(){let _=p.offer(&m);}
+            self.pool.parked_relays+=1;self.stats.parked_relayed+=1;Relay::No}else{relay};
+        self.pool.parked.push(Parked{gas:tx.gas_limit,nonce:next,seq,run:run.unwrap_or((tx.gas_limit,seq)),ahead:self.pool.txs.len() as u64,sender:tx.caller,hash,cost:cost.unwrap_or_default(),relay,raw});
+        POOL_PARKED
+    }
+    /// The parked transactions, in the order the next head admits them (PR6 P2; tests and inspection): each
+    /// sender's run by its first one's declared gas and arrival, in nonce order.
+    pub fn pool_parked(&self)->Vec<Vec<u8>>{let mut v:Vec<&Parked>=self.pool.parked.iter().collect();v.sort_by_key(|x|(x.run,x.nonce));v.into_iter().map(|x|x.raw.clone()).collect()}
+    /// Lowers the parked set's bound (tests reach a full set with a few senders); never above POOL_PARKED_MAX.
+    pub fn set_pool_parked_max(&mut self,m:usize){self.pool.parked_max=m.min(POOL_PARKED_MAX);}
     /// Journal offsets of the blocks that left the canonical chain, from `old` back to the common
     /// ancestor with the new head, oldest first (A11). The walk always reaches the common ancestor
     /// (as `lca_height` does); the abandoned side is at most R_keep blocks, since a deeper fork is
@@ -1080,56 +1298,179 @@ impl Node{
         // then its own backlog); each is re-executed on the new head (nonce, balance, fee), so one the
         // new branch includes is not taken again. One from an abandoned block that is admitted again is
         // offered to the peers (Relay::Offer); the previous pool's were relayed when first admitted.
-        let old=std::mem::take(&mut self.pool.txs);let rest=std::mem::take(&mut self.pool.backlog);
+        // PR6 P3, the order: (1) the abandoned blocks; (2) the previous pool up to each sender's first transaction
+        // declaring more than GAS_LIMIT/2; (3) the parked transactions, least declared gas first (each sender's run by
+        // its first one, in nonce order); (4) the previous
+        // pool's deferred part (each sender's transactions from its first big one on, in pool order), then the
+        // parked ones of those senders; (5) the previous backlog. Transactions a block cannot take many of are
+        // re-admitted after the waiting small ones, so they cannot hold the gas bound against them across heads.
+        // One refused for the gas bound here is parked again when eligible (`park`), not dropped.
+        let old=std::mem::take(&mut self.pool.txs);let meta=std::mem::take(&mut self.pool.meta);let rest=std::mem::take(&mut self.pool.backlog);
+        let mut parked=std::mem::take(&mut self.pool.parked);self.pool.backlog_bytes+=std::mem::take(&mut self.pool.parked_bytes);self.pool.parked_relays=0;
+        parked.sort_by_key(|x|(x.run,x.nonce));
         self.pool.bytes=0;self.pool.gas=0;self.pool.pending=Default::default();self.pool.pending_base=chain::StateHandle::of(self.chain.head());
         let (meter,code)=pool_start(self.chain.head(),&self.chain.spec);self.pool.code_total=code;self.pool.meter=meter;
+        let big=self.chain.spec.cp().GAS_LIMIT/2;
         let mut q:VecDeque<PoolItem>=detached.into_iter().map(PoolItem::Block).collect();
-        for (_,raw) in old{self.pool.backlog_bytes+=raw.len();q.push_back(PoolItem::Tx(raw,Relay::No));}
+        let (mut later,mut deferred)=(HashSet::new(),Vec::new());
+        for ((_,raw),(sender,gas,exempt)) in old.into_iter().zip(meta){
+            self.pool.backlog_bytes+=raw.len();let item=PoolItem::Tx(raw,if exempt{Relay::Returned}else{Relay::No});
+            if gas>big||later.contains(&sender){later.insert(sender);deferred.push(item);}else{q.push_back(item);}
+        }
+        let (after,first):(Vec<Parked>,Vec<Parked>)=parked.into_iter().partition(|x|later.contains(&x.sender));
+        q.extend(first.into_iter().map(|x|PoolItem::Tx(x.raw,x.relay)));
+        q.extend(deferred);q.extend(after.into_iter().map(|x|PoolItem::Tx(x.raw,x.relay)));
         q.extend(rest);self.pool.backlog=q;
         self.pool_step();
     }
-    /// Pool transactions that still execute in order (for a signed template on `p`). execution.md:83: a
+    /// A signed template on `p` built from `sel` at `clock` as production builds it (`build_signed_template`), but
+    /// neither recorded nor sent: for tests only. Broadcasting it with another template for the same parent and
+    /// height is self-equivocation (F7). None without a mining key.
+    #[doc(hidden)]
+    pub fn build_template_unrecorded(&mut self,p:&Entry,sel:Selection,clock:u64)->Option<(Header,Body)>{self.build_signed_template(p,sel,clock)}
+    /// Pool transactions that still execute in order (for a signed template on `p`), as selected now:
+    /// `template_selection(p, now_s()).txs`.
+    pub fn template_txs(&self,p:&Entry)->Vec<Vec<u8>>{self.template_selection(p,now_s()).txs}
+    /// The execution context of a child of `p` exactly as `build_signed` at `clock` gives it (PR6 B1): its
+    /// base fee, prevrandao, proposer timestamp and BLOCKHASH window. None when p has no draw context (the
+    /// selection then uses `child_block_ctx`).
+    fn template_ctx(&self,p:&Entry,clock:u64)->Option<(NativeBlockContext,Vec<(u64,B256)>)>{
+        let ctx=self.chain.child_ctx(p,0).ok()?;let ts=ctx.window.proposer_timestamp(clock).ok()?;
+        Some((NativeBlockContext{height:U256::from(p.height+1),timestamp:U256::from(ts),gas_limit:U256::from(self.chain.spec.cp().GAS_LIMIT),base_fee:ctx.base_fee,prevrandao:ctx.prevrandao},ctx.ancestors))
+    }
+    /// Pool transactions for a signed template on `p` built at `clock` (PR6). execution.md:83: a
     /// transaction that would pass TX_CAP or TXBYTES_CAP on p's branch (item 16, the accounting of
     /// `Chain::within_caps`) is skipped, and so are its sender's later ones (their nonces follow it).
-    pub fn template_txs(&self,p:&Entry)->Vec<Vec<u8>>{
-        let cp=self.chain.spec.cp();let mut out=Vec::new();let mut gas=0u64;let mut bytes=0usize;
-        let (mut room_txs,mut room_bytes)=self.chain.caps_room(p);let mut skipped=HashSet::new();
-        // Encoded item length (RLP string header included); the three list headers take <= 12 bytes.
-        let enc=|n:usize|n+1+if n<56{0}else if n<256{1}else if n<65536{2}else{3};
+    ///
+    /// Gas (PR6 B2): each candidate is executed on p's state in the block's own context (B1) and counted at
+    /// the gas it uses (post-refund, as `user_phase.rs:318`). It fits when its declared gas limit is at most
+    /// GAS_LIMIT minus the gas used so far, the consensus rule (`user_phase.rs:288`); one that does not fit
+    /// is skipped with its sender's later ones (kept in `rest` for the append round,
+    /// `build_signed_template`), and the selection goes on. Without a checked parent state (`sim` None: an
+    /// entry without its full state, tests only) declared gas is counted instead (`fallback`), valid by
+    /// construction. A transaction whose logs or state effects would pass a block cap (B4) is skipped: it
+    /// would halt in the block and be charged all its gas. One whose own logs pass a log cap halts in every
+    /// block on p (`own_logs_halt`): it is included, as that halt, counted at its declared gas. Execution (PR6 second
+    /// review): the selection executes at most `selection_exec_budget(GAS_LIMIT)` of gas, committed or left out
+    /// (`Selection::executed`); a candidate whose declared gas does not fit what is left is kept, unexecuted, with
+    /// those that do not fit by gas.
+    pub fn template_selection(&self,p:&Entry,clock:u64)->Selection{
+        let cp=self.chain.spec.cp();let mut sel=Selection::default();let mut used=0u64;let mut bytes=0usize;
+        let (room_txs0,room_bytes0)=self.chain.caps_room(p);let (mut room_txs,mut room_bytes)=(room_txs0,room_bytes0);
+        let mut skipped=HashSet::new();let mut gas_skipped=HashSet::new();let mut rest_bytes=0usize;
+        let body_room=cp.BODY_MAX as usize-12;
         // PR #27 review R1-1: a skipped transaction (no room, or not executable) can be what a later
         // transaction of another sender depends on, for example the transfer that funds it. Each candidate
         // is therefore executed, in order, on a running copy of the parent state, and one that fails
         // validation there is skipped with the rest of its sender's transactions, so the selection stays
         // executable and an independent transaction is not starved. (The block's SYSTEM phases run before
         // its USER phase; a transaction depending on them may still be dropped by build_signed_template's
-        // retry.) Without a checked parent state the selection is made as before.
-        let profile=self.chain.spec.profile();let ctx=self.child_block_ctx(p);
+        // retry.)
+        let profile=self.chain.spec.profile();
         // C-1 E3: on an overlay over p's state, not a copy of it.
         let handle=chain::StateHandle::of(p);
         let mut sim=if p.pruned||!p.full{None}else{summary_code_total(p,&self.chain.spec).map(|t|(pocol_lp4_execution::view::Overlay::new(&handle),t))};
-        // D-7: candidates are the admitted transactions, then the backlog's (each is executed here on p's
-        // state anyway); an abandoned block not yet expanded is not a candidate.
-        let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)=>Some(r),PoolItem::Block(_)=>None});
-        for raw in self.pool.txs.iter().map(|(_,r)|r).chain(backlog){
-            let Ok(env)=wire::decode_for_profile(raw,profile) else{continue};let tx=env.tx_env();
-            if skipped.contains(&tx.caller){continue}
-            if room_txs==0||raw.len() as u64>room_bytes{skipped.insert(tx.caller);continue}
-            if gas+tx.gas_limit>cp.GAS_LIMIT||bytes+enc(raw.len())>cp.BODY_MAX as usize-12{break}
-            if let Some((st,total))=&mut sim{
-                match native::execute_on_validated(&*st,*total,tx.clone(),&ctx,profile){
+        // B1: the block's context, and on the simulation the BLOCKHASH window the block's overlay gets
+        // (`Job::run`). Pool admission keeps `next_block_ctx` (a validity pre-check that counts no gas).
+        let ctx=match sim.as_mut().and_then(|(st,_)|self.template_ctx(p,clock).map(|(c,anc)|{pocol_lp4_execution::view::WorkState::set_block_hashes(st,&anc);c})){Some(c)=>c,None=>self.child_block_ctx(p)};
+        // B4: the block caps a candidate's logs and state effects could reach (the pool's meter for
+        // SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX; logs exactly). Dirty keys and accounts are not modelled.
+        let mut meter=sim.as_ref().map(|_|pool_start(p,&self.chain.spec).0);let (mut log_count,mut log_bytes)=(0u64,0u64);
+        // D-7: candidates are the admitted transactions, then (PR6 review) the parked ones, then the backlog's (each is executed here on p's
+        // state anyway); an abandoned block not yet expanded is not a candidate. A pooled one's sender and
+        // declared gas come from the pool's meta, so one that is skipped is not decoded; B3: at most
+        // BUILD_VISIT_MAX decodes (each recovers a signature).
+        let mut decodes=0usize;
+        // PR6 second review: the gas executed so far (`Selection::executed`), committed or left out, within
+        // `selection_exec_budget`. A candidate is executed only when its declared gas fits what is left of it, so
+        // one that B4 leaves out after running (it commits nothing, so `used` does not grow) cannot make the
+        // selection run without bound; one that does not fit is kept for the append round, unexecuted.
+        let budget=selection_exec_budget(cp.GAS_LIMIT);
+        // B6: the oldest transaction declaring more than half a block, first in its sender's queue, is tried first
+        // (it always fits an empty block), so a transaction that needs most of a block waits a bounded time behind
+        // the small ones. If it fails here (for example it depends on another sender's transaction), the in-order
+        // pass meets it again. PR6 third review: the pooled and the parked ones together. A parked one is its
+        // sender's first when its sender has nothing pooled and it starts its run; it arrived after the pooled
+        // transactions below its `ahead` and before the others. Without the parked ones a big transaction held by
+        // the gas bound (parked when submitted, or again at each head behind the parked small ones, P3) was tried
+        // only after every pooled one and never fit a block they used more than half of.
+        let (np,half)=(self.pool.txs.len(),cp.GAS_LIMIT/2);let mut first_seen=HashSet::new();let mut big=None;
+        for (i,(s,g,_)) in self.pool.meta.iter().enumerate(){if first_seen.insert(*s)&&*g>half&&big.is_none(){big=Some(i);}}
+        // The parked set is in arrival order (`seq`; `ahead` follows it), so its first such entry is its oldest.
+        if let Some((j,x))=self.pool.parked.iter().enumerate().find(|(_,x)|first_seen.insert(x.sender)&&x.gas>half){
+            if big.is_none_or(|i|x.ahead as usize<=i){big=Some(np+j);}}
+        let pooled=self.pool.txs.iter().zip(&self.pool.meta).enumerate().map(|(i,((_,r),(s,g,_)))|(false,i,r,Some((*s,*g))));
+        // PR6 review: then the parked ones, in arrival order (each sender's run in nonce order): they were checked on
+        // the pending state when parked (next nonce, balance, fee cap) and are executed here like any candidate, so
+        // a valid transaction the gas bound holds out of the pool still reaches the next block. Candidate keys: a
+        // pooled one its index, a parked one np + its index (the slot's key), the backlog none.
+        let parked=self.pool.parked.iter().enumerate().map(|(j,x)|(false,np+j,&x.raw,Some((x.sender,x.gas))));
+        let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)=>Some((false,usize::MAX,r,None)),PoolItem::Block(_)=>None});
+        let slot_first=big.map(|i|if i<np{let (s,g,_)=self.pool.meta[i];(true,i,&self.pool.txs[i].1,Some((s,g)))}
+            else{let x=&self.pool.parked[i-np];(true,i,&x.raw,Some((x.sender,x.gas)))});
+        let mut big_in=false;
+        for (slot,i,raw,known) in slot_first.into_iter().chain(pooled).chain(parked).chain(backlog){
+            if !slot&&big_in&&big==Some(i){continue}
+            // B3: nothing fits any more and nothing more can be kept for the append round.
+            if room_txs==0||room_bytes<MIN_TX_BYTES||bytes+enc(MIN_TX_BYTES as usize)>body_room{break}
+            let rest_full=rest_bytes>=cp.BODY_MAX as usize||sel.rest.len() as u64>=room_txs0;
+            if (cp.GAS_LIMIT-used<TX_GAS_MIN||budget-sel.executed<TX_GAS_MIN)&&rest_full{break}
+            let mut decode=||{if decodes>=BUILD_VISIT_MAX{return Err(())}decodes+=1;wire::decode_for_profile(raw,profile).map(|e|Some(e.tx_env())).or(Ok(None))};
+            let (caller,gas_limit,mut env)=match known{Some((c,g))=>(c,g,None),None=>match decode(){Err(())=>break,Ok(None)=>continue,Ok(Some(t))=>(t.caller,t.gas_limit,Some(t))}};
+            if skipped.contains(&caller){continue}
+            // `rest` (B5): a candidate skipped only because it did not fit by gas, and its sender's later ones.
+            // PR6 third review: only a pooled or parked one (checked when admitted or parked). A backlog one is only
+            // decoded: junk declaring little gas (below its intrinsic gas, or from an unfunded key) went first in the
+            // append round and failed each append build in turn, so the round added nothing and cost every build.
+            let gas_skip=gas_skipped.contains(&caller)||gas_limit>cp.GAS_LIMIT-used||(sim.is_some()&&gas_limit>budget-sel.executed);
+            if gas_skip&&!slot{
+                gas_skipped.insert(caller);
+                if !rest_full&&known.is_some(){rest_bytes+=raw.len();sel.rest.push(Cand{sender:caller,gas_limit,raw:raw.clone()});}
+                continue}
+            // Other reasons skip the sender (its later nonces follow it); the big-first slot (B6) marks nothing.
+            let mut skip=|slot:bool|if !slot{skipped.insert(caller);};
+            if gas_skip||raw.len() as u64>room_bytes||bytes+enc(raw.len())>body_room{skip(slot);continue}
+            let gas=match &mut sim{
+                Some((st,total))=>{
+                    let tx=match env.take(){Some(t)=>t,None=>match decode(){Err(())=>break,Ok(None)=>{skip(slot);continue},Ok(Some(t))=>t}};
+                    let (gas_price,priority)=(tx.gas_price,tx.gas_priority_fee);
+                    let r=native::execute_on_validated(&*st,*total,tx,&ctx,profile);
+                    if let Ok(r)=&r{sel.executed=sel.executed.saturating_add(executed_gas(&r.result));}
+                    match r{
+                    // PR6 review: one whose own logs pass a log cap halts in every block on p (the pool refuses
+                    // it, but its logs can follow the context, for example PREVRANDAO, which admission does not
+                    // have). It is included as the block applies it, charged its declared gas as before PR6, so it
+                    // cannot stay pooled unpaid. The halt writes no logs.
+                    Ok(r) if own_logs_halt(cp,p.cum_log_bytes,r.result.logs()).is_some()=>{
+                        let Ok((price,tip))=pocol_lp4_execution::fees::effective_fees(ctx.base_fee,gas_price,priority) else{skip(slot);continue};
+                        if sim_halt(st,caller,gas_limit,price,tip).is_none(){skip(slot);continue}
+                        gas_limit
+                    }
                     Ok(r)=>{
+                        // B4: a transaction that would halt on a block cap is left out.
+                        let logs=r.result.logs();let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));
+                        let log_cap=cp.H_END!=0&&p.cum_log_bytes.saturating_add(log_bytes+c)>user_phase::caps::LOG_CAP;
+                        if log_count+n>user_phase::caps::LOG_COUNT_MAX||log_bytes+c>user_phase::caps::LOG_BLOCK_MAX||log_cap{skip(slot);continue}
+                        if let Some(m)=&mut meter{let mut m2=*m;if m2.admit(&*st,&r.state).is_err(){skip(slot);continue}*m=m2;}
+                        log_count+=n;log_bytes+=c;let gas=r.result.gas_used();
                         let touched:Vec<Address>=r.state.keys().copied().collect();let before=pocol_lp4_execution::code_caps::code_of(&*st,&touched);
                         user_phase::commit_tx_on(st,r.state,true);
+                        // An arithmetic failure (unreachable for an engine result) ends the simulation: declared
+                        // gas is counted from here on.
                         match(before,pocol_lp4_execution::code_caps::code_of(&*st,&touched)){
-                            (Ok(b),Ok(a))=>match total.checked_sub(b).and_then(|t|t.checked_add(a)){Some(t)=>*total=t,None=>sim=None},_=>sim=None}
+                            (Ok(b),Ok(a))=>match total.checked_sub(b).and_then(|t|t.checked_add(a)){Some(t)=>*total=t,None=>{sim=None;sel.fallback=true}},_=>{sim=None;sel.fallback=true}}
+                        gas
                     }
-                    Err(_)=>{skipped.insert(tx.caller);continue}
-                }
-            }
-            gas+=tx.gas_limit;bytes+=enc(raw.len());room_txs-=1;room_bytes-=raw.len() as u64;out.push(raw.clone());
+                    // Pre-execution validation (nonce, balance, fee): no execution work, only this sender.
+                    Err(_)=>{skip(slot);continue}
+                }},
+                None=>{sel.fallback=true;gas_limit}
+            };
+            used+=gas;bytes+=enc(raw.len());room_txs-=1;room_bytes-=raw.len() as u64;sel.txs.push(raw.clone());
+            if slot{big_in=true;}
         }
-        debug_assert!(self.chain.within_caps(p,&out));
-        out
+        debug_assert!(self.chain.within_caps(p,&sel.txs));
+        sel.counted=used;sel
     }
 
     // ---------------- production (consensus §4) ----------------
@@ -1169,8 +1510,10 @@ impl Node{
                 }else{
                     let phi=self.capital_phi();
                     if now_s().saturating_add(phi)<ctx.window.lower(){if let Some(pr)=&mut self.prod{pr.mode=Mode::Propose{at_s:ctx.window.lower()-phi};}return;}
-                    let txs=self.template_txs(&p);
-                    if let Some(t)=self.build_signed_template(&p,txs){
+                    // B1: one clock for the selection and every build (one timestamp).
+                    let clock=now_s();let sel=self.template_selection(&p,clock);
+                    if sel.fallback{self.stats.template_gas_fallbacks+=1;}
+                    if let Some(t)=self.build_signed_template(&p,sel,clock){
                         // Persist the signing record (fsync) BEFORE broadcasting, so a crash can never
                         // leave us free to sign a different template for this (parent,height).
                         self.record_signed_a0(p.hash,ctx.height,template_id(&t.0.ut_raw),t.0.encoded.clone(),t.1.encode());
@@ -1189,31 +1532,81 @@ impl Node{
             self.lock_fallback(&p,a);
         }
     }
-    fn build_signed_template(&mut self,p:&Entry,mut txs:Vec<Vec<u8>>)->Option<(Header,Body)>{
+    /// The signed template for `p` from a selection, built at `clock` (PR6 B5). At most TEMPLATE_BUILDS_MAX
+    /// builds, all at one clock (one timestamp); only the returned one leaves the process (F7: the caller records
+    /// and broadcasts it).
+    /// - A USER transaction the build reports by index is dropped with its sender's later ones, and the build is
+    ///   tried again (as before PR6).
+    /// - A gas failure (`is_user_gas`: the simulation counted less gas than the block used, for example because
+    ///   the block's SYSTEM phase ran first) carries no index: the transactions fall back to the longest prefix
+    ///   whose declared gas fits GAS_LIMIT, valid by construction, and the rest goes back to the candidates. The
+    ///   template is never emptied while such a prefix is known.
+    /// - Append round (one): the candidates left out for gas (`Selection::rest`) are added within the room the
+    ///   real build left, counting their declared gas, smallest first, the head of each sender's queue at a
+    ///   time; the block is built again only if one fits. The simulation cannot inflate declared gas, so a
+    ///   transaction that burns gas only in the simulation cannot leave the block under-filled. PR6 third review:
+    ///   an appended transaction the build reports by index is dropped with every appended one after it, and the
+    ///   block is built once more (its prefix executed), so the round costs at most two builds.
+    /// The last good build is kept when a later one fails.
+    fn build_signed_template(&mut self,p:&Entry,sel:Selection,clock:u64)->Option<(Header,Body)>{
         self.cfg.miner.as_ref()?;
-        let evidence=self.includable_evidence(p);
-        let key=self.cfg.miner.as_ref()?;
-        for _ in 0..8{
-            let body=Body{txs:txs.clone(),evidence:evidence.clone()};
-            let effects=match self.chain.evidence_effects(p,&body,p.height+1){Ok(e)=>e,Err(_)=>vec![]};
-            let mut body=if effects.len()==body.evidence.len(){body}else{Body{txs:txs.clone(),evidence:vec![]}};
+        let cp=self.chain.spec.cp();let (gas_limit,body_max)=(cp.GAS_LIMIT,cp.BODY_MAX as usize);
+        let mut evidence=self.includable_evidence(p);
+        let effects=match self.chain.evidence_effects(p,&Body{txs:vec![],evidence:evidence.clone()},p.height+1){Ok(e)=>e,Err(_)=>vec![]};
+        let mut effects=if effects.len()==evidence.len(){effects}else{evidence.clear();vec![]};
+        // Evidence alone over BODY_MAX (not reachable with E_max·EVID_BYTES_MAX < BODY_MAX): built without it.
+        if (Body{txs:vec![],evidence:evidence.clone()}).encode().len()>body_max{evidence.clear();effects.clear();}
+        let Selection{mut txs,mut rest,..}=sel;
+        let sender=|chain:&Chain,raw:&Vec<u8>|wire::decode_for_profile(raw,chain.spec.profile()).ok().map(|e|(e.tx_env().caller,e.tx_env().gas_limit));
+        let mut last_good:Option<(Header,Body)>=None;let mut base:Option<usize>=None;let t0=Instant::now();let mut builds=0;
+        while builds<TEMPLATE_BUILDS_MAX{
+            builds+=1;
             // Evidence shares BODY_MAX with the transactions: drop transactions until the encoded body fits.
-            while body.encode().len()>self.chain.spec.cp().BODY_MAX as usize&&!body.txs.is_empty(){body.txs.pop();}txs=body.txs.clone();
-            // Evidence alone over BODY_MAX (not reachable with E_max·EVID_BYTES_MAX < BODY_MAX): build without it.
-            let effects=if body.encode().len()>self.chain.spec.cp().BODY_MAX as usize{body.evidence.clear();vec![]}else{effects};
-            match self.chain.build_signed(p,key,now_s(),body.clone(),effects){
-                Ok((h,_,_))=>return Some((h,body)),
+            let mut body=Body{txs:txs.clone(),evidence:evidence.clone()};
+            while body.encode().len()>body_max&&!body.txs.is_empty(){body.txs.pop();}txs=body.txs.clone();
+            if base.is_some_and(|n|txs.len()<=n){break}
+            let key=self.cfg.miner.as_ref()?;
+            match self.chain.build_signed(p,key,clock,body.clone(),effects.clone()){
+                Ok((h,_,_))=>{
+                    if let Some(n)=base{self.stats.template_appended+=(body.txs.len()-n) as u64;last_good=Some((h,body));break}
+                    // The append round, within the room this build left (exact: its own gas used).
+                    let (room_txs,room_bytes)=self.chain.caps_room(p);let used_bytes:u64=body.txs.iter().map(|t|t.len() as u64).sum();
+                    let add=append_round(&rest,gas_limit-h.gas_used,room_txs.saturating_sub(body.txs.len() as u64),room_bytes.saturating_sub(used_bytes),body_max.saturating_sub(body.encode().len()+8));
+                    base=Some(body.txs.len());last_good=Some((h,body));
+                    if add.is_empty(){break}
+                    txs.extend(add.into_iter().map(|i|rest[i].raw.clone()));rest.clear();
+                }
                 Err(Reject::Local(why))=>self.fatal(&why),
                 Err(Reject::Block(why))=>{
                     self.log(&format!("signed template failed: {why}"));
-                    // Drop the offending user transaction (USER phase reports its index) and retry.
+                    if is_user_gas(&why){
+                        // A failure of the append build keeps the last good one.
+                        if base.is_some(){break}
+                        let mut sum=0u64;let k=txs.iter().take_while(|t|{sum=sum.saturating_add(sender(&self.chain,t).map_or(u64::MAX,|(_,g)|g));sum<=gas_limit}).count();
+                        let tail=txs.split_off(if k==txs.len(){0}else{k});
+                        let mut back:Vec<Cand>=tail.into_iter().filter_map(|raw|sender(&self.chain,&raw).map(|(s,g)|Cand{sender:s,gas_limit:g,raw})).collect();
+                        // A13 (resources::selection_bytes): the tail is at most the selected transactions (GAS_LIMIT/
+                        // TX_GAS_MIN entries, BODY_MAX bytes), counted beside the candidates' own bound.
+                        back.append(&mut rest);rest=back;self.stats.template_gas_recoveries+=1;continue
+                    }
+                    // Drop the offending user transaction (USER phase reports its index) with its sender's later
+                    // ones, and retry.
                     let idx=why.split("User(").nth(1).and_then(|s|s.split(|c:char|!c.is_ascii_digit()).find(|x|!x.is_empty())).and_then(|n|n.parse::<usize>().ok());
-                    match idx{Some(i) if i<txs.len()=>{txs.remove(i);}_=>{if txs.is_empty(){return None}txs.clear();}}
+                    match idx{
+                        // PR6 third review: in the append build, the appended ones from the failing one on are dropped
+                        // (the transactions before it executed, so the next build succeeds): the append round costs at
+                        // most two builds more, whatever its candidates are.
+                        Some(i) if base.is_some_and(|n|i>=n)&&i<txs.len()=>txs.truncate(i),
+                        Some(i) if i<txs.len()=>{let s=sender(&self.chain,&txs[i]).map(|x|x.0);let chain=&self.chain;let mut j=0;txs.retain(|t|{j+=1;j-1<i||(j-1>i&&(s.is_none()||sender(chain,t).map(|x|x.0)!=s))});}
+                        _ if base.is_some()=>break,
+                        _=>{if txs.is_empty(){break}txs.clear();}}
                 }
-                Err(_)=>return None,
+                Err(_)=>break,
             }
         }
-        None
+        self.stats.template_builds+=builds as u64;
+        if builds>1{self.log(&format!("signed template: {builds} builds in {} ms",t0.elapsed().as_millis()));}
+        last_good
     }
     /// F7: record that we signed `tid` for (parent,h), persist it durably BEFORE the caller broadcasts,
     /// and cache the encoded template so a same-process re-attempt re-broadcasts it unchanged. Pruned to
@@ -1629,18 +2022,42 @@ impl Node{
     /// it is revalidated (`pool_step_until` expands one at a time).
     pub fn pool_audit(&self)->Result<(),String>{
         let profile=self.chain.spec.profile();let (mut gas,mut bytes,mut seen)=(0u64,0usize,HashSet::new());
-        for (h,raw) in &self.pool.txs{
+        if self.pool.meta.len()!=self.pool.txs.len(){return Err(format!("{} meta entries for {} pooled transactions",self.pool.meta.len(),self.pool.txs.len()))}
+        let mut held:HashMap<Address,u64>=HashMap::new();
+        for ((h,raw),(sender,g,exempt)) in self.pool.txs.iter().zip(&self.pool.meta){
             let env=wire::decode_for_profile(raw,profile).map_err(|e|format!("a pooled transaction does not decode: {e:?}"))?;
             if env.hash()!=*h{return Err(format!("pooled under {h}, which is not its hash"))}
             if !seen.insert(*h){return Err(format!("{h} is pooled twice"))}
+            if (env.tx_env().caller,env.tx_env().gas_limit)!=(*sender,*g){return Err(format!("{h}: meta ({sender}, {g}) is not its sender and gas"))}
+            if !exempt{let s=held.entry(*sender).or_default();*s=s.checked_add(*g).ok_or("sender gas overflows")?;
+                if *s>self.pool.sender_gas_max{return Err(format!("{sender} holds {s} declared gas, past the sender quota {}",self.pool.sender_gas_max))}}
             gas=gas.checked_add(env.tx_env().gas_limit).ok_or("pooled gas overflows")?;bytes+=raw.len();
         }
         let backlog:usize=self.pool.backlog.iter().map(|i|match i{PoolItem::Tx(r,_)=>r.len(),PoolItem::Block(_)=>0}).sum();
+        // PR6 P2: the parked set is bounded, counted, per sender a run of consecutive nonces sharing its run key (in
+        // arrival order), within the sender quota with its pooled ones, and holds nothing pooled.
+        let parked:usize=self.pool.parked.iter().map(|x|x.raw.len()).sum();let mut runs:HashMap<Address,((u64,u64),u64,u64)>=HashMap::new();
+        if self.pool.parked.len()>self.pool.parked_max||self.pool.parked_max>POOL_PARKED_MAX{return Err(format!("{} parked, past the bound {}",self.pool.parked.len(),self.pool.parked_max))}
+        if parked!=self.pool.parked_bytes{return Err(format!("parked bytes {} differ from the contents: {parked}",self.pool.parked_bytes))}
+        for x in &self.pool.parked{
+            let g=if matches!(x.relay,Relay::Offer|Relay::Returned){0}else{x.gas};
+            match runs.get_mut(&x.sender){
+                None=>{runs.insert(x.sender,(x.run,x.nonce,g));}
+                Some((run,last,h))=>{if *run!=x.run||x.nonce!=last.saturating_add(1){return Err(format!("{}'s parked transactions are not one run of consecutive nonces",x.sender))}*last=x.nonce;*h=h.saturating_add(g);}}
+            if seen.contains(&x.hash){return Err(format!("{} is both pooled and parked",x.hash))}
+            if x.ahead>self.pool.txs.len() as u64{return Err(format!("parked {} arrived behind {} pooled transactions, more than are pooled",x.hash,x.ahead))}
+            let env=wire::decode_for_profile(&x.raw,profile).map_err(|e|format!("a parked transaction does not decode: {e:?}"))?;
+            if (env.hash(),env.tx_env().caller,env.tx_env().gas_limit,env.tx_env().nonce)!=(x.hash,x.sender,x.gas,Some(x.nonce)){return Err(format!("parked {} is not its hash, sender, gas and nonce",x.hash))}
+        }
+        for (s,(_,_,g)) in &runs{
+            let all=held.get(s).copied().unwrap_or(0).saturating_add(*g);
+            if *g>0&&all>self.pool.sender_gas_max{return Err(format!("{s} holds {all} declared gas pooled and parked, past the sender quota {}",self.pool.sender_gas_max))}
+        }
         if (gas,bytes,backlog)!=(self.pool.gas,self.pool.bytes,self.pool.backlog_bytes){
             return Err(format!("counters gas {}, bytes {}, backlog bytes {} differ from the contents: {gas}, {bytes}, {backlog}",self.pool.gas,self.pool.bytes,self.pool.backlog_bytes))}
         if gas>self.pool.gas_max{return Err(format!("pooled gas {gas} is past the bound {}",self.pool.gas_max))}
         if self.pool.txs.len()>POOL_MAX_TXS{return Err(format!("{} transactions pooled, past POOL_MAX_TXS",self.pool.txs.len()))}
-        if bytes>POOL_MAX_BYTES||bytes+backlog>POOL_MAX_BYTES+self.chain.spec.cp().BODY_MAX as usize{return Err(format!("{bytes} pooled and {backlog} backlog bytes, past POOL_MAX_BYTES"))}
+        if bytes>POOL_MAX_BYTES||bytes+backlog+parked>POOL_MAX_BYTES+self.chain.spec.cp().BODY_MAX as usize{return Err(format!("{bytes} pooled, {backlog} backlog and {parked} parked bytes, past POOL_MAX_BYTES"))}
         Ok(())
     }
     pub fn peer_count(&self)->usize{self.peers.len()}
@@ -1650,7 +2067,7 @@ impl Node{
             Mode::Locked(l)=>format!("{} h={} a={} shares={} mining={}",if l.fallback{"FB"}else{"PROP"},p.height,p.attempt,p.shares.len(),p.miner.is_some())}};
         let mut status=serde_json::json!({"name":self.cfg.name,"chainId":self.chain.spec.chain_id(),"genesisHash":hex(&self.chain.spec.genesis_hash()),"head":{"height":h.height,"hash":hex(&h.hash),"ts":h.ts,"signed":h.signed,"final":h.is_final,"totalWork":format!("{:#x}",h.total_work)},
             "peers":self.peers.values().map(|p|p.addr.clone()).collect::<Vec<_>>(),"production":mode,"miner":self.cfg.miner.as_ref().map(|k|format!("{:#x}",k.address())),
-            "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
+            "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"poolSenderGasMax":self.pool.sender_gas_max,"poolParked":self.pool.parked.len(),"poolParkedMax":self.pool.parked_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
             "admission":crate::admission_json(self.chain.spec.admission()),
             "a13":crate::resources::derive(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&self.cfg.limits,self.cfg.peers.len()).map(|b|serde_json::json!({
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
@@ -1666,6 +2083,13 @@ impl Node{
         status["compatiblePeers"]=serde_json::json!(self.peer_status.len());
         // Gossip and inbound grouping (net::Limits::per_group_max).
         status["stats"]["relayedTemplates"]=serde_json::json!(self.stats.relayed_templates);
+        // PR6: the builder (gas used) and the pool's sender quota and parking.
+        status["stats"]["templateGasFallbacks"]=serde_json::json!(self.stats.template_gas_fallbacks);
+        status["stats"]["templateGasRecoveries"]=serde_json::json!(self.stats.template_gas_recoveries);
+        status["stats"]["templateAppended"]=serde_json::json!(self.stats.template_appended);
+        status["stats"]["templateBuilds"]=serde_json::json!(self.stats.template_builds);
+        status["stats"]["senderQuotaRefused"]=serde_json::json!(self.stats.sender_quota_refused);
+        status["stats"]["parkedEvicted"]=serde_json::json!(self.stats.parked_evicted);status["stats"]["parkedRelayed"]=serde_json::json!(self.stats.parked_relayed);
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));

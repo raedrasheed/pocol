@@ -1186,7 +1186,7 @@ fn d7_pool_revalidation_hold_under_a_heavy_pool(){
     let mut h=net();let g=h.chain.head;let blocks=branch(&mut h,g,2,&[]);
     let mut out=serde_json::Map::new();
     for (tag,slice) in [("sliced",pocold::node::POOL_SLICE),("whole",Duration::from_secs(3600))]{
-        let (n,dir)=gas_node(&format!("d7-{tag}"),pocold::node::Limits{pool_slice:slice,pool_gas_max:Some(gas_max),..Default::default()});let mut n=n.unwrap();
+        let (n,dir)=gas_node(&format!("d7-{tag}"),pocold::node::Limits{pool_slice:slice,pool_gas_max:Some(gas_max),pool_sender_gas_max:Some(gas_max),..Default::default()});let mut n=n.unwrap();
         n.import(blocks[0].clone(),None).unwrap();
         let mut max_tx=0f64;for i in 0..k{let t=Instant::now();n.submit_tx(heavy(i),false).unwrap();max_tx=max_tx.max(t.elapsed().as_secs_f64()*1e3);}
         let t=Instant::now();n.import(blocks[1].clone(),None).unwrap();let import_ms=t.elapsed().as_secs_f64()*1e3;
@@ -1211,38 +1211,45 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
 /// Decision D-7 (approved 2026-10-25: POOL_GAS_BLOCKS × GAS_LIMIT by default), admission. A transaction whose
 /// declared gas limit would take the pooled sum past the bound is refused with -32016 (gas) before it is
 /// executed, and changes nothing; a duplicate is answered with its hash even at the bound; a new head recounts
-/// the sum from what stays.
+/// the sum from what stays. PR6: a valid one refused only by the bound is held for the next head (parked) and
+/// admitted then; one that is not valid on the pending state (here an unfunded sender) is not held.
 #[test] fn the_pool_gas_bound_refuses_past_it_and_is_recounted_on_a_new_head(){
-    use pocold::node::{POOL_FULL_GAS,POOL_GAS_BLOCKS};
-    let (n,dir)=gas_node("admit",Default::default());let mut n=n.unwrap();
+    use pocold::node::{POOL_FULL_GAS,POOL_GAS_BLOCKS,POOL_PARKED};
+    let c=cfg_funded();let (mut n,dir)=gas_node_cfg("admit",Default::default(),&c,None);
     let gl=n.chain.spec.cp().GAS_LIMIT;assert_eq!((n.pool.gas_max,POOL_GAS_BLOCKS*gl),(32_000_000,32_000_000),"the default bound");
-    let alice=devnet::account_key("alice");
-    let txs:Vec<Vec<u8>>=(0..4).map(|k|pay_gas(&alice,k,1,gl)).collect();
+    let (alice,bob)=(devnet::account_key("alice"),devnet::account_key("bob"));
+    // PR6: one sender holds at most GAS_LIMIT of declared gas, so four senders fill the bound.
+    let txs:Vec<Vec<u8>>=["alice","carol","erin","frank"].iter().map(|l|pay_gas(&key(l),0,1,gl)).collect();
     for t in &txs{n.submit_tx(t.clone(),false).unwrap();}
     assert_eq!((n.pool.txs.len(),n.pool.gas),(4,4*gl),"four transactions that declare GAS_LIMIT fill it exactly");n.pool_audit().unwrap();
     let root=apply::state_root(&n.pool_state()).unwrap();
-    for t in [pay_gas(&alice,4,1,gl),pay(&alice,4,1)]{assert_eq!(n.submit_tx(t,false).unwrap_err(),POOL_FULL_GAS,"one gas past the bound is refused");}
+    assert_eq!(n.submit_tx(pay_gas(&key("dave-unfunded"),0,1,gl),false).unwrap_err(),POOL_FULL_GAS,"one gas past the bound is refused");
+    assert_eq!(n.submit_tx(pay(&bob,0,1),false).unwrap_err(),POOL_PARKED,"a valid one is held for the next head");
+    assert_eq!(n.submit_tx(pay_gas(&bob,0,2,1_000_000),false).unwrap_err(),POOL_FULL_GAS,"another with a held one's nonce is not held");
+    assert_eq!(n.submit_tx(pay_gas(&bob,1,2,gl),false).unwrap_err(),pocold::node::POOL_FULL_SENDER,"PR6 review: a held one counts against its sender's quota");
     assert_eq!((n.pool.txs.len(),n.pool.gas),(4,4*gl),"refused, nothing pooled");
     assert_eq!(apply::state_root(&n.pool_state()).unwrap(),root,"and the pending state is unchanged");
     // A duplicate is not a new transaction: its hash, and nothing counted.
     assert_eq!(n.submit_tx(txs[0].clone(),false).unwrap(),n.pool.txs[0].0);assert_eq!(n.pool.gas,4*gl);n.pool_audit().unwrap();
     // A block that includes the first one (a block holds one transaction that declares GAS_LIMIT): the pool is
     // revalidated on it and its gas recounted, so a new one fits again.
-    let mut h=net();let g=h.chain.head;let b=branch(&mut h,g,1,&[Body{txs:vec![txs[0].clone()],evidence:vec![]}]);
-    n.import(b[0].clone(),None).unwrap();n.pool_settle();assert_eq!((n.pool.txs.len(),n.pool.gas),(3,3*gl));n.pool_audit().unwrap();
-    n.submit_tx(pay(&alice,4,1),false).unwrap();assert_eq!(n.pool.gas,3*gl+21000);n.pool_audit().unwrap();
+    let mut h=net_with(&c);let g=h.chain.head;let b=branch(&mut h,g,1,&[Body{txs:vec![txs[0].clone()],evidence:vec![]}]);
+    n.import(b[0].clone(),None).unwrap();n.pool_settle();assert_eq!((n.pool.txs.len(),n.pool.gas),(4,3*gl+21000),"bob's held transfer is admitted");n.pool_audit().unwrap();
+    assert_eq!(n.pool.txs[0].1,pay(&bob,0,1),"ahead of the big ones");
+    n.submit_tx(pay(&alice,1,1),false).unwrap();assert_eq!(n.pool.gas,3*gl+42000);n.pool_audit().unwrap();
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// D-7: the bound is a local setting (`Limits::pool_gas_max`, `pocold run --pool-gas-max`). Below GAS_LIMIT the
 /// node refuses to open, since a transaction a block can hold must fit an empty pool; at GAS_LIMIT one such
 /// transaction fills it; a larger value is taken as given (A13 counts the pool at it).
 #[test] fn the_pool_gas_bound_is_configurable_and_refused_below_gas_limit(){
-    use pocold::node::{Limits,POOL_FULL_GAS};
+    use pocold::node::{Limits,POOL_FULL_GAS,POOL_PARKED};
     let gl=8_000_000u64;let alice=devnet::account_key("alice");
     let (low,d0)=gas_node("low",Limits{pool_gas_max:Some(gl-1),..Default::default()});
     match low{Err(e)=>assert!(e.contains("below GAS_LIMIT"),"{e}"),Ok(_)=>panic!("a bound below GAS_LIMIT opened")}
     let (one,d1)=gas_node("one",Limits{pool_gas_max:Some(gl),..Default::default()});let mut one=one.unwrap();assert_eq!(one.pool.gas_max,gl);
-    one.submit_tx(pay_gas(&alice,0,1,gl),false).unwrap();assert_eq!(one.submit_tx(pay(&alice,1,1),false).unwrap_err(),POOL_FULL_GAS);
+    one.submit_tx(pay_gas(&alice,0,1,gl),false).unwrap();assert_eq!(one.submit_tx(pay(&devnet::account_key("dave-unfunded"),0,1),false).unwrap_err(),POOL_FULL_GAS);
+    assert_eq!(one.submit_tx(pay(&devnet::account_key("bob"),0,1),false).unwrap_err(),POOL_PARKED,"PR6: a valid one is held for the next head");
     let (big,d2)=gas_node("big",Limits{pool_gas_max:Some(16*gl),..Default::default()});let big=big.unwrap();assert_eq!(big.pool.gas_max,16*gl);
     drop((one,big));for d in [d0,d1,d2]{let _=std::fs::remove_dir_all(&d);}
 }
@@ -1265,10 +1272,12 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
 }
 /// D-7, re-insertion after a reorganization (consensus.md: excluded transactions return to the pool once checked
 /// again). The abandoned block's transactions come first, in block order, then the previous pool in its order,
-/// each admitted within every pool bound. One that no longer fits the gas bound is dropped and is not pooled
-/// later; a later, smaller one is still admitted. The counters equal the contents throughout.
+/// each admitted within every pool bound. PR6: a sender's transactions from its first one declaring more than
+/// GAS_LIMIT/2 on are re-admitted after the others (and after the parked ones), and one that no longer fits the
+/// gas bound is held for the next head (parked), not dropped. The counters equal the contents throughout.
 #[test] fn reorg_reinsertion_puts_detached_transactions_first_within_the_gas_bound(){
-    let (n,dir)=gas_node("reorg",Default::default());let mut n=n.unwrap();
+    // PR6: bob holds 31.9M of declared gas here, past the default sender quota (GAS_LIMIT).
+    let (n,dir)=gas_node("reorg",pocold::node::Limits{pool_sender_gas_max:Some(32_000_000),..Default::default()});let mut n=n.unwrap();
     let (alice,bob)=(devnet::account_key("alice"),devnet::account_key("bob"));let m=1_000_000u64;
     let (a0,a1)=(pay_gas(&alice,0,1,4*m),pay_gas(&alice,1,1,4*m));
     let mut h=net();let g=h.chain.head;let x=branch(&mut h,g,1,&[Body{txs:vec![a0.clone(),a1.clone()],evidence:vec![]}]);
@@ -1276,14 +1285,14 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     let (b0,b1,b2,b3)=(pay_gas(&bob,0,1,8*m),pay_gas(&bob,1,1,8*m),pay_gas(&bob,2,1,7_900_000),pay_gas(&bob,3,1,8*m));let a2=pay(&alice,2,1);
     for t in [&b0,&b1,&b2,&b3,&a2]{n.submit_tx(t.clone(),false).unwrap();}
     assert_eq!(n.pool.gas,31_921_000);n.pool_audit().unwrap();
-    // A heavier branch without x: a0 and a1 (8M) return first; b0, b1 and b2 fill the bound to 31.9M; b3 (8M) no
-    // longer fits and is dropped; a2 (21,000) still fits.
+    // A heavier branch without x: a0 and a1 (8M) return first; a2 (21,000) comes before bob's big ones; b0, b1 and b2
+    // fill the bound to 31.9M; b3 (8M) no longer fits and is parked.
     let mut h2=net();let y=branch(&mut h2,g,2,&[]);
     for b in &y{n.import(b.clone(),None).unwrap();n.pool_audit().unwrap();}
     assert_eq!(n.chain.head,y[1].hash(),"reorganized");
-    assert_eq!(pool(&mut n),vec![a0,a1,b0,b1,b2,a2],"detached first, then the pool in order, b3 dropped");
-    assert_eq!(n.pool.gas,8*m+16*m+7_900_000+21000);n.pool_audit().unwrap();
-    assert_eq!(n.submit_tx(b3,false).unwrap_err(),pocold::node::POOL_FULL_GAS,"b3 is not pooled later on its own");
+    assert_eq!(pool(&mut n),vec![a0,a1,a2,b0,b1,b2],"detached first, then the small ones of the pool, then bob's big ones; b3 parked");
+    assert_eq!(n.pool.gas,8*m+16*m+7_900_000+21000);n.pool_audit().unwrap();assert_eq!(n.pool_parked(),vec![b3.clone()]);
+    assert_eq!(n.submit_tx(b3,false).unwrap_err(),pocold::node::POOL_PARKED,"b3 is held for the next head");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// The frames a node sent on `s` within `ms`, decoded; the node handles its queued events (the peer's
@@ -1338,21 +1347,26 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
 /// (`Node::pool_audit`). The positive controls: each kind of step happened.
 #[test] fn the_pool_counters_equal_the_contents_through_admission_revalidation_and_reorgs(){
     use pocold::{net::{Msg,NetEvent},node::{Event,Limits}};
-    let (n,dir)=gas_node("audit",Limits{pool_slice:std::time::Duration::ZERO,..Default::default()});let mut n=n.unwrap();
+    // PR6: five senders, so the per-sender quota (GAS_LIMIT) still lets the pool reach its gas bound and park.
+    let c=cfg_funded();let (mut n,dir)=gas_node_cfg("audit",Limits{pool_slice:std::time::Duration::ZERO,..Default::default()},&c,None);
     let (peer,_socket)=auth_peer::connect(&mut n);
-    let keys=[devnet::account_key("alice"),devnet::account_key("bob")];let mut h=net();
+    let keys=["alice","bob","carol","erin","frank"].map(key);let mut h=net_with(&c);
     let mut seed=0x9e37_79b9_7f4a_7c15u64;let mut rnd=|k:u64|{seed^=seed<<13;seed^=seed>>7;seed^=seed<<17;seed%k};
-    let (mut admitted_n,mut gas_refused,mut relayed_in_backlog,mut heads,mut reorgs)=(0,0,0,0,0);
+    let (mut admitted_n,mut gas_refused,mut relayed_in_backlog,mut heads,mut reorgs,mut parked)=(0,0,0,0,0,0);
     let gases=[21000u64,4_000_000,8_000_000,8_000_000];
+    // The bound filled by four senders and a fifth's transfer held, so the first head revalidates a parked one.
+    for k in &keys[1..]{n.submit_tx(pay_gas(k,0,1,8_000_000),false).unwrap();admitted_n+=1;}
+    assert_eq!(n.submit_tx(pay(&keys[0],0,1),false).unwrap_err(),pocold::node::POOL_PARKED);gas_refused+=1;parked+=1;n.pool_audit().unwrap();
     for step in 0..160{
         match rnd(10){
-            0..=3=>{let k=&keys[rnd(2) as usize];
+            0..=3=>{let k=&keys[rnd(5) as usize];
                 // Mostly the sender's next nonce on the pending state, sometimes another one.
                 let next=n.pool_state().accounts.get(&k.address()).map_or(0,|a|a.info.nonce);let nonce=if rnd(5)==0{rnd(12)}else{next};
                 let raw=pay_gas(k,nonce,1+rnd(3),gases[rnd(4) as usize]);
-                match n.submit_tx(raw,false){Ok(_)=>admitted_n+=1,Err(e) if e==pocold::node::POOL_FULL_GAS=>gas_refused+=1,Err(_)=>{}}}
+                match n.submit_tx(raw,false){Ok(_)=>admitted_n+=1,Err(e) if e==pocold::node::POOL_PARKED=>{gas_refused+=1;parked+=1}
+                    Err(e) if e==pocold::node::POOL_FULL_GAS||e==pocold::node::POOL_FULL_SENDER=>gas_refused+=1,Err(_)=>{}}}
             4=>if let Some((_,raw))=n.pool.txs.first().cloned(){n.submit_tx(raw,false).unwrap();},
-            5=>{let k=&keys[rnd(2) as usize];let raw=pay_gas(k,rnd(12),1,gases[rnd(4) as usize]);if n.pool_pending(){relayed_in_backlog+=1;}
+            5=>{let k=&keys[rnd(5) as usize];let raw=pay_gas(k,rnd(12),1,gases[rnd(4) as usize]);if n.pool_pending(){relayed_in_backlog+=1;}
                 n.handle(Event::Net(NetEvent::Message(peer,Msg::Tx{raw})));}
             6|7=>n.pool_step(),
             8=>{let head=n.chain.head().meta_clone();let txs=n.template_txs(&head);let p=n.chain.head;h.chain.ensure_state(&p).unwrap();
@@ -1366,24 +1380,26 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
         n.pool_audit().unwrap_or_else(|e|panic!("step {step}: {e}"));
     }
     n.pool_settle();n.pool_audit().unwrap();
-    println!("D7-AUDIT admitted {admitted_n} refusedForGas {gas_refused} relayedInBacklog {relayed_in_backlog} heads {heads} reorgs {reorgs}");
-    assert!(admitted_n>10&&gas_refused>0&&relayed_in_backlog>0&&heads>3&&reorgs>0,"every kind of step ran: admitted {admitted_n}, refused for gas {gas_refused}, relayed in a backlog {relayed_in_backlog}, heads {heads}, reorgs {reorgs}");
+    println!("D7-AUDIT admitted {admitted_n} refusedForGas {gas_refused} parked {parked} relayedInBacklog {relayed_in_backlog} heads {heads} reorgs {reorgs}");
+    assert!(admitted_n>10&&gas_refused>0&&parked>0&&relayed_in_backlog>0&&heads>3&&reorgs>0,"every kind of step ran: admitted {admitted_n}, refused for gas {gas_refused}, relayed in a backlog {relayed_in_backlog}, heads {heads}, reorgs {reorgs}");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
-/// D-7 over JSON-RPC: eth_sendRawTransaction past the gas bound is a -32016 error that names the gas bound, the
-/// transaction is not pooled, and pocol_status reports the pooled gas and its bound.
+/// D-7 over JSON-RPC: eth_sendRawTransaction past the gas bound is a -32016 error that names the gas bound (PR6:
+/// and that the transaction is held for the next block), the transaction is not pooled, and pocol_status reports
+/// the pooled gas, its bound and the parked transactions.
 #[test] fn rpc_answers_minus_32016_past_the_pool_gas_bound_and_reports_it(){
     use pocold::rpc::{answer,Request};use std::time::{Duration,Instant};
-    let (n,dir)=gas_node("rpc",Default::default());let mut n=n.unwrap();let alice=devnet::account_key("alice");
-    for k in 0..4{n.submit_tx(pay_gas(&alice,k,1,8_000_000),false).unwrap();}
+    let (mut n,dir)=gas_node_cfg("rpc",Default::default(),&cfg_funded(),None);let bob=devnet::account_key("bob");
+    for l in ["alice","carol","erin","frank"]{n.submit_tx(pay_gas(&key(l),0,1,8_000_000),false).unwrap();}
     let call=|n:&mut pocold::node::Node,body:String|->serde_json::Value{let (t,_r)=std::sync::mpsc::channel();
         serde_json::from_str(&answer(n,&Request::local(body.into_bytes(),t,Instant::now()+Duration::from_secs(30),false)).body).unwrap()};
-    let raw=pay(&alice,4,1);
+    let raw=pay(&bob,0,1);
     let v=call(&mut n,format!(r#"{{"jsonrpc":"2.0","id":7,"method":"eth_sendRawTransaction","params":["{}"]}}"#,pocold::types::hex(&raw)));
-    assert_eq!((v["id"].clone(),v["error"]["code"].clone(),v["error"]["message"].clone()),(serde_json::json!(7),serde_json::json!(-32016),serde_json::json!(pocold::node::POOL_FULL_GAS)),"{v}");
+    assert_eq!((v["id"].clone(),v["error"]["code"].clone(),v["error"]["message"].clone()),(serde_json::json!(7),serde_json::json!(-32016),serde_json::json!(pocold::node::POOL_PARKED)),"{v}");
     assert!(v.get("result").is_none(),"{v}");assert_eq!(n.pool.txs.len(),4,"not pooled");
     let s=call(&mut n,r#"{"jsonrpc":"2.0","id":8,"method":"pocol_status","params":[]}"#.into());
     assert_eq!((s["result"]["pool"].clone(),s["result"]["poolGas"].clone(),s["result"]["poolGasMax"].clone()),(serde_json::json!(4),serde_json::json!(32_000_000u64),serde_json::json!(32_000_000u64)),"{s}");
+    assert_eq!((s["result"]["poolParked"].clone(),s["result"]["poolParkedMax"].clone()),(serde_json::json!(1),serde_json::json!(pocold::node::POOL_PARKED_MAX)),"{s}");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// D-7: pool revalidation does not hold up consensus. A node runs its event loop (`Node::run`) with the pool at
@@ -1402,7 +1418,7 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
         // transaction takes 0.5 s answers it busy (-32021, network.md:232-234) before the bound below is reached
         // (seen in a suite run beside a scale measurement; admission has its own tests).
         let mut n=Node::open(Config{dir:d,name:"run".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:Some(3),log:false,
-            limits:Limits{pool_slice:Duration::ZERO,rpc:pocold::rpc::Limits{queue_wait:Duration::from_secs(120),..Default::default()},..Default::default()}},admitted(&cfg(&["a","b","c"]))).unwrap();
+            limits:Limits{pool_slice:Duration::ZERO,pool_sender_gas_max:Some(32_000_000),rpc:pocold::rpc::Limits{queue_wait:Duration::from_secs(120),..Default::default()},..Default::default()}},admitted(&cfg(&["a","b","c"]))).unwrap();
         let alice=devnet::account_key("alice");
         let input=pocold::types::unhex(&format!("{:08x}{}01",7_800_000u32,"00".repeat(64+128+16))).unwrap();
         let mut max_tx=Duration::ZERO;
@@ -1438,7 +1454,8 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
 #[test] fn a_submission_during_a_long_backlog_is_busy_at_its_deadline_and_not_pooled(){
     use pocold::{node::{Config,Limits,Node},rpc::{answer,Request}};use std::time::{Duration,Instant};
     let dir=std::env::temp_dir().join(format!("pocold-busy-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    let mut l=Limits{pool_slice:Duration::ZERO,..Default::default()};l.rpc.compute_light=Duration::from_millis(100);
+    // PR6: alice pools 31.6M of declared gas (the sender quota is raised to the pool's bound).
+    let mut l=Limits{pool_slice:Duration::ZERO,pool_sender_gas_max:Some(32_000_000),..Default::default()};l.rpc.compute_light=Duration::from_millis(100);
     let mut n=Node::open(Config{dir:dir.clone(),name:"busy".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:l},admitted(&cfg(&["a","b","c"]))).unwrap();
     let alice=devnet::account_key("alice");
     let input=pocold::types::unhex(&format!("{:08x}{}01",7_800_000u32,"00".repeat(64+128+16))).unwrap();
@@ -1677,7 +1694,9 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     use pocold::node::{Config,Node};
     let mut c=cfg(&["a","b","c"]);c.slot_cap=40;
     let dir=std::env::temp_dir().join(format!("pocold-a13-pool-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    let mut node=Node::open(Config{dir:dir.clone(),name:"pool".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
+    // PR6: alice pools more than GAS_LIMIT of declared gas here (the sender quota is raised to the pool's bound).
+    let limits=pocold::node::Limits{pool_sender_gas_max:Some(32_000_000),..Default::default()};
+    let mut node=Node::open(Config{dir:dir.clone(),name:"pool".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits},admitted(&c)).unwrap();
     // Each CREATE stores 16 fresh slots in its constructor and leaves an account without code.
     let mut init=Vec::new();for i in 0..16u8{init.extend([0x60,0x01,0x60,i,0x55]);}init.push(0x00);
     let alice=devnet::account_key("alice");
@@ -1956,9 +1975,13 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // exiting one, links and a group entry), the maps' 8 more high entries, and the eviction registry (16 × 192 +
     // 245 × 64 + 2,048 + 1,024), +27,415,568 B, -> 3,272,236,947 B; PR3 commit 5: 32 established inbound by default,
     // 24 more places at 3,421,500 B, the maps' 24 more high entries at 2,718 B and the registry's at 192 + 64 B,
-    // +82,187,376 B, -> 3,354,424,323 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
+    // +82,187,376 B, -> 3,354,424,323 B; PR6: the pool's meta, the parked entries, the template selection and the block
+    // overlay's BLOCKHASH window, +4,692,588 B, -> 3,359,116,911 B (this pin was not moved with them); PR6 review: the
+    // selection's tail after a gas failure joins the candidates (GAS_LIMIT/TX_GAS_MIN more entries, BODY_MAX more raw
+    // bytes), +383,948 B, -> 3,359,500,859 B; PR6 review: parked runs (PARKED_ENTRY_BYTES 160) and the parked senders
+    // in the selection's skipped sets, +393,216 B, -> 3,359,894,075 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
     // the target the evidence is produced on; every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_354_424_323,"the A13 model total changed");
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_359_894_075,"the A13 model total changed");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -4044,3 +4067,572 @@ fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
     limits.continuous_history=Some(0);let small=pocold::resources::derive(cp,32,2,&limits,3).unwrap();
     limits.continuous_history=Some(50_000);let larger=pocold::resources::derive(cp,32,2,&limits,3).unwrap();assert!(larger.total>small.total);
 }
+
+// ---------------- PR6: the pool and the honest builder count gas used, not declared gas ----------------
+const GL:u64=8_000_000;
+fn key(label:&str)->Key{devnet::account_key(label)}
+/// The test profile with four more funded senders (carol, erin, frank, gina); the node and the block-building
+/// `Net` use the same config, hence the same genesis.
+fn cfg_funded()->DevnetConfig{let mut c=cfg(&["a","b","c"]);for l in ["carol","erin","frank","gina"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}c}
+/// `cfg_funded` with a genesis a few seconds ago, so a signed template built now is inside its window (the
+/// production path builds at the wall clock).
+fn cfg_now()->DevnetConfig{let mut c=cfg_funded();c.g_ts=pocold::node::now_s()-10;c}
+fn gas_node_cfg(tag:&str,limits:pocold::node::Limits,c:&DevnetConfig,miner:Option<Key>)->(pocold::node::Node,std::path::PathBuf){
+    use pocold::node::{Config,Node};
+    let dir=std::env::temp_dir().join(format!("pocold-pr6-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    (Node::open(Config{dir:dir.clone(),name:tag.into(),miner,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits},admitted(c)).unwrap(),dir)
+}
+/// A transaction from `key` to `to` that declares `gas` and carries `data` non-zero bytes (16 gas each).
+fn send_gas(key:&Key,nonce:u64,to:Address,gas:u64,data:usize)->Vec<u8>{Tx{chain_id:777910,nonce,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas,to:Some(to),value:U256::from(1u64),data:vec![0x5a;data].into()}.sign_1559(key)}
+/// A signed block on `parent` in `h` carrying `txs` at `clock`, sealed (it must build).
+fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::Header,Reject>{
+    let p=h.chain.full_entry(&parent).unwrap();let ctx=h.chain.child_ctx(&p,0).unwrap();
+    h.chain.build_signed(&p,&h.keys[&ctx.proposer],clock,Body{txs,evidence:vec![]},vec![]).map(|(x,_,_)|x)
+}
+/// PR6 B2: the builder counts the gas a transaction uses, checks fit with the consensus rule (declared gas at
+/// most GAS_LIMIT minus the gas used so far, user_phase.rs:288) and skips one that does not fit instead of
+/// stopping. Four senders each pool a transfer that declares GAS_LIMIT (about 21,000 used), then bob pools three
+/// plain transfers: the template holds the first big one and bob's three, and the block uses 84,000 gas. Before
+/// PR6 the builder stopped at the second big one. The exact rule: after 21,000 used, a transaction declaring
+/// GAS_LIMIT - 21,000 fits and one declaring one more gas does not, which the block's own check confirms.
+#[test] fn the_builder_skips_a_transaction_that_does_not_fit_and_counts_gas_used(){
+    let c=cfg_funded();let mut h=net_with(&c);let bob=key("bob");
+    let (mut n,dir)=gas_node_cfg("fit",pocold::node::Limits{pool_gas_max:Some(8*GL),..Default::default()},&c,None);
+    let big:Vec<Vec<u8>>=["alice","carol","erin","frank"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    let small:Vec<Vec<u8>>=(0..3).map(|k|pay(&bob,k,1)).collect();
+    for t in big.iter().chain(&small){n.submit_tx(t.clone(),false).unwrap();}
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,[vec![big[0].clone()],small.clone()].concat(),"the first big transfer and bob's three; the other big ones are skipped");
+    let b=signed(&h,head.hash,Body{txs,evidence:vec![]},0);assert_eq!(b.header.gas_used,4*21000);
+    assert!(import(&mut h,&b),"the block validates");assert!(n.import(b,None).unwrap(),"and the node takes it as its head");
+    // The exact rule. alice declares 5M (the oldest big one, tried first) and uses 21,000.
+    let alice5=pay_gas(&key("alice"),0,1,5_000_000);
+    for (extra,fits) in [(0u64,true),(1,false)]{
+        let (mut m,d)=gas_node_cfg(&format!("exact{extra}"),Default::default(),&c,None);
+        let carol=pay_gas(&key("carol"),0,1,GL-21000+extra);
+        for t in [&alice5,&carol]{m.submit_tx(t.clone(),false).unwrap();}
+        let g=m.chain.head().clone();let txs=m.template_txs(&g);
+        if fits{assert_eq!(txs,vec![alice5.clone(),carol.clone()],"GAS_LIMIT - 21,000 fits after 21,000 used");}
+        else{assert_eq!(txs,vec![alice5.clone()],"one gas more does not");
+            let w=h.chain.full_entry(&h.chain.blocks[&head.hash].hash).unwrap();let lower=h.chain.child_ctx(&w,0).unwrap().window.lower();
+            match signed_at(&h,head.hash,vec![alice5.clone(),carol.clone()],lower){Err(Reject::Block(s))=>assert!(s.contains("User(\"Gas\")"),"{s}"),r=>panic!("the consensus rule refuses it too: {:?}",r.map(|x|x.gas_used))}}
+        drop(m);let _=std::fs::remove_dir_all(&d);
+    }
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 B2: a transaction skipped for gas is skipped with its sender's later ones (their nonces follow it), and
+/// the selection goes on with the other senders. carol's transfer declares GAS_LIMIT and uses 981,000 (60,000
+/// non-zero data bytes); alice's second declares 7.5M, more than is left, so alice's third is left out with it
+/// and bob's is still taken. Before PR6 the builder stopped after carol's.
+#[test] fn the_builder_keeps_nonce_order_when_it_skips(){
+    let c=cfg_funded();let mut h=net_with(&c);let (alice,bob)=(key("alice"),key("bob").address());
+    let (mut n,dir)=gas_node_cfg("order",Default::default(),&c,None);
+    let carol=send_gas(&key("carol"),0,bob,GL,60_000);
+    let (a0,a1,a2)=(send_gas(&alice,0,bob,21000,0),send_gas(&alice,1,bob,GL-500_000,0),send_gas(&alice,2,bob,21000,0));let b0=pay(&key("bob"),0,1);
+    for t in [&carol,&a0,&a1,&a2,&b0]{n.submit_tx(t.clone(),false).unwrap();}
+    assert_eq!(n.pool.txs.len(),5);
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,vec![carol.clone(),a0.clone(),b0.clone()],"alice's second does not fit and her third follows it out; bob's is taken");
+    let b=signed(&h,head.hash,Body{txs,evidence:vec![]},0);assert_eq!(b.header.gas_used,981_000+2*21000);
+    assert!(import(&mut h,&b),"the block validates (nonce order kept)");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 B1/B2: the production path selects on the parent's own checked state (the drawn proposer's node signs a
+/// template on a normal pool): no declared-gas fallback, and the template carries exactly the selection.
+#[test] fn production_uses_the_simulation(){
+    let c=cfg_now();let h=net_with(&c);let g=h.chain.head;let gp=h.chain.full_entry(&g).unwrap();
+    let prop=h.chain.child_ctx(&gp,0).unwrap().proposer;let miner=Key::from_secret(&h.keys[&prop].secret()).unwrap();
+    let (mut n,dir)=gas_node_cfg("prod",Default::default(),&c,Some(miner));let (alice,bob)=(key("alice"),key("bob"));
+    let txs=vec![pay(&alice,0,1),pay_gas(&alice,1,1,1_000_000),pay(&bob,0,1),pay_gas(&key("carol"),0,1,GL)];
+    for t in &txs{n.submit_tx(t.clone(),false).unwrap();}
+    let expected=n.template_txs(&n.chain.head().clone());assert_eq!(expected.len(),4,"all fit by gas used");
+    n.start_production();
+    let st=n.status_json();assert_eq!(st["stats"]["signedTemplates"].as_u64(),Some(1),"the node signed its template: {}",st["production"]);
+    assert_eq!(st["stats"]["templateGasFallbacks"].as_u64(),Some(0),"selected on the simulation");
+    let t=decode_header(&unhex(n.template_json()["header"].as_str().unwrap()).unwrap()).unwrap();
+    let want=signed_at(&h,g,expected,t.ts).unwrap();
+    assert_eq!((t.tx_root,t.gas_used),(want.tx_root,want.gas_used),"the template carries the selection");
+    assert_eq!(t.gas_used,3*21000+21000);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 B1: the selection runs in the block's own context. A contract stores one word at a memory offset taken
+/// from PREVRANDAO + TIMESTAMP + BLOCKHASH(NUMBER-1), so the gas it uses depends on all three; the gas the
+/// selection counts equals the built block's gas used, at two timestamps that give different gas.
+#[test] fn the_simulation_context_is_the_blocks(){
+    let c=cfg(&["a","b","c"]);let mut h=net_with(&c);let g=h.chain.head;let alice=key("alice");
+    let (mut n,dir)=gas_node_cfg("ctx",Default::default(),&c,None);
+    // PREVRANDAO TIMESTAMP ADD PUSH1 1 NUMBER SUB BLOCKHASH ADD PUSH2 0x0fff AND PUSH1 5 SHL PUSH1 1 SWAP1 MSTORE STOP
+    let runtime=vec![0x44,0x42,0x01,0x60,0x01,0x43,0x03,0x40,0x01,0x61,0x0f,0xff,0x16,0x60,0x05,0x1b,0x60,0x01,0x90,0x52,0x00];
+    let mut init=vec![0x60,runtime.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(&runtime);
+    let deploy=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
+    let x=branch(&mut h,g,1,&[Body{txs:vec![deploy],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();
+    let contract=alice.address().create(0);assert!(!h.chain.head().state.accounts[&contract].info.is_empty_code_hash(),"deployed");
+    let call=Tx{chain_id:777910,nonce:1,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:300_000,to:Some(contract),value:U256::ZERO,data:Default::default()}.sign_1559(&alice);
+    n.submit_tx(call.clone(),false).unwrap();
+    let p=n.chain.head().clone();let lower=h.chain.child_ctx(&h.chain.full_entry(&p.hash).unwrap(),0).unwrap().window.lower();
+    let mut seen=std::collections::HashSet::new();
+    for clock in lower..lower+8{
+        let sel=n.template_selection(&p,clock);assert_eq!(sel.txs,vec![call.clone()]);assert!(!sel.fallback);
+        let b=signed_at(&h,p.hash,sel.txs.clone(),clock).unwrap();
+        assert_eq!(sel.counted,b.gas_used,"clock {clock}: the selection counts the block's gas");seen.insert(sel.counted);
+    }
+    assert!(seen.len()>1,"positive control: the gas depends on the context ({seen:?})");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 B5: the selection simulates on the parent's state, but the block runs its SYSTEM phase first
+/// (apply.rs Phase 0: settle(h-D) pays out of the escrow, the block's COINBASE). Two contracts compare
+/// BALANCE(COINBASE) with the parent's value (the call's data):
+/// - (a) cheap in the simulation, all its gas in the block (INVALID): the build fails the gas check, which
+///   carries no index. The production path still signs a non-empty valid template, the longest prefix whose
+///   declared gas fits, and then adds bob's transfers within the room the real build left;
+/// - (b) all its gas in the simulation, cheap in the block (the under-fill attack): bob's transfers do not fit
+///   the simulated room, and the append round adds them within the real room, counting declared gas.
+/// The gas failure is the build's `User("Gas")` (`is_user_gas`, pinned on a forced over-reservation).
+#[test] fn a_gas_failure_keeps_a_valid_template(){
+    use pocold::node::is_user_gas;
+    let mut c=cfg_funded();c.g_ts=pocold::node::now_s()-60;let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    // The rule's own refusal: 5M declared then GAS_LIMIT - 20,999 after 21,000 used.
+    let gp=h.chain.full_entry(&g).unwrap();let lower=h.chain.child_ctx(&gp,0).unwrap().window.lower();
+    match signed_at(&h,g,vec![pay_gas(&alice,0,1,5_000_000),pay_gas(&key("carol"),0,1,GL-20999)],lower){Err(Reject::Block(s))=>assert!(is_user_gas(&s),"{s}"),r=>panic!("{:?}",r.map(|x|x.gas_used))}
+    assert!(!is_user_gas("apply User(\"Execution(0, \\\"x\\\")\")"));
+    // CALLDATALOAD(0) == BALANCE(COINBASE): (a) jumps to STOP, else INVALID; (b) jumps to INVALID, else STOP.
+    let code_a=vec![0x41,0x31,0x60,0x00,0x35,0x14,0x60,0x0a,0x57,0xfe,0x5b,0x00];let code_b=vec![0x41,0x31,0x60,0x00,0x35,0x14,0x60,0x0a,0x57,0x00,0x5b,0xfe];
+    let deploy=|nonce:u64,rt:&[u8]|{let mut init=vec![0x60,rt.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(rt);
+        Tx{chain_id:777910,nonce,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice)};
+    let mut blocks=branch(&mut h,g,1,&[Body{txs:vec![deploy(0,&code_a),deploy(1,&code_b)],evidence:vec![]}]);
+    let tail=branch(&mut h,blocks[0].hash(),7,&[]);blocks.extend(tail);
+    let (ca,cb)=(alice.address().create(0),alice.address().create(1));
+    let head=h.chain.head().clone();assert!(head.height>u64::from(h.chain.spec.cp().D)+1,"settle runs in the next block's SYSTEM phase");
+    let v=head.state.accounts[&pocol_lp4_execution::pay::escrow_address()].info.balance;
+    let prop=h.chain.child_ctx(&head,0).unwrap().proposer;
+    let call=|to:Address,gas:u64|Tx{chain_id:777910,nonce:2,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:Some(to),value:U256::ZERO,data:v.to_be_bytes::<32>().to_vec().into()}.sign_1559(&alice);
+    let produce=|tag:&str,pool:&[Vec<u8>]|{
+        let miner=Key::from_secret(&h.keys[&prop].secret()).unwrap();
+        let (mut n,dir)=gas_node_cfg(tag,Default::default(),&c,Some(miner));
+        let (last,rest)=blocks.split_last().unwrap();for b in rest{n.import(b.clone(),None).unwrap();}
+        for t in pool{n.submit_tx(t.clone(),false).unwrap();}
+        let (signed0,rec0,app0)=(n.stats.signed_templates,n.stats.template_gas_recoveries,n.stats.template_appended);
+        assert!(n.import(last.clone(),None).unwrap());assert_eq!(n.chain.head,head.hash);
+        let st=n.status_json();assert_eq!(n.stats.signed_templates-signed0,1,"{tag}: the drawn proposer signed one template on the head: {}",st["production"]);
+        let t=decode_header(&unhex(n.template_json()["header"].as_str().unwrap()).unwrap()).unwrap();assert_eq!(t.parent_hash,head.hash);
+        println!("PR6-B5 {tag} builds {} gasUsed {}",st["stats"]["templateBuilds"],t.gas_used);
+        let out=(t,n.stats.template_gas_recoveries-rec0,n.stats.template_appended-app0);drop(n);let _=std::fs::remove_dir_all(&dir);out};
+    // (a): the simulation counts about 21,000 for the call and lets carol's 4M follow; the block charges 5M, so
+    // carol's no longer fits (gas failure). The prefix [call] is built, then bob's two transfers are appended.
+    let (atk,carol)=(call(ca,5_000_000),pay_gas(&key("carol"),0,1,4_000_000));let (b0,b1)=(pay(&bob,0,1),pay(&bob,1,1));
+    let (t,rec,app)=produce("diverge-a",&[atk.clone(),carol.clone(),b0.clone(),b1.clone()]);
+    let want=signed_at(&h,head.hash,vec![atk.clone(),b0.clone(),b1.clone()],t.ts).unwrap();
+    assert_eq!((t.tx_root,t.state_root,t.gas_used),(want.tx_root,want.state_root,5_000_000+2*21000),"a non-empty valid template: the declared-safe prefix and bob's transfers");
+    assert_eq!((rec,app),(1,2),"one gas failure recovered; two transfers appended");
+    // (b): the simulation counts 7.9M for the call, so bob's 1M transfers do not fit; the block charges about
+    // 21,000, and the append round adds all three.
+    let atk=call(cb,7_900_000);let bs:Vec<Vec<u8>>=(0..3).map(|k|pay_gas(&bob,k,1,1_000_000)).collect();
+    let (t,rec,app)=produce("diverge-b",&[vec![atk.clone()],bs.clone()].concat());
+    let want=signed_at(&h,head.hash,[vec![atk.clone()],bs.clone()].concat(),t.ts).unwrap();
+    assert_eq!((t.tx_root,t.state_root),(want.tx_root,want.state_root),"the call and bob's three transfers");assert!(t.gas_used<200_000,"the block is cheap: {}",t.gas_used);
+    assert_eq!((rec,app),(0,3),"no gas failure; three appended");
+}
+/// PR6 P1: one sender's pooled transactions declare at most the sender quota (GAS_LIMIT by default), so a sender
+/// cannot hold the pool's gas bound with transactions it pays almost nothing for. Past it a submission is refused
+/// before it is executed, with its own message, and nothing changes; another sender is still admitted. The
+/// quota is a local setting refused below GAS_LIMIT and above the pool's bound. Transactions returned from
+/// abandoned blocks are not counted: a reorganization returns two of alice's blocks (2 × 6M) and all of it stays
+/// pooled across a later head.
+#[test] fn a_sender_at_its_quota_is_refused_with_a_clear_error(){
+    use pocold::node::{Limits,POOL_FULL_SENDER};use pocold::rpc::{answer,Request};use std::time::{Duration,Instant};
+    let c=cfg(&["a","b","c"]);let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("quota",Default::default(),&c,None);assert_eq!(n.pool.sender_gas_max,GL);
+    n.submit_tx(pay_gas(&alice,0,1,GL),false).unwrap();
+    let (root,gas,len)=(apply::state_root(&n.pool_state()).unwrap(),n.pool.gas,n.pool.txs.len());
+    assert_eq!(n.submit_tx(pay(&alice,1,1),false).unwrap_err(),POOL_FULL_SENDER,"21,000 more is past alice's quota");
+    assert_eq!((apply::state_root(&n.pool_state()).unwrap(),n.pool.gas,n.pool.txs.len()),(root,gas,len),"refused, nothing changed");n.pool_audit().unwrap();
+    n.submit_tx(pay(&bob,0,1),false).unwrap();assert_eq!(n.pool.txs.len(),2,"bob is still admitted");n.pool_audit().unwrap();
+    let (t,_r)=std::sync::mpsc::channel();
+    let body=format!(r#"{{"jsonrpc":"2.0","id":3,"method":"eth_sendRawTransaction","params":["{}"]}}"#,hex(&pay(&alice,1,1)));
+    let v:serde_json::Value=serde_json::from_str(&answer(&mut n,&Request::local(body.into_bytes(),t,Instant::now()+Duration::from_secs(30),false)).body).unwrap();
+    assert_eq!((v["error"]["code"].clone(),v["error"]["message"].clone()),(serde_json::json!(-32016),serde_json::json!(POOL_FULL_SENDER)),"{v}");
+    let st=n.status_json();assert_eq!((st["poolSenderGasMax"].as_u64(),st["stats"]["senderQuotaRefused"].as_u64()),(Some(GL),Some(2)));
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+    for (q,why) in [(GL-1,"below GAS_LIMIT"),(4*GL+1,"above the pool's gas bound")]{
+        let dir=std::env::temp_dir().join(format!("pocold-pr6-quota-bad-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let r=pocold::node::Node::open(pocold::node::Config{dir:dir.clone(),name:"q".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{pool_sender_gas_max:Some(q),..Default::default()}},admitted(&c));
+        match r{Err(e)=>assert!(e.contains(why),"{e}"),Ok(_)=>panic!("a quota of {q} opened")}let _=std::fs::remove_dir_all(&dir);
+    }
+    // Two of alice's blocks are abandoned: 12M of declared gas returns, exempt from her quota, and stays pooled.
+    let (mut n,dir)=gas_node_cfg("quota-reorg",Default::default(),&c,None);
+    let (a0,a1)=(pay_gas(&alice,0,1,6_000_000),pay_gas(&alice,1,1,6_000_000));
+    let mut h=net_with(&c);let g=h.chain.head;let x=branch(&mut h,g,2,&[Body{txs:vec![a0.clone()],evidence:vec![]},Body{txs:vec![a1.clone()],evidence:vec![]}]);
+    for b in &x{n.import(b.clone(),None).unwrap();}assert_eq!(n.chain.head,x[1].hash());
+    let mut h2=net_with(&c);let y=branch(&mut h2,g,4,&[]);
+    for b in &y[..3]{n.import(b.clone(),None).unwrap();n.pool_audit().unwrap();}
+    assert_eq!(n.chain.head,y[2].hash(),"reorganized");assert_eq!(pool(&mut n),vec![a0.clone(),a1.clone()],"both returned and pooled");
+    assert_eq!(n.pool.gas,12_000_000);n.pool_audit().unwrap();
+    n.import(y[3].clone(),None).unwrap();assert_eq!(pool(&mut n),vec![a0.clone(),a1.clone()],"still pooled at the next head");n.pool_audit().unwrap();
+    n.submit_tx(pay(&alice,2,1),false).unwrap();assert_eq!(n.pool.txs.len(),3,"returned transactions do not count against alice's quota");n.pool_audit().unwrap();
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 P2/P3, the finding with several senders: carol, erin, frank and gina each pool one transfer declaring
+/// GAS_LIMIT (within their quota), which fills the pool's gas bound. bob's plain transfer is held for the next
+/// head instead of refused; at the head (a block that took carol's) it is admitted before the big ones, so carol
+/// refilling the freed room right after the head does not keep it out. The next template holds bob's and
+/// alice's transfers and exactly one big one, and its block is valid. Before PR6 bob's transfer was refused and
+/// not remembered.
+#[test] fn many_senders_cannot_hold_the_pool(){
+    use pocold::node::POOL_PARKED;
+    let c=cfg_funded();let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("many",Default::default(),&c,None);
+    let big:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    let b0=pay(&bob,0,1);assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED,"bob's transfer is held");n.pool_audit().unwrap();
+    let x=branch(&mut h,g,1,&[Body{txs:vec![big[0].clone()],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();
+    assert_eq!(pool(&mut n),vec![b0.clone(),big[1].clone(),big[2].clone(),big[3].clone()],"bob's first, then the big ones");n.pool_audit().unwrap();
+    // carol refills at once: only GAS_LIMIT - 21,000 is free, so hers is held; alice's plain transfer fits.
+    assert_eq!(n.submit_tx(pay_gas(&key("carol"),1,1,GL),false).unwrap_err(),POOL_PARKED);
+    let a0=pay(&alice,0,1);n.submit_tx(a0.clone(),false).unwrap();
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,vec![big[1].clone(),b0.clone(),a0.clone()],"one big transfer (the oldest, first) and both plain ones");
+    let b=signed(&h,head.hash,Body{txs,evidence:vec![]},0);assert_eq!(b.header.gas_used,3*21000);assert!(import(&mut h,&b),"valid");
+    assert!(n.import(b,None).unwrap());n.pool_settle();n.pool_audit().unwrap();
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 P2: what is held for the next head. Not held (the plain gas refusal): an unfunded sender, a wrong nonce,
+/// a fee cap below the next base fee, another transaction with the nonce of a held one (PR6 review: a sender may
+/// hold a run of its next nonces, `parked_transactions_are_candidates_and_a_sender_may_park_a_run`). The held set is bounded:
+/// once full, a newcomer declaring strictly less gas evicts the one declaring the most, and an equal one is
+/// refused. At the next head the held ones are admitted least declared gas first, ahead of the big ones.
+#[test] fn parking_is_bounded_valid_and_prefers_small_declared_gas(){
+    use pocold::node::{POOL_FULL_GAS,POOL_PARKED};
+    let mut c=cfg_funded();for l in ["hank","ivy"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+    let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("park",Default::default(),&c,None);
+    let big:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}
+    let cheap=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(1u64),gas:21000,to:Some(bob.address()),value:U256::from(1u64),data:Default::default()}.sign_1559(&alice);
+    for (t,why) in [(pay(&key("dave-unfunded"),0,1),"unfunded"),(pay(&alice,3,1),"a wrong nonce"),(cheap,"a fee cap below the base fee")]{
+        assert_eq!(n.submit_tx(t,false).unwrap_err(),POOL_FULL_GAS,"{why} is not held");}
+    let b0=pay(&bob,0,1);assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED);
+    assert_eq!(n.submit_tx(pay(&bob,0,2),false).unwrap_err(),POOL_FULL_GAS,"another with a held one's nonce");
+    assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED,"a duplicate of a held one changes nothing");
+    n.set_pool_parked_max(2);
+    let a0=pay_gas(&alice,0,1,1_000_000);assert_eq!(n.submit_tx(a0.clone(),false).unwrap_err(),POOL_PARKED);
+    let hk=pay_gas(&key("hank"),0,1,500_000);assert_eq!(n.submit_tx(hk.clone(),false).unwrap_err(),POOL_PARKED,"less declared gas evicts the most");
+    assert_eq!(n.pool_parked(),vec![b0.clone(),hk.clone()]);assert_eq!(n.status_json()["stats"]["parkedEvicted"].as_u64(),Some(1));
+    assert_eq!(n.submit_tx(pay_gas(&key("ivy"),0,1,500_000),false).unwrap_err(),POOL_FULL_GAS,"an equal one is refused");
+    assert_eq!(n.pool_parked(),vec![b0.clone(),hk.clone()]);n.pool_audit().unwrap();
+    assert_eq!(n.status_json()["poolParked"].as_u64(),Some(2));
+    let x=branch(&mut h,g,1,&[Body{txs:vec![big[0].clone()],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();
+    assert_eq!(pool(&mut n),vec![b0,hk,big[1].clone(),big[2].clone(),big[3].clone()],"held ones first, least declared first");
+    assert!(n.pool_parked().is_empty());n.pool_audit().unwrap();
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// The finding (readiness review, economics, high): four transactions declaring GAS_LIMIT blocked user
+/// transactions. A sender pays only for the gas it uses, but the pool's bound and the honest builder both counted
+/// declared gas: alice's four 8M transfers (about 21,000 used each) filled the pool, so bob's transfers were
+/// refused, and the builder stopped after the first of them. Now alice holds at most GAS_LIMIT of declared gas
+/// (the rest is refused with its own message), bob's transfers are pooled, and the template carries alice's and
+/// all of bob's: the block uses 84,000 gas and is valid. Once it is the head, alice's quota is free again.
+/// (Error texts as literals, so this test also runs against the code before PR6.)
+#[test] fn the_finding_four_gas_limit_transfers_do_not_block_user_transfers(){
+    let (n,dir)=gas_node("finding",Default::default());let mut n=n.unwrap();let (alice,bob)=(key("alice"),key("bob"));
+    let mut h=net();let g=h.chain.head;
+    let a:Vec<Vec<u8>>=(0..4).map(|k|pay_gas(&alice,k,1,GL)).collect();
+    n.submit_tx(a[0].clone(),false).unwrap();
+    for t in &a[1..]{assert_eq!(n.submit_tx(t.clone(),false).err().as_deref(),Some("-32016 pool full (sender gas)"),"alice's quota holds one GAS_LIMIT");}
+    n.pool_audit().unwrap();
+    let b:Vec<Vec<u8>>=(0..3).map(|k|pay(&bob,k,1)).collect();
+    for t in &b{n.submit_tx(t.clone(),false).unwrap_or_else(|e|panic!("bob's transfer is pooled: {e}"));}
+    n.pool_audit().unwrap();
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,[vec![a[0].clone()],b.clone()].concat(),"alice's transfer and all of bob's");
+    let blk=signed(&h,g,Body{txs,evidence:vec![]},0);assert_eq!(blk.header.gas_used,4*21000);assert!(import(&mut h,&blk),"the block is valid");
+    assert!(n.import(blk,None).unwrap());assert!(pool(&mut n).is_empty(),"all of it was included");n.pool_audit().unwrap();
+    n.submit_tx(a[1].clone(),false).unwrap();n.pool_audit().unwrap();assert_eq!(n.pool.gas,GL,"alice's quota is free again");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 review (log caps): the honest selection leaves out a transaction whose logs would pass a block cap (B4),
+/// so the pool must not keep one that passes it alone: it would hold the gas bound without ever being included
+/// or charged. Four senders' CREATEs whose own logs pass LOG_BLOCK_MAX (one LOG0 of 32,769 bytes) or
+/// LOG_COUNT_MAX (547 LOG0) are refused at submission, with nothing pooled, so their follow-ups have a nonce gap
+/// and nothing holds the bound; 546 LOG0 (the limit) is pooled, and bob's transfer goes into the template.
+/// Before the fix each CREATE was pooled (4 × 2 × GAS_LIMIT/2 filled the default bound).
+#[test] fn a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){
+    let c=cfg_funded();let bob=key("bob");
+    let (mut n,dir)=gas_node_cfg("own-logs",Default::default(),&c,None);
+    let bytes=vec![0x61,0x80,0x01,0x5f,0xa0,0x00];// LOG0 with 32,769 bytes: 36 + 32,769 > LOG_BLOCK_MAX
+    let loop_of=|k:u16|{let mut v=vec![0x61,(k>>8) as u8,k as u8,0x5b];v.extend([0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x03,0x57,0x00]);v};// k LOG0, then STOP
+    let create=|l:&str,init:&Vec<u8>|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:GL/2,to:None,value:U256::ZERO,data:init.clone().into()}.sign_1559(&key(l));
+    let count=loop_of(547);
+    for (l,init,why) in [("alice",&bytes,"LogBytes"),("carol",&count,"LogCount"),("erin",&bytes,"LogBytes"),("frank",&count,"LogCount")]{
+        assert_eq!(n.submit_tx(create(l,init),false).err().as_deref(),Some(format!("-32000 logs would exceed a block cap ({why})").as_str()),"{l}");
+        let e=n.submit_tx(pay_gas(&key(l),1,1,GL/2),false).unwrap_err();assert!(e.starts_with("-32000")&&e.contains("Nonce"),"{l}'s follow-up has a nonce gap: {e}");
+    }
+    assert_eq!((n.pool.txs.len(),n.pool.gas),(0,0),"nothing holds the gas bound");n.pool_audit().unwrap();
+    let g0=create("gina",&loop_of(546));n.submit_tx(g0.clone(),false).unwrap();
+    let b0=pay(&bob,0,1);n.submit_tx(b0.clone(),false).unwrap();n.pool_audit().unwrap();
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![g0,b0],"546 logs is the limit, and bob's transfer is taken");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 review (log caps), the context: a transaction's logs can follow the block's context, which admission does
+/// not have (here PREVRANDAO, zero at admission). carol, erin, frank and gina pool two calls each declaring
+/// GAS_LIMIT/2 to a contract that runs 547 LOG0 when PREVRANDAO is not zero, which fills the default bound. In
+/// the block each call's own logs pass LOG_COUNT_MAX, so it halts wherever it is placed: the selection includes
+/// it as that halt, charged its declared gas, as before PR6. Each head takes one sender's two calls (a full block
+/// of charged gas), and bob's transfer, held behind them, is mined once they are gone. Before the fix the
+/// selection skipped them on every build: the templates stayed empty, the calls stayed pooled unpaid and bob's
+/// transfer was never taken.
+#[test] fn a_transaction_halting_on_its_own_logs_is_included_and_charged(){
+    let c=cfg_funded();let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("own-logs-ctx",Default::default(),&c,None);
+    // PREVRANDAO ISZERO PUSH1 21 JUMPI; PUSH2 547; loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 8 JUMPI; STOP; 21: JUMPDEST STOP
+    let rt=vec![0x44,0x15,0x60,0x15,0x57,0x61,0x02,0x23,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x08,0x57,0x00,0x5b,0x00];
+    let mut init=vec![0x60,rt.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(&rt);
+    let deploy=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
+    let x=branch(&mut h,g,1,&[Body{txs:vec![deploy],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();let ca=alice.address().create(0);
+    assert!(!n.chain.head().state.accounts[&ca].info.is_empty_code_hash(),"deployed");
+    let call=|l:&str,nonce:u64|Tx{chain_id:777910,nonce,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:GL/2,to:Some(ca),value:U256::ZERO,data:Default::default()}.sign_1559(&key(l));
+    let senders=["carol","erin","frank","gina"];
+    for l in senders{for k in 0..2{n.submit_tx(call(l,k),false).unwrap_or_else(|e|panic!("{l}'s call is pooled (no logs at admission): {e}"));}}
+    assert_eq!(n.pool.gas,4*GL,"the default bound is full");
+    let b0=pay(&bob,0,1);let _=n.submit_tx(b0.clone(),false);n.pool_audit().unwrap();
+    let mut mined=false;
+    for (i,l) in senders.iter().enumerate(){
+        let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+        let sel=n.template_selection(&head,clock);assert!(!sel.fallback,"the selection simulates on the parent's state");
+        assert_eq!(sel.txs,vec![call(l,0),call(l,1)],"head {i}: {l}'s two calls, each halting on its own logs");assert_eq!(sel.counted,GL,"counted at their declared gas");
+        let blk=signed(&h,head.hash,Body{txs:sel.txs,evidence:vec![]},0);assert_eq!(blk.header.gas_used,GL,"both halt and are charged all their gas");
+        assert!(import(&mut h,&blk),"valid");assert!(n.import(blk,None).unwrap());n.pool_settle();n.pool_audit().unwrap();
+        assert_eq!(n.chain.head().state.accounts[&key(l).address()].info.nonce,2,"{l} paid for both");
+    }
+    let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+    if n.template_selection(&head,clock).txs==vec![b0.clone()]{mined=true;}
+    assert!(mined,"bob's transfer is taken once the calls are gone");assert_eq!(n.pool.gas,21000);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 review (the residual): cheap transfers declaring GAS_LIMIT/2 still fill the pool's declared-gas bound right
+/// after each head (here carol, erin, frank and gina, two each, within their quotas; the builder takes all eight,
+/// at 21,000 used each). bob's three transfers, submitted after them, are parked as a run of his next nonces, relayed
+/// when parked, and are template candidates: the next template holds the eight and all of bob's, and the block is
+/// valid. Before the fix only bob's first was parked (the others got POOL_FULL_GAS), and a parked one was neither a
+/// candidate nor relayed, so bob waited a block per transaction. Parking stays bounded: a full set evicts the
+/// parked transaction declaring the most gas with its sender's later ones, never one of the newcomer's own.
+#[test] fn parked_transactions_are_candidates_and_a_sender_may_park_a_run(){
+    use pocold::node::{POOL_FULL_GAS,POOL_FULL_SENDER,POOL_PARKED};
+    let mut c=cfg_funded();for l in ["hank","ivy"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+    let mut h=net_with(&c);let bob=key("bob");
+    let (mut n,dir)=gas_node_cfg("park-run",Default::default(),&c,None);
+    let fill:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().flat_map(|l|(0..2).map(move |k|pay_gas(&key(l),k,1,GL/2))).collect();
+    for t in &fill{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    let b:Vec<Vec<u8>>=(0..3).map(|k|pay(&bob,k,1)).collect();
+    for t in &b{assert_eq!(n.submit_tx(t.clone(),true).unwrap_err(),POOL_PARKED,"bob's run is held");}
+    assert_eq!(n.status_json()["stats"]["parkedRelayed"].as_u64(),Some(3),"and relayed when parked");n.pool_audit().unwrap();
+    assert_eq!(n.submit_tx(pay(&bob,4,1),false).unwrap_err(),POOL_FULL_GAS,"a nonce gap after the run is not held");
+    assert_eq!(n.submit_tx(pay_gas(&bob,3,1,GL),false).unwrap_err(),POOL_FULL_SENDER,"the run counts against bob's quota");
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,[fill.clone(),b.clone()].concat(),"the eight transfers, then bob's parked run");
+    let blk=signed(&h,head.hash,Body{txs,evidence:vec![]},0);assert_eq!(blk.header.gas_used,11*21000);assert!(import(&mut h,&blk),"valid");
+    assert!(n.import(blk,None).unwrap());assert!(pool(&mut n).is_empty()&&n.pool_parked().is_empty(),"all of it was included");n.pool_audit().unwrap();
+    // Bounded: with room for six, ivy's run (21,000, 1M, 21,000) follows bob's; hank's 500,000 evicts ivy's 1M and her
+    // later one (a nonce gap), and ivy's own newcomer never evicts her run.
+    let (fill2,b2):(Vec<Vec<u8>>,Vec<Vec<u8>>)=(["carol","erin","frank","gina"].iter().flat_map(|l|(2..4).map(move |k|pay_gas(&key(l),k,1,GL/2))).collect(),(3..6).map(|k|pay(&bob,k,1)).collect());
+    for t in &fill2{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL);
+    n.set_pool_parked_max(6);let ivy=key("ivy");
+    let iv=[pay(&ivy,0,1),pay_gas(&ivy,1,1,1_000_000),pay(&ivy,2,1)];
+    for t in b2.iter().chain(&iv){assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
+    assert_eq!(n.submit_tx(pay(&ivy,3,1),false).unwrap_err(),POOL_FULL_GAS,"full, and the most declared is ivy's own");
+    let hk=pay_gas(&key("hank"),0,1,500_000);assert_eq!(n.submit_tx(hk.clone(),false).unwrap_err(),POOL_PARKED,"hank's evicts ivy's 1M and her later one");
+    assert_eq!(n.status_json()["stats"]["parkedEvicted"].as_u64(),Some(2));
+    assert_eq!(n.pool_parked(),[b2.clone(),vec![iv[0].clone(),hk.clone()]].concat(),"each run by its first one, in nonce order");n.pool_audit().unwrap();
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),[fill2.clone(),b2.clone(),vec![iv[0].clone(),hk.clone()]].concat());
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 second review (execution budget): a candidate the selection executes and then leaves out (B4: logs or the
+/// meter) is not committed, so its gas does not count against GAS_LIMIT, and parked transactions are candidates
+/// without having been executed. alice's CREATE emits 546 LOG0 (the limit) and is included; then 24 parked CREATEs
+/// from distinct senders each burn about 1.3M gas in a loop and emit one LOG0, so each one passes the log count
+/// only alone. Before the fix the selection ran all of them in full and skipped each (about 32M gas executed for
+/// one template, without bound: up to POOL_PARKED_MAX of them); now it executes at most
+/// `selection_exec_budget(GAS_LIMIT)` (GAS_LIMIT + 5/4 GAS_LIMIT) and keeps the others, unexecuted, for the
+/// append round.
+#[test] fn the_template_selection_executes_a_bounded_amount_of_gas(){
+    use pocold::node::POOL_PARKED;
+    let mut c=cfg_funded();let burners:Vec<String>=(0..24).map(|i|format!("burner{i}")).collect();
+    for l in &burners{c.accounts.push((l.clone(),U256::from(10u128.pow(24))));}
+    let (mut n,dir)=gas_node_cfg("exec-budget",Default::default(),&c,None);
+    let create=|k:&Key,gas:u64,init:Vec<u8>|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:None,value:U256::ZERO,data:init.into()}.sign_1559(k);
+    // PUSH2 546; loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 3 JUMPI; STOP
+    let logger=create(&key("alice"),GL/2,vec![0x61,0x02,0x22,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x03,0x57,0x00]);
+    // PUSH3 50,000; loop: PUSH1 1 SWAP1 SUB DUP1 PUSH1 4 JUMPI; PUSH0 PUSH0 LOG0 STOP (26 gas a round)
+    let burn=vec![0x62,0x00,0xc3,0x50,0x5b,0x60,0x01,0x90,0x03,0x80,0x60,0x04,0x57,0x5f,0x5f,0xa0,0x00];
+    n.submit_tx(logger.clone(),false).unwrap();
+    let fill=[pay_gas(&key("carol"),0,1,GL),pay_gas(&key("erin"),0,1,GL),pay_gas(&key("frank"),0,1,GL),pay_gas(&key("gina"),0,1,GL/2)];
+    for t in &fill{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    let parked:Vec<Vec<u8>>=burners.iter().map(|l|create(&key(l),1_500_000,burn.clone())).collect();
+    for t in &parked{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED,"a burner is parked (not executed)");}
+    let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+    let sel=n.template_selection(&head,clock);assert!(!sel.fallback);
+    assert_eq!(sel.txs,vec![fill[0].clone(),logger.clone(),fill[3].clone()],"the big one first, the logger and gina's transfer; no burner fits the log count");
+    let budget=pocold::node::selection_exec_budget(GL);
+    assert!(sel.executed<=budget,"the selection executed {} gas, past its budget {budget}",sel.executed);
+    assert!(sel.executed>budget-1_500_000,"positive control: the burners use the budget ({})",sel.executed);
+    assert!(sel.rest.iter().any(|x|parked.contains(&x.raw)),"burners past the budget are kept, not executed");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 second review (junk parking): parking executes nothing, so it must refuse what the engine refuses before
+/// execution, or a transaction that can never be included or paid holds a parked slot: 20,999 declared gas, or
+/// 21,000 with calldata (below its intrinsic gas). Such junk declared below a user's 21,000 transfer, so the user could
+/// not evict it. And a sender's run must not set the eviction floor: bob's run of four 21,000 transfers fills a set
+/// of four, and hank's single 21,000 transfer evicts bob's last one (equal gas), where before the fix it was refused.
+/// A newcomer of a sender already parked does not evict at equal gas, so runs do not evict one another.
+#[test] fn parking_refuses_what_the_engine_refuses_and_a_run_yields_at_equal_gas(){
+    use pocold::node::{POOL_FULL_GAS,POOL_PARKED};
+    let mut c=cfg_funded();for l in ["hank","ivy"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+    let (mut n,dir)=gas_node_cfg("park-junk",Default::default(),&c,None);let (alice,bob)=(key("alice"),key("bob"));
+    let big:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    for (t,why) in [(pay_gas(&alice,0,1,20_999),"20,999 declared"),(send_gas(&alice,0,bob.address(),21000,1),"21,000 with calldata")]{
+        let e=n.submit_tx(t,false).unwrap_err();assert!(e.starts_with("-32000")&&e.contains("CallGasCostMoreThanGasLimit"),"{why} is refused as the engine refuses it: {e}");}
+    assert!(n.pool_parked().is_empty(),"nothing was parked");
+    n.set_pool_parked_max(4);
+    let run:Vec<Vec<u8>>=(0..4).map(|k|pay(&bob,k,1)).collect();
+    for t in &run{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
+    assert_eq!(n.submit_tx(pay(&bob,4,1),false).unwrap_err(),POOL_FULL_GAS,"full; bob's own does not evict his run");
+    let hk=pay(&key("hank"),0,1);assert_eq!(n.submit_tx(hk.clone(),false).unwrap_err(),POOL_PARKED,"hank's transfer evicts the last of bob's run");
+    assert_eq!(n.pool_parked(),[run[..3].to_vec(),vec![hk.clone()]].concat());n.pool_audit().unwrap();
+    assert_eq!(n.submit_tx(pay(&key("hank"),1,1),false).unwrap_err(),POOL_FULL_GAS,"hank's second does not evict at equal gas");
+    let iv=pay(&key("ivy"),0,1);assert_eq!(n.submit_tx(iv.clone(),false).unwrap_err(),POOL_PARKED,"ivy's evicts bob's next-to-last");
+    assert_eq!(n.pool_parked(),[run[..2].to_vec(),vec![hk.clone(),iv.clone()]].concat());n.pool_audit().unwrap();
+    assert_eq!(n.status_json()["stats"]["parkedEvicted"].as_u64(),Some(2));
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 second review (parked relay): a parked transaction is neither executed nor paid, and a full set lets a
+/// newcomer declaring less evict an entry whose sender may park again at the same nonce, so relaying every parked
+/// transaction made the relays per head unbounded and free. Now a transaction is relayed when parked only if it
+/// evicted nothing and fewer than `parked_max` were relayed when parked since the last head; any other one is
+/// relayed when it is admitted at a later head. With a set of three: ivy's run and bob's transfer are relayed (three);
+/// hank's evicts ivy's run and is not relayed; jill's enters a free slot past the three and is not relayed. After a
+/// head the count starts again. Before the fix all five were relayed.
+#[test] fn parked_relays_are_bounded_per_head(){
+    use pocold::node::POOL_PARKED;
+    let mut c=cfg_funded();for l in ["hank","ivy","jill"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+    let mut h=net_with(&c);let g=h.chain.head;
+    let (mut n,dir)=gas_node_cfg("park-relay",Default::default(),&c,None);
+    let relayed=|n:&pocold::node::Node|n.status_json()["stats"]["parkedRelayed"].as_u64().unwrap();
+    let big:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,4*GL,"the bound is full");
+    n.set_pool_parked_max(3);let ivy=key("ivy");
+    for t in [pay_gas(&ivy,0,1,1_000_000),pay(&ivy,1,1),pay(&key("bob"),0,1)]{assert_eq!(n.submit_tx(t,true).unwrap_err(),POOL_PARKED);}
+    assert_eq!(relayed(&n),3,"three relayed when parked");
+    let hk=pay_gas(&key("hank"),0,1,500_000);assert_eq!(n.submit_tx(hk.clone(),true).unwrap_err(),POOL_PARKED);
+    assert_eq!((n.pool_parked().len(),relayed(&n)),(2,3),"hank's evicted ivy's run and is not relayed");
+    let jl=pay(&key("jill"),0,1);assert_eq!(n.submit_tx(jl.clone(),true).unwrap_err(),POOL_PARKED);
+    assert_eq!((n.pool_parked().len(),relayed(&n)),(3,3),"jill's is parked past the head's relays and is not relayed");n.pool_audit().unwrap();
+    let x=branch(&mut h,g,1,&[Body{txs:vec![big[0].clone()],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();
+    let p=pool(&mut n);assert!(p.contains(&hk)&&p.contains(&jl),"admitted at the head (and relayed then)");n.pool_audit().unwrap();
+    assert_eq!(n.submit_tx(pay_gas(&key("carol"),1,1,GL),true).unwrap_err(),POOL_PARKED);
+    assert_eq!(relayed(&n),4,"a new head starts the count again");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 third review (B6 and parked transactions): the big-first slot takes the oldest transaction declaring more
+/// than GAS_LIMIT/2 from the pooled and the parked ones together. With a bound of one GAS_LIMIT, bob's 5M transfer
+/// is pooled, then carol's and erin's CREATEs (1.5M declared, about 1.36M burnt each) fill the bound and frank's
+/// and gina's are parked. At an empty head P3 re-admits the four small ones first, so bob's no longer fits and is
+/// parked; alice's 5M transfer, submitted after, is parked too. The template still holds bob's first (the oldest
+/// big one), then the four CREATEs; alice's is taken once bob's block is the head. Before the fix the slot looked
+/// at the pooled ones only: bob's came after the four CREATEs (about 5.4M used), never fit, and was parked again at
+/// every head while the bound stayed full.
+#[test] fn the_big_first_slot_takes_a_parked_big_transaction(){
+    use pocold::node::{Limits,POOL_PARKED};
+    let c=cfg_funded();let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("big-parked",Limits{pool_gas_max:Some(GL),..Default::default()},&c,None);
+    // PUSH3 50,000; loop: PUSH1 1 SWAP1 SUB DUP1 PUSH1 4 JUMPI; PUSH0 PUSH0 LOG0 STOP (26 gas a round)
+    let burn=vec![0x62,0x00,0xc3,0x50,0x5b,0x60,0x01,0x90,0x03,0x80,0x60,0x04,0x57,0x5f,0x5f,0xa0,0x00];
+    let create=|l:&str|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:1_500_000,to:None,value:U256::ZERO,data:burn.clone().into()}.sign_1559(&key(l));
+    let small:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|create(l)).collect();
+    let x=pay_gas(&bob,0,1,5_000_000);n.submit_tx(x.clone(),false).unwrap();
+    for t in &small[..2]{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,GL,"the bound is full");
+    for t in &small[2..]{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
+    let e=branch(&mut h,g,1,&[]);n.import(e[0].clone(),None).unwrap();
+    assert_eq!(pool(&mut n),small,"the small ones are re-admitted first");assert_eq!(n.pool_parked(),vec![x.clone()],"bob's is parked at the head");n.pool_audit().unwrap();
+    let y=pay_gas(&alice,0,1,5_000_000);assert_eq!(n.submit_tx(y.clone(),false).unwrap_err(),POOL_PARKED,"alice's is parked when submitted");
+    let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+    let sel=n.template_selection(&head,clock);assert!(!sel.fallback);
+    assert!(sel.counted>GL/2+21000,"positive control: the CREATEs use more than half a block ({})",sel.counted);
+    assert_eq!(sel.txs,[vec![x.clone()],small.clone()].concat(),"bob's parked big one first (the oldest), then the CREATEs");
+    let blk=signed(&h,head.hash,Body{txs:sel.txs,evidence:vec![]},0);assert!(import(&mut h,&blk),"valid");assert!(n.import(blk,None).unwrap());
+    assert_eq!(n.chain.head().state.accounts[&bob.address()].info.nonce,1,"bob's was included");
+    assert_eq!(pool(&mut n),vec![y.clone()],"alice's is admitted at that head");n.pool_audit().unwrap();
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![y]);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 third review (a run behind a parked one): a transaction whose sender has parked ones is parked after them,
+/// whatever its gas, not executed on the pending state, where its nonce is too high. Default bound (32M) and quota
+/// (8M): carol, erin and frank pool 8M each and alice pools 6M then 21,000; gina's 8M and bob's 3M are parked. At
+/// an empty head P3 re-admits bob's and gina's before the deferred senders, so frank's and alice's 6M are parked;
+/// alice's 21,000 fits the bound but follows her parked one, and is parked behind it. At the next head both of
+/// alice's are pooled. A new submission behind a parked one is held too. Before the fix alice's 21,000 was refused
+/// as nonce too high at the head and lost, and a new one was answered nonce too high.
+#[test] fn a_later_transaction_of_a_parked_sender_is_parked_behind_it(){
+    use pocold::node::POOL_PARKED;
+    let mut c=cfg_funded();c.accounts.push(("hank".into(),U256::from(10u128.pow(24))));
+    let mut h=net_with(&c);let g=h.chain.head;let alice=key("alice");
+    let (mut n,dir)=gas_node_cfg("park-behind",Default::default(),&c,None);
+    let big:Vec<Vec<u8>>=["carol","erin","frank"].iter().map(|l|pay_gas(&key(l),0,1,GL)).collect();
+    for t in &big{n.submit_tx(t.clone(),false).unwrap();}
+    let (a0,a1)=(pay_gas(&alice,0,1,6_000_000),pay(&alice,1,1));for t in [&a0,&a1]{n.submit_tx(t.clone(),false).unwrap();}
+    let (g0,b0)=(pay_gas(&key("gina"),0,1,GL),pay_gas(&key("bob"),0,1,3_000_000));
+    for t in [&g0,&b0]{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}n.pool_audit().unwrap();
+    let e=branch(&mut h,g,2,&[]);n.import(e[0].clone(),None).unwrap();n.pool_settle();n.pool_audit().unwrap();
+    assert_eq!(n.pool_parked(),vec![a0.clone(),a1.clone(),big[2].clone()],"alice's 21,000 is parked behind her 6M");
+    // A new submission behind a parked one: hank's 6M passes the bound and his 21,000 is held after it.
+    let (h0,h1)=(pay_gas(&key("hank"),0,1,6_000_000),pay(&key("hank"),1,1));
+    for t in [&h0,&h1]{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED,"hank's run is held");}n.pool_audit().unwrap();
+    n.import(e[1].clone(),None).unwrap();let p=pool(&mut n);n.pool_audit().unwrap();
+    let at=|t:&Vec<u8>|p.iter().position(|x|x==t);
+    assert!(at(&a0).is_some()&&at(&a1)==at(&a0).map(|i|i+1),"both of alice's are pooled at the next head, in nonce order");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR6 third review (append round and the backlog): the append round's candidates are pooled or parked ones only. A
+/// backlog transaction is only decoded by the selection, so junk relayed during revalidation (unfunded keys,
+/// little declared gas) went first in the round and failed each append build in turn: the round added nothing and
+/// cost TEMPLATE_BUILDS_MAX builds. The setup is B5's under-fill (`a_gas_failure_keeps_a_valid_template` (b)):
+/// alice's call burns 7.9M only in the simulation, so bob's three 1M transfers are left for the round. With one
+/// transaction a slice, ten junk transfers (100,001 declared, the simulated room plus one) are relayed while the
+/// head is revalidated; once alice's and bob's are pooled again, the junk is still in the backlog. The selection
+/// keeps only bob's for the round, which appends them in two builds. And whatever the candidates, an appended one the
+/// build refuses drops every appended one after it: a round of three cheap transfers then ten junk ones costs
+/// three builds and keeps the transfers. Before the fix the junk took the round and all eight builds, in both cases.
+#[test] fn backlog_junk_does_not_cancel_the_append_round(){
+    use pocold::{node::{Cand,Event,Limits,Selection},net::{Msg,NetEvent}};
+    let mut c=cfg_funded();c.g_ts=pocold::node::now_s()-60;let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    // CALLDATALOAD(0) == BALANCE(COINBASE) jumps to INVALID, else STOP: all its gas in the simulation, cheap in the block.
+    let rt=vec![0x41,0x31,0x60,0x00,0x35,0x14,0x60,0x0a,0x57,0x00,0x5b,0xfe];let mut init=vec![0x60,rt.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(&rt);
+    let deploy=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
+    let mut blocks=branch(&mut h,g,1,&[Body{txs:vec![deploy],evidence:vec![]}]);let tail=branch(&mut h,blocks[0].hash(),7,&[]);blocks.extend(tail);
+    let head=h.chain.head().clone();let v=head.state.accounts[&pocol_lp4_execution::pay::escrow_address()].info.balance;
+    let atk=Tx{chain_id:777910,nonce:1,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:7_900_000,to:Some(alice.address().create(0)),value:U256::ZERO,data:v.to_be_bytes::<32>().to_vec().into()}.sign_1559(&alice);
+    let bs:Vec<Vec<u8>>=(0..3).map(|k|pay_gas(&bob,k,1,1_000_000)).collect();
+    let junk:Vec<(Address,Vec<u8>)>=(0..10).map(|i|{let k=key(&format!("junk{i}"));(k.address(),pay_gas(&k,0,1,100_001))}).collect();
+    let miner=Key::from_secret(&h.keys[&h.chain.child_ctx(&head,0).unwrap().proposer].secret()).unwrap();
+    let (mut n,dir)=gas_node_cfg("backlog-junk",Limits{pool_slice:std::time::Duration::ZERO,..Default::default()},&c,Some(miner));
+    let (last,rest)=blocks.split_last().unwrap();for b in rest{n.import(b.clone(),None).unwrap();}
+    for t in std::iter::once(&atk).chain(&bs){n.submit_tx(t.clone(),false).unwrap();}
+    let (peer,_socket)=auth_peer::connect(&mut n);
+    assert!(n.import(last.clone(),None).unwrap());assert_eq!(n.chain.head,head.hash);assert!(n.pool_pending(),"one transaction a slice leaves a backlog");
+    for (_,t) in &junk{n.handle(Event::Net(NetEvent::Message(peer,Msg::Tx{raw:t.clone()})));}
+    while !n.pool.txs.iter().any(|(_,r)|*r==atk){assert!(n.pool_pending());n.pool_step();}
+    assert_eq!(pool_txs(&n),[bs.clone(),vec![atk.clone()]].concat());assert!(n.pool_pending(),"the junk is still in the backlog");
+    let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+    let sel=n.template_selection(&head,clock);assert!(!sel.fallback);assert_eq!(sel.txs,vec![atk.clone()],"alice's call takes the simulated block");
+    assert_eq!(sel.rest.iter().map(|x|x.raw.clone()).collect::<Vec<_>>(),bs,"only bob's pooled transfers are kept for the append round");
+    let b0=n.stats.template_builds;let (t,body)=n.build_template_unrecorded(&head,sel,clock).expect("a template");
+    assert_eq!(body.txs,[vec![atk.clone()],bs.clone()].concat(),"bob's transfers are appended");assert_eq!(n.stats.template_builds-b0,2,"in two builds");
+    let want=signed_at(&h,head.hash,body.txs.clone(),t.ts).unwrap();assert_eq!((t.tx_root,t.gas_used),(want.tx_root,want.gas_used));
+    // The build's own bound: cheap transfers, then junk, appended after alice's call.
+    let cheap:Vec<Vec<u8>>=(0..3).map(|k|pay(&bob,k,1)).collect();
+    let rest:Vec<Cand>=cheap.iter().map(|r|Cand{sender:bob.address(),gas_limit:21000,raw:r.clone()}).chain(junk.iter().map(|(a,r)|Cand{sender:*a,gas_limit:100_001,raw:r.clone()})).collect();
+    let b0=n.stats.template_builds;let (_,body)=n.build_template_unrecorded(&head,Selection{txs:vec![atk.clone()],rest,..Default::default()},clock).expect("a template");
+    assert_eq!(body.txs,[vec![atk.clone()],cheap].concat(),"the transfers are kept, the junk after them dropped");
+    assert_eq!(n.stats.template_builds-b0,3,"the base build, the failed append build and the build without the junk");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+fn pool_txs(n:&pocold::node::Node)->Vec<Vec<u8>>{n.pool.txs.iter().map(|(_,r)|r.clone()).collect()}
