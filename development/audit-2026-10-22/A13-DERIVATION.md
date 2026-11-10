@@ -520,7 +520,13 @@ three terms: one up and two down. It also withdraws one projection.
     executes at most `selection_exec_budget(GAS_LIMIT)` = GAS_LIMIT + 5/4 GAS_LIMIT of gas, committed or not
     (before refunds): a candidate is executed only when its declared gas fits what is left, and one that does not
     is kept, unexecuted, for the append round. The bound never binds before GAS_LIMIT of execution was wasted;
-  - the oldest pooled transaction declaring more than GAS_LIMIT/2 (first of its sender) is tried first;
+  - the oldest transaction declaring more than GAS_LIMIT/2 (first of its sender) is tried first, pooled or (PR6
+    third review) parked: a parked one is its sender's first when the sender has nothing pooled and it starts its
+    run, and it ranks after the pooled ones that arrived before it was parked. Before, only pooled ones were tried, so
+    a big transaction the gas bound held (parked when submitted, or again at each head behind the parked small ones)
+    came after every pooled one and never fit a block they used more than half of. Its wait is bounded by the big
+    transactions ranked before it: those pooled before it was parked, and the parked ones re-admitted before it at a
+    head (P3's order, least declared gas first; each is included and paid in its own slot);
   - without a checked parent state (tests only) declared gas is counted (`templateGasFallbacks`);
   - the build (`build_signed_template`, at most TEMPLATE_BUILDS_MAX = 8 builds at one clock): a gas failure,
     which carries no index, falls back to the longest prefix whose declared gas fits GAS_LIMIT, never an empty
@@ -529,7 +535,8 @@ three terms: one up and two down. It also withdraws one projection.
     the append round closes the under-fill a contract could cause by burning gas only in the simulation.
 - **A13 (PR6).** G and `pool_gas` are unchanged. New rows: queues/pool sender and declared gas (POOL_MAX_TXS
   entries), queues/parked transactions' entries (POOL_PARKED_MAX; their bytes are inside POOL_MAX_BYTES; PR6
-  review: PARKED_ENTRY_BYTES 160, with the nonce, the run and the cost) and
+  review: PARKED_ENTRY_BYTES 160, with the nonce, the run and the cost; PR6 third review: and its arrival position
+  among the pooled ones, still within 160) and
   queues/template selection (the append round's candidates, BODY_MAX + TX_MAX bytes, and the skipped-sender
   sets; PR6 review: after a gas failure the selection's tail joins the candidates, at most GAS_LIMIT/TX_GAS_MIN
   more entries and BODY_MAX more bytes, so the term counts BODY_MAX/MIN_TX_BYTES + 1 + GAS_LIMIT/TX_GAS_MIN entries

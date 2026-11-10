@@ -228,8 +228,10 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
     parked_relays:usize}
 /// A parked transaction (PR6 P2): its declared gas, nonce, arrival, its sender's run (the declared gas and arrival
 /// of the sender's first parked one, which orders the run at the next head), sender, hash, its cost at its fee cap
-/// (gas_limit × fee cap + value), how it is relayed once admitted, and its bytes.
-struct Parked{gas:u64,nonce:u64,seq:u64,run:(u64,u64),sender:Address,hash:B256,cost:U256,relay:Relay,raw:Vec<u8>}
+/// (gas_limit × fee cap + value), how it is relayed once admitted, and its bytes. PR6 third review: `ahead`, the
+/// number of pooled transactions when it was parked. The pool only grows between two heads, so the pooled
+/// transactions at an index below it arrived before it and the others after it (the big-first slot, B6).
+struct Parked{gas:u64,nonce:u64,seq:u64,run:(u64,u64),ahead:u64,sender:Address,hash:B256,cost:U256,relay:Relay,raw:Vec<u8>}
 /// PR6 P2: the most parked transactions. Each is decoded and validated again at the next head, so this bounds
 /// that work (about POOL_PARKED_MAX signature recoveries per head).
 pub const POOL_PARKED_MAX:usize=1024;
@@ -1263,7 +1265,7 @@ impl Node{
         let relay=if relay==Relay::Gossip&&!evicted&&self.pool.parked_relays<self.pool.parked_max{
             let m=Msg::Tx{raw:raw.clone()};for p in self.peers.values(){let _=p.offer(&m);}
             self.pool.parked_relays+=1;self.stats.parked_relayed+=1;Relay::No}else{relay};
-        self.pool.parked.push(Parked{gas:tx.gas_limit,nonce:next,seq,run:run.unwrap_or((tx.gas_limit,seq)),sender:tx.caller,hash,cost:cost.unwrap_or_default(),relay,raw});
+        self.pool.parked.push(Parked{gas:tx.gas_limit,nonce:next,seq,run:run.unwrap_or((tx.gas_limit,seq)),ahead:self.pool.txs.len() as u64,sender:tx.caller,hash,cost:cost.unwrap_or_default(),relay,raw});
         POOL_PARKED
     }
     /// The parked transactions, in the order the next head admits them (PR6 P2; tests and inspection): each
@@ -1376,19 +1378,28 @@ impl Node{
         // one that B4 leaves out after running (it commits nothing, so `used` does not grow) cannot make the
         // selection run without bound; one that does not fit is kept for the append round, unexecuted.
         let budget=selection_exec_budget(cp.GAS_LIMIT);
-        // B6: the oldest pooled transaction declaring more than half a block, first in its sender's queue, is
-        // tried first (it always fits an empty block), so a transaction that needs most of a block waits a
-        // bounded time behind the small ones. If it fails here (for example it depends on another sender's
-        // transaction), the in-order pass meets it again.
-        let mut first_seen=HashSet::new();
-        let big=self.pool.meta.iter().position(|(s,g,_)|first_seen.insert(*s)&&*g>cp.GAS_LIMIT/2);
+        // B6: the oldest transaction declaring more than half a block, first in its sender's queue, is tried first
+        // (it always fits an empty block), so a transaction that needs most of a block waits a bounded time behind
+        // the small ones. If it fails here (for example it depends on another sender's transaction), the in-order
+        // pass meets it again. PR6 third review: the pooled and the parked ones together. A parked one is its
+        // sender's first when its sender has nothing pooled and it starts its run; it arrived after the pooled
+        // transactions below its `ahead` and before the others. Without the parked ones a big transaction held by
+        // the gas bound (parked when submitted, or again at each head behind the parked small ones, P3) was tried
+        // only after every pooled one and never fit a block they used more than half of.
+        let (np,half)=(self.pool.txs.len(),cp.GAS_LIMIT/2);let mut first_seen=HashSet::new();let mut big=None;
+        for (i,(s,g,_)) in self.pool.meta.iter().enumerate(){if first_seen.insert(*s)&&*g>half&&big.is_none(){big=Some(i);}}
+        // The parked set is in arrival order (`seq`; `ahead` follows it), so its first such entry is its oldest.
+        if let Some((j,x))=self.pool.parked.iter().enumerate().find(|(_,x)|first_seen.insert(x.sender)&&x.gas>half){
+            if big.is_none_or(|i|x.ahead as usize<=i){big=Some(np+j);}}
         let pooled=self.pool.txs.iter().zip(&self.pool.meta).enumerate().map(|(i,((_,r),(s,g,_)))|(false,i,r,Some((*s,*g))));
         // PR6 review: then the parked ones, in arrival order (each sender's run in nonce order): they were checked on
         // the pending state when parked (next nonce, balance, fee cap) and are executed here like any candidate, so
-        // a valid transaction the gas bound holds out of the pool still reaches the next block.
-        let parked=self.pool.parked.iter().map(|x|(false,usize::MAX,&x.raw,Some((x.sender,x.gas))));
+        // a valid transaction the gas bound holds out of the pool still reaches the next block. Candidate keys: a
+        // pooled one its index, a parked one np + its index (the slot's key), the backlog none.
+        let parked=self.pool.parked.iter().enumerate().map(|(j,x)|(false,np+j,&x.raw,Some((x.sender,x.gas))));
         let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)=>Some((false,usize::MAX,r,None)),PoolItem::Block(_)=>None});
-        let slot_first=big.map(|i|{let (s,g,_)=self.pool.meta[i];(true,i,&self.pool.txs[i].1,Some((s,g)))});
+        let slot_first=big.map(|i|if i<np{let (s,g,_)=self.pool.meta[i];(true,i,&self.pool.txs[i].1,Some((s,g)))}
+            else{let x=&self.pool.parked[i-np];(true,i,&x.raw,Some((x.sender,x.gas)))});
         let mut big_in=false;
         for (slot,i,raw,known) in slot_first.into_iter().chain(pooled).chain(parked).chain(backlog){
             if !slot&&big_in&&big==Some(i){continue}
@@ -2017,6 +2028,7 @@ impl Node{
                 None=>{runs.insert(x.sender,(x.run,x.nonce,g));}
                 Some((run,last,h))=>{if *run!=x.run||x.nonce!=last.saturating_add(1){return Err(format!("{}'s parked transactions are not one run of consecutive nonces",x.sender))}*last=x.nonce;*h=h.saturating_add(g);}}
             if seen.contains(&x.hash){return Err(format!("{} is both pooled and parked",x.hash))}
+            if x.ahead>self.pool.txs.len() as u64{return Err(format!("parked {} arrived behind {} pooled transactions, more than are pooled",x.hash,x.ahead))}
             let env=wire::decode_for_profile(&x.raw,profile).map_err(|e|format!("a parked transaction does not decode: {e:?}"))?;
             if (env.hash(),env.tx_env().caller,env.tx_env().gas_limit,env.tx_env().nonce)!=(x.hash,x.sender,x.gas,Some(x.nonce)){return Err(format!("parked {} is not its hash, sender, gas and nonce",x.hash))}
         }

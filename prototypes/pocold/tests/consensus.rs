@@ -4532,3 +4532,35 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert_eq!(relayed(&n),4,"a new head starts the count again");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// PR6 third review (B6 and parked transactions): the big-first slot takes the oldest transaction declaring more
+/// than GAS_LIMIT/2 from the pooled and the parked ones together. With a bound of one GAS_LIMIT, bob's 5M transfer
+/// is pooled, then carol's and erin's CREATEs (1.5M declared, about 1.36M burnt each) fill the bound and frank's
+/// and gina's are parked. At an empty head P3 re-admits the four small ones first, so bob's no longer fits and is
+/// parked; alice's 5M transfer, submitted after, is parked too. The template still holds bob's first (the oldest
+/// big one), then the four CREATEs; alice's is taken once bob's block is the head. Before the fix the slot looked
+/// at the pooled ones only: bob's came after the four CREATEs (about 5.4M used), never fit, and was parked again at
+/// every head while the bound stayed full.
+#[test] fn the_big_first_slot_takes_a_parked_big_transaction(){
+    use pocold::node::{Limits,POOL_PARKED};
+    let c=cfg_funded();let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg("big-parked",Limits{pool_gas_max:Some(GL),..Default::default()},&c,None);
+    // PUSH3 50,000; loop: PUSH1 1 SWAP1 SUB DUP1 PUSH1 4 JUMPI; PUSH0 PUSH0 LOG0 STOP (26 gas a round)
+    let burn=vec![0x62,0x00,0xc3,0x50,0x5b,0x60,0x01,0x90,0x03,0x80,0x60,0x04,0x57,0x5f,0x5f,0xa0,0x00];
+    let create=|l:&str|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:1_500_000,to:None,value:U256::ZERO,data:burn.clone().into()}.sign_1559(&key(l));
+    let small:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|create(l)).collect();
+    let x=pay_gas(&bob,0,1,5_000_000);n.submit_tx(x.clone(),false).unwrap();
+    for t in &small[..2]{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,GL,"the bound is full");
+    for t in &small[2..]{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
+    let e=branch(&mut h,g,1,&[]);n.import(e[0].clone(),None).unwrap();
+    assert_eq!(pool(&mut n),small,"the small ones are re-admitted first");assert_eq!(n.pool_parked(),vec![x.clone()],"bob's is parked at the head");n.pool_audit().unwrap();
+    let y=pay_gas(&alice,0,1,5_000_000);assert_eq!(n.submit_tx(y.clone(),false).unwrap_err(),POOL_PARKED,"alice's is parked when submitted");
+    let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
+    let sel=n.template_selection(&head,clock);assert!(!sel.fallback);
+    assert!(sel.counted>GL/2+21000,"positive control: the CREATEs use more than half a block ({})",sel.counted);
+    assert_eq!(sel.txs,[vec![x.clone()],small.clone()].concat(),"bob's parked big one first (the oldest), then the CREATEs");
+    let blk=signed(&h,head.hash,Body{txs:sel.txs,evidence:vec![]},0);assert!(import(&mut h,&blk),"valid");assert!(n.import(blk,None).unwrap());
+    assert_eq!(n.chain.head().state.accounts[&bob.address()].info.nonce,1,"bob's was included");
+    assert_eq!(pool(&mut n),vec![y.clone()],"alice's is admitted at that head");n.pool_audit().unwrap();
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![y]);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
