@@ -250,6 +250,24 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();v.is_object().then_some(v)
 }
 
+/// D20: only `pocold run` catches SIGINT and SIGTERM; any other command still ends at once. `pocold status` here
+/// blocks reading its genesis file, a FIFO: the writer's open returns once pocold opened it (the ordering barrier,
+/// past main), then SIGTERM must kill it. With the handlers installed in main it was caught, the read went on, and
+/// the command ran until the writer closed.
+#[cfg(unix)]
+#[test] fn pocold_status_still_dies_on_sigterm(){
+    use std::os::unix::process::ExitStatusExt;
+    let d=tmp("status-term");let net=d.join("net");std::fs::create_dir_all(&net).unwrap();
+    let fifo=net.join("genesis.spec.hex");let c=std::ffi::CString::new(fifo.to_str().unwrap()).unwrap();assert_eq!(unsafe{libc::mkfifo(c.as_ptr(),0o600)},0);
+    let mut p=Command::new(env!("CARGO_BIN_EXE_pocold")).args(["status","--network",net.to_str().unwrap(),"--data",d.join("data").to_str().unwrap()])
+        .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+    let w=std::fs::OpenOptions::new().write(true).open(&fifo).unwrap();
+    assert_eq!(unsafe{libc::kill(p.id() as i32,libc::SIGTERM)},0);
+    let t=std::time::Instant::now();
+    let s=loop{if let Some(s)=p.try_wait().unwrap(){break s}if t.elapsed()>std::time::Duration::from_secs(10){drop(w);break p.wait().unwrap()}std::thread::sleep(std::time::Duration::from_millis(20));};
+    assert_eq!((s.signal(),s.code()),(Some(libc::SIGTERM),None),"pocold status ends by SIGTERM");
+    let _=std::fs::remove_dir_all(&d);
+}
 /// D20 (VA-SPEC §1a.6): `pocold run` stops cleanly on SIGTERM, as `systemctl stop` sends it: it leaves its run loop at the
 /// next event boundary, saves the address book if it changed, prints its final status on stdout and exits 0. Without a
 /// handler the signal killed it (no status, no save, exit by signal). (a) A listening node with no peers: a clean book
