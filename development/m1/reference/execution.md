@@ -81,6 +81,10 @@ MinerRegistry layout:
 - CODE_CAP and B_code_max: code deposit fails.
 - SLOT_CAP, ACCT_CAP, DIRTY_BLOCK_MAX=4096, ACCT_DIRTY_BLOCK_MAX=2048, LOG_BLOCK_MAX=32 KiB and LOG_CAP=1 GiB: exceptional halt.
 - TXBYTES_CAP and TX_CAP: block invalid; the builder skips the transaction.
+- Node-local (PR6, not a validity rule): the honest builder counts each transaction's gas used and skips one
+  whose gas_limit exceeds GAS_LIMIT minus the gas used so far (the reservation rule above it in the USER
+  phase), with its sender's later ones; it also leaves out a transaction that would halt on the log caps or on
+  SLOT_CAP/ACCT_CAP.
 - LOG_BLOCK_MAX together with the LG2-derived log-count bound (546) underpins lemmas P1 and P3 (D89).
 
 **System resources (D50, D54, D70)**

@@ -405,9 +405,17 @@ three terms: one up and two down. It also withdraws one projection.
   1. size: -32014;
   2. decoding and chain: as before;
   3. a duplicate is answered with its hash and counts nothing;
-  4. the byte and count bounds: -32016 pool full;
+  4. the byte and count bounds: -32016 pool full (PR6: the pooled, backlog and parked bytes share
+     POOL_MAX_BYTES);
+  4b. PR6, the sender quota: -32016 pool full (sender gas). One sender's pooled transactions declare at most
+     `Limits::pool_sender_gas_max` (default POOL_SENDER_GAS_BLOCKS × GAS_LIMIT = GAS_LIMIT; refused at open
+     below GAS_LIMIT or above G). Transactions returned from an abandoned block are exempt;
   5. the gas bound: -32016 pool full (gas). This is checked before execution, so a refused transaction
-     costs no execution and changes nothing;
+     costs no execution and changes nothing. PR6: a transaction refused only here is parked when it is
+     eligible (its sender's next nonce on the pending state, a balance covering gas_limit × fee cap + value, a
+     fee cap at least the next base fee, no other parked transaction of its sender): -32016 pool full (gas):
+     held for the next block. At most POOL_PARKED_MAX (1024) are parked; when full, the one declaring the most
+     gas makes room for one declaring strictly less;
   6. execution on the pending state;
   7. the cap meter.
 - **Replacement.** There is none. A second transaction with a pooled one's sender and nonce, whatever its
@@ -419,11 +427,17 @@ three terms: one up and two down. It also withdraws one projection.
 - **Re-insertion after a reorganization** (consensus.md: excluded transactions return to the pool once
   checked again). The order is:
   1. the abandoned blocks' transactions, oldest block first, each block in its own order;
-  2. then the previous pool, in its order;
-  3. then its backlog.
+  2. then the previous pool, in its order, up to each sender's first transaction declaring more than
+     GAS_LIMIT/2 (PR6);
+  3. then the parked transactions, least declared gas first (PR6);
+  4. then the previous pool's deferred part, each sender's transactions from its first big one on, in pool
+     order, and after it the parked transactions of those senders (PR6);
+  5. then its backlog.
 
-  Each is admitted within every pool bound. One that no longer fits the gas bound is dropped and is not
-  pooled later; a later, smaller one is still admitted.
+  Each is admitted within every pool bound. PR6: one that no longer fits the gas bound is parked when
+  eligible, not dropped (before PR6 it was dropped and not pooled later); a later, smaller one is still
+  admitted. Big transactions go after the waiting small ones, so transactions a block takes one of at a time
+  cannot hold the bound against users across heads.
 
   **Relay of a returned transaction** (a local policy). A transaction that leaves an abandoned block and is
   admitted again is offered to every peer (`Relay::Offer`, through `Peer::offer`):
@@ -451,12 +465,41 @@ three terms: one up and two down. It also withdraws one projection.
   `queue_bytes_max` per peer).
 - **Counters.** `Node::pool_audit` recomputes them from the pool's contents: gas and bytes summed over the
   admitted transactions, backlog bytes over the backlog, each transaction pooled once, and every bound.
+  PR6 adds: the pool's meta (sender, declared gas, exempt) equals the decoded transactions; each sender's
+  non-exempt declared gas is within the quota; the parked set is within its bound, its bytes are counted, it
+  holds one transaction per sender and none that is also pooled; pooled, backlog and parked bytes together
+  stay within POOL_MAX_BYTES (+ one abandoned body).
   - It held after each of 160 mixed steps: submissions inside and past the bound, duplicates, same-nonce and
     wrong-nonce transactions, relays during a backlog, one-item slices, new heads and reorganizations.
   - Count of each kind of step: 31 admitted, 41 refused for gas, 2 relays in a backlog, 12 heads, 13
-    reorganizations.
-- **RPC.** eth_sendRawTransaction past the bound answers -32016 with the message "-32016 pool full (gas)".
-  pocol_status reports `poolGas` and `poolGasMax`.
+    reorganizations. PR6 runs it with five senders (so the quota still lets the bound fill) after filling the
+    bound and parking one: 24 admitted, 59 refused (gas, quota or parked), 4 parked, 1 relay in a backlog, 12
+    heads, 13 reorganizations.
+- **RPC.** eth_sendRawTransaction past the bound answers -32016 with the message "-32016 pool full (gas)",
+  or (PR6) "-32016 pool full (gas): held for the next block" when parked, and "-32016 pool full (sender gas)"
+  past the sender quota. The code is -32016 in every case. pocol_status reports `poolGas` and `poolGasMax`, and
+  (PR6) `poolSenderGasMax`, `poolParked`, `poolParkedMax` and stats `senderQuotaRefused`, `parkedEvicted`,
+  `templateGasFallbacks`, `templateGasRecoveries`, `templateAppended`, `templateBuilds`.
+- **Builder (PR6).** The honest template selection (`template_selection`) counts gas used, not declared gas:
+  - each candidate runs on the parent's state in the block's own context (base fee, prevrandao, the proposer
+    timestamp of the build, the child's BLOCKHASH window) and is counted at the gas it uses (post-refund);
+  - it fits when its declared gas is at most GAS_LIMIT minus the gas used so far (the consensus rule,
+    user_phase.rs:288); one that does not fit is skipped with its sender's later ones, and the selection goes
+    on (before PR6 it stopped);
+  - a transaction that would halt on the log caps or on SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX is left out;
+  - the oldest pooled transaction declaring more than GAS_LIMIT/2 (first of its sender) is tried first;
+  - without a checked parent state (tests only) declared gas is counted (`templateGasFallbacks`);
+  - the build (`build_signed_template`, at most TEMPLATE_BUILDS_MAX = 8 builds at one clock): a gas failure,
+    which carries no index, falls back to the longest prefix whose declared gas fits GAS_LIMIT, never an empty
+    template; then one append round adds the candidates left out for gas within the room the real build left,
+    counting declared gas, smallest first. The simulation is not the block (the SYSTEM phase runs first), and
+    the append round closes the under-fill a contract could cause by burning gas only in the simulation.
+- **A13 (PR6).** G and `pool_gas` are unchanged. New rows: queues/pool sender and declared gas (POOL_MAX_TXS
+  entries), queues/parked transactions' entries (POOL_PARKED_MAX; their bytes are inside POOL_MAX_BYTES) and
+  queues/template selection (the append round's candidates, BODY_MAX + TX_MAX bytes, and the skipped-sender
+  sets). The block overlay term now counts its BLOCKHASH window (257 entries), which the selection's overlay
+  carries too; the selection's committed gas used is at most GAS_LIMIT (spent at most 5/4 GAS_LIMIT), within
+  that term. The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs).
 - **Revalidation does not hold up consensus.** The run loop takes one event between two slices of
   revalidation. The test runs `Node::run` with the pool at its bound: four BLAKE2F transactions of 7.9M gas,
   which no stop hook can cut short.

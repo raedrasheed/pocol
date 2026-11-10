@@ -793,6 +793,9 @@ issuance(h) = h==0 ? 0 : max(k>=256 ? 0 : S0>>k, S_tail),  k = h / H_half
   - baseFee = max(London, baseFeeMin) (CP).
 - **NODE-LOCAL (PR6 in the task list):** a fee-ordered pool with replace-by-fee, lowest-fee eviction and
   per-sender quotas.
+  - Partly delivered by PR6 (the gas-used finding): a per-sender declared-gas quota (default GAS_LIMIT) and
+    parking of transactions refused only by the pool's gas bound, re-admitted least declared gas first at the
+    next head. Fee ordering, replacement and lowest-fee eviction remain.
 
 **Principle check.**
 - (a) and (b) keep P6: R_tot is still shared by a deterministic pre-mining rule, and the proposer is drawn
@@ -879,7 +882,9 @@ never lowered, across it (`genesis_builder.rs:60`).
   - Under `v3_active`: 256 KiB and 4,368. The A13 log window term `window·LOG_BLOCK_MAX`
     (`resources.rs:445`) stays about 8 MiB at K_hist=32.
   - Raise RESP_MAX ≥ 2·LOG_BLOCK_MAX (R26) in lockstep.
-  - NODE-LOCAL: model the log caps in PoolMeter/`template_txs` and in `eth_estimateGas`.
+  - NODE-LOCAL: model the log caps in PoolMeter/`template_txs` and in `eth_estimateGas`. PR6: the builder
+    (`template_selection`) now models the log caps (count, block bytes, LOG_CAP) and SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX;
+    the pool and `eth_estimateGas` do not yet.
 - **Classification:** CONSENSUS-COMPLIANT. **Deployment:** B; later forks through A1.
 - **Tests:** fails on the original code: front-load 32 KiB of logs, then a later ERC-20 transfer halts today and
   succeeds under v3. Also an A13 boot test.
