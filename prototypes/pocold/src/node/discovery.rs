@@ -60,7 +60,7 @@ impl Default for DiscoveryTimes{
             cache_ms:b.cache_ms,getaddr_timeout_ms:120_000,save_first_ms:60_000,save_every_ms:900_000,refresh_ms:3_600_000}}
 }
 impl DiscoveryTimes{
-    fn book(&self)->addrbook::Times{addrbook::Times{relay_window_ms:self.relay_window_ms,horizon_ms:self.horizon_ms,fail_recent_ms:self.fail_recent_ms,hold_base_ms:self.hold_base_ms,hold_max_ms:self.hold_max_ms,cache_ms:self.cache_ms}}
+    fn book(&self)->addrbook::Times{addrbook::Times{relay_window_ms:self.relay_window_ms,horizon_ms:self.horizon_ms,fail_recent_ms:self.fail_recent_ms,hold_base_ms:self.hold_base_ms,hold_max_ms:self.hold_max_ms,cache_ms:self.cache_ms,..addrbook::Times::default()}}
 }
 
 /// One connection's discovery state, from its Connected to its Closed (discovery on only). `advertised`: the endpoint
