@@ -298,7 +298,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("transient-snapshot-inventory","TRANSIENT_SNAPSHOTS (2, C-1 E3) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter"),
     ("main-thread","the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins"),
     ("revm-representation","the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks"),
-    ("cpu-and-timing","CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded"),
+    ("cpu-and-timing","CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded. A peer-driven deep-fork rebuild is PoW-gated and rate-bounded (PR4 I-5: node::REBUILD_BURST, SESSION_REBUILD_MAX), but each one is still O(chain height), with no reverse diffs (F-1)"),
     ("s3a-removal","a diff keeps no storage for a removed account: under Cancun (revm 19.7, EIP-6780) only an account created in the same transaction is destroyed, and an account without code, nonce and balance holds no storage; by inspection, not enforced by a counter"),
     ("redb-representation","the history.redb terms rely on redb 2.6.4 behaviour checked by source inspection (cache split and write-buffer flush, allocator bitmaps) and on a measured file-size factor (HISTORY_FILE_FACTOR)"),
     ("open-replay-transient","Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound. C-1 E4.4 adds to it, at open only: every record's offset and rolling hash, a decoded checkpoint snapshot and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, which holds the accounts and slots that differ, one block's writes at most, as an import's write set, the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),
@@ -537,10 +537,17 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // inbound_max entries once (net::Net::new) and never grown; each connection's activity record (net::Activity behind
     // its Arc, shared by the node's Peer, so alive from Connected to Closed: high); the eviction ring; + 1,024.
     let evict=add(&[mul(inbound,(net::SLOT_BYTES+net::CAND_BYTES) as u128)?,mul(high,net::ACTIVITY_BYTES as u128)?,(net::EVICT_RING*net::EVICT_ENTRY_BYTES) as u128,1024])?;
+    // PR4: the post-state verdicts per seal(TemplateID,nonce) (chain::COSTLY_MAX + 1 at the insert before the
+    // FIFO trims): a HashMap<[u8;32],Costly> at < 32/7 buckets per key of (key, value) + 1 control byte, two
+    // whole allocations at growth; its VecDeque<[u8;32]> (< 64 B/key, two allocations, 128 B); an Invalid
+    // reason's Box<str> (<= REASON_MAX) and its allocation (16 B); plus 1,024 B of slack.
+    let ck=((32*(size_of::<([u8;32],chain::Costly)>() as u128+1)).div_ceil(7)).div_ceil(8)*8;
+    let costly=add(&[mul(chain::COSTLY_MAX as u128+1,add(&[mul(2,ck)?,128,REASON_MAX,16])?)?,1024])?;
     let q=[("queues/transaction pool",pool),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
         ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
         ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/node peer and status maps (churn)",maps),
-        ("queues/inbound eviction: registry, selection scratch, per-connection activity and eviction ring",evict)];
+        ("queues/inbound eviction: registry, selection scratch, per-connection activity and eviction ring",evict),
+        ("queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)",costly)];
     let mut queues=add(&q.map(|x|x.1))?;items.extend(q);
     // Peer discovery (VA-SPEC §1a, node::discovery), with discovery on only (off, the book reserves nothing and no
     // link is kept):

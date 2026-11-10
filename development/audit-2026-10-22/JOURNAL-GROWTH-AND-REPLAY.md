@@ -817,6 +817,24 @@ range. Stage A's witness forked at genesis (headHeight 2), whose state is always
 is capped at side_cap + protect_max and the re-imports replay as `Duplicate` — the amplification is
 live-only.)
 
+**PR4 (2026-11-08): what a peer-triggered rebuild costs the peer, and how often it can run.** A block now
+reaches the state gate (and so a TrieRebuild) only after every check that needs no parent state has
+passed: H-pre on the parent's header metadata, both signatures, the body binding, a fallback's empty
+body, and its PoW at ASERT(parent) (`chain::validate`). So each rebuild a peer triggers costs it one PoW
+per `seal(TemplateID, nonce)`; replays of a refused seal (another winnerSig, sig, body or share list) are
+answered from the post-state verdict cache (`chain::COSTLY_MAX`) without a rebuild while the seal is
+resident. The cache reduces cost and bounds nothing; the bound is a rate (I-5): an unsolicited block
+draws on a token bucket (`node::REBUILD_BURST` = 8, one token back per `REBUILD_REFILL_MS` = 1 s), a
+solicited one on the session's branch (its parent the session's last block, a block it delivered, or a
+hash of the round's locator) on its session's allowance (`SESSION_REBUILD_MAX` = 4, then the session ends as
+not reached; a side block the session's peer relays draws on the bucket and never ends the session), and exhaustion drops the block without a verdict. Only a rebuild of a missing parent state is charged: a C-1 S4
+slim restore (an entry's header, ParentResult and ranges read back for the type-2 evidence walk, at most
+`REBUILD_TRIES` per block) costs two record reads and draws on neither. A block refused after a rebuild leaves no
+rebuilt state behind (`Chain::reprune`). This witness's solicited re-import cycle is therefore capped at
+four rebuilds per session. The per-rebuild cost is unchanged (O(fork-point height), no reverse diffs,
+§5.1), and so are the §8 obligations: they stay **OPEN** until rebuilds start within R_keep (follow-up
+F-1).
+
 ### 4.2 What this witness drives, and the real per-session bound
 
 The witness drives the **solicited-import + retention path directly**; it does **not** drive the TCP
@@ -883,6 +901,12 @@ round 2):
 Rebuild cost is **linear in the fork-point height** (blocks re-executed from genesis), **not in the fork
 depth** — the clean rolling path (`ensure_state_with`, two snapshots live), with none of the Θ(H) retain
 scan of open (§3.1). Reverse diffs would make it scale with depth (≤ R_keep).
+
+PR4 (2026-11-08) gates this rebuild and bounds its rate, not its cost: a peer reaches it only with a block
+that passed every check needing no parent state, PoW at ASERT(parent) included, and deep rebuilds are
+rate-bounded per node (burst 8, then one per second, unsolicited) and per sync session (4) (§4.1 PR4
+note). Each one still re-executes from genesis; reverse diffs or a stored root within R_keep (F-1) remain
+the fix, and the conformance gap above stays **OPEN**.
 
 **Under load (J2-M1).** The per-block rebuild cost is the block's re-execution cost, so it depends on the
 block kind like replay does. `jm_rebuild_by_kind` rebuilds from genesis a chain of 20 blocks of one kind

@@ -186,11 +186,11 @@ finite lifetime, so the node stops once its journal holds more records than the 
 budget admits (`a13_live_chain_halt_records`, store mode as the seeds boot; T_blk
 10 s, so 8,640 records a day):
 
-| Node | Before PR3 (main `b83b584`) | After PR3 | Difference |
+| Node | Before PR3 (main `e3d6f07`) | After PR3 | Difference |
 |---|---:|---:|---:|
-| Default node, 2 configured peers | 1,170,090 records (135.4 days) | 1,127,267 records (130.5 days) | −42,823 records (−5.0 days) |
-| Seed, 7 configured peers, at the default 32 | 1,145,444 records (132.6 days) | 1,102,420 records (127.6 days) | −43,024 records (−5.0 days) |
-| Seed at `POCOL_PEERS_MAX=64` (not shipped) | — | 1,059,880 records (122.7 days) | −85,564 records (−9.9 days) |
+| Default node, 2 configured peers | 1,169,988 records (135.4 days) | 1,127,165 records (130.5 days) | −42,823 records (−5.0 days) |
+| Seed, 7 configured peers, at the default 32 | 1,145,342 records (132.6 days) | 1,102,318 records (127.6 days) | −43,024 records (−5.0 days) |
+| Seed at `POCOL_PEERS_MAX=64` (not shipped) | — | 1,059,778 records (122.7 days) | −85,564 records (−9.9 days) |
 
 The plan allowed seeds 64 established places only if that moved their halt by at most
 a week of records (60,480) against the same code at 8; it moves it by 85,093, so seeds

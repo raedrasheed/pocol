@@ -196,12 +196,31 @@ an address the receiver dialed for it is not dialed again by that process.
    blockReject (ancestorInvalid).
 3. Unknown parent → orphan pool (<= 16 per parent) and `GetBlock(parent)` to
    the sender; orphans are retried when the parent imports.
-4. Future (ts > C+Φ) → future queue (<= 64), retried on every tick.
-5. Parent state outside the K_hist window → TrieRebuild (re-execution with
-   root checks), then retry.
-6. H-pre 1–9 and H-full 10–17 (chain.rs). Failures depending only on `sig`
-   or `winnerSig` bytes are **envReject**: this copy is dropped, the blockHash
-   stays acceptable from another copy and is not recorded as invalid.
+4. H-pre on the parent's header metadata only (height, timestamp, base fee, gas
+   used, gas limit, finality: pruning, slimming and offloading keep them; consensus
+   D75): 2 linkage and 10a H_END; Future (ts > C+Φ) → future queue (<= 64), retried
+   on every tick; 3 form and signature; 4 window; 5 target = ASERT(parent); 6 nonce
+   < nMax; 7 PoW; 8 winnerSig recovery; 9 shares; 10 parent not final; 11 gas limit
+   and base fee; the body binding (envReject) and body limits; a fallback's empty
+   body (12). A verdict already reached with the parent's state for this TemplateID
+   and nonce (`seal`, which every copy of one template and nonce shares, whatever
+   its sig, winnerSig, body or share list) is returned from a local cache (256,
+   FIFO): an H-full blockReject, or owner(nonce), so a copy whose winnerSig signer
+   differs is envReject. The cache is never a validity input.
+5. Only then the parent's state: outside the K_hist window → TrieRebuild
+   (re-execution with root checks), then retry; a retained state held as diffs is
+   materialized. A block refused after a rebuild leaves no rebuilt state behind.
+   Deep rebuilds are rate-bounded (local policy): an unsolicited block draws on a
+   token bucket (burst 8, one token back per second), a solicited one on its sync
+   session's allowance (4; past it the session ends as not reached and its peer's
+   claim is set aside). Exhaustion drops the block without a verdict: it is not
+   recorded invalid, not journaled and costs its sender nothing; a real branch
+   returns through a sync session (§4).
+6. H-full 12–17 on the parent's state: proposer = Draw(h,0); winnerSig signer =
+   owner(nonce) (envOwn, D130) before any execution; then a fallback's UT equal
+   to Build_fb, evidence, caps, apply (chain.rs). Failures depending only on
+   `sig` or `winnerSig` bytes are **envReject**: this copy is dropped, the
+   blockHash stays acceptable from another copy and is not recorded as invalid.
    Every other failure is **blockReject**: the blockHash is recorded invalid
    and so are its descendants (ancestorInvalid).
 7. Accepted block → fsynced journal record → in-memory insert → D133 head
@@ -235,6 +254,20 @@ an address the receiver dialed for it is not dialed again by that process.
   signature, proposer = Draw(h,0), window, Φ, and that the UT equals the
   template rebuilt from apply(parent, body) (1b independence). Otherwise held
   (<= 64) for a parent not yet imported.
+- Equivocation (type-1 evidence): a received template is observed only when its
+  signature recovers to its proposer and Draw(h,0) is known without state: from
+  the canonical block at that height (its `drawn`, the source evidence type 1 is
+  checked against; this includes a template on a side parent whose signer is the
+  canonically drawn proposer), or from a parent whose state is resident: the
+  tip, or a side parent whose own Draw signed it (the pair is includable on that
+  branch if it wins). It is observed only while its evidence can still be included (height +
+  E_win >= head + 1, as evidence type 1 requires). Otherwise it is dropped (no
+  record, no evidence, no penalty); observing a template never rebuilds or
+  materializes state. An imported signed block's template is always recorded.
+  The observations are kept per (parent, height, signer), so one signer's
+  template never hides another's pair, and bounded (4096 keys); an overflow drops first the keys
+  whose evidence can no longer be included, then all but the tip's (height above
+  the head), so a flood of templates cannot hide a live equivocation.
 - Share: accepted only for the locked TemplateID, `nonce < nMax`,
   `SHA256(TemplateID||be64(n)) <= T_share`; ownership follows from the range.
 - Gossip (network.md:13, :15): a template is relayed to every peer except its
@@ -257,7 +290,9 @@ Frame 256 KiB; inbound peers 32 established + 8 waiting for a Hello (seeds at th
 1..128), at most 4 per public address group plus one spare; inbound eviction (§1b) grace 30 s, one per key per
 30 s, burst 8 then one per 2 s; relayed TemplateIDs
 remembered 256; relayed shares 4·S_max per template; orphans 16/parent; future 64; held templates 64; GetRange 512;
-rejects log 256; pool 32 MiB raw and <= 4096 transactions; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
+rejects log 256; post-state verdicts per TemplateID+nonce 256; deep-rebuild budget (burst 8, one back per second, a
+wall-clock step back delaying a refill by at most one second / session cap 4, for blocks on the session's branch; it
+charges rebuilds of a missing parent state only, not slim restores of an entry's header and ranges); pool 32 MiB raw and <= 4096 transactions; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
 canonical blocks are kept whole; non-canonical blocks are metadata only (bytes in the journal),
 at most R_keep unprotected plus 2·R_keep session-protected, none R_keep or more below the head;
 states for K_hist canonical blocks and side_max side blocks. Peer discovery (§1a): book 1024 (8 per group,

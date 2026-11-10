@@ -269,18 +269,19 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     let mut got=Vec::new();
     for (p,d) in [(8usize,2usize),(8,7),(32,2),(32,7),(64,2),(64,7)]{let r=halt(p,d);got.push(r);
         println!("A13-LIVE-HALT {}",serde_json::json!({"peersMax":p,"dials":d,"records":r,"days":r as f64/8640.0}));}
-    // At main b83b584: 1,170,090 and 1,145,444 records (135.4 and 132.6 days). PR3 R10, the node's per-connection maps:
-    // 1,169,815 and 1,144,973 (-275, -471). PR3 inbound eviction, every physical inbound place counted (8 established and
-    // 8 waiting for a Hello) and the eviction registry: 1,159,059 and 1,134,438 (-10,756, -10,535).
-    // PR3 commit 5, the default of 32 established (40 places): 1,127,267 at 2 dials and 1,102,420 at 7 (130.5 and 127.6
+    // At main b83b584: 1,170,090 and 1,145,444 records (135.4 and 132.6 days). Main e3d6f07, PR4's post-state verdicts
+    // (239,520 B): 1,169,988 and 1,145,342 (-102, -102). PR3 R10, the node's per-connection maps, on that main: 1,169,713
+    // and 1,144,871 (-275, -471). PR3 inbound eviction, every physical inbound place counted (8 established and 8
+    // waiting for a Hello) and the eviction registry: 1,158,957 and 1,134,336 (-10,756, -10,535).
+    // PR3 commit 5, the default of 32 established (40 places): 1,127,165 at 2 dials and 1,102,318 at 7 (130.5 and 127.6
     // days; -42,548 and -42,553 against R10's (8, d) halts, within the week of records, 60,480, the plan's rule allows).
-    // A seed at 64 established: 1,084,727 at 2 dials and 1,059,880 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
+    // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
     // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[1_159_059,1_134_438,1_127_267,1_102_420,1_084_727,1_059_880],"the live chain's halt moved (record it in the PR)");
+        assert_eq!(got,[1_158_957,1_134_336,1_127_165,1_102_318,1_084_625,1_059_778],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
-        const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_815,1_144_973];
+        const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
         assert!(R10[0]-got[2]<=WEEK,"the default of 32 moves the halt by more than a week: ask the owner");
         assert!(R10[1]-got[5]>WEEK,"a seed at 64 now moves the halt by at most a week: the seeds may take POCOL_PEERS_MAX=64 (deploy/public-testnet/prepare.py)");
     }

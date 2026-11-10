@@ -403,6 +403,636 @@ fn remine_signed(n:&Net,mut h:lp1hdr::Header,signer:Address)->Block{
     let _=std::fs::remove_dir_all(&dir);
 }
 
+// ---------------- PR4: no state work before the pre-auth checks ----------------
+/// `t` signed again by `key` as its proposer, on `parent`: a template shell either key could gossip.
+fn resigned(t:&lp1hdr::Header,key:&Key,parent:[u8;32])->lp1hdr::Header{
+    let mut h=t.clone();h.parent_hash=parent;h.proposer=key.address().as_slice().to_vec();reseal(&mut h);
+    h.sig=key.sign_hash(&B256::from(hashes::sig_msg(&template_id(&h.ut_raw)))).to_vec();reseal(&mut h);h
+}
+fn send_template(node:&mut pocold::node::Node,peer:pocold::net::PeerId,t:&lp1hdr::Header){
+    use pocold::{node::Event,net::{Msg,NetEvent}};
+    node.handle(Event::Net(NetEvent::Message(peer,Msg::Template{shell:t.encoded.clone(),body:Body::default().encode()})));
+}
+/// PR4 (NODE-02): a gossiped template never rebuilds or materializes its parent's state. A self-signed shell
+/// naming a pruned canonical parent costs the node nothing; the drawn proposer's equivocation there is still
+/// recorded, Draw(h,0) being read from the canonical block's `drawn`, while its evidence can still be included
+/// (E_win is raised above K_hist here, as on the network, so a pruned canonical parent is inside the window).
+#[test] fn pr4_a_template_for_a_pruned_parent_makes_no_state(){
+    use pocold::node::{Config,Node};use std::sync::atomic::Ordering::Relaxed;
+    let mut c=cfg(&["a","b","c"]);c.e_win=48;c.u=56;
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-pruned-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
+    let mut n=net_with(&c);let mut hashes=vec![n.chain.head];
+    for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    node.chain.retain();
+    let e_win=u64::from(node.chain.spec.cp().E_win);let head=node.chain.head().height;
+    // Two pruned canonical parents: hashes[30] (its child's evidence includable: 31+E_win >= head+1) and hashes[3] (not).
+    let (fp,old)=(30usize,3usize);
+    assert!(fp as u64+1+e_win>head&&(old as u64)+1+e_win<head+1,"positive control: one parent inside E_win, one outside");
+    for i in [fp,old]{assert!(node.chain.blocks[&hashes[i]].pruned,"positive control: the parent is below the K_hist window");}
+    let mk=|i:usize,off:u64|{let p=n.chain.full_entry(&hashes[i]).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
+        assert_eq!(node.chain.blocks[&hashes[i+1]].drawn,ctx.proposer,"the canonical block at h={} carries Draw(.,0)",i+1);
+        n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap().0};
+    let (t1,t2)=(mk(fp,0),mk(fp,1));let (o1,o2)=(mk(old,0),mk(old,1));
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    let (rb,mat)=(node.chain.rebuilds,node.chain.materializations.load(Relaxed));
+    // Attacker half: two templates for (hashes[30], 31) signed by a key that is not drawn.
+    let atk=devnet::account_key("zzz-pr4");
+    for t in [&t1,&t2]{send_template(&mut node,peer,&resigned(t,&atk,hashes[fp]));}
+    assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: a gossiped template rebuilt a pruned parent");
+    assert_eq!(node.chain.materializations.load(Relaxed),mat,"no state materialized for a gossiped template");
+    assert!(node.evidence_pool.is_empty()&&node.stats.template_penalties==0,"a non-drawn signer gives no evidence and no penalty");
+    assert!(node.chain.blocks[&hashes[fp]].pruned,"the parent is still pruned");
+    // Too old: the drawn proposer's pair at h=4 gives no evidence (evidence_type1 would refuse it as too old).
+    for t in [&o1,&o2]{send_template(&mut node,peer,t);}
+    assert!(node.evidence_pool.is_empty(),"a pair whose evidence can no longer be included is not recorded");
+    // Drawn half (positive control): the drawn proposer's two templates are type-1 evidence, still without state.
+    for t in [&t1,&t2]{send_template(&mut node,peer,t);}
+    assert_eq!(node.evidence_pool.len(),1,"the drawn proposer's equivocation is recorded");
+    assert_eq!((node.chain.rebuilds,node.chain.materializations.load(Relaxed)),(rb,mat),"FAIL-ON-ORIGINAL: the drawn proposer's template rebuilt a pruned parent");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// Review (historic template flood): a template whose type-1 evidence could no longer be included (height + E_win <
+/// head + 1) is dropped, though it passes every other check (an old canonical block's template is public), and a
+/// seen_templates that overflows keeps the keys whose evidence can still be included and, at worst, the tip's: a
+/// flood between two templates of the tip's drawn proposer does not hide the equivocation. On this short chain no
+/// peer can make SEEN_MAX distinct keys, so the overflow is written into the map directly.
+#[test] fn pr4_a_template_flood_records_no_old_height_and_hides_no_live_equivocation(){
+    use pocold::node::{Config,Node,SEEN_MAX};
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-flood-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&cfg(&["a","b","c"]))).unwrap();
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..40{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    let head=node.chain.head().height;let e_win=u64::from(node.chain.spec.cp().E_win);assert!(head>e_win+4,"positive control: heights outside E_win");
+    // The drawn proposer's template on hashes[i] (height i+1); `off` varies the TemplateID.
+    let tpl=|i:u64,off:u64|{let p=n.chain.full_entry(&hashes[i as usize]).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
+        n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap().0};
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    let junk=|node:&mut Node,height:u64|{for j in 0..SEEN_MAX as u32{let mut k=[0xee;32];k[..4].copy_from_slice(&j.to_be_bytes());node.seen_templates.insert((k,height),(vec![],vec![],vec![]));}};
+    // 1) Too old for its evidence to be included: not recorded. In the window: recorded.
+    let old=head-e_win-1;assert!(old+1+e_win<head+1);
+    send_template(&mut node,peer,&tpl(old,0));
+    assert!(node.seen_templates.is_empty(),"FAIL-ON-ORIGINAL: a template at height {} (E_win {e_win}, head {head}) was recorded",old+1);
+    let inwin=head-2;send_template(&mut node,peer,&tpl(inwin,0));
+    assert_eq!(node.seen_templates.len(),1,"positive control: a historic template inside E_win is recorded");
+    // 2) Overflow with keys too old to matter: they go, the in-window key stays, T1 (the tip) is recorded.
+    let (t1,t2)=(tpl(head,0),tpl(head,1));
+    junk(&mut node,1);assert!(node.seen_templates.len()>SEEN_MAX);
+    send_template(&mut node,peer,&t1);
+    assert!(node.seen_templates.keys().any(|k|k.1==inwin+1),"FAIL-ON-ORIGINAL: the overflow dropped a key whose evidence can still be included");
+    assert_eq!(node.seen_templates.len(),2,"only the keys too old to matter were dropped");
+    // 3) Overflow with keys inside the window: the tip key survives a further insert, and T2 is an equivocation.
+    junk(&mut node,head);assert!(node.seen_templates.len()>SEEN_MAX);
+    send_template(&mut node,peer,&tpl(head-3,0));
+    assert!(node.seen_templates.len()<=SEEN_MAX+1,"the bound holds");
+    assert!(node.evidence_pool.is_empty());
+    send_template(&mut node,peer,&t2);
+    assert_eq!(node.evidence_pool.len(),1,"FAIL-ON-ORIGINAL: the overflow cleared T1, so T2 was recorded as a first template");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR4 plan §7 finding A: evidence_type1 takes a pair on a SIDE parent signed by the proposer drawn at that
+/// height on the canonical branch (it reads the carrier's `drawn`, never the templates' parent). The node
+/// records such a pair on a pruned side parent without rebuilding it, and the evidence is includable.
+#[test] fn pr4_side_parent_equivocation_is_recorded_without_state(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (mut node,dir,_)=retention_node("pr4-side");
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    // Competitors of the canonical block at h=3: side_max (2) of them keep a state, the rest are pruned.
+    let mut side=vec![];let mut a=1u32;
+    while side.len()<3{let b=fallback(&n,hashes[2],a);a+=1;if node.chain.blocks.contains_key(&b.hash()){continue}
+        assert!(!node.import(b.clone(),None).unwrap(),"a lighter competitor stays on the side");side.push(b.hash());}
+    let s=*side.iter().find(|h|node.chain.blocks[*h].pruned).expect("positive control: a pruned side parent at h=3");
+    assert!(!node.chain.is_canonical(&s));
+    let p=n.chain.full_entry(&hashes[3]).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();let drawn=ctx.proposer;
+    assert_eq!(node.chain.canonical_at(4).unwrap().drawn,drawn,"the canonical block at h=4 carries Draw(4,0)");
+    let mk=|off:u64|{let (h,_,_)=n.chain.build_signed(&p,&n.keys[&drawn],ctx.window.lower()+off,Body::default(),vec![]).unwrap();resigned(&h,&n.keys[&drawn],s)};
+    let (t1,t2)=(mk(0),mk(1));
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    let (rb,mat)=(node.chain.rebuilds,node.chain.materializations.load(Relaxed));
+    for t in [&t1,&t2]{send_template(&mut node,peer,t);}
+    assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: a gossiped template rebuilt a pruned side parent");
+    assert_eq!(node.chain.materializations.load(Relaxed),mat,"FAIL-ON-ORIGINAL: a gossiped template materialized state");
+    assert!(node.chain.blocks[&s].pruned,"the side parent is still pruned");
+    assert_eq!(node.evidence_pool.len(),1,"the side-parent equivocation by the canonically drawn proposer is recorded");
+    // The evidence is includable on the canonical branch (h=6 on hashes[5]).
+    let head=n.chain.full_entry(&hashes[5]).unwrap();
+    let eff=n.chain.evidence_effects(&head,&Body{txs:vec![],evidence:node.evidence_pool.clone()},6).unwrap();
+    assert_eq!(eff,vec![apply::EvidenceEffect::Punish{accused:drawn}],"valid type-1 evidence");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR4: an imported signed block's template is recorded without reading its parent's state. Two signed
+/// children of a parent that is diff-held once the first is the head: the second is validated on one
+/// materialization (validate's), and its template is not materialized a second time to be recorded.
+#[test] fn pr4_an_imported_equivocation_on_a_diff_held_parent_is_recorded(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (mut node,dir,_)=retention_node("pr4-import");
+    let mut n=net();for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();}
+    let p=n.chain.head;let lower=n.chain.child_ctx(&n.chain.full_entry(&p).unwrap(),0).unwrap().window.lower();
+    let b1=signed(&n,p,Body::default(),0);let b2=signed(&n,p,Body::default(),b1.header.ts-lower+1);
+    assert_ne!(template_id(&b1.header.ut_raw),template_id(&b2.header.ut_raw),"two templates by Draw(4,0)");
+    assert!(node.import(b1.clone(),None).unwrap(),"the first is the head");
+    assert!(!node.chain.blocks[&p].full&&!node.chain.blocks[&p].pruned,"positive control: the parent is diff-held");
+    let mat=node.chain.materializations.load(Relaxed);
+    assert!(!node.import(b2.clone(),None).unwrap(),"the second is a side block");
+    assert!(node.chain.blocks.contains_key(&b2.hash())&&node.chain.head==b1.hash());
+    assert_eq!(node.evidence_pool.len(),1,"the imported equivocation is recorded");
+    assert_eq!(node.chain.materializations.load(Relaxed),mat+1,"FAIL-ON-ORIGINAL: observe_template materialized the parent a second time");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR4 step 1b: an imported signed block passed items 2, 3 and 12, so its template is recorded as validated,
+/// not re-derived from the canonical draw as a gossiped one is. Two signed children of a SIDE block S, by
+/// Draw(S,0), which differs from the proposer drawn at that height on the canonical branch: the equivocation
+/// is recorded (it is includable once S's branch carries it). Calling observe_template from import (plan §6
+/// M9) reads the canonical block's `drawn`, records neither and loses it.
+#[test] fn pr4_an_imported_side_branch_equivocation_is_recorded(){
+    let (mut node,dir,_)=retention_node("pr4-import-side");
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    let canon=node.chain.canonical_at(4).unwrap().drawn;
+    // S: a competitor of the canonical block at h=3 whose child's drawn proposer is not the canonical one.
+    let mut a=1u32;let (s,d)=loop{assert!(a<64,"positive control: a side parent with another drawn proposer");
+        let b=fallback(&n,hashes[2],a);a=b.header.a+1;if n.chain.blocks.contains_key(&b.hash()){continue}
+        import(&mut n,&b);let d=n.chain.child_ctx(&n.chain.full_entry(&b.hash()).unwrap(),0).unwrap().proposer;
+        if d!=canon{break (b,d)}};
+    assert!(!node.import(s.clone(),None).unwrap(),"S stays on the side");
+    let lower=n.chain.child_ctx(&n.chain.full_entry(&s.hash()).unwrap(),0).unwrap().window.lower();
+    let b1=signed(&n,s.hash(),Body::default(),0);let b2=signed(&n,s.hash(),Body::default(),b1.header.ts-lower+1);
+    assert_ne!(template_id(&b1.header.ut_raw),template_id(&b2.header.ut_raw),"two templates by Draw(S,0)");
+    assert!(b1.header.proposer[..]==d[..]&&b2.header.proposer[..]==d[..]);
+    for b in [&b1,&b2]{assert!(!node.import(b.clone(),None).unwrap(),"a side block");assert!(node.chain.blocks.contains_key(&b.hash()));}
+    assert_eq!(node.chain.canonical_at(4).unwrap().drawn,canon,"the canonical branch is unchanged");
+    assert_eq!(node.evidence_pool.len(),1,"the imported side-branch equivocation is recorded (lost if import re-derives the draw from the canonical block)");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// Competitors of the canonical block at h=3 (hashes[2]'s children, imported into `n` and onto the node as side blocks)
+/// whose child's drawn proposer is not the canonical one at h=4, each with that proposer.
+fn other_draw_sides(node:&mut pocold::node::Node,n:&mut Net,hashes:&[[u8;32]],count:usize)->Vec<(Block,Address)>{
+    let canon=node.chain.canonical_at(4).unwrap().drawn;let mut out=vec![];let mut a=1u32;
+    while out.len()<count{assert!(a<128,"positive control: side parents with another drawn proposer");
+        let b=fallback(n,hashes[2],a);a=b.header.a+1;if n.chain.blocks.contains_key(&b.hash()){continue}
+        import(n,&b);let d=n.chain.child_ctx(&n.chain.full_entry(&b.hash()).unwrap(),0).unwrap().proposer;
+        if d!=canon{assert!(!node.import(b.clone(),None).unwrap(),"a side block");out.push((b,d));}}
+    out
+}
+/// A template on `parent` signed by `signer` (Draw(parent,0) or another key), built in `n` (`off` varies the TemplateID).
+fn side_template(n:&Net,parent:[u8;32],signer:Address,off:u64)->lp1hdr::Header{
+    let p=n.chain.full_entry(&parent).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
+    let (h,_,_)=n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();
+    if h.proposer[..]==signer[..]{h}else{resigned(&h,&n.keys[&signer],parent)}
+}
+/// Review: two gossiped templates by Draw(S,0) on a side parent S whose state is resident are recorded although the
+/// canonical branch has a block at that height drawn to someone else (the pair is includable on S's branch if it
+/// wins), and reading Draw(S,0) makes no state.
+#[test] fn pr4_a_gossiped_equivocation_by_a_side_parents_draw_is_recorded(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (mut node,dir,_)=retention_node("pr4-side-draw");
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    let (s,y)=other_draw_sides(&mut node,&mut n,&hashes,1).remove(0);
+    let e=&node.chain.blocks[&s.hash()];assert!(e.full&&!e.pruned&&!e.slim,"positive control: S's state is resident");
+    let (t1,t2)=(side_template(&n,s.hash(),y,0),side_template(&n,s.hash(),y,1));
+    assert_ne!(template_id(&t1.ut_raw),template_id(&t2.ut_raw));
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    let (rb,mat)=(node.chain.rebuilds,node.chain.materializations.load(Relaxed));
+    for t in [&t1,&t2]{send_template(&mut node,peer,t);}
+    assert_eq!(node.evidence_pool.len(),1,"FAIL-ON-ORIGINAL: Draw(S,0)'s gossiped pair on a side parent was dropped");
+    assert_eq!((node.chain.rebuilds,node.chain.materializations.load(Relaxed)),(rb,mat),"no state made");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// Review: the two signers a side parent S can take at h (X, drawn there on the canonical branch, and Y = Draw(S,0))
+/// each have their own seen_templates slot. X's one gossiped template on S does not hide Y's imported pair on S, and
+/// Y's one imported block on another side parent does not hide X's gossiped pair there.
+#[test] fn pr4_one_signers_template_hides_no_other_signers_pair(){
+    let (mut node,dir,_)=retention_node("pr4-two-signers");
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    let x=node.chain.canonical_at(4).unwrap().drawn;
+    let sides=other_draw_sides(&mut node,&mut n,&hashes,2);let ((s1,y1),(s2,_y2))=(sides[0].clone(),sides[1].clone());
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    // S1: X's template first, then Y1's two signed blocks.
+    send_template(&mut node,peer,&side_template(&n,s1.hash(),x,0));
+    assert!(node.evidence_pool.is_empty());
+    let lower=n.chain.child_ctx(&n.chain.full_entry(&s1.hash()).unwrap(),0).unwrap().window.lower();
+    let b1=signed(&n,s1.hash(),Body::default(),0);let b2=signed(&n,s1.hash(),Body::default(),b1.header.ts-lower+1);
+    assert!(b1.header.proposer[..]==y1[..]&&b2.header.proposer[..]==y1[..]&&template_id(&b1.header.ut_raw)!=template_id(&b2.header.ut_raw));
+    for b in [&b1,&b2]{assert!(!node.import(b.clone(),None).unwrap(),"a side block");}
+    assert_eq!(node.evidence_pool.len(),1,"FAIL-ON-ORIGINAL: X's template on S1 hid Y1's imported pair");
+    // S2: one of Y2's signed blocks first, then X's two templates.
+    let b3=signed(&n,s2.hash(),Body::default(),0);assert!(!node.import(b3,None).unwrap());
+    for off in [0,1]{send_template(&mut node,peer,&side_template(&n,s2.hash(),x,off));}
+    assert_eq!(node.evidence_pool.len(),2,"FAIL-ON-ORIGINAL: Y2's block on S2 hid X's gossiped pair");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR4 soundness lemma for the hoisted H-pre checks (an oracle, not a regression test): child_pre of a pruned
+/// or slim parent, read before any state is made, equals the child_ctx of the same parent once its state is
+/// rebuilt or restored, at every attempt a fallback search reaches (16).
+#[test] fn pr4_child_pre_of_a_pruned_or_slim_parent_equals_child_ctx_after_rebuild(){
+    use pocold::{chain::ChildPre,node::{Config,Limits,Node}};
+    let same=|pre:&ChildPre,ctx:&pocold::chain::ChildCtx,fb_wait:u32,what:&str|{
+        assert_eq!((pre.target,pre.nonce_max,pre.t_share,pre.base_fee),(ctx.target,ctx.assignment.nonce_max(),ctx.t_share,ctx.base_fee),"{what}: target, nMax, T_share, baseFee");
+        assert_eq!(pre.window,ctx.window,"{what}: window");
+        assert_eq!(pre.window.fallback_timestamp(fb_wait).ok(),ctx.window.fallback_timestamp(fb_wait).ok(),"{what}: fallback timestamp");
+    };
+    // An oracle independent of child_pre (which child_ctx now reads): the canonical fallback child, validated
+    // before PR4, commits to the target, base fee and fallback timestamp of its attempt.
+    let committed=|pres:&[ChildPre],c:&pocold::chain::Entry,fb_wait:u32|{let pre=&pres[c.header.a as usize];
+        assert_eq!((pre.target,pre.base_fee,pre.window.fallback_timestamp(fb_wait).ok()),(c.header.target,from_fixed(&c.header.base_fee),Some(c.header.ts)),"the committed child at a={}",c.header.a);};
+    // Pruned: the k_hist_retention_and_trie_rebuild_for_deep_fork fixture.
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..12{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let fb_wait=n.chain.spec.cp().dFbWait;let p=hashes[3];
+    assert!(n.chain.blocks[&p].pruned,"positive control: the parent is pruned");
+    let pres:Vec<ChildPre>=(0..16).map(|a|n.chain.child_pre(&n.chain.blocks[&p],a).unwrap()).collect();
+    let rb=n.chain.rebuilds;n.chain.ensure_state(&p).unwrap();assert!(n.chain.rebuilds>rb,"positive control: the state was rebuilt");
+    let full=n.chain.full_entry(&p).unwrap();
+    for (a,pre) in pres.iter().enumerate(){same(pre,&n.chain.child_ctx(&full,a as u32).unwrap(),fb_wait,&format!("pruned a={a}"));}
+    committed(&pres,&n.chain.blocks[&hashes[4]],fb_wait);
+    // Slim: a node slimming at depth 8; its canonical entry 12 below the head is slim (and not pruned).
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-pre-slim-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"s".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{slim_depth:Some(8),..Default::default()}},admitted(&cfg(&["a","b","c"]))).unwrap();
+    let mut m=net();for _ in 0..20{let h=m.chain.head;let b=fallback(&m,h,0);import(&mut m,&b);node.import(b,None).unwrap();}
+    let s=node.chain.canonical_at(node.chain.head().height-12).unwrap().hash;
+    assert!(node.chain.blocks[&s].slim&&!node.chain.blocks[&s].pruned,"positive control: the parent is slim");
+    let pres:Vec<ChildPre>=(0..16).map(|a|node.chain.child_pre(&node.chain.blocks[&s],a).unwrap()).collect();
+    node.ensure_state(&s).unwrap();assert!(!node.chain.blocks[&s].slim,"positive control: the parent was restored");
+    let full=node.chain.full_entry(&s).unwrap();
+    for (a,pre) in pres.iter().enumerate(){same(pre,&node.chain.child_ctx(&full,a as u32).unwrap(),fb_wait,&format!("slim a={a}"));}
+    committed(&pres,&m.chain.blocks[&node.chain.canonical[full.height as usize+1]],fb_wait);
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+
+/// `b` with its nonce replaced by one below nMax that is not a solution at its target (item 7 fails; the
+/// header is otherwise b's, so every earlier item passes).
+fn no_pow(b:&Block)->Block{
+    let tid=template_id(&b.header.ut_raw);let mut h=b.header.clone();
+    h.nonce=(0u64..).find(|x|*x!=b.header.nonce&&!le_target(&pow_hash(&tid,*x),&h.target)).unwrap();h.shares=vec![];reseal(&mut h);
+    Block{header:h,body:b.body.clone()}
+}
+/// PR4 (CONS-9, Block-path finding): every check that needs no parent state runs before the state gate. A
+/// copy naming a pruned parent that fails PoW, height linkage, the clock, the body binding or the fallback
+/// form gets its verdict without a TrieRebuild, and the parent stays pruned; an honest child still reaches
+/// NeedsRebuild and is accepted after the rebuild.
+#[test] fn pr4_h_pre_and_the_body_run_before_any_parent_state(){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..12{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let p=hashes[3];assert!(n.chain.blocks[&p].pruned,"positive control: the parent is pruned");
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let child=fallback(&m,p,1);let rb=n.chain.rebuilds;
+    let tx=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(10_000_000_000u64),gas:21000,to:Some(Address::ZERO),value:U256::ZERO,data:Default::default()}.sign_1559(&devnet::account_key("alice"));
+    let mut lying=child.header.clone();lying.h=n.chain.head().height;reseal(&mut lying);
+    let mut sig=child.header.clone();sig.sig=vec![1;65];reseal(&mut sig);
+    let cases:Vec<(&str,Block,Option<u64>,fn(&Reject)->bool)>=vec![
+        ("(a) no PoW",no_pow(&child),None,|r|matches!(r,Reject::Block(s) if s.contains("7 pow"))),
+        ("(b) lying height",Block{header:lying,body:Body::default()},None,|r|matches!(r,Reject::Block(s) if s.contains("2 height"))),
+        ("(c) future",child.clone(),Some(child.header.ts-1),|r|*r==Reject::Future),
+        ("(d) foreign body",Block{header:child.header.clone(),body:Body{txs:vec![tx],evidence:vec![]}},None,|r|matches!(r,Reject::Envelope(s) if s.contains("body does not match"))),
+        ("(e) sig on a fallback",Block{header:sig,body:Body::default()},None,|r|matches!(r,Reject::Envelope(s) if s.contains("3 signature without proposer"))),
+    ];
+    for (what,b,clock,want) in &cases{
+        let r=n.chain.validate(b,*clock,0).err().unwrap_or_else(||panic!("{what}: must reject"));
+        assert!(want(&r),"FAIL-ON-ORIGINAL: {what}: got {r:?} (NeedsRebuild before H-pre)");
+        assert!(n.chain.rebuilds==rb&&n.chain.blocks[&p].pruned,"{what}: no state made");
+    }
+    // Positive control: the honest child passes H-pre, needs the rebuild and is accepted after it.
+    assert_eq!(n.chain.validate(&child,None,0).err(),Some(Reject::NeedsRebuild(p)));
+    n.chain.ensure_state(&p).unwrap();assert!(n.chain.rebuilds>=3);
+    let (e,_)=n.chain.validate(&child,None,0).unwrap();n.chain.insert(e);
+}
+/// The whole-state fixture of T3.2/T3.3: 5 fallbacks retained; canonical_at(2) is diff-held.
+fn diff_held_net()->(Net,[u8;32]){
+    let mut n=net();for _ in 0..5{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();}
+    let q=n.chain.canonical_at(2).unwrap().hash;
+    assert!(!n.chain.blocks[&q].full&&!n.chain.blocks[&q].pruned,"positive control: canonical_at(2) is diff-held");(n,q)
+}
+/// PR4: a junk child of a diff-held parent is refused before the parent is materialized (C-1 S3a moved
+/// below H-pre).
+#[test] fn pr4_a_junk_child_of_a_diff_held_parent_is_not_materialized(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (n,q)=diff_held_net();let j=no_pow(&fallback(&n,q,1));
+    let mat=n.chain.materializations.load(Relaxed);
+    assert!(matches!(n.chain.validate(&j,None,0),Err(Reject::Block(s)) if s.contains("7 pow")));
+    assert_eq!(n.chain.materializations.load(Relaxed),mat,"FAIL-ON-ORIGINAL: the parent was materialized before item 7");
+}
+/// PR4 (fallback-replay finding, D130): a copy of a fallback block whose winnerSig is not the owner's is
+/// refused (envReject, item 13) without executing the block; the owner's copy executes once and is valid.
+#[test] fn pr4_a_non_owner_fallback_copy_is_not_executed(){
+    use std::sync::atomic::Ordering::Relaxed;
+    let (n,q)=diff_held_net();let f=fallback(&n,q,1);
+    let p=n.chain.full_entry(&q).unwrap();let ctx=n.chain.child_ctx(&p,f.header.a).unwrap();
+    let owner=addr(&ctx.assignment.owner(f.header.nonce).unwrap());let other=*n.keys.keys().find(|k|**k!=owner).unwrap();
+    let tid=template_id(&f.header.ut_raw);
+    let mut h=f.header.clone();h.winner_sig=n.keys[&other].sign_hash(&B256::from(hashes::win_msg(&tid,h.nonce,&share_root(&h))));reseal(&mut h);
+    let copy=Block{header:h,body:Body::default()};assert_eq!(copy.hash(),f.hash(),"winnerSig is not committed by blockHash");
+    let ex=||n.chain.trie_built.load(Relaxed)+n.chain.trie_derived.load(Relaxed);let e=ex();
+    assert!(matches!(n.chain.validate(&copy,None,0),Err(Reject::Envelope(s)) if s.starts_with("13 ")));
+    assert_eq!(ex(),e,"FAIL-ON-ORIGINAL: the non-owner copy was executed before item 13");
+    assert!(n.chain.validate(&f,None,0).is_ok(),"positive control: the owner's copy is valid");
+    assert_eq!(ex(),e+1,"positive control: and it was executed once");
+}
+/// PR4 (Block-path finding), node level: a block without PoW naming a pruned canonical parent is a block
+/// verdict (marked invalid, not journaled) without a TrieRebuild; an honest child still rebuilds and imports.
+#[test] fn pr4_a_node_refuses_a_deep_child_without_pow_without_rebuilding(){
+    use pocold::node::{Config,Node};
+    let c=cfg(&["a","b","c"]);
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-deep-nopow-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    node.chain.retain();
+    let p=hashes[3];assert!(node.chain.blocks[&p].pruned,"positive control: the parent is below the K_hist window");
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let child=fallback(&m,p,1);let bad=no_pow(&child);
+    let (rb,rec)=(node.chain.rebuilds,node.journal_records());
+    assert!(matches!(node.import(bad.clone(),None),Err(Reject::Block(s)) if s.contains("7 pow")),"a block verdict");
+    assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: a block without PoW rebuilt a pruned parent");
+    assert_eq!(node.journal_records(),rec,"not journaled");
+    assert!(node.chain.invalid.contains_key(&bad.hash()),"marked invalid");
+    // Positive control: the honest child rebuilds its parent and is imported.
+    node.import(child,None).expect("live import rebuilds the pruned parent");assert!(node.chain.rebuilds>rb);
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR4 (A13 MATERIALIZED, I-3): a PoW-valid child of a pruned parent refused after the TrieRebuild (item 12,
+/// a proposer that is not Draw(h,0)) leaves the parent pruned (no whole state, no stored pin) and the prune
+/// invariant whole, at once rather than at the next import's retain; an honest child still rebuilds and imports.
+/// Whole-state and store mode.
+#[test] fn pr4_a_refused_rebuild_leaves_the_parent_pruned(){
+    use pocold::node::Limits;
+    let mut n=net();let mut blocks=vec![];let mut hashes=vec![n.chain.head];
+    for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);blocks.push(b);hashes.push(n.chain.head);}
+    let p=hashes[3];
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let drawn=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),0).unwrap().proposer;let other=*m.keys.keys().find(|k|**k!=drawn).unwrap();
+    let mut h=signed(&m,p,Body::default(),0).header;h.proposer=other.to_vec();reseal(&mut h);let bad=remine_signed(&m,h,other);
+    let honest=fallback(&m,p,1);
+    for (tag,store) in [("whole",false),("store",true)]{
+        let (node,dir)=gas_node(&format!("pr4-reprune-{tag}"),Limits{state_store:store,..Default::default()});let mut node=node.unwrap();
+        for b in &blocks{node.import(b.clone(),None).unwrap();}node.chain.retain();
+        assert!(node.chain.blocks[&p].pruned&&node.chain.blocks[&p].stored.is_none(),"{tag}: positive control: the parent is below the K_hist window");
+        let rb=node.chain.rebuilds;
+        assert!(matches!(node.import(bad.clone(),None),Err(Reject::Block(s)) if s.contains("12 proposer")),"{tag}: a block verdict after the rebuild");
+        assert!(node.chain.rebuilds>rb,"{tag}: positive control: the parent was rebuilt");
+        let e=&node.chain.blocks[&p];
+        assert!(e.pruned&&!e.full&&e.stored.is_none()&&e.diff.is_none(),"FAIL-ON-ORIGINAL: {tag}: the refused rebuild left P's state resident");
+        assert!(node.chain.prune_holds()&&node.chain.prune_cursor>node.chain.blocks[&p].height,"{tag}: the prune window is whole again");
+        node.import(honest.clone(),None).unwrap_or_else(|e|panic!("{tag}: the honest child rebuilds its parent and imports: {e:?}"));
+        drop(node);let _=std::fs::remove_dir_all(&dir);
+    }
+}
+/// PR4 (A13 diffs_held, plan §7 finding D): a TrieRebuild from genesis gives a diff back only to the blocks the
+/// next retain keeps one for, so at its peak the chain holds at most diffs_held (+1) diffs, not one per
+/// re-executed block; the rebuilt state and the window's diff-held states are what they were.
+#[test] fn pr4_a_deep_rebuild_holds_at_most_diffs_held_diffs(){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..40{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let bound=pocold::resources::diffs_held(4,n.chain.spec.local().side_max) as usize+1;
+    let held=|n:&Net|n.chain.blocks.values().filter(|e|e.diff.is_some()).count();
+    let deep=hashes[30];assert!(n.chain.blocks[&deep].pruned&&held(&n)<=bound,"positive control: the parent is pruned, the diffs within the bound");
+    let rb=n.chain.rebuilds;n.chain.ensure_state(&deep).unwrap();
+    assert!(n.chain.rebuilds-rb>=30&&30>bound,"positive control: a rebuild from genesis, deeper than the bound");
+    assert!(held(&n)<=bound,"FAIL-ON-ORIGINAL: a deep rebuild held {} diffs (diffs_held+1 = {bound})",held(&n));
+    let root=|n:&Net,h:&[u8;32]|apply::state_root(&n.chain.full_entry(h).unwrap().state).unwrap().0;
+    assert_eq!(root(&n,&deep),n.chain.blocks[&deep].header.state_root,"the rebuilt state");
+    let w=hashes[38];assert!(!n.chain.blocks[&w].full&&!n.chain.blocks[&w].pruned,"positive control: a diff-held window state");
+    assert_eq!(root(&n,&w),n.chain.blocks[&w].header.state_root,"the window's diff-held state still materializes");
+    n.chain.retain();assert!(n.chain.prune_holds()&&held(&n)<=bound);
+}
+
+/// The k_hist_retention_and_trie_rebuild_for_deep_fork fixture of the Step 5 tests: k_hist=4, 12 fallbacks
+/// retained, P=hashes[3] pruned, and a mirror `m` holding hashes[1..=3] (P its head).
+fn deep_fork_nets()->(Net,Net,[u8;32]){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..12{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let p=hashes[3];assert!(n.chain.blocks[&p].pruned,"positive control: the parent is pruned");
+    let mut m=net();for h in &hashes[1..=3]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    (n,m,p)
+}
+/// `b` with another share list (one more valid share, or one fewer when it is full) and its winnerSig signed by
+/// `key`: the same TemplateID and nonce (seal), another blockHash.
+fn share_variant(m:&Net,b:&Block,key:&Key)->Block{
+    let p=m.chain.full_entry(&b.header.parent_hash).unwrap();let ctx=m.chain.child_ctx(&p,b.header.a).unwrap();
+    let tid=template_id(&b.header.ut_raw);let mut h=b.header.clone();
+    if h.shares.len()<usize::from(m.chain.spec.cp().S_max){
+        let x=(0u64..).find(|x|*x!=h.nonce&&!h.shares.contains(x)&&le_target(&pow_hash(&tid,*x),&ctx.t_share)).unwrap();
+        assert!((x as u128)<ctx.assignment.nonce_max());h.shares.push(x);h.shares.sort_unstable();
+    }else{h.shares.pop();}
+    reseal(&mut h);h.winner_sig=key.sign_hash(&B256::from(hashes::win_msg(&tid,h.nonce,&share_root(&h))));reseal(&mut h);
+    let v=Block{header:h,body:b.body.clone()};assert_ne!(v.hash(),b.hash(),"a share variant is another blockHash");
+    assert_eq!(seal(&tid,v.header.nonce),seal(&template_id(&b.header.ut_raw),b.header.nonce),"and the same seal");v
+}
+/// `b` with its winnerSig signed by `key` (the blockHash does not commit winnerSig: the same block, another copy).
+fn win_copy(b:&Block,key:&Key)->Block{
+    let tid=template_id(&b.header.ut_raw);let mut h=b.header.clone();
+    h.winner_sig=key.sign_hash(&B256::from(hashes::win_msg(&tid,h.nonce,&share_root(&h))));reseal(&mut h);Block{header:h,body:b.body.clone()}
+}
+/// PR4 (I-2, fallback-replay finding): a non-owner copy of a PoW-valid child of a pruned parent crosses the
+/// state gate once; its item-13 verdict is kept per seal(TemplateID,nonce) as owner(nonce), so a copy with a
+/// fresh winnerSig or another share list is refused (envReject) without a second TrieRebuild, and the
+/// owner's copy is still accepted.
+#[test] fn pr4_replayed_and_share_varied_non_owner_copies_rebuild_once(){
+    let (mut n,m,p)=deep_fork_nets();let child=fallback(&m,p,1);
+    let ctx=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),child.header.a).unwrap();
+    let owner=addr(&ctx.assignment.owner(child.header.nonce).unwrap());
+    let other=*m.keys.keys().find(|k|**k!=owner).unwrap();let atk=devnet::account_key("zzz-pr4");
+    let env13=|r:Result<_,Reject>|matches!(r,Err(Reject::Envelope(s)) if s.starts_with("13 "));
+    // Copy 1 (a member's winnerSig that is not the owner's): one rebuild, then item 13.
+    let c1=win_copy(&child,&m.keys[&other]);assert_eq!(c1.hash(),child.hash());
+    assert_eq!(n.chain.validate(&c1,None,0).err(),Some(Reject::NeedsRebuild(p)));
+    n.chain.ensure_state(&p).unwrap();assert!(env13(n.chain.validate(&c1,None,0)),"positive control: item 13 after the rebuild");
+    n.chain.reprune();assert!(n.chain.blocks[&p].pruned,"positive control: the next retain prunes P again");
+    let rb=n.chain.rebuilds;
+    // Copy 2 (a fresh winnerSig by a non-member) and a share variant: refused at the seal, no rebuild.
+    let c2=win_copy(&child,&atk);assert_eq!(c2.hash(),child.hash());
+    assert!(env13(n.chain.validate(&c2,None,0)),"FAIL-ON-ORIGINAL: a fresh-winnerSig copy needed a second rebuild");
+    let v=share_variant(&m,&child,&atk);
+    assert!(env13(n.chain.validate(&v,None,0)),"FAIL-ON-ORIGINAL: a share-list variant needed a second rebuild (a blockHash key misses it)");
+    assert!(n.chain.rebuilds==rb&&n.chain.blocks[&p].pruned,"no state made for a known seal");
+    // Positive control: the owner's copy (owner(nonce) is what was kept, not the refused signer) is accepted.
+    assert_eq!(n.chain.validate(&child,None,0).err(),Some(Reject::NeedsRebuild(p)));
+    n.chain.ensure_state(&p).unwrap();let (e,_)=n.chain.validate(&child,None,0).expect("the owner's copy is valid");n.chain.insert(e);
+}
+/// PR4 (I-2): a block verdict reached after the state gate (item 12, a proposer that is not Draw(h,0)) is kept per
+/// seal: a share variant (another blockHash) gets it without a rebuild, and so does the block itself once the
+/// invalid-hash cache has forgotten it.
+#[test] fn pr4_a_costly_block_verdict_covers_share_variants_and_survives_an_invalid_flush(){
+    let (mut n,m,p)=deep_fork_nets();
+    let drawn=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),0).unwrap().proposer;let other=*m.keys.keys().find(|k|**k!=drawn).unwrap();
+    let mut h=signed(&m,p,Body::default(),0).header;h.proposer=other.to_vec();reseal(&mut h);let b=remine_signed(&m,h,other);
+    let known=|r:Result<_,Reject>|matches!(r,Err(Reject::Block(s)) if s.contains("known invalid template and nonce")&&s.contains("12 proposer"));
+    assert_eq!(n.chain.validate(&b,None,0).err(),Some(Reject::NeedsRebuild(p)));
+    n.chain.ensure_state(&p).unwrap();
+    let why=match n.chain.validate(&b,None,0){Err(Reject::Block(s)) if s.starts_with("12 proposer")=>s,r=>panic!("positive control: item 12 after the rebuild: {:?}",r.err())};
+    n.chain.mark_invalid(b.hash(),why);n.chain.reprune();assert!(n.chain.blocks[&p].pruned);
+    let rb=n.chain.rebuilds;
+    let ctx=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),0).unwrap();let owner=addr(&ctx.assignment.owner(b.header.nonce).unwrap());
+    let v=share_variant(&m,&b,&m.keys[&owner]);
+    assert!(known(n.chain.validate(&v,None,0)),"FAIL-ON-ORIGINAL: a share variant of a known-invalid block needed a rebuild");
+    // The invalid-hash cache (INVALID_MAX, FIFO) forgets the block; the seal's verdict holds.
+    for i in 0..=pocold::chain::INVALID_MAX as u64{n.chain.mark_invalid(hashes::keccak256(&i.to_be_bytes()),"junk".into());}
+    assert!(!n.chain.invalid.contains_key(&b.hash()),"positive control: the hash was flushed");
+    assert!(known(n.chain.validate(&b,None,0)),"FAIL-ON-ORIGINAL: a flushed invalid block needed a rebuild");
+    assert!(n.chain.rebuilds==rb&&n.chain.blocks[&p].pruned,"no state made for a known seal");
+}
+/// PR4 (A13): the post-state verdicts are at most COSTLY_MAX seals, the oldest forgotten first.
+#[test] fn pr4_costly_is_bounded(){
+    use pocold::chain::COSTLY_MAX;
+    let mut n=net();for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);}
+    let p=n.chain.head;let drawn=n.chain.child_ctx(&n.chain.full_entry(&p).unwrap(),0).unwrap().proposer;let other=*n.keys.keys().find(|k|**k!=drawn).unwrap();
+    let base=signed(&n,p,Body::default(),0).header;
+    // COSTLY_MAX + 1 distinct seals (distinct TemplateIDs), each PoW-valid and refused at item 12 with the state
+    // (a template whose nonce space holds no solution, probability ~e^-c, is skipped).
+    let bad:Vec<Block>=(0u16..).filter_map(|i|{let mut h=base.clone();h.proposer=other.to_vec();h.state_root[..2].copy_from_slice(&i.to_be_bytes());h.nonce=0;h.shares=vec![];reseal(&mut h);
+        h.sig=n.keys[&other].sign_hash(&B256::from(hashes::sig_msg(&template_id(&h.ut_raw)))).to_vec();reseal(&mut h);try_seal(&n,h,Body::default(),0,0)}).take(COSTLY_MAX+1).collect();
+    for b in &bad{assert!(matches!(n.chain.validate(b,None,0),Err(Reject::Block(s)) if s.starts_with("12 proposer")));}
+    assert_eq!(n.chain.costly_len(),COSTLY_MAX,"FIFO bound");
+    assert!(matches!(n.chain.validate(&bad[0],None,0),Err(Reject::Block(s)) if s.starts_with("12 proposer")),"the oldest seal was forgotten (only re-validated)");
+    assert!(matches!(n.chain.validate(&bad[COSTLY_MAX],None,0),Err(Reject::Block(s)) if s.contains("known invalid template and nonce")),"the newest is kept");
+    assert_eq!(n.chain.costly_len(),COSTLY_MAX);
+}
+
+/// The Step 6 fixture: a node with 70 fallbacks retained (heights 1..=38 pruned), the blocks' hashes, and a
+/// mirror holding hashes[1..=depth] with whole states.
+fn deep_node(tag:&str,depth:usize)->(pocold::node::Node,std::path::PathBuf,Net,Vec<[u8;32]>){
+    use pocold::node::{Config,Node};
+    let dir=std::env::temp_dir().join(format!("pocold-pr4-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&cfg(&["a","b","c"]))).unwrap();
+    let mut n=net();let mut hashes=vec![n.chain.head];
+    for _ in 0..70{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);node.import(b,None).unwrap();hashes.push(n.chain.head);}
+    node.chain.retain();
+    let mut m=net();for h in &hashes[1..=depth]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    for h in &hashes[1..=depth]{assert!(node.chain.blocks[h].pruned,"positive control: a deep pruned parent");}
+    (node,dir,m,hashes)
+}
+/// A PoW-valid child of `p` that is invalid only with the parent's state: a validly signed template by a member
+/// that is not Draw(h,0) (item 12). One seal per parent.
+fn post_gate_invalid(m:&Net,p:[u8;32])->Block{post_gate_invalids(m,p,1).remove(0)}
+/// `count` such children of `p`, each a distinct seal (another template timestamp).
+fn post_gate_invalids(m:&Net,p:[u8;32],count:usize)->Vec<Block>{
+    let e=m.chain.full_entry(&p).unwrap();let ctx=m.chain.child_ctx(&e,0).unwrap();let other=*m.keys.keys().find(|k|**k!=ctx.proposer).unwrap();
+    let mut out=vec![];
+    for off in 0..u64::from(m.chain.spec.cp().D_att){
+        let (mut h,_,_)=m.chain.build_signed(&e,&m.keys[&ctx.proposer],ctx.window.lower()+off,Body::default(),vec![]).unwrap();
+        h.proposer=other.to_vec();reseal(&mut h);h.sig=m.keys[&other].sign_hash(&B256::from(hashes::sig_msg(&template_id(&h.ut_raw)))).to_vec();reseal(&mut h);
+        if let Some(b)=try_seal(m,h,Body::default(),0,0){out.push(b);if out.len()==count{return out}}
+    }
+    panic!("no solution")
+}
+/// A Status claiming far more work and an unknown head from `peer`; the next tick starts a session with it.
+fn lying_session(node:&mut pocold::node::Node,peer:pocold::net::PeerId){
+    use pocold::{node::Event,net::{Msg,NetEvent}};
+    let lie=Msg::Hello{chain_id:node.chain.spec.chain_id(),genesis:node.chain.spec.genesis_hash(),head:[0xab;32],height:1_000_000,work:[0xff;32],node:"liar".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0};
+    node.handle(Event::Net(NetEvent::Message(peer,lie)));node.handle(Event::Tick);
+    assert!(node.session.as_ref().is_some_and(|s|s.peer==peer),"positive control: a session with the peer");
+}
+fn send_block(node:&mut pocold::node::Node,peer:pocold::net::PeerId,b:&Block){
+    use pocold::{node::Event,net::{Msg,NetEvent}};
+    node.handle(Event::Net(NetEvent::Message(peer,Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()})));
+}
+/// PR4 (I-5, plan §7 finding B): unsolicited deep TrieRebuilds are bounded by a token bucket, whatever number of
+/// distinct PoW-valid seals a peer banked: REBUILD_BURST at once, then one per REBUILD_REFILL_MS. A block over the
+/// budget is dropped without a verdict (Evicted: not marked invalid, not journaled) and its parent stays pruned.
+#[test] fn pr4_unsolicited_cycled_seals_are_rebuild_bounded(){
+    use pocold::node::{REBUILD_BURST,REBUILD_REFILL_MS};
+    let k=REBUILD_BURST as usize+4;let (mut node,dir,m,hashes)=deep_node("bucket",k+1);
+    let bad:Vec<Block>=(2..k+2).map(|i|post_gate_invalid(&m,hashes[i])).collect();
+    // The bucket's clock is held still (rebuild_clock, never the wall clock): no token comes back.
+    let t0=pocold::node::now_ms();node.rebuild_clock=Some(t0);
+    let rec=node.journal_records();let mut rebuilt=0;
+    for (i,b) in bad.iter().enumerate(){
+        let rb=node.chain.rebuilds;let r=node.import(b.clone(),None);
+        if i<REBUILD_BURST as usize{
+            assert!(matches!(&r,Err(Reject::Block(s)) if s.starts_with("12 proposer")),"block {i}: a verdict within the burst: {r:?}");
+            assert!(node.chain.rebuilds>rb,"positive control: block {i} rebuilt its parent");rebuilt+=1;
+        }else{
+            assert_eq!(r,Err(Reject::Evicted),"FAIL-ON-ORIGINAL: block {i} over the budget was rebuilt (rebuilt so far {rebuilt})");
+            assert_eq!(node.chain.rebuilds,rb,"no rebuild over the budget");
+            assert!(!node.chain.invalid.contains_key(&b.hash()),"a non-verdict: not marked invalid");
+        }
+        assert!(node.chain.blocks[&b.header.parent_hash].pruned,"block {i}: its parent is pruned again");
+    }
+    assert_eq!(node.journal_records(),rec,"nothing journaled");
+    // One REBUILD_REFILL_MS later exactly one token is back, however long building the block below takes (the clock
+    // moves only here): an honest deep child takes it and is imported; the budget is then spent again.
+    let honest=fallback(&m,hashes[3],1);assert_eq!(node.rebuild_tokens,0);
+    node.rebuild_clock=Some(t0+REBUILD_REFILL_MS);let rb=node.chain.rebuilds;
+    node.import(honest,None).expect("the refilled token rebuilds for an honest deep child");assert!(node.chain.rebuilds>rb);
+    let rb=node.chain.rebuilds;assert_eq!(node.import(bad[k-1].clone(),None),Err(Reject::Evicted));assert_eq!(node.chain.rebuilds,rb);
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// Review: the bucket's refill survives a wall-clock step back. With the refill time an hour ahead of the clock (as
+/// after the clock stepped back an hour) and no token left, a token is back one REBUILD_REFILL_MS later, not an hour.
+#[test] fn pr4_the_rebuild_bucket_refills_after_a_clock_step_back(){
+    use pocold::node::{REBUILD_BURST,REBUILD_REFILL_MS};
+    let (mut node,dir,m,hashes)=deep_node("clock",4);
+    let t0=pocold::node::now_ms();node.rebuild_clock=Some(t0);
+    node.rebuild_tokens=0;node.rebuild_refill_ms=t0+3_600_000;
+    let b=post_gate_invalid(&m,hashes[2]);let rb=node.chain.rebuilds;
+    assert_eq!(node.import(b.clone(),None),Err(Reject::Evicted),"no token at the step");assert_eq!(node.chain.rebuilds,rb);
+    node.rebuild_clock=Some(t0+REBUILD_REFILL_MS);
+    assert!(matches!(node.import(b,None),Err(Reject::Block(s)) if s.starts_with("12 proposer")),"FAIL-ON-ORIGINAL: no token one refill interval after the step");
+    assert!(node.chain.rebuilds>rb&&node.rebuild_tokens==0);
+    // A step forward gives back at most the burst.
+    node.rebuild_clock=Some(t0+3_600_000_000);let c=post_gate_invalid(&m,hashes[3]);let _=node.import(c,None);
+    assert_eq!(node.rebuild_tokens,REBUILD_BURST-1);
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+/// The locator's deepest pruned canonical parent of deep_node (head 70; locator heights 70..61, 59, 55, 47, 31, 0).
+const LOCATOR_PRUNED:usize=31;
+/// PR4 (I-5, plan §7 finding C): a peer whose lying Hello makes its blocks solicited drives at most
+/// SESSION_REBUILD_MAX deep rebuilds per sync session, on the session's own allowance (not the unsolicited
+/// bucket); the next one ends the session as not reached (claim set aside) and is dropped without a verdict.
+/// The blocks are on the session's branch: their parent is a locator hash, where an answer starts.
+#[test] fn pr4_a_sync_session_is_deep_rebuild_capped(){
+    use pocold::node::SESSION_REBUILD_MAX;
+    let k=SESSION_REBUILD_MAX as usize+2;let (mut node,dir,m,hashes)=deep_node("session",LOCATOR_PRUNED);
+    let bad=post_gate_invalids(&m,hashes[LOCATOR_PRUNED],k);
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    lying_session(&mut node,peer);
+    assert!(node.locator(None).contains(&hashes[LOCATOR_PRUNED]),"positive control: the parent is a locator hash");
+    // The unsolicited bucket is empty and held still: every rebuild below is the session's.
+    node.rebuild_tokens=0;node.rebuild_clock=Some(pocold::node::now_ms());
+    let rec=node.journal_records();
+    for (i,b) in bad.iter().enumerate(){
+        let rb=node.chain.rebuilds;
+        send_block(&mut node,peer,b);
+        if i<SESSION_REBUILD_MAX as usize{
+            assert!(node.chain.rebuilds>rb&&node.chain.invalid.contains_key(&b.hash()),"block {i}: rebuilt on the session's allowance, then a verdict");
+            assert!(node.session.is_some(),"block {i}: the session goes on");
+        }else{
+            assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: solicited block {i} beyond the session's allowance was rebuilt");
+            assert!(!node.chain.invalid.contains_key(&b.hash()),"block {i}: a non-verdict");
+            assert!(node.session.is_none()&&node.peer_status[&peer].stale,"block {i}: the session was ended and the claim set aside");
+        }
+        assert!(node.chain.blocks[&b.header.parent_hash].pruned,"block {i}: its parent is pruned again");
+    }
+    assert_eq!(node.journal_records(),rec,"nothing journaled");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+
+/// Review: side blocks the session's peer relays (its own imports, rebroadcast) are not on the session's branch, so
+/// they draw on the unsolicited bucket: with it empty they are dropped without a verdict, and SESSION_REBUILD_MAX + 1
+/// of them neither spend the session's allowance nor end the session. A block on the branch still gets it.
+#[test] fn pr4_side_blocks_the_session_peer_relays_do_not_end_the_session(){
+    use pocold::node::SESSION_REBUILD_MAX;
+    let (mut node,dir,m,hashes)=deep_node("relayed",LOCATOR_PRUNED);
+    let relayed:Vec<Block>=(2..SESSION_REBUILD_MAX as usize+3).map(|i|fallback(&m,hashes[i],1)).collect();
+    let (peer,_socket)=auth_peer::connect(&mut node);
+    lying_session(&mut node,peer);
+    node.rebuild_tokens=0;node.rebuild_clock=Some(pocold::node::now_ms());
+    let rb=node.chain.rebuilds;
+    for (i,b) in relayed.iter().enumerate(){
+        send_block(&mut node,peer,b);
+        assert!(!node.chain.blocks.contains_key(&b.hash())&&!node.chain.invalid.contains_key(&b.hash()),"FAIL-ON-ORIGINAL: block {i} was rebuilt on the session's allowance and imported (it must be dropped without a verdict)");
+    }
+    assert_eq!(node.chain.rebuilds,rb,"FAIL-ON-ORIGINAL: relayed side blocks were rebuilt on the session's allowance");
+    assert!(node.session.as_ref().is_some_and(|s|s.peer==peer&&s.rebuilds==0)&&!node.peer_status[&peer].stale,"FAIL-ON-ORIGINAL: relayed side blocks ended the session");
+    // The session's branch: a valid child of the locator's pruned parent is rebuilt on the allowance and imported.
+    let fork=fallback(&m,hashes[LOCATOR_PRUNED],1);send_block(&mut node,peer,&fork);
+    assert!(node.chain.blocks.contains_key(&fork.hash())&&node.chain.rebuilds>rb,"the branch's fork point is rebuilt and imported");
+    assert!(node.session.as_ref().is_some_and(|s|s.rebuilds==1),"on the session's allowance");
+    drop(node);let _=std::fs::remove_dir_all(&dir);
+}
+
 #[test] fn a_valid_header_with_a_foreign_body_rejects_only_that_copy(){
     // Review finding (HIGH): a peer relaying a real header with a mismatched body must not get the
     // block marked invalid; the correct body is accepted afterwards.
@@ -1317,16 +1947,21 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // +81,392 B, -> 3,242,021,872 B; PR2a discovery: the address book (BOOK_MAX entries at 152 B, + 512), the
     // per-connection links (the live and stale-link high-water, 237, at 2 × 590 B, + 512), the transient
     // scratch (2·BOOK_MAX at 76 B, 2·CACHE_MAX addresses, 25 × 64 B, + 1,024) and the file buffers (the 1 MiB
-    // read + 1 and FILE_LINE_MAX × 1,029 lines), +1,914,797 B, -> 3,243,936,669 B; PR3 R10: the node's per-connection
-    // maps, peers and peer_status at the churn rule and each peer's address text (high 237 × 2,718 B, + 1,024),
-    // +645,190 B, -> 3,244,581,859 B; PR3 inbound eviction: every physical inbound place, inbound_max = peers_max +
-    // handshaking_max (8 more places at 3,421,500 B: queue and frames, two threads, an exiting one, links and a group
-    // entry), the maps' 8 more high entries, and the eviction registry (16 × 192 + 245 × 64 + 2,048 + 1,024),
-    // +27,415,568 B, -> 3,271,997,427 B; PR3 commit 5: 32 established inbound by default, 24 more places at 3,421,500 B,
-    // the maps' 24 more high entries at 2,718 B and the registry's at 192 + 64 B, +82,187,376 B, -> 3,354,184,803 B). Some terms are type
-    // sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on; every
-    // target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_354_184_803,"the A13 model total changed");}
+    // read + 1 and FILE_LINE_MAX × 1,029 lines), +1,914,797 B, -> 3,243,936,669 B; PR4: post-state verdicts
+    // per TemplateID and nonce (COSTLY_MAX + 1 at 928 B, + 1,024), +239,520 B, -> 3,244,176,189 B; PR3 R10: the
+    // node's per-connection maps, peers and peer_status at the churn rule and each peer's address text (high 237 ×
+    // 2,718 B, + 1,024), +645,190 B, -> 3,244,821,379 B; PR3 inbound eviction: every physical inbound place,
+    // inbound_max = peers_max + handshaking_max (8 more places at 3,421,500 B: queue and frames, two threads, an
+    // exiting one, links and a group entry), the maps' 8 more high entries, and the eviction registry (16 × 192 +
+    // 245 × 64 + 2,048 + 1,024), +27,415,568 B, -> 3,272,236,947 B; PR3 commit 5: 32 established inbound by default,
+    // 24 more places at 3,421,500 B, the maps' 24 more high entries at 2,718 B and the registry's at 192 + 64 B,
+    // +82,187,376 B, -> 3,354,424,323 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
+    // the target the evidence is produced on; every target checks that it boots within the budget with its reserve.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_354_424_323,"the A13 model total changed");
+        // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
+        // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
+        assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
+        assert_eq!(d.items.iter().find(|x|x.0.starts_with("queues/post-state verdicts")).unwrap().1,239_520);}
     // R6 churn correction: eviction=3982768, protect delta=1967104,
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);
@@ -2243,7 +2878,27 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
 /// at depth 3 restores that ancestor for the evidence walk and accepts the block with the same effect
 /// (the winner tombstoned) as a node that never slims.
 #[test] fn s4_evidence_against_a_slimmed_ancestor_restores_it_first(){
+    let (seq,winner,b4)=s4_evidence_chain();
+    let (mut a,da)=s4_node("slim",3);let (mut b,db)=s4_node("ref",u64::MAX);
+    for x in &seq[..seq.len()-1]{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
+    assert!(a.chain.get(&b4.hash()).unwrap().slim,"positive control: the evidence's ancestor is slimmed");
+    let before=a.stats.unslims;let last=seq.last().unwrap().clone();
+    a.import(last.clone(),None).unwrap();b.import(last.clone(),None).unwrap();
+    assert!(a.stats.unslims>before,"the slimmed ancestor was restored for the evidence walk");
+    assert_eq!(a.chain.head,b.chain.head);assert_eq!(a.chain.head,last.hash());
+    let r=apply::miner_record(&a.chain.head().state,winner).unwrap();assert!(r.tomb,"the equivocating winner is tombstoned");
+    assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
+    for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
+}
+/// A node slimming at `depth` (u64::MAX: never), for the S4 evidence chain.
+fn s4_node(tag:&str,depth:u64)->(pocold::node::Node,std::path::PathBuf){
     use pocold::node::{Config,Limits,Node};
+    let dir=std::env::temp_dir().join(format!("pocold-s4ev-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    (Node::open(Config{dir:dir.clone(),name:tag.into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{slim_depth:Some(depth),..Default::default()}},admitted(&cfg(&["a","b","c"]))).unwrap(),dir)
+}
+/// The S4 evidence chain: blocks from genesis whose last one carries type-2 evidence against b4's winner (an
+/// equivocation at height 4, included 8 or more blocks later). Returns the blocks, the winner and b4.
+fn s4_evidence_chain()->(Vec<Block>,Address,Block){
     let mut n=net();for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);}
     let mut seq:Vec<Block>=n.chain.canonical.iter().skip(1).map(|h|{let e=&n.chain.blocks[h];Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let head=n.chain.head;let b4=fallback(&n,head,0);import(&mut n,&b4);seq.push(b4.clone());
@@ -2261,18 +2916,34 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
             let (hd,_,_)=n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower(),body.clone(),effects).unwrap();
             let x=seal_block(&n,hd,body,0,0);import(&mut n,&x);seq.push(x);break}
         assert!(p.height<4+16,"no eligible proposer within E_win");let x=fallback(&n,h,0);import(&mut n,&x);seq.push(x);}
-    let mk=|tag:&str,depth:u64|{let dir=std::env::temp_dir().join(format!("pocold-s4ev-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-        (Node::open(Config{dir:dir.clone(),name:tag.into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{slim_depth:Some(depth),..Default::default()}},admitted(&cfg(&["a","b","c"]))).unwrap(),dir)};
-    let (mut a,da)=mk("slim",3);let (mut b,db)=mk("ref",u64::MAX);
-    for x in &seq[..seq.len()-1]{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
-    assert!(a.chain.get(&b4.hash()).unwrap().slim,"positive control: the evidence's ancestor is slimmed");
-    let before=a.stats.unslims;let last=seq.last().unwrap().clone();
-    a.import(last.clone(),None).unwrap();b.import(last.clone(),None).unwrap();
-    assert!(a.stats.unslims>before,"the slimmed ancestor was restored for the evidence walk");
-    assert_eq!(a.chain.head,b.chain.head);assert_eq!(a.chain.head,last.hash());
-    let r=apply::miner_record(&a.chain.head().state,winner).unwrap();assert!(r.tomb,"the equivocating winner is tombstoned");
-    assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
-    for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
+    (seq,winner,b4)
+}
+/// Review (PR4, Codex): the rebuild budgets charge deep rebuilds of a missing parent state only. The S4 evidence
+/// block, its walk restoring more slimmed ancestors than a session's whole allowance, is accepted (a) delivered by
+/// a sync session, which goes on with its allowance untouched, and (b) unsolicited with the bucket empty.
+#[test] fn pr4_slim_restores_draw_on_no_rebuild_budget(){
+    use pocold::node::SESSION_REBUILD_MAX;
+    let (seq,winner,b4)=s4_evidence_chain();let last=seq.last().unwrap().clone();
+    let (mut a,da)=s4_node("budget-session",3);let (mut c,dc)=s4_node("budget-bucket",3);
+    for x in &seq[..seq.len()-1]{a.import(x.clone(),None).unwrap();c.import(x.clone(),None).unwrap();}
+    assert!(a.chain.get(&b4.hash()).unwrap().slim&&c.chain.get(&b4.hash()).unwrap().slim,"positive control: the evidence's ancestor is slimmed");
+    // (a) Through a sync session, the unsolicited bucket empty and held still.
+    let (peer,_socket)=auth_peer::connect(&mut a);lying_session(&mut a,peer);
+    a.rebuild_tokens=0;a.rebuild_clock=Some(pocold::node::now_ms());
+    let (before,rb)=(a.stats.unslims,a.chain.rebuilds);
+    send_block(&mut a,peer,&last);
+    assert_eq!(a.chain.head,last.hash(),"FAIL-ON-ORIGINAL: the evidence block delivered by the session was dropped");
+    assert!(a.session.as_ref().is_some_and(|s|s.peer==peer&&s.rebuilds==0)&&!a.peer_status[&peer].stale,"FAIL-ON-ORIGINAL: slim restores spent the session's allowance or ended it");
+    assert!(a.stats.unslims-before>u64::from(SESSION_REBUILD_MAX),"positive control: more slim restores ({}) than the session's allowance",a.stats.unslims-before);
+    assert_eq!(a.chain.rebuilds,rb,"no deep rebuild");
+    assert!(apply::miner_record(&a.chain.head().state,winner).unwrap().tomb,"the equivocating winner is tombstoned");
+    // (b) Unsolicited, the bucket empty and held still.
+    c.rebuild_tokens=0;c.rebuild_clock=Some(pocold::node::now_ms());
+    let before=c.stats.unslims;
+    c.import(last.clone(),None).expect("FAIL-ON-ORIGINAL: slim restores drew on the empty unsolicited bucket");
+    assert!(c.stats.unslims>before&&c.rebuild_tokens==0,"positive control: restored with no token");
+    assert_eq!(c.chain.head,last.hash());assert!(apply::miner_record(&c.chain.head().state,winner).unwrap().tomb);
+    drop(a);drop(c);for d in [da,dc]{let _=std::fs::remove_dir_all(&d);}
 }
 
 /// The S1 scenario chain: A1 (with a transaction) abandoned for the heavier B1, B2 from genesis, then 96
