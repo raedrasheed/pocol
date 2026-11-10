@@ -2947,6 +2947,55 @@ fn s4_evidence_chain()->(Vec<Block>,Address,Block){
     drop(a);drop(c);for d in [da,dc]{let _=std::fs::remove_dir_all(&d);}
 }
 
+/// PR7 (A1-7): a TrieRebuild whose path crosses a block carrying type-2 evidence in the slim band. Re-executing
+/// that block walks its slimmed ancestors back to the evidence's TemplateID; the rebuild reads restored copies
+/// of them, and the fork child that needed it is accepted with the head a node that never slims reaches.
+/// Before, the walk met a slimmed ancestor and the rebuild failed with NeedsRebuild, every time: the child was
+/// dropped as a non-verdict.
+#[test] fn a_rebuild_through_a_slimmed_type_2_evidence_block_succeeds(){
+    let (mut seq,_,b4)=s4_evidence_chain();let ev=seq.last().unwrap().hash();
+    let mut h=net();for x in &seq{import(&mut h,x);}let ev_h=h.chain.get(&ev).unwrap().height;
+    // The evidence block goes below the K_hist cut and deep into the slim band, within R_keep.
+    for _ in 0..48{let p=h.chain.head;let x=fallback(&h,p,0);import(&mut h,&x);seq.push(x);}
+    let (mut a,da)=s4_node("pr7-a17",3);let (mut b,db)=s4_node("pr7-a17-ref",u64::MAX);
+    for x in &seq{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
+    let fork=a.chain.canonical_at(ev_h+1).unwrap().hash;
+    assert!(a.chain.get(&fork).unwrap().pruned&&a.chain.get(&ev).unwrap().slim&&a.chain.get(&b4.hash()).unwrap().slim,"positive control: a pruned fork point above a slimmed evidence block");
+    let child=fallback(&h,fork,1);let rb=a.chain.rebuilds;
+    a.import(child.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: the rebuild through the evidence block failed: {e:?}"));b.import(child.clone(),None).unwrap();
+    assert!(a.chain.rebuilds>rb,"positive control: a TrieRebuild through the evidence block");
+    assert!(a.chain.get(&child.hash()).is_some()&&b.chain.get(&child.hash()).is_some(),"the child is held by both");
+    assert_eq!(a.chain.head,b.chain.head);assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
+    for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
+}
+/// PR7 (A1-1): a heavier, shorter branch is adopted, so the head falls back across the resident history window.
+/// The adopted blocks `restore_canonical` made whole below the old history cursor are offloaded again once they
+/// are below the window, live and after replay alike. Before, the cursor only rose: those blocks stayed
+/// resident for good (and a canonical block that is not offloaded below the window would stall eviction).
+#[test] fn head_drop_across_history_window_does_not_stall(){
+    use pocold::node::{Config,Limits,Node};
+    let (rk,w)=(24u64,4u64);
+    let mut a=net();let g=a.chain.head;let ours=grow(&mut a,g,rk as usize,&|n,p|fallback(n,p,1));
+    let mut b=net();let mut theirs=heavier(&mut b,g,a.chain.head().total_work,0);let m=theirs.len();
+    assert!((m as u64)+w<rk,"positive control: theirs ({m} blocks) is shorter than ours ({rk}) by more than the window");
+    let more=grow(&mut b,theirs[m-1].hash(),2*w as usize,&|n,p|fallback(n,p,0));theirs.extend(more);
+    let dir=std::env::temp_dir().join(format!("pocold-pr7-drop-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);let d=dir.clone();
+    let conf=move||Config{dir:d.clone(),name:"drop".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,
+        limits:Limits{r_keep:rk,side_cap:rk as usize,history_window:Some(w),..Default::default()}};
+    let mut n=Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap();
+    for x in &ours{n.import(x.clone(),None).unwrap();}let cursor=n.chain.history_cursor;
+    for x in &theirs[..m]{n.import(x.clone(),None).unwrap();}assert_eq!(n.chain.head,theirs[m-1].hash(),"the heavier branch is adopted");
+    let whole=|n:&Node|->Vec<u64>{let below=n.chain.head().height.saturating_sub(w)+1;(1..below).filter(|h|!n.chain.canonical_at(*h).unwrap().offloaded).collect()};
+    assert!((1..cursor).any(|h|!n.chain.canonical_at(h).unwrap().offloaded),"positive control: an adopted block below the old cursor ({cursor}) was made whole");
+    for x in &theirs[m..]{n.import(x.clone(),None).unwrap();}
+    assert_eq!(whole(&n),Vec::<u64>::new(),"FAIL-ON-ORIGINAL: canonical blocks below the window are still resident");assert!(n.chain.canonical_resident());
+    let offloaded=|n:&Node|(0..=n.chain.head().height).map(|h|n.chain.canonical_at(h).unwrap().offloaded).collect::<Vec<_>>();
+    let (live,cur)=(offloaded(&n),n.chain.history_cursor);drop(n);
+    let r=Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap();
+    assert_eq!((offloaded(&r),r.chain.history_cursor),(live,cur),"replay offloads exactly what live import did");
+    drop(r);let _=std::fs::remove_dir_all(&dir);
+}
+
 /// The S1 scenario chain: A1 (with a transaction) abandoned for the heavier B1, B2 from genesis, then 96
 /// blocks with a payment and a LOG0-emitting create every 4th block. Returns the builder, every block in
 /// import order and the tip.

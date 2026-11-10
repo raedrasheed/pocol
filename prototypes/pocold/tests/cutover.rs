@@ -292,12 +292,14 @@ fn a_deep_cutover_restores_the_slimmed_ancestor_an_evidence_walk_reads() {
     pocold::cutover::run(&old_dir, &d_slim, s, config.as_bytes(), &o_slim, limits(3), &local()).unwrap();
     pocold::cutover::run(&old_dir, &d_full, s, config.as_bytes(), &o_full, limits(u64::MAX), &local()).unwrap();
     for f in ["genesis.spec.hex", "alloc.json", "cutover-report.json"] { assert_eq!(std::fs::read(o_slim.join(f)).unwrap(), std::fs::read(o_full.join(f)).unwrap(), "{f}"); }
-    // One more round for the evidence block, not one per slimmed entry its walk reads (heights j - 2 down to the
-    // template's block b4; restoring one entry per round took 3 rounds here): the first restores them all. The
-    // node that never slims needs one round.
+    // One round, as for the node that never slims: the rebuild reads restored copies of the slimmed entries the
+    // evidence block's walk reads (heights j - 2 down to the template's block b4; PR7, A1-7). Before PR7 the
+    // first round ended with NeedsRebuild and a second one ran after restoring them (and before that fix, one
+    // round per slimmed entry: 3 here).
     let mut n = open(&d_slim, 3);
     let at_s = n.chain.canonical_at(s).unwrap().hash;
-    assert_eq!(pocold::cutover::rebuild_at(&mut n, &at_s, s), Ok(2));
+    assert_eq!(pocold::cutover::rebuild_at(&mut n, &at_s, s), Ok(1));
+    assert!(n.chain.get(&b4.hash()).unwrap().slim, "no slimmed entry was restored in place for it");
     assert!(n.chain.view_of(&at_s).is_some());
     drop(n);
     let mut n = open(&d_full, u64::MAX);

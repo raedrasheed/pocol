@@ -418,6 +418,9 @@ pub struct Chain{
     pub replaying:bool,
     /// C-1 E4: the node store states are kept in (None: whole states in memory, as before E4).
     pub trie_store:Option<std::sync::Arc<dyn pocol_lp4_execution::node_trie::TrieStore>>,
+    /// PR7 (A1-7): restored copies of slimmed entries a rebuild re-executes past (`ensure_state_with`), read
+    /// first by `get`, the newest `shadow_keep()` kept in `shadow_order`. Empty except while a rebuild runs.
+    shadow:HashMap<[u8;32],Box<Entry>>,shadow_order:std::collections::VecDeque<[u8;32]>,
 }
 
 /// C-1 E5: the state of an entry that holds none (pruned, stored, or a metadata copy): one shared empty
@@ -439,7 +442,7 @@ impl Chain{
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
         Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
-            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh]}
+            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default()}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
     /// C-1 E4: keeps states in `store` from now on, starting with genesis's (Node::open calls it on a chain
@@ -477,7 +480,9 @@ impl Chain{
         }
         Ok(next)
     }
-    pub fn get(&self,h:&[u8;32])->Option<&Entry>{self.blocks.get(h).map(|e|&**e)}
+    /// A stored block's entry. While a rebuild runs, a restored copy of a slimmed one is read instead (`shadow`):
+    /// the same block, with the fields its evidence walk reads.
+    pub fn get(&self,h:&[u8;32])->Option<&Entry>{if !self.shadow.is_empty(){if let Some(e)=self.shadow.get(h){return Some(e)}}self.blocks.get(h).map(|e|&**e)}
     pub fn canonical_at(&self,height:u64)->Option<&Entry>{self.canonical.get(height as usize).and_then(|h|self.get(h))}
 
     // ---------------- child context ----------------
@@ -1126,6 +1131,11 @@ impl Chain{
             // State residence is unchanged (as before E4): the re-executed state is the rolling one only.
             let next=x.meta_clone();p=self.rolled(next,out)?;
         }
+        // PR7 (A1-1): `history_cursor` only rose, so a block made whole here below it (the head fell back across
+        // the resident window: a heavier, shorter branch) stayed resident for good once it was below the window.
+        // From `first` up the next retain offloads again what is below the window. Replay restores the same
+        // blocks after the same records, so it lowers the cursor alike.
+        self.history_cursor=self.history_cursor.min(first);
         Ok(n)
     }
     /// Bound of `protect` (a sync session's fetched branch): network.md:27 (sync stage R: <= 4096 headers
@@ -1173,6 +1183,22 @@ impl Chain{
     /// `None`. A pruned block reached on the rebuild path that is offloaded but has no source, or no
     /// `body_off`, is an error — never a silent empty body.
     pub fn ensure_state_with(&mut self,hash:&[u8;32],src:Option<&dyn BlockBytes>)->Result<(),Reject>{
+        let r=self.rebuild_with(hash,src);
+        // The shadow lives only while a rebuild runs, however it ends.
+        if self.shadow.capacity()>0{self.shadow=HashMap::new();self.shadow_order=Default::default();}
+        r
+    }
+    /// The restored copies a rebuild keeps (`shadow`): every ancestor a re-executed block reads through `get`
+    /// within its evidence window, and its BLOCKHASH window.
+    fn shadow_keep(&self)->usize{257usize.max(self.spec.cp().E_win as usize+1)}
+    /// A restored copy of a slimmed entry for the rebuild in progress: metadata only (no state, bytes, diff,
+    /// trie or summary; the walks that read it through `get` need none of them).
+    fn shadow_push(&mut self,mut e:Entry){
+        offload(&mut e);e.state=empty_state();e.stored=None;e.diff=None;e.trie=None;e.summary=None;
+        let h=e.hash;if self.shadow.insert(h,Box::new(e)).is_none(){self.shadow_order.push_back(h);}
+        while self.shadow_order.len()>self.shadow_keep(){if let Some(o)=self.shadow_order.pop_front(){self.shadow.remove(&o);}}
+    }
+    fn rebuild_with(&mut self,hash:&[u8;32],src:Option<&dyn BlockBytes>)->Result<(),Reject>{
         // C-1 S4: a slimmed target is restored first (the caller needs its fields, as a parent or ancestor).
         if self.blocks.get(hash).map_or(false,|e|e.slim){self.unslim(hash,src.ok_or_else(||Reject::Block("slim entry without a block source".into()))?)?;}
         let e=self.blocks.get(hash).ok_or_else(||Reject::Block("rebuild target".into()))?;
@@ -1191,6 +1217,17 @@ impl Chain{
             path.push(cur);cur=e.parent.ok_or_else(||Reject::Block("rebuild root".into()))?;
         };
         let root=self.meta_restored(&cur,src)?;let root=&root;
+        // PR7 (A1-7): a re-executed block reads its ancestors through `get` (the BLOCKHASH window, and evidence
+        // type 2 back E_win heights), and the evidence walk refuses a slimmed one (`evidence_type2`). The path's
+        // first block reads the root and below it, so the slimmed ones of the root and its E_win ancestors are
+        // read from restored copies, and each slimmed path block is too once it is re-executed. Before, a rebuild
+        // whose path crossed a type-2 evidence block in the slim band failed with NeedsRebuild every time, and
+        // the block that needed it was dropped as a non-verdict.
+        if let Some(src)=src{
+            let lo=root.height.saturating_sub(u64::from(self.spec.cp().E_win));let (mut below,mut c)=(vec![],Some(cur));
+            while let Some(h)=c{let Some(e)=self.blocks.get(&h) else{break};if e.height<lo{break}if e.slim{below.push(h)}c=e.parent;}
+            for h in below.into_iter().rev(){let x=self.restored(&self.blocks[&h],Some(src))?.into_owned();self.shadow_push(x);}
+        }
         // The blocks above the root get diffs and the target a state (`prune_cursor`).
         self.unprune(root.height+1);
         // A13: rolling re-execution. Only the block being extended holds a state; intermediate
@@ -1215,6 +1252,7 @@ impl Chain{
             let keep_diff=!self.is_canonical(&h)||e.height>cut;
             if let Executed::Mem(o)=&out{if keep_diff&&self.blocks[&h].diff.is_none(){let d=std::sync::Arc::new(crate::statediff::StateDiff::of_output(&p.state,o));self.blocks.get_mut(&h).unwrap().diff=Some(d);}}
             if !self.blocks[&h].slim&&self.blocks[&h].summary.is_none(){self.blocks.get_mut(&h).unwrap().summary=Some(Box::new(out.summary()));}
+            if self.blocks[&h].slim{self.shadow_push(e.meta_clone());}
             let mut next=self.rolled(e,out)?;next.pruned=false;p=next;self.rebuilds+=1;
         }
         let x=self.blocks.get_mut(hash).ok_or_else(||Reject::Block("rebuild target".into()))?;x.state=p.state;x.stored=p.stored;x.pruned=false;x.full=true;
