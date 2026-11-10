@@ -4318,3 +4318,27 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert!(n.pool_parked().is_empty());n.pool_audit().unwrap();
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
+/// The finding (readiness review, economics, high): four transactions declaring GAS_LIMIT blocked user
+/// transactions. A sender pays only for the gas it uses, but the pool's bound and the honest builder both counted
+/// declared gas: alice's four 8M transfers (about 21,000 used each) filled the pool, so bob's transfers were
+/// refused, and the builder stopped after the first of them. Now alice holds at most GAS_LIMIT of declared gas
+/// (the rest is refused with its own message), bob's transfers are pooled, and the template carries alice's and
+/// all of bob's: the block uses 84,000 gas and is valid. Once it is the head, alice's quota is free again.
+/// (Error texts as literals, so this test also runs against the code before PR6.)
+#[test] fn the_finding_four_gas_limit_transfers_do_not_block_user_transfers(){
+    let (n,dir)=gas_node("finding",Default::default());let mut n=n.unwrap();let (alice,bob)=(key("alice"),key("bob"));
+    let mut h=net();let g=h.chain.head;
+    let a:Vec<Vec<u8>>=(0..4).map(|k|pay_gas(&alice,k,1,GL)).collect();
+    n.submit_tx(a[0].clone(),false).unwrap();
+    for t in &a[1..]{assert_eq!(n.submit_tx(t.clone(),false).err().as_deref(),Some("-32016 pool full (sender gas)"),"alice's quota holds one GAS_LIMIT");}
+    n.pool_audit().unwrap();
+    let b:Vec<Vec<u8>>=(0..3).map(|k|pay(&bob,k,1)).collect();
+    for t in &b{n.submit_tx(t.clone(),false).unwrap_or_else(|e|panic!("bob's transfer is pooled: {e}"));}
+    n.pool_audit().unwrap();
+    let head=n.chain.head().clone();let txs=n.template_txs(&head);
+    assert_eq!(txs,[vec![a[0].clone()],b.clone()].concat(),"alice's transfer and all of bob's");
+    let blk=signed(&h,g,Body{txs,evidence:vec![]},0);assert_eq!(blk.header.gas_used,4*21000);assert!(import(&mut h,&blk),"the block is valid");
+    assert!(n.import(blk,None).unwrap());assert!(pool(&mut n).is_empty(),"all of it was included");n.pool_audit().unwrap();
+    n.submit_tx(a[1].clone(),false).unwrap();n.pool_audit().unwrap();assert_eq!(n.pool.gas,GL,"alice's quota is free again");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
