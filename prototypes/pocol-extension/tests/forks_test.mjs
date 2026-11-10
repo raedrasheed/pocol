@@ -16,6 +16,17 @@ export async function forkChecks(dist) {
     let rejected = false; try { F.normalizeForkSchedule(bad); } catch { rejected = true; }
     ok('malformed or unknown schedule rejected: ' + JSON.stringify(bad), rejected);
   }
+  ok('full nonce range holds from v2 onwards and under genesis nonceMode 1', RP.fullRange(3n, 0n) && RP.fullRange(2n, 0n) && RP.fullRange(1n, 1n) && !RP.fullRange(1n, 0n));
+  const three = F.normalizeForkSchedule([[1, 0], [2, '10'], [3, '20']], 3);
+  ok('a later version activates at its own height under a higher test bound', F.activeVersion(three, 9n) === 1n && F.activeVersion(three, 10n) === 2n && F.activeVersion(three, 19n) === 2n && F.activeVersion(three, 20n) === 3n);
+  for (const bad of [[[1, 0], [2, '10'], [3, '20']], [[1, 0], [3, '20']]]) {
+    let rejected = false; try { F.normalizeForkSchedule(bad); } catch { rejected = true; }
+    ok('a version above MAX_FORK_VERSION is rejected by default: ' + JSON.stringify(bad), rejected && F.MAX_FORK_VERSION === 2);
+  }
+  for (const bad of [[[1, 0], [2, '10'], [3, '10']], [[1, 0], [2, '10'], [3, '9']], [[1, 0], [3, '20']]]) {
+    let rejected = false; try { F.normalizeForkSchedule(bad, 3); } catch { rejected = true; }
+    ok('heights increase and versions are not skipped under a higher bound: ' + JSON.stringify(bad), rejected);
+  }
   const hex = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'data/devnet-spec.hex'), 'utf8').trim();
   const rawSpec = R.decode(H.fromHex(hex.startsWith('0x') ? hex : '0x' + hex));
   rawSpec[2][1] = R.encUint((1n << 256n) - 1n); // Every nonce satisfies PoW: boundaries are deterministic.

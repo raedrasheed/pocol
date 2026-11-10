@@ -425,6 +425,9 @@ pub struct Node{
     /// Peer discovery (VA-SPEC §1a, `node::discovery`): the self-connection nonce, the address book and each
     /// connection's discovery state.
     disc:discovery::Disc,
+    /// VA-SPEC §2: this node's consensus identity, set once from `chain.spec` (it is what every Hello carries and is
+    /// checked against).
+    pub consensus:crate::identity::Consensus,
 }
 #[derive(Default)]
 struct Ckpt{every:u64,last:u64,roll:[u8;32]}
@@ -474,7 +477,13 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// PR6 P1: submissions refused by the sender quota; P2: parked transactions evicted by one declaring less.
     pub sender_quota_refused:u64,pub parked_evicted:u64,
     /// PR6 review: parked transactions relayed when parked.
-    pub parked_relayed:u64}
+    pub parked_relayed:u64,
+    /// VA-SPEC §2.5: Hellos refused for another network, a wire version below MIN and another consensus identity
+    /// (`identity::Mismatch` order), the last refusal's reason (at most INCOMPATIBLE_REASON_MAX characters) and the
+    /// connections whose first frame was PoCol 0.4.0's 9-item Hello (`net::legacy_hello`).
+    pub incompatible:[u64;3],pub last_incompatible:String,pub legacy_hellos:u64}
+/// The characters of `lastIncompatibleReason` kept (a bounded status field: the peer's name is at most NODE_NAME_MAX).
+pub const INCOMPATIBLE_REASON_MAX:usize=160;
 /// 2026-10-28: the time (ms) each step of `Node::open` took, so an open's cost can be attributed: reading the
 /// journal (every record's payload, its frame offsets and rolling hashes), opening history.redb and state.redb
 /// (redb's full integrity check of every page included), the release at open, reading and checking the
@@ -747,7 +756,8 @@ impl Node{
         let net=net::Net::new(cfg.limits.net.clone());
         let signed_a0=load_signed_a0(&cfg.dir); // F7: resume the attempt-0 signing record across restarts
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
-        let mut node=Self{cfg,chain,net,disc,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
+        let consensus=crate::identity::Consensus::of(&chain.spec);
+        let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
@@ -801,8 +811,7 @@ impl Node{
             self.disc.bound(l.local_addr().map_err(|e|format!("listen {a}: {e}"))?);
             // Inbound eviction counts only a Hello this node would keep (on_msg's Hello checks), so the nonce is final
             // here and the listener does not run yet.
-            self.net.expect_hello(net::HelloId{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),
-                compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries()),nonce:self.disc.wire_nonce()});
+            self.net.expect_hello(net::HelloId{consensus:self.consensus.clone(),nonce:self.disc.wire_nonce()});
             let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn("listen-fwd",crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::listen(l,ntx,self.net.clone());}
         for a in self.cfg.peers.clone(){let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn(format!("dial-fwd-{a}"),crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
@@ -885,6 +894,9 @@ impl Node{
             Event::Net(NetEvent::Closed(id))=>{self.disc_closed(id,self.disc_now());self.peer_status.remove(&id);if self.session.as_ref().map_or(false,|s|s.peer==id){self.end_session(false);}
                 if let Some(p)=self.peers.remove(&id){self.allow_redial(p.origin);}}
             Event::Net(NetEvent::Message(id,m))=>self.on_msg(id,m),
+            // Its Closed follows; the 0.4.0 handshake is refused by arity, as before (plan §6).
+            Event::Net(NetEvent::Legacy(id))=>{self.stats.legacy_hellos+=1;
+                let at=self.peers.get(&id).map(|p|p.addr.clone()).unwrap_or_default();self.log(&format!("peer {at} speaks the PoCol 0.4.0 handshake; closing"));}
         }
     }
     /// H2: a configured peer's dialer (`net::dial`) dials again once the address it dialed has left the outbound
@@ -899,7 +911,7 @@ impl Node{
     fn hello_to(&self,p:&Peer,mut hello:Msg)->Msg{
         if !self.disc.reaches(p.local(),p.remote){if let Msg::Hello{listen_port,nonce,..}=&mut hello{(*listen_port,*nonce)=(0,0);}}hello
     }
-    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries()),listen_port:self.disc.listen_port(),nonce:self.disc.wire_nonce()}}
+    fn hello(&self)->Msg{let h=self.chain.head();Msg::Hello{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),head:h.hash,height:h.height,work:h.total_work.to_be_bytes::<32>(),node:self.cfg.name.clone(),protocol:crate::identity::PROTOCOL_VERSION,compatibility:self.consensus.id,listen_port:self.disc.listen_port(),nonce:self.disc.wire_nonce()}}
     fn broadcast(&self,m:&Msg,except:Option<PeerId>){for (id,p) in &self.peers{if Some(*id)!=except&&self.peer_status.contains_key(id){p.send(m);}}}
 
     // ---------------- import ----------------
@@ -1808,10 +1820,16 @@ impl Node{
                 // Hello carrying this node's own nonce is a self-connection, closed before any Status is kept.
                 let first=!self.peer_status.contains_key(&from);let now=self.disc_now();
                 if first&&nonce!=0&&nonce==self.disc.wire_nonce(){self.disc_self_connection(from);return}
-                let network=chain_id!=self.chain.spec.chain_id()||genesis!=self.chain.spec.genesis_hash();
-                if network||!crate::identity::matches_for(protocol,&compatibility,self.chain.spec.profile().forks().entries()){
-                    self.log(&format!("peer {node}: incompatible network or implementation; closing"));
-                    self.disc_incompatible(from,network,now);
+                // VA-SPEC §2: the one acceptance predicate (also net::Net::eligible's). Another network forgets a dialed
+                // address; another wire range or consensus identity holds it.
+                if let Err(why)=crate::identity::accepts(&self.consensus,chain_id,&genesis,protocol,&compatibility){
+                    use crate::identity::Mismatch;
+                    let (k,text)=match why{Mismatch::Network=>(0,"another network (chain id or genesis)".to_string()),
+                        Mismatch::Wire(v)=>(1,format!("wire protocol {v} < {}",crate::identity::PROTOCOL_VERSION_MIN)),
+                        Mismatch::Consensus=>(2,crate::identity::explain(&self.consensus,&compatibility))};
+                    self.log(&format!("peer {node}: {text}; closing"));
+                    self.stats.incompatible[k]+=1;self.stats.last_incompatible=format!("peer {node}: {text}").chars().take(INCOMPATIBLE_REASON_MAX).collect();
+                    self.disc_incompatible(from,why==Mismatch::Network,now);
                     self.peer_status.remove(&from);
                     if self.session.as_ref().is_some_and(|s|s.peer==from){self.end_session(false);}
                     if let Some(p)=self.peers.remove(&from){p.close();self.allow_redial(p.origin);}
@@ -1896,6 +1914,20 @@ impl Node{
     }
 }
 impl Node{
+    /// VA-SPEC §2: the wire range and consensus identity this node peers on (pocol_status, pocol_getParams).
+    pub fn identity_json(&self)->serde_json::Map<String,serde_json::Value>{
+        use crate::identity as id;
+        let j=serde_json::json!({"protocolVersionMin":id::PROTOCOL_VERSION_MIN,"consensusRulesVersion":id::CONSENSUS_RULES_VERSION,
+            "maxForkVersion":pocol_lp4_execution::profile::MAX_FORK_VERSION,"consensusIdentity":self.consensus.hex(),"consensusPinned":id::PINNED});
+        let serde_json::Value::Object(m)=j else{unreachable!()};m
+    }
+    /// VA-SPEC §2.5: what refused peers differed in (pocol_status and wallet status), so a lagging node is told why.
+    pub fn incompatible_json(&self)->serde_json::Map<String,serde_json::Value>{
+        let [network,wire,consensus]=self.stats.incompatible;let last=&self.stats.last_incompatible;
+        let j=serde_json::json!({"incompatiblePeers":{"network":network,"wire":wire,"consensus":consensus},"legacyHellos":self.stats.legacy_hellos,
+            "lastIncompatibleReason":if last.is_empty(){serde_json::Value::Null}else{serde_json::json!(last)}});
+        let serde_json::Value::Object(m)=j else{unreachable!()};m
+    }
     /// The Block message for a stored block (genesis excluded); an offloaded non-canonical block is
     /// served from its journal record, byte-equal to what was imported (VA-SPEC §4).
     pub fn block_msg(&self,hash:&[u8;32])->Option<Msg>{
@@ -2013,8 +2045,12 @@ impl Node{
             "stats":{"imported":self.stats.imported,"mined":self.stats.mined,"signedTemplates":self.stats.signed_templates,"fallbackTemplates":self.stats.fallback_templates,"sharesSeen":self.stats.shares_seen,"hashesInExhaustedRanges":self.stats.hashes,"reorgs":self.stats.reorgs,
                 "syncSessions":self.stats.sync_sessions,"syncRounds":self.stats.sync_rounds,"refetched":self.stats.refetched,"restored":self.stats.restored,"replaySkipped":self.stats.replay_skipped,"templatePenalties":self.stats.template_penalties,"poolSlices":self.stats.pool_slices,"poolSliceMaxMs":self.stats.pool_slice_max_ms,"reinsertedOffered":self.stats.reinserted_offered,"reinsertedUnoffered":self.stats.reinserted_unoffered,"poolBacklog":self.pool.backlog.len(),"historyRefilled":self.stats.history_refilled,"historyRebuilt":self.history.rebuilt,"historyDamaged":self.history.is_damaged()},
             "open":serde_json::to_value(&self.stats.open).unwrap_or_default(),"retention":{"rKeep":self.chain.r_keep,"sideCap":self.chain.side_cap,"side":self.chain.side_counts().0,"protected":self.chain.protect.len(),"evicted":self.chain.evicted_total}});
+        // VA-SPEC §2: the wire range and the consensus identity peers are checked against; the build digest
+        // (compatibilitySha256) is informational install-integrity status.
         status["protocolVersion"]=serde_json::json!(crate::identity::PROTOCOL_VERSION);
         status["compatibilitySha256"]=serde_json::json!(crate::identity::COMPATIBILITY_HEX);
+        for (k,v) in self.identity_json(){status[k]=v;}
+        for (k,v) in self.incompatible_json(){status[k]=v;}
         status["compatiblePeers"]=serde_json::json!(self.peer_status.len());
         // Gossip and inbound grouping (net::Limits::per_group_max).
         status["stats"]["relayedTemplates"]=serde_json::json!(self.stats.relayed_templates);

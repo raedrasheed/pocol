@@ -1,13 +1,15 @@
 --- a/pocol_studio_gateway.py
 +++ b/pocol_studio_gateway.py
-@@ -131,7 +131,9 @@
+@@ -131,7 +131,11 @@
  def sanitize(method, value):
      if method not in ('pocol_status', 'pocol_getParams') or not isinstance(value, dict): return value
      keys = ('chainId', 'genesisHash', 'head', 'pool', 'protocolVersion', 'compatibilitySha256',
 -            'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'activeVersion')
 +            'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'activeVersion',
 +            'forkSchedule', 'effectiveNonceMode', 'nextBlockNonceMode', 'consensusCompatibilitySha256',
-+            'networkName', 'networkEnvironment')
++            'networkName', 'networkEnvironment',
++            # The public consensus identity and wire range (VA-SPEC §2; A2-10).
++            'consensusIdentity', 'consensusRulesVersion', 'protocolVersionMin', 'maxForkVersion')
      return {k: value[k] for k in keys if k in value}
  
  

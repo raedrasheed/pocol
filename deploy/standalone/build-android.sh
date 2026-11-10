@@ -8,6 +8,8 @@ export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$ndk/aarch64-linux-android26-c
 export CC_aarch64_linux_android="$ndk/aarch64-linux-android26-clang"
 export AR_aarch64_linux_android="$ndk/llvm-ar"
 export RUSTFLAGS='-C link-arg=-Wl,-z,max-page-size=16384'
+# Release packaging: build.rs refuses a tree whose consensus sources are not pinned (plan §1.5).
+export POCOL_RELEASE=1
 cargo +1.99.1 build --locked --release --lib --target aarch64-linux-android --manifest-path "$root/prototypes/pocold/Cargo.toml"
 out="$root/prototypes/pocol-android/app/src/main/jniLibs/arm64-v8a"
 mkdir -p "$out"

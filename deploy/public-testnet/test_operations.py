@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 import node_operator as op
 import prepare
 import monitor
@@ -90,6 +91,9 @@ class Operations(unittest.TestCase):
         self.assertEqual(h.hexdigest(), info['compatibilitySha256'])
         self.assertEqual(info['features'], []); self.assertEqual(info['protocolVersion'], 2)
         self.assertIn('lp4-execution/tests/data/system-v1.json', info['sourceSha256'])
+        # The fields node_operator and prepare bind a bundle to (VA-SPEC §2): a pinned release build of rules 1.
+        self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (1, 2, 2))
+        self.assertIs(info['consensusPinned'], True, 're-pin the consensus lock (pocold/tests/consensus_guard.rs)')
 
     def bundle(self):
         bundle = self.root / 'bundle'; bundle.mkdir(); (bundle / 'net').mkdir(); (bundle / 'bin').mkdir()
@@ -138,6 +142,36 @@ class Operations(unittest.TestCase):
             with self.subTest(name):
                 self.assertEqual([l for l in unit.splitlines() if l.startswith('TasksMax=')], ['TasksMax=512'])
                 self.assertNotIn('POCOL_PEERS_MAX', unit); self.assertNotIn('POCOL_PER_GROUP_MAX', unit)
+
+    def test_monitor_requires_one_consensus_identity_and_only_warns_on_a_mixed_build_digest(self):
+        release = {'chainId': 777915, 'genesisHash': '0x' + 'a' * 64, 'consensusIdentity': 'c' * 64,
+                   'protocolVersion': 2, 'protocolVersionMin': 2, 'compatibilitySha256': 'b' * 64}
+        def status(name, **change):
+            return {**{k: release[k] for k in ('chainId', 'genesisHash', 'consensusIdentity', 'compatibilitySha256')},
+                    'protocolVersion': 2, 'protocolVersionMin': 2, 'name': name, 'stateStore': True,
+                    'admission': {'scope': 'experimental-devnet'}, 'compatiblePeers': 1,
+                    'head': {'height': 10}, 'lifetime': {'closingHeight': 10**6}, 'stats': {'historyDamaged': False}, **change}
+        urls = {'n1': 'https://n1.example.test', 'n2': 'https://n2.example.test'}
+        def observe(**change):
+            nodes = {'https://n1.example.test': status('n1'), 'https://n2.example.test': status('n2', **change)}
+            warnings = []
+            with unittest.mock.patch.object(monitor, 'rpc', side_effect=lambda url, method: nodes[url]):
+                return monitor.snapshot(release, urls, warnings), warnings
+        self.assertEqual(observe()[1], [])
+        values, warnings = observe(compatibilitySha256='d' * 64)
+        self.assertEqual(set(values), {'n1', 'n2'})
+        self.assertEqual(len(warnings), 1); self.assertIn('n2', warnings[0])
+        for change in ({'consensusIdentity': 'e' * 64}, {'chainId': 7}, {'protocolVersion': 1}, {'protocolVersionMin': 3}):
+            with self.subTest(change=change), self.assertRaises(ValueError): observe(**change)
+
+    def test_prepared_release_names_the_consensus_identity_of_its_network(self):
+        build = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': 'aa' * 32}
+        info = {'chainId': 777915, 'genesisHash': '0x' + '01' * 32, 'forks': [[1, 0], [2, 50]]}
+        manifest = op.identity({'name': 'n1', 'minerAddress': None}, info, build | {'protocolVersion': 2, 'compatibilitySha256': 'b' * 64})
+        self.assertEqual(manifest['consensusIdentity'], prepare.pocol_identity.consensus_id(777915, info['genesisHash'], 1, 0, [(1, 0), (2, 50)]))
+        self.assertEqual(manifest['consensusRulesVersion'], 1)
+        legacy = op.identity({'name': 'n1', 'minerAddress': None}, info, {'protocolVersion': 2, 'compatibilitySha256': 'b' * 64})
+        self.assertNotIn('consensusIdentity', legacy)
 
     def test_duplicate_json_keys_are_refused(self):
         path = self.root / 'bad.json'; path.write_text('{"chainId":1,"chainId":2}')

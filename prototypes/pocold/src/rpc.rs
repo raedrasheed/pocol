@@ -1007,14 +1007,17 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         // does not have (snapshots, pocol_getLogs anchors, PacerTrace, light SCRATCH) is null.
         "pocol_getRpcStats"=>Ok(rpc_stats(n)),
         "pocol_getParams"=>{let sp=&n.chain.spec;let l=&n.cfg.limits.rpc;
-            Ok(crate::network_display::annotate(json!({"profileKind":format!("{:?}",sp.profile().kind()),"nodeKind":format!("{:?}",sp.profile().node_kind()),"nonceMode":sp.cp().nonceMode,
+            let mut params=json!({"profileKind":format!("{:?}",sp.profile().kind()),"nodeKind":format!("{:?}",sp.profile().node_kind()),"nonceMode":sp.cp().nonceMode,
                 "chainId":sp.chain_id(),"genesisHash":hex(&sp.genesis_hash()),"genesisPre":hex(sp.spec_bytes()),"netKey":hex(&net_key(sp.chain_id(),&sp.genesis_hash())),
                 "protocolVersion":crate::identity::PROTOCOL_VERSION,"compatibilitySha256":crate::identity::COMPATIBILITY_HEX,
-                "consensusCompatibilitySha256":hex(&crate::identity::compatibility_for(sp.profile().forks().entries())),
+                // Deprecated alias of consensusIdentity (VA-SPEC §2.1), kept for existing readers.
+                "consensusCompatibilitySha256":n.consensus.hex(),
                 "effectiveNonceMode":if sp.effective_nonce_mode(n.chain.head().height)==crate::assignment::NonceMode::Unbounded{1}else{0},
                 "nextBlockNonceMode":if sp.effective_nonce_mode(n.chain.head().height.saturating_add(1))==crate::assignment::NonceMode::Unbounded{1}else{0},
                 "forkSchedule":sp.profile().forks().entries().iter().map(|(v,h)|json!([v,h])).collect::<Vec<_>>(),
-                "activeVersion":sp.active_version(n.chain.head().height),"rpcLimits":rpc_limits_json(l)})))}
+                "activeVersion":sp.active_version(n.chain.head().height),"rpcLimits":rpc_limits_json(l)});
+            for (k,v) in n.identity_json(){params[k]=v;}
+            Ok(crate::network_display::annotate(params))}
         "pocol_getRejects"=>Ok(json!(n.rejects.iter().map(|(h,w)|json!({"hash":h,"reason":w})).collect::<Vec<_>>())),
         "pocol_getHeaders"=>{let from=p.first().and_then(|x|x.as_u64().or_else(||parse_u64(x))).ok_or(bad("from"))?;let count=p.get(1).and_then(|x|x.as_u64().or_else(||parse_u64(x))).ok_or(bad("count"))?;
             if count==0||count>512{return Err(bad("count 1..512").into())}

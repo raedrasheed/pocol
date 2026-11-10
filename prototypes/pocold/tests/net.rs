@@ -23,19 +23,19 @@ fn spec()->Spec{
     let t=TIMING.get_or_init(||pocol_lp4_execution::admission::measure(&n.spec_bytes,&n.alloc,1).unwrap());
     Spec::new(pocol_lp4_execution::admission::admit(&n.request(&pocold::single_host_local(),Some(t))).unwrap_or_else(|e|panic!("{e}")))
 }
-struct Running{p2p:u16,rpc:u16,net:net::Net,chain_id:u64,genesis:[u8;32]}
+struct Running{p2p:u16,rpc:u16,net:net::Net,chain_id:u64,genesis:[u8;32],forks:Vec<(u16,u64)>,id:[u8;32]}
 fn start(tag:&str,limits:Limits)->Running{start_with(tag,limits,vec![])}
 fn start_with(tag:&str,limits:Limits,peers:Vec<std::net::SocketAddr>)->Running{
-    let (p2p,rpc)=(free_port(),free_port());let spec=spec();let (chain_id,genesis)=(spec.chain_id(),spec.genesis_hash());
+    let (p2p,rpc)=(free_port(),free_port());let spec=spec();let (chain_id,genesis,forks)=(spec.chain_id(),spec.genesis_hash(),spec.profile().forks().entries().to_vec());
     let dir=std::env::temp_dir().join(format!("pocold-net-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
     let cfg=Config{dir,name:tag.into(),miner:None,listen:Some(format!("127.0.0.1:{p2p}").parse().unwrap()),peers,rpc:Some(format!("127.0.0.1:{rpc}").parse().unwrap()),stop_at:None,log:false,limits};
-    let mut node=Node::open(cfg,spec).unwrap();let net=node.net.clone();
+    let mut node=Node::open(cfg,spec).unwrap();let (net,id)=(node.net.clone(),node.consensus.id);
     node.start_network().unwrap();std::thread::spawn(move||node.run());
     std::thread::sleep(Duration::from_millis(100));
-    Running{p2p,rpc,net,chain_id,genesis}
+    Running{p2p,rpc,net,chain_id,genesis,forks,id}
 }
 fn frame(m:&Msg)->Vec<u8>{let b=m.encode();let mut f=(b.len() as u32).to_be_bytes().to_vec();f.extend(b);f}
-fn hello(r:&Running,name:&str)->Vec<u8>{frame(&Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:name.into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0})}
+fn hello(r:&Running,name:&str)->Vec<u8>{frame(&Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:name.into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:r.id,listen_port:0,nonce:0})}
 fn connect(r:&Running)->TcpStream{let s=TcpStream::connect(("127.0.0.1",r.p2p)).unwrap();s.set_read_timeout(Some(Duration::from_millis(3000))).unwrap();s}
 /// True if the node closed the connection (EOF or reset) within the read timeout.
 fn closed(s:&mut TcpStream)->bool{let mut b=[0u8;4096];loop{match s.read(&mut b){Ok(0)=>return true,Ok(_)=>continue,Err(e)=>return e.kind()!=std::io::ErrorKind::WouldBlock&&e.kind()!=std::io::ErrorKind::TimedOut}}}
@@ -114,7 +114,7 @@ fn small()->Limits{
     let alice=devnet::account_key("alice");
     let tx=Tx{chain_id:r.chain_id,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(10_000_000_000u64),gas:21_000,to:Some(alice.address()),value:U256::ZERO,data:vec![].into()}.sign_1559(&alice);
     let status=||{let (c,b)=rpc(r.rpc,r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#,false);assert_eq!(c,200);serde_json::from_str::<serde_json::Value>(&b).unwrap()["result"].clone()};
-    for (version,digest,refresh) in [(0,pocold::identity::compatibility(),false),(2,[0;32],false),(2,[0;32],true)]{
+    for (version,digest,refresh) in [(0,r.id,false),(2,[0;32],false),(2,[0;32],true)]{
         let mut s=connect(&r);
         if refresh{s.write_all(&hello(&r,"accepted")).unwrap();assert!(wait_until(1000,||status()["compatiblePeers"]==1));}
         let bad=Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:"mismatch".into(),protocol:version,compatibility:digest,listen_port:0,nonce:0};
@@ -126,6 +126,45 @@ fn small()->Limits{
     let mut s=connect(&r);s.write_all(&hello(&r,"control")).unwrap();s.write_all(&frame(&Msg::Tx{raw:tx})).unwrap();
     assert!(wait_until(1500,||status()["pool"]==1),"the same transaction is accepted after a compatible Hello");
     assert_eq!(status()["compatibilitySha256"],pocold::identity::COMPATIBILITY_HEX);
+}
+fn status_of(r:&Running)->serde_json::Value{let (c,b)=rpc(r.rpc,r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#,false);assert_eq!(c,200);serde_json::from_str::<serde_json::Value>(&b).unwrap()["result"].clone()}
+/// The VA-SPEC §2.1 bytes, hashed here with sha2 and not with `pocold::identity`, as a second implementation would.
+fn second_implementation_id(chain_id:u64,genesis:&[u8;32],rules:u32,flags:u8,forks:&[(u16,u64)])->[u8;32]{
+    use sha2::{Digest,Sha256};let mut b=b"pocol-consensus-identity-v1\0".to_vec();
+    b.extend(chain_id.to_be_bytes());b.extend(genesis);b.extend(rules.to_be_bytes());b.push(flags);b.push(forks.len() as u8);
+    for (v,h) in forks{b.extend(v.to_be_bytes());b.extend(h.to_be_bytes());}
+    Sha256::digest(&b).into()
+}
+/// T12 (DEC-08, MAT-01): a peer that knows only public data (the chain, the genesis, the rules revision, the schedule)
+/// and none of this build's sources is kept: the build digest decides nothing, and status reports both values.
+#[test] fn second_implementation_peers(){let _g=serial();
+    if !pocold::identity::PINNED{eprintln!("SKIPPED: this tree is unpinned (consensus-sources.lock differs); re-pin it (tests/consensus_guard.rs) to run this test");return}
+    let r=start("second-impl",small());
+    let flags=u8::from(pocol_lp4_execution::CAPS_TEST);
+    let id=second_implementation_id(r.chain_id,&r.genesis,1,flags,&r.forks);
+    let mut s=connect(&r);
+    s.write_all(&frame(&Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:"second".into(),protocol:2,compatibility:id,listen_port:0,nonce:0})).unwrap();
+    assert!(wait_until(1500,||status_of(&r)["compatiblePeers"]==1),"the second implementation is a compatible peer");
+    let st=status_of(&r);
+    assert_eq!(st["compatibilitySha256"],pocold::identity::COMPATIBILITY_HEX,"the build digest stays informational status");
+    assert_eq!(st["consensusIdentity"],id.iter().map(|b|format!("{b:02x}")).collect::<String>());
+    assert_eq!((st["consensusRulesVersion"].as_u64(),st["protocolVersionMin"].as_u64(),st["consensusPinned"].as_bool()),(Some(1),Some(2),Some(true)));
+    assert_eq!(live(&r),1,"and stays connected");
+}
+/// T16 (attack A2-4): a first frame that is PoCol 0.4.0's 9-item Hello is still refused by arity, and counted in
+/// status (legacyHellos), so seeds can tell 0.4.0 nodes are still trying.
+#[test] fn a_legacy_hello_is_counted(){let _g=serial();
+    let r=start("legacy-hello",small());
+    let mut p=Vec::new();let int=|v:u64,o:&mut Vec<u8>|{let b=v.to_be_bytes();let f=b.iter().position(|x|*x!=0).unwrap_or(8);pocold::rlp::encode_bytes(&b[f..],o)};
+    int(0,&mut p);int(r.chain_id,&mut p);pocold::rlp::encode_bytes(&r.genesis,&mut p);pocold::rlp::encode_bytes(&r.genesis,&mut p);int(0,&mut p);
+    pocold::rlp::encode_bytes(&[0;32],&mut p);pocold::rlp::encode_bytes(b"old",&mut p);int(2,&mut p);pocold::rlp::encode_bytes(&[7;32],&mut p);
+    let mut o=Vec::new();pocold::rlp::encode_list_payload(&p,&mut o);assert!(net::legacy_hello(&o));
+    let mut f=(o.len() as u32).to_be_bytes().to_vec();f.extend(o);
+    let mut s=connect(&r);s.write_all(&f).unwrap();assert!(closed(&mut s),"refused by arity");
+    assert!(wait_until(1500,||status_of(&r)["legacyHellos"]==1),"counted: {}",status_of(&r)["legacyHellos"]);
+    let mut s=connect(&r);s.write_all(&frame(&Msg::GetAddr)).unwrap();assert!(closed(&mut s));
+    std::thread::sleep(Duration::from_millis(200));assert_eq!(status_of(&r)["legacyHellos"],1,"another bad first frame is not a legacy Hello");
+    assert_eq!(status_of(&r)["compatiblePeers"],0);
 }
 
 #[test] fn oversized_handshake_and_unsafe_peer_names_are_refused(){let _g=serial();

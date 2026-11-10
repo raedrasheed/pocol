@@ -56,7 +56,8 @@ def main():
                 while time.monotonic() < until:
                     try:
                         status = rpc('http://'+config['rpc'], 'pocol_status')
-                        if status['miner'] == config['minerAddress'] and status['compatibilitySha256'] == manifest['identity']['compatibilitySha256']:
+                        # Nodes are bound by their consensus identity; the build digest is informational (plan §4).
+                        if status['miner'] == config['minerAddress'] and status['consensusIdentity'] == manifest['identity']['consensusIdentity']:
                             return status
                     except (OSError, ValueError): pass
                     time.sleep(.2)

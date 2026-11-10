@@ -213,29 +213,38 @@ pub enum ProfileError {
     UnsupportedVersion(u16),
 }
 
+/// The highest fork version this build implements. Raised only by the PR that adds that version's rules
+/// (V3-DESIGN.md §3.4); everything else about a schedule is checked generically below.
+pub const MAX_FORK_VERSION: u16 = 2;
+
 /// Optional v2 activation enables the full nonce domain; v1 remains the default.
 /// Private entries ensure active_version is called only on a validated schedule.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ForkSchedule(Vec<(u16, u64)>);
 impl ForkSchedule {
     pub fn new(entries: &[(u16, u64)]) -> Result<Self, ProfileError> {
+        Self::new_bounded(entries, MAX_FORK_VERSION)
+    }
+    /// `new` with an explicit highest version, so tests can exercise schedules beyond this build's rules.
+    /// Errors keep their historical precedence per entry: height, then version, then order. Version 1 may
+    /// repeat (a no-op entry); any later version may appear once, and versions never decrease.
+    #[doc(hidden)]
+    pub fn new_bounded(entries: &[(u16, u64)], max: u16) -> Result<Self, ProfileError> {
         if entries.first() != Some(&(1, 0)) {
             return Err(ProfileError::ForkStart);
         }
-        let mut previous = None;
-        let mut activated_v2 = false;
+        let mut previous: Option<(u16, u64)> = None;
         for &(version, height) in entries {
-            if previous.map_or(false, |h| height <= h) {
+            if previous.map_or(false, |(_, h)| height <= h) {
                 return Err(ProfileError::ForkHeight);
             }
-            if version != 1 && version != 2 {
+            if version == 0 || version > max {
                 return Err(ProfileError::UnsupportedVersion(version));
             }
-            if activated_v2 {
+            if previous.map_or(false, |(p, _)| version < p || (version == p && version >= 2)) {
                 return Err(ProfileError::ForkVersionOrder);
             }
-            activated_v2 = version == 2;
-            previous = Some(height);
+            previous = Some((version, height));
         }
         Ok(Self(entries.to_vec()))
     }

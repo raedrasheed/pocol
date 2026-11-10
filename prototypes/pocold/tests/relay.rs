@@ -64,7 +64,7 @@ fn closed(s:&mut TcpStream,wait:Duration)->bool{
 fn peer(f:&Fixture,name:&str)->TcpStream{
     let mut s=TcpStream::connect(("127.0.0.1",f.p2p)).unwrap();let _=s.set_nodelay(true);
     s.write_all(&frame(&Msg::Hello{chain_id:f.chain_id,genesis:f.genesis,head:f.chain.head().hash,height:0,work:[0;32],node:name.into(),
-        protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::compatibility(),listen_port:0,nonce:0})).unwrap();
+        protocol:pocold::identity::PROTOCOL_VERSION,compatibility:pocold::identity::Consensus::of(&f.chain.spec).id,listen_port:0,nonce:0})).unwrap();
     assert!(matches!(read(&mut s,Duration::from_secs(5)),Some(Msg::Hello{..})),"{name}: B's Hello");
     s
 }

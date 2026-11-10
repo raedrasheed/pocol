@@ -220,7 +220,7 @@ Owner question O-0 decides the vehicle itself (B = ride the held earn-in re-gene
   - The node accepts only `[(1,0)]` or `[(1,0),(2,H)]` (`prototypes/pocold/src/lib.rs:202-204`).
 - **The v2 rule is an equality in three places.** If a (3,H) entry were appended, every height ≥ H would
   silently fall back to the bounded domain (live CP4 = nonceMode 0, `deploy/mainnet/h15000/README.md:18`):
-  - `chain.rs:58` `active_version(h)==2||cp().nonceMode==1`;
+  - `chain.rs:72` `active_version(h)==2||cp().nonceMode==1`;
   - `prototypes/pocol-extension/src/lib/rp.js:56` `x.version === 2n || …`;
   - `deploy/rewards/pocol_rewards.py:277` `header['protocolVersion'] == 2 or cp[4] == 1`.
 - **CP and system code are pinned to genesis.** Both are re-checked on every parent and candidate block
@@ -286,6 +286,17 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
      every home (`launcher.rs:29-31`, `:459-465`).
    - Tests: a [(1,0),(2,H2),(3,H3)] schedule keeps nMax = 2^64 above H3; a v3 schedule fails closed against
      stored headers.
+   - **Done in PR5** (consensus identity and upgrade path): the generic schedule rule (`new_bounded`, the runtime
+     shape, `forks.js`, `pocol_rewards.py`, `preflight.py`, `nonce_upgrade.py`, `prepare_nonce_upgrade.py`), the
+     `>=2` sites (`chain::full_nonce_rule`, `rp.js fullRange`, `pocol_rewards.full_nonce_rule`) and the launcher
+     path (v2 invitations bound to `consensusRulesVersion`, append-only and future-only `pocol upgrade`,
+     `pocol inspect-upgrade`). `MAX_FORK_VERSION` stays 2 and `v3_active` is not added.
+   - **What the v3 PR must do under the PR5 guard** (VA-SPEC §2.3): raise `MAX_FORK_VERSION` (both profile files)
+     and/or `SPEC_VERSION`, put every v3 rule behind `active_version(h) >= 3` (or genesis specVersion 2), and re-pin
+     `consensus-sources.lock` as `neutral` with `POCOL_REPIN_GATE=fork:3` (or `spec:2`). "Released" means merged to
+     main (owner decision D2, recommended default), so that gate is spent when the PR merges: a later v3 tweak needs
+     a new gate (fork:4) or a `bump` together with the earn-in genesis. It also decides D3 (whether a schedule may
+     skip a version; the runtime shape refuses `[(1,0),(3,H)]` until then).
 3. **PR-2 Program-set registry and genesis tooling.**
    - Replace `Spec::earnin()` equality (`chain.rs:49-52`) with a feature predicate ("earn-in or later").
    - Add the v3 set to `SystemPrograms::for_spec` (`apply.rs:54`), `testnet.rs:159`, `devnet.rs` and
@@ -1018,7 +1029,9 @@ fork; a restart test. **Effort:** S. **Risk:** low.
 - **Policy part:** owner question O-33.
 
 ### V3-34 Fork machinery and verifier hygiene
-Content as PR-1, PR-2 and PR-7 in §3.4.
+Content as PR-1, PR-2 and PR-7 in §3.4. **Status:** the PR-1 schedule generalisation, the `>=2` sites and the
+launcher upgrade path are done (PR5); `v3_active`, PR-2 and PR-7 remain. The v3 PR re-pins with `gate=fork:3` (or
+`spec:2`), see §3.4.
 - **Principle check:** the schedule semantics (`consensus.md:46`) are unchanged.
 - **Tests:** a [(1,0),(2,H2),(3,H3)] schedule keeps nMax=2^64; `v3_active` is false for every old-chain block
   0..S; the wallet's bond features still work on the v3 program set.

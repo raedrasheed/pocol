@@ -82,7 +82,9 @@ verify new fingerprints through the provider console. No key is forwarded/copied
 
 The only allowed targets are the three prepared PoCol hosts:
 `108.165.128.89`, `108.165.128.90`, `108.165.128.91`. The unrelated `.31` host is never
-contacted. The script verifies Linux/Windows checksums and source compatibility,
+contacted. The script verifies Linux/Windows checksums and source compatibility
+(equal build digests across the packages it installs; peering itself depends on the
+consensus identity, VA-SPEC §2),
 creates independent miner keys on their servers, collects only public addresses,
 creates one admitted continuous genesis, distributes its invitation, opens P2P TCP
 30300, starts server services and opens **PoCol-Wallet.exe** on Windows. Server RPC

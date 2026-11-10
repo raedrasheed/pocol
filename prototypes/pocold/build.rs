@@ -1,9 +1,68 @@
-//! Conservative testnet compatibility identity. No Git metadata, timestamps or secrets.
+//! Conservative testnet compatibility identity (informational build digest) and the consensus boundary check
+//! (plan §1.5): the consensus identity of a tree whose boundary sources differ from consensus-sources.lock is
+//! unpinned, and a POCOL_RELEASE=1 build of such a tree fails. No Git metadata, timestamps or secrets.
 use sha2::{Digest, Sha256};
 use std::{
     env, fs,
     path::{Path, PathBuf},
 };
+
+#[allow(dead_code)]
+mod boundary {
+    include!("consensus_boundary.rs");
+}
+
+/// The constants build-info reports, read from the sources that define them (the guard checks they agree).
+fn constant(root: &Path, file: &str, name: &str) -> u64 {
+    let src = fs::read_to_string(root.join(file)).expect("constant source");
+    boundary::const_u64(&src, name).unwrap_or_else(|| panic!("{file} must define const {name}"))
+}
+
+/// Computes the boundary aggregate, emits the pinned/unpinned environment and returns the build-info fields.
+fn consensus(root: &Path) -> serde_json::Value {
+    println!("cargo:rerun-if-env-changed=POCOL_RELEASE");
+    for f in [boundary::BOUNDARY_FILE, boundary::LOCK_FILE, boundary::CARGO_LOCK] {
+        println!("cargo:rerun-if-changed={}", root.join(f).display());
+    }
+    // A tree whose boundary cannot be computed (missing file, symlink, unresolvable lock) does not build.
+    let tree = boundary::compute(root).unwrap_or_else(|e| panic!("consensus boundary: {e}"));
+    for w in &tree.watched {
+        println!("cargo:rerun-if-changed={}", root.join(w).display());
+    }
+    let k = boundary::Constants {
+        rules: constant(root, "pocold/src/identity.rs", "CONSENSUS_RULES_VERSION"),
+        max_fork: constant(root, "lp4-execution/src/p1_profile.rs", "MAX_FORK_VERSION"),
+        spec: constant(root, "lp1-node/src/genesis_spec.rs", "SPEC_VERSION"),
+        protocol: constant(root, "pocold/src/identity.rs", "PROTOCOL_VERSION"),
+        protocol_min: constant(root, "pocold/src/identity.rs", "PROTOCOL_VERSION_MIN"),
+    };
+    let lock = fs::read_to_string(root.join(boundary::LOCK_FILE))
+        .map_err(|e| e.to_string())
+        .and_then(|t| boundary::parse_lock(&t));
+    // Pinned means the tree's aggregate is the one the last history line recorded (A1-2): anything else
+    // builds, but with an unpinned identity that peers only with byte-identical trees.
+    let pinned = lock
+        .as_ref()
+        .ok()
+        .and_then(|l| l.history.last())
+        .is_some_and(|h| h.sources == tree.sources);
+    if env::var("POCOL_RELEASE").as_deref() == Ok("1") {
+        // A release must also pass the whole guard (history, constants, classification), not only the aggregate.
+        let verdict = lock.and_then(|l| boundary::check(&l, &tree, &k));
+        if let Err(why) = verdict {
+            panic!("POCOL_RELEASE=1 refuses an unpinned consensus tree:\n{why}");
+        }
+    }
+    println!("cargo:rustc-env=POCOL_CONSENSUS_PINNED={}", pinned as u8);
+    println!("cargo:rustc-env=POCOL_CONSENSUS_SOURCES_ACTUAL={}", tree.sources);
+    // Always set, so a value in the caller's environment can never reach option_env!/env!.
+    println!(
+        "cargo:rustc-env=POCOL_CONSENSUS_SOURCES={}",
+        if pinned { "" } else { &tree.sources }
+    );
+    serde_json::json!({"consensusPinned":pinned,"consensusSourcesSha256":tree.sources,
+        "consensusRulesVersion":k.rules,"protocolVersionMin":k.protocol_min,"maxForkVersion":k.max_fork})
+}
 
 fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
     println!("cargo:rerun-if-changed={}", dir.display());
@@ -96,9 +155,12 @@ fn main() {
     hash.update(flags.as_bytes());
     let digest = format!("{:x}", hash.finalize());
     println!("cargo:rustc-env=POCOL_COMPATIBILITY_SHA256={digest}");
-    let info = serde_json::json!({"schema":"pocol-testnet-build-v1", "protocolVersion":2,
+    let mut info = serde_json::json!({"schema":"pocol-testnet-build-v1", "protocolVersion":2,
         "compatibilitySha256":digest,"features":features,"sourceSha256":manifest,
         "scope":"experimental-testnet","publicLaunchReady":false});
+    for (key, value) in consensus(root).as_object().unwrap() {
+        info[key] = value.clone();
+    }
     fs::write(
         PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("build-info.json"),
         serde_json::to_vec(&info).unwrap(),

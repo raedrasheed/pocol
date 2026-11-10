@@ -16,8 +16,11 @@ of the form `"forks": [[1, 0], [2, H]]`.
   remain the same. Genesis CP4 stays unchanged; it describes the original rules.
 - Both block construction and validation derive the assignment from the rewarded
   block's height. Historical blocks retain their original ownership and state roots.
-- Peers must have matching source compatibility and activation schedules. Different
-  heights are rejected during the handshake, before accepting transactions/blocks.
+- Peers must have the same consensus identity (VA-SPEC §2.1), which covers the rules
+  revision and the full activation schedule; the build digest is informational.
+  Different heights are rejected during the handshake, before accepting
+  transactions/blocks, with "peer has not scheduled activation (2,H)" on the side
+  that has it.
 - Opening an existing journal checks every stored header against the configured
   version schedule before checkpoint restoration. A retroactive schedule or downgrade
   that conflicts with stored blocks fails closed.
@@ -34,7 +37,9 @@ All commands below are operator instructions. This document does not activate or
 deploy a network. Do not modify `genesis.spec.hex` or initialize a replacement chain.
 
 1. Build and test the same source revision for every participating seed and native
-   client. Compare `pocol build-info` compatibility hashes across platforms. Android
+   client. Compare `pocol build-info` compatibility hashes across platforms (install
+   integrity), and check that every build reports `consensusPinned: true` and the
+   same `consensusRulesVersion` and `maxForkVersion` of at least the new version. Android
    updates must use the existing installation's signing key; an unrelated APK signing
    key cannot update that installation. Do not uninstall a funded wallet to upgrade.
 2. Agree on a future height `H` with enough time to stop and update all participating
@@ -42,10 +47,15 @@ deploy a network. Do not modify `genesis.spec.hex` or initialize a replacement c
 3. Save the new release's `pocol build-info` JSON, and prepare a new invitation:
 
    ```text
-   python deploy/standalone/prepare_nonce_upgrade.py --network network.pocol.json --build-info new-build-info.json --activation-height H --observed-head CURRENT_HEAD --out-dir full-nonce-plan
+   python deploy/standalone/prepare_nonce_upgrade.py --network network.pocol.json --build-info new-build-info.json --append 2:H --observed-head CURRENT_HEAD --out-dir full-nonce-plan
    ```
 
-   Replace `H` and `CURRENT_HEAD` with agreed numeric values. The tool creates a new
+   Replace `H` and `CURRENT_HEAD` with agreed numeric values. `--append V:H` may be
+   repeated for several future entries (none: a rebind to a `pocol-network-v2` file
+   with the same schedule); `--activation-height H` is the deprecated shorthand for
+   `--append 2:H`. The output is a `pocol-network-v2` invitation bound to the
+   release's `consensusRulesVersion`, so later releases with the same rules accept
+   it without a new file. The tool creates a new
    directory with the invitation, browser schedule and checksum report. It never
    opens a wallet, edits a running service or selects a height automatically.
 4. Stop the PoCol applications and services. Keep a recoverable backup of each
@@ -58,8 +68,11 @@ deploy a network. Do not modify `genesis.spec.hex` or initialize a replacement c
    pocol upgrade --home EXISTING_POCOL_HOME --network full-nonce-plan/network.pocol.json
    ```
 
-   This checks the previous binding, exact genesis/allocation bytes, unchanged seeds,
-   metadata and append-only activation. It refuses activation at or below any stored
+   Run `pocol inspect-upgrade` with the same arguments first: it reports the
+   appended entries and writes nothing. The upgrade checks the previous binding,
+   exact genesis/allocation bytes, unchanged seeds, metadata and append-only
+   activation, and keeps the previous binding as
+   `network.pocol.json.before-<16 hex of its fingerprint>`. It refuses activation at or below any stored
    block height. It writes only public network configuration and its recovery records;
    the wallet key and state databases are retained. If interrupted, repeat the same
    explicit upgrade command; ordinary startup refuses an unfinished upgrade.
@@ -92,8 +105,9 @@ deploy a network. Do not modify `genesis.spec.hex` or initialize a replacement c
    as documented in [`../rewards/README.md`](../rewards/README.md). Its corrected
    activity window is CP24 (`W_act`), not CP7 (fallback wait). Preserve the existing
    public RPC allowlist; these integrations need the public fork schedule fields.
-9. Restart coordinated nodes and verify matching genesis, source compatibility,
-   schedule, head synchronization and assignments. At `H`, headers must report
+9. Restart coordinated nodes and verify matching genesis, `consensusIdentity`,
+   schedule, head synchronization and assignments (`compatibilitySha256` may differ
+   between builds of the same rules). At `H`, headers must report
    consensus version 2 and the combined nonce ranges must cover `[0, 2^64)`.
 
 Once version-2 blocks exist, use a corrected compatible release for recovery.

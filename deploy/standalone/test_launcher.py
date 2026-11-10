@@ -7,12 +7,15 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'deploy/public-testnet'))
+import pocol_identity  # noqa: E402  (the reference consensus identity, VA-SPEC §2.1)
 BIN = Path(os.environ.get('POCOLD_BIN_DIR', ROOT / 'prototypes/pocold/target/release'))
 EXE = '.exe' if os.name == 'nt' else ''
 
@@ -77,6 +80,39 @@ class Launcher(unittest.TestCase):
         for changed in mutations:
             path.write_text(json.dumps(changed), encoding='utf-8'); self.assertNotEqual(call('pocol', 'inspect', '--network', path, ok=False).returncode, 0)
         path.write_bytes(b' ' * (1048576 + 1)); self.assertNotEqual(call('pocol', 'inspect', '--network', path, ok=False).returncode, 0)
+    def test_pocol_network_binds_the_rules_and_inspect_upgrade_is_a_dry_run(self):
+        # T27 (plan §1.7): `pocol network` writes v2 bound to the consensus rules, never to the build digest; the dry
+        # run names the change and the identity a released node will report, and writes nothing.
+        home = self.root / 'node'
+        path = network(self.root, [home], ['127.0.0.1:30300'], full_nonce=False)
+        saved = json.loads(path.read_text(encoding='utf-8'))
+        rules = json.loads(call('pocol', 'build-info').stdout)['consensusRulesVersion']
+        self.assertEqual((saved['schema'], saved['consensusRulesVersion']), ('pocol-network-v2', rules))
+        self.assertNotIn('compatibilitySha256', saved)
+        call('pocol', 'import', '--home', home, '--network', path)
+        binding = (home / 'network.pocol.json').read_bytes()
+        info = json.loads(saved['files']['devnet.json'])
+        same = json.loads(call('pocol', 'inspect-upgrade', '--home', home, '--network', path).stdout)
+        self.assertEqual((same['change'], same['appended'], same['invitationSchema']), ('none', [], 'pocol-network-v2'))
+        self.assertEqual(same['consensusIdentity'], pocol_identity.consensus_id(info['chainId'], info['genesisHash'], rules, 0, [(1, 0)]))
+        target = self.root / 'upgraded.pocol.json'
+        target.write_text(json.dumps(dict(saved, files=dict(saved['files'], **{'devnet.json': json.dumps(dict(info, forks=[[1, 0], [2, 100000]]))}))), encoding='utf-8')
+        dry = json.loads(call('pocol', 'inspect-upgrade', '--home', home, '--network', target).stdout)
+        self.assertEqual((dry['change'], dry['appended'], dry['activations']), ('activation', [[2, 100000]], [[2, 100000]]))
+        self.assertEqual(dry['consensusIdentity'], pocol_identity.consensus_id(info['chainId'], info['genesisHash'], rules, 0, [(1, 0), (2, 100000)]))
+        self.assertEqual((home / 'network.pocol.json').read_bytes(), binding, 'the dry run writes nothing')
+        self.assertFalse((home / 'network-upgrade.pending.json').exists())
+        absent = self.root / 'absent'
+        self.assertNotEqual(call('pocol', 'inspect-upgrade', '--home', absent, '--network', target, ok=False).returncode, 0)
+        self.assertFalse(absent.exists())
+    def test_the_h15000_invitation_is_refused_while_its_build_is_uncertified(self):
+        # Plan §1.7 and §5.4: LEGACY_BUILDS ships uncertified (owner decision D1, Option B by default); nothing is bound.
+        h15000 = ROOT / 'deploy/mainnet/h15000/network.pocol.json'
+        for args in (('inspect', '--network', h15000), ('import', '--home', self.root / 'node', '--network', h15000)):
+            p = call('pocol', *args, ok=False)
+            self.assertNotEqual(p.returncode, 0)
+            self.assertIn('This network was replaced by a new genesis', p.stderr)
+        self.assertFalse((self.root / 'node' / 'network.pocol.json').exists())
     def test_build_digest_is_canonical_across_platforms(self):
         info=json.loads(call('pocol','build-info').stdout)
         h=hashlib.sha256(b'pocol-testnet-source-compatibility-v1\0')

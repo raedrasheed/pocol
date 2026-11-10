@@ -69,9 +69,12 @@ impl Spec{
     /// The genesis CP remains immutable. Consensus v2 activates the complete u64
     /// nonce domain only for the block being built or validated, including replay.
     pub fn effective_nonce_mode(&self,h:u64)->NonceMode{
-        if self.active_version(h)==2||self.cp().nonceMode==1{NonceMode::Unbounded}else{NonceMode::Bounded}
+        if full_nonce_rule(self.active_version(h),self.cp().nonceMode){NonceMode::Unbounded}else{NonceMode::Bounded}
     }
 }
+/// Whether a block under fork `version` with genesis `nonce_mode` uses the full u64 nonce domain. v2 introduced it
+/// and every later version keeps it (`>= 2`, not `== 2`, so a v3 schedule cannot silently narrow the domain).
+pub fn full_nonce_rule(version:u16,nonce_mode:u8)->bool{version>=2||nonce_mode==1}
 
 #[derive(Clone,Debug)]
 pub struct Entry{

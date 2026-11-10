@@ -12,7 +12,11 @@ import threading
 import time
 import unittest
 
-from test_launcher import BIN, EXE, call, identity, network
+from test_launcher import BIN, EXE, ROOT, call, identity, network
+
+H15000 = ROOT / 'deploy/mainnet/h15000/network.pocol.json'
+# launcher::legacy_refusal() under SWITCH = B, owner decision D1's recommended default (plan §5.4).
+LEGACY_REFUSAL = 'This network was replaced by a new genesis. Follow the release notes to move the old network files aside; keep your wallet key.'
 
 
 def read_json(path):
@@ -133,8 +137,9 @@ class FullNonceUpgrade(unittest.TestCase):
         self.assertEqual((state / 'blocks.journal').read_bytes(), journal)
         self.assert_identity_preserved()
 
-    def test_accepts_previous_build_and_keeps_identity_and_chain_files(self):
-        self.before['compatibilitySha256'] = 'f' * 64
+    def test_keeps_identity_and_chain_files_and_backs_up_the_binding_by_fingerprint(self):
+        # A v2 binding names the consensus rules, not a build digest, so no "previous build" case remains here; a
+        # v1 file of an uncertified build is refused (launcher.rs unit tests; the CLI refusal moves to plan T32).
         write_json(self.home / 'network.pocol.json', self.before)
         state = self.home / 'state'
         state.mkdir()
@@ -147,11 +152,33 @@ class FullNonceUpgrade(unittest.TestCase):
         self.assertEqual({p.name: p.read_bytes() for p in state.iterdir()}, original)
         self.assert_identity_preserved()
         self.assertEqual(read_json(self.home / 'network.pocol.json'), self.after)
-        self.assertEqual(read_json(self.home / 'network.pocol.json.before-full-nonce'), self.before)
+        backups = sorted(p.name for p in self.home.glob('network.pocol.json.before-*'))
+        self.assertEqual(len(backups), 1, backups)
+        self.assertRegex(backups[0], r'^network\.pocol\.json\.before-[0-9a-f]{16}$')
+        self.assertEqual(read_json(self.home / backups[0]), self.before)
+        self.assertFalse((self.home / 'network.pocol.json.before-full-nonce').exists(), 'the 0.4.0 name is never written')
         self.assertFalse((self.home / 'network-upgrade.pending.json').exists())
         self.upgrade()  # Safe idempotent retry.
         for name in ('alloc.json', 'genesis.spec.hex'):
             self.assertEqual((self.home / 'network' / name).read_bytes(), self.before['files'][name].encode('utf-8'))
+
+    def test_a_home_bound_to_the_uncertified_h15000_file_is_refused_with_the_release_notes_text(self):
+        # Plan T32 and §5.4: LEGACY_BUILDS ships uncertified (owner decision D1, Option B by default), so neither an
+        # upgrade nor a plain start of an H15000 home proceeds, and nothing in the home changes.
+        h15000 = read_json(H15000)
+        write_json(self.home / 'network.pocol.json', h15000)
+        for name, content in h15000['files'].items():
+            (self.home / 'network' / name).write_bytes(content.encode('utf-8'))
+        before = {p.relative_to(self.home): p.read_bytes() for p in self.home.rglob('*') if p.is_file()}
+        for args in (('upgrade', '--home', self.home, '--network', self.target),
+                     ('inspect-upgrade', '--home', self.home, '--network', self.target),
+                     ('import', '--home', self.home)):
+            with self.subTest(command=args[0]):
+                refused = call('pocol', *args, ok=False)
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertIn(LEGACY_REFUSAL, refused.stderr)
+                self.assertEqual({p.relative_to(self.home): p.read_bytes() for p in self.home.rglob('*') if p.is_file()}, before)
+        self.assertFalse((self.home / 'network-upgrade.pending.json').exists())
 
     def test_rejects_changed_network_metadata_seeds_and_schedule(self):
         candidates = []
@@ -162,7 +189,13 @@ class FullNonceUpgrade(unittest.TestCase):
         changed = copy.deepcopy(self.after)
         changed['seeds'] = ['127.0.0.1:30301']
         candidates.append(changed)
-        for forks in ([[1, 0]], [[1, 0], [2, 0]], [[1, 0], [3, 100000]]):
+        # The same schedule ([[1, 0]]) in a reformatted devnet.json is a rebind, not a refusal (plan §1.7).
+        same = copy.deepcopy(self.after)
+        metadata = json.loads(same['files']['devnet.json']); metadata['forks'] = [[1, 0]]
+        same['files']['devnet.json'] = json.dumps(metadata)
+        write_json(self.target, same)
+        self.assertEqual(json.loads(call('pocol', 'inspect-upgrade', '--home', self.home, '--network', self.target).stdout)['change'], 'rebind')
+        for forks in ([[1, 0], [2, 0]], [[1, 0], [3, 100000]]):
             changed = copy.deepcopy(self.after)
             metadata = json.loads(changed['files']['devnet.json'])
             metadata['forks'] = forks
@@ -264,10 +297,13 @@ class FullNonceUpgrade(unittest.TestCase):
 
 
 class NewGenesisRejoin(unittest.TestCase):
-    """A home bound to one genesis joins a network with another genesis (the earn-in cutover) the way the
-    release notes describe (runbook step 3): the new invitation goes beside the application, the old network's
-    files go to a folder in the home, the key stays, and the wallet imports the new invitation. Import and
-    upgrade refuse the new genesis while the old binding is in place, so nothing rebinds a home silently."""
+    """A home bound to one genesis joins a network with another genesis (the earn-in cutover, owner decision D1
+    Option B) the way the release notes describe (runbook step 3; RELEASE-UPGRADE.md "Resync a launcher home"): the
+    new invitation goes beside the application, the old network's files (state, wallet activity, every
+    network.pocol.json.before-* backup) go to a folder in the home, the key stays, and the wallet imports the new
+    invitation. Both invitations are `pocol network` output, so pocol-network-v2 bound to the rules revision. Import
+    and upgrade refuse the new genesis while the old binding is in place, so nothing rebinds a home silently, and the
+    published H15000 (v1, uncertified) invitation is refused with the Option B text and writes nothing."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -308,15 +344,17 @@ class NewGenesisRejoin(unittest.TestCase):
         return json.loads(read_json(self.home / 'network.pocol.json')['files']['devnet.json'])['chainId']
 
     def move_aside(self):
-        # What a used home also holds: chain data, wallet activity and the H15000 upgrade's backup.
+        # What a used home also holds: chain data, wallet activity, the H15000 upgrade's backup and a later
+        # release's fingerprint-named backup.
         (self.home / 'state').mkdir(exist_ok=True)
         (self.home / 'state' / 'blocks.journal').write_bytes(b'old chain')
         (self.home / 'wallet-activity.json').write_text('[]', encoding='utf-8')
         (self.home / 'network.pocol.json.before-full-nonce').write_text('{}', encoding='utf-8')
+        (self.home / 'network.pocol.json.before-0123456789abcdef').write_text('{}', encoding='utf-8')
         aside = self.home / 'old-network'
         aside.mkdir()
         moved = ['network.pocol.json', 'network', 'state', 'wallet-activity.json',
-                 'network.pocol.json.before-full-nonce']
+                 'network.pocol.json.before-full-nonce', 'network.pocol.json.before-0123456789abcdef']
         for name in moved:
             shutil.move(str(self.home / name), str(aside / name))
         return aside, moved
@@ -338,6 +376,18 @@ class NewGenesisRejoin(unittest.TestCase):
         self.assertEqual(self.bound_chain(), 777916)
         self.assertEqual(sorted(p.name for p in aside.iterdir()), sorted(moved))
         self.assertEqual((aside / 'state' / 'blocks.journal').read_bytes(), b'old chain')
+
+    def test_the_real_h15000_invitation_beside_the_application_is_refused_and_writes_nothing(self):
+        # Plan T32: a fresh home with only its key, and the published 0.4.0 invitation beside the application.
+        home = self.root / 'fresh'
+        self.assertEqual(len(identity(home)), 42)
+        shutil.copy2(H15000, self.app / 'network.pocol.json')
+        before = sorted(p.name for p in home.iterdir())
+        refused = self.engine('import', '--home', home, ok=False)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn(LEGACY_REFUSAL, refused.stderr)
+        self.assertEqual(sorted(p.name for p in home.iterdir()), before, 'no binding and no network files')
+        self.assertFalse((home / 'network.pocol.json').exists())
 
     def test_an_old_invitation_left_beside_the_application_binds_the_home_again(self):
         # Why the notes replace the file beside the application first: otherwise opening the wallet rebinds

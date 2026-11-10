@@ -22,6 +22,14 @@ jobs:
         with:
           ref: ${{ env.EXPECTED_COMMIT }}
           persist-credentials: false
+          # origin/main for the consensus lock's append-only check.
+          fetch-depth: 0
+      - name: Consensus lock is append-only against main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B -m unittest discover -s deploy/ci -v
+          python3 -B deploy/ci/check_lock_append_only.py --base origin/main
       - name: Build exact source and test compatibility and operations controls
         shell: bash
         run: |
@@ -31,9 +39,10 @@ jobs:
           git rev-parse HEAD > evidence/commit.txt
           rustup toolchain install 1.99.1 --profile minimal
           cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml 2>&1 | tee evidence/build.log
-          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test net --test relay --test discovery 2>&1 | tee evidence/rust.log
+          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test net --test relay --test discovery --test consensus_guard 2>&1 | tee evidence/rust.log
           cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --test consensus --test caps -- --test-threads=1 2>&1 | tee evidence/consensus.log
           python3 -B deploy/public-testnet/test_operations.py -v 2>&1 | tee evidence/operations.log
+          python3 -B -m unittest discover -s deploy/public-testnet -p test_pocol_identity.py -v 2>&1 | tee evidence/identity.log
           python3 -B prototypes/pocold/tests/independent_keys.py -v 2>&1 | tee evidence/keys.log
       - name: Four packaged nodes, enrollment, site, backup and recovery
         shell: bash

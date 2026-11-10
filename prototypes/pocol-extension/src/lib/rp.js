@@ -23,6 +23,8 @@ export function asert(targetG, gTs, tBlk, tau, pTs, pH) {
   return Y < 1n ? 1n : (Y > MAX ? MAX : Y);
 }
 export const work = (t) => (1n << 256n) / (t + 1n);
+/** pocold chain::full_nonce_rule: v2 introduced the full u64 nonce domain and every later version keeps it. */
+export const fullRange = (v, m) => v >= 2n || m === 1n;
 /** Header (A08): every field, width and canonical encoding of the reference decoder before any
  * trust result (refdec.js). RP still does not establish execution or membership validity. */
 export const decodeHeader = decodeHeaderRef;
@@ -53,7 +55,7 @@ export async function verifyWindow(rpc, spec, clockS = Math.floor(Date.now() / 1
     const tgt = asert(tG, cpv(spec, 'g_ts'), cpv(spec, 'T_blk'), cpv(spec, 'tau'), parent.ts, parent.h);
     if (x.target !== tgt) fail('5');
     if (x.target > ceil) fail('viewTargetCeil');
-    const cw = cpv(spec, 'c') * work(x.target); const nMax = x.version === 2n || cpv(spec, 'nonceMode') === 1n ? 1n << 64n : (cw < (1n << 64n) ? cw : 1n << 64n);
+    const cw = cpv(spec, 'c') * work(x.target); const nMax = fullRange(x.version, cpv(spec, 'nonceMode')) ? 1n << 64n : (cw < (1n << 64n) ? cw : 1n << 64n);
     if (x.nonce >= nMax) fail('6');
     if (toBig(sha256(concat(x.tid, x.nonceB))) > x.target) fail('7');
     try { recover(winMsg(x), x.winnerSig); } catch { fail('8'); }

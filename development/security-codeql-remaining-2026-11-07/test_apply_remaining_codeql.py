@@ -2,6 +2,7 @@
 import base64
 import contextlib
 import copy
+import functools
 import hashlib
 import io
 import json
@@ -17,6 +18,33 @@ import apply_remaining_codeql as tool
 
 ROOT = Path(__file__).resolve().parents[2]
 HEAD = 'c' * 40
+
+
+@functools.lru_cache(maxsize=None)
+def review_commit():
+    """This checkout's commit for the plan's review_source_commit (274ea3e of palcertcom/pocol).
+
+    The applied batch is a closed record: its sources are the reviewed Git blobs, not working-tree
+    files that later work changes. The migration rewrote every commit and recorded the old id in an
+    `Original-Commit: palcertcom/pocol@<id>` line; a clone of the original history resolves it as
+    it is. Needs the full history (fetch-depth: 0), never a working-tree fallback.
+    """
+    original = tool.load_plan()['review_source_commit']
+    def git(*args):
+        return subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True, text=True)
+    if git('cat-file', '-e', original + '^{commit}').returncode == 0:
+        return original
+    found = git('log', '--format=%H', f'--grep=^Original-Commit: palcertcom/pocol@{original}$',
+                'HEAD').stdout.split()
+    if len(found) != 1:
+        raise AssertionError(f'{original} is not in this checkout\'s history (needs fetch-depth: 0)')
+    return found[0]
+
+
+@functools.lru_cache(maxsize=None)
+def reviewed_source(path):
+    return subprocess.run(['git', '-C', str(ROOT), 'show', f'{review_commit()}:{path}'],
+                          capture_output=True, check=True).stdout
 
 
 def inventory_row(number):
@@ -48,7 +76,7 @@ class Fake:
         if '/contents/' in endpoint:
             self.assert_read(payload)
             path = unquote(endpoint.split('/contents/', 1)[1].split('?ref=', 1)[0])
-            data = (ROOT / path).read_bytes()
+            data = reviewed_source(path)  # a main that still holds the reviewed source
             if self.bad_current_source: data += b'changed current main'
             return {'type': 'file', 'encoding': 'base64', 'content': base64.b64encode(data).decode()}
         if '/code-scanning/alerts?' in endpoint:
@@ -96,9 +124,10 @@ class RemainingTests(unittest.TestCase):
         rows = tool.load_plan()['alerts']
         paths = set()
         for row in rows:
-            path = ROOT / row['location']['path']; paths.add(path)
-            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), row['source_sha256'])
-            line = path.read_text(encoding='utf-8').splitlines()[row['location']['start_line'] - 1]
+            path = Path(row['location']['path']); paths.add(path)
+            data = reviewed_source(row['location']['path'])
+            self.assertEqual(hashlib.sha256(data).hexdigest(), row['source_sha256'])
+            line = data.decode('utf-8').splitlines()[row['location']['start_line'] - 1]
             self.assertEqual(line, row['source_line'])
             self.assertEqual(line[row['location']['start_column'] - 1:row['location']['end_column'] - 1],
                              row['reviewed_literal'])

@@ -212,6 +212,7 @@ impl<'a> Wallet<'a>{
             (Some(r),Some(end)) if self.rejoin.is_none()=>format!("{mining_state} · Probation: bond {} of {} PCOL, filled from your rewards (by block {end})",coins(r.bond),coins(target)),
             _=>mining_state,
         };
+        let diag=n.incompatible_json();
         crate::network_display::annotate(json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
             "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
             "miningEnabled":enabled,"miningEligible":eligible,"registered":record.is_some(),
@@ -221,7 +222,9 @@ impl<'a> Wallet<'a>{
             "blocksMined":n.stats.mined,"bond":coins(target),
             "earnIn":earn,"bondHeld":record.as_ref().map(|r|coins(r.bond)),"bondTarget":coins(target),"probationEndsAt":ends,
             "topUpAvailable":earn&&probation.is_some()&&ends.is_some_and(|e|head.height+1<e),
-            "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true}))
+            "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true,
+            // Why peers were refused (VA-SPEC §2.5, attack A2-6), so the wallet can tell a lagging node what to do.
+            "incompatiblePeers":diag["incompatiblePeers"],"legacyHellos":diag["legacyHellos"],"lastIncompatibleReason":diag["lastIncompatibleReason"]}))
     }
     pub fn handle(&mut self,n:&mut Node,raw:&str)->Value{
         let result=(||{
