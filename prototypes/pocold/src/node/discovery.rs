@@ -285,6 +285,8 @@ impl Node{
     pub(super) fn disc_first_hello(&mut self,from:PeerId,port:u16,nonce:u64,now:u64){
         if !self.disc.on{return}
         let remote=self.disc.links.get(&from).filter(|l|l.origin==Origin::Inbound).and_then(|l|l.remote);self.family_up(remote);self.seed_hello(from,false,now);
+        // The first compatible peer after none: this host is online again (`seeds_online`); `from` is not in it yet.
+        if self.peer_status.is_empty(){self.seeds_online()}
         let src=match self.disc.links.get(&from).map(|l|l.origin){Some(Origin::Slot(t,a))=>self.slot_source(usize::from(t),a),_=>None};
         let d=&mut self.disc;let Some(l)=d.links.get_mut(&from) else{return};
         l.compatible=true;

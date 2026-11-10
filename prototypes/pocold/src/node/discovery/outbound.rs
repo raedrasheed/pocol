@@ -130,8 +130,21 @@ impl Node{
         if is_self{s.is_self=true;o.seed_node=true}else{s.compatible_ms=Some(now);s.fails=0}
     }
     /// D18': a connection of an address family (one this node dialed, or an inbound one's first Hello) shows that it
-    /// has a route: the family is up again.
-    pub(super) fn family_up(&mut self,a:Option<SocketAddr>){if let Some(a)=a{self.disc.out.family_down[family(a)]=None;}}
+    /// has a route: the family is up again (and the seeds' holds are cleared, `seeds_online`).
+    pub(super) fn family_up(&mut self,a:Option<SocketAddr>){if let Some(a)=a{if self.disc.out.family_down[family(a)].take().is_some(){self.seeds_online()}}}
+    /// This host is back online (a family down came back, or a first compatible peer after none): every seed's holds
+    /// and failures are cleared, so that the holds a local outage built up (up to 6 h) do not keep a node that needs
+    /// its seeds (an empty or stale book, no bootstrap list) cut off once its network returns.
+    pub(super) fn seeds_online(&mut self){for s in &mut self.disc.out.seeds{s.fails=0;s.hold_until_ms=0;}}
+    /// Whether this host has a route to `a` (`net::route_ok`, which sends nothing; tests set `route_ok`).
+    fn route(&self,a:SocketAddr)->bool{
+        #[cfg(test)] if let Some(ok)=self.disc.out.route_ok{return ok}
+        net::route_ok(a)
+    }
+    /// D18' for the seeds: a wanted seed that did not become compatible failed locally when this node has no
+    /// compatible peer and the seed's family is down or has no route; such a failure is held only seed_hold_base_ms
+    /// and does not count.
+    fn local_failure(&self,a:SocketAddr)->bool{self.peer_status.is_empty()&&(self.disc.out.family_down[family(a)].is_some()||!self.route(a))}
     /// A seed's address (VA-SPEC §1a.8).
     fn is_seed_addr(&self,a:SocketAddr)->bool{let a=canon(a);self.disc.out.seeds.iter().any(|s|s.addr==a)}
     /// The key a link counts under: the address dialed, or an inbound connection's source.
@@ -197,15 +210,13 @@ impl Node{
         }
     }
     /// D18': a family that is down is probed again every probe_ms (`net::route_ok`, a UDP connect that sends nothing);
-    /// a probe that succeeds brings it back.
+    /// a probe that succeeds brings it back and clears the seeds' holds.
     fn probe_families(&mut self,now:u64){
         let every=self.disc.times.probe_ms;
         for f in 0..2{
             let Some((a,at))=self.disc.out.family_down[f] else{continue};
             if now.saturating_sub(at)<every{continue}
-            #[cfg(test)] let ok=self.disc.out.route_ok.unwrap_or_else(||net::route_ok(a));
-            #[cfg(not(test))] let ok=net::route_ok(a);
-            self.disc.out.family_down[f]=if ok{None}else{Some((a,now))};
+            if self.route(a){self.disc.out.family_down[f]=None;self.seeds_online()}else{self.disc.out.family_down[f]=Some((a,now))}
         }
     }
     /// From `disc_tick`, every tick_ms: the family probes, the stall and quiet edges, the seed policy, then each idle
@@ -289,7 +300,7 @@ impl Node{
         let o=&mut self.disc.out;
         let Some(SlotState::Dialing{addr,kind,..})=o.slots.get(t).map(|s|s.state) else{o.counters.slots_stale+=1;return Arrival::Close};
         if addr!=a{o.counters.slots_stale+=1;return Arrival::Close}
-        o.family_down[family(a)]=None;o.slots[t].state=SlotState::Up{peer:id,addr:a,kind,since_ms:now};
+        o.slots[t].state=SlotState::Up{peer:id,addr:a,kind,since_ms:now};self.family_up(Some(a));let o=&mut self.disc.out;
         if kind==SlotKind::Feeler{o.feeler=Some(Feeler{id,peer:p.clone(),hello:false});return Arrival::Feeler}
         self.disc.links.insert(id,Link::new(p));Arrival::Peer
     }
@@ -486,12 +497,13 @@ impl Node{
     fn seed_policy(&mut self,now:u64,stalled:bool,healthy:usize){
         if self.disc.out.seeds.is_empty(){return}
         let t=self.disc.times;
-        // Holds first: a wanted seed that did not become compatible in time.
+        // Holds first: a wanted seed that did not become compatible in time (a local failure only for the base).
         for i in 0..self.disc.out.seeds.len(){
-            let s=&mut self.disc.out.seeds[i];
+            let s=&self.disc.out.seeds[i];
             if s.compatible_ms.is_none()&&s.wanted_ms.is_some_and(|w|now.saturating_sub(w)>=t.seed_connect_ms){
-                s.fails=s.fails.saturating_add(1);s.hold_until_ms=now.saturating_add(t.seed_hold_base_ms.saturating_mul(1u64.checked_shl(s.fails-1).unwrap_or(u64::MAX)).min(t.seed_hold_max_ms));
-                self.disc.out.counters.seed_holds+=1;self.suppress(i);
+                let local=self.local_failure(s.addr);let s=&mut self.disc.out.seeds[i];
+                let hold=if local{t.seed_hold_base_ms}else{s.fails=s.fails.saturating_add(1);t.seed_hold_base_ms.saturating_mul(1u64.checked_shl(s.fails-1).unwrap_or(u64::MAX))};
+                s.hold_until_ms=now.saturating_add(hold.min(t.seed_hold_max_ms));self.disc.out.counters.seed_holds+=1;self.suppress(i);
             }
         }
         let o=&self.disc.out;let eligible=|s:&Seed|!s.is_self&&s.hold_until_ms<=now;
@@ -872,7 +884,7 @@ mod tests{
     /// all held none is wanted and every one stays in the outbound set. A seed that connects clears its failures.
     #[test] fn dead_seeds_are_held_with_backoff(){
         let seeds=seeds3();
-        let (mut n,_rx,dir)=node("o-dead",2,false,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;
+        let (mut n,_rx,dir)=node("o-dead",2,false,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;n.disc.out.route_ok=Some(true);
         let mut now=G;let end=G+2*3_600_000;let mut all_held=false;
         let boot=G+n.disc.times.seed_boot_ms;let mut holds:Vec<Vec<u64>>=vec![vec![];3];
         while now<end{let before:Vec<u64>=n.disc.out.seeds.iter().map(|s|s.hold_until_ms).collect();tick(&mut n,now);assert!(wanted(&n).len()<=if now<boot{2}else{1});
@@ -886,6 +898,29 @@ mod tests{
         while wanted(&n).is_empty(){now+=S;tick(&mut n,now);}
         let i=wanted(&n)[0];let s=seeds[i];let _c=connect(&mut n,1,Origin::Configured(s),Some(s));greet(&mut n,1,30300,0);
         assert_eq!(n.disc.out.seeds[i].fails,0,"a seed that connects clears its failures");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// D18', D7'' (VA-SPEC §1a.8): a seed that fails while this host has no route (and no compatible peer) is held
+    /// only the base and counts no failure, so 2 h offline leave no long hold and a seed is wanted within a minute of
+    /// the route's return. Holds that dead seeds built up behind a router without upstream are cleared by the first
+    /// compatible peer after none, and by a family that comes back.
+    #[test] fn an_outage_builds_no_long_seed_holds(){
+        let seeds=seeds3();let end=G+2*3_600_000;
+        let run=|n:&mut Node,from:u64,to:u64|{let mut now=from;while now<to{tick(n,now);now+=S;}};
+        let (mut n,_rx,dir)=node("o-outage",2,false,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;n.disc.out.route_ok=Some(false);
+        run(&mut n,G,end);
+        assert!(n.disc.out.seeds.iter().all(|s|s.fails==0&&s.hold_until_ms<=end+n.disc.times.seed_hold_base_ms),"no route: base holds only, no failures");
+        n.disc.out.route_ok=Some(true);let wants=n.disc.out.counters.seed_wants;run(&mut n,end,end+61*S);
+        assert!(n.disc.out.counters.seed_wants>wants,"a seed is wanted within a minute of the route's return");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+        let (mut n,_rx,dir)=node("o-outage2",2,false,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;n.disc.out.route_ok=Some(true);
+        run(&mut n,G,end);
+        assert!(n.disc.out.seeds.iter().all(|s|s.fails>=4),"a route but no peer: the dead seeds' holds grow");
+        let _i=connect(&mut n,9,Origin::Inbound,Some(sa("81.50.0.1:51000")));greet(&mut n,9,0,0);
+        assert!(n.disc.out.seeds.iter().all(|s|s.fails==0&&s.hold_until_ms==0),"the first compatible peer after none clears them");
+        tick(&mut n,end);assert_eq!(wanted(&n).len(),1,"and a seed is wanted at once");
+        n.disc.out.seeds[0].fails=5;n.disc.out.seeds[0].hold_until_ms=u64::MAX;n.disc.out.family_down[0]=Some((seeds[0],end));
+        let probe=n.disc.times.probe_ms;tick(&mut n,end+probe);assert!(n.disc.out.family_down[0].is_none()&&n.disc.out.seeds[0].fails==0&&n.disc.out.seeds[0].hold_until_ms==0,"a family that comes back clears them");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// D7'' (VA-SPEC §1a.8): a listening node wants a seed until 2 useful peers have held for seed_release_ms, then
@@ -967,8 +1002,9 @@ mod tests{
         for i in 0..300u32{let a=SocketAddr::new([91+(i/250) as u8,(i%250) as u8,0,1].into(),30300);
             n.disc.book.insert_unverified(a,Source::Peer(key_of(SocketAddr::new([70,(i%30) as u8,0,1].into(),30300))),Kind::Heard,false,now);}
         assert!(n.disc.book.entries().len()>=302,"the book is poisoned");
-        let rx=n.disc_test_slots(now);for s in &mut n.disc.out.seeds{s.fails=1;s.hold_until_ms=u64::MAX/2;}
-        let p=sa("81.40.0.1:30300");verified(&mut n,p,now);let _p=up(&mut n,0,p,1,true,now);let _=rx[0].try_recv();
+        // The seeds held after P, the first compatible peer (which clears their holds, `seeds_online`).
+        let rx=n.disc_test_slots(now);let p=sa("81.40.0.1:30300");verified(&mut n,p,now);let _p=up(&mut n,0,p,1,true,now);let _=rx[0].try_recv();
+        for s in &mut n.disc.out.seeds{s.fails=1;s.hold_until_ms=u64::MAX/2;}
         tick(&mut n,now);assert!(n.stalled(now));assert_eq!(rx[1].try_recv().ok(),Some(b[0]),"the stall's extra: the first bootstrap address");
         n.disc_dial_failed(1,b[0],DialError::Refused,now);
         tick(&mut n,now+S);assert!(rx[1].try_recv().is_err(),"one extra per W");

@@ -172,7 +172,8 @@ becomes an extra full connection to a new source (bootstrap addresses first once
 seed can be wanted); if it moves the head it replaces the slot useful longest ago (never
 the sync peer). Anchors: up to 2 automatic peers connected 10 minutes and useful within
 W, saved with the book and dialed first after a restart. Seeds bootstrap and refill
-only: at most 2 wanted, a dead one held 1 minute doubling to 6 hours; a listening node
+only: at most 2 wanted, a dead one held 1 minute doubling to 6 hours (while this host
+itself has no route and no peer, 1 minute only; holds clear once it is back online); a listening node
 releases its seed 2 minutes after 2 useful peers hold, a node without a listener keeps
 one (owner decision D7'a). A seed host (its exact `--listen`, or a local listener on the
 seed's port) keeps all other seeds. Configured peers plus slots (the spare included)
