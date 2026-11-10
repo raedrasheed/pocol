@@ -49,10 +49,10 @@ fn command() -> Result<(), String> {
     let rest = args.get(1..).unwrap_or_default();
     let allowed: &[&str] = match command {
         "identity" => &["--home"], "start" => &["--home", "--network", "--listen", "--rpc"],
-        "wallet" | "import" | "upgrade" => &["--home", "--network"],
+        "wallet" | "import" | "upgrade" | "inspect-upgrade" => &["--home", "--network"],
         "network" => &["--from", "--seed", "--out"], "inspect" => &["--network"],
         "build-info" => { println!("{}", pocold::identity::BUILD_INFO); return Ok(()); }
-        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] | network --from GENESIS_DIR --seed IP:PORT... --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE".into()),
+        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] | network --from GENESIS_DIR --seed IP:PORT... --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE".into()),
     };
     let mut values = std::collections::BTreeMap::<String, Vec<String>>::new();
     if rest.len() % 2 != 0 {
@@ -90,14 +90,16 @@ fn command() -> Result<(), String> {
         .map(PathBuf::from)
         .map(Ok)
         .unwrap_or_else(launcher::default_home)?;
-    if command == "upgrade" {
+    if command == "upgrade" || command == "inspect-upgrade" {
         let network = Path::new(need("--network")?);
         if !home_path.is_dir() {
-            return Err("upgrade requires an existing PoCol home; it never creates a wallet".into());
+            return Err(format!("{command} requires an existing PoCol home; it never creates a wallet"));
         }
         let home = Home::open(&home_path)?;
-        let invitation = home.upgrade(&launcher::read_bounded(network)?)?;
-        println!("{}", invitation.describe());
+        let bytes = launcher::read_bounded(network)?;
+        // inspect-upgrade is the read-only dry run (change none, rebind or activation); it writes nothing.
+        let out = if command == "upgrade" { home.upgrade(&bytes)?.describe() } else { home.inspect_upgrade(&bytes)? };
+        println!("{out}");
         return Ok(());
     }
     let home = Home::open(&home_path)?;

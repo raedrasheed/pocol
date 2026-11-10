@@ -71,6 +71,16 @@ pub unsafe extern "C" fn pocol_mobile_upgrade(home: *const c_char, path: *const 
         Ok(Home::open(home)?.upgrade(&bytes)?.describe())
     }).unwrap_or_else(|_| Err("network upgrade failed".into())))
 }
+/// Read-only dry run of an upgrade (`Home::inspect_upgrade`): what applying the file would change, for the confirmation.
+#[no_mangle]
+pub unsafe extern "C" fn pocol_mobile_inspect_upgrade(home: *const c_char, path: *const c_char) -> *mut c_char {
+    reply(std::panic::catch_unwind(|| {
+        let home = Path::new(unsafe { text(home)? });
+        if !home.is_dir() { return Err("upgrade inspection requires an existing PoCol home".into()); }
+        let bytes = launcher::read_bounded(Path::new(unsafe { text(path)? }))?;
+        Home::open(home)?.inspect_upgrade(&bytes)
+    }).unwrap_or_else(|_| Err("network upgrade inspection failed".into())))
+}
 #[no_mangle]
 pub unsafe extern "C" fn pocol_mobile_run(home: *const c_char) -> *mut c_char {
     let result = std::panic::catch_unwind(|| {
@@ -142,11 +152,14 @@ mod tests {
         assert!(!path.exists());
         let home = CString::new(path.to_str().unwrap()).unwrap();
         let input = CString::new("not-a-network-file").unwrap();
-        unsafe {
-            let result = pocol_mobile_upgrade(home.as_ptr(), input.as_ptr());
-            let value: serde_json::Value = serde_json::from_str(CStr::from_ptr(result).to_str().unwrap()).unwrap();
-            pocol_mobile_free(result);
-            assert!(value["error"].as_str().unwrap().contains("existing PoCol home"));
+        // The dry run (plan §1.7) is read-only too: it never creates a home either.
+        for call in [pocol_mobile_upgrade, pocol_mobile_inspect_upgrade] {
+            unsafe {
+                let result = call(home.as_ptr(), input.as_ptr());
+                let value: serde_json::Value = serde_json::from_str(CStr::from_ptr(result).to_str().unwrap()).unwrap();
+                pocol_mobile_free(result);
+                assert!(value["error"].as_str().unwrap().contains("existing PoCol home"));
+            }
         }
         assert!(!path.exists());
     }

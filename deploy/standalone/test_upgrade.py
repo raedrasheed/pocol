@@ -133,8 +133,9 @@ class FullNonceUpgrade(unittest.TestCase):
         self.assertEqual((state / 'blocks.journal').read_bytes(), journal)
         self.assert_identity_preserved()
 
-    def test_accepts_previous_build_and_keeps_identity_and_chain_files(self):
-        self.before['compatibilitySha256'] = 'f' * 64
+    def test_keeps_identity_and_chain_files_and_backs_up_the_binding_by_fingerprint(self):
+        # A v2 binding names the consensus rules, not a build digest, so no "previous build" case remains here; a
+        # v1 file of an uncertified build is refused (launcher.rs unit tests; the CLI refusal moves to plan T32).
         write_json(self.home / 'network.pocol.json', self.before)
         state = self.home / 'state'
         state.mkdir()
@@ -147,7 +148,11 @@ class FullNonceUpgrade(unittest.TestCase):
         self.assertEqual({p.name: p.read_bytes() for p in state.iterdir()}, original)
         self.assert_identity_preserved()
         self.assertEqual(read_json(self.home / 'network.pocol.json'), self.after)
-        self.assertEqual(read_json(self.home / 'network.pocol.json.before-full-nonce'), self.before)
+        backups = sorted(p.name for p in self.home.glob('network.pocol.json.before-*'))
+        self.assertEqual(len(backups), 1, backups)
+        self.assertRegex(backups[0], r'^network\.pocol\.json\.before-[0-9a-f]{16}$')
+        self.assertEqual(read_json(self.home / backups[0]), self.before)
+        self.assertFalse((self.home / 'network.pocol.json.before-full-nonce').exists(), 'the 0.4.0 name is never written')
         self.assertFalse((self.home / 'network-upgrade.pending.json').exists())
         self.upgrade()  # Safe idempotent retry.
         for name in ('alloc.json', 'genesis.spec.hex'):
@@ -162,7 +167,13 @@ class FullNonceUpgrade(unittest.TestCase):
         changed = copy.deepcopy(self.after)
         changed['seeds'] = ['127.0.0.1:30301']
         candidates.append(changed)
-        for forks in ([[1, 0]], [[1, 0], [2, 0]], [[1, 0], [3, 100000]]):
+        # The same schedule ([[1, 0]]) in a reformatted devnet.json is a rebind, not a refusal (plan §1.7).
+        same = copy.deepcopy(self.after)
+        metadata = json.loads(same['files']['devnet.json']); metadata['forks'] = [[1, 0]]
+        same['files']['devnet.json'] = json.dumps(metadata)
+        write_json(self.target, same)
+        self.assertEqual(json.loads(call('pocol', 'inspect-upgrade', '--home', self.home, '--network', self.target).stdout)['change'], 'rebind')
+        for forks in ([[1, 0], [2, 0]], [[1, 0], [3, 100000]]):
             changed = copy.deepcopy(self.after)
             metadata = json.loads(changed['files']['devnet.json'])
             metadata['forks'] = forks

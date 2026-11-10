@@ -55,6 +55,21 @@ fn caps_test_is_taken_from_the_crate_that_changes_the_constant() {
     assert_eq!(pocol_lp4_execution::user_phase::caps::LOG_CAP == 1 << 24, pocol_lp4_execution::CAPS_TEST);
 }
 
+/// Guard check 8 (plan §1.5, §1.7): the legacy table still holds the H15000 build, and every entry, certified or not,
+/// names the H15000 chain and genesis. Whether a certified entry's `sources` equal the build's is a release-time check
+/// (package.py), so an ordinary neutral re-pin does not break CI.
+#[test]
+fn the_legacy_table_is_bound_to_the_h15000_chain() {
+    const H15000_CHAIN: u64 = 1599846715;
+    const H15000_GENESIS: &str = "0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca";
+    let table = pocold::launcher::LEGACY_BUILDS;
+    assert!(table.iter().any(|l| l.digest == "6cf38a14aa01ca3d824b0309564942cc926ca7232e2a5b2672a17e8c99e35476"), "the H15000 build is listed");
+    for l in table {
+        assert_eq!((l.chain_id, l.genesis_hash, l.rules), (H15000_CHAIN, H15000_GENESIS, 1), "{}", l.digest);
+        assert!(l.certified.is_none() || l.sources.is_some_and(|s| s.len() == 64), "a certified entry records the aggregate its replay ran");
+    }
+}
+
 // ---- T7: check() on fixture trees and locks ----
 
 /// A scratch directory under the target's tmp, removed and recreated.
