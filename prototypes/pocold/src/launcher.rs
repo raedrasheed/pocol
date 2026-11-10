@@ -528,8 +528,12 @@ impl Home {
             limits: node::Limits {
                 state_store: true,
                 mem_budget: std::env::var("POCOL_MEMORY_BUDGET_BYTES").ok().map(|s|s.parse::<u64>().map_err(|_|"Invalid POCOL_MEMORY_BUDGET_BYTES")).transpose()?.unwrap_or(node::MEM_BUDGET),
-                // Local P2P policy (net::Limits::per_group_max): inbound peers per public address group.
+                // Local P2P policy (net::Limits::peers_max, per_group_max): the established inbound peers, and inbound
+                // peers per public address group. A13 counts every inbound place against POCOL_MEMORY_BUDGET_BYTES, so an
+                // operator who lowers the budget lowers POCOL_PEERS_MAX with it.
                 net: crate::net::Limits {
+                    // An empty value counts as unset.
+                    peers_max: std::env::var("POCOL_PEERS_MAX").ok().filter(|s|!s.trim().is_empty()).map(|s|crate::net::parse_peers_max(&s).map_err(|_|"Invalid POCOL_PEERS_MAX")).transpose()?.unwrap_or(crate::net::Limits::default().peers_max),
                     // An empty value counts as unset.
                     per_group_max: std::env::var("POCOL_PER_GROUP_MAX").ok().filter(|s|!s.trim().is_empty()).map(|s|s.trim().parse::<usize>().map_err(|_|"Invalid POCOL_PER_GROUP_MAX")).transpose()?.unwrap_or(crate::net::Limits::default().per_group_max),
                     ..Default::default()

@@ -42,12 +42,22 @@ journal records plus 2048 records of headroom, rechecks as records grow, and ref
 inadequate local capacity without marking valid blocks invalid. It does not claim
 an infinite-history resource bound. `POCOL_MEMORY_BUDGET_BYTES` can set the launcher's
 local declared budget after provisioning resources; it does not change consensus.
-`POCOL_PER_GROUP_MAX` (or `pocold run --per-group-max N`) sets how many of the 8
-inbound peer connections one public address range (an IPv4 /16 or IPv6 /32) may hold;
-the default 4 keeps any one range to half of them, and `0` turns the limit off. It is
-local P2P policy and does not change consensus.
+`POCOL_PEERS_MAX` (or `pocold run --peers-max N`, 1..128) sets how many established
+inbound peers the node keeps, default 32; up to 8 more connections may wait for their
+Hello. When the 32 are full, a newcomer evicts one inbound peer (the youngest of the
+most crowded address range; a few recent useful peers, the longest connected and the
+configured peers are protected) or is closed. `POCOL_PER_GROUP_MAX` (or `pocold run --per-group-max
+N`) sets how many inbound connections one public address range (an IPv4 /16 or IPv6
+/32) may hold, default 4, plus one spare place whose newcomer must
+evict within its own range; `0` turns the limit off. Both are local P2P policy and do
+not change consensus. Every inbound place counts against the memory budget, about
+3.73 MiB each: an operator who lowers `POCOL_MEMORY_BUDGET_BYTES` should lower
+`POCOL_PEERS_MAX` with it.
 The default model uses 6 GiB; a 4 GiB server with a 3 GiB service cgroup remains a
-small pilot, not a worst-case capacity proof. Disk sizing, compaction and long-term
+small pilot, not a worst-case capacity proof. The service's `MemoryMax=3G` was already
+below the model's bound, and the 32 established inbound places add about 126 MB of
+budget to it (110 MB of model) over the earlier 8. The unit's `TasksMax=256` holds the
+thread inventory (148 tasks with 7 configured peers). Disk sizing, compaction and long-term
 load qualification remain operational work. Numeric heights retain the format's
 u64 representation; zero disables scheduled expiry, not hardware arithmetic.
 

@@ -11,18 +11,27 @@ production P2P design of network.md (libp2p, Noise, gossipsub).
   peers, each of which must pass the Hello identity check (§2). Outbound connections go to the configured peers
   (one dialer each; seeds among them follow §1a.8) and, with automatic outbound on (§1a.7; default off), to
   learned addresses.
-- Inbound limits (local policy, `net::Limits`): at most `peers_max` connections, and at most
-  `per_group_max` (default 4, half of `peers_max`; `--per-group-max`, or `POCOL_PER_GROUP_MAX` for
-  `run`; 0 off) per public address group: IPv4 /16, IPv6 /32, an IPv6 address carrying an IPv4
-  address (6to4, Teredo, NAT64, mapped) counting as that address, and Yggdrasil 200::/7 (key-derived)
-  as one group. So one public /16 or /32 never holds more than half of the inbound slots. A
-  connection past the limit is refused even while other slots are free: nodes behind one NAT or one
-  provider range share these places until inbound eviction exists. Groups are counted per
-  address, so one host that reaches the node from several groups (an IPv4 /16 and an IPv6 /32, say)
-  holds a full set of places in each. Addresses that are not globally reachable (`net::group_of`:
-  loopback, private, link-local, shared 100.64/10, benchmarking, documentation, reserved,
-  unique-local fc00::/7 including cjdns, ...) are not grouped, and neither are the node's configured
-  peers, by their exact address.
+- Inbound limits (local policy, `net::Limits`): at most `peers_max` established connections (their
+  first eligible Hello accepted, §1b; default 32, `--peers-max N` or `POCOL_PEERS_MAX`, 1..128; seeds
+  run at the default) and, counted apart, at most `handshaking_max` (8) still waiting for their Hello,
+  so the physical bound is their sum, `inbound_max` (40). A full established set evicts one peer for
+  an eligible newcomer, or closes the newcomer (§1b). At most `per_group_max` (a fixed default 4;
+  `--per-group-max`, or `POCOL_PER_GROUP_MAX` for `run`; 0 off) connections per public address
+  group: IPv4 /16, IPv6 /32, an IPv6 address carrying an IPv4 address (6to4, Teredo, NAT64, mapped)
+  counting as that address, and Yggdrasil 200::/7 (key-derived) as one group. A full group has one
+  spare place (`GROUP_SPARE`): the newcomer that takes it must evict the youngest unprotected member
+  of its own group at its first eligible Hello (§1b.6), or it is closed, so the group's established
+  members stay within `per_group_max` and one idle host cannot lock the rest of its /16 out. A
+  connection past the spare place is refused even while other places are free: nodes behind one NAT
+  or one provider range share these places. Groups are counted per address, so one host that
+  reaches the node from several groups (an IPv4 /16 and an IPv6 /32, say) holds a full set of places
+  in each. Addresses that are not globally reachable (`net::group_of`: loopback, private, link-local,
+  shared 100.64/10, benchmarking, documentation, reserved, unique-local fc00::/7 including cjdns,
+  ...) are not grouped, and neither are the node's configured peers, by their exact address.
+- A configured peer is redialed after a connection that lasted less than 60 s with a doubling delay,
+  0.6 s, 1.2 s, ... at most 30 s (`net::redial_delay`); a connection that lasted 60 s or more resets
+  it to 300 ms, and a failed connect keeps it. A node that evicts or refuses this one therefore sees
+  its redials settle down.
 - Frame = `u32 BE length || RLP([type, ...fields])`, `1 <= length <= MAX_FRAME` (256 KiB).
 - Decoding is strict: canonical RLP, exact arity, minimal integers, fixed
   32-byte hashes, 8-byte nonces; re-encoding must equal the received bytes.
@@ -84,7 +93,8 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    entry read passes 3 and 4 again; a damaged, foreign or oversized file is ignored (empty book). These
    periods, the refresh of live entries and the 120 s of 2(c) run on the wall clock: when it steps back, no
    deadline stays more than its period ahead, and a GetAddr sent "in the future" expires.
-7. Automatic outbound, default off (`--outbound N`, 0..8; 0 until inbound eviction exists): N slots, one
+7. Automatic outbound, default off (`--outbound N`, 0..8; inbound eviction exists (§1b); the automatic-outbound
+   release sets its default): N slots, one
    connection each, at most one per address group, never to a configured peer, a seed, this node or an
    address already connected. Choice: verified or unverified entries 50/50 when both exist; verified by
    group, unverified by answering peer (all self-advertisements one source), then group; fewest failures
@@ -93,7 +103,9 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    up, one feeler every 2 min (10 min if not listening) connects to an unverified entry, sends a Hello
    announcing genesis, verifies the address and closes; it carries no gossip, sync or GetAddr. Up to 2
    anchors (automatic peers connected 10 min that delivered a block, distinct groups) are dialed first after
-   a restart. Inbound + configured + automatic + feeler <= 50 (network.md:156), checked at boot.
+   a restart. Inbound + configured + automatic + feeler <= 50 (network.md:156), checked at boot (with the
+   32 + 8 inbound places of §1 by default, that release must lower one side or count against the amended
+   network.md:156, which lets an operator raise inbound within A13).
 8. Seeds (automatic outbound, default off: `--seed`, the invitation's seeds, with N > 0): all are dialed for
    the first minute. Then a node keeps one seed connection while it does not listen, has fewer than 2 useful
    automatic peers, or is stalled; a listening node closes it after 2 useful peers have held 2 min. Useful:
@@ -102,6 +114,70 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    not connected within 30 s, or held while stalled for W, is replaced by the next. A node that finds a seed
    is itself (§2, or its exact `--listen` address) keeps all other seeds. With N = 0 seeds are configured
    peers.
+
+## 1b. Inbound eviction (local policy)
+Local node policy (`net::Net::establish`, `net::Limits::evict`), after Bitcoin Core's SelectNodeToEvict without
+its latency and relay-type steps (there is no Ping message). It never changes validity, chain state, cfg or
+admission, and no message or wire field is added.
+1. When. An inbound connection's first eligible Hello while `peers_max` connections are held, or the first
+   eligible Hello of a connection that took its full group's spare place (§1) while that group still holds
+   more than `per_group_max` places; a group that shrank meanwhile makes it an ordinary newcomer. Held:
+   established and still open; a victim already closed but not yet released does not count.
+2. Eligible: the Hello's chainId, genesisHash, protocolVersion and compatibility match this node and build
+   (§2), and its nonce is not this node's own. An ineligible Hello is never established, never evicts and
+   never counts as held; the node then closes it (§2) or finishes it as a self-connection.
+3. Candidates: the other established, open, non-exempt inbound connections. A connection established less
+   than `grace` (30 s) ago is never chosen, so a flood of newcomers cannot evict the honest peers that joined
+   just before it; it still counts in its key's size (step 4e).
+4. Victim (`net::victim`, every order ends in the connection id, so the result does not depend on the input
+   order); a candidate is a connection past its grace that no step protected:
+   a. a keyed netgroup lottery: the eviction keys ranked by a hash keyed at random per process, and the
+      oldest candidate of each of the first 4 keys protected;
+   b. per kind of delivery (a new block, a template that locked, a transaction that entered the pool, a
+      valid new share), the `max(4, peers_max/16)` candidates that delivered one most recently, each kind
+      its own quota, so cheap shares cannot take a template relayer's place;
+   c. the older half of the remaining candidates (by connection order, rounded down);
+   d. with no candidate left, no victim;
+   e. the eviction key with the most established non-exempt connections, protected and graced ones
+      included (credits cannot shrink a key's apparent size), among the keys that still have a candidate,
+      ties to the key with the youngest candidate; its youngest candidate is the victim.
+5. Credits (step 4b, `Node::credit`): a block new to this node (a duplicate, an orphan or an invalid one
+   earns nothing), a template that locked, a transaction admitted to the pool at once (a duplicate earns
+   nothing, and so does one queued behind the D-7 backlog, which does not record its sender), and a valid
+   new share. Each is the time of the connection's last delivery of that kind; a peer already gone earns
+   nothing.
+6. A full group (`net::victim_in`): the newcomer in the spare place evicts within its own group only: among
+   the connections that hold a place in that group (not a configured address's further connections, which
+   share its key but hold none) past their grace, the oldest and the latest deliverers of a new block and of a
+   locked template are kept, and the youngest of the rest goes. Other groups are untouched. With none, the
+   newcomer is refused by group.
+7. Budget. A newcomer's eviction key evicts at most once per `key_interval` (30 s; a ring of the latest 64
+   charges), and all newcomers together at most `burst` (8) at once, then one per `refill` (2 s), a GCRA.
+   A newcomer the budget refuses is closed, as every newcomer to a full set was before eviction existed, so
+   a spent budget fails safe.
+8. Configured peers. As many open connections from a configured peer's exact address as there are
+   configured peers at it are exempt: never candidates, never charged, and when no victim exists such a
+   newcomer may exceed `peers_max` by at most min(configured peers, `handshaking_max`/2), so at least half
+   of the handshake places remain. Further connections from that address are ordinary candidates.
+9. Outcome. A refused newcomer is closed before its Hello reaches the node. A victim is closed (its queued
+   frames dropped) and keeps its inbound and group places until its reader releases them, so physical
+   inbound connections stay within `inbound_max` even while consensus is stalled.
+10. Eviction keys (`net::EvictKey`), from the canonical address: a public address's group (§1, computed
+    also with `per_group_max` 0); all of fc00::/7 (cjdns and ULA overlays, where addresses are cheap) one
+    key; another ungrouped IPv6 address its /32 (loopback, link-local, ...); an ungrouped IPv4 address
+    (LAN, loopback) itself. Only eviction uses these keys; the per-group cap stays on §1's groups.
+
+The group cap and eviction from the largest key are the real limit on how many places one host, one /16 or
+one flood can hold. Usefulness buys only the capped per-kind protection of step 4b, since forging it is
+nearly free (relaying honest data first, shares below `nonce_max`, cheap transactions). Peers that connect
+first after a restart win uptime protection (step 4c) for up to half of the unprotected places, each /16
+within its 4 places plus 1 spare; this is Core's trade-off. `handshaking_max` connections that never send a
+Hello, renewed every 5 s, still keep newcomers out (as a group's spare place does for its group); per-source
+accept rate limiting is future work.
+
+Status (`pocol_status`): `inboundEstablished`, `inboundMax` (`peers_max`), `stats.inboundEvicted`,
+`stats.inboundEvictedInGroup`, `stats.inboundRefusedFull`, `stats.inboundRefusedRate`,
+`stats.inboundRefusedByGroup`, and `stats.creditsBlock`, `creditsTemplate`, `creditsTx`, `creditsShare`.
 
 ## 2. Network identity
 `Hello.chainId` and `Hello.genesisHash` must equal cfg, and `Hello.protocolVersion` and
@@ -210,7 +286,9 @@ an address the receiver dialed for it is not dialed again by that process.
   honest builder (shareList) and the proposer flow.
 
 ## 6. Bounds (local service policy)
-Frame 256 KiB; inbound peers 8, at most 4 per public address group; relayed TemplateIDs
+Frame 256 KiB; inbound peers 32 established + 8 waiting for a Hello (seeds at the default, `--peers-max`
+1..128), at most 4 per public address group plus one spare; inbound eviction (§1b) grace 30 s, one per key per
+30 s, burst 8 then one per 2 s; relayed TemplateIDs
 remembered 256; relayed shares 4·S_max per template; orphans 16/parent; future 64; held templates 64; GetRange 512;
 rejects log 256; post-state verdicts per TemplateID+nonce 256; deep-rebuild budget (burst 8, one back per second, a
 wall-clock step back delaying a refill by at most one second / session cap 4, for blocks on the session's branch; it

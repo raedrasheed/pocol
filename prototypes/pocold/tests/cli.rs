@@ -115,6 +115,46 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
     }
 }
 
+/// The established inbound peers are a local P2P setting (PR3): `--peers-max N`, 1..=128, or for `run` POCOL_PEERS_MAX
+/// when the flag is absent. A value that is not a number, 0 or past 128 fails the command (status 1) before anything
+/// runs, by flag and by environment; the flag wins over the environment; an empty value counts as unset; `status` does
+/// not read the environment. What a running node took is read back from its pocol_status `inboundMax`.
+#[test] fn peers_max_comes_from_the_flag_or_the_environment(){
+    let cmd=|args:&[&str],env:Option<&str>|{let mut c=Command::new(env!("CARGO_BIN_EXE_pocold"));c.args(args);
+        match env{Some(v)=>{c.env("POCOL_PEERS_MAX",v);}None=>{c.env_remove("POCOL_PEERS_MAX");}}c};
+    for (args,env,want) in [(&["run","--peers-max","x"][..],None,"--peers-max x:"),(&["run","--peers-max","0"][..],None,"--peers-max 0: must be 1..=128"),
+        (&["run","--peers-max","129"][..],None,"--peers-max 129: must be 1..=128"),(&["run"][..],Some("x"),"POCOL_PEERS_MAX x:"),
+        (&["run"][..],Some("0"),"POCOL_PEERS_MAX 0: must be 1..=128"),(&["run"][..],Some("129"),"POCOL_PEERS_MAX 129: must be 1..=128"),
+        (&["run","--peers-max","129"][..],Some("5"),"--peers-max 129:"),(&["status","--peers-max","0"][..],None,"--peers-max 0:")]{
+        let o=cmd(args,env).output().unwrap();let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains(want),"{args:?} {env:?}: {err}");
+    }
+    // A valid, empty or (outside run, or under the flag) ignored value passes the limits; the command fails later, on the missing --network.
+    for (args,env) in [(&["run"][..],"1"),(&["run"][..],"128"),(&["run"][..],""),(&["run"][..],"  "),(&["run","--peers-max","3"][..],"bad"),(&["status"][..],"bad")]{
+        let o=cmd(args,Some(env)).output().unwrap();let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains("--network")&&!err.contains("peers-max")&&!err.contains("PEERS_MAX"),"{args:?} {env:?}: {err}");
+    }
+    let d=tmp("peers-max");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let path=|p:PathBuf|p.to_str().unwrap().to_string();
+    for (i,(flags,env,want)) in [(&[][..],None,32u64),(&[],Some(" 5 "),5),(&["--peers-max","7"],Some("5"),7),(&[],Some(" "),32),(&["--peers-max","128"],None,128)].into_iter().enumerate(){
+        let data=path(d.join(format!("data{i}")));
+        let rpc={let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();l.local_addr().unwrap()};
+        let mut c=cmd(&[&["run","--network",&path(net.clone()),"--data",&data,"--rpc",&rpc.to_string()][..],flags].concat(),env).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::piped()).spawn().unwrap();
+        let t=std::time::Instant::now();let mut seen=None;
+        while seen.is_none()&&t.elapsed()<std::time::Duration::from_secs(60){
+            if let Some(s)=c.try_wait().unwrap(){panic!("run {flags:?} {env:?} exited with {s}")}
+            seen=rpc_status(rpc);if seen.is_none(){std::thread::sleep(std::time::Duration::from_millis(50));}
+        }
+        let _=c.kill();let _=c.wait();
+        let v=seen.unwrap_or_else(||panic!("run {flags:?} {env:?}: no pocol_status within 60 s"));
+        assert_eq!(v["inboundMax"].as_u64(),Some(want),"run {flags:?} {env:?}");
+    }
+    let _=std::fs::remove_dir_all(&d);
+}
+
 /// Peer discovery's switches (VA-SPEC §1a, plan §7): `--no-discovery` and `--discover-local`, or for `run` (the only
 /// command that opens the network) POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL, each 0 or 1, when the flag is absent. A
 /// bad value fails `run` (status 1) before anything runs, naming the variable; a flag wins over its variable; an empty

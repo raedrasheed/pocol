@@ -1948,10 +1948,16 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // per-connection links (the live and stale-link high-water, 237, at 2 × 590 B, + 512), the transient
     // scratch (2·BOOK_MAX at 76 B, 2·CACHE_MAX addresses, 25 × 64 B, + 1,024) and the file buffers (the 1 MiB
     // read + 1 and FILE_LINE_MAX × 1,029 lines), +1,914,797 B, -> 3,243,936,669 B; PR4: post-state verdicts
-    // per TemplateID and nonce (COSTLY_MAX + 1 at 928 B, + 1,024), +239,520 B, -> 3,244,176,189 B). Some terms
-    // are type sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced on;
-    // every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_244_176_189,"the A13 model total changed");
+    // per TemplateID and nonce (COSTLY_MAX + 1 at 928 B, + 1,024), +239,520 B, -> 3,244,176,189 B; PR3 R10: the
+    // node's per-connection maps, peers and peer_status at the churn rule and each peer's address text (high 237 ×
+    // 2,718 B, + 1,024), +645,190 B, -> 3,244,821,379 B; PR3 inbound eviction: every physical inbound place,
+    // inbound_max = peers_max + handshaking_max (8 more places at 3,421,500 B: queue and frames, two threads, an
+    // exiting one, links and a group entry), the maps' 8 more high entries, and the eviction registry (16 × 192 +
+    // 245 × 64 + 2,048 + 1,024), +27,415,568 B, -> 3,272,236,947 B; PR3 commit 5: 32 established inbound by default,
+    // 24 more places at 3,421,500 B, the maps' 24 more high entries at 2,718 B and the registry's at 192 + 64 B,
+    // +82,187,376 B, -> 3,354,424,323 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
+    // the target the evidence is produced on; every target checks that it boots within the budget with its reserve.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_354_424_323,"the A13 model total changed");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);

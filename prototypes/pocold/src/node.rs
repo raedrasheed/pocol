@@ -9,7 +9,7 @@ use std::time::{Duration,Instant,SystemTime,UNIX_EPOCH};
 use crate::{hashes,header::Header};
 use pocol_lp4_execution::{apply::ParentResult,txsign::Key,wire,native::{self,NativeBlockContext},user_phase::{self,PoolMeter}};
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
-use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId},store::{self,Journal},types::*};
+use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId,Useful},store::{self,Journal},types::*};
 mod discovery;
 pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES};
 
@@ -113,6 +113,11 @@ pub const SIGNED_A0_MAX:usize=4096;
 /// Events waiting for the consensus thread (all sources); senders block when it is full.
 /// D-A13-BUDGET: 256 -> 128 (network.md: queue <= 256); a full queue blocks its senders.
 pub const EVENT_QUEUE:usize=128;
+/// A13 (resources, "queues/node peer and status maps"): the bytes counted for one entry of `peers` (a
+/// `(PeerId,Peer)` bucket), one of `peer_status` (a `(PeerId,PeerStatus)` bucket) and one peer's address text
+/// (`Peer::addr`, at most 58 characters, `[v6%scope]:port`). Fixed, so the pinned total does not follow rustc's
+/// layout; resources.rs asserts that the types fit.
+pub const PEER_ENTRY_BYTES:usize=192;pub const STATUS_ENTRY_BYTES:usize=96;pub const ADDR_TEXT_BYTES:usize=64;
 /// Orphans (blocks whose parent is unknown): parent keys, blocks per parent and bytes, all peers together.
 pub const ORPHAN_PARENTS_MAX:usize=64;pub const ORPHANS_PER_PARENT:usize=16;pub const ORPHAN_BYTES_MAX:usize=16*1024*1024;
 /// Receipt times kept for production (only recent parents matter).
@@ -316,6 +321,9 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// Gossip (network.md:13,15): signed templates of other proposers this node relayed after locking on
     /// them, valid shares it relayed, and valid new shares it received from peers.
     pub relayed_templates:u64,pub relayed_shares:u64,pub peer_shares:u64,
+    /// Inbound eviction's protection (`Node::credit`, net::Useful order): a peer's first delivery of a new block, a
+    /// template that locked, a transaction that entered the pool at once and a valid new share.
+    pub credits:[u64;4],
     /// D-7: pool revalidation slices run and the longest one (ms); offers to peers of transactions
     /// returned from abandoned blocks, and those a peer's queue had no room for.
     pub pool_slices:u64,pub pool_slice_max_ms:u64,pub reinserted_offered:u64,pub reinserted_unoffered:u64,
@@ -341,6 +349,15 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
 pub struct OpenTiming{pub journal_ms:u64,pub history_open_ms:u64,pub store_open_ms:u64,pub release_ms:u64,pub checkpoints_ms:u64,pub reset_pins_ms:u64,pub restore_ms:u64,
     pub replay_ms:u64,pub replay_records:u64,pub replay_validate_ms:u64,pub replay_history_ms:u64,pub replay_retain_ms:u64,pub replay_checkpoint_ms:u64,pub total_ms:u64}
 fn ms(t:Instant)->u64{t.elapsed().as_millis() as u64}
+/// The process's task limit: pids.max of its cgroup v2 (the `0::<path>` line of /proc/self/cgroup under
+/// /sys/fs/cgroup, which systemd sets from TasksMax). None when either file cannot be read (another OS, cgroup v1, the
+/// root cgroup, which has no pids.max).
+fn pids_max()->Option<String>{
+    if !cfg!(target_os="linux"){return None}
+    let cg=std::fs::read_to_string("/proc/self/cgroup").ok()?;
+    let path=cg.lines().find_map(|l|l.strip_prefix("0::"))?.trim().trim_end_matches('/');
+    std::fs::read_to_string(format!("/sys/fs/cgroup{path}/pids.max")).ok()
+}
 
 fn orphan_size(b:&Block)->usize{b.header.encoded.len()+b.body.txs.iter().chain(b.body.evidence.iter()).map(|x|x.len()).sum::<usize>()}
 fn result_bytes(r:&Option<ParentResult>)->Vec<u8>{
@@ -629,14 +646,26 @@ impl Node{
     fn fatal(&self,why:&str)->!{eprintln!("[{}] FATAL local storage: {why}",self.cfg.name);std::process::exit(70)}
 
     pub fn start_network(&mut self)->Result<(),String>{
+        // R2 (PR3): the service must hold the whole A13 thread inventory, or a thread spawn would fail while the node
+        // runs (a miner's is not fatal, a peer's closes it); a task limit that cannot be read is not checked.
+        if let Some(m)=pids_max(){
+            let need=crate::resources::tasks_needed(&self.cfg.limits.net,self.cfg.peers.len(),self.cfg.limits.rpc.conn_max).unwrap_or(u128::MAX);
+            crate::resources::tasks_fit(need,&m)?;
+        }
         // The configured peers (for example the other seeds, which also dial this node) are never refused
-        // for sharing a public address group with each other (net::Limits::per_group_max).
+        // for sharing a public address group with each other (net::Limits::per_group_max), and as many inbound
+        // connections from an address as it has configured peers are never evicted: every configured address is
+        // passed, duplicates included (net::Net::protect counts them).
         self.net.protect(self.cfg.peers.iter().map(|a|a.ip()));
         // VA-SPEC §1a.6: the address book is read before any connection is accepted or dialed.
         self.disc_load(self.disc_now());
         if let Some(a)=self.cfg.listen{let l=std::net::TcpListener::bind(a).map_err(|e|format!("listen {a}: {e}"))?;
             // Hello.listenPort (VA-SPEC §1a.1): the address actually bound (an ephemeral port for port 0).
             self.disc.bound(l.local_addr().map_err(|e|format!("listen {a}: {e}"))?);
+            // Inbound eviction counts only a Hello this node would keep (on_msg's Hello checks), so the nonce is final
+            // here and the listener does not run yet.
+            self.net.expect_hello(net::HelloId{chain_id:self.chain.spec.chain_id(),genesis:self.chain.spec.genesis_hash(),
+                compatibility:crate::identity::compatibility_for(self.chain.spec.profile().forks().entries()),nonce:self.disc.wire_nonce()});
             let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn("listen-fwd",crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::listen(l,ntx,self.net.clone());}
         for a in self.cfg.peers.clone(){let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn(format!("dial-fwd-{a}"),crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
@@ -839,6 +868,8 @@ impl Node{
         if self.received.len()>RECEIVED_MAX{let keep=self.chain.head().height.saturating_sub(8);let blocks=&self.chain.blocks;self.received.retain(|h,_|blocks.get(h).map_or(false,|e|e.height>=keep));}
         let old_head=self.chain.head;
         let new_head=self.chain.insert(entry);self.stats.imported+=1;
+        // Only a block new here gets this far (a duplicate, an orphan or an invalid block returned above).
+        if let Some(id)=from{self.credit(id,Useful::Block);}
         // A session's block is protected from the side cap while it is non-canonical (before retain()).
         if solicited&&!self.chain.is_canonical(&hash){self.protect(hash);}
         // A11: the abandoned blocks' journal offsets are taken before retain() may evict them; their
@@ -917,10 +948,12 @@ impl Node{
             None=>self.pool_settle()}}
         self.admit_tx(raw,if relay{Relay::Gossip}else{Relay::No},by)
     }
-    /// A transaction from a peer: admitted now, or queued behind the backlog (D-7) and relayed once
-    /// admitted. A queued one is held within POOL_MAX_BYTES with the pool.
-    fn relay_tx(&mut self,raw:Vec<u8>){
-        if !self.pool_pending(){let _=self.submit_tx(raw,true);return}
+    /// A transaction from peer `from`: admitted now, or queued behind the backlog (D-7) and relayed once
+    /// admitted. A queued one is held within POOL_MAX_BYTES with the pool. Only one admitted now credits `from`
+    /// (`credit`): a duplicate is answered Ok without entering the pool, so the pool must grow; a queued one earns
+    /// nothing, since the backlog does not record its sender (that would change PoolItem's A13 cost).
+    fn relay_tx(&mut self,raw:Vec<u8>,from:PeerId){
+        if !self.pool_pending(){let n=self.pool.txs.len();let _=self.submit_tx(raw,true);if self.pool.txs.len()>n{self.credit(from,Useful::Tx);}return}
         if self.pool.bytes+self.pool.backlog_bytes+raw.len()>POOL_MAX_BYTES{return}
         self.pool.backlog_bytes+=raw.len();self.pool.backlog.push_back(PoolItem::Tx(raw,Relay::Gossip));
     }
@@ -1220,7 +1253,8 @@ impl Node{
             // into the new header: they do not meet its share target, and its block would be invalid (item 9).
             if !matches!(&pr.mode,Mode::Locked(l) if l.tid==tid){pr.shares.clear();pr.solved=false;}
         }
-        let miner=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address())).map(|(s,e)|
+        // A miner that cannot be spawned (the task limit reached) leaves this node idle for the template, not stopped.
+        let miner=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address())).and_then(|(s,e)|
             miner::start(tid,s,e,ctx.target,ctx.t_share,usize::from(self.chain.spec.cp().S_max),self.miner_tx.clone()));
         if let Some(pr)=&mut self.prod{pr.mode=Mode::Locked(Box::new(Locked{header,body,tid,ctx,fallback}));pr.miner=miner;}
     }
@@ -1252,7 +1286,7 @@ impl Node{
         match rebuilt{
             Ok(ut) if ut==shell.ut_raw=>{
                 let m=Msg::Template{shell:shell.encoded.clone(),body:body.encode()};
-                self.lock(shell,body,false);self.relay_template(tid,&m,from);true}
+                self.lock(shell,body,false);self.credit(from,Useful::Template);self.relay_template(tid,&m,from);true}
             Ok(_)=>self.punish_template(from,"its rebuild differs"),
             Err(e)=>self.template_error(from,"its rebuild fails",e),
         }
@@ -1281,6 +1315,9 @@ impl Node{
         if !self.mark_relayed(tid){return}
         self.broadcast(m,Some(from));self.stats.relayed_templates+=1;
     }
+    /// Records that peer `id` delivered something of kind `u` first (inbound eviction protects the latest deliverers of
+    /// each kind, net::Net::establish), and counts it (`Stats::credits`). A peer already gone earns nothing.
+    fn credit(&mut self,id:PeerId,u:Useful){if let Some(p)=self.peers.get(&id){p.credit(u);self.stats.credits[u as usize]+=1;}}
     fn punish_template(&mut self,from:PeerId,why:&str)->bool{
         self.stats.template_penalties+=1;self.log(&format!("invalid template from Draw(h,0) ({why}): closing its peer"));
         if let Some(p)=self.peers.get(&from){p.close();}
@@ -1467,7 +1504,7 @@ impl Node{
                     if tid!=l.tid||(nonce as u128)>=l.ctx.assignment.nonce_max()||pr.shares.contains(&nonce){return}
                     if !le_target(&pow_hash(&tid,nonce),&l.ctx.t_share){return}
                     pr.shares.insert(nonce);pr.shares.len()<=relay_max};
-                self.stats.shares_seen+=1;self.stats.peer_shares+=1;
+                self.stats.shares_seen+=1;self.stats.peer_shares+=1;self.credit(from,Useful::Share);
                 // Gossip (network.md:15): a valid new share for the locked template goes to every other
                 // peer, never back to its sender; a duplicate or an invalid one was dropped above. Without it
                 // a share reaches only its miner's neighbours, and a winner elsewhere cannot credit it.
@@ -1486,7 +1523,7 @@ impl Node{
                 // Responses stop when the peer's queue is half full (offer); the peer asks again.
                 for hgt in start..start.saturating_add(count.min(512)){match self.chain.canonical_at(hgt).filter(|e|e.height>0).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
             }
-            Msg::Tx{raw}=>self.relay_tx(raw),
+            Msg::Tx{raw}=>self.relay_tx(raw,from),
             // Peer discovery (VA-SPEC §1a.2, §1a.5): answers to inbound peers, and what this node asked for.
             Msg::GetAddr=>self.disc_getaddr(from,self.disc_now()),
             Msg::Addr{addrs}=>self.disc_addr(from,addrs,self.disc_now()),
@@ -1596,6 +1633,16 @@ impl Node{
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));
+        // Inbound eviction (net::Net::establish): the established and physical bounds, the evictions and the newcomers
+        // refused at their Hello because no peer could be evicted or the eviction budget was spent.
+        {let c=&self.net.counters;let n=|a:&std::sync::atomic::AtomicUsize|serde_json::json!(a.load(std::sync::atomic::Ordering::SeqCst));
+            status["stats"]["inboundEvicted"]=n(&c.evicted);status["stats"]["inboundEvictedInGroup"]=n(&c.evicted_in_group);
+            status["stats"]["inboundRefusedFull"]=n(&c.refused_full);status["stats"]["inboundRefusedRate"]=n(&c.refused_rate);}
+        // What peers delivered first (`Node::credit`), per kind.
+        for (k,u) in ["creditsBlock","creditsTemplate","creditsTx","creditsShare"].into_iter().zip([Useful::Block,Useful::Template,Useful::Tx,Useful::Share]){
+            status["stats"][k]=serde_json::json!(self.stats.credits[u as usize]);}
+        status["inboundEstablished"]=serde_json::json!(self.net.established());
+        status["inboundMax"]=serde_json::json!(self.net.limits.peers_max);
         // Peer discovery (VA-SPEC §1a): the live connections this node dialed, and discovery's state.
         status["outboundPeers"]=serde_json::json!(self.net.counters.outbound.load(std::sync::atomic::Ordering::SeqCst));
         status["discovery"]=self.disc_status();

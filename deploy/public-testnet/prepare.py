@@ -69,6 +69,11 @@ def validate_inventory(value, rehearsal=False, join=False):
 
 
 def service(node):
+    # TasksMax holds pocold's A13 thread inventory, 2*(peers_max + 8) + 4*peers + 40 tasks (148 at the default 32
+    # established inbound and 7 peers, 340 at --peers-max 128); pocold refuses to boot past it. Seeds and joining
+    # nodes run with the default 32 established inbound: 64 at seeds would move the live chain's A13 halt by more
+    # than a week of records (PR3 seed rule, tests/network_budget.rs a13_live_chain_halt_records), so no
+    # POCOL_PEERS_MAX or POCOL_PER_GROUP_MAX line is written.
     # systemd credentials are readable by the service but their filesystem metadata
     # need not satisfy pocol-key's single-owner/single-link checks. Materialize a
     # service-owned 0600 copy in a private, stop-cleaned runtime directory instead
@@ -112,7 +117,7 @@ RestrictSUIDSGID=yes
 RestrictAddressFamilies=AF_INET AF_UNIX
 CapabilityBoundingSet=
 MemoryMax=7G
-TasksMax=128
+TasksMax=512
 LimitNOFILE=4096
 
 [Install]
