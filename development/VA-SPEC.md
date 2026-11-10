@@ -355,7 +355,10 @@ an address the receiver dialed for it is not dialed again by that process.
   unsolicited copy of such a block is refused before validation), and while non-canonical they are
   protected from the side cap (at most 2·R_keep).
 - `GetRange` (start height, count) is still answered (canonical blocks in height order). `GetBlock`
-  answers any stored block except genesis, an offloaded one from its journal record (byte-equal).
+  answers any block held in memory (the eviction window and side blocks) except genesis, an offloaded one from
+  its journal record (byte-equal); older canonical history is served by `GetRange`/`GetFrom`. Below the eviction
+  window (C-1 S5, local retention) those read the node-local canonical index and the journal; the answers and
+  the locator are unchanged. A `GetFrom` locator hash that is not in memory costs at most 12 index reads.
 - Forks: blocks whose parents are unknown also recurse through `GetBlock(parent)` (short gaps); deep
   forks are fetched by the locator session; the heavier branch then wins by D133.
 
@@ -405,7 +408,9 @@ wall-clock step back delaying a refill by at most one second / session cap 4, fo
 charges rebuilds of a missing parent state only, not slim restores of an entry's header and ranges); pool 32 MiB raw and <= 4096 transactions; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
 canonical blocks are kept whole; non-canonical blocks are metadata only (bytes in the journal),
 at most R_keep unprotected plus 2·R_keep session-protected, none R_keep or more below the head;
-states for K_hist canonical blocks and side_max side blocks. Peer discovery (§1a): book 1024 (8 per group,
+states for K_hist canonical blocks and side_max side blocks; canonical entries more than E below the head in the
+node-local canonical index, not in memory (default E 6,417, `--evict-depth`, 0 off; at least E_min, the largest of the
+slim depth, 2·R_keep + E_win + 258 and in store mode the anchor reach); store-mode rebuild anchors <= 4 at the defaults. Peer discovery (§1a): book 1024 (8 per group,
 2 ports per IP, 64 per answering peer, 256 self-advertised); Addr <= 64 records, one answer per inbound
 connection, one Addr accepted per GetAddr within 120 s; automatic outbound (default off) <= 8 plus 1 feeler;
 all connections <= 50.

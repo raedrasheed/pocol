@@ -774,7 +774,8 @@ from the terms above, not re-run on main).
 
 **The live continuous chain.** deploy/mainnet/h15000 is continuous (H_END 0), so A13 projects from its journal,
 and the node stops once the journal holds more records than the budget admits (node.rs re-runs `resources::check`
-every 256 records). `a13_live_chain_halt_records` binary-searches that record count R in store mode as the seeds
+every 256 records). (PR7, §2g: with eviction on, the default, no term grows with the records any more, and the stop is about 10.5 TiB of
+history files; the record halt below is the eviction-off reference.) `a13_live_chain_halt_records` binary-searches that record count R in store mode as the seeds
 boot (checkpoints every 128 records, discovery on, node_operator.py's LOCAL_ARGS; T_blk 10 s, 8,640 records a day):
 
 | setting | main `b83b584` | main `e3d6f07` (PR4) | PR3 R10 | PR3 8 + 8 places | PR3 default 32 + 8 |
@@ -792,11 +793,153 @@ tests do not have this search.
 The plan's seed rule allowed seeds 64 established places only if R(64, d 7) stayed within a week of records
 (60,480) of R10's R(8, d 7); it is 85,093 below, so seeds run at the default 32 and the deploy units set no
 `POCOL_PEERS_MAX`. The default itself stays within the rule (R10's R(8, d 2) − R(32, d 2) = 42,548). The halt is
-still finite (NODE-03 / SCALE-02).
+still finite (NODE-03 / SCALE-02); PR7 replaces it with the byte stop of §2g.
 
 **Threads.** The inventory is `resources::tasks_needed` = 2S + 4d + conn_max + 8: 128 tasks at the defaults with
 d = 2, 148 with d = 7, 340 at PEERS_MAX_LIMIT 128 with d = 7. `PEERS_MAX_LIMIT` is bounded by it as well as by
 memory, and `Node::start_network` refuses to start when the cgroup's pids.max is below it (evidence/THREAD-INVENTORY.md).
+
+### 2g. PR7 windowed history: resident memory that does not grow with height (C-1 S5, 2026-11)
+
+Before PR7 every canonical block kept an `Entry` in memory for good (slimmed past `slim_depth`, but still about
+1,330 B a block of model), every checkpoint serialized and sorted the whole chain (about 670 B a block), and the
+continuous chain's bound projected from its journal's record count. So the live chain stopped itself at about
+1.13M records (§2f, NODE-03 / SCALE-02). PR7 (`claude/memory-bounds`) moves canonical entries below
+`floor = max(1, head − E)` into a node-local on-disk index, `canon.redb` (`node::canon`). Only the window, the side
+blocks and genesis stay in memory and in checkpoints (format 2, `POCKPT02`; format 1 is still read). Verdicts,
+state roots and fork choice are unchanged, and PR7 adds no refusal of any block: it is a `neutral` change of the
+consensus lock (VA-SPEC §2.3).
+
+**E, the eviction depth** (`resources::evict_depth_of`, fixed at open from `rk = max(rk_replay, r_keep)`, so A13
+and the chain use one value, `Limits::evict_depth`). E_min is the largest of:
+- the slim depth, default `2·rk + E_win + 257`;
+- `2·rk + E_win + 258`: every verdict reads at most `rk` below the head (node.rs refuses `h + r_keep ≤ head`
+  before validation), then 256 ancestors (BLOCKHASH) or E_win (evidence) below that, and a head drop within one
+  import is reloaded by that import's `window` before the next verdict;
+- in store mode, the anchor reach `max(2·rk + 2, K_hist) + rk + max(257, E_win + 1)`: the newest anchor kept
+  is at least lag = 2·rk + 2 below the head and at or below the K_hist cut, the next one is at most rk below it,
+  and an anchor's BLOCKHASH and evidence windows must stay above the floor. A shorter term, `lag + rk + keep`,
+  is not enough: with K_hist > lag, which happens when R_keep ≤ 15, the newest anchor sits at or below the cut,
+  the floor rule released it, and an evicting node and a never-evicting one held different anchors.
+
+The default is `max(slim depth + rk, E_min)`: **6,417** at R_keep 2048, E_win 16, in both modes (store-mode E_min
+is 6,403). `--evict-depth N` sets E; a value below E_min is refused at open, naming the term it fails; 0 turns
+eviction off (the model before PR7, with the record-count stop). Store mode with eviction off also keeps no
+anchors (Node::open sets no anchor step).
+
+**Invariants.** They are tested by T1, T6, T7, T10 and T14 (tests/consensus.rs, tests/memory_bounds.rs).
+- (a) *Verdicts read only entries in memory.* `validate` reads a parent at or above `head − rk`; `child_ctx` reads
+  256 ancestors; evidence reads E_win; the LCA, `better` and `detached_blocks` walks touch blocks above
+  `head − rk` only. E ≥ 2·rk + E_win + 258 keeps all of them above the floor.
+- (b) *No record this binary journals has its block or parent below the floor.* The `h + r_keep ≤ head` refusal
+  runs before validation for every block. Older journals can hold such records; replay emulates what a
+  non-evicting replay does with them (a duplicate takes a new `import_seq` and `body_off` in its row; a record on a
+  deep parent is counted as removed in the same retain).
+- (c) *Every canonical entry below the floor other than genesis is evicted.* Eviction normalizes each entry
+  (offload, slim, prune, no state, diff or trie) instead of checking it, so an adopted block that a head drop left
+  resident below the history cursor cannot stall it. The anchors cannot: the release rule below drops every anchor
+  whose window would cross the floor. A stall is counted (`evictStalls`) and asserted in debug builds; hitting the
+  per-call batch (`side_cap + 2·r_keep + 2`, the largest rise of the head in one import) is not a stall.
+- (d) *A reload is exact.* A non-evicting chain never changes a canonical entry below `head − E` again: finality is
+  set at execution, `unslim` and `ensure_state` reach only the window by (a), and a `reimport` of an old-journal
+  duplicate is applied to the row by (b). So the row the index gives back is that chain's entry at that height.
+
+**Anchors** (store mode, eviction on; `Chain::retain_anchors`). The forward prune pass keeps the stored version of a
+canonical entry at a multiple of R_keep above `anchor_cursor`; a rebuild that lowers the prune cursor never creates
+one. Released: anchors that are no longer canonical, every anchor with `h < floor + max(257, E_win + 1)`, and all
+but the newest one with `h + lag ≤ head` and those above it. At most `N_A = ⌈(lag − K_hist)/rk⌉ + 2` are held
+(**4** at the defaults), each one stored version (`held_runs` gains N_A runs of 1, counted in `stored_versions` and
+`state_file_parts`). A rebuild starts at the nearest anchor, at most `lag + rk` blocks plus the branch below the
+head. With no anchor (whole-state mode, a format-1 migration, a head drop beyond the anchors) it walks from genesis
+through the index and journal, holding only the last `max(257, E_win + 1)` restored entries (`Chain::shadow`).
+
+**Changed terms** (`derive`). `resident = min(H_END + 1, E + 2)`, and `E + 2` for a continuous chain. Every
+memory term that counted `H_END + 1` blocks counts `resident`: the window (`history_window`) and slim depth are
+capped by it, `slimmed canonical block metadata` is `(resident − max(depth, window)) × slim_entry`, and a
+checkpoint (`checkpoint_bytes`, and its share of state.redb) holds `resident + side_cap + 2·r_keep` entries and
+`(resident + EVICTED_MAX)·32` B of hash lists. On the continuous chain the window's content caps are the per-block
+caps over `resident` (TX, TXBYTES, logs), and the evidence term has no identity cap (the height is unbounded). New
+items, with eviction on only, at the devnet defaults:
+
+| item | formula | devnet |
+|---|---|---:|
+| `history/canonical window (the Canon deque, C-1 S5)` | 64·(resident + 1) | 410,880 |
+| `history/eviction batch (rows on their way to canon.redb)` | (side_cap + 2·r_keep + 2)·(REC_MIN + 32 + 8 + 64) | 1,413,580 |
+| `history/reload after a head drop (R_keep slimmed entries)` | r_keep·slim_entry | 2,760,704 |
+| `history/rebuild shadow (max(257, E_win + 1) entries)` | max(257, E_win + 1)·per_block | 5,783,785 |
+| `history/RPC and sync views below the window (two blocks)` | 2·(offloaded entry + header + BODY_MAX + evidence + receipts + logs) | 859,954 |
+| `history/canon.redb page cache (CANON_CACHE)` | 4 MiB (it also holds redb's write buffer for the SYNC_EVERY non-durable puts) | 4,194,304 |
+| `history/canon.redb allocator state` | `redb_alloc_max(disk.canon + 8·blocks·CANON_ROW)`, CANON_ROW = REC_MIN + 80 = 206 B | 531,840 |
+| store: anchors | N_A more stored versions (handles, file) | 310,200 handles; 1,595,520 allocator |
+
+The views term counts a whole block, not only an offloaded entry and a header: a view of a block below the
+window holds its body, and with receipts its receipts and logs.
+
+**Files.** With eviction on, the three redb allocator terms take the file's size:
+- history.redb: `redb_alloc_max(x)`, `x = disk.history + HISTORY_FILE_FACTOR·payload(blocks)`;
+- canon.redb: `redb_alloc_max(disk.canon + HISTORY_FILE_FACTOR·blocks·CANON_ROW)`;
+- state.redb: `redb_allocator_bytes(disk.state + state_file_max)`.
+
+`redb_alloc_max(x) = max(redb_allocator_bytes(x), x/4096)`: a small file still holds one whole region's allocator
+(about 0.5 MB; before PR7 a small history.redb was counted at x/4096, A2-8). On a continuous chain `blocks` is
+`DISK_HEADROOM + 1` (256 + 2048 records: what can be written between two rechecks, and the 2048 the projection
+kept). `disk` is `Limits::disk` (`resources::DiskBytes::observe`, `fs::metadata`, 0 for a missing file). Node::open
+observes it before each of its checks, `import_with` every 256 records and `status` on every call. A bounded chain
+keeps the projection from H_END, with the same max. Unknown is not zero: on a continuous chain with eviction on
+and `disk` None, `derive` is None and `check` says "A13: disk sizes not observed". With eviction off, or never
+evicting (`u64::MAX`, a test reference), the model is the one before PR7 (`a13_bound_breakdown` and
+`a13_live_chain_halt_records` pin it unchanged).
+
+**The bound on the continuous chain, eviction on.** `total = C + alloc(history) + alloc(canon) + alloc(state)`.
+C depends on neither the height nor the record count: every height-indexed term is capped by `resident`, the
+batch, `r_keep` or N_A. Between two rechecks each file grows by at most 256 records' worth, which DISK_HEADROOM
+covers, so the bound also holds between rechecks. `import_with` logs `LOCAL CAPACITY warning` once the bound with
+its reserve reaches 15/16 of the budget, and stops the node past it (`LOCAL CAPACITY: …; raise
+--memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES`). `pocold run` takes the budget from `--memory-budget-bytes`
+or POCOL_MEMORY_BUDGET_BYTES, as `pocol start` does.
+
+`a13_windowed_bound_is_flat` (tests/memory_bounds.rs) checks that the total is equal at 0 and 10^9 records; that
++4 GiB of history.redb adds exactly 1 MiB past the region rule; that a small canon.redb takes the region rule; and
+that state.redb's term steps by one region's allocator per 4 GiB.
+
+**The stop, in bytes.** `a13_live_chain_halt_disk_bytes` (tests/network_budget.rs) binary-searches the largest
+admitted history.redb size on the live chain (deploy/mainnet/h15000, store mode as the seeds boot, state.redb and
+canon.redb empty). Beside it are the record halts of §2f, which stay as the eviction-off reference:
+
+| setting | C at empty files | stop, history.redb | eviction off (records) |
+|---|---:|---:|---:|
+| peers_max 8, d = 2 | 2,679,632,952 B | 12,113,967,612,031 B (11.02 TiB) | 1,158,957 |
+| peers_max 8, d = 7 | 2,743,366,172 B | 11,852,916,342,911 B (10.78 TiB) | 1,134,336 |
+| peers_max 32, d = 2 (a default node) | 2,761,820,328 B | **11,777,328,119,935 B (10.71 TiB)** | 1,127,165 (130.5 d) |
+| peers_max 32, d = 7 (a seed) | 2,825,553,548 B | **11,516,276,850,815 B (10.47 TiB)** | 1,102,318 (127.6 d) |
+| peers_max 64, d = 2 | 2,871,403,496 B | 11,328,475,463,807 B (10.30 TiB) | 1,084,625 |
+| peers_max 64, d = 7 | 2,935,136,716 B | 11,067,424,194,687 B (10.07 TiB) | 1,059,778 |
+
+The model ceiling is 6 GiB × 7/8 = 5,637,144,576 B, so a seed's slack is about 2.81e9 B, which the history.redb
+term (1 B per 4 KiB) uses up at about 10.5 TiB of file. **The draft's claim that seeds no longer stop together is
+withdrawn** (A2-9): nodes on one chain hold almost the same files, so they would stop at almost the same size. That
+size is now about 10.5 TiB of history, where the disk usually fills first. Operators are warned at 15/16 and can
+raise the budget.
+
+Devnet totals (`a13_bound_breakdown`, whole-state, d = 2): **3,352,070,834 B**, −2,353,489 B against 3,354,424,323
+(eviction off is still that). In store mode at d = 2 the total is 2,766,530,810 B (2,775,861,207 with eviction
+off). Store mode adds the anchors' handles and allocator, and the checkpoint term drops from 16,771,662 to
+7,889,034 B.
+
+**The open transient** (plan §7, `open_transient`, checked by `check_open` at open only). Open holds per record
+its frame offset and two replay events (`node::Ev`, 36 B), each a Vec counted at twice its length; a rolling hash
+every ROLL_SAMPLE (256) records; and in store mode the KEPT snapshots it decodes, each of the window's entries.
+The model is 160 B a record; tests/open_transient.rs measured about 89 B a record with eviction off and 107 B by
+default. On failure: `LOCAL CAPACITY at open: the journal's N records need … B of replay tables …`. A format-1
+checkpoint is restored whole once (`migration_fits`: entries × (slim_entry + 80) beside the model and the
+transient). If it does not fit, open replays from genesis, which now holds only the window.
+
+**CONDITIONS.** New: `canon-redb-representation` (canon.redb relies on the same redb behaviour as history.redb and
+on HISTORY_FILE_FACTOR; the allocator terms are over observed sizes) and `serving-io` (GetRange/GetFrom below the
+window read the index and journal on the consensus thread, bounded per request by `offer` and LOCATOR_INDEX_MAX,
+with no per-peer rate limit). `cpu-and-timing` is narrowed: a store-mode rebuild starts at an anchor, and it stays
+O(height) in whole-state mode, with eviction off, after a lost index or format-1 migration, and after a head drop
+beyond the anchors. `open-replay-transient` is restated: the tables are counted and checked at open.
 
 ## 3. System gas (R18) and timing (R14/R19)
 

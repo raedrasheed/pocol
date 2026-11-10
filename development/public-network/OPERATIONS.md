@@ -236,9 +236,9 @@ writes set neither: **seeds run at the default 32** (see the halt figures below)
 more established place costs 3,424,474 B of model, about **3.73 MiB of budget** with
 the 1/8 reserve. The raise from 8 to 32 adds 110,248,134 B of model (about 126 MB of
 budget) to a node with 2 configured peers, on every profile, whether or not it
-listens. Under `pocol start`, an operator who lowers `POCOL_MEMORY_BUDGET_BYTES`
-(read only by the launcher) should lower `POCOL_PEERS_MAX` with it; `pocold run` has
-no budget setting and keeps the 6 GiB budget.
+listens. An operator who lowers `POCOL_MEMORY_BUDGET_BYTES` (read by `pocol start`
+and, since PR7, by `pocold run`, which also takes `--memory-budget-bytes`) should
+lower `POCOL_PEERS_MAX` with it.
 
 **The live chain's halt.** The live continuous chain (deploy/mainnet/h15000) has no
 finite lifetime, so the node stops once its journal holds more records than the A13
@@ -253,7 +253,61 @@ budget admits (`a13_live_chain_halt_records`, store mode as the seeds boot; T_bl
 
 The plan allowed seeds 64 established places only if that moved their halt by at most
 a week of records (60,480) against the same code at 8; it moves it by 85,093, so seeds
-stay at the default. The halt is still finite (NODE-03 / SCALE-02).
+stay at the default. That halt was still finite (NODE-03 / SCALE-02). PR7 replaces it
+(next section): with eviction on, the default, these record counts are only the
+eviction-off reference.
+
+## Memory bounds (PR7)
+
+**What changed.** A node keeps only the last E canonical blocks in memory (E = 6,417 at
+the defaults). Older canonical entries move to a new file in the data directory,
+`canon.redb`, and come back from it if the head falls back. Checkpoints hold only that
+window. The A13 bound no longer grows with the journal's record count. On the
+continuous chain it grows only with the observed sizes of history.redb, canon.redb and
+state.redb, at about 1 B per 4 KiB of file. A seed at the defaults (store mode, 7
+configured peers) now stops at about **10.5 TiB of history.redb**
+(`a13_live_chain_halt_disk_bytes`: 11,516,276,850,815 B; with 2 configured peers
+11,777,328,119,935 B), where it stopped at 1,102,318 records (127.6 days) before. Nodes
+on one chain hold almost the same files, so they would reach that size at almost the
+same time; the disk usually fills first.
+
+**The data directory.** `canon.redb` sits beside `journal`, `history.redb` and (store
+mode) `state.redb`. It is derived data: a missing, damaged or foreign one (another
+genesis) is set aside as `canon.redb.aside` and rebuilt by replaying from genesis.
+Every checkpoint of a window above height 1 then needs the replay. It costs about
+680 B a block on disk (about 2.1 GB a year on the live chain), and its first 34 MB
+are allocated at once. Back it up with the rest of the data directory, or leave it
+out and let the next open rebuild it.
+
+**Settings** (local policy, never validity):
+- `--memory-budget-bytes N`, or `POCOL_MEMORY_BUDGET_BYTES` when the flag is absent
+  (`pocold run`; `pocol start` reads the variable). The default is 6 GiB. A value
+  that is not a number, an empty one included, stops the command before the node
+  starts.
+- `--evict-depth N`: the canonical blocks kept in memory below the head. A value
+  below the safe minimum is refused at open, naming the term it fails (whole-state
+  mode 4,370 at the defaults, store mode 6,403). `--evict-depth 0` turns eviction
+  off: the behaviour before PR7, including the record-count stop.
+
+**LOCAL CAPACITY.** Every 256 records the node observes its files and rechecks the
+bound. It logs `LOCAL CAPACITY warning: …` once the bound with its 1/8 reserve
+reaches 15/16 of the budget. Past the budget it stops with `LOCAL CAPACITY: …; raise
+--memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES`. With eviction on, either message
+now means terabytes of history files, not days of blocks: raise the budget (each
+extra GiB of budget admits about 3.5 TiB more history) or move to a host with more
+memory. At open, `LOCAL CAPACITY at open: the journal's N records need … B of replay
+tables …` means the journal's replay tables (about 160 B a record counted) do not fit
+beside the bound; raise the budget. Status reports `canonicalBase`, `blocksIndexed`,
+`anchors`, `evictStalls` (always 0 on a healthy node), `evictDepth`, `diskObserved`
+and `resourceDiskBytes`. `resourceDiskBytes` replaces `resourceProjectionRecords`.
+
+**Upgrade and downgrade.** On the first open of an older data directory a store-mode
+node resumes from its format-1 checkpoint (once, after a memory headroom check). It
+evicts in batches at open, writes canon.redb, and writes format-2 checkpoints from
+the next one on. A whole-state node replays from genesis, as it always does, now with
+window-sized memory. An older binary refuses the new checkpoint format (bad magic),
+drops it and replays from genesis, ignores canon.redb, and has the old memory
+behaviour.
 
 **Threads.** Every inbound place has a reader and a writer thread. The A13 thread
 inventory is 2·(peers_max + 8) + 4·(configured peers) + 40 tasks with 32 RPC
