@@ -776,7 +776,7 @@
   },
   {
     "id": "D-V3-13",
-    "decision": "Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. Keep the share-weighted deterministic draw.",
+    "decision": "Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. Owner clarification on 2026-11-11: retain the existing all-probationer exception below B_reg/4 when the filter would otherwise exclude every draw member. Keep the share-weighted deterministic draw.",
     "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: Ch1 candidate set; P3 kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
   },
   {

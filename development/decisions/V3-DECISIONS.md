@@ -21,7 +21,7 @@ Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIO
 | O-10 Contestable seats when the set is full | V3-10 | **b**: contest by work over one day with a statistical margin (θ=1/8, 3σ), only when all seats are full, with the displaced member refunded, and only together with V3-02 |
 | O-11 Inactivity removal delay Θ_inact | V3-11 | **b**: 1 hour |
 | O-12 Registration bond B_reg | V3-12 | **a**: 20 PCOL |
-| O-13 Probationers as proposers | V3-13 | **b**: yes, once the accrued bond is at least B_reg/4 |
+| O-13 Probationers as proposers | V3-13 | **b**: yes, once the accrued bond is at least B_reg/4; retain the all-probationer exception clarified below |
 | O-14 Probation pool | V3-14 | **b**: M_max/4 slots (64), contest by work inside the pool, T_PROB = 30 days, both as CP fields (requires V3-09) |
 | O-15 Uncovered share pot | V3-15 | **b**: carried into the next block's pot at closeBlock |
 | O-17 Reward for reporting misbehaviour | V3-17 | **b**: 25% of the burned bond to the reporter, 75% burned |
@@ -31,6 +31,10 @@ Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIO
 | O-21 State caps | V3-21 | **b**: raise the caps (A13-verified) and add a burned creation fee that rises as the cap fills |
 | O-32 The 4,000,000 PCOL genesis allocation | V3-32 | **b**: publish the holder addresses and their purpose, and move the development fund into a public time-locked account with published spending reports |
 | O-33 How the re-genesis is run | V3-33 | **b**: no user transactions after S; publish the old-chain data; ship an Android key-export build first; and commit publicly that this is the last owner-only re-genesis, with later consensus changes going through the fork schedule |
+
+## Owner clarification — 2026-11-11
+
+For O-13, the owner answered: **“Retain the all-probationer exception below B_reg/4.”** The quarter-bond filter applies normally; when it would exclude every member of the draw membership, retain the existing exception that admits all those probationers to the deterministic share-weighted draw. This avoids removing the draw in that case. The exception means the B_reg/4 minimum equivocation penalty is not universal. This clarification supplements the dated O-13=b answer without rewriting its historical source.
 
 ## Decisions D-V3-01 through D-V3-34
 
@@ -108,7 +112,7 @@ Approved within the owner rule; OWNER-CHOICE. Principle check: parameter (Ch9). 
 
 ### D-V3-13
 
-Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. Keep the share-weighted deterministic draw.
+Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. Owner clarification on 2026-11-11: retain the existing all-probationer exception below B_reg/4 when the filter would otherwise exclude every draw member. Keep the share-weighted deterministic draw.
 
 Approved within the owner rule; OWNER-CHOICE. Principle check: Ch1 candidate set; P3 kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
