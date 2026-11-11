@@ -174,8 +174,8 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
 }
 #[test] fn identity_rules_r22_to_r26(){
     let (n,t)=base();let tt=rebound(&t,&n.spec_bytes);
-    // The caps-test build refuses every non-simnet request first (validation.md:2065).
-    let r22=if cfg!(feature="caps-test"){"caps-test"}else{"R22"};
+    // Test builds refuse non-simnet requests at their build-policy guard before R22.
+    let r22=if cfg!(feature="caps-test"){"caps-test"}else if crate::V3_PREVIEW{"v3-preview"}else{"R22"};
     assert_eq!(rules(admit(&Request{node:NodeKind::Node,..n.request(&sh(),Some(&tt))})),v(&[r22]),"simnet profile on a node: [R22] (governance.md)");
     // R24 accepts the implemented full-range v2 while preserving the original
     // genesis identity and applying the new version only at its scheduled height.
@@ -285,7 +285,7 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     // Fixture values are evaluated in full and reported as a fixture.
     let a=admit(&n.request(&sh(),Some(&tt))).unwrap();assert!(a.report().waivers.is_empty());assert!(a.report().conditions.iter().any(|c|c.id=="rpc-fixture"));
     // The scope is restricted to a simnet profile on a simnet node.
-    let r22=if cfg!(feature="caps-test"){"caps-test"}else{"R22"};
+    let r22=if cfg!(feature="caps-test"){"caps-test"}else if crate::V3_PREVIEW{"v3-preview"}else{"R22"};
     let e=admit(&Request{node:NodeKind::Node,..n.request(&NodeLocal{rpc:pocold_like(),..sh()},Some(&tt))}).err().unwrap();assert_eq!(e.rules,v(&[r22]));
     // Review F5: a Synthetic (or Network) profile on a simnet node does not get the waiver.
     for kind in [ProfileKind::Synthetic,ProfileKind::Network]{

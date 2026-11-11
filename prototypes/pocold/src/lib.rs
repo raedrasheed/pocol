@@ -14,6 +14,7 @@
 // lp4's caps-test changes LOG_CAP; enabling it without pocold's own feature would make build-info's `features` (and the
 // identity's caps-test flag) misreport the constants, so that configuration does not compile.
 const _: () = assert!(pocol_lp4_execution::CAPS_TEST == cfg!(feature = "caps-test"), "enable caps-test through pocold's feature");
+const _: () = assert!(pocol_lp4_execution::V3_PREVIEW == cfg!(feature = "v3-preview"), "enable v3-preview through pocold's feature");
 pub mod site;
 pub mod keyfile;
 pub mod launcher;
@@ -204,7 +205,7 @@ pub fn configured_forks(info:&serde_json::Value)->Result<Vec<(u16,u64)>,String>{
     pocol_lp4_execution::profile::ForkSchedule::new(&forks).map_err(|e|format!("consensus fork schedule: {e:?}"))?;
     // Runtime shape: versions 1, 2, … in order, each exactly once. With MAX_FORK_VERSION = 2 this is exactly
     // [(1,0)] or [(1,0),(2,H)], as before. A repeated v1 (accepted by the profile) and a skipped version stay
-    // refused here (owner decision D3 is open; until it is taken the narrower rule holds, fail closed).
+    // refused here (owner decision D3: keep sequential versions; v3 nonceMode 1 makes version 2 a no-op).
     if forks.iter().enumerate().any(|(i,&(v,_))|v as usize!=i+1){
         return Err("runtime schedule must list versions 1, 2, … in order, each once".into());
     }

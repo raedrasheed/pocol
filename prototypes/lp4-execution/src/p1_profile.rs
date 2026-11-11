@@ -1,10 +1,10 @@
 //! LP3 S2 schema/identity view. Never a boot authorization or complete ParamGate.
 //! Sources: consensus.md:7-34; governance.md R22/R24 and network chainId 777001.
 use crate::fixed::U256;
-use crate::genesis_spec::{self, GenesisSpec, GsError, Upper, CP_SCHEMA};
+use crate::genesis_spec::{self, GenesisSpec, GsError, Upper, CP_LEN, CP_V2_LEN};
 use crate::hashes::H256;
 
-/// All 52 consensus parameters in wire order, using their specified unsigned widths.
+/// Named parameters with validated widths. V1 has 52 wire values; appended v2 fields are zero on v1.
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConsensusParams {
@@ -60,12 +60,34 @@ pub struct ConsensusParams {
     pub Z_close: u32,
     pub RET: u32,
     pub P2: u32,
+    pub H_half: u64,
+    pub S_tail: U256,
+    pub P_MAX: u16,
+    pub T_PROB: u32,
+    pub F0_acct: U256,
+    pub F0_slot: U256,
+    pub F0_code: U256,
+    pub gamma_tip_bp: u16,
+    pub baseFeeMin: U256,
+    pub R_react: u8,
+    pub C_react: u32,
+    pub E_epoch: u32,
+    pub theta_bp: u16,
+    pub k_sigma: u16,
+    pub rho_bp: u16,
+    schema_version: u8,
 }
 
 impl ConsensusParams {
     /// Checks widths and schema bounds before narrowing; cross-field ParamGate rules are deferred.
-    pub fn from_values(v: &[U256; 52]) -> Result<Self, GsError> {
-        for (i, field) in CP_SCHEMA.iter().enumerate() {
+    pub fn from_values(v: &[U256]) -> Result<Self, GsError> {
+        let schema_version = match v.len() {
+            CP_LEN => 1,
+            CP_V2_LEN => 2,
+            n => return Err(GsError { code: "gsCount", detail: format!("CP {n}") }),
+        };
+        let schema = genesis_spec::cp_schema(schema_version).unwrap();
+        for (i, field) in schema.iter().enumerate() {
             let high = match field.hi {
                 Upper::None => None,
                 Upper::Value(n) => Some(n),
@@ -128,11 +150,29 @@ impl ConsensusParams {
             Z_close: v[49].to_u64().unwrap() as u32,
             RET: v[50].to_u64().unwrap() as u32,
             P2: v[51].to_u64().unwrap() as u32,
+            H_half: v.get(52).and_then(U256::to_u64).unwrap_or(0) as u64,
+            S_tail: v.get(53).copied().unwrap_or(U256::ZERO),
+            P_MAX: v.get(54).and_then(U256::to_u64).unwrap_or(0) as u16,
+            T_PROB: v.get(55).and_then(U256::to_u64).unwrap_or(0) as u32,
+            F0_acct: v.get(56).copied().unwrap_or(U256::ZERO),
+            F0_slot: v.get(57).copied().unwrap_or(U256::ZERO),
+            F0_code: v.get(58).copied().unwrap_or(U256::ZERO),
+            gamma_tip_bp: v.get(59).and_then(U256::to_u64).unwrap_or(0) as u16,
+            baseFeeMin: v.get(60).copied().unwrap_or(U256::ZERO),
+            R_react: v.get(61).and_then(U256::to_u64).unwrap_or(0) as u8,
+            C_react: v.get(62).and_then(U256::to_u64).unwrap_or(0) as u32,
+            E_epoch: v.get(63).and_then(U256::to_u64).unwrap_or(0) as u32,
+            theta_bp: v.get(64).and_then(U256::to_u64).unwrap_or(0) as u16,
+            k_sigma: v.get(65).and_then(U256::to_u64).unwrap_or(0) as u16,
+            rho_bp: v.get(66).and_then(U256::to_u64).unwrap_or(0) as u16,
+            schema_version,
         })
     }
 
-    pub fn to_values(&self) -> [U256; 52] {
-        [
+    pub fn schema_version(&self) -> u8 { self.schema_version }
+    pub fn cp_len(&self) -> usize { if self.schema_version == 1 { CP_LEN } else { CP_V2_LEN } }
+    pub fn to_values(&self) -> Vec<U256> {
+        let mut values = vec![
             U256::from_u64(self.g_ts as u64),
             self.target_g,
             U256::from_u64(self.T_blk as u64),
@@ -185,7 +225,27 @@ impl ConsensusParams {
             U256::from_u64(self.Z_close as u64),
             U256::from_u64(self.RET as u64),
             U256::from_u64(self.P2 as u64),
-        ]
+        ];
+        if self.schema_version == 2 {
+            values.extend([
+                U256::from_u64(self.H_half as u64),
+                self.S_tail,
+                U256::from_u64(self.P_MAX as u64),
+                U256::from_u64(self.T_PROB as u64),
+                self.F0_acct,
+                self.F0_slot,
+                self.F0_code,
+                U256::from_u64(self.gamma_tip_bp as u64),
+                self.baseFeeMin,
+                U256::from_u64(self.R_react as u64),
+                U256::from_u64(self.C_react as u64),
+                U256::from_u64(self.E_epoch as u64),
+                U256::from_u64(self.theta_bp as u64),
+                U256::from_u64(self.k_sigma as u64),
+                U256::from_u64(self.rho_bp as u64),
+            ]);
+        }
+        values
     }
 }
 
@@ -292,6 +352,11 @@ impl ProfileIdentity {
         let cp = ConsensusParams::from_values(&spec.cp).map_err(ProfileError::Genesis)?;
         Ok(Self { spec, cp, hash: *expected_hash, forks, kind, node_kind })
     }
+    pub fn spec_version(&self) -> u8 { self.spec.spec_version }
+    /// The sole host-rule predicate: the genesis route and the future scheduled-fork route.
+    pub fn v3_active(&self, height: u64) -> bool {
+        self.spec_version() >= 2 || self.forks.active_version(height) >= 3
+    }
     pub fn spec(&self) -> &GenesisSpec {
         &self.spec
     }
@@ -312,5 +377,41 @@ impl ProfileIdentity {
     }
     pub fn bootable(&self) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+mod v3_tests {
+    use super::*;
+    fn identity(version:u8,nonce_mode:u8,forks:&[(u16,u64)],max_fork:u16)->ProfileIdentity{
+        let mut values:Vec<U256>=genesis_spec::cp_schema(version).unwrap().iter().map(|f|U256::from_u64(f.lo)).collect();
+        values[4]=U256::from_u64(nonce_mode.into());
+        let raw=genesis_spec::encode(&GenesisSpec{spec_version:version,chain_id:7,cp:values,alloc_root:[0;32],
+            m0_list:vec![genesis_spec::Member{id:[1;20],reward_addr:[2;20]}],sys_code_hash:[0;32]});
+        // Schema-only test identity. This never constructs an Admitted or bootable profile.
+        let spec=genesis_spec::decode_bounded(&raw,2).unwrap();
+        ProfileIdentity{cp:ConsensusParams::from_values(&spec.cp).unwrap(),spec,hash:genesis_spec::genesis_hash(&raw),
+            forks:ForkSchedule::new_bounded(forks,max_fork).unwrap(),kind:ProfileKind::Simnet,node_kind:NodeKind::Simnet}
+    }
+    #[test]
+    fn v3_predicate_keeps_v1_and_earnin_dormant_at_every_height_boundary(){
+        for nonce_mode in [0,1]{
+            let p=identity(1,nonce_mode,&[(1,0),(2,15000)],2);
+            for h in [0,1,14999,15000,15001,u64::MAX]{assert!(!p.v3_active(h));}
+            assert_eq!(p.spec_version(),1);assert_eq!(p.cp().cp_len(),52);
+            assert_eq!((p.cp().H_half,p.cp().P_MAX,p.cp().T_PROB,p.cp().rho_bp),(0,0,0,0));
+            assert_eq!(p.cp().F0_acct,U256::ZERO);assert!(!p.bootable());
+        }
+    }
+    #[test]
+    fn v3_predicate_covers_genesis_and_future_sequential_schedule(){
+        let p=identity(1,0,&[(1,0),(2,10),(3,20)],3);
+        for h in [0,9,10,19]{assert!(!p.v3_active(h));}
+        for h in [20,21,u64::MAX]{assert!(p.v3_active(h));}
+        assert_eq!(p.forks().active_version(20),3);
+        let p=identity(2,1,&[(1,0)],2);
+        for h in [0,1,u64::MAX]{assert!(p.v3_active(h));}
+        assert_eq!(p.spec_version(),2);assert_eq!(p.cp().cp_len(),67);
+        assert_eq!(p.cp().to_values(),p.spec().cp);assert!(!p.bootable());
     }
 }

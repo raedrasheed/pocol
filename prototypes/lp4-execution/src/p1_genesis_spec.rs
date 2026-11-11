@@ -1,4 +1,4 @@
-//! LP3 S1, first increment: GenesisSpec version 1 decode, canonical encode and genesisHash binding.
+//! GenesisSpec decoding, canonical encoding and genesisHash binding; v1 release and isolated v2 preview.
 //!
 //! Sources: consensus.md:7-34 (six fields, CP widths and bounds, M_0List rules, decode errors and
 //! their evaluation order), D79, validation.md:59-77 (K1-K3, GSV1, L4n), and the accepted M1
@@ -33,6 +33,8 @@ use crate::rlp;
 
 pub const SPEC_VERSION: u8 = 1;
 pub const CP_LEN: usize = 52;
+/// CP schema v2 keeps the complete v1 prefix and appends fifteen fields.
+pub const CP_V2_LEN: usize = 67;
 /// Index of alpha_bp in CP; gamma_bp (the next field) is bounded by it.
 const ALPHA_BP: usize = 13;
 /// FINAL_DESIGN.md:787.
@@ -120,6 +122,40 @@ pub const CP_SCHEMA: [CpField; CP_LEN] = [
     f("P2", 32, 0, Upper::None),
 ];
 
+/// Appended v3 fields, in immutable wire order (V3-DECISIONS.md D-V3-34).
+const CP_V2_EXTRA: [CpField; CP_V2_LEN - CP_LEN] = [
+    f("H_half", 64, 1, Upper::None),
+    f("S_tail", 256, 0, Upper::None),
+    f("P_MAX", 16, 0, Upper::None),
+    f("T_PROB", 32, 1, Upper::None),
+    f("F0_acct", 256, 0, Upper::None),
+    f("F0_slot", 256, 0, Upper::None),
+    f("F0_code", 256, 0, Upper::None),
+    f("gamma_tip_bp", 16, 0, Upper::Value(10_000)),
+    f("baseFeeMin", 256, 0, Upper::None),
+    f("R_react", 8, 0, Upper::None),
+    f("C_react", 32, 0, Upper::None),
+    f("E_epoch", 32, 1, Upper::None),
+    f("theta_bp", 16, 0, Upper::Value(10_000)),
+    f("k_sigma", 16, 0, Upper::None),
+    f("rho_bp", 16, 0, Upper::Value(10_000)),
+];
+const fn schema_v2() -> [CpField; CP_V2_LEN] {
+    let mut fields = [f("", 0, 0, Upper::None); CP_V2_LEN];
+    let mut i = 0;
+    while i < CP_LEN { fields[i] = CP_SCHEMA[i]; i += 1; }
+    while i < CP_V2_LEN { fields[i] = CP_V2_EXTRA[i - CP_LEN]; i += 1; }
+    fields
+}
+pub const CP_SCHEMA_V2: [CpField; CP_V2_LEN] = schema_v2();
+/// Known schemas only; a future wire version never silently inherits v2's layout.
+pub fn cp_schema(version: u8) -> Option<&'static [CpField]> {
+    match version { 1 => Some(&CP_SCHEMA), 2 => Some(&CP_SCHEMA_V2), _ => None }
+}
+pub fn cp_index_for(version: u8, name: &str) -> Option<usize> {
+    cp_schema(version)?.iter().position(|field| field.name == name)
+}
+
 /// ParamGate R12 (governance.md:89): M_max >= |M_0List|, and M_max is a u16.
 pub const MAX_MEMBERS: usize = u16::MAX as usize;
 
@@ -150,11 +186,11 @@ const fn list_len(payload: usize) -> usize {
     }
 }
 
-const fn max_cp_payload() -> usize {
+const fn max_cp_payload(v2: bool) -> usize {
     let mut sum = 0;
     let mut k = 0;
-    while k < CP_LEN {
-        let f = CP_SCHEMA[k];
+    while k < if v2 { CP_V2_LEN } else { CP_LEN } {
+        let f = if v2 { CP_SCHEMA_V2[k] } else { CP_SCHEMA[k] };
         sum += match f.hi {
             Upper::None => 1 + (f.width / 8) as usize,
             Upper::Value(h) => uint_item_len(h),
@@ -165,10 +201,10 @@ const fn max_cp_payload() -> usize {
     sum
 }
 
-/// Largest encoding that can pass decode and ParamGate R12: specVersion 1, chainId and every CP
+/// Largest encoding that can pass this build decoder and ParamGate R12: chainId and every CP
 /// value at their widest, both roots, and MAX_MEMBERS entries of 43 bytes. Any longer input fails
 /// R12 even if it decodes. Used to bound tools that read untrusted input; not a decode rule.
-pub const MAX_SPEC_BYTES: usize = list_len(1 + 9 + list_len(max_cp_payload()) + 33 + list_len(MAX_MEMBERS * list_len(21 + 21)) + 33);
+pub const MAX_SPEC_BYTES: usize = list_len(1 + 9 + list_len(max_cp_payload(cfg!(feature = "v3-preview"))) + 33 + list_len(MAX_MEMBERS * list_len(21 + 21)) + 33);
 
 pub fn cp_index(name: &str) -> Option<usize> {
     CP_SCHEMA.iter().position(|x| x.name == name)
@@ -181,11 +217,12 @@ pub struct Member {
     pub reward_addr: Address,
 }
 
-/// RLP([specVersion, chainId, CP, allocRoot, M_0List, sysCodeHash]), version 1.
+/// RLP([specVersion, chainId, CP, allocRoot, M_0List, sysCodeHash]), with a version-specific CP length.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenesisSpec {
+    pub spec_version: u8,
     pub chain_id: u64,
-    pub cp: [U256; CP_LEN],
+    pub cp: Vec<U256>,
     pub alloc_root: H256,
     pub m0_list: Vec<Member>,
     pub sys_code_hash: H256,
@@ -193,7 +230,7 @@ pub struct GenesisSpec {
 
 impl GenesisSpec {
     pub fn cp_value(&self, name: &str) -> Option<U256> {
-        cp_index(name).map(|k| self.cp[k])
+        cp_index_for(self.spec_version, name).and_then(|k| self.cp.get(k).copied())
     }
 }
 
@@ -383,6 +420,11 @@ fn arr<const N: usize>(v: &[u8]) -> [u8; N] {
 
 /// GenesisSpec.decode. Rejections are values, never panics, at any input length or depth.
 pub fn decode(b: &[u8]) -> Result<GenesisSpec, GsError> {
+    decode_bounded(b, if cfg!(feature = "v3-preview") { 2 } else { SPEC_VERSION })
+}
+/// Explicit acceptance ceiling for schema tests; never an admission or boot API.
+#[doc(hidden)]
+pub fn decode_bounded(b: &[u8], max_version: u8) -> Result<GenesisSpec, GsError> {
     check_framing(b)?;
     let top = Item::at(b, 0)?;
     if !top.list {
@@ -412,20 +454,24 @@ pub fn decode(b: &[u8]) -> Result<GenesisSpec, GsError> {
             return gs("gsStructure", "M_0List entry");
         }
     }
-    // gsVersion (by value; a non-minimal 1 is judged later as gsInt)
+    // gsVersion by value; non-minimal accepted versions are judged later as gsInt.
+    let mut spec_version = 1;
     if let Some(v) = slot[0] {
         let raw = v.bytes(b);
-        if significant(raw) != [SPEC_VERSION] {
+        let value = significant(raw);
+        if value.len() != 1 || value[0] > max_version || cp_schema(value[0]).is_none() {
             return gs("gsVersion", decimal(raw));
         }
+        spec_version = value[0];
     }
+    let schema = cp_schema(spec_version).unwrap();
     // gsCount
     let (version, chain, alloc_root, sys_code_hash) = match slot {
         [Some(v), Some(c), Some(_), Some(a), Some(_), Some(s)] if top_len == 6 => (v, c, a, s),
         _ => return gs("gsCount", format!("top {top_len}")),
     };
     let cp_len = cp.children(b).count();
-    if cp_len != CP_LEN {
+    if cp_len != schema.len() {
         return gs("gsCount", format!("CP {cp_len}"));
     }
     let mut members = 0usize;
@@ -441,7 +487,7 @@ pub fn decode(b: &[u8]) -> Result<GenesisSpec, GsError> {
     }
     // gsInt: specVersion, chainId and every CP item
     let ints = [("specVersion", version), ("chainId", chain)];
-    for (name, it) in ints.iter().copied().chain(CP_SCHEMA.iter().map(|x| x.name).zip(cp.children(b))) {
+    for (name, it) in ints.iter().copied().chain(schema.iter().map(|x| x.name).zip(cp.children(b))) {
         if it.wrapped || it.bytes(b).first() == Some(&0) {
             return gs("gsInt", name);
         }
@@ -466,8 +512,8 @@ pub fn decode(b: &[u8]) -> Result<GenesisSpec, GsError> {
         return gs("gsRange", "chainId");
     }
     let chain_id = chain.iter().fold(0u64, |a, x| (a << 8) | *x as u64);
-    let mut vals = [U256::ZERO; CP_LEN];
-    for ((k, field), it) in CP_SCHEMA.iter().enumerate().zip(cp.children(b)) {
+    let mut vals = vec![U256::ZERO; schema.len()];
+    for ((k, field), it) in schema.iter().enumerate().zip(cp.children(b)) {
         let v = it.bytes(b);
         if bit_len(v) > field.width as u64 {
             return gs("gsRange", field.name);
@@ -513,7 +559,7 @@ pub fn decode(b: &[u8]) -> Result<GenesisSpec, GsError> {
         let (id, reward) = pair(e);
         m0_list.push(Member { id: arr::<20>(id.bytes(b)), reward_addr: arr::<20>(reward.bytes(b)) });
     }
-    Ok(GenesisSpec { chain_id, cp: vals, alloc_root: arr::<32>(alloc_root.bytes(b)), m0_list, sys_code_hash: arr::<32>(sys_code_hash.bytes(b)) })
+    Ok(GenesisSpec { spec_version, chain_id, cp: vals, alloc_root: arr::<32>(alloc_root.bytes(b)), m0_list, sys_code_hash: arr::<32>(sys_code_hash.bytes(b)) })
 }
 
 // ------------------------------------------------------------------ encode and identity
@@ -547,10 +593,10 @@ pub fn encode(s: &GenesisSpec) -> Vec<u8> {
     let cp_payload: usize = s.cp.iter().map(|v| uint_len(&v.to_be_bytes())).sum();
     let entry = list_len(21 + 21);
     let m0_payload = s.m0_list.len() * entry;
-    let payload = 1 + uint_len(&s.chain_id.to_be_bytes()) + list_len(cp_payload) + 33 + list_len(m0_payload) + 33;
+    let payload = uint_len(&[s.spec_version]) + uint_len(&s.chain_id.to_be_bytes()) + list_len(cp_payload) + 33 + list_len(m0_payload) + 33;
     let mut out = Vec::with_capacity(list_len(payload));
     push_list_header(&mut out, payload);
-    encode_uint(&[SPEC_VERSION], &mut out);
+    encode_uint(&[s.spec_version], &mut out);
     encode_uint(&s.chain_id.to_be_bytes(), &mut out);
     push_list_header(&mut out, cp_payload);
     for v in &s.cp {
@@ -609,6 +655,32 @@ mod tests {
     }
 
     #[test]
+    fn v2_schema_preserves_the_entire_v1_prefix() {
+        assert_eq!(&CP_SCHEMA_V2[..CP_LEN], &CP_SCHEMA);
+        assert_eq!(CP_SCHEMA_V2[CP_LEN..].iter().map(|f|f.name).collect::<Vec<_>>(), [
+            "H_half","S_tail","P_MAX","T_PROB","F0_acct","F0_slot","F0_code","gamma_tip_bp",
+            "baseFeeMin","R_react","C_react","E_epoch","theta_bp","k_sigma","rho_bp"]);
+        assert_eq!(cp_index_for(1,"H_half"),None);
+        assert_eq!(cp_index_for(2,"rho_bp"),Some(66));
+        assert!(cp_schema(3).is_none());
+    }
+
+    #[test]
+    fn preview_ceiling_does_not_accept_unknown_future_schemas() {
+        let mut spec=GenesisSpec{spec_version:2,chain_id:7,cp:CP_SCHEMA_V2.iter().map(|f|U256::from_u64(f.lo)).collect(),
+            alloc_root:[0;32],m0_list:vec![Member{id:[1;20],reward_addr:[2;20]}],sys_code_hash:[0;32]};
+        let bytes=encode(&spec);
+        assert_eq!(decode_bounded(&bytes,1).unwrap_err().code,"gsVersion");
+        assert_eq!(decode_bounded(&bytes,2).unwrap(),spec);
+        if cfg!(feature="v3-preview"){assert_eq!(decode(&bytes).unwrap(),spec);}
+        else{assert_eq!(decode(&bytes).unwrap_err().code,"gsVersion");}
+        spec.spec_version=3;
+        assert_eq!(decode_bounded(&encode(&spec),u8::MAX).unwrap_err(),GsError{code:"gsVersion",detail:"3".into()});
+        spec.spec_version=1;
+        assert_eq!(decode(&encode(&spec)).unwrap_err(),GsError{code:"gsCount",detail:"CP 67".into()});
+    }
+
+    #[test]
     fn framing_details() {
         assert_eq!(decode(&[]).unwrap_err(), GsError { code: "L0", detail: "truncated".into() });
         assert_eq!(decode(&[0xb8]).unwrap_err().detail, "truncated length");
@@ -629,7 +701,7 @@ mod tests {
         assert_eq!(decode(&[0x80]).unwrap_err(), GsError { code: "gsStructure", detail: "top not a list".into() });
         assert_eq!(decode(&[0xc1, 0xc0]).unwrap_err(), GsError { code: "gsStructure", detail: "top[0]".into() });
         assert_eq!(code(&[0xc0]), "gsCount");
-        assert_eq!(decode(&[0xc1, 0x02]).unwrap_err(), GsError { code: "gsVersion", detail: "2".into() });
+        assert_eq!(decode_bounded(&[0xc1, 0x02], 1).unwrap_err(), GsError { code: "gsVersion", detail: "2".into() });
         assert_eq!(decode(&[0xc1, 0x80]).unwrap_err().detail, "0");
         assert_eq!(decode(&[0xc1, 0x01]).unwrap_err(), GsError { code: "gsCount", detail: "top 1".into() });
         // 81 01 and 82 00 01 carry the value 1: version passes, count fails first here.

@@ -177,7 +177,7 @@ impl<'a> Wallet<'a>{
         let (record,member,step)=self.rejoin_view(n);
         // A HELD or (earn-in) ACCRUING active record mines: probation keeps a nonce range.
         let eligible=record.as_ref().is_some_and(|r|r.status==1&&!r.tomb&&matches!(r.bond_state,1|4));
-        let earn=n.chain.spec.earnin();let target=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
+        let earn=n.chain.spec.earnin_rules();let target=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
         let probation=record.as_ref().filter(|r|r.status==1&&!r.tomb&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING);
         let mut activity=self.activity.clone();
         for item in &mut activity{
@@ -256,7 +256,7 @@ impl<'a> Wallet<'a>{
             },
             Command::QuoteRegister{bond}=>{
                 if self.status(n)["registered"].as_bool().unwrap_or(false){return Err("This identity already has a registry record".into())}
-                let earn=n.chain.spec.earnin();let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
+                let earn=n.chain.spec.earnin_rules();let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
                 let value=match bond.as_deref(){
                     None=>if earn{U256::ZERO}else{full},
                     Some("0")=>U256::ZERO,
@@ -281,7 +281,7 @@ impl<'a> Wallet<'a>{
                 Ok(q)
             },
             Command::QuoteTopUp{amount:requested}=>{
-                if !n.chain.spec.earnin(){return Err("Bond top-up exists only on the earn-in network".into())}
+                if !n.chain.spec.earnin_rules(){return Err("Bond top-up exists only on the earn-in network".into())}
                 let (record,_,_)=self.rejoin_view(n);let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
                 let r=record.filter(|r|r.status==1&&!r.tomb&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).ok_or("Top-up needs an active probation record")?;
                 if n.chain.head().height+1>=r.registered_at+apply::SystemPrograms::EARNIN_T_PROB{return Err("The probation period has ended".into())}

@@ -212,18 +212,22 @@ handshake is self-declared, not remote attestation, and block validation stays a
 ### 2.1 Consensus identity
 ```
 id = SHA-256( "pocol-consensus-identity-v1\0" ‖ chainId u64 ‖ genesisHash 32 B ‖ CONSENSUS_RULES_VERSION u32
-            ‖ flags u8 ‖ n u8 (1..=16) ‖ (version u16 ‖ height u64) × n ‖ [sourcesAggregate 32 B, only if bit1] )
+            ‖ flags u8 ‖ n u8 (1..=16) ‖ (version u16 ‖ height u64) × n ‖ [sourcesAggregate 32 B, if bit1 or bit2] )
 ```
 Integers are big-endian; the schedule is the full configured fork schedule (`ForkSchedule::entries`). A node runs
 only a schedule of versions 1, 2, ... in order, each once, starting `(1,0)`, at most MAX_FORK_VERSION = 2
 (`configured_forks`; today exactly `[(1,0)]` or `[(1,0),(2,H)]`). The profile itself would accept a skipped version;
-the runtime keeps refusing one (owner decision D3, implemented at its recommended default; the v3 PR decides).
+the runtime keeps refusing one (owner decision D3, recorded in V3-DECISIONS.md). A later in-place fork on a v3
+chain appends (2,H) first, a nonce-rule no-op under nonceMode 1, then (3,Hprime).
 genesisHash
 commits CP, sysCodeHash and the alloc. Flags: bit0 caps-test, taken from `pocol_lp4_execution::CAPS_TEST` (the
 crate whose LOG_CAP it changes; a build enabling lp4's feature without pocold's does not compile); bit1 unpinned,
 set when the build's consensus-boundary aggregate differs from the lock (§2.4), in which case the 32-byte aggregate
-is appended, so an unpinned tree peers only with byte-identical unpinned trees. Other bits are 0. Left out: the build
-digest, the crash-test and io-fault features, `r_keep`, admission and other boot policy. A pinned build's identity
+is appended, so an unpinned tree peers only with byte-identical unpinned trees. Bit2 is `v3-preview`, taken from
+`pocol_lp4_execution::V3_PREVIEW` with the same feature-forwarding compile check. Preview builds append the actual
+boundary aggregate even when pinned, accept spec 2 only for simnet admission, and are refused by release packaging.
+Other bits are 0. Left out: the build digest, the crash-test and io-fault features, `r_keep`, admission and other
+boot policy. A pinned ordinary release build's identity
 is computable by anyone from public data (devnet.json and `consensusRulesVersion`): `identity.rs`,
 `deploy/public-testnet/pocol_identity.py` and the inline copy in `deploy/mainnet/preflight.py` compute it, and the
 H15000 value (chain 1599846715, genesis `0xbe137b…`, rules 1, flags 0, `[(1,0),(2,15000)]`) is pinned in tests:
@@ -258,10 +262,37 @@ Every change to a consensus-boundary file (§2.4) needs one appended history lin
 | `neutral-dep` | the dependency closure or a `rust-toolchain.toml` changed | note required; presumed `bump`; the release replay gate is mandatory |
 | `wire` | only the wire golden file changed | the §2.2 rules |
 
-"Released" means merged to main: every history line records `maxFork` (MAX_FORK_VERSION) and `spec`
-(genesis_spec::SPEC_VERSION), so a gate value is spent as soon as the gated code lands on main, because public-testnet
-nodes run main builds (owner decision D2, implemented at its recommended default). Consequently a second v3 change
-after the first has merged needs a new gate or a bump with a new genesis.
+"Released" means merged to main. Gate freshness is determined by the version constants recorded on earlier
+history lines: `maxFork` (MAX_FORK_VERSION) and `spec` (genesis_spec::SPEC_VERSION). A dormant `neutral gate=spec:2`
+line still records `spec=1`, so it does not spend the gate; later dormant v3 PRs can use the same gate. Preview
+acceptance is isolated as in §2.1 and never raises the ordinary release ceiling. Keep CONSENSUS_RULES_VERSION=1,
+SPEC_VERSION=1 and MAX_FORK_VERSION=2 until the reviewed activation PR raises both SPEC_VERSION copies to 2. Its
+line records `spec=2` and spends spec:2. Later corrections require a new spec:3 genesis/gate, or a separately
+authorized rules bump only after H15000 retirement. The future in-place fork:3 route remains dormant while
+MAX_FORK_VERSION=2. See development/decisions/V3-DECISIONS.md; no live activation is authorized here.
+
+The schema-v2 CP wire list contains all 52 unchanged v1 fields followed by the fields below, in this exact order.
+All are unsigned canonical RLP integers; omitted v2 fields are not allowed. On v1, the named v2 fields are zero
+in the typed view and are absent from encoding and ChainCaps storage. Schema validity is not complete ParamGate
+admission or a production-profile selection; cross-field bounds and measured values remain part of the profile PR.
+
+| CP index | Field | Width (bits) | Schema range |
+|---|---|---:|---|
+| 52 | H_half | 64 | 1..2^64-1 |
+| 53 | S_tail | 256 | 0..2^256-1 |
+| 54 | P_MAX | 16 | 0..65535 |
+| 55 | T_PROB | 32 | 1..2^32-1 |
+| 56 | F0_acct | 256 | 0..2^256-1 |
+| 57 | F0_slot | 256 | 0..2^256-1 |
+| 58 | F0_code | 256 | 0..2^256-1 |
+| 59 | gamma_tip_bp | 16 | 0..10000 |
+| 60 | baseFeeMin | 256 | 0..2^256-1 |
+| 61 | R_react | 8 | 0..255 |
+| 62 | C_react | 32 | 0..2^32-1 |
+| 63 | E_epoch | 32 | 1..2^32-1 |
+| 64 | theta_bp | 16 | 0..10000 |
+| 65 | k_sigma | 16 | 0..65535 |
+| 66 | rho_bp | 16 | 0..10000 |
 
 ### 2.4 Boundary, lock and enforcement
 `pocold/consensus-boundary.txt` lists the consensus sources (paths relative to `prototypes/`): `+` includes (all of

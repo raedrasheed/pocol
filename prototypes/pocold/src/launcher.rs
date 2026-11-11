@@ -424,7 +424,7 @@ pub fn pack(network: &Path, seeds: Vec<SocketAddr>, bootstrap: Vec<SocketAddr>, 
     let bytes = serde_json::to_vec_pretty(&invitation).map_err(|e| e.to_string())?;
     Invitation::parse(&bytes)?;
     // Full admission still runs on each device, including its local storage measurement.
-    crate::load_spec_for(network, &testnet::local(), None)?;
+    crate::load_spec_for(network, &testnet::local_for_network(network)?, None)?;
     write_new(out, &bytes)?;
     println!("{}", invitation.describe());
     Ok(())
@@ -932,7 +932,7 @@ impl Home {
         }
         let data = self.path.join("state");
         let spec =
-            crate::load_spec_for(&self.path.join("network"), &testnet::local(), Some(&data))?;
+            crate::load_spec_for(&self.path.join("network"), &testnet::local_for_network(&self.path.join("network"))?, Some(&data))?;
         let declared: serde_json::Value =
             serde_json::from_str(&invitation.files["devnet.json"]).map_err(|e| e.to_string())?;
         if declared["genesisHash"] != types::hex(&spec.genesis_hash()) {

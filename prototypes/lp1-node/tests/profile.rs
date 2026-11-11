@@ -50,23 +50,23 @@ fn typed_cp_preserves_all_values_and_exact_encoding() {
 fn every_width_minimum_and_upper_bound_is_checked_before_narrowing() {
     let s = spec();
     for (i, field) in CP_SCHEMA.iter().enumerate() {
-        let mut v = s.cp;
+        let mut v = s.cp.clone();
         if field.width < 256 {
             v[i] = U256::pow2(field.width).unwrap();
             assert_eq!(ConsensusParams::from_values(&v).unwrap_err().detail, field.name);
         }
         if field.lo > 0 {
-            v = s.cp;
+            v = s.cp.clone();
             v[i] = U256::from_u64(field.lo - 1);
             assert_eq!(ConsensusParams::from_values(&v).unwrap_err().detail, field.name);
         }
         if let Upper::Value(n) = field.hi {
-            v = s.cp;
+            v = s.cp.clone();
             v[i] = U256::from_u64(n + 1);
             assert_eq!(ConsensusParams::from_values(&v).unwrap_err().detail, field.name);
         }
     }
-    let mut v = s.cp;
+    let mut v = s.cp.clone();
     v[13] = U256::from_u64(10000);
     v[14] = U256::ONE;
     assert_eq!(ConsensusParams::from_values(&v).unwrap_err().detail, "gamma_bp");

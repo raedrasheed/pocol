@@ -6,6 +6,8 @@ pub const CHAIN_ID: u64 = 777902;
 /// Whether this build has the caps-test constants (user_phase LOG_CAP; simnet only). The consensus identity takes its
 /// caps-test flag from here, the crate that changes the constant, not from a dependent's feature (plan §1.1, A1-3).
 pub const CAPS_TEST: bool = cfg!(feature = "caps-test");
+/// Preview acceptance is simnet-only and changes the node consensus identity.
+pub const V3_PREVIEW: bool = cfg!(feature = "v3-preview");
 pub fn pay_address() -> Address { Address::from_word(U256::from(0xc0c0ffu64).into()) }
 
 #[derive(Default)]

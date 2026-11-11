@@ -1,6 +1,6 @@
 //! Who peers (VA-SPEC §2): a consensus identity that anyone can compute from public data, plus a wire version range.
 //! The identity commits to the chain, the genesis (and through it CP, sysCodeHash and the alloc), the consensus rules
-//! revision, the caps-test and unpinned flags and the full fork schedule, so two nodes peer only when they run the same
+//! revision, the caps-test, unpinned and preview flags and the full fork schedule, so two nodes peer only when they run the same
 //! rules on the same chain with the same schedule, whatever their build digest. It is self-declared, not remote
 //! attestation; block validation stays authoritative. The build digest (`COMPATIBILITY_HEX`) is informational status.
 use sha2::{Digest, Sha256};
@@ -23,16 +23,22 @@ pub const SOURCES: &str = env!("POCOL_CONSENSUS_SOURCES");
 /// Identity flag bits (§1.1). Caps-test is lp4's own feature, the crate whose LOG_CAP it changes (A1-3).
 pub const FLAG_CAPS_TEST: u8 = 1;
 pub const FLAG_UNPINNED: u8 = 2;
+/// Test-only spec-2 preview, isolated even when its sources are pinned.
+pub const FLAG_V3_PREVIEW: u8 = 4;
 /// The fork schedule entries an identity can carry (`ForkSchedule` allows 1..=16).
 pub const FORKS_MAX: usize = 16;
 
-/// This build's flags: bit0 caps-test (`pocol_lp4_execution::CAPS_TEST`), bit1 unpinned.
-pub fn flags() -> u8 { (pocol_lp4_execution::CAPS_TEST as u8 * FLAG_CAPS_TEST) | if PINNED { 0 } else { FLAG_UNPINNED } }
-/// The aggregate an unpinned build appends (`SOURCES`); none when pinned. A malformed value cannot be built by build.rs,
-/// so it panics rather than yield an identity that drops the aggregate.
+/// This build's flags: bit0 caps-test (`pocol_lp4_execution::CAPS_TEST`), bit1 unpinned, bit2 v3-preview.
+pub fn flags() -> u8 {
+    (pocol_lp4_execution::CAPS_TEST as u8 * FLAG_CAPS_TEST)
+        | (pocol_lp4_execution::V3_PREVIEW as u8 * FLAG_V3_PREVIEW)
+        | if PINNED { 0 } else { FLAG_UNPINNED }
+}
+/// Unpinned and preview builds append their actual aggregate. A pinned preview must still be
+/// isolated from previews of other source trees. build.rs supplies and validates this value.
 pub fn sources() -> Option<[u8; 32]> {
-    if PINNED { return None }
-    Some(unhex32(SOURCES).expect("POCOL_CONSENSUS_SOURCES is the 64-hex aggregate of an unpinned tree"))
+    if PINNED && !pocol_lp4_execution::V3_PREVIEW { return None }
+    Some(unhex32(env!("POCOL_CONSENSUS_SOURCES_ACTUAL")).expect("build.rs supplies the actual 64-hex boundary aggregate"))
 }
 fn unhex32(s: &str) -> Option<[u8; 32]> {
     if s.len() != 64 || !s.bytes().all(|b| b.is_ascii_hexdigit()) { return None }
@@ -44,11 +50,11 @@ fn hex(b: &[u8]) -> String { b.iter().map(|x| format!("{x:02x}")).collect() }
 
 /// The consensus identity (VA-SPEC §2.1), pure:
 /// SHA-256("pocol-consensus-identity-v1\0" ‖ chainId u64 ‖ genesisHash ‖ rules u32 ‖ flags u8 ‖ n u8 ‖
-/// (version u16 ‖ height u64)×n ‖ [sources, only with bit1]), integers big-endian. `sources` must be given exactly
-/// when bit1 is set and `forks` must hold 1..=16 entries (a validated schedule); anything else is a caller bug.
+/// (version u16 ‖ height u64)×n ‖ [sources, with bit1 or bit2]), integers big-endian. `sources` must be given exactly
+/// when either unpinned or preview is set and `forks` must hold 1..=16 entries (a validated schedule); anything else is a caller bug.
 pub fn consensus_id(chain_id: u64, genesis: &[u8; 32], rules: u32, flags: u8, forks: &[(u16, u64)], sources: Option<[u8; 32]>) -> [u8; 32] {
     assert!((1..=FORKS_MAX).contains(&forks.len()), "a consensus identity covers a validated schedule");
-    assert_eq!(flags & FLAG_UNPINNED != 0, sources.is_some(), "the unpinned bit and the aggregate go together");
+    assert_eq!(flags & (FLAG_UNPINNED | FLAG_V3_PREVIEW) != 0, sources.is_some(), "unpinned/preview flags require the aggregate");
     let mut h = Sha256::new();
     h.update(b"pocol-consensus-identity-v1\0");
     h.update(chain_id.to_be_bytes());
@@ -107,8 +113,17 @@ pub fn explain(local: &Consensus, peer: &[u8; 32]) -> String {
     if local.with(f, r, fl ^ FLAG_CAPS_TEST, s) == *peer {
         return if fl & FLAG_CAPS_TEST == 0 { "peer runs a caps-test build".into() } else { "this node runs a caps-test build; the peer does not".into() };
     }
+    let other_preview = fl ^ FLAG_V3_PREVIEW;
+    let other_sources = if other_preview & (FLAG_UNPINNED | FLAG_V3_PREVIEW) != 0 {
+        s.or_else(|| unhex32(env!("POCOL_CONSENSUS_SOURCES_ACTUAL")))
+    } else { None };
+    if local.with(f, r, other_preview, other_sources) == *peer {
+        return if fl & FLAG_V3_PREVIEW == 0 { "peer runs a v3-preview build".into() }
+            else { "this node runs a v3-preview build; the peer does not".into() };
+    }
     if fl & FLAG_UNPINNED != 0 {
-        return if local.with(f, r, fl & !FLAG_UNPINNED, None) == *peer {
+        let pinned_sources = if fl & FLAG_V3_PREVIEW != 0 { s } else { None };
+        return if local.with(f, r, fl & !FLAG_UNPINNED, pinned_sources) == *peer {
             "this node runs an unpinned (development) build; the peer runs the pinned rules: re-pin consensus-sources.lock or use a released build".into()
         } else {
             "this node runs an unpinned (development) build, which peers only with byte-identical trees".into()
@@ -148,6 +163,19 @@ mod tests {
         assert_ne!(consensus_id(7, &[1; 32], 1, FLAG_UNPINNED, &[(1, 0)], Some([0; 32])), consensus_id(7, &[1; 32], 1, FLAG_UNPINNED, &[(1, 0)], Some([1; 32])));
     }
     #[test]
+    fn pinned_preview_still_commits_its_source_aggregate(){
+        let ordinary=consensus_id(7,&[1;32],1,0,&[(1,0)],None);
+        let a=Consensus::new(7,[1;32],&[(1,0)],1,FLAG_V3_PREVIEW,Some([8;32]));
+        let b=Consensus::new(7,[1;32],&[(1,0)],1,FLAG_V3_PREVIEW,Some([9;32]));
+        assert_ne!(a.id,ordinary);assert_ne!(a.id,b.id);
+        assert_eq!(accepts(&a,7,&[1;32],PROTOCOL_VERSION,&b.id),Err(Mismatch::Consensus));
+        let unpinned=Consensus::new(7,[1;32],&[(1,0)],1,FLAG_V3_PREVIEW|FLAG_UNPINNED,Some([8;32]));
+        assert!(explain(&unpinned,&a.id).contains("unpinned"));
+        assert!(explain(&a,&ordinary).contains("v3-preview"));
+        if pocol_lp4_execution::V3_PREVIEW{assert_eq!(sources(),unhex32(env!("POCOL_CONSENSUS_SOURCES_ACTUAL")));}
+    }
+
+    #[test]
     fn the_wire_range_accepts_any_maximum_from_min_and_runs_at_the_lower() {
         let a = local(&[(1, 0)]);
         assert_eq!(accepts(&a, 7, &[1; 32], PROTOCOL_VERSION_MIN, &a.id), Ok(PROTOCOL_VERSION_MIN));
@@ -176,8 +204,9 @@ mod tests {
         // T9: bit0 is lp4's CAPS_TEST (the crate that changes LOG_CAP), bit1 is set exactly when the tree is unpinned.
         assert_eq!(flags() & FLAG_CAPS_TEST != 0, pocol_lp4_execution::CAPS_TEST);
         assert_eq!(flags() & FLAG_UNPINNED != 0, !PINNED);
-        assert_eq!(sources().is_some(), !PINNED);
-        assert_eq!(flags() & !(FLAG_CAPS_TEST | FLAG_UNPINNED), 0);
+        assert_eq!(flags() & FLAG_V3_PREVIEW != 0, pocol_lp4_execution::V3_PREVIEW);
+        assert_eq!(sources().is_some(), !PINNED || pocol_lp4_execution::V3_PREVIEW);
+        assert_eq!(flags() & !(FLAG_CAPS_TEST | FLAG_UNPINNED | FLAG_V3_PREVIEW), 0);
     }
     #[test]
     fn build_info_reports_the_identity_constants() {
@@ -188,5 +217,6 @@ mod tests {
         assert_eq!(info["consensusRulesVersion"], CONSENSUS_RULES_VERSION);
         assert_eq!(info["maxForkVersion"], pocol_lp4_execution::profile::MAX_FORK_VERSION);
         assert_eq!(info["consensusPinned"], PINNED);
+        assert_eq!(info["v3Preview"], pocol_lp4_execution::V3_PREVIEW);
     }
 }

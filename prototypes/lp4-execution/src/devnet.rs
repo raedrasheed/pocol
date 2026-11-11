@@ -8,6 +8,7 @@ use crate::{admission::{Admitted,NodeLocal,Request,Timing},apply::{Genesis,Syste
 /// timing/membership/end parameters, which are scaled for a local devnet.
 #[derive(Clone,Debug)]
 pub struct DevnetConfig{
+    pub spec_version:u8,
     pub chain_id:u64,
     pub g_ts:u64,
     /// H_cal (R25d): target_g = min(2^256-1, max(1, floor(2^256/(H_cal*T_blk))-1)).
@@ -29,6 +30,10 @@ pub struct DevnetConfig{
     pub accounts:Vec<(String,U256)>,
     /// Earn-in rules (EARN-IN-SPEC.md): the earn-in system programs and B_reg = 20 PCOL.
     pub earnin:bool,
+    /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately.
+    pub h_half:u64,pub s_tail:U256,pub p_max:u16,pub t_prob:u32,
+    pub f0_acct:U256,pub f0_slot:U256,pub f0_code:U256,pub gamma_tip_bp:u16,pub base_fee_min:U256,
+    pub r_react:u8,pub c_react:u32,pub e_epoch:u32,pub theta_bp:u16,pub k_sigma:u16,pub rho_bp:u16,
 }
 impl DevnetConfig{
     pub fn new(chain_id:u64,g_ts:u64,miners:&[&str])->Self{
@@ -37,24 +42,32 @@ impl DevnetConfig{
         // (validation.md T18b), SYS_SLOT_MAX above the derived footprint, R_max=0 (the v1
         // programs implement no registration) and H_END=20000, so that the A13 resident
         // bound of a node fits its memory budget.
-        Self{chain_id,g_ts,hash_rate:1<<16,
+        Self{spec_version:1,chain_id,g_ts,hash_rate:1<<16,
             t_blk:4,tau:40,d_att:25,d_fb_wait:3,d:4,w_w:8,m:32,kappa:2,s_max:256,
             w_act:32,theta_inact:64,e_win:16,u:40,h_end:20_000,h_close:19_000,t_end_offset:10_000_000,t_close_offset:9_990_000,ret:128,p2:2,m_max:64,
             r_max:0,reg_records_max:8192,sys_slot_max:65536,z_close:160,gas_limit:8_000_000,slot_cap:50_000,acct_cap:20_000,
             code_cap:1<<21,txbytes_cap:1<<24,tx_cap:20_000,alpha_bp:1000,gamma_bp:500,c:2,
             miners:miners.iter().map(|s|s.to_string()).collect(),
-            accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false,nonce_mode:0}
+            accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false,nonce_mode:0,
+            h_half:31_557_600,s_tail:U256::from(62_500_000_000_000_000u64),p_max:16,t_prob:648_000,
+            f0_acct:U256::from(1_000_000_000_000_000u64),f0_slot:U256::ZERO,f0_code:U256::ZERO,gamma_tip_bp:5000,base_fee_min:U256::from(10_000_000),
+            r_react:4,c_react:40,e_epoch:21_600,theta_bp:1250,k_sigma:3,rho_bp:2500}
     }
-    pub fn cp(&self)->[fixed::U256;52]{
+    pub fn cp(&self)->Vec<fixed::U256>{
         let n=|v:u64|fixed::U256::from_u64(v);
         let big=|v:u128|fixed::U256::from_be_slice(&v.to_be_bytes()).unwrap();
-        [n(self.g_ts),self.target_g(),n(self.t_blk.into()),n(self.tau.into()),n(self.nonce_mode.into()),n(self.c.into()),n(self.d_att.into()),n(self.d_fb_wait.into()),
+        let mut cp=vec![n(self.g_ts),self.target_g(),n(self.t_blk.into()),n(self.tau.into()),n(self.nonce_mode.into()),n(self.c.into()),n(self.d_att.into()),n(self.d_fb_wait.into()),
          n(self.m.into()),n(self.kappa.into()),n(self.s_max.into()),n(self.d.into()),n(self.w_w.into()),n(self.alpha_bp.into()),n(self.gamma_bp.into()),
          big(2_000_000_000_000_000_000),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
          n(self.w_act.into()),n(self.theta_inact.into()),n(self.e_win.into()),n(self.u.into()),n(4),n(8192),
          n(self.gas_limit),n(1_000_000_000),n(131072),n(196608),n(32768),n(self.code_cap),n(self.txbytes_cap),n(self.tx_cap),n(self.slot_cap),n(self.acct_cap),
          n(self.sys_slot_max.into()),n(2048),n(256),n(512),n(96_000_000),
-         n(self.h_end),n(if self.h_end==0{0}else{self.g_ts+self.t_end_offset}),n(if self.h_end==0{0}else{self.h_close}),n(if self.h_end==0{0}else{self.g_ts+self.t_close_offset}),n(self.z_close.into()),n(self.ret.into()),n(self.p2.into())]
+         n(self.h_end),n(if self.h_end==0{0}else{self.g_ts+self.t_end_offset}),n(if self.h_end==0{0}else{self.h_close}),n(if self.h_end==0{0}else{self.g_ts+self.t_close_offset}),n(self.z_close.into()),n(self.ret.into()),n(self.p2.into())];
+        if self.spec_version==2{cp.extend([
+            n(self.h_half),to_fixed(self.s_tail),n(self.p_max.into()),n(self.t_prob.into()),
+            to_fixed(self.f0_acct),to_fixed(self.f0_slot),to_fixed(self.f0_code),n(self.gamma_tip_bp.into()),to_fixed(self.base_fee_min),
+            n(self.r_react.into()),n(self.c_react.into()),n(self.e_epoch.into()),n(self.theta_bp.into()),n(self.k_sigma.into()),n(self.rho_bp.into())]);}
+        cp
     }
 }
 impl DevnetConfig{
@@ -113,7 +126,7 @@ pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     }
     for (label,wei) in &cfg.accounts{alloc.insert_account_info(account_key(label).address(),AccountInfo{nonce:0,balance:*wei,..Default::default()});}
     let m0_list:Vec<Member>=miners.iter().map(|m|Member{id:m.id.0.0,reward_addr:m.reward.0.0}).collect();
-    let mut spec=GenesisSpec{chain_id:cfg.chain_id,cp:cfg.cp(),alloc_root:[0;32],m0_list,sys_code_hash:programs.sys_code_hash().0};
+    let mut spec=GenesisSpec{spec_version:cfg.spec_version,chain_id:cfg.chain_id,cp:cfg.cp(),alloc_root:[0;32],m0_list,sys_code_hash:programs.sys_code_hash().0};
     let forks=vec![(1u16,0u64)];
     // Provisional identity to derive allocRoot (the root does not depend on allocRoot itself).
     let provisional=identity(&spec,&forks)?;

@@ -101,3 +101,37 @@ jobs:
           name: pocol-extension-${{ github.sha }}
           path: prototypes/pocol-extension/releases/*
           if-no-files-found: error
+
+  v3-preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - name: Check shared decoder and profile copies
+        run: |
+          cmp prototypes/lp1-node/src/genesis_spec.rs prototypes/lp4-execution/src/p1_genesis_spec.rs
+          cmp prototypes/lp1-node/src/profile.rs prototypes/lp4-execution/src/p1_profile.rs
+      - name: Test isolated preview and unchanged legacy encodings
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp1-node/Cargo.toml --features v3-preview --lib
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features v3-preview --lib
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --lib --test v3_scaffold --test cutover --test consensus_guard
+          python3 -B -m unittest discover -s deploy/standalone -p test_release_package.py -v
+      - name: Dependency-only preview must not compile
+        run: |
+          set -euo pipefail
+          if cargo +1.99.1 check --release --locked --lib --manifest-path prototypes/pocold/Cargo.toml --features pocol-lp4-execution/v3-preview 2> "$RUNNER_TEMP/preview-only.log"; then
+            echo 'dependency-only preview must fail to compile' >&2; exit 1
+          fi
+          grep -F "enable v3-preview through pocold's feature" "$RUNNER_TEMP/preview-only.log"

@@ -21,6 +21,11 @@ pub fn ledger()->Address{program_address(2)}
 pub fn caps()->Address{program_address(3)}
 pub fn chunk_factory()->Address{program_address(4)}
 
+/// Program-set identity. V3 is reserved for the separately reviewed E0 artifact;
+/// preview scaffolding reports the actual legacy set it currently executes.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum ProgramSet{V1,Continuous,EarnIn,V3}
+
 /// The five compiled runtime programs C0C001..C0C005, in order.
 #[derive(Clone,Debug)]
 pub struct SystemPrograms{pub codes:[Bytes;5]}
@@ -50,8 +55,17 @@ impl SystemPrograms{
     pub fn earnin()->Self{Self::from_compiled_json(include_str!("../tests/data/system-earnin.json")).expect("bundled earn-in system programs")}
     /// The bundled program set whose sysCodeHash a GenesisSpec names; otherwise the CP default, which
     /// then fails the genesis code check exactly as before.
+    fn registered()->[(ProgramSet,Self);3]{
+        [(ProgramSet::Continuous,Self::continuous()),(ProgramSet::V1,Self::v1()),(ProgramSet::EarnIn,Self::earnin())]
+    }
+    pub fn program_set(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->ProgramSet{
+        static HASHES:std::sync::OnceLock<[(ProgramSet,[u8;32]);3]>=std::sync::OnceLock::new();
+        HASHES.get_or_init(||Self::registered().map(|(kind,p)|(kind,p.sys_code_hash().0)))
+            .iter().find(|(_,hash)|hash==sys_code_hash).map(|(kind,_)|*kind)
+            .unwrap_or(if cp.H_END==0{ProgramSet::Continuous}else{ProgramSet::V1})
+    }
     pub fn for_spec(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->Self{
-        [Self::continuous(),Self::v1(),Self::earnin()].into_iter().find(|p|p.sys_code_hash().0==*sys_code_hash).unwrap_or_else(||Self::for_params(cp))
+        Self::registered().into_iter().find(|(_,p)|p.sys_code_hash().0==*sys_code_hash).map(|(_,p)|p).unwrap_or_else(||Self::for_params(cp))
     }
     /// sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 for PAY])).
     pub fn sys_code_hash(&self)->B256{crate::genesis_builder::code_hash(&self.codes)}
