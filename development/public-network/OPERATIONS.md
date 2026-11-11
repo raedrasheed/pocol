@@ -266,8 +266,9 @@ window. The A13 bound no longer grows with the journal's record count. On the
 continuous chain it grows only with the observed sizes of history.redb, canon.redb and
 state.redb, at about 1 B per 4 KiB of file. A seed at the defaults (store mode, 7
 configured peers) now stops at about **10.5 TiB of history.redb**
-(`a13_live_chain_halt_disk_bytes`: 11,516,276,850,815 B; with 2 configured peers
-11,777,328,119,935 B), where it stopped at 1,102,318 records (127.6 days) before. Nodes
+(`a13_live_chain_halt_disk_bytes`: 11,493,872,746,623 B; with 2 configured peers
+11,754,924,015,743 B), where it stopped at 1,100,218 records (127.3 days) before (with
+PR6's pool terms; 1,102,318 records, 127.6 days, before PR6). Nodes
 on one chain hold almost the same files, so they would reach that size at almost the
 same time; the disk usually fills first.
 

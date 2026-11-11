@@ -239,6 +239,7 @@ Model totals, each dated to the code it was computed on (the heading "Final code
 | **C-1 E3** (executor, pool and RPC on overlays, 2026-10-25) | **3,186,963,844 B (2.968 GiB)** | **3,642,244,394 B** | **455,280,550 B = 434.2 MiB** | **2,800,206,550 B = 2670.5 MiB** | evidence/c1-e3/a13-devnet-breakdown-e3.log. TRANSIENT_SNAPSHOTS 10 → 2 (a block's merged child; a rolling re-execution's state and next merged state), POOL_LAYER_SNAPSHOTS 1 (the pool's layer counted as a whole state until D-7's value bounds it), and the applied block's overlay (`overlay_max`, in the diffs group). `Entry.state` is an `Arc`, so the entry is smaller. Network profile: 28.08 GiB, gate 32.09 GiB (evidence/c1-e3/a13-network-profile-e3.log) |
 | **PR4** (no state work before the pre-auth checks, 2026-11-08; the totals between C-1 E3 and here are in `a13_bound_breakdown`'s comment chain) | **3,244,176,189 B (3.021 GiB)** | **3,707,629,931 B** | **463,453,742 B = 442.0 MiB** | **2,734,821,013 B = 2608.1 MiB** | evidence/pr4/a13-breakdown-merge.log (merged with main's PR2a discovery, `b83b584`). One new term, `queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)`, +239,520 B on 3,243,936,669 B (the PR2a discovery total; before the merge, on 3,242,021,872 B, the P2P gossip total, it gave 3,242,261,392 B, evidence/pr4/a13-breakdown.log): `size_of::<([u8;32], Costly)>()` = 56 B, asserted with the pinned total on Linux x86_64, so a key's buckets round to 264 B. No other term changes; see the PR4 note below the table |
 | **PR3** (32 established inbound, inbound eviction and the node's per-connection maps, merged with main's PR4 `e3d6f07`; §2f) | **3,354,424,323 B (3.124 GiB)** | **3,833,627,798 B** | **479,203,475 B = 457.0 MiB** | **2,608,823,146 B = 2488.0 MiB** | `a13_bound_breakdown` (tests/consensus.rs) asserts the total on Linux x86_64: PR4's total plus PR3's +110,248,134 B (§2f) |
+| **PR6** (the pool and builder count gas used; with the readiness review's fixes) | **3,359,894,075 B (3.129 GiB)** | **3,839,878,943 B** | **479,984,868 B = 457.7 MiB** | **2,602,572,001 B = 2482.0 MiB** | `a13_bound_breakdown`: PR3's total plus the pool's meta, the parked entries, the template selection and the block overlay's BLOCKHASH window (+4,692,588 B), plus the selection's tail after a gas failure (+383,948 B) and the parked runs and candidates (+393,216 B); see the D-7 Builder and A13 (PR6) notes |
 
 PR4 note (the assumptions the existing terms rest on, made to hold; no new line): a block refused after a
 TrieRebuild or restore now drops the rebuilt state at once (`Chain::reprune`), so `MATERIALIZED` holds
@@ -405,10 +406,36 @@ three terms: one up and two down. It also withdraws one projection.
   1. size: -32014;
   2. decoding and chain: as before;
   3. a duplicate is answered with its hash and counts nothing;
-  4. the byte and count bounds: -32016 pool full;
+  4. the byte and count bounds: -32016 pool full (PR6: the pooled, backlog and parked bytes share
+     POOL_MAX_BYTES);
+  4b. PR6, the sender quota: -32016 pool full (sender gas). One sender's pooled transactions declare at most
+     `Limits::pool_sender_gas_max` (default POOL_SENDER_GAS_BLOCKS × GAS_LIMIT = GAS_LIMIT; refused at open
+     below GAS_LIMIT or above G). Transactions returned from an abandoned block are exempt;
   5. the gas bound: -32016 pool full (gas). This is checked before execution, so a refused transaction
-     costs no execution and changes nothing;
+     costs no execution and changes nothing. PR6: a transaction refused only here is parked when it is
+     eligible (its sender's next nonce on the pending state, a balance covering gas_limit × fee cap + value, a
+     fee cap at least the next base fee, no other parked transaction of its sender): -32016 pool full (gas):
+     held for the next block. At most POOL_PARKED_MAX (1024) are parked; when full, the one declaring the most
+     gas makes room for one declaring strictly less. PR6 review: a sender may park a run of its next nonces (each
+     the nonce after its last parked one, its balance covering the whole run, the run within its sender quota
+     with its pooled transactions); a full set evicts the one declaring the most gas with its sender's later
+     parked ones, never one of the newcomer's own. PR6 second review: before parking, a transaction is refused as
+     the engine refuses it before execution (intrinsic gas, the block's gas limit, initcode size, chain id, fee cap
+     order: revm's validate_env and validate_initial_tx_gas, -32000), since parking executes nothing and such a
+     transaction is never included or paid; and at equal declared gas a newcomer that would be its sender's first
+     parked one evicts the last entry of the longest run, so a run of cheap transactions cannot set the eviction
+     floor for many slots (filling the set at 21,000 takes one funded sender per slot, each entry valid and
+     included and paid unless its sender pays to invalidate it). A parked transaction is relayed when parked (PR6
+     second review: only one that evicted nothing, at most POOL_PARKED_MAX since the last head, offered so a busy
+     peer is kept; any other is relayed when admitted at a later head, so eviction churn cannot make the relays per
+     head unbounded and unpaid) and is a template
+     candidate (after the pooled ones, before the backlog), so cheap transactions that hold the declared-gas
+     bound right after a head delay no valid transaction past the next block, and do not limit a sender to one
+     transaction per block;
   6. execution on the pending state;
+  6b. PR6 review, the log caps: -32000 logs would exceed a block cap. A transaction whose own logs pass
+     LOG_COUNT_MAX, LOG_BLOCK_MAX or (H_END != 0) LOG_CAP on the head would halt in every block; the builder
+     never takes it except as that halt, so the pool does not hold the gas bound with it;
   7. the cap meter.
 - **Replacement.** There is none. A second transaction with a pooled one's sender and nonce, whatever its
   fee, fails its execution on the pending state (-32000, NonceTooLow) and changes no counter. The pooled one
@@ -419,11 +446,19 @@ three terms: one up and two down. It also withdraws one projection.
 - **Re-insertion after a reorganization** (consensus.md: excluded transactions return to the pool once
   checked again). The order is:
   1. the abandoned blocks' transactions, oldest block first, each block in its own order;
-  2. then the previous pool, in its order;
-  3. then its backlog.
+  2. then the previous pool, in its order, up to each sender's first transaction declaring more than
+     GAS_LIMIT/2 (PR6);
+  3. then the parked transactions, least declared gas first (PR6; a sender's run by its first one, in nonce
+     order);
+  4. then the previous pool's deferred part, each sender's transactions from its first big one on, in pool
+     order, and after it the parked transactions of those senders (PR6);
+  5. then its backlog.
 
-  Each is admitted within every pool bound. One that no longer fits the gas bound is dropped and is not
-  pooled later; a later, smaller one is still admitted.
+  Each is admitted within every pool bound. PR6: one that no longer fits the gas bound is parked when
+  eligible, not dropped (before PR6 it was dropped and not pooled later); a later, smaller one of another sender is
+  still admitted, and (PR6 third review) a later one of its sender, whatever its gas, is parked behind it: executed
+  on the pending state its nonce was too high, so a pooled transaction behind a parked one was lost. Big transactions go after the waiting small ones, so transactions a block takes one of at a time
+  cannot hold the bound against users across heads.
 
   **Relay of a returned transaction** (a local policy). A transaction that leaves an abandoned block and is
   admitted again is offered to every peer (`Relay::Offer`, through `Peer::offer`):
@@ -451,12 +486,70 @@ three terms: one up and two down. It also withdraws one projection.
   `queue_bytes_max` per peer).
 - **Counters.** `Node::pool_audit` recomputes them from the pool's contents: gas and bytes summed over the
   admitted transactions, backlog bytes over the backlog, each transaction pooled once, and every bound.
+  PR6 adds: the pool's meta (sender, declared gas, exempt) equals the decoded transactions; each sender's
+  non-exempt declared gas is within the quota; the parked set is within its bound, its bytes are counted, it
+  holds per sender one run of consecutive nonces within the quota (PR6 review; before, one transaction per
+  sender) and none that is also pooled; pooled, backlog and parked bytes together
+  stay within POOL_MAX_BYTES (+ one abandoned body).
   - It held after each of 160 mixed steps: submissions inside and past the bound, duplicates, same-nonce and
     wrong-nonce transactions, relays during a backlog, one-item slices, new heads and reorganizations.
   - Count of each kind of step: 31 admitted, 41 refused for gas, 2 relays in a backlog, 12 heads, 13
-    reorganizations.
-- **RPC.** eth_sendRawTransaction past the bound answers -32016 with the message "-32016 pool full (gas)".
-  pocol_status reports `poolGas` and `poolGasMax`.
+    reorganizations. PR6 runs it with five senders (so the quota still lets the bound fill) after filling the
+    bound and parking one: 24 admitted, 59 refused (gas, quota or parked), 4 parked, 1 relay in a backlog, 12
+    heads, 13 reorganizations; with parked runs (PR6 review): 22 admitted, 62 refused, 7 parked, 1 relay in a
+    backlog, 12 heads, 13 reorganizations.
+- **RPC.** eth_sendRawTransaction past the bound answers -32016 with the message "-32016 pool full (gas)",
+  or (PR6) "-32016 pool full (gas): held for the next block" when parked, and "-32016 pool full (sender gas)"
+  past the sender quota. The code is -32016 in every case. pocol_status reports `poolGas` and `poolGasMax`, and
+  (PR6) `poolSenderGasMax`, `poolParked`, `poolParkedMax` and stats `senderQuotaRefused`, `parkedEvicted`, `parkedRelayed`,
+  `templateGasFallbacks`, `templateGasRecoveries`, `templateAppended`, `templateBuilds`.
+- **Builder (PR6).** The honest template selection (`template_selection`) counts gas used, not declared gas:
+  - each candidate runs on the parent's state in the block's own context (base fee, prevrandao, the proposer
+    timestamp of the build, the child's BLOCKHASH window) and is counted at the gas it uses (post-refund);
+  - it fits when its declared gas is at most GAS_LIMIT minus the gas used so far (the consensus rule,
+    user_phase.rs:288); one that does not fit is skipped with its sender's later ones, and the selection goes
+    on (before PR6 it stopped);
+  - a transaction that would halt on the log caps or on SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX is left out; but one
+    whose own logs pass a log cap halts in every block on that parent (its logs can follow the block's context,
+    for example PREVRANDAO, which admission does not have), so it is included as that halt and counted at its
+    declared gas, as the block charges it (before PR6 every such transaction was included and charged). A
+    transaction the selection never takes cannot stay pooled unpaid;
+  - PR6 second review, the execution budget: a candidate left out after it ran (the log caps, the meter) commits
+    nothing, so the gas fit alone did not bound the execution once parked transactions became candidates (one
+    546-log transaction, then up to POOL_PARKED_MAX parked ones each burning most of a block and emitting one log,
+    ran about POOL_PARKED_MAX × GAS_LIMIT/2 of gas on the consensus thread for each template). The selection now
+    executes at most `selection_exec_budget(GAS_LIMIT)` = GAS_LIMIT + 5/4 GAS_LIMIT of gas, committed or not
+    (before refunds): a candidate is executed only when its declared gas fits what is left, and one that does not
+    is kept, unexecuted, for the append round. The bound never binds before GAS_LIMIT of execution was wasted;
+  - the oldest transaction declaring more than GAS_LIMIT/2 (first of its sender) is tried first, pooled or (PR6
+    third review) parked: a parked one is its sender's first when the sender has nothing pooled and it starts its
+    run, and it ranks after the pooled ones that arrived before it was parked. Before, only pooled ones were tried, so
+    a big transaction the gas bound held (parked when submitted, or again at each head behind the parked small ones)
+    came after every pooled one and never fit a block they used more than half of. Its wait is bounded by the big
+    transactions ranked before it: those pooled before it was parked, and the parked ones re-admitted before it at a
+    head (P3's order, least declared gas first; each is included and paid in its own slot);
+  - without a checked parent state (tests only) declared gas is counted (`templateGasFallbacks`);
+  - the build (`build_signed_template`, at most TEMPLATE_BUILDS_MAX = 8 builds at one clock): a gas failure,
+    which carries no index, falls back to the longest prefix whose declared gas fits GAS_LIMIT, never an empty
+    template; then one append round adds the candidates left out for gas within the room the real build left,
+    counting declared gas, smallest first. The simulation is not the block (the SYSTEM phase runs first), and
+    the append round closes the under-fill a contract could cause by burning gas only in the simulation. PR6 third
+    review: its candidates are pooled or parked ones only (a backlog one is only decoded: junk relayed during
+    revalidation, unfunded or below its intrinsic gas, went first and failed each append build in turn, so the
+    round added nothing and cost all eight builds), and an appended transaction the build refuses drops every
+    appended one after it, so the round costs at most two builds more whatever its candidates are.
+- **A13 (PR6).** G and `pool_gas` are unchanged. New rows: queues/pool sender and declared gas (POOL_MAX_TXS
+  entries), queues/parked transactions' entries (POOL_PARKED_MAX; their bytes are inside POOL_MAX_BYTES; PR6
+  review: PARKED_ENTRY_BYTES 160, with the nonce, the run and the cost; PR6 third review: and its arrival position
+  among the pooled ones, still within 160) and
+  queues/template selection (the append round's candidates, BODY_MAX + TX_MAX bytes, and the skipped-sender
+  sets; PR6 review: after a gas failure the selection's tail joins the candidates, at most GAS_LIMIT/TX_GAS_MIN
+  more entries and BODY_MAX more bytes, so the term counts BODY_MAX/MIN_TX_BYTES + 1 + GAS_LIMIT/TX_GAS_MIN entries
+  and 2·BODY_MAX + TX_MAX bytes; the skipped-sender sets count the parked candidates too, POOL_PARKED_MAX more). The block overlay term now counts its BLOCKHASH window (257 entries), which the selection's overlay
+  carries too; the selection's committed gas used is at most GAS_LIMIT (spent at most 5/4 GAS_LIMIT), within
+  that term (a candidate it leaves out commits nothing to the overlay; its execution is bounded in time by the
+  execution budget above, not in memory). The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs), by up to 163
+  more with the tail and by up to 168 more with the parked runs.
 - **Revalidation does not hold up consensus.** The run loop takes one event between two slices of
   revalidation. The test runs `Node::run` with the pool at its bound: four BLAKE2F transactions of 7.9M gas,
   which no stop hook can cut short.
@@ -908,12 +1001,18 @@ canon.redb empty). Beside it are the record halts of §2f, which stay as the evi
 
 | setting | C at empty files | stop, history.redb | eviction off (records) |
 |---|---:|---:|---:|
-| peers_max 8, d = 2 | 2,679,632,952 B | 12,113,967,612,031 B (11.02 TiB) | 1,158,957 |
-| peers_max 8, d = 7 | 2,743,366,172 B | 11,852,916,342,911 B (10.78 TiB) | 1,134,336 |
-| peers_max 32, d = 2 (a default node) | 2,761,820,328 B | **11,777,328,119,935 B (10.71 TiB)** | 1,127,165 (130.5 d) |
-| peers_max 32, d = 7 (a seed) | 2,825,553,548 B | **11,516,276,850,815 B (10.47 TiB)** | 1,102,318 (127.6 d) |
-| peers_max 64, d = 2 | 2,871,403,496 B | 11,328,475,463,807 B (10.30 TiB) | 1,084,625 |
-| peers_max 64, d = 7 | 2,935,136,716 B | 11,067,424,194,687 B (10.07 TiB) | 1,059,778 |
+| peers_max 8, d = 2 | 2,685,102,704 B | 12,091,563,507,839 B (11.00 TiB) | 1,156,856 |
+| peers_max 8, d = 7 | 2,748,835,924 B | 11,830,512,238,719 B (10.76 TiB) | 1,132,236 |
+| peers_max 32, d = 2 (a default node) | 2,767,290,080 B | **11,754,924,015,743 B (10.69 TiB)** | 1,125,065 (130.2 d) |
+| peers_max 32, d = 7 (a seed) | 2,831,023,300 B | **11,493,872,746,623 B (10.45 TiB)** | 1,100,218 (127.3 d) |
+| peers_max 64, d = 2 | 2,876,873,248 B | 11,306,071,359,615 B (10.28 TiB) | 1,082,476 |
+| peers_max 64, d = 7 | 2,940,606,468 B | 11,045,020,090,495 B (10.05 TiB) | 1,057,678 |
+
+Measured on the tree merged with main's PR6 (`bc7e683`), whose pool and selection terms are in C and in the
+eviction-off record halts (§2f's table is the history before PR6; tests/network_budget.rs records PR6's moves).
+Before the merge, on `19ac678`, C was 2,679,632,952 to 2,935,136,716 B and the stops 12,113,967,612,031 B (11.02
+TiB) at (8, 2) to 11,067,424,194,687 B (10.07 TiB) at (64, 7); the default node stopped at 11,777,328,119,935 B
+(10.71 TiB) and the seed at 11,516,276,850,815 B (10.47 TiB).
 
 The model ceiling is 6 GiB × 7/8 = 5,637,144,576 B, so a seed's slack is about 2.81e9 B, which the history.redb
 term (1 B per 4 KiB) uses up at about 10.5 TiB of file. **The draft's claim that seeds no longer stop together is
@@ -921,9 +1020,10 @@ withdrawn** (A2-9): nodes on one chain hold almost the same files, so they would
 size is now about 10.5 TiB of history, where the disk usually fills first. Operators are warned at 15/16 and can
 raise the budget.
 
-Devnet totals (`a13_bound_breakdown`, whole-state, d = 2): **3,352,070,834 B**, −2,353,489 B against 3,354,424,323
-(eviction off is still that). In store mode at d = 2 the total is 2,766,530,810 B (2,775,861,207 with eviction
-off). Store mode adds the anchors' handles and allocator, and the checkpoint term drops from 16,771,662 to
+Devnet totals (`a13_bound_breakdown`, whole-state, d = 2): **3,357,540,586 B**, −2,353,489 B against PR6's
+3,359,894,075 (eviction off is still that; before the merge with main's PR6, 3,352,070,834 B against PR3's
+3,354,424,323). In store mode at d = 2 the total is 2,772,000,562 B (2,781,330,959 with eviction off; before the
+merge 2,766,530,810 and 2,775,861,207). Store mode adds the anchors' handles and allocator, and the checkpoint term drops from 16,771,662 to
 7,889,034 B.
 
 **The open transient** (plan §7, `open_transient`, checked by `check_open` at open only). Open holds per record

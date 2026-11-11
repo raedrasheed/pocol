@@ -1300,7 +1300,7 @@
    "verified": {
     "status": "VERIFIED (Linux, release; Windows CI not run on this branch)",
     "tests": [
-     "network_budget::a13_live_chain_halt_disk_bytes (with eviction on, a seed stops at 11,516,276,850,815 B of history.redb; the bound is equal at 0 and 10^9 records)",
+     "network_budget::a13_live_chain_halt_disk_bytes (with eviction on, a seed stops at 11,493,872,746,623 B of history.redb (merged with main's PR6); the bound is equal at 0 and 10^9 records)",
      "network_budget::a13_live_chain_halt_records (eviction off: the pins before PR7, unchanged)",
      "consensus::continuous_chain_does_not_halt_with_height (T15: a budget 64 KiB above the bound, 600 blocks, two rechecks; fails with the windowed path removed)",
      "memory_bounds::a13_windowed_bound_is_flat (T16)",
