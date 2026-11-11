@@ -428,6 +428,23 @@ pub struct Home {
 }
 const KEY_FILE: &str = "identity.pocol-key";
 const ADDRESS_FILE: &str = "identity.address";
+/// The restored key, written before the swap (`import_key_backup`).
+const STAGED_KEY: &str = "identity.pocol-key.restoring";
+/// The restored account's address while a restore swaps files; renamed onto [`ADDRESS_FILE`] as the last step, so
+/// an interrupted restore is finished, not undone, by the next [`Home::key`] (or the next restore).
+const RESTORE_RECORD: &str = "identity.address.restoring";
+#[cfg(test)]
+thread_local! {
+    /// Test hook: `import_key_backup` stops (as a crash would) right before step N of its swap.
+    static CRASH_BEFORE: std::cell::Cell<u8> = const { std::cell::Cell::new(0) };
+}
+fn crash_point(_step: u8) -> Result<(), String> {
+    #[cfg(test)]
+    if CRASH_BEFORE.with(|c| c.get()) == _step {
+        return Err(format!("simulated crash before restore step {_step}"));
+    }
+    Ok(())
+}
 struct Current {
     address: String,
     readable: bool,
@@ -460,6 +477,14 @@ fn set_marker(dir: &Path, address: &str) -> Result<(), String> {
     fs::rename(&temp, &marker).map_err(|e| e.to_string())
 }
 impl Home {
+    /// [`Home::open`] for a command that must never create a wallet: `path` must already be a directory, so a
+    /// mistyped `--home` creates no directory and no lock file.
+    pub fn open_existing(path: &Path, command: &str) -> Result<Self, String> {
+        if !path.is_dir() {
+            return Err(format!("{command} requires an existing PoCol home; it never creates a wallet"));
+        }
+        Self::open(path)
+    }
     pub fn open(path: &Path) -> Result<Self, String> {
         let mut builder = fs::DirBuilder::new();
         builder.recursive(true);
@@ -503,6 +528,7 @@ impl Home {
         })
     }
     pub fn key(&self) -> Result<Key, String> {
+        self.finish_restore()?;
         let path = self.path.join("identity.pocol-key");
         // Any existing path, including a bad file or dangling link, must fail rather than rotate identity.
         let marker = self.path.join("identity.address");
@@ -561,6 +587,7 @@ impl Home {
     /// `identity.pocol-key.replaced-<address>`, never deleted, and its wallet activity moves aside with it.
     pub fn import_key_backup(&self, file: &[u8], passphrase: &[u8], replace: Option<&str>) -> Result<serde_json::Value, String> {
         let secret = backup::open(file, passphrase)?;
+        self.finish_restore()?;
         let address = backup_address(&secret)?;
         let current = self.current_identity()?;
         let key_path = self.path.join(KEY_FILE);
@@ -576,34 +603,74 @@ impl Home {
             }
             _ => {}
         }
-        // Stage the restored key beside the current one, move the current one aside, then swap. A staged file
-        // left by an interrupted restore holds a key from a backup file, so it is replaced.
-        let staged = self.path.join(format!("{KEY_FILE}.restoring"));
-        if fs::symlink_metadata(&staged).is_ok() {
-            real_file(&staged)?;
-            fs::remove_file(&staged).map_err(|e| e.to_string())?;
+        // Stage the restored key and the record naming its address, move the current key aside, swap, then
+        // rename the record onto the marker. The directory is synced after every step, and a crash at any point
+        // leaves a state the next `key()` finishes (`finish_restore`): before the old key moves, nothing changed;
+        // after, the restore completes. A staged key or record left by an interrupted restore that never reached
+        // the swap holds a key from a backup file, so it is replaced.
+        let (staged, record) = (self.path.join(STAGED_KEY), self.path.join(RESTORE_RECORD));
+        for leftover in [&staged, &record] {
+            if fs::symlink_metadata(leftover).is_ok() {
+                real_file(leftover)?;
+                fs::remove_file(leftover).map_err(|e| e.to_string())?;
+            }
         }
         keyfile::store(&staged, &secret)?;
+        write_new(&record, address.as_bytes())?;
+        sync_directory(&self.path)?;
+        crash_point(1)?;
         let mut retired = serde_json::Value::Null;
         if let Some(c) = &current {
             if fs::symlink_metadata(&key_path).is_ok() {
                 let name = free_name(&self.path, &format!("{KEY_FILE}.replaced-{}", c.address), "")?;
                 fs::rename(&key_path, self.path.join(&name)).map_err(|e| e.to_string())?;
+                sync_directory(&self.path)?;
                 retired = name.into();
             }
+            crash_point(2)?;
             // Another account's transfers are not this one's history (a lost or unreadable key of the same
             // account keeps it).
             let activity = self.path.join("wallet-activity.json");
             if !same && fs::symlink_metadata(&activity).is_ok() {
                 let name = free_name(&self.path, &format!("wallet-activity.replaced-{}", c.address), ".json")?;
                 fs::rename(&activity, self.path.join(name)).map_err(|e| e.to_string())?;
+                sync_directory(&self.path)?;
             }
         }
+        crash_point(3)?;
         fs::rename(&staged, &key_path).map_err(|e| e.to_string())?;
-        set_marker(&self.path, &address)?;
+        sync_directory(&self.path)?;
+        crash_point(4)?;
+        fs::rename(&record, self.path.join(ADDRESS_FILE)).map_err(|e| e.to_string())?;
         sync_directory(&self.path)?;
         Ok(serde_json::json!({"address": address, "changed": true,
             "previous": current.map(|c| c.address), "previousKeyFile": retired}))
+    }
+    /// Finishes a restore that a crash interrupted after the current key was moved aside: the staged key takes
+    /// the key file's place if that is still empty, and the record becomes the address marker once the key file
+    /// holds the recorded account. A record whose restore never reached the swap is left for the next restore
+    /// to replace; nothing is ever deleted here.
+    fn finish_restore(&self) -> Result<(), String> {
+        let record = self.path.join(RESTORE_RECORD);
+        if fs::symlink_metadata(&record).is_err() {
+            return Ok(());
+        }
+        real_file(&record)?;
+        let recorded = read_bounded(&record)?;
+        let address_of = |path: &Path| keyfile::load(path).ok().map(|k| format!("{:#x}", k.address()));
+        let (key_path, staged) = (self.path.join(KEY_FILE), self.path.join(STAGED_KEY));
+        if fs::symlink_metadata(&key_path).is_err() && fs::symlink_metadata(&staged).is_ok() {
+            real_file(&staged)?;
+            if address_of(&staged).is_some_and(|a| a.as_bytes() == recorded) {
+                fs::rename(&staged, &key_path).map_err(|e| e.to_string())?;
+                sync_directory(&self.path)?;
+            }
+        }
+        if address_of(&key_path).is_some_and(|a| a.as_bytes() == recorded) {
+            fs::rename(&record, self.path.join(ADDRESS_FILE)).map_err(|e| e.to_string())?;
+            sync_directory(&self.path)?;
+        }
+        Ok(())
     }
     /// The account this home is bound to: its key file's address, or, when the key file is missing or cannot
     /// be read (another Windows profile, a damaged file), the address marker's. `None` for a new home.
@@ -1303,6 +1370,62 @@ mod key_backup_tests {
         assert_eq!(done["changed"], true);
         assert_eq!(home.address().unwrap(), address);
         assert_eq!(fs::read(home.path.join(format!("{KEY_FILE}.replaced-{address}"))).unwrap(), b"damaged");
+    }
+    #[test]
+    fn read_only_commands_never_create_a_home() {
+        let t = Scratch::new();
+        let missing = t.0.join("typo");
+        let e = Home::open_existing(&missing, "inspect-key-backup").err().unwrap();
+        assert_eq!(e, "inspect-key-backup requires an existing PoCol home; it never creates a wallet");
+        assert!(!missing.exists() && !t.0.exists(), "no directory and no lock file");
+        let home = t.home("home");
+        drop(home);
+        assert!(Home::open_existing(&t.0.join("home"), "inspect-key-backup").is_ok());
+    }
+    /// A restore that stops (a crash) right before `step`, then the wallet opened again.
+    fn crash_restore(step: u8, replace_other: bool) -> (String, String, Home, Scratch) {
+        let t = Scratch::new();
+        let (file, restored) = t.home("source").export_key_backup(PASS).unwrap();
+        let target = t.home("target");
+        let current = target.address().unwrap();
+        fs::write(target.path.join("wallet-activity.json"), b"[]").unwrap();
+        let replace = replace_other.then_some(current.as_str());
+        CRASH_BEFORE.with(|c| c.set(step));
+        let e = target.import_key_backup(&file, PASS, replace).unwrap_err();
+        CRASH_BEFORE.with(|c| c.set(0));
+        assert!(e.contains("simulated crash"), "{e}");
+        let path = target.path.clone();
+        drop(target);
+        (current, restored, Home::open(&path).unwrap(), t)
+    }
+    #[test]
+    fn a_restore_interrupted_after_the_swap_is_finished_on_the_next_open() {
+        // Before the key moves aside nothing changed; from then on the next key() completes the restore. Before
+        // this was recorded, a crash between the key swap and the marker left the wallet unable to start.
+        for step in 1..=4u8 {
+            let (current, restored, home, _t) = crash_restore(step, true);
+            let expected = if step == 1 { &current } else { &restored };
+            assert_eq!(&home.address().unwrap(), expected, "crash before step {step}");
+            assert_eq!(fs::read(home.path.join(ADDRESS_FILE)).unwrap(), expected.as_bytes(), "crash before step {step}");
+            if step > 1 {
+                assert!(!home.path.join(RESTORE_RECORD).exists() && !home.path.join(STAGED_KEY).exists(), "crash before step {step}");
+                assert!(home.path.join(format!("{KEY_FILE}.replaced-{current}")).is_file(), "the old key is kept");
+            }
+        }
+    }
+    #[test]
+    fn a_restore_interrupted_before_the_swap_is_repeated_cleanly() {
+        let (current, restored, home, t) = crash_restore(1, true);
+        assert_eq!(home.address().unwrap(), current);
+        // The staged key and the record of the interrupted attempt are replaced by the next restore.
+        let (file, _) = {
+            let source = Home::open(&t.0.join("source")).unwrap();
+            source.export_key_backup(PASS).unwrap()
+        };
+        let done = home.import_key_backup(&file, PASS, Some(&current)).unwrap();
+        assert_eq!(done["address"], restored.as_str());
+        assert_eq!(home.address().unwrap(), restored);
+        assert!(!home.path.join(RESTORE_RECORD).exists() && !home.path.join(STAGED_KEY).exists());
     }
     #[test]
     fn a_running_wallet_holds_the_lock_so_no_backup_runs_beside_it() {

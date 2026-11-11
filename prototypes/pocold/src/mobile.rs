@@ -108,7 +108,7 @@ pub unsafe extern "C" fn pocol_mobile_inspect_key_backup(home: *const c_char, fi
     reply(std::panic::catch_unwind(|| {
         let home = Path::new(unsafe { text(home)? });
         let (file, pass) = unsafe { (bytes(file, file_len, MAX_BACKUP_FILE)?, bytes(pass, pass_len, crate::keyfile::backup::MAX_PASSPHRASE_BYTES)?) };
-        Home::open(home)?.inspect_key_backup(file, pass)
+        Home::open_existing(home, "key backup inspection")?.inspect_key_backup(file, pass)
     }).unwrap_or_else(|_| Err("key backup inspection failed".into())))
 }
 /// Restores a backup. `replace` is "" or the current address the user confirmed replacing (`Home::import_key_backup`).

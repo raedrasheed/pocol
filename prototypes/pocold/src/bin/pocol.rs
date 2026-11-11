@@ -95,10 +95,7 @@ fn command() -> Result<(), String> {
         .unwrap_or_else(launcher::default_home)?;
     if command == "upgrade" || command == "inspect-upgrade" {
         let network = Path::new(need("--network")?);
-        if !home_path.is_dir() {
-            return Err(format!("{command} requires an existing PoCol home; it never creates a wallet"));
-        }
-        let home = Home::open(&home_path)?;
+        let home = Home::open_existing(&home_path, command)?;
         let bytes = launcher::read_bounded(network)?;
         // inspect-upgrade is the read-only dry run (change none, rebind or activation); it writes nothing.
         let out = if command == "upgrade" { home.upgrade(&bytes)?.describe() } else { home.inspect_upgrade(&bytes)? };
@@ -110,10 +107,7 @@ fn command() -> Result<(), String> {
         if std::fs::symlink_metadata(out).is_ok() {
             return Err(format!("{} exists; an existing file is never replaced", out.display()));
         }
-        if !home_path.is_dir() {
-            return Err("export-key requires an existing PoCol home; it never creates a wallet".into());
-        }
-        let home = Home::open(&home_path)?;
+        let home = Home::open_existing(&home_path, command)?;
         let pass = passphrase("Backup passphrase (at least 12 characters)")?;
         if *passphrase("Repeat the backup passphrase")? != *pass {
             return Err("the passphrases differ; nothing was exported".into());
@@ -125,7 +119,8 @@ fn command() -> Result<(), String> {
     }
     if command == "inspect-key-backup" || command == "import-key" {
         let file = launcher::read_bounded(Path::new(need("--backup")?))?;
-        let home = Home::open(&home_path)?;
+        // inspect-key-backup is read-only: it never creates a home. import-key may restore into a new one.
+        let home = if command == "import-key" { Home::open(&home_path)? } else { Home::open_existing(&home_path, command)? };
         let pass = passphrase("Backup passphrase")?;
         let out = if command == "import-key" { home.import_key_backup(&file, &pass, get("--replace"))? } else { home.inspect_key_backup(&file, &pass)? };
         println!("{out}");
@@ -190,43 +185,48 @@ fn write_new_private(path: &Path, bytes: &[u8]) -> Result<(), String> {
     file.write_all(bytes).and_then(|_| file.sync_all()).map_err(|e| e.to_string())
 }
 
-/// One passphrase line from stdin without its line ending. When stdin is a terminal the prompt goes to stderr and
-/// echo is off while the line is typed; the Windows wallet writes the line through a pipe instead.
+/// One passphrase line from stdin without its line ending (`keyfile::backup::read_passphrase`). When stdin is a
+/// terminal the prompt goes to stderr and echo is off while the line is typed; a terminal whose echo cannot be
+/// switched off is refused. Ctrl-C cancels the prompt. The Windows wallet writes the line through a pipe instead.
 fn passphrase(prompt: &str) -> Result<zeroize::Zeroizing<Vec<u8>>, String> {
-    use std::io::{BufRead, Read};
-    let max = pocold::keyfile::backup::MAX_PASSPHRASE_BYTES;
+    use pocold::keyfile::backup::{read_passphrase, PassphraseInput};
     let echo = Echo::off();
-    if echo.terminal {
+    let from = match (echo.terminal, echo.saved.is_some()) {
+        (false, _) => PassphraseInput::Pipe,
+        (true, true) => PassphraseInput::Hidden,
+        (true, false) => PassphraseInput::Visible,
+    };
+    let cancelled = || STOP.load(Ordering::Relaxed);
+    if from == PassphraseInput::Hidden {
         eprint!("{prompt}: ");
+        // The SIGINT handler can run on any thread, so the blocked read would not see Ctrl-C: wait for the typed
+        // line with poll, checking the stop flag. A terminal in canonical mode is readable once Enter is pressed.
+        #[cfg(unix)]
+        while !cancelled() {
+            let mut fd = libc::pollfd { fd: 0, events: libc::POLLIN, revents: 0 };
+            if unsafe { libc::poll(&mut fd, 1, 200) } != 0 {
+                break;
+            }
+        }
     }
-    let mut line = zeroize::Zeroizing::new(Vec::with_capacity(max + 2));
-    let read = std::io::stdin().lock().take(max as u64 + 2).read_until(b'\n', &mut line);
-    if echo.terminal {
+    let read = read_passphrase(&mut std::io::stdin().lock(), from, &cancelled);
+    if from == PassphraseInput::Hidden {
         eprintln!();
     }
     drop(echo);
-    read.map_err(|e| e.to_string())?;
-    if line.last() == Some(&b'\n') {
-        line.pop();
-        if line.last() == Some(&b'\r') {
-            line.pop();
-        }
-    } else if line.is_empty() {
-        return Err("no passphrase on stdin".into());
-    }
-    if line.len() > max {
-        return Err(format!("passphrase exceeds {max} bytes"));
-    }
-    Ok(line)
+    read
 }
 
-/// Terminal echo switched off until drop (restored even on an error path).
+/// Terminal echo switched off until drop (restored even on an error path). On Unix, Ctrl-C cancels the prompt at
+/// once; on Windows the console read restarts after Ctrl-C, and the line typed after it is discarded as a cancel.
 struct Echo {
     terminal: bool,
     #[cfg(unix)]
     saved: Option<libc::termios>,
     #[cfg(windows)]
     saved: Option<(windows_sys::Win32::Foundation::HANDLE, windows_sys::Win32::System::Console::CONSOLE_MODE)>,
+    #[cfg(not(any(unix, windows)))]
+    saved: Option<()>,
 }
 impl Echo {
     #[cfg(unix)]
@@ -260,7 +260,7 @@ impl Echo {
     }
     #[cfg(not(any(unix, windows)))]
     fn off() -> Self {
-        Self { terminal: false }
+        Self { terminal: false, saved: None }
     }
 }
 impl Drop for Echo {

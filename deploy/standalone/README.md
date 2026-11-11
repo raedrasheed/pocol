@@ -203,16 +203,27 @@ iterations, and AES-256-GCM. It is defined once in
   pocol import-key --home HOME --backup wallet.pocol-backup [--replace CURRENT_ADDRESS]
   ```
 
+A new backup's passphrase must have at least 12 characters and is refused when it is
+easy to guess: fewer than 5 different characters, a repeated part, a sequence such as
+`abcd` or `1234`, or a common password or keyboard run (`keyfile::backup::check_new_passphrase`).
+`inspect-key-backup` and `export-key` need an existing home and never create one. A
+terminal whose echo cannot be switched off is refused instead of showing the
+passphrase, and Ctrl-C cancels the prompt.
+
 A restore that would replace the home's current account needs that account's address
 (`--replace`, or the confirmation dialog in the wallets). The old key file is kept as
 `identity.pocol-key.replaced-<address>`, and its `wallet-activity.json` moves aside.
 A lost or unreadable key (for example after a Windows profile reset) is restored from
 its own backup without `--replace`. The plaintext key is never written outside the
-home's key file. Keep the backup file and its passphrase apart. Stop mining on any
-other device that uses the same key: two devices mining with one key can lose the bond.
+home's key file. A restore interrupted by a crash or power loss either changed
+nothing or is finished the next time the wallet opens its key. Keep the backup file
+and its passphrase apart. Stop mining on any other device that uses the same key: two
+devices mining with one key can lose the bond.
 
-Android system backup stays disabled, and uninstalling erases identity and state, so
-make an encrypted backup first. CI builds only unsigned release APKs. Do not
+Android cloud backup and device-to-device transfer copy nothing of the app
+(`allowBackup="false"`, `fullBackupContent="false"` for Android 8 to 11, and
+`dataExtractionRules` excluding every domain on Android 12 and later), and uninstalling
+erases identity and state, so make an encrypted backup first. CI builds only unsigned release APKs. Do not
 uninstall an existing key-bearing app to install a different certificate. Updating
 the existing app requires its matching retained signer; a new release key alone
 cannot update an old debug-signed installation. A build for a new key is a separate

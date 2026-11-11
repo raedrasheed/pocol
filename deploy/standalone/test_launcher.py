@@ -149,6 +149,7 @@ class Launcher(unittest.TestCase):
         address = identity(old)
         self.assertIn('differ', run('export-key', '--home', old, '--out', backup, stdin=f'{phrase}\nother passphrase!\n', ok=False).stderr)
         self.assertIn('at least 12', run('export-key', '--home', old, '--out', backup, stdin='short\nshort\n', ok=False).stderr)
+        self.assertIn('too easy to guess', run('export-key', '--home', old, '--out', backup, stdin='Password2024!\nPassword2024!\n', ok=False).stderr)
         self.assertFalse(backup.exists())
         out = json.loads(run('export-key', '--home', old, '--out', backup, stdin=f'{phrase}\n{phrase}\n').stdout)
         self.assertEqual(out['address'], address)
@@ -159,6 +160,9 @@ class Launcher(unittest.TestCase):
             self.assertNotIn((old / 'identity.pocol-key').read_bytes(), data)
         self.assertIn('never replaced', run('export-key', '--home', old, '--out', backup, stdin=f'{phrase}\n{phrase}\n', ok=False).stderr)
         self.assertEqual(backup.read_bytes(), data)
+        absent = self.root / 'absent'
+        self.assertIn('existing PoCol home', run('inspect-key-backup', '--home', absent, '--backup', backup, stdin=phrase + '\n', ok=False).stderr)
+        self.assertFalse(absent.exists(), 'inspecting never creates a home')
         current = identity(new)
         preview = json.loads(run('inspect-key-backup', '--home', new, '--backup', backup, stdin=phrase + '\n').stdout)
         self.assertEqual((preview['address'], preview['current'], preview['replaces']), (address, current, True))
