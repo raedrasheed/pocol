@@ -792,7 +792,12 @@ impl Node{
             }
             timing.restore_ms=ms(t);
             // C-1 S5: an index a refused snapshot found damaged is set aside now, so replay can refill it (I1).
-            if canon.is_damaged(){drop(canon);canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;}
+            if canon.is_damaged(){
+                drop(canon);canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;
+                // Replacing the derived file also discarded its first-import
+                // table. Restore it from the journal before replay/live use.
+                imports::open(&mut chain,&canon,&rec,end_of,roll_at,roll_end,now_ms())?;
+            }
             match resumed{
                 Some(k)=>{start=k;state_store=Some(st);opened_release=released_at_open;}
                 None=>{

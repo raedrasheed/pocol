@@ -180,6 +180,19 @@ mod preview{
         let mut cfg=config(&d,true);cfg.limits.checkpoint_every=64;
         let node=Node::open(cfg,spec(&n.cfg,1)).unwrap();assert_eq!(node.chain.head,head);assert!(node.stats.resumed_from.is_some());
         let e=node.canonical_view(1,pocold::node::Want{receipts:false}).unwrap().unwrap();assert_eq!((e.hash,e.first_import),(root,stamp));drop(e);drop(node);
+        // A structurally valid redb file can hold a row whose application seal
+        // is bad. Here only checkpoint restoration discovers the damage, after
+        // the initial timing-index setup. Replacing canon.redb must rebuild
+        // both tables, including first imports, before the next live import.
+        {use redb::ReadableTable;let db=redb::Database::open(d.join(pocold::node::canon::FILE)).unwrap();let w=db.begin_write().unwrap();
+            {let table:redb::TableDefinition<u64,&[u8]>=redb::TableDefinition::new("by_height");let mut t=w.open_table(table).unwrap();
+                let mut bytes=t.get(base-1).unwrap().unwrap().value().to_vec();bytes[0]^=1;t.insert(base-1,bytes.as_slice()).unwrap();}w.commit().unwrap();}
+        let mut cfg=config(&d,true);cfg.limits.checkpoint_every=64;
+        let mut node=Node::open(cfg,spec(&n.cfg,1)).unwrap();assert!(node.stats.checkpoints_refused>=1);assert!(node.canon().rebuilt);
+        assert!(node.canon().first_import_offset(&root).unwrap().is_some(),"replacement index retains the original timing row");
+        assert_eq!(node.chain.head,head);
+        let e=node.canonical_view(1,pocold::node::Want{receipts:false}).unwrap().unwrap();assert_eq!(e.first_import,stamp);drop(e);
+        let b=block(&n,n.chain.head,false,0,0);let tj=deadline(&node,node.chain.head);assert!(at(&mut node,&b,tj));drop(node);
         std::fs::remove_dir_all(d).unwrap();
     }
 
