@@ -1,9 +1,11 @@
 # Security policy
 
-PoCol is experimental software. The public network, operator-designated **PoCol Mainnet**, is a **beta**.
-It has had no independent external security audit, and the engine reports `publicLaunchReady: false`
-(see [Current status and limits](README.md#current-status-and-limits)). Do not hold more value on it than you
-can afford to lose. Even so, we want to hear about every vulnerability, and we treat reports seriously.
+PoCol is experimental software. The public network is operator-designated **PoCol Mainnet**; that name is a
+deployment designation, not a statement of maturity. The engine reports its experimental admission scope,
+`specificationCompliant: false` and `publicLaunchReady: false`, and there has been no independent external
+security review (see [Current status and limits](README.md#current-status-and-limits)). Do not hold more value
+on it than you can afford to lose. Even so, we want to hear about every vulnerability, and we treat reports
+seriously.
 
 ## How to report a vulnerability
 
@@ -16,9 +18,12 @@ Use GitHub's private vulnerability reporting for this repository:
    <https://github.com/raedrasheed/pocol/security/advisories/new>).
 3. Fill in the advisory form. Only the maintainers and the people you add can see it.
 
-GitHub's private vulnerability reporting is the only reporting channel. If the button is not shown, private
-reporting may be switched off for the repository at the moment. In that case, open a public issue that says only
-that you have a security report and asks for a private channel. Put no details in it.
+GitHub's private vulnerability reporting is the only reporting channel. It works only while private
+vulnerability reporting is enabled in the repository's settings (Settings → Code security → Private
+vulnerability reporting); the maintainers keep it enabled. If the **Report a vulnerability** button is not
+shown, it has been switched off. As a last resort, open a minimal public issue that says only that you have a
+security report and asks the maintainers for a private contact. Put no details in it: no affected component,
+no impact, no steps. Wait for the private contact before you send anything.
 
 ## What to include
 
@@ -97,6 +102,6 @@ file with its terms. Until then we credit reporters in the advisory, unless they
 
 ## Supported versions
 
-Only the latest release, and the `main` branch, receive security fixes. The public network is a beta: a fix can
-require a new release that every node operator installs, or a coordinated upgrade (see
+Only the latest release, and the `main` branch, receive security fixes. The public network runs experimental
+software: a fix can require a new release that every node operator installs, or a coordinated upgrade (see
 `deploy/standalone/RELEASE-UPGRADE.md`).
