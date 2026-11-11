@@ -55,10 +55,29 @@ fn every_committed_spec1_genesis_keeps_its_original_bytes_and_hash(){
         let id=ProfileIdentity::validate(&bytes,&gs::genesis_hash(&bytes),spec.chain_id,kind,node,&[(1,0),(2,15000)]).unwrap();
         for h in [0,1,14999,15000,15001,u64::MAX]{assert!(!id.v3_active(h),"{name} at {h}");}
         if name.starts_with("deploy/mainnet/h15000/"){
-            assert_eq!(pocold::types::hex(&id.genesis_hash()),"0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca");
+            let legacy=pocold::launcher::LEGACY_BUILDS.iter().find(|entry|entry.chain_id==spec.chain_id).expect("the frozen legacy identity stays supported");
+            assert_eq!(pocold::types::hex(&id.genesis_hash()),legacy.genesis_hash);
         }
     }
 }
+#[test]
+fn v1_genesis_preserves_opaque_allocation_slots_beyond_its_cp_prefix(){
+    let cfg=devnet::DevnetConfig::new(777934,1_700_000_000,&["one"]);
+    let net=devnet::build(&cfg).unwrap();let mut alloc=net.alloc.clone();
+    let slot=U256::from(52);let value=U256::from(0x42);
+    alloc.insert_account_info(apply::caps(),revm::primitives::AccountInfo{nonce:1,..Default::default()});
+    alloc.insert_account_storage(apply::caps(),slot,value).unwrap();
+    let mut spec=gs::decode(&net.spec_bytes).unwrap();
+    spec.alloc_root=apply::Genesis::derive_root(&alloc,&net.profile,&net.programs).unwrap().0;
+    let bytes=gs::encode(&spec);let timing=pocol_lp4_execution::admission::measure(&bytes,&alloc,1).unwrap();
+    let local=NodeLocal::single_host();
+    let request=pocol_lp4_execution::admission::Request{spec_bytes:&bytes,alloc:&alloc,..net.request(&local,Some(&timing))};
+    let admitted=pocol_lp4_execution::admission::admit(&request).unwrap();
+    assert_eq!(admitted.genesis().state().accounts[&apply::caps()].storage.get(&slot),Some(&value));
+    assert_eq!(admitted.profile().cp().H_half,0);assert_eq!(admitted.profile().cp().cp_len(),52);
+    assert!(!admitted.profile().v3_active(u64::MAX));
+}
+
 #[test]
 fn sequential_future_forks_never_narrow_the_nonce_domain(){
     let forks=ForkSchedule::new_bounded(&[(1,0),(2,10),(3,20)],3).unwrap();

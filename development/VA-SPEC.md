@@ -273,7 +273,8 @@ MAX_FORK_VERSION=2. See development/decisions/V3-DECISIONS.md; no live activatio
 
 The schema-v2 CP wire list contains all 52 unchanged v1 fields followed by the fields below, in this exact order.
 All are unsigned canonical RLP integers; omitted v2 fields are not allowed. On v1, the named v2 fields are zero
-in the typed view and are absent from encoding and ChainCaps storage. Schema validity is not complete ParamGate
+in the typed view and are absent from encoding; the builder writes and checks only the 52 v1 CP slots. Existing
+opaque allocation storage beyond that prefix is preserved. Schema validity is not complete ParamGate
 admission or a production-profile selection; cross-field bounds and measured values remain part of the profile PR.
 
 | CP index | Field | Width (bits) | Schema range |
