@@ -33,6 +33,11 @@ jobs:
           mkdir -p evidence
           git rev-parse HEAD > evidence/commit.txt
           uname -a > evidence/platform.txt
+      - name: Use the official Ubuntu archive for browser dependencies
+        run: |
+          # The hosted runner's Azure mirror can fail DNS before any browser test starts.
+          # Keep its source suites and signature checks; select the official HTTPS archive.
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
       - name: Install tools and browser
         run: |
           rustup toolchain install 1.99.1 --profile minimal
