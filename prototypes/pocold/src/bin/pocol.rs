@@ -247,10 +247,10 @@ impl Echo {
     }
     #[cfg(windows)]
     fn off() -> Self {
-        use windows_sys::Win32::System::Console::{GetConsoleMode, GetStdHandle, SetConsoleMode, ENABLE_ECHO_INPUT, STD_INPUT_HANDLE};
+        use windows_sys::Win32::System::Console::{GetConsoleMode, GetStdHandle, SetConsoleMode, CONSOLE_MODE, ENABLE_ECHO_INPUT, STD_INPUT_HANDLE};
         unsafe {
             let handle = GetStdHandle(STD_INPUT_HANDLE);
-            let mut mode = 0;
+            let mut mode: CONSOLE_MODE = 0;
             if GetConsoleMode(handle, &mut mode) == 0 {
                 return Self { terminal: false, saved: None };
             }
