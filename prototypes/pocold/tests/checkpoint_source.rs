@@ -5,7 +5,6 @@ use pocold::{
     history::History,
     store,
 };
-use std::collections::HashMap;
 use std::io::{Seek, SeekFrom, Write};
 
 #[test]
@@ -26,10 +25,11 @@ fn verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal() {
     let off = recovered.offsets[0];
     let history = History::open(&dir).unwrap();
     let source = JournalSource {
-        by_off: HashMap::from([(off, 0)]),
+        offsets: &recovered.offsets,
         journal: &recovered.journal,
         records: 1,
         history: &history,
+        canon: &pocold::checkpoint::NoIndex,
     };
     assert_eq!(source.payload_at(off).unwrap(), Some(payload));
     assert_eq!(
@@ -38,10 +38,11 @@ fn verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal() {
         "unknown offsets remain refusals"
     );
     let outside_prefix = JournalSource {
-        by_off: source.by_off.clone(),
+        offsets: source.offsets,
         journal: &recovered.journal,
         records: 0,
         history: &history,
+        canon: &pocold::checkpoint::NoIndex,
     };
     assert_eq!(outside_prefix.payload_at(off).unwrap(), None);
     let path = dir.join("blocks.journal");
@@ -80,4 +81,36 @@ fn verified_journal_corruption_is_a_local_failure_not_a_checkpoint_refusal() {
     drop(history);
     drop(recovered);
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// Review 2026-11 (finding 4): a canonical index whose file fails (an I/O error, as `canon::rerr` words redb's) is
+/// the node's own storage failing: JournalSource reports it as LOCAL, on which open stops and drops no checkpoint; a
+/// row that fails its check still refuses the snapshot. FAIL-ON-ORIGINAL: every index error was a refusal, and open
+/// dropped every kept checkpoint in turn on one transient I/O error.
+#[test]
+fn a_canonical_index_io_failure_is_a_local_failure_not_a_checkpoint_refusal() {
+    use pocold::checkpoint::{CanonIndex, Rec};
+    use pocold::node::canon;
+    struct Failing(String);
+    impl CanonIndex for Failing {
+        fn at(&self, _: u64) -> Result<Option<Rec>, String> {
+            Err(canon::restore_error(self.0.clone()))
+        }
+    }
+    let dir = std::env::temp_dir().join(format!("pocold-canon-io-source-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let recovered = store::open(&dir, &[0x42; 32]).unwrap();
+    let history = History::open(&dir).unwrap();
+    let io = canon::rerr(redb::StorageError::Io(std::io::Error::from_raw_os_error(5)));
+    assert!(io.starts_with("I/O failure: "), "positive control: redb's EIO is worded an I/O failure: {io}");
+    for (err, local) in [(io, true), ("canonical index damaged: the row at height 5 fails its seal".to_string(), false)] {
+        let failing = Failing(err.clone());
+        let source = JournalSource { offsets: &recovered.offsets, journal: &recovered.journal, records: 0, history: &history, canon: &failing };
+        let e = source.canonical(5).unwrap_err();
+        assert_eq!(e.starts_with(LOCAL), local, "{err}: {e}");
+        assert!(e.contains("the canonical index at height 5"), "{e}");
+    }
+    drop(recovered);
+    drop(history);
+    let _ = std::fs::remove_dir_all(&dir);
 }

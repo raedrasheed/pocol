@@ -12,6 +12,7 @@ use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId,Useful},store::{self,Journal},types::*};
 mod discovery;
 pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES};
+pub mod canon;
 
 /// D-REORG-REDB: the journal is the off-heap block store. `record_at` reads a block record back by
 /// its frame offset for on-demand body fetch (fork choice and retention stay on resident metadata).
@@ -20,12 +21,52 @@ impl chain::BlockBytes for Journal{
         self.read_at(off).map_err(|e|Reject::Local(format!("journal read_at {off}: {e:?}")))
     }
 }
-/// The node's block source: journal records, and (C-1 S4) the nonce ranges in history.redb.
-struct Src<'a>{journal:&'a Journal,history:&'a crate::history::History}
+/// The node's block source: journal records, (C-1 S4) the nonce ranges in history.redb and (C-1 S5) the canonical
+/// entries below the window in the canonical index.
+struct Src<'a>{journal:&'a Journal,history:&'a crate::history::History,canon:&'a canon::Index}
 impl chain::BlockBytes for Src<'_>{
     fn record_at(&self,off:u64)->Result<(Vec<u8>,Vec<u8>,Vec<u8>),Reject>{chain::BlockBytes::record_at(self.journal,off)}
     /// A history.redb read that fails is a local failure (review F3), not "ranges unavailable".
     fn ranges_of(&self,hash:&[u8;32])->Result<Option<Vec<(Address,u128,u128)>>,Reject>{self.history.ranges(hash).map_err(|e|Reject::Local(format!("history: {}",e.0)))}
+    /// One index read and one journal read (header, body and ParentResult), and the nonce ranges when the entry is
+    /// wanted whole (`checkpoint::entry_of`, which checks that the record hashes to the row's block). A row that
+    /// does not check marks the index damaged; every failure is the node's own storage (exit 70; the next open rebuilds).
+    fn canonical_entry(&self,h:u64,slim:bool)->Result<Option<(Entry,Body)>,Reject>{
+        let r=self.canon.at(h).map_err(Reject::Local)?.ok_or_else(||Reject::Local(self.canon.mark_damaged(&format!("no row at height {h} below the window"))))?;
+        let off=r.body_off.ok_or_else(||Reject::Local(self.canon.mark_damaged(&format!("the row at height {h} names no journal record"))))?;
+        let payload=self.journal.payload_at(off).map_err(|e|Reject::Local(format!("journal read at {off}: {e:?}")))?;
+        let ranges=if slim{None}else{Some(match self.history.ranges(&r.hash){Ok(Some(x))=>x,Ok(None)=>return Err(Reject::Local(self.history.mark_damaged("nonce ranges missing for a journaled block").0)),
+            Err(e)=>return Err(Reject::Local(format!("history: {}",e.0)))})};
+        let why=|m:&str|format!("the row at height {h}: {m}");
+        let (e,body)=crate::checkpoint::entry_of(&r,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(ranges.clone()),store::MAX_RECORD,slim,&why).map_err(|m|Reject::Local(self.canon.mark_damaged(&m)))?;
+        if e.height!=h{return Err(Reject::Local(self.canon.mark_damaged(&format!("the row at height {h} names a block at height {}",e.height))))}
+        Ok(Some((e,body)))
+    }
+    fn canonical_hash(&self,h:u64)->Result<Option<[u8;32]>,Reject>{Ok(self.canon.at(h).map_err(Reject::Local)?.map(|r|r.hash))}
+}
+/// C-1 S5 (PR7 §7): one replay event of open's journal pass, two per record: the record's block (`at` = 2·record)
+/// and its parent (`at` = 2·record + 1). One sorted vector of them, 36 bytes each, replaced a map of a queue per hash
+/// (its growth measured 189 bytes a record, tests/open_transient.rs): the next event of a hash after record `i` is
+/// found by halving (`next_event`).
+#[derive(Clone,Copy,PartialEq,Eq,PartialOrd,Ord)]
+pub(crate) struct Ev{hash:[u8;32],at:u32}
+/// The records `Ev::at` can name: open refuses a longer journal (it holds 2^31 records, years of blocks).
+pub const EV_RECORDS_MAX:usize=1<<31;
+/// Whether the next replay event of `hash` at or after record `rec` is a child record (Some(true)), its own block's
+/// record (Some(false)), or there is none (None).
+fn next_event(evs:&[Ev],hash:&[u8;32],rec:usize)->Option<bool>{
+    let at=rec as u64*2;let i=evs.partition_point(|e|(&e.hash,u64::from(e.at))<(hash,at));evs.get(i).filter(|e|e.hash==*hash).map(|e|e.at&1==1)
+}
+/// C-1 S5 (PR7 §7): open's first pass keeps the rolling hash of the journal prefix every ROLL_SAMPLE records (and at
+/// its end), not after every record: a prefix in between is rolled again from the sample below it, at most
+/// ROLL_SAMPLE − 1 payloads read back (a checkpoint's binding), and replay compares its own running hash at each
+/// sample and at the end.
+pub const ROLL_SAMPLE:usize=256;
+/// C-1 S5: writes the entries the window evicted (`Chain::evicted_out`) to the canonical index, one commit.
+fn flush_evicted(chain:&mut Chain,canon:&canon::Index)->Result<(),String>{
+    if chain.evicted_out.is_empty(){return Ok(())}
+    let rows:Vec<(u64,crate::checkpoint::Rec)>=chain.evicted_out.drain(..).map(|e|(e.height,crate::checkpoint::rec_of_meta(&e))).collect();
+    canon.put(&rows).map_err(|e|format!("canonical index: {e}"))?;crate::crash_point("canon");Ok(())
 }
 /// NeedsRebuild retries of one block: its parent, and (C-1 S4) each slimmed evidence ancestor restored in
 /// turn (only after the head fell back more than R_keep). Beyond them the block is refused, never accepted.
@@ -63,8 +104,12 @@ pub struct Config{
 pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// Node memory budget for the A13 resident bound (resources::check at open).
     pub mem_budget:u64,
-    /// Observed journal records for the continuous resource projection, never a consensus limit.
+    /// Observed journal records for the continuous resource projection with eviction off, never a consensus limit.
     pub continuous_history:Option<u64>,
+    /// C-1 S5 (PR7 §6.2): the observed sizes of history.redb, state.redb and canon.redb, which the continuous chain's
+    /// bound counts with eviction on (None: not observed, and that bound is None). Node::open observes them before
+    /// its checks and import_with every 256 records; a library caller passes them, as `continuous_history`.
+    pub disk:Option<crate::resources::DiskBytes>,
     /// Local retention (consensus.md:29, governance.md:15; never validity): R_keep and the cap on
     /// unprotected non-canonical metadata (chain::R_KEEP, chain::SIDE_BLOCKS_MAX). Live import and
     /// replay must use the same values; tests lower them to reach the boundaries quickly.
@@ -91,9 +136,20 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     pub state_store:bool,
     /// C-1 E4.4 (D-6): journal records between two local checkpoints of a store-mode node (0: none).
     pub checkpoint_every:u64,
+    /// C-1 S5 (PR7): canonical entries more than this many blocks below the head leave memory for the canonical
+    /// index (`Chain::window`). None: the default, `resources::evict_depth_of`; Some(0): off (every entry stays
+    /// resident, the behaviour before PR7); Some(u64::MAX): never evicts (a test reference). A value below the
+    /// smallest safe depth is refused at open. Node::open sets the value it uses here.
+    pub evict_depth:Option<u64>,
     /// Peer discovery (VA-SPEC §1a; local policy, never validity): on by default, local mode off.
     pub discovery:Discovery}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,discovery:Discovery::default()}}}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,disk:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default()}}}
+/// C-1 S5 (PR7): what a view of a canonical block below the window reads besides its index row and journal
+/// record: its receipts (history.redb) only when asked.
+#[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
+pub struct Want{pub receipts:bool}
+/// What a view that cannot read its block's history answers (the store is logged, marked and rebuilt at the next open).
+pub const HISTORY_UNAVAILABLE:&str="block history unavailable (logged; the store is rebuilt at the next open)";
 /// C-1 S1: replay refills history.redb with non-durable commits and makes them durable every this many blocks.
 const HISTORY_SYNC:u64=256;
 /// D-7: one slice of pool revalidation. The consensus thread is held for at most this, plus the
@@ -369,6 +425,8 @@ pub struct Node{
     journal:Journal,
     /// C-1 S1: receipts and the transaction index of every validated block (derived; rebuilt by replay).
     pub history:crate::history::History,
+    /// C-1 S5 (PR7): the canonical entries below the in-memory window (derived; rebuilt by replay).
+    canon:canon::Index,
     peers:HashMap<PeerId,Peer>,
     /// Sync: each peer's announced Status, the live session (at most one), when a session last
     /// started and the round-robin turn among peers announcing more work.
@@ -402,6 +460,9 @@ pub struct Node{
     pub rejects:VecDeque<(String,String)>,
     pub stats:Stats,
     pub stopped:bool,
+    /// C-1 S5 (PR7 §4.4): the LOCAL CAPACITY warning was logged (the bound reached 15/16 of the budget); logged again
+    /// only after it fell below.
+    capacity_warned:bool,
     /// Equivocation observations and evidence awaiting inclusion (incentives.md Evidence). seen_templates holds at
     /// most SEEN_MAX + 1 keys (`evict_seen_templates`).
     pub seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
@@ -487,7 +548,7 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
 /// The characters of `lastIncompatibleReason` kept (a bounded status field: the peer's name is at most NODE_NAME_MAX).
 pub const INCOMPATIBLE_REASON_MAX:usize=160;
 /// 2026-10-28: the time (ms) each step of `Node::open` took, so an open's cost can be attributed: reading the
-/// journal (every record's payload, its frame offsets and rolling hashes), opening history.redb and state.redb
+/// journal (every record's payload, its replay events and rolling hashes), opening history.redb and state.redb
 /// (redb's full integrity check of every page included), the release at open, reading and checking the
 /// checkpoints and resetting the pins, restoring a checkpoint (every stored version read and checked), and the
 /// replay of the records after it, split into validation (each block re-executed and its state committed),
@@ -532,6 +593,21 @@ fn retention_rkeep(dir:&std::path::Path,configured:u64)->std::io::Result<u64>{
     Ok(rk)
 }
 
+/// C-1 S5 (PR7 §7, review 2026-11): the record count the journal's commit file gives (its valid slot with the larger
+/// seq, as `store::open` reads it), read before the journal pass so that the replay tables are checked before the pass
+/// builds them. None when it cannot be read (no journal or commit file, a format-1 journal, no valid slot): the pass
+/// then decides, and the exact check after it runs either way. The slot layout (store.rs's module docs) is read here,
+/// not exposed by store.rs, which is a consensus-boundary file.
+fn committed_records(dir:&std::path::Path,binding:&[u8;32])->Option<u64>{
+    use std::io::Read;use sha2::{Digest,Sha256};
+    let mut magic=[0u8;8];std::fs::File::open(dir.join("blocks.journal")).ok()?.read_exact(&mut magic).ok()?;if &magic!=b"POCOLJ2\n"{return None}
+    let c=std::fs::read(dir.join("blocks.commit")).ok()?;let second=match c.len(){4160=>4096,128=>64,_=>return None};
+    let slot=|s:&[u8]|{let u=|i:usize|u64::from_be_bytes(s[i..i+8].try_into().unwrap());let (seq,count,end)=(u(0),u(8),u(16));
+        let mut h=Sha256::new();h.update(b"POCOL-COMMIT");h.update(binding);h.update(seq.to_be_bytes());h.update(count.to_be_bytes());h.update(end.to_be_bytes());
+        (s[24..56]==h.finalize()[..]&&s[56..64].iter().all(|b|*b==0)).then_some((seq,count))};
+    [slot(&c[..64]),slot(&c[second..second+64])].into_iter().flatten().max().map(|(_,n)|n)
+}
+
 /// F7: load the attempt-0 signing record from `<dir>/signed-a0` (one line per pair:
 /// `hex(parent) height hex(tid)`). Malformed or missing lines are skipped — an empty map just means
 /// nothing has been signed yet. Only template ids persist (not bodies), so the file stays tiny.
@@ -550,7 +626,8 @@ fn load_signed_a0(dir:&std::path::Path)->HashMap<([u8;32],u64),[u8;32]>{
 }
 
 /// C-1 E5: a closing node leaves its entries' versions pinned (`StateStore::close`); the next open releases them.
-impl Drop for Node{fn drop(&mut self){if let Some(s)=&self.state_store{s.close();}}}
+/// C-1 S5: and the canonical index's last puts are made durable, if they can be (replay writes them again if not).
+impl Drop for Node{fn drop(&mut self){if let Some(s)=&self.state_store{s.close();}let _=self.canon.sync();}}
 impl Node{
     /// Opens the journal, replays and re-executes every committed block.
     pub fn open(mut cfg:Config,spec:Spec)->Result<Self,String>{
@@ -559,39 +636,66 @@ impl Node{
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
         let pool_gas_max=pool_gas_bound(spec.cp(),&cfg.limits)?;let pool_sender_max=pool_sender_gas_bound(spec.cp(),&cfg.limits)?;
+        // Replay must not use a smaller R_keep than live used for any record (it would drop a parent live
+        // kept); a larger one only keeps blocks that were below the head when imported. The largest value
+        // this data directory has used is kept durably beside the journal and replay uses it.
+        std::fs::create_dir_all(&cfg.dir).map_err(|e|format!("data directory: {e}"))?;
+        let rk_replay=retention_rkeep(&cfg.dir,cfg.limits.r_keep).map_err(|e|format!("retention.rkeep: {e}"))?;
+        // C-1 S5: the eviction depth, from that R_keep, set once in the limits so that A13 and the chain use one value.
+        let evict=crate::resources::evict_depth_of(spec.cp(),spec.local().k_hist,&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
+        // PR7 §6.2 (A1-6): the files are observed before the first check (a missing one counts 0).
+        cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
+        // PR7 §7 (G5, review 2026-11): the replay tables are checked before the pass builds them, at the committed count.
+        // A journal they do not fit stops here with the LOCAL CAPACITY message, not out of memory during the pass (the
+        // check after the pass came after its tables). The pass adds at most one uncommitted record, which the exact
+        // check after it counts; at the committed count this refuses only a journal that check refuses (both grow with
+        // the count, and the pass changes none of the observed files).
+        if let Some(n)=committed_records(&cfg.dir,&binding){let mut l=cfg.limits.clone();if spec.cp().H_END==0{l.continuous_history=Some(n);}
+            crate::resources::check_open(spec.cp(),spec.local().k_hist,spec.local().side_max,&l,cfg.peers.len(),n)?;}
         // One pass over the journal (2026-10-28: its payloads are not held, condition `open-replay-transient`):
-        // each verified record's replay events (its block and its parent), its frame offset and the rolling hash
-        // of every journal prefix (C-1 E4.4 binding).
-        let mut events:HashMap<[u8;32],VecDeque<(usize,bool)>>=HashMap::new(); // (record, is_child)
-        let (mut offs,mut rolls,mut bad):(Vec<u64>,Vec<[u8;32]>,Option<String>)=(vec![40],vec![[0u8;32]],None);
+        // each verified record's replay events (its block and its parent) and the rolling hash of the journal prefix
+        // (C-1 E4.4 binding), sampled every ROLL_SAMPLE records (C-1 S5, PR7 §7: the frame offsets are the journal's
+        // own, `Recovered::offsets`; what open holds per record is counted, `resources::open_transient`).
+        let mut evs:Vec<Ev>=Vec::new();
+        let (mut samples,mut roll_end,mut bad):(Vec<[u8;32]>,[u8;32],Option<String>)=(vec![[0u8;32]],[0u8;32],None);
         let t=Instant::now();
         let rec=store::open_with(&cfg.dir,&binding,&mut |i,_,payload|{
             if bad.is_none(){match store::decode_record(payload).map_err(|e|e.to_string()).and_then(|(hb,_,_)|decode_header(&hb).map_err(|e|format!("{e}"))){
                 Ok(header)=>{
                     if header.protocol_version!=spec.active_version(header.h){bad=Some(format!("record {i}: stored block {} conflicts with the configured consensus fork schedule",header.h));}
-                    else{events.entry(block_hash(&header)).or_default().push_back((i,false));events.entry(header.parent_hash).or_default().push_back((i,true));}
+                    else if i>=EV_RECORDS_MAX{bad=Some(format!("record {i}: a journal of more than {EV_RECORDS_MAX} records cannot be replayed"));}
+                    else{let at=(i as u32)*2;evs.push(Ev{hash:block_hash(&header),at});evs.push(Ev{hash:header.parent_hash,at:at+1});}
                 }
                 Err(e)=>bad=Some(format!("record {i}: {e}"))}}
-            let h=crate::checkpoint::roll(rolls.last().unwrap(),payload);offs.push(offs.last().unwrap()+(payload.len()+store::OVERHEAD) as u64);rolls.push(h);
+            roll_end=crate::checkpoint::roll(&roll_end,payload);if (i+1)%ROLL_SAMPLE==0{samples.push(roll_end);}
         }).map_err(|e|format!("store: {e:?}"))?;timing.journal_ms=ms(t);
         if let Some(e)=bad{return Err(e)}
+        evs.sort_unstable();
+        cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(rec.journal.records);crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;}
-        // Replay must not use a smaller R_keep than live used for any record (it would drop a parent live
-        // kept); a larger one only keeps blocks that were below the head when imported. The largest value
-        // this data directory has used is kept durably beside the journal and replay uses it.
-        let rk_replay=retention_rkeep(&cfg.dir,cfg.limits.r_keep).map_err(|e|format!("retention.rkeep: {e}"))?;
+        // PR7 §7: the replay's own tables must fit beside the bound (they grow with the journal, not the window).
+        crate::resources::check_open(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len(),rec.journal.records)?;
         let mut chain=Chain::new(spec);chain.r_keep=rk_replay;chain.side_cap=cfg.limits.side_cap;chain.replaying=true;
         // C-1 S1: canonical history below the resident window lives off the heap (journal + history.redb).
         // C-1 E4.4: a history.redb created now holds nothing a checkpoint's entries need (replay refills it).
         let history_kept=cfg.dir.join(crate::history::FILE).exists();
-        let t=Instant::now();let history=crate::history::History::open(&cfg.dir).map_err(|e|format!("history: {}",e.0))?;timing.history_open_ms=ms(t);chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
+        let t=Instant::now();let history=crate::history::History::open(&cfg.dir).map_err(|e|format!("history: {}",e.0))?;timing.history_open_ms=ms(t);
+        // C-1 S5: an index created now holds nothing a snapshot based above height 1 needs (replay refills it).
+        let canon_kept=cfg.dir.join(canon::FILE).exists();let mut canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;
+        // C-1 S5 (PR7 §2.4): in store mode a rebuild anchor every R_keep heights below the K_hist cut.
+        let rk=rk_replay.max(cfg.limits.r_keep);
+        chain.evict_depth=evict;chain.evict_batch=(cfg.limits.side_cap as u64).saturating_add(2*rk).saturating_add(2);chain.anchor_step=(cfg.limits.state_store&&evict.is_some()).then_some(rk);chain.history_window=Some(cfg.limits.history_window.unwrap_or(chain.k_hist));chain.keep_full_states=cfg.limits.full_states;
         // C-1 S4: deeper than any fork (R_keep), a head that fell back by R_keep, the evidence window and
         // the 256-ancestor window: no validation reads a slimmed entry unless the head fell back further.
         chain.slim_depth=Some(cfg.limits.slim_depth.unwrap_or(2*rk_replay.max(cfg.limits.r_keep)+u64::from(chain.spec.cp().E_win)+257));
-        let n_rec=rec.offsets.len();debug_assert_eq!(offs.len(),n_rec+1);
+        let n_rec=rec.offsets.len();
+        // The journal prefix of `k` records: where it ends, and its rolling hash (from the sample below it).
+        let end_of=|k:usize|->u64{if k<n_rec{rec.offsets[k]}else{rec.journal.end_offset()}};
+        let roll_at=|k:usize|->Result<[u8;32],String>{if k>=n_rec{return Ok(roll_end)}let j=k/ROLL_SAMPLE;let mut r=samples[j];
+            for i in j*ROLL_SAMPLE..k{r=crate::checkpoint::roll(&r,&rec.payload(i).map_err(|e|format!("record {i}: {e:?}"))?);}Ok(r)};
         // C-1 E4: states in state.redb. C-1 E4.4 (D-6): open resumes from the newest checkpoint that verifies
         // (`checkpoint::restore`) and replays only the records after it; one that does not is released and
         // the one before it is tried. With none, or a store that is new, damaged or inconsistent, or a
@@ -614,11 +718,15 @@ impl Node{
                 Err(e)=>return Err(format!("state store: the release at open: {}",e.0))}};timing.release_ms=ms(t);
             // The pins are reset to the checkpoints' before genesis's version is pinned for its entry.
             let t=Instant::now();let mut reset_ms=0u64;
-            let snaps:Result<Vec<(u64,crate::checkpoint::Snapshot)>,String>=if ckpt_every>0&&!st.rebuilt&&!history.rebuilt&&history_kept{
-                st.checkpoints().map_err(|e|e.0).and_then(|c|c.iter().map(|(q,b,roots)|{
-                    let s=crate::checkpoint::decode(b).map_err(|e|format!("checkpoint {q}: {e}"))?;
-                    if *roots!=crate::checkpoint::roots(&s){return Err(format!("checkpoint {q}: its roots record is not its snapshot's"))}Ok((*q,s))}).collect())
-                    .and_then(|s:Vec<(u64,crate::checkpoint::Snapshot)>|if s.is_empty(){Ok(s)}else{let t=Instant::now();let r=st.reset_pins().map(|n|{released=n;s}).map_err(|e|e.0);reset_ms=ms(t);r})}else{Ok(vec![])};
+            // Each checkpoint is decoded and checked here, then dropped, and decoded again only when it is tried below, so
+            // one decoded snapshot is alive at a time beside the KEPT checkpoints' bytes (`resources::migration_fits`
+            // counts that for a format-1 one, which holds every entry of the chain). Before, all KEPT were decoded at once
+            // and alive through the migration's restore, uncounted (review 2026-11, finding 6).
+            let snaps:Result<Vec<(u64,Vec<u8>)>,String>=if ckpt_every>0&&!st.rebuilt&&!history.rebuilt&&history_kept{
+                st.checkpoints().map_err(|e|e.0).and_then(|c|c.into_iter().map(|(q,b,roots)|{
+                    let s=crate::checkpoint::decode(&b).map_err(|e|format!("checkpoint {q}: {e}"))?;
+                    if roots!=crate::checkpoint::roots(&s){return Err(format!("checkpoint {q}: its roots record is not its snapshot's"))}Ok((q,b))}).collect())
+                    .and_then(|s:Vec<(u64,Vec<u8>)>|if s.is_empty(){Ok(s)}else{let t=Instant::now();let r=st.reset_pins().map(|n|{released=n;s}).map_err(|e|e.0);reset_ms=ms(t);r})}else{Ok(vec![])};
             timing.checkpoints_ms=ms(t);timing.reset_pins_ms=reset_ms;
             // A store found damaged so far (the release at open met a row naming a node that is not stored,
             // say) is set aside now and started empty, as `StateStore::open` sets aside one marked damaged:
@@ -635,14 +743,22 @@ impl Node{
                 match snaps{
                     Ok(mut snaps)=>{
                         snaps.sort_by_key(|x|std::cmp::Reverse(x.0));
-                        let by_off:HashMap<u64,usize>=offs.iter().take(n_rec).enumerate().map(|(i,o)|(*o,i)).collect();
-                        for (q,s) in snaps{
+                        for (q,raw) in snaps{
+                            // It decoded above, from the same bytes.
+                            let s=crate::checkpoint::decode(&raw).map_err(|e|format!("checkpoint {q}: {e}"))?;drop(raw);
                             let b=s.binding;let k=b.records as usize;
                             // Replay's protect set after record k: the blocks whose next journal event is a child record.
-                            let protect:std::collections::HashSet<[u8;32]>=s.entries.iter().filter(|e|events.get(&e.hash).and_then(|q|q.iter().find(|x|x.0>=k)).map_or(false,|x|x.1)).map(|e|e.hash).collect();
-                            let r=if k>n_rec||offs[k]!=b.end||rolls[k]!=b.hash{Err("it is not bound to this journal's records".to_string())}
+                            let protect:std::collections::HashSet<[u8;32]>=s.entries.iter().filter(|e|next_event(&evs,&e.hash,k)==Some(true)).map(|e|e.hash).collect();
+                            // The binding's records rolled again from the sample below it are read back from the journal: a
+                            // read that fails is the node's own storage failing, as in the restore below (it stops the open,
+                            // nothing is dropped). Before, it returned the bare read error (review 2026-11, io-fault CI).
+                            let r=if k>n_rec||end_of(k)!=b.end||roll_at(k).map_err(|e|format!("state store: checkpoint {q} could not be read: journal {e}"))?!=b.hash{Err("it is not bound to this journal's records".to_string())}
+                                // C-1 S5: a window based above height 1 needs the index rows below it; a format-1 snapshot needs
+                                // none, but restores every entry of the chain at once (the migration), which must fit.
+                                else if !s.v1&&s.canon_base>1&&(canon.rebuilt||!canon_kept){Err("the canonical index does not reach the snapshot's window (it was rebuilt or is new)".to_string())}
+                                else if let Some(e)=s.v1.then(||crate::resources::migration_fits(chain.spec.cp(),chain.spec.local().k_hist,chain.spec.local().side_max,&cfg.limits,cfg.peers.len(),s.entries.len() as u64,n_rec as u64).err()).flatten(){Err(e)}
                                 else if s.protect.as_ref().map_or(false,|p|p.len()!=protect.len()||p.iter().any(|h|!protect.contains(h))){Err("its protect set is not the one replay had after its last record".to_string())}
-                                else{crate::checkpoint::restore(&mut chain,&s,&crate::checkpoint::JournalSource{by_off:by_off.clone(),journal:&rec.journal,records:k,history:&history},&dyn_st)};
+                                else{crate::checkpoint::restore(&mut chain,&s,&crate::checkpoint::JournalSource{offsets:&rec.offsets,journal:&rec.journal,records:k,history:&history,canon:&canon},&dyn_st)};
                             // 2026-10-28 (independent review F1, F2): a restore that failed because the journal or
                             // state.redb could not be read is the node's own storage failing, not the checkpoint: open
                             // stops, and nothing is dropped, set aside or rebuilt for it.
@@ -659,6 +775,8 @@ impl Node{
                 }
             }
             timing.restore_ms=ms(t);
+            // C-1 S5: an index a refused snapshot found damaged is set aside now, so replay can refill it (I1).
+            if canon.is_damaged(){drop(canon);canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;}
             match resumed{
                 Some(k)=>{start=k;state_store=Some(st);opened_release=released_at_open;}
                 None=>{
@@ -680,13 +798,10 @@ impl Node{
         // (2) a record of a block already present is a re-import after live removed it, so it takes a
         // new importSeq (consensus.md:205). With the same R_keep boundary, every replayed head equals
         // the live head after the same record (D-REORG-REDB-DESIGN-FREEZE.md Revision 2).
-        // C-1 E4.4: resumed after record `start`: the events up to it are behind (the protect set they leave,
-        // the blocks whose next event is a child record, was set when the checkpoint was restored).
-        if start>0{
-            for q in events.values_mut(){while q.front().map_or(false,|x|x.0<start){q.pop_front();}}
-            events.retain(|_,q|!q.is_empty());
-        }
-        let mut rec_off=offs[start]; // first record frame starts after MAGIC(8)+binding(32)
+        // C-1 E4.4: resumed after record `start` (the protect set the events up to it leave, the blocks whose next event
+        // is a child record, was set when the checkpoint was restored). `run`: the rolling hash of the records replayed.
+        let mut rec_off=end_of(start); // first record frame starts after MAGIC(8)+binding(32)
+        let mut run=roll_at(start)?;
         let (mut skipped,mut restored,mut refilled)=(0u64,0usize,0u64);
         let (mut ckpt_last,mut written)=(start as u64,0u64);
         let t_replay=Instant::now();timing.replay_records=(n_rec-start.min(n_rec)) as u64;
@@ -694,24 +809,48 @@ impl Node{
         if let Some(st)=&state_store{st.set_deferred(true).map_err(|e|format!("state store: {}",e.0))?;}
         for i in start..n_rec{
             let payload=rec.payload(i).map_err(|e|format!("record {i}: {e:?}"))?;let payload=&payload;
-            // Read back from the file: bound again to the rolling hash the first pass computed (review F7), so a
-            // record rewritten with its digest between the two passes is refused, not replayed.
-            if crate::checkpoint::roll(&rolls[i],payload)!=rolls[i+1]{return Err(format!("record {i}: the journal changed while it was opened"))}
+            // Read back from the file: bound again to the rolling hash the first pass computed (review F7), at each
+            // sample and at the end (PR7 §7), so a record rewritten with its digest between the two passes stops the open
+            // within ROLL_SAMPLE records. What was replayed before was validated in full and wrote derived data only
+            // (state, history and the canonical index, which the next open rebuilds or checks against the journal).
+            run=crate::checkpoint::roll(&run,payload);
+            if ((i+1)%ROLL_SAMPLE==0&&run!=samples[(i+1)/ROLL_SAMPLE])||(i+1==n_rec&&run!=roll_end){return Err(format!("record {i}: the journal changed while it was opened"))}
             let this_off=rec_off; rec_off+=(payload.len()+store::OVERHEAD) as u64;
             let (hb,bb,rb)=store::decode_record(payload).map_err(|e|format!("record {i}: {e}"))?;
             let header=decode_header(&hb).map_err(|e|format!("record {i}: {e}"))?;
             let body=Body::decode(&bb,chain.spec.cp().BODY_MAX as usize).map_err(|e|format!("record {i}: {e}"))?;
             let block=Block{header,body};let hash=block.hash();let parent=block.header.parent_hash;let old_head=chain.head;
+            // C-1 S5 (§3.3): a record of a journal written before live refused blocks at or below head - R_keep (import_with)
+            // can name a canonical block below the window (i), or build on a canonical block (ii). Replay without eviction
+            // re-imports the first (a new importSeq, its record's copy) and inserts the second, which the same retain
+            // removes. Both are reproduced here without the entry: the row takes the new importSeq and offset, and the
+            // removal is counted as that retain's. (ii) is taken before validation whether its parent is below the window
+            // or in it (review 2026-11): a parent at most 255 heights above the window's base has ancestors the window no
+            // longer holds, so validating its child read a short BLOCKHASH window (`child_ctx` now refuses that) and failed
+            // the open; and a rebuild to validate a block the retain drops at once walked from below the window.
+            let old_record=|chain:&mut Chain|->Result<bool,String>{
+                let base=chain.canonical.base();if base<2{return Ok(false)}
+                let deep=|x:&[u8;32]|->Result<Option<u64>,String>{Ok(canon.height_of(x).map_err(|e|format!("record {i}: canonical index: {e}"))?.filter(|h|*h<base))};
+                if let Some(h)=deep(&hash)?{
+                    let mut r=canon.at(h).map_err(|e|format!("record {i}: canonical index: {e}"))?.ok_or_else(||format!("record {i}: canonical index: no row at height {h}"))?;
+                    r.import_seq=chain.note_reimported();r.body_off=Some(this_off);canon.put(&[(h,r)]).map_err(|e|format!("record {i}: canonical index: {e}"))?;return Ok(true)
+                }
+                let held=block.header.h>0&&chain.canonical.get(block.header.h as usize-1)==Some(&parent);
+                if held||deep(&parent)?.is_some(){chain.note_removed(hash);return Ok(true)}Ok(false)};
+            // Only a record the retain after it would remove (live refuses one now), of a block replay does not hold.
+            let deep_record=!chain.blocks.contains_key(&hash)&&block.header.h.saturating_add(chain.r_keep)<=chain.head().height;
             // Same rules as live import: a journaled fork child of a block below the K_hist window
             // needs the TrieRebuild that import performed before journaling it.
-            let t=Instant::now();let validated=chain.validate(&block,None,0);timing.replay_validate_ms+=ms(t);
+            let t=Instant::now();let taken=deep_record&&old_record(&mut chain)?;let validated=(!taken).then(||chain.validate(&block,None,0));timing.replay_validate_ms+=ms(t);
             match validated{
-                Err(Reject::Duplicate)=>chain.reimport(&hash,block.header.clone(),Some(this_off)),
-                // Unreachable by (1); counted (Stats::replay_skipped) rather than refusing to open.
-                Err(Reject::UnknownParent)=>{skipped+=1;}
-                r=>{
+                None=>{}
+                Some(Err(Reject::Duplicate))=>chain.reimport(&hash,block.header.clone(),Some(this_off)),
+                // Unreachable by (1) for a block whose parent replay holds; counted (Stats::replay_skipped) rather than
+                // refusing to open. An old record below the window was taken above; this is a last resort.
+                Some(Err(Reject::UnknownParent))=>{if !old_record(&mut chain)?{skipped+=1;}}
+                Some(r)=>{
                     let (mut entry,_)=match r{
-                        Err(Reject::NeedsRebuild(p))=>{let t=Instant::now();let src=Src{journal:&rec.journal,history:&history};let mut q=p;let mut tries=0;
+                        Err(Reject::NeedsRebuild(p))=>{let t=Instant::now();let src=Src{journal:&rec.journal,history:&history,canon:&canon};let mut q=p;let mut tries=0;
                             loop{chain.ensure_state_with(&q,Some(&src)).map_err(|e|format!("replay {i}: rebuild {e:?}"))?;tries+=1;
                                 match chain.validate(&block,None,0){Err(Reject::NeedsRebuild(n)) if tries<REBUILD_TRIES=>q=n,r=>{timing.replay_validate_ms+=ms(t);break r.map_err(|e|format!("replay {i}: {e:?}"))?}}}}
                         r=>r.map_err(|e|format!("replay {i}: {e:?}"))?,
@@ -727,29 +866,38 @@ impl Node{
                     chain.insert(entry);
                 }
             }
-            for b in [hash,parent]{if let Some(q)=events.get_mut(&b){while q.front().map_or(false,|x|x.0<=i){q.pop_front();}
-                if q.front().map_or(false,|x|x.1){chain.protect.insert(b);}else{chain.protect.remove(&b);}if q.is_empty(){events.remove(&b);}}}
+            for b in [hash,parent]{if next_event(&evs,&b,i+1)==Some(true){chain.protect.insert(b);}else{chain.protect.remove(&b);}}
             // As live import: the fork height is taken before retain(), and an adopted branch whose
             // blocks were offloaded as side blocks is made whole right after it (review R3-3: restoring
             // once at the end re-executed every canonical block from the lowest offloaded one up).
             let fork_h=if chain.head!=old_head{chain.lca_height(&old_head,&chain.head).unwrap_or(0)}else{0};
             let adopted=chain.head!=old_head;let t=Instant::now();
             chain.retain_unsettled();
-            if adopted{restored+=chain.restore_canonical(fork_h,&Src{journal:&rec.journal,history:&history}).map_err(|e|format!("replay {i}: restore canonical {e:?}"))?;}
+            // C-1 S5: the window, as live import moves it after the same record.
+            chain.window(&Src{journal:&rec.journal,history:&history,canon:&canon}).map_err(|e|format!("replay {i}: the window: {e:?}"))?;flush_evicted(&mut chain,&canon).map_err(|e|format!("replay {i}: {e}"))?;
+            if adopted{restored+=chain.restore_canonical(fork_h,&Src{journal:&rec.journal,history:&history,canon:&canon}).map_err(|e|format!("replay {i}: restore canonical {e:?}"))?;}
             chain.settle();timing.replay_retain_ms+=ms(t);
             // C-1 E4.4: replay checkpoints too, after making its history.redb writes durable.
             if let Some(st)=&state_store{if ckpt_every>0&&(i as u64+1)-ckpt_last>=ckpt_every{let t=Instant::now();
                 history.sync().map_err(|e|format!("replay {i}: history {}",e.0))?;
-                match write_checkpoint(&chain,st,&crate::checkpoint::Binding{records:i as u64+1,end:offs[i+1],hash:rolls[i+1]}){
+                // C-1 S5 (I5): the index is durable below the window the checkpoint describes.
+                canon.sync().map_err(|e|format!("replay {i}: canonical index: {e}"))?;
+                match write_checkpoint(&chain,st,&crate::checkpoint::Binding{records:i as u64+1,end:end_of(i+1),hash:run}){
                     Ok(_)=>{written+=1;ckpt_last=i as u64+1;}
                     Err(e) if st.io_failed()=>return Err(format!("replay {i}: state store: the checkpoint's write: {e}")),
                     Err(e)=>if cfg.log{eprintln!("[{}] checkpoint at record {}: {e}",cfg.name,i+1)}}timing.replay_checkpoint_ms+=ms(t);}}
         }
         timing.replay_ms=ms(t_replay);
         if refilled>0{history.sync().map_err(|e|format!("replay: history {}",e.0))?;}
-        drop(events);chain.protect.clear();chain.replaying=false;chain.r_keep=cfg.limits.r_keep;chain.retain_unsettled();
+        drop(evs);drop(samples);chain.protect.clear();chain.replaying=false;chain.r_keep=cfg.limits.r_keep;chain.retain_unsettled();
+        // C-1 S5: at open the window reaches its floor whatever was restored (a format-1 snapshot holds every entry):
+        // batch after batch, each made durable, then the tables give back what the evicted entries held.
+        {let src=Src{journal:&rec.journal,history:&history,canon:&canon};
+            loop{chain.window(&src).map_err(|e|format!("open: the window: {e:?}"))?;let more=!chain.evicted_out.is_empty();flush_evicted(&mut chain,&canon).map_err(|e|format!("open: {e}"))?;
+                if !more||chain.window_done(){break}canon.sync().map_err(|e|format!("open: canonical index: {e}"))?;}}
+        canon.sync().map_err(|e|format!("open: canonical index: {e}"))?;chain.shrink();
         // Every adoption was restored above, so this finds nothing unless replay skipped a record.
-        restored+=chain.restore_canonical(0,&Src{journal:&rec.journal,history:&history}).map_err(|e|format!("replay: restore canonical {e:?}"))?;chain.settle();
+        restored+=chain.restore_canonical(0,&Src{journal:&rec.journal,history:&history,canon:&canon}).map_err(|e|format!("replay: restore canonical {e:?}"))?;chain.settle();
         if let Some(st)=&state_store{st.set_deferred(false).map_err(|e|format!("state store: the late releases: {}",e.0))?;}
         let (tx,rx)=mpsc::sync_channel(EVENT_QUEUE);let (miner_tx,miner_rx)=mpsc::channel::<MinerEvent>();
         let (light,light_rx)=crate::rpc::LightLane::new(cfg.limits.rpc.light_queue);let resp=crate::rpc::RespPools::new(&cfg.limits.rpc);
@@ -759,10 +907,10 @@ impl Node{
         let signed_a0=load_signed_a0(&cfg.dir); // F7: resume the attempt-0 signing record across restarts
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let consensus=crate::identity::Consensus::of(&chain.spec);
-        let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
+        let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
-            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:rolls[n_rec]},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
+            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
         if rec.torn_tail{node.log("recovered torn journal tail into a new journal");}
@@ -774,6 +922,8 @@ impl Node{
     fn checkpoint_if_due(&mut self){
         let Some(st)=self.state_store.clone() else{return};
         if self.ckpt.every==0||self.journal.records-self.ckpt.last<self.ckpt.every{return}
+        // C-1 S5 (I5): the index is durable below the window the checkpoint describes.
+        if let Err(e)=self.canon.sync(){self.fatal(&format!("canonical index: {e}"))}crate::crash_point("canon-sync");
         let b=crate::checkpoint::Binding{records:self.journal.records,end:self.journal.end_offset(),hash:self.ckpt.roll};
         match write_checkpoint(&self.chain,&st,&b){Ok(_)=>{self.stats.checkpoints_written+=1;self.ckpt.last=b.records;}
             // 2026-10-28 (review F4): redb refuses the store after an I/O failure; a read before the next commit would
@@ -784,6 +934,7 @@ impl Node{
     /// C-1 E4.4: writes a checkpoint now (store mode; tests and a clean stop).
     pub fn checkpoint_now(&mut self)->Result<u64,String>{
         let st=self.state_store.clone().ok_or("no state store")?;
+        self.canon.sync().map_err(|e|format!("canonical index: {e}"))?;crate::crash_point("canon-sync");
         let b=crate::checkpoint::Binding{records:self.journal.records,end:self.journal.end_offset(),hash:self.ckpt.roll};
         let q=write_checkpoint(&self.chain,&st,&b)?;self.stats.checkpoints_written+=1;self.ckpt.last=b.records;Ok(q)
     }
@@ -937,14 +1088,25 @@ impl Node{
     /// that becomes heavier is fetched by sync) and, while non-canonical, protected from the side cap.
     /// `h`'s state made available as an import's rebuild makes it (the journal and history.redb supplying the
     /// blocks' bytes). For tests and measurements that build blocks on an arbitrary parent.
-    pub fn ensure_state(&mut self,h:&[u8;32])->Result<(),Reject>{let src=Src{journal:&self.journal,history:&self.history};self.chain.ensure_state_with(h,Some(&src))}
-    pub fn import_with(&mut self,b:Block,from:Option<PeerId>,solicited:bool)->Result<bool,Reject>{
-        if self.chain.spec.cp().H_END==0 && self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{
-            self.cfg.limits.continuous_history=Some(self.journal.records);
-            if let Err(e)=crate::resources::check(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&self.cfg.limits,self.cfg.peers.len()){
-                self.log(&format!("LOCAL CAPACITY: {e}; increase local resources and memory budget to resume"));self.stopped=true;return Err(Reject::Local(e));
-            }
+    pub fn ensure_state(&mut self,h:&[u8;32])->Result<(),Reject>{let src=Src{journal:&self.journal,history:&self.history,canon:&self.canon};self.chain.ensure_state_with(h,Some(&src))}
+    /// A13 recheck of the continuous chain every 256 journal records (import_with). With eviction on (PR7 §6) the
+    /// files are observed again and the bound counts them; with eviction off it projects from the record count (the
+    /// behaviour before PR7, which stops the node once the journal outgrows the budget). At or above 15/16 of the
+    /// budget a LOCAL CAPACITY warning is logged; past it the node stops (`stopped`), naming the override.
+    fn capacity_recheck(&mut self)->Result<(),Reject>{
+        self.cfg.limits.continuous_history=Some(self.journal.records);
+        self.cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&self.cfg.dir));
+        let (cp,local)=(self.chain.spec.cp(),self.chain.spec.local());
+        match crate::resources::check(cp,local.k_hist,local.side_max,&self.cfg.limits,self.cfg.peers.len()){
+            Err(e)=>{let e=format!("{e}; raise --memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES");self.log(&format!("LOCAL CAPACITY: {e}"));self.stopped=true;Err(Reject::Local(e))}
+            Ok(b)=>{
+                let need=crate::resources::budget_required(b.total).unwrap_or(u128::MAX);let high=need.saturating_mul(16)>=u128::from(self.cfg.limits.mem_budget).saturating_mul(15);
+                if high&&!self.capacity_warned{self.log(&format!("LOCAL CAPACITY warning: the A13 bound {} B needs {need} B with its 1/8 reserve, at least 15/16 of the node memory budget {} B; raise --memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES before it is reached",b.total,self.cfg.limits.mem_budget));}
+                self.capacity_warned=high;Ok(())}
         }
+    }
+    pub fn import_with(&mut self,b:Block,from:Option<PeerId>,solicited:bool)->Result<bool,Reject>{
+        if self.chain.spec.cp().H_END==0 && self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{self.capacity_recheck()?;}
         let hash=b.hash();
         let was_evicted=self.chain.was_evicted(&hash);
         if was_evicted&&!solicited{return Err(Reject::Evicted)}
@@ -962,7 +1124,7 @@ impl Node{
             // charged for it. A pruned parent still needs its state: it goes on, in the same try, to the deep
             // rebuild below, which is charged.
             if self.chain.get(&p).map_or(false,|e|e.slim){self.stats.unslims+=1;
-                let src=Src{journal:&self.journal,history:&self.history};
+                let src=Src{journal:&self.journal,history:&self.history,canon:&self.canon};
                 if let Err(e)=self.chain.unslim(&p,&src){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}
                 if !(p==b.header.parent_hash&&self.chain.get(&p).is_some_and(|e|e.pruned)){tries+=1;res=self.chain.validate(&b,Some(now_s()),self.capital_phi());continue}
             }
@@ -978,7 +1140,7 @@ impl Node{
                 if let Some(s)=&mut self.session{s.rebuilds+=1;}
             }else if !self.rebuild_token(){self.log("deep-rebuild budget spent; an unsolicited block dropped (a real branch returns by sync)");res=Err(Reject::Evicted);break}
             tries+=1;self.log("TrieRebuild for a fork below the K_hist window");
-            let src=Src{journal:&self.journal,history:&self.history};
+            let src=Src{journal:&self.journal,history:&self.history,canon:&self.canon};
             if let Err(e)=self.chain.ensure_state_with(&p,Some(&src)){if let Reject::Local(w)=&e{self.fatal(w)}self.chain.reprune();return Err(e)}res=self.chain.validate(&b,Some(now_s()),self.capital_phi());}
         // PR4 (A13 MATERIALIZED): a block refused after its parent's state was rebuilt (or dropped at the budget
         // after an earlier rebuild of its retries) leaves none of it behind.
@@ -1028,10 +1190,14 @@ impl Node{
         let detached=if new_head{self.detached_blocks(old_head)}else{vec![]};
         let fork_h=if new_head{self.chain.lca_height(&old_head,&self.chain.head).unwrap_or(0)}else{0};
         self.chain.retain_unsettled();
+        // C-1 S5: the window moves with the head; what it evicts is written to the canonical index (a failure of the
+        // node's own storage stops it, exit 70, and the next open rebuilds the index).
+        if let Err(e)=self.chain.window(&Src{journal:&self.journal,history:&self.history,canon:&self.canon}){self.fatal(&format!("the window: {e:?}"))}
+        if let Err(e)=flush_evicted(&mut self.chain,&self.canon){self.fatal(&e)}
         // D-REORG-REDB: the adopted blocks that were offloaded as non-canonical are made whole again
         // (after retain offloaded the abandoned branch, so the two are never resident together). C-1
         // S3a: before the side states are pruned (`settle`), so the fork point's state is reachable.
-        if new_head{match self.chain.restore_canonical(fork_h,&Src{journal:&self.journal,history:&self.history}){Ok(n)=>self.stats.restored+=n as u64,
+        if new_head{match self.chain.restore_canonical(fork_h,&Src{journal:&self.journal,history:&self.history,canon:&self.canon}){Ok(n)=>self.stats.restored+=n as u64,
             Err(e)=>{self.log(&format!("FATAL restore of the adopted branch: {e:?}"));std::process::exit(70);}}}
         self.chain.settle();
         self.checkpoint_if_due();
@@ -1734,7 +1900,10 @@ impl Node{
     /// always answers from a point within the window) and genesis.
     pub fn locator(&self,tip:Option<[u8;32]>)->Vec<[u8;32]>{
         let mut out:Vec<[u8;32]>=tip.into_iter().collect();
-        out.extend(Self::locator_heights(self.chain.head().height,self.chain.r_keep).into_iter().filter_map(|h|self.chain.canonical.get(h as usize).copied()));out.truncate(net::LOCATOR_MAX);out
+        // C-1 S5: a height below the window is read from the canonical index (O(log H) of them); one that cannot
+        // be read is left out and logged (the index is then marked damaged, and the node's next eviction stops it).
+        out.extend(Self::locator_heights(self.chain.head().height,self.chain.r_keep).into_iter().filter_map(|h|self.canon_hash(h).unwrap_or_else(|e|{self.log(&format!("locator height {h}: {e}"));None})));
+        out.truncate(net::LOCATOR_MAX);out
     }
     /// The canonical heights of a locator built at head height `head`, highest first.
     fn locator_heights(head:u64,r_keep:u64)->Vec<u64>{
@@ -1926,13 +2095,14 @@ impl Node{
                 let Some(p)=self.peers.get(&from) else{return};
                 // The highest locator hash on our canonical chain (genesis always is); answers stop when
                 // the peer's queue is half full (offer) and the peer asks again from its last block.
-                let Some(start)=locator.iter().find(|h|self.chain.is_canonical(h)).and_then(|h|self.chain.get(h)).map(|e|e.height+1) else{return};
-                for hgt in start..start.saturating_add(count.min(SYNC_COUNT)){match self.chain.canonical_at(hgt).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
+                let Some(start)=self.locator_start(&locator) else{return};
+                self.serve_range(p,start,count.min(SYNC_COUNT));
             }
             Msg::GetRange{start,count}=>{
                 let Some(p)=self.peers.get(&from) else{return};
-                // Responses stop when the peer's queue is half full (offer); the peer asks again.
-                for hgt in start..start.saturating_add(count.min(512)){match self.chain.canonical_at(hgt).filter(|e|e.height>0).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
+                // Responses stop when the peer's queue is half full (offer); the peer asks again. Genesis is not served.
+                if start==0{return}
+                self.serve_range(p,start,count.min(512));
             }
             Msg::Tx{raw}=>self.relay_tx(raw,from),
             // Peer discovery (VA-SPEC §1a.2, §1a.5): answers to inbound peers, and what this node asked for.
@@ -1956,6 +2126,47 @@ impl Node{
             "lastIncompatibleReason":if last.is_empty(){serde_json::Value::Null}else{serde_json::json!(last)}});
         let serde_json::Value::Object(m)=j else{unreachable!()};m
     }
+    /// GetFrom's start (C-1 S5, PR7): one past the first locator hash that is a canonical block held in memory other
+    /// than genesis (an honest locator is highest first, so a peer that is behind matches on its first hash, as
+    /// before); else one past the first hash found below the window in the canonical index, in locator order; else
+    /// one past genesis. Every hash not held in memory is looked up, one index read each, at most the wire's
+    /// net::LOCATOR_MAX (32): a peer on its own fork leads its locator with blocks this node never held (the 10 dense
+    /// hashes and the first doubling steps above its fork point), so a cap below the locator's length skipped the
+    /// shared hashes after them and served a peer forked more than 15 blocks deep from genesis, which it holds
+    /// already, and it never synced (review 2026-11, finding 1; a hash lookup in memory before C-1 S5).
+    fn locator_start(&self,locator:&[[u8;32]])->Option<u64>{
+        let g=*self.chain.canonical.genesis();
+        if let Some(e)=locator.iter().filter(|h|**h!=g&&self.chain.is_canonical(h)).find_map(|h|self.chain.get(h)){return Some(e.height+1)}
+        if self.chain.canonical.base()>1{
+            for h in locator.iter().filter(|h|**h!=g&&!self.chain.blocks.contains_key(*h)).take(net::LOCATOR_MAX){
+                match self.canon_height(h){Ok(Some(x))=>return Some(x+1),Ok(None)=>{},Err(e)=>{self.log(&format!("GetFrom locator: {e}"));return None}}
+            }
+        }
+        locator.contains(&g).then_some(1)
+    }
+    /// The canonical blocks of heights start..start+count to peer `p`, until its queue is half full (`offer`) or a
+    /// height is not held. Below the window from one index read (`canon.range_each`, a row read only when the one
+    /// before it was offered) and the journal, each record checked to hash to its row's block; then the window's, as
+    /// before. Only the index is blamed for what is the index's: a
+    /// row naming no record, or a record that reads but is not the row's block, marks it damaged; a journal that
+    /// cannot be read is logged and serving stops (as `block_msg`, `indexed_view` and `canonical_entry` do), since
+    /// marking the index for it stopped the node at its next eviction and made the next open drop every checkpoint
+    /// based above height 1 and replay from genesis (review 2026-11, findings 2 and 5).
+    fn serve_range(&self,p:&Peer,start:u64,count:u64){
+        let (end,base)=(start.saturating_add(count),self.chain.canonical.base());let mut hgt=start;
+        if hgt<base{
+            let mut stopped=false;
+            let read=self.canon.range_each(hgt,end.min(base)-hgt,|h,r|{
+                stopped=true;if h!=hgt{return false}
+                let Some(o)=r.body_off else{self.log(&self.canon.mark_damaged(&format!("the row at height {h} names no journal record")));return false};
+                let (hb,bb,_)=match self.journal.read_at(o){Ok(x)=>x,Err(e)=>{self.log(&format!("serving height {h}: journal read at {o}: {e:?}"));return false}};
+                if decode_header(&hb).map(|x|block_hash(&x)).ok()!=Some(r.hash){self.log(&self.canon.mark_damaged(&format!("the row at height {h} does not name its journal record")));return false}
+                if !p.offer(&Msg::Block{header:hb,body:bb}){return false}hgt+=1;stopped=false;true});
+            if let Err(e)=read{self.log(&format!("serving height {hgt}: {e}"));return}
+            if stopped||hgt<end.min(base){return}
+        }
+        for h in hgt..end{match self.chain.canonical_at(h).and_then(|e|self.block_msg(&e.hash)){Some(m)=>{if !p.offer(&m){break}}None=>break}}
+    }
     /// The Block message for a stored block (genesis excluded); an offloaded non-canonical block is
     /// served from its journal record, byte-equal to what was imported (VA-SPEC §4).
     pub fn block_msg(&self,hash:&[u8;32])->Option<Msg>{
@@ -1963,6 +2174,51 @@ impl Node{
         if !e.offloaded&&!e.slim{return Some(Msg::Block{header:e.header.encoded.clone(),body:e.body.encode()})}
         match self.journal.read_at(e.body_off?){Ok((hb,bb,_))=>Some(Msg::Block{header:hb,body:bb}),Err(err)=>{self.log(&format!("journal read for {}: {err:?}",&hex(hash)[..14]));None}}
     }
+    /// The canonical hash at height `h` (C-1 S5): the window's or genesis's, else the canonical index's below the
+    /// window. Ok(None) above the head. Err: the index could not be read (it is then marked damaged).
+    pub fn canon_hash(&self,h:u64)->Result<Option<[u8;32]>,String>{
+        if h==0||h>=self.chain.canonical.base(){return Ok(self.chain.canonical.get(h as usize).copied())}
+        Ok(Some(self.indexed(h)?.hash))
+    }
+    /// The height of `hash` if it is canonical: held in memory (the window or genesis), else found in the canonical
+    /// index below the window.
+    pub fn canon_height(&self,hash:&[u8;32])->Result<Option<u64>,String>{
+        if let Some(e)=self.chain.blocks.get(hash){return Ok(self.chain.is_canonical(hash).then_some(e.height))}
+        let base=self.chain.canonical.base();if base<2{return Ok(None)}
+        Ok(self.canon.height_of(hash)?.filter(|h|*h<base))
+    }
+    /// A block with its body, encoded header and (in memory always, below the window when asked) its receipts, by
+    /// hash: one held in memory (any, as `block_view`), else a canonical one below the window. Never inserted into
+    /// the chain. Err: its history could not be read (logged; the store is marked damaged and rebuilt at the next open).
+    pub fn view_by_hash(&self,hash:&[u8;32],want:Want)->Result<Option<std::borrow::Cow<'_,Entry>>,String>{
+        if let Some(e)=self.chain.get(hash){return self.view(e).map(Some).ok_or_else(||HISTORY_UNAVAILABLE.to_string())}
+        match self.canon_height(hash)?{Some(h)=>self.indexed_view(h,want).map(|e|Some(std::borrow::Cow::Owned(e))),None=>Ok(None)}
+    }
+    /// `view_by_hash` of the canonical block at height `h` (Ok(None) above the head).
+    pub fn canonical_view(&self,h:u64,want:Want)->Result<Option<std::borrow::Cow<'_,Entry>>,String>{
+        if h==0||h>=self.chain.canonical.base(){return match self.chain.canonical_at(h){Some(e)=>self.view(e).map(Some).ok_or_else(||HISTORY_UNAVAILABLE.to_string()),None=>Ok(None)}}
+        self.indexed_view(h,want).map(|e|Some(std::borrow::Cow::Owned(e)))
+    }
+    /// The canonical index's row at height `h` below the window: one must be there (a row missing marks the index damaged).
+    fn indexed(&self,h:u64)->Result<crate::checkpoint::Rec,String>{self.canon.at(h)?.ok_or_else(||self.canon.mark_damaged(&format!("no row at height {h} below the window")))}
+    /// A canonical block below the window as RPC reads it: one index read and one journal read (header, body and
+    /// ParentResult), receipts from history.redb only when asked, no nonce ranges (`checkpoint::entry_of`, so the
+    /// answer is the one the entry gave while it was held). The record must hash to the row's block.
+    fn indexed_view(&self,h:u64,want:Want)->Result<Entry,String>{
+        let r=self.indexed(h)?;let off=r.body_off.ok_or_else(||self.canon.mark_damaged(&format!("the row at height {h} names no journal record")))?;
+        let payload=self.journal.payload_at(off).map_err(|e|{let m=format!("journal read at {off}: {e:?}");self.log(&m);m})?;
+        let mut q=r.clone();q.flags&=!(crate::checkpoint::flags::OFFLOADED|crate::checkpoint::flags::SLIM);
+        let why=|m:&str|format!("the row at height {h}: {m}");
+        let (mut e,_)=crate::checkpoint::entry_of(&q,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(Some(Vec::new())),self.chain.spec.cp().BODY_MAX as usize,false,&why)
+            .map_err(|m|self.canon.mark_damaged(&m))?;
+        if e.height!=h{return Err(self.canon.mark_damaged(&format!("the row at height {h} names a block at height {}",e.height)))}
+        if want.receipts{e.receipts=match self.history.receipts(&e.hash){Ok(Some(x))=>x,
+            Ok(None)=>{let m=self.history.mark_damaged("receipts missing for a journaled block").0;self.log(&m);return Err(m)}
+            Err(x)=>{self.log(&format!("history read for {}: {}",&hex(&e.hash)[..14],x.0));return Err(x.0)}};}
+        Ok(e)
+    }
+    /// The canonical index (C-1 S5; tests and inspection).
+    pub fn canon(&self)->&canon::Index{&self.canon}
     /// A stored block for RPC (eth_getBlockByHash): as stored when resident; an offloaded one (a side block,
     /// or since C-1 S1 canonical history below the resident window) is materialized from its journal record
     /// (encoded header, body, tx hashes) and history.redb (receipts), so every answer is the one it had
@@ -1991,19 +2247,19 @@ impl Node{
     /// C-1 S3a: a stored block with its full state (materialized through the diffs, or rebuilt), for
     /// production on it. None if it cannot be had.
     fn full_entry(&mut self,h:&[u8;32])->Option<Entry>{
-        if let Err(e)=self.chain.ensure_state_with(h,Some(&Src{journal:&self.journal,history:&self.history})){if let Reject::Local(w)=&e{self.fatal(w)}self.log(&format!("state for {}: {e:?}",&hex(h)[..14]));return None}
+        if let Err(e)=self.chain.ensure_state_with(h,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon})){if let Reject::Local(w)=&e{self.fatal(w)}self.log(&format!("state for {}: {e:?}",&hex(h)[..14]));return None}
         self.chain.get(h).cloned()
     }
     /// C-1 S4: a stored block with its slimmed fields restored (header, ParentResult, nonce ranges) from
     /// the journal and history.redb; itself when not slimmed. For inspection and tests.
     pub fn restored_entry(&self,h:&[u8;32])->Option<Entry>{
-        let e=self.chain.get(h)?;self.chain.restored(e,Some(&Src{journal:&self.journal,history:&self.history})).ok().map(|x|x.into_owned())
+        let e=self.chain.get(h)?;self.chain.restored(e,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon})).ok().map(|x|x.into_owned())
     }
     /// TrieRebuild of a stored block's state through the journal (offloaded bodies read back).
-    pub fn rebuild_state(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.ensure_state_with(hash,Some(&Src{journal:&self.journal,history:&self.history}))}
+    pub fn rebuild_state(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.ensure_state_with(hash,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon}))}
     /// C-1 S4: restores a slimmed entry's fields in place (header, ParentResult, nonce ranges) from the
     /// journal and history.redb, for a walk that reads the chain's own entries (the evidence walk).
-    pub fn unslim(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.unslim(hash,&Src{journal:&self.journal,history:&self.history})}
+    pub fn unslim(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.unslim(hash,&Src{journal:&self.journal,history:&self.history,canon:&self.canon})}
     /// A stored block's committed body (resident or from the journal).
     pub fn body_of(&self,hash:&[u8;32])->Result<Body,Reject>{let e=self.chain.get(hash).ok_or(Reject::UnknownParent)?;self.chain.body_of(e,Some(&self.journal))}
     /// The pending state as a whole state (the layer merged over its base; tests and inspection).
@@ -2063,13 +2319,15 @@ impl Node{
     pub fn peer_count(&self)->usize{self.peers.len()}
     pub fn status_json(&self)->serde_json::Value{
         let h=self.chain.head();
+        // A13 (PR7 §6.2): the bound over the files as they are now.
+        let mut limits=self.cfg.limits.clone();let disk=Some(crate::resources::DiskBytes::observe(&self.cfg.dir));limits.disk=disk;
         let mode=match &self.prod{None=>"none".to_string(),Some(p)=>match &p.mode{Mode::Idle=>"idle".into(),Mode::Wait{..}=>format!("wait a={}",p.attempt),Mode::Propose{at_s}=>format!("propose at {at_s}"),
             Mode::Locked(l)=>format!("{} h={} a={} shares={} mining={}",if l.fallback{"FB"}else{"PROP"},p.height,p.attempt,p.shares.len(),p.miner.is_some())}};
         let mut status=serde_json::json!({"name":self.cfg.name,"chainId":self.chain.spec.chain_id(),"genesisHash":hex(&self.chain.spec.genesis_hash()),"head":{"height":h.height,"hash":hex(&h.hash),"ts":h.ts,"signed":h.signed,"final":h.is_final,"totalWork":format!("{:#x}",h.total_work)},
             "peers":self.peers.values().map(|p|p.addr.clone()).collect::<Vec<_>>(),"production":mode,"miner":self.cfg.miner.as_ref().map(|k|format!("{:#x}",k.address())),
             "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"poolSenderGasMax":self.pool.sender_gas_max,"poolParked":self.pool.parked.len(),"poolParkedMax":self.pool.parked_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
             "admission":crate::admission_json(self.chain.spec.admission()),
-            "a13":crate::resources::derive(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&self.cfg.limits,self.cfg.peers.len()).map(|b|serde_json::json!({
+            "a13":crate::resources::derive(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&limits,self.cfg.peers.len()).map(|b|serde_json::json!({
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
             "stats":{"imported":self.stats.imported,"mined":self.stats.mined,"signedTemplates":self.stats.signed_templates,"fallbackTemplates":self.stats.fallback_templates,"sharesSeen":self.stats.shares_seen,"hashesInExhaustedRanges":self.stats.hashes,"reorgs":self.stats.reorgs,
                 "syncSessions":self.stats.sync_sessions,"syncRounds":self.stats.sync_rounds,"refetched":self.stats.refetched,"restored":self.stats.restored,"replaySkipped":self.stats.replay_skipped,"templatePenalties":self.stats.template_penalties,"poolSlices":self.stats.pool_slices,"poolSliceMaxMs":self.stats.pool_slice_max_ms,"reinsertedOffered":self.stats.reinserted_offered,"reinsertedUnoffered":self.stats.reinserted_unoffered,"poolBacklog":self.pool.backlog.len(),"historyRefilled":self.stats.history_refilled,"historyRebuilt":self.history.rebuilt,"historyDamaged":self.history.is_damaged()},
@@ -2107,7 +2365,13 @@ impl Node{
         status["outboundPeers"]=serde_json::json!(self.net.counters.outbound.load(std::sync::atomic::Ordering::SeqCst));
         status["discovery"]=self.disc_status();
         status["lifetime"]=if self.chain.spec.cp().H_END==0{serde_json::json!({"continuous":true,"closingHeight":null,"finalHeight":null,"closingTime":null,"finalTime":null})}else{serde_json::json!({"continuous":false,"closingHeight":self.chain.spec.cp().H_CLOSE,"finalHeight":self.chain.spec.cp().H_END})};
-        status["resourceProjectionRecords"]=serde_json::json!(self.cfg.limits.continuous_history);
+        // C-1 S5 (PR7 §4.4): the in-memory window and the canonical index below it, and the files the bound counts.
+        let windowed=self.chain.evict_depth.filter(|e|*e<u64::MAX).is_some();let base=self.chain.canonical.base();
+        status["canonicalBase"]=serde_json::json!(base);status["blocksIndexed"]=serde_json::json!(base.saturating_sub(1));
+        status["anchors"]=serde_json::json!(self.chain.anchors().len());status["evictStalls"]=serde_json::json!(self.chain.evict_stalls);status["evictDepth"]=serde_json::json!(self.chain.evict_depth);
+        status["diskObserved"]=serde_json::json!(disk.map(|d|serde_json::json!({"historyBytes":d.history,"stateBytes":d.state,"canonBytes":d.canon})));
+        // What the continuous chain's bound grows with: the observed files with eviction on, the journal's records off.
+        status["resourceDiskBytes"]=serde_json::json!((self.chain.spec.cp().H_END==0&&windowed).then(||disk.map(|d|d.history+d.state+d.canon)).flatten());
         status["unlimitedResourceProof"]=serde_json::json!(false);
         crate::network_display::annotate(status)
     }

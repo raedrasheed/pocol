@@ -210,3 +210,29 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     let mut out=String::new();let _=s.read_to_string(&mut out);
     let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();v.is_object().then_some(v)
 }
+
+/// PR7 (T17): `run` takes the A13 memory budget from `--memory-budget-bytes N`, or POCOL_MEMORY_BUDGET_BYTES when the
+/// flag is absent (as `pocol start` does), and the eviction depth from `--evict-depth N`. A budget of 1 byte is refused
+/// at open by the bound, by flag and by variable; a value that is not a number fails the command, an empty variable
+/// too; a depth below the safe minimum is refused naming the term it fails (whole-state and store mode). Before PR7
+/// `run` ignored both flags and the variable and ran a node.
+#[test] fn memory_budget_and_evict_depth_come_from_the_flags_or_the_environment(){
+    let d=tmp("budget");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let run=|i:usize,flags:&[&str],env:Option<&str>|->(Option<i32>,String){
+        let data=d.join(format!("data{i}"));let mut c=Command::new(env!("CARGO_BIN_EXE_pocold"));
+        c.args([&["run","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap()][..],flags].concat());
+        match env{Some(v)=>{c.env("POCOL_MEMORY_BUDGET_BYTES",v);}None=>{c.env_remove("POCOL_MEMORY_BUDGET_BYTES");}}
+        let mut c=c.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::piped()).spawn().unwrap();let t=std::time::Instant::now();
+        while c.try_wait().unwrap().is_none()&&t.elapsed()<std::time::Duration::from_secs(60){std::thread::sleep(std::time::Duration::from_millis(50));}
+        let _=c.kill();let o=c.wait_with_output().unwrap();(o.status.code(),text(&o.stderr))};
+    for (i,(flags,env,want)) in [(&["--memory-budget-bytes","1"][..],None,"exceeds the node memory budget 1 B"),(&[],Some("1"),"exceeds the node memory budget 1 B"),
+        (&["--memory-budget-bytes","1"],Some("x"),"exceeds the node memory budget 1 B"),(&["--memory-budget-bytes","x"],None,"--memory-budget-bytes x:"),
+        (&[],Some("x"),"POCOL_MEMORY_BUDGET_BYTES \"x\":"),(&[],Some(""),"POCOL_MEMORY_BUDGET_BYTES \"\":"),(&["--evict-depth","x"],None,"--evict-depth x:"),
+        (&["--evict-depth","5"],None,"evict depth 5 is below 2·R_keep + E_win + 258 (4370)"),
+        (&["--evict-depth","4370","--state-store"],None,"evict depth 4370 is below the store-mode anchor reach")].into_iter().enumerate(){
+        let (code,err)=run(i,flags,env);
+        assert_eq!(code,Some(1),"FAIL-ON-ORIGINAL: run {flags:?} {env:?}: {err}");assert!(err.contains(want),"run {flags:?} {env:?}: {err}");
+    }
+    let _=std::fs::remove_dir_all(&d);
+}
