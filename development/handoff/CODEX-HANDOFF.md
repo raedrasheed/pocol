@@ -36,11 +36,31 @@ GitHub; trust the repository over this file.
    - Never force-push a shared branch.
    - Stop and ask the owner if a change would alter collaborative consensus, the template block or a PoCol principle.
 
+### Owner decisions on the two PR #11 questions (decided 2026-11-11; implement as one PR after PR #10)
+The owner answered both questions: **"yes" to question 1, "no" to question 2.** Implement them as one PR from the newest
+`main`, before V3-PR-B, titled "ParamGate boot timing: report measured times, robust calibration".
+
+1. **Yes: report the measured times.** A ParamGate R14/R19 refusal must state:
+   - the per-block execution ms;
+   - the store/fsync ms;
+   - the sample count;
+   - the `t_exec` limit.
+
+   This is diagnostics only and changes no verdict. Because `pocold/src/lib.rs` is marked `+`, re-pin the lock with a
+   `neutral` line and a note.
+2. **No: one slow disk write must not refuse a boot.**
+   - Keep R14 and R19, and keep `t_exec` at 1 s.
+   - Take several samples per calibration block, and compare a robust statistic (median or p90) with `t_exec`.
+   - Measure execution time and store/fsync time separately. `t_exec` applies to execution; report store latency,
+     with its own wider bound if needed.
+   - On a refusal, re-run the calibration once before refusing. A host that is really too slow must still be refused.
+   - Add tests:
+     - one injected slow commit is admitted;
+     - a sustained slowdown is still refused with `[R14, R19]` and the times.
+   - Use a `neutral` lock line with a note. There is no change to block validity, so this is within the owner rule.
+
 ### Questions waiting for the owner (do not decide them yourself)
-- PR #11 left two questions:
-  - Should the ParamGate R14/R19 refusal print the measured times? That change is in `pocold/src/lib.rs`, which is
-    marked `+`, so it needs a neutral lock line.
-  - Should a single slow disk write be able to refuse a node boot at all?
+- The PR #11 questions are decided (see above).
 - Anything the V3-PR-A reviewers flagged as needing the owner. Read the PR description and its review threads.
 
 Read this whole file first. After it, read in order:
