@@ -749,7 +749,10 @@ impl Node{
                             let b=s.binding;let k=b.records as usize;
                             // Replay's protect set after record k: the blocks whose next journal event is a child record.
                             let protect:std::collections::HashSet<[u8;32]>=s.entries.iter().filter(|e|next_event(&evs,&e.hash,k)==Some(true)).map(|e|e.hash).collect();
-                            let r=if k>n_rec||end_of(k)!=b.end||roll_at(k)?!=b.hash{Err("it is not bound to this journal's records".to_string())}
+                            // The binding's records rolled again from the sample below it are read back from the journal: a
+                            // read that fails is the node's own storage failing, as in the restore below (it stops the open,
+                            // nothing is dropped). Before, it returned the bare read error (review 2026-11, io-fault CI).
+                            let r=if k>n_rec||end_of(k)!=b.end||roll_at(k).map_err(|e|format!("state store: checkpoint {q} could not be read: journal {e}"))?!=b.hash{Err("it is not bound to this journal's records".to_string())}
                                 // C-1 S5: a window based above height 1 needs the index rows below it; a format-1 snapshot needs
                                 // none, but restores every entry of the chain at once (the migration), which must fit.
                                 else if !s.v1&&s.canon_base>1&&(canon.rebuilt||!canon_kept){Err("the canonical index does not reach the snapshot's window (it was rebuilt or is new)".to_string())}

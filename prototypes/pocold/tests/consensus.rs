@@ -3404,7 +3404,11 @@ fn e44_conf_with(dir:&std::path::Path,every:u64,f:fn(&mut pocold::node::Limits))
 fn e44_dir(tag:&str)->std::path::PathBuf{let d=std::env::temp_dir().join(format!("pocold-e44-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&d);d}
 fn copy_dir(from:&std::path::Path,to:&std::path::Path){let _=std::fs::remove_dir_all(to);std::fs::create_dir_all(to).unwrap();
     // LOCK is only the journal's lock target (an open node holds a lock on it; Windows refuses to read it).
-    for e in std::fs::read_dir(from).unwrap(){let e=e.unwrap();if e.file_type().unwrap().is_file()&&e.file_name()!="LOCK"{std::fs::copy(e.path(),to.join(e.file_name())).unwrap();}}}
+    // A file an open node holds locked (its redb databases) is refused: Windows refuses to read it (os error 33), so a copy
+    // must be made with no node open on `from`. The lock is tried on every platform, so Linux finds such a copy too.
+    for e in std::fs::read_dir(from).unwrap(){let e=e.unwrap();if e.file_type().unwrap().is_file()&&e.file_name()!="LOCK"{
+        if let Err(std::fs::TryLockError::WouldBlock)=std::fs::File::open(e.path()).unwrap().try_lock_shared(){panic!("copy_dir: {:?} is held by an open node",e.path())}
+        std::fs::copy(e.path(),to.join(e.file_name())).unwrap();}}}
 /// Two nodes are the same node: the same head and canonical chain, every entry equal field by field (its
 /// header, body, receipts, ranges, ParentResult, flags, summary and stored root: the snapshot and the
 /// entry's Debug form), the same answers for every canonical block, receipt and state query at every
@@ -4236,8 +4240,10 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
         assert!(n.chain.canonical.base()>1&&n.stats.checkpoints_written>0,"positive control: checkpoints of a window based above 1");
         let rows:Vec<_>=(1..n.chain.canonical.base()).map(|h|n.canon().at(h).unwrap().unwrap()).collect();
         let mut held:Vec<[u8;32]>=n.chain.blocks.keys().copied().collect();held.sort();(n.chain.canonical.clone(),held,rows)};
-    let mut x=reopen(&pr7_conf(&a,l.clone()));assert!(x.stats.resumed_from.is_some(),"(a) resumes from a checkpoint");
+    // The reference is a copy of what the live node left, made before (a) opens it: an open node holds its redb files
+    // locked, and Windows refuses to read a locked file (os error 33, CI run 42954534510).
     let g=e44_dir("pr7-t7-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
+    let mut x=reopen(&pr7_conf(&a,l.clone()));assert!(x.stats.resumed_from.is_some(),"(a) resumes from a checkpoint");
     let mut y=reopen(&pr7_conf(&g,pr7_limits(rk,true,0,None)));assert_eq!(y.stats.resumed_from,None,"(b) replays from genesis");
     e44_same(&mut x,&mut y,"from a checkpoint and from genesis");
     // Live and either open hold the same window, entries and index rows. (Not every flag: a head that fell back can leave
