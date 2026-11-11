@@ -344,12 +344,19 @@ fn greet_and_wait_for_getaddr(c:&mut TcpStream,port:u16){
 /// never sends a block, while the miners M, N and O build the chain; R's answer names M. Once J's head is W old J is
 /// stalled; its extra dials M (from a source no automatic slot is connected to), M's blocks move J's head, M takes R's
 /// place (`extraSwaps`), R's connection is closed, and J follows the chain.
+///
+/// J starts only once M, N and O agree on a block (the ordering barrier). Without it, on a loaded runner whose miners
+/// had made no block yet when J stalled, J's first extra reached M with nothing to give: it was closed after W, the
+/// next extra went to N or O (named by M's answer on that extra), and that one swapped in once the first block came, so
+/// M never held the slot (CI, PR #9). With a block on M, M's first Hello starts J's sync session and the session's
+/// first block swaps M in.
 #[test] fn a_stalled_node_recovers_through_an_extra_slot(){
     let root=live_root("stall");
     let m=Running::live(&root.join("m"),Live{name:"m",listen:true,miner:Some("a"),peers:vec![],seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
     let mesh=vec![m.p2p];
     let n=Running::live(&root.join("n"),Live{name:"n",listen:true,miner:Some("b"),peers:mesh.clone(),seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
     let o=Running::live(&root.join("o"),Live{name:"o",listen:true,miner:Some("c"),peers:mesh.clone(),seeds:vec![],bootstrap:vec![],outbound:Outbound::Count(0)});
+    assert!(wait_until(120_000,||agree(&[&m,&n,&o],1)),"the miners build the chain before J starts: {:?} {:?} {:?}",m.head(),n.head(),o.head());
     let r=TcpListener::bind("127.0.0.1:0").unwrap();let ra=r.local_addr().unwrap();
     let j=Running::live(&root.join("j"),Live{name:"j",listen:true,miner:None,peers:vec![],seeds:vec![],bootstrap:vec![ra],outbound:Outbound::Count(1)});
     let mut c=accept(&r);greet_and_wait_for_getaddr(&mut c,ra.port());c.write_all(&frame(&Msg::Addr{addrs:mesh.clone()})).unwrap();
@@ -360,7 +367,7 @@ fn greet_and_wait_for_getaddr(c:&mut TcpStream,port:u16){
     assert!(wait_until(120_000,||j.counter("extraSwaps")>=1),"J's extra replaces R: {}",j.status()["discovery"]);
     assert!(j.counter("stalls")>=1&&j.counter("extras")>=1,"{}",j.status()["discovery"]);
     assert!(erx.recv_timeout(Duration::from_secs(30)).is_ok(),"J closed R's connection");
-    assert!(wait_until(30_000,||j.slots_up()==set(&[m.p2p])),"M holds J's automatic slot: {}",j.status()["discovery"]["outbound"]);
+    assert!(wait_until(30_000,||j.slots_up()==set(&[m.p2p])),"M ({}; N {}, O {}) holds J's automatic slot: {}",m.p2p,n.p2p,o.p2p,j.status()["discovery"]["outbound"]);
     let h=m.head().0.max(1);
     assert!(wait_until(120_000,||agree(&[&m,&j],h)),"and J follows the chain: {:?} {:?}",m.head(),j.head());
     drop((j,m,n,o));let _=std::fs::remove_dir_all(&root);
