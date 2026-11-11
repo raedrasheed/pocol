@@ -78,7 +78,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Install Linux wallet export dependency
-        run: sudo apt-get update && sudo apt-get install -y python3-cryptography
+        run: |
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
+          sudo apt-get update
+          sudo apt-get install -y python3-cryptography
       - name: Verify complete Studio, IDE and Viewer release
         run: |
           npm ci --ignore-scripts
